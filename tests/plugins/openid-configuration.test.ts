@@ -69,7 +69,7 @@ describe('OpenID Configuration Plugin', () => {
       const result = generateOpenIDConfiguration(config);
       expect(result).toBeNull();
       expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] OpenID Configuration issuer is not a valid URL:')
+        expect.stringContaining('[@dwk/anglesite-11ty] OpenID Configuration issuer is not a valid URL:')
       );
     });
 
@@ -87,7 +87,7 @@ describe('OpenID Configuration Plugin', () => {
       const result = generateOpenIDConfiguration(config);
       expect(result).toBeNull();
       expect(console.warn).toHaveBeenCalledWith(
-        '[Eleventy] OpenID Configuration issuer is not a valid URL: invalid-url'
+        '[@dwk/anglesite-11ty] OpenID Configuration issuer is not a valid URL: invalid-url'
       );
     });
 
@@ -105,7 +105,7 @@ describe('OpenID Configuration Plugin', () => {
       const result = generateOpenIDConfiguration(config);
       expect(result).toBeNull();
       expect(console.warn).toHaveBeenCalledWith(
-        '[Eleventy] OpenID Configuration issuer is not a valid URL: ftp://example.com'
+        '[@dwk/anglesite-11ty] OpenID Configuration issuer is not a valid URL: ftp://example.com'
       );
     });
 
@@ -184,10 +184,10 @@ describe('OpenID Configuration Plugin', () => {
       expect(result).not.toHaveProperty('token_endpoint');
 
       expect(console.warn).toHaveBeenCalledWith(
-        '[Eleventy] OpenID Configuration authorization_endpoint is not a valid URL: invalid-url'
+        '[@dwk/anglesite-11ty] OpenID Configuration authorization_endpoint is not a valid URL: invalid-url'
       );
       expect(console.warn).toHaveBeenCalledWith(
-        '[Eleventy] OpenID Configuration token_endpoint is not a valid URL: ftp://example.com/token'
+        '[@dwk/anglesite-11ty] OpenID Configuration token_endpoint is not a valid URL: ftp://example.com/token'
       );
     });
 
@@ -373,7 +373,7 @@ describe('OpenID Configuration Plugin', () => {
         expect.stringContaining('"issuer": "https://example.com"')
       );
       expect(console.log).toHaveBeenCalledWith(
-        `[Eleventy] Wrote ${path.join('_site', '.well-known', 'openid_configuration')}`
+        `[@dwk/anglesite-11ty] Wrote ${path.join('_site', '.well-known', 'openid_configuration')}`
       );
     });
 
@@ -408,7 +408,7 @@ describe('OpenID Configuration Plugin', () => {
       });
 
       expect(console.warn).toHaveBeenCalledWith(
-        '[Eleventy] OpenID Configuration plugin: Could not read website.json from _data directory'
+        '[@dwk/anglesite-11ty] OpenID Configuration plugin: Could not read website.json from _data directory'
       );
       expect(mockFs.mkdirSync).not.toHaveBeenCalled();
     });
@@ -420,7 +420,7 @@ describe('OpenID Configuration Plugin', () => {
       });
 
       expect(console.warn).toHaveBeenCalledWith(
-        '[Eleventy] OpenID Configuration plugin: No website configuration found'
+        '[@dwk/anglesite-11ty] OpenID Configuration plugin: No website configuration found'
       );
       expect(mockFs.mkdirSync).not.toHaveBeenCalled();
     });
@@ -461,7 +461,7 @@ describe('OpenID Configuration Plugin', () => {
       });
 
       expect(console.error).toHaveBeenCalledWith(
-        '[Eleventy] Failed to write OpenID Configuration file: Permission denied'
+        '[@dwk/anglesite-11ty] Failed to write OpenID Configuration file: Permission denied'
       );
     });
 
@@ -485,7 +485,9 @@ describe('OpenID Configuration Plugin', () => {
         results: [{ data: { website: websiteConfig } }],
       });
 
-      expect(console.error).toHaveBeenCalledWith('[Eleventy] Failed to write OpenID Configuration file: String error');
+      expect(console.error).toHaveBeenCalledWith(
+        '[@dwk/anglesite-11ty] Failed to write OpenID Configuration file: String error'
+      );
     });
 
     it('does not write file when generateOpenIDConfiguration returns null', async () => {

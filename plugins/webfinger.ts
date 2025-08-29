@@ -68,7 +68,7 @@ interface WebFingerResponse {
 export function generateWebFingerResponse(resource: WebFingerResource): WebFingerResponse {
   // Validate subject format for security
   if (!validateWebFingerSubject(resource.subject)) {
-    console.warn(`[Eleventy] WebFinger subject is not a valid format: ${resource.subject}`);
+    console.warn(`[@dwk/anglesite-11ty] WebFinger subject is not a valid format: ${resource.subject}`);
   }
 
   const response: WebFingerResponse = {
@@ -79,7 +79,7 @@ export function generateWebFingerResponse(resource: WebFingerResource): WebFinge
     // Validate aliases are valid URLs
     for (const alias of resource.aliases) {
       if (!validateUrl(alias)) {
-        console.warn(`[Eleventy] WebFinger alias is not a valid URL: ${alias}`);
+        console.warn(`[@dwk/anglesite-11ty] WebFinger alias is not a valid URL: ${alias}`);
       }
     }
     response.aliases = resource.aliases;
@@ -93,7 +93,7 @@ export function generateWebFingerResponse(resource: WebFingerResource): WebFinge
     // Validate link URLs
     for (const link of resource.links) {
       if (link.href && !validateUrl(link.href)) {
-        console.warn(`[Eleventy] WebFinger link href is not a valid URL: ${link.href}`);
+        console.warn(`[@dwk/anglesite-11ty] WebFinger link href is not a valid URL: ${link.href}`);
       }
     }
     response.links = resource.links;
@@ -200,13 +200,13 @@ export default function addWebFinger(eleventyConfig: EleventyConfig): void {
         const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
         websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
       } catch {
-        console.warn('[Eleventy] WebFinger plugin: Could not read website.json from _data directory');
+        console.warn('[@dwk/anglesite-11ty] WebFinger plugin: Could not read website.json from _data directory');
         return;
       }
     }
 
     if (!websiteConfig) {
-      console.warn('[Eleventy] WebFinger plugin: No website configuration found');
+      console.warn('[@dwk/anglesite-11ty] WebFinger plugin: No website configuration found');
       return;
     }
 
@@ -225,7 +225,7 @@ export default function addWebFinger(eleventyConfig: EleventyConfig): void {
       if (staticData.trim()) {
         const staticDataPath = path.join(wellKnownDir, 'webfinger-resources.json');
         fs.writeFileSync(staticDataPath, staticData);
-        console.log(`[Eleventy] Wrote ${staticDataPath}`);
+        console.log(`[@dwk/anglesite-11ty] Wrote ${staticDataPath}`);
       }
 
       // Generate WebFinger index page
@@ -233,11 +233,11 @@ export default function addWebFinger(eleventyConfig: EleventyConfig): void {
       if (indexContent.trim()) {
         const indexPath = path.join(wellKnownDir, 'webfinger');
         fs.writeFileSync(indexPath, indexContent);
-        console.log(`[Eleventy] Wrote ${indexPath}`);
+        console.log(`[@dwk/anglesite-11ty] Wrote ${indexPath}`);
       }
     } catch (error) {
       console.error(
-        `[Eleventy] Failed to write WebFinger files: ${error instanceof Error ? error.message : String(error)}`
+        `[@dwk/anglesite-11ty] Failed to write WebFinger files: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   });

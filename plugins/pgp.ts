@@ -38,7 +38,7 @@ function readPgpPublicKey(websiteConfig?: AnglesiteWebsiteConfiguration): string
       }
     } catch (error) {
       console.warn(
-        `[Eleventy] PGP plugin: Could not read key file from ${envKeyFile}: ${error instanceof Error ? error.message : String(error)}`
+        `[@dwk/anglesite-11ty] PGP plugin: Could not read key file from ${envKeyFile}: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -49,7 +49,7 @@ function readPgpPublicKey(websiteConfig?: AnglesiteWebsiteConfiguration): string
 
   // Ensure path is within expected directory
   if (!normalizedPath.startsWith(path.resolve('.well-known'))) {
-    console.warn('[Eleventy] PGP plugin: Invalid default key path detected');
+    console.warn('[@dwk/anglesite-11ty] PGP plugin: Invalid default key path detected');
     return null;
   }
 
@@ -57,7 +57,7 @@ function readPgpPublicKey(websiteConfig?: AnglesiteWebsiteConfiguration): string
     try {
       return fs.readFileSync(normalizedPath, 'utf-8').trim();
     } catch {
-      console.warn('[Eleventy] PGP plugin: Could not read default key file');
+      console.warn('[@dwk/anglesite-11ty] PGP plugin: Could not read default key file');
     }
   }
 
@@ -96,7 +96,7 @@ function validatePgpKey(content: string): boolean {
 
   for (const line of lines) {
     if (dangerousPatterns.some((pattern) => pattern.test(line))) {
-      console.warn('[Eleventy] PGP plugin: Suspicious content detected in key');
+      console.warn('[@dwk/anglesite-11ty] PGP plugin: Suspicious content detected in key');
       return false;
     }
   }
@@ -110,7 +110,7 @@ function validatePgpKey(content: string): boolean {
   // Check reasonable size limits
   if (trimmed.length > 65536) {
     // 64KB limit
-    console.warn('[Eleventy] PGP plugin: PGP key too large');
+    console.warn('[@dwk/anglesite-11ty] PGP plugin: PGP key too large');
     return false;
   }
 
@@ -154,7 +154,7 @@ export default function addPgpKey(eleventyConfig: EleventyConfig): void {
     }
 
     if (!validatePgpKey(pgpKey)) {
-      console.warn('[Eleventy] PGP plugin: Content does not appear to be a valid PGP public key block');
+      console.warn('[@dwk/anglesite-11ty] PGP plugin: Content does not appear to be a valid PGP public key block');
       return;
     }
 
@@ -165,10 +165,10 @@ export default function addPgpKey(eleventyConfig: EleventyConfig): void {
       // Ensure .well-known directory exists
       fs.mkdirSync(wellKnownDir, { recursive: true });
       fs.writeFileSync(outputPath, pgpKey);
-      console.log(`[Eleventy] Wrote ${outputPath}`);
+      console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath}`);
     } catch (error) {
       console.error(
-        `[Eleventy] Failed to write .well-known/pgp-key.txt: ${error instanceof Error ? error.message : String(error)}`
+        `[@dwk/anglesite-11ty] Failed to write .well-known/pgp-key.txt: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   });

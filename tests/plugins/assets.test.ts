@@ -292,7 +292,7 @@ describe('assets plugin', () => {
       expect(html).toContain('<img src="nonexistent.jpg"');
       expect(html).toContain('alt="alt text"');
       expect(html).toContain('<!-- Image not found: nonexistent.jpg -->');
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[Eleventy] Image not found:'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[@dwk/anglesite-11ty] Image not found:'));
 
       consoleSpy.mockRestore();
     });

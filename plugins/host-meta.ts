@@ -56,7 +56,7 @@ export function generateHostMetaXrd(website: AnglesiteWebsiteConfiguration): str
   // Add subject if specified
   if (hostMeta.subject) {
     if (!validateUrl(hostMeta.subject)) {
-      console.warn(`[Eleventy] Host-meta subject is not a valid URL: ${hostMeta.subject}`);
+      console.warn(`[@dwk/anglesite-11ty] Host-meta subject is not a valid URL: ${hostMeta.subject}`);
     }
     xrd += `  <Subject>${escapeXml(hostMeta.subject)}</Subject>\n`;
   }
@@ -65,7 +65,7 @@ export function generateHostMetaXrd(website: AnglesiteWebsiteConfiguration): str
   if (hostMeta.aliases && hostMeta.aliases.length > 0) {
     for (const alias of hostMeta.aliases) {
       if (!validateUrl(alias)) {
-        console.warn(`[Eleventy] Host-meta alias is not a valid URL: ${alias}`);
+        console.warn(`[@dwk/anglesite-11ty] Host-meta alias is not a valid URL: ${alias}`);
       }
       xrd += `  <Alias>${escapeXml(alias)}</Alias>\n`;
     }
@@ -87,7 +87,9 @@ export function generateHostMetaXrd(website: AnglesiteWebsiteConfiguration): str
       if (link.template) {
         // Validate template URI contains {uri} placeholder
         if (!link.href || !link.href.includes('{uri}')) {
-          console.warn(`[Eleventy] Host-meta template link missing {uri} placeholder: ${link.href || 'undefined'}`);
+          console.warn(
+            `[@dwk/anglesite-11ty] Host-meta template link missing {uri} placeholder: ${link.href || 'undefined'}`
+          );
         }
         if (link.href) {
           linkElement += ` template="${escapeXml(link.href)}"`;
@@ -95,7 +97,7 @@ export function generateHostMetaXrd(website: AnglesiteWebsiteConfiguration): str
       } else {
         // Validate non-template URLs
         if (link.href && !validateUrl(link.href)) {
-          console.warn(`[Eleventy] Host-meta link href is not a valid URL: ${link.href}`);
+          console.warn(`[@dwk/anglesite-11ty] Host-meta link href is not a valid URL: ${link.href}`);
         }
         if (link.href) {
           linkElement += ` href="${escapeXml(link.href)}"`;
@@ -132,7 +134,7 @@ export function generateHostMetaJrd(website: AnglesiteWebsiteConfiguration): str
   // Add subject if specified
   if (hostMeta.subject) {
     if (!validateUrl(hostMeta.subject)) {
-      console.warn(`[Eleventy] Host-meta subject is not a valid URL: ${hostMeta.subject}`);
+      console.warn(`[@dwk/anglesite-11ty] Host-meta subject is not a valid URL: ${hostMeta.subject}`);
     }
     jrd.subject = hostMeta.subject;
   }
@@ -141,7 +143,7 @@ export function generateHostMetaJrd(website: AnglesiteWebsiteConfiguration): str
   if (hostMeta.aliases && hostMeta.aliases.length > 0) {
     for (const alias of hostMeta.aliases) {
       if (!validateUrl(alias)) {
-        console.warn(`[Eleventy] Host-meta alias is not a valid URL: ${alias}`);
+        console.warn(`[@dwk/anglesite-11ty] Host-meta alias is not a valid URL: ${alias}`);
       }
     }
     jrd.aliases = hostMeta.aliases;
@@ -166,7 +168,9 @@ export function generateHostMetaJrd(website: AnglesiteWebsiteConfiguration): str
       if (link.template) {
         // Validate template URI contains {uri} placeholder
         if (!link.href || !link.href.includes('{uri}')) {
-          console.warn(`[Eleventy] Host-meta template link missing {uri} placeholder: ${link.href || 'undefined'}`);
+          console.warn(
+            `[@dwk/anglesite-11ty] Host-meta template link missing {uri} placeholder: ${link.href || 'undefined'}`
+          );
         }
         if (link.href) {
           jrdLink.template = link.href;
@@ -174,7 +178,7 @@ export function generateHostMetaJrd(website: AnglesiteWebsiteConfiguration): str
       } else {
         // Validate non-template URLs
         if (link.href && !validateUrl(link.href)) {
-          console.warn(`[Eleventy] Host-meta link href is not a valid URL: ${link.href}`);
+          console.warn(`[@dwk/anglesite-11ty] Host-meta link href is not a valid URL: ${link.href}`);
         }
         if (link.href) {
           jrdLink.href = link.href;
@@ -247,13 +251,13 @@ export default function addHostMeta(eleventyConfig: EleventyConfig): void {
         const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
         websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
       } catch {
-        console.warn('[Eleventy] Host-meta plugin: Could not read website.json from _data directory');
+        console.warn('[@dwk/anglesite-11ty] Host-meta plugin: Could not read website.json from _data directory');
         return;
       }
     }
 
     if (!websiteConfig) {
-      console.warn('[Eleventy] Host-meta plugin: No website configuration found');
+      console.warn('[@dwk/anglesite-11ty] Host-meta plugin: No website configuration found');
       return;
     }
 
@@ -274,7 +278,7 @@ export default function addHostMeta(eleventyConfig: EleventyConfig): void {
         if (xrdContent.trim()) {
           const xmlPath = path.join(wellKnownDir, 'host-meta');
           fs.writeFileSync(xmlPath, xrdContent);
-          console.log(`[Eleventy] Wrote ${xmlPath}`);
+          console.log(`[@dwk/anglesite-11ty] Wrote ${xmlPath}`);
         }
       }
 
@@ -284,7 +288,7 @@ export default function addHostMeta(eleventyConfig: EleventyConfig): void {
         if (jrdContent.trim()) {
           const jsonPath = path.join(wellKnownDir, format === 'both' ? 'host-meta.json' : 'host-meta');
           fs.writeFileSync(jsonPath, jrdContent);
-          console.log(`[Eleventy] Wrote ${jsonPath}`);
+          console.log(`[@dwk/anglesite-11ty] Wrote ${jsonPath}`);
         }
       }
 
@@ -307,20 +311,22 @@ export default function addHostMeta(eleventyConfig: EleventyConfig): void {
           if (existingHeaders && !existingHeaders.includes('/.well-known/host-meta')) {
             const newHeaders = existingHeaders + (existingHeaders ? '\n' : '') + headersText;
             fs.writeFileSync(headersPath, newHeaders);
-            console.log(`[Eleventy] Updated ${headersPath} with host-meta headers`);
+            console.log(`[@dwk/anglesite-11ty] Updated ${headersPath} with host-meta headers`);
           } else if (!existingHeaders) {
             // File doesn't exist, create new headers file
             fs.writeFileSync(headersPath, headersText);
-            console.log(`[Eleventy] Created ${headersPath} with host-meta headers`);
+            console.log(`[@dwk/anglesite-11ty] Created ${headersPath} with host-meta headers`);
           }
         } catch (headerError) {
           console.warn(
-            `[Eleventy] Could not update _headers file: ${headerError instanceof Error ? headerError.message : String(headerError)}`
+            `[@dwk/anglesite-11ty] Could not update _headers file: ${headerError instanceof Error ? headerError.message : String(headerError)}`
           );
         }
       }
     } catch (error) {
-      console.error(`[Eleventy] Failed to write host-meta: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(
+        `[@dwk/anglesite-11ty] Failed to write host-meta: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   });
 }

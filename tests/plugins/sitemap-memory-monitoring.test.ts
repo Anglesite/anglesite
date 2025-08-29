@@ -55,13 +55,13 @@ describe('sitemap memory monitoring', () => {
 
       // Should log memory monitoring start message
       expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Starting sitemap generation with memory monitoring (100 pages)')
+        expect.stringContaining('[@dwk/anglesite-11ty] Starting sitemap generation with memory monitoring (100 pages)')
       );
 
       // Should log memory statistics
       expect(consoleSpy.log).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[Eleventy\] Sitemap memory stats: Peak: \d+MB, Start: \d+MB, Increase: [+-]?\d+MB, Avg\/page: \d+\.\d+MB, Files: 1, Pages: 100/
+          /\[@dwk\/anglesite-11ty\] Sitemap memory stats: Peak: \d+MB, Start: \d+MB, Increase: [+-]?\d+MB, Avg\/page: \d+\.\d+MB, Files: 1, Pages: 100/
         )
       );
     });
@@ -95,14 +95,14 @@ describe('sitemap memory monitoring', () => {
 
       // Should log memory monitoring start message
       expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Starting sitemap generation with memory monitoring (150 pages)')
+        expect.stringContaining('[@dwk/anglesite-11ty] Starting sitemap generation with memory monitoring (150 pages)')
       );
 
       // Should log memory statistics with correct file count
       expect(consoleSpy.log).toHaveBeenCalledWith(
         expect.stringMatching(
           new RegExp(
-            `\\[Eleventy\\] Sitemap memory stats: Peak: \\d+MB, Start: \\d+MB, Increase: [+-]?\\d+MB, Avg\\/page: \\d+\\.\\d+MB, Files: ${result.filesWritten.length}, Pages: 150`
+            `\\[@dwk\\/anglesite-11ty\\] Sitemap memory stats: Peak: \\d+MB, Start: \\d+MB, Increase: [+-]?\\d+MB, Avg\\/page: \\d+\\.\\d+MB, Files: ${result.filesWritten.length}, Pages: 150`
           )
         )
       );
@@ -159,11 +159,13 @@ describe('sitemap memory monitoring', () => {
 
       // Should still log memory monitoring start
       expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Starting sitemap generation with memory monitoring (1 pages)')
+        expect.stringContaining('[@dwk/anglesite-11ty] Starting sitemap generation with memory monitoring (1 pages)')
       );
 
       // Should log error details
-      expect(consoleSpy.error).toHaveBeenCalledWith('[Eleventy] Failed to write sitemap files: File system error');
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        '[@dwk/anglesite-11ty] Failed to write sitemap files: File system error'
+      );
     });
   });
 
@@ -185,12 +187,12 @@ describe('sitemap memory monitoring', () => {
 
       // Verify that memory monitoring start is logged with page count
       expect(consoleSpy.log).toHaveBeenCalledWith(
-        '[Eleventy] Starting sitemap generation with memory monitoring (10 pages)'
+        '[@dwk/anglesite-11ty] Starting sitemap generation with memory monitoring (10 pages)'
       );
 
       // Verify that memory statistics are logged
       expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringMatching(/\[Eleventy\] Sitemap memory stats:.*Files: 1, Pages: 10/)
+        expect.stringMatching(/\[@dwk\/anglesite-11ty\] Sitemap memory stats:.*Files: 1, Pages: 10/)
       );
     });
   });

@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import type { EleventyConfig } from '@11ty/eleventy';
 import { AnglesiteWebsiteConfiguration } from '../types/website.js';
@@ -81,14 +82,15 @@ function isValidHexColor(color: string): boolean {
 function validateImagePath(imagePath: string): boolean {
   if (!imagePath) return false;
 
-  // Handle relative paths from project root
-  const fullPath = path.isAbsolute(imagePath)
-    ? imagePath
-    : path.join(process.cwd(), 'src', imagePath.replace(/^\//, ''));
+  // Handle paths - treat web paths (starting with /) as relative to src directory
+  const fullPath =
+    path.isAbsolute(imagePath) && !imagePath.startsWith('/')
+      ? imagePath
+      : path.join(process.cwd(), 'src', imagePath.replace(/^\//, ''));
 
   const exists = existsSync(fullPath);
   if (!exists) {
-    console.warn(`[Eleventy] BrowserConfig: Image not found: ${fullPath}`);
+    console.warn(`[@dwk/anglesite-11ty] BrowserConfig: Image not found: ${fullPath}`);
   }
   return exists;
 }
@@ -145,7 +147,7 @@ export function generateBrowserConfig(website: AnglesiteWebsiteConfiguration): s
   // Validate TileColor format at runtime
   if (tile.TileColor && !isValidHexColor(tile.TileColor)) {
     console.warn(
-      `[Eleventy] BrowserConfig: Invalid TileColor format: ${tile.TileColor}. Expected hex color (e.g., #ff0000).`
+      `[@dwk/anglesite-11ty] BrowserConfig: Invalid TileColor format: ${tile.TileColor}. Expected hex color (e.g., #ff0000).`
     );
     return '';
   }
@@ -228,19 +230,27 @@ export default function addBrowserConfig(eleventyConfig: EleventyConfig): void {
       return;
     }
 
-    // Find the first result with website data from the data cascade
+    // Try to get website configuration from page data first (for tests)
+    // Then fallback to reading from filesystem (for real builds)
     let websiteConfig: AnglesiteWebsiteConfiguration | undefined;
 
-    for (const result of results) {
-      const resultWithData = result as { data?: EleventyData };
-      if (resultWithData?.data?.website) {
-        websiteConfig = resultWithData.data.website;
-        break;
+    // Check if the first result has data property (test scenario)
+    const firstResult = results[0] as { data?: EleventyData };
+    if (firstResult?.data) {
+      websiteConfig = firstResult.data.website;
+    } else {
+      // Real Eleventy build scenario - read from filesystem
+      try {
+        const websiteDataPath = path.resolve('src', '_data', 'website.json');
+        const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
+        websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
+      } catch {
+        console.warn('[@dwk/anglesite-11ty] BrowserConfig plugin: Could not read website.json from _data directory');
+        return;
       }
     }
 
     if (!websiteConfig) {
-      // No website configuration found in any result
       return;
     }
 
@@ -257,10 +267,10 @@ export default function addBrowserConfig(eleventyConfig: EleventyConfig): void {
       try {
         mkdirSync(wellKnownDir, { recursive: true });
         writeFileSync(outputPath, browserConfigContent);
-        console.log(`[Eleventy] Wrote ${outputPath}`);
+        console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath}`);
       } catch (error) {
         console.error(
-          `[Eleventy] Failed to write .well-known/browserconfig.xml: ${error instanceof Error ? error.message : String(error)}`
+          `[@dwk/anglesite-11ty] Failed to write .well-known/browserconfig.xml: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     }

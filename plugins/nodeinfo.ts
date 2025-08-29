@@ -235,13 +235,13 @@ export default function addNodeInfo(eleventyConfig: EleventyConfig): void {
         const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
         websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
       } catch {
-        console.warn('[Eleventy] NodeInfo plugin: Could not read website.json from _data directory');
+        console.warn('[@dwk/anglesite-11ty] NodeInfo plugin: Could not read website.json from _data directory');
         return;
       }
     }
 
     if (!websiteConfig) {
-      console.warn('[Eleventy] NodeInfo plugin: No website configuration found');
+      console.warn('[@dwk/anglesite-11ty] NodeInfo plugin: No website configuration found');
       return;
     }
 
@@ -252,7 +252,7 @@ export default function addNodeInfo(eleventyConfig: EleventyConfig): void {
     // Validate NodeInfo configuration
     const validationErrors = validateNodeInfoConfig(websiteConfig.nodeinfo);
     if (validationErrors.length > 0) {
-      console.error('[Eleventy] NodeInfo plugin configuration errors:');
+      console.error('[@dwk/anglesite-11ty] NodeInfo plugin configuration errors:');
       validationErrors.forEach((error) => console.error(`  - ${error}`));
       return;
     }
@@ -261,7 +261,7 @@ export default function addNodeInfo(eleventyConfig: EleventyConfig): void {
     const baseUrl = websiteConfig.url;
 
     if (!baseUrl) {
-      console.error('[Eleventy] NodeInfo plugin requires website.url to be set in configuration');
+      console.error('[@dwk/anglesite-11ty] NodeInfo plugin requires website.url to be set in configuration');
       return;
     }
 
@@ -273,16 +273,16 @@ export default function addNodeInfo(eleventyConfig: EleventyConfig): void {
       const discovery = generateNodeInfoDiscovery(websiteConfig, baseUrl);
       const discoveryPath = path.join(wellKnownDir, 'nodeinfo');
       fs.writeFileSync(discoveryPath, JSON.stringify(discovery, null, 2));
-      console.log(`[Eleventy] Wrote ${discoveryPath}`);
+      console.log(`[@dwk/anglesite-11ty] Wrote ${discoveryPath}`);
 
       // Generate NodeInfo 2.1 document
       const nodeInfo21 = generateNodeInfo21(websiteConfig, baseUrl);
       const nodeInfo21Path = path.join(wellKnownDir, 'nodeinfo.json');
       fs.writeFileSync(nodeInfo21Path, JSON.stringify(nodeInfo21, null, 2));
-      console.log(`[Eleventy] Wrote ${nodeInfo21Path}`);
+      console.log(`[@dwk/anglesite-11ty] Wrote ${nodeInfo21Path}`);
     } catch (error) {
       console.error(
-        `[Eleventy] Failed to write NodeInfo files: ${error instanceof Error ? error.message : String(error)}`
+        `[@dwk/anglesite-11ty] Failed to write NodeInfo files: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   });

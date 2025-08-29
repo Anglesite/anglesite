@@ -135,7 +135,7 @@ function updateMemoryMonitor(monitor: MemoryMonitor, context: string): void {
   if (monitor.currentMemory.heapUsed > monitor.warningThreshold) {
     const memoryIncrease = monitor.currentMemory.heapUsed - monitor.startMemory.heapUsed;
     console.warn(
-      `[Eleventy] High memory usage detected during ${context}: ` +
+      `[@dwk/anglesite-11ty] High memory usage detected during ${context}: ` +
         `${monitor.currentMemory.heapUsed}MB heap (${memoryIncrease > 0 ? '+' : ''}${memoryIncrease}MB from start). ` +
         `Consider reducing batch size or enabling chunked processing for large sites.`
     );
@@ -153,7 +153,7 @@ function logMemoryStats(monitor: MemoryMonitor, totalPages: number, totalFiles: 
   const avgMemoryPerPage = totalPages > 0 ? (monitor.peakMemory.heapUsed / totalPages).toFixed(2) : '0';
 
   console.log(
-    `[Eleventy] Sitemap memory stats: ` +
+    `[@dwk/anglesite-11ty] Sitemap memory stats: ` +
       `Peak: ${monitor.peakMemory.heapUsed}MB, ` +
       `Start: ${monitor.startMemory.heapUsed}MB, ` +
       `Increase: ${memoryIncrease > 0 ? '+' : ''}${memoryIncrease}MB, ` +
@@ -164,7 +164,7 @@ function logMemoryStats(monitor: MemoryMonitor, totalPages: number, totalFiles: 
   // Provide optimization suggestions for memory-intensive operations
   if (memoryIncrease > 100) {
     console.warn(
-      `[Eleventy] High memory increase (+${memoryIncrease}MB) detected. ` +
+      `[@dwk/anglesite-11ty] High memory increase (+${memoryIncrease}MB) detected. ` +
         `For sites with ${totalPages}+ pages, consider: ` +
         `reducing maxUrlsPerFile, enabling splitLargeSites, or processing in smaller batches.`
     );
@@ -434,7 +434,7 @@ function generateSitemapXmlSync(
       .map((page): SitemapUrl | null => {
         // Validate page structure before processing
         if (!page.page?.url) {
-          console.warn(`[Eleventy] Page missing URL: ${page.page?.inputPath || 'unknown'}`);
+          console.warn(`[@dwk/anglesite-11ty] Page missing URL: ${page.page?.inputPath || 'unknown'}`);
           return null;
         }
 
@@ -467,7 +467,7 @@ function generateSitemapXmlSync(
         if (priority !== undefined) {
           if (priority < MIN_PRIORITY || priority > MAX_PRIORITY) {
             console.warn(
-              `[Eleventy] Invalid priority ${priority} for ${page.page.url}, must be between 0.0 and 1.0. Skipping priority.`
+              `[@dwk/anglesite-11ty] Invalid priority ${priority} for ${page.page.url}, must be between 0.0 and 1.0. Skipping priority.`
             );
           } else {
             url.priority = priority;
@@ -554,7 +554,7 @@ export async function generateSitemapXmlAsync(
       .map((page): SitemapUrl | null => {
         // Validate page structure before processing
         if (!page.page?.url) {
-          console.warn(`[Eleventy] Page missing URL: ${page.page?.inputPath || 'unknown'}`);
+          console.warn(`[@dwk/anglesite-11ty] Page missing URL: ${page.page?.inputPath || 'unknown'}`);
           return null;
         }
 
@@ -585,7 +585,7 @@ export async function generateSitemapXmlAsync(
           url.priority = priority;
         } else if (priority !== undefined) {
           console.warn(
-            `[Eleventy] Invalid priority ${priority} for ${page.page.url}, must be between 0.0 and 1.0. Skipping priority.`
+            `[@dwk/anglesite-11ty] Invalid priority ${priority} for ${page.page.url}, must be between 0.0 and 1.0. Skipping priority.`
           );
         }
 
@@ -644,12 +644,12 @@ async function createChunkWritePromise(
     const sitemapXml = generateSitemapXml(website, chunk, baseUrl, memoryMonitor);
     const safeOutputPath = safeFilePath(path.dirname(outputPath), path.basename(outputPath));
     await fs.promises.writeFile(safeOutputPath, sitemapXml);
-    console.log(`[Eleventy] Wrote ${outputPath} (${chunk.length} URLs)`);
+    console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath} (${chunk.length} URLs)`);
     return { filename, urls: chunk.length };
   } catch (chunkError) {
     const errorMsg = chunkError instanceof Error ? chunkError.message : String(chunkError);
-    console.error(`[Eleventy] Failed to write sitemap chunk ${filename}: ${errorMsg}`);
-    console.error(`[Eleventy] Chunk context: ${chunk.length} URLs, path: ${outputPath}`);
+    console.error(`[@dwk/anglesite-11ty] Failed to write sitemap chunk ${filename}: ${errorMsg}`);
+    console.error(`[@dwk/anglesite-11ty] Chunk context: ${chunk.length} URLs, path: ${outputPath}`);
     throw new Error(`Sitemap chunk ${filename} failed: ${errorMsg}`);
   }
 }
@@ -667,12 +667,12 @@ async function processBatch(
   try {
     const batchResults = await Promise.all(writePromises);
     const totalUrls = batchResults.reduce((sum, r) => sum + r.urls, 0);
-    console.log(`[Eleventy] Completed batch: ${batchResults.length} files, ${totalUrls} URLs`);
+    console.log(`[@dwk/anglesite-11ty] Completed batch: ${batchResults.length} files, ${totalUrls} URLs`);
     return batchResults;
   } catch (batchError) {
     const errorMsg = batchError instanceof Error ? batchError.message : String(batchError);
-    console.error(`[Eleventy] Batch processing failed: ${errorMsg}`);
-    console.error(`[Eleventy] Batch context: ${writePromises.length} files, batch ${batchNumber}`);
+    console.error(`[@dwk/anglesite-11ty] Batch processing failed: ${errorMsg}`);
+    console.error(`[@dwk/anglesite-11ty] Batch context: ${writePromises.length} files, batch ${batchNumber}`);
     throw batchError;
   }
 }
@@ -700,7 +700,7 @@ async function generateSingleSitemap(
   const outputPath = safeFilePath(outputDir, indexFilename);
 
   await fs.promises.writeFile(outputPath, sitemapXml);
-  console.log(`[Eleventy] Wrote ${outputPath}`);
+  console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath}`);
 
   return {
     filesWritten: [indexFilename],
@@ -728,12 +728,12 @@ async function generateSitemapIndex(
     const indexPath = safeFilePath(outputDir, indexFilename);
 
     await fs.promises.writeFile(indexPath, indexXml);
-    console.log(`[Eleventy] Wrote sitemap index ${indexPath} (${chunksLength} sitemaps)`);
+    console.log(`[@dwk/anglesite-11ty] Wrote sitemap index ${indexPath} (${chunksLength} sitemaps)`);
     return indexFilename;
   } catch (indexError) {
     const errorMsg = indexError instanceof Error ? indexError.message : String(indexError);
-    console.error(`[Eleventy] Failed to write sitemap index: ${errorMsg}`);
-    console.error(`[Eleventy] Index context: ${sitemapEntries.length} entries, chunks: ${chunksLength}`);
+    console.error(`[@dwk/anglesite-11ty] Failed to write sitemap index: ${errorMsg}`);
+    console.error(`[@dwk/anglesite-11ty] Index context: ${sitemapEntries.length} entries, chunks: ${chunksLength}`);
     throw new Error(`Sitemap index generation failed: ${errorMsg}`);
   }
 }
@@ -827,10 +827,10 @@ export async function generateSitemapFiles(
 
   // Initialize memory monitoring for sitemap generation
   const memoryMonitor = createMemoryMonitor(MEMORY_WARNING_THRESHOLD_MB);
-  console.log(`[Eleventy] Starting sitemap generation with memory monitoring (${pages.length} pages)`);
+  console.log(`[@dwk/anglesite-11ty] Starting sitemap generation with memory monitoring (${pages.length} pages)`);
 
   if (!website.url) {
-    console.warn('[Eleventy] No website URL provided, skipping sitemap generation');
+    console.warn('[@dwk/anglesite-11ty] No website URL provided, skipping sitemap generation');
     return { filesWritten: [], totalUrls: 0 };
   }
 
@@ -861,12 +861,12 @@ export async function generateSitemapFiles(
     return result;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[Eleventy] Failed to write sitemap files: ${errorMessage}`);
-    console.error(`[Eleventy] Site context: ${validPages.length} pages, output: ${outputDir}`);
-    console.error(`[Eleventy] Config: maxUrls=${maxUrlsPerFile}, split=${config.splitLargeSites}`);
+    console.error(`[@dwk/anglesite-11ty] Failed to write sitemap files: ${errorMessage}`);
+    console.error(`[@dwk/anglesite-11ty] Site context: ${validPages.length} pages, output: ${outputDir}`);
+    console.error(`[@dwk/anglesite-11ty] Config: maxUrls=${maxUrlsPerFile}, split=${config.splitLargeSites}`);
 
     if (error instanceof Error && error.stack) {
-      console.error(`[Eleventy] Stack trace: ${error.stack}`);
+      console.error(`[@dwk/anglesite-11ty] Stack trace: ${error.stack}`);
     }
 
     return { filesWritten: [], totalUrls: 0 };
@@ -885,7 +885,7 @@ export function safeUrlConstruction(pageUrl: string, baseUrl: URL, context: stri
     return new URL(pageUrl, baseUrl).href;
   } catch (urlError) {
     const errorMsg = urlError instanceof Error ? urlError.message : String(urlError);
-    console.warn(`[Eleventy] Invalid URL in ${context}: ${pageUrl} - ${errorMsg}`);
+    console.warn(`[@dwk/anglesite-11ty] Invalid URL in ${context}: ${pageUrl} - ${errorMsg}`);
     return null;
   }
 }
@@ -1053,19 +1053,19 @@ export default function addSitemap(eleventyConfig: EleventyConfig): void {
           const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
           websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
         } catch {
-          console.warn('[Eleventy] Sitemap plugin: Could not read website.json from _data directory');
+          console.warn('[@dwk/anglesite-11ty] Sitemap plugin: Could not read website.json from _data directory');
           return;
         }
       }
 
       if (!websiteConfig || !websiteConfig.url) {
-        console.warn('[Eleventy] Sitemap plugin: No website configuration with URL found');
+        console.warn('[@dwk/anglesite-11ty] Sitemap plugin: No website configuration with URL found');
         return;
       }
 
       const config = getSitemapConfig(websiteConfig);
       if (!config.enabled) {
-        console.log('[Eleventy] Sitemap generation is disabled');
+        console.log('[@dwk/anglesite-11ty] Sitemap generation is disabled');
         return;
       }
 
@@ -1099,7 +1099,7 @@ export default function addSitemap(eleventyConfig: EleventyConfig): void {
 
       if (sitemapResult.filesWritten.length > 0) {
         console.log(
-          `[Eleventy] Generated sitemap: ${sitemapResult.filesWritten.join(', ')} (${sitemapResult.totalUrls} URLs)`
+          `[@dwk/anglesite-11ty] Generated sitemap: ${sitemapResult.filesWritten.join(', ')} (${sitemapResult.totalUrls} URLs)`
         );
       }
     } finally {

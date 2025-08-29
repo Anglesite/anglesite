@@ -463,7 +463,7 @@ describe('WebFinger Plugin', () => {
       await onEventHandler(testData);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Eleventy] WebFinger plugin: Could not read website.json from _data directory'
+        '[@dwk/anglesite-11ty] WebFinger plugin: Could not read website.json from _data directory'
       );
       expect(mockFs.writeFileSync).not.toHaveBeenCalled();
 
@@ -532,7 +532,7 @@ describe('WebFinger Plugin', () => {
       addWebFinger(mockEleventyConfig);
       await onEventHandler(testData);
 
-      expect(consoleSpy).toHaveBeenCalledWith('[Eleventy] WebFinger plugin: No website configuration found');
+      expect(consoleSpy).toHaveBeenCalledWith('[@dwk/anglesite-11ty] WebFinger plugin: No website configuration found');
       expect(mockFs.writeFileSync).not.toHaveBeenCalled();
 
       consoleSpy.mockRestore();
@@ -565,7 +565,7 @@ describe('WebFinger Plugin', () => {
       await onEventHandler(testData);
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[Eleventy] Failed to write WebFinger files: Write permission denied'
+        '[@dwk/anglesite-11ty] Failed to write WebFinger files: Write permission denied'
       );
 
       mockFs.writeFileSync.mockImplementation(() => {}); // Reset to no-op
@@ -679,7 +679,9 @@ describe('WebFinger Plugin', () => {
       await onEventHandler(testData);
 
       // Should still report general write failure
-      expect(consoleErrorSpy).toHaveBeenCalledWith('[Eleventy] Failed to write WebFinger files: Index write failed');
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[@dwk/anglesite-11ty] Failed to write WebFinger files: Index write failed'
+      );
 
       consoleErrorSpy.mockRestore();
     });

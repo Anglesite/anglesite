@@ -529,7 +529,7 @@ describe('assetlinks plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Failed to write .well-known/assetlinks.json: Permission denied')
+        expect.stringContaining('[@dwk/anglesite-11ty] Failed to write .well-known/assetlinks.json: Permission denied')
       );
 
       consoleSpy.mockRestore();
@@ -566,7 +566,7 @@ describe('assetlinks plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Eleventy] Asset Links plugin: Could not read website.json from _data directory'
+        '[@dwk/anglesite-11ty] Asset Links plugin: Could not read website.json from _data directory'
       );
       expect(fs.writeFileSync).not.toHaveBeenCalled();
 

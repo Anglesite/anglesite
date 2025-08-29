@@ -363,7 +363,7 @@ describe('Host-meta Plugin', () => {
       await onEventHandler(testData);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Eleventy] Host-meta plugin: Could not read website.json from _data directory'
+        '[@dwk/anglesite-11ty] Host-meta plugin: Could not read website.json from _data directory'
       );
       expect(mockFs.writeFileSync).not.toHaveBeenCalled();
 
@@ -420,7 +420,9 @@ describe('Host-meta Plugin', () => {
       addHostMeta(mockEleventyConfig);
       await onEventHandler(testData);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('[Eleventy] Failed to write host-meta: Write permission denied');
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[@dwk/anglesite-11ty] Failed to write host-meta: Write permission denied'
+      );
 
       consoleErrorSpy.mockRestore();
     });
@@ -490,7 +492,9 @@ describe('Host-meta Plugin', () => {
       addHostMeta(mockEleventyConfig);
       await onEventHandler(testData);
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith('[Eleventy] Could not update _headers file: Headers write failed');
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '[@dwk/anglesite-11ty] Could not update _headers file: Headers write failed'
+      );
 
       consoleWarnSpy.mockRestore();
     });

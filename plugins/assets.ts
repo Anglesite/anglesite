@@ -303,7 +303,7 @@ async function imageShortcode(
   // Validate image exists
   const imagePath = path.isAbsolute(src) ? src : path.join(options.imageDirectory, src);
   if (!existsSync(imagePath)) {
-    console.warn(`[Eleventy] Image not found: ${imagePath}`);
+    console.warn(`[@dwk/anglesite-11ty] Image not found: ${imagePath}`);
     const classAttr = options.className ? `class="${options.className}"` : '';
     return `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" ${classAttr}><!-- Image not found: ${src} -->`;
   }
@@ -364,7 +364,7 @@ function fontPreloadShortcode(fontPath: string, fontFormat: string = 'woff2', cr
  */
 function criticalCSSShortcode(cssPath: string) {
   console.warn(
-    '[Eleventy] criticalCSS shortcode is deprecated. Consider using inline styles or build-time CSS optimization.'
+    '[@dwk/anglesite-11ty] criticalCSS shortcode is deprecated. Consider using inline styles or build-time CSS optimization.'
   );
   return `<link rel="stylesheet" href="${cssPath}">`;
 }

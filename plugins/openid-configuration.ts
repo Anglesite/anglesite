@@ -69,7 +69,7 @@ export function generateOpenIDConfiguration(website: AnglesiteWebsiteConfigurati
 
   // Validate required issuer URL
   if (!config.issuer || !validateUrl(config.issuer)) {
-    console.warn(`[Eleventy] OpenID Configuration issuer is not a valid URL: ${config.issuer}`);
+    console.warn(`[@dwk/anglesite-11ty] OpenID Configuration issuer is not a valid URL: ${config.issuer}`);
     return null;
   }
 
@@ -83,7 +83,7 @@ export function generateOpenIDConfiguration(website: AnglesiteWebsiteConfigurati
       openidConfig.authorization_endpoint = config.authorization_endpoint;
     } else {
       console.warn(
-        `[Eleventy] OpenID Configuration authorization_endpoint is not a valid URL: ${config.authorization_endpoint}`
+        `[@dwk/anglesite-11ty] OpenID Configuration authorization_endpoint is not a valid URL: ${config.authorization_endpoint}`
       );
     }
   }
@@ -92,7 +92,9 @@ export function generateOpenIDConfiguration(website: AnglesiteWebsiteConfigurati
     if (validateUrl(config.token_endpoint)) {
       openidConfig.token_endpoint = config.token_endpoint;
     } else {
-      console.warn(`[Eleventy] OpenID Configuration token_endpoint is not a valid URL: ${config.token_endpoint}`);
+      console.warn(
+        `[@dwk/anglesite-11ty] OpenID Configuration token_endpoint is not a valid URL: ${config.token_endpoint}`
+      );
     }
   }
 
@@ -100,7 +102,9 @@ export function generateOpenIDConfiguration(website: AnglesiteWebsiteConfigurati
     if (validateUrl(config.userinfo_endpoint)) {
       openidConfig.userinfo_endpoint = config.userinfo_endpoint;
     } else {
-      console.warn(`[Eleventy] OpenID Configuration userinfo_endpoint is not a valid URL: ${config.userinfo_endpoint}`);
+      console.warn(
+        `[@dwk/anglesite-11ty] OpenID Configuration userinfo_endpoint is not a valid URL: ${config.userinfo_endpoint}`
+      );
     }
   }
 
@@ -108,7 +112,7 @@ export function generateOpenIDConfiguration(website: AnglesiteWebsiteConfigurati
     if (validateUrl(config.jwks_uri)) {
       openidConfig.jwks_uri = config.jwks_uri;
     } else {
-      console.warn(`[Eleventy] OpenID Configuration jwks_uri is not a valid URL: ${config.jwks_uri}`);
+      console.warn(`[@dwk/anglesite-11ty] OpenID Configuration jwks_uri is not a valid URL: ${config.jwks_uri}`);
     }
   }
 
@@ -117,7 +121,7 @@ export function generateOpenIDConfiguration(website: AnglesiteWebsiteConfigurati
       openidConfig.registration_endpoint = config.registration_endpoint;
     } else {
       console.warn(
-        `[Eleventy] OpenID Configuration registration_endpoint is not a valid URL: ${config.registration_endpoint}`
+        `[@dwk/anglesite-11ty] OpenID Configuration registration_endpoint is not a valid URL: ${config.registration_endpoint}`
       );
     }
   }
@@ -240,13 +244,15 @@ export default function addOpenIDConfiguration(eleventyConfig: EleventyConfig): 
         const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
         websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
       } catch {
-        console.warn('[Eleventy] OpenID Configuration plugin: Could not read website.json from _data directory');
+        console.warn(
+          '[@dwk/anglesite-11ty] OpenID Configuration plugin: Could not read website.json from _data directory'
+        );
         return;
       }
     }
 
     if (!websiteConfig) {
-      console.warn('[Eleventy] OpenID Configuration plugin: No website configuration found');
+      console.warn('[@dwk/anglesite-11ty] OpenID Configuration plugin: No website configuration found');
       return;
     }
 
@@ -266,11 +272,11 @@ export default function addOpenIDConfiguration(eleventyConfig: EleventyConfig): 
         const configPath = path.join(wellKnownDir, 'openid_configuration');
         const configContent = JSON.stringify(openidConfig, null, 2);
         fs.writeFileSync(configPath, configContent);
-        console.log(`[Eleventy] Wrote ${configPath}`);
+        console.log(`[@dwk/anglesite-11ty] Wrote ${configPath}`);
       }
     } catch (error) {
       console.error(
-        `[Eleventy] Failed to write OpenID Configuration file: ${error instanceof Error ? error.message : String(error)}`
+        `[@dwk/anglesite-11ty] Failed to write OpenID Configuration file: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   });

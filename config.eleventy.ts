@@ -40,7 +40,13 @@ export default function (eleventyConfig: EleventyConfig) {
   eleventyConfig.addPlugin(addAppleAppSiteAssociation);
   eleventyConfig.addPlugin(addAssetLinks);
   eleventyConfig.addPlugin(addBrowserConfig);
-  eleventyConfig.addPlugin(addAssetPipeline);
+  eleventyConfig.addPlugin(addAssetPipeline, {
+    passthroughCopy: {
+      'src/assets/fonts': 'fonts',
+      'src/assets/icons': 'icons',
+      'src/assets/images': 'assets/images',
+    },
+  });
 
   return {
     dir: {

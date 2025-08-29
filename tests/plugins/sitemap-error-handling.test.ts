@@ -43,7 +43,7 @@ describe('sitemap error handling', () => {
 
       expect(result).toBeNull();
       expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Invalid URL in test-context: http://[invalid-ipv6-brackets')
+        expect.stringContaining('[@dwk/anglesite-11ty] Invalid URL in test-context: http://[invalid-ipv6-brackets')
       );
     });
 
@@ -79,11 +79,11 @@ describe('sitemap error handling', () => {
 
       expect(result).toEqual({ filesWritten: [], totalUrls: 0 });
       expect(consoleSpy.error).toHaveBeenCalledWith(
-        '[Eleventy] Failed to write sitemap files: ENOSPC: no space left on device'
+        '[@dwk/anglesite-11ty] Failed to write sitemap files: ENOSPC: no space left on device'
       );
-      expect(consoleSpy.error).toHaveBeenCalledWith('[Eleventy] Site context: 1 pages, output: /output');
+      expect(consoleSpy.error).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Site context: 1 pages, output: /output');
       expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Config: maxUrls=50000, split=true')
+        expect.stringContaining('[@dwk/anglesite-11ty] Config: maxUrls=50000, split=true')
       );
     });
 
@@ -133,9 +133,11 @@ describe('sitemap error handling', () => {
 
       expect(result).toEqual({ filesWritten: [], totalUrls: 0 });
       expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Failed to write sitemap chunk')
+        expect.stringContaining('[@dwk/anglesite-11ty] Failed to write sitemap chunk')
       );
-      expect(consoleSpy.error).toHaveBeenCalledWith(expect.stringContaining('[Eleventy] Chunk context: 1 URLs'));
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        expect.stringContaining('[@dwk/anglesite-11ty] Chunk context: 1 URLs')
+      );
     });
 
     it('should provide sitemap index generation error context', async () => {
@@ -180,9 +182,11 @@ describe('sitemap error handling', () => {
       const result = await generateSitemapFiles(websiteWithSmallChunks, pages, '/output');
 
       expect(result).toEqual({ filesWritten: [], totalUrls: 0 });
-      expect(consoleSpy.error).toHaveBeenCalledWith('[Eleventy] Failed to write sitemap index: Index write failed');
       expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Index context: 2 entries, chunks: 2')
+        '[@dwk/anglesite-11ty] Failed to write sitemap index: Index write failed'
+      );
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        expect.stringContaining('[@dwk/anglesite-11ty] Index context: 2 entries, chunks: 2')
       );
     });
 
@@ -215,7 +219,7 @@ describe('sitemap error handling', () => {
       expect(result.totalUrls).toBe(2); // Both pages are counted in total
       expect(result.filesWritten).toHaveLength(1); // Single sitemap file
       expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Invalid URL in page invalid.md:')
+        expect.stringContaining('[@dwk/anglesite-11ty] Invalid URL in page invalid.md:')
       );
     });
   });
