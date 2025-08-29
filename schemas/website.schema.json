@@ -24,5 +24,10 @@
       "$ref": "./modules/well-known.json"
     }
   ],
-  "additionalProperties": false
+  "properties": {
+    "$schema": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
 }
