@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anglesite.dwk.io/schemas/website.json",
+  "title": "Anglesite Website Configuration",
+  "description": "Configuration schema for Anglesite website metadata and settings",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "./modules/basic-info.json"
+    },
+    {
+      "$ref": "./modules/seo-robots.json"
+    },
+    {
+      "$ref": "./modules/web-standards.json"
+    },
+    {
+      "$ref": "./modules/networking.json"
+    },
+    {
+      "$ref": "./modules/analytics.json"
+    },
+    {
+      "$ref": "./modules/well-known.json"
+    }
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Open Website</title>
+    <link rel="stylesheet" href="../default-theme.css" />
+    <style>
+      /* Website selection specific layout */
+      body {
+        padding: 20px 20px 10px 20px;
+      }
+
+      /* Website selection specific styles */
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .title {
+        font-size: var(--font-size-xl);
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+      }
+
+      .subtitle {
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+      }
+
+      .websites-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+
+      .website-card {
+        background: var(--card-bg);
+        border-radius: var(--border-radius-lg);
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all var(--transition-base);
+        border: 1px solid var(--card-border);
+      }
+
+      .website-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px var(--card-hover-shadow);
+        border-color: var(--card-hover-border);
+      }
+
+      .website-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+      }
+
+      .website-name {
+        font-size: var(--font-size-base);
+        font-weight: 500;
+        color: var(--text-primary);
+        margin-bottom: 5px;
+      }
+
+      .website-name.editing {
+        background: var(--input-bg);
+        border: 2px solid var(--input-border-focus);
+        border-radius: var(--border-radius-sm);
+        padding: 4px 8px;
+        margin: -4px -8px 5px -8px;
+        outline: none;
+        box-shadow: 0 0 0 3px var(--focus-ring);
+      }
+
+      .website-name.editing.error {
+        border-color: var(--error-color);
+        box-shadow: 0 0 0 3px var(--error-shadow);
+      }
+
+      .validation-error {
+        font-size: var(--font-size-xs);
+        color: var(--error-color);
+        margin-top: 5px;
+        display: none;
+      }
+
+      .validation-error.show {
+        display: block;
+      }
+
+      .website-path {
+        font-size: var(--font-size-xs);
+        color: var(--text-secondary);
+        word-break: break-all;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-secondary);
+      }
+
+      .empty-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+      }
+
+      .buttons {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-tertiary);
+      }
+
+      .buttons-left {
+        flex: 1;
+      }
+
+      .buttons-right {
+        flex: 0;
+      }
+
+      button {
+        padding: 10px 24px;
+        margin: 0 8px;
+        font-size: var(--font-size-sm);
+      }
+
+      button.primary {
+        background: var(--button-primary-bg);
+        color: var(--button-primary-text);
+      }
+
+      button.primary:hover {
+        background: var(--button-primary-hover);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="title">Open Website</div>
+      <div class="subtitle">Select a website to open</div>
+    </div>
+
+    <div id="websitesContainer">
+      <div class="empty-state">
+        <div class="empty-icon">🌐</div>
+        <div>Loading websites...</div>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <div class="buttons-left">
+        <button class="primary" onclick="createNewWebsite()">New</button>
+      </div>
+      <div class="buttons-right">
+        <button onclick="window.close()">Cancel</button>
+      </div>
+    </div>
+
+    <script>
+      const api = window.electronAPI;
+
+      // Load websites and theme when page loads
+      document.addEventListener('DOMContentLoaded', () => {
+        loadWebsites();
+        loadTheme();
+      });
+
+      // Theme management - simplified for this window
+      function loadTheme() {
+        try {
+          // For this window, we'll just apply the theme based on direct IPC
+          // but we'll do it after the main functionality is loaded
+          setTimeout(async () => {
+            try {
+              const themeInfo = await api.getCurrentTheme();
+              applyTheme(themeInfo.resolvedTheme);
+
+              // Listen for theme updates
+              api.onThemeUpdated((themeInfo) => {
+                applyTheme(themeInfo.resolvedTheme);
+              });
+            } catch (error) {
+              console.log('Theme loading failed, using default theme');
+              // Fallback to light theme - don't log error to avoid console noise
+            }
+          }, 100);
+        } catch (error) {
+          // Silently fail - theme is not critical for functionality
+        }
+      }
+
+      function applyTheme(resolvedTheme) {
+        const root = document.documentElement;
+        if (resolvedTheme === 'dark') {
+          root.setAttribute('data-theme', 'dark');
+        } else {
+          root.removeAttribute('data-theme');
+        }
+      }
+
+      async function loadWebsites() {
+        try {
+          const websites = await api.invoke('list-websites');
+          displayWebsites(websites);
+        } catch (error) {
+          console.error('Failed to load websites:', error);
+          displayError();
+        }
+      }
+
+      function displayWebsites(websites) {
+        const container = document.getElementById('websitesContainer');
+
+        if (websites.length === 0) {
+          container.innerHTML =
+            '<div class="empty-state"><div class="empty-icon">📁</div><div>No websites found</div><div style="font-size: 12px; margin-top: 8px;">Create a new website to get started</div></div>';
+          return;
+        }
+
+        container.innerHTML =
+          '<div class="websites-grid">' +
+          websites
+            .map(
+              (website) => `
+          <div class="website-card" onclick="openWebsite('${website}')" oncontextmenu="showContextMenu(event, '${website}')">
+            <div class="website-icon">🌐</div>
+            <div class="website-name" contenteditable="false" data-original="${website}">${website}</div>
+            <div class="validation-error"></div>
+            <div class="website-path">${website}</div>
+          </div>
+        `
+            )
+            .join('') +
+          '</div>';
+      }
+
+      function displayError() {
+        const container = document.getElementById('websitesContainer');
+        container.innerHTML =
+          '<div class="empty-state"><div class="empty-icon">⚠️</div><div>Failed to load websites</div></div>';
+      }
+
+      function openWebsite(websiteName) {
+        api.send('open-website', websiteName);
+        window.close();
+      }
+
+      function createNewWebsite() {
+        api.send('new-website');
+        window.close();
+      }
+
+      function showContextMenu(event, websiteName) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Let Electron handle the positioning automatically by just sending the request
+        // The main process will show the context menu at the current mouse position
+        api.send('show-website-context-menu', websiteName, {
+          x: 0, // These will be ignored when using window-based positioning
+          y: 0,
+        });
+      }
+
+      // Listen for context menu actions
+      api.on('website-context-menu-action', (action, websiteName) => {
+        if (action === 'rename') {
+          startInlineEdit(websiteName);
+        } else if (action === 'delete') {
+          // Send delete request directly - the backend will handle confirmation
+          api.send('delete-website', websiteName);
+        }
+      });
+
+      // Listen for website operations completed to refresh the list
+      api.on('website-operation-completed', () => {
+        loadWebsites(); // Refresh the website list
+      });
+
+      let currentlyEditing = null;
+
+      function startInlineEdit(websiteName) {
+        // If another element is being edited, cancel it first
+        if (currentlyEditing) {
+          cancelInlineEdit();
+        }
+
+        // Find the website name element
+        const nameElements = document.querySelectorAll('.website-name');
+        const nameElement = Array.from(nameElements).find((el) => el.textContent.trim() === websiteName);
+
+        if (!nameElement) return;
+
+        // Store reference and original value
+        currentlyEditing = nameElement;
+        const originalName = nameElement.getAttribute('data-original');
+
+        // Make it editable and focused
+        nameElement.contentEditable = 'true';
+        nameElement.classList.add('editing');
+        nameElement.focus();
+
+        // Select all text
+        const range = document.createRange();
+        range.selectNodeContents(nameElement);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        // Add event listeners
+        nameElement.addEventListener('blur', handleBlur);
+        nameElement.addEventListener('keydown', handleKeydown);
+        nameElement.addEventListener('input', handleInput);
+      }
+
+      function handleBlur(event) {
+        if (!currentlyEditing) return;
+
+        const newName = currentlyEditing.textContent.trim();
+        const originalName = currentlyEditing.getAttribute('data-original');
+
+        if (newName && newName !== originalName) {
+          // Attempt to save the rename
+          saveRename(originalName, newName);
+        } else {
+          // Cancel if empty or unchanged
+          cancelInlineEdit();
+        }
+      }
+
+      function handleKeydown(event) {
+        if (!currentlyEditing) return;
+
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelInlineEdit();
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          currentlyEditing.blur(); // This will trigger handleBlur
+        }
+      }
+
+      function handleInput(event) {
+        if (!currentlyEditing) return;
+
+        const newName = currentlyEditing.textContent.trim();
+        validateNameInRealTime(newName);
+      }
+
+      async function validateNameInRealTime(name) {
+        if (!currentlyEditing) return;
+
+        const errorElement = currentlyEditing.parentElement.querySelector('.validation-error');
+
+        try {
+          const validation = await api.invoke('validate-website-name', name);
+
+          if (validation.valid) {
+            currentlyEditing.classList.remove('error');
+            errorElement.classList.remove('show');
+            errorElement.textContent = '';
+          } else {
+            currentlyEditing.classList.add('error');
+            errorElement.classList.add('show');
+            errorElement.textContent = validation.error || 'Invalid name';
+          }
+        } catch (error) {
+          console.error('Validation error:', error);
+          currentlyEditing.classList.add('error');
+          errorElement.classList.add('show');
+          errorElement.textContent = 'Validation failed';
+        }
+      }
+
+      async function saveRename(oldName, newName) {
+        if (!currentlyEditing) return;
+
+        try {
+          await api.invoke('rename-website', oldName, newName);
+          // Success - the website list will refresh automatically via the operation-completed event
+          cleanupInlineEdit();
+        } catch (error) {
+          console.error('Rename failed:', error);
+
+          // Show error and keep editing mode
+          const errorElement = currentlyEditing.parentElement.querySelector('.validation-error');
+          errorElement.classList.add('show');
+          errorElement.textContent = error.message || 'Rename failed';
+          currentlyEditing.classList.add('error');
+
+          // Keep focus for user to try again
+          currentlyEditing.focus();
+        }
+      }
+
+      function cancelInlineEdit() {
+        if (!currentlyEditing) return;
+
+        // Restore original name
+        const originalName = currentlyEditing.getAttribute('data-original');
+        currentlyEditing.textContent = originalName;
+
+        cleanupInlineEdit();
+      }
+
+      function cleanupInlineEdit() {
+        if (!currentlyEditing) return;
+
+        // Remove editing state
+        currentlyEditing.contentEditable = 'false';
+        currentlyEditing.classList.remove('editing', 'error');
+
+        // Clear error message
+        const errorElement = currentlyEditing.parentElement.querySelector('.validation-error');
+        errorElement.classList.remove('show');
+        errorElement.textContent = '';
+
+        // Remove event listeners
+        currentlyEditing.removeEventListener('blur', handleBlur);
+        currentlyEditing.removeEventListener('keydown', handleKeydown);
+        currentlyEditing.removeEventListener('input', handleInput);
+
+        currentlyEditing = null;
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,68 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradient for the gem's glassy effect -->
+    <linearGradient id="gemGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8f9fa;stop-opacity:0.9"/>
+      <stop offset="30%" style="stop-color:#e9ecef;stop-opacity:0.8"/>
+      <stop offset="70%" style="stop-color:#6c757d;stop-opacity:0.7"/>
+      <stop offset="100%" style="stop-color:#495057;stop-opacity:0.9"/>
+    </linearGradient>
+    
+    <!-- Highlight gradient for glass effect -->
+    <linearGradient id="highlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.6"/>
+      <stop offset="50%" style="stop-color:#ffffff;stop-opacity:0.2"/>
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0"/>
+    </linearGradient>
+    
+    <!-- Shadow gradient -->
+    <radialGradient id="shadow" cx="50%" cy="80%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+  
+  <!-- Background circle for better contrast -->
+  <circle cx="50" cy="50" r="48" fill="#ffffff" stroke="#e9ecef" stroke-width="1" opacity="0.1"/>
+  
+  <!-- Left angle bracket -->
+  <path d="M20 35 L10 50 L20 65" 
+        fill="none" 
+        stroke="#495057" 
+        stroke-width="3" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  
+  <!-- Right angle bracket -->
+  <path d="M80 35 L90 50 L80 65" 
+        fill="none" 
+        stroke="#495057" 
+        stroke-width="3" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  
+  <!-- Main gem shape (octagon-like crystal) -->
+  <path d="M50 25 L62 35 L62 65 L50 75 L38 65 L38 35 Z" 
+        fill="url(#gemGradient)" 
+        stroke="#6c757d" 
+        stroke-width="1"/>
+  
+  <!-- Inner facets for crystal structure -->
+  <path d="M50 25 L50 40 L38 35 Z" fill="#adb5bd" opacity="0.4"/>
+  <path d="M50 25 L50 40 L62 35 Z" fill="#dee2e6" opacity="0.6"/>
+  <path d="M50 60 L50 75 L38 65 Z" fill="#495057" opacity="0.7"/>
+  <path d="M50 60 L50 75 L62 65 Z" fill="#6c757d" opacity="0.5"/>
+  
+  <!-- Central highlight line -->
+  <line x1="50" y1="30" x2="50" y2="70" stroke="url(#highlight)" stroke-width="2"/>
+  
+  <!-- Side highlights for glass effect -->
+  <path d="M42 32 L42 68" stroke="#ffffff" stroke-width="1" opacity="0.4"/>
+  <path d="M58 32 L58 68" stroke="#ffffff" stroke-width="1" opacity="0.3"/>
+  
+  <!-- Top facet highlight -->
+  <ellipse cx="50" cy="32" rx="8" ry="3" fill="url(#highlight)"/>
+  
+  <!-- Subtle shadow beneath -->
+  <ellipse cx="50" cy="78" rx="15" ry="4" fill="url(#shadow)"/>
+</svg>

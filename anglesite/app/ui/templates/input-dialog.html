@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="../default-theme.css" />
+    <style>
+      /* Dialog-specific layout styles */
+      body {
+        padding: 20px;
+      }
+      /* Dialog-specific component styles */
+      .container {
+        background: var(--card-bg);
+        border-radius: var(--border-radius-md);
+        padding: 20px;
+        box-shadow: 0 2px 10px var(--card-shadow);
+        transition: background-color var(--transition-base);
+      }
+
+      .prompt {
+        margin-bottom: 15px;
+        color: var(--text-primary);
+        font-size: var(--font-size-sm);
+      }
+
+      input {
+        width: 100%;
+        margin-bottom: 20px;
+        box-sizing: border-box;
+      }
+
+      .buttons {
+        text-align: right;
+      }
+
+      button {
+        padding: 8px 20px;
+        margin-left: 8px;
+        font-size: 13px;
+      }
+
+      button:not(.secondary) {
+        background: var(--button-primary-bg);
+        color: var(--button-primary-text);
+      }
+
+      button:not(.secondary):hover {
+        background: var(--button-primary-hover);
+      }
+
+      button.secondary {
+        background: var(--button-secondary-bg);
+        color: var(--button-secondary-text);
+      }
+
+      button.secondary:hover {
+        background: var(--button-secondary-hover);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="prompt">{{prompt}}</div>
+      <input type="text" id="userInput" placeholder="Enter website name..." autofocus />
+      <div class="buttons">
+        <button class="secondary" onclick="cancel()">Cancel</button>
+        <button onclick="submit()">OK</button>
+      </div>
+    </div>
+    <script>
+      const api = window.electronAPI;
+
+      // Apply theme when dialog loads
+      document.addEventListener('DOMContentLoaded', () => {
+        // Load theme with delay to not block dialog functionality
+        setTimeout(async () => {
+          try {
+            const themeInfo = await api.getCurrentTheme();
+            applyTheme(themeInfo.resolvedTheme);
+
+            api.onThemeUpdated((themeInfo) => {
+              applyTheme(themeInfo.resolvedTheme);
+            });
+          } catch (error) {
+            console.log('Theme loading failed, using default theme');
+          }
+        }, 50);
+      });
+
+      function applyTheme(resolvedTheme) {
+        const root = document.documentElement;
+        if (resolvedTheme === 'dark') {
+          root.setAttribute('data-theme', 'dark');
+        } else {
+          root.removeAttribute('data-theme');
+        }
+      }
+
+      function cancel() {
+        api.send('input-dialog-result', null);
+      }
+
+      function submit() {
+        const value = document.getElementById('userInput').value.trim();
+        api.send('input-dialog-result', value || null);
+      }
+
+      document.getElementById('userInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') submit();
+        if (e.key === 'Escape') cancel();
+      });
+    </script>
+  </body>
+</html>

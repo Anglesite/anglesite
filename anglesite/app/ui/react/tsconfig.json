@@ -1,0 +1,13 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../../dist/app/ui/react",
+    "rootDir": ".",
+    "jsx": "react-jsx",
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "types": ["node", "react", "react-dom", "webpack-env"]
+  },
+  "include": ["**/*", "../../../types/**/*.d.ts"],
+  "exclude": []
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anglesite.dwk.io/schemas/modules/analytics.json",
+  "title": "Analytics Configuration Schema",
+  "type": "object",
+  "definitions": {
+    "googleAnalytics": {
+      "type": "string",
+      "pattern": "^G-[A-Z0-9]+$",
+      "description": "Google Analytics 4 measurement ID"
+    },
+    "plausibleAnalytics": {
+      "type": "object",
+      "description": "Plausible Analytics configuration",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "description": "Domain for Plausible tracking"
+        },
+        "src": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "Plausible script URL"
+        }
+      },
+      "additionalProperties": false
+    },
+    "matomoAnalytics": {
+      "type": "object",
+      "description": "Matomo Analytics configuration",
+      "properties": {
+        "url": {
+          "$ref": "./common.json#/definitions/httpsUrl",
+          "description": "Matomo instance URL"
+        },
+        "siteId": {
+          "$ref": "./common.json#/definitions/positiveInteger",
+          "description": "Matomo site ID"
+        }
+      },
+      "required": ["url", "siteId"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "analytics": {
+      "type": "object",
+      "description": "Analytics configuration",
+      "properties": {
+        "google": {
+          "$ref": "#/definitions/googleAnalytics"
+        },
+        "plausible": {
+          "$ref": "#/definitions/plausibleAnalytics"
+        },
+        "matomo": {
+          "$ref": "#/definitions/matomoAnalytics"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

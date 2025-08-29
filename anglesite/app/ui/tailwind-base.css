@@ -1,0 +1,77 @@
+@import 'tailwindcss';
+
+/* Tailwind directives will be processed by @tailwindcss/postcss plugin */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles for Anglesite */
+@layer base {
+  :root {
+    --color-primary: theme('colors.primary.500');
+    --color-secondary: theme('colors.secondary.500');
+    --font-family-sans: theme('fontFamily.sans');
+    --font-family-mono: theme('fontFamily.mono');
+  }
+
+  html {
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-variant-ligatures: contextual;
+  }
+
+  body {
+    @apply font-sans text-secondary-700 bg-white;
+    font-feature-settings: inherit;
+  }
+
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    body {
+      @apply bg-gray-900 text-gray-100;
+    }
+  }
+}
+
+/* Custom component classes */
+@layer components {
+  .btn {
+    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply transition-colors duration-200;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700;
+    @apply focus:ring-primary-500;
+  }
+
+  .btn-secondary {
+    @apply btn bg-gray-200 text-gray-900 hover:bg-gray-300;
+    @apply focus:ring-gray-500;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+  }
+
+  .input {
+    @apply block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm;
+    @apply focus:outline-none focus:ring-primary-500 focus:border-primary-500;
+    @apply text-sm;
+  }
+}
+
+/* Custom utilities */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+}

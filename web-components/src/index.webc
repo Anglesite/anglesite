@@ -1,0 +1,6 @@
+---
+title: Web Components Test
+layout: base.webc
+---
+
+<p>Simple Test page.</p>

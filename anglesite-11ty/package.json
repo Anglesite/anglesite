@@ -1,0 +1,57 @@
+{
+  "name": "@dwk/anglesite-11ty",
+  "version": "0.3.0",
+  "description": "The 11ty plugin for Anglesite",
+  "license": "ISC",
+  "author": {
+    "name": "David W. Keith",
+    "email": "git@dwk.io",
+    "url": "https://dwk.io/"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/types/eleventy.d.ts",
+  "scripts": {
+    "build": "tsc && npx @11ty/eleventy --config=dist/config.eleventy.js",
+    "build:lib": "tsc && cp -r types dist/",
+    "build:site": "npx @11ty/eleventy --config=.eleventy.test.js",
+    "serve": "npx @11ty/eleventy --serve --config=.eleventy.test.js",
+    "prepublishOnly": "npm run build:lib",
+    "prepare": "npm run build:lib",
+    "format": "prettier --write .",
+    "lint": "eslint . && markdownlint '**/*.md' --ignore node_modules --ignore dist --ignore coverage && htmlhint '**/*.html' --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'coverage/**'",
+    "lint:html": "htmlhint '**/*.html' --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'coverage/**'",
+    "prelint": "npm run format",
+    "pretest": "npm run lint && tsc --noEmit && npm run build",
+    "test": "jest",
+    "test:coverage": "jest --coverage --config jest.coverage.config.cjs"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "^3.1.2",
+    "@babel/core": "^7.28.3",
+    "@babel/preset-env": "^7.28.3",
+    "@babel/preset-typescript": "^7.27.1",
+    "@eslint/js": "^9.33.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.40.0",
+    "@typescript-eslint/parser": "^8.40.0",
+    "babel-jest": "^30.0.5",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsdoc": "^53.0.1",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^15.11.0",
+    "htmlhint": "^1.1.4",
+    "jest": "^29.7.0",
+    "json-schema-to-typescript": "^15.0.4",
+    "markdownlint-cli": "^0.43.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@11ty/eleventy-img": "^5.0.0",
+    "@11ty/eleventy-plugin-webc": "^0.4.0",
+    "html-minifier-terser": "^7.2.0",
+    "yaml": "^2.8.1"
+  }
+}

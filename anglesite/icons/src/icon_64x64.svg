@@ -1,0 +1,47 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Medium complexity gradient -->
+    <linearGradient id="gemMedium" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8f9fa;stop-opacity:0.9"/>
+      <stop offset="50%" style="stop-color:#6c757d;stop-opacity:0.7"/>
+      <stop offset="100%" style="stop-color:#495057;stop-opacity:0.9"/>
+    </linearGradient>
+    
+    <linearGradient id="highlightMed" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.5"/>
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Left angle bracket -->
+  <path d="M12 20 L6 32 L12 44" 
+        fill="none" 
+        stroke="#495057" 
+        stroke-width="2.5" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  
+  <!-- Right angle bracket -->
+  <path d="M52 20 L58 32 L52 44" 
+        fill="none" 
+        stroke="#495057" 
+        stroke-width="2.5" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  
+  <!-- Main gem shape -->
+  <path d="M32 16 L42 22 L42 42 L32 48 L22 42 L22 22 Z" 
+        fill="url(#gemMedium)" 
+        stroke="#6c757d" 
+        stroke-width="1"/>
+  
+  <!-- Facets for structure -->
+  <path d="M32 16 L32 28 L22 22 Z" fill="#adb5bd" opacity="0.4"/>
+  <path d="M32 16 L32 28 L42 22 Z" fill="#dee2e6" opacity="0.5"/>
+  <path d="M32 36 L32 48 L22 42 Z" fill="#495057" opacity="0.6"/>
+  <path d="M32 36 L32 48 L42 42 Z" fill="#6c757d" opacity="0.4"/>
+  
+  <!-- Highlights -->
+  <line x1="32" y1="18" x2="32" y2="46" stroke="url(#highlightMed)" stroke-width="1.5"/>
+  <ellipse cx="32" cy="20" rx="6" ry="2" fill="#ffffff" opacity="0.4"/>
+</svg>

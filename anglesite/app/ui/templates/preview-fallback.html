@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Anglesite Preview</title>
+    <link rel="stylesheet" href="../default-theme.css" />
+    <style>
+      body {
+        padding: 20px;
+        text-align: center;
+        margin: 0;
+        background: var(--bg-secondary);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .main-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 30px;
+        width: 100%;
+        max-width: 600px;
+      }
+
+      .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .loading-gear {
+        width: 48px;
+        height: 48px;
+        animation: spin 2s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-text {
+        color: var(--text-secondary);
+        font-size: var(--font-size-lg);
+        margin: 0;
+      }
+
+      .server-info {
+        color: var(--text-secondary);
+        font-size: var(--font-size-sm);
+        margin-top: 10px;
+      }
+
+      .server-info a {
+        color: var(--button-primary-bg);
+        text-decoration: none;
+      }
+
+      .server-info a:hover {
+        text-decoration: underline;
+      }
+
+      .error-container {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        color: var(--error-color);
+      }
+
+      .error-icon {
+        font-size: 48px;
+      }
+
+      .error-title {
+        font-size: var(--font-size-xl);
+        font-weight: 600;
+        margin: 0;
+      }
+
+      .error-message {
+        font-size: var(--font-size-base);
+        color: var(--text-secondary);
+        margin: 0;
+        max-width: 400px;
+        line-height: 1.5;
+      }
+
+      .error-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .btn {
+        padding: 8px 16px;
+        border: 1px solid var(--border-primary);
+        border-radius: var(--border-radius-sm);
+        background: var(--button-tertiary-bg);
+        cursor: pointer;
+        text-decoration: none;
+        color: var(--text-primary);
+        font-size: var(--font-size-sm);
+      }
+
+      .btn:hover {
+        background: var(--button-tertiary-hover);
+      }
+
+      .btn-primary {
+        background: var(--button-primary-bg);
+        color: var(--button-primary-text);
+        border-color: var(--button-primary-bg);
+      }
+
+      .btn-primary:hover {
+        background: var(--button-primary-hover);
+      }
+
+      /* Logs section styles */
+      .logs-section {
+        width: 100%;
+      }
+
+      .logs-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--border-radius-sm);
+        padding: 10px 16px;
+        cursor: pointer;
+        font-size: var(--font-size-sm);
+        color: var(--text-primary);
+        width: 100%;
+        transition: all var(--transition-base);
+      }
+
+      .logs-toggle:hover {
+        background: var(--button-tertiary-hover);
+        border-color: var(--border-secondary);
+      }
+
+      .logs-toggle span:first-child {
+        font-size: 12px;
+        transition: transform var(--transition-base);
+      }
+
+      .logs-toggle.expanded span:first-child {
+        transform: rotate(90deg);
+      }
+
+      .logs-container {
+        display: none;
+        border: 1px solid var(--border-primary);
+        border-top: none;
+        border-radius: 0 0 var(--border-radius-sm) var(--border-radius-sm);
+        background: var(--bg-primary);
+        max-height: 300px;
+        overflow: hidden;
+      }
+
+      .logs-container.visible {
+        display: block;
+      }
+
+      .logs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background: var(--bg-tertiary);
+        border-bottom: 1px solid var(--border-primary);
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .logs-copy {
+        background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
+        border: 1px solid #d1d1d1;
+        color: #333333;
+        cursor: pointer;
+        font-size: var(--font-size-xs);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-weight: 400;
+        transition: all 0.1s ease;
+      }
+
+      .logs-copy:hover {
+        background: linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%);
+        border-color: #c0c0c0;
+      }
+
+      .logs-copy:active {
+        background: linear-gradient(180deg, #e8e8e8 0%, #d8d8d8 100%);
+        border-color: #999999;
+        transform: translateY(1px);
+      }
+
+      .logs-content {
+        height: 250px;
+        overflow-y: auto;
+        padding: 8px;
+        font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+        font-size: var(--font-size-xs);
+        line-height: 1.4;
+        background: var(--bg-quaternary);
+        text-align: left;
+      }
+
+      /* Ensure all nested elements from ansi_up inherit monospace font */
+      .logs-content *,
+      .logs-content span,
+      .logs-content div {
+        font-family: inherit !important;
+      }
+
+      .log-entry {
+        margin-bottom: 2px;
+        padding: 2px 4px;
+        border-radius: var(--border-radius-sm);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .log-entry.startup {
+        color: var(--info-color);
+        font-weight: 500;
+      }
+
+      .log-entry.info {
+        color: var(--success-color);
+      }
+
+      .log-entry.warning {
+        color: var(--warning-color);
+        background: var(--warning-shadow);
+      }
+
+      .log-entry.error {
+        color: var(--error-color);
+        background: var(--error-shadow);
+      }
+
+      .log-entry.debug {
+        color: var(--text-secondary);
+        font-size: inherit;
+      }
+
+      .log-entry .timestamp {
+        color: var(--text-secondary);
+        font-size: inherit;
+        margin-right: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main-content">
+      <div id="loadingState" class="loading-container">
+        <h1 style="color: #333; margin-bottom: 30px">🌐 Anglesite</h1>
+
+        <svg class="loading-gear" viewBox="0 0 24 24" fill="#666">
+          <path
+            d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"
+          />
+        </svg>
+
+        <p class="loading-text">Building your website…</p>
+        <p class="server-info">
+          The server is running at <a href="http://localhost:8081" target="_blank">http://localhost:8081</a>
+        </p>
+      </div>
+
+      <div id="errorState" class="error-container">
+        <div class="error-icon">⚠️</div>
+        <h2 class="error-title">Website Failed to Load</h2>
+        <p class="error-message">
+          Your website couldn't be built or loaded within 30 seconds. This might be due to a configuration issue or a
+          problem with your website files.
+        </p>
+        <div class="error-actions">
+          <button class="btn" onclick="location.reload()">Try Again</button>
+          <button class="btn btn-primary" onclick="openInExternalBrowser()">Open in Browser</button>
+        </div>
+      </div>
+
+      <!-- Shared logs section for both loading and error states -->
+      <div class="logs-section">
+        <button class="logs-toggle" onclick="toggleLogs()">
+          <span id="logsToggleIcon">▶</span>
+          <span>Show Build Logs</span>
+        </button>
+        <div id="logsContainer" class="logs-container">
+          <div class="logs-header">
+            <span>Eleventy Build Process</span>
+            <button class="logs-copy" onclick="copyLogs()">Copy</button>
+          </div>
+          <div id="logsContent" class="logs-content">
+            <!-- Real-time logs will appear here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load ANSI color conversion library from local NPM package -->
+    <script src="../../../node_modules/ansi_up/ansi_up.js"></script>
+
+    <script>
+      // Set up 30-second timeout
+      const TIMEOUT_DURATION = 30000; // 30 seconds
+      let timeoutId;
+      let healthCheckInterval;
+
+      function showError() {
+        console.log('Showing error state after timeout');
+
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('errorState').style.display = 'flex';
+
+        // Auto-expand logs in error state
+        if (!logsVisible) {
+          toggleLogs();
+        }
+
+        // Clear health check interval when showing error
+        if (healthCheckInterval) {
+          clearInterval(healthCheckInterval);
+        }
+      }
+
+      function openInExternalBrowser() {
+        // Use Electron's shell API to open in default browser
+        if (window.electronAPI && window.electronAPI.openExternal) {
+          window.electronAPI.openExternal('http://localhost:8081');
+        } else {
+          // Fallback for non-Electron environments
+          window.open('http://localhost:8081', '_blank');
+        }
+      }
+
+      // Logs functionality
+      let logsVisible = false;
+
+      function toggleLogs() {
+        const toggle = document.querySelector('.logs-toggle');
+        const container = document.getElementById('logsContainer');
+        const icon = document.getElementById('logsToggleIcon');
+
+        logsVisible = !logsVisible;
+
+        if (logsVisible) {
+          toggle.classList.add('expanded');
+          container.classList.add('visible');
+          toggle.querySelector('span:last-child').textContent = 'Hide Build Logs';
+        } else {
+          toggle.classList.remove('expanded');
+          container.classList.remove('visible');
+          toggle.querySelector('span:last-child').textContent = 'Show Build Logs';
+        }
+      }
+
+      function copyLogs() {
+        const logsContent = document.getElementById('logsContent');
+        const copyButton = document.querySelector('.logs-copy');
+
+        // Extract text content from all log entries
+        const logEntries = logsContent.querySelectorAll('.log-entry');
+        const logText = Array.from(logEntries)
+          .map((entry) => {
+            // Remove HTML tags and get plain text
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = entry.innerHTML;
+            return tempDiv.textContent || tempDiv.innerText || '';
+          })
+          .join('\n');
+
+        try {
+          // Try Electron clipboard API first
+          if (window.electronAPI && window.electronAPI.clipboard) {
+            window.electronAPI.clipboard.writeText(logText);
+            showCopySuccess(copyButton);
+            return;
+          }
+
+          // Fallback to standard clipboard API
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard
+              .writeText(logText)
+              .then(() => {
+                showCopySuccess(copyButton);
+              })
+              .catch((err) => {
+                console.error('Clipboard API failed:', err);
+                fallbackCopy(logText, copyButton);
+              });
+            return;
+          }
+
+          // Last resort: fallback copy method
+          fallbackCopy(logText, copyButton);
+        } catch (err) {
+          console.error('Copy operation failed:', err);
+          showCopyError(copyButton);
+        }
+      }
+
+      function showCopySuccess(copyButton) {
+        const originalText = copyButton.textContent;
+        copyButton.textContent = 'Copied!';
+        copyButton.style.background = 'linear-gradient(180deg, #d4edda 0%, #c3e6cb 100%)';
+        copyButton.style.borderColor = '#c3e6cb';
+        copyButton.style.color = '#155724';
+
+        setTimeout(() => {
+          copyButton.textContent = originalText;
+          copyButton.style.background = '';
+          copyButton.style.borderColor = '';
+          copyButton.style.color = '';
+        }, 1500);
+      }
+
+      function showCopyError(copyButton) {
+        const originalText = copyButton.textContent;
+        copyButton.textContent = 'Copy Failed';
+        copyButton.style.background = 'linear-gradient(180deg, #f8d7da 0%, #f5c6cb 100%)';
+        copyButton.style.borderColor = '#f5c6cb';
+        copyButton.style.color = '#721c24';
+
+        setTimeout(() => {
+          copyButton.textContent = originalText;
+          copyButton.style.background = '';
+          copyButton.style.borderColor = '';
+          copyButton.style.color = '';
+        }, 1500);
+      }
+
+      function fallbackCopy(text, copyButton) {
+        // Create a temporary textarea element
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        document.body.appendChild(textarea);
+
+        try {
+          textarea.select();
+          textarea.setSelectionRange(0, 99999); // For mobile devices
+          const success = document.execCommand('copy');
+
+          if (success) {
+            showCopySuccess(copyButton);
+          } else {
+            showCopyError(copyButton);
+          }
+        } catch (err) {
+          console.error('Fallback copy failed:', err);
+          showCopyError(copyButton);
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      }
+
+      function addLogEntry(message, type = 'info') {
+        const logsContent = document.getElementById('logsContent');
+        const timestamp = new Date().toLocaleTimeString();
+
+        // Initialize ansi_up if available
+        const ansiUp = typeof AnsiUp !== 'undefined' ? new AnsiUp() : null;
+
+        // Convert ANSI color codes to HTML if ansi_up is available
+        const processedMessage = ansiUp ? ansiUp.ansi_to_html(message) : message;
+
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry ${type}`;
+        logEntry.innerHTML = `<span class="timestamp">${timestamp}</span>${processedMessage}`;
+
+        logsContent.appendChild(logEntry);
+
+        // Auto-scroll to bottom
+        logsContent.scrollTop = logsContent.scrollHeight;
+
+        // Limit to last 100 log entries
+        const entries = logsContent.children;
+        if (entries.length > 100) {
+          logsContent.removeChild(entries[0]);
+        }
+      }
+
+      // Listen for log messages from the parent window
+      window.addEventListener('message', function (event) {
+        if (event.data && event.data.type === 'log') {
+          addLogEntry(event.data.message, event.data.level || 'info');
+        } else if (event.data && event.data.type === 'websiteLoaded') {
+          addLogEntry('✅ Website loaded successfully!', 'info');
+          clearLoadingTimeout();
+        } else if (event.data && event.data.type === 'loadingComplete') {
+          addLogEntry('🎉 Build process completed', 'info');
+          clearLoadingTimeout();
+        }
+      });
+
+      // Add initial log entry
+      addLogEntry('Waiting for server to start…', 'startup');
+
+      // Test function to verify logs are working
+      function testLogs() {
+        addLogEntry('🧪 Testing log system…', 'info');
+        addLogEntry('📝 This is an info message', 'info');
+        addLogEntry('⚠️ This is a warning message', 'warning');
+        addLogEntry('❌ This is an error message', 'error');
+        addLogEntry('🔍 This is a debug message', 'debug');
+        addLogEntry('✅ Log test completed', 'info');
+      }
+
+      // Uncomment to test logs immediately
+      // setTimeout(testLogs, 2000);
+
+      function startTimeout() {
+        console.log('Starting 30-second timeout');
+        timeoutId = setTimeout(showError, TIMEOUT_DURATION);
+      }
+
+      function clearLoadingTimeout() {
+        console.log('Clearing loading timeout');
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (healthCheckInterval) {
+          clearInterval(healthCheckInterval);
+          healthCheckInterval = null;
+        }
+      }
+
+      // Start the timeout when the page loads
+      startTimeout();
+
+      // Listen for messages from the parent frame that might indicate loading is complete
+      window.addEventListener('message', function (event) {
+        console.log('Received message:', event.data);
+        if (event.data && (event.data.type === 'websiteLoaded' || event.data.type === 'loadingComplete')) {
+          clearLoadingTimeout();
+        }
+      });
+
+      // Also clear timeout if we detect navigation away from this page
+      window.addEventListener('beforeunload', clearLoadingTimeout);
+
+      // Simplified: Don't auto-check server health as it might be interfering
+      // The timeout will handle showing the error state
+
+      // For testing: show error after 5 seconds (comment out for production)
+      // setTimeout(showError, 5000);
+    </script>
+  </body>
+</html>

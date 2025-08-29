@@ -1,0 +1,317 @@
+/* 
+ * Anglesite Default Theme
+ * Consolidated CSS variables for consistent theming across all UI templates
+ */
+
+:root {
+  /* Enable native dark mode support to prevent white flash */
+  color-scheme: light dark;
+
+  /* Core Brand Colors */
+  --brand-primary: #007aff;
+  --brand-primary-hover: #0056cc;
+  --brand-secondary: #5ac8fa;
+
+  /* Background Colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f8f8;
+  --bg-tertiary: #f0f0f0;
+  --bg-quaternary: #f5f5f5;
+
+  /* Text Colors */
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  --text-inverse: #ffffff;
+
+  /* Border Colors */
+  --border-primary: #cccccc;
+  --border-secondary: #dddddd;
+  --border-tertiary: #e1e1e1;
+
+  /* Button Colors */
+  --button-primary-bg: #007aff;
+  --button-primary-hover: #0056cc;
+  --button-primary-text: #ffffff;
+  --button-secondary-bg: #e5e5e7;
+  --button-secondary-hover: #d1d1d6;
+  --button-secondary-text: #333333;
+  --button-tertiary-bg: #ffffff;
+  --button-tertiary-hover: #f0f0f0;
+  --button-tertiary-active: #e0e0e0;
+
+  /* Interactive States */
+  --hover-overlay: rgba(0, 0, 0, 0.05);
+  --active-overlay: rgba(0, 0, 0, 0.1);
+  --focus-ring: rgba(0, 122, 255, 0.3);
+
+  /* Form Elements */
+  --input-bg: #ffffff;
+  --input-border: #cccccc;
+  --input-border-focus: #007aff;
+  --input-text: #333333;
+  --input-placeholder: #999999;
+
+  /* Cards and Containers */
+  --card-bg: #ffffff;
+  --card-border: #e1e1e1;
+  --card-hover-border: #007aff;
+  --card-shadow: rgba(0, 0, 0, 0.1);
+  --card-hover-shadow: rgba(0, 0, 0, 0.15);
+
+  /* Status Colors */
+  --success-color: #28a745;
+  --warning-color: #ffc107;
+  --error-color: #ff3b30;
+  --info-color: #17a2b8;
+
+  /* Status Shadows */
+  --success-shadow: rgba(40, 167, 69, 0.2);
+  --warning-shadow: rgba(255, 193, 7, 0.2);
+  --error-shadow: rgba(255, 59, 48, 0.2);
+  --info-shadow: rgba(23, 162, 184, 0.2);
+
+  /* Layout */
+  --toolbar-height: 60px;
+  --sidebar-width: 280px;
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+
+  /* Typography */
+  --font-family-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-xxl: 36px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+}
+
+/* Dark theme media query for automatic system preference support */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    /* Background Colors */
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252525;
+    --bg-tertiary: #2d2d2d;
+    --bg-quaternary: #121212;
+
+    /* Text Colors */
+    --text-primary: #ffffff;
+    --text-secondary: #b3b3b3;
+    --text-tertiary: #888888;
+    --text-inverse: #000000;
+
+    /* Border Colors */
+    --border-primary: #404040;
+    --border-secondary: #353535;
+    --border-tertiary: #404040;
+
+    /* Button Colors */
+    --button-primary-bg: #0a84ff;
+    --button-primary-hover: #409cff;
+    --button-primary-text: #ffffff;
+    --button-secondary-bg: #404040;
+    --button-secondary-hover: #525252;
+    --button-secondary-text: #ffffff;
+    --button-tertiary-bg: #2d2d2d;
+    --button-tertiary-hover: #404040;
+    --button-tertiary-active: #4d4d4d;
+
+    /* Interactive States */
+    --hover-overlay: rgba(255, 255, 255, 0.05);
+    --active-overlay: rgba(255, 255, 255, 0.1);
+    --focus-ring: rgba(10, 132, 255, 0.4);
+
+    /* Form Elements */
+    --input-bg: #2d2d2d;
+    --input-border: #404040;
+    --input-border-focus: #0a84ff;
+    --input-text: #ffffff;
+    --input-placeholder: #888888;
+
+    /* Cards and Containers */
+    --card-bg: #2d2d2d;
+    --card-border: #404040;
+    --card-hover-border: #0a84ff;
+    --card-shadow: rgba(0, 0, 0, 0.3);
+    --card-hover-shadow: rgba(255, 255, 255, 0.1);
+
+    /* Status Colors (adjusted for dark theme) */
+    --success-color: #30d158;
+    --warning-color: #ffd60a;
+    --error-color: #ff453a;
+    --info-color: #40c8e0;
+
+    /* Status Shadows */
+    --success-shadow: rgba(48, 209, 88, 0.2);
+    --warning-shadow: rgba(255, 214, 10, 0.2);
+    --error-shadow: rgba(255, 69, 58, 0.2);
+    --info-shadow: rgba(64, 200, 224, 0.2);
+  }
+}
+
+/* Explicit dark theme when data-theme="dark" is set */
+:root[data-theme='dark'] {
+  /* Background Colors */
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252525;
+  --bg-tertiary: #2d2d2d;
+  --bg-quaternary: #121212;
+
+  /* Text Colors */
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-tertiary: #888888;
+  --text-inverse: #000000;
+
+  /* Border Colors */
+  --border-primary: #404040;
+  --border-secondary: #353535;
+  --border-tertiary: #404040;
+
+  /* Button Colors */
+  --button-primary-bg: #0a84ff;
+  --button-primary-hover: #409cff;
+  --button-primary-text: #ffffff;
+  --button-secondary-bg: #404040;
+  --button-secondary-hover: #525252;
+  --button-secondary-text: #ffffff;
+  --button-tertiary-bg: #2d2d2d;
+  --button-tertiary-hover: #404040;
+  --button-tertiary-active: #4d4d4d;
+
+  /* Interactive States */
+  --hover-overlay: rgba(255, 255, 255, 0.05);
+  --active-overlay: rgba(255, 255, 255, 0.1);
+  --focus-ring: rgba(10, 132, 255, 0.4);
+
+  /* Form Elements */
+  --input-bg: #2d2d2d;
+  --input-border: #404040;
+  --input-border-focus: #0a84ff;
+  --input-text: #ffffff;
+  --input-placeholder: #888888;
+
+  /* Cards and Containers */
+  --card-bg: #2d2d2d;
+  --card-border: #404040;
+  --card-hover-border: #0a84ff;
+  --card-shadow: rgba(0, 0, 0, 0.3);
+  --card-hover-shadow: rgba(255, 255, 255, 0.1);
+
+  /* Status Colors (adjusted for dark theme) */
+  --success-color: #30d158;
+  --warning-color: #ffd60a;
+  --error-color: #ff453a;
+  --info-color: #40c8e0;
+
+  /* Status Shadows */
+  --success-shadow: rgba(48, 209, 88, 0.2);
+  --warning-shadow: rgba(255, 214, 10, 0.2);
+  --error-shadow: rgba(255, 69, 58, 0.2);
+  --info-shadow: rgba(64, 200, 224, 0.2);
+}
+
+/* Base body styles that all views should inherit */
+body {
+  font-family: var(--font-family-system);
+  background: Canvas; /* System fallback */
+  color: CanvasText; /* System fallback */
+  transition:
+    background-color var(--transition-base),
+    color var(--transition-base);
+  margin: 0;
+  padding: 0;
+}
+
+/* Apply theme variables when loaded */
+:root body {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Screen reader only class */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Common component styles */
+.btn {
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
+  border: none;
+  border-radius: var(--border-radius-md);
+  padding: 8px 16px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-system);
+  cursor: pointer;
+  transition: background-color var(--transition-base);
+}
+
+.btn:hover {
+  background: var(--button-secondary-hover);
+}
+
+.btn.btn-primary {
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+}
+
+.btn.btn-primary:hover {
+  background: var(--button-primary-hover);
+}
+
+.btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Form elements */
+input[type='text'],
+input[type='email'],
+input[type='tel'],
+input[type='password'],
+textarea,
+select {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--input-text);
+  font-family: var(--font-family-system);
+  font-size: var(--font-size-sm);
+  padding: 8px 12px;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+input[type='text']:focus,
+input[type='email']:focus,
+input[type='tel']:focus,
+input[type='password']:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--input-border-focus);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--input-placeholder);
+}

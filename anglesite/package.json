@@ -1,0 +1,244 @@
+{
+  "name": "@dwk/anglesite",
+  "description": "A local-first, open-source WYSIWYG static site generator.",
+  "version": "0.1.0",
+  "homepage": "https://anglesite.dwk.io",
+  "license": "ISC",
+  "author": {
+    "name": "David W. Keith",
+    "email": "git@dwk.io",
+    "url": "https://dwk.io"
+  },
+  "scripts": {
+    "build:app": "node bin/build-app.js",
+    "build:icons": "node bin/build-icons.js",
+    "build:react": "NODE_ENV=production webpack --mode=production",
+    "build:react:dev": "webpack --mode=development",
+    "build:react:sourcemaps": "NODE_ENV=production UPLOAD_SOURCE_MAPS=true webpack --mode=production",
+    "build:react:validate": "NODE_ENV=production VALIDATE_SOURCE_MAPS=true webpack --mode=production",
+    "build:react:secure": "NODE_ENV=production ELECTRON_IS_PACKAGED=true webpack --mode=production",
+    "build": "npm run build:app && npm run build:react",
+    "dev:react": "webpack serve --mode=development --no-open",
+    "dev:react:debug": "webpack serve --mode=development --no-open --stats=verbose",
+    "analyze:bundle": "ANALYZE_BUNDLE=true npm run build:react",
+    "dist": "node bin/dist-build.js",
+    "clear-cache": "node bin/clear-cache.js",
+    "dist:mac": "node bin/dist-build.js mac",
+    "dist:win": "node bin/dist-build.js win",
+    "dist:linux": "node bin/dist-build.js linux",
+    "pack": "node bin/dist-build.js dir",
+    "format": "prettier --write .",
+    "lint": "eslint . && markdownlint '**/*.md' --ignore node_modules --ignore dist && htmlhint 'app/**/*.html'",
+    "lint:html": "htmlhint 'app/**/*.html'",
+    "prelint": "npm run format",
+    "prestart": "npm run build",
+    "pretest": "tsc",
+    "start": "electron .",
+    "start:dev": "npm run build:app && electron . --dev-react",
+    "test:coverage": "jest --coverage --config jest.coverage.config.ts",
+    "test": "jest"
+  },
+  "keywords": [
+    "static site generator",
+    "ssg",
+    "wysiwyg",
+    "electron",
+    "11ty",
+    "local-first"
+  ],
+  "main": "dist/app/main.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anglesite/anglesite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anglesite/anglesite/issues"
+  },
+  "build": {
+    "appId": "io.dwk.anglesite",
+    "productName": "Anglesite",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/@dwk/anglesite-starter/**/*",
+      "app/ui/**/*",
+      "dist/app/ui/**/*"
+    ],
+    "directories": {
+      "output": "dist/build",
+      "buildResources": "icons"
+    },
+    "files": [
+      "dist/app/**/*",
+      "app/ui/**/*.html",
+      "node_modules/**/*",
+      "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!node_modules/*.d.ts",
+      "!node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+    ],
+    "mac": {
+      "icon": "icons/icon.png",
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "icon": "icons/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "icons/",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "extraResources": [
+      {
+        "from": "app/eleventy",
+        "to": "app/eleventy"
+      },
+      {
+        "from": "app/ui/templates",
+        "to": "app/ui/templates"
+      }
+    ]
+  },
+  "devDependencies": {
+    "@electron/typescript-definitions": "^9.1.3",
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.6.1",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/postcss": "^4.1.12",
+    "@tailwindcss/typography": "^0.5.16",
+    "@types/hostile": "^1.3.5",
+    "@types/jest": "^30.0.0",
+    "@types/jsdom": "^21.1.7",
+    "@types/webpack-env": "^1.18.8",
+    "@typescript-eslint/eslint-plugin": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.0",
+    "autoprefixer": "^10.4.21",
+    "copy-webpack-plugin": "^13.0.1",
+    "css-loader": "^7.1.2",
+    "css-minimizer-webpack-plugin": "^7.0.2",
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsdoc": "^53.0.1",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^16.3.0",
+    "html-webpack-plugin": "^5.6.4",
+    "htmlhint": "^1.6.3",
+    "imagemin": "^9.0.1",
+    "imagemin-avif-webpack-plugin": "^0.0.4",
+    "imagemin-webp": "^8.0.0",
+    "imagemin-webp-webpack-plugin": "^3.3.6",
+    "jest": "^30.0.5",
+    "jest-environment-jsdom": "^30.0.5",
+    "jsdom": "^26.1.0",
+    "markdownlint-cli": "^0.45.0",
+    "mini-css-extract-plugin": "^2.9.4",
+    "postcss": "^8.5.6",
+    "postcss-loader": "^8.1.1",
+    "postcss-nesting": "^13.0.2",
+    "postcss-preset-env": "^10.3.1",
+    "prettier": "^3.6.2",
+    "react-refresh": "^0.17.0",
+    "responsive-loader": "^3.1.2",
+    "sharp": "^0.34.3",
+    "style-loader": "^4.0.0",
+    "tailwindcss": "^4.1.12",
+    "terser-webpack-plugin": "^5.3.14",
+    "ts-jest": "^29.4.1",
+    "ts-loader": "^9.5.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.2",
+    "webpack": "^5.101.3",
+    "webpack-bundle-analyzer": "^4.10.2",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.2"
+  },
+  "dependencies": {
+    "@11ty/eleventy": "^3.1.2",
+    "@11ty/eleventy-dev-server": "^2.0.8",
+    "@11ty/eleventy-plugin-webc": "^0.11.2",
+    "@dwk/anglesite-11ty": "^0.1.0",
+    "@dwk/anglesite-starter": "*",
+    "@dwk/web-components": "^0.1.0",
+    "@json-editor/json-editor": "^2.15.2",
+    "@rjsf/core": "^5.24.13",
+    "@rjsf/mui": "^5.24.13",
+    "@rjsf/utils": "^5.24.13",
+    "@rjsf/validator-ajv8": "^5.24.13",
+    "@types/archiver": "^6.0.3",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "ace-builds": "^1.43.2",
+    "ansi_up": "^6.0.6",
+    "archiver": "^7.0.1",
+    "bagit-fs": "^1.1.1",
+    "chokidar": "^3.6.0",
+    "glob": "^11.0.3",
+    "hostile": "^1.4.0",
+    "js-yaml": "^4.1.0",
+    "live-server": "^1.2.2",
+    "lucide-static": "^0.539.0",
+    "mkcert": "^3.2.0",
+    "native-is-elevated": "^0.7.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "sudo-prompt": "^9.2.1"
+  }
+}

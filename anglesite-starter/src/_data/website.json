@@ -1,0 +1,108 @@
+{
+  "$schema": "../../schemas/website.json",
+  "title": "Anglesite Starter",
+  "language": "en",
+  "description": "A local-first, open-source WYSIWYG static site generator starter template",
+  "url": "https://example.com",
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com",
+    "url": "https://example.com/about"
+  },
+  "robots": [
+    {
+      "User-agent": "*",
+      "Allow": "/",
+      "Disallow": ["/admin", "/private"],
+      "Crawl-delay": 1
+    }
+  ],
+  "sitemap": {
+    "enabled": true,
+    "changefreq": "weekly",
+    "priority": 0.5,
+    "maxUrlsPerFile": 50000,
+    "splitLargeSites": true,
+    "indexFilename": "sitemap.xml",
+    "chunkFilenamePattern": "sitemap-{index}.xml"
+  },
+  "rating": "general",
+  "color_scheme": {
+    "content": "light dark",
+    "media": "screen"
+  },
+  "head_links": [
+    {
+      "rel": "icon",
+      "href": "/favicon.ico",
+      "type": "image/x-icon"
+    },
+    {
+      "rel": "icon",
+      "href": "/favicon-32x32.png",
+      "type": "image/png",
+      "sizes": "32x32"
+    },
+    {
+      "rel": "icon",
+      "href": "/favicon-16x16.png",
+      "type": "image/png",
+      "sizes": "16x16"
+    },
+    {
+      "rel": "apple-touch-icon",
+      "href": "/apple-touch-icon.png",
+      "sizes": "180x180"
+    },
+    {
+      "rel": "manifest",
+      "href": "/site.webmanifest"
+    }
+  ],
+  "headers": {
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "X-DNS-Prefetch-Control": "on",
+    "X-Permitted-Cross-Domain-Policies": "none",
+    "Cache-Control": "public, max-age=3600"
+  },
+  "redirects": [],
+  "social": {
+    "twitter": "",
+    "github": "",
+    "linkedin": ""
+  },
+  "analytics": {},
+  "favicon": {
+    "ico": "/favicon.ico",
+    "svg": "/favicon.svg",
+    "png": {
+      "16": "/favicon-16x16.png",
+      "32": "/favicon-32x32.png",
+      "192": "/android-chrome-192x192.png",
+      "512": "/android-chrome-512x512.png"
+    },
+    "appleTouchIcon": "/apple-touch-icon.png"
+  },
+  "manifest": {
+    "name": "Anglesite Starter Website",
+    "short_name": "Anglesite",
+    "theme_color": "#ffffff",
+    "background_color": "#ffffff",
+    "display": "standalone",
+    "orientation": "any"
+  },
+  "security": {
+    "contact": "mailto:security@example.com",
+    "expires": 31536000,
+    "preferred_languages": ["en"],
+    "canonical": "https://example.com/.well-known/security.txt",
+    "policy": "https://example.com/security-policy"
+  }
+}

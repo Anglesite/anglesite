@@ -1,0 +1,51 @@
+{
+  "name": "@dwk/workspace",
+  "version": "0.1.0",
+  "description": "DWK workspace containing Anglesite and related packages",
+  "private": true,
+  "workspaces": [
+    "anglesite",
+    "anglesite-11ty",
+    "anglesite-starter",
+    "web-components"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "build:anglesite": "npm run build --workspace=@dwk/anglesite",
+    "build:anglesite-11ty": "npm run build --workspace=@dwk/anglesite-11ty",
+    "build:anglesite-starter": "npm run build --workspace=@dwk/anglesite-starter",
+    "build:web-components": "npm run build --workspace=@dwk/web-components",
+    "test": "npm run test --workspaces",
+    "test:anglesite": "npm run test --workspace=@dwk/anglesite",
+    "test:anglesite-11ty": "npm run test --workspace=@dwk/anglesite-11ty",
+    "test:anglesite-starter": "npm run test --workspace=@dwk/anglesite-starter",
+    "test:web-components": "npm run test --workspace=@dwk/web-components",
+    "lint": "npm run lint --workspaces",
+    "format": "npm run format --workspaces",
+    "start:anglesite": "npm run start --workspace=@dwk/anglesite",
+    "dev:anglesite": "npm run start:dev --workspace=@dwk/anglesite",
+    "clean": "npm run clean --workspaces --if-present",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "eslint": "^9.33.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.5",
+    "prettier": "^3.6.2"
+  },
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=8.0.0"
+  },
+  "author": {
+    "name": "David W. Keith",
+    "email": "git@dwk.io",
+    "url": "https://dwk.io"
+  },
+  "license": "ISC",
+  "lint-staged": {
+    "*.{json,md,html,css}": [
+      "prettier --write"
+    ]
+  }
+}

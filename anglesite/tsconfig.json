@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "outDir": "dist/app",
+    "allowJs": true,
+    "downlevelIteration": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "types": ["node", "jest", "react", "react-dom"],
+    "typeRoots": ["./types", "./node_modules/@types"]
+  },
+  "include": ["app", "types/**/*.d.ts", "../anglesite-11ty/types/eleventy.d.ts"],
+  "exclude": ["app/core/errors/examples.ts"]
+}

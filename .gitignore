@@ -1,0 +1,63 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+
+# Build outputs
+dist/
+build/
+coverage/
+.nyc_output/
+_site/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories (handled by npm workspaces at root)
+*/node_modules/
+*/package-lock.json
+
+# Build and dist directories in workspaces
+*/dist/
+*/build/
+*/_site/
+*/coverage/
+
+# Workspace-specific ignores
+anglesite/run.log
+anglesite/start.log
+
+# Electron specific
+*/app/eleventy/

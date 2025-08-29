@@ -1,0 +1,17 @@
+<!---
+  All the <link> tags for the header.
+--->
+<template webc:nokeep webc:component="head-link">
+  <link webc:if="$data.page.url" rel="canonical" :href="new URL($data.page.url, $data.website.url)">
+  <link webc:if="$data.website.head_links" webc:for="link in $data.website.head_links" :...="link">
+  <link webc:if="$data.website.favicon.src" webc:nokeep @raw="favicons($data.site.favicon.src, { 
+    manifestData: $data.website?.manifest,
+    appleIconBgColor: $data.website.favicon?.appleIconBgColor,
+    appleIconPadding: $data.website.favicon?.appleIconPadding })">
+  <link rel="alternate" type="application/json" :href="new URL('/feed.json', $data.website.url)" />
+  <!-- Temporarily disabled bundle calls to fix infinite loop
+  <link webc:keep rel="stylesheet" :href="getBundleFileUrl('css')">
+  -->
+  <link rel="stylesheet" href="./main.css">
+  <link type="text/plain" rel="author" :href="new URL('/humans.txt', $data.site.url)" />
+</template>
