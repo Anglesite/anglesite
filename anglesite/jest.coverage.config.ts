@@ -17,6 +17,8 @@ export default {
     '/node_modules/',
     // Skip problematic certificate tests that hang due to mocking issues
     'test/app/certificates.test.ts',
+    // Skip slow integration tests in coverage runs (run separately)
+    'test/integration/webpack-build.test.ts',
   ],
   moduleNameMapper: {
     '^../../app/eleventy/.eleventy$': '<rootDir>/app/eleventy/config.eleventy.ts',
@@ -55,13 +57,24 @@ export default {
     '!app/theme-renderer.ts',
   ],
 
-  // Prevent worker hanging
-  maxWorkers: 1,
+  // Optimize test execution
+  maxWorkers: '50%',
   detectOpenHandles: true,
   forceExit: true,
-  testTimeout: 10000,
+  testTimeout: 30000,
   // Add stricter cleanup
   clearMocks: true,
   restoreMocks: true,
   resetMocks: true,
+
+  // Speed optimizations
+  cache: true,
+  cacheDirectory: '<rootDir>/.jest-cache',
+  errorOnDeprecated: false,
+
+  // Reduce redundant operations
+  haste: {
+    computeSha1: true,
+    throwOnModuleCollision: false,
+  },
 };

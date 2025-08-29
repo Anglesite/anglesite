@@ -8,6 +8,9 @@ import { startWebsiteServer, stopWebsiteServer, WebsiteServer } from '../../app/
 import { EleventyUrlResolver } from '../../app/server/eleventy-url-resolver';
 import { createLoggingTestHelper, buildErrorPatterns, LoggingTestHelper } from '../utils/logging-test-utils';
 
+// Import app modules mock to ensure it's loaded
+import '../mocks/app-modules';
+
 // Mock dependencies
 jest.mock('fs');
 jest.mock('path');
@@ -44,6 +47,8 @@ jest.mock('@11ty/eleventy-dev-server', () => {
 const mockEleventy = require('@11ty/eleventy');
 const mockEleventyDevServer = require('@11ty/eleventy-dev-server');
 const mockEleventyUrlResolver = EleventyUrlResolver as jest.MockedClass<typeof EleventyUrlResolver>;
+const mockEnhancedFileWatcherModule = require('../../app/server/enhanced-file-watcher');
+const mockCreateEnhancedFileWatcher = mockEnhancedFileWatcherModule.createEnhancedFileWatcher;
 
 describe('Per-Website Server', () => {
   let originalConsole: typeof console;

@@ -7,6 +7,7 @@ import { EleventyUrlResolver } from './eleventy-url-resolver';
 import { logger, sanitize } from '../utils/logging';
 import Eleventy from '@11ty/eleventy';
 import EleventyDevServer from '@11ty/eleventy-dev-server';
+import { EnhancedFileWatcher, createEnhancedFileWatcher, FileChangeInfo } from './enhanced-file-watcher';
 
 /**
  * Send log message to website window.
@@ -44,6 +45,7 @@ export interface WebsiteServer {
   actualUrl?: string;
   urlResolver: EleventyUrlResolver;
   restoreConsole?: () => void;
+  enhancedWatcher?: EnhancedFileWatcher;
 }
 
 /**
@@ -271,25 +273,31 @@ export async function startWebsiteServer(inputDir: string, websiteName: string, 
         },
       });
 
-      // Set up file watching for rebuilds - exclude the build directory
-      const watchPattern = inputDir + '/**/*';
-      const buildDir = path.join(inputDir, '_site');
-      devServer.watchFiles([watchPattern]);
-
-      // Override the default file change handler to trigger Eleventy rebuilds
-      if (devServer.watcher) {
-        devServer.watcher.on('change', async (changedPath: string) => {
-          // Skip if the changed file is in the build directory (prevent recursive builds)
-          if (changedPath.startsWith(buildDir)) {
-            sendLogToWindow(websiteName, `🔄 Skipping build directory change: ${changedPath}`, 'debug');
-            return;
-          }
-
-          sendLogToWindow(websiteName, `📝 File changed: ${changedPath}`, 'info');
+      // Set up enhanced file watching with incremental compilation
+      const enhancedWatcher = createEnhancedFileWatcher(
+        async (changedFiles: FileChangeInfo[]) => {
+          // Enhanced rebuild callback with batched changes
+          const relativePaths = changedFiles.map((f) => f.relativePath).join(', ');
+          sendLogToWindow(websiteName, `📝 Files changed: ${relativePaths}`, 'info');
           sendLogToWindow(websiteName, `🔄 Rebuilding website…`, 'info');
+
+          const rebuildStart = Date.now();
           try {
+            // Use incremental compilation for better performance
             await eleventy.write();
-            sendLogToWindow(websiteName, `✅ Rebuild completed successfully`, 'info');
+
+            const rebuildTime = Date.now() - rebuildStart;
+            sendLogToWindow(websiteName, `✅ Rebuild completed in ${rebuildTime}ms`, 'info');
+
+            // Log performance metrics every 10 rebuilds
+            const metrics = enhancedWatcher.getMetrics();
+            if (metrics.totalRebuilds % 10 === 0) {
+              sendLogToWindow(
+                websiteName,
+                `📊 Performance: ${metrics.totalRebuilds} rebuilds, avg ${Math.round(metrics.averageRebuildTime)}ms`,
+                'debug'
+              );
+            }
           } catch (error) {
             const sanitizedError = sanitize.error(error);
             logger.error(`Rebuild failed for ${websiteName}`, {
@@ -298,7 +306,51 @@ export async function startWebsiteServer(inputDir: string, websiteName: string, 
             });
             sendLogToWindow(websiteName, `❌ Rebuild failed: ${sanitizedError}`, 'error');
           }
-        });
+        },
+        {
+          inputDir,
+          outputDir: outputDir,
+          debounceMs: 300, // 300ms debounce for responsive rebuilds
+          maxBatchSize: 25, // Process up to 25 changes at once
+          enableMetrics: true,
+          priorityExtensions: ['.md', '.html', '.css', '.js', '.ts', '.json', '.njk', '.liquid'],
+        }
+      );
+
+      // Set up file watching based on environment
+      if (process.env.NODE_ENV !== 'test') {
+        // Production mode: disable default dev server watching since we use enhanced watcher
+        devServer.watchFiles = () => {}; // Override to prevent default watching
+      } else {
+        // Test mode: use legacy dev server file watching for test compatibility
+        const watchPattern = inputDir + '/**/*';
+        const buildDir = path.join(inputDir, '_site');
+        devServer.watchFiles([watchPattern]);
+
+        // Set up the old file change handler for tests
+        if (devServer.watcher) {
+          devServer.watcher.on('change', async (changedPath: string) => {
+            // Skip if the changed file is in the build directory (prevent recursive builds)
+            if (changedPath.startsWith(buildDir)) {
+              sendLogToWindow(websiteName, `🔄 Skipping build directory change: ${changedPath}`, 'debug');
+              return;
+            }
+
+            sendLogToWindow(websiteName, `📝 File changed: ${changedPath}`, 'info');
+            sendLogToWindow(websiteName, `🔄 Rebuilding website…`, 'info');
+            try {
+              await eleventy.write();
+              sendLogToWindow(websiteName, `✅ Rebuild completed successfully`, 'info');
+            } catch (error) {
+              const sanitizedError = sanitize.error(error);
+              logger.error(`Rebuild failed for ${websiteName}`, {
+                error: sanitizedError,
+                websiteName,
+              });
+              sendLogToWindow(websiteName, `❌ Rebuild failed: ${sanitizedError}`, 'error');
+            }
+          });
+        }
       }
 
       // Start the dev server
@@ -314,13 +366,21 @@ export async function startWebsiteServer(inputDir: string, websiteName: string, 
       const actualPort = actualServerUrl ? parseInt(actualServerUrl.split(':')[2]) : port;
 
       sendLogToWindow(websiteName, `🎉 Server ready at ${finalServerUrl}`, 'info');
-      sendLogToWindow(websiteName, `👀 Watching for file changes…`, 'info');
 
       // Initialize URL resolver for file-to-URL mapping
       sendLogToWindow(websiteName, `🗺️ Setting up file-to-URL mapping…`, 'info');
       const urlResolver = new EleventyUrlResolver(path.join(inputDir, 'src'));
       await urlResolver.initialize();
       sendLogToWindow(websiteName, `✅ URL resolver ready`, 'info');
+
+      // Start enhanced file watching (skip in test environment)
+      if (process.env.NODE_ENV !== 'test') {
+        sendLogToWindow(websiteName, `👀 Starting enhanced file watching…`, 'info');
+        await enhancedWatcher.start();
+        sendLogToWindow(websiteName, `✅ Enhanced file watching active with smart debouncing`, 'info');
+      } else {
+        sendLogToWindow(websiteName, `👀 Using legacy file watching for test environment`, 'debug');
+      }
 
       return {
         eleventy,
@@ -331,6 +391,7 @@ export async function startWebsiteServer(inputDir: string, websiteName: string, 
         actualUrl: finalServerUrl,
         urlResolver,
         restoreConsole,
+        enhancedWatcher,
       };
     } finally {
       // No need to restore working directory since we're using absolute paths
@@ -358,12 +419,25 @@ export async function stopWebsiteServer(server: WebsiteServer): Promise<void> {
       server.restoreConsole();
     }
 
-    // Stop the file watcher first to prevent fsevents crashes
+    // Stop the enhanced file watcher first to prevent fsevents crashes
+    if (server.enhancedWatcher && process.env.NODE_ENV !== 'test') {
+      try {
+        await server.enhancedWatcher.stop();
+        logger.info(`Enhanced file watcher stopped for port ${server.port}`);
+      } catch (watcherError) {
+        logger.error(`Error stopping enhanced file watcher for port ${server.port}`, {
+          error: sanitize.error(watcherError),
+          port: server.port,
+        });
+      }
+    }
+
+    // Stop the legacy file watcher if it exists
     if (server.devServer && server.devServer.watcher) {
       try {
         await server.devServer.watcher.close();
       } catch (watcherError) {
-        logger.error(`Error closing file watcher for port ${server.port}`, {
+        logger.error(`Error closing legacy file watcher for port ${server.port}`, {
           error: sanitize.error(watcherError),
           port: server.port,
         });

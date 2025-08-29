@@ -63,6 +63,7 @@ interface CustomWindow extends Window {
     send: jest.Mock;
     invoke: jest.Mock;
     on: jest.Mock;
+    off: jest.Mock;
     removeAllListeners: jest.Mock;
     getCurrentTheme: jest.Mock;
     onThemeUpdated: jest.Mock;
@@ -82,6 +83,7 @@ const mockElectronAPI = {
   send: jest.fn(),
   invoke: jest.fn(),
   on: jest.fn(),
+  off: jest.fn(),
   removeAllListeners: jest.fn(),
   getCurrentTheme: jest.fn(),
   onThemeUpdated: jest.fn(),

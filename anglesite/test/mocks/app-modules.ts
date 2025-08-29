@@ -20,6 +20,7 @@ const mockMultiWindowManager = {
   loadWebsiteContent: jest.fn((_websiteName: string) => {}),
   getWebsiteWindow: jest.fn((_websiteName: string) => null),
   saveWindowStates: jest.fn(),
+  setupServerManagerEventListeners: jest.fn(),
 };
 
 jest.mock('../../app/ui/multi-window-manager', () => mockMultiWindowManager);
@@ -138,6 +139,25 @@ const mockTemplateLoader = {
 
 jest.mock('../../app/ui/template-loader', () => mockTemplateLoader);
 
+const mockEnhancedFileWatcher = {
+  start: jest.fn(() => Promise.resolve()),
+  stop: jest.fn(() => Promise.resolve()),
+  getMetrics: jest.fn(() => ({
+    totalChanges: 0,
+    totalRebuilds: 0,
+    averageRebuildTime: 0,
+    batchedChanges: 0,
+    ignoredChanges: 0,
+    peakMemoryUsage: 0,
+    startTime: Date.now(),
+  })),
+};
+
+jest.mock('../../app/server/enhanced-file-watcher', () => ({
+  createEnhancedFileWatcher: jest.fn(() => mockEnhancedFileWatcher),
+  EnhancedFileWatcher: jest.fn().mockImplementation(() => mockEnhancedFileWatcher),
+}));
+
 // Path is already mocked by node-modules.ts
 
 export const resetAppModulesMocks = () => {
@@ -218,6 +238,10 @@ export const resetAppModulesMocks = () => {
   mockWebsiteManager.deleteWebsite.mockClear();
 
   mockTemplateLoader.loadTemplateAsDataUrl.mockClear();
+
+  mockEnhancedFileWatcher.start.mockClear();
+  mockEnhancedFileWatcher.stop.mockClear();
+  mockEnhancedFileWatcher.getMetrics.mockClear();
 };
 
 export {
@@ -233,4 +257,5 @@ export {
   mockThemeManager,
   mockWebsiteManager,
   mockTemplateLoader,
+  mockEnhancedFileWatcher,
 };

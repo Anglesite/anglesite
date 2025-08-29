@@ -12,15 +12,15 @@
   "scripts": {
     "build:app": "node bin/build-app.js",
     "build:icons": "node bin/build-icons.js",
-    "build:react": "NODE_ENV=production webpack --mode=production",
-    "build:react:dev": "webpack --mode=development",
-    "build:react:sourcemaps": "NODE_ENV=production UPLOAD_SOURCE_MAPS=true webpack --mode=production",
-    "build:react:validate": "NODE_ENV=production VALIDATE_SOURCE_MAPS=true webpack --mode=production",
-    "build:react:secure": "NODE_ENV=production ELECTRON_IS_PACKAGED=true webpack --mode=production",
+    "build:react": "NODE_ENV=production webpack --config webpack.prod.js",
+    "build:react:dev": "webpack --config webpack.dev.js",
+    "build:react:sourcemaps": "NODE_ENV=production UPLOAD_SOURCE_MAPS=true webpack --config webpack.prod.js",
+    "build:react:validate": "NODE_ENV=production VALIDATE_SOURCE_MAPS=true webpack --config webpack.prod.js",
+    "build:react:secure": "NODE_ENV=production ELECTRON_IS_PACKAGED=true webpack --config webpack.prod.js",
     "build": "npm run build:app && npm run build:react",
-    "dev:react": "webpack serve --mode=development --no-open",
-    "dev:react:debug": "webpack serve --mode=development --no-open --stats=verbose",
-    "analyze:bundle": "ANALYZE_BUNDLE=true npm run build:react",
+    "dev:react": "webpack serve --config webpack.dev.js --no-open",
+    "dev:react:debug": "webpack serve --config webpack.dev.js --no-open --stats=verbose",
+    "analyze:bundle": "ANALYZE_BUNDLE=true webpack --config webpack.prod.js",
     "dist": "node bin/dist-build.js",
     "clear-cache": "node bin/clear-cache.js",
     "dist:mac": "node bin/dist-build.js mac",
@@ -36,6 +36,10 @@
     "start": "electron .",
     "start:dev": "npm run build:app && electron . --dev-react",
     "test:coverage": "jest --coverage --config jest.coverage.config.ts",
+    "test:coverage:fast": "jest --coverage --config jest.coverage.config.ts --runInBand --bail",
+    "test:integration": "jest --config jest.integration.config.ts",
+    "test:unit": "jest --testPathIgnorePatterns='/integration/' --testPathIgnorePatterns='/e2e/'",
+    "test:all": "npm run test:coverage && npm run test:integration",
     "test": "jest"
   },
   "keywords": [
@@ -208,7 +212,8 @@
     "webpack": "^5.101.3",
     "webpack-bundle-analyzer": "^4.10.2",
     "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.2"
+    "webpack-dev-server": "^5.2.2",
+    "webpack-merge": "^6.0.1"
   },
   "dependencies": {
     "@11ty/eleventy": "^3.1.2",

@@ -139,10 +139,10 @@ const ASSET_CONFIG = {
       // - Preserves original source structure (module)
       // - Perfect for TypeScript/JSX debugging during development
       devtool: 'eval-cheap-module-source-map',
-      
+
       // CSS source maps for development debugging
       css: true,
-      
+
       // Enable source maps for all loaders (ts-loader, css-loader, etc.)
       loaders: true,
     },
@@ -151,31 +151,29 @@ const ASSET_CONFIG = {
       // - source-map: Full debugging capability with references in bundle
       // - hidden-source-map: No bundle references, more secure for public distribution
       devtool: process.env.ELECTRON_IS_PACKAGED ? 'hidden-source-map' : 'source-map',
-      
+
       // CSS source maps for production debugging (separate files)
       css: true,
-      
+
       // Selective node_modules inclusion - exclude most but allow critical debugging deps
-      exclude: [
-        /node_modules\/(?!(react|react-dom|@dwk\/anglesite-))/,
-      ],
-      
+      exclude: [/node_modules\/(?!(react|react-dom|@dwk\/anglesite-))/],
+
       // Source map file naming pattern - now handled by SourceMapDevToolPlugin
       filename: '[file].map[query]',
-      
+
       // Security headers for source map files
       headers: {
         'X-Content-Type-Options': 'nosniff',
         'Cache-Control': 'private, max-age=0',
       },
-      
+
       // Source map validation during build
       validation: {
         enabled: process.env.VALIDATE_SOURCE_MAPS === 'true',
         checkIntegrity: true,
         reportMissing: true,
       },
-      
+
       // Enhanced error tracking service integration
       upload: {
         enabled: process.env.UPLOAD_SOURCE_MAPS === 'true',

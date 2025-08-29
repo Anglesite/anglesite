@@ -1,0 +1,282 @@
+63a5c083b526017cae8762ce9a5ba920
+"use strict";
+/**
+ * @file Production webpack configuration for Anglesite
+ * @description Optimized for performance, bundle size, and caching. Features minification,
+ * CSS extraction, image optimization, code splitting, and production-ready source maps.
+ * Merges with common configuration and adds production-specific optimizations.
+ * @author David W. Keith <git@dwk.io>
+ * @since 0.1.0
+ */
+const path = require('path');
+const { merge } = require('webpack-merge');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const ImageminWebpWebpackPlugin = require('imagemin-webp-webpack-plugin');
+const ImageminAvifWebpackPlugin = require('imagemin-avif-webpack-plugin');
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+const common = require('./webpack.common.js');
+const ASSET_CONFIG = require('./assets.config');
+/** Enable bundle analysis when ANALYZE_BUNDLE environment variable is set */
+const analyzeBundle = process.env.ANALYZE_BUNDLE === 'true';
+/**
+ * Production webpack configuration
+ * @type {import('webpack').Configuration}
+ */
+module.exports = merge(common, {
+    /** Production mode enables optimizations and minification */
+    mode: 'production',
+    /**
+     * Production output configuration
+     * Uses content hashes for optimal browser caching
+     */
+    output: {
+        path: path.resolve(__dirname, 'dist/app/ui/react'),
+        filename: ASSET_CONFIG.output.naming.production.js,
+        chunkFilename: '[name].[contenthash:8].chunk.js',
+        publicPath: ASSET_CONFIG.output.publicPath.production,
+        clean: ASSET_CONFIG.output.clean,
+        assetModuleFilename: 'assets/[name].[contenthash:8][ext]',
+        sourceMapFilename: ASSET_CONFIG.sourceMaps.production.filename,
+    },
+    /** Production-specific module rules */
+    module: {
+        rules: [
+            /**
+             * TypeScript/React files for production
+             * Optimized for smaller bundle size with production source maps
+             */
+            {
+                test: /\.tsx?$/,
+                exclude: /node_modules/,
+                use: [
+                    {
+                        loader: 'ts-loader',
+                        options: {
+                            transpileOnly: true,
+                            configFile: path.resolve(__dirname, 'app/ui/react/tsconfig.json'),
+                            compilerOptions: {
+                                sourceMap: ASSET_CONFIG.sourceMaps.production.loaders,
+                            },
+                        },
+                    },
+                ],
+            },
+            /**
+             * CSS files extracted to separate files for production
+             * Enables better caching and parallel loading
+             */
+            {
+                test: /\.css$/,
+                use: [
+                    MiniCssExtractPlugin.loader,
+                    {
+                        loader: 'css-loader',
+                        options: {
+                            importLoaders: 2,
+                            sourceMap: ASSET_CONFIG.sourceMaps.production.css,
+                        },
+                    },
+                    {
+                        loader: 'postcss-loader',
+                        options: {
+                            sourceMap: ASSET_CONFIG.sourceMaps.production.css,
+                        },
+                    },
+                ],
+            },
+            /**
+             * Responsive images optimized for production
+             * Generates multiple formats and sizes for optimal loading
+             */
+            {
+                test: /\.(png|jpg|jpeg)$/i,
+                use: [
+                    {
+                        loader: 'responsive-loader',
+                        options: {
+                            adapter: require('responsive-loader/sharp'),
+                            sizes: ASSET_CONFIG.images.breakpoints,
+                            placeholder: true,
+                            placeholderSize: 40,
+                            quality: ASSET_CONFIG.images.quality.jpeg,
+                            format: 'jpg',
+                        },
+                    },
+                ],
+                type: 'javascript/auto',
+            },
+            /**
+             * Static images with production hashed filenames
+             * Enables optimal caching strategies
+             */
+            {
+                test: /\.(svg|gif|ico)$/i,
+                generator: {
+                    filename: ASSET_CONFIG.output.naming.production.images,
+                },
+            },
+            /**
+             * Font files with production hashed filenames
+             * Long-term caching with content-based hashes
+             */
+            {
+                test: /\.(woff|woff2|eot|ttf|otf)$/i,
+                generator: {
+                    filename: ASSET_CONFIG.output.naming.production.fonts,
+                },
+            },
+        ],
+    },
+    /** Production-specific plugins */
+    plugins: [
+        /**
+         * HTML template plugin for production
+         * Minifies HTML and injects optimized assets
+         */
+        new HtmlWebpackPlugin({
+            template: path.resolve(__dirname, 'app/ui/templates/website-editor-react-production.html'),
+            filename: 'index.html',
+            inject: 'body',
+            minify: {
+                removeComments: true,
+                collapseWhitespace: true,
+                removeRedundantAttributes: true,
+                useShortDoctype: true,
+                removeEmptyAttributes: true,
+                removeStyleLinkTypeAttributes: true,
+                keepClosingSlash: true,
+                minifyJS: true,
+                minifyCSS: true,
+                minifyURLs: true,
+            },
+        }),
+        /**
+         * CSS extraction plugin for production
+         * Separates CSS into cacheable files with content hashes
+         */
+        new MiniCssExtractPlugin({
+            filename: ASSET_CONFIG.output.naming.production.css,
+            chunkFilename: '[name].[contenthash:8].chunk.css',
+        }),
+        /**
+         * WebP image optimization for modern browsers
+         * Reduces image file sizes by up to 25-30%
+         */
+        new ImageminWebpWebpackPlugin({
+            config: [
+                {
+                    test: /\.(jpe?g|png)$/,
+                    options: {
+                        quality: ASSET_CONFIG.images.quality.webp,
+                    },
+                },
+            ],
+            overrideExtension: false,
+        }),
+        /**
+         * AVIF image optimization for latest browsers
+         * Next-generation format with superior compression
+         */
+        new ImageminAvifWebpackPlugin({
+            config: [
+                {
+                    test: /\.(jpe?g|png)$/,
+                    options: {
+                        quality: ASSET_CONFIG.images.quality.avif,
+                    },
+                },
+            ],
+            overrideExtension: false,
+        }),
+        /**
+         * Bundle analyzer for production builds (optional)
+         * Helps identify optimization opportunities
+         */
+        analyzeBundle &&
+            new BundleAnalyzerPlugin({
+                analyzerMode: 'server',
+                openAnalyzer: ASSET_CONFIG.performance.analyzer.openAnalyzer,
+            }),
+    ].filter(Boolean),
+    /**
+     * Production optimization configuration
+     * Enables aggressive minification and optimal code splitting
+     */
+    optimization: {
+        /** Enable all optimization plugins */
+        minimize: true,
+        /** Custom minimizers for JS and CSS */
+        minimizer: [
+            /**
+             * JavaScript minification with Terser
+             * Removes console.log statements and comments
+             */
+            new TerserPlugin({
+                terserOptions: {
+                    compress: {
+                        drop_console: true,
+                    },
+                },
+            }),
+            /**
+             * CSS minification and optimization
+             * Removes whitespace and optimizes selectors
+             */
+            new CssMinimizerPlugin(),
+        ],
+        /**
+         * Code splitting configuration for optimal caching
+         * Separates vendor code from application code
+         */
+        splitChunks: {
+            chunks: 'all',
+            cacheGroups: {
+                /**
+                 * Vendor chunk for third-party libraries
+                 * High priority to ensure consistent splitting
+                 */
+                vendor: {
+                    test: /[\\/]node_modules[\\/]/,
+                    name: 'vendors',
+                    priority: 10,
+                    reuseExistingChunk: true,
+                },
+                /**
+                 * Common chunk for shared application code
+                 * Lower priority than vendor chunks
+                 */
+                common: {
+                    name: 'common',
+                    minChunks: 2,
+                    priority: 5,
+                    reuseExistingChunk: true,
+                },
+            },
+        },
+        /**
+         * Runtime chunk extraction for better caching
+         * Webpack runtime code in separate file
+         */
+        runtimeChunk: {
+            name: 'runtime',
+        },
+    },
+    /**
+     * Production source maps for debugging
+     * Separate files to avoid impacting bundle size
+     */
+    devtool: ASSET_CONFIG.sourceMaps.production.devtool,
+    /**
+     * Performance budgets and warnings
+     * Helps identify bundle size issues early
+     */
+    performance: {
+        hints: ASSET_CONFIG.performance.hints,
+        maxEntrypointSize: ASSET_CONFIG.performance.maxEntrypointSize,
+        maxAssetSize: ASSET_CONFIG.performance.maxAssetSize,
+    },
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2R3ay9EZXZlbG9wZXIvZ2l0bGFiLmNvbS9kYXZpZHdrZWl0aC9AZHdrL2FuZ2xlc2l0ZS93ZWJwYWNrLnByb2QuanMiLCJtYXBwaW5ncyI6IjtBQUFBOzs7Ozs7O0dBT0c7QUFFSCxNQUFNLElBQUksR0FBRyxPQUFPLENBQUMsTUFBTSxDQUFDLENBQUM7QUFDN0IsTUFBTSxFQUFFLEtBQUssRUFBRSxHQUFHLE9BQU8sQ0FBQyxlQUFlLENBQUMsQ0FBQztBQUMzQyxNQUFNLG9CQUFvQixHQUFHLE9BQU8sQ0FBQyx5QkFBeUIsQ0FBQyxDQUFDO0FBQ2hFLE1BQU0sa0JBQWtCLEdBQUcsT0FBTyxDQUFDLDhCQUE4QixDQUFDLENBQUM7QUFDbkUsTUFBTSxZQUFZLEdBQUcsT0FBTyxDQUFDLHVCQUF1QixDQUFDLENBQUM7QUFDdEQsTUFBTSxpQkFBaUIsR0FBRyxPQUFPLENBQUMscUJBQXFCLENBQUMsQ0FBQztBQUN6RCxNQUFNLHlCQUF5QixHQUFHLE9BQU8sQ0FBQyw4QkFBOEIsQ0FBQyxDQUFDO0FBQzFFLE1BQU0seUJBQXlCLEdBQUcsT0FBTyxDQUFDLDhCQUE4QixDQUFDLENBQUM7QUFDMUUsTUFBTSxFQUFFLG9CQUFvQixFQUFFLEdBQUcsT0FBTyxDQUFDLHlCQUF5QixDQUFDLENBQUM7QUFDcEUsTUFBTSxNQUFNLEdBQUcsT0FBTyxDQUFDLHFCQUFxQixDQUFDLENBQUM7QUFDOUMsTUFBTSxZQUFZLEdBQUcsT0FBTyxDQUFDLGlCQUFpQixDQUFDLENBQUM7QUFFaEQsNkVBQTZFO0FBQzdFLE1BQU0sYUFBYSxHQUFHLE9BQU8sQ0FBQyxHQUFHLENBQUMsY0FBYyxLQUFLLE1BQU0sQ0FBQztBQUU1RDs7O0dBR0c7QUFDSCxNQUFNLENBQUMsT0FBTyxHQUFHLEtBQUssQ0FBQyxNQUFNLEVBQUU7SUFDN0IsNkRBQTZEO0lBQzdELElBQUksRUFBRSxZQUFZO0lBRWxCOzs7T0FHRztJQUNILE1BQU0sRUFBRTtRQUNOLElBQUksRUFBRSxJQUFJLENBQUMsT0FBTyxDQUFDLFNB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UUFDWixzQ0FBc0M7UUFDdEMsUUFBUSxFQUFFLElBQUk7UUFDZCx1Q0FBdUM7UUFDdkMsU0FBUyxFQUFFO1lBQ1Q7OztlQUdHO1lBQ0gsSUFBSSxZQUFZLENBQUM7Z0JBQ2YsYUFBYSxFQUFFO29CQUNiLFFBQVEsRUFBRTt3QkFDUixZQUFZLEVBQUUsSUFBSTtxQkFDbkI7aUJBQ0Y7YUFDRixDQUFDO1lBQ0Y7OztlQUdHO1lBQ0gsSUFBSSxrQkFBa0IsRUFBRTtTQUN6QjtRQUVEOzs7V0FHRztRQUNILFdBQVcsRUFBRTtZQUNYLE1BQU0sRUFBRSxLQUFLO1lBQ2IsV0FBVyxFQUFFO2dCQUNYOzs7bUJBR0c7Z0JBQ0gsTUFBTSxFQUFFO29CQUNOLElBQUksRUFBRSx3QkFBd0I7b0JBQzlCLElBQUksRUFBRSxTQUFTO29CQUNmLFFBQVEsRUFBRSxFQUFFO29CQUNaLGtCQUFrQixFQUFFLElBQUk7aUJBQ3pCO2dCQUNEOzs7bUJBR0c7Z0JBQ0gsTUFBTSxFQUFFO29CQUNOLElBQUksRUFBRSxRQUFRO29CQUNkLFNBQVMsRUFBRSxDQUFDO29CQUNaLFFBQVEsRUFBRSxDQUFDO29CQUNYLGtCQUFrQixFQUFFLElBQUk7aUJBQ3pCO2FBQ0Y7U0FDRjtRQUVEOzs7V0FHRztRQUNILFlBQVksRUFBRTtZQUNaLElBQUksRUFBRSxTQUFTO1NBQ2hCO0tBQ0Y7SUFFRDs7O09BR0c7SUFDSCxPQUFPLEVBQUUsWUFBWSxDQUFDLFVBQVUsQ0FBQyxVQUFVLENBQUMsT0FBTztJQUVuRDs7O09BR0c7SUFDSCxXQUFXLEVBQUU7UUFDWCxLQUFLLEVBQUUsWUFBWSxDQUFDLFdBQVcsQ0FBQyxLQUFLO1FBQ3JDLGlCQUFpQixFQUFFLFlBQVksQ0FBQyxXQUFXLENBQUMsaUJBQWlCO1FBQzdELFlBQVksRUFBRSxZQUFZLENBQUMsV0FBVyxDQUFDLFlBQVk7S0FDcEQ7Q0FDRixDQUFDLENBQUMiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL2R3ay9EZXZlbG9wZXIvZ2l0bGFiLmNvbS9kYXZpZHdrZWl0aC9AZHdrL2FuZ2xlc2l0ZS93ZWJwYWNrLnByb2QuanMiXSwic291cmNlc0NvbnRlbnQiOlsiLyoqXG4gKiBAZmlsZSBQcm9kdWN0aW9uIHdlYnBhY2sgY29uZmlndXJhdGlvbiBmb3IgQW5nbGVzaXRlXG4gKiBAZGVzY3JpcHRpb24gT3B0aW1pemVkIGZvciBwZXJmb3JtYW5jZSwgYnVuZGxlIHNpemUsIGFuZCBjYWNoaW5nLiBGZWF0dXJlcyBtaW5pZmljYXRpb24sXG4gKiBDU1MgZXh0cmFjdGlvbiwgaW1hZ2Ugb3B0aW1pemF0aW9uLCBjb2RlIHNwbGl0dGluZywgYW5kIHByb2R1Y3Rpb24tcmVhZHkgc291cmNlIG1hcHMuXG4gKiBNZXJnZXMgd2l0aCBjb21tb24gY29uZmlndXJhdGlvbiBhbmQgYWRkcyBwcm9kdWN0aW9uLXNwZWNpZmljIG9wdGltaXphdGlvbnMuXG4gKiBAYXV0aG9yIERhdmlkIFcuIEtlaXRoIDxnaXRAZHdrLmlvPlxuICogQHNpbmNlIDAuMS4wXG4gKi9cblxuY29uc3QgcGF0aCA9IHJlcXVpcmUoJ3BhdGgnKTtcbmNvbnN0IHsgbWVyZ2UgfSA9IHJlcXVpcmUoJ3dlYnBhY2stbWVyZ2UnKTtcbmNvbnN0IE1pbmlDc3NFeHRyYWN0UGx1Z2luID0gcmVxdWlyZSgnbWluaS1jc3MtZXh0cmFjdC1wbHVnaW4nKTtcbmNvbnN0IENzc01pbmltaXplclBsdWdpbiA9IHJlcXVpcmUoJ2Nzcy1taW5pbWl6ZXItd2VicGFjay1wbHVnaW4nKTtcbmNvbnN0IFRlcnNlclBsdWdpbiA9IHJlcXVpcmUoJ3RlcnNlci13ZWJwYWNrLXBsdWdpbicpO1xuY29uc3QgSHRtbFdlYnBhY2tQbHVnaW4gPSByZXF1aXJlKCdodG1sLXdlYnBhY2stcGx1Z2luJyk7XG5jb25zdCBJbWFnZW1pbldlYnBXZWJwYWNrUGx1Z2luID0gcmVxdWlyZSgnaW1hZ2VtaW4td2VicC13ZWJwYWNrLXBsdWdpbicpO1xuY29uc3QgSW1hZ2VtaW5BdmlmV2VicGFja1BsdWdpbiA9IHJlcXVpcmUoJ2ltYWdlbWluLWF2aWYtd2VicGFjay1wbHVnaW4nKTtcbmNvbnN0IHsgQnVuZGxlQW5hbHl6ZXJQbHVnaW4gfSA9IHJlcXVpcmUoJ3dlYnBhY2stYnVuZGxlLWFuYWx5emVyJyk7XG5jb25zdCBjb21tb24gPSByZXF1aXJlKCcuL3dlYnBhY2suY29tbW9uLmpzJyk7XG5jb25zdCBBU1NFVF9DT05GSUcgPSByZXF1aXJlKCcuL2Fzc2V0cy5jb25maWcnKTtcblxuLyoqIEVuYWJsZSBidW5kbGUgYW5hbHlzaXMgd2hlbiBBTkFMWVpFX0JVTkRMRSBlbnZpcm9ubWVudCB2YXJpYWJsZSBpcyBzZXQgKi9cbmNvbnN0IGFuYWx5emVCdW5kbGUgPSBwcm9jZXNzLmVudi5BTkFMWVpFX0JVTkRMRSA9PT0gJ3RydWUnO1xuXG4vKipcbiAqIFByb2R1Y3Rpb24gd2VicGFjayBjb25maWd1cmF0aW9uXG4gKiBAdHlwZSB7aW1wb3J0KCd3ZWJwYWNrJykuQ29uZmlndXJhdGlvbn1cbiAqL1xubW9kdWxlLmV4cG9ydHMgPSBtZXJnZShjb21tb24sIHtcbiAgLyoqIFByb2R1Y3Rpb24gbW9kZSBlbmFibGVzIG9wdGltaXphdGlvbnMgYW5kIG1pbmlmaWNhdGlvbiAqL1xuICBtb2RlOiAncHJvZHVjdGlvbicsXG4gIFxuICAvKiogXG4gICAqIFByb2R1Y3Rpb24gb3V0cHV0IGNvbmZpZ3VyYXRpb25cbiAgICogVXNlcyBjb250ZW50IGhhc2hlcyBmb3Igb3B0aW1hbCBicm93c2VyIGNhY2hpbmdcbiAgICovXG4gIG91dHB1dDoge1xuICAgIHBhdGg6IHBhdGgucmVzb2x2ZShfX2Rpcm5hbWUsICdkaXN0L2FwcC91aS9yZWFjdCcpLFxuICAgIGZpbGVuYW1lOiBBU1NFVF9DT05GSUcub3V0cHV0Lm5hbWluZy5wcm9kdWN0aW9uLmpzLFxuICAgIGNodW5rRmlsZW5hbWU6ICdbbmFtZV0uW2NvbnRlbnRoYXNoOjhdLmNodW5rLmpzJyxcbiAgICBwdWJsaWNQYXRoOiBBU1NFVF9DT05GSUcub3V0cHV0LnB1YmxpY1BhdGgucHJvZHVjdGlvbixcbiAgICBjbGVhbjogQVNTRVRfQ09ORklHLm91dHB1dC5jbGVhbixcbiAgICBhc3NldE1vZHVsZUZpbGVuYW1lOiAnYXNzZXRzL1tuYW1lXS5bY29udGVudGhhc2g6OF1bZXh0XScsXG4gICAgc291cmNlTWFwRmlsZW5hbWU6IEFTU0VUX0NPTkZJRy5zb3VyY2VNYXBzLnByb2R1Y3Rpb24uZmlsZW5hbWUsXG4gIH0sXG5cbiAgLyoqIFByb2R1Y3Rpb24tc3BlY2lmaWMgbW9kdWxlIHJ1bGVzICovXG4gIG1vZHVsZToge1xuICAgIHJ1bGVzOiBbXG4gICAgICAvKiogXG4gICAgICAgKiBUeXBlU2NyaXB0L1JlYWN0IGZpbGVzIGZvciBwcm9kdWN0aW9uXG4gICAgICAgKiBPcHRpbWl6ZWQgZm9yIHNtYWxsZXIgYnVuZGxlIHNpemUgd2l0aCBwcm9kdWN0aW9uIHNvdXJjZSBtYXBzXG4gICAgICAgKi9cbiAgICAgIHtcbiAgICAgICAgdGVzdDogL1xcLnRzeD8kLyxcbiAgICAgICAgZXhjbHVkZTogL25vZGVfbW9kdWxlcy8sXG4gICAgICAgIHVzZTogW1xuICAgICAgICAgIHtcbiAgICAgICAgICAgIGxvYWRlcjogJ3RzLWxvYWRlcicsXG4gICAgICAgICAgICBvcHRpb25zOiB7XG4gICAgICAgICAgICAgIHRyYW5zcGlsZU9ubHk6IHRydWUsXG4gICAgICAgICAgICAgIGNvbmZpZ0ZpbGU6IHBhdGgucmVzb2x2ZShfX2Rpcm5hbWUsICdhcHAvdWkvcmVhY3QvdHNjb25maWcuanNvbicpLFxuICAgICAgICAgICAgICBjb21waWxlck9wdGlvbnM6IHtcbiAgICAgICAgICAgICAgICBzb3VyY2VNYXA6IEFTU0VUX0NPTkZJRy5zb3VyY2VNYXBzLnByb2R1Y3Rpb24ubG9hZGVycyxcbiAgICAgICAgICAgICAgfSxcbiAgICAgICAgICAgIH0sXG4gICAgICAgICAgfSxcbiAgICAgICAgXSxcbiAgICAgIH0sXG5cbiAgICAgIC8qKiBcbiAgICAgICAqIENTUyBmaWxlcyBleHRyYWN0ZWQgdG8gc2VwYXJhdGUgZmlsZXMgZm9yIHByb2R1Y3Rpb25cbiAgICAgICAqIEVuYWJsZXMgYmV0dGVyIGNhY2hpbmcgYW5kIHBhcmFsbGVsIGxvYWRpbmdcbiAgICAgICAqL1xuICAgICAge1xuICAgICAgICB0ZXN0OiAvXFwuY3NzJC8sXG4gICAgICAgIHVzZTogW1xuICAgICAgICAgIE1pbmlDc3NFeHRyYWN0UGx1Z2luLmxvYWRlcixcbiAgICAgICAgICB7XG4gICAgICAgICAgICBsb2FkZXI6ICdjc3MtbG9hZGVyJyxcbiAgICAgICAgICAgIG9wdGlvbnM6IHtcbiAgICAgICAgICAgICAgaW1wb3J0TG9hZGVyczogMixcbiAgICAgICAgICAgICAgc291cmNlTWFwOiBBU1NFVF9DT05GSUcuc291cmNlTWFwcy5wcm9kdWN0aW9uLmNzcyxcbiAgICAgICAgICAgIH0sXG4gICAgICAgICAgfSxcbiAgICAgICAgICB7XG4gICAgICAgICAgICBsb2FkZXI6ICdwb3N0Y3NzLWxvYWRlcicsXG4gICAgICAgICAgICBvcHRpb25zOiB7XG4gICAgICAgICAgICAgIHNvdXJjZU1hcDogQVNTRVRfQ09ORklHLnNvdXJjZU1hcHMucHJvZHVjdGlvbi5jc3MsXG4gICAgICAgICAgICB9LFxuICAgICAgICAgIH0sXG4gICAgICAgIF0sXG4gICAgICB9LFxuXG4gICAgICAvKiogXG4gICAgICAgKiBSZXNwb25zaXZlIGltYWdlcyBvcHRpbWl6ZWQgZm9yIHByb2R1Y3Rpb25cbiAgICAgICAqIEdlbmVyYXRlcyBtdWx0aXBsZSBmb3JtYXRzIGFuZCBzaXplcyBmb3Igb3B0aW1hbCBsb2FkaW5nXG4gICAgICAgKi9cbiAgICAgIHtcbiAgICAgICAgdGVzdDogL1xcLihwbmd8anBnfGpwZWcpJC9pLFxuICAgICAgICB1c2U6IFtcbiAgICAgICAgICB7XG4gICAgICAgICAgICBsb2FkZXI6ICdyZXNwb25zaXZlLWxvYWRlcicsXG4gICAgICAgICAgICBvcHRpb25zOiB7XG4gICAgICAgICAgICAgIGFkYXB0ZXI6IHJlcXVpcmUoJ3Jlc3BvbnNpdmUtbG9hZGVyL3NoYXJwJyksXG4gICAgICAgICAgICAgIHNpemVzOiBBU1NFVF9DT05GSUcuaW1hZ2VzLmJyZWFrcG9pbnRzLFxuICAgICAgICAgICAgICBwbGFjZWhvbGRlcjogdHJ1ZSxcbiAgICAgICAgICAgICAgcGxhY2Vob2xkZXJTaXplOiA0MCxcbiAgICAgICAgICAgICAgcXVhbGl0eTogQVNTRVRfQ09ORklHLmltYWdlcy5xdWFsaXR5LmpwZWcsXG4gICAgICAgICAgICAgIGZvcm1hdDogJ2pwZycsXG4gICAgICAgICAgICB9LFxuICAgICAgICAgIH0sXG4gICAgICAgIF0sXG4gICAgICAgIHR5cGU6ICdqYXZhc2NyaXB0L2F1dG8nLFxuICAgICAgfSxcblxuICAgICAgLyoqIFxuICAgICAgICogU3RhdGljIGltYWdlcyB3aXRoIHByb2R1Y3Rpb24gaGFzaGVkIGZpbGVuYW1lc1xuICAgICAgICogRW5hYmxlcyBvcHRpbWFsIGNhY2hpbmcgc3RyYXRlZ2llc1xuICAgICAgICovXG4gICAgICB7XG4gICAgICAgIHRlc3Q6IC9cXC4oc3ZnfGdpZnxpY28pJC9pLFxuICAgICAgICBnZW5lcmF0b3I6IHtcbiAgICAgICAgICBmaWxlbmFtZTogQVNTRVRfQ09ORklHLm91dHB1dC5uYW1pbmcucHJvZHVjdGlvbi5pbWFnZXMsXG4gICAgICAgIH0sXG4gICAgICB9LFxuXG4gICAgICAvKiogXG4gICAgICAgKiBGb250IGZpbGVzIHdpdGggcHJvZHVjdGlvbiBoYXNoZWQgZmlsZW5hbWVzXG4gICAgICAgKiBMb25nLXRlcm0gY2FjaGluZyB3aXRoIGNvbnRlbnQtYmFzZWQgaGFzaGVzXG4gICAgICAgKi9cbiAgICAgIHtcbiAgICAgICAgdGVzdDogL1xcLih3b2ZmfHdvZmYyfGVvdHx0dGZ8b3RmKSQvaSxcbiAgICAgICAgZ2VuZXJhdG9yOiB7XG4gICAgICAgICAgZmlsZW5hbWU6IEFTU0VUX0NPTkZJRy5vdXRwdXQubmFtaW5nLnByb2R1Y3Rpb24uZm9udHMsXG4gICAgICAgIH0sXG4gICAgICB9LFxuICAgIF0sXG4gIH0sXG5cbiAgLyoqIFByb2R1Y3Rpb24tc3BlY2lmaWMgcGx1Z2lucyAqL1xuICBwbHVnaW5zOiBbXG4gICAgLyoqIFxuICAgICAqIEhUTUwgdGVtcGxhdGUgcGx1Z2luIGZvciBwcm9kdWN0aW9uXG4gICAgICogTWluaWZpZXMgSFRNTCBhbmQgaW5qZWN0cyBvcHRpbWl6ZWQgYXNzZXRzXG4gICAgICovXG4gICAgbmV3IEh0bWxXZWJwYWNrUGx1Z2luKHtcbiAgICAgIHRlbXBsYXRlOiBwYXRoLnJlc29sdmUoX19kaXJuYW1lLCAnYXBwL3VpL3RlbXBsYXRlcy93ZWJzaXRlLWVkaXRvci1yZWFjdC1wcm9kdWN0aW9uLmh0bWwnKSxcbiAgICAgIGZpbGVuYW1lOiAnaW5kZXguaHRtbCcsXG4gICAgICBpbmplY3Q6ICdib2R5JyxcbiAgICAgIG1pbmlmeToge1xuICAgICAgICByZW1vdmVDb21tZW50czogdHJ1ZSxcbiAgICAgICAgY29sbGFwc2VXaGl0ZXNwYWNlOiB0cnVlLFxuICAgICAgICByZW1vdmVSZWR1bmRhbnRBdHRyaWJ1dGVzOiB0cnVlLFxuICAgICAgICB1c2VTaG9ydERvY3R5cGU6IHRydWUsXG4gICAgICAgIHJlbW92ZUVtcHR5QXR0cmlidXRlczogdHJ1ZSxcbiAgICAgICAgcmVtb3ZlU3R5bGVMaW5rVHlwZUF0dHJpYnV0ZXM6IHRydWUsXG4gICAgICAgIGtlZXBDbG9zaW5nU2xhc2g6IHRydWUsXG4gICAgICAgIG1pbmlmeUpTOiB0cnVlLFxuICAgICAgICBtaW5pZnlDU1M6IHRydWUsXG4gICAgICAgIG1pbmlmeVVSTHM6IHRydWUsXG4gICAgICB9LFxuICAgIH0pLFxuXG4gICAgLyoqIFxuICAgICAqIENTUyBleHRyYWN0aW9uIHBsdWdpbiBmb3IgcHJvZHVjdGlvblxuICAgICAqIFNlcGFyYXRlcyBDU1MgaW50byBjYWNoZWFibGUgZmlsZXMgd2l0aCBjb250ZW50IGhhc2hlc1xuICAgICAqL1xuICAgIG5ldyBNaW5pQ3NzRXh0cmFjdFBsdWdpbih7XG4gICAgICBmaWxlbmFtZTogQVNTRVRfQ09ORklHLm91dHB1dC5uYW1pbmcucHJvZHVjdGlvbi5jc3MsXG4gICAgICBjaHVua0ZpbGVuYW1lOiAnW25hbWVdLltjb250ZW50aGFzaDo4XS5jaHVuay5jc3MnLFxuICAgIH0pLFxuXG4gICAgLyoqIFxuICAgICAqIFdlYlAgaW1hZ2Ugb3B0aW1pemF0aW9uIGZvciBtb2Rlcm4gYnJvd3NlcnNcbiAgICAgKiBSZWR1Y2VzIGltYWdlIGZpbGUgc2l6ZXMgYnkgdXAgdG8gMjUtMzAlXG4gICAgICovXG4gICAgbmV3IEltYWdlbWluV2VicFdlYnBhY2tQbHVnaW4oe1xuICAgICAgY29uZmlnOiBbXG4gICAgICAgIHtcbiAgICAgICAgICB0ZXN0OiAvXFwuKGpwZT9nfHBuZykkLyxcbiAgICAgICAgICBvcHRpb25zOiB7XG4gICAgICAgICAgICBxdWFsaXR5OiBBU1NFVF9DT05GSUcuaW1hZ2VzLnF1YWxpdHkud2VicCxcbiAgICAgICAgICB9LFxuICAgICAgICB9LFxuICAgICAgXSxcbiAgICAgIG92ZXJyaWRlRXh0ZW5zaW9uOiBmYWxzZSxcbiAgICB9KSxcblxuICAgIC8qKiBcbiAgICAgKiBBVklGIGltYWdlIG9wdGltaXphdGlvbiBmb3IgbGF0ZXN0IGJyb3dzZXJzXG4gICAgICogTmV4dC1nZW5lcmF0aW9uIGZvcm1hdCB3aXRoIHN1cGVyaW9yIGNvbXByZXNzaW9uXG4gICAgICovXG4gICAgbmV3IEltYWdlbWluQXZpZldlYnBhY2tQbHVnaW4oe1xuICAgICAgY29uZmlnOiBbXG4gICAgICAgIHtcbiAgICAgICAgICB0ZXN0OiAvXFwuKGpwZT9nfHBuZykkLyxcbiAgICAgICAgICBvcHRpb25zOiB7XG4gICAgICAgICAgICBxdWFsaXR5OiBBU1NFVF9DT05GSUcuaW1hZ2VzLnF1YWxpdHkuYXZpZixcbiAgICAgICAgICB9LFxuICAgICAgICB9LFxuICAgICAgXSxcbiAgICAgIG92ZXJyaWRlRXh0ZW5zaW9uOiBmYWxzZSxcbiAgICB9KSxcblxuICAgIC8qKiBcbiAgICAgKiBCdW5kbGUgYW5hbHl6ZXIgZm9yIHByb2R1Y3Rpb24gYnVpbGRzIChvcHRpb25hbClcbiAgICAgKiBIZWxwcyBpZGVudGlmeSBvcHRpbWl6YXRpb24gb3Bwb3J0dW5pdGllc1xuICAgICAqL1xuICAgIGFuYWx5emVCdW5kbGUgJiZcbiAgICAgIG5ldyBCdW5kbGVBbmFseXplclBsdWdpbih7XG4gICAgICAgIGFuYWx5emVyTW9kZTogJ3NlcnZlcicsXG4gICAgICAgIG9wZW5BbmFseXplcjogQVNTRVRfQ09ORklHLnBlcmZvcm1hbmNlLmFuYWx5emVyLm9wZW5BbmFseXplcixcbiAgICAgIH0pLFxuICBdLmZpbHRlcihCb29sZWFuKSxcblxuICAvKiogXG4gICAqIFByb2R1Y3Rpb24gb3B0aW1pemF0aW9uIGNvbmZpZ3VyYXRpb25cbiAgICogRW5hYmxlcyBhZ2dyZXNzaXZlIG1pbmlmaWNhdGlvbiBhbmQgb3B0aW1hbCBjb2RlIHNwbGl0dGluZ1xuICAgKi9cbiAgb3B0aW1pemF0aW9uOiB7XG4gICAgLyoqIEVuYWJsZSBhbGwgb3B0aW1pemF0aW9uIHBsdWdpbnMgKi9cbiAgICBtaW5pbWl6ZTogdHJ1ZSxcbiAgICAvKiogQ3VzdG9tIG1pbmltaXplcnMgZm9yIEpTIGFuZCBDU1MgKi9cbiAgICBtaW5pbWl6ZXI6IFtcbiAgICAgIC8qKiBcbiAgICAgICAqIEphdmFTY3JpcHQgbWluaWZpY2F0aW9uIHdpdGggVGVyc2VyXG4gICAgICAgKiBSZW1vdmVzIGNvbnNvbGUubG9nIHN0YXRlbWVudHMgYW5kIGNvbW1lbnRzXG4gICAgICAgKi9cbiAgICAgIG5ldyBUZXJzZXJQbHVnaW4oe1xuICAgICAgICB0ZXJzZXJPcHRpb25zOiB7XG4gICAgICAgICAgY29tcHJlc3M6IHtcbiAgICAgICAgICAgIGRyb3BfY29uc29sZTogdHJ1ZSxcbiAgICAgICAgICB9LFxuICAgICAgICB9LFxuICAgICAgfSksXG4gICAgICAvKiogXG4gICAgICAgKiBDU1MgbWluaWZpY2F0aW9uIGFuZCBvcHRpbWl6YXRpb25cbiAgICAgICAqIFJlbW92ZXMgd2hpdGVzcGFjZSBhbmQgb3B0aW1pemVzIHNlbGVjdG9yc1xuICAgICAgICovXG4gICAgICBuZXcgQ3NzTWluaW1pemVyUGx1Z2luKCksXG4gICAgXSxcblxuICAgIC8qKiBcbiAgICAgKiBDb2RlIHNwbGl0dGluZyBjb25maWd1cmF0aW9uIGZvciBvcHRpbWFsIGNhY2hpbmdcbiAgICAgKiBTZXBhcmF0ZXMgdmVuZG9yIGNvZGUgZnJvbSBhcHBsaWNhdGlvbiBjb2RlXG4gICAgICovXG4gICAgc3BsaXRDaHVua3M6IHtcbiAgICAgIGNodW5rczogJ2FsbCcsXG4gICAgICBjYWNoZUdyb3Vwczoge1xuICAgICAgICAvKiogXG4gICAgICAgICAqIFZlbmRvciBjaHVuayBmb3IgdGhpcmQtcGFydHkgbGlicmFyaWVzXG4gICAgICAgICAqIEhpZ2ggcHJpb3JpdHkgdG8gZW5zdXJlIGNvbnNpc3RlbnQgc3BsaXR0aW5nXG4gICAgICAgICAqL1xuICAgICAgICB2ZW5kb3I6IHtcbiAgICAgICAgICB0ZXN0OiAvW1xcXFwvXW5vZGVfbW9kdWxlc1tcXFxcL10vLFxuICAgICAgICAgIG5hbWU6ICd2ZW5kb3JzJyxcbiAgICAgICAgICBwcmlvcml0eTogMTAsXG4gICAgICAgICAgcmV1c2VFeGlzdGluZ0NodW5rOiB0cnVlLFxuICAgICAgICB9LFxuICAgICAgICAvKiogXG4gICAgICAgICAqIENvbW1vbiBjaHVuayBmb3Igc2hhcmVkIGFwcGxpY2F0aW9uIGNvZGVcbiAgICAgICAgICogTG93ZXIgcHJpb3JpdHkgdGhhbiB2ZW5kb3IgY2h1bmtzXG4gICAgICAgICAqL1xuICAgICAgICBjb21tb246IHtcbiAgICAgICAgICBuYW1lOiAnY29tbW9uJyxcbiAgICAgICAgICBtaW5DaHVua3M6IDIsXG4gICAgICAgICAgcHJpb3JpdHk6IDUsXG4gICAgICAgICAgcmV1c2VFeGlzdGluZ0NodW5rOiB0cnVlLFxuICAgICAgICB9LFxuICAgICAgfSxcbiAgICB9LFxuXG4gICAgLyoqIFxuICAgICAqIFJ1bnRpbWUgY2h1bmsgZXh0cmFjdGlvbiBmb3IgYmV0dGVyIGNhY2hpbmdcbiAgICAgKiBXZWJwYWNrIHJ1bnRpbWUgY29kZSBpbiBzZXBhcmF0ZSBmaWxlXG4gICAgICovXG4gICAgcnVudGltZUNodW5rOiB7XG4gICAgICBuYW1lOiAncnVudGltZScsXG4gICAgfSxcbiAgfSxcblxuICAvKiogXG4gICAqIFByb2R1Y3Rpb24gc291cmNlIG1hcHMgZm9yIGRlYnVnZ2luZ1xuICAgKiBTZXBhcmF0ZSBmaWxlcyB0byBhdm9pZCBpbXBhY3RpbmcgYnVuZGxlIHNpemVcbiAgICovXG4gIGRldnRvb2w6IEFTU0VUX0NPTkZJRy5zb3VyY2VNYXBzLnByb2R1Y3Rpb24uZGV2dG9vbCxcblxuICAvKiogXG4gICAqIFBlcmZvcm1hbmNlIGJ1ZGdldHMgYW5kIHdhcm5pbmdzXG4gICAqIEhlbHBzIGlkZW50aWZ5IGJ1bmRsZSBzaXplIGlzc3VlcyBlYXJseVxuICAgKi9cbiAgcGVyZm9ybWFuY2U6IHtcbiAgICBoaW50czogQVNTRVRfQ09ORklHLnBlcmZvcm1hbmNlLmhpbnRzLFxuICAgIG1heEVudHJ5cG9pbnRTaXplOiBBU1NFVF9DT05GSUcucGVyZm9ybWFuY2UubWF4RW50cnlwb2ludFNpemUsXG4gICAgbWF4QXNzZXRTaXplOiBBU1NFVF9DT05GSUcucGVyZm9ybWFuY2UubWF4QXNzZXRTaXplLFxuICB9LFxufSk7Il0sInZlcnNpb24iOjN9

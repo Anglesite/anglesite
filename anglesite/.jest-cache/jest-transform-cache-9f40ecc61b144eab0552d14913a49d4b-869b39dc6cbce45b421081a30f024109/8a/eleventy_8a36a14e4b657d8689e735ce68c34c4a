@@ -1,0 +1,533 @@
+471c171f46d1ebcf0253f98432bb7fbd
+"use strict";
+
+/* istanbul ignore next */
+function cov_2he796eh8j() {
+  var path = "/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/app/server/eleventy.ts";
+  var hash = "749d88ec3d68258421ea8062e98e94e84a2ed5eb";
+  var global = new Function("return this")();
+  var gcv = "__coverage__";
+  var coverageData = {
+    path: "/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/app/server/eleventy.ts",
+    statementMap: {
+      "0": {
+        start: {
+          line: 2,
+          column: 0
+        },
+        end: {
+          line: 2,
+          column: 62
+        }
+      },
+      "1": {
+        start: {
+          line: 3,
+          column: 0
+        },
+        end: {
+          line: 3,
+          column: 62
+        }
+      },
+      "2": {
+        start: {
+          line: 4,
+          column: 0
+        },
+        end: {
+          line: 4,
+          column: 44
+        }
+      },
+      "3": {
+        start: {
+          line: 5,
+          column: 0
+        },
+        end: {
+          line: 5,
+          column: 58
+        }
+      },
+      "4": {
+        start: {
+          line: 6,
+          column: 0
+        },
+        end: {
+          line: 6,
+          column: 46
+        }
+      },
+      "5": {
+        start: {
+          line: 7,
+          column: 0
+        },
+        end: {
+          line: 7,
+          column: 54
+        }
+      },
+      "6": {
+        start: {
+          line: 8,
+          column: 0
+        },
+        end: {
+          line: 8,
+          column: 54
+        }
+      },
+      "7": {
+        start: {
+          line: 12,
+          column: 22
+        },
+        end: {
+          line: 12,
+          column: 27
+        }
+      },
+      "8": {
+        start: {
+          line: 13,
+          column: 27
+        },
+        end: {
+          line: 13,
+          column: 51
+        }
+      },
+      "9": {
+        start: {
+          line: 14,
+          column: 25
+        },
+        end: {
+          line: 14,
+          column: 36
+        }
+      },
+      "10": {
+        start: {
+          line: 19,
+          column: 4
+        },
+        end: {
+          line: 26,
+          column: 5
+        }
+      },
+      "11": {
+        start: {
+          line: 20,
+          column: 20
+        },
+        end: {
+          line: 20,
+          column: 42
+        }
+      },
+      "12": {
+        start: {
+          line: 21,
+          column: 8
+        },
+        end: {
+          line: 21,
+          column: 28
+        }
+      },
+      "13": {
+        start: {
+          line: 24,
+          column: 8
+        },
+        end: {
+          line: 24,
+          column: 65
+        }
+      },
+      "14": {
+        start: {
+          line: 25,
+          column: 8
+        },
+        end: {
+          line: 25,
+          column: 27
+        }
+      },
+      "15": {
+        start: {
+          line: 32,
+          column: 4
+        },
+        end: {
+          line: 32,
+          column: 31
+        }
+      },
+      "16": {
+        start: {
+          line: 33,
+          column: 4
+        },
+        end: {
+          line: 33,
+          column: 27
+        }
+      },
+      "17": {
+        start: {
+          line: 39,
+          column: 4
+        },
+        end: {
+          line: 39,
+          column: 32
+        }
+      },
+      "18": {
+        start: {
+          line: 45,
+          column: 4
+        },
+        end: {
+          line: 45,
+          column: 27
+        }
+      },
+      "19": {
+        start: {
+          line: 51,
+          column: 4
+        },
+        end: {
+          line: 51,
+          column: 30
+        }
+      },
+      "20": {
+        start: {
+          line: 57,
+          column: 4
+        },
+        end: {
+          line: 57,
+          column: 30
+        }
+      }
+    },
+    fnMap: {
+      "0": {
+        name: "getHostnameFromTestDomain",
+        decl: {
+          start: {
+            line: 18,
+            column: 9
+          },
+          end: {
+            line: 18,
+            column: 34
+          }
+        },
+        loc: {
+          start: {
+            line: 18,
+            column: 50
+          },
+          end: {
+            line: 27,
+            column: 1
+          }
+        },
+        line: 18
+      },
+      "1": {
+        name: "setLiveServerUrl",
+        decl: {
+          start: {
+            line: 31,
+            column: 9
+          },
+          end: {
+            line: 31,
+            column: 25
+          }
+        },
+        loc: {
+          start: {
+            line: 31,
+            column: 31
+          },
+          end: {
+            line: 34,
+            column: 1
+          }
+        },
+        line: 31
+      },
+      "2": {
+        name: "getCurrentLiveServerUrl",
+        decl: {
+          start: {
+            line: 38,
+            column: 9
+          },
+          end: {
+            line: 38,
+            column: 32
+          }
+        },
+        loc: {
+          start: {
+            line: 38,
+            column: 35
+          },
+          end: {
+            line: 40,
+            column: 1
+          }
+        },
+        line: 38
+      },
+      "3": {
+        name: "isLiveServerReady",
+        decl: {
+          start: {
+            line: 44,
+            column: 9
+          },
+          end: {
+            line: 44,
+            column: 26
+          }
+        },
+        loc: {
+          start: {
+            line: 44,
+            column: 29
+          },
+          end: {
+            line: 46,
+            column: 1
+          }
+        },
+        line: 44
+      },
+      "4": {
+        name: "getCurrentWebsiteName",
+        decl: {
+          start: {
+            line: 50,
+            column: 9
+          },
+          end: {
+            line: 50,
+            column: 30
+          }
+        },
+        loc: {
+          start: {
+            line: 50,
+            column: 33
+          },
+          end: {
+            line: 52,
+            column: 1
+          }
+        },
+        line: 50
+      },
+      "5": {
+        name: "setCurrentWebsiteName",
+        decl: {
+          start: {
+            line: 56,
+            column: 9
+          },
+          end: {
+            line: 56,
+            column: 30
+          }
+        },
+        loc: {
+          start: {
+            line: 56,
+            column: 37
+          },
+          end: {
+            line: 58,
+            column: 1
+          }
+        },
+        line: 56
+      }
+    },
+    branchMap: {},
+    s: {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 0,
+      "9": 0,
+      "10": 0,
+      "11": 0,
+      "12": 0,
+      "13": 0,
+      "14": 0,
+      "15": 0,
+      "16": 0,
+      "17": 0,
+      "18": 0,
+      "19": 0,
+      "20": 0
+    },
+    f: {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0
+    },
+    b: {},
+    inputSourceMap: {
+      file: "/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/app/server/eleventy.ts",
+      mappings: ";;AAUA,8DAQC;AAKD,4CAGC;AAKD,0DAEC;AAKD,8CAEC;AAKD,sDAEC;AAKD,sDAEC;AAtDD;;GAEG;AACH,IAAI,eAAe,GAAG,KAAK,CAAC;AAC5B,IAAI,oBAAoB,GAAG,wBAAwB,CAAC;AACpD,IAAI,kBAAkB,GAAG,WAAW,CAAC;AAErC;;GAEG;AACH,SAAgB,yBAAyB,CAAC,aAAqB;IAC7D,IAAI,CAAC;QACH,MAAM,GAAG,GAAG,IAAI,GAAG,CAAC,aAAa,CAAC,CAAC;QACnC,OAAO,GAAG,CAAC,QAAQ,CAAC;IACtB,CAAC;IAAC,OAAO,KAAK,EAAE,CAAC;QACf,OAAO,CAAC,KAAK,CAAC,kCAAkC,EAAE,KAAK,CAAC,CAAC;QACzD,OAAO,WAAW,CAAC;IACrB,CAAC;AACH,CAAC;AAED;;GAEG;AACH,SAAgB,gBAAgB,CAAC,GAAW;IAC1C,oBAAoB,GAAG,GAAG,CAAC;IAC3B,eAAe,GAAG,IAAI,CAAC;AACzB,CAAC;AAED;;GAEG;AACH,SAAgB,uBAAuB;IACrC,OAAO,oBAAoB,CAAC;AAC9B,CAAC;AAED;;GAEG;AACH,SAAgB,iBAAiB;IAC/B,OAAO,eAAe,CAAC;AACzB,CAAC;AAED;;GAEG;AACH,SAAgB,qBAAqB;IACnC,OAAO,kBAAkB,CAAC;AAC5B,CAAC;AAED;;GAEG;AACH,SAAgB,qBAAqB,CAAC,IAAY;IAChD,kBAAkB,GAAG,IAAI,CAAC;AAC5B,CAAC",
+      names: [],
+      sources: ["/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/app/server/eleventy.ts"],
+      sourcesContent: ["/**\n * @file Eleventy server management.\n */\nlet liveServerReady = false;\nlet currentLiveServerUrl = 'https://localhost:8080';\nlet currentWebsiteName = 'anglesite';\n\n/**\n * Get hostname from test domain URL.\n */\nexport function getHostnameFromTestDomain(testDomainUrl: string): string {\n  try {\n    const url = new URL(testDomainUrl);\n    return url.hostname;\n  } catch (error) {\n    console.error('Failed to parse test domain URL:', error);\n    return 'localhost';\n  }\n}\n\n/**\n * Set the current live-server URL.\n */\nexport function setLiveServerUrl(url: string) {\n  currentLiveServerUrl = url;\n  liveServerReady = true;\n}\n\n/**\n * Returns the URL of the currently running Eleventy server.\n */\nexport function getCurrentLiveServerUrl(): string {\n  return currentLiveServerUrl;\n}\n\n/**\n * Checks whether the Eleventy server has finished starting up and is ready to serve content.\n */\nexport function isLiveServerReady(): boolean {\n  return liveServerReady;\n}\n\n/**\n * Returns the name of the website currently being served by Eleventy.\n */\nexport function getCurrentWebsiteName(): string {\n  return currentWebsiteName;\n}\n\n/**\n * Updates the name of the website currently being served.\n */\nexport function setCurrentWebsiteName(name: string) {\n  currentWebsiteName = name;\n}\n"],
+      version: 3
+    },
+    _coverageSchema: "1a1c01bbd47fc00a2c39e90264f33305004495a9",
+    hash: "749d88ec3d68258421ea8062e98e94e84a2ed5eb"
+  };
+  var coverage = global[gcv] || (global[gcv] = {});
+  if (!coverage[path] || coverage[path].hash !== hash) {
+    coverage[path] = coverageData;
+  }
+  var actualCoverage = coverage[path];
+  {
+    // @ts-ignore
+    cov_2he796eh8j = function () {
+      return actualCoverage;
+    };
+  }
+  return actualCoverage;
+}
+cov_2he796eh8j();
+cov_2he796eh8j().s[0]++;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+/* istanbul ignore next */
+cov_2he796eh8j().s[1]++;
+exports.getHostnameFromTestDomain = getHostnameFromTestDomain;
+/* istanbul ignore next */
+cov_2he796eh8j().s[2]++;
+exports.setLiveServerUrl = setLiveServerUrl;
+/* istanbul ignore next */
+cov_2he796eh8j().s[3]++;
+exports.getCurrentLiveServerUrl = getCurrentLiveServerUrl;
+/* istanbul ignore next */
+cov_2he796eh8j().s[4]++;
+exports.isLiveServerReady = isLiveServerReady;
+/* istanbul ignore next */
+cov_2he796eh8j().s[5]++;
+exports.getCurrentWebsiteName = getCurrentWebsiteName;
+/* istanbul ignore next */
+cov_2he796eh8j().s[6]++;
+exports.setCurrentWebsiteName = setCurrentWebsiteName;
+/**
+ * @file Eleventy server management.
+ */
+let liveServerReady =
+/* istanbul ignore next */
+(cov_2he796eh8j().s[7]++, false);
+let currentLiveServerUrl =
+/* istanbul ignore next */
+(cov_2he796eh8j().s[8]++, 'https://localhost:8080');
+let currentWebsiteName =
+/* istanbul ignore next */
+(cov_2he796eh8j().s[9]++, 'anglesite');
+/**
+ * Get hostname from test domain URL.
+ */
+function getHostnameFromTestDomain(testDomainUrl) {
+  /* istanbul ignore next */
+  cov_2he796eh8j().f[0]++;
+  cov_2he796eh8j().s[10]++;
+  try {
+    const url =
+    /* istanbul ignore next */
+    (cov_2he796eh8j().s[11]++, new URL(testDomainUrl));
+    /* istanbul ignore next */
+    cov_2he796eh8j().s[12]++;
+    return url.hostname;
+  } catch (error) {
+    /* istanbul ignore next */
+    cov_2he796eh8j().s[13]++;
+    console.error('Failed to parse test domain URL:', error);
+    /* istanbul ignore next */
+    cov_2he796eh8j().s[14]++;
+    return 'localhost';
+  }
+}
+/**
+ * Set the current live-server URL.
+ */
+function setLiveServerUrl(url) {
+  /* istanbul ignore next */
+  cov_2he796eh8j().f[1]++;
+  cov_2he796eh8j().s[15]++;
+  currentLiveServerUrl = url;
+  /* istanbul ignore next */
+  cov_2he796eh8j().s[16]++;
+  liveServerReady = true;
+}
+/**
+ * Returns the URL of the currently running Eleventy server.
+ */
+function getCurrentLiveServerUrl() {
+  /* istanbul ignore next */
+  cov_2he796eh8j().f[2]++;
+  cov_2he796eh8j().s[17]++;
+  return currentLiveServerUrl;
+}
+/**
+ * Checks whether the Eleventy server has finished starting up and is ready to serve content.
+ */
+function isLiveServerReady() {
+  /* istanbul ignore next */
+  cov_2he796eh8j().f[3]++;
+  cov_2he796eh8j().s[18]++;
+  return liveServerReady;
+}
+/**
+ * Returns the name of the website currently being served by Eleventy.
+ */
+function getCurrentWebsiteName() {
+  /* istanbul ignore next */
+  cov_2he796eh8j().f[4]++;
+  cov_2he796eh8j().s[19]++;
+  return currentWebsiteName;
+}
+/**
+ * Updates the name of the website currently being served.
+ */
+function setCurrentWebsiteName(name) {
+  /* istanbul ignore next */
+  cov_2he796eh8j().f[5]++;
+  cov_2he796eh8j().s[20]++;
+  currentWebsiteName = name;
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJleHBvcnRzIiwiZ2V0SG9zdG5hbWVGcm9tVGVzdERvbWFpbiIsImNvdl8yaGU3OTZlaDhqIiwicyIsInNldExpdmVTZXJ2ZXJVcmwiLCJnZXRDdXJyZW50TGl2ZVNlcnZlclVybCIsImlzTGl2ZVNlcnZlclJlYWR5IiwiZ2V0Q3VycmVudFdlYnNpdGVOYW1lIiwic2V0Q3VycmVudFdlYnNpdGVOYW1lIiwibGl2ZVNlcnZlclJlYWR5IiwiY3VycmVudExpdmVTZXJ2ZXJVcmwiLCJjdXJyZW50V2Vic2l0ZU5hbWUiLCJ0ZXN0RG9tYWluVXJsIiwiZiIsInVybCIsIlVSTCIsImhvc3RuYW1lIiwiZXJyb3IiLCJjb25zb2xlIiwibmFtZSJdLCJzb3VyY2VzIjpbIi9Vc2Vycy9kd2svRGV2ZWxvcGVyL2dpdGxhYi5jb20vZGF2aWR3a2VpdGgvQGR3ay9hbmdsZXNpdGUvYXBwL3NlcnZlci9lbGV2ZW50eS50cyJdLCJzb3VyY2VzQ29udGVudCI6WyIvKipcbiAqIEBmaWxlIEVsZXZlbnR5IHNlcnZlciBtYW5hZ2VtZW50LlxuICovXG5sZXQgbGl2ZVNlcnZlclJlYWR5ID0gZmFsc2U7XG5sZXQgY3VycmVudExpdmVTZXJ2ZXJVcmwgPSAnaHR0cHM6Ly9sb2NhbGhvc3Q6ODA4MCc7XG5sZXQgY3VycmVudFdlYnNpdGVOYW1lID0gJ2FuZ2xlc2l0ZSc7XG5cbi8qKlxuICogR2V0IGhvc3RuYW1lIGZyb20gdGVzdCBkb21haW4gVVJMLlxuICovXG5leHBvcnQgZnVuY3Rpb24gZ2V0SG9zdG5hbWVGcm9tVGVzdERvbWFpbih0ZXN0RG9tYWluVXJsOiBzdHJpbmcpOiBzdHJpbmcge1xuICB0cnkge1xuICAgIGNvbnN0IHVybCA9IG5ldyBVUkwodGVzdERvbWFpblVybCk7XG4gICAgcmV0dXJuIHVybC5ob3N0bmFtZTtcbiAgfSBjYXRjaCAoZXJyb3IpIHtcbiAgICBjb25zb2xlLmVycm9yKCdGYWlsZWQgdG8gcGFyc2UgdGVzdCBkb21haW4gVVJMOicsIGVycm9yKTtcbiAgICByZXR1cm4gJ2xvY2FsaG9zdCc7XG4gIH1cbn1cblxuLyoqXG4gKiBTZXQgdGhlIGN1cnJlbnQgbGl2ZS1zZXJ2ZXIgVVJMLlxuICovXG5leHBvcnQgZnVuY3Rpb24gc2V0TGl2ZVNlcnZlclVybCh1cmw6IHN0cmluZykge1xuICBjdXJyZW50TGl2ZVNlcnZlclVybCA9IHVybDtcbiAgbGl2ZVNlcnZlclJlYWR5ID0gdHJ1ZTtcbn1cblxuLyoqXG4gKiBSZXR1cm5zIHRoZSBVUkwgb2YgdGhlIGN1cnJlbnRseSBydW5uaW5nIEVsZXZlbnR5IHNlcnZlci5cbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGdldEN1cnJlbnRMaXZlU2VydmVyVXJsKCk6IHN0cmluZyB7XG4gIHJldHVybiBjdXJyZW50TGl2ZVNlcnZlclVybDtcbn1cblxuLyoqXG4gKiBDaGVja3Mgd2hldGhlciB0aGUgRWxldmVudHkgc2VydmVyIGhhcyBmaW5pc2hlZCBzdGFydGluZyB1cCBhbmQgaXMgcmVhZHkgdG8gc2VydmUgY29udGVudC5cbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGlzTGl2ZVNlcnZlclJlYWR5KCk6IGJvb2xlYW4ge1xuICByZXR1cm4gbGl2ZVNlcnZlclJlYWR5O1xufVxuXG4vKipcbiAqIFJldHVybnMgdGhlIG5hbWUgb2YgdGhlIHdlYnNpdGUgY3VycmVudGx5IGJlaW5nIHNlcnZlZCBieSBFbGV2ZW50eS5cbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGdldEN1cnJlbnRXZWJzaXRlTmFtZSgpOiBzdHJpbmcge1xuICByZXR1cm4gY3VycmVudFdlYnNpdGVOYW1lO1xufVxuXG4vKipcbiAqIFVwZGF0ZXMgdGhlIG5hbWUgb2YgdGhlIHdlYnNpdGUgY3VycmVudGx5IGJlaW5nIHNlcnZlZC5cbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIHNldEN1cnJlbnRXZWJzaXRlTmFtZShuYW1lOiBzdHJpbmcpIHtcbiAgY3VycmVudFdlYnNpdGVOYW1lID0gbmFtZTtcbn1cbiJdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBVUFBLE9BQUEsQ0FBQUMseUJBQUEsR0FBQUEseUJBQUE7QUFRQztBQUFBQyxjQUFBLEdBQUFDLENBQUE7QUFLREgsT0FBQSxDQUFBSSxnQkFBQSxHQUFBQSxnQkFBQTtBQUdDO0FBQUFGLGNBQUEsR0FBQUMsQ0FBQTtBQUtESCxPQUFBLENBQUFLLHVCQUFBLEdBQUFBLHVCQUFBO0FBRUM7QUFBQUgsY0FBQSxHQUFBQyxDQUFBO0FBS0RILE9BQUEsQ0FBQU0saUJBQUEsR0FBQUEsaUJBQUE7QUFFQztBQUFBSixjQUFBLEdBQUFDLENBQUE7QUFLREgsT0FBQSxDQUFBTyxxQkFBQSxHQUFBQSxxQkFBQTtBQUVDO0FBQUFMLGNBQUEsR0FBQUMsQ0FBQTtBQUtESCxPQUFBLENBQUFRLHFCQUFBLEdBQUFBLHFCQUFBO0FBcERBOzs7QUFHQSxJQUFJQyxlQUFlO0FBQUE7QUFBQSxDQUFBUCxjQUFBLEdBQUFDLENBQUEsT0FBRyxLQUFLO0FBQzNCLElBQUlPLG9CQUFvQjtBQUFBO0FBQUEsQ0FBQVIsY0FBQSxHQUFBQyxDQUFBLE9BQUcsd0JBQXdCO0FBQ25ELElBQUlRLGtCQUFrQjtBQUFBO0FBQUEsQ0FBQVQsY0FBQSxHQUFBQyxDQUFBLE9BQUcsV0FBVztBQUVwQzs7O0FBR0EsU0FBZ0JGLHlCQUF5QkEsQ0FBQ1csYUFBcUI7RUFBQTtFQUFBVixjQUFBLEdBQUFXLENBQUE7RUFBQVgsY0FBQSxHQUFBQyxDQUFBO0VBQzdELElBQUk7SUFDRixNQUFNVyxHQUFHO0lBQUE7SUFBQSxDQUFBWixjQUFBLEdBQUFDLENBQUEsUUFBRyxJQUFJWSxHQUFHLENBQUNILGFBQWEsQ0FBQztJQUFDO0lBQUFWLGNBQUEsR0FBQUMsQ0FBQTtJQUNuQyxPQUFPVyxHQUFHLENBQUNFLFFBQVE7RUFDckIsQ0FBQyxDQUFDLE9BQU9DLEtBQUssRUFBRTtJQUFBO0lBQUFmLGNBQUEsR0FBQUMsQ0FBQTtJQUNkZSxPQUFPLENBQUNELEtBQUssQ0FBQyxrQ0FBa0MsRUFBRUEsS0FBSyxDQUFDO0lBQUM7SUFBQWYsY0FBQSxHQUFBQyxDQUFBO0lBQ3pELE9BQU8sV0FBVztFQUNwQjtBQUNGO0FBRUE7OztBQUdBLFNBQWdCQyxnQkFBZ0JBLENBQUNVLEdBQVc7RUFBQTtFQUFBWixjQUFBLEdBQUFXLENBQUE7RUFBQVgsY0FBQSxHQUFBQyxDQUFBO0VBQzFDTyxvQkFBb0IsR0FBR0ksR0FBRztFQUFDO0VBQUFaLGNBQUEsR0FBQUMsQ0FBQTtFQUMzQk0sZUFBZSxHQUFHLElBQUk7QUFDeEI7QUFFQTs7O0FBR0EsU0FBZ0JKLHVCQUF1QkEsQ0FBQTtFQUFBO0VBQUFILGNBQUEsR0FBQVcsQ0FBQTtFQUFBWCxjQUFBLEdBQUFDLENBQUE7RUFDckMsT0FBT08sb0JBQW9CO0FBQzdCO0FBRUE7OztBQUdBLFNBQWdCSixpQkFBaUJBLENBQUE7RUFBQTtFQUFBSixjQUFBLEdBQUFXLENBQUE7RUFBQVgsY0FBQSxHQUFBQyxDQUFBO0VBQy9CLE9BQU9NLGVBQWU7QUFDeEI7QUFFQTs7O0FBR0EsU0FBZ0JGLHFCQUFxQkEsQ0FBQTtFQUFBO0VBQUFMLGNBQUEsR0FBQVcsQ0FBQTtFQUFBWCxjQUFBLEdBQUFDLENBQUE7RUFDbkMsT0FBT1Esa0JBQWtCO0FBQzNCO0FBRUE7OztBQUdBLFNBQWdCSCxxQkFBcUJBLENBQUNXLElBQVk7RUFBQTtFQUFBakIsY0FBQSxHQUFBVyxDQUFBO0VBQUFYLGNBQUEsR0FBQUMsQ0FBQTtFQUNoRFEsa0JBQWtCLEdBQUdRLElBQUk7QUFDM0IiLCJpZ25vcmVMaXN0IjpbXX0=

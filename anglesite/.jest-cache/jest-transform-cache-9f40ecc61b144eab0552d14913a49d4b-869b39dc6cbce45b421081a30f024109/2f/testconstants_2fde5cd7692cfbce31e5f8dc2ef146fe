@@ -1,0 +1,216 @@
+4381135e15e3ff7f29297b36cebeb04f
+"use strict";
+/**
+ * @file Shared test constants to eliminate magic numbers and strings
+ * @description Centralizes all test constants to maintain DRY principles across the test suite.
+ * This file provides a single source of truth for all test-related constants, improving
+ * maintainability and ensuring consistency across different test files.
+ * @example
+ * ```typescript
+ * import { TEST_CONSTANTS } from './constants/test-constants';
+ *
+ * // Use port constants
+ * const port = TEST_CONSTANTS.PORTS.DEFAULT_HTTPS; // 8080
+ *
+ * // Use website names
+ * const website = TEST_CONSTANTS.WEBSITES.TEST_SITE; // 'test-site'
+ *
+ * // Use window dimensions
+ * const { width, height } = TEST_CONSTANTS.WINDOW_BOUNDS.DEFAULT;
+ * ```
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TEST_CONSTANTS = void 0;
+exports.TEST_CONSTANTS = {
+    /**
+     * Port numbers used throughout tests
+     * @description Standard port configurations for different server types and protocols
+     */
+    PORTS: {
+        /** Default HTTPS port for test servers */
+        DEFAULT_HTTPS: 8080,
+        /** Default HTTP server port */
+        DEFAULT_SERVER: 8081,
+        /** Test server port for development */
+        TEST_SERVER: 3000,
+        /** Default localhost port */
+        DEFAULT_LOCALHOST: 3000,
+    },
+    /**
+     * Size and dimension constants
+     * @description Various size measurements including window dimensions, layout offsets, and data sizes
+     */
+    SIZES: {
+        // Window dimensions
+        /** Default main window width in pixels */
+        WINDOW_WIDTH: 1200,
+        /** Default main window height in pixels */
+        WINDOW_HEIGHT: 800,
+        /** Website selection dialog width */
+        WEBSITE_SELECTION_WIDTH: 600,
+        /** Website selection dialog height */
+        WEBSITE_SELECTION_HEIGHT: 500,
+        /** Settings window width */
+        SETTINGS_WIDTH: 500,
+        /** Settings window height */
+        SETTINGS_HEIGHT: 300,
+        // Layout dimensions
+        /** Vertical offset for window content positioning */
+        WINDOW_Y_OFFSET: 90,
+        /** Height offset for window content area */
+        WINDOW_HEIGHT_OFFSET: 710,
+        /** macOS traffic light button position */
+        TRAFFIC_LIGHT_POSITION: 20,
+        // Data sizes
+        /** Archive file size in bytes for testing */
+        ARCHIVE_BYTES: 1024,
+        /** Maximum lines threshold for code analysis */
+        MAX_LINES: 200,
+        /** Code complexity threshold for architecture tests */
+        COMPLEXITY_THRESHOLD: 2000,
+    },
+    /**
+     * Timeout and delay constants
+     * @description Time-based constants for async operations and test timing
+     */
+    TIMEOUTS: {
+        /** Short delay for quick operations (1 second) */
+        SHORT_DELAY: 1000,
+        /** Medium delay for moderate operations (2.5 seconds) */
+        MEDIUM_DELAY: 2500,
+        /** Timer advance amount for time-based tests */
+        TIMER_ADVANCE: 2000,
+    },
+    /**
+     * Website names used in tests
+     * @description Standardized website identifiers for consistent testing
+     */
+    WEBSITES: {
+        /** Generic test site identifier */
+        TEST_SITE: 'test-site',
+        /** User's personal site identifier */
+        MY_SITE: 'my-site',
+        /** New site creation identifier */
+        NEW_SITE: 'new-site',
+        /** Example site for demonstrations */
+        EXAMPLE_SITE: 'example',
+        /** Numbered test site variant */
+        TEST_SITE_123: 'test123',
+        /** User's test site with descriptive name */
+        MY_TEST_SITE: 'my-test-site',
+        /** First generic site identifier */
+        SITE_1: 'site1',
+        /** Second generic site identifier */
+        SITE_2: 'site2',
+        /** First project site identifier */
+        PROJECT_1: 'project1',
+        /** Second project site identifier */
+        PROJECT_2: 'project2',
+    },
+    /**
+     * Domain names
+     * @description Domain configurations for URL construction and testing
+     */
+    DOMAINS: {
+        /** Test domain suffix */
+        TEST_DOMAIN: 'test',
+        /** Localhost domain */
+        LOCALHOST: 'localhost',
+        /** External site domain for certificate testing */
+        EXTERNAL_SITE: 'external-site.com',
+        /** Anglesite-specific test domain */
+        ANGLESITE_TEST: 'anglesite.test',
+    },
+    /**
+     * Full URLs used in tests
+     * @description Complete URL patterns for consistent endpoint testing
+     */
+    URLS: {
+        /** Standard HTTPS localhost URL with default port */
+        HTTPS_LOCALHOST: 'https://localhost:8080',
+        /** HTTPS localhost URL with development port */
+        HTTPS_LOCALHOST_3000: 'https://localhost:3000',
+        /** Example test domain URL */
+        HTTPS_EXAMPLE_TEST: 'https://example.test',
+        /** External site URL for certificate error testing */
+        HTTPS_EXTERNAL_SITE: 'https://external-site.com',
+        /** Default Anglesite test URL */
+        DEFAULT_TEST_URL: 'https://anglesite.test:8080',
+        /** Test homepage URL */
+        TEST_HOMEPAGE: 'https://test.com',
+    },
+    /**
+     * File paths used in mocks and tests
+     * @description Standardized file and directory paths for consistent mocking
+     */
+    PATHS: {
+        // Mock paths
+        /** Generic mock path for testing */
+        MOCK_PATH: '/mock/path',
+        /** Mock preload script path */
+        MOCK_PRELOAD: '/mock/preload.js',
+        /** Mock HTML index file path */
+        MOCK_INDEX_HTML: '/mock/index.html',
+        /** Mock distribution directory */
+        MOCK_DIST: '/mock/dist',
+        /** Mock distribution index file */
+        MOCK_DIST_INDEX: '/mock/dist/index.html',
+        /** Mock website selection template path */
+        MOCK_WEBSITE_SELECTION: '/mock/ui/website-selection.html',
+        // Test paths
+        /** Generic test path */
+        TEST_PATH: '/test/path',
+        /** Test export ZIP file path */
+        TEST_EXPORT_ZIP: '/test/export.zip',
+        /** Test export folder path */
+        TEST_EXPORT_FOLDER: '/test/export-folder',
+        /** Resolved configuration path */
+        RESOLVED_PATH: '/resolved/path',
+        /** Temporary directory path */
+        TMP_DIR: '/tmp',
+        /** Website directory path */
+        WEBSITE_PATH: '/path/to/website',
+    },
+    /**
+     * Data URLs and templates
+     * @description Data URLs and template strings for testing
+     */
+    DATA_URLS: {
+        /** Mock HTML template as data URL */
+        MOCK_TEMPLATE: 'data:text/html,mock-template',
+    },
+    /**
+     * Application constants
+     * @description Application-specific configuration values
+     */
+    APP: {
+        /** Application name */
+        NAME: 'Anglesite',
+    },
+    /**
+     * Environment constants
+     * @description Environment-specific configuration values
+     */
+    ENV: {
+        /** Development environment identifier */
+        DEVELOPMENT: 'development',
+        /** Production environment identifier */
+        PRODUCTION: 'production',
+    },
+    /**
+     * Window bounds for testing
+     * @description Predefined window state configurations for consistent UI testing
+     */
+    WINDOW_BOUNDS: {
+        /** Default window position and size */
+        DEFAULT: { x: 100, y: 100, width: 800, height: 600 },
+        /** Large window configuration */
+        LARGE: { x: 50, y: 50, width: 1000, height: 800 },
+        /** Small window configuration */
+        SMALL: { x: 0, y: 0, width: 800, height: 600 },
+        /** Extra large window configuration */
+        EXTRA_LARGE: { x: 100, y: 100, width: 1200, height: 800 },
+    },
+};
+exports.default = exports.TEST_CONSTANTS;
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2R3ay9EZXZlbG9wZXIvZ2l0bGFiLmNvbS9kYXZpZHdrZWl0aC9AZHdrL2FuZ2xlc2l0ZS90ZXN0L2NvbnN0YW50cy90ZXN0LWNvbnN0YW50cy50cyIsIm1hcHBpbmdzIjoiO0FBQUE7Ozs7Ozs7Ozs7Ozs7Ozs7OztHQWtCRzs7O0FBRVUsUUFBQSxjQUFjLEdBQUc7SUFDNUI7OztPQUdHO0lBQ0gsS0FBSyxFQUFFO1FBQ0wsMENBQTBDO1FBQzFDLGFBQWEsRUFBRSxJQUFJO1FBQ25CLCtCQUErQjtRQUMvQixjQUFjLEVBQUUsSUFBSTtRQUNwQix1Q0FBdUM7UUFDdkMsV0FBVyxFQUFFLElBQUk7UUFDakIsNkJBQTZCO1FBQzdCLGlCQUFpQixFQUFFLElBQUk7S0FDeEI7SUFFRDs7O09BR0c7SUFDSCxLQUFLLEVBQUU7UUFDTCxvQkFBb0I7UUFDcEIsMENBQTBDO1FBQzFDLFlBQVksRUFBRSxJQUFJO1FBQ2xCLDJDQUEyQztRQUMzQyxhQUFhLEVBQUUsR0FBRztRQUNsQixxQ0FBcUM7UUFDckMsdUJBQXVCLEVBQUUsR0FBRztRQUM1QixzQ0FBc0M7UUFDdEMsd0JBQXdCLEVBQUUsR0FBRztRQUM3Qiw0QkFBNEI7UUFDNUIsY0FBYyxFQUFFLEdBQUc7UUFDbkIsNkJBQTZCO1FBQzdCLGVBQWUsRUFBRSxHQUFHO1FBRXBCLG9CQUFvQjtRQUNwQixxREFBcUQ7UUFDckQsZUFBZSxFQUFFLEVBQUU7UUFDbkIsNENBQTRDO1FBQzVDLG9CQUFvQixFQUFFLEdBQUc7UUFDekIsMENBQTBDO1FBQzFDLHNCQUFzQixFQUFFLEVBQUU7UUFFMUIsYUFBYTtRQUNiLDZDQUE2QztRQUM3QyxhQUFhLEVBQUUsSUFBSTtRQUNuQixnREFBZ0Q7UUFDaEQsU0FBUyxFQUFFLEdBQUc7UUFDZCx1REFBdUQ7UUFDdkQsb0JBQW9CLEVBQUUsSUFBSTtLQUMzQjtJQUVEOzs7T0FHRztJQUNILFFBQVEsRUFBRTtRQUNSLGtEQUFrRDtRQUNsRCxXQUFXLEVBQUUsSUFBSTtRQUNqQix5REFBeUQ7UUFDekQs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TUFBTSxFQUFFLEdBQUcsRUFBRTtRQUNqRCxpQ0FBaUM7UUFDakMsS0FBSyxFQUFFLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQ0FBQyxFQUFFLEtBQUssRUFBRSxHQUFHLEVBQUUsTUFBTSxFQUFFLEdBQUcsRUFBRTtRQUM5Qyx1Q0FBdUM7UUFDdkMsV0FBVyxFQUFFLEVBQUUsQ0FBQyxFQUFFLEdBQUcsRUFBRSxDQUFDLEVBQUUsR0FBRyxFQUFFLEtBQUssRUFBRSxJQUFJLEVBQUUsTUFBTSxFQUFFLEdBQUcsRUFBRTtLQUMxRDtDQUNPLENBQUM7QUFFWCxrQkFBZSxzQkFBYyxDQUFDIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9kd2svRGV2ZWxvcGVyL2dpdGxhYi5jb20vZGF2aWR3a2VpdGgvQGR3ay9hbmdsZXNpdGUvdGVzdC9jb25zdGFudHMvdGVzdC1jb25zdGFudHMudHMiXSwic291cmNlc0NvbnRlbnQiOlsiLyoqXG4gKiBAZmlsZSBTaGFyZWQgdGVzdCBjb25zdGFudHMgdG8gZWxpbWluYXRlIG1hZ2ljIG51bWJlcnMgYW5kIHN0cmluZ3NcbiAqIEBkZXNjcmlwdGlvbiBDZW50cmFsaXplcyBhbGwgdGVzdCBjb25zdGFudHMgdG8gbWFpbnRhaW4gRFJZIHByaW5jaXBsZXMgYWNyb3NzIHRoZSB0ZXN0IHN1aXRlLlxuICogVGhpcyBmaWxlIHByb3ZpZGVzIGEgc2luZ2xlIHNvdXJjZSBvZiB0cnV0aCBmb3IgYWxsIHRlc3QtcmVsYXRlZCBjb25zdGFudHMsIGltcHJvdmluZ1xuICogbWFpbnRhaW5hYmlsaXR5IGFuZCBlbnN1cmluZyBjb25zaXN0ZW5jeSBhY3Jvc3MgZGlmZmVyZW50IHRlc3QgZmlsZXMuXG4gKiBAZXhhbXBsZVxuICogYGBgdHlwZXNjcmlwdFxuICogaW1wb3J0IHsgVEVTVF9DT05TVEFOVFMgfSBmcm9tICcuL2NvbnN0YW50cy90ZXN0LWNvbnN0YW50cyc7XG4gKlxuICogLy8gVXNlIHBvcnQgY29uc3RhbnRzXG4gKiBjb25zdCBwb3J0ID0gVEVTVF9DT05TVEFOVFMuUE9SVFMuREVGQVVMVF9IVFRQUzsgLy8gODA4MFxuICpcbiAqIC8vIFVzZSB3ZWJzaXRlIG5hbWVzXG4gKiBjb25zdCB3ZWJzaXRlID0gVEVTVF9DT05TVEFOVFMuV0VCU0lURVMuVEVTVF9TSVRFOyAvLyAndGVzdC1zaXRlJ1xuICpcbiAqIC8vIFVzZSB3aW5kb3cgZGltZW5zaW9uc1xuICogY29uc3QgeyB3aWR0aCwgaGVpZ2h0IH0gPSBURVNUX0NPTlNUQU5UUy5XSU5ET1dfQk9VTkRTLkRFRkFVTFQ7XG4gKiBgYGBcbiAqL1xuXG5leHBvcnQgY29uc3QgVEVTVF9DT05TVEFOVFMgPSB7XG4gIC8qKlxuICAgKiBQb3J0IG51bWJlcnMgdXNlZCB0aHJvdWdob3V0IHRlc3RzXG4gICAqIEBkZXNjcmlwdGlvbiBTdGFuZGFyZCBwb3J0IGNvbmZpZ3VyYXRpb25zIGZvciBkaWZmZXJlbnQgc2VydmVyIHR5cGVzIGFuZCBwcm90b2NvbHNcbiAgICovXG4gIFBPUlRTOiB7XG4gICAgLyoqIERlZmF1bHQgSFRUUFMgcG9ydCBmb3IgdGVzdCBzZXJ2ZXJzICovXG4gICAgREVGQVVMVF9IVFRQUzogODA4MCxcbiAgICAvKiogRGVmYXVsdCBIVFRQIHNlcnZlciBwb3J0ICovXG4gICAgREVGQVVMVF9TRVJWRVI6IDgwODEsXG4gICAgLyoqIFRlc3Qgc2VydmVyIHBvcnQgZm9yIGRldmVsb3BtZW50ICovXG4gICAgVEVTVF9TRVJWRVI6IDMwMDAsXG4gICAgLyoqIERlZmF1bHQgbG9jYWxob3N0IHBvcnQgKi9cbiAgICBERUZBVUxUX0xPQ0FMSE9TVDogMzAwMCxcbiAgfSxcblxuICAvKipcbiAgICogU2l6ZSBhbmQgZGltZW5zaW9uIGNvbnN0YW50c1xuICAgKiBAZGVzY3JpcHRpb24gVmFyaW91cyBzaXplIG1lYXN1cmVtZW50cyBpbmNsdWRpbmcgd2luZG93IGRpbWVuc2lvbnMsIGxheW91dCBvZmZzZXRzLCBhbmQgZGF0YSBzaXplc1xuICAgKi9cbiAgU0laRVM6IHtcbiAgICAvLyBXaW5kb3cgZGltZW5zaW9uc1xuICAgIC8qKiBEZWZhdWx0IG1haW4gd2luZG93IHdpZHRoIGluIHBpeGVscyAqL1xuICAgIFdJTkRPV19XSURUSDogMTIwMCxcbiAgICAvKiogRGVmYXVsdCBtYWluIHdpbmRvdyBoZWlnaHQgaW4gcGl4ZWxzICovXG4gICAgV0lORE9XX0hFSUdIVDogODAwLFxuICAgIC8qKiBXZWJzaXRlIHNlbGVjdGlvbiBkaWFsb2cgd2lkdGggKi9cbiAgICBXRUJTSVRFX1NFTEVDVElPTl9XSURUSDogNjAwLFxuICAgIC8qKiBXZWJzaXRlIHNlbGVjdGlvbiBkaWFsb2cgaGVpZ2h0ICovXG4gICAgV0VCU0lURV9TRUxFQ1RJT05fSEVJR0hUOiA1MDAsXG4gICAgLyoqIFNldHRpbmdzIHdpbmRvdyB3aWR0aCAqL1xuICAgIFNFVFRJTkdTX1dJRFRIOiA1MDAsXG4gICAgLyoqIFNldHRpbmdzIHdpbmRvdyBoZWlnaHQgKi9cbiAgICBTRVRUSU5HU19IRUlHSFQ6IDMwMCxcblxuICAgIC8vIExheW91dCBkaW1lbnNpb25zXG4gICAgLyoqIFZlcnRpY2FsIG9mZnNldCBmb3Igd2luZG93IGNvbnRlbnQgcG9zaXRpb25pbmcgKi9cbiAgICBXSU5ET1dfWV9PRkZTRVQ6IDkwLFxuICAgIC8qKiBIZWlnaHQgb2Zmc2V0IGZvciB3aW5kb3cgY29udGVudCBhcmVhICovXG4gICAgV0lORE9XX0hFSUdIVF9PRkZTRVQ6IDcxMCxcbiAgICAvKiogbWFjT1MgdHJhZmZpYyBsaWdodCBidXR0b24gcG9zaXRpb24gKi9cbiAgICBUUkFGRklDX0xJR0hUX1BPU0lUSU9OOiAyMCxcblxuICAgIC8vIERhdGEgc2l6ZXNcbiAgICAvKiogQXJjaGl2ZSBmaWxlIHNpemUgaW4gYnl0ZXMgZm9yIHRlc3RpbmcgKi9cbiAgICBBUkNISVZFX0JZVEVTOiAxMDI0LFxuICAgIC8qKiBNYXhpbXVtIGxpbmVzIHRocmVzaG9sZCBmb3IgY29kZSBhbmFseXNpcyAqL1xuICAgIE1BWF9MSU5FUzogMjAwLFxuICAgIC8qKiBDb2RlIGNvbXBsZXhpdHkgdGhyZXNob2xkIGZvciBhcmNoaXRlY3R1cmUgdGVzdHMgKi9cbiAgICBDT01QTEVYSVRZX1RIUkVTSE9MRDogMjAwMCxcbiAgfSxcblxuICAvKipcbiAgICogVGltZW91dCBhbmQgZGVsYXkgY29uc3RhbnRzXG4gICAqIEBkZXNjcmlwdGlvbiBUaW1lLWJhc2VkIGNvbnN0YW50cyBmb3IgYXN5bmMgb3BlcmF0aW9ucyBhbmQgdGVzdCB0aW1pbmdcbiAgICovXG4gIFRJTUVPVVRTOiB7XG4gICAgLyoqIFNob3J0IGRlbGF5IGZvciBxdWljayBvcGVyYXRpb25zICgxIHNlY29uZCkgKi9cbiAgICBTSE9SVF9ERUxBWTogMTAwMCxcbiAgICAvKiogTWVkaXVtIGRlbGF5IGZvciBtb2RlcmF0ZSBvcGVyYXRpb25zICgyLjUgc2Vjb25kcykgKi9cbiAgICBNRURJVU1fREVMQVk6IDI1MDAsXG4gICAgLyoqIFRpbWVyIGFkdmFuY2UgYW1vdW50IGZvciB0aW1lLWJhc2VkIHRlc3RzICovXG4gICAgVElNRVJfQURWQU5DRTogMjAwMCxcbiAgfSxcblxuICAvKipcbiAgICogV2Vic2l0ZSBuYW1lcyB1c2VkIGluIHRlc3RzXG4gICAqIEBkZXNjcmlwdGlvbiBTdGFuZGFyZGl6ZWQgd2Vic2l0ZSBpZGVudGlmaWVycyBmb3IgY29uc2lzdGVudCB0ZXN0aW5nXG4gICAqL1xuICBXRUJTSVRFUzoge1xuICAgIC8qKiBHZW5lcmljIHRlc3Qgc2l0ZSBpZGVudGlmaWVyICovXG4gICAgVEVTVF9TSVRFOiAndGVzdC1zaXRlJyxcbiAgICAvKiogVXNlcidzIHBlcnNvbmFsIHNpdGUgaWRlbnRpZmllciAqL1xuICAgIE1ZX1NJVEU6ICdteS1zaXRlJyxcbiAgICAvKiogTmV3IHNpdGUgY3JlYXRpb24gaWRlbnRpZmllciAqL1xuICAgIE5FV19TSVRFOiAnbmV3LXNpdGUnLFxuICAgIC8qKiBFeGFtcGxlIHNpdGUgZm9yIGRlbW9uc3RyYXRpb25zICovXG4gICAgRVhBTVBMRV9TSVRFOiAnZXhhbXBsZScsXG4gICAgLyoqIE51bWJlcmVkIHRlc3Qgc2l0ZSB2YXJpYW50ICovXG4gICAgVEVTVF9TSVRFXzEyMzogJ3Rlc3QxMjMnLFxuICAgIC8qKiBVc2VyJ3MgdGVzdCBzaXRlIHdpdGggZGVzY3JpcHRpdmUgbmFtZSAqL1xuICAgIE1ZX1RFU1RfU0lURTogJ215LXRlc3Qtc2l0ZScsXG4gICAgLyoqIEZpcnN0IGdlbmVyaWMgc2l0ZSBpZGVudGlmaWVyICovXG4gICAgU0lURV8xOiAnc2l0ZTEnLFxuICAgIC8qKiBTZWNvbmQgZ2VuZXJpYyBzaXRlIGlkZW50aWZpZXIgKi9cbiAgICBTSVRFXzI6ICdzaXRlMicsXG4gICAgLyoqIEZpcnN0IHByb2plY3Qgc2l0ZSBpZGVudGlmaWVyICovXG4gICAgUFJPSkVDVF8xOiAncHJvamVjdDEnLFxuICAgIC8qKiBTZWNvbmQgcHJvamVjdCBzaXRlIGlkZW50aWZpZXIgKi9cbiAgICBQUk9KRUNUXzI6ICdwcm9qZWN0MicsXG4gIH0sXG5cbiAgLyoqXG4gICAqIERvbWFpbiBuYW1lc1xuICAgKiBAZGVzY3JpcHRpb24gRG9tYWluIGNvbmZpZ3VyYXRpb25zIGZvciBVUkwgY29uc3RydWN0aW9uIGFuZCB0ZXN0aW5nXG4gICAqL1xuICBET01BSU5TOiB7XG4gICAgLyoqIFRlc3QgZG9tYWluIHN1ZmZpeCAqL1xuICAgIFRFU1RfRE9NQUlOOiAndGVzdCcsXG4gICAgLyoqIExvY2FsaG9zdCBkb21haW4gKi9cbiAgICBMT0NBTEhPU1Q6ICdsb2NhbGhvc3QnLFxuICAgIC8qKiBFeHRlcm5hbCBzaXRlIGRvbWFpbiBmb3IgY2VydGlmaWNhdGUgdGVzdGluZyAqL1xuICAgIEVYVEVSTkFMX1NJVEU6ICdleHRlcm5hbC1zaXRlLmNvbScsXG4gICAgLyoqIEFuZ2xlc2l0ZS1zcGVjaWZpYyB0ZXN0IGRvbWFpbiAqL1xuICAgIEFOR0xFU0lURV9URVNUOiAnYW5nbGVzaXRlLnRlc3QnLFxuICB9LFxuXG4gIC8qKlxuICAgKiBGdWxsIFVSTHMgdXNlZCBpbiB0ZXN0c1xuICAgKiBAZGVzY3JpcHRpb24gQ29tcGxldGUgVVJMIHBhdHRlcm5zIGZvciBjb25zaXN0ZW50IGVuZHBvaW50IHRlc3RpbmdcbiAgICovXG4gIFVSTFM6IHtcbiAgICAvKiogU3RhbmRhcmQgSFRUUFMgbG9jYWxob3N0IFVSTCB3aXRoIGRlZmF1bHQgcG9ydCAqL1xuICAgIEhUVFBTX0xPQ0FMSE9TVDogJ2h0dHBzOi8vbG9jYWxob3N0OjgwODAnLFxuICAgIC8qKiBIVFRQUyBsb2NhbGhvc3QgVVJMIHdpdGggZGV2ZWxvcG1lbnQgcG9ydCAqL1xuICAgIEhUVFBTX0xPQ0FMSE9TVF8zMDAwOiAnaHR0cHM6Ly9sb2NhbGhvc3Q6MzAwMCcsXG4gICAgLyoqIEV4YW1wbGUgdGVzdCBkb21haW4gVVJMICovXG4gICAgSFRUUFNfRVhBTVBMRV9URVNUOiAnaHR0cHM6Ly9leGFtcGxlLnRlc3QnLFxuICAgIC8qKiBFeHRlcm5hbCBzaXRlIFVSTCBmb3IgY2VydGlmaWNhdGUgZXJyb3IgdGVzdGluZyAqL1xuICAgIEhUVFBTX0VYVEVSTkFMX1NJVEU6ICdodHRwczovL2V4dGVybmFsLXNpdGUuY29tJyxcbiAgICAvKiogRGVmYXVsdCBBbmdsZXNpdGUgdGVzdCBVUkwgKi9cbiAgICBERUZBVUxUX1RFU1RfVVJMOiAnaHR0cHM6Ly9hbmdsZXNpdGUudGVzdDo4MDgwJyxcbiAgICAvKiogVGVzdCBob21lcGFnZSBVUkwgKi9cbiAgICBURVNUX0hPTUVQQUdFOiAnaHR0cHM6Ly90ZXN0LmNvbScsXG4gIH0sXG5cbiAgLyoqXG4gICAqIEZpbGUgcGF0aHMgdXNlZCBpbiBtb2NrcyBhbmQgdGVzdHNcbiAgICogQGRlc2NyaXB0aW9uIFN0YW5kYXJkaXplZCBmaWxlIGFuZCBkaXJlY3RvcnkgcGF0aHMgZm9yIGNvbnNpc3RlbnQgbW9ja2luZ1xuICAgKi9cbiAgUEFUSFM6IHtcbiAgICAvLyBNb2NrIHBhdGhzXG4gICAgLyoqIEdlbmVyaWMgbW9jayBwYXRoIGZvciB0ZXN0aW5nICovXG4gICAgTU9DS19QQVRIOiAnL21vY2svcGF0aCcsXG4gICAgLyoqIE1vY2sgcHJlbG9hZCBzY3JpcHQgcGF0aCAqL1xuICAgIE1PQ0tfUFJFTE9BRDogJy9tb2NrL3ByZWxvYWQuanMnLFxuICAgIC8qKiBNb2NrIEhUTUwgaW5kZXggZmlsZSBwYXRoICovXG4gICAgTU9DS19JTkRFWF9IVE1MOiAnL21vY2svaW5kZXguaHRtbCcsXG4gICAgLyoqIE1vY2sgZGlzdHJpYnV0aW9uIGRpcmVjdG9yeSAqL1xuICAgIE1PQ0tfRElTVDogJy9tb2NrL2Rpc3QnLFxuICAgIC8qKiBNb2NrIGRpc3RyaWJ1dGlvbiBpbmRleCBmaWxlICovXG4gICAgTU9DS19ESVNUX0lOREVYOiAnL21vY2svZGlzdC9pbmRleC5odG1sJyxcbiAgICAvKiogTW9jayB3ZWJzaXRlIHNlbGVjdGlvbiB0ZW1wbGF0ZSBwYXRoICovXG4gICAgTU9DS19XRUJTSVRFX1NFTEVDVElPTjogJy9tb2NrL3VpL3dlYnNpdGUtc2VsZWN0aW9uLmh0bWwnLFxuXG4gICAgLy8gVGVzdCBwYXRoc1xuICAgIC8qKiBHZW5lcmljIHRlc3QgcGF0aCAqL1xuICAgIFRFU1RfUEFUSDogJy90ZXN0L3BhdGgnLFxuICAgIC8qKiBUZXN0IGV4cG9ydCBaSVAgZmlsZSBwYXRoICovXG4gICAgVEVTVF9FWFBPUlRfWklQOiAnL3Rlc3QvZXhwb3J0LnppcCcsXG4gICAgLyoqIFRlc3QgZXhwb3J0IGZvbGRlciBwYXRoICovXG4gICAgVEVTVF9FWFBPUlRfRk9MREVSOiAnL3Rlc3QvZXhwb3J0LWZvbGRlcicsXG4gICAgLyoqIFJlc29sdmVkIGNvbmZpZ3VyYXRpb24gcGF0aCAqL1xuICAgIFJFU09MVkVEX1BBVEg6ICcvcmVzb2x2ZWQvcGF0aCcsXG4gICAgLyoqIFRlbXBvcmFyeSBkaXJlY3RvcnkgcGF0aCAqL1xuICAgIFRNUF9ESVI6ICcvdG1wJyxcbiAgICAvKiogV2Vic2l0ZSBkaXJlY3RvcnkgcGF0aCAqL1xuICAgIFdFQlNJVEVfUEFUSDogJy9wYXRoL3RvL3dlYnNpdGUnLFxuICB9LFxuXG4gIC8qKlxuICAgKiBEYXRhIFVSTHMgYW5kIHRlbXBsYXRlc1xuICAgKiBAZGVzY3JpcHRpb24gRGF0YSBVUkxzIGFuZCB0ZW1wbGF0ZSBzdHJpbmdzIGZvciB0ZXN0aW5nXG4gICAqL1xuICBEQVRBX1VSTFM6IHtcbiAgICAvKiogTW9jayBIVE1MIHRlbXBsYXRlIGFzIGRhdGEgVVJMICovXG4gICAgTU9DS19URU1QTEFURTogJ2RhdGE6dGV4dC9odG1sLG1vY2stdGVtcGxhdGUnLFxuICB9LFxuXG4gIC8qKlxuICAgKiBBcHBsaWNhdGlvbiBjb25zdGFudHNcbiAgICogQGRlc2NyaXB0aW9uIEFwcGxpY2F0aW9uLXNwZWNpZmljIGNvbmZpZ3VyYXRpb24gdmFsdWVzXG4gICAqL1xuICBBUFA6IHtcbiAgICAvKiogQXBwbGljYXRpb24gbmFtZSAqL1xuICAgIE5BTUU6ICdBbmdsZXNpdGUnLFxuICB9LFxuXG4gIC8qKlxuICAgKiBFbnZpcm9ubWVudCBjb25zdGFudHNcbiAgICogQGRlc2NyaXB0aW9uIEVudmlyb25tZW50LXNwZWNpZmljIGNvbmZpZ3VyYXRpb24gdmFsdWVzXG4gICAqL1xuICBFTlY6IHtcbiAgICAvKiogRGV2ZWxvcG1lbnQgZW52aXJvbm1lbnQgaWRlbnRpZmllciAqL1xuICAgIERFVkVMT1BNRU5UOiAnZGV2ZWxvcG1lbnQnLFxuICAgIC8qKiBQcm9kdWN0aW9uIGVudmlyb25tZW50IGlkZW50aWZpZXIgKi9cbiAgICBQUk9EVUNUSU9OOiAncHJvZHVjdGlvbicsXG4gIH0sXG5cbiAgLyoqXG4gICAqIFdpbmRvdyBib3VuZHMgZm9yIHRlc3RpbmdcbiAgICogQGRlc2NyaXB0aW9uIFByZWRlZmluZWQgd2luZG93IHN0YXRlIGNvbmZpZ3VyYXRpb25zIGZvciBjb25zaXN0ZW50IFVJIHRlc3RpbmdcbiAgICovXG4gIFdJTkRPV19CT1VORFM6IHtcbiAgICAvKiogRGVmYXVsdCB3aW5kb3cgcG9zaXRpb24gYW5kIHNpemUgKi9cbiAgICBERUZBVUxUOiB7IHg6IDEwMCwgeTogMTAwLCB3aWR0aDogODAwLCBoZWlnaHQ6IDYwMCB9LFxuICAgIC8qKiBMYXJnZSB3aW5kb3cgY29uZmlndXJhdGlvbiAqL1xuICAgIExBUkdFOiB7IHg6IDUwLCB5OiA1MCwgd2lkdGg6IDEwMDAsIGhlaWdodDogODAwIH0sXG4gICAgLyoqIFNtYWxsIHdpbmRvdyBjb25maWd1cmF0aW9uICovXG4gICAgU01BTEw6IHsgeDogMCwgeTogMCwgd2lkdGg6IDgwMCwgaGVpZ2h0OiA2MDAgfSxcbiAgICAvKiogRXh0cmEgbGFyZ2Ugd2luZG93IGNvbmZpZ3VyYXRpb24gKi9cbiAgICBFWFRSQV9MQVJHRTogeyB4OiAxMDAsIHk6IDEwMCwgd2lkdGg6IDEyMDAsIGhlaWdodDogODAwIH0sXG4gIH0sXG59IGFzIGNvbnN0O1xuXG5leHBvcnQgZGVmYXVsdCBURVNUX0NPTlNUQU5UUztcbiJdLCJ2ZXJzaW9uIjozfQ==

@@ -1,0 +1,249 @@
+ea9d675489a100d83c009993785b5df0
+"use strict";
+/**
+ * @file Development webpack configuration for Anglesite
+ * @description Optimized for fast rebuilds, hot module replacement, and debugging experience.
+ * Merges with common configuration and adds development-specific settings like dev server,
+ * React Fast Refresh, and unoptimized source maps for better debugging.
+ * @author David W. Keith <git@dwk.io>
+ * @since 0.1.0
+ */
+const path = require('path');
+const { merge } = require('webpack-merge');
+const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const common = require('./webpack.common.js');
+const ASSET_CONFIG = require('./assets.config');
+/**
+ * Development webpack configuration
+ * @type {import('webpack').Configuration}
+ */
+module.exports = merge(common, {
+    /** Development mode for faster builds and better debugging */
+    mode: 'development',
+    /**
+     * Development output configuration
+     * Uses simple filenames without hashes for faster rebuilds
+     */
+    output: {
+        path: path.resolve(__dirname, 'dist/app/ui/react'),
+        filename: ASSET_CONFIG.output.naming.development.js,
+        chunkFilename: '[name].chunk.js',
+        publicPath: ASSET_CONFIG.output.publicPath.development,
+        clean: ASSET_CONFIG.output.clean,
+        assetModuleFilename: 'assets/[name][ext]',
+    },
+    /** Development-specific module rules */
+    module: {
+        rules: [
+            /**
+             * TypeScript/React files with React Fast Refresh support
+             * Enables hot reloading of React components without losing state
+             */
+            {
+                test: /\.tsx?$/,
+                exclude: /node_modules/,
+                use: [
+                    {
+                        loader: 'ts-loader',
+                        options: {
+                            transpileOnly: true,
+                            configFile: path.resolve(__dirname, 'app/ui/react/tsconfig.json'),
+                            compilerOptions: {
+                                sourceMap: ASSET_CONFIG.sourceMaps.development.loaders,
+                            },
+                            getCustomTransformers: () => ({
+                                before: [require('react-refresh/babel').transform].filter(Boolean),
+                            }),
+                        },
+                    },
+                ],
+            },
+            /**
+             * CSS files with style-loader for hot module replacement
+             * Injects CSS directly into the DOM for faster development feedback
+             */
+            {
+                test: /\.css$/,
+                use: [
+                    'style-loader',
+                    {
+                        loader: 'css-loader',
+                        options: {
+                            importLoaders: 2,
+                            sourceMap: ASSET_CONFIG.sourceMaps.development.css,
+                        },
+                    },
+                    {
+                        loader: 'postcss-loader',
+                        options: {
+                            sourceMap: ASSET_CONFIG.sourceMaps.development.css,
+                        },
+                    },
+                ],
+            },
+            /**
+             * Responsive images with Sharp adapter
+             * Generates multiple image sizes for different screen densities
+             */
+            {
+                test: /\.(png|jpg|jpeg)$/i,
+                use: [
+                    {
+                        loader: 'responsive-loader',
+                        options: {
+                            adapter: require('responsive-loader/sharp'),
+                            sizes: ASSET_CONFIG.images.breakpoints,
+                            placeholder: true,
+                            placeholderSize: 40,
+                            quality: ASSET_CONFIG.images.quality.jpeg,
+                            format: 'jpg',
+                        },
+                    },
+                ],
+                type: 'javascript/auto',
+            },
+            /**
+             * Static images (SVG, GIF, ICO) with development naming
+             * Uses simple filenames for easier debugging
+             */
+            {
+                test: /\.(svg|gif|ico)$/i,
+                generator: {
+                    filename: ASSET_CONFIG.output.naming.development.images,
+                },
+            },
+            /**
+             * Font files with development naming
+             * Simple names for faster rebuilds and debugging
+             */
+            {
+                test: /\.(woff|woff2|eot|ttf|otf)$/i,
+                generator: {
+                    filename: ASSET_CONFIG.output.naming.development.fonts,
+                },
+            },
+        ],
+    },
+    /** Development-specific plugins */
+    plugins: [
+        /**
+         * HTML template plugin for development
+         * Uses HMR-enabled template with unminified output for debugging
+         */
+        new HtmlWebpackPlugin({
+            template: path.resolve(__dirname, 'app/ui/templates/website-editor-react-hmr.html'),
+            filename: 'index.html',
+            inject: 'body',
+            minify: false,
+        }),
+        /**
+         * React Fast Refresh plugin for hot reloading
+         * Preserves component state during development
+         */
+        new ReactRefreshWebpackPlugin({
+            overlay: {
+                sockIntegration: 'whm',
+            },
+        }),
+    ],
+    /**
+     * Webpack Dev Server configuration for development
+     * Optimized for Electron development with HMR and proxy support
+     */
+    devServer: {
+        /** Development server port */
+        port: 3000,
+        /** Bind to localhost for security */
+        host: '127.0.0.1',
+        /** Enable hot module replacement */
+        hot: true,
+        /** Enable live reloading as fallback */
+        liveReload: true,
+        /** Enable gzip compression */
+        compress: true,
+        /** Don't auto-open browser since this is for Electron */
+        open: false,
+        /** Static file serving configuration from assets config */
+        static: ASSET_CONFIG.devServer.static,
+        /** CORS headers for development */
+        headers: ASSET_CONFIG.devServer.headers,
+        /** Client-side dev server configuration */
+        client: {
+            /** Console logging level */
+            logging: 'info',
+            /** Show build progress */
+            progress: true,
+            /** Error overlay configuration */
+            overlay: {
+                errors: true,
+                warnings: false,
+                runtimeErrors: true,
+            },
+            /** WebSocket URL for HMR connection */
+            webSocketURL: {
+                hostname: '127.0.0.1',
+                pathname: '/ws',
+                port: 3000,
+                protocol: 'ws',
+            },
+        },
+        /** Development middleware configuration */
+        devMiddleware: {
+            stats: 'minimal',
+            writeToDisk: false,
+        },
+        /**
+         * Proxy configuration for backend services
+         * Routes API and Eleventy requests to local backend
+         */
+        proxy: [
+            {
+                context: ['/api', '/eleventy'],
+                target: 'http://127.0.0.1:8080',
+                changeOrigin: true,
+                secure: false,
+                logLevel: 'debug',
+                onProxyReq: (proxyReq, req, res) => {
+                    console.log(`[Proxy] ${req.method} ${req.url} -> ${proxyReq.path}`);
+                },
+                onError: (err, req, res) => {
+                    console.error('[Proxy Error]', err.message);
+                },
+            },
+        ],
+        /**
+         * File watching configuration for hot reloading
+         * Watches template and React files for changes
+         */
+        watchFiles: {
+            paths: ['app/**/*', 'app/ui/templates/**/*.html', 'app/ui/react/**/*'],
+            options: {
+                usePolling: false,
+                interval: 1000,
+                ignored: /node_modules/,
+            },
+        },
+        /**
+         * History API fallback for SPA routing
+         * Serves index.html for client-side routes
+         */
+        historyApiFallback: {
+            index: '/index.html',
+            disableDotRule: true,
+        },
+    },
+    /**
+     * Source maps for development debugging
+     * Uses fast eval-based source maps for quick rebuilds
+     */
+    devtool: ASSET_CONFIG.sourceMaps.development.devtool,
+    /**
+     * Performance hints disabled for development
+     * Large bundles are acceptable during development
+     */
+    performance: {
+        hints: false,
+    },
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2R3ay9EZXZlbG9wZXIvZ2l0bGFiLmNvbS9kYXZpZHdrZWl0aC9AZHdrL2FuZ2xlc2l0ZS93ZWJwYWNrLmRldi5qcyIsIm1hcHBpbmdzIjoiO0FBQUE7Ozs7Ozs7R0FPRztBQUVILE1BQU0sSUFBSSxHQUFHLE9BQU8sQ0FBQyxNQUFNLENBQUMsQ0FBQztBQUM3QixNQUFNLEVBQUUsS0FBSyxFQUFFLEdBQUcsT0FBTyxDQUFDLGVBQWUsQ0FBQyxDQUFDO0FBQzNDLE1BQU0seUJBQXlCLEdBQUcsT0FBTyxDQUFDLHNDQUFzQyxDQUFDLENBQUM7QUFDbEYsTUFBTSxpQkFBaUIsR0FBRyxPQUFPLENBQUMscUJBQXFCLENBQUMsQ0FBQztBQUN6RCxNQUFNLE1BQU0sR0FBRyxPQUFPLENBQUMscUJBQXFCLENBQUMsQ0FBQztBQUM5QyxNQUFNLFlBQVksR0FBRyxPQUFPLENBQUMsaUJBQWlCLENBQUMsQ0FBQztBQUVoRDs7O0dBR0c7QUFDSCxNQUFNLENBQUMsT0FBTyxHQUFHLEtBQUssQ0FBQyxNQUFNLEVBQUU7SUFDN0IsOERBQThEO0lBQzlELElBQUksRUFBRSxhQUFhO0lBRW5COzs7T0FHRztJQUNILE1BQU0sRUFBRTtRQUNOLElBQUksRUFBRSxJQUFJLENBQUMsT0FBTyxDQUFDLFNBQVMsRUFBRSxtQkFBbUIsQ0FBQztRQUNsRCxRQUFRLEVBQUUsWUFBWSxDQUFDLE1BQU0sQ0FBQyxNQUFNLENBQUMsV0FBVyxDQUFDLEVBQUU7UUFDbkQsYUFBYSxFQUFFLGlCQUFpQjtRQUNoQyxVQUFVLEVBQUUsWUFBWSxDQUFDLE1BQU0sQ0FBQyxVQUFVLENBQUMsV0FBVztRQUN0RCxLQUFLLEVBQUUsWUFBWSxDQUFDLE1BQU0sQ0FBQyxLQUFLO1FBQ2hDLG1CQUFtQixFQUFFLG9CQUFvQjtLQUMxQztJQUVELHdDQUF3QztJQUN4QyxNQUFNLEVBQUU7UUFDTixLQUFLLEVBQUU7WUFDTDs7O2VBR0c7WUFDSDtnQkFDRSxJQUFJLEVBQUUsU0FBUztnQkFDZixPQUFPLEVBQUUsY0FBYztnQkFDdkIsR0FBRyxFQUFFO29CQUNIO3dCQUNFLE1BQU0sRUFBRSxXQUFXO3dCQUNuQixPQUFPLEVBQUU7NEJBQ1AsYUFBYSxFQUFFLElBQUk7NEJBQ25CLFVBQVUsRUFBRSxJQUFJLENBQUMsT0FBTyxDQUFDLFNBQVMsRUFBRSw0QkFBNEIsQ0FBQzs0QkFDakUsZUFBZSxFQUFFO2dDQUNmLFNBQVMsRUFBRSxZQUFZLENBQUMsVUFBVSxDQUFDLFdBQVcsQ0FBQyxPQUFPOzZCQUN2RDs0QkFDRCxxQkFBcUIsRUFBRSxHQUFHLEVBQUUsQ0FBQyxDQUFDO2dDQUM1QixNQUFNLEVBQUUsQ0FBQyxPQUFPLENBQUMscUJBQXFCLENBQUMsQ0FBQyxTQUFTLENBQUMsQ0FBQyxNQUFNLENBQUMsT0FBTyxDQUFDOzZCQUNuRSxDQUFDO3lCQUNIO3FCQUNGO2lCQUNGO2FBQ0Y7WUFFRDs7O2VBR0c7WUFDSDtnQkFDRSxJQUFJLEVBQUUsUUFBUTtnQkFDZCxHQUFHLEVBQUU7b0JBQ0gsY0FBYztvQkFDZDt3QkFDRSxNQUFNLEVBQUUsWUFBWTt3QkFDcEIsT0FBTyxFQUFFOzRCQUNQLGFBQWEsRUFBRSxDQUFDOzRCQUNoQixTQUFTLEVBQUUsWUFBWSxDQUFDLFVBQVUsQ0FBQyxXQUFXLENBQUMsR0FBRzt5QkFDbkQ7cUJBQ0Y7b0JBQ0Q7d0JBQ0UsTUFBTSxFQUFFLGdCQUFnQjt3QkFDeEIsT0FBTyxFQUFFOzRCQUNQLFNBQVMsRUFBRSxZQUFZLENBQUMsVUFBVSxDQUFDLFdBQVcsQ0FBQyxHQUFHO3lCQUNuRDtxQkFDRjtpQkFDRjthQUNGO1lBRUQ7OztlQUdHO1lBQ0g7Z0JBQ0UsSUFBSSxFQUFFLG9CQUFvQjtnQkFDMUIsR0FBRyxFQUFFO29CQUNIO3dCQUNFLE1BQU0sRUFBRSxtQkFBbUI7d0JBQzNCLE9BQU8sRUFBRTs0QkFDUCxPQUFPLEVBQUUsT0FBTyxDQUFDLHlCQUF5QixDQUFDOzRCQUMzQyxLQUFLLEVBQUUsWUFBWSxDQUFDLE1BQU0sQ0FBQyxXQUFXOzRCQUN0QyxXQUFXLEVBQUUsSUFBSTs0QkFDakIsZUFBZSxFQUFFLEVBQUU7NEJBQ25CLE9BQU8sRUFBRSxZQUFZLENBQUMsTUFBTSxDQUFDLE9BQU8sQ0FBQyxJQUFJOzRCQUN6QyxNQUFNLEVBQUUsS0FBSzt5QkFDZDtxQkFDRjtpQkFDRjtnQkFDRCxJQUFJLEVBQUUsaUJBQWlCO2FBQ3hCO1lBRUQ7OztlQUdHO1lBQ0g7Z0JBQ0UsSUFBSSxFQUFFLG1CQUFtQjtnQkFDekIsU0FBUyxFQUFFO29CQUNULFFBQVEsRUFBRSxZQUFZLENBQUMsTUFBTSxDQUFDLE1BQU0sQ0FBQyxXQUFXLENBQUMsTUFBTTtpQkFDeEQ7YUFDRjtZQUVEOzs7ZUFHRztZQUNIO2dCQUNFLElBQUksRUFBRSw4QkFBOEI7Z0JBQ3BDLFNBQVMsRUFBRTtvQkFDVCxRQUFRLEVBQUUsWUFBWSxDQUFDLE1BQU0sQ0FBQyxNQUFNLENBQUMsV0FBVyxDQUFDLEtBQUs7aUJBQ3ZEO2FBQ0Y7U0FDRjtLQUNGO0lBRUQsbUNBQW1DO0lBQ25DLE9BQU8sRUFBRTtRQUNQOzs7V0FHRztRQUNILElBQUksaUJBQWlCLENBQUM7WUFDcEIsUUFBUSxFQUFFLElBQUksQ0FBQyxPQUFPLENBQUMsU0FBUyxFQUFFLGdEQUFnRCxDQUFDO1lBQ25GLFFBQVEsRUFBRSxZQUFZO1lBQ3RCLE1BQU0sRUFBRSxNQUFNO1lBQ2QsTUFBTSxFQUFFLEtBQUs7U0FDZCxDQUFDO1FBRUY7OztXQUdHO1FBQ0gsSUFBSSx5QkFBeUIsQ0FBQztZQUM1QixPQUFPLEVBQUU7Z0JBQ1AsZUFBZSxFQUFFLEtBQUs7YUFDdkI7U0FDRixDQUFDO0tBQ0g7SUFFRDs7O09BR0c7SUFDSCxTQUFTLEVBQUU7UUFDVCw4QkFBOEI7UUFDOUIsSUFBSSxFQUFFLElBQUk7UUFDVixxQ0FBcUM7UUFDckMsSUFBSSxFQUFFLFdBQVc7UUFDakIsb0NBQW9DO1FBQ3BDLEdBQUcsRUFBRSxJQUFJO1FBQ1Qsd0NBQXdDO1FBQ3hDLFVBQVUsRUFBRSxJQUFJO1FBQ2hCLDhCQUE4QjtRQUM5QixRQUFRLEVBQUUsSUFBSTtRQUNkLHlEQUF5RDtRQUN6RCxJQUFJLEVBQUUsS0FBSztRQUVYLDJEQUEyRDtRQUMzRCxNQUFNLEVBQUUsWUFBWSxDQUFDLFNBQVMsQ0FBQyxNQUFNO1FBRXJDLG1DQUFtQztRQUNuQyxPQUFPLEVBQUUsWUFBWSxDQUFDLFNBQVMsQ0FBQyxPQUFPO1FBRXZDLDJDQUEyQztRQUMzQyxNQUFNLEVBQUU7WUFDTiw0QkFBNEI7WUFDNUIsT0FBTyxFQUFFLE1BQU07WUFDZiwwQkFBMEI7WUFDMUIsUUFBUSxFQUFFLElBQUk7WUFDZCxrQ0FBa0M7WUFDbEMsT0FBTyxFQUFFO2dCQUNQLE1BQU0sRUFBRSxJQUFJO2dCQUNaLFFBQVEsRUFBRSxLQUFLO2dCQUNmLGFBQWEsRUFBRSxJQUFJO2FBQ3BCO1lBQ0QsdUNBQXVDO1lBQ3ZDLFlBQVksRUFBRTtnQkFDWixRQUFRLEVBQUUsV0FBVztnQkFDckIsUUFBUSxFQUFFLEtBQUs7Z0JBQ2YsSUFBSSxFQUFFLElBQUk7Z0JBQ1YsUUFBUSxFQUFFLElBQUk7YUFDZjtTQUNGO1FBRUQsMkNBQTJDO1FBQzNDLGFBQWEsRUFBRTtZQUNiLEtBQUssRUFBRSxTQUFTO1lBQ2hCLFdBQVcsRUFBRSxLQUFLO1NBQ25CO1FBRUQ7OztXQUdHO1FBQ0gsS0FBSyxFQUFFO1lBQ0w7Z0JBQ0UsT0FBTyxFQUFFLENBQUMsTUFBTSxFQUFFLFdBQVcsQ0FBQztnQkFDOUIsTUFBTSxFQUFFLHVCQUF1QjtnQkFDL0IsWUFBWSxFQUFFLElBQUk7Z0JBQ2xCLE1BQU0sRUFBRSxLQUFLO2dCQUNiLFFBQVEsRUFBRSxPQUFPO2dCQUNqQixVQUFVLEVBQUUsQ0FBQyxRQUFRLEVBQUUsR0FBRyxFQUFFLEdBQUcsRUFBRSxFQUFFO29CQUNqQyxPQUFPLENBQUMsR0FBRyxDQUFDLFdBQVcsR0FBRyxDQUFDLE1BQU0sSUFBSSxHQUFHLENBQUMsR0FBRyxPQUFPLFFBQVEsQ0FBQyxJQUFJLEVBQUUsQ0FBQyxDQUFDO2dCQUN0RSxDQUFDO2dCQUNELE9BQU8sRUFBRSxDQUFDLEdBQUcsRUFBRSxHQUFHLEVBQUUsR0FBRyxFQUFFLEVBQUU7b0JBQ3pCLE9BQU8sQ0FBQyxLQUFLLENBQUMsZUFBZSxFQUFFLEdBQUcsQ0FBQyxPQUFPLENBQUMsQ0FBQztnQkFDOUMsQ0FBQzthQUNGO1NBQ0Y7UUFFRDs7O1dBR0c7UUFDSCxVQUFVLEVBQUU7WUFDVixLQUFLLEVBQUUsQ0FBQyxVQUFVLEVBQUUsNEJBQTRCLEVBQUUsbUJBQW1CLENBQUM7WUFDdEUsT0FBTyxFQUFFO2dCQUNQLFVBQVUsRUFBRSxLQUFLO2dCQUNqQixRQUFRLEVBQUUsSUFBSTtnQkFDZCxPQUFPLEVBQUUsY0FBYzthQUN4QjtTQUNGO1FBRUQ7OztXQUdHO1FBQ0gsa0JBQWtCLEVBQUU7WUFDbEIsS0FBSyxFQUFFLGFBQWE7WUFDcEIsY0FBYyxFQUFFLElBQUk7U0FDckI7S0FDRjtJQUVEOzs7T0FHRztJQUNILE9BQU8sRUFBRSxZQUFZLENBQUMsVUFBVSxDQUFDLFdBQVcsQ0FBQyxPQUFPO0lBRXBEOzs7T0FHRztJQUNILFdBQVcsRUFBRTtRQUNYLEtBQUssRUFBRSxLQUFLO0tBQ2I7Q0FDRixDQUFDLENBQUMiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL2R3ay9EZXZlbG9wZXIvZ2l0bGFiLmNvbS9kYXZpZHdrZWl0aC9AZHdrL2FuZ2xlc2l0ZS93ZWJwYWNrLmRldi5qcyJdLCJzb3VyY2VzQ29udGVudCI6WyIvKipcbiAqIEBmaWxlIERldmVsb3BtZW50IHdlYnBhY2sgY29uZmlndXJhdGlvbiBmb3IgQW5nbGVzaXRlXG4gKiBAZGVzY3JpcHRpb24gT3B0aW1pemVkIGZvciBmYXN0IHJlYnVpbGRzLCBob3QgbW9kdWxlIHJlcGxhY2VtZW50LCBhbmQgZGVidWdnaW5nIGV4cGVyaWVuY2UuXG4gKiBNZXJnZXMgd2l0aCBjb21tb24gY29uZmlndXJhdGlvbiBhbmQgYWRkcyBkZXZlbG9wbWVudC1zcGVjaWZpYyBzZXR0aW5ncyBsaWtlIGRldiBzZXJ2ZXIsXG4gKiBSZWFjdCBGYXN0IFJlZnJlc2gsIGFuZCB1bm9wdGltaXplZCBzb3VyY2UgbWFwcyBmb3IgYmV0dGVyIGRlYnVnZ2luZy5cbiAqIEBhdXRob3IgRGF2aWQgVy4gS2VpdGggPGdpdEBkd2suaW8+XG4gKiBAc2luY2UgMC4xLjBcbiAqL1xuXG5jb25zdCBwYXRoID0gcmVxdWlyZSgncGF0aCcpO1xuY29uc3QgeyBtZXJnZSB9ID0gcmVxdWlyZSgnd2VicGFjay1tZXJnZScpO1xuY29uc3QgUmVhY3RSZWZyZXNoV2VicGFja1BsdWdpbiA9IHJlcXVpcmUoJ0BwbW1td2gvcmVhY3QtcmVmcmVzaC13ZWJwYWNrLXBsdWdpbicpO1xuY29uc3QgSHRtbFdlYnBhY2tQbHVnaW4gPSByZXF1aXJlKCdodG1sLXdlYnBhY2stcGx1Z2luJyk7XG5jb25zdCBjb21tb24gPSByZXF1aXJlKCcuL3dlYnBhY2suY29tbW9uLmpzJyk7XG5jb25zdCBBU1NFVF9DT05GSUcgPSByZXF1aXJlKCcuL2Fzc2V0cy5jb25maWcnKTtcblxuLyoqXG4gKiBEZXZlbG9wbWVudCB3ZWJwYWNrIGNvbmZpZ3VyYXRpb25cbiAqIEB0eXBlIHtpbXBvcnQoJ3dlYnBhY2snKS5Db25maWd1cmF0aW9ufVxuICovXG5tb2R1bGUuZXhwb3J0cyA9IG1lcmdlKGNvbW1vbiwge1xuICAvKiogRGV2ZWxvcG1lbnQgbW9kZSBmb3IgZmFzdGVyIGJ1aWxkcyBhbmQgYmV0dGVyIGRlYnVnZ2luZyAqL1xuICBtb2RlOiAnZGV2ZWxvcG1lbnQnLFxuICBcbiAgLyoqIFxuICAgKiBEZXZlbG9wbWVudCBvdXRwdXQgY29uZmlndXJhdGlvblxuICAgKiBVc2VzIHNpbXBsZSBmaWxlbmFtZXMgd2l0aG91dCBoYXNoZXMgZm9yIGZhc3RlciByZWJ1aWxkc1xuICAgKi9cbiAgb3V0cHV0OiB7XG4gICAgcGF0aDogcGF0aC5yZXNvbHZlKF9fZGlybmFtZSwgJ2Rpc3QvYXBwL3VpL3JlYWN0JyksXG4gICAgZmlsZW5hbWU6IEFTU0VUX0NPTkZJRy5vdXRwdXQubmFtaW5nLmRldmVsb3BtZW50LmpzLFxuICAgIGNodW5rRmlsZW5hbWU6ICdbbmFtZV0uY2h1bmsuanMnLFxuICAgIHB1YmxpY1BhdGg6IEFTU0VUX0NPTkZJRy5vdXRwdXQucHVibGljUGF0aC5kZXZlbG9wbWVudCxcbiAgICBjbGVhbjogQVNTRVRfQ09ORklHLm91dHB1dC5jbGVhbixcbiAgICBhc3NldE1vZHVsZUZpbGVuYW1lOiAnYXNzZXRzL1tuYW1lXVtleHRdJyxcbiAgfSxcblxuICAvKiogRGV2ZWxvcG1lbnQtc3BlY2lmaWMgbW9kdWxlIHJ1bGVzICovXG4gIG1vZHVsZToge1xuICAgIHJ1bGVzOiBbXG4gICAgICAvKiogXG4gICAgICAgKiBUeXBlU2NyaXB0L1JlYWN0IGZpbGVzIHdpdGggUmVhY3QgRmFzdCBSZWZyZXNoIHN1cHBvcnRcbiAgICAgICAqIEVuYWJsZXMgaG90IHJlbG9hZGluZyBvZiBSZWFjdCBjb21wb25lbnRzIHdpdGhvdXQgbG9zaW5nIHN0YXRlXG4gICAgICAgKi9cbiAgICAgIHtcbiAgICAgICAgdGVzdDogL1xcLnRzeD8kLyxcbiAgICAgICAgZXhjbHVkZTogL25vZGVfbW9kdWxlcy8sXG4gICAgICAgIHVzZTogW1xuICAgICAgICAgIHtcbiAgICAgICAgICAgIGxvYWRlcjogJ3RzLWxvYWRlcicsXG4gICAgICAgICAgICBvcHRpb25zOiB7XG4gICAgICAgICAgICAgIHRyYW5zcGlsZU9ubHk6IHRydWUsXG4gICAgICAgICAgICAgIGNvbmZpZ0ZpbGU6IHBhdGgucmVzb2x2ZShfX2Rpcm5hbWUsICdhcHAvdWkvcmVhY3QvdHNjb25maWcuanNvbicpLFxuICAgICAgICAgICAgICBjb21waWxlck9wdGlvbnM6IHtcbiAgICAgICAgICAgICAgICBzb3VyY2VNYXA6IEFTU0VUX0NPTkZJRy5zb3VyY2VNYXBzLmRldmVsb3BtZW50LmxvYWRlcnMsXG4gICAgICAgICAgICAgIH0sXG4gICAgICAgICAgICAgIGdldEN1c3RvbVRyYW5zZm9ybWVyczogKCkgPT4gKHtcbiAgICAgICAgICAgICAgICBiZWZvcmU6IFtyZXF1aXJlKCdyZWFjdC1yZWZyZXNoL2JhYmVsJykudHJhbnNmb3JtXS5maWx0ZXIoQm9vbGVhbiksXG4gICAgICAgICAgICAgIH0pLFxuICAgICAgICAgICAgfSxcbiAgICAgICAgICB9LFxuICAgICAgICBdLFxuICAgICAgfSxcblxuICAgICAgLyoqIFxuICAgICAgICogQ1NTIGZpbGVzIHdpdGggc3R5bGUtbG9hZGVyIGZvciBob3QgbW9kdWxlIHJlcGxhY2VtZW50XG4gICAgICAgKiBJbmplY3RzIENTUyBkaXJlY3RseSBpbnRvIHRoZSBET00gZm9yIGZhc3RlciBkZXZlbG9wbWVudCBmZWVkYmFja1xuICAgICAgICovXG4gICAgICB7XG4gICAgICAgIHRlc3Q6IC9cXC5jc3MkLyxcbiAgICAgICAgdXNlOiBbXG4gICAgICAgICAgJ3N0eWxlLWxvYWRlcicsXG4gICAgICAgICAge1xuICAgICAgICAgICAgbG9hZGVyOiAnY3NzLWxvYWRlcicsXG4gICAgICAgICAgICBvcHRpb25zOiB7XG4gICAgICAgICAgICAgIGltcG9ydExvYWRlcnM6IDIsXG4gICAgICAgICAgICAgIHNvdXJjZU1hcDogQVNTRVRfQ09ORklHLnNvdXJjZU1hcHMuZGV2ZWxvcG1lbnQuY3NzLFxuICAgICAgICAgICAgfSxcbiAgICAgICAgICB9LFxuICAgICAgICAgIHtcbiAgICAgICAgICAgIGxvYWRlcjogJ3Bvc3Rjc3MtbG9hZGVyJyxcbiAgICAgICAgICAgIG9wdGlvbnM6IHtcbiAgICAgICAgICAgICAgc291cmNlTWFwOiBBU1NFVF9DT05GSUcuc291cmNlTWFwcy5kZXZlbG9wbWVudC5jc3MsXG4gICAgICAgICAgICB9LFxuICAgICAgICAgIH0sXG4gICAgICAgIF0sXG4gICAgICB9LFxuXG4gICAgICAvKiogXG4gICAgICAgKiBSZXNwb25zaXZlIGltYWdlcyB3aXRoIFNoYXJwIGFkYXB0ZXJcbiAgICAgICAqIEdlbmVyYXRlcyBtdWx0aXBsZSBpbWFnZSBzaXplcyBmb3IgZGlmZmVyZW50IHNjcmVlbiBkZW5zaXRpZXNcbiAgICAgICAqL1xuICAgICAge1xuICAgICAgICB0ZXN0OiAvXFwuKHBuZ3xqcGd8anBlZykkL2ksXG4gICAgICAgIHVzZTogW1xuICAgICAgICAgIHtcbiAgICAgICAgICAgIGxvYWRlcjogJ3Jlc3BvbnNpdmUtbG9hZGVyJyxcbiAgICAgICAgICAgIG9wdGlvbnM6IHtcbiAgICAgICAgICAgICAgYWRhcHRlcjogcmVxdWlyZSgncmVzcG9uc2l2ZS1sb2FkZXIvc2hhcnAnKSxcbiAgICAgICAgICAgICAgc2l6ZXM6IEFTU0VUX0NPTkZJRy5pbWFnZXMuYnJlYWtwb2ludHMsXG4gICAgICAgICAgICAgIHBsYWNlaG9sZGVyOiB0cnVlLFxuICAgICAgICAgICAgICBwbGFjZWhvbGRlclNpemU6IDQwLFxuICAgICAgICAgICAgICBxdWFsaXR5OiBBU1NFVF9DT05GSUcuaW1hZ2VzLnF1YWxpdHkuanBlZyxcbiAgICAgICAgICAgICAgZm9ybWF0OiAnanBnJyxcbiAgICAgICAgICAgIH0sXG4gICAgICAgICAgfSxcbiAgICAgICAgXSxcbiAgICAgICAgdHlwZTogJ2phdmFzY3JpcHQvYXV0bycsXG4gICAgICB9LFxuXG4gICAgICAvKiogXG4gICAgICAgKiBTdGF0aWMgaW1hZ2VzIChTVkcsIEdJRiwgSUNPKSB3aXRoIGRldmVsb3BtZW50IG5hbWluZ1xuICAgICAgICogVXNlcyBzaW1wbGUgZmlsZW5hbWVzIGZvciBlYXNpZXIgZGVidWdnaW5nXG4gICAgICAgKi9cbiAgICAgIHtcbiAgICAgICAgdGVzdDogL1xcLihzdmd8Z2lmfGljbykkL2ksXG4gICAgICAgIGdlbmVyYXRvcjoge1xuICAgICAgICAgIGZpbGVuYW1lOiBBU1NFVF9DT05GSUcub3V0cHV0Lm5hbWluZy5kZXZlbG9wbWVudC5pbWFnZXMsXG4gICAgICAgIH0sXG4gICAgICB9LFxuXG4gICAgICAvKiogXG4gICAgICAgKiBGb250IGZpbGVzIHdpdGggZGV2ZWxvcG1lbnQgbmFtaW5nXG4gICAgICAgKiBTaW1wbGUgbmFtZXMgZm9yIGZhc3RlciByZWJ1aWxkcyBhbmQgZGVidWdnaW5nXG4gICAgICAgKi9cbiAgICAgIHtcbiAgICAgICAgdGVzdDogL1xcLih3b2ZmfHdvZmYyfGVvdHx0dGZ8b3RmKSQvaSxcbiAgICAgICAgZ2VuZXJhdG9yOiB7XG4gICAgICAgICAgZmlsZW5hbWU6IEFTU0VUX0NPTkZJRy5vdXRwdXQubmFtaW5nLmRldmVsb3BtZW50LmZvbnRzLFxuICAgICAgICB9LFxuICAgICAgfSxcbiAgICBdLFxuICB9LFxuXG4gIC8qKiBEZXZlbG9wbWVudC1zcGVjaWZpYyBwbHVnaW5zICovXG4gIHBsdWdpbnM6IFtcbiAgICAvKiogXG4gICAgICogSFRNTCB0ZW1wbGF0ZSBwbHVnaW4gZm9yIGRldmVsb3BtZW50XG4gICAgICogVXNlcyBITVItZW5hYmxlZCB0ZW1wbGF0ZSB3aXRoIHVubWluaWZpZWQgb3V0cHV0IGZvciBkZWJ1Z2dpbmdcbiAgICAgKi9cbiAgICBuZXcgSHRtbFdlYnBhY2tQbHVnaW4oe1xuICAgICAgdGVtcGxhdGU6IHBhdGgucmVzb2x2ZShfX2Rpcm5hbWUsICdhcHAvdWkvdGVtcGxhdGVzL3dlYnNpdGUtZWRpdG9yLXJlYWN0LWhtci5odG1sJyksXG4gICAgICBmaWxlbmFtZTogJ2luZGV4Lmh0bWwnLFxuICAgICAgaW5qZWN0OiAnYm9keScsXG4gICAgICBtaW5pZnk6IGZhbHNlLFxuICAgIH0pLFxuXG4gICAgLyoqIFxuICAgICAqIFJlYWN0IEZhc3QgUmVmcmVzaCBwbHVnaW4gZm9yIGhvdCByZWxvYWRpbmdcbiAgICAgKiBQcmVzZXJ2ZXMgY29tcG9uZW50IHN0YXRlIGR1cmluZyBkZXZlbG9wbWVudFxuICAgICAqL1xuICAgIG5ldyBSZWFjdFJlZnJlc2hXZWJwYWNrUGx1Z2luKHtcbiAgICAgIG92ZXJsYXk6IHtcbiAgICAgICAgc29ja0ludGVncmF0aW9uOiAnd2htJyxcbiAgICAgIH0sXG4gICAgfSksXG4gIF0sXG5cbiAgLyoqIFxuICAgKiBXZWJwYWNrIERldiBTZXJ2ZXIgY29uZmlndXJhdGlvbiBmb3IgZGV2ZWxvcG1lbnRcbiAgICogT3B0aW1pemVkIGZvciBFbGVjdHJvbiBkZXZlbG9wbWVudCB3aXRoIEhNUiBhbmQgcHJveHkgc3VwcG9ydFxuICAgKi9cbiAgZGV2U2VydmVyOiB7XG4gICAgLyoqIERldmVsb3BtZW50IHNlcnZlciBwb3J0ICovXG4gICAgcG9ydDogMzAwMCxcbiAgICAvKiogQmluZCB0byBsb2NhbGhvc3QgZm9yIHNlY3VyaXR5ICovXG4gICAgaG9zdDogJzEyNy4wLjAuMScsXG4gICAgLyoqIEVuYWJsZSBob3QgbW9kdWxlIHJlcGxhY2VtZW50ICovXG4gICAgaG90OiB0cnVlLFxuICAgIC8qKiBFbmFibGUgbGl2ZSByZWxvYWRpbmcgYXMgZmFsbGJhY2sgKi9cbiAgICBsaXZlUmVsb2FkOiB0cnVlLFxuICAgIC8qKiBFbmFibGUgZ3ppcCBjb21wcmVzc2lvbiAqL1xuICAgIGNvbXByZXNzOiB0cnVlLFxuICAgIC8qKiBEb24ndCBhdXRvLW9wZW4gYnJvd3NlciBzaW5jZSB0aGlzIGlzIGZvciBFbGVjdHJvbiAqL1xuICAgIG9wZW46IGZhbHNlLFxuXG4gICAgLyoqIFN0YXRpYyBmaWxlIHNlcnZpbmcgY29uZmlndXJhdGlvbiBmcm9tIGFzc2V0cyBjb25maWcgKi9cbiAgICBzdGF0aWM6IEFTU0VUX0NPTkZJRy5kZXZTZXJ2ZXIuc3RhdGljLFxuXG4gICAgLyoqIENPUlMgaGVhZGVycyBmb3IgZGV2ZWxvcG1lbnQgKi9cbiAgICBoZWFkZXJzOiBBU1NFVF9DT05GSUcuZGV2U2VydmVyLmhlYWRlcnMsXG5cbiAgICAvKiogQ2xpZW50LXNpZGUgZGV2IHNlcnZlciBjb25maWd1cmF0aW9uICovXG4gICAgY2xpZW50OiB7XG4gICAgICAvKiogQ29uc29sZSBsb2dnaW5nIGxldmVsICovXG4gICAgICBsb2dnaW5nOiAnaW5mbycsXG4gICAgICAvKiogU2hvdyBidWlsZCBwcm9ncmVzcyAqL1xuICAgICAgcHJvZ3Jlc3M6IHRydWUsXG4gICAgICAvKiogRXJyb3Igb3ZlcmxheSBjb25maWd1cmF0aW9uICovXG4gICAgICBvdmVybGF5OiB7XG4gICAgICAgIGVycm9yczogdHJ1ZSxcbiAgICAgICAgd2FybmluZ3M6IGZhbHNlLFxuICAgICAgICBydW50aW1lRXJyb3JzOiB0cnVlLFxuICAgICAgfSxcbiAgICAgIC8qKiBXZWJTb2NrZXQgVVJMIGZvciBITVIgY29ubmVjdGlvbiAqL1xuICAgICAgd2ViU29ja2V0VVJMOiB7XG4gICAgICAgIGhvc3RuYW1lOiAnMTI3LjAuMC4xJyxcbiAgICAgICAgcGF0aG5hbWU6ICcvd3MnLFxuICAgICAgICBwb3J0OiAzMDAwLFxuICAgICAgICBwcm90b2NvbDogJ3dzJyxcbiAgICAgIH0sXG4gICAgfSxcblxuICAgIC8qKiBEZXZlbG9wbWVudCBtaWRkbGV3YXJlIGNvbmZpZ3VyYXRpb24gKi9cbiAgICBkZXZNaWRkbGV3YXJlOiB7XG4gICAgICBzdGF0czogJ21pbmltYWwnLFxuICAgICAgd3JpdGVUb0Rpc2s6IGZhbHNlLFxuICAgIH0sXG5cbiAgICAvKiogXG4gICAgICogUHJveHkgY29uZmlndXJhdGlvbiBmb3IgYmFja2VuZCBzZXJ2aWNlc1xuICAgICAqIFJvdXRlcyBBUEkgYW5kIEVsZXZlbnR5IHJlcXVlc3RzIHRvIGxvY2FsIGJhY2tlbmRcbiAgICAgKi9cbiAgICBwcm94eTogW1xuICAgICAge1xuICAgICAgICBjb250ZXh0OiBbJy9hcGknLCAnL2VsZXZlbnR5J10sXG4gICAgICAgIHRhcmdldDogJ2h0dHA6Ly8xMjcuMC4wLjE6ODA4MCcsXG4gICAgICAgIGNoYW5nZU9yaWdpbjogdHJ1ZSxcbiAgICAgICAgc2VjdXJlOiBmYWxzZSxcbiAgICAgICAgbG9nTGV2ZWw6ICdkZWJ1ZycsXG4gICAgICAgIG9uUHJveHlSZXE6IChwcm94eVJlcSwgcmVxLCByZXMpID0+IHtcbiAgICAgICAgICBjb25zb2xlLmxvZyhgW1Byb3h5XSAke3JlcS5tZXRob2R9ICR7cmVxLnVybH0gLT4gJHtwcm94eVJlcS5wYXRofWApO1xuICAgICAgICB9LFxuICAgICAgICBvbkVycm9yOiAoZXJyLCByZXEsIHJlcykgPT4ge1xuICAgICAgICAgIGNvbnNvbGUuZXJyb3IoJ1tQcm94eSBFcnJvcl0nLCBlcnIubWVzc2FnZSk7XG4gICAgICAgIH0sXG4gICAgICB9LFxuICAgIF0sXG5cbiAgICAvKiogXG4gICAgICogRmlsZSB3YXRjaGluZyBjb25maWd1cmF0aW9uIGZvciBob3QgcmVsb2FkaW5nXG4gICAgICogV2F0Y2hlcyB0ZW1wbGF0ZSBhbmQgUmVhY3QgZmlsZXMgZm9yIGNoYW5nZXNcbiAgICAgKi9cbiAgICB3YXRjaEZpbGVzOiB7XG4gICAgICBwYXRoczogWydhcHAvKiovKicsICdhcHAvdWkvdGVtcGxhdGVzLyoqLyouaHRtbCcsICdhcHAvdWkvcmVhY3QvKiovKiddLFxuICAgICAgb3B0aW9uczoge1xuICAgICAgICB1c2VQb2xsaW5nOiBmYWxzZSxcbiAgICAgICAgaW50ZXJ2YWw6IDEwMDAsXG4gICAgICAgIGlnbm9yZWQ6IC9ub2RlX21vZHVsZXMvLFxuICAgICAgfSxcbiAgICB9LFxuXG4gICAgLyoqIFxuICAgICAqIEhpc3RvcnkgQVBJIGZhbGxiYWNrIGZvciBTUEEgcm91dGluZ1xuICAgICAqIFNlcnZlcyBpbmRleC5odG1sIGZvciBjbGllbnQtc2lkZSByb3V0ZXNcbiAgICAgKi9cbiAgICBoaXN0b3J5QXBpRmFsbGJhY2s6IHtcbiAgICAgIGluZGV4OiAnL2luZGV4Lmh0bWwnLFxuICAgICAgZGlzYWJsZURvdFJ1bGU6IHRydWUsXG4gICAgfSxcbiAgfSxcblxuICAvKiogXG4gICAqIFNvdXJjZSBtYXBzIGZvciBkZXZlbG9wbWVudCBkZWJ1Z2dpbmdcbiAgICogVXNlcyBmYXN0IGV2YWwtYmFzZWQgc291cmNlIG1hcHMgZm9yIHF1aWNrIHJlYnVpbGRzXG4gICAqL1xuICBkZXZ0b29sOiBBU1NFVF9DT05GSUcuc291cmNlTWFwcy5kZXZlbG9wbWVudC5kZXZ0b29sLFxuXG4gIC8qKiBcbiAgICogUGVyZm9ybWFuY2UgaGludHMgZGlzYWJsZWQgZm9yIGRldmVsb3BtZW50XG4gICAqIExhcmdlIGJ1bmRsZXMgYXJlIGFjY2VwdGFibGUgZHVyaW5nIGRldmVsb3BtZW50XG4gICAqL1xuICBwZXJmb3JtYW5jZToge1xuICAgIGhpbnRzOiBmYWxzZSxcbiAgfSxcbn0pOyJdLCJ2ZXJzaW9uIjozfQ==

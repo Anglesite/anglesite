@@ -1,0 +1,630 @@
+c0a753b3d91b2d6b0c69b339369447a6
+"use strict";
+
+/* istanbul ignore next */
+function cov_1r1m50ndb1() {
+  var path = "/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/app/utils/first-launch.ts";
+  var hash = "323dedbc2edfb701c335015f1b87a6eddeb49159";
+  var global = new Function("return this")();
+  var gcv = "__coverage__";
+  var coverageData = {
+    path: "/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/app/utils/first-launch.ts",
+    statementMap: {
+      "0": {
+        start: {
+          line: 2,
+          column: 0
+        },
+        end: {
+          line: 2,
+          column: 62
+        }
+      },
+      "1": {
+        start: {
+          line: 3,
+          column: 0
+        },
+        end: {
+          line: 3,
+          column: 46
+        }
+      },
+      "2": {
+        start: {
+          line: 7,
+          column: 19
+        },
+        end: {
+          line: 7,
+          column: 38
+        }
+      },
+      "3": {
+        start: {
+          line: 8,
+          column: 23
+        },
+        end: {
+          line: 8,
+          column: 49
+        }
+      },
+      "4": {
+        start: {
+          line: 9,
+          column: 25
+        },
+        end: {
+          line: 9,
+          column: 56
+        }
+      },
+      "5": {
+        start: {
+          line: 19,
+          column: 24
+        },
+        end: {
+          line: 19,
+          column: 73
+        }
+      },
+      "6": {
+        start: {
+          line: 20,
+          column: 4
+        },
+        end: {
+          line: 25,
+          column: 5
+        }
+      },
+      "7": {
+        start: {
+          line: 22,
+          column: 8
+        },
+        end: {
+          line: 22,
+          column: 40
+        }
+      },
+      "8": {
+        start: {
+          line: 23,
+          column: 8
+        },
+        end: {
+          line: 23,
+          column: 48
+        }
+      },
+      "9": {
+        start: {
+          line: 24,
+          column: 8
+        },
+        end: {
+          line: 24,
+          column: 15
+        }
+      },
+      "10": {
+        start: {
+          line: 27,
+          column: 23
+        },
+        end: {
+          line: 27,
+          column: 77
+        }
+      },
+      "11": {
+        start: {
+          line: 28,
+          column: 4
+        },
+        end: {
+          line: 32,
+          column: 5
+        }
+      },
+      "12": {
+        start: {
+          line: 30,
+          column: 8
+        },
+        end: {
+          line: 30,
+          column: 30
+        }
+      },
+      "13": {
+        start: {
+          line: 31,
+          column: 8
+        },
+        end: {
+          line: 31,
+          column: 15
+        }
+      },
+      "14": {
+        start: {
+          line: 33,
+          column: 4
+        },
+        end: {
+          line: 67,
+          column: 5
+        }
+      },
+      "15": {
+        start: {
+          line: 34,
+          column: 8
+        },
+        end: {
+          line: 62,
+          column: 9
+        }
+      },
+      "16": {
+        start: {
+          line: 35,
+          column: 30
+        },
+        end: {
+          line: 35,
+          column: 75
+        }
+      },
+      "17": {
+        start: {
+          line: 36,
+          column: 12
+        },
+        end: {
+          line: 50,
+          column: 13
+        }
+      },
+      "18": {
+        start: {
+          line: 37,
+          column: 16
+        },
+        end: {
+          line: 37,
+          column: 48
+        }
+      },
+      "19": {
+        start: {
+          line: 41,
+          column: 16
+        },
+        end: {
+          line: 41,
+          column: 47
+        }
+      },
+      "20": {
+        start: {
+          line: 43,
+          column: 16
+        },
+        end: {
+          line: 49,
+          column: 19
+        }
+      },
+      "21": {
+        start: {
+          line: 53,
+          column: 12
+        },
+        end: {
+          line: 53,
+          column: 66
+        }
+      },
+      "22": {
+        start: {
+          line: 54,
+          column: 12
+        },
+        end: {
+          line: 54,
+          column: 43
+        }
+      },
+      "23": {
+        start: {
+          line: 55,
+          column: 12
+        },
+        end: {
+          line: 61,
+          column: 15
+        }
+      },
+      "24": {
+        start: {
+          line: 66,
+          column: 8
+        },
+        end: {
+          line: 66,
+          column: 39
+        }
+      },
+      "25": {
+        start: {
+          line: 69,
+          column: 4
+        },
+        end: {
+          line: 69,
+          column: 44
+        }
+      }
+    },
+    fnMap: {
+      "0": {
+        name: "handleFirstLaunch",
+        decl: {
+          start: {
+            line: 17,
+            column: 15
+          },
+          end: {
+            line: 17,
+            column: 32
+          }
+        },
+        loc: {
+          start: {
+            line: 17,
+            column: 40
+          },
+          end: {
+            line: 70,
+            column: 1
+          }
+        },
+        line: 17
+      }
+    },
+    branchMap: {
+      "0": {
+        loc: {
+          start: {
+            line: 20,
+            column: 4
+          },
+          end: {
+            line: 25,
+            column: 5
+          }
+        },
+        type: "if",
+        locations: [{
+          start: {
+            line: 20,
+            column: 4
+          },
+          end: {
+            line: 25,
+            column: 5
+          }
+        }, {
+          start: {
+            line: undefined,
+            column: undefined
+          },
+          end: {
+            line: undefined,
+            column: undefined
+          }
+        }],
+        line: 20
+      },
+      "1": {
+        loc: {
+          start: {
+            line: 28,
+            column: 4
+          },
+          end: {
+            line: 32,
+            column: 5
+          }
+        },
+        type: "if",
+        locations: [{
+          start: {
+            line: 28,
+            column: 4
+          },
+          end: {
+            line: 32,
+            column: 5
+          }
+        }, {
+          start: {
+            line: undefined,
+            column: undefined
+          },
+          end: {
+            line: undefined,
+            column: undefined
+          }
+        }],
+        line: 28
+      },
+      "2": {
+        loc: {
+          start: {
+            line: 33,
+            column: 4
+          },
+          end: {
+            line: 67,
+            column: 5
+          }
+        },
+        type: "if",
+        locations: [{
+          start: {
+            line: 33,
+            column: 4
+          },
+          end: {
+            line: 67,
+            column: 5
+          }
+        }, {
+          start: {
+            line: 64,
+            column: 9
+          },
+          end: {
+            line: 67,
+            column: 5
+          }
+        }],
+        line: 33
+      },
+      "3": {
+        loc: {
+          start: {
+            line: 36,
+            column: 12
+          },
+          end: {
+            line: 50,
+            column: 13
+          }
+        },
+        type: "if",
+        locations: [{
+          start: {
+            line: 36,
+            column: 12
+          },
+          end: {
+            line: 50,
+            column: 13
+          }
+        }, {
+          start: {
+            line: 39,
+            column: 17
+          },
+          end: {
+            line: 50,
+            column: 13
+          }
+        }],
+        line: 36
+      }
+    },
+    s: {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 0,
+      "9": 0,
+      "10": 0,
+      "11": 0,
+      "12": 0,
+      "13": 0,
+      "14": 0,
+      "15": 0,
+      "16": 0,
+      "17": 0,
+      "18": 0,
+      "19": 0,
+      "20": 0,
+      "21": 0,
+      "22": 0,
+      "23": 0,
+      "24": 0,
+      "25": 0
+    },
+    f: {
+      "0": 0
+    },
+    b: {
+      "0": [0, 0],
+      "1": [0, 0],
+      "2": [0, 0],
+      "3": [0, 0]
+    },
+    inputSourceMap: {
+      file: "/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/app/utils/first-launch.ts",
+      mappings: ";;AAeA,8CA0DC;AAzED;;GAEG;AACH,uCAAuC;AAEvC,kDAA2E;AAC3E,yDAAgE;AAEhE;;;;;;GAMG;AACI,KAAK,UAAU,iBAAiB,CAAC,KAAa;IACnD,mCAAmC;IACnC,MAAM,WAAW,GAAG,MAAM,IAAA,oCAAqB,GAAE,CAAC;IAElD,IAAI,WAAW,EAAE,CAAC;QAChB,iDAAiD;QACjD,KAAK,CAAC,GAAG,CAAC,WAAW,EAAE,OAAO,CAAC,CAAC;QAChC,KAAK,CAAC,GAAG,CAAC,sBAAsB,EAAE,IAAI,CAAC,CAAC;QACxC,OAAO;IACT,CAAC;IAED,8BAA8B;IAC9B,MAAM,UAAU,GAAG,MAAM,IAAA,yCAAwB,GAAE,CAAC;IAEpD,IAAI,CAAC,UAAU,EAAE,CAAC;QAChB,+BAA+B;QAC/B,cAAG,CAAC,IAAI,EAAE,CAAC;QACX,OAAO;IACT,CAAC;IAED,IAAI,UAAU,KAAK,OAAO,EAAE,CAAC;QAC3B,IAAI,CAAC;YACH,MAAM,SAAS,GAAG,MAAM,IAAA,gCAAiB,GAAE,CAAC;YAE5C,IAAI,SAAS,EAAE,CAAC;gBACd,KAAK,CAAC,GAAG,CAAC,WAAW,EAAE,OAAO,CAAC,CAAC;YAClC,CAAC;iBAAM,CAAC;gBACN,yCAAyC;gBACzC,KAAK,CAAC,GAAG,CAAC,WAAW,EAAE,MAAM,CAAC,CAAC;gBAE/B,qBAAqB;gBACrB,iBAAM,CAAC,kBAAkB,CAAC;oBACxB,IAAI,EAAE,SAAS;oBACf,KAAK,EAAE,iCAAiC;oBACxC,OAAO,EAAE,6CAA6C;oBACtD,MAAM,EAAE,kFAAkF;oBAC1F,OAAO,EAAE,CAAC,UAAU,CAAC;iBACtB,CAAC,CAAC;YACL,CAAC;QACH,CAAC;QAAC,OAAO,KAAK,EAAE,CAAC;YACf,OAAO,CAAC,KAAK,CAAC,+BAA+B,EAAE,KAAK,CAAC,CAAC;YACtD,KAAK,CAAC,GAAG,CAAC,WAAW,EAAE,MAAM,CAAC,CAAC;YAE/B,iBAAM,CAAC,kBAAkB,CAAC;gBACxB,IAAI,EAAE,OAAO;gBACb,KAAK,EAAE,aAAa;gBACpB,OAAO,EAAE,iCAAiC;gBAC1C,MAAM,EAAE,uCAAuC;gBAC/C,OAAO,EAAE,CAAC,UAAU,CAAC;aACtB,CAAC,CAAC;QACL,CAAC;IACH,CAAC;SAAM,CAAC;QACN,uBAAuB;QACvB,KAAK,CAAC,GAAG,CAAC,WAAW,EAAE,MAAM,CAAC,CAAC;IACjC,CAAC;IAED,iCAAiC;IACjC,KAAK,CAAC,GAAG,CAAC,sBAAsB,EAAE,IAAI,CAAC,CAAC;AAC1C,CAAC",
+      names: [],
+      sources: ["/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/app/utils/first-launch.ts"],
+      sourcesContent: ["/**\n * @file First launch setup flow utilities\n */\nimport { app, dialog } from 'electron';\nimport { IStore } from '../core/interfaces';\nimport { isCAInstalledInSystem, installCAInSystem } from '../certificates';\nimport { showFirstLaunchAssistant } from '../ui/window-manager';\n\n/**\n * Handle first launch setup flow.\n * Checks if CA is already installed, otherwise shows setup assistant.\n * Handles HTTPS mode setup including CA certificate installation.\n * Falls back to HTTP mode if CA installation fails or user chooses HTTP.\n * @param store Application settings store\n */\nexport async function handleFirstLaunch(store: IStore): Promise<void> {\n  // Check if CA is already installed\n  const caInstalled = await isCAInstalledInSystem();\n\n  if (caInstalled) {\n    // CA is already installed, default to HTTPS mode\n    store.set('httpsMode', 'https');\n    store.set('firstLaunchCompleted', true);\n    return;\n  }\n\n  // Show first launch assistant\n  const userChoice = await showFirstLaunchAssistant();\n\n  if (!userChoice) {\n    // User cancelled, exit the app\n    app.quit();\n    return;\n  }\n\n  if (userChoice === 'https') {\n    try {\n      const installed = await installCAInSystem();\n\n      if (installed) {\n        store.set('httpsMode', 'https');\n      } else {\n        // Installation failed, fall back to HTTP\n        store.set('httpsMode', 'http');\n\n        // Show error message\n        dialog.showMessageBoxSync({\n          type: 'warning',\n          title: 'Certificate Installation Failed',\n          message: 'Failed to install the security certificate.',\n          detail: 'Anglesite will continue in HTTP mode. You can retry HTTPS setup in the settings.',\n          buttons: ['Continue'],\n        });\n      }\n    } catch (error) {\n      console.error('Error during CA installation:', error);\n      store.set('httpsMode', 'http');\n\n      dialog.showMessageBoxSync({\n        type: 'error',\n        title: 'Setup Error',\n        message: 'An error occurred during setup.',\n        detail: 'Anglesite will continue in HTTP mode.',\n        buttons: ['Continue'],\n      });\n    }\n  } else {\n    // User chose HTTP mode\n    store.set('httpsMode', 'http');\n  }\n\n  // Mark first launch as completed\n  store.set('firstLaunchCompleted', true);\n}\n"],
+      version: 3
+    },
+    _coverageSchema: "1a1c01bbd47fc00a2c39e90264f33305004495a9",
+    hash: "323dedbc2edfb701c335015f1b87a6eddeb49159"
+  };
+  var coverage = global[gcv] || (global[gcv] = {});
+  if (!coverage[path] || coverage[path].hash !== hash) {
+    coverage[path] = coverageData;
+  }
+  var actualCoverage = coverage[path];
+  {
+    // @ts-ignore
+    cov_1r1m50ndb1 = function () {
+      return actualCoverage;
+    };
+  }
+  return actualCoverage;
+}
+cov_1r1m50ndb1();
+cov_1r1m50ndb1().s[0]++;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+/* istanbul ignore next */
+cov_1r1m50ndb1().s[1]++;
+exports.handleFirstLaunch = handleFirstLaunch;
+/**
+ * @file First launch setup flow utilities
+ */
+const electron_1 =
+/* istanbul ignore next */
+(cov_1r1m50ndb1().s[2]++, require("electron"));
+const certificates_1 =
+/* istanbul ignore next */
+(cov_1r1m50ndb1().s[3]++, require("../certificates"));
+const window_manager_1 =
+/* istanbul ignore next */
+(cov_1r1m50ndb1().s[4]++, require("../ui/window-manager"));
+/**
+ * Handle first launch setup flow.
+ * Checks if CA is already installed, otherwise shows setup assistant.
+ * Handles HTTPS mode setup including CA certificate installation.
+ * Falls back to HTTP mode if CA installation fails or user chooses HTTP.
+ * @param store Application settings store
+ */
+async function handleFirstLaunch(store) {
+  /* istanbul ignore next */
+  cov_1r1m50ndb1().f[0]++;
+  // Check if CA is already installed
+  const caInstalled =
+  /* istanbul ignore next */
+  (cov_1r1m50ndb1().s[5]++, await (0, certificates_1.isCAInstalledInSystem)());
+  /* istanbul ignore next */
+  cov_1r1m50ndb1().s[6]++;
+  if (caInstalled) {
+    /* istanbul ignore next */
+    cov_1r1m50ndb1().b[0][0]++;
+    cov_1r1m50ndb1().s[7]++;
+    // CA is already installed, default to HTTPS mode
+    store.set('httpsMode', 'https');
+    /* istanbul ignore next */
+    cov_1r1m50ndb1().s[8]++;
+    store.set('firstLaunchCompleted', true);
+    /* istanbul ignore next */
+    cov_1r1m50ndb1().s[9]++;
+    return;
+  } else
+  /* istanbul ignore next */
+  {
+    cov_1r1m50ndb1().b[0][1]++;
+  }
+  // Show first launch assistant
+  const userChoice =
+  /* istanbul ignore next */
+  (cov_1r1m50ndb1().s[10]++, await (0, window_manager_1.showFirstLaunchAssistant)());
+  /* istanbul ignore next */
+  cov_1r1m50ndb1().s[11]++;
+  if (!userChoice) {
+    /* istanbul ignore next */
+    cov_1r1m50ndb1().b[1][0]++;
+    cov_1r1m50ndb1().s[12]++;
+    // User cancelled, exit the app
+    electron_1.app.quit();
+    /* istanbul ignore next */
+    cov_1r1m50ndb1().s[13]++;
+    return;
+  } else
+  /* istanbul ignore next */
+  {
+    cov_1r1m50ndb1().b[1][1]++;
+  }
+  cov_1r1m50ndb1().s[14]++;
+  if (userChoice === 'https') {
+    /* istanbul ignore next */
+    cov_1r1m50ndb1().b[2][0]++;
+    cov_1r1m50ndb1().s[15]++;
+    try {
+      const installed =
+      /* istanbul ignore next */
+      (cov_1r1m50ndb1().s[16]++, await (0, certificates_1.installCAInSystem)());
+      /* istanbul ignore next */
+      cov_1r1m50ndb1().s[17]++;
+      if (installed) {
+        /* istanbul ignore next */
+        cov_1r1m50ndb1().b[3][0]++;
+        cov_1r1m50ndb1().s[18]++;
+        store.set('httpsMode', 'https');
+      } else {
+        /* istanbul ignore next */
+        cov_1r1m50ndb1().b[3][1]++;
+        cov_1r1m50ndb1().s[19]++;
+        // Installation failed, fall back to HTTP
+        store.set('httpsMode', 'http');
+        // Show error message
+        /* istanbul ignore next */
+        cov_1r1m50ndb1().s[20]++;
+        electron_1.dialog.showMessageBoxSync({
+          type: 'warning',
+          title: 'Certificate Installation Failed',
+          message: 'Failed to install the security certificate.',
+          detail: 'Anglesite will continue in HTTP mode. You can retry HTTPS setup in the settings.',
+          buttons: ['Continue']
+        });
+      }
+    } catch (error) {
+      /* istanbul ignore next */
+      cov_1r1m50ndb1().s[21]++;
+      console.error('Error during CA installation:', error);
+      /* istanbul ignore next */
+      cov_1r1m50ndb1().s[22]++;
+      store.set('httpsMode', 'http');
+      /* istanbul ignore next */
+      cov_1r1m50ndb1().s[23]++;
+      electron_1.dialog.showMessageBoxSync({
+        type: 'error',
+        title: 'Setup Error',
+        message: 'An error occurred during setup.',
+        detail: 'Anglesite will continue in HTTP mode.',
+        buttons: ['Continue']
+      });
+    }
+  } else {
+    /* istanbul ignore next */
+    cov_1r1m50ndb1().b[2][1]++;
+    cov_1r1m50ndb1().s[24]++;
+    // User chose HTTP mode
+    store.set('httpsMode', 'http');
+  }
+  // Mark first launch as completed
+  /* istanbul ignore next */
+  cov_1r1m50ndb1().s[25]++;
+  store.set('firstLaunchCompleted', true);
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJjb3ZfMXIxbTUwbmRiMSIsImFjdHVhbENvdmVyYWdlIiwicyIsImV4cG9ydHMiLCJoYW5kbGVGaXJzdExhdW5jaCIsImVsZWN0cm9uXzEiLCJyZXF1aXJlIiwiY2VydGlmaWNhdGVzXzEiLCJ3aW5kb3dfbWFuYWdlcl8xIiwic3RvcmUiLCJmIiwiY2FJbnN0YWxsZWQiLCJpc0NBSW5zdGFsbGVkSW5TeXN0ZW0iLCJiIiwic2V0IiwidXNlckNob2ljZSIsInNob3dGaXJzdExhdW5jaEFzc2lzdGFudCIsImFwcCIsInF1aXQiLCJpbnN0YWxsZWQiLCJpbnN0YWxsQ0FJblN5c3RlbSIsImRpYWxvZyIsInNob3dNZXNzYWdlQm94U3luYyIsInR5cGUiLCJ0aXRsZSIsIm1lc3NhZ2UiLCJkZXRhaWwiLCJidXR0b25zIiwiZXJyb3IiLCJjb25zb2xlIl0sInNvdXJjZXMiOlsiL1VzZXJzL2R3ay9EZXZlbG9wZXIvZ2l0bGFiLmNvbS9kYXZpZHdrZWl0aC9AZHdrL2FuZ2xlc2l0ZS9hcHAvdXRpbHMvZmlyc3QtbGF1bmNoLnRzIl0sInNvdXJjZXNDb250ZW50IjpbIi8qKlxuICogQGZpbGUgRmlyc3QgbGF1bmNoIHNldHVwIGZsb3cgdXRpbGl0aWVzXG4gKi9cbmltcG9ydCB7IGFwcCwgZGlhbG9nIH0gZnJvbSAnZWxlY3Ryb24nO1xuaW1wb3J0IHsgSVN0b3JlIH0gZnJvbSAnLi4vY29yZS9pbnRlcmZhY2VzJztcbmltcG9ydCB7IGlzQ0FJbnN0YWxsZWRJblN5c3RlbSwgaW5zdGFsbENBSW5TeXN0ZW0gfSBmcm9tICcuLi9jZXJ0aWZpY2F0ZXMnO1xuaW1wb3J0IHsgc2hvd0ZpcnN0TGF1bmNoQXNzaXN0YW50IH0gZnJvbSAnLi4vdWkvd2luZG93LW1hbmFnZXInO1xuXG4vKipcbiAqIEhhbmRsZSBmaXJzdCBsYXVuY2ggc2V0dXAgZmxvdy5cbiAqIENoZWNrcyBpZiBDQSBpcyBhbHJlYWR5IGluc3RhbGxlZCwgb3RoZXJ3aXNlIHNob3dzIHNldHVwIGFzc2lzdGFudC5cbiAqIEhhbmRsZXMgSFRUUFMgbW9kZSBzZXR1cCBpbmNsdWRpbmcgQ0EgY2VydGlmaWNhdGUgaW5zdGFsbGF0aW9uLlxuICogRmFsbHMgYmFjayB0byBIVFRQIG1vZGUgaWYgQ0EgaW5zdGFsbGF0aW9uIGZhaWxzIG9yIHVzZXIgY2hvb3NlcyBIVFRQLlxuICogQHBhcmFtIHN0b3JlIEFwcGxpY2F0aW9uIHNldHRpbmdzIHN0b3JlXG4gKi9cbmV4cG9ydCBhc3luYyBmdW5jdGlvbiBoYW5kbGVGaXJzdExhdW5jaChzdG9yZTogSVN0b3JlKTogUHJvbWlzZTx2b2lkPiB7XG4gIC8vIENoZWNrIGlmIENBIGlzIGFscmVhZHkgaW5zdGFsbGVkXG4gIGNvbnN0IGNhSW5zdGFsbGVkID0gYXdhaXQgaXNDQUluc3RhbGxlZEluU3lzdGVtKCk7XG5cbiAgaWYgKGNhSW5zdGFsbGVkKSB7XG4gICAgLy8gQ0EgaXMgYWxyZWFkeSBpbnN0YWxsZWQsIGRlZmF1bHQgdG8gSFRUUFMgbW9kZVxuICAgIHN0b3JlLnNldCgnaHR0cHNNb2RlJywgJ2h0dHBzJyk7XG4gICAgc3RvcmUuc2V0KCdmaXJzdExhdW5jaENvbXBsZXRlZCcsIHRydWUpO1xuICAgIHJldHVybjtcbiAgfVxuXG4gIC8vIFNob3cgZmlyc3QgbGF1bmNoIGFzc2lzdGFudFxuICBjb25zdCB1c2VyQ2hvaWNlID0gYXdhaXQgc2hvd0ZpcnN0TGF1bmNoQXNzaXN0YW50KCk7XG5cbiAgaWYgKCF1c2VyQ2hvaWNlKSB7XG4gICAgLy8gVXNlciBjYW5jZWxsZWQsIGV4aXQgdGhlIGFwcFxuICAgIGFwcC5xdWl0KCk7XG4gICAgcmV0dXJuO1xuICB9XG5cbiAgaWYgKHVzZXJDaG9pY2UgPT09ICdodHRwcycpIHtcbiAgICB0cnkge1xuICAgICAgY29uc3QgaW5zdGFsbGVkID0gYXdhaXQgaW5zdGFsbENBSW5TeXN0ZW0oKTtcblxuICAgICAgaWYgKGluc3RhbGxlZCkge1xuICAgICAgICBzdG9yZS5zZXQoJ2h0dHBzTW9kZScsICdodHRwcycpO1xuICAgICAgfSBlbHNlIHtcbiAgICAgICAgLy8gSW5zdGFsbGF0aW9uIGZhaWxlZCwgZmFsbCBiYWNrIHRvIEhUVFBcbiAgICAgICAgc3RvcmUuc2V0KCdodHRwc01vZGUnLCAnaHR0cCcpO1xuXG4gICAgICAgIC8vIFNob3cgZXJyb3IgbWVzc2FnZVxuICAgICAgICBkaWFsb2cuc2hvd01lc3NhZ2VCb3hTeW5jKHtcbiAgICAgICAgICB0eXBlOiAnd2FybmluZycsXG4gICAgICAgICAgdGl0bGU6ICdDZXJ0aWZpY2F0ZSBJbnN0YWxsYXRpb24gRmFpbGVkJyxcbiAgICAgICAgICBtZXNzYWdlOiAnRmFpbGVkIHRvIGluc3RhbGwgdGhlIHNlY3VyaXR5IGNlcnRpZmljYXRlLicsXG4gICAgICAgICAgZGV0YWlsOiAnQW5nbGVzaXRlIHdpbGwgY29udGludWUgaW4gSFRUUCBtb2RlLiBZb3UgY2FuIHJldHJ5IEhUVFBTIHNldHVwIGluIHRoZSBzZXR0aW5ncy4nLFxuICAgICAgICAgIGJ1dHRvbnM6IFsnQ29udGludWUnXSxcbiAgICAgICAgfSk7XG4gICAgICB9XG4gICAgfSBjYXRjaCAoZXJyb3IpIHtcbiAgICAgIGNvbnNvbGUuZXJyb3IoJ0Vycm9yIGR1cmluZyBDQSBpbnN0YWxsYXRpb246JywgZXJyb3IpO1xuICAgICAgc3RvcmUuc2V0KCdodHRwc01vZGUnLCAnaHR0cCcpO1xuXG4gICAgICBkaWFsb2cuc2hvd01lc3NhZ2VCb3hTeW5jKHtcbiAgICAgICAgdHlwZTogJ2Vycm9yJyxcbiAgICAgICAgdGl0bGU6ICdTZXR1cCBFcnJvcicsXG4gICAgICAgIG1lc3NhZ2U6ICdBbiBlcnJvciBvY2N1cnJlZCBkdXJpbmcgc2V0dXAuJyxcbiAgICAgICAgZGV0YWlsOiAnQW5nbGVzaXRlIHdpbGwgY29udGludWUgaW4gSFRUUCBtb2RlLicsXG4gICAgICAgIGJ1dHRvbnM6IFsnQ29udGludWUnXSxcbiAgICAgIH0pO1xuICAgIH1cbiAgfSBlbHNlIHtcbiAgICAvLyBVc2VyIGNob3NlIEhUVFAgbW9kZVxuICAgIHN0b3JlLnNldCgnaHR0cHNNb2RlJywgJ2h0dHAnKTtcbiAgfVxuXG4gIC8vIE1hcmsgZmlyc3QgbGF1bmNoIGFzIGNvbXBsZXRlZFxuICBzdG9yZS5zZXQoJ2ZpcnN0TGF1bmNoQ29tcGxldGVkJywgdHJ1ZSk7XG59XG4iXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztJQWNHO0lBQUFBLGNBQUEsWUFBQUEsQ0FBQTtNQUFBLE9BQUFDLGNBQUE7SUFBQTtFQUFBO0VBQUEsT0FBQUEsY0FBQTtBQUFBO0FBQUFELGNBQUE7QUFBQUEsY0FBQSxHQUFBRSxDQUFBOzs7Ozs7QUFDSEMsT0FBQSxDQUFBQyxpQkFBQSxHQUFBQSxpQkFBQTtBQWZBOzs7QUFHQSxNQUFBQyxVQUFBO0FBQUE7QUFBQSxDQUFBTCxjQUFBLEdBQUFFLENBQUEsT0FBQUksT0FBQTtBQUVBLE1BQUFDLGNBQUE7QUFBQTtBQUFBLENBQUFQLGNBQUEsR0FBQUUsQ0FBQSxPQUFBSSxPQUFB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
