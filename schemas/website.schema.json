@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://anglesite.dwk.io/schemas/website.json",
   "title": "Anglesite Website Configuration",
-  "description": "Configuration schema for Anglesite website metadata and settings",
+  "description": "Configuration schema for Anglesite website metadata and settings. See VALIDATION.md for detailed requirements and conditional field documentation.",
   "type": "object",
   "allOf": [
     {

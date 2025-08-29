@@ -62,61 +62,88 @@
     },
     "favicon": {
       "type": "object",
-      "description": "Favicon configuration",
+      "description": "Favicon configuration - at least one format should be provided",
       "properties": {
         "ico": {
           "type": "string",
-          "description": "Path to favicon.ico file"
+          "description": "Path to favicon.ico file (traditional favicon, 16x16 or multi-size)",
+          "examples": ["/favicon.ico"]
         },
         "svg": {
           "type": "string",
-          "description": "Path to SVG favicon"
+          "description": "Path to SVG favicon (modern scalable favicon)",
+          "examples": ["/favicon.svg"]
         },
         "png": {
           "type": "object",
+          "description": "PNG favicons by size (key is pixel size, value is path)",
           "additionalProperties": {
             "type": "string",
             "description": "Path to PNG favicon of specific size"
           },
           "patternProperties": {
             "^[0-9]+$": {
-              "type": "string"
+              "type": "string",
+              "description": "Path to PNG favicon (key is pixel size)"
             }
-          }
+          },
+          "examples": [
+            {
+              "16": "/assets/icons/favicon-16x16.png",
+              "32": "/assets/icons/favicon-32x32.png",
+              "192": "/assets/icons/android-chrome-192x192.png",
+              "512": "/assets/icons/android-chrome-512x512.png"
+            }
+          ]
         },
         "appleTouchIcon": {
           "type": "string",
-          "description": "Path to Apple touch icon"
+          "description": "Path to Apple touch icon (180x180px recommended)",
+          "examples": ["/assets/icons/apple-touch-icon.png"]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "anyOf": [
+        { "required": ["ico"] },
+        { "required": ["svg"] },
+        { "required": ["png"] },
+        { "required": ["appleTouchIcon"] }
+      ]
     },
     "manifest": {
       "type": "object",
-      "description": "Web App Manifest configuration",
+      "description": "Web App Manifest configuration - name and icons are required for valid PWA",
+      "required": ["name", "icons"],
       "properties": {
         "name": {
           "type": "string",
-          "description": "Full name of the web application"
+          "description": "Full name of the web application (required)",
+          "minLength": 1,
+          "examples": ["Anglesite 11ty Website", "My Web App"]
         },
         "short_name": {
           "type": "string",
           "maxLength": 12,
-          "description": "Short name of the web application"
+          "description": "Short name of the web application (displayed on home screen)",
+          "examples": ["Anglesite", "MyApp"]
         },
         "theme_color": {
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$",
-          "description": "Theme color as hex color"
+          "description": "Theme color as 6-digit hex color (affects status bar on mobile)",
+          "examples": ["#2563eb", "#1976d2"]
         },
         "background_color": {
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$",
-          "description": "Background color as hex color"
+          "description": "Background color as 6-digit hex color (splash screen background)",
+          "examples": ["#ffffff", "#f5f5f5"]
         },
         "display": {
           "type": "string",
-          "enum": ["fullscreen", "standalone", "minimal-ui", "browser"]
+          "enum": ["fullscreen", "standalone", "minimal-ui", "browser"],
+          "description": "Preferred display mode",
+          "default": "standalone"
         },
         "orientation": {
           "type": "string",
@@ -127,6 +154,58 @@
             "portrait-secondary",
             "landscape-primary",
             "landscape-secondary"
+          ],
+          "description": "Preferred screen orientation",
+          "default": "portrait"
+        },
+        "icons": {
+          "type": "array",
+          "description": "App icons in various sizes (192x192 and 512x512 recommended minimum)",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["src", "sizes", "type"],
+            "properties": {
+              "src": {
+                "type": "string",
+                "description": "Path to the icon file",
+                "examples": ["/assets/icons/icon-192.png"]
+              },
+              "sizes": {
+                "type": "string",
+                "pattern": "^[0-9]+x[0-9]+$",
+                "description": "Icon size in format 'widthxheight'",
+                "examples": ["192x192", "512x512"]
+              },
+              "type": {
+                "type": "string",
+                "description": "MIME type of the icon",
+                "examples": ["image/png", "image/svg+xml"]
+              },
+              "purpose": {
+                "type": "string",
+                "enum": ["any", "maskable", "monochrome"],
+                "description": "How the icon should be used",
+                "default": "any"
+              }
+            },
+            "additionalProperties": false
+          },
+          "examples": [
+            [
+              {
+                "src": "/assets/icons/icon-192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any"
+              },
+              {
+                "src": "/assets/icons/icon-512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any"
+              }
+            ]
           ]
         }
       },
