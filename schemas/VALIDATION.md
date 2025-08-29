@@ -139,6 +139,7 @@ Thrown when image processing fails (corrupt file, unsupported format, etc.).
 ## Configuration Examples
 
 ### Minimal Valid Configuration
+
 ```json
 {
   "title": "My Website"
@@ -146,6 +147,7 @@ Thrown when image processing fails (corrupt file, unsupported format, etc.).
 ```
 
 ### With Language Specification
+
 ```json
 {
   "title": "My Website",
@@ -154,6 +156,7 @@ Thrown when image processing fails (corrupt file, unsupported format, etc.).
 ```
 
 ### With Minimal Favicon
+
 ```json
 {
   "title": "My Website",
@@ -164,6 +167,7 @@ Thrown when image processing fails (corrupt file, unsupported format, etc.).
 ```
 
 ### With Minimal Web App Manifest
+
 ```json
 {
   "title": "My Website",

@@ -109,4 +109,19 @@ module.exports = [
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
+
+  // JSON files configuration
+  {
+    files: ['**/*.json'],
+    languageOptions: {
+      parser: require('jsonc-eslint-parser'),
+    },
+    plugins: {
+      prettier: prettier,
+    },
+    rules: {
+      ...prettierConfig.rules,
+      'prettier/prettier': 'error',
+    },
+  },
 ];
