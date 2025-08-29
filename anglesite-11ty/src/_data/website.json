@@ -321,5 +321,15 @@
         }
       }
     ]
+  },
+  "browserconfig": {
+    "enabled": true,
+    "tile": {
+      "square70x70logo": "/assets/images/tile-small.png",
+      "square150x150logo": "/assets/images/tile-medium.png",
+      "wide310x150logo": "/assets/images/tile-wide.png",
+      "square310x310logo": "/assets/images/tile-large.png",
+      "TileColor": "#da532c"
+    }
   }
 }

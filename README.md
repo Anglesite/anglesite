@@ -30,7 +30,7 @@ Double check linting and tests. Spot check changes in app.
 
 ## Anglesite App TODO
 
-- [ ] Optimized source maps for development vs production
+- [x] Optimized source maps for development vs production
 - [ ] Separate Dev/Prod webpack Configs
 - [ ] Watch Mode Integration: File watching with incremental compilation
 - [ ] Bundle Analysis: webpack-bundle-analyzer integration
@@ -100,19 +100,9 @@ WYSIWYG Editors (0% complete):
 
 ## anglesite-11ty TOOD
 
-Official RFC-defined well-known URIs:
-
-1. .well-known/host-meta - Host metadata for discovery (RFC 6415)
-2. .well-known/nodeinfo - Node information for federated networks
-3. .well-known/openid_configuration - OpenID Connect discovery
-
-Common unofficial but widely supported:
-
-1. .well-known/apple-app-site-association - iOS universal links
-2. .well-known/assetlinks.json - Android app links verification
-3. .well-known/browserconfig.xml - Microsoft browser tile configuration
-4. .well-known/dnt-policy.txt - Do Not Track policy
-5. .well-known/gpc.json - Global Privacy Control support
-6. .well-known/accessibility - Accessibility statement location
-7. .well-known/privacy-policy - Privacy policy location (redirect)
-8. .well-known/terms-of-service - Terms of service location (redirect)
+- [ ] XML NPM Package?
+- [ ] .well-known/dnt-policy.txt - Do Not Track policy
+- [ ] .well-known/gpc.json - Global Privacy Control support
+- [ ] .well-known/accessibility - Accessibility statement location
+- [ ] .well-known/privacy-policy - Privacy policy location (redirect)
+- [ ] .well-known/terms-of-service - Terms of service location (redirect)

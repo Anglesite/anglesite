@@ -408,6 +408,7 @@ export interface WellKnownStandardsConfigurationSchema {
   openid_configuration?: OpenidConfiguration;
   apple_app_site_association?: AppleAppSiteAssociation;
   assetlinks?: AssetLinks;
+  browserconfig?: BrowserConfig;
   [k: string]: unknown;
 }
 export interface HostMetaLink {
@@ -909,4 +910,39 @@ export interface AssetLinks {
           site: string;
         };
   }[];
+}
+
+/**
+ * Browser configuration for .well-known/browserconfig.xml
+ */
+export interface BrowserConfig {
+  /**
+   * Enable browserconfig.xml generation
+   */
+  enabled?: boolean;
+  /**
+   * Tile configuration for Windows Start screen
+   */
+  tile?: {
+    /**
+     * URL to 70x70 logo
+     */
+    square70x70logo?: string;
+    /**
+     * URL to 150x150 logo
+     */
+    square150x150logo?: string;
+    /**
+     * URL to 310x150 logo
+     */
+    wide310x150logo?: string;
+    /**
+     * URL to 310x310 logo
+     */
+    square310x310logo?: string;
+    /**
+     * Hex color for the tile background
+     */
+    TileColor?: string;
+  };
 }
