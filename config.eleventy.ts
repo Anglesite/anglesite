@@ -13,6 +13,7 @@ import addNodeInfo from './plugins/nodeinfo.js';
 import addOpenIDConfiguration from './plugins/openid-configuration.js';
 import addAppleAppSiteAssociation from './plugins/apple-app-site-association.js';
 import addAssetLinks from './plugins/assetlinks.js';
+import addBrowserConfig from './plugins/browserconfig.js';
 import addAssetPipeline from './plugins/assets.js';
 import type { EleventyConfig } from '@11ty/eleventy';
 
@@ -38,6 +39,7 @@ export default function (eleventyConfig: EleventyConfig) {
   eleventyConfig.addPlugin(addOpenIDConfiguration);
   eleventyConfig.addPlugin(addAppleAppSiteAssociation);
   eleventyConfig.addPlugin(addAssetLinks);
+  eleventyConfig.addPlugin(addBrowserConfig);
   eleventyConfig.addPlugin(addAssetPipeline);
 
   return {

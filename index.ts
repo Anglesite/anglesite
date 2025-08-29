@@ -9,6 +9,7 @@ import addHeaders from './plugins/headers.js';
 import addHostMeta from './plugins/host-meta.js';
 import addWebFinger from './plugins/webfinger.js';
 import addNodeInfo from './plugins/nodeinfo.js';
+import addBrowserConfig from './plugins/browserconfig.js';
 import EleventyWebcPlugin from '@11ty/eleventy-plugin-webc';
 import type { EleventyConfig } from '@11ty/eleventy';
 
@@ -49,6 +50,7 @@ export default function anglesiteEleventy(
   addHostMeta(eleventyConfig);
   addWebFinger(eleventyConfig);
   addNodeInfo(eleventyConfig);
+  addBrowserConfig(eleventyConfig);
 }
 
 // Export individual plugins for direct use if needed
@@ -64,4 +66,5 @@ export {
   addHostMeta,
   addWebFinger,
   addNodeInfo,
+  addBrowserConfig,
 };
