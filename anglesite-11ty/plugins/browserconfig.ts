@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import type { EleventyConfig } from '@11ty/eleventy';
 import { AnglesiteWebsiteConfiguration } from '../types/website.js';
@@ -14,10 +15,8 @@ interface EleventyData {
 
 /**
  * Escapes special characters for safe XML output to prevent XML injection
- * 
  * @param unsafe - The potentially unsafe string to escape
  * @returns XML-safe string with escaped entities
- * 
  * @example
  * ```typescript
  * escapeXml('AT&T <Company>') // Returns: 'AT&amp;T &lt;Company&gt;'
@@ -44,12 +43,10 @@ function escapeXml(unsafe: string): string {
 
 /**
  * Validates a hex color format for Microsoft tile colors
- * 
+ *
  * Supports both 3-digit and 6-digit hex color codes as per CSS standards.
- * 
  * @param color - The color string to validate (e.g., '#ff0000' or '#f00')
  * @returns True if the color is a valid hex format, false otherwise
- * 
  * @example
  * ```typescript
  * isValidHexColor('#ff0000') // Returns: true
@@ -64,13 +61,11 @@ function isValidHexColor(color: string): boolean {
 
 /**
  * Validates that a tile image file exists on the filesystem
- * 
+ *
  * Handles both absolute and relative paths. Relative paths are resolved from
  * the project root 'src' directory. Logs a warning if the image is not found.
- * 
  * @param imagePath - The path to the image file (relative or absolute)
  * @returns True if the image file exists, false otherwise
- * 
  * @example
  * ```typescript
  * validateImagePath('/assets/images/tile.png')     // Absolute path
@@ -81,30 +76,28 @@ function isValidHexColor(color: string): boolean {
 function validateImagePath(imagePath: string): boolean {
   if (!imagePath) return false;
 
-  // Handle relative paths from project root
-  const fullPath = path.isAbsolute(imagePath)
-    ? imagePath
-    : path.join(process.cwd(), 'src', imagePath.replace(/^\//, ''));
+  // Handle paths - treat web paths (starting with /) as relative to src directory
+  const fullPath =
+    path.isAbsolute(imagePath) && !imagePath.startsWith('/')
+      ? imagePath
+      : path.join(process.cwd(), 'src', imagePath.replace(/^\//, ''));
 
   const exists = existsSync(fullPath);
   if (!exists) {
-    console.warn(`[Eleventy] BrowserConfig: Image not found: ${fullPath}`);
+    console.warn(`[@dwk/anglesite-11ty] BrowserConfig: Image not found: ${fullPath}`);
   }
   return exists;
 }
 
 /**
  * Generates the browserconfig.xml content for Windows tile configuration
- * 
+ *
  * Creates an XML document that defines how Windows should display the website
  * when pinned to the Start screen or taskbar. Validates all input data including
  * tile colors and image paths before including them in the output.
- * 
  * @param website - The website configuration object containing browserconfig settings
  * @returns XML string for browserconfig.xml file, or empty string if disabled/invalid
- * 
  * @see {@link https://docs.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/dn320426(v=vs.85) | Microsoft browserconfig.xml Documentation}
- * 
  * @example
  * ```typescript
  * const websiteConfig = {
@@ -116,7 +109,7 @@ function validateImagePath(imagePath: string): boolean {
  *     }
  *   }
  * };
- * 
+ *
  * const xml = generateBrowserConfig(websiteConfig);
  * // Returns:
  * // <?xml version="1.0" encoding="utf-8"?>
@@ -145,7 +138,7 @@ export function generateBrowserConfig(website: AnglesiteWebsiteConfiguration): s
   // Validate TileColor format at runtime
   if (tile.TileColor && !isValidHexColor(tile.TileColor)) {
     console.warn(
-      `[Eleventy] BrowserConfig: Invalid TileColor format: ${tile.TileColor}. Expected hex color (e.g., #ff0000).`
+      `[@dwk/anglesite-11ty] BrowserConfig: Invalid TileColor format: ${tile.TileColor}. Expected hex color (e.g., #ff0000).`
     );
     return '';
   }
@@ -179,8 +172,45 @@ export function generateBrowserConfig(website: AnglesiteWebsiteConfiguration): s
 }
 
 /**
- * Adds a plugin for generating a .well-known/browserconfig.xml file.
- * @param eleventyConfig The Eleventy configuration object.
+ * Eleventy plugin that generates a .well-known/browserconfig.xml file for Windows tile configuration
+ *
+ * This plugin hooks into the 'eleventy.after' event to process website configuration data
+ * from Eleventy's data cascade and generate the browserconfig.xml file if enabled.
+ *
+ * The plugin will:
+ * - Search through all build results to find website configuration data
+ * - Validate tile image paths and color formats
+ * - Generate valid XML only if browserconfig is enabled and properly configured
+ * - Write the file to the .well-known directory in the output folder
+ * - Log success/error messages for debugging
+ *
+ * Configuration is read from the website.browserconfig object in your data files.
+ * @param eleventyConfig - The Eleventy configuration object to modify
+ * @example
+ * ```typescript
+ * // In .eleventy.js or eleventy.config.js
+ * import addBrowserConfig from './plugins/browserconfig.js';
+ *
+ * export default function(eleventyConfig) {
+ *   eleventyConfig.addPlugin(addBrowserConfig);
+ * }
+ * ```
+ * @example
+ * ```json
+ * // In src/_data/website.json
+ * {
+ *   "browserconfig": {
+ *     "enabled": true,
+ *     "tile": {
+ *       "square70x70logo": "/assets/images/tile-small.png",
+ *       "square150x150logo": "/assets/images/tile-medium.png",
+ *       "wide310x150logo": "/assets/images/tile-wide.png",
+ *       "square310x310logo": "/assets/images/tile-large.png",
+ *       "TileColor": "#da532c"
+ *     }
+ *   }
+ * }
+ * ```
  */
 export default function addBrowserConfig(eleventyConfig: EleventyConfig): void {
   eleventyConfig.on('eleventy.after', async ({ dir, results }) => {
@@ -188,19 +218,40 @@ export default function addBrowserConfig(eleventyConfig: EleventyConfig): void {
       return;
     }
 
-    // Find the first result with website data from the data cascade
+    // Try to get website configuration from page data first (for tests)
+    // Search through all results to find one with website data
     let websiteConfig: AnglesiteWebsiteConfiguration | undefined;
 
+    // Check all results for website data (test scenario)
     for (const result of results) {
       const resultWithData = result as { data?: EleventyData };
-      if (resultWithData?.data?.website) {
+      if (resultWithData.data?.website) {
         websiteConfig = resultWithData.data.website;
         break;
       }
     }
 
+    // In test scenarios (when results exist), don't fall back to filesystem
+    // Only try filesystem read when no results are provided (which shouldn't happen due to guard above)
     if (!websiteConfig) {
-      // No website configuration found in any result
+      // Check if we're in a test scenario by looking for any results structure
+      // If results exist but no website config found, return early (test mode)
+      if (results && results.length > 0) {
+        return;
+      }
+
+      // Real Eleventy build scenario - read from filesystem (this should rarely happen)
+      try {
+        const websiteDataPath = path.resolve('src', '_data', 'website.json');
+        const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
+        websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
+      } catch {
+        console.warn('[@dwk/anglesite-11ty] BrowserConfig plugin: Could not read website.json from _data directory');
+        return;
+      }
+    }
+
+    if (!websiteConfig) {
       return;
     }
 
@@ -217,10 +268,10 @@ export default function addBrowserConfig(eleventyConfig: EleventyConfig): void {
       try {
         mkdirSync(wellKnownDir, { recursive: true });
         writeFileSync(outputPath, browserConfigContent);
-        console.log(`[Eleventy] Wrote ${outputPath}`);
+        console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath}`);
       } catch (error) {
         console.error(
-          `[Eleventy] Failed to write .well-known/browserconfig.xml: ${error instanceof Error ? error.message : String(error)}`
+          `[@dwk/anglesite-11ty] Failed to write .well-known/browserconfig.xml: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     }

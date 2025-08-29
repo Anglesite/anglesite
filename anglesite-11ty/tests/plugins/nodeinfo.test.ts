@@ -386,8 +386,8 @@ describe('NodeInfo Plugin', () => {
       });
 
       // Verify console logs show the plugin executed successfully
-      expect(consoleSpy).toHaveBeenCalledWith('[Eleventy] Wrote /test/_site/.well-known/nodeinfo');
-      expect(consoleSpy).toHaveBeenCalledWith('[Eleventy] Wrote /test/_site/.well-known/nodeinfo.json');
+      expect(consoleSpy).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Wrote /test/_site/.well-known/nodeinfo');
+      expect(consoleSpy).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Wrote /test/_site/.well-known/nodeinfo.json');
 
       consoleSpy.mockRestore();
     });
@@ -428,7 +428,7 @@ describe('NodeInfo Plugin', () => {
         results: [{ data: { website: testWebsite } }],
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith('[Eleventy] NodeInfo plugin configuration errors:');
+      expect(consoleSpy).toHaveBeenCalledWith('[@dwk/anglesite-11ty] NodeInfo plugin configuration errors:');
       expect(consoleSpy).toHaveBeenCalledWith('  - NodeInfo software.name is required');
       expect(consoleSpy).toHaveBeenCalledWith('  - NodeInfo software.version is required');
 
@@ -458,7 +458,7 @@ describe('NodeInfo Plugin', () => {
         results: [{ data: { website: testWebsite } }],
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith('[Eleventy] NodeInfo plugin configuration errors:');
+      expect(consoleSpy).toHaveBeenCalledWith('[@dwk/anglesite-11ty] NodeInfo plugin configuration errors:');
       expect(consoleSpy).toHaveBeenCalledWith('  - NodeInfo software.name is required');
       expect(consoleSpy).toHaveBeenCalledWith('  - NodeInfo software.version is required');
 

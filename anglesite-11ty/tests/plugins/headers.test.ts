@@ -628,7 +628,7 @@ describe('generateHeaders', () => {
           '/test/output/_headers',
           expect.stringContaining('X-Test-Header: test-value')
         );
-        expect(console.log).toHaveBeenCalledWith('[Eleventy] Wrote /test/output/_headers');
+        expect(console.log).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Wrote /test/output/_headers');
       } finally {
         // Restore mocks
         fs.mkdir = originalMkdir;
@@ -731,7 +731,7 @@ describe('generateHeaders', () => {
           })
         ).rejects.toThrow(/Headers validation failed/);
 
-        expect(console.error).toHaveBeenCalledWith('[Eleventy] Headers validation errors:');
+        expect(console.error).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Headers validation errors:');
       } finally {
         console.error = originalError;
       }
@@ -843,9 +843,9 @@ describe('generateHeaders', () => {
 
         await eventHandler({ dir: { output: '/test/output' }, results: testData });
 
-        expect(console.warn).toHaveBeenCalledWith('[Eleventy] Headers warnings:');
+        expect(console.warn).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Headers warnings:');
         expect(fs.writeFile).toHaveBeenCalled(); // Should still write file
-        expect(console.log).toHaveBeenCalledWith('[Eleventy] Wrote /test/output/_headers');
+        expect(console.log).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Wrote /test/output/_headers');
       } finally {
         fs.mkdir = originalMkdir;
         fs.writeFile = originalWriteFile;
@@ -1384,7 +1384,7 @@ describe('generateHeaders', () => {
             '/*\n  X-Frame-Options: SAMEORIGIN\n  X-Content-Type-Options: nosniff\n\n/admin/*\n  X-Frame-Options: DENY\n  X-Robots-Tag: noindex\n'
           )
         );
-        expect(console.log).toHaveBeenCalledWith('[Eleventy] Wrote /test/output/_headers');
+        expect(console.log).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Wrote /test/output/_headers');
       } finally {
         fs.mkdir = originalMkdir;
         fs.writeFile = originalWriteFile;

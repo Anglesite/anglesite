@@ -162,7 +162,7 @@ export default function addRedirects(eleventyConfig: EleventyConfig): void {
         websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
       } catch (error) {
         console.warn(
-          `[Eleventy] Redirects plugin: Could not read website.json from _data directory: ${error instanceof Error ? error.message : String(error)}`
+          `[@dwk/anglesite-11ty] Redirects plugin: Could not read website.json from _data directory: ${error instanceof Error ? error.message : String(error)}`
         );
         return;
       }
@@ -176,13 +176,13 @@ export default function addRedirects(eleventyConfig: EleventyConfig): void {
 
     // Log validation errors and warnings
     if (result.errors.length > 0) {
-      console.error('[Eleventy] Redirects validation errors:');
+      console.error('[@dwk/anglesite-11ty] Redirects validation errors:');
       result.errors.forEach((error) => console.error(`  - ${error}`));
       throw new Error('Redirects validation failed. See errors above.');
     }
 
     if (result.warnings.length > 0) {
-      console.warn('[Eleventy] Redirects warnings:');
+      console.warn('[@dwk/anglesite-11ty] Redirects warnings:');
       result.warnings.forEach((warning) => console.warn(`  - ${warning}`));
     }
 
@@ -191,10 +191,10 @@ export default function addRedirects(eleventyConfig: EleventyConfig): void {
       try {
         await fs.mkdir(path.dirname(outputPath), { recursive: true });
         await fs.writeFile(outputPath, result.content);
-        console.log(`[Eleventy] Wrote ${outputPath}`);
+        console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath}`);
       } catch (error) {
         console.error(
-          `[Eleventy] Failed to write _redirects: ${error instanceof Error ? error.message : String(error)}`
+          `[@dwk/anglesite-11ty] Failed to write _redirects: ${error instanceof Error ? error.message : String(error)}`
         );
         throw error;
       }

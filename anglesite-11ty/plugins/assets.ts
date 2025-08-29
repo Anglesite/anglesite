@@ -22,6 +22,14 @@ interface ImageMetadata {
 }
 
 /**
+ * Error handling strategies for missing images
+ */
+type ImageErrorStrategy =
+  | 'throw' // Throw an error and stop build
+  | 'warn' // Log warning and return fallback HTML
+  | 'silent'; // Return fallback HTML silently
+
+/**
  * Configuration options for the asset pipeline plugin
  */
 interface AssetPluginOptions {
@@ -60,6 +68,10 @@ interface AssetPluginOptions {
   fetchPriority?: 'high' | 'low' | 'auto';
   /** CSS class name for images (default: 'responsive-image') */
   className?: string;
+  /** Error handling strategy for missing images (default: 'throw') */
+  onMissingImage?: ImageErrorStrategy;
+  /** Error handling strategy for image processing failures (default: 'throw') */
+  onProcessingError?: ImageErrorStrategy;
 }
 
 /**
@@ -88,6 +100,8 @@ const DEFAULT_OPTIONS: Required<AssetPluginOptions> = {
   decoding: 'async',
   fetchPriority: 'auto',
   className: 'responsive-image',
+  onMissingImage: 'throw',
+  onProcessingError: 'throw',
 };
 
 /**
@@ -149,6 +163,69 @@ function setCachedMetadata(key: string, metadata: ImageMetadata): void {
     metadata,
     timestamp: Date.now(),
   });
+}
+
+/**
+ * Custom error class for image processing errors
+ */
+class ImageProcessingError extends Error {
+  constructor(
+    message: string,
+    public readonly imagePath: string,
+    public readonly originalError?: Error
+  ) {
+    super(message);
+    this.name = 'ImageProcessingError';
+  }
+}
+
+/**
+ * Custom error class for missing image errors
+ */
+class ImageNotFoundError extends Error {
+  constructor(
+    message: string,
+    public readonly imagePath: string,
+    public readonly resolvedPath: string
+  ) {
+    super(message);
+    this.name = 'ImageNotFoundError';
+  }
+}
+
+/**
+ * Handles errors based on the configured strategy
+ * @param error The error to handle
+ * @param strategy The error handling strategy
+ * @param fallbackHtml Fallback HTML to return for non-throwing strategies
+ * @returns Fallback HTML or throws the error
+ */
+function handleError(error: Error, strategy: ImageErrorStrategy, fallbackHtml: string): string {
+  switch (strategy) {
+    case 'throw':
+      throw error;
+    case 'warn':
+      console.warn(`[@dwk/anglesite-11ty] ${error.message}`);
+      return fallbackHtml;
+    case 'silent':
+      return fallbackHtml;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Creates fallback HTML for error scenarios
+ * @param src Original image source
+ * @param alt Alternative text
+ * @param options Asset plugin options
+ * @param comment Optional HTML comment to include
+ * @returns Fallback HTML img element
+ */
+function createFallbackHtml(src: string, alt: string, options: Required<AssetPluginOptions>, comment?: string): string {
+  const classAttr = options.className ? `class="${options.className}"` : '';
+  const commentStr = comment ? `<!-- ${comment} -->` : '';
+  return `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" ${classAttr}>${commentStr}`;
 }
 
 /**
@@ -253,25 +330,23 @@ function generateFigureElement(
 
 /**
  * Enhanced image processing shortcode for Anglesite that generates optimized responsive images
- * 
+ *
  * This function validates image existence, processes images through @11ty/eleventy-img,
  * caches metadata for performance, and outputs configurable HTML formats.
- * 
  * @param src - The source path of the image (relative to imageDirectory or absolute)
  * @param alt - Alternative text for the image (required for accessibility)
  * @param sizes - Sizes attribute for responsive images (default: '(max-width: 768px) 100vw, 50vw')
  * @param options - Asset plugin configuration options
  * @param caption - Optional caption text for figure output format
  * @returns Optimized HTML element (picture, img, or figure) with responsive images
- * 
  * @example
  * ```typescript
  * // Basic usage in template
  * {% image "photo.jpg", "A beautiful landscape" %}
- * 
+ *
  * // With custom sizes
  * {% image "hero.jpg", "Hero image", "(min-width: 1024px) 50vw, 100vw" %}
- * 
+ *
  * // Figure with caption
  * {% figure "chart.png", "Sales chart", "100vw", "Q4 sales performance" %}
  * ```
@@ -303,9 +378,9 @@ async function imageShortcode(
   // Validate image exists
   const imagePath = path.isAbsolute(src) ? src : path.join(options.imageDirectory, src);
   if (!existsSync(imagePath)) {
-    console.warn(`[Eleventy] Image not found: ${imagePath}`);
-    const classAttr = options.className ? `class="${options.className}"` : '';
-    return `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" ${classAttr}><!-- Image not found: ${src} -->`;
+    const error = new ImageNotFoundError(`Image not found: ${imagePath} (source: ${src})`, src, imagePath);
+    const fallbackHtml = createFallbackHtml(src, alt, options, `Image not found: ${src}`);
+    return handleError(error, options.onMissingImage, fallbackHtml);
   }
 
   try {
@@ -326,6 +401,11 @@ async function imageShortcode(
       metadata = (await Image(imagePath, imageOptions)) as unknown as ImageMetadata;
     }
 
+    // Validate metadata exists and has content
+    if (!metadata || Object.keys(metadata).length === 0) {
+      throw new ImageProcessingError(`No image metadata generated for: ${imagePath}`, imagePath);
+    }
+
     // Generate output based on format option
     switch (options.outputFormat) {
       case 'img':
@@ -337,20 +417,37 @@ async function imageShortcode(
         return generatePictureElement(metadata, alt, sizes, options);
     }
   } catch (error) {
-    console.error(`Error processing image ${imagePath}:`, error);
-    const classAttr = options.className ? `class="${options.className}"` : '';
-    return `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" ${classAttr}>`;
+    const processingError =
+      error instanceof ImageProcessingError
+        ? error
+        : new ImageProcessingError(`Error processing image: ${imagePath}`, imagePath, error as Error);
+    const fallbackHtml = createFallbackHtml(src, alt, options);
+    return handleError(processingError, options.onProcessingError, fallbackHtml);
   }
 }
 
 /**
- * Font preload helper
+ * Font preload helper with optional validation
  * @param fontPath The path to the font file
  * @param fontFormat The format of the font
  * @param crossorigin Whether to include the crossorigin attribute
+ * @param validate Whether to validate font file exists (default: false)
  * @returns HTML link element for font preloading
  */
-function fontPreloadShortcode(fontPath: string, fontFormat: string = 'woff2', crossorigin: boolean = true) {
+function fontPreloadShortcode(
+  fontPath: string,
+  fontFormat: string = 'woff2',
+  crossorigin: boolean = true,
+  validate: boolean = false
+) {
+  // Optional validation for font files
+  if (validate) {
+    const fontFilePath = fontPath.startsWith('/') ? `.${fontPath}` : fontPath;
+    if (!existsSync(fontFilePath)) {
+      console.warn(`[@dwk/anglesite-11ty] Font file not found: ${fontFilePath}`);
+    }
+  }
+
   const crossoriginAttr = crossorigin ? 'crossorigin="anonymous"' : '';
   return `<link rel="preload" href="${fontPath}" as="font" type="font/${fontFormat}" ${crossoriginAttr}>`;
 }
@@ -364,7 +461,7 @@ function fontPreloadShortcode(fontPath: string, fontFormat: string = 'woff2', cr
  */
 function criticalCSSShortcode(cssPath: string) {
   console.warn(
-    '[Eleventy] criticalCSS shortcode is deprecated. Consider using inline styles or build-time CSS optimization.'
+    '[@dwk/anglesite-11ty] criticalCSS shortcode is deprecated. Consider using inline styles or build-time CSS optimization.'
   );
   return `<link rel="stylesheet" href="${cssPath}">`;
 }
@@ -385,15 +482,86 @@ export function getCacheSize(): number {
 }
 
 /**
+ * Validates image paths in website data object
+ * @param websiteData The website data object to validate
+ * @param imageDirectory The base directory for images
+ * @param throwOnMissing Whether to throw errors for missing images
+ * @returns Array of validation results
+ */
+export function validateWebsiteImages(
+  websiteData: Record<string, unknown>,
+  imageDirectory: string = './src/images/',
+  throwOnMissing: boolean = false
+): Array<{ path: string; exists: boolean; resolvedPath: string }> {
+  const results: Array<{ path: string; exists: boolean; resolvedPath: string }> = [];
+
+  /**
+   * Checks if an image path exists and adds result to validation array
+   * @param imagePath The image path to check
+   * @param propertyName The property name for error reporting
+   */
+  function checkImagePath(imagePath: string, propertyName: string) {
+    if (typeof imagePath === 'string' && imagePath.length > 0) {
+      const resolvedPath = path.isAbsolute(imagePath) ? imagePath : path.join(imageDirectory, imagePath);
+      const exists = existsSync(resolvedPath);
+
+      results.push({
+        path: `${propertyName}: ${imagePath}`,
+        exists,
+        resolvedPath,
+      });
+
+      if (!exists && throwOnMissing) {
+        throw new ImageNotFoundError(
+          `Website data image not found: ${resolvedPath} (property: ${propertyName})`,
+          imagePath,
+          resolvedPath
+        );
+      }
+    }
+  }
+
+  /**
+   * Recursively scans object for image paths
+   * @param obj The object to scan
+   * @param prefix The current property prefix for nested objects
+   */
+  function scanObject(obj: unknown, prefix: string = '') {
+    if (obj && typeof obj === 'object') {
+      for (const [key, value] of Object.entries(obj)) {
+        const propertyName = prefix ? `${prefix}.${key}` : key;
+
+        if (typeof value === 'string') {
+          // Check if it looks like an image path
+          if (value.match(/\.(jpg|jpeg|png|gif|svg|webp|avif)$/i)) {
+            checkImagePath(value, propertyName);
+          }
+        } else if (typeof value === 'object' && value !== null) {
+          scanObject(value, propertyName);
+        }
+      }
+    }
+  }
+
+  scanObject(websiteData);
+  return results;
+}
+
+/**
+ * Export error classes for external use and testing
+ */
+export { ImageNotFoundError, ImageProcessingError };
+
+/**
  * Asset pipeline plugin for Anglesite 11ty that provides optimized image processing and asset management
- * 
+ *
  * This plugin adds several shortcodes for working with images and assets:
  * - `image`: Generates responsive picture elements with multiple formats
  * - `img`: Generates simple img elements with srcset
  * - `figure`: Generates figure elements with picture and caption
  * - `fontPreload`: Generates font preload link elements
  * - `criticalCSS`: Generates CSS link elements (deprecated)
- * 
+ *
  * Features:
  * - Automatic image optimization and format conversion
  * - Responsive image generation with multiple sizes
@@ -401,15 +569,13 @@ export function getCacheSize(): number {
  * - Image existence validation
  * - Configurable output formats and quality settings
  * - Static asset copying
- * 
  * @param eleventyConfig - The Eleventy configuration object to modify
  * @param options - Plugin configuration options (optional, uses defaults if not provided)
- * 
  * @example
  * ```typescript
  * // Basic setup
  * eleventyConfig.addPlugin(addAssetPipeline);
- * 
+ *
  * // With custom options
  * eleventyConfig.addPlugin(addAssetPipeline, {
  *   imageFormats: ['webp', 'jpeg'],

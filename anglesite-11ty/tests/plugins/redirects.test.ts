@@ -448,7 +448,7 @@ describe('addRedirects plugin', () => {
       });
 
       expect(spies.warn).toHaveBeenCalledWith(
-        '[Eleventy] Redirects plugin: Could not read website.json from _data directory: File not found'
+        '[@dwk/anglesite-11ty] Redirects plugin: Could not read website.json from _data directory: File not found'
       );
       expect(mockFs.promises.writeFile).not.toHaveBeenCalled();
     } finally {
@@ -467,7 +467,7 @@ describe('addRedirects plugin', () => {
       });
 
       expect(spies.warn).toHaveBeenCalledWith(
-        '[Eleventy] Redirects plugin: Could not read website.json from _data directory: String error'
+        '[@dwk/anglesite-11ty] Redirects plugin: Could not read website.json from _data directory: String error'
       );
     } finally {
       restore();
@@ -511,7 +511,7 @@ describe('addRedirects plugin', () => {
         })
       ).rejects.toThrow('Redirects validation failed');
 
-      expect(spies.error).toHaveBeenCalledWith('[Eleventy] Redirects validation errors:');
+      expect(spies.error).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Redirects validation errors:');
     } finally {
       restore();
     }
@@ -541,7 +541,7 @@ describe('addRedirects plugin', () => {
         results: [{ data: { website: websiteConfig } }],
       });
 
-      expect(spies.warn).toHaveBeenCalledWith('[Eleventy] Redirects warnings:');
+      expect(spies.warn).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Redirects warnings:');
     } finally {
       restore();
     }
@@ -585,7 +585,7 @@ describe('addRedirects plugin', () => {
         })
       ).rejects.toThrow('Permission denied');
 
-      expect(spies.error).toHaveBeenCalledWith('[Eleventy] Failed to write _redirects: Permission denied');
+      expect(spies.error).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Failed to write _redirects: Permission denied');
     } finally {
       restore();
     }
@@ -614,7 +614,7 @@ describe('addRedirects plugin', () => {
         })
       ).rejects.toThrow('Disk full');
 
-      expect(spies.error).toHaveBeenCalledWith('[Eleventy] Failed to write _redirects: Disk full');
+      expect(spies.error).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Failed to write _redirects: Disk full');
     } finally {
       restore();
     }
@@ -642,7 +642,7 @@ describe('addRedirects plugin', () => {
         })
       ).rejects.toEqual('String error');
 
-      expect(spies.error).toHaveBeenCalledWith('[Eleventy] Failed to write _redirects: String error');
+      expect(spies.error).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Failed to write _redirects: String error');
     } finally {
       restore();
     }

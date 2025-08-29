@@ -51,7 +51,9 @@ function validatePaths(paths: string[]): boolean {
   for (const pathPattern of paths) {
     // Basic validation - ensure no dangerous patterns
     if (pathPattern.includes('..') || pathPattern.includes('//')) {
-      console.warn(`[Eleventy] Apple App Site Association: Potentially dangerous path pattern: ${pathPattern}`);
+      console.warn(
+        `[@dwk/anglesite-11ty] Apple App Site Association: Potentially dangerous path pattern: ${pathPattern}`
+      );
       return false;
     }
   }
@@ -82,14 +84,14 @@ export function generateAppleAppSiteAssociation(website: AnglesiteWebsiteConfigu
       for (const detail of config.applinks.details) {
         // Validate app IDs
         if (detail.appID && !validateAppId(detail.appID)) {
-          console.warn(`[Eleventy] Apple App Site Association: Invalid app ID format: ${detail.appID}`);
+          console.warn(`[@dwk/anglesite-11ty] Apple App Site Association: Invalid app ID format: ${detail.appID}`);
           continue;
         }
 
         if (detail.appIDs) {
           for (const appId of detail.appIDs) {
             if (!validateAppId(appId)) {
-              console.warn(`[Eleventy] Apple App Site Association: Invalid app ID format: ${appId}`);
+              console.warn(`[@dwk/anglesite-11ty] Apple App Site Association: Invalid app ID format: ${appId}`);
               continue;
             }
           }
@@ -98,7 +100,7 @@ export function generateAppleAppSiteAssociation(website: AnglesiteWebsiteConfigu
         // Validate paths
         if (!validatePaths(detail.paths)) {
           console.warn(
-            `[Eleventy] Apple App Site Association: Invalid paths for app ${detail.appID || detail.appIDs?.join(', ')}`
+            `[@dwk/anglesite-11ty] Apple App Site Association: Invalid paths for app ${detail.appID || detail.appIDs?.join(', ')}`
           );
           continue;
         }
@@ -132,7 +134,9 @@ export function generateAppleAppSiteAssociation(website: AnglesiteWebsiteConfigu
         if (validateAppId(appId)) {
           apps.push(appId);
         } else {
-          console.warn(`[Eleventy] Apple App Site Association: Invalid app ID format for webcredentials: ${appId}`);
+          console.warn(
+            `[@dwk/anglesite-11ty] Apple App Site Association: Invalid app ID format for webcredentials: ${appId}`
+          );
         }
       }
     }
@@ -185,7 +189,9 @@ export default function addAppleAppSiteAssociation(eleventyConfig: EleventyConfi
         const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
         websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
       } catch {
-        console.warn('[Eleventy] Apple App Site Association plugin: Could not read website.json from _data directory');
+        console.warn(
+          '[@dwk/anglesite-11ty] Apple App Site Association plugin: Could not read website.json from _data directory'
+        );
         return;
       }
     }
@@ -204,10 +210,10 @@ export default function addAppleAppSiteAssociation(eleventyConfig: EleventyConfi
         // Ensure .well-known directory exists
         fs.mkdirSync(wellKnownDir, { recursive: true });
         fs.writeFileSync(outputPath, appleAppSiteAssociationContent);
-        console.log(`[Eleventy] Wrote ${outputPath}`);
+        console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath}`);
       } catch (error) {
         console.error(
-          `[Eleventy] Failed to write .well-known/apple-app-site-association: ${error instanceof Error ? error.message : String(error)}`
+          `[@dwk/anglesite-11ty] Failed to write .well-known/apple-app-site-association: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     }

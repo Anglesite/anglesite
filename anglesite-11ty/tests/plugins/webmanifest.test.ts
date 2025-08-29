@@ -486,7 +486,7 @@ describe('webmanifest plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Failed to write manifest.webmanifest: Permission denied')
+        expect.stringContaining('[@dwk/anglesite-11ty] Failed to write manifest.webmanifest: Permission denied')
       );
 
       consoleSpy.mockRestore();

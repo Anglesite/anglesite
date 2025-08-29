@@ -349,7 +349,7 @@ describe('robots plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Failed to write robots.txt: Permission denied')
+        expect.stringContaining('[@dwk/anglesite-11ty] Failed to write robots.txt: Permission denied')
       );
 
       consoleSpy.mockRestore();

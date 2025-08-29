@@ -394,7 +394,7 @@ describe('security plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Failed to write .well-known/security.txt: Permission denied')
+        expect.stringContaining('[@dwk/anglesite-11ty] Failed to write .well-known/security.txt: Permission denied')
       );
 
       consoleSpy.mockRestore();
@@ -431,7 +431,7 @@ describe('security plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Eleventy] Security plugin: Could not read website.json from _data directory'
+        '[@dwk/anglesite-11ty] Security plugin: Could not read website.json from _data directory'
       );
       expect(fs.writeFileSync).not.toHaveBeenCalled();
 

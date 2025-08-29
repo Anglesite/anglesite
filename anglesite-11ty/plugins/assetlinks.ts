@@ -88,7 +88,7 @@ export function generateAssetLinks(website: AnglesiteWebsiteConfiguration): stri
     for (const statement of config.statements) {
       // Validate relations
       if (!validateRelations(statement.relation)) {
-        console.warn(`[Eleventy] Asset Links: Invalid relations: ${statement.relation.join(', ')}`);
+        console.warn(`[@dwk/anglesite-11ty] Asset Links: Invalid relations: ${statement.relation.join(', ')}`);
         continue;
       }
 
@@ -102,7 +102,7 @@ export function generateAssetLinks(website: AnglesiteWebsiteConfiguration): stri
         // Android app target validation
         if (statement.target.package_name && statement.target.sha256_cert_fingerprints) {
           if (!validatePackageName(statement.target.package_name)) {
-            console.warn(`[Eleventy] Asset Links: Invalid package name: ${statement.target.package_name}`);
+            console.warn(`[@dwk/anglesite-11ty] Asset Links: Invalid package name: ${statement.target.package_name}`);
             continue;
           }
 
@@ -112,13 +112,13 @@ export function generateAssetLinks(website: AnglesiteWebsiteConfiguration): stri
             if (validateSha256Fingerprint(fingerprint)) {
               validFingerprints.push(fingerprint);
             } else {
-              console.warn(`[Eleventy] Asset Links: Invalid certificate fingerprint: ${fingerprint}`);
+              console.warn(`[@dwk/anglesite-11ty] Asset Links: Invalid certificate fingerprint: ${fingerprint}`);
             }
           }
 
           if (validFingerprints.length === 0) {
             console.warn(
-              `[Eleventy] Asset Links: No valid certificate fingerprints for package: ${statement.target.package_name}`
+              `[@dwk/anglesite-11ty] Asset Links: No valid certificate fingerprints for package: ${statement.target.package_name}`
             );
             continue;
           }
@@ -131,7 +131,9 @@ export function generateAssetLinks(website: AnglesiteWebsiteConfiguration): stri
         // Web target validation
         if (statement.target.site) {
           if (!validateSiteUrl(statement.target.site)) {
-            console.warn(`[Eleventy] Asset Links: Invalid site URL (must use HTTPS): ${statement.target.site}`);
+            console.warn(
+              `[@dwk/anglesite-11ty] Asset Links: Invalid site URL (must use HTTPS): ${statement.target.site}`
+            );
             continue;
           }
 
@@ -185,7 +187,7 @@ export default function addAssetLinks(eleventyConfig: EleventyConfig): void {
         const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
         websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
       } catch {
-        console.warn('[Eleventy] Asset Links plugin: Could not read website.json from _data directory');
+        console.warn('[@dwk/anglesite-11ty] Asset Links plugin: Could not read website.json from _data directory');
         return;
       }
     }
@@ -204,10 +206,10 @@ export default function addAssetLinks(eleventyConfig: EleventyConfig): void {
         // Ensure .well-known directory exists
         fs.mkdirSync(wellKnownDir, { recursive: true });
         fs.writeFileSync(outputPath, assetLinksContent);
-        console.log(`[Eleventy] Wrote ${outputPath}`);
+        console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath}`);
       } catch (error) {
         console.error(
-          `[Eleventy] Failed to write .well-known/assetlinks.json: ${error instanceof Error ? error.message : String(error)}`
+          `[@dwk/anglesite-11ty] Failed to write .well-known/assetlinks.json: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     }

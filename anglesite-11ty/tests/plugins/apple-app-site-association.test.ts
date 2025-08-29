@@ -508,7 +508,9 @@ describe('apple-app-site-association plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Failed to write .well-known/apple-app-site-association: Permission denied')
+        expect.stringContaining(
+          '[@dwk/anglesite-11ty] Failed to write .well-known/apple-app-site-association: Permission denied'
+        )
       );
 
       consoleSpy.mockRestore();
@@ -545,7 +547,7 @@ describe('apple-app-site-association plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Eleventy] Apple App Site Association plugin: Could not read website.json from _data directory'
+        '[@dwk/anglesite-11ty] Apple App Site Association plugin: Could not read website.json from _data directory'
       );
       expect(fs.writeFileSync).not.toHaveBeenCalled();
 

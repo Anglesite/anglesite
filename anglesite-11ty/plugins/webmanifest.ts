@@ -141,13 +141,13 @@ export default function addWebManifest(eleventyConfig: EleventyConfig): void {
         const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
         websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
       } catch {
-        console.warn('[Eleventy] WebManifest plugin: Could not read website.json from _data directory');
+        console.warn('[@dwk/anglesite-11ty] WebManifest plugin: Could not read website.json from _data directory');
         return;
       }
     }
 
     if (!websiteConfig) {
-      console.warn('[Eleventy] WebManifest plugin: No website configuration found');
+      console.warn('[@dwk/anglesite-11ty] WebManifest plugin: No website configuration found');
       return;
     }
 
@@ -158,10 +158,10 @@ export default function addWebManifest(eleventyConfig: EleventyConfig): void {
       // Ensure output directory exists
       fs.mkdirSync(path.dirname(outputPath), { recursive: true });
       fs.writeFileSync(outputPath, manifestContent);
-      console.log(`[Eleventy] Wrote ${outputPath}`);
+      console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath}`);
     } catch (error) {
       console.error(
-        `[Eleventy] Failed to write manifest.webmanifest: ${error instanceof Error ? error.message : String(error)}`
+        `[@dwk/anglesite-11ty] Failed to write manifest.webmanifest: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   });

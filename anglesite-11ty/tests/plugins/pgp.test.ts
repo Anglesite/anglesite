@@ -81,7 +81,7 @@ describe('PGP Key Plugin', () => {
 
       expect(fs.mkdirSync).toHaveBeenCalledWith('_site/.well-known', { recursive: true });
       expect(fs.writeFileSync).toHaveBeenCalledWith('_site/.well-known/pgp-key.txt', mockPgpKey);
-      expect(consoleLogSpy).toHaveBeenCalledWith('[Eleventy] Wrote _site/.well-known/pgp-key.txt');
+      expect(consoleLogSpy).toHaveBeenCalledWith('[@dwk/anglesite-11ty] Wrote _site/.well-known/pgp-key.txt');
     });
 
     it('should read PGP key from file path in ANGLESITE_PGP_PUBLIC_KEY_FILE', async () => {
@@ -136,7 +136,7 @@ describe('PGP Key Plugin', () => {
 
       expect(fs.writeFileSync).not.toHaveBeenCalled();
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        '[Eleventy] PGP plugin: Content does not appear to be a valid PGP public key block'
+        '[@dwk/anglesite-11ty] PGP plugin: Content does not appear to be a valid PGP public key block'
       );
     });
 
@@ -275,7 +275,7 @@ describe('PGP Key Plugin', () => {
         results: [{ data: { website: {} } }],
       });
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith('[Eleventy] PGP plugin: Could not read default key file');
+      expect(consoleWarnSpy).toHaveBeenCalledWith('[@dwk/anglesite-11ty] PGP plugin: Could not read default key file');
       expect(fs.writeFileSync).not.toHaveBeenCalled();
     });
   });

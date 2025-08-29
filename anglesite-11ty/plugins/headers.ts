@@ -449,7 +449,7 @@ export function generateHeadersFromPaths(pathHeaders: PathHeaders[]): {
  */
 function handlePluginError(error: unknown, context: string, code: string): never {
   const errorMessage = error instanceof Error ? error.message : String(error);
-  const fullMessage = `[Eleventy] Headers plugin: ${context}: ${errorMessage}`;
+  const fullMessage = `[@dwk/anglesite-11ty] Headers plugin: ${context}: ${errorMessage}`;
 
   console.error(fullMessage);
   throw new HeadersPluginError(context, error instanceof Error ? error : undefined, code);
@@ -464,7 +464,7 @@ async function writeHeadersFile(outputPath: string, content: string): Promise<vo
   try {
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
     await fs.writeFile(outputPath, content);
-    console.log(`[Eleventy] Wrote ${outputPath}`);
+    console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath}`);
   } catch (error) {
     handlePluginError(error, `Failed to write _headers file to ${outputPath}`, HeadersErrorCodes.FILE_WRITE_ERROR);
   }
@@ -575,7 +575,7 @@ export function collectPathHeaders(
         ...frontMatter.headers,
       });
     } catch (error) {
-      console.warn(`[Eleventy] Failed to read front matter from ${result.inputPath}:`, error);
+      console.warn(`[@dwk/anglesite-11ty] Failed to read front matter from ${result.inputPath}:`, error);
       continue;
     }
   }
@@ -619,7 +619,7 @@ export default function addHeaders(eleventyConfig: EleventyConfig): void {
 
       // Handle validation errors - these should stop the build
       if (result.errors.length > 0) {
-        console.error('[Eleventy] Headers validation errors:');
+        console.error('[@dwk/anglesite-11ty] Headers validation errors:');
         result.errors.forEach((error) => console.error(`  - ${error}`));
 
         const validationError = new HeadersPluginError(
@@ -634,7 +634,7 @@ export default function addHeaders(eleventyConfig: EleventyConfig): void {
 
       // Handle warnings - these don't stop the build but should be logged
       if (result.warnings.length > 0) {
-        console.warn('[Eleventy] Headers warnings:');
+        console.warn('[@dwk/anglesite-11ty] Headers warnings:');
         result.warnings.forEach((warning) => console.warn(`  - ${warning}`));
       }
 

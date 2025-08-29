@@ -484,7 +484,7 @@ describe('sitemap plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Failed to write sitemap files: Permission denied')
+        expect.stringContaining('[@dwk/anglesite-11ty] Failed to write sitemap files: Permission denied')
       );
 
       consoleSpy.mockRestore();
@@ -644,7 +644,9 @@ describe('sitemap plugin', () => {
 
       expect(result.filesWritten).toEqual([]);
       expect(result.totalUrls).toBe(0);
-      expect(consoleWarnSpy).toHaveBeenCalledWith('[Eleventy] No website URL provided, skipping sitemap generation');
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '[@dwk/anglesite-11ty] No website URL provided, skipping sitemap generation'
+      );
       expect(fs.promises.writeFile).not.toHaveBeenCalled();
 
       consoleWarnSpy.mockRestore();
@@ -686,7 +688,7 @@ describe('sitemap plugin', () => {
       expect(result.filesWritten).toEqual([]);
       expect(result.totalUrls).toBe(0);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Failed to write sitemap files: Disk full')
+        expect.stringContaining('[@dwk/anglesite-11ty] Failed to write sitemap files: Disk full')
       );
 
       consoleErrorSpy.mockRestore();
@@ -1021,7 +1023,7 @@ describe('sitemap plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Eleventy] Sitemap plugin: Could not read website.json from _data directory'
+        '[@dwk/anglesite-11ty] Sitemap plugin: Could not read website.json from _data directory'
       );
 
       consoleSpy.mockRestore();

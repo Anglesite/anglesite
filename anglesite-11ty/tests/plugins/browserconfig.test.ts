@@ -14,6 +14,9 @@ jest.mock('fs', () => ({
     // Mock that images exist except for nonexistent ones
     return !filePath.includes('nonexistent');
   }),
+  promises: {
+    readFile: jest.fn(),
+  },
 }));
 
 describe('browserconfig plugin', () => {
@@ -151,7 +154,7 @@ describe('browserconfig plugin', () => {
       const result = generateBrowserConfig(data);
       expect(result).toBe('');
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] BrowserConfig: Invalid TileColor format: invalid-color')
+        expect.stringContaining('[@dwk/anglesite-11ty] BrowserConfig: Invalid TileColor format: invalid-color')
       );
       consoleSpy.mockRestore();
     });
@@ -240,7 +243,9 @@ describe('browserconfig plugin', () => {
       expect(result).not.toContain('nonexistent-tile.png');
 
       // Should warn about missing image
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[Eleventy] BrowserConfig: Image not found:'));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[@dwk/anglesite-11ty] BrowserConfig: Image not found:')
+      );
 
       consoleSpy.mockRestore();
     });
@@ -344,7 +349,9 @@ describe('browserconfig plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Failed to write .well-known/browserconfig.xml: Permission denied')
+        expect.stringContaining(
+          '[@dwk/anglesite-11ty] Failed to write .well-known/browserconfig.xml: Permission denied'
+        )
       );
 
       consoleSpy.mockRestore();
@@ -462,7 +469,9 @@ describe('browserconfig plugin', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[Eleventy] Failed to write .well-known/browserconfig.xml: Cannot create directory')
+        expect.stringContaining(
+          '[@dwk/anglesite-11ty] Failed to write .well-known/browserconfig.xml: Cannot create directory'
+        )
       );
       consoleSpy.mockRestore();
     });

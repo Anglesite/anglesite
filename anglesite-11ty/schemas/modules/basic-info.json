@@ -26,26 +26,76 @@
     },
     "social": {
       "type": "object",
-      "description": "Social media links",
+      "description": "Social media links and images for sharing",
       "properties": {
         "twitter": {
           "type": "string",
           "description": "Twitter handle or URL"
         },
         "facebook": {
-          "$ref": "./common.json#/definitions/url"
+          "$ref": "./common.json#/definitions/url",
+          "description": "Facebook profile or page URL"
         },
         "instagram": {
-          "type": "string"
+          "type": "string",
+          "description": "Instagram handle or URL"
         },
         "linkedin": {
-          "$ref": "./common.json#/definitions/url"
+          "$ref": "./common.json#/definitions/url",
+          "description": "LinkedIn profile or company page URL"
         },
         "github": {
-          "type": "string"
+          "type": "string",
+          "description": "GitHub username or URL"
         },
         "youtube": {
-          "$ref": "./common.json#/definitions/url"
+          "$ref": "./common.json#/definitions/url",
+          "description": "YouTube channel URL"
+        },
+        "ogImage": {
+          "type": "string",
+          "description": "Path to Open Graph image for social sharing (recommended: 1200x630px)",
+          "examples": ["/assets/images/og-image.png", "/images/social-card.jpg"]
+        },
+        "twitterCard": {
+          "type": "string",
+          "description": "Path to Twitter Card image (recommended: 1200x675px)",
+          "examples": ["/assets/images/twitter-card.png"]
+        },
+        "avatar": {
+          "type": "string",
+          "description": "Path to profile/avatar image",
+          "examples": ["/assets/images/avatar.jpg", "/images/profile.png"]
+        },
+        "heroImage": {
+          "type": "string",
+          "description": "Path to hero/banner image for homepage",
+          "examples": ["hero-banner.jpg", "/images/hero.png"]
+        },
+        "bannerImage": {
+          "type": "string",
+          "description": "Path to banner image",
+          "examples": ["banner.jpg", "/images/banner.png"]
+        },
+        "landscapeDemo": {
+          "type": "string",
+          "description": "Path to landscape demo image",
+          "examples": ["landscape.jpg"]
+        },
+        "portraitDemo": {
+          "type": "string",
+          "description": "Path to portrait demo image",
+          "examples": ["portrait.jpg"]
+        },
+        "thumbnailDemo": {
+          "type": "string",
+          "description": "Path to thumbnail demo image",
+          "examples": ["thumbnail.jpg"]
+        },
+        "figureDemo": {
+          "type": "string",
+          "description": "Path to figure demo image",
+          "examples": ["figure-demo.png"]
         }
       },
       "additionalProperties": false

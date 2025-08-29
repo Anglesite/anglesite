@@ -28,7 +28,7 @@ function toFullUrl(value: string, baseUrl?: string): string {
     const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:'];
     const lowerValue = trimmedValue.toLowerCase();
     if (dangerousProtocols.some((proto) => lowerValue.startsWith(proto))) {
-      console.warn('[Eleventy] Security plugin: Dangerous protocol detected');
+      console.warn('[@dwk/anglesite-11ty] Security plugin: Dangerous protocol detected');
       return '';
     }
 
@@ -39,7 +39,7 @@ function toFullUrl(value: string, baseUrl?: string): string {
         try {
           new URL(trimmedValue); // This validates URL structure
         } catch {
-          console.warn('[Eleventy] Security plugin: Invalid URL structure');
+          console.warn('[@dwk/anglesite-11ty] Security plugin: Invalid URL structure');
           return '';
         }
       }
@@ -53,7 +53,7 @@ function toFullUrl(value: string, baseUrl?: string): string {
           const url = new URL(trimmedValue, baseUrl);
           return url.toString();
         } catch {
-          console.warn('[Eleventy] Security plugin: Failed to construct URL');
+          console.warn('[@dwk/anglesite-11ty] Security plugin: Failed to construct URL');
           return '';
         }
       }
@@ -63,7 +63,7 @@ function toFullUrl(value: string, baseUrl?: string): string {
     // Return as-is for relative paths (though not recommended for security.txt)
     return trimmedValue;
   } catch {
-    console.warn('[Eleventy] Security plugin: URL construction error');
+    console.warn('[@dwk/anglesite-11ty] Security plugin: URL construction error');
     return '';
   }
 }
@@ -175,7 +175,7 @@ export default function addSecurityTxt(eleventyConfig: EleventyConfig): void {
         const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
         websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
       } catch {
-        console.warn('[Eleventy] Security plugin: Could not read website.json from _data directory');
+        console.warn('[@dwk/anglesite-11ty] Security plugin: Could not read website.json from _data directory');
         return;
       }
     }
@@ -195,10 +195,10 @@ export default function addSecurityTxt(eleventyConfig: EleventyConfig): void {
         // Ensure .well-known directory exists
         fs.mkdirSync(wellKnownDir, { recursive: true });
         fs.writeFileSync(outputPath, securityTxtContent);
-        console.log(`[Eleventy] Wrote ${outputPath}`);
+        console.log(`[@dwk/anglesite-11ty] Wrote ${outputPath}`);
       } catch (error) {
         console.error(
-          `[Eleventy] Failed to write .well-known/security.txt: ${error instanceof Error ? error.message : String(error)}`
+          `[@dwk/anglesite-11ty] Failed to write .well-known/security.txt: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     }
