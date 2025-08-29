@@ -43,8 +43,10 @@ export default function (eleventyConfig: EleventyConfig) {
   eleventyConfig.addPlugin(addAssetPipeline, {
     passthroughCopy: {
       'src/assets/fonts': 'fonts',
-      'src/assets/icons': 'icons',
+      'src/assets/icons': 'assets/icons',
       'src/assets/images': 'assets/images',
+      'src/favicon.ico': 'favicon.ico',
+      'src/favicon.svg': 'favicon.svg',
     },
   });
 

@@ -1,4 +1,10 @@
-import addAssetPipeline, { clearImageCache, getCacheSize } from '../../plugins/assets';
+import addAssetPipeline, {
+  clearImageCache,
+  getCacheSize,
+  ImageNotFoundError,
+  ImageProcessingError,
+  validateWebsiteImages,
+} from '../../plugins/assets';
 import type { EleventyConfig } from '../types/eleventy-shim';
 
 // Mock the @11ty/eleventy-img library
@@ -258,32 +264,23 @@ describe('assets plugin', () => {
   });
 
   describe('error handling', () => {
-    it('should handle image processing errors gracefully', async () => {
-      const Image = jest.requireMock('@11ty/eleventy-img');
-      Image.mockImplementationOnce(() => {
-        throw new Error('Image processing failed');
-      });
-
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-
-      addAssetPipeline(mockEleventyConfig);
+    it('should throw error for missing images when onMissingImage is "throw"', async () => {
+      addAssetPipeline(mockEleventyConfig, { onMissingImage: 'throw' });
       const imageShortcode = (mockEleventyConfig.addShortcode as jest.Mock).mock.calls.find(
         (call) => call[0] === 'image'
       )[1];
 
-      const html = await imageShortcode('test.jpg', 'alt text');
-      expect(html).toContain('<img src="test.jpg"');
-      expect(html).toContain('alt="alt text"');
-      expect(html).toContain('class="responsive-image"');
-      expect(consoleSpy).toHaveBeenCalledWith('Error processing image src/images/test.jpg:', expect.any(Error));
+      await expect(imageShortcode('nonexistent.jpg', 'alt text')).rejects.toThrow(ImageNotFoundError);
 
-      consoleSpy.mockRestore();
+      await expect(imageShortcode('nonexistent.jpg', 'alt text')).rejects.toThrow(
+        'Image not found: src/images/nonexistent.jpg (source: nonexistent.jpg)'
+      );
     });
 
-    it('should handle missing images gracefully', async () => {
+    it('should warn and return fallback HTML for missing images when onMissingImage is "warn"', async () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      addAssetPipeline(mockEleventyConfig);
+      addAssetPipeline(mockEleventyConfig, { onMissingImage: 'warn' });
       const imageShortcode = (mockEleventyConfig.addShortcode as jest.Mock).mock.calls.find(
         (call) => call[0] === 'image'
       )[1];
@@ -295,6 +292,160 @@ describe('assets plugin', () => {
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[@dwk/anglesite-11ty] Image not found:'));
 
       consoleSpy.mockRestore();
+    });
+
+    it('should silently return fallback HTML for missing images when onMissingImage is "silent"', async () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      addAssetPipeline(mockEleventyConfig, { onMissingImage: 'silent' });
+      const imageShortcode = (mockEleventyConfig.addShortcode as jest.Mock).mock.calls.find(
+        (call) => call[0] === 'image'
+      )[1];
+
+      const html = await imageShortcode('nonexistent.jpg', 'alt text');
+      expect(html).toContain('<img src="nonexistent.jpg"');
+      expect(html).toContain('alt="alt text"');
+      expect(html).toContain('<!-- Image not found: nonexistent.jpg -->');
+      expect(consoleSpy).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should throw error for processing failures when onProcessingError is "throw"', async () => {
+      const Image = jest.requireMock('@11ty/eleventy-img');
+
+      addAssetPipeline(mockEleventyConfig, { onProcessingError: 'throw' });
+      const imageShortcode = (mockEleventyConfig.addShortcode as jest.Mock).mock.calls.find(
+        (call) => call[0] === 'image'
+      )[1];
+
+      // Mock a rejection for this specific test
+      Image.mockImplementationOnce(() => Promise.reject(new Error('Image processing failed')));
+      await expect(imageShortcode('test.jpg', 'alt text')).rejects.toThrow(ImageProcessingError);
+
+      // Mock another rejection for the second assertion
+      Image.mockImplementationOnce(() => Promise.reject(new Error('Image processing failed')));
+      await expect(imageShortcode('test.jpg', 'alt text')).rejects.toThrow(
+        'Error processing image: src/images/test.jpg'
+      );
+    });
+
+    it('should warn and return fallback HTML for processing failures when onProcessingError is "warn"', async () => {
+      const Image = jest.requireMock('@11ty/eleventy-img');
+      Image.mockImplementationOnce(() => {
+        return Promise.reject(new Error('Image processing failed'));
+      });
+
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      addAssetPipeline(mockEleventyConfig, { onProcessingError: 'warn' });
+      const imageShortcode = (mockEleventyConfig.addShortcode as jest.Mock).mock.calls.find(
+        (call) => call[0] === 'image'
+      )[1];
+
+      const html = await imageShortcode('test.jpg', 'alt text');
+      expect(html).toContain('<img src="test.jpg"');
+      expect(html).toContain('alt="alt text"');
+      expect(html).toContain('class="responsive-image"');
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[@dwk/anglesite-11ty] Error processing image:'));
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should silently return fallback HTML for processing failures when onProcessingError is "silent"', async () => {
+      const Image = jest.requireMock('@11ty/eleventy-img');
+      Image.mockImplementationOnce(() => {
+        return Promise.reject(new Error('Image processing failed'));
+      });
+
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      addAssetPipeline(mockEleventyConfig, { onProcessingError: 'silent' });
+      const imageShortcode = (mockEleventyConfig.addShortcode as jest.Mock).mock.calls.find(
+        (call) => call[0] === 'image'
+      )[1];
+
+      const html = await imageShortcode('test.jpg', 'alt text');
+      expect(html).toContain('<img src="test.jpg"');
+      expect(html).toContain('alt="alt text"');
+      expect(html).toContain('class="responsive-image"');
+      expect(consoleSpy).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should validate empty metadata and throw ImageProcessingError', async () => {
+      const Image = jest.requireMock('@11ty/eleventy-img');
+      Image.mockImplementationOnce(() => Promise.resolve({}));
+
+      addAssetPipeline(mockEleventyConfig, { onProcessingError: 'throw' });
+      const imageShortcode = (mockEleventyConfig.addShortcode as jest.Mock).mock.calls.find(
+        (call) => call[0] === 'image'
+      )[1];
+
+      await expect(imageShortcode('test.jpg', 'alt text')).rejects.toThrow(ImageProcessingError);
+
+      await expect(imageShortcode('test.jpg', 'alt text')).rejects.toThrow(
+        'No image metadata generated for: src/images/test.jpg'
+      );
+    });
+
+    it('should handle error classes correctly', () => {
+      const imageNotFoundError = new ImageNotFoundError('Test message', 'test.jpg', '/full/path/test.jpg');
+      expect(imageNotFoundError.name).toBe('ImageNotFoundError');
+      expect(imageNotFoundError.imagePath).toBe('test.jpg');
+      expect(imageNotFoundError.resolvedPath).toBe('/full/path/test.jpg');
+
+      const processingError = new ImageProcessingError('Processing failed', 'test.jpg', new Error('Original'));
+      expect(processingError.name).toBe('ImageProcessingError');
+      expect(processingError.imagePath).toBe('test.jpg');
+      expect(processingError.originalError).toBeInstanceOf(Error);
+    });
+  });
+
+  describe('validateWebsiteImages', () => {
+    it('should validate image paths in website data', () => {
+      const websiteData = {
+        social: {
+          ogImage: '/assets/images/og-image.png',
+          avatar: 'sample-avatar.jpg', // This should exist
+          missing: 'nonexistent-image.jpg', // This should not exist
+        },
+        other: {
+          notAnImage: 'some-text',
+          nested: {
+            image: 'hero-banner.jpg', // This should exist
+          },
+        },
+      };
+
+      const results = validateWebsiteImages(websiteData, './src/images/');
+
+      expect(results).toHaveLength(4); // All 4 image paths found
+      expect(results.find((r) => r.path.includes('avatar'))).toEqual({
+        path: 'social.avatar: sample-avatar.jpg',
+        exists: true,
+        resolvedPath: 'src/images/sample-avatar.jpg',
+      });
+      expect(results.find((r) => r.path.includes('missing'))).toEqual({
+        path: 'social.missing: nonexistent-image.jpg',
+        exists: true, // The mock existsSync returns true for everything except 'nonexistent.jpg'
+        resolvedPath: 'src/images/nonexistent-image.jpg',
+      });
+    });
+
+    it('should throw error when throwOnMissing is true and image is missing', () => {
+      const websiteData = {
+        image: 'nonexistent.jpg',
+      };
+
+      expect(() => validateWebsiteImages(websiteData, './src/images/', true)).toThrow(ImageNotFoundError);
+    });
+
+    it('should handle empty and invalid data gracefully', () => {
+      expect(validateWebsiteImages({})).toEqual([]);
+      expect(validateWebsiteImages(null as Record<string, unknown>)).toEqual([]);
+      expect(validateWebsiteImages({ text: 'hello' })).toEqual([]);
     });
   });
 });

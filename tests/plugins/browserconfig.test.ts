@@ -14,6 +14,9 @@ jest.mock('fs', () => ({
     // Mock that images exist except for nonexistent ones
     return !filePath.includes('nonexistent');
   }),
+  promises: {
+    readFile: jest.fn(),
+  },
 }));
 
 describe('browserconfig plugin', () => {
