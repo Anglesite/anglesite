@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anglesite.dwk.io/schemas/modules/seo-robots.json",
+  "title": "SEO and Robots Configuration Schema",
+  "type": "object",
+  "definitions": {
+    "robotsDirective": {
+      "type": "object",
+      "description": "A single robots.txt directive block",
+      "properties": {
+        "User-agent": {
+          "type": "string",
+          "description": "User agent string or '*' for all"
+        },
+        "Allow": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Single path to allow"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Multiple paths to allow"
+            }
+          ]
+        },
+        "Disallow": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Single path to disallow"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Multiple paths to disallow"
+            }
+          ]
+        },
+        "Sitemap": {
+          "type": "boolean",
+          "description": "Whether to include sitemap in robots.txt"
+        }
+      },
+      "additionalProperties": true
+    },
+    "sitemapConfig": {
+      "oneOf": [
+        {
+          "type": "boolean",
+          "description": "Enable or disable sitemap generation"
+        },
+        {
+          "type": "object",
+          "description": "Sitemap configuration options",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable sitemap generation",
+              "default": true
+            },
+            "changefreq": {
+              "type": "string",
+              "enum": ["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"]
+            },
+            "priority": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "maxUrlsPerFile": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum URLs per sitemap file (for large sites)"
+            },
+            "splitLargeSites": {
+              "type": "boolean",
+              "description": "Split large sitemaps into multiple files"
+            },
+            "indexFilename": {
+              "type": "string",
+              "description": "Filename for sitemap index file"
+            },
+            "chunkFilenamePattern": {
+              "type": "string",
+              "description": "Pattern for sitemap chunk filenames"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "properties": {
+    "robots": {
+      "type": "array",
+      "description": "Robots.txt directives",
+      "items": {
+        "$ref": "#/definitions/robotsDirective"
+      }
+    },
+    "sitemap": {
+      "$ref": "#/definitions/sitemapConfig"
+    }
+  }
+}

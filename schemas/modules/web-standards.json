@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anglesite.dwk.io/schemas/modules/web-standards.json",
+  "title": "Web Standards Configuration Schema",
+  "type": "object",
+  "definitions": {
+    "colorScheme": {
+      "type": "object",
+      "description": "Color scheme preference meta tag",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "Color scheme values",
+          "examples": ["light", "dark", "light dark"]
+        },
+        "media": {
+          "type": "string",
+          "description": "Media query for the color scheme"
+        }
+      },
+      "additionalProperties": false
+    },
+    "headLink": {
+      "type": "object",
+      "description": "A <link> element for the <head> section",
+      "required": ["rel"],
+      "properties": {
+        "rel": {
+          "type": "string",
+          "description": "Link relationship"
+        },
+        "href": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "Link URL"
+        },
+        "type": {
+          "type": "string",
+          "description": "MIME type"
+        },
+        "sizes": {
+          "type": "string",
+          "description": "Icon sizes"
+        },
+        "media": {
+          "type": "string",
+          "description": "Media query"
+        },
+        "crossorigin": {
+          "type": "string",
+          "enum": ["anonymous", "use-credentials"]
+        },
+        "integrity": {
+          "type": "string",
+          "description": "Subresource integrity hash"
+        },
+        "hreflang": {
+          "$ref": "./common.json#/definitions/languageCode",
+          "description": "Language of the linked resource"
+        }
+      },
+      "additionalProperties": false
+    },
+    "favicon": {
+      "type": "object",
+      "description": "Favicon configuration",
+      "properties": {
+        "ico": {
+          "type": "string",
+          "description": "Path to favicon.ico file"
+        },
+        "svg": {
+          "type": "string",
+          "description": "Path to SVG favicon"
+        },
+        "png": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Path to PNG favicon of specific size"
+          },
+          "patternProperties": {
+            "^[0-9]+$": {
+              "type": "string"
+            }
+          }
+        },
+        "appleTouchIcon": {
+          "type": "string",
+          "description": "Path to Apple touch icon"
+        }
+      },
+      "additionalProperties": false
+    },
+    "manifest": {
+      "type": "object",
+      "description": "Web App Manifest configuration",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Full name of the web application"
+        },
+        "short_name": {
+          "type": "string",
+          "maxLength": 12,
+          "description": "Short name of the web application"
+        },
+        "theme_color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Theme color as hex color"
+        },
+        "background_color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Background color as hex color"
+        },
+        "display": {
+          "type": "string",
+          "enum": ["fullscreen", "standalone", "minimal-ui", "browser"]
+        },
+        "orientation": {
+          "type": "string",
+          "enum": [
+            "portrait",
+            "landscape",
+            "portrait-primary",
+            "portrait-secondary",
+            "landscape-primary",
+            "landscape-secondary"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "color_scheme": {
+      "$ref": "#/definitions/colorScheme"
+    },
+    "head_links": {
+      "type": "array",
+      "description": "Additional <link> elements for the <head> section",
+      "items": {
+        "$ref": "#/definitions/headLink"
+      }
+    },
+    "favicon": {
+      "$ref": "#/definitions/favicon"
+    },
+    "manifest": {
+      "$ref": "#/definitions/manifest"
+    }
+  }
+}
