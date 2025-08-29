@@ -132,7 +132,7 @@ describe('assetlinks plugin', () => {
                 namespace: 'android_app',
                 package_name: 'com.example.app2',
                 sha256_cert_fingerprints: [
-                  'A1:B2:C3:D4:E5:F6:07:18:29:3A:4B:5C:6D:7E:8F:90:A1:B2:C3:D4:E5:F6:07:18:29:3A:4B:5C:6D:7E:8F:90:A1',
+                  'A1:B2:C3:D4:E5:F6:07:18:29:3A:4B:5C:6D:7E:8F:90:A1:B2:C3:D4:E5:F6:07:18:29:3A:4B:5C:6D:7E:8F:90',
                 ],
               },
             },

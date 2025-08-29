@@ -10,6 +10,32 @@ import { IWebsiteServerManager, ManagedServer } from '../core/interfaces';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
 
+// Type definition for website window
+interface WebsiteWindow {
+  window: BrowserWindow;
+  webContentsView: WebContentsView;
+  websiteName: string;
+  websitePath?: string;
+  serverUrl?: string; // Store the server URL for this website
+  eleventyPort?: number; // HTTP port for Eleventy dev server
+  httpsProxyPort?: number; // HTTPS proxy port (if using HTTPS mode)
+  server?: WebsiteServer; // Reference to the website's individual server
+  loadingView?: WebContentsView; // Native loading overlay view
+  managedServer?: ManagedServer; // Reference to the managed server info
+  isEditorWindow?: boolean; // Whether this is an editor window (true) or preview window (false/undefined)
+}
+
+const websiteWindows: Map<string, WebsiteWindow> = new Map();
+
+// Set up server manager event listeners for logging (DI-compatible)
+let eventListenersSetup = false;
+
+// Help window instance
+let helpWindow: BrowserWindow | null = null;
+
+// Start screen window instance
+let startScreenWindow: BrowserWindow | null = null;
+
 // Re-export for use in other modules (deprecated, use WebsiteServerManager instead)
 // Note: This export is kept for backward compatibility but should be migrated
 
@@ -131,27 +157,7 @@ import { IStore } from '../core/interfaces';
 import { loadTemplateAsDataUrl, getTemplateFilePath } from './template-loader';
 import { getWebsitePath } from '../utils/website-manager';
 
-/**
- * Interface for tracking a website window.
- */
-interface WebsiteWindow {
-  window: BrowserWindow;
-  webContentsView: WebContentsView;
-  websiteName: string;
-  websitePath?: string;
-  serverUrl?: string; // Store the server URL for this website
-  eleventyPort?: number; // HTTP port for Eleventy dev server
-  httpsProxyPort?: number; // HTTPS proxy port (if using HTTPS mode)
-  server?: WebsiteServer; // Reference to the website's individual server
-  loadingView?: WebContentsView; // Native loading overlay view
-  managedServer?: ManagedServer; // Reference to the managed server info
-  isEditorWindow?: boolean; // Whether this is an editor window (true) or preview window (false/undefined)
-}
-
-const websiteWindows: Map<string, WebsiteWindow> = new Map();
-
-// Set up server manager event listeners for logging (DI-compatible)
-let eventListenersSetup = false;
+// Variables declared at top of file
 export function setupServerManagerEventListeners(): void {
   if (eventListenersSetup) return; // Prevent duplicate setup
 
@@ -186,10 +192,7 @@ export function setupServerManagerEventListeners(): void {
 
 // Don't try to initialize event listeners on module load - wait for DI to be ready
 
-/**
- * Help window instance
- */
-let helpWindow: BrowserWindow | null = null;
+// Help window instance declared at top of file
 
 /**
  * Find an available ephemeral port.
@@ -762,10 +765,7 @@ export async function closeAllWindows(): Promise<void> {
   websiteWindows.clear();
 }
 
-/**
- * Start screen window instance
- */
-let startScreenWindow: BrowserWindow | null = null;
+// Start screen window instance declared at top of file
 
 /**
  * Create and show the start screen window.

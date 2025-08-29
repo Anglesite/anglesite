@@ -257,5 +257,69 @@
     "service_documentation": "https://example.com/docs/oauth2",
     "op_policy_uri": "https://example.com/privacy",
     "op_tos_uri": "https://example.com/terms"
+  },
+  "apple_app_site_association": {
+    "enabled": true,
+    "applinks": {
+      "apps": [],
+      "details": [
+        {
+          "appID": "ABCD123456.com.example.myapp",
+          "paths": ["/products/*", "/categories/*", "/blog/*", "NOT /admin/*", "NOT /api/*"]
+        },
+        {
+          "appID": "EFGH789012.com.example.newsapp",
+          "paths": ["/news/*", "/articles/*"]
+        }
+      ]
+    },
+    "webcredentials": {
+      "apps": ["ABCD123456.com.example.myapp"]
+    },
+    "appclips": {
+      "apps": ["com.example.myapp.clip"]
+    }
+  },
+  "assetlinks": {
+    "enabled": true,
+    "statements": [
+      {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+          "namespace": "android_app",
+          "package_name": "com.example.myapp",
+          "sha256_cert_fingerprints": [
+            "14:6D:E9:83:C5:73:06:50:10:85:8C:00:A4:B3:A9:B1:C6:D1:54:D4:7F:C1:60:0B:78:B5:43:2C:3A:1B:47:51"
+          ]
+        }
+      },
+      {
+        "relation": ["delegate_permission/common.get_login_creds"],
+        "target": {
+          "namespace": "android_app",
+          "package_name": "com.example.myapp",
+          "sha256_cert_fingerprints": [
+            "14:6D:E9:83:C5:73:06:50:10:85:8C:00:A4:B3:A9:B1:C6:D1:54:D4:7F:C1:60:0B:78:B5:43:2C:3A:1B:47:51"
+          ]
+        }
+      },
+      {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+          "namespace": "android_app",
+          "package_name": "com.example.newsapp",
+          "sha256_cert_fingerprints": [
+            "A1:B2:C3:D4:E5:F6:07:18:29:3A:4B:5C:6D:7E:8F:90:A1:B2:C3:D4:E5:F6:07:18:29:3A:4B:5C:6D:7E:8F:90"
+          ]
+        }
+      },
+      {
+        "relation": ["delegate_permission/common.share_location"],
+        "target": {
+          "namespace": "web",
+          "site": "https://maps.example.com"
+        }
+      }
+    ]
   }
 }

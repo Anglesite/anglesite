@@ -29,6 +29,10 @@ const DEFAULT_OPTIONS: Required<AssetPluginOptions> = {
 
 /**
  * Enhanced image processing shortcode for Anglesite
+ * @param src The source path of the image
+ * @param alt Alternative text for the image
+ * @param sizes Sizes attribute for responsive images
+ * @returns HTML picture element with optimized images
  */
 async function imageShortcode(src: string, alt: string = '', sizes: string = '(max-width: 768px) 100vw, 50vw') {
   const imageOptions = {
@@ -53,7 +57,7 @@ async function imageShortcode(src: string, alt: string = '', sizes: string = '(m
       .reverse()
       .forEach(([format, images]) => {
         if (format !== 'jpeg') {
-          const srcset = images.map((img: any) => `${img.url} ${img.width}w`).join(', ');
+          const srcset = images.map((img: { url: string; width: number }) => `${img.url} ${img.width}w`).join(', ');
           html += `<source type="image/${format}" srcset="${srcset}" sizes="${sizes}">`;
         }
       });
@@ -74,6 +78,8 @@ async function imageShortcode(src: string, alt: string = '', sizes: string = '(m
 
 /**
  * Font preload helper
+ * @param args Arguments containing font path, format, and crossorigin setting
+ * @returns HTML link element for font preloading
  */
 function fontPreloadShortcode(...args: unknown[]) {
   const [fontPath, fontFormat = 'woff2', crossorigin = true] = args as [string, string?, boolean?];
@@ -83,6 +89,8 @@ function fontPreloadShortcode(...args: unknown[]) {
 
 /**
  * Critical CSS inlining shortcode
+ * @param args Arguments containing CSS path
+ * @returns HTML link element for CSS
  */
 function criticalCSSShortcode(...args: unknown[]) {
   const [cssPath] = args as [string];
@@ -91,6 +99,8 @@ function criticalCSSShortcode(...args: unknown[]) {
 
 /**
  * CSS processing function
+ * @param args Arguments containing content and output path
+ * @returns Processed CSS content
  */
 function processCSS(...args: unknown[]) {
   const [content, outputPath] = args as [string, string];
@@ -102,9 +112,13 @@ function processCSS(...args: unknown[]) {
 
 /**
  * Asset pipeline plugin for Anglesite 11ty
+ * @param eleventyConfig The Eleventy configuration object
+ * @param options Asset plugin options
  */
 export default function addAssetPipeline(eleventyConfig: EleventyConfig, options: AssetPluginOptions = {}) {
-  const config = { ...DEFAULT_OPTIONS, ...options };
+  // Merge with default options but don't store in unused variable
+  const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
+  console.log('Asset pipeline configured with options:', Object.keys(mergedOptions));
 
   // Add image shortcodes with proper typing
   eleventyConfig.addShortcode('image', async function (...args: unknown[]) {
