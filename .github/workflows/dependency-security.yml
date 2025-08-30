@@ -1,0 +1,118 @@
+# ABOUTME: Dedicated dependency security scanning workflow with enhanced vulnerability detection
+# ABOUTME: Runs comprehensive security checks on dependencies and generates security reports
+
+name: Dependency Security Scan
+
+on:
+  schedule:
+    - cron: '0 8 * * MON'  # Weekly security scan on Mondays at 8 AM UTC
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths: 
+      - '**/package.json'
+      - '**/package-lock.json'
+      - '.github/workflows/dependency-security.yml'
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run npm audit (high severity)
+      id: audit-high
+      run: |
+        echo "## High Severity Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+        npm audit --audit-level=high --json > audit-high.json || true
+        npm audit --audit-level=high >> $GITHUB_STEP_SUMMARY || true
+      continue-on-error: true
+    
+    - name: Run npm audit (all vulnerabilities)
+      id: audit-all
+      run: |
+        echo "## All Vulnerabilities Report" >> $GITHUB_STEP_SUMMARY
+        npm audit --json > audit-all.json || true
+        npm audit >> $GITHUB_STEP_SUMMARY || true
+      continue-on-error: true
+    
+    - name: Check for outdated dependencies
+      run: |
+        echo "## Outdated Dependencies" >> $GITHUB_STEP_SUMMARY
+        npm outdated >> $GITHUB_STEP_SUMMARY || true
+    
+    - name: License compliance check
+      run: |
+        # Install license checker if not already available
+        npx license-checker --summary --json > licenses.json || true
+        echo "## License Summary" >> $GITHUB_STEP_SUMMARY
+        npx license-checker --summary >> $GITHUB_STEP_SUMMARY || true
+      continue-on-error: true
+    
+    - name: Upload security artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          audit-high.json
+          audit-all.json
+          licenses.json
+        retention-days: 30
+    
+    - name: Create security issue if vulnerabilities found
+      if: failure() && github.event_name == 'schedule'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Check if high severity audit file exists and has vulnerabilities
+          let hasHighSevVulns = false;
+          try {
+            const auditData = JSON.parse(fs.readFileSync('audit-high.json', 'utf8'));
+            hasHighSevVulns = auditData.metadata && auditData.metadata.vulnerabilities && 
+                             (auditData.metadata.vulnerabilities.high > 0 || auditData.metadata.vulnerabilities.critical > 0);
+          } catch (error) {
+            console.log('Could not parse audit data:', error.message);
+          }
+          
+          if (hasHighSevVulns) {
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔒 Security Alert: High Severity Vulnerabilities Detected',
+              body: `## Security Vulnerabilities Detected
+              
+              The weekly security scan has detected high or critical severity vulnerabilities in our dependencies.
+              
+              ### Action Required
+              - Review the security scan results in the [workflow run](${context.payload.workflow_run?.html_url || 'latest workflow run'})
+              - Update vulnerable dependencies using \`npm audit fix\`
+              - Test thoroughly after updates
+              - Consider alternative packages if fixes are not available
+              
+              ### Scan Details
+              - **Scan Date**: ${new Date().toISOString()}
+              - **Workflow**: ${context.workflow}
+              - **Run ID**: ${context.runId}
+              
+              This issue was created automatically by the dependency security workflow.`,
+              labels: ['security', 'dependencies', 'high-priority']
+            });
+          }

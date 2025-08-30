@@ -1,12 +1,43 @@
 /**
- * Configuration schema for Anglesite website metadata and settings
+ * Configuration schema for Anglesite website metadata and settings. See VALIDATION.md for detailed requirements and conditional field documentation.
  */
 export type AnglesiteWebsiteConfiguration = BasicWebsiteInformationSchema &
   SEOAndRobotsConfigurationSchema &
   WebStandardsConfigurationSchema &
   NetworkingAndServerConfigurationSchema &
   AnalyticsConfigurationSchema &
-  WellKnownStandardsConfigurationSchema;
+  WellKnownStandardsConfigurationSchema & {
+    $schema?: string;
+    [k: string]: unknown;
+  };
+/**
+ * Favicon configuration - at least one format should be provided
+ */
+export type Favicon = {
+  [k: string]: unknown;
+} & {
+  /**
+   * Path to favicon.ico file (traditional favicon, 16x16 or multi-size)
+   */
+  ico?: string;
+  /**
+   * Path to SVG favicon (modern scalable favicon)
+   */
+  svg?: string;
+  /**
+   * PNG favicons by size (key is pixel size, value is path)
+   */
+  png?: {
+    /**
+     * Path to PNG favicon of specific size
+     */
+    [k: string]: string;
+  };
+  /**
+   * Path to Apple touch icon (180x180px recommended)
+   */
+  appleTouchIcon?: string;
+};
 
 export interface BasicWebsiteInformationSchema {
   /**
@@ -16,7 +47,7 @@ export interface BasicWebsiteInformationSchema {
   /**
    * The primary language of the website (ISO 639-1 code)
    */
-  language: string;
+  language?: string;
   /**
    * A brief description of the website
    */
@@ -51,7 +82,7 @@ export interface Author {
   url?: string;
 }
 /**
- * Social media links
+ * Social media links and images for sharing
  */
 export interface Social {
   /**
@@ -59,19 +90,61 @@ export interface Social {
    */
   twitter?: string;
   /**
-   * A valid URL
+   * Facebook profile or page URL
    */
   facebook?: string;
+  /**
+   * Instagram handle or URL
+   */
   instagram?: string;
   /**
-   * A valid URL
+   * LinkedIn profile or company page URL
    */
   linkedin?: string;
+  /**
+   * GitHub username or URL
+   */
   github?: string;
   /**
-   * A valid URL
+   * YouTube channel URL
    */
   youtube?: string;
+  /**
+   * Path to Open Graph image for social sharing (recommended: 1200x630px)
+   */
+  ogImage?: string;
+  /**
+   * Path to Twitter Card image (recommended: 1200x675px)
+   */
+  twitterCard?: string;
+  /**
+   * Path to profile/avatar image
+   */
+  avatar?: string;
+  /**
+   * Path to hero/banner image for homepage
+   */
+  heroImage?: string;
+  /**
+   * Path to banner image
+   */
+  bannerImage?: string;
+  /**
+   * Path to landscape demo image
+   */
+  landscapeDemo?: string;
+  /**
+   * Path to portrait demo image
+   */
+  portraitDemo?: string;
+  /**
+   * Path to thumbnail demo image
+   */
+  thumbnailDemo?: string;
+  /**
+   * Path to figure demo image
+   */
+  figureDemo?: string;
 }
 export interface SEOAndRobotsConfigurationSchema {
   /**
@@ -154,7 +227,7 @@ export interface HeadLink {
    */
   rel: string;
   /**
-   * A valid URL
+   * Link URL
    */
   href?: string;
   /**
@@ -180,49 +253,32 @@ export interface HeadLink {
   hreflang?: string;
 }
 /**
- * Favicon configuration
- */
-export interface Favicon {
-  /**
-   * Path to favicon.ico file
-   */
-  ico?: string;
-  /**
-   * Path to SVG favicon
-   */
-  svg?: string;
-  png?: {
-    /**
-     * Path to PNG favicon of specific size
-     */
-    [k: string]: string;
-  };
-  /**
-   * Path to Apple touch icon
-   */
-  appleTouchIcon?: string;
-}
-/**
- * Web App Manifest configuration
+ * Web App Manifest configuration - name and icons are required for valid PWA
  */
 export interface Manifest {
   /**
-   * Full name of the web application
+   * Full name of the web application (required)
    */
-  name?: string;
+  name: string;
   /**
-   * Short name of the web application
+   * Short name of the web application (displayed on home screen)
    */
   short_name?: string;
   /**
-   * Theme color as hex color
+   * Theme color as 6-digit hex color (affects status bar on mobile)
    */
   theme_color?: string;
   /**
-   * Background color as hex color
+   * Background color as 6-digit hex color (splash screen background)
    */
   background_color?: string;
+  /**
+   * Preferred display mode
+   */
   display?: 'fullscreen' | 'standalone' | 'minimal-ui' | 'browser';
+  /**
+   * Preferred screen orientation
+   */
   orientation?:
     | 'portrait'
     | 'landscape'
@@ -230,6 +286,48 @@ export interface Manifest {
     | 'portrait-secondary'
     | 'landscape-primary'
     | 'landscape-secondary';
+  /**
+   * App icons in various sizes (192x192 and 512x512 recommended minimum).
+   * Minimum of 1 icon required.
+   */
+  icons: [
+    {
+      /**
+       * Path to the icon file
+       */
+      src: string;
+      /**
+       * Icon size in format 'widthxheight'
+       */
+      sizes: string;
+      /**
+       * MIME type of the icon
+       */
+      type: string;
+      /**
+       * How the icon should be used
+       */
+      purpose?: 'any' | 'maskable' | 'monochrome';
+    },
+    ...{
+      /**
+       * Path to the icon file
+       */
+      src: string;
+      /**
+       * Icon size in format 'widthxheight'
+       */
+      sizes: string;
+      /**
+       * MIME type of the icon
+       */
+      type: string;
+      /**
+       * How the icon should be used
+       */
+      purpose?: 'any' | 'maskable' | 'monochrome';
+    }[],
+  ];
 }
 export interface NetworkingAndServerConfigurationSchema {
   /**
@@ -343,7 +441,7 @@ export interface PlausibleAnalytics {
    */
   domain?: string;
   /**
-   * A valid URL
+   * Plausible script URL
    */
   src?: string;
 }
@@ -408,7 +506,7 @@ export interface WellKnownStandardsConfigurationSchema {
   openid_configuration?: OpenidConfiguration;
   apple_app_site_association?: AppleAppSiteAssociation;
   assetlinks?: AssetLinks;
-  browserconfig?: BrowserConfig;
+  browserconfig?: Browserconfig;
   [k: string]: unknown;
 }
 export interface HostMetaLink {
@@ -417,7 +515,7 @@ export interface HostMetaLink {
    */
   rel: string;
   /**
-   * A valid URL
+   * Link target URL
    */
   href?: string;
   /**
@@ -463,7 +561,7 @@ export interface WebFingerResource {
      */
     rel: string;
     /**
-     * A valid URL
+     * Link target URL
      */
     href?: string;
     /**
@@ -534,11 +632,11 @@ export interface NodeInfo {
      */
     version: string;
     /**
-     * A valid URL
+     * URL to the software's source code repository
      */
     repository?: string;
     /**
-     * A valid URL
+     * URL to the software's homepage
      */
     homepage?: string;
   };
@@ -812,7 +910,7 @@ export interface AppleAppSiteAssociation {
       /**
        * The app ID for this app (team ID + bundle ID)
        */
-      appID?: string;
+      appID: string;
       /**
        * Alternative to appID for multiple app IDs
        */
@@ -824,7 +922,7 @@ export interface AppleAppSiteAssociation {
       /**
        * URL components that should open in the app (alternative to paths)
        */
-      components?: Array<{
+      components?: {
         /**
          * Path component pattern
          */
@@ -836,10 +934,11 @@ export interface AppleAppSiteAssociation {
           [k: string]: string;
         };
         /**
-         * Fragment pattern
+         * fragment pattern
          */
         '#'?: string;
-      }>;
+        [k: string]: unknown;
+      }[];
     }[];
   };
   /**
@@ -875,12 +974,21 @@ export interface AssetLinks {
   statements?: {
     /**
      * List of relation types for this statement
+     *
+     * Minimum of 1 required.
      */
-    relation: (
-      | 'delegate_permission/common.handle_all_urls'
-      | 'delegate_permission/common.get_login_creds'
-      | 'delegate_permission/common.share_location'
-    )[];
+    relation: [
+      (
+        | 'delegate_permission/common.handle_all_urls'
+        | 'delegate_permission/common.get_login_creds'
+        | 'delegate_permission/common.share_location'
+      ),
+      ...(
+        | 'delegate_permission/common.handle_all_urls'
+        | 'delegate_permission/common.get_login_creds'
+        | 'delegate_permission/common.share_location'
+      )[],
+    ];
     /**
      * Target app or website for this statement
      */
@@ -896,8 +1004,10 @@ export interface AssetLinks {
           package_name: string;
           /**
            * SHA256 certificate fingerprints (uppercase, colon-separated)
+           *
+           * Minimum of 1 required.
            */
-          sha256_cert_fingerprints: string[];
+          sha256_cert_fingerprints: [string, ...string[]];
         }
       | {
           /**
@@ -911,11 +1021,10 @@ export interface AssetLinks {
         };
   }[];
 }
-
 /**
  * Browser configuration for .well-known/browserconfig.xml
  */
-export interface BrowserConfig {
+export interface Browserconfig {
   /**
    * Enable browserconfig.xml generation
    */

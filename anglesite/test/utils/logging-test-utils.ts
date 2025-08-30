@@ -3,7 +3,7 @@
  * Provides consistent patterns for testing secure logging functionality
  */
 
-import { logger, LogLevel } from '../../app/utils/logging';
+// Logging utilities imported but not used in this test helper module
 
 /**
  * LoggingTestHelper provides utilities for testing logging functionality
@@ -21,7 +21,7 @@ export class LoggingTestHelper {
   }
 
   /**
-   * Verify that an error was logged with specific content
+   * Verify that an error was logged with specific content.
    */
   expectErrorLogged(partialMessage: string, context?: Record<string, unknown>): void {
     const errorCalls = this.consoleErrorSpy.mock.calls;
@@ -32,7 +32,7 @@ export class LoggingTestHelper {
       if (!context) return hasMessage;
 
       // If context is provided, check that key context values are present
-      const contextMatches = Object.entries(context).every(([key, expectedValue]) => {
+      const contextMatches = Object.entries(context).every(([_key, expectedValue]) => {
         if (typeof expectedValue === 'string') {
           return logMessage.includes(expectedValue);
         }
@@ -49,7 +49,7 @@ export class LoggingTestHelper {
   }
 
   /**
-   * Verify that a warning was logged with specific content
+   * Verify that a warning was logged with specific content.
    */
   expectWarningLogged(partialMessage: string): void {
     const warnCalls = this.consoleWarnSpy.mock.calls;
@@ -65,7 +65,7 @@ export class LoggingTestHelper {
   }
 
   /**
-   * Verify that an info log was made
+   * Verify that an info log was made.
    */
   expectInfoLogged(partialMessage: string): void {
     const logCalls = this.consoleLogSpy.mock.calls;
@@ -81,7 +81,7 @@ export class LoggingTestHelper {
   }
 
   /**
-   * Verify that no logs were made (useful for testing silent operations)
+   * Verify that no logs were made (useful for testing silent operations).
    */
   expectNoLogs(): void {
     expect(this.consoleErrorSpy).not.toHaveBeenCalled();
@@ -90,21 +90,21 @@ export class LoggingTestHelper {
   }
 
   /**
-   * Get the number of error logs made
+   * Get the number of error logs made.
    */
   getErrorLogCount(): number {
     return this.consoleErrorSpy.mock.calls.length;
   }
 
   /**
-   * Get all error log messages for debugging
+   * Get all error log messages for debugging.
    */
   getAllErrorLogs(): string[] {
     return this.consoleErrorSpy.mock.calls.map((call) => call[0] as string);
   }
 
   /**
-   * Clear all spy call history
+   * Clear all spy call history.
    */
   clearLogs(): void {
     this.consoleErrorSpy.mockClear();
@@ -113,7 +113,7 @@ export class LoggingTestHelper {
   }
 
   /**
-   * Restore original console methods
+   * Restore original console methods.
    */
   restore(): void {
     this.consoleErrorSpy.mockRestore();
@@ -132,7 +132,7 @@ export class LoggerMock {
   public debug = jest.fn();
 
   /**
-   * Verify that an error was logged with specific message pattern
+   * Verify that an error was logged with specific message pattern.
    */
   expectError(messagePattern: string | RegExp, context?: Record<string, unknown>): void {
     const errorCalls = this.error.mock.calls;
@@ -157,7 +157,7 @@ export class LoggerMock {
   }
 
   /**
-   * Clear all mock call history
+   * Clear all mock call history.
    */
   clear(): void {
     this.error.mockClear();
@@ -168,14 +168,14 @@ export class LoggerMock {
 }
 
 /**
- * Create a logging test helper for use in test suites
+ * Create a logging test helper for use in test suites.
  */
 export function createLoggingTestHelper(): LoggingTestHelper {
   return new LoggingTestHelper();
 }
 
 /**
- * Create a mock logger for dependency injection in tests
+ * Create a mock logger for dependency injection in tests.
  */
 export function createLoggerMock(): LoggerMock {
   return new LoggerMock();

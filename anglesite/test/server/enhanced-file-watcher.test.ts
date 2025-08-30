@@ -3,7 +3,6 @@
  */
 import { EnhancedFileWatcher, createEnhancedFileWatcher, FileChangeInfo } from '../../app/server/enhanced-file-watcher';
 import * as path from 'path';
-import * as fs from 'fs';
 
 // Mock chokidar
 jest.mock('chokidar', () => ({
@@ -16,7 +15,10 @@ jest.mock('chokidar', () => ({
 describe('EnhancedFileWatcher', () => {
   let mockRebuildCallback: jest.MockedFunction<(changes: FileChangeInfo[]) => Promise<void>>;
   let watcher: EnhancedFileWatcher;
-  let mockChokidarWatcher: any;
+  let mockChokidarWatcher: {
+    on: jest.MockedFunction<(event: string, callback: (...args: unknown[]) => void) => typeof mockChokidarWatcher>;
+    close: jest.MockedFunction<() => Promise<void>>;
+  };
 
   beforeEach(() => {
     mockRebuildCallback = jest.fn().mockResolvedValue(undefined);

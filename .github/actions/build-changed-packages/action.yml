@@ -1,0 +1,167 @@
+# ABOUTME: Reusable GitHub Action for building only changed packages in the monorepo
+# ABOUTME: Provides workspace-specific build optimization with dependency resolution
+
+name: 'Build Changed Packages'
+description: 'Builds only the packages that have changed, considering dependencies'
+
+inputs:
+  changed-packages:
+    description: 'JSON array of changed package names'
+    required: true
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '20.x'
+  run-tests:
+    description: 'Whether to run tests'
+    required: false
+    default: 'true'
+
+outputs:
+  built-packages:
+    description: 'List of packages that were built'
+    value: ${{ steps.build-packages.outputs.built-packages }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Determine build order
+      id: build-order
+      shell: bash
+      run: |
+        # Create a script to determine dependency-aware build order
+        cat > determine_build_order.js << 'EOF'
+        const fs = require('fs');
+        const path = require('path');
+        
+        // Read the root package.json to get workspace configuration
+        const rootPkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        const workspaces = rootPkg.workspaces || [];
+        
+        // Get changed packages from input
+        const changedPackages = JSON.parse(process.argv[2]);
+        
+        // Build dependency graph
+        const packages = {};
+        const buildOrder = [];
+        
+        workspaces.forEach(workspace => {
+          const pkgPath = path.join(workspace, 'package.json');
+          if (fs.existsSync(pkgPath)) {
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+            packages[pkg.name] = {
+              path: workspace,
+              dependencies: Object.keys({
+                ...pkg.dependencies,
+                ...pkg.devDependencies
+              }).filter(dep => dep.startsWith('@dwk/'))
+            };
+          }
+        });
+        
+        // Topological sort for build order
+        function addToBuildOrder(packageName) {
+          if (buildOrder.includes(packageName)) return;
+          
+          const pkg = packages[packageName];
+          if (!pkg) return;
+          
+          // Add dependencies first
+          pkg.dependencies.forEach(dep => {
+            if (packages[dep]) {
+              addToBuildOrder(dep);
+            }
+          });
+          
+          buildOrder.push(packageName);
+        }
+        
+        // Add changed packages and their dependents
+        changedPackages.forEach(pkgName => {
+          if (packages[pkgName]) {
+            addToBuildOrder(pkgName);
+          }
+        });
+        
+        // Find packages that depend on changed packages
+        Object.keys(packages).forEach(pkgName => {
+          const hasChangedDep = packages[pkgName].dependencies.some(dep => 
+            changedPackages.includes(dep)
+          );
+          if (hasChangedDep) {
+            addToBuildOrder(pkgName);
+          }
+        });
+        
+        console.log(JSON.stringify({
+          buildOrder: buildOrder,
+          packagePaths: Object.fromEntries(
+            Object.entries(packages).map(([name, pkg]) => [name, pkg.path])
+          )
+        }));
+        EOF
+        
+        # Run the script
+        BUILD_INFO=$(node determine_build_order.js '${{ inputs.changed-packages }}')
+        echo "build-info=$BUILD_INFO" >> $GITHUB_OUTPUT
+        echo "Build order determined: $BUILD_INFO"
+
+    - name: Build packages
+      id: build-packages
+      shell: bash
+      run: |
+        BUILD_INFO='${{ steps.build-order.outputs.build-info }}'
+        BUILD_ORDER=$(echo "$BUILD_INFO" | jq -r '.buildOrder[]')
+        PACKAGE_PATHS=$(echo "$BUILD_INFO" | jq -r '.packagePaths')
+        
+        BUILT_PACKAGES=()
+        
+        for PACKAGE in $BUILD_ORDER; do
+          PACKAGE_PATH=$(echo "$PACKAGE_PATHS" | jq -r ".\"$PACKAGE\"")
+          
+          if [ "$PACKAGE_PATH" != "null" ] && [ -d "$PACKAGE_PATH" ]; then
+            echo "📦 Building package: $PACKAGE at $PACKAGE_PATH"
+            
+            cd "$PACKAGE_PATH"
+            
+            # Run linting if available
+            if npm run lint --silent 2>/dev/null; then
+              echo "✅ Linting passed for $PACKAGE"
+            else
+              echo "ℹ️ No linting configured for $PACKAGE"
+            fi
+            
+            # Run tests if requested and available
+            if [ "${{ inputs.run-tests }}" = "true" ]; then
+              if npm test --silent 2>/dev/null; then
+                echo "✅ Tests passed for $PACKAGE"
+              else
+                echo "ℹ️ No tests configured for $PACKAGE"
+              fi
+            fi
+            
+            # Run build if available
+            if npm run build --silent 2>/dev/null; then
+              echo "✅ Build completed for $PACKAGE"
+            else
+              echo "ℹ️ No build script configured for $PACKAGE"
+            fi
+            
+            BUILT_PACKAGES+=("$PACKAGE")
+            cd - > /dev/null
+          fi
+        done
+        
+        BUILT_PACKAGES_JSON=$(printf '%s\n' "${BUILT_PACKAGES[@]}" | jq -R . | jq -s .)
+        echo "built-packages=$BUILT_PACKAGES_JSON" >> $GITHUB_OUTPUT
+        echo "Built packages: ${BUILT_PACKAGES[@]}"

@@ -1,7 +1,7 @@
 /**
  * @file Enhanced file watcher for Anglesite with incremental compilation support
  * @description Provides optimized file watching with debouncing, smart filtering, and performance monitoring
- * @author David W. Keith <git@dwk.io>
+ * @author David W. Keith (git@dwk.io)
  * @since 0.1.0
  */
 
@@ -64,7 +64,7 @@ export interface WatchModeMetrics {
 /** Enhanced file watcher class */
 export class EnhancedFileWatcher {
   private watcher: chokidar.FSWatcher | null = null;
-  private debounceTimer: NodeJS.Timeout | null = null;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingChanges: Map<string, FileChangeInfo> = new Map();
   private metrics: WatchModeMetrics;
   private config: Required<WatchModeConfig>;
@@ -98,7 +98,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Start watching files for changes
+   * Start watching files for changes.
    */
   public async start(): Promise<void> {
     if (this.watcher) {
@@ -138,7 +138,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Stop watching files
+   * Stop watching files.
    */
   public async stop(): Promise<void> {
     if (this.debounceTimer) {
@@ -162,14 +162,14 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Get current performance metrics
+   * Get current performance metrics.
    */
   public getMetrics(): WatchModeMetrics {
     return { ...this.metrics };
   }
 
   /**
-   * Handle file change events with smart filtering
+   * Handle file change events with smart filtering.
    */
   private handleFileChange(event: FileChangeEvent, filePath: string, stats?: fs.Stats): void {
     const relativePath = path.relative(this.config.inputDir, filePath);
@@ -209,10 +209,9 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Determine if a file should be ignored based on smart filtering
+   * Determine if a file should be ignored based on smart filtering.
    */
   private shouldIgnoreFile(filePath: string): boolean {
-    const ext = path.extname(filePath).toLowerCase();
     const filename = path.basename(filePath);
 
     // Ignore temporary and cache files
@@ -222,7 +221,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Schedule a debounced rebuild
+   * Schedule a debounced rebuild.
    */
   private scheduleRebuild(): void {
     if (this.debounceTimer) {
@@ -235,7 +234,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Trigger the actual rebuild with batched changes
+   * Trigger the actual rebuild with batched changes.
    */
   private async triggerRebuild(): Promise<void> {
     if (this.pendingChanges.size === 0) {
@@ -276,7 +275,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Get batched changes up to the maximum batch size
+   * Get batched changes up to the maximum batch size.
    */
   private getBatchedChanges(): FileChangeInfo[] {
     const changes = Array.from(this.pendingChanges.values());
@@ -286,7 +285,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Prioritize changes based on file types and importance
+   * Prioritize changes based on file types and importance.
    */
   private prioritizeChanges(changes: FileChangeInfo[]): FileChangeInfo[] {
     return changes.sort((a, b) => {
@@ -308,7 +307,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Check if a file is a configuration file that should be prioritized
+   * Check if a file is a configuration file that should be prioritized.
    */
   private isConfigFile(filePath: string): boolean {
     const filename = path.basename(filePath);
@@ -318,7 +317,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Check if a file has a priority extension
+   * Check if a file has a priority extension.
    */
   private isPriorityExtension(filePath: string): boolean {
     const ext = path.extname(filePath).toLowerCase();
@@ -326,7 +325,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Record rebuild time for performance tracking
+   * Record rebuild time for performance tracking.
    */
   private recordRebuildTime(time: number): void {
     this.rebuildTimes.push(time);
@@ -340,7 +339,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Update memory usage metrics
+   * Update memory usage metrics.
    */
   private updateMemoryMetrics(): void {
     const currentMemory = process.memoryUsage().heapUsed;
@@ -350,7 +349,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Log performance metrics
+   * Display current watch mode performance statistics.
    */
   private logPerformanceMetrics(): void {
     const uptime = Date.now() - this.metrics.startTime;
@@ -369,7 +368,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Log final metrics when stopping
+   * Log final metrics when stopping.
    */
   private logFinalMetrics(): void {
     console.log(`[Watch Mode] Final Performance Report:`);
@@ -377,7 +376,7 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Handle watcher errors
+   * Handle watcher errors.
    */
   private handleWatcherError(error: Error): void {
     console.error('[Watch Mode] Watcher error:', error);
@@ -385,7 +384,7 @@ export class EnhancedFileWatcher {
 }
 
 /**
- * Create and configure an enhanced file watcher
+ * Create and configure an enhanced file watcher.
  */
 export function createEnhancedFileWatcher(
   rebuildCallback: RebuildCallback,

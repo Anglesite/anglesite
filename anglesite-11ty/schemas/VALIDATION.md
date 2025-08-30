@@ -7,7 +7,10 @@ This document explains the validation requirements for the Anglesite website con
 ### Always Required
 
 - **`title`** (string): The website title is always required
-- **`language`** (string): Language code (ISO 639-1) is always required
+
+### Optional with Defaults
+
+- **`language`** (string): Language code (ISO 639-1), defaults to "en" if not provided
 
 ### Conditionally Required
 
@@ -132,6 +135,54 @@ Thrown when an image file cannot be found at the specified path.
 ### ImageProcessingError
 
 Thrown when image processing fails (corrupt file, unsupported format, etc.).
+
+## Configuration Examples
+
+### Minimal Valid Configuration
+
+```json
+{
+  "title": "My Website"
+}
+```
+
+### With Language Specification
+
+```json
+{
+  "title": "My Website",
+  "language": "fr"
+}
+```
+
+### With Minimal Favicon
+
+```json
+{
+  "title": "My Website",
+  "favicon": {
+    "ico": "/favicon.ico"
+  }
+}
+```
+
+### With Minimal Web App Manifest
+
+```json
+{
+  "title": "My Website",
+  "manifest": {
+    "name": "My App",
+    "icons": [
+      {
+        "src": "/icon-192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      }
+    ]
+  }
+}
+```
 
 ## Best Practices
 

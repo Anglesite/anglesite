@@ -47,8 +47,8 @@ jest.mock('@11ty/eleventy-dev-server', () => {
 const mockEleventy = require('@11ty/eleventy');
 const mockEleventyDevServer = require('@11ty/eleventy-dev-server');
 const mockEleventyUrlResolver = EleventyUrlResolver as jest.MockedClass<typeof EleventyUrlResolver>;
-const mockEnhancedFileWatcherModule = require('../../app/server/enhanced-file-watcher');
-const mockCreateEnhancedFileWatcher = mockEnhancedFileWatcherModule.createEnhancedFileWatcher;
+// Enhanced file watcher module imported but not directly used in this test file
+// const mockEnhancedFileWatcherModule = require('../../app/server/enhanced-file-watcher');
 
 describe('Per-Website Server', () => {
   let originalConsole: typeof console;
@@ -388,7 +388,7 @@ describe('Per-Website Server', () => {
       };
       mockEleventyDevServer.mockReturnValue(mockDevServerInstance);
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      jest.spyOn(console, 'error').mockImplementation();
 
       await startWebsiteServer('/test/website', 'test-site', 3000);
 
@@ -425,7 +425,7 @@ describe('Per-Website Server', () => {
       };
       mockEleventyDevServer.mockReturnValue(mockDevServerInstance);
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      jest.spyOn(console, 'error').mockImplementation();
 
       await startWebsiteServer('/test/website', 'test-site', 3000);
 
@@ -480,7 +480,7 @@ describe('Per-Website Server', () => {
         throw new Error('File system error');
       });
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      jest.spyOn(console, 'error').mockImplementation();
 
       await expect(startWebsiteServer('/test/website', 'test-site', 3000)).rejects.toThrow('File system error');
 
@@ -494,7 +494,7 @@ describe('Per-Website Server', () => {
         throw 'String file system error';
       });
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      jest.spyOn(console, 'error').mockImplementation();
 
       await expect(startWebsiteServer('/test/website', 'test-site', 3000)).rejects.toBe('String file system error');
 
@@ -703,7 +703,7 @@ describe('Per-Website Server', () => {
       const watcherError = new Error('Watcher close failed');
       mockServer.devServer.watcher.close.mockRejectedValue(watcherError);
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      jest.spyOn(console, 'error').mockImplementation();
 
       await stopWebsiteServer(mockServer);
 
@@ -732,7 +732,7 @@ describe('Per-Website Server', () => {
       const closeError = new Error('Server close failed');
       mockServer.devServer.close.mockRejectedValue(closeError);
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      jest.spyOn(console, 'error').mockImplementation();
 
       await stopWebsiteServer(mockServer);
 
@@ -754,7 +754,7 @@ describe('Per-Website Server', () => {
         throw cleanupError;
       });
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      jest.spyOn(console, 'error').mockImplementation();
 
       await stopWebsiteServer(mockServer);
 
@@ -768,7 +768,7 @@ describe('Per-Website Server', () => {
         throw generalError;
       });
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      jest.spyOn(console, 'error').mockImplementation();
 
       await stopWebsiteServer(mockServer);
 

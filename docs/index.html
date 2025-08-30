@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anglesite JSON Schemas</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      h1 {
+        color: #2563eb;
+      }
+      .schema-list {
+        list-style: none;
+        padding: 0;
+      }
+      .schema-list li {
+        margin: 1rem 0;
+        padding: 1rem;
+        background: #f8fafc;
+        border-radius: 0.5rem;
+      }
+      .schema-list a {
+        color: #1d4ed8;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .schema-list a:hover {
+        text-decoration: underline;
+      }
+      .description {
+        color: #64748b;
+        margin-top: 0.5rem;
+      }
+      .url {
+        font-family: monospace;
+        font-size: 0.875rem;
+        color: #475569;
+        margin-top: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Anglesite JSON Schemas</h1>
+    <p>JSON Schema definitions for Anglesite website configuration files.</p>
+
+    <h2>Main Schema</h2>
+    <ul class="schema-list">
+      <li>
+        <a href="schemas/website.schema.json">website.schema.json</a>
+        <div class="description">
+          Main schema for Anglesite website configuration
+        </div>
+        <div class="url">
+          Use in your website.json:
+          <code
+            >"$schema":
+            "https://anglesite.dwk.io/schemas/website.schema.json"</code
+          >
+        </div>
+      </li>
+    </ul>
+
+    <h2>Module Schemas</h2>
+    <ul class="schema-list">
+      <li>
+        <a href="schemas/modules/basic-info.json">basic-info.json</a>
+        <div class="description">
+          Basic website information (title, description, URL, etc.)
+        </div>
+      </li>
+      <li>
+        <a href="schemas/modules/seo-robots.json">seo-robots.json</a>
+        <div class="description">SEO and robots.txt configuration</div>
+      </li>
+      <li>
+        <a href="schemas/modules/web-standards.json">web-standards.json</a>
+        <div class="description">Web standards (favicon, manifest, etc.)</div>
+      </li>
+      <li>
+        <a href="schemas/modules/networking.json">networking.json</a>
+        <div class="description">
+          Networking and server configuration (headers, redirects)
+        </div>
+      </li>
+      <li>
+        <a href="schemas/modules/analytics.json">analytics.json</a>
+        <div class="description">Analytics configuration</div>
+      </li>
+      <li>
+        <a href="schemas/modules/well-known.json">well-known.json</a>
+        <div class="description">.well-known standards configuration</div>
+      </li>
+      <li>
+        <a href="schemas/modules/common.json">common.json</a>
+        <div class="description">Common schema definitions and types</div>
+      </li>
+    </ul>
+
+    <h2>Usage</h2>
+    <p>
+      To use these schemas in your VS Code or other JSON editors, add the
+      <code>$schema</code> property to the top of your JSON files:
+    </p>
+    <pre><code>{
+  "$schema": "https://anglesite.dwk.io/schemas/website.schema.json",
+  "title": "My Website",
+  ...
+}</code></pre>
+  </body>
+</html>

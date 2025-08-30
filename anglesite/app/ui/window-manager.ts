@@ -8,11 +8,9 @@ import { themeManager } from './theme-manager';
 import { loadTemplateAsDataUrl } from './template-loader';
 import {
   getAllWebsiteWindows,
-  getWebsiteWindow,
-  closeStartScreen,
-  showStartScreenIfNeeded,
   addWebsiteEditorWindow,
   removeWebsiteEditorWindow,
+  saveWindowStates,
 } from './multi-window-manager';
 import { updateApplicationMenu } from './menu';
 
@@ -471,8 +469,7 @@ export function openVanillaWebsiteEditorWindow(websiteName?: string, websitePath
     // Save window states before cleanup (in case this is the last window)
     if (currentWebsiteEditorProject) {
       try {
-        // Import saveWindowStates to save current state before removing window
-        const { saveWindowStates } = require('./multi-window-manager');
+        // Save current state before removing window
         saveWindowStates();
 
         // Now remove from tracking and show start screen if needed
@@ -641,8 +638,7 @@ export function openReactWebsiteEditorWindow(websiteName?: string, websitePath?:
     // Save window states before cleanup (in case this is the last window)
     if (currentWebsiteEditorProject) {
       try {
-        // Import saveWindowStates to save current state before removing window
-        const { saveWindowStates } = require('./multi-window-manager');
+        // Save current state before removing window
         saveWindowStates();
 
         // Now remove from tracking and show start screen if needed

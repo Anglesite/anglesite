@@ -10,10 +10,10 @@ import { LoggerMock } from './logging-test-utils';
 export class ServerTestSetup {
   public mockFs: jest.Mocked<typeof import('fs')>;
   public mockPath: jest.Mocked<typeof import('path')>;
-  public mockEleventy: jest.MockedFunction<any>;
-  public mockEleventyDevServer: jest.MockedFunction<any>;
-  public mockEleventyUrlResolver: jest.MockedClass<any>;
-  public mockMultiWindowManager: { sendLogToWebsite: jest.MockedFunction<any> };
+  public mockEleventy: jest.MockedFunction<() => unknown>;
+  public mockEleventyDevServer: jest.MockedFunction<() => unknown>;
+  public mockEleventyUrlResolver: jest.MockedClass<new (...args: unknown[]) => unknown>;
+  public mockMultiWindowManager: { sendLogToWebsite: jest.MockedFunction<(message: string) => void> };
   public loggerMock: LoggerMock;
 
   constructor() {
@@ -94,14 +94,14 @@ export class ServerTestSetup {
   }
 
   /**
-   * Create a mock Eleventy instance with configurable behavior
+   * Create a mock Eleventy instance with configurable behavior.
    */
   createEleventyInstance(
     options: {
       writeError?: Error;
       writeDelay?: number;
     } = {}
-  ): any {
+  ): { write: jest.MockedFunction<() => Promise<void>>; serve: jest.MockedFunction<() => Promise<void>> } {
     const writeImpl = options.writeError
       ? jest.fn().mockRejectedValue(options.writeError)
       : options.writeDelay
@@ -119,7 +119,7 @@ export class ServerTestSetup {
   }
 
   /**
-   * Create a mock EleventyDevServer instance with configurable behavior
+   * Create a mock EleventyDevServer instance with configurable behavior.
    */
   createDevServerInstance(
     options: {
@@ -127,12 +127,19 @@ export class ServerTestSetup {
       watcherError?: Error;
       port?: number;
     } = {}
-  ): any {
+  ): {
+    serve: jest.MockedFunction<() => Promise<void>>;
+    close: jest.MockedFunction<() => Promise<void>>;
+    watcher: {
+      on: jest.MockedFunction<(event: string, callback: (path: string) => void) => void>;
+      close: jest.MockedFunction<() => Promise<void>>;
+    };
+  } {
     const instance = {
       serve: options.serverError ? jest.fn().mockRejectedValue(options.serverError) : jest.fn(),
       close: jest.fn().mockResolvedValue(undefined),
       watcher: {
-        on: jest.fn((event: string, callback: Function) => {
+        on: jest.fn((event: string, callback: (path: string) => void) => {
           if (event === 'change' && options.watcherError) {
             setTimeout(() => callback('/test/file.md'), 100);
           }
@@ -149,7 +156,7 @@ export class ServerTestSetup {
   }
 
   /**
-   * Reset all mocks to clean state
+   * Reset all mocks to clean state.
    */
   resetAllMocks(): void {
     jest.clearAllMocks();
@@ -157,7 +164,7 @@ export class ServerTestSetup {
   }
 
   /**
-   * Verify standard server startup sequence
+   * Verify standard server startup sequence.
    */
   expectServerStartupSequence(websiteName: string): void {
     expect(this.mockMultiWindowManager.sendLogToWebsite).toHaveBeenCalledWith(
@@ -174,7 +181,7 @@ export class ServerTestSetup {
   }
 
   /**
-   * Verify standard server shutdown sequence
+   * Verify standard server shutdown sequence.
    */
   expectServerShutdownSequence(): void {
     // Add expectations for proper cleanup sequence
@@ -183,7 +190,7 @@ export class ServerTestSetup {
 }
 
 /**
- * Create a server test setup instance
+ * Create a server test setup instance.
  */
 export function createServerTestSetup(): ServerTestSetup {
   return new ServerTestSetup();

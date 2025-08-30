@@ -1,0 +1,315 @@
+# ABOUTME: Automated changelog generation workflow for tracking changes and releases
+# ABOUTME: Generates changelogs on new releases and provides manual triggers for updates
+
+name: Changelog Generation
+
+on:
+  release:
+    types: [published, prereleased]
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - '**/package.json'
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'Generate changelog since (tag/date/commit)'
+        required: false
+        default: ''
+        type: string
+      update_main_changelog:
+        description: 'Update main CHANGELOG.md file'
+        required: false
+        default: true
+        type: boolean
+      generate_release_notes:
+        description: 'Generate release notes for latest version'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+# Prevent concurrent changelog generation
+concurrency:
+  group: changelog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-changelog:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history for changelog
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+    
+    - name: Determine changelog parameters
+      id: changelog-params
+      run: |
+        echo "## Changelog Generation Parameters" >> $GITHUB_STEP_SUMMARY
+        
+        # Determine what triggered this run
+        if [ "${{ github.event_name }}" = "release" ]; then
+          echo "trigger=release" >> $GITHUB_OUTPUT
+          echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          echo "since=auto" >> $GITHUB_OUTPUT
+          echo "- **Trigger**: Release (${{ github.event.release.tag_name }})" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "trigger=manual" >> $GITHUB_OUTPUT
+          echo "since=${{ github.event.inputs.since }}" >> $GITHUB_OUTPUT
+          echo "- **Trigger**: Manual dispatch" >> $GITHUB_STEP_SUMMARY
+          echo "- **Since**: ${{ github.event.inputs.since || 'auto' }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "trigger=auto" >> $GITHUB_OUTPUT
+          echo "since=7 days ago" >> $GITHUB_OUTPUT
+          echo "- **Trigger**: Automatic (push/PR)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Since**: Last 7 days" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Check if this is a release-type commit (version bump)
+        if git log -1 --pretty=format:"%s" | grep -E "(bump|release|version)" > /dev/null; then
+          echo "is_version_update=true" >> $GITHUB_OUTPUT
+          echo "- **Version Update Detected**: Yes" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "is_version_update=false" >> $GITHUB_OUTPUT
+          echo "- **Version Update Detected**: No" >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: Generate main changelog
+      if: github.event.inputs.update_main_changelog != 'false'
+      run: |
+        echo "📝 Generating main changelog..."
+        
+        # Generate changelog with appropriate parameters
+        if [ "${{ steps.changelog-params.outputs.since }}" = "auto" ] || [ -z "${{ steps.changelog-params.outputs.since }}" ]; then
+          node scripts/generate-changelog.js changelog
+        else
+          node scripts/generate-changelog.js changelog "${{ steps.changelog-params.outputs.since }}"
+        fi
+        
+        echo "✅ Main changelog generated"
+    
+    - name: Generate package-specific changelogs
+      run: |
+        echo "📦 Generating package-specific changelogs..."
+        
+        packages=("anglesite" "anglesite-11ty" "anglesite-starter" "web-components")
+        
+        for pkg in "${packages[@]}"; do
+          if [ -d "$pkg" ]; then
+            echo "Generating changelog for $pkg..."
+            
+            # Create package changelog
+            if [ "${{ steps.changelog-params.outputs.since }}" = "auto" ] || [ -z "${{ steps.changelog-params.outputs.since }}" ]; then
+              node scripts/generate-changelog.js package "$pkg" "./$pkg" > "$pkg/CHANGELOG.md"
+            else
+              node scripts/generate-changelog.js package "$pkg" "./$pkg" > "$pkg/CHANGELOG.md"
+            fi
+            
+            echo "✅ Changelog generated for $pkg"
+          fi
+        done
+    
+    - name: Generate release notes
+      if: steps.changelog-params.outputs.trigger == 'release' || github.event.inputs.generate_release_notes == 'true'
+      run: |
+        echo "🎉 Generating release notes..."
+        
+        if [ "${{ steps.changelog-params.outputs.trigger }}" = "release" ]; then
+          version="${{ github.event.release.tag_name }}"
+          # Remove 'v' prefix if present
+          version=${version#v}
+          
+          # Try to find previous version
+          previous_version=$(git tag --sort=-version:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | head -2 | tail -1)
+          previous_version=${previous_version#v}
+          
+          if [ -n "$previous_version" ]; then
+            node scripts/generate-changelog.js release-notes "$version" "$previous_version" > RELEASE_NOTES.md
+          else
+            node scripts/generate-changelog.js release-notes "$version" > RELEASE_NOTES.md
+          fi
+          
+          echo "✅ Release notes generated for v$version"
+        fi
+    
+    - name: Check for changelog changes
+      id: changes
+      run: |
+        if git diff --quiet HEAD -- CHANGELOG.md */CHANGELOG.md RELEASE_NOTES.md 2>/dev/null; then
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "No changelog changes detected"
+        else
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "Changelog changes detected"
+          
+          # Show diff summary
+          echo "## 📋 Changelog Changes" >> $GITHUB_STEP_SUMMARY
+          git diff --stat HEAD -- CHANGELOG.md */CHANGELOG.md RELEASE_NOTES.md 2>/dev/null >> $GITHUB_STEP_SUMMARY || true
+        fi
+    
+    - name: Commit changelog changes
+      if: steps.changes.outputs.has_changes == 'true' && (github.event_name == 'workflow_dispatch' || steps.changelog-params.outputs.is_version_update == 'true')
+      run: |
+        echo "💾 Committing changelog changes..."
+        
+        # Add all changelog files
+        git add CHANGELOG.md */CHANGELOG.md RELEASE_NOTES.md 2>/dev/null || true
+        
+        # Create commit message
+        if [ "${{ steps.changelog-params.outputs.trigger }}" = "release" ]; then
+          commit_msg="docs: update changelog for ${{ github.event.release.tag_name }}
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+        else
+          commit_msg="docs: update changelog
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+        fi
+        
+        git commit -m "$commit_msg"
+        
+        echo "✅ Changelog changes committed"
+    
+    - name: Push changelog changes
+      if: steps.changes.outputs.has_changes == 'true' && (github.event_name == 'workflow_dispatch' || steps.changelog-params.outputs.is_version_update == 'true')
+      run: |
+        echo "🚀 Pushing changelog changes..."
+        git push origin ${{ github.ref_name }}
+        echo "✅ Changelog changes pushed"
+    
+    - name: Create PR comment with changelog preview
+      if: github.event_name == 'pull_request' && steps.changes.outputs.has_changes == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Read generated changelog content
+          let changelogContent = '';
+          try {
+            if (fs.existsSync('CHANGELOG.md')) {
+              const content = fs.readFileSync('CHANGELOG.md', 'utf8');
+              // Extract just the latest version section (first ## section)
+              const lines = content.split('\n');
+              let inLatestSection = false;
+              let latestSection = [];
+              
+              for (const line of lines) {
+                if (line.startsWith('## ') && !inLatestSection) {
+                  inLatestSection = true;
+                  latestSection.push(line);
+                } else if (line.startsWith('## ') && inLatestSection) {
+                  break;
+                } else if (inLatestSection) {
+                  latestSection.push(line);
+                }
+              }
+              
+              changelogContent = latestSection.slice(0, 50).join('\n'); // Limit length
+              if (latestSection.length > 50) {
+                changelogContent += '\n\n*... (truncated for display)*';
+              }
+            }
+          } catch (error) {
+            changelogContent = 'Error reading changelog';
+          }
+          
+          const comment = `## 📋 Automated Changelog Preview
+          
+          This PR includes changes that would generate the following changelog updates:
+          
+          <details>
+          <summary>📖 Changelog Preview</summary>
+          
+          \`\`\`markdown
+          ${changelogContent}
+          \`\`\`
+          
+          </details>
+          
+          > 🤖 This preview is automatically generated from conventional commits.
+          > The actual changelog will be updated when this PR is merged.
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+    
+    - name: Upload changelog artifacts
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: changelog-${{ github.run_id }}
+        path: |
+          CHANGELOG.md
+          */CHANGELOG.md
+          RELEASE_NOTES.md
+        retention-days: 30
+    
+    - name: Create changelog summary
+      if: always()
+      run: |
+        echo "## 📋 Changelog Generation Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Show file status
+        echo "### Generated Files:" >> $GITHUB_STEP_SUMMARY
+        if [ -f "CHANGELOG.md" ]; then
+          lines=$(wc -l < CHANGELOG.md)
+          echo "- ✅ **CHANGELOG.md** ($lines lines)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **CHANGELOG.md** (not generated)" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        for pkg in anglesite anglesite-11ty anglesite-starter web-components; do
+          if [ -f "$pkg/CHANGELOG.md" ]; then
+            lines=$(wc -l < "$pkg/CHANGELOG.md")
+            echo "- ✅ **$pkg/CHANGELOG.md** ($lines lines)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⏭️ **$pkg/CHANGELOG.md** (no changes)" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+        
+        if [ -f "RELEASE_NOTES.md" ]; then
+          lines=$(wc -l < RELEASE_NOTES.md)
+          echo "- ✅ **RELEASE_NOTES.md** ($lines lines)" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Status:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Changes Detected**: ${{ steps.changes.outputs.has_changes }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Trigger**: ${{ steps.changelog-params.outputs.trigger }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Since**: ${{ steps.changelog-params.outputs.since || 'auto' }}" >> $GITHUB_STEP_SUMMARY

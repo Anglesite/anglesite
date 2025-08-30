@@ -7,7 +7,7 @@ import { writeFile } from 'fs/promises';
  * @returns {Promise<void>} A promise that resolves when type generation is complete.
  */
 async function generateTypes(): Promise<void> {
-  const ts = await compileFromFile('schemas/website.schema.json', {
+  const ts = await compileFromFile('anglesite-11ty/schemas/website.schema.json', {
     bannerComment: '',
     enableConstEnums: true,
     format: true,
@@ -20,7 +20,7 @@ async function generateTypes(): Promise<void> {
       trailingComma: 'es5',
     },
   });
-  await writeFile('types/website.ts', ts);
+  await writeFile('anglesite-11ty/types/website.ts', ts);
 }
 
 generateTypes();

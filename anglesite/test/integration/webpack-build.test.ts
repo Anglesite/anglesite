@@ -184,7 +184,7 @@ describe('Webpack Build Integration Tests', () => {
         stdio: 'pipe',
       });
 
-      const devFiles = fs.readdirSync(distDir);
+      fs.readdirSync(distDir);
       const devMainSize = fs.statSync(path.join(distDir, 'main.js')).size;
 
       // Clean and build production version

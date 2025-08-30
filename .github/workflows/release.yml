@@ -1,0 +1,275 @@
+# ABOUTME: GitHub Actions workflow for automated releases on version tags
+# ABOUTME: Builds and publishes Anglesite app and NPM packages when a new version is tagged
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'anglesite-v*.*.*'
+      - 'anglesite-11ty-v*.*.*'
+      - 'anglesite-starter-v*.*.*'
+      - 'web-components-v*.*.*'
+
+# Prevent concurrent releases
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel in-progress releases
+
+permissions:
+  contents: read  # Reduced default permissions
+
+jobs:
+  build-and-release:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [20.x]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        registry-url: 'https://registry.npmjs.org'
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+    
+    - name: Cache build outputs for release
+      uses: actions/cache@v4
+      with:
+        path: |
+          .cache
+          **/dist
+          **/build
+          **/.next
+          anglesite/app/renderer-wrapper.js
+          anglesite/app/theme-renderer.js
+        key: release-${{ runner.os }}-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json', '**/tsconfig.json', '**/webpack.config.js') }}
+        restore-keys: |
+          release-${{ runner.os }}-${{ matrix.node-version }}-
+          release-${{ runner.os }}-
+          build-${{ runner.os }}-${{ matrix.node-version }}-
+          build-${{ runner.os }}-
+    
+    - name: Cache TypeScript builds for release
+      uses: actions/cache@v4
+      with:
+        path: |
+          .cache/typescript
+          **/*.tsbuildinfo
+        key: release-typescript-${{ runner.os }}-${{ hashFiles('**/tsconfig.json', '**/package.json') }}
+        restore-keys: |
+          release-typescript-${{ runner.os }}-
+          typescript-${{ runner.os }}-
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm test --workspaces --if-present
+    
+    - name: Build all packages
+      run: npm run build --workspaces --if-present
+    
+    # Build Anglesite Electron app for all platforms
+    - name: Build Anglesite Electron App
+      if: startsWith(github.ref, 'refs/tags/anglesite-v') || startsWith(github.ref, 'refs/tags/v')
+      working-directory: ./anglesite
+      run: |
+        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+          npm run dist:linux
+        elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+          npm run dist:win
+        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+          npm run dist:mac
+        fi
+      shell: bash
+    
+    # Upload Electron artifacts
+    - name: Upload Anglesite artifacts
+      if: startsWith(github.ref, 'refs/tags/anglesite-v') || startsWith(github.ref, 'refs/tags/v')
+      uses: actions/upload-artifact@v3
+      with:
+        name: anglesite-${{ matrix.os }}
+        path: anglesite/dist/*
+    
+  publish-npm:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write  # For provenance
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        registry-url: 'https://registry.npmjs.org'
+        cache: 'npm'
+    
+    - name: Validate required secrets
+      run: |
+        if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+          echo "::error::NPM_TOKEN secret not configured"
+          echo "::error::Please configure NPM_TOKEN secret in repository settings"
+          exit 1
+        fi
+        echo "✅ Required secrets validated"
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build packages
+      run: npm run build --workspaces --if-present
+    
+    - name: Verify package integrity before publishing
+      run: |
+        echo "Verifying package integrity..."
+        npm run lint --workspaces --if-present || echo "Linting warnings found"
+        npm test --workspaces --if-present
+        echo "✅ Package integrity verified"
+    
+    # Publish anglesite-11ty if tagged
+    - name: Publish anglesite-11ty to NPM
+      if: contains(github.ref, 'anglesite-11ty-v') || startsWith(github.ref, 'refs/tags/v')
+      working-directory: ./anglesite-11ty
+      run: |
+        echo "Publishing anglesite-11ty package..."
+        # Verify package can be packed before publishing
+        npm pack --dry-run
+        # Publish with provenance for supply chain security
+        npm publish --access public --provenance
+        echo "✅ anglesite-11ty published successfully"
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    # Publish anglesite-starter if tagged
+    - name: Publish anglesite-starter to NPM
+      if: contains(github.ref, 'anglesite-starter-v') || startsWith(github.ref, 'refs/tags/v')
+      working-directory: ./anglesite-starter
+      run: |
+        echo "Publishing anglesite-starter package..."
+        # Verify package can be packed before publishing
+        npm pack --dry-run
+        # Publish with provenance for supply chain security
+        npm publish --access public --provenance
+        echo "✅ anglesite-starter published successfully"
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    # Publish web-components if tagged
+    - name: Publish web-components to NPM
+      if: contains(github.ref, 'web-components-v') || startsWith(github.ref, 'refs/tags/v')
+      working-directory: ./web-components
+      run: |
+        echo "Publishing web-components package..."
+        # Verify package can be packed before publishing
+        npm pack --dry-run
+        # Publish with provenance for supply chain security
+        npm publish --access public --provenance
+        echo "✅ web-components published successfully"
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    - name: Create publication summary
+      if: always()
+      run: |
+        echo "## 📦 NPM Publication Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check which packages were published
+        if [[ "${{ contains(github.ref, 'anglesite-11ty-v') || startsWith(github.ref, 'refs/tags/v') }}" == "true" ]]; then
+          echo "- ✅ anglesite-11ty: Published" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ⏭️ anglesite-11ty: Skipped (not tagged for this package)" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [[ "${{ contains(github.ref, 'anglesite-starter-v') || startsWith(github.ref, 'refs/tags/v') }}" == "true" ]]; then
+          echo "- ✅ anglesite-starter: Published" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ⏭️ anglesite-starter: Skipped (not tagged for this package)" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [[ "${{ contains(github.ref, 'web-components-v') || startsWith(github.ref, 'refs/tags/v') }}" == "true" ]]; then
+          echo "- ✅ web-components: Published" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ⏭️ web-components: Skipped (not tagged for this package)" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Tag:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Published by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+  
+  create-release:
+    needs: [build-and-release, publish-npm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history for changelog
+    
+    - name: Setup Node.js for changelog
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+    
+    - name: Install dependencies for changelog
+      run: npm ci
+    
+    - name: Generate release notes and changelog
+      run: |
+        echo "📝 Generating release notes for ${{ github.ref_name }}..."
+        
+        # Extract version from tag (remove 'v' prefix)
+        version="${{ github.ref_name }}"
+        version=${version#v}
+        
+        # Find previous version for comparison
+        previous_version=$(git tag --sort=-version:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | head -2 | tail -1 | sed 's/^v//')
+        
+        # Generate release notes
+        if [ -n "$previous_version" ] && [ "$previous_version" != "${version}" ]; then
+          echo "📊 Comparing v${version} with v${previous_version}"
+          node scripts/generate-changelog.js release-notes "$version" "$previous_version" > RELEASE_NOTES.md
+        else
+          echo "📊 Generating release notes for v${version} (no previous version)"
+          node scripts/generate-changelog.js release-notes "$version" > RELEASE_NOTES.md
+        fi
+        
+        echo "✅ Release notes generated"
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: ./release-artifacts
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        draft: false
+        prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+        files: |
+          ./release-artifacts/**/*
+        generate_release_notes: true
+        body_path: RELEASE_NOTES.md
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

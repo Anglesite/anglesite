@@ -50,7 +50,7 @@ describe('ESLint Configuration', () => {
   });
 
   it('should validate that mock files exist and follow naming convention', () => {
-    const mockDir = path.resolve(process.cwd(), 'test/mocks/__mocks__');
+    const mockDir = path.resolve(__dirname, '../../test/mocks/__mocks__');
     expect(fs.existsSync(mockDir)).toBe(true);
 
     const mockFiles = fs.readdirSync(mockDir);
@@ -73,7 +73,7 @@ describe('ESLint Configuration', () => {
 
     // Check files that use jest.fn
     jestMockFiles.forEach((filePath) => {
-      const fullPath = path.resolve(process.cwd(), filePath);
+      const fullPath = path.resolve(__dirname, '../..', filePath);
       expect(fs.existsSync(fullPath)).toBe(true);
 
       const content = fs.readFileSync(fullPath, 'utf8');
@@ -83,7 +83,7 @@ describe('ESLint Configuration', () => {
 
     // Check class-based mocks that don't necessarily use jest.fn
     classBasedMockFiles.forEach((filePath) => {
-      const fullPath = path.resolve(process.cwd(), filePath);
+      const fullPath = path.resolve(__dirname, '../..', filePath);
       expect(fs.existsSync(fullPath)).toBe(true);
 
       const content = fs.readFileSync(fullPath, 'utf8');

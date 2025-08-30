@@ -17,9 +17,18 @@ module.exports = [
   jsdoc.configs['flat/logical-typescript-error'],
   jsdoc.configs['flat/stylistic-typescript-error'],
 
-  // Global ignores
+  // Global ignores (migrated from .eslintignore)
   {
-    ignores: ['dist/**/*'],
+    ignores: [
+      'node_modules/**/*',
+      'dist/**/*',
+      'build/**/*',
+      'coverage/**/*',
+      '.nyc_output/**/*',
+      '**/*.min.js',
+      '**/*.map',
+      'app/core/errors/examples.ts',
+    ],
   },
 
   // TypeScript files configuration

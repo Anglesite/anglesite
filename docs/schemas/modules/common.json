@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anglesite.dwk.io/schemas/modules/common.json",
+  "title": "Common Schema Definitions",
+  "definitions": {
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "A valid URL"
+    },
+    "httpsUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://",
+      "description": "A valid HTTPS URL"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "A valid email address"
+    },
+    "languageCode": {
+      "type": "string",
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+      "description": "ISO 639-1 language code, optionally with ISO 3166-1 country code"
+    },
+    "httpStatusCode": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 599,
+      "description": "HTTP status code"
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stringOrNull": {
+      "oneOf": [{ "type": "string" }, { "type": "null" }]
+    },
+    "urlOrNull": {
+      "oneOf": [{ "$ref": "#/definitions/url" }, { "type": "null" }]
+    }
+  }
+}

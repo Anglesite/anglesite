@@ -12,9 +12,40 @@ coverage/
 .nyc_output/
 _site/
 
-# Environment variables
+# Environment variables and secrets
 .env
 .env.*
+!.env.example
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets/
+.secrets
+config/secrets.json
+credentials.json
+auth.json
+
+# SSH keys
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.pub
+
+# Cloud provider credentials
+.aws/credentials
+.azure/credentials
+gcloud-credentials.json
+service-account.json
+
+# API keys and tokens
+.npmrc
+.yarnrc
+api-keys.txt
 
 # IDE/Editor files
 .vscode/

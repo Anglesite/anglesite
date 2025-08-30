@@ -1,4 +1,5 @@
 {
+  "$schema": "https://anglesite.dwk.io/schemas/website.schema.json",
   "title": "Anglesite 11ty Website Title",
   "url": "https://example.com",
   "language": "en",

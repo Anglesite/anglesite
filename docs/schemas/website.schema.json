@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anglesite.dwk.io/schemas/website.json",
+  "title": "Anglesite Website Configuration",
+  "description": "Configuration schema for Anglesite website metadata and settings. See VALIDATION.md for detailed requirements and conditional field documentation.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "https://anglesite.dwk.io/schemas/modules/basic-info.json"
+    },
+    {
+      "$ref": "https://anglesite.dwk.io/schemas/modules/seo-robots.json"
+    },
+    {
+      "$ref": "https://anglesite.dwk.io/schemas/modules/web-standards.json"
+    },
+    {
+      "$ref": "https://anglesite.dwk.io/schemas/modules/networking.json"
+    },
+    {
+      "$ref": "https://anglesite.dwk.io/schemas/modules/analytics.json"
+    },
+    {
+      "$ref": "https://anglesite.dwk.io/schemas/modules/well-known.json"
+    }
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

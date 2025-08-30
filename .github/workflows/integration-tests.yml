@@ -1,0 +1,288 @@
+# ABOUTME: End-to-end integration testing workflow for cross-package functionality
+# ABOUTME: Tests complete user workflows from Anglesite app to website building and serving
+
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 4 * * *'  # Daily at 4 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    # Install system dependencies for Electron
+    - name: Install Linux dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb libnss3-dev libatk-bridge2.0-dev libdrm2 \
+                                libgtk-3-dev libgbm-dev libasound2-dev
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build all packages
+      run: npm run build --workspaces --if-present
+    
+    - name: Run unit tests first
+      run: npm test --workspaces --if-present
+    
+    # Setup virtual display for Electron on Linux
+    - name: Setup virtual display
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        export DISPLAY=:99
+        Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+        echo "DISPLAY=:99" >> $GITHUB_ENV
+    
+    - name: Run integration tests
+      run: npm run test:integration
+      env:
+        NODE_ENV: test-integration
+        CI: true
+        ELECTRON_DISABLE_SECURITY_WARNINGS: true
+        # Disable GPU for headless testing
+        ELECTRON_EXTRA_ARGS: --no-sandbox --disable-gpu --disable-software-rasterizer
+      timeout-minutes: 20
+    
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-results-${{ matrix.os }}-node${{ matrix.node-version }}
+        path: |
+          coverage/integration/
+          tests/integration/**/*.log
+        retention-days: 7
+    
+    - name: Upload integration coverage
+      uses: codecov/codecov-action@v3
+      if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20.x'
+      with:
+        files: ./coverage/integration/lcov.info
+        flags: integration
+        name: integration-tests
+      continue-on-error: true
+
+  e2e-workflow-test:
+    runs-on: ubuntu-latest
+    needs: integration-test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build packages
+      run: npm run build --workspaces --if-present
+    
+    - name: Setup virtual display
+      run: |
+        export DISPLAY=:99
+        Xvfb :99 -screen 0 1280x1024x24 > /dev/null 2>&1 &
+        echo "DISPLAY=:99" >> $GITHUB_ENV
+    
+    - name: Test complete user workflow
+      run: |
+        echo "## End-to-End Workflow Test" >> $GITHUB_STEP_SUMMARY
+        
+        # Create temporary workspace
+        mkdir -p tmp/e2e-test
+        cd tmp/e2e-test
+        
+        # Step 1: Create new website using anglesite-starter
+        echo "📝 Creating new website project..." >> $GITHUB_STEP_SUMMARY
+        cp -r ../../anglesite-starter/* ./ || echo "Anglesite-starter not available, using minimal setup"
+        
+        # Install anglesite-11ty
+        echo "📦 Installing anglesite-11ty..." >> $GITHUB_STEP_SUMMARY
+        npm install file:../../anglesite-11ty
+        
+        # Step 2: Validate website configuration
+        echo "✅ Validating website configuration..." >> $GITHUB_STEP_SUMMARY
+        if [ -f "../../anglesite-11ty/scripts/validate-json.cjs" ]; then
+          cp ../../anglesite-11ty/scripts/validate-json.cjs ./
+          node validate-json.cjs || echo "Validation script not available"
+        fi
+        
+        # Step 3: Build website
+        echo "🏗️ Building website..." >> $GITHUB_STEP_SUMMARY
+        npx @11ty/eleventy --config=.eleventy.js
+        
+        # Verify build output
+        if [ -f "_site/index.html" ]; then
+          echo "✅ Website built successfully" >> $GITHUB_STEP_SUMMARY
+          ls -la _site/ >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Website build failed" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        
+        # Step 4: Test website serving
+        echo "🌐 Testing website serve..." >> $GITHUB_STEP_SUMMARY
+        timeout 10s npx @11ty/eleventy --serve --port=8080 > serve.log 2>&1 &
+        sleep 5
+        
+        # Check if server is responding
+        if curl -f http://localhost:8080 > /dev/null 2>&1; then
+          echo "✅ Website serving successfully" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Website serving test inconclusive" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Step 5: Verify web standards files
+        echo "📋 Verifying web standards files..." >> $GITHUB_STEP_SUMMARY
+        STANDARDS_FILES=("robots.txt" "sitemap.xml" "manifest.json")
+        for file in "${STANDARDS_FILES[@]}"; do
+          if [ -f "_site/$file" ]; then
+            echo "✅ $file generated" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ $file missing" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+        
+        echo "🎉 End-to-end workflow test completed" >> $GITHUB_STEP_SUMMARY
+      env:
+        NODE_ENV: test
+        CI: true
+      timeout-minutes: 10
+    
+    - name: Upload E2E artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-test-artifacts
+        path: |
+          tmp/e2e-test/_site/
+          tmp/e2e-test/serve.log
+        retention-days: 3
+
+  performance-integration:
+    runs-on: ubuntu-latest
+    needs: integration-test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build packages
+      run: npm run build --workspaces --if-present
+    
+    - name: Performance benchmark test
+      run: |
+        echo "## Performance Integration Test" >> $GITHUB_STEP_SUMMARY
+        
+        # Create test website with multiple pages
+        mkdir -p tmp/perf-test/src
+        cd tmp/perf-test
+        
+        # Generate test content
+        for i in {1..50}; do
+          echo "# Page $i" > "src/page$i.md"
+          echo "This is test page number $i with some content." >> "src/page$i.md"
+        done
+        
+        # Install anglesite-11ty
+        npm install file:../../anglesite-11ty
+        
+        # Measure build performance
+        echo "📊 Measuring build performance..." >> $GITHUB_STEP_SUMMARY
+        
+        START_TIME=$(date +%s%N)
+        npx @11ty/eleventy
+        END_TIME=$(date +%s%N)
+        
+        BUILD_TIME=$((($END_TIME - $START_TIME) / 1000000))
+        echo "⏱️ Build time: ${BUILD_TIME}ms for 50 pages" >> $GITHUB_STEP_SUMMARY
+        
+        # Check output
+        PAGE_COUNT=$(find _site -name "*.html" | wc -l)
+        echo "📄 Generated $PAGE_COUNT HTML files" >> $GITHUB_STEP_SUMMARY
+        
+        # Performance threshold check (adjust as needed)
+        if [ $BUILD_TIME -gt 30000 ]; then
+          echo "⚠️ Build time exceeded 30s threshold" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ Build performance within acceptable range" >> $GITHUB_STEP_SUMMARY
+        fi
+      timeout-minutes: 5
+
+  integration-summary:
+    needs: [integration-test, e2e-workflow-test, performance-integration]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Integration test summary
+      run: |
+        echo "## Integration Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Results:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Integration Tests**: ${{ needs.integration-test.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **E2E Workflow**: ${{ needs.e2e-workflow-test.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Performance Test**: ${{ needs.performance-integration.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Calculate overall status
+        FAILED_JOBS=0
+        if [[ "${{ needs.integration-test.result }}" == "failure" ]]; then
+          ((FAILED_JOBS++))
+        fi
+        if [[ "${{ needs.e2e-workflow-test.result }}" == "failure" ]]; then
+          ((FAILED_JOBS++))
+        fi
+        if [[ "${{ needs.performance-integration.result }}" == "failure" ]]; then
+          ((FAILED_JOBS++))
+        fi
+        
+        if [[ $FAILED_JOBS -eq 0 ]]; then
+          echo "✅ **All integration tests passed successfully!**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **$FAILED_JOBS integration test job(s) failed**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Troubleshooting:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check individual job logs for specific error details" >> $GITHUB_STEP_SUMMARY
+          echo "2. Review integration test artifacts for debugging info" >> $GITHUB_STEP_SUMMARY
+          echo "3. Verify cross-package compatibility" >> $GITHUB_STEP_SUMMARY
+          echo "4. Check for environment-specific issues" >> $GITHUB_STEP_SUMMARY
+        fi

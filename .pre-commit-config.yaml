@@ -1,0 +1,84 @@
+# ABOUTME: Pre-commit hooks configuration for secret scanning and code quality
+# ABOUTME: Prevents commits containing secrets, enforces formatting, and runs security checks
+
+repos:
+  # Secret detection using detect-secrets
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: Detect secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: |
+          (?x)^(
+              package-lock\.json|
+              .*\.md|
+              \.secrets\.baseline
+          )$
+
+  # TruffleHog for additional secret detection
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.63.2
+    hooks:
+      - id: trufflehog
+        name: TruffleHog OSS
+        args:
+          - --no-update
+          - filesystem
+          - --exclude-paths=.trufflehogignore
+        pass_filenames: false
+
+  # Basic file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: no-commit-to-branch
+        args: ['--branch', 'main']
+
+  # Prevent common secrets patterns
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: text-unicode-replacement-char
+      - id: python-check-blanket-noqa
+
+  # Local hooks for additional security checks
+  - repo: local
+    hooks:
+      - id: check-env-files
+        name: Check for .env files
+        entry: bash -c 'if find . -name "*.env*" -not -path "./node_modules/*" -not -path "./.git/*" | grep -q .; then echo "Error: .env files detected. Add to .gitignore or use .env.example instead."; exit 1; fi'
+        language: system
+        pass_filenames: false
+
+      - id: check-certificate-files
+        name: Check for certificate files
+        entry: bash -c 'if find . \( -name "*.pem" -o -name "*.key" -o -name "*.crt" -o -name "*.p12" -o -name "*.pfx" \) -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./test-certs*" | grep -q .; then echo "Error: Certificate files detected outside test-certs directory"; exit 1; fi'
+        language: system
+        pass_filenames: false
+
+      - id: npm-audit-check
+        name: NPM security audit
+        entry: bash -c 'npm audit --audit-level=high --registry=https://registry.npmjs.org/ || { echo "High/Critical vulnerabilities found in dependencies"; exit 1; }'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: check-aws-credentials
+        name: Check for AWS credentials
+        entry: bash -c 'if grep -r "AKIA[0-9A-Z]\{16\}" . --exclude-dir=node_modules --exclude-dir=.git; then echo "AWS Access Key found!"; exit 1; fi'
+        language: system
+        pass_filenames: false
+
+      - id: check-private-keys
+        name: Check for private keys
+        entry: bash -c 'if grep -r "BEGIN.*PRIVATE KEY" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=test-certs*; then echo "Private key found!"; exit 1; fi'
+        language: system
+        pass_filenames: false

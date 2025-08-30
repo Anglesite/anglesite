@@ -1,0 +1,36 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+
+# Type should be one of the following:
+# * feat: A new feature
+# * fix: A bug fix
+# * docs: Documentation only changes
+# * style: Changes that do not affect the meaning of the code
+# * refactor: A code change that neither fixes a bug nor adds a feature
+# * perf: A code change that improves performance
+# * test: Adding missing tests or correcting existing tests
+# * build: Changes that affect the build system or external dependencies
+# * ci: Changes to our CI configuration files and scripts
+# * chore: Other changes that don't modify src or test files
+#
+# Scope should be one of the following:
+# * anglesite: Changes to the Anglesite Electron app
+# * anglesite-11ty: Changes to the Eleventy configuration package
+# * anglesite-starter: Changes to the starter template
+# * web-components: Changes to the WebC components library
+# * docs: Documentation changes
+# * deps: Dependency changes
+# * config: Configuration changes
+#
+# Subject should use imperative mood and not end with period
+# Body should explain what and why vs. how
+# Footer should contain any BREAKING CHANGE or issue references
+#
+# Examples:
+# feat(anglesite): add new theme system
+# fix(anglesite-11ty): resolve plugin loading issue
+# docs: update installation guide
+# BREAKING CHANGE: remove deprecated API endpoints

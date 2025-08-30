@@ -69,7 +69,7 @@ export function setupReactEditorHandlers(): void {
         console.log(`Read ${content.length} characters from:`, relativePath);
         return content;
       } catch (error) {
-        if ((error as any).code === 'ENOENT') {
+        if ((error as { code?: string }).code === 'ENOENT') {
           console.log('File not found:', relativePath);
           return null; // File doesn't exist
         }
@@ -125,8 +125,16 @@ export function setupReactEditorHandlers(): void {
 /**
  * Recursively get all files in a directory.
  */
-async function getFilesRecursively(dirPath: string, basePath: string): Promise<any[]> {
-  const files: any[] = [];
+interface FileInfo {
+  name: string;
+  filePath: string;
+  isDirectory: boolean;
+  relativePath: string;
+  url?: string;
+}
+
+async function getFilesRecursively(dirPath: string, basePath: string): Promise<FileInfo[]> {
+  const files: FileInfo[] = [];
 
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -140,7 +148,7 @@ async function getFilesRecursively(dirPath: string, basePath: string): Promise<a
         continue;
       }
 
-      const fileInfo: any = {
+      const fileInfo: FileInfo = {
         name: entry.name,
         filePath: fullPath,
         isDirectory: entry.isDirectory(),

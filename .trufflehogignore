@@ -1,0 +1,63 @@
+# ABOUTME: TruffleHog ignore patterns for files that should not be scanned for secrets
+# ABOUTME: Excludes test files, documentation, and build artifacts from secret scanning
+
+# Node.js
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+coverage/
+.nyc_output/
+
+# Documentation
+*.md
+docs/
+README*
+CHANGELOG*
+
+# Test files (may contain test secrets)
+test/
+tests/
+__tests__/
+*.test.*
+*.spec.*
+test-certs*/
+
+# Git
+.git/
+.gitignore
+.gitmodules
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+circle.yml
+
+# Config files that may have template values
+*.example
+*.template
+*.sample
+
+# Baseline files
+.secrets.baseline
+.trufflehogignore

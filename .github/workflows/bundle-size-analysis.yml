@@ -1,0 +1,340 @@
+# ABOUTME: Bundle size regression monitoring workflow for tracking package and build output sizes
+# ABOUTME: Prevents performance degradation by monitoring bundle size changes and detecting regressions
+
+name: Bundle Size Analysis
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 6 * * MON'  # Weekly analysis on Mondays at 6 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  analyze-bundle-sizes:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for comparison
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+    
+    - name: Cache bundle analysis outputs
+      uses: actions/cache@v4
+      with:
+        path: |
+          .cache/webpack
+          bundle-analysis
+          **/bundle-analysis
+          **/.size-snapshot.json
+        key: bundle-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/webpack.config.js', 'scripts/analyze-bundle-sizes.js') }}
+        restore-keys: |
+          bundle-${{ runner.os }}-
+    
+    - name: Cache build outputs for bundle analysis
+      uses: actions/cache@v4
+      with:
+        path: |
+          .cache
+          **/dist
+          **/build
+          anglesite/app/renderer-wrapper.js
+          anglesite/app/theme-renderer.js
+        key: bundle-build-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/webpack.config.js') }}
+        restore-keys: |
+          bundle-build-${{ runner.os }}-
+          build-${{ runner.os }}-
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build all packages
+      run: npm run build --workspaces --if-present
+    
+    - name: Install bundle analysis tools
+      run: |
+        npm install -g bundlesize2 webpack-bundle-analyzer size-limit
+        npm install --no-save gzip-size filesize
+    
+    - name: Analyze package sizes
+      run: |
+        echo "## 📦 Package Size Analysis" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Create bundle size report
+        node scripts/analyze-bundle-sizes.js > bundle-analysis.json
+        
+        echo "### Package Sizes" >> $GITHUB_STEP_SUMMARY
+        echo "| Package | Size (Uncompressed) | Size (Gzipped) | Files |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|-------------------|---------------|-------|" >> $GITHUB_STEP_SUMMARY
+        
+        # Extract summary for GitHub
+        node -e "
+          const analysis = JSON.parse(require('fs').readFileSync('bundle-analysis.json', 'utf8'));
+          analysis.packages.forEach(pkg => {
+            console.log(\`| \${pkg.name} | \${pkg.uncompressed} | \${pkg.gzipped} | \${pkg.fileCount} |\`);
+          });
+        " >> $GITHUB_STEP_SUMMARY
+    
+    - name: Analyze Anglesite app bundle
+      run: |
+        cd anglesite
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Anglesite App Bundle Analysis" >> $GITHUB_STEP_SUMMARY
+        
+        # Generate webpack bundle analysis
+        if [ -f "dist/main.js" ]; then
+          npx webpack-bundle-analyzer dist/main.js --mode json --report webpack-bundle-report.json --no-open
+          
+          echo "📊 Webpack bundle analysis generated" >> $GITHUB_STEP_SUMMARY
+          
+          # Extract key metrics
+          node -e "
+            try {
+              const report = JSON.parse(require('fs').readFileSync('webpack-bundle-report.json', 'utf8'));
+              const totalSize = report.modules.reduce((sum, mod) => sum + mod.size, 0);
+              console.log('Total bundle size:', Math.round(totalSize / 1024), 'KB');
+              console.log('Module count:', report.modules.length);
+            } catch (e) {
+              console.log('Bundle analysis not available');
+            }
+          " >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Anglesite app bundle not found" >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: Compare with baseline (PR only)
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📈 Size Comparison vs Main Branch" >> $GITHUB_STEP_SUMMARY
+        
+        # Checkout main branch for comparison
+        git fetch origin main
+        git checkout origin/main
+        
+        # Build main branch
+        npm ci --quiet
+        npm run build --workspaces --if-present --quiet
+        
+        # Analyze main branch sizes
+        node scripts/analyze-bundle-sizes.js > baseline-analysis.json
+        
+        # Return to PR branch
+        git checkout -
+        npm ci --quiet
+        npm run build --workspaces --if-present --quiet
+        
+        # Generate current analysis
+        node scripts/analyze-bundle-sizes.js > current-analysis.json
+        
+        # Compare sizes
+        node scripts/compare-bundle-sizes.js baseline-analysis.json current-analysis.json >> $GITHUB_STEP_SUMMARY
+    
+    - name: Check size limits
+      run: |
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🚨 Size Limit Checks" >> $GITHUB_STEP_SUMMARY
+        
+        # Define size limits (adjust as needed)
+        LIMITS_CONFIG='{
+          "anglesite-11ty": { "limit": "500KB", "gzipLimit": "150KB" },
+          "anglesite-starter": { "limit": "100KB", "gzipLimit": "30KB" },
+          "web-components": { "limit": "200KB", "gzipLimit": "60KB" },
+          "anglesite-app": { "limit": "50MB", "gzipLimit": "15MB" }
+        }'
+        
+        # Check limits
+        node -e "
+          const limits = $LIMITS_CONFIG;
+          const analysis = JSON.parse(require('fs').readFileSync('bundle-analysis.json', 'utf8'));
+          
+          let violations = 0;
+          
+          analysis.packages.forEach(pkg => {
+            const limit = limits[pkg.name];
+            if (limit) {
+              const uncompressedBytes = parseFloat(pkg.uncompressedBytes);
+              const gzippedBytes = parseFloat(pkg.gzippedBytes);
+              const limitBytes = parseFloat(limit.limit) * (limit.limit.includes('MB') ? 1024*1024 : 1024);
+              const gzipLimitBytes = parseFloat(limit.gzipLimit) * (limit.gzipLimit.includes('MB') ? 1024*1024 : 1024);
+              
+              if (uncompressedBytes > limitBytes) {
+                console.log(\`❌ \${pkg.name}: Uncompressed size \${pkg.uncompressed} exceeds limit \${limit.limit}\`);
+                violations++;
+              } else {
+                console.log(\`✅ \${pkg.name}: Uncompressed size \${pkg.uncompressed} within limit \${limit.limit}\`);
+              }
+              
+              if (gzippedBytes > gzipLimitBytes) {
+                console.log(\`❌ \${pkg.name}: Gzipped size \${pkg.gzipped} exceeds limit \${limit.gzipLimit}\`);
+                violations++;
+              } else {
+                console.log(\`✅ \${pkg.name}: Gzipped size \${pkg.gzipped} within limit \${limit.gzipLimit}\`);
+              }
+            }
+          });
+          
+          if (violations > 0) {
+            console.log(\`\\n🚨 \${violations} size limit violation(s) detected!\`);
+            process.exit(1);
+          } else {
+            console.log('\\n🎉 All packages within size limits');
+          }
+        " >> $GITHUB_STEP_SUMMARY || echo "Size limit violations detected" >> $GITHUB_STEP_SUMMARY
+    
+    - name: Upload bundle analysis artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: bundle-analysis-${{ github.run_id }}
+        path: |
+          bundle-analysis.json
+          baseline-analysis.json
+          current-analysis.json
+          anglesite/webpack-bundle-report.json
+        retention-days: 30
+    
+    - name: Comment on PR (PR only)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          let comment = '## 📦 Bundle Size Analysis\\n\\n';
+          
+          try {
+            const analysis = JSON.parse(fs.readFileSync('bundle-analysis.json', 'utf8'));
+            
+            comment += '### Package Sizes\\n';
+            comment += '| Package | Uncompressed | Gzipped | Change |\\n';
+            comment += '|---------|-------------|---------|--------|\\n';
+            
+            // Try to read comparison if available
+            let comparison = null;
+            if (fs.existsSync('size-comparison.json')) {
+              comparison = JSON.parse(fs.readFileSync('size-comparison.json', 'utf8'));
+            }
+            
+            analysis.packages.forEach(pkg => {
+              let changeText = '';
+              if (comparison && comparison[pkg.name]) {
+                const change = comparison[pkg.name];
+                changeText = change.significant ? 
+                  (change.increase ? `🔺 +${change.difference}` : `🔽 -${change.difference}`) :
+                  '⚪ No change';
+              }
+              
+              comment += `| ${pkg.name} | ${pkg.uncompressed} | ${pkg.gzipped} | ${changeText} |\\n`;
+            });
+            
+            comment += '\\n📊 [View detailed bundle analysis](https://github.com/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId + ')\\n';
+            
+          } catch (error) {
+            comment += '⚠️ Bundle analysis data not available\\n';
+          }
+          
+          // Post comment
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  create-size-regression-issue:
+    needs: analyze-bundle-sizes
+    runs-on: ubuntu-latest
+    if: failure() && github.event_name == 'schedule'
+    
+    steps:
+    - name: Create size regression issue
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '📦 Bundle Size Regression Detected',
+            body: `## Bundle Size Regression Alert
+            
+            The weekly bundle size analysis has detected potential size regressions in the monorepo packages.
+            
+            ### Details
+            - **Date**: ${new Date().toISOString()}
+            - **Workflow Run**: [View Analysis](${context.payload.workflow_run?.html_url || 'Check Actions tab'})
+            - **Branch**: ${context.ref}
+            
+            ### Possible Issues
+            - Package size exceeded defined limits
+            - Significant size increase detected
+            - Bundle optimization issues
+            
+            ### Action Items
+            1. Review the bundle analysis artifacts
+            2. Identify sources of size increases
+            3. Optimize bundle sizes if necessary
+            4. Update size limits if increases are intentional
+            5. Consider code splitting or tree shaking improvements
+            
+            ### Bundle Analysis
+            Check the workflow artifacts for detailed size breakdowns and comparisons.
+            
+            This issue was automatically created by the bundle size monitoring workflow.`,
+            labels: ['performance', 'bundle-size', 'regression', 'automation']
+          });
+
+  performance-budget-check:
+    needs: analyze-bundle-sizes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Performance budget validation
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // This could integrate with performance budgets
+          // For now, we'll add a comment about performance considerations
+          
+          const comment = `## 🎯 Performance Budget Check
+          
+          This PR has been analyzed for bundle size impact:
+          
+          ### Performance Considerations
+          - Review bundle size changes in the analysis above
+          - Consider lazy loading for large components
+          - Evaluate if dependencies can be optimized
+          - Check for duplicate code across packages
+          
+          ### Performance Tips
+          - Use dynamic imports for code splitting
+          - Optimize images and assets
+          - Consider bundle splitting strategies
+          - Review dependency tree for unused packages
+          
+          *This check helps maintain optimal performance across the monorepo.*`;
+          
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

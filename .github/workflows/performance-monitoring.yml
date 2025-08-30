@@ -1,0 +1,497 @@
+# ABOUTME: Performance monitoring workflow with automated benchmarking and regression detection
+# ABOUTME: Tracks performance metrics over time and alerts on regressions across packages and apps
+
+name: Performance Monitoring
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 3 * * TUE,FRI'  # Run twice weekly at 3 AM UTC
+  workflow_dispatch:
+    inputs:
+      benchmark_iterations:
+        description: 'Number of benchmark iterations'
+        default: '10'
+        type: string
+      performance_threshold:
+        description: 'Performance threshold in milliseconds'
+        default: '5000'
+        type: string
+      full_suite:
+        description: 'Run full performance suite (slower but more comprehensive)'
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  performance-benchmarks:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+    
+    - name: Cache performance test outputs
+      uses: actions/cache@v4
+      with:
+        path: |
+          .cache/jest-performance
+          performance-results
+          **/performance-results
+        key: performance-${{ runner.os }}-${{ hashFiles('**/jest.performance.config.js', '**/package.json') }}
+        restore-keys: |
+          performance-${{ runner.os }}-
+    
+    - name: Cache build outputs for performance
+      uses: actions/cache@v4
+      with:
+        path: |
+          .cache
+          **/dist
+          **/build
+          anglesite/app/renderer-wrapper.js
+          anglesite/app/theme-renderer.js
+        key: perf-build-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/webpack.config.js') }}
+        restore-keys: |
+          perf-build-${{ runner.os }}-
+          build-${{ runner.os }}-
+    
+    # Install system dependencies for Electron
+    - name: Install Linux dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb libnss3-dev libatk-bridge2.0-dev libdrm2 \
+                                libgtk-3-dev libgbm-dev libasound2-dev
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build all packages
+      run: npm run build --workspaces --if-present
+    
+    # Setup virtual display for Electron on Linux
+    - name: Setup virtual display
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        export DISPLAY=:99
+        Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+        echo "DISPLAY=:99" >> $GITHUB_ENV
+        # Wait for display to be ready
+        timeout 30 bash -c 'until xdpyinfo -display :99 >/dev/null 2>&1; do sleep 1; done'
+    
+    - name: Wait for build artifacts to be ready
+      run: |
+        echo "Waiting for build artifacts to stabilize..."
+        # Wait for main build outputs to exist
+        timeout 300 bash -c 'while [ ! -f "anglesite/app/main.js" ] && [ ! -f "anglesite/dist/main.js" ]; do 
+          echo "Waiting for Anglesite build artifacts..."; 
+          sleep 5; 
+        done' || echo "Warning: Anglesite artifacts not found, continuing anyway"
+        
+        # Wait for package builds to complete
+        for pkg in anglesite-11ty anglesite-starter web-components; do
+          if [ -d "$pkg" ]; then
+            echo "Checking $pkg build status..."
+            if [ -f "$pkg/package.json" ]; then
+              timeout 60 bash -c "cd $pkg && ([ ! -d dist ] || [ -f dist/.build-complete ]) || npm run build --if-present" || true
+            fi
+          fi
+        done
+        
+        echo "Build artifacts ready for performance testing"
+    
+    - name: Run performance benchmarks with retry
+      uses: nick-invision/retry@v2
+      with:
+        timeout_minutes: 15
+        max_attempts: 3
+        retry_wait_seconds: 30
+        shell: bash
+        command: |
+          echo "Starting performance benchmark attempt ${{ github.run_attempt || '1' }}"
+          
+          # Pre-flight checks
+          echo "=== Pre-flight System Checks ==="
+          echo "Available memory: $(free -h 2>/dev/null || echo 'N/A')"
+          echo "CPU info: $(nproc 2>/dev/null || echo 'N/A') cores"
+          echo "Disk space: $(df -h . 2>/dev/null | tail -1 || echo 'N/A')"
+          
+          # Kill any existing processes that might interfere
+          pkill -f "electron" || true
+          pkill -f "chrome" || true
+          sleep 2
+          
+          # Clear any existing performance results
+          rm -rf performance-results/* || true
+          
+          # Run the performance tests
+          npm run test:performance
+      env:
+        NODE_ENV: test-performance
+        CI: true
+        ELECTRON_DISABLE_SECURITY_WARNINGS: true
+        ELECTRON_EXTRA_ARGS: --no-sandbox --disable-gpu --disable-software-rasterizer
+        BENCHMARK_ITERATIONS: ${{ github.event.inputs.benchmark_iterations || '10' }}
+        PERFORMANCE_THRESHOLD_MS: ${{ github.event.inputs.performance_threshold || '5000' }}
+        FULL_PERFORMANCE_SUITE: ${{ github.event.inputs.full_suite || 'false' }}
+      timeout-minutes: 45
+    
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-results-${{ matrix.os }}-node${{ matrix.node-version }}
+        path: |
+          performance-results/
+          tests/performance/baselines/
+        retention-days: 30
+    
+    - name: Generate performance report
+      if: always()
+      run: |
+        echo "## 🚀 Performance Benchmark Results (${{ matrix.os }})" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ -f "performance-results/benchmark-results.json" ]; then
+          node -e "
+            try {
+              const results = JSON.parse(require('fs').readFileSync('performance-results/benchmark-results.json', 'utf8'));
+              
+              console.log('### Summary');
+              console.log('| Metric | Value |');
+              console.log('|--------|--------|');
+              console.log(\`| Total Benchmarks | \${results.benchmarks.length} |\`);
+              console.log(\`| Passed Tests | \${results.summary.passedTests}/\${results.summary.totalTests} |\`);
+              console.log(\`| Regressions | \${results.summary.regressions.length} |\`);
+              console.log(\`| Improvements | \${results.summary.improvements.length} |\`);
+              console.log(\`| Warnings | \${results.summary.warnings.length} |\`);
+              console.log();
+              
+              if (results.benchmarks.length > 0) {
+                console.log('### Top 5 Benchmarks by Performance');
+                console.log('| Benchmark | Avg Time | Memory | Throughput |');
+                console.log('|-----------|----------|---------|------------|');
+                
+                const sorted = results.benchmarks
+                  .sort((a, b) => a.timing.avg - b.timing.avg)
+                  .slice(0, 5);
+                
+                sorted.forEach(benchmark => {
+                  console.log(\`| \${benchmark.name} | \${benchmark.timing.avg.toFixed(2)}ms | \${benchmark.memory.heapUsedMB}MB | \${benchmark.performanceMetrics.throughput.toFixed(2)} ops/sec |\`);
+                });
+                console.log();
+              }
+              
+              if (results.summary.regressions.length > 0) {
+                console.log('### 🔴 Performance Regressions');
+                results.summary.regressions.forEach(regression => {
+                  console.log(\`- **\${regression.name}**: +\${regression.percentChange.toFixed(1)}% slower (\${regression.currentTime.toFixed(2)}ms vs \${regression.baselineTime.toFixed(2)}ms)\`);
+                });
+                console.log();
+              }
+              
+              if (results.summary.improvements.length > 0) {
+                console.log('### 🟢 Performance Improvements');
+                results.summary.improvements.forEach(improvement => {
+                  console.log(\`- **\${improvement.name}**: \${improvement.percentChange.toFixed(1)}% faster (\${improvement.currentTime.toFixed(2)}ms vs \${improvement.baselineTime.toFixed(2)}ms)\`);
+                });
+                console.log();
+              }
+              
+              if (results.summary.warnings.length > 0) {
+                console.log('### ⚠️ Performance Warnings');
+                results.summary.warnings.forEach(warning => {
+                  console.log(\`- **\${warning.name}**: \${warning.warnings.join(', ')}\`);
+                });
+              }
+              
+            } catch (error) {
+              console.log('Could not parse performance results:', error.message);
+            }
+          " >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Performance results file not found" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  compare-performance:
+    needs: performance-benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Download PR performance results
+      uses: actions/download-artifact@v3
+      with:
+        name: performance-results-ubuntu-latest-node20.x
+        path: ./pr-results
+    
+    - name: Checkout main branch
+      run: |
+        git fetch origin main
+        git checkout origin/main
+    
+    - name: Setup Node.js for baseline
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies for baseline
+      run: npm ci
+    
+    - name: Build packages for baseline
+      run: npm run build --workspaces --if-present
+    
+    - name: Setup virtual display for baseline
+      run: |
+        export DISPLAY=:99
+        Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+        echo "DISPLAY=:99" >> $GITHUB_ENV
+    
+    - name: Run baseline performance benchmarks
+      run: npm run test:performance
+      env:
+        NODE_ENV: test-performance
+        CI: true
+        ELECTRON_DISABLE_SECURITY_WARNINGS: true
+        ELECTRON_EXTRA_ARGS: --no-sandbox --disable-gpu
+        BENCHMARK_ITERATIONS: ${{ github.event.inputs.benchmark_iterations || '5' }}
+      timeout-minutes: 30
+    
+    - name: Compare performance results
+      run: |
+        node -e "
+          const fs = require('fs');
+          
+          try {
+            const baselineResults = JSON.parse(fs.readFileSync('performance-results/benchmark-results.json', 'utf8'));
+            const prResults = JSON.parse(fs.readFileSync('pr-results/benchmark-results.json', 'utf8'));
+            
+            console.log('## 📊 Performance Comparison vs Main Branch\\n');
+            
+            const baselineBenchmarks = new Map();
+            baselineResults.benchmarks.forEach(b => baselineBenchmarks.set(b.name, b));
+            
+            let hasRegressions = false;
+            let hasImprovements = false;
+            const comparisons = [];
+            
+            prResults.benchmarks.forEach(prBenchmark => {
+              const baseline = baselineBenchmarks.get(prBenchmark.name);
+              if (baseline) {
+                const change = ((prBenchmark.timing.avg - baseline.timing.avg) / baseline.timing.avg) * 100;
+                const isSignificant = Math.abs(change) >= 5; // 5% threshold
+                
+                comparisons.push({
+                  name: prBenchmark.name,
+                  current: prBenchmark.timing.avg,
+                  baseline: baseline.timing.avg,
+                  change: change,
+                  isSignificant: isSignificant
+                });
+                
+                if (isSignificant) {
+                  if (change > 0) hasRegressions = true;
+                  else hasImprovements = true;
+                }
+              }
+            });
+            
+            if (comparisons.length > 0) {
+              console.log('| Benchmark | PR Branch | Main Branch | Change | Status |');
+              console.log('|-----------|-----------|-------------|--------|--------|');
+              
+              comparisons
+                .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+                .forEach(comp => {
+                  const changeStr = comp.change > 0 ? \`+\${comp.change.toFixed(1)}%\` : \`\${comp.change.toFixed(1)}%\`;
+                  const status = comp.isSignificant ? 
+                    (comp.change > 15 ? '🔴 Regression' : 
+                     comp.change > 0 ? '🟡 Slower' : 
+                     comp.change < -15 ? '🟢 Major Improvement' : '🟢 Faster') : 
+                    '⚪ No Change';
+                  
+                  console.log(\`| \${comp.name} | \${comp.current.toFixed(2)}ms | \${comp.baseline.toFixed(2)}ms | \${changeStr} | \${status} |\`);
+                });
+              
+              console.log();
+              
+              if (hasRegressions) {
+                console.log('### ⚠️ Performance Impact Summary');
+                console.log('- Some benchmarks show performance regressions');
+                console.log('- Review the changes to identify potential optimization opportunities');
+                console.log('- Consider if the regression is acceptable for the features added');
+              } else if (hasImprovements) {
+                console.log('### 🎉 Performance Improvements Detected');
+                console.log('- This PR improves performance in some areas');
+                console.log('- Great work on optimization!');
+              } else {
+                console.log('### ✅ No Significant Performance Changes');
+                console.log('- Performance remains stable compared to main branch');
+              }
+            } else {
+              console.log('No comparable benchmarks found between PR and main branch.');
+            }
+            
+          } catch (error) {
+            console.log('Error comparing performance results:', error.message);
+          }
+        " > performance-comparison.md
+        
+        cat performance-comparison.md >> $GITHUB_STEP_SUMMARY
+        echo "COMPARISON_CONTENT<<EOF" >> $GITHUB_ENV
+        cat performance-comparison.md >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+    
+    - name: Comment on PR with performance comparison
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          let comment = process.env.COMPARISON_CONTENT || 'Performance comparison could not be generated.';
+          
+          // Add footer
+          comment += '\\n\\n---\\n*Performance comparison generated by automated benchmarking*';
+          
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  performance-regression-alert:
+    needs: performance-benchmarks
+    runs-on: ubuntu-latest
+    if: failure() && (github.event_name == 'schedule' || github.event_name == 'push')
+    
+    steps:
+    - name: Create performance regression issue
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '⚡ Performance Regression Alert',
+            body: `## Performance Regression Detected
+            
+            The automated performance monitoring has detected potential performance regressions.
+            
+            ### Details
+            - **Branch**: ${context.ref}
+            - **Commit**: ${context.sha.substring(0, 7)}
+            - **Workflow Run**: [View Results](${runUrl})
+            - **Date**: ${new Date().toISOString()}
+            
+            ### Investigation Steps
+            1. Review the performance benchmark results in the workflow artifacts
+            2. Identify which benchmarks are showing regressions
+            3. Analyze recent changes that might impact performance
+            4. Run local performance tests to reproduce issues
+            5. Optimize code or update performance baselines if changes are intentional
+            
+            ### Performance Monitoring
+            - Check individual benchmark results for specific regressions
+            - Compare memory usage patterns for memory leaks
+            - Review timing consistency for reliability issues
+            - Validate against historical performance data
+            
+            ### Next Actions
+            - [ ] Download and analyze performance artifacts
+            - [ ] Identify root cause of performance regression
+            - [ ] Apply performance optimizations if needed
+            - [ ] Update performance baselines if regression is acceptable
+            - [ ] Close issue once performance is restored or baseline updated
+            
+            This issue was automatically created by the performance monitoring workflow.`,
+            labels: ['performance', 'regression', 'monitoring', 'automation']
+          });
+
+  update-performance-baselines:
+    needs: performance-benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.update_baselines == 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download performance results
+      uses: actions/download-artifact@v3
+      with:
+        name: performance-results-ubuntu-latest-node20.x
+        path: ./new-results
+    
+    - name: Update performance baselines
+      run: |
+        # Copy new results to baselines directory
+        mkdir -p tests/performance/baselines
+        
+        if [ -f "new-results/benchmark-results.json" ]; then
+          node -e "
+            const results = JSON.parse(require('fs').readFileSync('new-results/benchmark-results.json', 'utf8'));
+            
+            results.benchmarks.forEach(benchmark => {
+              const baselineData = {
+                name: benchmark.name,
+                timestamp: benchmark.timestamp,
+                timing: benchmark.timing,
+                memory: benchmark.memory,
+                systemInfo: benchmark.systemInfo
+              };
+              
+              const filename = \`tests/performance/baselines/\${benchmark.name}.baseline.json\`;
+              require('fs').writeFileSync(filename, JSON.stringify(baselineData, null, 2));
+              console.log(\`Updated baseline: \${filename}\`);
+            });
+          "
+          
+          echo '✅ Performance baselines updated'
+        else
+          echo '❌ No performance results found to update baselines'
+        fi
+    
+    - name: Commit updated baselines
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add tests/performance/baselines/
+        git commit -m "Update performance baselines from workflow run ${{ github.run_id }}" || echo "No changes to commit"
+        git push

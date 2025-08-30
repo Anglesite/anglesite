@@ -1,0 +1,119 @@
+# ABOUTME: Custom CodeQL configuration for enhanced security analysis
+# ABOUTME: Includes Electron-specific security queries and custom rules for the monorepo
+
+name: "DWK Monorepo CodeQL Config"
+
+# Disable default queries to avoid duplicates with our enhanced set
+disable-default-queries: false
+
+# Enhanced query suites with additional security focus
+queries:
+  - uses: security-and-quality
+  - uses: security-extended
+  - name: Electron Security
+    uses: ./.github/codeql/queries/electron-security.ql
+  - name: Node.js Security
+    uses: ./.github/codeql/queries/nodejs-security.ql
+
+# Paths to analyze
+paths:
+  - "anglesite/app/**"
+  - "anglesite/src/**"
+  - "anglesite-11ty/**"
+  - "anglesite-starter/**" 
+  - "web-components/**"
+  - "scripts/**"
+  - "tests/**"
+
+# Paths to ignore for security analysis
+paths-ignore:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/_site/**"
+  - "**/coverage/**"
+  - "**/*.test.ts"
+  - "**/*.test.js"
+  - "**/*.spec.ts"
+  - "**/*.spec.js"
+  - "**/test/**/*.mock.*"
+  - "**/mocks/**"
+  - "**/__mocks__/**"
+
+# Language-specific configurations
+language-specific-config:
+  javascript:
+    # Focus on runtime security issues
+    queries:
+      - path-injection
+      - code-injection
+      - xss
+      - prototype-pollution
+      - regex-dos
+  
+  typescript:
+    # Include compile-time security analysis
+    queries:
+      - type-confusion
+      - unsafe-dynamic-method-access
+      - unvalidated-dynamic-call
+
+# Custom security categories for this monorepo
+categories:
+  electron-main-process:
+    description: "Security issues in Electron main process"
+    patterns:
+      - "anglesite/app/main/**"
+      - "anglesite/app/electron/**"
+  
+  electron-renderer:
+    description: "Security issues in Electron renderer process" 
+    patterns:
+      - "anglesite/app/renderer/**"
+      - "anglesite/app/preload/**"
+  
+  eleventy-plugins:
+    description: "Security issues in Eleventy plugins and transforms"
+    patterns:
+      - "anglesite-11ty/plugins/**"
+      - "anglesite-11ty/src/**"
+  
+  build-scripts:
+    description: "Security issues in build and automation scripts"
+    patterns:
+      - "scripts/**"
+      - "**/webpack.config.js"
+      - "**/*.config.js"
+
+# Performance tuning for large monorepo
+analysis-cache:
+  enabled: true
+  # Cache analysis results for unchanged files
+  cache-key-strategy: "content-hash"
+  
+# Increased timeouts for complex TypeScript analysis
+timeouts:
+  per-file: 900  # 15 minutes per file
+  total: 7200    # 2 hours total
+
+# Security-focused configuration
+security-severity:
+  # Treat medium+ security issues as errors
+  minimum-severity: "medium"
+  
+  # Custom severity overrides for this project
+  overrides:
+    - rule: "path-traversal"
+      severity: "high"
+    - rule: "command-injection" 
+      severity: "critical"
+    - rule: "electron-node-integration"
+      severity: "high"
+    - rule: "unsafe-shell-command"
+      severity: "critical"
+
+# Integration with other security tools
+external-tools:
+  # Reference results from other security scans
+  dependency-scan: "dependency-security.sarif"
+  secret-scan: "secret-scanning.sarif"

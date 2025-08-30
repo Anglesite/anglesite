@@ -1,8 +1,0 @@
-node_modules
-dist
-build
-coverage
-.nyc_output
-*.min.js
-*.map
-app/core/errors/examples.ts

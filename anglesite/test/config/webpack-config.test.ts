@@ -9,11 +9,18 @@ import { Configuration } from 'webpack';
 
 // Extended configuration type that includes dev server
 interface ExtendedConfiguration extends Configuration {
-  devServer?: any;
+  devServer?: {
+    port?: number;
+    host?: string;
+    open?: boolean;
+    hot?: boolean;
+    static?: string | string[] | { directory: string; publicPath: string };
+    [key: string]: unknown;
+  };
 }
 
 describe('Webpack Configuration Tests', () => {
-  const configDir = path.resolve(process.cwd());
+  const configDir = path.resolve(__dirname, '../..');
 
   describe('Configuration Files Exist', () => {
     it('should have webpack.common.js', () => {
@@ -94,7 +101,7 @@ describe('Webpack Configuration Tests', () => {
     beforeAll(() => {
       // Mock webpack-merge for testing
       jest.mock('webpack-merge', () => ({
-        merge: (...configs: any[]) => {
+        merge: (...configs: Configuration[]) => {
           return Object.assign({}, ...configs);
         },
       }));
@@ -139,7 +146,7 @@ describe('Webpack Configuration Tests', () => {
     beforeAll(() => {
       // Mock webpack-merge for testing
       jest.mock('webpack-merge', () => ({
-        merge: (...configs: any[]) => {
+        merge: (...configs: Configuration[]) => {
           return Object.assign({}, ...configs);
         },
       }));
@@ -180,7 +187,29 @@ describe('Webpack Configuration Tests', () => {
   });
 
   describe('Assets Configuration', () => {
-    let assetsConfig: any;
+    let assetsConfig: {
+      entry: { [key: string]: string };
+      output: {
+        path: string;
+        filename: string;
+        naming: {
+          development: string;
+          production: string;
+        };
+      };
+      images: {
+        breakpoints: number[];
+        quality: number;
+      };
+      sourceMaps: {
+        development: boolean;
+        production: boolean;
+      };
+      performance: {
+        maxEntrypointSize: number;
+        maxAssetSize: number;
+      };
+    };
 
     beforeAll(() => {
       const assetsPath = require.resolve('../../assets.config.js');
@@ -214,7 +243,7 @@ describe('Webpack Configuration Tests', () => {
   });
 
   describe('Package.json Scripts Integration', () => {
-    let packageJson: any;
+    let packageJson: { name?: string; version?: string; [key: string]: unknown };
 
     beforeAll(() => {
       const packagePath = path.join(configDir, 'package.json');

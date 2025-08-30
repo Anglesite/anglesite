@@ -35,9 +35,9 @@
     "pretest": "tsc",
     "start": "electron .",
     "start:dev": "npm run build:app && electron . --dev-react",
-    "test:coverage": "jest --coverage --config jest.coverage.config.ts",
-    "test:coverage:fast": "jest --coverage --config jest.coverage.config.ts --runInBand --bail",
-    "test:integration": "jest --config jest.integration.config.ts",
+    "test:coverage": "npm run test:coverage:anglesite --prefix ../",
+    "test:coverage:fast": "npm run test:coverage:anglesite --prefix ../ -- --runInBand --bail",
+    "test:integration": "npm run test:integration --prefix ../",
     "test:unit": "jest --testPathIgnorePatterns='/integration/' --testPathIgnorePatterns='/e2e/'",
     "test:all": "npm run test:coverage && npm run test:integration",
     "test": "jest"

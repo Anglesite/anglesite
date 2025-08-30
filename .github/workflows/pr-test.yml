@@ -1,0 +1,75 @@
+# ABOUTME: GitHub Actions workflow for testing pull requests
+# ABOUTME: Runs tests on all packages when a PR is opened or updated
+
+name: PR Tests
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened ]
+
+# Prevent concurrent PR test runs on the same PR
+concurrency:
+  group: pr-tests-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+    
+    - name: Cache build outputs
+      uses: actions/cache@v4
+      with:
+        path: |
+          .cache
+          **/dist
+          **/build
+          **/.next
+          anglesite/app/renderer-wrapper.js
+          anglesite/app/theme-renderer.js
+        key: build-${{ runner.os }}-node${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json', '**/tsconfig.json', '**/webpack.config.js') }}
+        restore-keys: |
+          build-${{ runner.os }}-node${{ matrix.node-version }}-
+          build-${{ runner.os }}-
+    
+    - name: Cache TypeScript builds
+      uses: actions/cache@v4
+      with:
+        path: |
+          .cache/typescript
+          **/*.tsbuildinfo
+        key: typescript-${{ runner.os }}-${{ hashFiles('**/tsconfig.json', '**/package.json') }}
+        restore-keys: |
+          typescript-${{ runner.os }}-
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run security audit
+      run: npm audit --audit-level=high
+    
+    - name: Run linting
+      run: npm run lint --workspaces --if-present
+    
+    - name: Run tests
+      run: npm test --workspaces --if-present
+    
+    - name: Build all packages
+      run: npm run build --workspaces --if-present
+    
+    - name: Run integration tests
+      run: npm run test:integration --workspaces --if-present
+      continue-on-error: true

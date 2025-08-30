@@ -28,15 +28,35 @@ Double check linting and tests. Spot check changes in app.
 👍 Commit & push.
 ```
 
+## @dwk Monorepo TODO
+
+- [x] Make mono-repo
+- [x] Get CI going for NPM packages & pages
+  - [x] Add performance testing automation
+  - [x] Configure enhanced caching strategies
+  - [x] Fix secret validation in .github/workflows/release.yml
+  - [x] Add TypeScript to CodeQL language matrix
+  - [x] Implement path validation in scripts/analyze-bundle-sizes.js
+  - [x] Add retry mechanisms for performance tests
+  - [x] Implement workflow concurrency controls
+  - [x] Add automated changelog generation
+  - [x] Create required secrets (NPM_TOKEN) setup guide
+  - [x] Create environment configuration docs
+  - [x] Create release process documentation
+- [ ] Add app icon
+- [ ] Publish Schema to `https://anglesite.dwk.io/schema/website.json`
+- [ ] Make simple static site build of /docs
+
 ## Anglesite App TODO
 
 - [x] Optimized source maps for development vs production
-- [ ] Separate Dev/Prod webpack Configs
-- [ ] Watch Mode Integration: File watching with incremental compilation
+- [x] Separate Dev/Prod webpack Configs
+- [x] Watch Mode Integration: File watching with incremental compilation
 - [ ] Bundle Analysis: webpack-bundle-analyzer integration
 - [ ] Code Splitting
 - [ ] Concurrency in Development: concurrent package for parallel development
 - [ ] Add Microsoft Fluent UI
+- [ ] Build About box with "View Source" link
 
 ### Phase 2: Remaining Work (60% incomplete)
 

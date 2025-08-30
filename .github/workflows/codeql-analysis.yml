@@ -1,0 +1,154 @@
+# ABOUTME: CodeQL security analysis workflow for static application security testing
+# ABOUTME: Runs CodeQL analysis on JavaScript/TypeScript code to detect security vulnerabilities
+
+name: "CodeQL Security Analysis"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '30 2 * * 1'  # Run weekly on Mondays at 2:30 AM UTC
+  workflow_dispatch:
+    inputs:
+      language:
+        description: 'Language to analyze (javascript, typescript, or all)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - javascript
+          - typescript
+
+# Prevent concurrent CodeQL runs on the same ref
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+  pull-requests: write  # For PR comments
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ 
+          github.event.inputs.language == 'all' && fromJson('["javascript", "typescript"]') ||
+          github.event.inputs.language && fromJson(format('["{0}"]', github.event.inputs.language)) ||
+          fromJson('["javascript", "typescript"]')
+        }}
+        include:
+          - language: javascript
+            build-mode: none  # JavaScript doesn't need compilation
+          - language: typescript
+            build-mode: manual  # TypeScript needs compilation
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        queries: +security-and-quality,+security-extended
+        config-file: ./.github/codeql/codeql-config.yml
+        build-mode: ${{ matrix.build-mode }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+    
+    - name: Cache CodeQL build outputs
+      uses: actions/cache@v4
+      with:
+        path: |
+          .cache/typescript
+          **/*.tsbuildinfo
+          **/dist
+          **/build
+        key: codeql-${{ runner.os }}-${{ matrix.language }}-${{ hashFiles('**/package-lock.json', '**/tsconfig.json') }}
+        restore-keys: |
+          codeql-${{ runner.os }}-${{ matrix.language }}-
+          codeql-${{ runner.os }}-
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    # Manual build step for TypeScript analysis
+    - name: Build packages for CodeQL
+      if: matrix.language == 'typescript'
+      run: |
+        echo "Building TypeScript projects for CodeQL analysis..."
+        npm run build --workspaces --if-present
+        
+        # Build Anglesite specifically for better analysis
+        cd anglesite && npm run build:dev
+        
+        echo "TypeScript build completed for CodeQL"
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+        upload: true
+        output: sarif-results
+    
+    - name: Upload additional SARIF results
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: sarif-results/${{ matrix.language }}.sarif
+        category: "codeql-${{ matrix.language }}"
+      continue-on-error: true
+    
+    - name: Create analysis summary
+      if: always()
+      run: |
+        echo "## 🔍 CodeQL Security Analysis Results (${{ matrix.language }})" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check if SARIF file exists and has results
+        if [ -f "sarif-results/${{ matrix.language }}.sarif" ]; then
+          # Count issues by severity
+          CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/${{ matrix.language }}.sarif 2>/dev/null || echo "0")
+          HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' sarif-results/${{ matrix.language }}.sarif 2>/dev/null || echo "0")
+          MEDIUM=$(jq '[.runs[].results[] | select(.level == "note")] | length' sarif-results/${{ matrix.language }}.sarif 2>/dev/null || echo "0")
+          TOTAL=$(jq '[.runs[].results[]] | length' sarif-results/${{ matrix.language }}.sarif 2>/dev/null || echo "0")
+          
+          echo "### Security Issues Found:" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔴 Critical: $CRITICAL" >> $GITHUB_STEP_SUMMARY
+          echo "- 🟡 High: $HIGH" >> $GITHUB_STEP_SUMMARY  
+          echo "- 🔵 Medium: $MEDIUM" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total: $TOTAL**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$TOTAL" -gt "0" ]; then
+            echo "📋 **Next Steps:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Review security alerts in the [Security tab](https://github.com/${{ github.repository }}/security/code-scanning)" >> $GITHUB_STEP_SUMMARY
+            echo "2. Address critical and high severity issues first" >> $GITHUB_STEP_SUMMARY
+            echo "3. Consider security implications of medium severity issues" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **No security issues detected!**" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "⚠️ **Analysis results not available**" >> $GITHUB_STEP_SUMMARY
+          echo "SARIF file not found or analysis may have failed." >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Language:** ${{ matrix.language }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Build Mode:** ${{ matrix.build-mode }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Analysis Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY

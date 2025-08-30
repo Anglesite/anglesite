@@ -27,7 +27,7 @@ This document describes the structured error handling system implemented for Ang
 
 ## Error Hierarchy
 
-```
+```text
 AngleError (base)
 ├── SystemError
 │   ├── ServerError
