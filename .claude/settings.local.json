@@ -25,7 +25,11 @@
       "Bash(sed:*)",
       "Bash(find:*)",
       "Bash(npm:*)",
-      "Read(/Users/dwk/Developer/gitlab.com/davidwkeith/**)"
+      "Read(/Users/dwk/Developer/gitlab.com/davidwkeith/**)",
+      "WebSearch",
+      "WebFetch(domain:oozcitak.github.io)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": [],

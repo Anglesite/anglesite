@@ -132,7 +132,7 @@ describe('browserconfig plugin', () => {
 
       const result = generateBrowserConfig(data);
       expect(result).toContain('tile&amp;special&lt;&gt;.png');
-      expect(result).toContain('tile&quot;quotes&apos;.png');
+      expect(result).toContain("tile&quot;quotes'.png"); // xmlbuilder2 doesn't escape single quotes in attributes
       expect(result).not.toContain('tile&special');
       expect(result).not.toContain('<>');
     });

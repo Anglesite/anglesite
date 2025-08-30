@@ -120,7 +120,7 @@ WYSIWYG Editors (0% complete):
 
 ## anglesite-11ty TOOD
 
-- [ ] XML NPM Package?
+- [x] XML NPM Package?
 - [ ] .well-known/dnt-policy.txt - Do Not Track policy
 - [ ] .well-known/gpc.json - Global Privacy Control support
 - [ ] .well-known/accessibility - Accessibility statement location

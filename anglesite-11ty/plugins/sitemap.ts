@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { create } from 'xmlbuilder2';
 import type { EleventyConfig, EleventyCollectionApi, EleventyCollectionItem } from '@11ty/eleventy';
 import { AnglesiteWebsiteConfiguration } from '../types/website.js';
 import type { PageData } from '../types/index.js';
@@ -320,31 +321,27 @@ function getSitemapConfig(websiteConfig: AnglesiteWebsiteConfiguration): Sitemap
 }
 
 /**
- * Generates a sitemap index XML file.
+ * Generates a sitemap index XML file using xmlbuilder2.
  * @see https://www.sitemaps.org/protocol.html#index
  * @param sitemapEntries Array of sitemap entries for the index.
  * @returns The contents of the sitemap index XML file.
  */
 function generateSitemapIndexXml(sitemapEntries: SitemapIndexEntry[]): string {
-  const xmlParts: string[] = [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-  ];
+  const doc = create({ version: '1.0', encoding: 'UTF-8' });
+  const sitemapindex = doc.ele('sitemapindex', {
+    xmlns: 'http://www.sitemaps.org/schemas/sitemap/0.9',
+  });
 
   for (const entry of sitemapEntries) {
-    const sitemapParts = ['  <sitemap>'];
-    sitemapParts.push(`    <loc>${escapeXml(entry.loc)}</loc>`);
+    const sitemap = sitemapindex.ele('sitemap');
+    sitemap.ele('loc').txt(entry.loc);
 
     if (entry.lastmod) {
-      sitemapParts.push(`    <lastmod>${entry.lastmod}</lastmod>`);
+      sitemap.ele('lastmod').txt(entry.lastmod);
     }
-
-    sitemapParts.push('  </sitemap>');
-    xmlParts.push(sitemapParts.join('\n'));
   }
 
-  xmlParts.push('</sitemapindex>');
-  return xmlParts.join('\n');
+  return doc.end({ prettyPrint: true, indent: '  ' });
 }
 
 /**
@@ -410,11 +407,11 @@ function generateSitemapXmlSync(
   const defaultChangefreq = config.changefreq || 'yearly';
   const defaultPriority = config.priority;
 
-  // Pre-allocate arrays for better performance
-  const xmlParts: string[] = [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-  ];
+  // Initialize XML document with xmlbuilder2
+  const doc = create({ version: '1.0', encoding: 'UTF-8' });
+  const urlset = doc.ele('urlset', {
+    xmlns: 'http://www.sitemaps.org/schemas/sitemap/0.9',
+  });
 
   // Process pages in batches to improve performance
   // Filter pages once before processing
@@ -478,30 +475,26 @@ function generateSitemapXmlSync(
       })
       .filter((url): url is SitemapUrl => url !== null);
 
-    // Convert batch URLs to XML
+    // Add batch URLs to XML document
     for (const url of batchUrls) {
-      const urlParts = ['  <url>'];
-      urlParts.push(`    <loc>${escapeXml(url.loc)}</loc>`);
+      const urlElement = urlset.ele('url');
+      urlElement.ele('loc').txt(url.loc);
 
       if (url.lastmod) {
-        urlParts.push(`    <lastmod>${url.lastmod}</lastmod>`);
+        urlElement.ele('lastmod').txt(url.lastmod);
       }
 
       if (url.changefreq) {
-        urlParts.push(`    <changefreq>${url.changefreq}</changefreq>`);
+        urlElement.ele('changefreq').txt(url.changefreq);
       }
 
       if (url.priority !== undefined) {
-        urlParts.push(`    <priority>${url.priority}</priority>`);
+        urlElement.ele('priority').txt(url.priority.toString());
       }
-
-      urlParts.push('  </url>');
-      xmlParts.push(urlParts.join('\n'));
     }
   }
 
-  xmlParts.push('</urlset>');
-  return xmlParts.join('\n');
+  return doc.end({ prettyPrint: true, indent: '  ' });
 }
 
 /**
@@ -531,10 +524,11 @@ export async function generateSitemapXmlAsync(
   const defaultChangefreq = config.changefreq || 'yearly';
   const defaultPriority = config.priority;
 
-  const xmlParts: string[] = [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-  ];
+  // Initialize XML document with xmlbuilder2
+  const doc = create({ version: '1.0', encoding: 'UTF-8' });
+  const urlset = doc.ele('urlset', {
+    xmlns: 'http://www.sitemaps.org/schemas/sitemap/0.9',
+  });
 
   // Filter pages once before processing
   const eligiblePages = filterSitemapPages(pages);
@@ -593,23 +587,20 @@ export async function generateSitemapXmlAsync(
       })
       .filter((url): url is SitemapUrl => url !== null);
 
-    // Convert batch URLs to XML
+    // Add batch URLs to XML document
     for (const url of batchUrls) {
-      const urlParts = ['  <url>'];
-      urlParts.push(`    <loc>${escapeXml(url.loc)}</loc>`);
+      const urlElement = urlset.ele('url');
+      urlElement.ele('loc').txt(url.loc);
 
       if (url.lastmod) {
-        urlParts.push(`    <lastmod>${url.lastmod}</lastmod>`);
+        urlElement.ele('lastmod').txt(url.lastmod);
       }
       if (url.changefreq) {
-        urlParts.push(`    <changefreq>${url.changefreq}</changefreq>`);
+        urlElement.ele('changefreq').txt(url.changefreq);
       }
       if (url.priority !== undefined) {
-        urlParts.push(`    <priority>${url.priority}</priority>`);
+        urlElement.ele('priority').txt(url.priority.toString());
       }
-
-      urlParts.push('  </url>');
-      xmlParts.push(urlParts.join('\n'));
     }
 
     // Yield control periodically for large datasets (every N batches)
@@ -618,8 +609,7 @@ export async function generateSitemapXmlAsync(
     }
   }
 
-  xmlParts.push('</urlset>');
-  return xmlParts.join('\n');
+  return doc.end({ prettyPrint: true, indent: '  ' });
 }
 
 /**
@@ -888,47 +878,6 @@ export function safeUrlConstruction(pageUrl: string, baseUrl: URL, context: stri
     console.warn(`[@dwk/anglesite-11ty] Invalid URL in ${context}: ${pageUrl} - ${errorMsg}`);
     return null;
   }
-}
-
-/**
- * Escapes XML special characters and removes control characters for secure XML generation.
- * Prevents XML injection attacks by properly escaping all dangerous characters.
- * @param str The string to escape.
- * @returns The safely escaped string.
- */
-function escapeXml(str: string): string {
-  if (typeof str !== 'string') {
-    return String(str);
-  }
-
-  // First escape XML special characters to prevent injection
-  const xmlEscaped = str
-    .replace(/&/g, '&amp;') // Must be first to avoid double-escaping
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-
-  // Remove dangerous control characters but preserve valid XML whitespace
-  // XML 1.0 allows: #x9 (tab), #xA (LF), #xD (CR), and #x20-#xD7FF, #xE000-#xFFFD
-  let result = '';
-  for (let i = 0; i < xmlEscaped.length; i++) {
-    const char = xmlEscaped[i];
-    const code = char.charCodeAt(0);
-
-    // Keep valid XML characters: tab (9), LF (10), CR (13), and printable chars (32+)
-    // Remove C0 control chars (0-8, 11-12, 14-31) and DEL (127)
-    // Remove non-characters (0xFFFE, 0xFFFF)
-    if (
-      code === 9 || // tab
-      code === 10 || // LF
-      code === 13 || // CR
-      (code >= 32 && code !== 127 && code !== 0xfffe && code !== 0xffff)
-    ) {
-      result += char;
-    }
-  }
-  return result;
 }
 
 /**
