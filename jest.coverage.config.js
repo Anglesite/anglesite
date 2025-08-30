@@ -45,8 +45,7 @@ module.exports = {
   // Coverage-specific test settings with per-project coverage patterns
   projects: baseConfig.projects.map(project => ({
     ...project,
-    // Enable coverage only for projects with tests
-    collectCoverage: ['@dwk/anglesite', '@dwk/anglesite-11ty'].includes(project.displayName),
+    // Coverage is controlled at the root level, not per project
     // Workspace-specific coverage patterns
     ...(project.displayName === '@dwk/anglesite' && {
       collectCoverageFrom: [

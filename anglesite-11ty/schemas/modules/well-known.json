@@ -750,6 +750,38 @@
       },
       "additionalProperties": false
     },
+    "globalPrivacyControl": {
+      "type": "object",
+      "description": "Global Privacy Control configuration for .well-known/gpc.json",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable GPC file generation",
+          "default": false
+        },
+        "gpc": {
+          "type": "boolean",
+          "description": "Whether the server intends to abide by GPC requests (true) or not (false)",
+          "default": true
+        },
+        "lastUpdate": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "description": "Date when the GPC statement was last updated (YYYY-MM-DD format)"
+            },
+            {
+              "type": "string",
+              "format": "date-time",
+              "description": "Date and time when the GPC statement was last updated (ISO 8601 format)"
+            }
+          ]
+        }
+      },
+      "required": ["gpc"],
+      "additionalProperties": false
+    },
     "browserconfig": {
       "type": "object",
       "description": "Browser configuration for .well-known/browserconfig.xml",
@@ -867,6 +899,9 @@
     },
     "assetlinks": {
       "$ref": "#/definitions/assetLinks"
+    },
+    "gpc": {
+      "$ref": "#/definitions/globalPrivacyControl"
     },
     "browserconfig": {
       "$ref": "#/definitions/browserconfig"

@@ -10,6 +10,7 @@ import addHeaders from './plugins/headers.js';
 import addHostMeta from './plugins/host-meta.js';
 import addWebFinger from './plugins/webfinger.js';
 import addNodeInfo from './plugins/nodeinfo.js';
+import addGpcJson from './plugins/gpc.js';
 import addOpenIDConfiguration from './plugins/openid-configuration.js';
 import addAppleAppSiteAssociation from './plugins/apple-app-site-association.js';
 import addAssetLinks from './plugins/assetlinks.js';
@@ -36,6 +37,7 @@ export default function (eleventyConfig: EleventyConfig) {
   eleventyConfig.addPlugin(addHostMeta);
   eleventyConfig.addPlugin(addWebFinger);
   eleventyConfig.addPlugin(addNodeInfo);
+  eleventyConfig.addPlugin(addGpcJson);
   eleventyConfig.addPlugin(addOpenIDConfiguration);
   eleventyConfig.addPlugin(addAppleAppSiteAssociation);
   eleventyConfig.addPlugin(addAssetLinks);

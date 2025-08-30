@@ -506,6 +506,7 @@ export interface WellKnownStandardsConfigurationSchema {
   openid_configuration?: OpenidConfiguration;
   apple_app_site_association?: AppleAppSiteAssociation;
   assetlinks?: AssetLinks;
+  gpc?: GlobalPrivacyControl;
   browserconfig?: Browserconfig;
   [k: string]: unknown;
 }
@@ -1020,6 +1021,23 @@ export interface AssetLinks {
           site: string;
         };
   }[];
+}
+/**
+ * Global Privacy Control configuration for .well-known/gpc.json
+ */
+export interface GlobalPrivacyControl {
+  /**
+   * Enable GPC file generation
+   */
+  enabled?: boolean;
+  /**
+   * Whether the server intends to abide by GPC requests (true) or not (false)
+   */
+  gpc: boolean;
+  /**
+   * Date when the GPC statement was last updated (YYYY-MM-DD or ISO 8601 format)
+   */
+  lastUpdate?: string;
 }
 /**
  * Browser configuration for .well-known/browserconfig.xml

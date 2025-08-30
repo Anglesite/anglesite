@@ -48,19 +48,7 @@ module.exports = {
   },
   
   // Specialized reporters for performance
-  reporters: [
-    'default',
-    ['jest-junit', {
-      outputDirectory: '<rootDir>/performance-results',
-      outputName: 'performance-results.xml',
-      suiteName: 'Performance Tests'
-    }],
-    ['<rootDir>/tests/performance/performance-reporter.js', {
-      outputPath: '<rootDir>/performance-results/benchmark-results.json',
-      includeSystemInfo: true,
-      trackTrends: true
-    }]
-  ],
+  reporters: ['default'],
   
   // Transform configuration
   transform: {
@@ -74,7 +62,7 @@ module.exports = {
   },
   
   // Module configuration for performance tests
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@dwk/anglesite-11ty/(.*)$': '<rootDir>/anglesite-11ty/$1',
     '^@dwk/anglesite-starter/(.*)$': '<rootDir>/anglesite-starter/$1',
     '^@dwk/web-components/(.*)$': '<rootDir>/web-components/$1'
@@ -97,9 +85,5 @@ module.exports = {
   // Detect handles that prevent exit
   detectOpenHandles: true,
   
-  // Custom matchers and utilities
-  setupFilesAfterEnv: [
-    '<rootDir>/tests/performance/setup.js',
-    '<rootDir>/tests/performance/matchers.js'
-  ]
+  // Note: setupFilesAfterEnv is defined above at line 23
 };

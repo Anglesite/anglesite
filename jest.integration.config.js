@@ -61,7 +61,7 @@ module.exports = {
   },
   
   // Module name mapping for cross-package imports
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@dwk/anglesite-11ty/(.*)$': '<rootDir>/anglesite-11ty/$1',
     '^@dwk/anglesite-starter/(.*)$': '<rootDir>/anglesite-starter/$1',
     '^@dwk/web-components/(.*)$': '<rootDir>/web-components/$1'
@@ -75,20 +75,7 @@ module.exports = {
   },
   
   // Reporter configuration for integration test results
-  reporters: [
-    'default',
-    ['jest-junit', {
-      outputDirectory: '<rootDir>/coverage/integration',
-      outputName: 'integration-test-results.xml',
-      suiteName: 'Integration Tests'
-    }],
-    ['jest-html-reporter', {
-      pageTitle: 'Integration Test Report',
-      outputPath: '<rootDir>/coverage/integration/integration-report.html',
-      includeFailureMsg: true,
-      includeSuiteFailure: true
-    }]
-  ],
+  reporters: ['default'],
   
   // Transform configuration for TypeScript and ES modules
   transform: {

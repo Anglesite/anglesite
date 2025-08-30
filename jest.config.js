@@ -9,6 +9,10 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   
+  // Reduce test output verbosity
+  silent: true,
+  verbose: false,
+  
   // Enhanced caching configuration
   cache: true,
   cacheDirectory: '<rootDir>/.cache/jest',
@@ -89,7 +93,7 @@ module.exports = {
     {
       displayName: '@dwk/web-components',
       rootDir: './web-components',
-      testEnvironment: 'node', 
+      testEnvironment: 'node',
       testMatch: ['**/*.test.{js,ts}'],
       collectCoverageFrom: [
         'components/**/*.{js,ts}',

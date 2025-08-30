@@ -15,7 +15,8 @@
     "build:anglesite-11ty": "npm run build --workspace=@dwk/anglesite-11ty",
     "build:anglesite-starter": "npm run build --workspace=@dwk/anglesite-starter",
     "build:web-components": "npm run build --workspace=@dwk/web-components",
-    "test": "jest --config jest.config.js",
+    "test": "jest --config jest.config.js --silent --reporters=default --no-coverage --passWithNoTests",
+    "test:verbose": "jest --config jest.config.js --verbose --no-coverage --passWithNoTests",
     "test:coverage": "jest --config jest.coverage.config.js",
     "test:integration": "jest --config jest.integration.config.js",
     "test:anglesite": "npm run test --workspace=@dwk/anglesite",
@@ -39,7 +40,8 @@
     "changelog:since": "node scripts/generate-changelog.js changelog",
     "changelog:package": "node scripts/generate-changelog.js package",
     "changelog:release-notes": "node scripts/generate-changelog.js release-notes",
-    "verify-secrets": "node scripts/verify-secrets.js"
+    "verify-secrets": "node scripts/verify-secrets.js",
+    "verify-jest": "node scripts/verify-jest-config.js"
   },
   "devDependencies": {
     "@babel/core": "^7.28.3",

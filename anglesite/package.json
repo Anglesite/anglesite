@@ -40,7 +40,7 @@
     "test:integration": "npm run test:integration --prefix ../",
     "test:unit": "jest --testPathIgnorePatterns='/integration/' --testPathIgnorePatterns='/e2e/'",
     "test:all": "npm run test:coverage && npm run test:integration",
-    "test": "jest"
+    "test": "jest --silent"
   },
   "keywords": [
     "static site generator",

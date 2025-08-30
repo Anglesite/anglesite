@@ -360,6 +360,11 @@
       }
     ]
   },
+  "gpc": {
+    "enabled": true,
+    "gpc": true,
+    "lastUpdate": "2024-08-30"
+  },
   "browserconfig": {
     "enabled": true,
     "tile": {
