@@ -9,6 +9,10 @@ import addHeaders from './plugins/headers.js';
 import addHostMeta from './plugins/host-meta.js';
 import addWebFinger from './plugins/webfinger.js';
 import addNodeInfo from './plugins/nodeinfo.js';
+import addGpcJson from './plugins/gpc.js';
+import addOpenIdConfiguration from './plugins/openid-configuration.js';
+import addAppleAppSiteAssociation from './plugins/apple-app-site-association.js';
+import addAssetLinks from './plugins/assetlinks.js';
 import addBrowserConfig from './plugins/browserconfig.js';
 import EleventyWebcPlugin from '@11ty/eleventy-plugin-webc';
 import type { EleventyConfig } from '@11ty/eleventy';
@@ -50,6 +54,10 @@ export default function anglesiteEleventy(
   addHostMeta(eleventyConfig);
   addWebFinger(eleventyConfig);
   addNodeInfo(eleventyConfig);
+  addGpcJson(eleventyConfig);
+  addOpenIdConfiguration(eleventyConfig);
+  addAppleAppSiteAssociation(eleventyConfig);
+  addAssetLinks(eleventyConfig);
   addBrowserConfig(eleventyConfig);
 }
 
@@ -66,5 +74,9 @@ export {
   addHostMeta,
   addWebFinger,
   addNodeInfo,
+  addGpcJson,
+  addOpenIdConfiguration,
+  addAppleAppSiteAssociation,
+  addAssetLinks,
   addBrowserConfig,
 };
