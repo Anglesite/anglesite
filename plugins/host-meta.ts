@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { create } from 'xmlbuilder2';
 import type { EleventyConfig } from '@11ty/eleventy';
 import { AnglesiteWebsiteConfiguration } from '../types/website.js';
 
@@ -23,21 +24,6 @@ function validateUrl(url: string): boolean {
 }
 
 /**
- * Escapes XML special characters
- * @param text The text to escape
- * @returns The escaped XML text
- */
-function escapeXml(text: string | undefined): string {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-/**
  * Generates XRD (Extensible Resource Descriptor) document for host metadata
  * @see https://tools.ietf.org/rfc/rfc6415.txt
  * @param website The website configuration object.
@@ -50,15 +36,18 @@ export function generateHostMetaXrd(website: AnglesiteWebsiteConfiguration): str
 
   const hostMeta = website.host_meta;
 
-  let xrd = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  xrd += '<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">\n';
+  // Create XML document using xmlbuilder2
+  const doc = create({ version: '1.0', encoding: 'UTF-8' });
+  const xrd = doc.ele('XRD', {
+    xmlns: 'http://docs.oasis-open.org/ns/xri/xrd-1.0',
+  });
 
   // Add subject if specified
   if (hostMeta.subject) {
     if (!validateUrl(hostMeta.subject)) {
       console.warn(`[@dwk/anglesite-11ty] Host-meta subject is not a valid URL: ${hostMeta.subject}`);
     }
-    xrd += `  <Subject>${escapeXml(hostMeta.subject)}</Subject>\n`;
+    xrd.ele('Subject').txt(hostMeta.subject);
   }
 
   // Add aliases
@@ -67,21 +56,21 @@ export function generateHostMetaXrd(website: AnglesiteWebsiteConfiguration): str
       if (!validateUrl(alias)) {
         console.warn(`[@dwk/anglesite-11ty] Host-meta alias is not a valid URL: ${alias}`);
       }
-      xrd += `  <Alias>${escapeXml(alias)}</Alias>\n`;
+      xrd.ele('Alias').txt(alias);
     }
   }
 
   // Add properties
   if (hostMeta.properties && hostMeta.properties.length > 0) {
     for (const prop of hostMeta.properties) {
-      xrd += `  <Property type="${escapeXml(prop.type)}">${escapeXml(prop.value)}</Property>\n`;
+      xrd.ele('Property', { type: prop.type }).txt(prop.value);
     }
   }
 
   // Add links
   if (hostMeta.links && hostMeta.links.length > 0) {
     for (const link of hostMeta.links) {
-      let linkElement = `  <Link rel="${escapeXml(link.rel)}"`;
+      const linkAttribs: Record<string, string> = { rel: link.rel };
 
       // Handle template links differently
       if (link.template) {
@@ -92,7 +81,7 @@ export function generateHostMetaXrd(website: AnglesiteWebsiteConfiguration): str
           );
         }
         if (link.href) {
-          linkElement += ` template="${escapeXml(link.href)}"`;
+          linkAttribs.template = link.href;
         }
       } else {
         // Validate non-template URLs
@@ -100,21 +89,19 @@ export function generateHostMetaXrd(website: AnglesiteWebsiteConfiguration): str
           console.warn(`[@dwk/anglesite-11ty] Host-meta link href is not a valid URL: ${link.href}`);
         }
         if (link.href) {
-          linkElement += ` href="${escapeXml(link.href)}"`;
+          linkAttribs.href = link.href;
         }
       }
 
       if (link.type) {
-        linkElement += ` type="${escapeXml(link.type)}"`;
+        linkAttribs.type = link.type;
       }
 
-      linkElement += ' />\n';
-      xrd += linkElement;
+      xrd.ele('Link', linkAttribs);
     }
   }
 
-  xrd += '</XRD>\n';
-  return xrd;
+  return doc.end({ prettyPrint: true, indent: '  ' });
 }
 
 /**

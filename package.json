@@ -22,11 +22,11 @@
     "lint": "eslint . && markdownlint '**/*.md' --ignore node_modules --ignore dist --ignore coverage && htmlhint '**/*.html' --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'coverage/**'",
     "lint:validate": "npm run lint && npm run lint:json",
     "lint:html": "htmlhint '**/*.html' --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'coverage/**'",
-    "lint:json": "node scripts/validate-json.cjs",
+    "lint:json": "node ../scripts/validate-json.cjs",
     "prelint": "npm run format",
     "pretest": "npm run lint && tsc --noEmit && npm run build",
     "test": "jest",
-    "test:coverage": "jest --coverage --config jest.coverage.config.cjs"
+    "test:coverage": "npm run test:coverage:anglesite-11ty --prefix ../"
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.1.2",
@@ -58,6 +58,7 @@
     "@11ty/eleventy-img": "^5.0.0",
     "@11ty/eleventy-plugin-webc": "^0.4.0",
     "html-minifier-terser": "^7.2.0",
+    "xmlbuilder2": "3.1.1",
     "yaml": "^2.8.1"
   }
 }

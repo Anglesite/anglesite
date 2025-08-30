@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import * as fs from 'fs';
 import * as path from 'path';
+import { create } from 'xmlbuilder2';
 import type { EleventyConfig } from '@11ty/eleventy';
 import { AnglesiteWebsiteConfiguration } from '../types/website.js';
 
@@ -11,34 +12,6 @@ import { AnglesiteWebsiteConfiguration } from '../types/website.js';
 interface EleventyData {
   /** Website configuration from data cascade */
   website: AnglesiteWebsiteConfiguration;
-}
-
-/**
- * Escapes special characters for safe XML output to prevent XML injection
- * @param unsafe - The potentially unsafe string to escape
- * @returns XML-safe string with escaped entities
- * @example
- * ```typescript
- * escapeXml('AT&T <Company>') // Returns: 'AT&amp;T &lt;Company&gt;'
- * ```
- */
-function escapeXml(unsafe: string): string {
-  return unsafe.replace(/[<>&'"]/g, (c) => {
-    switch (c) {
-      case '<':
-        return '&lt;';
-      case '>':
-        return '&gt;';
-      case '&':
-        return '&amp;';
-      case "'":
-        return '&apos;';
-      case '"':
-        return '&quot;';
-      default:
-        return c;
-    }
-  });
 }
 
 /**
@@ -143,32 +116,29 @@ export function generateBrowserConfig(website: AnglesiteWebsiteConfiguration): s
     return '';
   }
 
-  const xmlParts: string[] = [
-    '<?xml version="1.0" encoding="utf-8"?>',
-    '<browserconfig>',
-    '  <msapplication>',
-    '    <tile>',
-  ];
+  // Create XML document using xmlbuilder2
+  const doc = create({ version: '1.0', encoding: 'utf-8' });
+  const browserconfig = doc.ele('browserconfig');
+  const msapplication = browserconfig.ele('msapplication');
+  const tileElement = msapplication.ele('tile');
 
   if (tile.square70x70logo && validateImagePath(tile.square70x70logo)) {
-    xmlParts.push(`      <square70x70logo src="${escapeXml(tile.square70x70logo)}"/>`);
+    tileElement.ele('square70x70logo', { src: tile.square70x70logo });
   }
   if (tile.square150x150logo && validateImagePath(tile.square150x150logo)) {
-    xmlParts.push(`      <square150x150logo src="${escapeXml(tile.square150x150logo)}"/>`);
+    tileElement.ele('square150x150logo', { src: tile.square150x150logo });
   }
   if (tile.wide310x150logo && validateImagePath(tile.wide310x150logo)) {
-    xmlParts.push(`      <wide310x150logo src="${escapeXml(tile.wide310x150logo)}"/>`);
+    tileElement.ele('wide310x150logo', { src: tile.wide310x150logo });
   }
   if (tile.square310x310logo && validateImagePath(tile.square310x310logo)) {
-    xmlParts.push(`      <square310x310logo src="${escapeXml(tile.square310x310logo)}"/>`);
+    tileElement.ele('square310x310logo', { src: tile.square310x310logo });
   }
   if (tile.TileColor) {
-    xmlParts.push(`      <TileColor>${escapeXml(tile.TileColor)}</TileColor>`);
+    tileElement.ele('TileColor').txt(tile.TileColor);
   }
 
-  xmlParts.push('    </tile>', '  </msapplication>', '</browserconfig>');
-
-  return xmlParts.join('\n');
+  return doc.end({ prettyPrint: true, indent: '  ' });
 }
 
 /**
