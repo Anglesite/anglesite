@@ -208,6 +208,20 @@ describe('Webpack Configuration Tests', () => {
       performance: {
         maxEntrypointSize: number;
         maxAssetSize: number;
+        analyzer?: {
+          enabled: boolean;
+          analyzerMode?: string;
+          openAnalyzer?: boolean;
+          analyzerHost?: string;
+          analyzerPort?: number;
+          reportFilename?: string;
+          defaultSizes?: string;
+          excludeAssets?: RegExp;
+          logLevel?: string;
+          generateStatsFile?: boolean;
+          statsFilename?: string;
+          statsOptions?: object;
+        };
       };
     };
 
@@ -240,6 +254,44 @@ describe('Webpack Configuration Tests', () => {
       expect(typeof assetsConfig.performance.maxEntrypointSize).toBe('number');
       expect(typeof assetsConfig.performance.maxAssetSize).toBe('number');
     });
+
+    it('should have bundle analyzer configuration', () => {
+      expect(assetsConfig.performance.analyzer).toBeDefined();
+      expect(assetsConfig.performance.analyzer.enabled).toBeDefined();
+      expect(assetsConfig.performance.analyzer.analyzerMode).toBeDefined();
+      expect(assetsConfig.performance.analyzer.openAnalyzer).toBeDefined();
+      expect(assetsConfig.performance.analyzer.analyzerHost).toBeDefined();
+      expect(typeof assetsConfig.performance.analyzer.analyzerPort).toBe('number');
+      expect(assetsConfig.performance.analyzer.reportFilename).toBeDefined();
+      expect(assetsConfig.performance.analyzer.defaultSizes).toBeDefined();
+      expect(assetsConfig.performance.analyzer.excludeAssets).toBeInstanceOf(RegExp);
+      expect(assetsConfig.performance.analyzer.logLevel).toBeDefined();
+      expect(assetsConfig.performance.analyzer.generateStatsFile).toBeDefined();
+      expect(assetsConfig.performance.analyzer.statsFilename).toBeDefined();
+      expect(assetsConfig.performance.analyzer.statsOptions).toBeDefined();
+    });
+
+    it('should configure bundle analyzer based on environment variables', () => {
+      // This test verifies the bundle analyzer configuration structure
+      // The actual dynamic environment variable behavior is tested in integration tests
+      
+      // Test default configuration (without ANALYZE_BUNDLE)
+      const originalEnv = process.env.ANALYZE_BUNDLE;
+      delete process.env.ANALYZE_BUNDLE;
+      
+      const configPath = require.resolve('../../assets.config.js');
+      delete require.cache[configPath];
+      const defaultConfig = require('../../assets.config.js');
+      
+      expect(defaultConfig.performance.analyzer.enabled).toBe(false);
+      expect(defaultConfig.performance.analyzer.analyzerMode).toBe('server');
+      expect(defaultConfig.performance.analyzer.analyzerPort).toBe(8888);
+      
+      // Restore original env
+      if (originalEnv !== undefined) {
+        process.env.ANALYZE_BUNDLE = originalEnv;
+      }
+    });
   });
 
   describe('Package.json Scripts Integration', () => {
@@ -269,6 +321,29 @@ describe('Webpack Configuration Tests', () => {
       expect(devDeps).toHaveProperty('terser-webpack-plugin');
       expect(devDeps).toHaveProperty('@pmmmwh/react-refresh-webpack-plugin');
       expect(devDeps).toHaveProperty('copy-webpack-plugin');
+      expect(devDeps).toHaveProperty('webpack-bundle-analyzer');
+    });
+
+    it('should have bundle analyzer scripts', () => {
+      expect(packageJson.scripts['analyze:bundle']).toBeDefined();
+      expect(packageJson.scripts['analyze:bundle:server']).toBeDefined();
+      expect(packageJson.scripts['analyze:bundle:static']).toBeDefined();
+      expect(packageJson.scripts['analyze:bundle:json']).toBeDefined();
+      expect(packageJson.scripts['analyze:bundle:gzip']).toBeDefined();
+      expect(packageJson.scripts['analyze:bundle:stats']).toBeDefined();
+      expect(packageJson.scripts['analyze:bundle:ci']).toBeDefined();
+      expect(packageJson.scripts['analyze:view']).toBeDefined();
+      expect(packageJson.scripts['analyze:summary']).toBeDefined();
+      expect(packageJson.scripts['dev:react:analyze']).toBeDefined();
+    });
+
+    it('should have correct bundle analyzer script configurations', () => {
+      expect(packageJson.scripts['analyze:bundle']).toContain('ANALYZE_BUNDLE=true');
+      expect(packageJson.scripts['analyze:bundle:static']).toContain('ANALYZER_MODE=static');
+      expect(packageJson.scripts['analyze:bundle:json']).toContain('ANALYZER_MODE=json');
+      expect(packageJson.scripts['analyze:bundle:gzip']).toContain('ANALYZER_SIZES=gzip');
+      expect(packageJson.scripts['analyze:bundle:ci']).toContain('ANALYZER_OPEN=false');
+      expect(packageJson.scripts['dev:react:analyze']).toContain('ANALYZE_BUNDLE=true');
     });
   });
 

@@ -205,12 +205,21 @@ module.exports = merge(common, {
 
     /**
      * Bundle analyzer for production builds (optional)
-     * Helps identify optimization opportunities
+     * Comprehensive analysis with configurable options
      */
     analyzeBundle &&
       new BundleAnalyzerPlugin({
-        analyzerMode: 'server',
+        analyzerMode: ASSET_CONFIG.performance.analyzer.analyzerMode,
+        analyzerHost: ASSET_CONFIG.performance.analyzer.analyzerHost,
+        analyzerPort: ASSET_CONFIG.performance.analyzer.analyzerPort,
         openAnalyzer: ASSET_CONFIG.performance.analyzer.openAnalyzer,
+        reportFilename: ASSET_CONFIG.performance.analyzer.reportFilename,
+        defaultSizes: ASSET_CONFIG.performance.analyzer.defaultSizes,
+        excludeAssets: ASSET_CONFIG.performance.analyzer.excludeAssets,
+        logLevel: ASSET_CONFIG.performance.analyzer.logLevel,
+        generateStatsFile: ASSET_CONFIG.performance.analyzer.generateStatsFile,
+        statsFilename: ASSET_CONFIG.performance.analyzer.statsFilename,
+        statsOptions: ASSET_CONFIG.performance.analyzer.statsOptions,
       }),
   ].filter(Boolean),
 

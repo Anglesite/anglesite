@@ -123,10 +123,53 @@ const ASSET_CONFIG = {
     maxEntrypointSize: 512000, // 500KB
     maxAssetSize: 250000, // 250KB
 
-    // Bundle analysis
+    // Bundle analysis configuration
     analyzer: {
+      // Enable analyzer based on environment variable
       enabled: process.env.ANALYZE_BUNDLE === 'true',
-      openAnalyzer: true,
+      
+      // Analysis mode: 'server', 'static', 'json', or 'disabled'
+      analyzerMode: process.env.ANALYZER_MODE || 'server',
+      
+      // Automatically open analyzer in browser (server mode only)
+      openAnalyzer: process.env.ANALYZER_OPEN !== 'false',
+      
+      // Host and port for analyzer server
+      analyzerHost: process.env.ANALYZER_HOST || '127.0.0.1',
+      analyzerPort: parseInt(process.env.ANALYZER_PORT || '8888'),
+      
+      // Report file path for static mode
+      reportFilename: process.env.ANALYZER_REPORT || 'bundle-report.html',
+      
+      // Default sizes to show: 'stat', 'parsed', or 'gzip'
+      defaultSizes: process.env.ANALYZER_SIZES || 'parsed',
+      
+      // Exclude source maps from analysis
+      excludeAssets: /\.map$/,
+      
+      // Log level: 'info', 'warn', 'error', or 'silent'
+      logLevel: process.env.ANALYZER_LOG_LEVEL || 'info',
+      
+      // Generate JSON report for CI/automated analysis
+      generateStatsFile: process.env.ANALYZER_GENERATE_STATS === 'true',
+      statsFilename: 'bundle-stats.json',
+      
+      // Advanced options for detailed analysis
+      statsOptions: {
+        source: false,
+        modules: true,
+        chunks: true,
+        chunkModules: true,
+        chunkOrigins: true,
+        assets: true,
+        assetsSort: 'size',
+        reasons: true,
+        usedExports: true,
+        providedExports: true,
+        optimizationBailout: true,
+        errorDetails: true,
+        publicPath: true,
+      },
     },
   },
 

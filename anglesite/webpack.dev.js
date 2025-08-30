@@ -11,8 +11,12 @@ const path = require('path');
 const { merge } = require('webpack-merge');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const common = require('./webpack.common.js');
 const ASSET_CONFIG = require('./assets.config');
+
+/** Enable bundle analysis for development builds when requested */
+const analyzeBundle = process.env.ANALYZE_BUNDLE === 'true';
 
 /**
  * Development webpack configuration
@@ -154,7 +158,23 @@ module.exports = merge(common, {
         sockIntegration: 'whm',
       },
     }),
-  ],
+
+    /**
+     * Bundle analyzer for development builds (optional)
+     * Useful for analyzing development bundle sizes and dependencies
+     */
+    analyzeBundle &&
+      new BundleAnalyzerPlugin({
+        analyzerMode: ASSET_CONFIG.performance.analyzer.analyzerMode,
+        analyzerHost: ASSET_CONFIG.performance.analyzer.analyzerHost,
+        analyzerPort: ASSET_CONFIG.performance.analyzer.analyzerPort + 1, // Use different port for dev
+        openAnalyzer: ASSET_CONFIG.performance.analyzer.openAnalyzer,
+        reportFilename: 'bundle-report-dev.html',
+        defaultSizes: 'stat', // Use raw sizes for development analysis
+        excludeAssets: ASSET_CONFIG.performance.analyzer.excludeAssets,
+        logLevel: ASSET_CONFIG.performance.analyzer.logLevel,
+      }),
+  ].filter(Boolean),
 
   /**
    * Webpack Dev Server configuration for development
