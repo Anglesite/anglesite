@@ -196,8 +196,6 @@
     "htmlhint": "^1.6.3",
     "imagemin": "^9.0.1",
     "imagemin-avif-webpack-plugin": "^0.0.4",
-    "imagemin-webp": "^8.0.0",
-    "imagemin-webp-webpack-plugin": "^3.3.6",
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
     "jsdom": "^26.1.0",
@@ -227,7 +225,7 @@
   "dependencies": {
     "@11ty/eleventy": "^3.1.2",
     "@11ty/eleventy-dev-server": "^2.0.8",
-    "@11ty/eleventy-plugin-webc": "^0.11.2",
+    "@11ty/eleventy-plugin-webc": "0.11.2",
     "@dwk/anglesite-11ty": "^0.1.0",
     "@dwk/anglesite-starter": "*",
     "@dwk/web-components": "^0.1.0",

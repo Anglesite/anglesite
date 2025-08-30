@@ -13,7 +13,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const ImageminWebpWebpackPlugin = require('imagemin-webp-webpack-plugin');
+// Removed imagemin-webp-webpack-plugin due to security vulnerabilities
 const ImageminAvifWebpackPlugin = require('imagemin-avif-webpack-plugin');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const common = require('./webpack.common.js');
@@ -171,21 +171,8 @@ module.exports = merge(common, {
       chunkFilename: '[name].[contenthash:8].chunk.css',
     }),
 
-    /**
-     * WebP image optimization for modern browsers
-     * Reduces image file sizes by up to 25-30%
-     */
-    new ImageminWebpWebpackPlugin({
-      config: [
-        {
-          test: /\.(jpe?g|png)$/,
-          options: {
-            quality: ASSET_CONFIG.images.quality.webp,
-          },
-        },
-      ],
-      overrideExtension: false,
-    }),
+    // WebP image optimization removed due to security vulnerabilities
+    // in imagemin-webp-webpack-plugin dependency tree
 
     /**
      * AVIF image optimization for latest browsers
