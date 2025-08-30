@@ -29,7 +29,10 @@
       "WebSearch",
       "WebFetch(domain:oozcitak.github.io)",
       "Bash(git fetch:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(timeout 60s npm run test:coverage:*)",
+      "Bash(chmod:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": [],

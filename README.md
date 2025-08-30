@@ -52,11 +52,11 @@ Double check linting and tests. Spot check changes in app.
 - [x] Optimized source maps for development vs production
 - [x] Separate Dev/Prod webpack Configs
 - [x] Watch Mode Integration: File watching with incremental compilation
-- [ ] Bundle Analysis: webpack-bundle-analyzer integration
+- [x] Bundle Analysis: webpack-bundle-analyzer integration
 - [ ] Code Splitting
 - [ ] Concurrency in Development: concurrent package for parallel development
 - [ ] Add Microsoft Fluent UI
-- [ ] Build About box with "View Source" link
+- [ ] Build GeoCities themed About box with "View Source" link
 
 ### Phase 2: Remaining Work (60% incomplete)
 
@@ -122,7 +122,7 @@ WYSIWYG Editors (0% complete):
 
 - [x] XML NPM Package?
 - [ ] .well-known/dnt-policy.txt - Do Not Track policy
-- [ ] .well-known/gpc.json - Global Privacy Control support
+- [x] .well-known/gpc.json - Global Privacy Control support
 - [ ] .well-known/accessibility - Accessibility statement location
 - [ ] .well-known/privacy-policy - Privacy policy location (redirect)
 - [ ] .well-known/terms-of-service - Terms of service location (redirect)
