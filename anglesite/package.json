@@ -225,8 +225,8 @@
   "dependencies": {
     "@11ty/eleventy": "^3.1.2",
     "@11ty/eleventy-dev-server": "^2.0.8",
-    "@11ty/eleventy-plugin-webc": "0.11.2",
-    "@dwk/anglesite-11ty": "^0.1.0",
+    "@11ty/eleventy-plugin-webc": "0.12.0-beta.7",
+    "@dwk/anglesite-11ty": "^0.3.0",
     "@dwk/anglesite-starter": "*",
     "@dwk/web-components": "^0.1.0",
     "@json-editor/json-editor": "^2.15.2",
@@ -245,7 +245,6 @@
     "glob": "^11.0.3",
     "hostile": "^1.4.0",
     "js-yaml": "^4.1.0",
-    "live-server": "^1.2.2",
     "lucide-static": "^0.539.0",
     "mkcert": "^3.2.0",
     "native-is-elevated": "^0.7.0",
