@@ -18,6 +18,8 @@ import EleventyWebcPlugin from '@11ty/eleventy-plugin-webc';
 import type { EleventyConfig } from '@11ty/eleventy';
 
 export interface AnglesiteEleventyOptions {
+  /** Skip WebC plugin registration to avoid conflicts when WebC is registered elsewhere */
+  skipWebC?: boolean;
   /** Path pattern for WebC components */
   webComponents?: string;
   /** Additional options for the WebC plugin */
@@ -36,11 +38,17 @@ export default function anglesiteEleventy(
   // support index.11tydata.json for collection specific front-matter
   eleventyConfig.setDataFileBaseName('index');
 
-  // Add WebC plugin with configurable component paths
-  eleventyConfig.addPlugin(EleventyWebcPlugin, {
-    components: options.webComponents || '_includes/**/*.webc',
-    ...options.webcOptions,
-  });
+  // Ensure options is an object to prevent null reference errors
+  const safeOptions = options || {};
+
+  // Add WebC plugin with configurable component paths, unless skipWebC is true
+  // This prevents conflicts when WebC is registered by parent configurations
+  if (safeOptions.skipWebC !== true) {
+    eleventyConfig.addPlugin(EleventyWebcPlugin, {
+      components: safeOptions.webComponents || '_includes/**/*.webc',
+      ...safeOptions.webcOptions,
+    });
+  }
 
   // Add all plugins
   addShortcodes(eleventyConfig);
