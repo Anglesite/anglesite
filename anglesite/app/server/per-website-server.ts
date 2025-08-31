@@ -153,18 +153,14 @@ export async function startWebsiteServer(inputDir: string, websiteName: string, 
         // Import and add the anglesite-11ty plugin
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const anglesiteEleventy = require('@dwk/anglesite-11ty').default;
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const EleventyWebcPlugin = require('@11ty/eleventy-plugin-webc');
 
         // FIXME: Workaround for eleventy-plugin-webc issue
         eleventyConfig.setFreezeReservedData(false);
 
-        // Add anglesite-11ty plugin
-        eleventyConfig.addPlugin(anglesiteEleventy);
-
-        // Add WebC plugin with components path relative to the src directory
-        eleventyConfig.addPlugin(EleventyWebcPlugin, {
-          components: '_includes/**/*.webc', // This will be relative to srcAbsolutePath
+        // Add anglesite-11ty plugin with WebC configuration
+        eleventyConfig.addPlugin(anglesiteEleventy, {
+          // Don't skip WebC here since we want the anglesite-11ty package to handle it
+          webComponents: '_includes/**/*.webc', // This will be relative to srcAbsolutePath
         });
 
         // Add global data

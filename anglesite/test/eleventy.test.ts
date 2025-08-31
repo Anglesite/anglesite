@@ -63,7 +63,9 @@ describe('Eleventy Configuration', () => {
     const anglesitePlugin = require('@dwk/anglesite-11ty');
     eleventyConfig(mockConfig);
 
-    expect(mockConfig.addPlugin).toHaveBeenCalledWith(anglesitePlugin);
+    expect(mockConfig.addPlugin).toHaveBeenCalledWith(anglesitePlugin, {
+      skipWebC: true,
+    });
   });
 
   it('should add WebC plugin with correct component paths', () => {
@@ -79,7 +81,7 @@ describe('Eleventy Configuration', () => {
 
     expect(webCCall).toBeDefined();
     expect(webCCall?.[1]).toEqual({
-      components: 'src/_includes/**/*.webc',
+      components: '_includes/**/*.webc', // Standardized path
     });
   });
 
