@@ -451,3 +451,5 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
     </div>
   );
 };
+
+export default WebsiteConfigEditor;

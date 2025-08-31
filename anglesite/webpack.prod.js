@@ -239,15 +239,54 @@ module.exports = merge(common, {
     ],
 
     /**
-     * Code splitting configuration for optimal caching
-     * Separates vendor code from application code
+     * Enhanced code splitting configuration for optimal caching
+     * Separates vendor libraries into logical chunks for better performance
      */
     splitChunks: {
       chunks: 'all',
+      maxAsyncRequests: 20,
+      maxInitialRequests: 10,
       cacheGroups: {
         /**
-         * Vendor chunk for third-party libraries
-         * High priority to ensure consistent splitting
+         * React ecosystem chunk (react, react-dom)
+         * Critical libraries loaded immediately
+         */
+        react: {
+          test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+          name: 'react',
+          priority: 40,
+          reuseExistingChunk: true,
+          enforce: true,
+        },
+
+        /**
+         * Form libraries chunk (@rjsf, ajv)  
+         * Heavy dependencies separated due to size (1+ MB)
+         */
+        forms: {
+          test: /[\\/]node_modules[\\/](@rjsf|ajv|ajv-formats)[\\/]/,
+          name: 'forms',
+          priority: 30,
+          reuseExistingChunk: true,
+          chunks: 'all', // Split for all chunks to enable separation
+          enforce: true,
+          minSize: 50000, // Lower threshold for async chunks
+        },
+
+        /**
+         * Utility libraries chunk (lodash)
+         * Common utilities separated for better caching
+         */
+        utils: {
+          test: /[\\/]node_modules[\\/](lodash|lodash-es)[\\/]/,
+          name: 'utils',
+          priority: 25,
+          reuseExistingChunk: true,
+        },
+
+        /**
+         * Remaining vendor chunk for other third-party libraries
+         * Lower priority catches everything else
          */
         vendor: {
           test: /[\\/]node_modules[\\/]/,
@@ -258,7 +297,7 @@ module.exports = merge(common, {
 
         /**
          * Common chunk for shared application code
-         * Lower priority than vendor chunks
+         * Lowest priority for application code
          */
         common: {
           name: 'common',

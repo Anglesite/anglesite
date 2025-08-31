@@ -14,8 +14,6 @@ export default {
   testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
   testPathIgnorePatterns: [
     '/node_modules/',
-    // Temporarily skip problematic certificate tests that hang due to mocking issues
-    'test/app/certificates.test.ts',
   ],
   moduleNameMapper: {
     '^../../app/eleventy/.eleventy$': '<rootDir>/app/eleventy/config.eleventy.ts',

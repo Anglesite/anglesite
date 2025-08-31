@@ -76,6 +76,9 @@ jest.doMock('electron', () => ({
   },
 }));
 
+// Import jest-dom matchers
+import '@testing-library/jest-dom';
+
 // Import custom matchers to make them available in all test files
 import './matchers/custom-matchers';
 
