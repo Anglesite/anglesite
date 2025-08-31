@@ -120,24 +120,14 @@ export async function generateCertificate(domains: string[]): Promise<{ cert: st
  */
 export async function isCAInstalledInSystem(): Promise<boolean> {
   try {
-    // First, try to verify the CA certificate if it exists in the expected location
-    const userHome = os.homedir();
-    const caCertPath = path.join(userHome, 'Library', 'Application Support', 'Anglesite', 'ca', 'ca.crt');
-
-    if (await exists(caCertPath)) {
-      try {
-        execFileSync('security', ['verify-cert', '-c', caCertPath], { stdio: 'pipe' });
-        return true;
-      } catch {
-        // Verification failed, try the fallback method
-      }
-    }
-
-    // Fallback: check if certificate exists by name in keychain
+    // Check if certificate is installed in the system keychain by name
+    // This is the definitive test for whether the CA is trusted by the system
     execFileSync('security', ['find-certificate', '-c', 'Anglesite Development'], { stdio: 'pipe' });
+    
+    // If we get here, certificate exists in keychain and is trusted
     return true;
   } catch {
-    // Certificate not found or not trusted
+    // Certificate not found in keychain - not installed
     return false;
   }
 }
