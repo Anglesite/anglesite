@@ -247,17 +247,53 @@ module.exports = merge(common, {
         },
 
         /**
-         * Form libraries chunk (@rjsf, ajv)
+         * Form libraries chunk (@rjsf, ajv, mui) - async only for lazy loading
          * Heavy dependencies separated due to size (1+ MB)
          */
         forms: {
-          test: /[\\/]node_modules[\\/](@rjsf|ajv|ajv-formats)[\\/]/,
+          test: /[\\/]node_modules[\\/](@rjsf|ajv|ajv-formats|@mui|@emotion)[\\/]/,
           name: 'forms',
-          priority: 30,
+          priority: 35,
           reuseExistingChunk: true,
-          chunks: 'all', // Split for all chunks to enable separation
+          chunks: 'async', // Only split async chunks (lazy imports)
           enforce: true,
-          minSize: 50000, // Lower threshold for async chunks
+          minSize: 10000, // Lower threshold for better splitting
+        },
+
+        /**
+         * JSON processing libraries chunk
+         * Separate JSON-heavy dependencies for better caching
+         */
+        json: {
+          test: /[\\/]node_modules[\\/](js-yaml|@json-editor)[\\/]/,
+          name: 'json',
+          priority: 28,
+          reuseExistingChunk: true,
+          chunks: 'all',
+        },
+
+        /**
+         * Node.js utilities chunk (archiver, chokidar, glob)
+         * File system and archive utilities
+         */
+        nodeUtils: {
+          test: /[\\/]node_modules[\\/](archiver|chokidar|glob|bagit-fs)[\\/]/,
+          name: 'node-utils',
+          priority: 26,
+          reuseExistingChunk: true,
+        },
+
+        /**
+         * Fluent UI Web Components chunk - async only for lazy loading
+         * Framework-agnostic design system components
+         */
+        fluentui: {
+          test: /[\\/]node_modules[\\/]@fluentui[\\/]web-components[\\/]/,
+          name: 'fluentui',
+          priority: 25,
+          reuseExistingChunk: true,
+          chunks: 'async', // Only split async chunks (lazy imports)
+          enforce: true,
         },
 
         /**

@@ -116,44 +116,44 @@ const ASSET_CONFIG = {
     clean: true,
   },
 
-  // Performance settings
+  // Performance settings - adjusted for Electron desktop app
   performance: {
-    // Asset size warnings
+    // Asset size warnings - more lenient for desktop apps with local loading
     hints: 'warning',
-    maxEntrypointSize: 512000, // 500KB
-    maxAssetSize: 250000, // 250KB
+    maxEntrypointSize: 1200000, // 1.2MB - reasonable for desktop app initial load
+    maxAssetSize: 800000, // 800KB - allows for vendor chunks in desktop environment
 
     // Bundle analysis configuration
     analyzer: {
       // Enable analyzer based on environment variable
       enabled: process.env.ANALYZE_BUNDLE === 'true',
-      
+
       // Analysis mode: 'server', 'static', 'json', or 'disabled'
       analyzerMode: process.env.ANALYZER_MODE || 'server',
-      
+
       // Automatically open analyzer in browser (server mode only)
       openAnalyzer: process.env.ANALYZER_OPEN !== 'false',
-      
+
       // Host and port for analyzer server
       analyzerHost: process.env.ANALYZER_HOST || '127.0.0.1',
       analyzerPort: parseInt(process.env.ANALYZER_PORT || '8888'),
-      
+
       // Report file path for static mode
       reportFilename: process.env.ANALYZER_REPORT || 'bundle-report.html',
-      
+
       // Default sizes to show: 'stat', 'parsed', or 'gzip'
       defaultSizes: process.env.ANALYZER_SIZES || 'parsed',
-      
+
       // Exclude source maps from analysis
       excludeAssets: /\.map$/,
-      
+
       // Log level: 'info', 'warn', 'error', or 'silent'
       logLevel: process.env.ANALYZER_LOG_LEVEL || 'info',
-      
+
       // Generate JSON report for CI/automated analysis
       generateStatsFile: process.env.ANALYZER_GENERATE_STATS === 'true',
       statsFilename: 'bundle-stats.json',
-      
+
       // Advanced options for detailed analysis
       statsOptions: {
         source: false,

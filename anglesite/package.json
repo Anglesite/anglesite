@@ -238,6 +238,7 @@
     "@dwk/anglesite-11ty": "^0.3.0",
     "@dwk/anglesite-starter": "*",
     "@dwk/web-components": "^0.1.0",
+    "@fluentui/web-components": "2.6.1",
     "@json-editor/json-editor": "^2.15.2",
     "@rjsf/core": "^5.24.13",
     "@rjsf/mui": "^5.24.13",

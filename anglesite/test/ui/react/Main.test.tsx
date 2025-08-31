@@ -11,12 +11,12 @@ describe('Main Component Code Splitting', () => {
   it('should have lazy loading implementation', () => {
     const fs = require('fs');
     const path = require('path');
-    
+
     const mainPath = path.resolve(__dirname, '../../../app/ui/react/components/Main.tsx');
     expect(fs.existsSync(mainPath)).toBe(true);
-    
+
     const mainContent = fs.readFileSync(mainPath, 'utf8');
-    
+
     // Check for lazy loading patterns
     expect(mainContent).toMatch(/lazy\(/);
     expect(mainContent).toMatch(/import\s*\(/);
@@ -27,10 +27,10 @@ describe('Main Component Code Splitting', () => {
   it('should have Error Boundary for lazy components', () => {
     const fs = require('fs');
     const path = require('path');
-    
+
     const mainPath = path.resolve(__dirname, '../../../app/ui/react/components/Main.tsx');
     const mainContent = fs.readFileSync(mainPath, 'utf8');
-    
+
     // Check for Error Boundary implementation
     expect(mainContent).toMatch(/class.*ErrorBoundary.*extends.*Component/);
     expect(mainContent).toMatch(/getDerivedStateFromError/);
@@ -41,10 +41,10 @@ describe('Main Component Code Splitting', () => {
   it('should have conditional lazy loading', () => {
     const fs = require('fs');
     const path = require('path');
-    
+
     const mainPath = path.resolve(__dirname, '../../../app/ui/react/components/Main.tsx');
     const mainContent = fs.readFileSync(mainPath, 'utf8');
-    
+
     // Check that lazy import is done conditionally
     expect(mainContent).toMatch(/case\s+['"]website-config['"]/);
     expect(mainContent).toMatch(/const\s+WebsiteConfigEditor\s*=/);
@@ -53,10 +53,10 @@ describe('Main Component Code Splitting', () => {
   it('should have proper fallback UI for loading states', () => {
     const fs = require('fs');
     const path = require('path');
-    
+
     const mainPath = path.resolve(__dirname, '../../../app/ui/react/components/Main.tsx');
     const mainContent = fs.readFileSync(mainPath, 'utf8');
-    
+
     // Check for loading and error fallbacks
     expect(mainContent).toMatch(/Loading configuration editor/);
     expect(mainContent).toMatch(/Failed to load configuration editor/);
@@ -66,10 +66,10 @@ describe('Main Component Code Splitting', () => {
   it('should export Main component properly', () => {
     const fs = require('fs');
     const path = require('path');
-    
+
     const mainPath = path.resolve(__dirname, '../../../app/ui/react/components/Main.tsx');
     const mainContent = fs.readFileSync(mainPath, 'utf8');
-    
+
     // Check for proper export
     expect(mainContent).toMatch(/export.*Main/);
   });

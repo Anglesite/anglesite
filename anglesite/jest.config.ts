@@ -12,9 +12,7 @@ export default {
   setupFiles: ['<rootDir>/test/setup/jest-setup.ts'],
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
   testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
-  testPathIgnorePatterns: [
-    '/node_modules/',
-  ],
+  testPathIgnorePatterns: ['/node_modules/'],
   moduleNameMapper: {
     '^../../app/eleventy/.eleventy$': '<rootDir>/app/eleventy/config.eleventy.ts',
     '^@11ty/eleventy$': '<rootDir>/test/mocks/__mocks__/eleventy.js',

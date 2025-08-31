@@ -276,13 +276,15 @@ export class StoreService implements IStore {
 
       const fileExists = await this.fileSystem.exists(this.path);
       if (!fileExists) {
-        this.logger.info('Settings file does not exist, using defaults');
+        this.logger.info('Settings file does not exist, creating with defaults');
+        await this.saveDataAsync();
         return;
       }
 
       const fileContent = (await this.fileSystem.readFile(this.path, 'utf-8')) as string;
-      if (!fileContent.trim()) {
-        this.logger.warn('Settings file is empty, using defaults');
+      if (!fileContent.trim() || fileContent.trim() === '{}') {
+        this.logger.warn('Settings file is empty or corrupted, recreating with defaults');
+        await this.saveDataAsync();
         return;
       }
 
@@ -296,7 +298,10 @@ export class StoreService implements IStore {
         // Backup the corrupted file
         const backupPath = `${this.path}.backup.${Date.now()}`;
         await this.fileSystem.writeFile(backupPath, fileContent, 'utf-8');
-        this.logger.warn('Settings file corrupted, backed up and using defaults', { backupPath });
+        this.logger.warn('Settings file corrupted, backed up and recreating with defaults', { backupPath });
+        
+        // Recreate settings file with defaults
+        await this.saveDataAsync();
       }
     } catch (error) {
       this.logger.error('Error initializing settings from file', error as Error);

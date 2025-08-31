@@ -603,14 +603,14 @@ describe('Per-Website Server', () => {
       expect(mockEleventyConfig.addPlugin).toHaveBeenCalledWith(
         expect.any(Function), // The actual function, not the mock string
         expect.objectContaining({
-          webComponents: '_includes/**/*.webc'
+          webComponents: '_includes/**/*.webc',
         })
       );
 
       // Verify WebC plugin is NOT registered directly
       const pluginCalls = mockEleventyConfig.addPlugin.mock.calls;
-      const webCDirectCall = pluginCalls.find(call => 
-        call[0] && typeof call[0] === 'string' && call[0].includes('webc')
+      const webCDirectCall = pluginCalls.find(
+        (call) => call[0] && typeof call[0] === 'string' && call[0].includes('webc')
       );
       expect(webCDirectCall).toBeUndefined();
 

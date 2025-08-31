@@ -274,19 +274,19 @@ describe('Webpack Configuration Tests', () => {
     it('should configure bundle analyzer based on environment variables', () => {
       // This test verifies the bundle analyzer configuration structure
       // The actual dynamic environment variable behavior is tested in integration tests
-      
+
       // Test default configuration (without ANALYZE_BUNDLE)
       const originalEnv = process.env.ANALYZE_BUNDLE;
       delete process.env.ANALYZE_BUNDLE;
-      
+
       const configPath = require.resolve('../../assets.config.js');
       delete require.cache[configPath];
       const defaultConfig = require('../../assets.config.js');
-      
+
       expect(defaultConfig.performance.analyzer.enabled).toBe(false);
       expect(defaultConfig.performance.analyzer.analyzerMode).toBe('server');
       expect(defaultConfig.performance.analyzer.analyzerPort).toBe(8888);
-      
+
       // Restore original env
       if (originalEnv !== undefined) {
         process.env.ANALYZE_BUNDLE = originalEnv;

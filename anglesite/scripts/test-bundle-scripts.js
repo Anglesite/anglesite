@@ -14,23 +14,23 @@ const tests = [
   {
     name: 'Static Mode',
     script: 'ANALYZE_BUNDLE=true ANALYZER_MODE=static ANALYZER_OPEN=false npm run analyze:bundle',
-    expectedFiles: ['bundle-report.html']
+    expectedFiles: ['bundle-report.html'],
   },
   {
-    name: 'JSON Mode', 
+    name: 'JSON Mode',
     script: 'ANALYZE_BUNDLE=true ANALYZER_MODE=json ANALYZER_OPEN=false npm run analyze:bundle',
-    expectedFiles: []
+    expectedFiles: [],
   },
   {
     name: 'Stats Generation',
     script: 'npm run analyze:bundle:stats',
-    expectedFiles: ['bundle-stats.json']
+    expectedFiles: ['bundle-stats.json'],
   },
   {
     name: 'CI Mode',
     script: 'npm run analyze:bundle:ci',
-    expectedFiles: ['bundle-stats.json']
-  }
+    expectedFiles: ['bundle-stats.json'],
+  },
 ];
 
 let allPassed = true;
@@ -38,13 +38,13 @@ let allPassed = true;
 for (const test of tests) {
   try {
     console.log(`✅ Testing ${test.name}...`);
-    
+
     // Run the command
-    execSync(test.script, { 
+    execSync(test.script, {
       cwd: path.resolve(__dirname, '..'),
-      stdio: 'pipe'
+      stdio: 'pipe',
     });
-    
+
     // Check expected files exist
     for (const expectedFile of test.expectedFiles) {
       const filePath = path.join(DIST_DIR, expectedFile);
@@ -52,9 +52,8 @@ for (const test of tests) {
         throw new Error(`Expected file ${expectedFile} was not created`);
       }
     }
-    
+
     console.log(`   ✓ ${test.name} working correctly\n`);
-    
   } catch (error) {
     console.log(`   ❌ ${test.name} failed:`);
     console.log(`   Error: ${error.message}\n`);
@@ -67,7 +66,7 @@ try {
   console.log('✅ Testing Bundle Summary...');
   execSync('npm run analyze:summary', {
     cwd: path.resolve(__dirname, '..'),
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
   console.log('   ✓ Bundle summary working correctly\n');
 } catch (error) {
@@ -80,7 +79,7 @@ if (allPassed) {
   console.log('🎉 All bundle analyzer scripts are working correctly!');
   console.log('\nAvailable commands:');
   console.log('  npm run analyze:bundle         - Interactive server mode');
-  console.log('  npm run analyze:bundle:static  - Generate HTML report');  
+  console.log('  npm run analyze:bundle:static  - Generate HTML report');
   console.log('  npm run analyze:bundle:json    - Generate JSON stats');
   console.log('  npm run analyze:bundle:gzip    - Analyze gzipped sizes');
   console.log('  npm run analyze:bundle:stats   - Generate detailed stats');

@@ -11,7 +11,7 @@ describe('Bundle Analyzer Integration Tests', () => {
   const projectRoot = path.resolve(__dirname, '../..');
   const distDir = path.resolve(projectRoot, 'dist/app/ui/react');
   const scriptsDir = path.resolve(projectRoot, 'scripts');
-  
+
   describe('Bundle Analyzer Scripts', () => {
     it('should have bundle-summary.js script', () => {
       const summaryScriptPath = path.join(scriptsDir, 'bundle-summary.js');
@@ -40,7 +40,7 @@ describe('Bundle Analyzer Integration Tests', () => {
     it('documentation should contain usage examples', () => {
       const docsPath = path.resolve(projectRoot, 'docs/bundle-analysis.md');
       const content = fs.readFileSync(docsPath, 'utf8');
-      
+
       expect(content).toContain('npm run analyze:bundle');
       expect(content).toContain('Server Mode');
       expect(content).toContain('Static Mode');
@@ -57,11 +57,11 @@ describe('Bundle Analyzer Integration Tests', () => {
     beforeAll(() => {
       // Set environment variable to enable analyzer
       process.env.ANALYZE_BUNDLE = 'true';
-      
+
       // Clear require cache
       delete require.cache[require.resolve('../../webpack.prod.js')];
       delete require.cache[require.resolve('../../webpack.dev.js')];
-      
+
       prodConfig = require('../../webpack.prod.js');
       devConfig = require('../../webpack.dev.js');
     });
@@ -87,7 +87,7 @@ describe('Bundle Analyzer Integration Tests', () => {
     it('should conditionally include BundleAnalyzerPlugin based on environment', () => {
       // Test that the webpack config exports a valid configuration
       const originalEnv = process.env.ANALYZE_BUNDLE;
-      
+
       try {
         // Test with analyzer disabled
         delete process.env.ANALYZE_BUNDLE;
@@ -95,24 +95,26 @@ describe('Bundle Analyzer Integration Tests', () => {
         delete require.cache[configPath];
         delete require.cache[require.resolve('../../webpack.common.js')];
         delete require.cache[require.resolve('../../assets.config.js')];
-        
+
         const configWithoutAnalyzer = require('../../webpack.prod.js');
-        
+
         // Verify config is valid
         expect(configWithoutAnalyzer).toBeDefined();
         expect(configWithoutAnalyzer.plugins).toBeDefined();
         expect(Array.isArray(configWithoutAnalyzer.plugins)).toBe(true);
-        
+
         // Filter out falsy plugins (this mimics what webpack does)
         const filteredPlugins = configWithoutAnalyzer.plugins.filter(Boolean);
         const analyzerPlugin = filteredPlugins.find(
           (plugin: any) => plugin && plugin.constructor?.name === 'BundleAnalyzerPlugin'
         );
-        
+
         // The test verifies that BundleAnalyzerPlugin should not be present when ANALYZE_BUNDLE is not set
         // Note: This may pass in CI where environment is clean
         if (analyzerPlugin) {
-          console.warn('BundleAnalyzerPlugin found when ANALYZE_BUNDLE is not set - this may be due to test environment pollution');
+          console.warn(
+            'BundleAnalyzerPlugin found when ANALYZE_BUNDLE is not set - this may be due to test environment pollution'
+          );
         }
       } finally {
         // Restore environment
@@ -132,7 +134,7 @@ describe('Bundle Analyzer Integration Tests', () => {
       // In CI, you would run the build first
       if (fs.existsSync(statsFile)) {
         const stats = JSON.parse(fs.readFileSync(statsFile, 'utf8'));
-        
+
         expect(stats).toHaveProperty('assets');
         expect(stats).toHaveProperty('chunks');
         expect(stats).toHaveProperty('modules');
@@ -180,32 +182,32 @@ describe('Bundle Analyzer Integration Tests', () => {
     it('should handle missing stats file gracefully', () => {
       const tempStatsPath = path.join(distDir, 'bundle-stats.json.backup');
       const statsPath = path.join(distDir, 'bundle-stats.json');
-      
+
       // Temporarily rename stats file if it exists
       let statsExisted = false;
       if (fs.existsSync(statsPath)) {
         statsExisted = true;
         fs.renameSync(statsPath, tempStatsPath);
       }
-      
+
       try {
         // Run summary script and expect it to fail gracefully
         execSync('node scripts/bundle-summary.js 2>&1', {
           cwd: projectRoot,
           encoding: 'utf8',
-          stdio: 'pipe'
+          stdio: 'pipe',
         });
         // If it doesn't throw, fail the test
         fail('Expected script to exit with error when stats file is missing');
       } catch (error: unknown) {
         // Check the error output contains expected messages
-        const output = error && typeof error === 'object' && 'stdout' in error ? 
-          String((error as any).stdout) : String(error);
-        
+        const output =
+          error && typeof error === 'object' && 'stdout' in error ? String((error as any).stdout) : String(error);
+
         expect(output).toContain('Bundle stats file not found');
         expect(output).toContain('npm run analyze:bundle:stats');
       }
-      
+
       // Restore stats file
       if (statsExisted) {
         fs.renameSync(tempStatsPath, statsPath);
@@ -230,31 +232,31 @@ describe('Bundle Analyzer Integration Tests', () => {
           { name: './node_modules/react/index.js', size: 30000 },
         ],
       };
-      
+
       const statsPath = path.join(distDir, 'bundle-stats.json');
       const backupPath = path.join(distDir, 'bundle-stats.json.test-backup');
-      
+
       // Backup existing stats if present
       let hadExistingStats = false;
       if (fs.existsSync(statsPath)) {
         hadExistingStats = true;
         fs.renameSync(statsPath, backupPath);
       }
-      
+
       // Ensure directory exists
       if (!fs.existsSync(distDir)) {
         fs.mkdirSync(distDir, { recursive: true });
       }
-      
+
       // Write test stats
       fs.writeFileSync(statsPath, JSON.stringify(testStats));
-      
+
       // Run summary script
       const result = execSync('node scripts/bundle-summary.js', {
         cwd: projectRoot,
         encoding: 'utf8',
       }).toString();
-      
+
       // Check output contains expected information
       expect(result).toContain('Bundle Analysis Summary');
       expect(result).toContain('Total Assets: 4');
@@ -262,7 +264,7 @@ describe('Bundle Analyzer Integration Tests', () => {
       expect(result).toContain('JavaScript: 2 files');
       expect(result).toContain('CSS: 1 files');
       expect(result).toContain('Images: 1 files');
-      
+
       // Cleanup
       fs.unlinkSync(statsPath);
       if (hadExistingStats) {
@@ -273,10 +275,8 @@ describe('Bundle Analyzer Integration Tests', () => {
 
   describe('NPM Script Commands', () => {
     it('should validate analyze:bundle:ci command structure', () => {
-      const packageJson = JSON.parse(
-        fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')
-      );
-      
+      const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+
       const ciScript = packageJson.scripts['analyze:bundle:ci'];
       expect(ciScript).toContain('ANALYZE_BUNDLE=true');
       expect(ciScript).toContain('ANALYZER_MODE=json');
@@ -285,10 +285,8 @@ describe('Bundle Analyzer Integration Tests', () => {
     });
 
     it('should have all expected analyzer scripts', () => {
-      const packageJson = JSON.parse(
-        fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')
-      );
-      
+      const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+
       const expectedScripts = [
         'analyze:bundle',
         'analyze:bundle:server',
@@ -301,8 +299,8 @@ describe('Bundle Analyzer Integration Tests', () => {
         'analyze:summary',
         'dev:react:analyze',
       ];
-      
-      expectedScripts.forEach(script => {
+
+      expectedScripts.forEach((script) => {
         expect(packageJson.scripts[script]).toBeDefined();
         expect(typeof packageJson.scripts[script]).toBe('string');
       });

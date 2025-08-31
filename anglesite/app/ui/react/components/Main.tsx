@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, Component } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { FluentButton } from '../fluent/FluentButton';
 
 // Error Boundary for lazy-loaded components
 class LazyComponentErrorBoundary extends Component<
@@ -35,10 +36,10 @@ export const Main: React.FC = () => {
     switch (state.currentView) {
       case 'website-config':
         // Create lazy import only when needed to ensure async chunk creation
-        const WebsiteConfigEditor = lazy(() => 
-          import(/* webpackChunkName: "website-config-editor" */ './WebsiteConfigEditor')
+        const WebsiteConfigEditor = lazy(
+          () => import(/* webpackChunkName: "website-config-editor" */ './WebsiteConfigEditor')
         );
-        
+
         return (
           <LazyComponentErrorBoundary
             fallback={
@@ -47,18 +48,9 @@ export const Main: React.FC = () => {
                 <div style={{ color: 'var(--error-color)', marginBottom: '12px' }}>
                   Failed to load configuration editor. Please refresh the page to try again.
                 </div>
-                <button
-                  onClick={() => window.location.reload()}
-                  style={{
-                    padding: '8px 16px',
-                    background: 'var(--button-bg)',
-                    border: '1px solid var(--border-primary)',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                  }}
-                >
+                <FluentButton onClick={() => window.location.reload()} appearance="accent">
                   Refresh Page
-                </button>
+                </FluentButton>
               </div>
             }
           >

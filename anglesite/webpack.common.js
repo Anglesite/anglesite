@@ -99,7 +99,10 @@ module.exports = {
           from: path.resolve(__dirname, 'icons'),
           to: path.resolve(__dirname, 'dist/app/ui/react/assets/icons'),
           globOptions: {
-            ignore: ['**/src/**'], // Ignore source SVG files
+            ignore: [
+              '**/src/**', // Ignore source SVG files
+              '**/icon.png', // Ignore large 1024x1024 icon (318 KiB)
+            ],
           },
         },
       ],

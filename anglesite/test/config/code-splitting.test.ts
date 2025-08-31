@@ -54,15 +54,15 @@ describe('Code Splitting Configuration', () => {
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('react');
-      
-      const reactGroup = cacheGroups?.react;
-      expect(reactGroup).toMatchObject({
-        name: 'react',
-        priority: 40,
-        reuseExistingChunk: true,
-        enforce: true,
-      });
-      
+
+        const reactGroup = cacheGroups?.react;
+        expect(reactGroup).toMatchObject({
+          name: 'react',
+          priority: 40,
+          reuseExistingChunk: true,
+          enforce: true,
+        });
+
         // Test regex pattern for React libraries
         const testPath = '/node_modules/react-dom/index.js';
         expect(reactGroup.test.test(testPath)).toBe(true);
@@ -74,17 +74,17 @@ describe('Code Splitting Configuration', () => {
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('forms');
-      
-      const formsGroup = cacheGroups?.forms;
-      expect(formsGroup).toMatchObject({
-        name: 'forms',
-        priority: 30,
-        reuseExistingChunk: true,
-        chunks: 'all',
-        enforce: true,
-        minSize: 50000, // 50KB minimum
-      });
-      
+
+        const formsGroup = cacheGroups?.forms;
+        expect(formsGroup).toMatchObject({
+          name: 'forms',
+          priority: 30,
+          reuseExistingChunk: true,
+          chunks: 'all',
+          enforce: true,
+          minSize: 50000, // 50KB minimum
+        });
+
         // Test regex pattern for form libraries
         const rjsfPath = '/node_modules/@rjsf/core/index.js';
         const ajvPath = '/node_modules/ajv/index.js';
@@ -98,14 +98,14 @@ describe('Code Splitting Configuration', () => {
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('utils');
-      
-      const utilsGroup = cacheGroups?.utils;
-      expect(utilsGroup).toMatchObject({
-        name: 'utils',
-        priority: 25,
-        reuseExistingChunk: true,
-      });
-      
+
+        const utilsGroup = cacheGroups?.utils;
+        expect(utilsGroup).toMatchObject({
+          name: 'utils',
+          priority: 25,
+          reuseExistingChunk: true,
+        });
+
         // Test regex pattern for lodash
         const lodashPath = '/node_modules/lodash/index.js';
         const lodashEsPath = '/node_modules/lodash-es/index.js';
@@ -119,14 +119,14 @@ describe('Code Splitting Configuration', () => {
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('vendor');
-      
-      const vendorGroup = cacheGroups?.vendor;
-      expect(vendorGroup).toMatchObject({
-        name: 'vendors',
-        priority: 10,
-        reuseExistingChunk: true,
-      });
-      
+
+        const vendorGroup = cacheGroups?.vendor;
+        expect(vendorGroup).toMatchObject({
+          name: 'vendors',
+          priority: 10,
+          reuseExistingChunk: true,
+        });
+
         // Test that it catches node_modules
         const vendorPath = '/node_modules/some-package/index.js';
         expect(vendorGroup.test.test(vendorPath)).toBe(true);
@@ -138,11 +138,11 @@ describe('Code Splitting Configuration', () => {
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('common');
-      
-      const commonGroup = cacheGroups?.common;
-      expect(commonGroup).toMatchObject({
-        name: 'common',
-        minChunks: 2,
+
+        const commonGroup = cacheGroups?.common;
+        expect(commonGroup).toMatchObject({
+          name: 'common',
+          minChunks: 2,
           priority: 5,
           reuseExistingChunk: true,
         });
@@ -153,7 +153,7 @@ describe('Code Splitting Configuration', () => {
       const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
-      
+
         // Priority should be: react > forms > utils > vendor > common
         expect(cacheGroups?.react?.priority).toBe(40);
         expect(cacheGroups?.forms?.priority).toBe(30);
@@ -188,13 +188,9 @@ describe('Code Splitting Configuration', () => {
       const rules = prodConfig.module?.rules || [];
       const tsRule = rules.find(
         (rule) =>
-          rule && 
-          typeof rule === 'object' && 
-          'test' in rule && 
-          rule.test instanceof RegExp && 
-          rule.test.test('.tsx')
+          rule && typeof rule === 'object' && 'test' in rule && rule.test instanceof RegExp && rule.test.test('.tsx')
       );
-      
+
       expect(tsRule).toBeDefined();
       if (tsRule && typeof tsRule === 'object' && 'use' in tsRule) {
         const tsLoader = Array.isArray(tsRule.use) ? tsRule.use[0] : tsRule.use;
@@ -232,14 +228,14 @@ describe('Code Splitting Configuration', () => {
       // The webpack.prod.js includes BundleAnalyzerPlugin conditionally
       // based on the analyzeBundle variable which checks process.env.ANALYZE_BUNDLE
       const prodContent = fs.readFileSync(path.resolve(__dirname, '../../webpack.prod.js'), 'utf8');
-      
+
       // Check that the file contains BundleAnalyzerPlugin
       expect(prodContent).toContain('BundleAnalyzerPlugin');
-      
+
       // Check that it's conditionally included based on analyzeBundle
       expect(prodContent).toContain('analyzeBundle');
       expect(prodContent).toContain("process.env.ANALYZE_BUNDLE === 'true'");
-      
+
       // Check that plugins are filtered with .filter(Boolean)
       expect(prodContent).toContain('.filter(Boolean)');
     });
@@ -249,46 +245,40 @@ describe('Code Splitting Configuration', () => {
     it('should have proper webpack magic comment support in tsconfig', () => {
       const tsconfigPath = path.resolve(__dirname, '../../tsconfig.json');
       expect(fs.existsSync(tsconfigPath)).toBe(true);
-      
+
       const tsconfigContent = fs.readFileSync(tsconfigPath, 'utf8');
       const tsconfig = JSON.parse(tsconfigContent);
-      
+
       // Check for module resolution that supports dynamic imports (commonjs works with webpack)
       expect(tsconfig.compilerOptions.module).toBeDefined();
       expect(['commonjs', 'esnext', 'es2020', 'es2022']).toContain(tsconfig.compilerOptions.module.toLowerCase());
     });
 
     it('should have WebsiteConfigEditor component with default export', () => {
-      const editorPath = path.resolve(
-        __dirname,
-        '../../app/ui/react/components/WebsiteConfigEditor.tsx'
-      );
+      const editorPath = path.resolve(__dirname, '../../app/ui/react/components/WebsiteConfigEditor.tsx');
       expect(fs.existsSync(editorPath)).toBe(true);
-      
+
       const editorContent = fs.readFileSync(editorPath, 'utf8');
-      
+
       // Check for default export
       expect(editorContent).toMatch(/export\s+default\s+WebsiteConfigEditor/);
     });
 
     it('should have Main component with lazy import implementation', () => {
-      const mainPath = path.resolve(
-        __dirname,
-        '../../app/ui/react/components/Main.tsx'
-      );
+      const mainPath = path.resolve(__dirname, '../../app/ui/react/components/Main.tsx');
       expect(fs.existsSync(mainPath)).toBe(true);
-      
+
       const mainContent = fs.readFileSync(mainPath, 'utf8');
-      
+
       // Check for React.lazy usage
       expect(mainContent).toMatch(/lazy\(/);
-      
+
       // Check for dynamic import with webpack chunk name
       expect(mainContent).toMatch(/import\s*\(\s*\/\*\s*webpackChunkName:/);
-      
+
       // Check for Suspense wrapper
       expect(mainContent).toMatch(/<Suspense/);
-      
+
       // Check for Error Boundary
       expect(mainContent).toMatch(/LazyComponentErrorBoundary/);
     });
@@ -300,13 +290,13 @@ describe('Code Splitting Configuration', () => {
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         const formsGroup = cacheGroups?.forms;
-      
-      // Ensure forms chunk is created for all chunk types
-      expect(formsGroup?.chunks).toBe('all');
-      
-      // Ensure enforce is true to guarantee chunk creation
-      expect(formsGroup?.enforce).toBe(true);
-      
+
+        // Ensure forms chunk is created for all chunk types
+        expect(formsGroup?.chunks).toBe('all');
+
+        // Ensure enforce is true to guarantee chunk creation
+        expect(formsGroup?.enforce).toBe(true);
+
         // Ensure minimum size is reasonable for forms
         expect(formsGroup?.minSize).toBeLessThanOrEqual(100000);
       }
@@ -316,7 +306,7 @@ describe('Code Splitting Configuration', () => {
       const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
-      
+
         // All cache groups should reuse existing chunks
         Object.values(cacheGroups || {}).forEach((group: any) => {
           if (typeof group === 'object' && group !== null) {
