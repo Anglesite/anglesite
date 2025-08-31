@@ -53,9 +53,9 @@ Double check linting and tests. Spot check changes in app.
 - [x] Separate Dev/Prod webpack Configs
 - [x] Watch Mode Integration: File watching with incremental compilation
 - [x] Bundle Analysis: webpack-bundle-analyzer integration
-- [ ] Code Splitting
-- [ ] Concurrency in Development: concurrent package for parallel development
-- [ ] Add Microsoft Fluent UI
+- [x] Code Splitting
+- [x] Concurrency in Development: concurrent package for parallel development
+- [-] Add Microsoft Fluent UI
 - [ ] Build GeoCities themed About box with "View Source" link
 
 ### Phase 2: Remaining Work (60% incomplete)
