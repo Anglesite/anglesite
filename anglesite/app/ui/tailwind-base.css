@@ -8,10 +8,10 @@
 /* Custom base styles for Anglesite */
 @layer base {
   :root {
-    --color-primary: theme('colors.primary.500');
-    --color-secondary: theme('colors.secondary.500');
-    --font-family-sans: theme('fontFamily.sans');
-    --font-family-mono: theme('fontFamily.mono');
+    --color-primary: #3b82f6;
+    --color-secondary: #6b7280;
+    --font-family-sans: 'Inter', system-ui, sans-serif;
+    --font-family-mono: 'JetBrains Mono', 'Consolas', monospace;
   }
 
   html {
@@ -20,7 +20,7 @@
   }
 
   body {
-    @apply font-sans text-secondary-700 bg-white;
+    @apply font-sans text-gray-700 bg-white;
     font-feature-settings: inherit;
   }
 
@@ -41,13 +41,17 @@
   }
 
   .btn-primary {
-    @apply btn bg-primary-600 text-white hover:bg-primary-700;
-    @apply focus:ring-primary-500;
+    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm;
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
+    @apply transition-colors duration-200;
   }
 
   .btn-secondary {
-    @apply btn bg-gray-200 text-gray-900 hover:bg-gray-300;
-    @apply focus:ring-gray-500;
+    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm;
+    @apply bg-gray-200 text-gray-900 hover:bg-gray-300;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500;
+    @apply transition-colors duration-200;
   }
 
   .card {
@@ -56,7 +60,7 @@
 
   .input {
     @apply block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm;
-    @apply focus:outline-none focus:ring-primary-500 focus:border-primary-500;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:border-blue-500;
     @apply text-sm;
   }
 }

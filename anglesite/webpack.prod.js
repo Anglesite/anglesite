@@ -14,7 +14,7 @@ const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 // Removed imagemin-webp-webpack-plugin due to security vulnerabilities
-const ImageminAvifWebpackPlugin = require('imagemin-avif-webpack-plugin');
+// const ImageminAvifWebpackPlugin = require('imagemin-avif-webpack-plugin');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const common = require('./webpack.common.js');
 const ASSET_CONFIG = require('./assets.config');
@@ -174,21 +174,8 @@ module.exports = merge(common, {
     // WebP image optimization removed due to security vulnerabilities
     // in imagemin-webp-webpack-plugin dependency tree
 
-    /**
-     * AVIF image optimization for latest browsers
-     * Next-generation format with superior compression
-     */
-    new ImageminAvifWebpackPlugin({
-      config: [
-        {
-          test: /\.(jpe?g|png)$/,
-          options: {
-            quality: ASSET_CONFIG.images.quality.avif,
-          },
-        },
-      ],
-      overrideExtension: false,
-    }),
+    // AVIF image optimization removed to resolve Sharp library conflicts
+    // Multiple versions of @img/sharp-libvips-darwin-arm64 were causing runtime errors
 
     /**
      * Bundle analyzer for production builds (optional)
@@ -260,7 +247,7 @@ module.exports = merge(common, {
         },
 
         /**
-         * Form libraries chunk (@rjsf, ajv)  
+         * Form libraries chunk (@rjsf, ajv)
          * Heavy dependencies separated due to size (1+ MB)
          */
         forms: {
