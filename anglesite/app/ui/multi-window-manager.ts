@@ -40,7 +40,20 @@ let startScreenWindow: BrowserWindow | null = null;
 // Note: This export is kept for backward compatibility but should be migrated
 
 /**
- * Send log message to a website window.
+ * Send log message to a website window's console
+ * 
+ * Transmits log messages from the main process to a specific website window's
+ * renderer process. Used for debugging and development feedback.
+ * 
+ * @param websiteName - Name of the website window to send log to
+ * @param message - Log message content
+ * @param level - Log level severity (default: 'info')
+ * 
+ * @example
+ * ```typescript
+ * sendLogToWebsite('my-blog', 'Build completed successfully', 'info');
+ * sendLogToWebsite('portfolio', 'Warning: missing alt text', 'warning');
+ * ```
  */
 export function sendLogToWebsite(websiteName: string, message: string, level: string = 'info') {
   const websiteWindow = websiteWindows.get(websiteName);

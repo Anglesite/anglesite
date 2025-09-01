@@ -47,7 +47,8 @@
       "Bash(NODE_ENV=production npm run analyze:bundle:stats)",
       "Bash(cat:*)",
       "Bash(security find-certificate:*)",
-      "Bash(security verify-cert:*)"
+      "Bash(security verify-cert:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": [],

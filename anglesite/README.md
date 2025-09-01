@@ -11,7 +11,10 @@ Anglesite is a local-first, Electron-based static site generator that combines t
 - **Smart DNS Management**: Automatic .test domain configuration via /etc/hosts with Touch ID support (admin access required)
 - **Live Preview**: Real-time preview with hot reload powered by Eleventy
 - **Multi-Window Architecture**: Dedicated editing windows for each website project
-- **Enhanced Website Management**: Real-time validation for standards and best practices.
+- **Enhanced Website Management**: Real-time validation for standards and best practices
+- **Microsoft Fluent UI Components**: Modern UI system with lazy loading for improved performance
+- **Webpack Bundle Analysis**: Developer tools for monitoring and optimizing bundle sizes
+- **Enhanced File Watching**: High-performance incremental compilation with priority handling
 - **First Launch Assistant**: Guided setup for custom host mode selection
 - **Developer Tools**: Built-in Chrome Developer Tools for debugging and inspection
 - **Zero Configuration**: Works out of the box with sensible defaults
@@ -19,7 +22,7 @@ Anglesite is a local-first, Electron-based static site generator that combines t
 ### Upcoming Features (Phase 2+)
 
 - **WYSIWYG Editors**: Extensible visual editors for HTML, Markdown, CSS, SVG, and XML
-- **Plugin System**: Angular-style API for UI and behavior extension
+- **Plugin System**: NPM-based starter templates and extensions
 - **Syndication Engine**: Built-in RSS, JSONFeed, and ActivityPub support
 - **Import & Migration**: WordPress, Wix, Jekyll, Hugo importers with domain verification
 - **Social Publishing**: Git-centric content with BlueSky/Mastodon integration

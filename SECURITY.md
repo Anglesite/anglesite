@@ -6,4 +6,4 @@ Latest Version Only
 
 ## Reporting a Vulnerability
 
-anglesite@dwk.io
+[anglesite@dwk.io](mailto:anglesite@dwk.io)

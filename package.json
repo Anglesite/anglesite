@@ -41,7 +41,11 @@
     "changelog:package": "node scripts/generate-changelog.js package",
     "changelog:release-notes": "node scripts/generate-changelog.js release-notes",
     "verify-secrets": "node scripts/verify-secrets.js",
-    "verify-jest": "node scripts/verify-jest-config.js"
+    "verify-jest": "node scripts/verify-jest-config.js",
+    "docs:generate": "typedoc",
+    "docs:serve": "npm run docs:generate && cd docs/api && python3 -m http.server 8080",
+    "docs:clean": "rm -rf docs/api",
+    "docs:build": "npm run docs:clean && npm run docs:generate"
   },
   "devDependencies": {
     "@babel/core": "^7.28.3",
@@ -56,6 +60,8 @@
     "lint-staged": "^16.1.5",
     "prettier": "^3.6.2",
     "ts-jest": "^29.4.1",
+    "typedoc": "0.28.11",
+    "typedoc-plugin-markdown": "4.8.1",
     "typescript": "^5.5.2"
   },
   "engines": {
