@@ -3,113 +3,260 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Anglesite JSON Schemas</title>
+    <title>Anglesite Documentation</title>
     <style>
       body {
-        font-family: system-ui, sans-serif;
-        max-width: 800px;
-        margin: 2rem auto;
-        padding: 0 1rem;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+        line-height: 1.6;
+        background: #fafafa;
       }
-      h1 {
+      .header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding: 2rem;
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .header h1 {
         color: #2563eb;
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
       }
-      .schema-list {
+      .header p {
+        color: #64748b;
+        font-size: 1.2rem;
+      }
+      .docs-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-bottom: 3rem;
+      }
+      .docs-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 1rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+      .docs-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      }
+      .docs-card h2 {
+        color: #1e293b;
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .docs-card p {
+        color: #64748b;
+        margin-bottom: 1.5rem;
+      }
+      .docs-links {
         list-style: none;
         padding: 0;
       }
-      .schema-list li {
-        margin: 1rem 0;
-        padding: 1rem;
-        background: #f8fafc;
-        border-radius: 0.5rem;
+      .docs-links li {
+        margin: 0.5rem 0;
       }
-      .schema-list a {
-        color: #1d4ed8;
+      .docs-links a {
+        color: #2563eb;
         text-decoration: none;
         font-weight: 500;
       }
-      .schema-list a:hover {
+      .docs-links a:hover {
         text-decoration: underline;
       }
-      .description {
-        color: #64748b;
-        margin-top: 0.5rem;
+      .quick-links {
+        background: #e0f2fe;
+        padding: 2rem;
+        border-radius: 1rem;
+        text-align: center;
       }
-      .url {
-        font-family: monospace;
-        font-size: 0.875rem;
-        color: #475569;
-        margin-top: 0.5rem;
+      .quick-links h2 {
+        color: #0c4a6e;
+        margin-top: 0;
+      }
+      .button-group {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 1.5rem;
+      }
+      .btn {
+        padding: 0.75rem 1.5rem;
+        background: #2563eb;
+        color: white;
+        text-decoration: none;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        transition: background-color 0.2s;
+      }
+      .btn:hover {
+        background: #1d4ed8;
+      }
+      .btn.secondary {
+        background: #64748b;
+      }
+      .btn.secondary:hover {
+        background: #475569;
+      }
+      .emoji {
+        font-size: 1.5rem;
+      }
+      .status {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .status.complete {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .status.soon {
+        background: #fef3c7;
+        color: #92400e;
       }
     </style>
   </head>
   <body>
-    <h1>Anglesite JSON Schemas</h1>
-    <p>JSON Schema definitions for Anglesite website configuration files.</p>
+    <div class="header">
+      <h1>📚 Anglesite Documentation</h1>
+      <p>Everything you need to use, develop, and contribute to Anglesite</p>
+    </div>
 
-    <h2>Main Schema</h2>
-    <ul class="schema-list">
-      <li>
-        <a href="schemas/website.schema.json">website.schema.json</a>
-        <div class="description">
-          Main schema for Anglesite website configuration
-        </div>
-        <div class="url">
-          Use in your website.json:
-          <code
-            >"$schema":
-            "https://anglesite.dwk.io/schemas/website.schema.json"</code
-          >
-        </div>
-      </li>
-    </ul>
+    <div class="docs-grid">
+      <div class="docs-card">
+        <h2>
+          <span class="emoji">👥</span> For Users
+          <span class="status soon">Coming v1.1</span>
+        </h2>
+        <p>
+          Learn how to create beautiful websites with Anglesite's intuitive
+          desktop application.
+        </p>
+        <ul class="docs-links">
+          <li><a href="user-guide/">Getting Started Guide</a></li>
+          <li>Creating Your First Website</li>
+          <li>Working with Templates</li>
+          <li>Publishing and Deployment</li>
+          <li>Troubleshooting</li>
+        </ul>
+      </div>
 
-    <h2>Module Schemas</h2>
-    <ul class="schema-list">
-      <li>
-        <a href="schemas/modules/basic-info.json">basic-info.json</a>
-        <div class="description">
-          Basic website information (title, description, URL, etc.)
-        </div>
-      </li>
-      <li>
-        <a href="schemas/modules/seo-robots.json">seo-robots.json</a>
-        <div class="description">SEO and robots.txt configuration</div>
-      </li>
-      <li>
-        <a href="schemas/modules/web-standards.json">web-standards.json</a>
-        <div class="description">Web standards (favicon, manifest, etc.)</div>
-      </li>
-      <li>
-        <a href="schemas/modules/networking.json">networking.json</a>
-        <div class="description">
-          Networking and server configuration (headers, redirects)
-        </div>
-      </li>
-      <li>
-        <a href="schemas/modules/analytics.json">analytics.json</a>
-        <div class="description">Analytics configuration</div>
-      </li>
-      <li>
-        <a href="schemas/modules/well-known.json">well-known.json</a>
-        <div class="description">.well-known standards configuration</div>
-      </li>
-      <li>
-        <a href="schemas/modules/common.json">common.json</a>
-        <div class="description">Common schema definitions and types</div>
-      </li>
-    </ul>
+      <div class="docs-card">
+        <h2>
+          <span class="emoji">🛠️</span> For Developers
+          <span class="status complete">Complete</span>
+        </h2>
+        <p>Complete documentation for contributing to Anglesite development.</p>
+        <ul class="docs-links">
+          <li><a href="developer/">Developer Hub</a></li>
+          <li><a href="developer/architecture/">Architecture Docs</a></li>
+          <li>
+            <a href="developer/testing/strategy.html">Testing Strategy</a>
+          </li>
+          <li><a href="developer/release/process.html">Release Process</a></li>
+          <li>
+            <a href="developer/SECURITY_CONFIGURATION.html"
+              >Security Policies</a
+            >
+          </li>
+        </ul>
+      </div>
 
-    <h2>Usage</h2>
-    <p>
-      To use these schemas in your VS Code or other JSON editors, add the
-      <code>$schema</code> property to the top of your JSON files:
-    </p>
-    <pre><code>{
-  "$schema": "https://anglesite.dwk.io/schemas/website.schema.json",
-  "title": "My Website",
-  ...
-}</code></pre>
+      <div class="docs-card">
+        <h2>
+          <span class="emoji">🤖</span> API Reference
+          <span class="status complete">Auto-Generated</span>
+        </h2>
+        <p>
+          Comprehensive API documentation generated from TypeScript source code.
+        </p>
+        <ul class="docs-links">
+          <li><a href="api/">API Documentation</a></li>
+          <li><a href="api/certificates/">Certificate Management</a></li>
+          <li>
+            <a href="api/ui/multi-window-manager/">Multi-Window System</a>
+          </li>
+          <li><a href="api/server/enhanced-file-watcher/">File Watching</a></li>
+          <li><a href="api/utils/website-manager/">Website Management</a></li>
+        </ul>
+      </div>
+
+      <div class="docs-card">
+        <h2>
+          <span class="emoji">📋</span> JSON Schemas
+          <span class="status complete">Published</span>
+        </h2>
+        <p>
+          Schema definitions for website configuration with VS Code
+          IntelliSense.
+        </p>
+        <ul class="docs-links">
+          <li><a href="schemas/">Schema Documentation</a></li>
+          <li><a href="schemas/website.schema.json">Main Website Schema</a></li>
+          <li><a href="schemas/modules/">Module Schemas</a></li>
+          <li><a href="schemas/VALIDATION.html">Validation Guide</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="quick-links">
+      <h2>🚀 Quick Start</h2>
+      <p>New to Anglesite? Get started with these essential links:</p>
+
+      <div class="button-group">
+        <a href="../README.html" class="btn">📖 Main README</a>
+        <a href="../CONTRIBUTING.html" class="btn">🤝 Contributing Guide</a>
+        <a href="developer/" class="btn">👨‍💻 Developer Docs</a>
+        <a
+          href="https://github.com/davidwkeith/@dwk/discussions"
+          class="btn secondary"
+          >💬 Discussions</a
+        >
+      </div>
+    </div>
+
+    <footer
+      style="
+        text-align: center;
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid #e2e8f0;
+        color: #64748b;
+      "
+    >
+      <p>
+        📊 Documentation Status: 90%+ JSDoc coverage maintained | 🔄
+        Auto-updated with each release
+      </p>
+      <p>
+        <a href="https://github.com/davidwkeith/@dwk" style="color: #2563eb"
+          >View on GitHub</a
+        >
+        •
+        <a href="../CODE_OF_CONDUCT.html" style="color: #2563eb"
+          >Code of Conduct</a
+        >
+        •
+        <a href="../SECURITY.html" style="color: #2563eb">Security Policy</a>
+      </p>
+    </footer>
   </body>
 </html>

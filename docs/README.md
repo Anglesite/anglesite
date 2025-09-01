@@ -1,79 +1,90 @@
-# Anglesite JSON Schemas
+# Anglesite Documentation
 
-This directory contains JSON Schema definitions for Anglesite website configuration files.
+ABOUTME: Central hub for all Anglesite documentation with navigation to user and developer resources
+ABOUTME: Provides quick links to architecture docs, API reference, testing guides, and community resources
 
-## Publishing to GitHub Pages
+Welcome to the Anglesite documentation portal! Find everything you need to use, develop, and contribute to Anglesite.
 
-1. **Push this `docs/` folder to your GitHub repository**
-2. **Enable GitHub Pages** in your repository settings:
-   - Go to Settings → Pages
-   - Set Source to "Deploy from a branch"
-   - Select branch `main` and folder `/docs`
-3. **Update the schema URLs** (see below)
+## 📖 Documentation Types
 
-## Publishing to GitLab Pages
+### 👥 **For Users**
 
-1. **Create a `.gitlab-ci.yml` file** in your repository root:
-   ```yaml
-   pages:
-     script:
-       - mkdir public
-       - cp -r docs/* public/
-     artifacts:
-       paths:
-         - public
-     only:
-       - main
-   ```
-2. **Push to GitLab** and the schemas will be available at `https://yourusername.gitlab.io/your-repo-name/`
+> _Coming Soon in v1.1_ - User guides for creating websites with Anglesite
 
-## Updating Schema URLs
+- Getting Started Guide
+- Creating Your First Website
+- Working with Templates
+- Publishing and Deployment
+- Troubleshooting Common Issues
 
-Once published, update the schema references in:
+### 🛠️ **For Developers**
 
-### 1. Main Schema (`schemas/website.schema.json`)
+> _Complete developer documentation for contributing to Anglesite_
 
-Replace the `$id` and `$ref` URLs:
+**[👉 Developer Documentation Hub](developer/README.md)**
 
-```json
-{
-  "$id": "https://YOUR-USERNAME.github.io/YOUR-REPO/schemas/website.json",
-  "allOf": [
-    { "$ref": "https://YOUR-USERNAME.github.io/YOUR-REPO/schemas/modules/basic-info.json" },
-    { "$ref": "https://YOUR-USERNAME.github.io/YOUR-REPO/schemas/modules/seo-robots.json" },
-    ...
-  ]
-}
-```
+#### Quick Links
 
-### 2. Website Configuration (`anglesite-11ty/src/_data/website.json`)
+- **[Architecture](developer/architecture/)** - Multi-window, Fluent UI, plugin system
+- **[Features](developer/features/)** - Bundle analysis, WebC plugins, file watching
+- **[Testing](developer/testing/)** - 90% coverage strategy, TDD practices
+- **[Release](developer/release/)** - Release process and package management
+- **[Security](developer/SECURITY_CONFIGURATION.md)** - Security automation and policies
+- **[Setup](developer/setup/)** - Environment configuration and tools
+- **[TODO List](TODO.md)** - Current development priorities and task tracking
 
-Update the `$schema` reference:
+### 🤖 **API Reference**
 
-```json
-{
-  "$schema": "https://YOUR-USERNAME.github.io/YOUR-REPO/schemas/website.schema.json",
-  "title": "Your Website Title",
-  ...
-}
-```
+> _Auto-generated from JSDoc comments_
 
-## For GitHub:
+**[👉 API Documentation](api/README.md)**
 
-- URL format: `https://USERNAME.github.io/REPOSITORY/schemas/`
-- Example: `https://davidwkeith.github.io/anglesite-monorepo/schemas/`
+Comprehensive API documentation generated from TypeScript source code with examples and usage patterns.
 
-## For GitLab:
+---
 
-- URL format: `https://USERNAME.gitlab.io/REPOSITORY/schemas/`
-- Example: `https://davidwkeith.gitlab.io/anglesite-monorepo/schemas/`
+## 🧭 Navigation Guide
 
-## Testing
+### New to Anglesite?
 
-After publishing, test that the schemas are accessible:
+1. **Start Here**: [Main README](../README.md) - Project overview and quick start
+2. **Get Involved**: [Contributing Guide](../CONTRIBUTING.md) - How to contribute
+3. **Community**: [Code of Conduct](../CODE_OF_CONDUCT.md) - Community standards
 
-```bash
-curl https://YOUR-URL/schemas/website.schema.json
-```
+### Building Websites?
 
-VS Code should then provide full IntelliSense and validation for your website.json files!
+1. **User Guide** (Coming Soon) - Step-by-step tutorials
+2. **Templates**: Check out [anglesite-starter](../anglesite-starter/) for examples
+3. **Components**: See [web-components](../web-components/) for available UI components
+
+### Contributing Code?
+
+1. **[Developer Hub](developer/README.md)** - Central developer documentation
+2. **[Architecture Docs](developer/architecture/)** - System design and patterns
+3. **[Testing Strategy](developer/testing/strategy.md)** - TDD and coverage requirements
+4. **[API Reference](api/)** - Generated API documentation
+
+### Managing Releases?
+
+1. **[Release Process](developer/release/process.md)** - Semantic versioning and publishing
+2. **[Changelog Guide](developer/release/changelog-guide.md)** - Writing good changelogs
+3. **[Security Policies](developer/SECURITY_CONFIGURATION.md)** - Security automation
+
+---
+
+## 📊 Documentation Status
+
+- **Coverage**: 90%+ JSDoc coverage maintained
+- **Generation**: Automated API docs with TypeDoc
+- **Testing**: Documentation validated with each release
+- **Community**: Open source best practices implemented
+
+## 🆘 Need Help?
+
+- **📖 Can't find what you're looking for?** [Open a documentation issue](../.github/ISSUE_TEMPLATE/documentation.md)
+- **💬 Have questions?** [Start a GitHub Discussion](https://github.com/davidwkeith/@dwk/discussions)
+- **🐛 Found a problem?** [Report a bug](../.github/ISSUE_TEMPLATE/bug_report.md)
+
+---
+
+_This documentation is automatically updated with each release._

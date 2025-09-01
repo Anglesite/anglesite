@@ -1,5 +1,8 @@
 # Website Schema Validation Guide
 
+ABOUTME: Comprehensive guide to website configuration schema validation in Anglesite projects
+ABOUTME: Covers required fields, conditional validation, image path validation, and best practices
+
 This document explains the validation requirements for the Anglesite website configuration schema.
 
 ## Required Fields

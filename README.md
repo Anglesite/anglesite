@@ -1,128 +1,165 @@
-# @DWK
+# Anglesite 💎
 
-This is a directory for my `@dwk/` node modules.
+> **Local-first, WYSIWYG static site generator that makes website creation as easy as editing a document**
 
-## AI Setup
+Anglesite combines the power of modern static site generation with an intuitive desktop experience. Create beautiful, fast websites without wrestling with command lines, build tools, or complex configurations.
 
-- TypeScript
-- Jest @ 90% coverage
-- Linting: Typescript/JavaScript, YAML, Markdown, HTML, CSS
+## ✨ Why Anglesite?
 
-## Vibing with Claude
+- **🖥️ Native Desktop App**: No browser tabs, no server setup—just a clean, focused workspace
+- **🔒 Local-First**: Your data stays on your computer. Work offline, own your content
+- **⚡ Live Preview**: See changes instantly with automatic HTTPS and hot reload
+- **🎨 WYSIWYG Editing**: Visual editors for content, no HTML wrestling required
+- **🚀 Zero Configuration**: Works out of the box with sensible defaults
+- **🔐 Built-in Security**: Automatic HTTPS with trusted certificates, no manual setup
 
-Tell User Stories for new features. Show ad hoc wireframes from Freeform.
+## 🚀 Quick Start
 
-Pre-commit:
+### Download & Install
 
-```text
-1. Remove all code obsoleted by the changes since the last commit and any leftover debug logging.
-2. Update existing tests for changed code.
-3. Ensure we have 90% test coverage on the new code.
-4. Check and fix any linting errors.
-5. Add all changes and summarize them into a commit message for me to approve.
+**macOS** (Primary Support):
+
+```bash
+# Download from GitHub Releases (v1.0)
+# Current: Build from source (see Developer Setup below)
 ```
 
-Double check linting and tests. Spot check changes in app.
+**Windows & Linux**: Planned for v1.1
 
-```text
-👍 Commit & push.
+### Create Your First Website
+
+1. **Launch Anglesite** from your Applications folder
+2. **Click "New Website"** and name your project (e.g., "my-blog")
+3. **Start editing** with the built-in visual editor
+4. **Preview instantly** at `https://my-blog.test` (automatic HTTPS!)
+5. **Build & deploy** when ready
+
+## 🏗️ What You Can Build
+
+- **Personal Blogs**: Write, publish, and maintain your thoughts
+- **Portfolio & Résumé Sites**: Showcase your work with style
+- **Documentation Sites**: Technical docs with search and navigation
+- **Business Sites**: Professional presence without the complexity or cost
+- **eCommerce Sites**: Sell products online
+- **Static Web Apps**: JAMstack applications with modern tooling
+
+## 🎯 Perfect For
+
+- **Content Creators** who want to focus on writing, not tooling
+- **Designers** who need pixel-perfect control without code
+- **Developers** who want a faster static site workflow
+- **Privacy-conscious users** who prefer local-first tools
+- **Small business** who don't want another bill for web hosting
+- **Anyone** frustrated with complex static site generators
+
+## 📸 Screenshots
+
+> _Screenshots of the desktop application will be available with the v1.0 release_
+
+## 🔧 Features
+
+### ✅ Available Soon (v1.0)
+
+- **Native Desktop Application** with multi-window support
+- **Automatic HTTPS Development** with trusted certificates
+- **Smart DNS Management** (`.test` domains with Touch ID setup)
+- **Live Preview & Hot Reload** powered by Eleventy
+- **Website Project Management** with validation and tools
+- **Zero Configuration Setup** - works immediately
+- **Security-First Design** with process isolation and CSP compliance
+- **WYSIWYG Editors** for HTML, Markdown, CSS, and more
+
+### 🚧 Planned Features (v1.1-1.2)
+
+- **Plugin Marketplace** with community themes and starters
+- **Windows & Linux Support** with platform-native features
+- **Import Tools** for WordPress, Jekyll, Hugo migration
+- **Publishing Integration** with Netlify, Vercel, GitHub Pages
+- **Collaboration Features** for team workflows
+
+## 🤝 Community
+
+### Getting Help
+
+- **📖 User Guide**: `docs/user-guide/` (Available with v1.0)
+- **💬 GitHub Discussions**: Ask questions, share projects
+- **🐛 Report Issues**: Use our issue templates for bugs
+- **💡 Feature Requests**: Tell us what you need
+
+### Contributing
+
+We welcome all types of contributions:
+
+- **🖼️ Share Your Sites**: Show us what you built!
+- **📝 Improve Documentation**: Help others get started
+- **🐛 Report Bugs**: Help us make Anglesite better
+- **💻 Code Contributions**: See [CONTRIBUTING.md](CONTRIBUTING.md)
+- **📋 View Open Tasks**: Check our [TODO.md](docs/TODO.md) for current priorities
+
+**New to Open Source?** We're beginner-friendly! Look for `good first issue` labels.
+
+## 📦 Project Structure
+
+This monorepo contains:
+
+- **`anglesite/`** - Main desktop application (Electron + TypeScript)
+- **`anglesite-11ty/`** - Eleventy configuration package
+- **`web-components/`** - Reusable WebC component library
+- **`anglesite-starter/`** - Basic website template
+- **`docs/`** - Project documentation
+
+## 🛠️ Developer Setup
+
+Want to contribute or build from source?
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- macOS (primary), Windows, or Linux
+- Git
+
+### Build & Run
+
+```bash
+# Clone the repository
+git clone https://github.com/anglesite/anglesite.git
+cd anglesite
+
+# Install dependencies
+npm install
+
+# Start development
+npm run start:anglesite
+
+# Run tests
+npm test
 ```
 
-## @dwk Monorepo TODO
+**Need help?** Check out [CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup instructions.
 
-- [x] Make mono-repo
-- [x] Get CI going for NPM packages & pages
-  - [x] Add performance testing automation
-  - [x] Configure enhanced caching strategies
-  - [x] Fix secret validation in .github/workflows/release.yml
-  - [x] Add TypeScript to CodeQL language matrix
-  - [x] Implement path validation in scripts/analyze-bundle-sizes.js
-  - [x] Add retry mechanisms for performance tests
-  - [x] Implement workflow concurrency controls
-  - [x] Add automated changelog generation
-  - [x] Create required secrets (NPM_TOKEN) setup guide
-  - [x] Create environment configuration docs
-  - [x] Create release process documentation
-- [ ] Add app icon
-- [ ] Publish Schema to `https://anglesite.dwk.io/schema/website.json`
-- [ ] Make simple static site build of /docs
+## 📊 Project Status
 
-## Anglesite App TODO
+- **Current Version**: v0.1.0-alpha
+- **Development Phase**: Phase 1 Complete (Core App), Phase 2 Starting (WYSIWYG)
+- **Platform Support**: macOS (primary), Windows/Linux (planned)
+- **Test Coverage**: 90%+ maintained
+- **Community**: Growing! Join us 🌱
 
-- [x] Optimized source maps for development vs production
-- [x] Separate Dev/Prod webpack Configs
-- [x] Watch Mode Integration: File watching with incremental compilation
-- [x] Bundle Analysis: webpack-bundle-analyzer integration
-- [x] Code Splitting
-- [x] Concurrency in Development: concurrent package for parallel development
-- [-] Add Microsoft Fluent UI
-- [ ] Build GeoCities themed About box with "View Source" link
+## 📄 License
 
-### Phase 2: Remaining Work (60% incomplete)
+Anglesite is open source software licensed under the [ISC License](LICENSE).
 
-🔴 Critical Blockers (Fix First)
+## 🙏 Acknowledgments
 
-1. Missing Dependencies - Install @rjsf/\* packages to fix WebsiteConfigEditor
-2. No File Editors - Zero WYSIWYG editors implemented (core Phase 2 feature)
-3. IPC Integration Gap - React components can't actually edit/save file content
+Anglesite stands on the shoulders of giants:
 
-📝 Major Missing Features
+- **[Eleventy](https://www.11ty.dev/)** - The static site generator that powers our builds
+- **[Electron](https://www.electronjs.org/)** - Cross-platform desktop app framework
+- **[Microsoft Fluent UI](https://developer.microsoft.com/en-us/fluentui/)** - Modern component system
+- **All our contributors** - Thank you for making Anglesite better!
 
-WYSIWYG Editors (0% complete):
+---
 
-- Markdown editor with live preview
-- HTML visual editor
-- CSS editor with syntax highlighting
-- SVG visual editor
-- XML/data file editor
+**Ready to create something amazing?**
 
-  Plugin System (0% complete):
-
-- Angular-style API architecture
-- Plugin registration system
-- Extension point framework
-
-  SEO & Accessibility (0% complete):
-
-- Structured metadata generation
-- Schema.org integration
-- Social media card generation
-- WCAG 2.1 AA compliance tools
-- Built-in accessibility auditing
-
-  🔧 Technical Gaps
-
-  State Management:
-
-- Expand React Context for file editing state
-- Add undo/redo functionality
-- Implement draft saving
-
-  Integration:
-
-- Make React editor primary (not fallback)
-- Complete IPC handlers for file operations
-- Add real-time preview sync
-
-  📊 Current Status: 40% Complete
-
-### Phase 3: Schema-Driven Forms
-
-- [ ] RJSF Integration: Full website configuration editor
-- [ ] Schema Loading: Dynamic schema loading from anglesite-11ty
-- [ ] Validation & Docs: Rich validation with inline documentation
-
-### Phase 4: Advanced Features
-
-- [ ] Drag & Drop: File organization and media uploads
-- [ ] Live Preview: Real-time preview updates
-- [ ] Plugin System: Extensible architecture for new features
-
-## anglesite-11ty TOOD
-
-- [x] XML NPM Package?
-- [ ] .well-known/dnt-policy.txt - Do Not Track policy
-- [x] .well-known/gpc.json - Global Privacy Control support
-- [ ] .well-known/accessibility - Accessibility statement location
-- [ ] .well-known/privacy-policy - Privacy policy location (redirect)
-- [ ] .well-known/terms-of-service - Terms of service location (redirect)
+[⬇️ Download Anglesite](https://github.com/anglesite/anglesite/releases) • [📖 Read the Docs](docs/) • [💬 Join Discussions](https://github.com/anglesite/anglesite/discussions)

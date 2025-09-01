@@ -1,0 +1,17 @@
+[**@dwk Monorepo API Documentation v0.1.0**](../../../README.md)
+
+---
+
+[@dwk Monorepo API Documentation](../../../README.md) / [ui/multi-window-manager](../README.md) / getAllWebsiteWindows
+
+# Function: getAllWebsiteWindows()
+
+> **getAllWebsiteWindows**(): `Map`\<`string`, `WebsiteWindow`\>
+
+Defined in: [ui/multi-window-manager.ts:586](https://github.com/Anglesite/anglesite/blob/97bc711271b9559b54e48a9e5995ecc7ba9204f9/anglesite/app/ui/multi-window-manager.ts#L586)
+
+Returns the complete map of all currently open website windows keyed by website name.
+
+## Returns
+
+`Map`\<`string`, `WebsiteWindow`\>
