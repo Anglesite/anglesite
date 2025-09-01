@@ -41,6 +41,8 @@ This document tracks all pending tasks, features, and technical improvements for
     - [ ] Theme changing functionality
     - [ ] Theme saving functionality
     - [ ] Theme marketplace integration (v1.1)
+- [ ] **CMS Support**
+  - Status: Not Started
 
 ### Development Tools
 

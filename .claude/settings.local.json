@@ -48,7 +48,9 @@
       "Bash(cat:*)",
       "Bash(security find-certificate:*)",
       "Bash(security verify-cert:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(npx webpack:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": [],
