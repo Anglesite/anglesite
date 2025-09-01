@@ -1,0 +1,66 @@
+{
+  "entryPoints": [
+    "anglesite/app/ui/react/fluent/index.ts",
+    "anglesite/app/ui/multi-window-manager.ts",
+    "anglesite/app/certificates.ts",
+    "anglesite/app/server/enhanced-file-watcher.ts",
+    "anglesite/app/utils/website-manager.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.tsx",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/*.d.ts",
+    "**/react/**",
+    "**/plugins/**"
+  ],
+  "out": "docs/api",
+  "name": "@dwk Monorepo API Documentation",
+  "readme": "none",
+  "theme": "default",
+  "plugin": ["typedoc-plugin-markdown"],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "includeVersion": true,
+  "sort": ["source-order"],
+  "kindSortOrder": [
+    "Project",
+    "Module",
+    "Namespace",
+    "Enum",
+    "EnumMember",
+    "Class",
+    "Interface",
+    "TypeAlias",
+    "Constructor",
+    "Property",
+    "Variable",
+    "Function",
+    "Accessor",
+    "Method"
+  ],
+  "categorizeByGroup": true,
+  "categoryOrder": ["Core", "UI", "Server", "IPC", "Utils", "*"],
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "searchInComments": true,
+  "validation": {
+    "notExported": false,
+    "invalidLink": false,
+    "notDocumented": false
+  },
+  "treatWarningsAsErrors": false,
+  "logLevel": "Error",
+  "skipErrorChecking": true,
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "target": "ES2015"
+  }
+}
