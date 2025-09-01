@@ -3,10 +3,10 @@
  */
 
 import { ipcMain, BrowserWindow, IpcMainEvent } from 'electron';
-import { setupWebsiteHandlers } from '../../app/ipc/website';
-import { setupFileHandlers } from '../../app/ipc/file';
-import { setupPreviewHandlers } from '../../app/ipc/preview';
-import { setupExportHandlers } from '../../app/ipc/export';
+import { setupWebsiteHandlers } from '../../src/main/ipc/website';
+import { setupFileHandlers } from '../../src/main/ipc/file';
+import { setupPreviewHandlers } from '../../src/main/ipc/preview';
+import { setupExportHandlers } from '../../src/main/ipc/export';
 
 // Mock electron app
 jest.mock('electron', () => ({
@@ -34,7 +34,7 @@ jest.mock('electron', () => ({
 }));
 
 // Mock the multi-window-manager module
-jest.mock('../../app/ui/multi-window-manager', () => ({
+jest.mock('../../src/main/ui/multi-window-manager', () => ({
   showWebsitePreview: jest.fn(),
   hideWebsitePreview: jest.fn(),
   getAllWebsiteWindows: jest.fn(() => new Map()),
@@ -96,7 +96,7 @@ describe('Website Editor IPC Handlers', () => {
 
   describe('website-editor-show-preview', () => {
     it('should call showWebsitePreview when window and website name are found', async () => {
-      const { showWebsitePreview, getAllWebsiteWindows } = require('../../app/ui/multi-window-manager');
+      const { showWebsitePreview, getAllWebsiteWindows } = require('../../src/main/ui/multi-window-manager');
 
       // Set up the mock so that the window appears in the website windows map
       const mockWebsiteWindows = new Map([['test-website', { window: mockWindow }]]);
@@ -115,7 +115,7 @@ describe('Website Editor IPC Handlers', () => {
     });
 
     it('should not call showWebsitePreview when window not found', async () => {
-      const { showWebsitePreview } = require('../../app/ui/multi-window-manager');
+      const { showWebsitePreview } = require('../../src/main/ui/multi-window-manager');
       (BrowserWindow.fromWebContents as jest.Mock).mockReturnValue(null);
 
       ipcMain.emit('website-editor-show-preview', mockEvent);
@@ -128,7 +128,7 @@ describe('Website Editor IPC Handlers', () => {
 
   describe('website-editor-show-edit', () => {
     it('should call hideWebsitePreview when window and website name are found', async () => {
-      const { hideWebsitePreview, getAllWebsiteWindows } = require('../../app/ui/multi-window-manager');
+      const { hideWebsitePreview, getAllWebsiteWindows } = require('../../src/main/ui/multi-window-manager');
 
       // Set up the mock so that the window appears in the website windows map
       const mockWebsiteWindows = new Map([['test-website', { window: mockWindow }]]);
@@ -145,7 +145,7 @@ describe('Website Editor IPC Handlers', () => {
     });
 
     it('should not call hideWebsitePreview when window not found', async () => {
-      const { hideWebsitePreview } = require('../../app/ui/multi-window-manager');
+      const { hideWebsitePreview } = require('../../src/main/ui/multi-window-manager');
       (BrowserWindow.fromWebContents as jest.Mock).mockReturnValue(null);
 
       ipcMain.emit('website-editor-show-edit', mockEvent);
@@ -158,7 +158,7 @@ describe('Website Editor IPC Handlers', () => {
 
   describe('get-file-url', () => {
     it('should return file URL when website server and URL resolver exist', async () => {
-      const { getWebsiteServer } = require('../../app/ui/multi-window-manager');
+      const { getWebsiteServer } = require('../../src/main/ui/multi-window-manager');
       const mockUrlResolver = {
         getUrlForFile: jest.fn(() => '/test-file.html'),
       };
@@ -191,7 +191,7 @@ describe('Website Editor IPC Handlers', () => {
     });
 
     it('should return null when website server does not exist', async () => {
-      const { getWebsiteServer } = require('../../app/ui/multi-window-manager');
+      const { getWebsiteServer } = require('../../src/main/ui/multi-window-manager');
       getWebsiteServer.mockReturnValue(null);
 
       const handleHandlers = new Map<string, HandleHandler>();
@@ -214,7 +214,7 @@ describe('Website Editor IPC Handlers', () => {
 
   describe('get-website-server-url', () => {
     it('should return server URL when website window exists', async () => {
-      const { getAllWebsiteWindows } = require('../../app/ui/multi-window-manager');
+      const { getAllWebsiteWindows } = require('../../src/main/ui/multi-window-manager');
       const mockWebsiteWindows = new Map([
         [
           'test-website',
@@ -244,7 +244,7 @@ describe('Website Editor IPC Handlers', () => {
     });
 
     it('should return null when website window does not exist', async () => {
-      const { getAllWebsiteWindows } = require('../../app/ui/multi-window-manager');
+      const { getAllWebsiteWindows } = require('../../src/main/ui/multi-window-manager');
       getAllWebsiteWindows.mockReturnValue(new Map());
 
       const handleHandlers = new Map<string, HandleHandler>();
@@ -267,7 +267,7 @@ describe('Website Editor IPC Handlers', () => {
 
   describe('load-file-preview', () => {
     it('should load URL in WebContentsView when website window exists', async () => {
-      const { getAllWebsiteWindows } = require('../../app/ui/multi-window-manager');
+      const { getAllWebsiteWindows } = require('../../src/main/ui/multi-window-manager');
       const mockWebContents = {
         loadURL: jest.fn(),
         isDestroyed: jest.fn(() => false),
@@ -304,7 +304,7 @@ describe('Website Editor IPC Handlers', () => {
     });
 
     it('should handle missing website window gracefully', async () => {
-      const { getAllWebsiteWindows } = require('../../app/ui/multi-window-manager');
+      const { getAllWebsiteWindows } = require('../../src/main/ui/multi-window-manager');
       getAllWebsiteWindows.mockReturnValue(new Map());
 
       const onHandlers = new Map<string, OnHandler>();

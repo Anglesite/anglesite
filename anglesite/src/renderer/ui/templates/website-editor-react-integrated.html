@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Website Editor - React</title>
+    <link rel="stylesheet" href="default-theme.css" />
+    <style>
+      body {
+        margin: 0;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      .app-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .header {
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-primary);
+        padding: 12px 16px;
+      }
+
+      .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .sidebar {
+        width: 240px;
+        min-width: 240px;
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border-primary);
+        overflow-y: auto;
+      }
+
+      .file-explorer {
+        padding: 16px;
+      }
+
+      .file-explorer h3 {
+        margin: 0 0 12px 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .virtual-website-entry {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        margin-bottom: 16px;
+        transition: background-color 0.2s ease;
+      }
+
+      .virtual-website-entry:hover {
+        background: var(--button-hover);
+      }
+
+      .virtual-website-entry.selected {
+        background: var(--button-hover);
+        border-color: #007bff;
+      }
+
+      .virtual-website-entry span:first-child {
+        font-size: 16px;
+      }
+
+      .file-item {
+        display: flex;
+        align-items: center;
+        padding: 4px 8px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 13px;
+        transition: background-color 0.2s ease;
+      }
+
+      .file-item:hover {
+        background: var(--button-hover);
+      }
+
+      .file-item.selected {
+        background: var(--button-hover);
+        font-weight: 500;
+      }
+
+      .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-primary);
+      }
+
+      .editor-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .editor-tabs {
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-primary);
+        padding: 8px 16px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        min-height: 32px;
+        display: flex;
+        align-items: center;
+      }
+
+      .editor-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+        color: var(--text-secondary);
+        font-style: italic;
+      }
+
+      /* Loading state */
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        color: var(--text-secondary);
+      }
+
+      .loading-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--text-secondary);
+        border-top: 2px solid transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Error state */
+      .error {
+        color: var(--error-color);
+        background: rgba(220, 53, 69, 0.1);
+        padding: 16px;
+        border-radius: 6px;
+        margin: 16px;
+      }
+
+      /* Success state */
+      .success {
+        color: #28a745;
+        background: rgba(40, 167, 69, 0.1);
+        padding: 16px;
+        border-radius: 6px;
+        margin: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="react-root"></div>
+
+    <!-- Load React from node_modules -->
+    <script src="../../node_modules/react/umd/react.development.js"></script>
+    <script src="../../node_modules/react-dom/umd/react-dom.development.js"></script>
+
+    <!-- Load compiled React components -->
+    <script src="../dist/src/renderer/ui/react/index.js"></script>
+
+    <!-- Initialize React app after page loads -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        console.log('React Website Editor initialized');
+
+        // Verify React components loaded
+        if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
+          console.error('React or ReactDOM not loaded');
+          document.getElementById('react-root').innerHTML = `
+            <div class="error">
+              <h3>Failed to load React components</h3>
+              <p>Please ensure React libraries are properly installed.</p>
+            </div>
+          `;
+          return;
+        }
+
+        // The React app should initialize automatically from the compiled index.js
+        console.log('React components should be mounting now...');
+      });
+    </script>
+  </body>
+</html>

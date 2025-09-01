@@ -43,7 +43,7 @@ jest.mock('electron', () => ({
 }));
 
 // Mock the service registry to provide mocked services
-jest.mock('../../app/core/service-registry', () => ({
+jest.mock('../../src/main/core/service-registry', () => ({
   getGlobalContext: () => ({
     getService: (key: string) => {
       if (key === 'store') {
@@ -59,7 +59,7 @@ describe('Dark Mode Coverage Tests', () => {
 
   beforeAll(() => {
     // Import after mocks are set up
-    themeManager = require('../../app/ui/theme-manager').themeManager;
+    themeManager = require('../../src/main/ui/theme-manager').themeManager;
   });
 
   beforeEach(() => {
@@ -88,7 +88,7 @@ describe('Dark Mode Coverage Tests', () => {
       // Store class removed - now using DI with StoreService
 
       // Re-import to trigger constructor with light preference
-      require('../../app/ui/theme-manager');
+      require('../../src/main/ui/theme-manager');
 
       // This covers line 39 (light theme initialization)
       // Note: Theme initialization now uses DI and may default to 'system'

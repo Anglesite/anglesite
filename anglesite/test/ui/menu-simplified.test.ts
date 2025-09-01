@@ -25,30 +25,30 @@ jest.mock('electron', () => ({
 }));
 
 // Mock dependencies
-jest.mock('../../app/ui/multi-window-manager', () => ({
+jest.mock('../../src/main/ui/multi-window-manager', () => ({
   getHelpWindow: jest.fn(),
   getAllWebsiteWindows: jest.fn(() => new Map()),
   createHelpWindow: jest.fn(),
   isWebsiteEditorFocused: jest.fn(),
 }));
 
-jest.mock('../../app/ui/window-manager', () => ({
+jest.mock('../../src/main/ui/window-manager', () => ({
   openSettingsWindow: jest.fn(),
   openWebsiteSelectionWindow: jest.fn(),
   getNativeInput: jest.fn(),
 }));
 
-jest.mock('../../app/ipc/handlers', () => ({
+jest.mock('../../src/main/ipc/handlers', () => ({
   exportSiteHandler: jest.fn(),
   openWebsiteInNewWindow: jest.fn(),
 }));
 
-jest.mock('../../app/utils/website-manager', () => ({
+jest.mock('../../src/main/utils/website-manager', () => ({
   createWebsiteWithName: jest.fn(),
   validateWebsiteName: jest.fn(),
 }));
 
-import * as menu from '../../app/ui/menu';
+import * as menu from '../../src/main/ui/menu';
 
 describe('Menu', () => {
   beforeEach(() => {
@@ -82,7 +82,7 @@ describe('Menu', () => {
   describe('isWebsiteWindowFocused', () => {
     it('should return false when no window is focused', () => {
       mockBrowserWindow.getFocusedWindow.mockReturnValue(null);
-      const { isWebsiteEditorFocused } = require('../../app/ui/multi-window-manager');
+      const { isWebsiteEditorFocused } = require('../../src/main/ui/multi-window-manager');
       isWebsiteEditorFocused.mockReturnValue(false);
 
       // Since isWebsiteWindowFocused is not exported, we test it indirectly via createApplicationMenu

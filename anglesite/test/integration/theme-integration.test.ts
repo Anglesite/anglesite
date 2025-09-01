@@ -16,14 +16,14 @@ jest.mock('electron', () => ({
   ipcMain: mocks.ipcMain,
 }));
 
-jest.mock('../../app/core/service-registry', () => mocks.serviceRegistry);
+jest.mock('../../src/main/core/service-registry', () => mocks.serviceRegistry);
 
 describe('Theme System Integration', () => {
   let themeManager: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   beforeAll(() => {
     // Import after mocks are set up
-    themeManager = require('../../app/ui/theme-manager').themeManager;
+    themeManager = require('../../src/main/ui/theme-manager').themeManager;
   });
 
   beforeEach(() => {

@@ -89,7 +89,7 @@ const mockGetWebsitePath = jest.fn(() => {
   return result;
 });
 
-jest.mock('../../app/ui/window-manager', () => ({
+jest.mock('../../src/main/ui/window-manager', () => ({
   getBagItMetadata: mockGetBagItMetadata,
   openWebsiteSelectionWindow: jest.fn(),
   openSettingsWindow: jest.fn(),
@@ -97,7 +97,7 @@ jest.mock('../../app/ui/window-manager', () => ({
   getNativeInput: jest.fn(),
 }));
 
-jest.mock('../../app/ui/multi-window-manager', () => ({
+jest.mock('../../src/main/ui/multi-window-manager', () => ({
   getAllWebsiteWindows: mockGetAllWebsiteWindows,
   createWebsiteWindow: jest.fn(),
   loadWebsiteContent: jest.fn(),
@@ -105,7 +105,7 @@ jest.mock('../../app/ui/multi-window-manager', () => ({
   getCurrentWebsiteEditorProject: jest.fn(() => 'test-site'),
 }));
 
-jest.mock('../../app/utils/website-manager', () => ({
+jest.mock('../../src/main/utils/website-manager', () => ({
   getWebsitePath: mockGetWebsitePath,
   createWebsiteWithName: jest.fn(),
   validateWebsiteName: jest.fn(),
@@ -114,15 +114,15 @@ jest.mock('../../app/utils/website-manager', () => ({
   deleteWebsite: jest.fn(),
 }));
 
-jest.mock('../../app/server/eleventy', () => ({
+jest.mock('../../src/main/server/eleventy', () => ({
   getCurrentLiveServerUrl: jest.fn(() => TEST_CONSTANTS.URLS.HTTPS_LOCALHOST),
   isLiveServerReady: jest.fn(() => true),
   setLiveServerUrl: jest.fn(),
   setCurrentWebsiteName: jest.fn(),
 }));
 
-jest.mock('../../app/dns/hosts-manager', () => ({ addLocalDnsResolution: jest.fn() }));
-jest.mock('../../app/server/https-proxy', () => ({ restartHttpsProxy: jest.fn() }));
+jest.mock('../../src/main/dns/hosts-manager', () => ({ addLocalDnsResolution: jest.fn() }));
+jest.mock('../../src/main/server/https-proxy', () => ({ restartHttpsProxy: jest.fn() }));
 let exportSiteHandler: (event: IpcMainEvent | null, format: boolean | 'bagit') => Promise<void>;
 
 const mockWindow = { webContents: { send: jest.fn() } };
@@ -140,7 +140,7 @@ const mockMetadata = {
 
 describe.skip('Export Coverage Tests (disabled due to DI timeout issues)', () => {
   beforeAll(async () => {
-    const handlers = await import('../../app/ipc/handlers');
+    const handlers = await import('../../src/main/ipc/handlers');
     exportSiteHandler = handlers.exportSiteHandler;
   });
 
@@ -271,7 +271,7 @@ describe.skip('Export Coverage Tests (disabled due to DI timeout issues)', () =>
   });
 
   it('should handle no website selected', async () => {
-    const { isWebsiteEditorFocused } = require('../../app/ui/multi-window-manager');
+    const { isWebsiteEditorFocused } = require('../../src/main/ui/multi-window-manager');
     mockGetAllWebsiteWindows.mockReturnValue(new Map());
     isWebsiteEditorFocused.mockReturnValue(false);
 

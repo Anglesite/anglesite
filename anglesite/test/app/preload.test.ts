@@ -38,10 +38,10 @@ describe('Preload Script', () => {
     mockContextBridge.exposeInMainWorld.mockClear();
 
     // Delete from require cache if it exists
-    delete require.cache[require.resolve('../../app/preload')];
+    delete require.cache[require.resolve('../../src/main/preload')];
 
     // Import preload script to trigger the contextBridge.exposeInMainWorld call
-    require('../../app/preload');
+    require('../../src/main/preload');
 
     // Get the electronAPI that was exposed
     const exposeCall = mockContextBridge.exposeInMainWorld.mock.calls.find((call) => call[0] === 'electronAPI');

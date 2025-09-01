@@ -10,7 +10,7 @@ const mockWindowManager = {
   getBagItMetadata: jest.fn(),
 };
 
-jest.mock('../../app/ui/window-manager', () => mockWindowManager);
+jest.mock('../../src/main/ui/window-manager', () => mockWindowManager);
 
 const mockMultiWindowManager = {
   closeAllWindows: jest.fn(),
@@ -23,29 +23,29 @@ const mockMultiWindowManager = {
   setupServerManagerEventListeners: jest.fn(),
 };
 
-jest.mock('../../app/ui/multi-window-manager', () => mockMultiWindowManager);
+jest.mock('../../src/main/ui/multi-window-manager', () => mockMultiWindowManager);
 
 const mockAppMenu = {
   createApplicationMenu: jest.fn(),
   updateApplicationMenu: jest.fn(),
 };
 
-jest.mock('../../app/ui/menu', () => mockAppMenu);
+jest.mock('../../src/main/ui/menu', () => mockAppMenu);
 
 // Mock individual IPC modules
-jest.mock('../../app/ipc/website', () => ({
+jest.mock('../../src/main/ipc/website', () => ({
   setupWebsiteHandlers: jest.fn(),
 }));
 
-jest.mock('../../app/ipc/file', () => ({
+jest.mock('../../src/main/ipc/file', () => ({
   setupFileHandlers: jest.fn(),
 }));
 
-jest.mock('../../app/ipc/preview', () => ({
+jest.mock('../../src/main/ipc/preview', () => ({
   setupPreviewHandlers: jest.fn(),
 }));
 
-jest.mock('../../app/ipc/export', () => ({
+jest.mock('../../src/main/ipc/export', () => ({
   setupExportHandlers: jest.fn(),
 }));
 
@@ -54,7 +54,7 @@ const mockIpcHandlers = {
   setupIpcMainListeners: jest.fn(),
 };
 
-jest.mock('../../app/ipc/handlers', () => mockIpcHandlers);
+jest.mock('../../src/main/ipc/handlers', () => mockIpcHandlers);
 
 const mockStoreInstance = {
   get: jest.fn(),
@@ -70,7 +70,7 @@ const mockStoreInstance = {
 // Store class removed - now using DI with StoreService
 
 // Mock the service registry to provide mocked services
-jest.mock('../../app/core/service-registry', () => ({
+jest.mock('../../src/main/core/service-registry', () => ({
   initializeGlobalContext: jest.fn(() => Promise.resolve()),
   getGlobalContext: () => ({
     getService: (key: string) => {
@@ -87,7 +87,7 @@ const mockFirstLaunch = {
   handleFirstLaunch: jest.fn(),
 };
 
-jest.mock('../../app/utils/first-launch', () => mockFirstLaunch);
+jest.mock('../../src/main/utils/first-launch', () => mockFirstLaunch);
 
 const mockEleventy = {
   getCurrentLiveServerUrl: jest.fn(() => 'https://anglesite.test:8080'), // Default for multi-window-manager
@@ -96,14 +96,14 @@ const mockEleventy = {
   setCurrentWebsiteName: jest.fn(),
 };
 
-jest.mock('../../app/server/eleventy', () => mockEleventy);
+jest.mock('../../src/main/server/eleventy', () => mockEleventy);
 
 const mockHttpsProxy = {
   createHttpsProxy: jest.fn(),
   restartHttpsProxy: jest.fn(),
 };
 
-jest.mock('../../app/server/https-proxy', () => mockHttpsProxy);
+jest.mock('../../src/main/server/https-proxy', () => mockHttpsProxy);
 
 const mockHostsManager = {
   addLocalDnsResolution: jest.fn(),
@@ -111,14 +111,14 @@ const mockHostsManager = {
   checkAndSuggestTouchIdSetup: jest.fn(),
 };
 
-jest.mock('../../app/dns/hosts-manager', () => mockHostsManager);
+jest.mock('../../src/main/dns/hosts-manager', () => mockHostsManager);
 
 const mockThemeManager = {
   initialize: jest.fn(),
   applyThemeToWindow: jest.fn(),
 };
 
-jest.mock('../../app/ui/theme-manager', () => ({ themeManager: mockThemeManager }));
+jest.mock('../../src/main/ui/theme-manager', () => ({ themeManager: mockThemeManager }));
 
 const mockWebsiteManager = {
   createWebsiteWithName: jest.fn(),
@@ -129,7 +129,7 @@ const mockWebsiteManager = {
   deleteWebsite: jest.fn(),
 };
 
-jest.mock('../../app/utils/website-manager', () => mockWebsiteManager);
+jest.mock('../../src/main/utils/website-manager', () => mockWebsiteManager);
 
 const mockTemplateLoader = {
   loadTemplateAsDataUrl: jest.fn((templateName: string) => {
@@ -137,7 +137,7 @@ const mockTemplateLoader = {
   }),
 };
 
-jest.mock('../../app/ui/template-loader', () => mockTemplateLoader);
+jest.mock('../../src/main/ui/template-loader', () => mockTemplateLoader);
 
 const mockEnhancedFileWatcher = {
   start: jest.fn(() => Promise.resolve()),
@@ -153,7 +153,7 @@ const mockEnhancedFileWatcher = {
   })),
 };
 
-jest.mock('../../app/server/enhanced-file-watcher', () => ({
+jest.mock('../../src/main/server/enhanced-file-watcher', () => ({
   createEnhancedFileWatcher: jest.fn(() => mockEnhancedFileWatcher),
   EnhancedFileWatcher: jest.fn().mockImplementation(() => mockEnhancedFileWatcher),
 }));

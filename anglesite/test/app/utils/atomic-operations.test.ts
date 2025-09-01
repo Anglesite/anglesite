@@ -14,7 +14,7 @@ import {
   createAtomicTransaction,
   generateTempPath,
   withRollback,
-} from '../../../app/utils/atomic-operations';
+} from '../../../src/main/utils/atomic-operations';
 
 describe('Atomic Operations Framework', () => {
   let testDir: string;

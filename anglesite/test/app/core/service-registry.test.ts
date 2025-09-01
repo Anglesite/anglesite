@@ -12,9 +12,9 @@ import {
   Logger,
   FileSystemService,
   ServiceFactory,
-} from '../../../app/core/service-registry';
-import { DIContainer, ServiceKeys } from '../../../app/core/container';
-import { IStore, ILogger, IFileSystem } from '../../../app/core/interfaces';
+} from '../../../src/main/core/service-registry';
+import { DIContainer, ServiceKeys } from '../../../src/main/core/container';
+import { IStore, ILogger, IFileSystem } from '../../../src/main/core/interfaces';
 
 // Mock electron for this test
 jest.mock('electron', () => ({

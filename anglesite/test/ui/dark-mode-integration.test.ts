@@ -17,14 +17,14 @@ jest.mock('electron', () => ({
   ipcMain: mocks.ipcMain,
 }));
 
-jest.mock('../../app/core/service-registry', () => mocks.serviceRegistry);
+jest.mock('../../src/main/core/service-registry', () => mocks.serviceRegistry);
 
 describe('Dark Mode Integration Tests', () => {
   let themeManager: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   beforeAll(() => {
     // Import after mocks are set up
-    themeManager = require('../../app/ui/theme-manager').themeManager;
+    themeManager = require('../../src/main/ui/theme-manager').themeManager;
   });
 
   beforeEach(() => {
@@ -62,8 +62,8 @@ describe('Dark Mode Integration Tests', () => {
 
       // Re-import and call initialization to simulate fresh start
       jest.resetModules();
-      require('../../app/ui/theme-manager');
-      require('../../app/ui/theme-manager').themeManager.initialize();
+      require('../../src/main/ui/theme-manager');
+      require('../../src/main/ui/theme-manager').themeManager.initialize();
 
       expect(mocks.nativeTheme.themeSource).toBe('dark'); // Should respect the stored preference
     });

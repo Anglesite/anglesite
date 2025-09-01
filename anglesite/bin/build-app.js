@@ -15,7 +15,7 @@ function buildApp() {
     execSync('tsc', { stdio: 'inherit' });
 
     // Create necessary directories
-    const dirs = ['dist/app', 'dist/app/ui/templates', 'dist/app/eleventy'];
+    const dirs = ['dist/src', 'dist/src/renderer', 'dist/src/renderer/ui/templates', 'dist/src/main/eleventy'];
 
     dirs.forEach((dir) => {
       fs.mkdirSync(dir, { recursive: true });
@@ -23,19 +23,24 @@ function buildApp() {
 
     // Copy HTML files
     console.log('Copying HTML files...');
-    copyFiles('app', 'dist/app', '*.html');
+    copyFiles('src/renderer', 'dist/src/renderer', '*.html');
 
     // Copy CSS files
     console.log('Copying CSS files...');
-    copyFiles('app', 'dist/app', '*.css');
+    copyFiles('src/renderer', 'dist/src/renderer', '*.css');
 
     // Copy UI HTML files
     console.log('Copying UI HTML files...');
-    copyFiles('app/ui', 'dist/app/ui', '*.html');
+    copyFiles('src/renderer/ui', 'dist/src/renderer/ui', '*.html');
 
     // Copy UI templates
     console.log('Copying UI templates...');
-    copyFiles('app/ui/templates', 'dist/app/ui/templates', '*.html');
+    copyFiles('src/renderer/ui/templates', 'dist/src/renderer/ui/templates', '*.html');
+
+    // Copy UI templates for main process
+    console.log('Copying UI templates for main process...');
+    copyDirectory('src/renderer/ui/templates', 'dist/src/main/ui/templates');
+    copyFiles('src/renderer/ui', 'dist/src/main/ui', 'first-launch.html');
 
     // Inject static icons into templates
     console.log('Injecting static icons into templates...');
@@ -44,7 +49,7 @@ function buildApp() {
 
     // Sync Eleventy files
     console.log('Syncing Eleventy files...');
-    copyDirectory('app/eleventy', 'dist/app/eleventy');
+    copyDirectory('src/main/eleventy', 'dist/src/main/eleventy');
 
     console.log('App build complete!');
   } catch (error) {
@@ -72,6 +77,11 @@ function copyFiles(src, dest, pattern) {
     if (pattern === '*.css') return file.endsWith('.css');
     return true;
   });
+
+  // Create destination directory if it doesn't exist
+  if (!fs.existsSync(destPath)) {
+    fs.mkdirSync(destPath, { recursive: true });
+  }
 
   files.forEach((file) => {
     const srcFile = path.join(srcPath, file);

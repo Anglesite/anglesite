@@ -5,8 +5,8 @@
 import { TEST_CONSTANTS } from './constants/test-constants';
 
 // Mock the global context system to prevent initialization errors during tests
-jest.mock('../app/core/service-registry', () => {
-  const originalModule = jest.requireActual('../app/core/service-registry');
+jest.mock('../src/main/core/service-registry', () => {
+  const originalModule = jest.requireActual('../src/main/core/service-registry');
 
   // Create a mock store service
   const mockStore = {
@@ -68,52 +68,52 @@ afterAll(() => {
 describe('Modular Architecture', () => {
   describe('Module Imports', () => {
     it('should import UI modules', () => {
-      expect(() => require('../app/ui/window-manager')).not.toThrow();
-      expect(() => require('../app/ui/menu')).not.toThrow();
+      expect(() => require('../src/main/ui/window-manager')).not.toThrow();
+      expect(() => require('../src/main/ui/menu')).not.toThrow();
     });
 
     it('should import server modules', () => {
-      expect(() => require('../app/server/eleventy')).not.toThrow();
-      expect(() => require('../app/server/https-proxy')).not.toThrow();
+      expect(() => require('../src/main/server/eleventy')).not.toThrow();
+      expect(() => require('../src/main/server/https-proxy')).not.toThrow();
     });
 
     it('should import utility modules', () => {
-      expect(() => require('../app/utils/website-manager')).not.toThrow();
-      expect(() => require('../app/dns/hosts-manager')).not.toThrow();
-      expect(() => require('../app/certificates')).not.toThrow();
+      expect(() => require('../src/main/utils/website-manager')).not.toThrow();
+      expect(() => require('../src/main/dns/hosts-manager')).not.toThrow();
+      expect(() => require('../src/main/certificates')).not.toThrow();
     });
 
     it('should import IPC handlers', () => {
-      expect(() => require('../app/ipc/handlers')).not.toThrow();
+      expect(() => require('../src/main/ipc/handlers')).not.toThrow();
     });
   });
 
   describe('Function Exports', () => {
     it('should export functions from window manager', () => {
-      const windowManager = require('../app/ui/window-manager');
+      const windowManager = require('../src/main/ui/window-manager');
       expect(typeof windowManager.openWebsiteSelectionWindow).toBe('function');
       expect(typeof windowManager.openSettingsWindow).toBe('function');
       expect(typeof windowManager.getNativeInput).toBe('function');
     });
 
     it('should export functions from menu module', () => {
-      const menu = require('../app/ui/menu');
+      const menu = require('../src/main/ui/menu');
       expect(typeof menu.createApplicationMenu).toBe('function');
     });
 
     it('should export functions from eleventy server', () => {
-      const eleventy = require('../app/server/eleventy');
+      const eleventy = require('../src/main/server/eleventy');
       expect(typeof eleventy.getHostnameFromTestDomain).toBe('function');
       expect(typeof eleventy.validateWebsiteName).toBe('undefined'); // Not in this module
     });
 
     it('should export functions from website manager', () => {
-      const websiteManager = require('../app/utils/website-manager');
+      const websiteManager = require('../src/main/utils/website-manager');
       expect(typeof websiteManager.validateWebsiteName).toBe('function');
     });
 
     it('should export functions from hosts manager', () => {
-      const hostsManager = require('../app/dns/hosts-manager');
+      const hostsManager = require('../src/main/dns/hosts-manager');
       expect(typeof hostsManager.addLocalDnsResolution).toBe('function');
       expect(typeof hostsManager.cleanupHostsFile).toBe('function');
       expect(typeof hostsManager.updateHostsFile).toBe('function');
@@ -123,7 +123,7 @@ describe('Modular Architecture', () => {
 
   describe('Pure Functions', () => {
     it('should extract hostnames from valid URLs', () => {
-      const { getHostnameFromTestDomain } = require('../app/server/eleventy');
+      const { getHostnameFromTestDomain } = require('../src/main/server/eleventy');
 
       expect(
         getHostnameFromTestDomain(
@@ -138,7 +138,7 @@ describe('Modular Architecture', () => {
     });
 
     it('should validate website names', () => {
-      const { validateWebsiteName } = require('../app/utils/website-manager');
+      const { validateWebsiteName } = require('../src/main/utils/website-manager');
 
       // Valid names (filesystem-safe characters)
       expect(validateWebsiteName('valid-name').valid).toBe(true);
@@ -168,7 +168,7 @@ describe('Modular Architecture', () => {
     });
 
     it('should prevent path traversal attacks in website names', () => {
-      const { validateWebsiteName } = require('../app/utils/website-manager');
+      const { validateWebsiteName } = require('../src/main/utils/website-manager');
 
       // Path traversal attempts using double dots
       expect(validateWebsiteName('..').valid).toBe(false);
@@ -198,7 +198,7 @@ describe('Modular Architecture', () => {
       const fs = require('fs');
       const path = require('path');
 
-      const mainPath = path.join(__dirname, '..', 'app', 'main.ts');
+      const mainPath = path.join(__dirname, '..', 'src', 'main', 'main.ts');
       const mainContent = fs.readFileSync(mainPath, 'utf8');
 
       // Should be much shorter now (refactored)
@@ -230,7 +230,7 @@ describe('Modular Architecture', () => {
       ];
 
       modules.forEach((modulePath) => {
-        const fullPath = path.join(__dirname, '..', 'app', modulePath);
+        const fullPath = path.join(__dirname, '..', 'src', 'main', modulePath);
         expect(fs.existsSync(fullPath)).toBe(true);
       });
     });

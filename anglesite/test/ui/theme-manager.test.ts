@@ -45,7 +45,7 @@ jest.mock('electron', () => ({
 }));
 
 // Mock the service registry to provide mocked services
-jest.mock('../../app/core/service-registry', () => ({
+jest.mock('../../src/main/core/service-registry', () => ({
   getGlobalContext: () => ({
     getService: (key: string) => {
       if (key === 'store') {
@@ -61,7 +61,7 @@ describe('Theme Manager', () => {
 
   beforeAll(() => {
     // Import after mocks are set up
-    themeManager = require('../../app/ui/theme-manager').themeManager;
+    themeManager = require('../../src/main/ui/theme-manager').themeManager;
   });
 
   beforeEach(() => {

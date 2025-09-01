@@ -14,7 +14,7 @@ export default {
   testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
   testPathIgnorePatterns: ['/node_modules/'],
   moduleNameMapper: {
-    '^../../app/eleventy/.eleventy$': '<rootDir>/app/eleventy/config.eleventy.ts',
+    '^../../src/main/eleventy/.eleventy$': '<rootDir>/src/main/eleventy/config.eleventy.ts',
     '^@11ty/eleventy$': '<rootDir>/test/mocks/__mocks__/eleventy.js',
     '^@11ty/eleventy-dev-server$': '<rootDir>/test/mocks/__mocks__/eleventy-dev-server.js',
     '^bagit-fs$': '<rootDir>/test/mocks/__mocks__/bagit-fs.js',

@@ -5,8 +5,8 @@
  * resolution, lifecycle management, and error scenarios.
  */
 
-import { DIContainer, ServiceKeys } from '../../../app/core/container';
-import { Logger, FileSystemService } from '../../../app/core/service-registry';
+import { DIContainer, ServiceKeys } from '../../../src/main/core/container';
+import { Logger, FileSystemService } from '../../../src/main/core/service-registry';
 
 describe('DIContainer', () => {
   let container: DIContainer;

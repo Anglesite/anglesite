@@ -27,7 +27,7 @@ const icons = {
 };
 
 function injectStaticIcons() {
-  const templatePath = path.join(__dirname, '..', 'app', 'ui', 'templates', 'website-editor.html');
+  const templatePath = path.join(__dirname, '..', 'src', 'renderer', 'ui', 'templates', 'website-editor.html');
 
   if (!fs.existsSync(templatePath)) {
     console.error('Template file not found:', templatePath);

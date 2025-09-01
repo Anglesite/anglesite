@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
 import * as chokidar from 'chokidar';
-import { EleventyUrlResolver } from '../../app/server/eleventy-url-resolver';
+import { EleventyUrlResolver } from '../../src/main/server/eleventy-url-resolver';
 
 // Mock dependencies
 jest.mock('fs');

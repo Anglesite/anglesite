@@ -151,7 +151,7 @@ function analyzeBundleStats() {
   }
 
   console.log('   - Use "npm run analyze:bundle" for interactive analysis');
-  console.log('   - Check the HTML report at dist/app/ui/react/bundle-report.html');
+  console.log('   - Check the HTML report at dist/src/renderer/ui/react/bundle-report.html');
 
   console.log('\n✨ Analysis complete!');
 }

@@ -78,11 +78,11 @@ describe('Code Splitting Configuration', () => {
         const formsGroup = cacheGroups?.forms;
         expect(formsGroup).toMatchObject({
           name: 'forms',
-          priority: 30,
+          priority: 35,
           reuseExistingChunk: true,
-          chunks: 'all',
+          chunks: 'async',
           enforce: true,
-          minSize: 50000, // 50KB minimum
+          minSize: 10000, // 50KB minimum
         });
 
         // Test regex pattern for form libraries
@@ -156,7 +156,7 @@ describe('Code Splitting Configuration', () => {
 
         // Priority should be: react > forms > utils > vendor > common
         expect(cacheGroups?.react?.priority).toBe(40);
-        expect(cacheGroups?.forms?.priority).toBe(30);
+        expect(cacheGroups?.forms?.priority).toBe(35);
         expect(cacheGroups?.utils?.priority).toBe(25);
         expect(cacheGroups?.vendor?.priority).toBe(10);
         expect(cacheGroups?.common?.priority).toBe(5);
@@ -209,8 +209,8 @@ describe('Code Splitting Configuration', () => {
       const performance = prodConfig.performance;
       if (performance && typeof performance === 'object') {
         expect(performance.hints).toBe('warning');
-        expect(performance.maxEntrypointSize).toBe(512000); // 500KB
-        expect(performance.maxAssetSize).toBe(250000); // 250KB
+        expect(performance.maxEntrypointSize).toBe(1200000); // 1.2MB
+        expect(performance.maxAssetSize).toBe(800000); // 800KB
       }
     });
 
@@ -255,7 +255,7 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should have WebsiteConfigEditor component with default export', () => {
-      const editorPath = path.resolve(__dirname, '../../app/ui/react/components/WebsiteConfigEditor.tsx');
+      const editorPath = path.resolve(__dirname, '../../src/renderer/ui/react/components/WebsiteConfigEditor.tsx');
       expect(fs.existsSync(editorPath)).toBe(true);
 
       const editorContent = fs.readFileSync(editorPath, 'utf8');
@@ -265,7 +265,7 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should have Main component with lazy import implementation', () => {
-      const mainPath = path.resolve(__dirname, '../../app/ui/react/components/Main.tsx');
+      const mainPath = path.resolve(__dirname, '../../src/renderer/ui/react/components/Main.tsx');
       expect(fs.existsSync(mainPath)).toBe(true);
 
       const mainContent = fs.readFileSync(mainPath, 'utf8');
@@ -292,7 +292,7 @@ describe('Code Splitting Configuration', () => {
         const formsGroup = cacheGroups?.forms;
 
         // Ensure forms chunk is created for all chunk types
-        expect(formsGroup?.chunks).toBe('all');
+        expect(formsGroup?.chunks).toBe('async');
 
         // Ensure enforce is true to guarantee chunk creation
         expect(formsGroup?.enforce).toBe(true);

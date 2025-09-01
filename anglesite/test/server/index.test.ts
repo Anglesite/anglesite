@@ -1,7 +1,7 @@
 /**
  * @file Tests for server module exports
  */
-import * as serverModule from '../../app/server/index';
+import * as serverModule from '../../src/main/server/index';
 
 describe('Server Module Exports', () => {
   it('should export eleventy functions', () => {

@@ -3,8 +3,8 @@
  */
 
 // Mock the global context system to prevent initialization errors during tests
-jest.doMock('../app/core/service-registry', () => {
-  const originalModule = jest.requireActual('../app/core/service-registry');
+jest.doMock('../src/main/core/service-registry', () => {
+  const originalModule = jest.requireActual('../src/main/core/service-registry');
 
   // Create a mock store service
   const mockStore = {

@@ -25,7 +25,7 @@ describe('Renderer Process', () => {
 
     // Dynamically import the renderer script after the DOM is set up
     jest.isolateModules(() => {
-      jest.requireActual('../dist/app/renderer.js');
+      jest.requireActual('../dist/src/renderer/renderer.js');
     });
   });
 

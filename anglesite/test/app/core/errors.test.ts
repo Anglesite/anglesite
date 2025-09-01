@@ -23,7 +23,7 @@ import {
   errorRegistry,
   registerErrorHandler,
   ErrorContextManager,
-} from '../../../app/core/errors';
+} from '../../../src/main/core/errors';
 
 describe('Error System', () => {
   describe('Base AngleError', () => {

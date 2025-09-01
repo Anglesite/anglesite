@@ -18,6 +18,9 @@ const ASSET_CONFIG = require('./assets.config');
 /** Enable bundle analysis for development builds when requested */
 const analyzeBundle = process.env.ANALYZE_BUNDLE === 'true';
 
+/** Check if we're running webpack-dev-server or just building */
+const isDevServer = process.env.WEBPACK_SERVE === 'true';
+
 /**
  * Development webpack configuration
  * @type {import('webpack').Configuration}
@@ -31,7 +34,7 @@ module.exports = merge(common, {
    * Uses simple filenames without hashes for faster rebuilds
    */
   output: {
-    path: path.resolve(__dirname, 'dist/app/ui/react'),
+    path: path.resolve(__dirname, 'dist/src/renderer/ui/react'),
     filename: ASSET_CONFIG.output.naming.development.js,
     chunkFilename: '[name].chunk.js',
     publicPath: ASSET_CONFIG.output.publicPath.development,
@@ -54,7 +57,7 @@ module.exports = merge(common, {
             loader: 'ts-loader',
             options: {
               transpileOnly: true,
-              configFile: path.resolve(__dirname, 'app/ui/react/tsconfig.json'),
+              configFile: path.resolve(__dirname, 'src/renderer/ui/react/tsconfig.json'),
               compilerOptions: {
                 sourceMap: ASSET_CONFIG.sourceMaps.development.loaders,
               },
@@ -143,7 +146,7 @@ module.exports = merge(common, {
      * Uses HMR-enabled template with unminified output for debugging
      */
     new HtmlWebpackPlugin({
-      template: path.resolve(__dirname, 'app/ui/templates/website-editor-react-hmr.html'),
+      template: path.resolve(__dirname, 'src/renderer/ui/templates/website-editor-react-hmr.html'),
       filename: 'index.html',
       inject: 'body',
       minify: false,
@@ -151,13 +154,14 @@ module.exports = merge(common, {
 
     /**
      * React Fast Refresh plugin for hot reloading
-     * Preserves component state during development
+     * Only included when running dev server (not for builds)
      */
-    new ReactRefreshWebpackPlugin({
-      overlay: {
-        sockIntegration: 'whm',
-      },
-    }),
+    isDevServer &&
+      new ReactRefreshWebpackPlugin({
+        overlay: {
+          sockIntegration: 'whm',
+        },
+      }),
 
     /**
      * Bundle analyzer for development builds (optional)
@@ -174,7 +178,7 @@ module.exports = merge(common, {
         excludeAssets: ASSET_CONFIG.performance.analyzer.excludeAssets,
         logLevel: ASSET_CONFIG.performance.analyzer.logLevel,
       }),
-  ].filter(Boolean),
+  ].filter(Boolean), // Filter out false plugins when not using dev server
 
   /**
    * Webpack Dev Server configuration for development
@@ -253,12 +257,12 @@ module.exports = merge(common, {
      */
     watchFiles: {
       paths: [
-        'app/ui/react/**/*.{ts,tsx,js,jsx}',
-        'app/ui/templates/**/*.html',
-        'app/ui/**/*.css',
-        'app/main.ts',
-        'app/preload.ts',
-        'app/renderer.ts',
+        'src/renderer/ui/react/**/*.{ts,tsx,js,jsx}',
+        'src/main/ui/templates/**/*.html',
+        'src/main/ui/**/*.css',
+        'src/main/main.ts',
+        'src/main/preload.ts',
+        'src/renderer/renderer.ts',
       ],
       options: {
         usePolling: false,

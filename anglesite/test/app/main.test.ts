@@ -86,19 +86,19 @@ describe('Main Process', () => {
   describe('Application Setup', () => {
     it('should set application name early', () => {
       // Import main.ts to trigger the setName call
-      require('../../app/main');
+      require('../../src/main/main');
 
       expect(mockApp.setName).toHaveBeenCalledWith(TEST_CONSTANTS.APP.NAME);
     });
 
     it('should register whenReady handler', () => {
-      require('../../app/main');
+      require('../../src/main/main');
 
       expect(mockApp.whenReady).toHaveBeenCalled();
     });
 
     it('should set up command line switches for development', () => {
-      require('../../app/main');
+      require('../../src/main/main');
 
       expect(mockApp.commandLine.appendSwitch).toHaveBeenCalledWith('--ignore-certificate-errors-spki-list');
       expect(mockApp.commandLine.appendSwitch).toHaveBeenCalledWith('--ignore-certificate-errors');
@@ -108,7 +108,7 @@ describe('Main Process', () => {
     it('should suppress Node.js warnings in development', () => {
       process.env.NODE_ENV = TEST_CONSTANTS.ENV.DEVELOPMENT;
 
-      require('../../app/main');
+      require('../../src/main/main');
 
       expect(processRemoveAllListenersSpy).toHaveBeenCalledWith('warning');
     });
@@ -116,7 +116,7 @@ describe('Main Process', () => {
     it('should not suppress warnings in production', () => {
       process.env.NODE_ENV = TEST_CONSTANTS.ENV.PRODUCTION;
 
-      require('../../app/main');
+      require('../../src/main/main');
 
       expect(processRemoveAllListenersSpy).not.toHaveBeenCalled();
     });
@@ -124,7 +124,7 @@ describe('Main Process', () => {
 
   describe('App Event Handlers', () => {
     beforeEach(() => {
-      require('../../app/main');
+      require('../../src/main/main');
     });
 
     it('should register window-all-closed handler', () => {
@@ -237,11 +237,11 @@ describe('Main Process', () => {
   describe('App Module Loading and Basic Structure', () => {
     it('should load main module without errors', () => {
       // This test verifies the module can be loaded
-      expect(() => require('../../app/main')).not.toThrow();
+      expect(() => require('../../src/main/main')).not.toThrow();
     });
 
     it('should export mainWindow', () => {
-      const mainModule = require('../../app/main');
+      const mainModule = require('../../src/main/main');
       expect(mainModule).toHaveProperty('mainWindow');
     });
 
@@ -252,14 +252,14 @@ describe('Main Process', () => {
     });
 
     it('should verify module structure', () => {
-      const mainModule = require('../../app/main');
+      const mainModule = require('../../src/main/main');
       expect(mainModule).toBeDefined();
     });
   });
 
   describe('Activate Handler', () => {
     it('should recreate app when activated with no main window', () => {
-      require('../../app/main');
+      require('../../src/main/main');
 
       const activateHandler = mockApp.on.mock.calls.find((call) => call[0] === 'activate')?.[1];
 
@@ -276,12 +276,12 @@ describe('Main Process', () => {
   describe('Default Server Startup', () => {
     it('should have server startup logic in place', () => {
       // Test that the module structure supports server startup
-      const mainModule = require('../../app/main');
+      const mainModule = require('../../src/main/main');
       expect(mainModule).toBeDefined();
     });
 
     it('should execute server ready callback', async () => {
-      require('../../app/main');
+      require('../../src/main/main');
 
       // Execute the initialization callback
       if (initializeAppCallback) {
@@ -293,12 +293,12 @@ describe('Main Process', () => {
   describe('Error Handling', () => {
     it('should handle module loading gracefully', () => {
       // Test that the module can be loaded without throwing errors
-      expect(() => require('../../app/main')).not.toThrow();
+      expect(() => require('../../src/main/main')).not.toThrow();
     });
 
     it('should have error handling structure in place', () => {
       // Verify the module structure supports error handling
-      const mainModule = require('../../app/main');
+      const mainModule = require('../../src/main/main');
       expect(mainModule).toBeDefined();
     });
   });

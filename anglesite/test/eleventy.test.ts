@@ -16,7 +16,7 @@ jest.mock('path', () => ({
 }));
 
 // Now require the module
-const eleventyConfig = require('../app/eleventy/.eleventy.js');
+const eleventyConfig = require('../src/main/eleventy/.eleventy.js');
 
 /**
  * Describes the Eleventy configuration tests.

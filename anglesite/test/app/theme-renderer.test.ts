@@ -61,7 +61,7 @@ Object.defineProperty(document, 'documentElement', {
 });
 
 // Now import the actual module
-import { themeRenderer, Theme, ThemeInfo } from '../../app/theme-renderer';
+import { themeRenderer, Theme, ThemeInfo } from '../../src/renderer/theme-renderer';
 
 describe('ThemeRenderer Module Tests', () => {
   let consoleLogSpy: jest.SpyInstance;

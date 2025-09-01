@@ -12,7 +12,7 @@ describe('Main Component Code Splitting', () => {
     const fs = require('fs');
     const path = require('path');
 
-    const mainPath = path.resolve(__dirname, '../../../app/ui/react/components/Main.tsx');
+    const mainPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/Main.tsx');
     expect(fs.existsSync(mainPath)).toBe(true);
 
     const mainContent = fs.readFileSync(mainPath, 'utf8');
@@ -28,7 +28,7 @@ describe('Main Component Code Splitting', () => {
     const fs = require('fs');
     const path = require('path');
 
-    const mainPath = path.resolve(__dirname, '../../../app/ui/react/components/Main.tsx');
+    const mainPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/Main.tsx');
     const mainContent = fs.readFileSync(mainPath, 'utf8');
 
     // Check for Error Boundary implementation
@@ -42,7 +42,7 @@ describe('Main Component Code Splitting', () => {
     const fs = require('fs');
     const path = require('path');
 
-    const mainPath = path.resolve(__dirname, '../../../app/ui/react/components/Main.tsx');
+    const mainPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/Main.tsx');
     const mainContent = fs.readFileSync(mainPath, 'utf8');
 
     // Check that lazy import is done conditionally
@@ -54,7 +54,7 @@ describe('Main Component Code Splitting', () => {
     const fs = require('fs');
     const path = require('path');
 
-    const mainPath = path.resolve(__dirname, '../../../app/ui/react/components/Main.tsx');
+    const mainPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/Main.tsx');
     const mainContent = fs.readFileSync(mainPath, 'utf8');
 
     // Check for loading and error fallbacks
@@ -67,7 +67,7 @@ describe('Main Component Code Splitting', () => {
     const fs = require('fs');
     const path = require('path');
 
-    const mainPath = path.resolve(__dirname, '../../../app/ui/react/components/Main.tsx');
+    const mainPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/Main.tsx');
     const mainContent = fs.readFileSync(mainPath, 'utf8');
 
     // Check for proper export

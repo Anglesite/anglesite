@@ -5,10 +5,10 @@
  * injection, validation, and lifecycle management.
  */
 
-import { StoreService, createStoreService } from '../../../app/core/store-service';
-import { Logger, FileSystemService } from '../../../app/core/service-registry';
-import { ILogger, IFileSystem } from '../../../app/core/interfaces';
-import { WindowState, AppSettings } from '../../../app/core/types';
+import { StoreService, createStoreService } from '../../../src/main/core/store-service';
+import { Logger, FileSystemService } from '../../../src/main/core/service-registry';
+import { ILogger, IFileSystem } from '../../../src/main/core/interfaces';
+import { WindowState, AppSettings } from '../../../src/main/core/types';
 import * as path from 'path';
 import * as os from 'os';
 
@@ -298,7 +298,7 @@ describe('StoreService', () => {
   describe('Persistence and Lifecycle', () => {
     it('should implement IStore interface correctly', () => {
       // Type check - this will fail compilation if interface is not implemented
-      const store: import('../../../app/core/interfaces').IStore = storeService;
+      const store: import('../../../src/main/core/interfaces').IStore = storeService;
       expect(store).toBeDefined();
     });
 

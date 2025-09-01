@@ -4,7 +4,7 @@
 import type { MenuItemConstructorOptions, Menu, MenuItem, KeyboardEvent } from 'electron';
 
 // Mock the service registry FIRST, before any other imports
-jest.mock('../../app/core/service-registry', () => ({
+jest.mock('../../src/main/core/service-registry', () => ({
   getGlobalContext: jest.fn().mockReturnValue({
     getService: jest.fn().mockReturnValue({
       getRecentWebsites: jest.fn().mockReturnValue([]),
@@ -45,7 +45,7 @@ jest.mock('electron', () => ({
 
 // Mock IPC handlers
 const mockExportSiteHandler = jest.fn();
-jest.mock('../../app/ipc/export', () => ({
+jest.mock('../../src/main/ipc/export', () => ({
   exportSiteHandler: mockExportSiteHandler,
 }));
 
@@ -76,20 +76,20 @@ const mockWebsiteWindow2 = {
   websiteName: 'Test Site 2',
 };
 
-jest.mock('../../app/ui/multi-window-manager', () => ({
+jest.mock('../../src/main/ui/multi-window-manager', () => ({
   getAllWebsiteWindows: jest.fn(),
   isWebsiteEditorFocused: jest.fn(),
   getHelpWindow: jest.fn(),
   createHelpWindow: jest.fn(),
 }));
 
-jest.mock('../../app/ui/window-manager', () => ({
+jest.mock('../../src/main/ui/window-manager', () => ({
   openSettingsWindow: jest.fn(),
   openWebsiteSelectionWindow: jest.fn(),
   getNativeInput: jest.fn(),
 }));
 
-jest.mock('../../app/server/eleventy', () => ({
+jest.mock('../../src/main/server/eleventy', () => ({
   getCurrentLiveServerUrl: jest.fn(() => 'https://localhost:8080'),
 }));
 
@@ -111,9 +111,9 @@ describe('Menu', () => {
   };
 
   beforeAll(() => {
-    menu = require('../../app/ui/menu');
-    mockMultiWindowManager = require('../../app/ui/multi-window-manager');
-    mockWindowManager = require('../../app/ui/window-manager');
+    menu = require('../../src/main/ui/menu');
+    mockMultiWindowManager = require('../../src/main/ui/multi-window-manager');
+    mockWindowManager = require('../../src/main/ui/window-manager');
   });
 
   beforeEach(() => {

@@ -2,7 +2,7 @@
  * @file Tests for renderer-side theme management
  */
 
-import { Theme, ResolvedTheme, ThemeInfo } from '../app/theme-renderer';
+import { Theme, ResolvedTheme, ThemeInfo } from '../src/renderer/theme-renderer';
 
 // Create a test-only version of ThemeRenderer class
 class TestThemeRenderer {

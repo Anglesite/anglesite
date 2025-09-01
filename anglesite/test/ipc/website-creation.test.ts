@@ -33,22 +33,22 @@ const mockStoreWC = {
 };
 
 // Set up mocks
-jest.mock('../../app/ui/multi-window-manager', () => ({
+jest.mock('../../src/main/ui/multi-window-manager', () => ({
   createWebsiteWindow: mockCreateWebsiteWindow,
   loadWebsiteContent: mockLoadWebsiteContent,
 }));
 
-jest.mock('../../app/dns/hosts-manager', () => ({
+jest.mock('../../src/main/dns/hosts-manager', () => ({
   addLocalDnsResolution: mockAddLocalDnsResolutionWC,
 }));
 
-jest.mock('../../app/server/https-proxy', () => ({
+jest.mock('../../src/main/server/https-proxy', () => ({
   restartHttpsProxy: mockRestartHttpsProxyWC,
 }));
 
 // Store class removed - now using DI with StoreService
 
-jest.mock('../../app/utils/website-manager', () => ({
+jest.mock('../../src/main/utils/website-manager', () => ({
   createWebsiteWithName: jest.fn(() => Promise.resolve(TEST_CONSTANTS.PATHS.WEBSITE_PATH)),
   getWebsitePath: jest.fn(() => TEST_CONSTANTS.PATHS.WEBSITE_PATH),
 }));
@@ -56,7 +56,7 @@ jest.mock('../../app/utils/website-manager', () => ({
 describe('Website Creation Flow', () => {
   beforeAll(() => {
     // Import after mocks are set up
-    require('../../app/ipc/handlers');
+    require('../../src/main/ipc/handlers');
   });
 
   beforeEach(() => {
@@ -191,7 +191,7 @@ describe('Website Creation Flow', () => {
   describe('Website Opening Integration', () => {
     it('should properly export openWebsiteInNewWindow function', () => {
       // Import the handlers module to check exports
-      const handlers = require('../../app/ipc/handlers');
+      const handlers = require('../../src/main/ipc/handlers');
 
       // Verify that openWebsiteInNewWindow is exported
       expect(handlers.openWebsiteInNewWindow).toBeDefined();
@@ -226,7 +226,7 @@ describe('Website Creation Flow', () => {
     });
 
     it('should validate website directory exists before opening', () => {
-      const handlers = require('../../app/ipc/handlers');
+      const handlers = require('../../src/main/ipc/handlers');
       const fs = require('fs');
 
       // Mock fs.existsSync to return false (directory doesn't exist)

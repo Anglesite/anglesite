@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 describe('Bundle Analyzer Build Integration Tests', () => {
-  const distDir = path.resolve(process.cwd(), 'dist/app/ui/react');
+  const distDir = path.resolve(process.cwd(), 'dist/src/renderer/ui/react');
   const timeout = 90000; // 90 seconds for analyzer builds
 
   beforeAll(() => {

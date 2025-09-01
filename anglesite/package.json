@@ -29,7 +29,7 @@
     "analyze:bundle:gzip": "ANALYZE_BUNDLE=true ANALYZER_SIZES=gzip webpack --config webpack.prod.js",
     "analyze:bundle:stats": "ANALYZE_BUNDLE=true ANALYZER_GENERATE_STATS=true webpack --config webpack.prod.js",
     "analyze:bundle:ci": "ANALYZE_BUNDLE=true ANALYZER_MODE=json ANALYZER_GENERATE_STATS=true ANALYZER_OPEN=false webpack --config webpack.prod.js",
-    "analyze:view": "open dist/app/ui/react/bundle-report.html",
+    "analyze:view": "open dist/src/renderer/ui/react/bundle-report.html",
     "analyze:summary": "node scripts/bundle-summary.js",
     "dist": "node bin/dist-build.js",
     "clear-cache": "node bin/clear-cache.js",
@@ -38,9 +38,9 @@
     "dist:linux": "node bin/dist-build.js linux",
     "pack": "node bin/dist-build.js dir",
     "format": "prettier --write .",
-    "lint": "eslint . && markdownlint '**/*.md' --ignore node_modules --ignore dist && htmlhint 'app/**/*.html'",
-    "lint:parallel": "concurrently \"eslint .\" \"markdownlint '**/*.md' --ignore node_modules --ignore dist\" \"htmlhint 'app/**/*.html'\" --names \"eslint,markdown,html\" --prefix-colors \"red,magenta,cyan\"",
-    "lint:html": "htmlhint 'app/**/*.html'",
+    "lint": "eslint . && markdownlint '**/*.md' --ignore node_modules --ignore dist && htmlhint 'src/renderer/**/*.html'",
+    "lint:parallel": "concurrently \"eslint .\" \"markdownlint '**/*.md' --ignore node_modules --ignore dist\" \"htmlhint 'src/renderer/**/*.html'\" --names \"eslint,markdown,html\" --prefix-colors \"red,magenta,cyan\"",
+    "lint:html": "htmlhint 'src/renderer/**/*.html'",
     "prelint": "npm run format",
     "prestart": "npm run build",
     "pretest": "tsc",
@@ -65,7 +65,7 @@
     "11ty",
     "local-first"
   ],
-  "main": "dist/app/main.js",
+  "main": "dist/src/main/main.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/anglesite/anglesite.git"
@@ -79,16 +79,16 @@
     "asar": true,
     "asarUnpack": [
       "node_modules/@dwk/anglesite-starter/**/*",
-      "app/ui/**/*",
-      "dist/app/ui/**/*"
+      "src/renderer/ui/**/*",
+      "dist/src/renderer/ui/**/*"
     ],
     "directories": {
       "output": "dist/build",
-      "buildResources": "icons"
+      "buildResources": "src/assets/icons"
     },
     "files": [
-      "dist/app/**/*",
-      "app/ui/**/*.html",
+      "dist/src/**/*",
+      "src/renderer/ui/**/*.html",
       "node_modules/**/*",
       "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
       "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
@@ -103,7 +103,7 @@
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
     "mac": {
-      "icon": "icons/icon.png",
+      "icon": "src/assets/icons/icon.icns",
       "category": "public.app-category.developer-tools",
       "target": [
         {
@@ -123,7 +123,7 @@
       ]
     },
     "win": {
-      "icon": "icons/icon.png",
+      "icon": "src/assets/icons/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -142,7 +142,7 @@
       ]
     },
     "linux": {
-      "icon": "icons/",
+      "icon": "src/assets/icons/512x512.png",
       "target": [
         {
           "target": "AppImage",
@@ -166,12 +166,12 @@
     },
     "extraResources": [
       {
-        "from": "app/eleventy",
-        "to": "app/eleventy"
+        "from": "src/main/eleventy",
+        "to": "src/main/eleventy"
       },
       {
-        "from": "app/ui/templates",
-        "to": "app/ui/templates"
+        "from": "src/renderer/ui/templates",
+        "to": "src/renderer/ui/templates"
       }
     ]
   },

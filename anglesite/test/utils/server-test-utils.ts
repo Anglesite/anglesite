@@ -66,7 +66,7 @@ export class ServerTestSetup {
     };
 
     // Mock the dynamic import
-    jest.doMock('../../app/ui/multi-window-manager', () => this.mockMultiWindowManager, { virtual: true });
+    jest.doMock('../../src/main/ui/multi-window-manager', () => this.mockMultiWindowManager, { virtual: true });
   }
 
   private setupLoggerMock(): void {
@@ -74,7 +74,7 @@ export class ServerTestSetup {
 
     // Mock the logger import
     jest.doMock(
-      '../../app/utils/logging',
+      '../../src/main/utils/logging',
       () => ({
         logger: this.loggerMock,
         sanitize: {

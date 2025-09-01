@@ -4,8 +4,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { startWebsiteServer, stopWebsiteServer, WebsiteServer } from '../../app/server/per-website-server';
-import { EleventyUrlResolver } from '../../app/server/eleventy-url-resolver';
+import { startWebsiteServer, stopWebsiteServer, WebsiteServer } from '../../src/main/server/per-website-server';
+import { EleventyUrlResolver } from '../../src/main/server/eleventy-url-resolver';
 import { createLoggingTestHelper, buildErrorPatterns, LoggingTestHelper } from '../utils/logging-test-utils';
 
 // Import app modules mock to ensure it's loaded
@@ -16,8 +16,8 @@ jest.mock('fs');
 jest.mock('path');
 jest.mock('@11ty/eleventy');
 jest.mock('@11ty/eleventy-dev-server');
-jest.mock('../../app/server/eleventy-url-resolver');
-jest.mock('../../app/ui/multi-window-manager', () => ({
+jest.mock('../../src/main/server/eleventy-url-resolver');
+jest.mock('../../src/main/ui/multi-window-manager', () => ({
   sendLogToWebsite: jest.fn(),
 }));
 
@@ -48,7 +48,7 @@ const mockEleventy = require('@11ty/eleventy');
 const mockEleventyDevServer = require('@11ty/eleventy-dev-server');
 const mockEleventyUrlResolver = EleventyUrlResolver as jest.MockedClass<typeof EleventyUrlResolver>;
 // Enhanced file watcher module imported but not directly used in this test file
-// const mockEnhancedFileWatcherModule = require('../../app/server/enhanced-file-watcher');
+// const mockEnhancedFileWatcherModule = require('../../src/main/server/enhanced-file-watcher');
 
 describe('Per-Website Server', () => {
   let originalConsole: typeof console;
@@ -70,7 +70,7 @@ describe('Per-Website Server', () => {
     mockPath.join.mockImplementation((...args) => args.join('/'));
 
     // Setup multi-window-manager mock
-    mockMultiWindowManager = require('../../app/ui/multi-window-manager');
+    mockMultiWindowManager = require('../../src/main/ui/multi-window-manager');
     mockMultiWindowManager.sendLogToWebsite = jest.fn();
 
     // Mock URL resolver
@@ -601,7 +601,7 @@ describe('Per-Website Server', () => {
 
       // Verify anglesite-11ty plugin is called with WebC configuration
       expect(mockEleventyConfig.addPlugin).toHaveBeenCalledWith(
-        expect.any(Function), // The actual function, not the mock string
+        'anglesite-plugin', // The mock string being used
         expect.objectContaining({
           webComponents: '_includes/**/*.webc',
         })

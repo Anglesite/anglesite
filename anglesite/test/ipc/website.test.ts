@@ -6,13 +6,13 @@
 
 import { ipcMain, BrowserWindow, dialog, Menu, MenuItem, WebContentsView } from 'electron';
 import * as fs from 'fs';
-import { setupWebsiteHandlers, openWebsiteInNewWindow } from '../../app/ipc/website';
-import { getNativeInput, openWebsiteSelectionWindow } from '../../app/ui/window-manager';
+import { setupWebsiteHandlers, openWebsiteInNewWindow } from '../../src/main/ipc/website';
+import { getNativeInput, openWebsiteSelectionWindow } from '../../src/main/ui/window-manager';
 import {
   createWebsiteWindow,
   startWebsiteServerAndUpdateWindow,
   getAllWebsiteWindows,
-} from '../../app/ui/multi-window-manager';
+} from '../../src/main/ui/multi-window-manager';
 import {
   createWebsiteWithName,
   validateWebsiteName,
@@ -20,9 +20,9 @@ import {
   getWebsitePath,
   renameWebsite,
   deleteWebsite,
-} from '../../app/utils/website-manager';
-import { IStore } from '../../app/core/interfaces';
-import { updateApplicationMenu } from '../../app/ui/menu';
+} from '../../src/main/utils/website-manager';
+import { IStore } from '../../src/main/core/interfaces';
+import { updateApplicationMenu } from '../../src/main/ui/menu';
 
 // Mock all dependencies
 jest.mock('electron', () => ({
@@ -50,11 +50,11 @@ jest.mock('electron', () => ({
 }));
 
 jest.mock('fs');
-jest.mock('../../app/ui/window-manager');
-jest.mock('../../app/ui/multi-window-manager');
-jest.mock('../../app/utils/website-manager');
+jest.mock('../../src/main/ui/window-manager');
+jest.mock('../../src/main/ui/multi-window-manager');
+jest.mock('../../src/main/utils/website-manager');
 // Store class removed - now using DI with StoreService
-jest.mock('../../app/ui/menu');
+jest.mock('../../src/main/ui/menu');
 
 // Create typed mocks
 const mockIpcMain = ipcMain as jest.Mocked<typeof ipcMain>;

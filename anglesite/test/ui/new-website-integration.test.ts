@@ -19,16 +19,16 @@ const mockDialogNWI = {
 };
 
 // Mock all the modules that are dynamically imported
-jest.mock('../../app/ui/window-manager', () => ({
+jest.mock('../../src/main/ui/window-manager', () => ({
   getNativeInput: mockGetNativeInput,
 }));
 
-jest.mock('../../app/utils/website-manager', () => ({
+jest.mock('../../src/main/utils/website-manager', () => ({
   createWebsiteWithName: mockCreateWebsiteWithName,
   validateWebsiteName: mockValidateWebsiteName,
 }));
 
-jest.mock('../../app/ui/multi-window-manager', () => ({
+jest.mock('../../src/main/ui/multi-window-manager', () => ({
   createWebsiteWindow: mockCreateWebsiteWindowNWI,
   loadWebsiteContent: mockLoadWebsiteContentNWI,
   getAllWebsiteWindows: mockGetAllWebsiteWindows,
@@ -36,17 +36,17 @@ jest.mock('../../app/ui/multi-window-manager', () => ({
   isWebsiteEditorFocused: jest.fn(() => false),
 }));
 
-jest.mock('../../app/dns/hosts-manager', () => ({
+jest.mock('../../src/main/dns/hosts-manager', () => ({
   addLocalDnsResolution: mockAddLocalDnsResolution,
 }));
 
-jest.mock('../../app/server/https-proxy', () => ({
+jest.mock('../../src/main/server/https-proxy', () => ({
   restartHttpsProxy: mockRestartHttpsProxy,
 }));
 
 // Store class removed - now using DI with StoreService
 
-jest.mock('../../app/ipc/website', () => ({
+jest.mock('../../src/main/ipc/website', () => ({
   openWebsiteInNewWindow: jest.fn(),
   setupWebsiteHandlers: jest.fn(),
 }));
@@ -78,7 +78,7 @@ describe('New Website Integration', () => {
   let createApplicationMenu: () => void;
 
   beforeAll(() => {
-    const menuModule = require('../../app/ui/menu');
+    const menuModule = require('../../src/main/ui/menu');
     createApplicationMenu = menuModule.createApplicationMenu;
   });
 
@@ -118,7 +118,7 @@ describe('New Website Integration', () => {
     expect(mockCreateWebsiteWithName).toHaveBeenCalledWith('My Test Site');
 
     // Get the openWebsiteInNewWindow mock from the correct module
-    const ipcWebsite = require('../../app/ipc/website');
+    const ipcWebsite = require('../../src/main/ipc/website');
     expect(ipcWebsite.openWebsiteInNewWindow).toHaveBeenCalledWith('My Test Site', '/path/to/website', true);
   });
 

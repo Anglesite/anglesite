@@ -59,7 +59,7 @@ const ASSET_CONFIG = {
       // CSS custom properties
       customProperties: {
         preserve: true,
-        exportTo: 'app/ui/css-custom-properties.json',
+        exportTo: 'src/main/ui/css-custom-properties.json',
       },
 
       // CSS nesting
@@ -73,10 +73,10 @@ const ASSET_CONFIG = {
     purge: {
       enabled: true,
       content: [
-        'app/**/*.{js,ts,jsx,tsx,html}',
-        'app/ui/**/*.{js,ts,jsx,tsx,html}',
-        'app/ui/templates/**/*.html',
-        'app/ui/react/**/*.{js,ts,jsx,tsx}',
+        'src/**/*.{js,ts,jsx,tsx,html}',
+        'src/main/ui/**/*.{js,ts,jsx,tsx,html}',
+        'src/main/ui/templates/**/*.html',
+        'src/renderer/ui/react/**/*.{js,ts,jsx,tsx}',
       ],
       safelist: [
         // Always keep these classes
@@ -223,7 +223,7 @@ const ASSET_CONFIG = {
         service: process.env.ERROR_TRACKING_SERVICE || 'sentry',
         apiKey: process.env.SOURCEMAP_API_KEY,
         release: process.env.APP_VERSION || require('../package.json').version,
-        urlPrefix: '~/app/', // Proper stack trace mapping prefix
+        urlPrefix: '~/src/', // Proper stack trace mapping prefix
         deleteAfterUpload: process.env.DELETE_SOURCEMAPS_AFTER_UPLOAD === 'true',
       },
     },
@@ -234,15 +234,15 @@ const ASSET_CONFIG = {
     // Asset serving
     static: [
       {
-        directory: path.join(__dirname, 'dist/app/ui/react'),
+        directory: path.join(__dirname, 'dist/src/renderer/ui/react'),
         publicPath: '/',
       },
       {
-        directory: path.join(__dirname, 'app/ui'),
+        directory: path.join(__dirname, 'src/main/ui'),
         publicPath: '/ui',
       },
       {
-        directory: path.join(__dirname, 'icons'),
+        directory: path.join(__dirname, 'src/assets/icons'),
         publicPath: '/icons',
       },
     ],

@@ -21,9 +21,9 @@ module.exports = {
   /** Entry points for the application bundles */
   entry: {
     /** Main React application entry point */
-    main: './app/ui/react/index.tsx',
+    main: './src/renderer/ui/react/index.tsx',
     /** CSS styles bundle including Tailwind and custom styles */
-    styles: ['./app/ui/tailwind-base.css', './app/ui/default-theme.css', './app/styles.css'],
+    styles: ['./src/renderer/ui/tailwind-base.css', './src/renderer/ui/default-theme.css', './src/renderer/styles.css'],
   },
 
   /** Module resolution configuration */
@@ -32,12 +32,12 @@ module.exports = {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
     /** Path aliases for cleaner imports */
     alias: {
-      /** Root application directory alias */
-      '@': path.resolve(__dirname, 'app'),
+      /** Root source directory alias */
+      '@': path.resolve(__dirname, 'src'),
       /** React components directory alias */
-      '@components': path.resolve(__dirname, 'app/ui/react/components'),
+      '@components': path.resolve(__dirname, 'src/renderer/ui/react/components'),
       /** Styles directory alias */
-      '@styles': path.resolve(__dirname, 'app/ui'),
+      '@styles': path.resolve(__dirname, 'src/renderer/ui'),
     },
   },
 
@@ -56,7 +56,7 @@ module.exports = {
             loader: 'ts-loader',
             options: {
               transpileOnly: true,
-              configFile: path.resolve(__dirname, 'app/ui/react/tsconfig.json'),
+              configFile: path.resolve(__dirname, 'src/renderer/ui/react/tsconfig.json'),
             },
           },
         ],
@@ -96,12 +96,12 @@ module.exports = {
     new CopyPlugin({
       patterns: [
         {
-          from: path.resolve(__dirname, 'icons'),
-          to: path.resolve(__dirname, 'dist/app/ui/react/assets/icons'),
+          from: path.resolve(__dirname, 'src/assets/icons'),
+          to: path.resolve(__dirname, 'dist/src/renderer/ui/react/assets/icons'),
           globOptions: {
             ignore: [
-              '**/src/**', // Ignore source SVG files
               '**/icon.png', // Ignore large 1024x1024 icon (318 KiB)
+              '**/1024x1024.png', // Ignore large 1024x1024 icon
             ],
           },
         },

@@ -38,24 +38,19 @@ function buildIcons() {
   }
 
   // Check if source SVG exists
-  const sourceSvg = path.join('icons', 'src', 'icon.svg');
+  const sourceSvg = path.join('src', 'assets', 'icons', 'icon.svg');
   if (!fs.existsSync(sourceSvg)) {
     console.error(`Error: Source icon not found at ${sourceSvg}`);
     process.exit(1);
   }
 
-  // Create icons directory if it doesn't exist
-  console.log('Preparing icons directory...');
-  fs.mkdirSync('icons', { recursive: true });
+  // Create src/assets/icons directory if it doesn't exist
+  console.log('Preparing src/assets/icons directory...');
+  const iconsDir = path.join('src', 'assets', 'icons');
+  fs.mkdirSync(iconsDir, { recursive: true });
 
-  // Check if main icon.svg needs updating
-  const iconSvgOutput = path.join('icons', 'icon.svg');
-  if (needsRegeneration(sourceSvg, iconSvgOutput)) {
-    console.log('Copying source SVG to icons directory...');
-    fs.copyFileSync(sourceSvg, iconSvgOutput);
-  } else {
-    console.log('Source SVG is up to date, skipping copy.');
-  }
+  // No need to copy the SVG since it's already in the right place
+  console.log('Using source SVG from src/assets/icons/icon.svg...');
 
   // Icon sizes to generate
   const sizes = [
@@ -76,7 +71,7 @@ function buildIcons() {
   let skippedCount = 0;
 
   sizes.forEach(({ size, output }) => {
-    const outputPath = path.join('icons', output);
+    const outputPath = path.join('src', 'assets', 'icons', output);
 
     if (needsRegeneration(sourceSvg, outputPath)) {
       console.log(`  - Generating ${size} (${output})...`);

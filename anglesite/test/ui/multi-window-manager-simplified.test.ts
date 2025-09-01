@@ -9,11 +9,11 @@ import { TEST_CONSTANTS } from '../constants/test-constants';
 
 // Mock all required modules at the top level for Jest hoisting
 jest.mock('electron');
-jest.mock('../../app/server/eleventy');
-jest.mock('../../app/ui/theme-manager');
-jest.mock('../../app/ui/menu');
+jest.mock('../../src/main/server/eleventy');
+jest.mock('../../src/main/ui/theme-manager');
+jest.mock('../../src/main/ui/menu');
 // Store class removed - now using DI with StoreService
-jest.mock('../../app/ui/template-loader');
+jest.mock('../../src/main/ui/template-loader');
 jest.mock('fs');
 jest.mock('path');
 jest.mock('child_process');

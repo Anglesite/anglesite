@@ -252,7 +252,7 @@ export function setupThemeTestMocks() {
     ipcMain: setup.mocks.ipcMain,
   }));
 
-  jest.mock('../../app/core/service-registry', () => setup.mocks.serviceRegistry);
+  jest.mock('../../src/main/core/service-registry', () => setup.mocks.serviceRegistry);
 
   return setup;
 }

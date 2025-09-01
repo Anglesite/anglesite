@@ -45,7 +45,7 @@ describe('Dark Mode CSS Implementation', () => {
   describe('HTML Critical CSS', () => {
     it('should contain color-scheme property in critical CSS', () => {
       // Read the actual HTML file
-      const htmlPath = path.join(__dirname, '../../app/index.html');
+      const htmlPath = path.join(__dirname, '../../src/renderer/index.html');
       const htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
       // Check for color-scheme property
@@ -53,7 +53,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should have system Canvas and CanvasText colors as fallback', () => {
-      const htmlPath = path.join(__dirname, '../../app/index.html');
+      const htmlPath = path.join(__dirname, '../../src/renderer/index.html');
       const htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
       expect(htmlContent).toContain('background-color: Canvas');
@@ -61,7 +61,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should have dark mode media query overrides', () => {
-      const htmlPath = path.join(__dirname, '../../app/index.html');
+      const htmlPath = path.join(__dirname, '../../src/renderer/index.html');
       const htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
       expect(htmlContent).toContain('@media (prefers-color-scheme: dark)');
@@ -70,7 +70,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should have light mode media query overrides', () => {
-      const htmlPath = path.join(__dirname, '../../app/index.html');
+      const htmlPath = path.join(__dirname, '../../src/renderer/index.html');
       const htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
       expect(htmlContent).toContain('@media (prefers-color-scheme: light)');
@@ -81,14 +81,14 @@ describe('Dark Mode CSS Implementation', () => {
 
   describe('Main CSS File', () => {
     it('should contain color-scheme property in main CSS', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       expect(cssContent).toContain('color-scheme: light dark');
     });
 
     it('should have complete dark theme variable definitions', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       // Check for dark theme variables
@@ -99,7 +99,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should have complete light theme variable definitions', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       // Check for light theme variables
@@ -190,7 +190,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should have proper CSS variable fallbacks', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       // Check that CSS variables are used consistently
@@ -206,8 +206,8 @@ describe('Dark Mode CSS Implementation', () => {
 
   describe('Theme Variable Consistency', () => {
     it('should have matching color variables between HTML and CSS', () => {
-      const htmlPath = path.join(__dirname, '../../app/index.html');
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const htmlPath = path.join(__dirname, '../../src/renderer/index.html');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
 
       const htmlContent = fs.readFileSync(htmlPath, 'utf8');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
@@ -227,7 +227,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should have complete set of theme variables for both modes', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       const requiredVariables = [
@@ -258,7 +258,7 @@ describe('Dark Mode CSS Implementation', () => {
 
   describe('Performance and Loading', () => {
     it('should have critical CSS inline for immediate loading', () => {
-      const htmlPath = path.join(__dirname, '../../app/index.html');
+      const htmlPath = path.join(__dirname, '../../src/renderer/index.html');
       const htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
       // Critical CSS should be inline in <head>
@@ -272,7 +272,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should use efficient CSS selectors', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       // Should use efficient root-level selectors
@@ -287,14 +287,14 @@ describe('Dark Mode CSS Implementation', () => {
 
   describe('Toolbar Dark Mode Support', () => {
     it('should have dark mode media query in styles.css', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       expect(cssContent).toContain('@media (prefers-color-scheme: dark)');
     });
 
     it('should use CSS variables for toolbar elements', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       // Check that toolbar elements use CSS variables
@@ -308,7 +308,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should have proper button theming', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       // Verify button CSS variables
@@ -319,7 +319,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should have site title and URL display theming', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       // Check site title
@@ -332,7 +332,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should have explicit theme overrides for both light and dark', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       // Check that explicit theme overrides exist
@@ -358,7 +358,7 @@ describe('Dark Mode CSS Implementation', () => {
     });
 
     it('should have smooth transitions for theme changes', () => {
-      const cssPath = path.join(__dirname, '../../app/styles.css');
+      const cssPath = path.join(__dirname, '../../src/renderer/styles.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       // Check that toolbar elements have transitions

@@ -6,6 +6,7 @@
 /_site
 /coverage
 /coverage-*
+.jest-cache
 
 # Logs
 logs

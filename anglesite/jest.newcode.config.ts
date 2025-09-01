@@ -23,13 +23,13 @@ export default {
 
   // Files to collect coverage from (new code only)
   collectCoverageFrom: [
-    'app/store.ts',
-    'app/ipc/handlers.ts',
-    'app/ui/menu.ts',
+    'src/common/store.ts',
+    'src/main/ipc/handlers.ts',
+    'src/main/ui/menu.ts',
     // Include website editor handlers specifically
-    '!app/**/*.d.ts',
-    '!app/**/*.test.ts',
-    '!app/**/*.spec.ts',
+    '!src/**/*.d.ts',
+    '!src/**/*.test.ts',
+    '!src/**/*.spec.ts',
   ],
 
   // Test match patterns

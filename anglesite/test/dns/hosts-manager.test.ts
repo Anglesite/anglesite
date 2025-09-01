@@ -59,7 +59,7 @@ jest.mock('electron', () => ({
 }));
 
 // Mock website-manager
-jest.mock('../../app/utils/website-manager', () => ({
+jest.mock('../../src/main/utils/website-manager', () => ({
   listWebsites: jest.fn(() => ['test-site', 'my-website']),
 }));
 
@@ -73,7 +73,7 @@ describe('DNS Hosts Manager', () => {
 
   beforeAll(() => {
     // Import the module after mocks are set up
-    hostsManager = require('../../app/dns/hosts-manager');
+    hostsManager = require('../../src/main/dns/hosts-manager');
   });
 
   beforeEach(() => {

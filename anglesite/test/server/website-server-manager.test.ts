@@ -1,17 +1,17 @@
 /**
  * @file Unit tests for WebsiteServerManager
  */
-import { WebsiteServerManager, ServerState, websiteServerManager } from '../../app/server/website-server-manager';
-import { ILogger, IFileSystem } from '../../app/core/interfaces';
+import { WebsiteServerManager, ServerState, websiteServerManager } from '../../src/main/server/website-server-manager';
+import { ILogger, IFileSystem } from '../../src/main/core/interfaces';
 
 // Mock the per-website-server module
-jest.mock('../../app/server/per-website-server', () => ({
+jest.mock('../../src/main/server/per-website-server', () => ({
   startWebsiteServer: jest.fn(),
   stopWebsiteServer: jest.fn(),
 }));
 
-const mockStartWebsiteServer = require('../../app/server/per-website-server').startWebsiteServer;
-const mockStopWebsiteServer = require('../../app/server/per-website-server').stopWebsiteServer;
+const mockStartWebsiteServer = require('../../src/main/server/per-website-server').startWebsiteServer;
+const mockStopWebsiteServer = require('../../src/main/server/per-website-server').stopWebsiteServer;
 
 interface MockWebsiteServer {
   devServer: { watcher: { close: jest.Mock }; close: jest.Mock };

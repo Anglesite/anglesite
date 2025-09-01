@@ -11,7 +11,7 @@ jest.mock('electron', () => ({
   },
 }));
 
-import { loadTemplate, loadTemplateAsDataUrl } from '../../app/ui/template-loader';
+import { loadTemplate, loadTemplateAsDataUrl } from '../../src/main/ui/template-loader';
 
 // Mock fs module
 jest.mock('fs');

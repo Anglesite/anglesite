@@ -35,7 +35,7 @@ module.exports = merge(common, {
    * Uses content hashes for optimal browser caching
    */
   output: {
-    path: path.resolve(__dirname, 'dist/app/ui/react'),
+    path: path.resolve(__dirname, 'dist/src/renderer/ui/react'),
     filename: ASSET_CONFIG.output.naming.production.js,
     chunkFilename: '[name].[contenthash:8].chunk.js',
     publicPath: ASSET_CONFIG.output.publicPath.production,
@@ -59,7 +59,7 @@ module.exports = merge(common, {
             loader: 'ts-loader',
             options: {
               transpileOnly: true,
-              configFile: path.resolve(__dirname, 'app/ui/react/tsconfig.json'),
+              configFile: path.resolve(__dirname, 'src/renderer/ui/react/tsconfig.json'),
               compilerOptions: {
                 sourceMap: ASSET_CONFIG.sourceMaps.production.loaders,
               },
@@ -145,7 +145,7 @@ module.exports = merge(common, {
      * Minifies HTML and injects optimized assets
      */
     new HtmlWebpackPlugin({
-      template: path.resolve(__dirname, 'app/ui/templates/website-editor-react-production.html'),
+      template: path.resolve(__dirname, 'src/renderer/ui/templates/website-editor-react-production.html'),
       filename: 'index.html',
       inject: 'body',
       minify: {
@@ -354,5 +354,11 @@ module.exports = merge(common, {
     hints: ASSET_CONFIG.performance.hints,
     maxEntrypointSize: ASSET_CONFIG.performance.maxEntrypointSize,
     maxAssetSize: ASSET_CONFIG.performance.maxAssetSize,
+    // Exclude non-web assets from performance checks:
+    // - .icns/.ico: Platform-specific icons for app packaging
+    // - .map: Source map files for debugging (not loaded by users)
+    assetFilter: function (assetFilename) {
+      return !/\.(icns|ico|map)$/.test(assetFilename);
+    },
   },
 });

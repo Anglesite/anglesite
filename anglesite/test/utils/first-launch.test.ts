@@ -3,10 +3,10 @@
  */
 
 import { app, dialog } from 'electron';
-import { handleFirstLaunch } from '../../app/utils/first-launch';
-import { IStore } from '../../app/core/interfaces';
-import { isCAInstalledInSystem, installCAInSystem } from '../../app/certificates';
-import { showFirstLaunchAssistant } from '../../app/ui/window-manager';
+import { handleFirstLaunch } from '../../src/main/utils/first-launch';
+import { IStore } from '../../src/main/core/interfaces';
+import { isCAInstalledInSystem, installCAInSystem } from '../../src/main/certificates';
+import { showFirstLaunchAssistant } from '../../src/main/ui/window-manager';
 
 // Mock dependencies
 jest.mock('electron', () => ({
@@ -24,8 +24,8 @@ jest.mock('electron', () => ({
 }));
 
 // Store class removed - now using DI with StoreService
-jest.mock('../../app/certificates');
-jest.mock('../../app/ui/window-manager');
+jest.mock('../../src/main/certificates');
+jest.mock('../../src/main/ui/window-manager');
 
 const mockApp = app as jest.Mocked<typeof app>;
 const mockDialog = dialog as jest.Mocked<typeof dialog>;

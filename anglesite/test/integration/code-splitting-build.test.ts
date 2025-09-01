@@ -9,7 +9,7 @@ import { execSync } from 'child_process';
 
 describe('Code Splitting Build Integration', () => {
   const projectRoot = path.resolve(__dirname, '../..');
-  const distPath = path.join(projectRoot, 'dist/app/ui/react');
+  const distPath = path.join(projectRoot, 'dist/src/renderer/ui/react');
 
   // Only run in CI or when explicitly requested
   const shouldRunBuildTests = process.env.CI === 'true' || process.env.RUN_BUILD_TESTS === 'true';
@@ -177,7 +177,7 @@ describe('Code Splitting Build Integration', () => {
 
   describe('Error Boundary Component', () => {
     it('should export LazyComponentErrorBoundary class', () => {
-      const mainPath = path.join(projectRoot, 'app/ui/react/components/Main.tsx');
+      const mainPath = path.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
       const mainContent = fs.readFileSync(mainPath, 'utf8');
 
       // Check for Error Boundary class definition
@@ -196,7 +196,7 @@ describe('Code Splitting Build Integration', () => {
 
   describe('Webpack Magic Comments', () => {
     it('should use webpackChunkName for lazy imports', () => {
-      const mainPath = path.join(projectRoot, 'app/ui/react/components/Main.tsx');
+      const mainPath = path.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
       const mainContent = fs.readFileSync(mainPath, 'utf8');
 
       // Check for webpack magic comment
