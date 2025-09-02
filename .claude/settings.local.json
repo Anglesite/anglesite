@@ -50,7 +50,8 @@
       "Bash(security verify-cert:*)",
       "mcp__ide__getDiagnostics",
       "Bash(npx webpack:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx prettier:*)"
     ],
     "deny": [],
     "ask": [],
