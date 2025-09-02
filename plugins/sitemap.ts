@@ -766,7 +766,7 @@ async function generateMultipleSitemaps(
     const outputPath = safeFilePath(outputDir, filename);
 
     // Monitor memory usage during chunk processing
-    if (memoryMonitor && (index + 1) % MEMORY_MONITORING_CHUNK_INTERVAL === 0) {
+    if ((index + 1) % MEMORY_MONITORING_CHUNK_INTERVAL === 0) {
       updateMemoryMonitor(memoryMonitor, `chunk processing (chunk ${index + 1}/${totalChunks})`);
     }
 

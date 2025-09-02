@@ -14,6 +14,7 @@ import addOpenIdConfiguration from './plugins/openid-configuration.js';
 import addAppleAppSiteAssociation from './plugins/apple-app-site-association.js';
 import addAssetLinks from './plugins/assetlinks.js';
 import addBrowserConfig from './plugins/browserconfig.js';
+import addPerformanceOptimization from './plugins/performance.js';
 import EleventyWebcPlugin from '@11ty/eleventy-plugin-webc';
 import type { EleventyConfig } from '@11ty/eleventy';
 
@@ -24,6 +25,20 @@ export interface AnglesiteEleventyOptions {
   webComponents?: string;
   /** Additional options for the WebC plugin */
   webcOptions?: Record<string, unknown>;
+  /** Skip performance optimization plugin registration */
+  skipPerformance?: boolean;
+  /** Performance optimization plugin options */
+  performanceOptions?: {
+    minifyHTML?: boolean;
+    minifyCSS?: boolean;
+    minifyJS?: boolean;
+    inlineCriticalCSS?: boolean;
+    criticalCSSMaxSize?: number;
+    generateResourceHints?: boolean;
+    optimizeScripts?: boolean;
+    enableLazyLoading?: boolean;
+    performanceBudget?: boolean;
+  };
 }
 
 /**
@@ -67,6 +82,11 @@ export default function anglesiteEleventy(
   addAppleAppSiteAssociation(eleventyConfig);
   addAssetLinks(eleventyConfig);
   addBrowserConfig(eleventyConfig);
+
+  // Add performance optimization plugin unless skipPerformance is true
+  if (safeOptions.skipPerformance !== true) {
+    addPerformanceOptimization(eleventyConfig, safeOptions.performanceOptions);
+  }
 }
 
 // Export individual plugins for direct use if needed
@@ -87,4 +107,5 @@ export {
   addAppleAppSiteAssociation,
   addAssetLinks,
   addBrowserConfig,
+  addPerformanceOptimization,
 };
