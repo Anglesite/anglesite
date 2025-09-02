@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Welcome to Anglesite</title>
+    <link rel="stylesheet" href="default-theme.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        height: 150vh;
+        overflow: hidden;
+      }
+      .container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: var(--border-radius-lg);
+        margin: 20px;
+        padding: 30px;
+        color: var(--text-primary);
+        height: calc(100vh - 80px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        display: flex;
+        flex-direction: column;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 300;
+        color: #667eea;
+      }
+      .header p {
+        margin: 10px 0 0 0;
+        color: var(--text-secondary);
+        font-size: var(--font-size-base);
+      }
+      .content {
+        flex: 1;
+        overflow-y: auto;
+      }
+      .option {
+        background: var(--bg-secondary);
+        border: 2px solid var(--border-primary);
+        border-radius: var(--border-radius-md);
+        padding: 20px;
+        margin: 15px 0;
+        cursor: pointer;
+        transition: all var(--transition-base);
+      }
+      .option:hover {
+        border-color: var(--button-primary-bg);
+        background: var(--bg-tertiary);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+      }
+      .option h3 {
+        margin: 0 0 8px 0;
+        color: var(--text-primary);
+        font-size: var(--font-size-lg);
+      }
+      .option p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: var(--font-size-sm);
+        line-height: 1.4;
+      }
+      .option .badge {
+        display: inline-block;
+        background: var(--success-color);
+        color: white;
+        font-size: var(--font-size-xs);
+        padding: 2px 8px;
+        border-radius: var(--border-radius-lg);
+        margin-left: 8px;
+        font-weight: 500;
+      }
+      .option .badge.warning {
+        background: var(--warning-color);
+        color: var(--text-primary);
+      }
+      .warning-text {
+        background: rgba(255, 193, 7, 0.1);
+        border: 1px solid var(--warning-color);
+        border-radius: var(--border-radius-sm);
+        padding: 12px;
+        margin-top: 12px;
+        font-size: var(--font-size-xs);
+        line-height: 1.4;
+      }
+      .warning-text strong {
+        color: var(--warning-color);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>💎 Welcome to Anglesite</h1>
+        <p>Choose your development setup preference</p>
+      </div>
+
+      <div class="content">
+        <div class="option" id="https-option" onclick="selectHttps()">
+          <h3>HTTPS Development <span class="badge">RECOMMENDED</span></h3>
+          <p>
+            Use secure HTTPS connections for your local development. This provides the most realistic development
+            environment and allows testing of HTTPS-specific features.
+          </p>
+          <div class="warning-text" style="display: none">
+            <strong>Certificate Installation:</strong>
+            HTTPS mode requires installing a Certificate Authority (CA) in your keychain to enable secure local
+            connections.
+          </div>
+        </div>
+
+        <div class="option" id="http-option" onclick="selectHttp()">
+          <h3>HTTP Development <span class="badge warning">BASIC</span></h3>
+          <p>
+            Use standard HTTP connections for development. Simpler setup but some modern web features may not work
+            without HTTPS.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const api = window.electronAPI;
+
+      function selectHttps() {
+        // Show warning text
+        const warningText = document.querySelector('#https-option .warning-text');
+        warningText.style.display = 'block';
+
+        // Add a small delay to let user read the warning, then proceed
+        setTimeout(() => {
+          api.send('first-launch-result', 'https');
+        }, 2000);
+      }
+
+      function selectHttp() {
+        // Proceed immediately for HTTP
+        api.send('first-launch-result', 'http');
+      }
+    </script>
+  </body>
+</html>

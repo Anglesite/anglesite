@@ -1,20 +1,45 @@
 module.exports = {
-  testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['babel-jest', { presets: ['@babel/preset-env', '@babel/preset-typescript'] }],
-    '^.+\\.js$': ['babel-jest', { presets: ['@babel/preset-env'] }],
-  },
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-  },
+  projects: [
+    {
+      displayName: 'anglesite',
+      preset: 'ts-jest',
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/anglesite/**/*.test.ts'],
+      rootDir: '<rootDir>/anglesite',
+      transform: {
+        '^.+\\.tsx?$': 'ts-jest',
+        '^.+\\.jsx?$': 'babel-jest'
+      }
+    },
+    {
+      displayName: 'anglesite-11ty',
+      preset: 'ts-jest', 
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/anglesite-11ty/**/*.test.ts'],
+      rootDir: '<rootDir>/anglesite-11ty',
+      transform: {
+        '^.+\\.tsx?$': 'ts-jest',
+        '^.+\\.jsx?$': 'babel-jest'
+      }
+    },
+    {
+      displayName: 'web-components',
+      preset: 'ts-jest',
+      testEnvironment: 'jsdom', 
+      testMatch: ['<rootDir>/web-components/**/*.test.ts'],
+      rootDir: '<rootDir>/web-components',
+      transform: {
+        '^.+\\.tsx?$': 'ts-jest',
+        '^.+\\.jsx?$': 'babel-jest'
+      }
+    }
+  ],
   collectCoverageFrom: [
-    'plugins/**/*.{ts,tsx}',
-    'types/**/*.{ts,tsx}',
-    'src/**/*.{js,ts}',
+    '**/*.{ts,tsx,js,jsx}',
     '!**/*.d.ts',
     '!**/node_modules/**',
-  ],
-  testMatch: ['**/tests/**/*.test.{ts,tsx,js,jsx}'],
+    '!**/dist/**',
+    '!**/coverage/**',
+    '!**/_site/**'
+  ]
 };

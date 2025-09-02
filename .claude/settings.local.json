@@ -60,7 +60,11 @@
       "Bash(gh issue list:*)",
       "Bash(git push:*)",
       "Bash(git remote add:*)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(git remote remove:*)",
+      "Bash(git merge:*)",
+      "Bash(rm:*)",
+      "Bash(git submodule:*)"
     ],
     "deny": [],
     "ask": []

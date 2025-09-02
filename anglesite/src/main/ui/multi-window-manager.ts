@@ -1,0 +1,1000 @@
+/**
+ * @file Multi-window management for website windows and help window.
+ */
+import { BrowserWindow, WebContentsView, Menu, MenuItem } from 'electron';
+import * as path from 'path';
+import * as fs from 'fs';
+import { setLiveServerUrl, setCurrentWebsiteName } from '../server/eleventy';
+import { WebsiteServer } from '../server/per-website-server';
+import { IWebsiteServerManager, ManagedServer } from '../core/interfaces';
+import { getGlobalContext } from '../core/service-registry';
+import { ServiceKeys } from '../core/container';
+
+// Type definition for website window
+interface WebsiteWindow {
+  window: BrowserWindow;
+  webContentsView: WebContentsView;
+  websiteName: string;
+  websitePath?: string;
+  serverUrl?: string; // Store the server URL for this website
+  eleventyPort?: number; // HTTP port for Eleventy dev server
+  httpsProxyPort?: number; // HTTPS proxy port (if using HTTPS mode)
+  server?: WebsiteServer; // Reference to the website's individual server
+  loadingView?: WebContentsView; // Native loading overlay view
+  managedServer?: ManagedServer; // Reference to the managed server info
+  isEditorWindow?: boolean; // Whether this is an editor window (true) or preview window (false/undefined)
+}
+
+const websiteWindows: Map<string, WebsiteWindow> = new Map();
+
+// Set up server manager event listeners for logging (DI-compatible)
+let eventListenersSetup = false;
+
+// Help window instance
+let helpWindow: BrowserWindow | null = null;
+
+// Start screen window instance
+let startScreenWindow: BrowserWindow | null = null;
+
+// Re-export for use in other modules (deprecated, use WebsiteServerManager instead)
+// Note: This export is kept for backward compatibility but should be migrated
+
+/**
+ * Send log message to a website window's console
+ *
+ * Transmits log messages from the main process to a specific website window's
+ * renderer process. Used for debugging and development feedback.
+ * @param websiteName Name of the website window to send log to
+ * @param message Log message content
+ * @param level Log level severity (default: 'info')
+ * @example
+ * ```typescript
+ * sendLogToWebsite('my-blog', 'Build completed successfully', 'info');
+ * sendLogToWebsite('portfolio', 'Warning: missing alt text', 'warning');
+ * ```
+ */
+export function sendLogToWebsite(websiteName: string, message: string, level: string = 'info') {
+  const websiteWindow = websiteWindows.get(websiteName);
+  if (websiteWindow && !websiteWindow.window.isDestroyed()) {
+    try {
+      const logData = {
+        type: 'log',
+        message,
+        level,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Send to loading view if it exists and is visible
+      if (websiteWindow.loadingView && !websiteWindow.loadingView.webContents.isDestroyed()) {
+        websiteWindow.loadingView.webContents.executeJavaScript(`window.postMessage(${JSON.stringify(logData)}, '*');`);
+      }
+
+      // Also send to main preview view for backwards compatibility
+      websiteWindow.webContentsView.webContents.executeJavaScript(
+        `window.postMessage(${JSON.stringify(logData)}, '*');`
+      );
+    } catch (error) {
+      console.error(`Could not send log to ${websiteName}:`, error);
+    }
+  }
+}
+
+/**
+ * Create and show native loading view overlay.
+ */
+function createLoadingView(websiteWindow: WebsiteWindow): WebContentsView {
+  const loadingView = new WebContentsView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '..', 'preload.js'),
+    },
+  });
+
+  // Load the native loading template
+  const loadingDataUrl = loadTemplateAsDataUrl('native-loading-view');
+  loadingView.webContents.loadURL(loadingDataUrl);
+
+  // Position the loading view to cover the preview area
+  const bounds = websiteWindow.window.getBounds();
+  const leftPanelWidth = 240;
+  const rightPanelWidth = 280;
+  const toolbarHeight = 48;
+
+  loadingView.setBounds({
+    x: leftPanelWidth,
+    y: toolbarHeight,
+    width: bounds.width - leftPanelWidth - rightPanelWidth,
+    height: bounds.height - toolbarHeight,
+  });
+
+  // Add the loading view on top of the preview
+  websiteWindow.window.contentView.addChildView(loadingView);
+
+  return loadingView;
+}
+
+/**
+ * Show native loading view for a website.
+ */
+export function showNativeLoadingView(websiteName: string): void {
+  const websiteWindow = websiteWindows.get(websiteName);
+  if (!websiteWindow || websiteWindow.window.isDestroyed()) {
+    console.error(`Website window not found: ${websiteName}`);
+    return;
+  }
+
+  // Create loading view if it doesn't exist
+  if (!websiteWindow.loadingView) {
+    websiteWindow.loadingView = createLoadingView(websiteWindow);
+  }
+
+  // Make sure loading view is visible and on top
+  websiteWindow.loadingView.setVisible(true);
+}
+
+/**
+ * Hide native loading view and show website preview.
+ */
+export function hideNativeLoadingView(websiteName: string): void {
+  const websiteWindow = websiteWindows.get(websiteName);
+  if (!websiteWindow || websiteWindow.window.isDestroyed()) {
+    console.error(`Website window not found: ${websiteName}`);
+    return;
+  }
+
+  if (websiteWindow.loadingView) {
+    websiteWindow.loadingView.setVisible(false);
+  }
+}
+
+/**
+ * Show error state in native loading view.
+ */
+export function showNativeLoadingError(websiteName: string): void {
+  const websiteWindow = websiteWindows.get(websiteName);
+  if (websiteWindow && websiteWindow.loadingView && !websiteWindow.loadingView.webContents.isDestroyed()) {
+    try {
+      websiteWindow.loadingView.webContents.executeJavaScript(`window.postMessage({ type: 'showError' }, '*');`);
+    } catch (error) {
+      console.error(`Could not show error in loading view for ${websiteName}:`, error);
+    }
+  }
+}
+import { updateApplicationMenu } from './menu';
+import { themeManager } from './theme-manager';
+import { WindowState } from '../core/types';
+import { IStore } from '../core/interfaces';
+import { loadTemplateAsDataUrl, getTemplateFilePath } from './template-loader';
+import { getWebsitePath } from '../utils/website-manager';
+
+// Variables declared at top of file
+export function setupServerManagerEventListeners(): void {
+  if (eventListenersSetup) return; // Prevent duplicate setup
+
+  try {
+    const appContext = getGlobalContext();
+    const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
+
+    websiteServerManager.on('server-log', (websiteName: string, message: string, level: string) => {
+      sendLogToWebsite(websiteName, message, level);
+    });
+
+    websiteServerManager.on('server-started', (websiteName: string, managedServer: ManagedServer) => {
+      const websiteWindow = websiteWindows.get(websiteName);
+      if (websiteWindow) {
+        websiteWindow.managedServer = managedServer;
+        websiteWindow.server = managedServer.server;
+        websiteWindow.eleventyPort = managedServer.port;
+        websiteWindow.serverUrl = managedServer.actualUrl;
+      }
+    });
+
+    websiteServerManager.on('server-error', (websiteName: string, error: Error) => {
+      sendLogToWebsite(websiteName, `❌ Server error: ${error.message}`, 'error');
+      showNativeLoadingError(websiteName);
+    });
+
+    eventListenersSetup = true;
+  } catch (error) {
+    console.warn('Server manager event listeners not set up yet (DI not initialized):', error);
+  }
+}
+
+// Don't try to initialize event listeners on module load - wait for DI to be ready
+
+// Help window instance declared at top of file
+
+/**
+ * Find an available ephemeral port.
+ * @deprecated Use WebsiteServerManager for port allocation
+ */
+export async function findAvailablePort(startPort: number = 8081): Promise<number> {
+  // Delegate to server manager for centralized port management
+  console.warn('findAvailablePort is deprecated, use WebsiteServerManager instead');
+
+  // For backward compatibility, we'll still provide this function
+  // but it should eventually be removed
+  return new Promise((resolve, reject) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const server = require('net').createServer();
+    server.listen(startPort, () => {
+      const port = (server.address() as { port: number } | null)?.port;
+      server.close(() => {
+        if (port) {
+          resolve(port);
+        } else {
+          reject(new Error('Could not determine port'));
+        }
+      });
+    });
+
+    server.on('error', async (err: Error & { code?: string }) => {
+      if (err.code === 'EADDRINUSE') {
+        try {
+          const nextPort = await findAvailablePort(startPort + 1);
+          resolve(nextPort);
+        } catch (nextErr) {
+          reject(nextErr);
+        }
+      } else {
+        reject(err);
+      }
+    });
+  });
+}
+
+/**
+ * Create a new dedicated website window for editing and preview
+ *
+ * Creates a singleton window for the specified website with its own WebContentsView
+ * for live preview. Each website gets its own isolated window to enable concurrent
+ * editing of multiple websites.
+ *
+ * If a window already exists for the website and is not destroyed, it will be
+ * focused instead of creating a new one.
+ * @param websiteName Unique name of the website.
+ * @param websitePath Optional file system path to the website directory.
+ * @returns The website window BrowserWindow instance.
+ * @example
+ * ```typescript
+ * const websiteWin = createWebsiteWindow('my-blog', '/path/to/my-blog');
+ * console.log(websiteWin.getTitle()); // 'my-blog'
+ * ```
+ */
+export function createWebsiteWindow(websiteName: string, websitePath?: string): BrowserWindow {
+  // Server manager event listeners are now set up properly in main.ts after DI initialization
+
+  // Check if window already exists for this website
+  const existingWindow = websiteWindows.get(websiteName);
+  if (existingWindow && !existingWindow.window.isDestroyed()) {
+    existingWindow.window.focus();
+    return existingWindow.window;
+  }
+
+  const window = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    title: websiteName,
+    show: false, // Don't show until ready
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '..', 'preload.js'),
+    },
+    titleBarStyle: 'default',
+    // Enable native macOS window tabbing
+    tabbingIdentifier: 'anglesite-website',
+  });
+
+  // Prevent HTML title from overriding window title
+  window.on('page-title-updated', (event) => {
+    event.preventDefault();
+  });
+
+  // Load the website editor template as a file URL to support relative paths
+  const websiteEditorFileUrl = getTemplateFilePath('website-editor');
+  window.loadURL(websiteEditorFileUrl);
+
+  // Add context menu for Anglesite's UI (non-production builds only)
+  if (process.env.NODE_ENV !== 'production') {
+    window.webContents.on('context-menu', (_event, params) => {
+      const contextMenu = new Menu();
+
+      contextMenu.append(
+        new MenuItem({
+          label: 'Inspect Element…',
+          accelerator: 'CmdOrCtrl+Option+I',
+          click: () => {
+            window.webContents.inspectElement(params.x, params.y);
+          },
+        })
+      );
+
+      contextMenu.popup();
+    });
+  }
+
+  // Create preview WebContentsView for website content
+  const webContentsView = new WebContentsView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  // Add error handling
+  webContentsView.webContents.on('render-process-gone', (_event, details) => {
+    console.error('Website WebContentsView render process gone:', details);
+    setTimeout(() => {
+      try {
+        webContentsView?.webContents.reload();
+      } catch (error) {
+        console.error('Failed to reload website WebContentsView:', error);
+      }
+    }, 1000);
+  });
+
+  webContentsView.webContents.on('unresponsive', () => {
+    console.error('Website WebContentsView webContents unresponsive');
+  });
+
+  webContentsView.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('Website WebContentsView failed to load:', {
+      errorCode,
+      errorDescription,
+      validatedURL,
+    });
+  });
+
+  // Add WebContentsView to window
+  window.contentView.addChildView(webContentsView);
+
+  // Handle window resize
+  window.on('resize', () => {
+    const websiteWindow = websiteWindows.get(websiteName);
+    if (webContentsView && websiteWindow) {
+      const bounds = window.getBounds();
+      // Website editor layout: left panel (240px) + center panel + right panel (280px)
+      const leftPanelWidth = 240;
+      const rightPanelWidth = 280;
+      const toolbarHeight = 48; // Website editor toolbar: 48px height
+      const viewBounds = {
+        x: leftPanelWidth,
+        y: toolbarHeight,
+        width: bounds.width - leftPanelWidth - rightPanelWidth,
+        height: bounds.height - toolbarHeight,
+      };
+
+      webContentsView.setBounds(viewBounds);
+
+      // Also resize loading view if it exists
+      if (websiteWindow.loadingView) {
+        websiteWindow.loadingView.setBounds(viewBounds);
+      }
+    }
+  });
+
+  // Position the preview correctly for website editor layout
+  const bounds = window.getBounds();
+  // Website editor layout: left panel (240px) + center panel + right panel (280px)
+  const leftPanelWidth = 240;
+  const rightPanelWidth = 280;
+  const toolbarHeight = 48; // Website editor toolbar: 48px height
+  const webContentsViewBounds = {
+    x: leftPanelWidth,
+    y: toolbarHeight,
+    width: bounds.width - leftPanelWidth - rightPanelWidth,
+    height: bounds.height - toolbarHeight,
+  };
+  webContentsView.setBounds(webContentsViewBounds);
+
+  // Store website window
+  const websiteWindow: WebsiteWindow = {
+    window,
+    webContentsView,
+    websiteName,
+    websitePath,
+  };
+  websiteWindows.set(websiteName, websiteWindow);
+
+  // Close start screen when first website window is created
+  closeStartScreen();
+
+  // Update menu and server URL when focus changes
+  window.on('focus', () => {
+    // Update the global server URL to match this window's website
+    if (websiteWindow.serverUrl) {
+      setLiveServerUrl(websiteWindow.serverUrl);
+      setCurrentWebsiteName(websiteName);
+    }
+    updateApplicationMenu();
+  });
+
+  window.on('blur', () => {
+    updateApplicationMenu();
+  });
+
+  // Clean up when window is closed
+  window.on('closed', async () => {
+    // Stop the server using the DI-based centralized manager
+    try {
+      const appContext = getGlobalContext();
+      const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
+      await websiteServerManager.stopServer(websiteName);
+    } catch (error) {
+      console.error(`Error stopping server for ${websiteName}:`, error);
+    }
+
+    // Clean up loading view if it exists
+    const websiteWindow = websiteWindows.get(websiteName);
+    if (websiteWindow?.loadingView && !websiteWindow.loadingView.webContents.isDestroyed()) {
+      try {
+        websiteWindow.loadingView.webContents.close();
+      } catch (error) {
+        console.error(`Error closing loading view for ${websiteName}:`, error);
+      }
+    }
+
+    websiteWindows.delete(websiteName);
+    updateApplicationMenu();
+
+    // Show start screen if this was the last website window
+    if (websiteWindows.size === 0) {
+      showStartScreenIfNeeded();
+    }
+  });
+
+  updateApplicationMenu();
+
+  // Use ready-to-show event as recommended by Electron docs
+  window.once('ready-to-show', () => {
+    if (window && !window.isDestroyed()) {
+      themeManager.applyThemeToWindow(window);
+      window.show();
+    }
+  });
+
+  return window;
+}
+
+/**
+ * Start individual server for a website and update its window.
+ */
+export async function startWebsiteServerAndUpdateWindow(websiteName: string, websitePath: string): Promise<void> {
+  const websiteWindow = websiteWindows.get(websiteName);
+  if (!websiteWindow || websiteWindow.window.isDestroyed()) {
+    console.error(`Website window not found for server startup: ${websiteName}`);
+    return;
+  }
+
+  // Show native loading view immediately
+  showNativeLoadingView(websiteName);
+
+  try {
+    sendLogToWebsite(websiteName, `🔄 Preparing to start server for ${websiteName}...`, 'startup');
+
+    // Use the DI-based centralized server manager to start the server
+    const appContext = getGlobalContext();
+    const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
+    const serverInfo = await websiteServerManager.startServer(websiteName, websitePath);
+
+    // Get the internal managed server for additional properties
+    const managedServer = websiteServerManager.getServer(websiteName);
+
+    // Update website window with server info
+    if (managedServer) {
+      websiteWindow.managedServer = managedServer;
+      websiteWindow.server = managedServer.server;
+      websiteWindow.eleventyPort = managedServer.port;
+      websiteWindow.serverUrl = managedServer.actualUrl;
+    } else {
+      // Fallback to server info from interface
+      websiteWindow.eleventyPort = serverInfo.port;
+      websiteWindow.serverUrl = serverInfo.url;
+    }
+
+    sendLogToWebsite(websiteName, `✅ Server startup completed!`, 'info');
+
+    // Send website data to the editor window now that server is ready
+    websiteWindow.window.webContents.send('load-website', {
+      name: websiteName,
+      path: websitePath,
+    });
+
+    // Load content in the window with a delay to ensure WebContentsView is ready
+    sendLogToWebsite(websiteName, `🌐 Loading website content...`, 'info');
+    setTimeout(() => loadWebsiteContent(websiteName), 1000);
+  } catch (error) {
+    console.error(`Failed to start server for ${websiteName}:`, error);
+    sendLogToWebsite(
+      websiteName,
+      `❌ Failed to start server: ${error instanceof Error ? error.message : String(error)}`,
+      'error'
+    );
+    // Show error state in native loading view
+    showNativeLoadingError(websiteName);
+  }
+}
+
+/**
+ * Load website content in its window.
+ */
+export function loadWebsiteContent(websiteName: string): void {
+  const websiteWindow = websiteWindows.get(websiteName);
+  if (!websiteWindow || websiteWindow.window.isDestroyed()) {
+    console.error(`Website window not found or destroyed: ${websiteName}`);
+    return;
+  }
+
+  // Don't try to load content if we don't have a server URL
+  if (!websiteWindow.serverUrl) {
+    return;
+  }
+
+  // Simple approach - just load the URL without complex retry logic
+  try {
+    if (
+      websiteWindow.webContentsView &&
+      websiteWindow.webContentsView.webContents &&
+      !websiteWindow.webContentsView.webContents.isDestroyed()
+    ) {
+      // Add event listeners to see what happens
+      websiteWindow.webContentsView.webContents.once('did-finish-load', () => {
+        sendLogToWebsite(websiteName, `🎉 Website loaded successfully!`, 'info');
+        // Hide native loading view when website loads
+        hideNativeLoadingView(websiteName);
+      });
+
+      websiteWindow.webContentsView.webContents.once(
+        'did-fail-load',
+        (_event, errorCode, errorDescription, validatedURL) => {
+          console.error(`WebContentsView failed to load for: ${websiteName}`, {
+            errorCode,
+            errorDescription,
+            validatedURL,
+          });
+          sendLogToWebsite(websiteName, `❌ Failed to load website: ${errorDescription}`, 'error');
+          // Show error state in loading view
+          showNativeLoadingError(websiteName);
+        }
+      );
+
+      websiteWindow.webContentsView.webContents.loadURL(websiteWindow.serverUrl);
+      websiteWindow.window.webContents.send('preview-loaded');
+    } else {
+      console.error(`WebContentsView or webContents not available for: ${websiteName}`);
+    }
+  } catch (error) {
+    console.error(`Error loading content for ${websiteName}:`, error);
+  }
+}
+
+/**
+ * Get website window reference.
+ */
+export function getWebsiteWindow(websiteName: string): BrowserWindow | null {
+  const websiteWindow = websiteWindows.get(websiteName);
+  return websiteWindow && !websiteWindow.window.isDestroyed() ? websiteWindow.window : null;
+}
+
+/**
+ * Returns the complete map of all currently open website windows keyed by website name.
+ */
+export function getAllWebsiteWindows(): Map<string, WebsiteWindow> {
+  return websiteWindows;
+}
+
+/**
+ * Get website server by name.
+ */
+export function getWebsiteServer(websiteName: string): WebsiteServer | undefined {
+  try {
+    const appContext = getGlobalContext();
+    const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
+    const managedServer = websiteServerManager.getServer(websiteName);
+    return managedServer?.server;
+  } catch (error) {
+    console.error('Failed to get website server via DI:', error);
+    return undefined;
+  }
+}
+
+/**
+ * Get all currently running website servers mapped by website name.
+ * @deprecated Use websiteServerManager.getAllServers() instead
+ */
+export function getAllWebsiteServers(): Map<string, WebsiteServer> {
+  console.warn('getAllWebsiteServers is deprecated, use websiteServerManager.getAllServers() instead');
+  const result = new Map<string, WebsiteServer>();
+
+  try {
+    const appContext = getGlobalContext();
+    const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
+
+    // Get the internal servers map and iterate over it
+    const allServers = websiteServerManager.getAllServers();
+    for (const [websiteName, managedServer] of allServers.entries()) {
+      if (managedServer && managedServer.server) {
+        result.set(websiteName, managedServer.server as WebsiteServer);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to get all website servers via DI:', error);
+  }
+
+  return result;
+}
+
+/**
+ * Save current window states to persistent storage.
+ */
+export function saveWindowStates(): void {
+  const store = getGlobalContext().getService<IStore>(ServiceKeys.STORE);
+  const windowStates: WindowState[] = [];
+
+  // Note: Help window state is no longer persisted since we don't auto-show it on startup
+
+  // Save website window states
+  websiteWindows.forEach((websiteWindow, websiteName) => {
+    if (!websiteWindow.window.isDestroyed()) {
+      const bounds = websiteWindow.window.getBounds();
+      const isMaximized = websiteWindow.window.isMaximized();
+
+      const windowState: WindowState = {
+        websiteName,
+        websitePath: websiteWindow.websitePath,
+        bounds,
+        isMaximized,
+        windowType: websiteWindow.isEditorWindow ? 'editor' : 'preview',
+      };
+
+      windowStates.push(windowState);
+    }
+  });
+
+  store.saveWindowStates(windowStates);
+}
+
+/**
+ * Restore website windows from saved states.
+ */
+export async function restoreWindowStates(): Promise<void> {
+  const store = getGlobalContext().getService<IStore>(ServiceKeys.STORE);
+  const windowStates = store.getWindowStates();
+
+  if (windowStates.length === 0) {
+    // Show start screen when no websites are being restored
+    showStartScreenIfNeeded();
+    return;
+  }
+
+  const validWindowStates: WindowState[] = [];
+
+  for (const windowState of windowStates) {
+    try {
+      // Check if website directory exists before attempting restoration
+      const websitePath = windowState.websitePath || getWebsitePath(windowState.websiteName);
+
+      if (!fs.existsSync(websitePath)) {
+        console.log(`Skipping restoration of deleted website: ${windowState.websiteName}`);
+        continue; // Skip this state and don't add to validWindowStates
+      }
+
+      // Restore the website window
+      await restoreWebsiteWindow(windowState);
+
+      // If restoration succeeded, keep this state
+      validWindowStates.push(windowState);
+
+      // Restore window bounds and maximized state after a delay to ensure the window is ready
+      setTimeout(() => {
+        const websiteWindow = websiteWindows.get(windowState.websiteName);
+        if (websiteWindow && !websiteWindow.window.isDestroyed() && windowState.bounds) {
+          if (windowState.isMaximized) {
+            websiteWindow.window.maximize();
+          } else {
+            websiteWindow.window.setBounds(windowState.bounds);
+          }
+        }
+      }, 1000);
+    } catch (error) {
+      console.error(`Failed to restore window for ${windowState.websiteName}:`, error);
+      // Don't add failed states to validWindowStates
+    }
+  }
+
+  // Update the stored window states to remove invalid ones
+  if (validWindowStates.length !== windowStates.length) {
+    console.log(`Cleaned up ${windowStates.length - validWindowStates.length} invalid window states`);
+    store.saveWindowStates(validWindowStates);
+  }
+
+  // Show start screen if no valid windows were restored
+  if (websiteWindows.size === 0) {
+    showStartScreenIfNeeded();
+  }
+}
+
+/**
+ * Restore a single website window.
+ */
+async function restoreWebsiteWindow(windowState: WindowState): Promise<void> {
+  try {
+    // Get the website path (directory existence already verified by caller)
+    const websitePath = windowState.websitePath || getWebsitePath(windowState.websiteName);
+
+    // Create the appropriate window type
+    if (windowState.windowType === 'editor') {
+      // Import the window-manager module to access React editor (default)
+      const { openReactWebsiteEditorWindow } = await import('./window-manager');
+      openReactWebsiteEditorWindow(windowState.websiteName, websitePath);
+    } else {
+      // Default to preview window (backward compatibility)
+      createWebsiteWindow(windowState.websiteName, websitePath);
+
+      try {
+        // Start individual server for this restored website
+        await startWebsiteServerAndUpdateWindow(windowState.websiteName, websitePath);
+      } catch (serverError) {
+        console.error(
+          `Failed to start server for ${windowState.websiteName}, window will show fallback content:`,
+          serverError
+        );
+        // Don't throw - let the window exist with fallback content rather than failing completely
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to restore website window for ${windowState.websiteName}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Gracefully closes all open windows (website windows) and saves their states.
+ */
+export async function closeAllWindows(): Promise<void> {
+  // Save window states before closing
+  saveWindowStates();
+
+  // Use the DI-based centralized server manager to stop all servers
+  try {
+    const appContext = getGlobalContext();
+    const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
+    await websiteServerManager.stopAllServers();
+  } catch (error) {
+    console.error('Error stopping servers during shutdown:', error);
+  }
+
+  // Close all windows
+  websiteWindows.forEach((websiteWindow) => {
+    if (!websiteWindow.window.isDestroyed()) {
+      websiteWindow.window.close();
+    }
+  });
+
+  websiteWindows.clear();
+}
+
+// Start screen window instance declared at top of file
+
+/**
+ * Create and show the start screen window.
+ */
+export function createStartScreen(): BrowserWindow {
+  if (startScreenWindow && !startScreenWindow.isDestroyed()) {
+    startScreenWindow.focus();
+    return startScreenWindow;
+  }
+
+  startScreenWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    title: 'Anglesite',
+    show: false,
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 20, y: 20 },
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '..', 'preload.js'),
+    },
+  });
+
+  // Load the start screen template
+  const startScreenDataUrl = loadTemplateAsDataUrl('start-screen');
+  startScreenWindow.loadURL(startScreenDataUrl);
+
+  startScreenWindow.once('ready-to-show', () => {
+    if (startScreenWindow && !startScreenWindow.isDestroyed()) {
+      themeManager.applyThemeToWindow(startScreenWindow);
+      startScreenWindow.show();
+      startScreenWindow.focus();
+    }
+  });
+
+  startScreenWindow.on('closed', () => {
+    startScreenWindow = null;
+  });
+
+  return startScreenWindow;
+}
+
+/**
+ * Close the start screen window if it exists.
+ */
+export function closeStartScreen(): void {
+  if (startScreenWindow && !startScreenWindow.isDestroyed()) {
+    startScreenWindow.close();
+  }
+  startScreenWindow = null;
+}
+
+/**
+ * Get the current start screen window.
+ */
+export function getStartScreen(): BrowserWindow | null {
+  return startScreenWindow && !startScreenWindow.isDestroyed() ? startScreenWindow : null;
+}
+
+/**
+ * Show the start screen if no windows are open and it's appropriate to do so.
+ */
+export function showStartScreenIfNeeded(): void {
+  // Only show start screen if no website windows are open and no start screen is already showing
+  if (websiteWindows.size === 0 && !getStartScreen()) {
+    createStartScreen();
+  }
+}
+
+/**
+ * Add a website editor window to the tracking system.
+ * This allows the editor window to be included in window state persistence.
+ */
+export function addWebsiteEditorWindow(
+  websiteName: string,
+  window: BrowserWindow,
+  webContentsView: WebContentsView,
+  websitePath?: string
+): void {
+  const websiteWindow: WebsiteWindow = {
+    window,
+    webContentsView,
+    websiteName,
+    websitePath,
+    // Mark this as an editor window for proper restoration
+    isEditorWindow: true,
+  };
+  websiteWindows.set(websiteName, websiteWindow);
+
+  // Close start screen since we now have a website window
+  closeStartScreen();
+}
+
+/**
+ * Remove a website editor window from the tracking system.
+ */
+export function removeWebsiteEditorWindow(websiteName: string): void {
+  websiteWindows.delete(websiteName);
+
+  // Show start screen if no windows remain
+  showStartScreenIfNeeded();
+}
+
+/**
+ * Toggle DevTools for the currently focused window (website window).
+ */
+export async function togglePreviewDevTools(): Promise<void> {
+  const focusedWindow = BrowserWindow.getFocusedWindow();
+  if (!focusedWindow) {
+    return;
+  }
+
+  // Check if it's a website window
+  for (const [, websiteWindow] of Array.from(websiteWindows)) {
+    if (websiteWindow.window === focusedWindow) {
+      const webContents = websiteWindow.webContentsView.webContents;
+      if (webContents.isDevToolsOpened()) {
+        webContents.closeDevTools();
+      } else {
+        webContents.openDevTools({ mode: 'detach' });
+      }
+      return;
+    }
+  }
+}
+
+/**
+ * Check if a website window is currently focused.
+ */
+export function isWebsiteEditorFocused(): boolean {
+  const focusedWindow = BrowserWindow.getFocusedWindow();
+  if (!focusedWindow) return false;
+
+  // Check if the focused window is any website window
+  for (const [, websiteWindow] of Array.from(websiteWindows)) {
+    if (websiteWindow.window === focusedWindow) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Get the name of the currently focused website project.
+ */
+export function getCurrentWebsiteEditorProject(): string | null {
+  const focusedWindow = BrowserWindow.getFocusedWindow();
+  if (!focusedWindow) return null;
+
+  // Find the website name for the focused window
+  for (const [websiteName, websiteWindow] of Array.from(websiteWindows)) {
+    if (websiteWindow.window === focusedWindow) {
+      return websiteName;
+    }
+  }
+  return null;
+}
+
+/**
+ * Show the WebContentsView for preview mode.
+ */
+export function showWebsitePreview(websiteName: string): void {
+  const websiteWindow = websiteWindows.get(websiteName);
+  if (websiteWindow && !websiteWindow.window.isDestroyed()) {
+    websiteWindow.webContentsView.setVisible(true);
+  } else {
+    console.error(`Website window not found for preview show: ${websiteName}`);
+  }
+}
+
+/**
+ * Hide the WebContentsView for edit mode.
+ */
+export function hideWebsitePreview(websiteName: string): void {
+  const websiteWindow = websiteWindows.get(websiteName);
+  if (websiteWindow && !websiteWindow.window.isDestroyed()) {
+    websiteWindow.webContentsView.setVisible(false);
+  } else {
+    console.error(`Website window not found for preview hide: ${websiteName}`);
+  }
+}
+
+/**
+ * Get the help window instance.
+ */
+export function getHelpWindow(): BrowserWindow | null {
+  return helpWindow;
+}
+
+/**
+ * Create and show the help window.
+ */
+export function createHelpWindow(): BrowserWindow {
+  if (helpWindow && !helpWindow.isDestroyed()) {
+    helpWindow.focus();
+    return helpWindow;
+  }
+
+  helpWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  helpWindow.setTitle('Anglesite');
+
+  // Clean up reference when window is closed
+  helpWindow.on('closed', () => {
+    helpWindow = null;
+  });
+
+  helpWindow.show();
+  return helpWindow;
+}

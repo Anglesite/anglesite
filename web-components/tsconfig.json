@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "downlevelIteration": true,
+    "types": ["node", "jest"],
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "dist",
+    "noImplicitAny": false
+  },
+  "include": ["**/*.ts", "**/*.cjs", "types"],
+  "exclude": ["node_modules", "_site", "dist", "test", "**/*.test.ts"]
+}

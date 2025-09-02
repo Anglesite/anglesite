@@ -1,0 +1,30 @@
+{
+  "name": "@dwk/anglesite-starter",
+  "version": "0.2.0",
+  "description": "A starter template used to export Anglesite websites to 11ty",
+  "license": "ISC",
+  "author": {
+    "name": "David W. Keith",
+    "email": "git@dwk.io",
+    "url": "https://dwk.io/"
+  },
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "serve": "npx @11ty/eleventy --serve",
+    "build": "npx @11ty/eleventy",
+    "test": "npm run build",
+    "test:coverage": "npm run build",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@11ty/eleventy": "^3.1.2",
+    "@11ty/eleventy-img": "^5.0.0",
+    "@11ty/eleventy-plugin-webc": "0.12.0-beta.7",
+    "@dwk/anglesite-11ty": "*",
+    "@dwk/web-components": "*",
+    "html-minifier-terser": "^7.2.0"
+  },
+  "devDependencies": {}
+}

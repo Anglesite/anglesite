@@ -16,39 +16,6 @@
     "baseUrl": ".",
     "paths": {
       "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
-    },
-    "paths": {
-      "@11ty/eleventy": ["./types/eleventy-shim.d.ts"]
     }
   },
   "include": ["**/*.ts", "**/*.d.ts", "**/*.cjs", "types"],

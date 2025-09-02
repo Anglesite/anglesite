@@ -1,0 +1,81 @@
+@import 'tailwindcss';
+
+/* Tailwind directives will be processed by @tailwindcss/postcss plugin */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles for Anglesite */
+@layer base {
+  :root {
+    --color-primary: #3b82f6;
+    --color-secondary: #6b7280;
+    --font-family-sans: 'Inter', system-ui, sans-serif;
+    --font-family-mono: 'JetBrains Mono', 'Consolas', monospace;
+  }
+
+  html {
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-variant-ligatures: contextual;
+  }
+
+  body {
+    @apply font-sans text-gray-700 bg-white;
+    font-feature-settings: inherit;
+  }
+
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    body {
+      @apply bg-gray-900 text-gray-100;
+    }
+  }
+}
+
+/* Custom component classes */
+@layer components {
+  .btn {
+    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply transition-colors duration-200;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm;
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
+    @apply transition-colors duration-200;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm;
+    @apply bg-gray-200 text-gray-900 hover:bg-gray-300;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500;
+    @apply transition-colors duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+  }
+
+  .input {
+    @apply block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:border-blue-500;
+    @apply text-sm;
+  }
+}
+
+/* Custom utilities */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+}

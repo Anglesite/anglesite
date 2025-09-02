@@ -1,0 +1,7 @@
+<!---
+  Simple meta tags for the header.
+--->
+<template webc:nokeep webc:component="simple-head-meta">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="generator" content="11ty + @dwk/web-components">
+</template>

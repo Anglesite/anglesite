@@ -1,0 +1,20 @@
+<!doctype html>
+<!---
+  A base layout for Angsite's 11ty WebC projects.
+
+  Just a simple HTML5 document structure.
+  Defers CSS and JS bundles are at the end of the document for better performance.
+
+--->
+<html webc:root lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Test Page</title>
+    <head-meta @raw></head-meta>
+    <head-links @raw></head-links>
+    <script webc:is="head-js"></script>
+  </head>
+  <body>
+    <slot><template webc:nokeep @raw="content"></template></slot>
+  </body>
+</html>

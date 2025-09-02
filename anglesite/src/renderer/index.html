@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+    />
+    <title>Anglesite</title>
+
+    <!-- Critical CSS following Electron dark mode best practices -->
+    <style>
+      /* Enable native dark mode support - this is the key to preventing white flash */
+      :root {
+        color-scheme: light dark; /* This tells the browser to support both themes natively */
+      }
+
+      /* Base styles with CSS variables that respect color-scheme */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background-color: Canvas; /* Use system Canvas color */
+        color: CanvasText; /* Use system CanvasText color */
+      }
+
+      /* Override with custom colors that respect system preference */
+      @media (prefers-color-scheme: light) {
+        html,
+        body {
+          background-color: #ffffff;
+          color: #333333;
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background-color: #1e1e1e;
+          color: #ffffff;
+        }
+      }
+
+      /* Critical CSS variables for preventing flash - main variables are in styles.css */
+      /* These base colors will be overridden by styles.css but prevent white flash on load */
+      html,
+      body {
+        background-color: Canvas; /* Use system Canvas color immediately */
+        color: CanvasText; /* Use system CanvasText color immediately */
+      }
+    </style>
+
+    <link rel="stylesheet" href="./styles.css" />
+
+    <!-- Simple synchronous script to set data-theme if needed -->
+    <script>
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    </script>
+  </head>
+  <body>
+    <header class="top-bar" role="banner">
+      <button id="preview" aria-label="Switch to edit mode" title="Switch to edit mode">Edit</button>
+      <button id="open-browser" aria-label="Open in external browser" title="Open in external browser">
+        Open In Browser
+      </button>
+    </header>
+
+    <nav class="browser-bar" role="navigation" aria-label="Page navigation">
+      <button id="reload" aria-label="Reload current page" title="Reload current page">Reload</button>
+      <h1 class="site-title" id="site-title">Hello World!</h1>
+      <div class="url-display" id="url-display" role="status" aria-live="polite">/index.html</div>
+    </nav>
+
+    <main class="content-area" role="main" aria-label="Website preview">
+      <!-- Preview content will be shown here via BrowserView -->
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>

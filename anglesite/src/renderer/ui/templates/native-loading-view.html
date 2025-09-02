@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Loading...</title>
+    <link rel="stylesheet" href="../default-theme.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        text-align: center;
+      }
+
+      .main-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 30px;
+        width: 100%;
+        max-width: 600px;
+      }
+
+      .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .loading-gear {
+        width: 48px;
+        height: 48px;
+        animation: spin 2s linear infinite;
+        fill: var(--text-secondary);
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-text {
+        color: var(--text-primary);
+        font-size: var(--font-size-lg);
+        font-weight: 500;
+        margin: 0;
+      }
+
+      .error-container {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        color: var(--error-color);
+      }
+
+      .error-container.visible {
+        display: flex;
+      }
+
+      .error-icon {
+        font-size: 48px;
+      }
+
+      .error-title {
+        font-size: var(--font-size-xl);
+        font-weight: 600;
+        margin: 0;
+      }
+
+      .error-message {
+        font-size: var(--font-size-base);
+        color: var(--text-secondary);
+        margin: 0;
+        max-width: 400px;
+        line-height: 1.5;
+      }
+
+      .error-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .btn {
+        padding: 8px 16px;
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
+        cursor: pointer;
+        text-decoration: none;
+        color: var(--text-primary);
+        font-size: var(--font-size-sm);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-weight: 400;
+        transition: all 0.1s ease;
+      }
+
+      .btn:hover {
+        background: linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%);
+        border-color: #c0c0c0;
+      }
+
+      .btn:active {
+        background: linear-gradient(180deg, #e8e8e8 0%, #d8d8d8 100%);
+        border-color: #999999;
+        transform: translateY(1px);
+      }
+
+      .btn-primary {
+        background: linear-gradient(180deg, #007aff 0%, #0056cc 100%);
+        color: white;
+        border-color: #0056cc;
+      }
+
+      .btn-primary:hover {
+        background: linear-gradient(180deg, #0056cc 0%, #004499 100%);
+        border-color: #004499;
+      }
+
+      .btn-primary:active {
+        background: linear-gradient(180deg, #004499 0%, #003366 100%);
+        border-color: #003366;
+      }
+
+      /* Logs section */
+      .logs-section {
+        width: 100%;
+        max-width: 600px;
+        margin-top: 20px;
+      }
+
+      .logs-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-size: var(--font-size-sm);
+        color: var(--text-primary);
+        width: 100%;
+        transition: all 0.1s ease;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      }
+
+      .logs-toggle:hover {
+        background: var(--bg-tertiary);
+        border-color: var(--border-secondary);
+      }
+
+      .logs-toggle span:first-child {
+        font-size: 12px;
+        transition: transform 0.1s ease;
+      }
+
+      .logs-toggle.expanded span:first-child {
+        transform: rotate(90deg);
+      }
+
+      .logs-container {
+        display: none;
+        border: 1px solid var(--border-primary);
+        border-top: none;
+        border-radius: 0 0 6px 6px;
+        background: var(--bg-primary);
+        max-height: 300px;
+        overflow: hidden;
+      }
+
+      .logs-container.visible {
+        display: block;
+      }
+
+      .logs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-primary);
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .logs-copy {
+        background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
+        border: 1px solid #d1d1d1;
+        color: #333333;
+        cursor: pointer;
+        font-size: var(--font-size-xs);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-weight: 400;
+        transition: all 0.1s ease;
+      }
+
+      .logs-copy:hover {
+        background: linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%);
+        border-color: #c0c0c0;
+      }
+
+      .logs-copy:active {
+        background: linear-gradient(180deg, #e8e8e8 0%, #d8d8d8 100%);
+        border-color: #999999;
+        transform: translateY(1px);
+      }
+
+      .logs-content {
+        height: 250px;
+        overflow-y: auto;
+        padding: 8px;
+        font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+        font-size: var(--font-size-xs);
+        line-height: 1.4;
+        background: var(--bg-quaternary);
+        text-align: left;
+      }
+
+      .logs-content *,
+      .logs-content span,
+      .logs-content div {
+        font-family: inherit !important;
+      }
+
+      .log-entry {
+        margin-bottom: 2px;
+        padding: 2px 4px;
+        border-radius: 3px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .log-entry.startup {
+        color: var(--info-color);
+        font-weight: 500;
+      }
+
+      .log-entry.info {
+        color: var(--success-color);
+      }
+
+      .log-entry.warning {
+        color: var(--warning-color);
+        background: var(--warning-shadow);
+      }
+
+      .log-entry.error {
+        color: var(--error-color);
+        background: var(--error-shadow);
+      }
+
+      .log-entry.debug {
+        color: var(--text-secondary);
+        font-size: inherit;
+      }
+
+      .log-entry .timestamp {
+        color: var(--text-secondary);
+        font-size: inherit;
+        margin-right: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main-content">
+      <div id="loadingState" class="loading-container">
+        <h1 style="color: var(--text-primary); margin-bottom: 30px; font-weight: 300">🌐 Anglesite</h1>
+
+        <svg class="loading-gear" viewBox="0 0 24 24">
+          <path
+            d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"
+          />
+        </svg>
+
+        <p class="loading-text">Building your website…</p>
+      </div>
+
+      <div id="errorState" class="error-container">
+        <div class="error-icon">⚠️</div>
+        <h2 class="error-title">Website Failed to Load</h2>
+        <p class="error-message">
+          Your website couldn't be built or loaded within 30 seconds. Check the build logs below for details.
+        </p>
+        <div class="error-actions">
+          <button class="btn" onclick="retryLoad()">Try Again</button>
+          <button class="btn btn-primary" onclick="openInBrowser()">Open in Browser</button>
+        </div>
+      </div>
+
+      <div class="logs-section">
+        <button class="logs-toggle" onclick="toggleLogs()">
+          <span id="logsToggleIcon">▶</span>
+          <span>Show Build Logs</span>
+        </button>
+        <div id="logsContainer" class="logs-container">
+          <div class="logs-header">
+            <span>Eleventy Build Process</span>
+            <button class="logs-copy" onclick="copyLogs()">Copy</button>
+          </div>
+          <div id="logsContent" class="logs-content">
+            <!-- Real-time logs will appear here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let logsVisible = false;
+
+      function toggleLogs() {
+        const toggle = document.querySelector('.logs-toggle');
+        const container = document.getElementById('logsContainer');
+        const icon = document.getElementById('logsToggleIcon');
+
+        logsVisible = !logsVisible;
+
+        if (logsVisible) {
+          toggle.classList.add('expanded');
+          container.classList.add('visible');
+          toggle.querySelector('span:last-child').textContent = 'Hide Build Logs';
+        } else {
+          toggle.classList.remove('expanded');
+          container.classList.remove('visible');
+          toggle.querySelector('span:last-child').textContent = 'Show Build Logs';
+        }
+      }
+
+      function copyLogs() {
+        console.log('=== Copy Logs Debug ===');
+        const logsContent = document.getElementById('logsContent');
+        const copyButton = document.querySelector('.logs-copy');
+
+        const logEntries = logsContent.querySelectorAll('.log-entry');
+        const logText = Array.from(logEntries)
+          .map((entry) => {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = entry.innerHTML;
+            return tempDiv.textContent || tempDiv.innerText || '';
+          })
+          .join('\n');
+
+        console.log('Log text to copy (length):', logText.length);
+        console.log('Log text preview:', logText.substring(0, 100) + '...');
+
+        // Check available APIs
+        console.log('window.electronAPI available:', !!window.electronAPI);
+        console.log('window.electronAPI.clipboard available:', !!(window.electronAPI && window.electronAPI.clipboard));
+        console.log('navigator.clipboard available:', !!navigator.clipboard);
+        console.log(
+          'navigator.clipboard.writeText available:',
+          !!(navigator.clipboard && navigator.clipboard.writeText)
+        );
+        console.log('document.execCommand available:', !!document.execCommand);
+
+        try {
+          // Try Electron clipboard API first
+          if (window.electronAPI && window.electronAPI.clipboard) {
+            console.log('Attempting Electron clipboard API...');
+            try {
+              window.electronAPI.clipboard.writeText(logText);
+              console.log('Electron clipboard API succeeded');
+              showCopySuccess(copyButton);
+              return;
+            } catch (electronErr) {
+              console.error('Electron clipboard API failed:', electronErr);
+              // Continue to fallback methods
+            }
+          } else {
+            console.log('Electron clipboard API not available');
+          }
+
+          // Fallback to standard clipboard API
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            console.log('Attempting navigator.clipboard API...');
+            navigator.clipboard
+              .writeText(logText)
+              .then(() => {
+                console.log('Navigator clipboard API succeeded');
+                showCopySuccess(copyButton);
+              })
+              .catch((err) => {
+                console.error('Navigator clipboard API failed:', err);
+                console.log('Falling back to execCommand...');
+                fallbackCopy(logText, copyButton);
+              });
+            return;
+          } else {
+            console.log('Navigator clipboard API not available');
+          }
+
+          // Last resort: fallback copy method
+          console.log('Attempting fallback copy method...');
+          fallbackCopy(logText, copyButton);
+        } catch (err) {
+          console.error('Copy operation failed with exception:', err);
+          showCopyError(copyButton);
+        }
+      }
+
+      function showCopySuccess(copyButton) {
+        const originalText = copyButton.textContent;
+        copyButton.textContent = 'Copied!';
+        copyButton.style.background = 'linear-gradient(180deg, #d4edda 0%, #c3e6cb 100%)';
+        copyButton.style.borderColor = '#c3e6cb';
+        copyButton.style.color = '#155724';
+
+        setTimeout(() => {
+          copyButton.textContent = originalText;
+          copyButton.style.background = '';
+          copyButton.style.borderColor = '';
+          copyButton.style.color = '';
+        }, 1500);
+      }
+
+      function showCopyError(copyButton) {
+        const originalText = copyButton.textContent;
+        copyButton.textContent = 'Copy Failed';
+        copyButton.style.background = 'linear-gradient(180deg, #f8d7da 0%, #f5c6cb 100%)';
+        copyButton.style.borderColor = '#f5c6cb';
+        copyButton.style.color = '#721c24';
+
+        setTimeout(() => {
+          copyButton.textContent = originalText;
+          copyButton.style.background = '';
+          copyButton.style.borderColor = '';
+          copyButton.style.color = '';
+        }, 1500);
+      }
+
+      function fallbackCopy(text, copyButton) {
+        console.log('=== Fallback Copy Debug ===');
+        console.log('Text length:', text.length);
+
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        document.body.appendChild(textarea);
+
+        console.log('Textarea created and added to DOM');
+
+        try {
+          textarea.select();
+          console.log('Textarea selected');
+          textarea.setSelectionRange(0, 99999);
+          console.log('Selection range set');
+
+          const success = document.execCommand('copy');
+          console.log('execCommand("copy") returned:', success);
+
+          if (success) {
+            console.log('Fallback copy succeeded');
+            showCopySuccess(copyButton);
+          } else {
+            console.log('Fallback copy failed - execCommand returned false');
+            showCopyError(copyButton);
+          }
+        } catch (err) {
+          console.error('Fallback copy failed with exception:', err);
+          showCopyError(copyButton);
+        } finally {
+          document.body.removeChild(textarea);
+          console.log('Textarea removed from DOM');
+        }
+      }
+
+      function showError() {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('errorState').classList.add('visible');
+
+        if (!logsVisible) {
+          toggleLogs();
+        }
+      }
+
+      function retryLoad() {
+        if (window.electronAPI && window.electronAPI.send) {
+          window.electronAPI.send('reload-preview');
+        } else {
+          location.reload();
+        }
+      }
+
+      function openInBrowser() {
+        if (window.electronAPI && window.electronAPI.openExternal) {
+          window.electronAPI.openExternal('http://localhost:8081');
+        } else {
+          window.open('http://localhost:8081', '_blank');
+        }
+      }
+
+      function addLogEntry(message, type = 'info') {
+        const logsContent = document.getElementById('logsContent');
+        const timestamp = new Date().toLocaleTimeString();
+
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry ${type}`;
+        logEntry.innerHTML = `<span class="timestamp">${timestamp}</span>${message}`;
+
+        logsContent.appendChild(logEntry);
+        logsContent.scrollTop = logsContent.scrollHeight;
+
+        const entries = logsContent.children;
+        if (entries.length > 100) {
+          logsContent.removeChild(entries[0]);
+        }
+      }
+
+      // Listen for log messages
+      window.addEventListener('message', function (event) {
+        if (event.data && event.data.type === 'log') {
+          addLogEntry(event.data.message, event.data.level || 'info');
+        } else if (event.data && event.data.type === 'showError') {
+          showError();
+        }
+      });
+
+      // Initial log entry
+      addLogEntry('🚀 Starting website build process…', 'startup');
+
+      // Debug electronAPI availability
+      console.log('=== ElectronAPI Debug ===');
+      console.log('window.electronAPI:', window.electronAPI);
+      if (window.electronAPI) {
+        console.log('electronAPI.clipboard:', window.electronAPI.clipboard);
+        console.log('electronAPI.openExternal:', window.electronAPI.openExternal);
+        console.log('electronAPI.send:', window.electronAPI.send);
+        console.log('electronAPI.invoke:', window.electronAPI.invoke);
+      }
+
+      // Auto-show error after 30 seconds
+      setTimeout(() => {
+        if (document.getElementById('loadingState').style.display !== 'none') {
+          showError();
+        }
+      }, 30000);
+    </script>
+  </body>
+</html>

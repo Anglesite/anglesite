@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Anglesite</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        /* Light theme colors */
+        --bg-primary: #ffffff;
+        --bg-secondary: #f5f5f5;
+        --bg-tertiary: #ffffff;
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --border-primary: #e1e1e1;
+        --button-primary: #007aff;
+        --button-primary-hover: #0056cc;
+        --button-secondary: #e5e5e7;
+        --button-secondary-hover: #d1d1d6;
+        --button-secondary-text: #333;
+        --card-hover-border: #007aff;
+        --card-hover-shadow: rgba(0, 0, 0, 0.1);
+      }
+
+      :root[data-theme='dark'] {
+        /* Dark theme colors */
+        --bg-primary: #1e1e1e;
+        --bg-secondary: #121212;
+        --bg-tertiary: #2d2d2d;
+        --text-primary: #ffffff;
+        --text-secondary: #b3b3b3;
+        --border-primary: #404040;
+        --button-primary: #0a84ff;
+        --button-primary-hover: #409cff;
+        --button-secondary: #404040;
+        --button-secondary-hover: #525252;
+        --button-secondary-text: #ffffff;
+        --card-hover-border: #0a84ff;
+        --card-hover-shadow: rgba(255, 255, 255, 0.1);
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        transition:
+          background-color 0.2s ease,
+          color 0.2s ease;
+        overflow: hidden;
+      }
+
+      .container {
+        display: flex;
+        height: 100vh;
+      }
+
+      /* Left 2/3 section */
+      .left-section {
+        flex: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px;
+        background: var(--bg-primary);
+        border-right: 1px solid var(--border-primary);
+      }
+
+      .logo-section {
+        text-align: center;
+        margin-bottom: 60px;
+      }
+
+      .app-icon {
+        width: 128px;
+        height: 128px;
+        margin: 0 auto 24px;
+        background: linear-gradient(135deg, #007aff, #5ac8fa);
+        border-radius: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 64px;
+        color: white;
+        box-shadow: 0 12px 32px rgba(0, 122, 255, 0.25);
+      }
+
+      .app-title {
+        font-size: 36px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+      }
+
+      .app-version {
+        font-size: 16px;
+        color: var(--text-secondary);
+        margin-bottom: 24px;
+      }
+
+      .tagline {
+        font-size: 18px;
+        color: var(--text-secondary);
+        max-width: 400px;
+        line-height: 1.5;
+        text-align: center;
+      }
+
+      .create-section {
+        text-align: center;
+      }
+
+      .create-button {
+        background: var(--button-primary);
+        color: white;
+        border: none;
+        padding: 16px 32px;
+        border-radius: 12px;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+        margin-bottom: 12px;
+      }
+
+      .create-button:hover {
+        background: var(--button-primary-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
+      }
+
+      .create-subtitle {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin: 0;
+      }
+
+      /* Right 1/3 section */
+      .right-section {
+        flex: 1;
+        background: var(--bg-secondary);
+        padding: 32px 24px;
+        overflow-y: auto;
+      }
+
+      .websites-header {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-primary);
+      }
+
+      .website-item {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-primary);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .website-item:hover {
+        border-color: var(--card-hover-border);
+        box-shadow: 0 4px 12px var(--card-hover-shadow);
+        transform: translateY(-1px);
+      }
+
+      .website-name {
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+      }
+
+      .website-path {
+        font-size: 12px;
+        color: var(--text-secondary);
+        word-break: break-all;
+      }
+
+      .empty-websites {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-secondary);
+      }
+
+      .empty-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+
+      .empty-text {
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      /* Responsive design */
+      @media (max-width: 800px) {
+        .container {
+          flex-direction: column;
+        }
+
+        .left-section {
+          flex: none;
+          height: 60vh;
+          padding: 40px;
+        }
+
+        .right-section {
+          flex: none;
+          height: 40vh;
+          padding: 20px;
+        }
+
+        .app-icon {
+          width: 96px;
+          height: 96px;
+          font-size: 48px;
+        }
+
+        .app-title {
+          font-size: 28px;
+        }
+
+        .create-button {
+          font-size: 16px;
+          padding: 14px 28px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container" role="main">
+      <!-- Left 2/3 section -->
+      <section class="left-section" aria-labelledby="app-title">
+        <header class="logo-section">
+          <div class="app-icon" role="img" aria-label="Anglesite application icon">🌐</div>
+          <h1 id="app-title" class="app-title">Anglesite</h1>
+          <div class="app-version">Version 0.1.0</div>
+        </header>
+
+        <section class="create-section" aria-labelledby="create-heading">
+          <h2 id="create-heading" class="sr-only">Create New Website</h2>
+          <button class="create-button" onclick="createNewWebsite()" aria-describedby="create-subtitle">
+            Create a new website
+          </button>
+          <p id="create-subtitle" class="create-subtitle">Start with a template or empty website</p>
+        </section>
+      </section>
+
+      <!-- Right 1/3 section -->
+      <aside class="right-section" aria-labelledby="websites-header">
+        <h2 id="websites-header" class="websites-header">Your Websites</h2>
+        <div id="websitesList" role="region" aria-live="polite" aria-label="Website list">
+          <div class="empty-websites">
+            <div class="empty-icon" role="img" aria-label="Empty folder icon">📁</div>
+            <div class="empty-text">No websites</div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <script>
+      // Load websites and theme when page loads
+      document.addEventListener('DOMContentLoaded', () => {
+        loadWebsites();
+        loadTheme();
+      });
+
+      // Theme management
+      function loadTheme() {
+        try {
+          setTimeout(async () => {
+            try {
+              const themeInfo = await window.electronAPI.getCurrentTheme();
+              applyTheme(themeInfo.resolvedTheme);
+
+              // Listen for theme updates
+              window.electronAPI.onThemeUpdated((themeInfo) => {
+                applyTheme(themeInfo.resolvedTheme);
+              });
+            } catch (error) {
+              console.log('Theme loading failed, using default theme');
+            }
+          }, 100);
+        } catch (error) {
+          // Silently fail - theme is not critical for functionality
+        }
+      }
+
+      function applyTheme(resolvedTheme) {
+        const root = document.documentElement;
+        if (resolvedTheme === 'dark') {
+          root.setAttribute('data-theme', 'dark');
+        } else {
+          root.removeAttribute('data-theme');
+        }
+      }
+
+      async function loadWebsites() {
+        try {
+          const websites = await window.electronAPI.invoke('list-websites');
+          displayWebsites(websites);
+        } catch (error) {
+          console.error('Failed to load websites:', error);
+          displayError();
+        }
+      }
+
+      function displayWebsites(websites) {
+        const container = document.getElementById('websitesList');
+
+        if (websites.length === 0) {
+          container.innerHTML = `
+            <div class="empty-websites">
+              <div class="empty-icon">📁</div>
+              <div class="empty-text">No websites yet<br>Create your first website to get started</div>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = websites
+          .map(
+            (website) => `
+            <div class="website-item" onclick="openWebsite('${website}')" oncontextmenu="showContextMenu(event, '${website}')">
+              <div class="website-name">${website}</div>
+              <div class="website-path">${website}</div>
+            </div>
+          `
+          )
+          .join('');
+      }
+
+      function displayError() {
+        const container = document.getElementById('websitesList');
+        container.innerHTML = `
+          <div class="empty-websites">
+            <div class="empty-icon">⚠️</div>
+            <div class="empty-text">Failed to load websites</div>
+          </div>
+        `;
+      }
+
+      function createNewWebsite() {
+        window.electronAPI.send('new-website');
+      }
+
+      function openWebsite(websiteName) {
+        window.electronAPI.send('open-website', websiteName);
+      }
+
+      function showContextMenu(event, websiteName) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        window.electronAPI.send('show-website-context-menu', websiteName, {
+          x: 0,
+          y: 0,
+        });
+      }
+
+      // Listen for website operations completed to refresh the list
+      window.electronAPI.on('website-operation-completed', () => {
+        loadWebsites(); // Refresh the website list
+      });
+
+      // Listen for context menu actions
+      window.electronAPI.on('website-context-menu-action', (action, websiteName) => {
+        if (action === 'rename') {
+          // For the start screen, we can redirect to the full website selection window
+          // or implement inline editing here later
+          window.electronAPI.send('open-website-selection');
+        } else if (action === 'delete') {
+          window.electronAPI.send('delete-website', websiteName);
+        }
+      });
+    </script>
+  </body>
+</html>

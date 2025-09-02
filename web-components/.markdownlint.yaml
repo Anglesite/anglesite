@@ -1,0 +1,22 @@
+---
+# markdownlint-cli2 config
+
+# Uses https://github.com/DavidAnson/markdownlint-cli2#configuration
+# and https://github.com/DavidAnson/markdownlint#rules
+
+# Default state for all rules
+default: true
+
+# Configure rules
+
+# We are using Markdown as it renders embeded webc without matching `*.webc` on import.
+MD033: false
+# Disable rules for specific files
+# ".github/workflows/*.yml":
+#   MD001: false
+
+# Pre-defined config
+# extends: markdownlint-config-standard
+
+# Use a custom rule
+# customRules: [ "./.markdownlint.js" ]

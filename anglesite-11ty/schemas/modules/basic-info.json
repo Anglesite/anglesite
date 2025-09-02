@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anglesite.dwk.io/schemas/modules/basic-info.json",
+  "title": "Basic Website Information Schema",
+  "type": "object",
+  "required": ["title", "language"],
+  "definitions": {
+    "author": {
+      "type": "object",
+      "description": "Information about the website author",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Author's name"
+        },
+        "email": {
+          "$ref": "./common.json#/definitions/email",
+          "description": "Author's email address"
+        },
+        "url": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "Author's website or profile URL"
+        }
+      },
+      "additionalProperties": false
+    },
+    "social": {
+      "type": "object",
+      "description": "Social media links",
+      "properties": {
+        "twitter": {
+          "type": "string",
+          "description": "Twitter handle or URL"
+        },
+        "facebook": {
+          "$ref": "./common.json#/definitions/url"
+        },
+        "instagram": {
+          "type": "string"
+        },
+        "linkedin": {
+          "$ref": "./common.json#/definitions/url"
+        },
+        "github": {
+          "type": "string"
+        },
+        "youtube": {
+          "$ref": "./common.json#/definitions/url"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "title": {
+      "$ref": "./common.json#/definitions/nonEmptyString",
+      "description": "The title of the website",
+      "examples": ["Anglesite Starter", "My Website"]
+    },
+    "language": {
+      "$ref": "./common.json#/definitions/languageCode",
+      "description": "The primary language of the website (ISO 639-1 code)",
+      "examples": ["en", "en-US", "fr", "de"]
+    },
+    "description": {
+      "type": "string",
+      "description": "A brief description of the website",
+      "maxLength": 160
+    },
+    "url": {
+      "$ref": "./common.json#/definitions/httpsUrl",
+      "description": "The base URL of the website",
+      "examples": ["https://example.com", "https://example.test"]
+    },
+    "author": {
+      "$ref": "#/definitions/author"
+    },
+    "social": {
+      "$ref": "#/definitions/social"
+    },
+    "rating": {
+      "type": "string",
+      "description": "Content rating for the website",
+      "examples": ["general", "mature", "restricted"]
+    }
+  }
+}

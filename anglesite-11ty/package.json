@@ -1,0 +1,44 @@
+{
+  "name": "@dwk/anglesite-11ty",
+  "version": "0.3.0",
+  "description": "The 11ty plugin for Anglesite",
+  "license": "ISC",
+  "author": {
+    "name": "David W. Keith",
+    "email": "git@dwk.io",
+    "url": "https://dwk.io/"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/types/eleventy.d.ts",
+  "scripts": {
+    "build": "tsc && npx @11ty/eleventy --config=dist/config.eleventy.js",
+    "build:lib": "tsc && cp -r types dist/",
+    "build:site": "npx @11ty/eleventy --config=.eleventy.test.js",
+    "serve": "npx @11ty/eleventy --serve --config=.eleventy.test.js",
+    "prepublishOnly": "npm run build:lib",
+    "prepare": "npm run build:lib",
+    "format": "prettier --write .",
+    "lint": "eslint . && markdownlint '**/*.md' --ignore node_modules --ignore dist --ignore coverage && htmlhint '**/*.html' --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'coverage/**'",
+    "lint:html": "htmlhint '**/*.html' --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'coverage/**'",
+    "prelint": "npm run format",
+    "pretest": "npm run lint && tsc --noEmit && npm run build",
+    "test": "jest",
+    "test:coverage": "jest --coverage --config jest.coverage.config.cjs"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "^3.1.2",
+    "ajv": "^6.12.6",
+    "json-schema-to-typescript": "^15.0.4",
+    "jsonc-eslint-parser": "^2.4.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@11ty/eleventy-img": "^5.0.0",
+    "@11ty/eleventy-plugin-webc": "0.12.0-beta.7",
+    "html-minifier-terser": "^7.2.0",
+    "xmlbuilder2": "3.1.1",
+    "yaml": "^2.8.1"
+  }
+}

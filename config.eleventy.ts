@@ -1,22 +1,11 @@
-// import webc from '@11ty/eleventy-plugin-webc';
-
-import addRobotsTxt from './plugins/robots.js';
-import addWebManifest from './plugins/webmanifest.js';
-import addSecurityTxt from './plugins/security.js';
-import addPgpKey from './plugins/pgp.js';
-import addSitemap from './plugins/sitemap.js';
-import addRedirects from './plugins/redirects.js';
-import addHeaders from './plugins/headers.js';
-import addHostMeta from './plugins/host-meta.js';
-import addWebFinger from './plugins/webfinger.js';
-import addNodeInfo from './plugins/nodeinfo.js';
-import addGpcJson from './plugins/gpc.js';
-import addOpenIDConfiguration from './plugins/openid-configuration.js';
-import addAppleAppSiteAssociation from './plugins/apple-app-site-association.js';
-import addAssetLinks from './plugins/assetlinks.js';
-import addBrowserConfig from './plugins/browserconfig.js';
-import addAssetPipeline from './plugins/assets.js';
+// Root Eleventy configuration - imports from anglesite-11ty workspace
 import type { EleventyConfig } from '@11ty/eleventy';
+
+// Import plugins from remaining plugins/ directory (non-well-known)
+import addAssetPipeline from './plugins/assets.js';
+
+// Import the main anglesite-11ty plugin (includes all well-known plugins)
+import anglesiteEleventy from '@dwk/anglesite-11ty';
 
 /**
  * Eleventy configuration function.
@@ -27,21 +16,10 @@ export default function (eleventyConfig: EleventyConfig) {
   // support index.11tydata.json for collection specific front-matter
   eleventyConfig.setDataFileBaseName('index');
 
-  eleventyConfig.addPlugin(addRobotsTxt);
-  eleventyConfig.addPlugin(addWebManifest);
-  eleventyConfig.addPlugin(addSecurityTxt);
-  eleventyConfig.addPlugin(addPgpKey);
-  eleventyConfig.addPlugin(addSitemap);
-  eleventyConfig.addPlugin(addRedirects);
-  eleventyConfig.addPlugin(addHeaders);
-  eleventyConfig.addPlugin(addHostMeta);
-  eleventyConfig.addPlugin(addWebFinger);
-  eleventyConfig.addPlugin(addNodeInfo);
-  eleventyConfig.addPlugin(addGpcJson);
-  eleventyConfig.addPlugin(addOpenIDConfiguration);
-  eleventyConfig.addPlugin(addAppleAppSiteAssociation);
-  eleventyConfig.addPlugin(addAssetLinks);
-  eleventyConfig.addPlugin(addBrowserConfig);
+  // Add the main anglesite-11ty plugin (includes all well-known directory plugins)
+  eleventyConfig.addPlugin(anglesiteEleventy);
+
+  // Add remaining plugins
   eleventyConfig.addPlugin(addAssetPipeline, {
     passthroughCopy: {
       'src/assets/fonts': 'fonts',

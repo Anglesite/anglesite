@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Website Editor - React (HMR)</title>
+    <link rel="stylesheet" href="../default-theme.css" />
+    <style>
+      body {
+        margin: 0;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background-color: var(--bg-primary, #ffffff);
+        color: var(--text-primary, #000000);
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      .app-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .header {
+        background: var(--bg-secondary, #f5f5f5);
+        border-bottom: 1px solid var(--border-primary, #e0e0e0);
+        padding: 12px 16px;
+      }
+
+      .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .sidebar {
+        width: 240px;
+        min-width: 240px;
+        background: var(--bg-secondary, #f5f5f5);
+        border-right: 1px solid var(--border-primary, #e0e0e0);
+        overflow-y: auto;
+      }
+
+      .file-explorer {
+        padding: 16px;
+      }
+
+      .file-explorer h3 {
+        margin: 0 0 12px 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-secondary, #666666);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .virtual-website-entry {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: var(--bg-tertiary, #eeeeee);
+        border: 1px solid var(--border-primary, #e0e0e0);
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        margin-bottom: 16px;
+        transition: background-color 0.2s ease;
+      }
+
+      .virtual-website-entry:hover {
+        background: var(--button-hover, #dddddd);
+      }
+
+      .virtual-website-entry span:first-child {
+        font-size: 16px;
+      }
+
+      .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-primary, #ffffff);
+      }
+
+      .editor-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .editor-tabs {
+        background: var(--bg-secondary, #f5f5f5);
+        border-bottom: 1px solid var(--border-primary, #e0e0e0);
+        padding: 8px 16px;
+        font-size: 12px;
+        color: var(--text-secondary, #666666);
+      }
+
+      .editor-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+        color: var(--text-secondary, #666666);
+        font-style: italic;
+      }
+
+      /* HMR Status indicator */
+      .hmr-status {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        padding: 4px 8px;
+        background: #28a745;
+        color: white;
+        font-size: 12px;
+        border-radius: 4px;
+        z-index: 1000;
+        opacity: 0.8;
+      }
+
+      .hmr-status.updating {
+        background: #ffc107;
+        color: #000;
+      }
+
+      .hmr-status.error {
+        background: #dc3545;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hmr-status" class="hmr-status">HMR Ready</div>
+    <div id="react-root"></div>
+
+    <!-- Mock Electron API for testing -->
+    <script>
+      // Mock electronAPI for development/testing
+      window.electronAPI = {
+        invoke: async (channel, ...args) => {
+          console.log('Mock electronAPI.invoke:', channel, args);
+
+          switch (channel) {
+            case 'get-website-files':
+              // Return mock file structure
+              return [
+                {
+                  filePath: '/mock/src/index.md',
+                  isDirectory: false,
+                  url: '/index.html',
+                },
+                {
+                  filePath: '/mock/src/about.md',
+                  isDirectory: false,
+                  url: '/about.html',
+                },
+                {
+                  filePath: '/mock/src/_data',
+                  isDirectory: true,
+                },
+                {
+                  filePath: '/mock/src/_data/website.json',
+                  isDirectory: false,
+                },
+              ];
+
+            case 'get-file-content':
+              if (args[1] === 'src/_data/website.json') {
+                return JSON.stringify(
+                  {
+                    title: 'Mock Website (HMR Active)',
+                    language: 'en',
+                    description: 'A mock website for testing HMR',
+                    author: {
+                      name: 'Test Author',
+                      email: 'test@example.com',
+                    },
+                  },
+                  null,
+                  2
+                );
+              }
+              return `# ${args[1]}\n\nThis is mock content for ${args[1]} with HMR enabled.`;
+
+            case 'save-file-content':
+              console.log('Mock save:', args[1], args[2]);
+              return true;
+
+            default:
+              console.warn('Unhandled electronAPI.invoke:', channel);
+              return null;
+          }
+        },
+
+        send: (channel, ...args) => {
+          console.log('Mock electronAPI.send:', channel, args);
+        },
+
+        on: (channel, callback) => {
+          console.log('Mock electronAPI.on:', channel);
+
+          // Simulate load-website event after a short delay
+          if (channel === 'load-website') {
+            setTimeout(() => {
+              callback({
+                name: 'Mock Website (HMR)',
+                path: '/mock',
+              });
+            }, 100);
+          }
+        },
+
+        off: (channel, callback) => {
+          console.log('Mock electronAPI.off:', channel);
+        },
+      };
+
+      // HMR Status management
+      if (module.hot) {
+        const statusEl = document.getElementById('hmr-status');
+
+        module.hot.addStatusHandler((status) => {
+          console.log('HMR Status:', status);
+          if (statusEl) {
+            statusEl.className = 'hmr-status';
+            switch (status) {
+              case 'idle':
+                statusEl.textContent = 'HMR Ready';
+                break;
+              case 'check':
+                statusEl.textContent = 'Checking...';
+                statusEl.classList.add('updating');
+                break;
+              case 'prepare':
+                statusEl.textContent = 'Preparing...';
+                statusEl.classList.add('updating');
+                break;
+              case 'ready':
+                statusEl.textContent = 'Update Ready';
+                statusEl.classList.add('updating');
+                break;
+              case 'dispose':
+                statusEl.textContent = 'Disposing...';
+                statusEl.classList.add('updating');
+                break;
+              case 'apply':
+                statusEl.textContent = 'Applying...';
+                statusEl.classList.add('updating');
+                break;
+              case 'abort':
+              case 'fail':
+                statusEl.textContent = 'Update Failed';
+                statusEl.classList.add('error');
+                break;
+            }
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,231 @@
+:root {
+  /* Enable native dark mode support */
+  color-scheme: light dark;
+
+  /* Light theme colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f8f8;
+  --bg-tertiary: #f0f0f0;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --border-primary: #cccccc;
+  --border-secondary: #dddddd;
+  --button-bg: #ffffff;
+  --button-hover: #f0f0f0;
+  --button-active: #e0e0e0;
+}
+
+/* Dark theme media query for automatic system preference support */
+/* Only apply when no explicit data-theme attribute is set */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252525;
+    --bg-tertiary: #2d2d2d;
+    --text-primary: #ffffff;
+    --text-secondary: #b3b3b3;
+    --border-primary: #404040;
+    --border-secondary: #353535;
+    --button-bg: #2d2d2d;
+    --button-hover: #404040;
+    --button-active: #4d4d4d;
+  }
+}
+
+:root[data-theme='light'] {
+  /* Light theme colors - explicit user preference override */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f8f8;
+  --bg-tertiary: #f0f0f0;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --border-primary: #cccccc;
+  --border-secondary: #dddddd;
+  --button-bg: #ffffff;
+  --button-hover: #f0f0f0;
+  --button-active: #e0e0e0;
+}
+
+:root[data-theme='dark'] {
+  /* Dark theme colors - explicit user preference override */
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252525;
+  --bg-tertiary: #2d2d2d;
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --border-primary: #404040;
+  --border-secondary: #353535;
+  --button-bg: #2d2d2d;
+  --button-hover: #404040;
+  --button-active: #4d4d4d;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.top-bar {
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-primary);
+  padding: 8px 16px;
+  display: flex;
+  gap: 12px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.browser-bar {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-secondary);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.site-title {
+  flex: 1;
+  text-align: center;
+  font-weight: bold;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.url-display {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 120px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.content-area {
+  flex: 1;
+  background: var(--bg-primary);
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.site-preview {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+button {
+  background: var(--button-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+button:hover {
+  background: var(--button-hover);
+}
+
+button:active {
+  background: var(--button-active);
+}
+
+/* Explicit dark mode toolbar styling for higher specificity */
+:root[data-theme='dark'] .top-bar {
+  background: #2d2d2d !important;
+  border-bottom-color: #404040 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .browser-bar {
+  background: #252525 !important;
+  border-bottom-color: #353535 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] button {
+  background: #2d2d2d !important;
+  border-color: #404040 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] button:hover {
+  background: #404040 !important;
+}
+
+:root[data-theme='dark'] button:active {
+  background: #4d4d4d !important;
+}
+
+:root[data-theme='dark'] .site-title {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .url-display {
+  background: #1e1e1e !important;
+  border-color: #404040 !important;
+  color: #b3b3b3 !important;
+}
+
+/* Explicit light mode toolbar styling for consistency */
+:root[data-theme='light'] .top-bar {
+  background: #f0f0f0;
+  border-bottom-color: #cccccc;
+  color: #333333;
+}
+
+:root[data-theme='light'] .browser-bar {
+  background: #f8f8f8;
+  border-bottom-color: #dddddd;
+  color: #333333;
+}
+
+:root[data-theme='light'] button {
+  background: #ffffff;
+  border-color: #cccccc;
+  color: #333333;
+}
+
+:root[data-theme='light'] button:hover {
+  background: #f0f0f0;
+}
+
+:root[data-theme='light'] button:active {
+  background: #e0e0e0;
+}
+
+:root[data-theme='light'] .site-title {
+  color: #333333;
+}
+
+:root[data-theme='light'] .url-display {
+  background: #ffffff;
+  border-color: #cccccc;
+  color: #666666;
+}

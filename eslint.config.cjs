@@ -1,127 +1,59 @@
-/**
- * @file ESLint flat configuration file for ESLint v9+
- * @see {@link https://eslint.org/docs/latest/use/configure/configuration-files-new}
- */
-const js = require('@eslint/js');
-const tsEslint = require('@typescript-eslint/eslint-plugin');
-const tsParser = require('@typescript-eslint/parser');
-const prettier = require('eslint-plugin-prettier');
+const eslint = require('@eslint/js');
+const tseslint = require('@typescript-eslint/eslint-plugin');
+const tsparser = require('@typescript-eslint/parser');
+const prettier = require('eslint-config-prettier');
 const jsdoc = require('eslint-plugin-jsdoc');
-const prettierConfig = require('eslint-config-prettier');
+const prettierPlugin = require('eslint-plugin-prettier');
 const globals = require('globals');
 
 module.exports = [
-  // Base recommended configuration
-  js.configs.recommended,
-  jsdoc.configs['flat/recommended'],
-
-  // Global ignores
+  eslint.configs.recommended,
+  prettier,
   {
-    ignores: ['dist/**/*', 'node_modules/**/*', 'coverage/**/*'],
-  },
-
-  // TypeScript files configuration (including types directory)
-  {
-    files: ['**/*.ts', '**/*.d.ts', 'types/**/*.ts', 'types/**/*.d.ts'],
+    files: ['**/*.{js,mjs,cjs,ts,tsx}'],
+    plugins: {
+      '@typescript-eslint': tseslint,
+      jsdoc,
+      prettier: prettierPlugin
+    },
     languageOptions: {
-      parser: tsParser,
+      parser: tsparser,
       parserOptions: {
-        ecmaVersion: 2021,
-        sourceType: 'module',
+        ecmaVersion: 2020,
+        sourceType: 'module'
       },
       globals: {
         ...globals.node,
-        ...globals.es2021,
-      },
-    },
-    plugins: {
-      '@typescript-eslint': tsEslint,
-      prettier: prettier,
-      jsdoc,
+        ...globals.jest
+      }
     },
     rules: {
-      ...tsEslint.configs.recommended.rules,
-      ...prettierConfig.rules,
+      ...tseslint.configs.recommended.rules,
+      ...jsdoc.configs.recommended.rules,
       'prettier/prettier': 'error',
-      'jsdoc/no-types': 'off', // Types are handled by TypeScript
-      'jsdoc/require-param-type': 'off', // Types are handled by TypeScript
-      'jsdoc/require-returns-type': 'off', // Types are handled by TypeScript
-    },
+      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-explicit-any': 'warn',
+      'jsdoc/require-description': 'warn',
+      'jsdoc/require-param-description': 'warn',
+      'jsdoc/require-returns-description': 'warn'
+    }
   },
-
-  // Override for .d.ts files to allow 'any'
   {
-    files: ['**/*.d.ts'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-    },
-  },
-
-  // JavaScript and CommonJS files configuration
-  {
-    files: ['**/*.js', '**/*.cjs'],
+    files: ['**/*.test.ts', '**/*.test.js'],
     languageOptions: {
-      ecmaVersion: 2021,
-      sourceType: 'module',
       globals: {
-        ...globals.node,
-        ...globals.es2021,
-      },
-    },
-    plugins: {
-      prettier: prettier,
-      jsdoc,
-    },
-    rules: {
-      ...prettierConfig.rules,
-      'prettier/prettier': 'error',
-    },
+        ...globals.jest
+      }
+    }
   },
-
-  // Test files configuration (Jest environment)
   {
-    files: ['**/*.test.js', '**/test/**/*.js', 'tests/**/*.test.ts'],
-    languageOptions: {
-      ecmaVersion: 2021,
-      sourceType: 'module',
-      globals: {
-        ...globals.node,
-        ...globals.jest,
-        ...globals.es2021,
-      },
-    },
-    plugins: {
-      prettier: prettier,
-      jsdoc,
-    },
-    rules: {
-      ...prettierConfig.rules,
-      'prettier/prettier': 'error',
-      'jsdoc/require-jsdoc': 'off', // Don't require JSDoc for test files
-      'no-unused-vars': 'off', // Allow unused vars in test mocks
-    },
-  },
-
-  // Override for robots.test.ts to allow 'any' for specific test cases
-  {
-    files: ['tests/plugins/robots.test.ts'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-    },
-  },
-
-  // JSON files configuration
-  {
-    files: ['**/*.json'],
-    languageOptions: {
-      parser: require('jsonc-eslint-parser'),
-    },
-    plugins: {
-      prettier: prettier,
-    },
-    rules: {
-      ...prettierConfig.rules,
-      'prettier/prettier': 'error',
-    },
-  },
+    ignores: [
+      'node_modules/**',
+      'dist/**',
+      'coverage/**',
+      '_site/**',
+      'build/**'
+    ]
+  }
 ];

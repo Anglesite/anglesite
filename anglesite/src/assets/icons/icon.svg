@@ -1,0 +1,109 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Glowing effect filters -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <filter id="outerGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="neonFlicker" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feColorMatrix in="coloredBlur" type="matrix" 
+        values="0 0 0 0 0
+                0 0.8 1 0 0.2
+                0 0.8 1 0 0.8
+                0 0 0 1 0"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Cyberpunk gradient -->
+    <linearGradient id="tronGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ffff;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#0088ff;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#0066cc;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#004499;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Electric inner highlight -->
+    <linearGradient id="innerGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.8" />
+      <stop offset="50%" style="stop-color:#00ffff;stop-opacity:0.4" />
+      <stop offset="100%" style="stop-color:#0099ff;stop-opacity:0.2" />
+    </linearGradient>
+  </defs>
+
+
+  
+  <!-- Outer glow backdrop -->
+  <g filter="url(#outerGlow)" transform="translate(70, 130)">
+    <!-- Left angle bracket < with rounded corners -->
+    <path d="M 330 220 Q 320 200 300 210 L 200 360 Q 180 380 180 400 Q 180 420 200 440 L 300 590 Q 320 600 330 580 Q 350 570 340 550 L 260 420 Q 250 400 260 380 L 340 250 Q 350 230 330 220 Z" 
+          fill="url(#tronGradient)" 
+          stroke="#00ffff" 
+          stroke-width="8" 
+          stroke-linejoin="round"
+          stroke-linecap="round"
+          opacity="0.6"/>
+    
+    <!-- Forward slash / with rounded ends -->
+    <path d="M 450 580 Q 440 600 420 590 Q 410 590 420 570 L 520 230 Q 530 210 550 220 Q 560 220 550 240 L 450 580 Z" 
+          fill="url(#tronGradient)" 
+          stroke="#00ffff" 
+          stroke-width="3" 
+          stroke-linejoin="round"
+          stroke-linecap="round"
+          opacity="0.6"/>
+    
+    <!-- Right angle bracket > with rounded corners -->
+    <path d="M 630 220 Q 620 200 640 210 Q 650 230 660 250 L 740 380 Q 750 400 740 420 L 660 550 Q 650 570 640 590 Q 620 600 630 580 Q 610 570 620 550 L 680 420 Q 690 400 680 380 L 620 250 Q 610 230 630 220 Z" 
+          fill="url(#tronGradient)" 
+          stroke="#00ffff" 
+          stroke-width="3" 
+          stroke-linejoin="round"
+          stroke-linecap="round"
+          opacity="0.6"/>
+  </g>
+
+  <!-- Main glowing characters -->
+  <g filter="url(#glow)" transform="translate(70, 130)">
+    <!-- Left angle bracket < with rounded corners -->
+    <path d="M 330 220 Q 320 200 300 210 L 200 360 Q 180 380 180 400 Q 180 420 200 440 L 300 590 Q 320 600 330 580 Q 350 570 340 550 L 260 420 Q 250 400 260 380 L 340 250 Q 350 230 330 220 Z" 
+          fill="url(#tronGradient)" 
+          stroke="#00ffff" 
+          stroke-width="10"
+          stroke-linejoin="round"
+          stroke-linecap="round"/>
+    
+    <!-- Forward slash / with rounded ends -->
+    <path d="M 450 580 Q 440 600 420 590 Q 410 590 420 570 L 520 230 Q 530 210 550 220 Q 560 220 550 240 L 450 580 Z" 
+          fill="url(#tronGradient)" 
+          stroke="#00ffff" 
+          stroke-width="4"
+          stroke-linejoin="round"
+          stroke-linecap="round"/>
+    
+    <!-- Right angle bracket > with rounded corners -->
+    <path d="M 630 220 Q 620 200 640 210 Q 650 230 660 250 L 740 380 Q 750 400 740 420 L 660 550 Q 650 570 640 590 Q 620 600 630 580 Q 610 570 620 550 L 680 420 Q 690 400 680 380 L 620 250 Q 610 230 630 220 Z" 
+          fill="url(#tronGradient)" 
+          stroke="#00ffff" 
+          stroke-width="4"
+          stroke-linejoin="round"
+          stroke-linecap="round"/>
+  </g>
+
+
+</svg>

@@ -1,0 +1,19 @@
+<!---
+  All the <meta> tags for the header.
+--->
+<template webc:nokeep webc:component="head-meta">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="generator" :content="eleventy.generator">
+  <meta webc:if="website.color_scheme" name="color-scheme" :content="site.color_scheme.content" :media="site.color_scheme.media">
+  <meta webc:if="description || schema?.description" name="description" :content="description ?? schema.description">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" :content="new URL(page.url, site.url)">
+  <meta property="og:title" :content="title ?? site.title">
+  <meta property="og:description" :content="description ?? schema?.description ?? site.description">
+  <meta property="og:image" :content="ogImage(page.ogImage ?? site.defaultOgImage)">
+  <meta webc:if="site.fediverseCreator" name="fediverse:creator" :content="site.fediverseCreator">
+  <meta webc:if="site.copyright" name="copyright" :content="site.copyright">
+  <meta webc:if="site.rating" name="rating" content="site.rating">
+</template>

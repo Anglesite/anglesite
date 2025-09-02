@@ -1,0 +1,624 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anglesite.dwk.io/schemas/modules/well-known.json",
+  "title": ".well-known Standards Configuration Schema",
+  "type": "object",
+  "definitions": {
+    "hostMetaLink": {
+      "type": "object",
+      "required": ["rel"],
+      "properties": {
+        "rel": {
+          "type": "string",
+          "description": "Link relation type",
+          "examples": ["lrdd", "author", "copyright", "describedby", "edit", "hub", "license", "self"]
+        },
+        "href": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "Link target URL"
+        },
+        "type": {
+          "type": "string",
+          "description": "MIME type of linked resource",
+          "examples": ["application/xrd+xml", "text/html", "application/json"]
+        },
+        "template": {
+          "type": "boolean",
+          "description": "Whether this is a URI template"
+        }
+      },
+      "additionalProperties": false
+    },
+    "hostMetaProperty": {
+      "type": "object",
+      "required": ["type", "value"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Property type URI"
+        },
+        "value": {
+          "type": "string",
+          "description": "Property value"
+        }
+      },
+      "additionalProperties": false
+    },
+    "webFingerResource": {
+      "type": "object",
+      "required": ["subject"],
+      "properties": {
+        "subject": {
+          "type": "string",
+          "description": "The resource identifier (acct:user@domain, https://example.com, etc.)"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Alternative identifiers for this resource"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "./common.json#/definitions/stringOrNull"
+          },
+          "description": "Properties for this resource"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["rel"],
+            "properties": {
+              "rel": {
+                "type": "string",
+                "description": "Link relation type"
+              },
+              "href": {
+                "$ref": "./common.json#/definitions/url",
+                "description": "Link target URL"
+              },
+              "type": {
+                "type": "string",
+                "description": "MIME type of the linked resource"
+              },
+              "titles": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Localized titles for the link"
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "./common.json#/definitions/stringOrNull"
+                },
+                "description": "Additional properties for the link"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Links associated with this resource"
+        }
+      },
+      "additionalProperties": false
+    },
+    "securityTxt": {
+      "type": "object",
+      "description": "Security.txt configuration for .well-known/security.txt",
+      "required": ["contact"],
+      "properties": {
+        "contact": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Single contact method (email or URL)"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Multiple contact methods (emails or URLs)",
+              "minItems": 1
+            }
+          ]
+        },
+        "expires": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "description": "Date and time when the security.txt file expires (ISO 8601 format)"
+            },
+            {
+              "$ref": "./common.json#/definitions/positiveInteger",
+              "description": "Number of seconds from build time when the security.txt file expires"
+            }
+          ]
+        },
+        "encryption": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Single encryption key URL or reference"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Multiple encryption key URLs or references",
+              "minItems": 1
+            }
+          ]
+        },
+        "pgp_key": {
+          "type": "string",
+          "description": "PGP public key block content",
+          "pattern": "^-----BEGIN PGP PUBLIC KEY BLOCK-----[\\s\\S]+-----END PGP PUBLIC KEY BLOCK-----$",
+          "maxLength": 65536
+        },
+        "acknowledgments": {
+          "type": "string",
+          "description": "URL to acknowledgments page"
+        },
+        "preferred_languages": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Single preferred language code"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Multiple preferred language codes",
+              "minItems": 1
+            }
+          ]
+        },
+        "canonical": {
+          "type": "string",
+          "description": "Canonical URL for the security.txt file"
+        },
+        "policy": {
+          "type": "string",
+          "description": "URL to security policy page"
+        },
+        "hiring": {
+          "type": "string",
+          "description": "URL to security-related job openings"
+        }
+      },
+      "additionalProperties": false
+    },
+    "nodeInfo": {
+      "type": "object",
+      "description": "NodeInfo configuration for .well-known/nodeinfo",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable NodeInfo generation",
+          "default": false
+        },
+        "software": {
+          "type": "object",
+          "description": "Software information",
+          "required": ["name", "version"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Canonical name of the server software (lowercase alphanumeric)",
+              "pattern": "^[a-z0-9_]+$",
+              "examples": ["anglesite", "mastodon", "diaspora"]
+            },
+            "version": {
+              "type": "string",
+              "description": "Version of the server software",
+              "examples": ["1.0.0", "3.4.1"]
+            },
+            "repository": {
+              "$ref": "./common.json#/definitions/url",
+              "description": "URL to the software's source code repository"
+            },
+            "homepage": {
+              "$ref": "./common.json#/definitions/url",
+              "description": "URL to the software's homepage"
+            }
+          },
+          "additionalProperties": false
+        },
+        "protocols": {
+          "type": "array",
+          "description": "Supported communication protocols",
+          "items": {
+            "type": "string",
+            "enum": [
+              "activitypub",
+              "buddycloud",
+              "dfrn",
+              "diaspora",
+              "libertree",
+              "ostatus",
+              "pumpio",
+              "tent",
+              "xmpp",
+              "zot"
+            ]
+          },
+          "examples": [["activitypub"], ["diaspora", "ostatus"]]
+        },
+        "services": {
+          "type": "object",
+          "description": "Third-party services this server connects to",
+          "properties": {
+            "inbound": {
+              "type": "array",
+              "description": "Services this server can import from",
+              "items": {
+                "type": "string",
+                "enum": ["atom1.0", "gnusocial", "imap", "pnut", "pop3", "pumpio", "rss2.0", "twitter"]
+              }
+            },
+            "outbound": {
+              "type": "array",
+              "description": "Services this server can export to",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "atom1.0",
+                  "blogger",
+                  "buddycloud",
+                  "diaspora",
+                  "dreamwidth",
+                  "drupal",
+                  "facebook",
+                  "friendica",
+                  "gnusocial",
+                  "google",
+                  "insanejournal",
+                  "libertree",
+                  "linkedin",
+                  "livejournal",
+                  "mediagoblin",
+                  "myspace",
+                  "pinterest",
+                  "pnut",
+                  "posterous",
+                  "pumpio",
+                  "redmatrix",
+                  "rss2.0",
+                  "smtp",
+                  "tent",
+                  "tumblr",
+                  "twitter",
+                  "wordpress",
+                  "xmpp"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "openRegistrations": {
+          "type": "boolean",
+          "description": "Whether this server allows open self-registration of new users"
+        },
+        "usage": {
+          "type": "object",
+          "description": "Usage statistics for this server",
+          "properties": {
+            "users": {
+              "type": "object",
+              "description": "User statistics",
+              "properties": {
+                "total": {
+                  "$ref": "./common.json#/definitions/positiveInteger",
+                  "description": "Total number of users on this server"
+                },
+                "activeHalfyear": {
+                  "$ref": "./common.json#/definitions/positiveInteger",
+                  "description": "Number of users active in the last 6 months"
+                },
+                "activeMonth": {
+                  "$ref": "./common.json#/definitions/positiveInteger",
+                  "description": "Number of users active in the last month"
+                }
+              },
+              "additionalProperties": false
+            },
+            "localPosts": {
+              "$ref": "./common.json#/definitions/positiveInteger",
+              "description": "Total number of posts made by local users"
+            },
+            "localComments": {
+              "$ref": "./common.json#/definitions/positiveInteger",
+              "description": "Total number of comments made by local users"
+            }
+          },
+          "additionalProperties": false
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Free-form key-value pairs for software-specific metadata",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "openidConfiguration": {
+      "type": "object",
+      "description": "OpenID Connect Discovery Configuration for .well-known/openid_configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable OpenID Connect Discovery Configuration generation",
+          "default": false
+        },
+        "issuer": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "The authorization server's issuer identifier URL (required)"
+        },
+        "authorization_endpoint": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL of the authorization server's authorization endpoint"
+        },
+        "token_endpoint": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL of the authorization server's token endpoint"
+        },
+        "userinfo_endpoint": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL of the authorization server's UserInfo endpoint"
+        },
+        "jwks_uri": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL of the authorization server's JWK Set document"
+        },
+        "registration_endpoint": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL of the authorization server's Dynamic Client Registration endpoint"
+        },
+        "scopes_supported": {
+          "type": "array",
+          "description": "JSON array containing a list of the OAuth 2.0 scope values that this authorization server supports",
+          "items": {
+            "type": "string"
+          },
+          "default": ["openid", "profile", "email"]
+        },
+        "response_types_supported": {
+          "type": "array",
+          "description": "JSON array containing a list of the OAuth 2.0 response_type values that this authorization server supports",
+          "items": {
+            "type": "string",
+            "enum": [
+              "code",
+              "id_token",
+              "token",
+              "code id_token",
+              "code token",
+              "id_token token",
+              "code id_token token"
+            ]
+          },
+          "default": ["code", "id_token", "code id_token"]
+        },
+        "response_modes_supported": {
+          "type": "array",
+          "description": "JSON array containing a list of the OAuth 2.0 response_mode values that this authorization server supports",
+          "items": {
+            "type": "string",
+            "enum": ["query", "fragment", "form_post"]
+          },
+          "default": ["query", "fragment"]
+        },
+        "grant_types_supported": {
+          "type": "array",
+          "description": "JSON array containing a list of the OAuth 2.0 grant type values that this authorization server supports",
+          "items": {
+            "type": "string",
+            "enum": ["authorization_code", "implicit", "refresh_token", "client_credentials", "password"]
+          },
+          "default": ["authorization_code", "implicit"]
+        },
+        "subject_types_supported": {
+          "type": "array",
+          "description": "JSON array containing a list of the Subject Identifier types that this OP supports",
+          "items": {
+            "type": "string",
+            "enum": ["public", "pairwise"]
+          },
+          "default": ["public"]
+        },
+        "id_token_signing_alg_values_supported": {
+          "type": "array",
+          "description": "JSON array containing a list of the JWS signing algorithms (alg values) supported by the OP for the ID Token",
+          "items": {
+            "type": "string",
+            "enum": [
+              "none",
+              "HS256",
+              "HS384",
+              "HS512",
+              "RS256",
+              "RS384",
+              "RS512",
+              "ES256",
+              "ES384",
+              "ES512",
+              "PS256",
+              "PS384",
+              "PS512"
+            ]
+          },
+          "default": ["RS256"]
+        },
+        "token_endpoint_auth_methods_supported": {
+          "type": "array",
+          "description": "JSON array containing a list of client authentication methods supported by this token endpoint",
+          "items": {
+            "type": "string",
+            "enum": ["client_secret_basic", "client_secret_post", "client_secret_jwt", "private_key_jwt", "none"]
+          },
+          "default": ["client_secret_basic"]
+        },
+        "claims_supported": {
+          "type": "array",
+          "description": "JSON array containing a list of the Claim Names of the Claims that the OpenID Provider MAY be able to supply values for",
+          "items": {
+            "type": "string"
+          },
+          "default": ["sub", "iss", "auth_time", "name", "email"]
+        },
+        "code_challenge_methods_supported": {
+          "type": "array",
+          "description": "JSON array containing a list of Proof Key for Code Exchange (PKCE) code challenge methods supported",
+          "items": {
+            "type": "string",
+            "enum": ["plain", "S256"]
+          }
+        },
+        "revocation_endpoint": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL of the authorization server's OAuth 2.0 revocation endpoint"
+        },
+        "introspection_endpoint": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL of the authorization server's OAuth 2.0 introspection endpoint"
+        },
+        "device_authorization_endpoint": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL of the authorization server's OAuth 2.0 device authorization endpoint"
+        },
+        "end_session_endpoint": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL at the OP to which an RP can perform a redirect to request that the End-User be logged out"
+        },
+        "backchannel_logout_supported": {
+          "type": "boolean",
+          "description": "Boolean value specifying whether the OP supports back-channel logout"
+        },
+        "backchannel_logout_session_supported": {
+          "type": "boolean",
+          "description": "Boolean value specifying whether the OP can pass a sid (session ID) Claim in the Logout Token"
+        },
+        "frontchannel_logout_supported": {
+          "type": "boolean",
+          "description": "Boolean value specifying whether the OP supports front-channel logout"
+        },
+        "frontchannel_logout_session_supported": {
+          "type": "boolean",
+          "description": "Boolean value specifying whether the OP can pass iss (issuer) and sid (session ID) query parameters"
+        },
+        "claim_types_supported": {
+          "type": "array",
+          "description": "JSON array containing a list of the Claim Types that the OpenID Provider supports",
+          "items": {
+            "type": "string",
+            "enum": ["normal", "aggregated", "distributed"]
+          },
+          "default": ["normal"]
+        },
+        "ui_locales_supported": {
+          "type": "array",
+          "description": "Languages and scripts supported for the user interface, represented as a JSON array of BCP47 language tag values",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"
+          }
+        },
+        "service_documentation": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL of a page containing human-readable information that developers might want or need to know when using the OpenID Provider"
+        },
+        "op_policy_uri": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL that the OpenID Provider provides to the person registering the Client to read about the OP's requirements on how the Relying Party can use the data provided by the OP"
+        },
+        "op_tos_uri": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL that the OpenID Provider provides to the person registering the Client to read about the OP's terms of service"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "host_meta": {
+      "type": "object",
+      "description": "Host metadata configuration for .well-known/host-meta",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable host-meta generation",
+          "default": false
+        },
+        "format": {
+          "type": "string",
+          "enum": ["xml", "json", "both"],
+          "description": "Output format for host-meta files",
+          "default": "both"
+        },
+        "links": {
+          "type": "array",
+          "description": "Link elements for host-meta",
+          "items": {
+            "$ref": "#/definitions/hostMetaLink"
+          }
+        },
+        "properties": {
+          "type": "array",
+          "description": "Property elements for host-meta",
+          "items": {
+            "$ref": "#/definitions/hostMetaProperty"
+          }
+        },
+        "subject": {
+          "type": "string",
+          "description": "Subject of the host-meta document"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Alternative identifiers for this host"
+        }
+      },
+      "additionalProperties": false
+    },
+    "webfinger": {
+      "type": "object",
+      "description": "WebFinger configuration for .well-known/webfinger (RFC 7033)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable WebFinger generation"
+        },
+        "resources": {
+          "type": "array",
+          "description": "Static WebFinger resources to generate",
+          "items": {
+            "$ref": "#/definitions/webFingerResource"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "security": {
+      "$ref": "#/definitions/securityTxt"
+    },
+    "nodeinfo": {
+      "$ref": "#/definitions/nodeInfo"
+    },
+    "openid_configuration": {
+      "$ref": "#/definitions/openidConfiguration"
+    }
+  }
+}

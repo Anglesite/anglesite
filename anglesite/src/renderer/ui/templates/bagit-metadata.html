@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>BagIt Archive Metadata</title>
+    <link rel="stylesheet" href="../default-theme.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        min-width: 400px;
+      }
+
+      .container {
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-md);
+        padding: 24px;
+        box-shadow: 0 2px 10px var(--card-shadow);
+        transition: background-color var(--transition-base);
+      }
+
+      h2 {
+        margin-top: 0;
+        margin-bottom: 20px;
+        color: var(--text-primary);
+        font-size: var(--font-size-lg);
+        font-weight: 600;
+      }
+
+      .form-group {
+        margin-bottom: 16px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--text-primary);
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border-primary);
+        border-radius: var(--border-radius-sm);
+        font-size: var(--font-size-sm);
+        box-sizing: border-box;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        transition:
+          border-color var(--transition-base),
+          background-color var(--transition-base),
+          color var(--transition-base);
+      }
+
+      input:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--button-primary-bg);
+        box-shadow: 0 0 0 3px var(--focus-ring);
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 80px;
+      }
+
+      .help-text {
+        font-size: var(--font-size-xs);
+        color: var(--text-secondary);
+        margin-top: 4px;
+      }
+
+      .buttons {
+        text-align: right;
+        margin-top: 24px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border-primary);
+      }
+
+      button {
+        background: var(--button-primary-bg);
+        color: var(--button-primary-text);
+        border: none;
+        padding: 10px 20px;
+        border-radius: var(--border-radius-sm);
+        font-size: var(--font-size-sm);
+        cursor: pointer;
+        margin-left: 10px;
+        transition: background-color var(--transition-base);
+        font-weight: 500;
+      }
+
+      button:hover {
+        background: var(--button-primary-hover);
+      }
+
+      button.secondary {
+        background: var(--button-secondary-bg);
+        color: var(--button-secondary-text);
+      }
+
+      button.secondary:hover {
+        background: var(--button-secondary-hover);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>BagIt Archive Metadata</h2>
+      <form id="bagit-form">
+        <div class="form-group">
+          <label for="externalIdentifier">External Identifier (optional)</label>
+          <input type="text" id="externalIdentifier" name="externalIdentifier" />
+          <div class="help-text">A unique identifier for this archive</div>
+        </div>
+
+        <div class="form-group">
+          <label for="externalDescription">External Description (optional)</label>
+          <textarea
+            id="externalDescription"
+            name="externalDescription"
+            placeholder="Describe what this archive contains..."
+          ></textarea>
+          <div class="help-text">A human-readable description of the archive contents</div>
+        </div>
+
+        <div class="form-group">
+          <label for="sourceOrganization">Source Organization (optional)</label>
+          <input type="text" id="sourceOrganization" name="sourceOrganization" />
+          <div class="help-text">The organization or entity responsible for creating this archive</div>
+        </div>
+
+        <div class="form-group">
+          <label for="organizationAddress">Organization Address (optional)</label>
+          <textarea
+            id="organizationAddress"
+            name="organizationAddress"
+            placeholder="Street address, city, state, postal code..."
+            rows="3"
+          ></textarea>
+          <div class="help-text">Physical or mailing address of the source organization</div>
+        </div>
+
+        <div class="form-group">
+          <label for="contactName">Contact Name (optional)</label>
+          <input type="text" id="contactName" name="contactName" />
+          <div class="help-text">Name of the person responsible for this archive</div>
+        </div>
+
+        <div class="form-group">
+          <label for="contactPhone">Contact Phone (optional)</label>
+          <input type="tel" id="contactPhone" name="contactPhone" placeholder="(555) 123-4567" />
+          <div class="help-text">Phone number for archive-related inquiries</div>
+        </div>
+
+        <div class="form-group">
+          <label for="contactEmail">Contact Email (optional)</label>
+          <input type="email" id="contactEmail" name="contactEmail" placeholder="contact@example.com" />
+          <div class="help-text">Email address for archive-related inquiries</div>
+        </div>
+
+        <div class="buttons">
+          <button type="button" class="secondary" onclick="cancel()">Cancel</button>
+          <button type="submit">Create Archive</button>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      const api = window.electronAPI;
+
+      // Apply theme when dialog loads
+      document.addEventListener('DOMContentLoaded', () => {
+        // Load theme with delay to not block dialog functionality
+        setTimeout(async () => {
+          try {
+            const themeInfo = await api.getCurrentTheme();
+            applyTheme(themeInfo.resolvedTheme);
+
+            api.onThemeUpdated((themeInfo) => {
+              applyTheme(themeInfo.resolvedTheme);
+            });
+          } catch (error) {
+            console.log('Theme loading failed, using default theme');
+          }
+        }, 50);
+
+        // Set default values
+        api.once('bagit-metadata-defaults', (defaults) => {
+          document.getElementById('externalIdentifier').value = defaults.externalIdentifier || '';
+          document.getElementById('externalDescription').value = defaults.externalDescription || '';
+          document.getElementById('sourceOrganization').value = defaults.sourceOrganization || '';
+          document.getElementById('organizationAddress').value = defaults.organizationAddress || '';
+          document.getElementById('contactName').value = defaults.contactName || '';
+          document.getElementById('contactPhone').value = defaults.contactPhone || '';
+          document.getElementById('contactEmail').value = defaults.contactEmail || '';
+        });
+
+        // Request defaults
+        api.send('get-bagit-metadata-defaults');
+      });
+
+      function applyTheme(resolvedTheme) {
+        const root = document.documentElement;
+        if (resolvedTheme === 'dark') {
+          root.setAttribute('data-theme', 'dark');
+        } else {
+          root.removeAttribute('data-theme');
+        }
+      }
+
+      function cancel() {
+        api.send('bagit-metadata-result', null);
+      }
+
+      document.getElementById('bagit-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(e.target);
+        const metadata = {
+          externalIdentifier: formData.get('externalIdentifier').trim(),
+          externalDescription: formData.get('externalDescription').trim(),
+          sourceOrganization: formData.get('sourceOrganization').trim(),
+          organizationAddress: formData.get('organizationAddress').trim(),
+          contactName: formData.get('contactName').trim(),
+          contactPhone: formData.get('contactPhone').trim(),
+          contactEmail: formData.get('contactEmail').trim(),
+        };
+
+        // All fields are optional for BagIt metadata
+        // No validation needed - user can submit with any combination of fields
+
+        api.send('bagit-metadata-result', metadata);
+      });
+
+      // Handle Enter key in single-line inputs
+      document.querySelectorAll('input[type="text"]').forEach((input) => {
+        input.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('bagit-form').requestSubmit();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
