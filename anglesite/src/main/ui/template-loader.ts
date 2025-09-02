@@ -25,8 +25,8 @@ export function loadTemplate(templateName: string, variables: TemplateVariables 
 
     try {
       if (app.isPackaged) {
-        // In packaged app, use the app resources path
-        templatePath = path.join(process.resourcesPath, 'app', 'ui', 'templates', `${templateName}.html`);
+        // In packaged app, use the extraResources path from electron-builder config
+        templatePath = path.join(process.resourcesPath, 'src', 'renderer', 'ui', 'templates', `${templateName}.html`);
       } else {
         // In development, use __dirname
         templatePath = path.join(__dirname, 'templates', `${templateName}.html`);
@@ -79,8 +79,8 @@ export function getTemplateFilePath(templateName: string): string {
 
     try {
       if (app.isPackaged) {
-        // In packaged app, use the app resources path
-        templatePath = path.join(process.resourcesPath, 'app', 'ui', 'templates', `${templateName}.html`);
+        // In packaged app, use the extraResources path from electron-builder config
+        templatePath = path.join(process.resourcesPath, 'src', 'renderer', 'ui', 'templates', `${templateName}.html`);
       } else {
         // In development, use __dirname
         templatePath = path.join(__dirname, 'templates', `${templateName}.html`);
