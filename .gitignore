@@ -3,3 +3,7 @@ node_modules/
 _site
 coverage/
 .continue
+
+# Environment files
+.env*
+!.env.example
