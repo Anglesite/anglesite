@@ -343,7 +343,6 @@ This is a test post for data cascade.
       fs.writeFileSync(path.join(siteDir, 'https-server.js'), httpsScript);
       
       // Test HTTPS server (with self-signed cert warning suppressed)
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
       
       const serverProcess = spawn('node', ['https-server.js'], {
         cwd: siteDir,
@@ -363,7 +362,12 @@ This is a test post for data cascade.
       
       // Test HTTPS request
       const httpsResponse = await new Promise((resolve, reject) => {
-        const req = https.get('https://localhost:8443/', (res) => {
+        const req = https.get({
+          host: 'localhost',
+          port: 8443,
+          path: '/',
+          rejectUnauthorized: false
+        }, (res) => {
           let data = '';
           res.on('data', chunk => data += chunk);
           res.on('end', () => resolve({
