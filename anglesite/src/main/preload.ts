@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'bagit-metadata-result',
       'get-bagit-metadata-defaults',
       'first-launch-result',
+      'open-external-url',
+      'close-about-window',
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, ...args);
@@ -51,6 +53,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'get-file-url',
       'get-website-server-url',
       'load-website-preview',
+      'get-app-info',
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
@@ -105,8 +108,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // External browser API
   openExternal: (url: string) => {
-    shell.openExternal(url);
+    ipcRenderer.send('open-external-url', url);
   },
+
+  // App info API
+  getAppInfo: () => ipcRenderer.invoke('get-app-info'),
 
   // Clipboard API
   clipboard: {

@@ -49,7 +49,7 @@
 
   
   <!-- Outer glow backdrop -->
-  <g filter="url(#outerGlow)">
+  <g filter="url(#outerGlow)" transform="translate(70, 130)">
     <!-- Left angle bracket < with rounded corners -->
     <path d="M 330 220 Q 320 200 300 210 L 200 360 Q 180 380 180 400 Q 180 420 200 440 L 300 590 Q 320 600 330 580 Q 350 570 340 550 L 260 420 Q 250 400 260 380 L 340 250 Q 350 230 330 220 Z" 
           fill="url(#tronGradient)" 
@@ -78,9 +78,8 @@
           opacity="0.6"/>
   </g>
 
-
   <!-- Main glowing characters -->
-  <g filter="url(#glow)">
+  <g filter="url(#glow)" transform="translate(70, 130)">
     <!-- Left angle bracket < with rounded corners -->
     <path d="M 330 220 Q 320 200 300 210 L 200 360 Q 180 380 180 400 Q 180 420 200 440 L 300 590 Q 320 600 330 580 Q 350 570 340 550 L 260 420 Q 250 400 260 380 L 340 250 Q 350 230 330 220 Z" 
           fill="url(#tronGradient)" 

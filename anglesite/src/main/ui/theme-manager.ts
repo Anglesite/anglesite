@@ -2,7 +2,7 @@
  * @file Theme management for Anglesite application.
  * Handles system theme detection, user preferences, and theme application across windows.
  */
-import { BrowserWindow, nativeTheme, ipcMain } from 'electron';
+import { BrowserWindow, nativeTheme, ipcMain, app } from 'electron';
 import { IStore } from '../core/interfaces';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
@@ -82,6 +82,14 @@ class ThemeManager {
         userPreference: theme,
         resolvedTheme: this.currentResolvedTheme,
         systemTheme: nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
+      };
+    });
+
+    ipcMain.handle('get-app-info', () => {
+      return {
+        version: app.getVersion(),
+        name: app.getName(),
+        buildNumber: process.env.BUILD_NUMBER || 'dev',
       };
     });
   }

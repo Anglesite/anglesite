@@ -2,7 +2,7 @@
  * @file Application menu creation
  */
 import { Menu, MenuItemConstructorOptions, shell, WebContents, BrowserWindow, dialog } from 'electron';
-import { openSettingsWindow, getNativeInput, openWebsiteSelectionWindow } from './window-manager';
+import { openSettingsWindow, openAboutWindow, getNativeInput, openWebsiteSelectionWindow } from './window-manager';
 import { getAllWebsiteWindows, isWebsiteEditorFocused, getHelpWindow, createHelpWindow } from './multi-window-manager';
 import { createWebsiteWithName, validateWebsiteName } from '../utils/website-manager';
 import { openWebsiteInNewWindow } from '../ipc/website';
@@ -173,7 +173,9 @@ export function createApplicationMenu(): Menu {
       submenu: [
         {
           label: 'About Anglesite',
-          role: 'about',
+          click: () => {
+            openAboutWindow();
+          },
         },
         {
           type: 'separator',

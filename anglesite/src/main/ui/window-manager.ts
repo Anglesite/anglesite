@@ -1,7 +1,7 @@
 /**
  * @file Window and WebContentsView management.
  */
-import { BrowserWindow, ipcMain, WebContentsView } from 'electron';
+import { BrowserWindow, ipcMain, WebContentsView, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { themeManager } from './theme-manager';
@@ -15,6 +15,19 @@ import {
 import { updateApplicationMenu } from './menu';
 
 let settingsWindow: BrowserWindow | null = null;
+let aboutWindow: BrowserWindow | null = null;
+
+// Set up IPC handler for opening external URLs
+ipcMain.on('open-external-url', (_event, url: string) => {
+  shell.openExternal(url);
+});
+
+// Set up IPC handler for closing about window
+ipcMain.on('close-about-window', () => {
+  if (aboutWindow && !aboutWindow.isDestroyed()) {
+    aboutWindow.close();
+  }
+});
 let websiteEditorWindow: BrowserWindow | null = null;
 let websiteEditorWebContentsView: WebContentsView | null = null;
 let currentWebsiteEditorProject: string | null = null;
@@ -351,6 +364,49 @@ export function openSettingsWindow(): void {
       // Apply current theme to the settings window before showing
       themeManager.applyThemeToWindow(settingsWindow);
       settingsWindow.show();
+    }
+  });
+}
+
+/**
+ * Opens the About window with app information and GeoCities Cyber Punk styling.
+ */
+export function openAboutWindow(): void {
+  if (aboutWindow && !aboutWindow.isDestroyed()) {
+    aboutWindow.focus();
+    return;
+  }
+
+  aboutWindow = new BrowserWindow({
+    width: 500,
+    height: 600,
+    title: 'About Anglesite',
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    show: false, // Don't show immediately to prevent white flash
+    titleBarStyle: 'hiddenInset',
+    frame: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '..', 'preload.js'),
+    },
+  });
+
+  const aboutDataUrl = loadTemplateAsDataUrl('about');
+  aboutWindow.loadURL(aboutDataUrl);
+
+  aboutWindow.on('closed', () => {
+    aboutWindow = null;
+  });
+
+  aboutWindow.once('ready-to-show', () => {
+    if (aboutWindow && !aboutWindow.isDestroyed()) {
+      // Apply current theme to the about window before showing (though it has its own styling)
+      themeManager.applyThemeToWindow(aboutWindow);
+      aboutWindow.show();
     }
   });
 }
