@@ -257,13 +257,16 @@ function generateResourceHints(content: string): string {
  */
 function optimizeScripts(content: string): string {
   // Add defer to non-inline scripts that don't already have async/defer
-  return content.replace(/<script([^>]*)src=(["'][^"']+["'])([^>]*?)(?!.*(?:async|defer))>/g, (match, before, src, after) => {
-    // Check if async or defer is already present in the full match
-    if (match.includes('async') || match.includes('defer')) {
-      return match;
+  return content.replace(
+    /<script([^>]*)src=(["'][^"']+["'])([^>]*?)(?!.*(?:async|defer))>/g,
+    (match, before, src, after) => {
+      // Check if async or defer is already present in the full match
+      if (match.includes('async') || match.includes('defer')) {
+        return match;
+      }
+      return `<script${before}src=${src}${after} defer>`;
     }
-    return `<script${before}src=${src}${after} defer>`;
-  });
+  );
 }
 
 /**

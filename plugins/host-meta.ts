@@ -296,7 +296,7 @@ export default function addHostMeta(eleventyConfig: EleventyConfig): void {
           // Only add headers if they're not already present
           const headersText = hostMetaHeaders.join('\n');
           if (existingHeaders && !existingHeaders.includes('/.well-known/host-meta')) {
-            const newHeaders = existingHeaders + (existingHeaders ? '\n' : '') + headersText;
+            const newHeaders = existingHeaders + '\n' + headersText;
             fs.writeFileSync(headersPath, newHeaders);
             console.log(`[@dwk/anglesite-11ty] Updated ${headersPath} with host-meta headers`);
           } else if (!existingHeaders) {

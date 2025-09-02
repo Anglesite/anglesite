@@ -364,7 +364,10 @@ describe('performance optimization plugin', () => {
 
         const result = inlineCSSShortcode('/style.css');
         expect(result).toBe('<link rel="stylesheet" href="/style.css">');
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Error inlining CSS /style.css:'), expect.any(Error));
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Error inlining CSS /style.css:'),
+          expect.any(Error)
+        );
 
         consoleSpy.mockRestore();
       });
@@ -408,7 +411,10 @@ describe('performance optimization plugin', () => {
 
         const result = inlineJSShortcode('/script.js');
         expect(result).toBe('<script src="/script.js"></script>');
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Error inlining JS /script.js:'), expect.any(Error));
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Error inlining JS /script.js:'),
+          expect.any(Error)
+        );
 
         consoleSpy.mockRestore();
       });
