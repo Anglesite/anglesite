@@ -1,0 +1,65 @@
+
+> @dwk/anglesite@0.1.0 prestart
+> npm run build
+
+
+> @dwk/anglesite@0.1.0 build
+> npm run build:app
+
+
+> @dwk/anglesite@0.1.0 build:app
+> node bin/build-app.js
+
+Building TypeScript application...
+Copying HTML files...
+Copying CSS files...
+Copying UI HTML files...
+Copying UI templates...
+Injecting static icons into templates...
+✅ Static icons injected successfully
+Syncing Eleventy files...
+App build complete!
+
+> @dwk/anglesite@0.1.0 start
+> electron .
+
+Server manager event listeners not set up yet (DI not initialized): Error: Global application context has not been initialized. Call initializeGlobalContext() first.
+    at getGlobalContext (/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/dist/app/core/service-registry.js:560:15)
+    at setupServerManagerEventListeners (/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/dist/app/ui/multi-window-manager.js:181:68)
+    at Object.<anonymous> (/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/dist/app/ui/multi-window-manager.js:206:1)
+    at Module._compile (node:internal/modules/cjs/loader:1738:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1904:10)
+    at Module.load (node:internal/modules/cjs/loader:1472:32)
+    at Module._load (node:internal/modules/cjs/loader:1289:12)
+    at c._load (node:electron/js2c/node_init:2:18013)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:242:24)
+[2025-08-27T20:34:58.973Z] INFO [Bootstrap] Bootstrapping Anglesite services  
+[2025-08-27T20:34:58.975Z] INFO [ServiceRegistrar] Registering core services  
+[2025-08-27T20:34:58.975Z] INFO [ServiceRegistrar] Core services registered successfully  
+[2025-08-27T20:34:58.975Z] INFO [ServiceRegistrar] Registering development services  
+[2025-08-27T20:34:58.975Z] INFO [ServiceRegistrar] All services registered and validated  
+[2025-08-27T20:34:58.975Z] INFO [ApplicationContext] Initializing application context  
+[2025-08-27T20:34:58.975Z] DEBUG [app] Initializing store from file {"service":"StoreService"} {"path":"/Users/dwk/Library/Application Support/Anglesite/settings.json"}
+[2025-08-27T20:34:58.975Z] INFO [ApplicationContext] Service store initialized successfully  
+[2025-08-27T20:34:58.975Z] INFO [ApplicationContext] Service logger initialized successfully  
+[2025-08-27T20:34:58.975Z] INFO [ApplicationContext] Service fileSystem initialized successfully  
+[2025-08-27T20:34:58.975Z] INFO [ApplicationContext] Application context initialized successfully  
+[2025-08-27T20:34:58.975Z] INFO [Bootstrap] Services bootstrapped successfully  
+[2025-08-27T20:34:58.990Z] DEBUG [app] Setting httpsMode {"service":"StoreService"} {"newValue":"https"}
+[2025-08-27T20:34:58.990Z] DEBUG [app] Setting httpsMode updated successfully {"service":"StoreService"} 
+[2025-08-27T20:34:58.990Z] DEBUG [app] Setting firstLaunchCompleted {"service":"StoreService"} {"newValue":true}
+[2025-08-27T20:34:58.990Z] DEBUG [app] Setting firstLaunchCompleted updated successfully {"service":"StoreService"} 
+[2025-08-27T20:34:58.997Z] DEBUG [app] Settings loaded successfully {"service":"StoreService"} 
+Existing websites: [ 'ttt' ]
+Hosts file is already clean, no changes needed
+💡 Touch ID detected but not configured for sudo.
+   To enable Touch ID for administrator access:
+   1. Open Terminal
+   2. Run: sudo cp /etc/pam.d/sudo_local.template /etc/pam.d/sudo_local
+   3. Edit: sudo nano /etc/pam.d/sudo_local
+   4. Uncomment: auth sufficient pam_tid.so
+   5. Save and restart Terminal
+   This will enable Touch ID for all sudo operations.
+[2025-08-27T20:34:59.179Z] DEBUG [app] Settings saved successfully {"service":"StoreService"} 
+/Users/dwk/Developer/gitlab.com/davidwkeith/@dwk/anglesite/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron exited with signal SIGTERM
