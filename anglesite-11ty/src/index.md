@@ -33,7 +33,20 @@ The getSchema function is available for generating structured data in templates.
 
 The ogImage helper function is available for JavaScript functions in templates.
 
-### 6. Data File Base Name
+### 6. Image Optimization
+
+The plugin now includes powerful image optimization using @11ty/eleventy-img:
+
+{% image "src/images/logo.svg", "Anglesite 11ty logo", "150px" %}
+
+**Available shortcodes:**
+- `{% raw %}{% image src, alt, sizes %}{% endraw %}` - Responsive images with picture elements
+- `{% raw %}{% imageUrl src, width, format %}{% endraw %}` - Single optimized image URLs
+- `{% raw %}{% imageMetadata src %}{% endraw %}` - Image metadata for SEO
+
+[**View Full Image Demo →**](image-demo/)
+
+### 7. Data File Base Name
 
 The plugin sets the data file base name to 'index' for collection-specific
 front matter.

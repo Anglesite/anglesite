@@ -28,6 +28,14 @@ export interface EleventyConfig {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addShortcode(name: string, fn: (...args: any[]) => any): void;
   /**
+   * @function addAsyncShortcode
+   * @description Register an async shortcode for use in templates
+   * @param {string} name - Name of the shortcode
+   * @param {Function} fn - Async function that returns the shortcode output
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addAsyncShortcode?(name: string, fn: (...args: any[]) => Promise<any>): void;
+  /**
    * @function addFilter
    * @description Add a filter for transforming values in templates
    * @param {string} name - Name of the filter
@@ -57,6 +65,28 @@ export interface EleventyConfig {
    * @param {string} name - The base name to use for data files
    */
   setDataFileBaseName(name: string): void;
+  /**
+   * @function on
+   * @description Register an event listener for Eleventy build events
+   * @param {string} event - The event name to listen for
+   * @param {Function} callback - The callback function to execute
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string, callback: (...args: any[]) => void | Promise<void>): void;
+  /**
+   * @property {object} dir Directory configuration
+   * @description Directory configuration object containing input, output, includes, and layouts paths
+   */
+  dir?: {
+    /** Input directory for source files */
+    input?: string;
+    /** Output directory for built files */
+    output?: string;
+    /** Directory for includes */
+    includes?: string;
+    /** Directory for layouts */
+    layouts?: string;
+  };
 }
 
 /**

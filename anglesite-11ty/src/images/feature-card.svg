@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+  <rect x="20" y="20" width="360" height="180" rx="8" fill="#e0e7ff"/>
+  <rect x="40" y="40" width="120" height="8" rx="4" fill="#6366f1"/>
+  <rect x="40" y="60" width="200" height="6" rx="3" fill="#94a3b8"/>
+  <rect x="40" y="75" width="150" height="6" rx="3" fill="#94a3b8"/>
+  <rect x="40" y="90" width="180" height="6" rx="3" fill="#94a3b8"/>
+  
+  <circle cx="320" cy="80" r="30" fill="#10b981"/>
+  <path d="M310 80 L318 88 L330 72" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <text x="200" y="240" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#374151">
+    Feature Card Example
+  </text>
+  <text x="200" y="265" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#6b7280">
+    Responsive &amp; Optimized
+  </text>
+</svg>

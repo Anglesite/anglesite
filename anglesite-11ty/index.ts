@@ -9,6 +9,7 @@ import addHeaders from './plugins/headers.js';
 import addHostMeta from './plugins/host-meta.js';
 import addWebFinger from './plugins/webfinger.js';
 import addNodeInfo from './plugins/nodeinfo.js';
+import addImages, { type ImageOptions } from './plugins/images.js';
 import EleventyWebcPlugin from '@11ty/eleventy-plugin-webc';
 import type { EleventyConfig } from '@11ty/eleventy';
 
@@ -17,6 +18,8 @@ export interface AnglesiteEleventyOptions {
   webComponents?: string;
   /** Additional options for the WebC plugin */
   webcOptions?: Record<string, unknown>;
+  /** Configuration options for image optimization */
+  imageOptions?: ImageOptions;
 }
 
 /**
@@ -39,6 +42,7 @@ export default function anglesiteEleventy(
 
   // Add all plugins
   addShortcodes(eleventyConfig);
+  addImages(eleventyConfig, options.imageOptions);
   addRobotsTxt(eleventyConfig);
   addWebManifest(eleventyConfig);
   addSecurityTxt(eleventyConfig);
@@ -54,6 +58,7 @@ export default function anglesiteEleventy(
 // Export individual plugins for direct use if needed
 export {
   addShortcodes,
+  addImages,
   addRobotsTxt,
   addWebManifest,
   addSecurityTxt,

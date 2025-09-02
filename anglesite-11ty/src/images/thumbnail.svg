@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150">
+  <defs>
+    <linearGradient id="thumbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ec4899;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="150" height="150" rx="12" fill="url(#thumbGrad)"/>
+  
+  <!-- Photo icon -->
+  <rect x="30" y="40" width="90" height="70" rx="8" fill="white" opacity="0.9"/>
+  <rect x="40" y="50" width="70" height="50" rx="4" fill="url(#thumbGrad)" opacity="0.3"/>
+  
+  <!-- Mountain icon -->
+  <polygon points="60,80 70,65 80,75 90,60 100,80" fill="white" opacity="0.6"/>
+  
+  <!-- Sun icon -->
+  <circle cx="85" cy="65" r="8" fill="white" opacity="0.8"/>
+  
+  <text x="75" y="130" font-family="Arial, sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="white">
+    Thumbnail
+  </text>
+</svg>

@@ -11,6 +11,7 @@ import addHostMeta from './plugins/host-meta.js';
 import addWebFinger from './plugins/webfinger.js';
 import addNodeInfo from './plugins/nodeinfo.js';
 import addOpenIDConfiguration from './plugins/openid-configuration.js';
+import addImages from './plugins/images.js';
 import type { EleventyConfig } from '@11ty/eleventy';
 
 /**
@@ -22,6 +23,7 @@ export default function (eleventyConfig: EleventyConfig) {
   // support index.11tydata.json for collection specific front-matter
   eleventyConfig.setDataFileBaseName('index');
 
+  eleventyConfig.addPlugin(addImages);
   eleventyConfig.addPlugin(addRobotsTxt);
   eleventyConfig.addPlugin(addWebManifest);
   eleventyConfig.addPlugin(addSecurityTxt);
