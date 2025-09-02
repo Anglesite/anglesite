@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-namespace */
 // ABOUTME: Global TypeScript declarations for Fluent UI Web Components
 // ABOUTME: Enables JSX support for all fluent-* custom elements in React
 

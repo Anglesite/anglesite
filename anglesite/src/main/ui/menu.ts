@@ -617,14 +617,16 @@ export function createApplicationMenu(): Menu {
                     dialog.showMessageBox({
                       type: 'info',
                       title: 'Certificate Installed',
-                      message: 'HTTPS certificate has been installed successfully. Your sites will now load with trusted SSL.',
+                      message:
+                        'HTTPS certificate has been installed successfully. Your sites will now load with trusted SSL.',
                       buttons: ['OK'],
                     });
                   } else {
                     dialog.showMessageBox({
                       type: 'warning',
                       title: 'Installation Failed',
-                      message: 'Could not install the HTTPS certificate. Sites will still work but may show security warnings.',
+                      message:
+                        'Could not install the HTTPS certificate. Sites will still work but may show security warnings.',
                       buttons: ['OK'],
                     });
                   }

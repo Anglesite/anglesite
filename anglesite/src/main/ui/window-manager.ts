@@ -25,17 +25,18 @@ let aboutWindow: BrowserWindow | null = null;
 function getBuildNumber(): string {
   try {
     // Get short git hash
-    const gitHash = execSync('git rev-parse --short HEAD', { 
+    const gitHash = execSync('git rev-parse --short HEAD', {
       encoding: 'utf8',
-      cwd: process.cwd()
+      cwd: process.cwd(),
     }).trim();
-    
+
     // Check if working tree is dirty
-    const isDirty = execSync('git diff --quiet || echo "dirty"', {
-      encoding: 'utf8', 
-      cwd: process.cwd()
-    }).trim() === 'dirty';
-    
+    const isDirty =
+      execSync('git diff --quiet || echo "dirty"', {
+        encoding: 'utf8',
+        cwd: process.cwd(),
+      }).trim() === 'dirty';
+
     return isDirty ? `${gitHash}-dirty` : gitHash;
   } catch (error) {
     console.warn('Failed to get git build number:', error);
@@ -422,7 +423,7 @@ export function openAboutWindow(): void {
   });
 
   const aboutDataUrl = loadTemplateAsDataUrl('about', {
-    BUILD_NUMBER: getBuildNumber()
+    BUILD_NUMBER: getBuildNumber(),
   });
   aboutWindow.loadURL(aboutDataUrl);
 

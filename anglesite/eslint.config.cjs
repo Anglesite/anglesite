@@ -87,9 +87,47 @@ module.exports = [
     },
   },
 
+  // React/TSX files (browser environment)
+  {
+    files: ['**/*.tsx'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 2021,
+        sourceType: 'module',
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        ...globals.es2021,
+        React: 'readonly',
+        HTMLElement: 'readonly',
+        HTMLInputElement: 'readonly',
+        HTMLSelectElement: 'readonly',
+        Event: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tsEslint,
+      prettier: prettier,
+      jsdoc,
+    },
+    rules: {
+      ...tsEslint.configs.recommended.rules,
+      ...prettierConfig.rules,
+      'prettier/prettier': 'error',
+      'jsdoc/require-jsdoc': 'off', // JSDoc not required for React components
+    },
+  },
+
   // Renderer process files (browser environment)
   {
-    files: ['app/renderer.ts', 'app/preload.ts', 'app/renderer-wrapper.ts'],
+    files: ['app/renderer.ts', 'app/preload.ts', 'app/renderer-wrapper.ts', 'src/renderer/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {

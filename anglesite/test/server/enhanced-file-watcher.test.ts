@@ -1,7 +1,11 @@
 /**
  * @file Unit tests for Enhanced File Watcher
  */
-import { EnhancedFileWatcher, createEnhancedFileWatcher, FileChangeInfo } from '../../src/main/server/enhanced-file-watcher';
+import {
+  EnhancedFileWatcher,
+  createEnhancedFileWatcher,
+  FileChangeInfo,
+} from '../../src/main/server/enhanced-file-watcher';
 import * as path from 'path';
 
 // Mock chokidar

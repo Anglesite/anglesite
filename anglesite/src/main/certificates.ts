@@ -115,10 +115,9 @@ export async function generateCertificate(domains: string[]): Promise<{ cert: st
 
 /**
  * Check if Anglesite CA is installed and trusted in the system keychain
- * 
+ *
  * Uses the macOS security command to verify if the certificate is present
  * and trusted in the user keychain. This is the definitive test for SSL trust.
- * 
  * @example
  * ```typescript
  * const isInstalled = await isCAInstalledInSystem();
@@ -126,7 +125,6 @@ export async function generateCertificate(domains: string[]): Promise<{ cert: st
  *   await installCAInSystem();
  * }
  * ```
- * 
  * @returns Promise resolving to true if CA is installed and trusted, false otherwise
  */
 export async function isCAInstalledInSystem(): Promise<boolean> {
@@ -134,7 +132,7 @@ export async function isCAInstalledInSystem(): Promise<boolean> {
     // Check if certificate is installed in the system keychain by name
     // This is the definitive test for whether the CA is trusted by the system
     execFileSync('security', ['find-certificate', '-c', 'Anglesite Development'], { stdio: 'pipe' });
-    
+
     // If we get here, certificate exists in keychain and is trusted
     return true;
   } catch {

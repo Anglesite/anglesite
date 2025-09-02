@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { FluentTreeView, FluentTreeItem, FluentButton, FluentCard } from '../fluent';
 
 interface FileItem {
   name: string;
@@ -131,30 +132,6 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
     return tree;
   };
 
-  const toggleDirectory = (path: string) => {
-    const newExpanded = new Set(expandedDirs);
-    if (newExpanded.has(path)) {
-      newExpanded.delete(path);
-    } else {
-      newExpanded.add(path);
-    }
-    setExpandedDirs(newExpanded);
-  };
-
-  const handleFileClick = (file: FileItem) => {
-    if (file.isDirectory) {
-      toggleDirectory(file.path);
-    } else {
-      setSelectedFile(file.filePath);
-      onFileSelect?.(file.filePath);
-    }
-  };
-
-  const handleWebsiteConfigClick = () => {
-    setSelectedFile(null);
-    onWebsiteConfigSelect?.();
-  };
-
   const getFileIcon = (fileName: string, isDirectory: boolean) => {
     if (isDirectory) {
       return '📁';
@@ -188,36 +165,50 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
     }
   };
 
-  const renderFileTree = (items: FileItem[], depth = 0) => {
-    return items.map((item) => {
-      const isExpanded = expandedDirs.has(item.path);
-      const hasChildren = item.isDirectory && item.children.length > 0;
-      const isSelected = state.selectedFile === item.filePath;
+  // Convert FileItem to FluentTreeItem format
+  const convertToTreeItems = (items: FileItem[]): FluentTreeItem[] => {
+    return items.map((item) => ({
+      id: item.path,
+      label: item.name,
+      icon: getFileIcon(item.name, item.isDirectory),
+      expanded: expandedDirs.has(item.path),
+      selected: state.selectedFile === item.filePath,
+      children: item.children.length > 0 ? convertToTreeItems(item.children) : undefined,
+    }));
+  };
 
-      return (
-        <div key={item.path} style={{ marginLeft: depth * 16 }}>
-          <div
-            className={`file-item ${isSelected ? 'selected' : ''}`}
-            onClick={() => handleFileClick(item)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '4px 8px',
-              cursor: 'pointer',
-              borderRadius: '4px',
-              backgroundColor: isSelected ? 'var(--button-hover)' : 'transparent',
-              fontSize: '13px',
-            }}
-          >
-            {hasChildren && <span style={{ marginRight: '4px', fontSize: '10px' }}>{isExpanded ? '▼' : '▶'}</span>}
-            {!hasChildren && <span style={{ width: '14px' }} />}
-            <span style={{ marginRight: '6px' }}>{getFileIcon(item.name, item.isDirectory)}</span>
-            <span>{item.name}</span>
-          </div>
-          {hasChildren && isExpanded && <div>{renderFileTree(item.children, depth + 1)}</div>}
-        </div>
-      );
-    });
+  const handleTreeItemClick = (treeItem: FluentTreeItem) => {
+    // Find the original file item
+    const findFileItem = (items: FileItem[], id: string): FileItem | undefined => {
+      for (const item of items) {
+        if (item.path === id) return item;
+        if (item.children) {
+          const found = findFileItem(item.children, id);
+          if (found) return found;
+        }
+      }
+    };
+
+    const fileItem = findFileItem(files, treeItem.id);
+    if (fileItem) {
+      if (fileItem.isDirectory) {
+        const newExpanded = new Set(expandedDirs);
+        if (newExpanded.has(fileItem.path)) {
+          newExpanded.delete(fileItem.path);
+        } else {
+          newExpanded.add(fileItem.path);
+        }
+        setExpandedDirs(newExpanded);
+      } else {
+        setSelectedFile(fileItem.filePath);
+        onFileSelect?.(fileItem.filePath);
+      }
+    }
+  };
+
+  const handleWebsiteConfigClick = () => {
+    setSelectedFile(null);
+    onWebsiteConfigSelect?.();
   };
 
   useEffect(() => {
@@ -226,8 +217,19 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
 
   if (loading) {
     return (
-      <div className="file-explorer" style={{ padding: '16px' }}>
-        <h3>File Explorer</h3>
+      <div style={{ padding: '16px' }}>
+        <h3
+          style={{
+            margin: '0 0 12px 0',
+            fontSize: '14px',
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}
+        >
+          File Explorer
+        </h3>
         <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Loading files...</div>
       </div>
     );
@@ -235,29 +237,31 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
 
   if (error) {
     return (
-      <div className="file-explorer" style={{ padding: '16px' }}>
-        <h3>File Explorer</h3>
-        <div style={{ color: 'var(--error-color)', fontSize: '12px' }}>Error: {error}</div>
-        <button
-          onClick={loadFiles}
+      <div style={{ padding: '16px' }}>
+        <h3
           style={{
-            marginTop: '8px',
-            padding: '4px 8px',
-            fontSize: '11px',
-            background: 'var(--button-bg)',
-            border: '1px solid var(--border-primary)',
-            borderRadius: '4px',
-            cursor: 'pointer',
+            margin: '0 0 12px 0',
+            fontSize: '14px',
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
           }}
         >
+          File Explorer
+        </h3>
+        <div style={{ color: 'var(--error-color)', fontSize: '12px', marginBottom: '8px' }}>Error: {error}</div>
+        <FluentButton onClick={loadFiles} appearance="outline" size="small">
           Retry
-        </button>
+        </FluentButton>
       </div>
     );
   }
 
+  const treeItems = convertToTreeItems(files);
+
   return (
-    <div className="file-explorer" style={{ padding: '16px' }}>
+    <div style={{ padding: '16px', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <h3
         style={{
           margin: '0 0 12px 0',
@@ -272,33 +276,44 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
       </h3>
 
       {/* Virtual website configuration entry */}
-      <div
-        className="virtual-website-entry"
+      <FluentCard
+        appearance="filled"
+        size="small"
+        selectable
         onClick={handleWebsiteConfigClick}
         style={{
+          marginBottom: '16px',
+          cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          padding: '8px 12px',
-          background: 'var(--bg-tertiary)',
-          border: '1px solid var(--border-primary)',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontWeight: 500,
-          marginBottom: '16px',
-          fontSize: '13px',
         }}
       >
         <span style={{ fontSize: '16px' }}>🌐</span>
-        <span>{state.websiteName}</span>
-      </div>
+        <span style={{ fontWeight: 500, fontSize: '13px' }}>{state.websiteName}</span>
+      </FluentCard>
 
       {/* File tree */}
-      <div className="file-tree">
-        {files.length > 0 ? (
-          renderFileTree(files)
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {treeItems.length > 0 ? (
+          <FluentTreeView
+            items={treeItems}
+            selectionMode="single"
+            onItemClick={handleTreeItemClick}
+            style={{ border: 'none' }}
+          />
         ) : (
-          <div style={{ color: 'var(--text-secondary)', fontSize: '12px', fontStyle: 'italic' }}>No files found</div>
+          <div
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: '12px',
+              fontStyle: 'italic',
+              textAlign: 'center',
+              marginTop: '20px',
+            }}
+          >
+            No files found
+          </div>
         )}
       </div>
     </div>

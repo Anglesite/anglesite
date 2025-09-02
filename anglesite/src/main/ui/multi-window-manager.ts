@@ -41,14 +41,12 @@ let startScreenWindow: BrowserWindow | null = null;
 
 /**
  * Send log message to a website window's console
- * 
+ *
  * Transmits log messages from the main process to a specific website window's
  * renderer process. Used for debugging and development feedback.
- * 
- * @param websiteName - Name of the website window to send log to
- * @param message - Log message content
- * @param level - Log level severity (default: 'info')
- * 
+ * @param websiteName Name of the website window to send log to
+ * @param message Log message content
+ * @param level Log level severity (default: 'info')
  * @example
  * ```typescript
  * sendLogToWebsite('my-blog', 'Build completed successfully', 'info');

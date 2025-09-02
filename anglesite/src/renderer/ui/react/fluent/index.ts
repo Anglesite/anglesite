@@ -7,19 +7,17 @@ let initializationPromise: Promise<void> | null = null;
 
 /**
  * Lazy initialize Fluent UI Web Components design system
- * 
+ *
  * Only loads and registers components when first requested to optimize bundle size.
  * Handles concurrent initialization attempts and provides retry capability on failure.
- * 
  * @example
  * ```typescript
  * // Initialize before using Fluent components
  * await initializeFluentUI();
- * 
+ *
  * // Now safe to render Fluent components
  * document.body.innerHTML = '<fluent-button>Click me</fluent-button>';
  * ```
- * 
  * @returns Promise that resolves when all Fluent UI components are registered
  * @throws Error if component registration fails after retry
  */
@@ -65,7 +63,7 @@ export async function initializeFluentUI(): Promise<void> {
         fluentMenuItem,
         fluentTreeView,
         fluentTreeItem,
-        provideFluentDesignSystem
+        provideFluentDesignSystem,
       } = await import('@fluentui/web-components');
 
       // Register all components with the design system
@@ -119,18 +117,17 @@ export async function initializeFluentUI(): Promise<void> {
 
 /**
  * React hook for accessing Fluent UI design tokens
- * 
+ *
  * Returns commonly used Fluent design tokens as CSS custom property references
  * for consistent styling in React components. Values automatically adapt to
  * light/dark mode and user preferences.
- * 
  * @example
  * ```tsx
  * function MyComponent() {
  *   const tokens = useFluentTokens();
- *   
+ *
  *   return (
- *     <div style={{ 
+ *     <div style={{
  *       color: tokens.colors.text,
  *       backgroundColor: tokens.colors.background,
  *       padding: tokens.spacing.md,
@@ -141,7 +138,6 @@ export async function initializeFluentUI(): Promise<void> {
  *   );
  * }
  * ```
- * 
  * @returns Object containing organized design tokens for colors, spacing, typography, and border radius
  */
 export function useFluentTokens() {
@@ -213,3 +209,13 @@ export const FluentComponents = {
   TreeView: 'fluent-tree-view',
   TreeItem: 'fluent-tree-item',
 } as const;
+
+// Export all Fluent UI components
+export { FluentButton } from './FluentButton';
+export { FluentTextField } from './FluentTextField';
+export { FluentSelect } from './FluentSelect';
+export { FluentCheckbox } from './FluentCheckbox';
+export { FluentCard } from './FluentCard';
+export { FluentTreeView } from './FluentTreeView';
+export type { FluentTreeItem } from './FluentTreeView';
+export { FluentDivider } from './FluentDivider';

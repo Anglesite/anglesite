@@ -299,7 +299,7 @@ export class StoreService implements IStore {
         const backupPath = `${this.path}.backup.${Date.now()}`;
         await this.fileSystem.writeFile(backupPath, fileContent, 'utf-8');
         this.logger.warn('Settings file corrupted, backed up and recreating with defaults', { backupPath });
-        
+
         // Recreate settings file with defaults
         await this.saveDataAsync();
       }

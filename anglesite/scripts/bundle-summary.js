@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const STATS_FILE = path.join(__dirname, '..', 'dist', 'app', 'ui', 'react', 'bundle-stats.json');
+const STATS_FILE = path.join(__dirname, '..', 'dist', 'src', 'renderer', 'ui', 'react', 'bundle-stats.json');
 
 function formatBytes(bytes, decimals = 2) {
   if (bytes === 0) return '0 Bytes';

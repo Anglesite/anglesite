@@ -11,14 +11,20 @@ import { isCAInstalledInSystem, installCAInSystem } from '../certificates';
  * @param store Application settings store
  */
 export async function handleFirstLaunch(store: IStore): Promise<void> {
-  // Check if CA is already installed
-  const caInstalled = await isCAInstalledInSystem();
+  try {
+    // Check if CA is already installed
+    const caInstalled = await isCAInstalledInSystem();
 
-  if (caInstalled) {
-    // CA is already installed, use HTTPS mode
-    store.set('httpsMode', 'https');
-  } else {
-    // Default to HTTPS mode, user can install certificate manually in settings if needed
+    if (caInstalled) {
+      // CA is already installed, use HTTPS mode
+      store.set('httpsMode', 'https');
+    } else {
+      // Default to HTTPS mode, user can install certificate manually in settings if needed
+      console.log('Defaulting to HTTPS mode. Install certificate in settings for full trust.');
+      store.set('httpsMode', 'https');
+    }
+  } catch (error) {
+    // If CA check fails, default to HTTPS mode anyway
     console.log('Defaulting to HTTPS mode. Install certificate in settings for full trust.');
     store.set('httpsMode', 'https');
   }
