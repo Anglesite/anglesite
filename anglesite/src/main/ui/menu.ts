@@ -7,6 +7,7 @@ import { getAllWebsiteWindows, isWebsiteEditorFocused, getHelpWindow, createHelp
 import { createWebsiteWithName, validateWebsiteName } from '../utils/website-manager';
 import { openWebsiteInNewWindow } from '../ipc/website';
 import { exportSiteHandler } from '../ipc/export';
+import { exportWebsiteBundleHandler, importWebsiteBundleHandler } from '../ipc/bundle';
 import { cleanupHostsFile } from '../dns/hosts-manager';
 import { installCAInSystem, isCAInstalledInSystem } from '../certificates';
 import { IStore } from '../core/interfaces';
@@ -291,6 +292,16 @@ export function createApplicationMenu(): Menu {
           type: 'separator',
         },
         {
+          label: 'Import Bundle…',
+          accelerator: 'CmdOrCtrl+Shift+I',
+          click: async () => {
+            await importWebsiteBundleHandler(null);
+          },
+        },
+        {
+          type: 'separator',
+        },
+        {
           label: 'Close',
           accelerator: 'CmdOrCtrl+W',
           role: 'close',
@@ -365,6 +376,16 @@ export function createApplicationMenu(): Menu {
               accelerator: 'CmdOrCtrl+Alt+E',
               click: async () => {
                 await exportSiteHandler(null, 'bagit');
+              },
+            },
+            {
+              type: 'separator',
+            },
+            {
+              label: 'Anglesite Bundle…',
+              accelerator: 'CmdOrCtrl+Alt+B',
+              click: async () => {
+                await exportWebsiteBundleHandler(null);
               },
             },
           ],

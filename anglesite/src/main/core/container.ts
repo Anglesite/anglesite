@@ -386,6 +386,7 @@ export const ServiceKeys = {
   // Website management
   WEBSITE_MANAGER: 'websiteManager',
   WEBSITE_SERVER_MANAGER: 'websiteServerManager',
+  WEBSITE_BUNDLER: 'websiteBundler',
 
   // UI services
   MENU_MANAGER: 'menuManager',

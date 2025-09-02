@@ -9,6 +9,7 @@ import { setupFileHandlers } from './file';
 import { setupPreviewHandlers } from './preview';
 import { setupExportHandlers, exportSiteHandler } from './export';
 import { setupReactEditorHandlers } from './react-editor';
+import { setupBundleHandlers, exportWebsiteBundleHandler, importWebsiteBundleHandler } from './bundle';
 
 /**
  * Setup all IPC main listeners.
@@ -20,7 +21,8 @@ export function setupIpcMainListeners(): void {
   setupPreviewHandlers();
   setupExportHandlers();
   setupReactEditorHandlers();
+  setupBundleHandlers();
 }
 
 // Export handler functions that are used by tests and menu system
-export { exportSiteHandler, openWebsiteInNewWindow };
+export { exportSiteHandler, openWebsiteInNewWindow, exportWebsiteBundleHandler, importWebsiteBundleHandler };

@@ -260,6 +260,7 @@
     "native-is-elevated": "^0.7.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "sudo-prompt": "^9.2.1"
+    "sudo-prompt": "^9.2.1",
+    "yauzl": "3.2.0"
   }
 }

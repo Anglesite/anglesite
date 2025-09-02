@@ -31,6 +31,7 @@ import {
 import { createStoreService } from './store-service';
 import { createWebsiteManager } from '../utils/website-manager';
 import { createWebsiteServerManager } from '../server/website-server-manager';
+import { createWebsiteBundler } from '../utils/website-bundler';
 import { EventEmitter } from 'events';
 import { app } from 'electron';
 // BufferEncoding is a built-in Node.js type alias
@@ -570,6 +571,17 @@ export class ServiceRegistrar {
         const logger = container.resolve<ILogger>(ServiceKeys.LOGGER);
         const fileSystem = container.resolve<IFileSystem>(ServiceKeys.FILE_SYSTEM);
         return createWebsiteServerManager(logger, fileSystem);
+      },
+      'singleton'
+    );
+
+    container.register(
+      ServiceKeys.WEBSITE_BUNDLER,
+      () => {
+        const logger = container.resolve<ILogger>(ServiceKeys.LOGGER);
+        const fileSystem = container.resolve<IFileSystem>(ServiceKeys.FILE_SYSTEM);
+        const websiteManager = container.resolve<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+        return createWebsiteBundler(logger, fileSystem, websiteManager);
       },
       'singleton'
     );
