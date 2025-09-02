@@ -56,8 +56,7 @@ async function initializeApp(): Promise<void> {
   // Initialize theme manager
   themeManager.initialize();
 
-  // Clean up hosts file to match existing websites
-  await cleanupHostsFile();
+  // Note: Hosts file cleanup moved to manual menu option to avoid permission dialogs on startup
 
   // Check Touch ID setup and provide helpful information
   await checkAndSuggestTouchIdSetup();

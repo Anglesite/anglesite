@@ -4,6 +4,7 @@
 import { BrowserWindow, ipcMain, WebContentsView, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { execSync } from 'child_process';
 import { themeManager } from './theme-manager';
 import { loadTemplateAsDataUrl } from './template-loader';
 import {
@@ -16,6 +17,31 @@ import { updateApplicationMenu } from './menu';
 
 let settingsWindow: BrowserWindow | null = null;
 let aboutWindow: BrowserWindow | null = null;
+
+/**
+ * Get build number based on git hash and working tree status.
+ * @returns Build number string (git hash + dirty indicator if applicable)
+ */
+function getBuildNumber(): string {
+  try {
+    // Get short git hash
+    const gitHash = execSync('git rev-parse --short HEAD', { 
+      encoding: 'utf8',
+      cwd: process.cwd()
+    }).trim();
+    
+    // Check if working tree is dirty
+    const isDirty = execSync('git diff --quiet || echo "dirty"', {
+      encoding: 'utf8', 
+      cwd: process.cwd()
+    }).trim() === 'dirty';
+    
+    return isDirty ? `${gitHash}-dirty` : gitHash;
+  } catch (error) {
+    console.warn('Failed to get git build number:', error);
+    return 'dev-build';
+  }
+}
 
 // Set up IPC handler for opening external URLs
 ipcMain.on('open-external-url', (_event, url: string) => {
@@ -395,7 +421,9 @@ export function openAboutWindow(): void {
     },
   });
 
-  const aboutDataUrl = loadTemplateAsDataUrl('about');
+  const aboutDataUrl = loadTemplateAsDataUrl('about', {
+    BUILD_NUMBER: getBuildNumber()
+  });
   aboutWindow.loadURL(aboutDataUrl);
 
   aboutWindow.on('closed', () => {

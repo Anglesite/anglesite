@@ -6,10 +6,8 @@ import { isCAInstalledInSystem, installCAInSystem } from '../certificates';
 
 /**
  * Handle first launch setup flow.
- * Automatically sets up HTTPS mode with certificate installation.
- * Since certificate installation only requires user keychain access (no admin privileges),
- * we can set up HTTPS automatically without user prompts.
- * Falls back to HTTP mode only if certificate installation fails.
+ * Sets up default mode without prompting for permissions.
+ * Certificate installation moved to manual option in settings to avoid permission dialogs on launch.
  * @param store Application settings store
  */
 export async function handleFirstLaunch(store: IStore): Promise<void> {
@@ -17,28 +15,12 @@ export async function handleFirstLaunch(store: IStore): Promise<void> {
   const caInstalled = await isCAInstalledInSystem();
 
   if (caInstalled) {
-    // CA is already installed, default to HTTPS mode
+    // CA is already installed, use HTTPS mode
     store.set('httpsMode', 'https');
-    store.set('firstLaunchCompleted', true);
-    return;
-  }
-
-  // Automatically install CA certificate (no admin privileges required)
-  try {
-    const installed = await installCAInSystem();
-
-    if (installed) {
-      console.log('Certificate installed successfully to user keychain');
-      store.set('httpsMode', 'https');
-    } else {
-      // Installation failed, fall back to HTTP
-      console.warn('Certificate installation failed, falling back to HTTP mode');
-      store.set('httpsMode', 'http');
-    }
-  } catch (error) {
-    console.error('Error during CA installation:', error);
-    console.warn('Falling back to HTTP mode due to certificate installation error');
-    store.set('httpsMode', 'http');
+  } else {
+    // Default to HTTPS mode, user can install certificate manually in settings if needed
+    console.log('Defaulting to HTTPS mode. Install certificate in settings for full trust.');
+    store.set('httpsMode', 'https');
   }
 
   // Mark first launch as completed

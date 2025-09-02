@@ -7,6 +7,8 @@ import { getAllWebsiteWindows, isWebsiteEditorFocused, getHelpWindow, createHelp
 import { createWebsiteWithName, validateWebsiteName } from '../utils/website-manager';
 import { openWebsiteInNewWindow } from '../ipc/website';
 import { exportSiteHandler } from '../ipc/export';
+import { cleanupHostsFile } from '../dns/hosts-manager';
+import { installCAInSystem, isCAInstalledInSystem } from '../certificates';
 import { IStore } from '../core/interfaces';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
@@ -593,10 +595,81 @@ export function createApplicationMenu(): Menu {
         },
         {
           label: 'Advanced',
-          enabled: isWebsiteWindowFocused(),
           submenu: [
             {
+              label: 'Install HTTPS Certificate',
+              click: async () => {
+                try {
+                  // Check if already installed
+                  const alreadyInstalled = await isCAInstalledInSystem();
+                  if (alreadyInstalled) {
+                    dialog.showMessageBox({
+                      type: 'info',
+                      title: 'Certificate Already Installed',
+                      message: 'The HTTPS certificate is already installed in your system keychain.',
+                      buttons: ['OK'],
+                    });
+                    return;
+                  }
+
+                  const installed = await installCAInSystem();
+                  if (installed) {
+                    dialog.showMessageBox({
+                      type: 'info',
+                      title: 'Certificate Installed',
+                      message: 'HTTPS certificate has been installed successfully. Your sites will now load with trusted SSL.',
+                      buttons: ['OK'],
+                    });
+                  } else {
+                    dialog.showMessageBox({
+                      type: 'warning',
+                      title: 'Installation Failed',
+                      message: 'Could not install the HTTPS certificate. Sites will still work but may show security warnings.',
+                      buttons: ['OK'],
+                    });
+                  }
+                } catch (error) {
+                  dialog.showErrorBox(
+                    'Certificate Installation Error',
+                    `Failed to install certificate: ${error instanceof Error ? error.message : String(error)}`
+                  );
+                }
+              },
+            },
+            {
+              label: 'Clean Up DNS Entries',
+              click: async () => {
+                try {
+                  const success = await cleanupHostsFile();
+                  if (success) {
+                    dialog.showMessageBox({
+                      type: 'info',
+                      title: 'DNS Cleanup Complete',
+                      message: 'Orphaned .test domain entries have been cleaned up from your hosts file.',
+                      buttons: ['OK'],
+                    });
+                  } else {
+                    dialog.showMessageBox({
+                      type: 'warning',
+                      title: 'DNS Cleanup Failed',
+                      message: 'Could not clean up hosts file. Administrator privileges may be required.',
+                      buttons: ['OK'],
+                    });
+                  }
+                } catch (error) {
+                  dialog.showErrorBox(
+                    'DNS Cleanup Error',
+                    `Failed to clean up hosts file: ${error instanceof Error ? error.message : String(error)}`
+                  );
+                }
+              },
+            },
+            {
+              type: 'separator',
+            },
+            {
               label: 'Language & Region',
+              enabled: isWebsiteWindowFocused(),
               click: async () => {
                 // TODO: Implement language and region settings
                 dialog.showMessageBox({
