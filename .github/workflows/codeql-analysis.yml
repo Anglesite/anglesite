@@ -46,7 +46,7 @@ jobs:
           - language: javascript
             build-mode: none  # JavaScript doesn't need compilation
           - language: typescript
-            build-mode: manual  # TypeScript needs compilation
+            build-mode: none  # TypeScript uses none build mode for CodeQL
     
     steps:
     - name: Checkout repository
@@ -81,18 +81,6 @@ jobs:
     
     - name: Install dependencies
       run: npm ci
-    
-    # Manual build step for TypeScript analysis
-    - name: Build packages for CodeQL
-      if: matrix.language == 'typescript'
-      run: |
-        echo "Building TypeScript projects for CodeQL analysis..."
-        npm run build --workspaces --if-present
-        
-        # Build Anglesite specifically for better analysis
-        cd anglesite && npm run build:dev
-        
-        echo "TypeScript build completed for CodeQL"
     
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
