@@ -926,10 +926,7 @@ export default function addSitemap(eleventyConfig: EleventyConfig): void {
        */
       function isWebsiteConfig(obj: unknown): obj is AnglesiteWebsiteConfiguration {
         return (
-          obj !== null &&
-          typeof obj === 'object' &&
-          obj !== undefined &&
-          typeof (obj as AnglesiteWebsiteConfiguration).url === 'string'
+          obj !== null && typeof obj === 'object' && typeof (obj as AnglesiteWebsiteConfiguration).url === 'string'
         );
       }
 
@@ -942,7 +939,6 @@ export default function addSitemap(eleventyConfig: EleventyConfig): void {
         return (
           obj !== null &&
           typeof obj === 'object' &&
-          obj !== undefined &&
           (Array.isArray((obj as { all?: unknown }).all) || (obj as { all?: unknown }).all === undefined)
         );
       }

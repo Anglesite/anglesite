@@ -90,7 +90,6 @@ const minificationCache = new Map<string, string>();
 /**
  * Generates a cache key for content based on hash
  * @param content - The content to generate a key for
- * @param options - Options used in caching
  * @returns MD5 hash key for cache
  */
 function getCacheKey(content: string): string {

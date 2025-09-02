@@ -1,5 +1,4 @@
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
-import * as fs from 'fs';
 import * as path from 'path';
 import { create } from 'xmlbuilder2';
 import type { EleventyConfig } from '@11ty/eleventy';
@@ -201,26 +200,7 @@ export default function addBrowserConfig(eleventyConfig: EleventyConfig): void {
       }
     }
 
-    // In test scenarios (when results exist), don't fall back to filesystem
-    // Only try filesystem read when no results are provided (which shouldn't happen due to guard above)
-    if (!websiteConfig) {
-      // Check if we're in a test scenario by looking for any results structure
-      // If results exist but no website config found, return early (test mode)
-      if (results && results.length > 0) {
-        return;
-      }
-
-      // Real Eleventy build scenario - read from filesystem (this should rarely happen)
-      try {
-        const websiteDataPath = path.resolve('src', '_data', 'website.json');
-        const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
-        websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
-      } catch {
-        console.warn('[@dwk/anglesite-11ty] BrowserConfig plugin: Could not read website.json from _data directory');
-        return;
-      }
-    }
-
+    // In test scenarios, when results exist but no website config found, return early
     if (!websiteConfig) {
       return;
     }
