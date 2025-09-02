@@ -41,11 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ${{ 
-          github.event.inputs.language == 'all' && fromJson('["javascript", "typescript"]') ||
-          github.event.inputs.language && fromJson(format('["{0}"]', github.event.inputs.language)) ||
-          fromJson('["javascript", "typescript"]')
-        }}
+        language: ${{ github.event.inputs.language == 'all' && fromJson('["javascript", "typescript"]') || github.event.inputs.language && fromJson(format('["{0}"]', github.event.inputs.language)) || fromJson('["javascript", "typescript"]') }}
         include:
           - language: javascript
             build-mode: none  # JavaScript doesn't need compilation
