@@ -270,7 +270,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
     
     - name: Upload changelog artifacts
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: changelog-${{ github.run_id }}
         path: |
