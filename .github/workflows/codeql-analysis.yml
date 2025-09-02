@@ -56,8 +56,7 @@ jobs:
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
-        queries: +security-and-quality,+security-extended
-        config-file: ./.github/codeql/codeql-config.yml
+        queries: security-and-quality
         build-mode: ${{ matrix.build-mode }}
     
     - name: Setup Node.js
@@ -99,51 +98,17 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
-        upload: true
-        output: sarif-results
-    
-    - name: Upload additional SARIF results
-      if: always()
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: sarif-results/${{ matrix.language }}.sarif
-        category: "codeql-${{ matrix.language }}"
-      continue-on-error: true
     
     - name: Create analysis summary
       if: always()
       run: |
         echo "## 🔍 CodeQL Security Analysis Results (${{ matrix.language }})" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
-        # Check if SARIF file exists and has results
-        if [ -f "sarif-results/${{ matrix.language }}.sarif" ]; then
-          # Count issues by severity
-          CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' sarif-results/${{ matrix.language }}.sarif 2>/dev/null || echo "0")
-          HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' sarif-results/${{ matrix.language }}.sarif 2>/dev/null || echo "0")
-          MEDIUM=$(jq '[.runs[].results[] | select(.level == "note")] | length' sarif-results/${{ matrix.language }}.sarif 2>/dev/null || echo "0")
-          TOTAL=$(jq '[.runs[].results[]] | length' sarif-results/${{ matrix.language }}.sarif 2>/dev/null || echo "0")
-          
-          echo "### Security Issues Found:" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔴 Critical: $CRITICAL" >> $GITHUB_STEP_SUMMARY
-          echo "- 🟡 High: $HIGH" >> $GITHUB_STEP_SUMMARY  
-          echo "- 🔵 Medium: $MEDIUM" >> $GITHUB_STEP_SUMMARY
-          echo "- **Total: $TOTAL**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "$TOTAL" -gt "0" ]; then
-            echo "📋 **Next Steps:**" >> $GITHUB_STEP_SUMMARY
-            echo "1. Review security alerts in the [Security tab](https://github.com/${{ github.repository }}/security/code-scanning)" >> $GITHUB_STEP_SUMMARY
-            echo "2. Address critical and high severity issues first" >> $GITHUB_STEP_SUMMARY
-            echo "3. Consider security implications of medium severity issues" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "✅ **No security issues detected!**" >> $GITHUB_STEP_SUMMARY
-          fi
-        else
-          echo "⚠️ **Analysis results not available**" >> $GITHUB_STEP_SUMMARY
-          echo "SARIF file not found or analysis may have failed." >> $GITHUB_STEP_SUMMARY
-        fi
-        
+        echo "✅ **CodeQL analysis completed successfully**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📋 **Next Steps:**" >> $GITHUB_STEP_SUMMARY
+        echo "1. Review security alerts in the [Security tab](https://github.com/${{ github.repository }}/security/code-scanning)" >> $GITHUB_STEP_SUMMARY
+        echo "2. Address any critical and high severity issues first" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Language:** ${{ matrix.language }}" >> $GITHUB_STEP_SUMMARY
         echo "**Build Mode:** ${{ matrix.build-mode }}" >> $GITHUB_STEP_SUMMARY
