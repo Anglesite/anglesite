@@ -39,6 +39,7 @@ Each collection can have its own feed settings:
 ## Feed Metadata Options
 
 ### Author Information
+
 Configure default author details for all feeds:
 
 ```json
@@ -54,6 +55,7 @@ Configure default author details for all feeds:
 ```
 
 ### Copyright and Categorization
+
 Add legal and organizational metadata:
 
 ```json

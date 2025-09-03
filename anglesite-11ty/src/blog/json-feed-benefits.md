@@ -13,20 +13,23 @@ While RSS and Atom have served the web well for decades, JSON Feed represents th
 JSON Feed 1.1 brings several advantages over XML-based formats:
 
 ### 1. Native JavaScript Support
+
 ```javascript
 // No XML parsing needed!
 fetch('/blog.json')
-  .then(response => response.json())
-  .then(feed => {
+  .then((response) => response.json())
+  .then((feed) => {
     console.log(`Latest post: ${feed.items[0].title}`);
-    feed.items.forEach(item => {
+    feed.items.forEach((item) => {
       displayPost(item);
     });
   });
 ```
 
 ### 2. Simplified Structure
+
 Compare this JSON Feed structure:
+
 ```json
 {
   "version": "https://jsonfeed.org/version/1.1",
@@ -45,6 +48,7 @@ Compare this JSON Feed structure:
 ```
 
 With equivalent RSS XML:
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -64,10 +68,13 @@ With equivalent RSS XML:
 ```
 
 ### 3. Better Error Handling
+
 JSON parsing errors are more predictable and easier to debug than XML parsing issues.
 
 ### 4. Rich Content Support
+
 JSON Feed naturally handles:
+
 - Multiple authors per item
 - Rich media attachments
 - Structured metadata

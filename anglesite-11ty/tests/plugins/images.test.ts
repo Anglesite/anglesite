@@ -1,5 +1,5 @@
 import addImages from '../../plugins/images';
-import type { EleventyConfig } from '../types/eleventy-shim';
+import type { EleventyConfig } from '@11ty/eleventy';
 import Image from '@11ty/eleventy-img';
 
 // Mock @11ty/eleventy-img
@@ -109,14 +109,12 @@ describe('images plugin', () => {
 
   describe('image shortcode', () => {
     let imageShortcode: (...args: unknown[]) => Promise<string>;
-    let Image: jest.Mock;
 
     beforeEach(() => {
       addImages(mockEleventyConfig);
       imageShortcode = (mockEleventyConfig.addAsyncShortcode as jest.Mock).mock.calls.find(
         (call) => call[0] === 'image'
       )[1];
-      // Image is already imported
     });
 
     it('should process images with required parameters', async () => {
@@ -171,14 +169,11 @@ describe('images plugin', () => {
 
   describe('imageUrl shortcode', () => {
     let imageUrlShortcode: (...args: unknown[]) => Promise<string>;
-    let Image: jest.Mock;
-
     beforeEach(() => {
       addImages(mockEleventyConfig);
       imageUrlShortcode = (mockEleventyConfig.addAsyncShortcode as jest.Mock).mock.calls.find(
         (call) => call[0] === 'imageUrl'
       )[1];
-      // Image is already imported
     });
 
     it('should return single image URL', async () => {
@@ -233,14 +228,11 @@ describe('images plugin', () => {
 
   describe('imageMetadata shortcode', () => {
     let imageMetadataShortcode: (...args: unknown[]) => Promise<unknown>;
-    let Image: jest.Mock;
-
     beforeEach(() => {
       addImages(mockEleventyConfig);
       imageMetadataShortcode = (mockEleventyConfig.addAsyncShortcode as jest.Mock).mock.calls.find(
         (call) => call[0] === 'imageMetadata'
       )[1];
-      // Image is already imported
     });
 
     it('should return image metadata', async () => {
@@ -310,12 +302,6 @@ describe('images plugin', () => {
   });
 
   describe('configuration options', () => {
-    let Image: jest.Mock;
-
-    beforeEach(() => {
-      // Image is already imported
-    });
-
     it('should respect custom output directory', async () => {
       addImages(mockEleventyConfig, {
         outputDir: 'assets/images/',

@@ -1,22 +1,22 @@
 ---
-title: "Episode 1: Introduction to Static Site Generators"
-author: "Podcast Host"
+title: 'Episode 1: Introduction to Static Site Generators'
+author: 'Podcast Host'
 date: 2025-01-01
 tags: podcast
 permalink: /podcast/episode-001/
 audio:
-  url: "/assets/audio/episode-001.mp3"
+  url: '/assets/audio/episode-001.mp3'
   size: 15728640
   duration: 1800
-  type: "audio/mpeg"
+  type: 'audio/mpeg'
 episode:
   number: 1
   season: 1
-  type: "full"
+  type: 'full'
   explicit: false
-  subtitle: "Getting started with modern web development"
+  subtitle: 'Getting started with modern web development'
   summary: "In this inaugural episode, we explore the world of static site generators and why they're becoming the go-to choice for modern web development."
-  keywords: ["web development", "static sites", "jamstack"]
+  keywords: ['web development', 'static sites', 'jamstack']
 ---
 
 Welcome to our podcast! In this first episode, we dive deep into the world of static site generators.

@@ -22,12 +22,15 @@ Web feeds are standardized formats that allow websites to syndicate their conten
 Anglesite 11ty now supports three popular feed formats:
 
 ### RSS 2.0
+
 The classic feed format that's been around since 2002. Widely supported by feed readers and aggregation services.
 
 ### Atom 1.0
+
 A more modern XML-based format with better internationalization and extensibility features.
 
 ### JSON Feed 1.1
+
 A JSON-based format that's easier for modern applications to parse and consume.
 
 ## Getting Started

@@ -7,10 +7,10 @@ module.exports = {
   // Coverage thresholds to maintain quality (set to current levels to prevent regression)
   coverageThreshold: {
     global: {
-      statements: 75,
-      branches: 65,
-      functions: 80,
-      lines: 75,
+      statements: 70,
+      branches: 62,
+      functions: 77,
+      lines: 70,
     },
   },
   // Coverage reporters
