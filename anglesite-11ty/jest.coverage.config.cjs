@@ -4,13 +4,13 @@ module.exports = {
   ...baseConfig,
   // Enable coverage reporting
   collectCoverage: true,
-  // Coverage thresholds to maintain quality (set to current levels to prevent regression)
+  // Coverage thresholds to maintain quality (set to current achieved levels)
   coverageThreshold: {
     global: {
-      statements: 70,
-      branches: 62,
-      functions: 77,
-      lines: 70,
+      statements: 85.94,
+      branches: 77.46,
+      functions: 90.54,
+      lines: 86.1,
     },
   },
   // Coverage reporters
@@ -20,7 +20,8 @@ module.exports = {
   // Ensure coverage is collected from the right files
   collectCoverageFrom: [
     'plugins/**/*.{ts,tsx}',
-    'types/**/*.{ts,tsx}',
+    // Exclude types directory - contains only type definitions without executable code
+    // 'types/**/*.{ts,tsx}',
     '!**/*.d.ts',
     '!**/node_modules/**',
     '!dist/**',
