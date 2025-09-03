@@ -118,3 +118,38 @@ declare module '@11ty/eleventy-plugin-webc' {
   function webCPlugin(eleventyConfig: unknown, options?: WebCOptions): void;
   export default webCPlugin;
 }
+
+/**
+ * @module @11ty/eleventy-plugin-syntaxhighlight
+ * @description Eleventy Syntax Highlighting plugin using Prism.js
+ */
+declare module '@11ty/eleventy-plugin-syntaxhighlight' {
+  /**
+   * @interface SyntaxHighlightOptions
+   * @description Configuration options for syntax highlighting
+   */
+  interface SyntaxHighlightOptions {
+    /** Theme name ('default', 'dark', etc.) or 'none' to disable CSS */
+    theme?: string;
+    /** Add attributes to <pre> tags */
+    preAttributes?: Record<string, unknown>;
+    /** Add attributes to <code> tags */
+    codeAttributes?: Record<string, unknown>;
+    /** Custom initialization function for Prism */
+    init?: (data: { Prism: unknown }) => void;
+    /** Auto-copy CSS theme from node_modules */
+    includeCSS?: boolean;
+    /** Custom output filename for CSS */
+    cssFilename?: string;
+    /** Additional plugin options */
+    [key: string]: unknown;
+  }
+
+  /**
+   * Initializes the syntax highlighting plugin with Eleventy
+   * @param eleventyConfig Eleventy configuration object
+   * @param options Plugin configuration options
+   */
+  function syntaxHighlightPlugin(eleventyConfig: unknown, options?: SyntaxHighlightOptions): void;
+  export default syntaxHighlightPlugin;
+}

@@ -12,6 +12,7 @@ import addNodeInfo from './plugins/nodeinfo.js';
 import addOpenIDConfiguration from './plugins/openid-configuration.js';
 import addImages, { type ImageOptions } from './plugins/images.js';
 import addFeeds from './plugins/feeds.js';
+import addSyntaxHighlight from './plugins/syntax-highlight.js';
 import EleventyWebcPlugin from '@11ty/eleventy-plugin-webc';
 import type { EleventyConfig } from '@11ty/eleventy';
 
@@ -22,6 +23,8 @@ export interface AnglesiteEleventyOptions {
   webcOptions?: Record<string, unknown>;
   /** Configuration options for image optimization */
   imageOptions?: ImageOptions;
+  /** Configuration options for syntax highlighting */
+  syntaxHighlightOptions?: Record<string, unknown>;
 }
 
 /**
@@ -45,6 +48,7 @@ export default function anglesiteEleventy(
   // Add all plugins
   addShortcodes(eleventyConfig);
   addImages(eleventyConfig, options.imageOptions);
+  addSyntaxHighlight(eleventyConfig, options.syntaxHighlightOptions as Parameters<typeof addSyntaxHighlight>[1]);
   addRobotsTxt(eleventyConfig);
   addWebManifest(eleventyConfig);
   addSecurityTxt(eleventyConfig);
@@ -63,6 +67,7 @@ export default function anglesiteEleventy(
 export {
   addShortcodes,
   addImages,
+  addSyntaxHighlight,
   addRobotsTxt,
   addWebManifest,
   addSecurityTxt,
