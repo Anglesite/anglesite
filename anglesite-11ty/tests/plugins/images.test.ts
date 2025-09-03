@@ -1,9 +1,9 @@
 import addImages from '../../plugins/images';
 import type { EleventyConfig } from '../types/eleventy-shim';
+import Image from '@11ty/eleventy-img';
 
 // Mock @11ty/eleventy-img
 const mockGenerateHTML = jest.fn();
-const mockEleventyImg = jest.fn();
 
 jest.mock('@11ty/eleventy-img', () => {
   const mockImg = jest.fn();
@@ -46,17 +46,17 @@ describe('images plugin', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Get the mock function from the module
-    const Image = require('@11ty/eleventy-img').default;
-    
+    // Image is already imported
+
     // Mock successful image processing
     Image.mockResolvedValue({
       avif: [{ url: '/img/test-300.avif', width: 300, height: 200 }],
       webp: [{ url: '/img/test-300.webp', width: 300, height: 200 }],
       jpeg: [{ url: '/img/test-300.jpeg', width: 300, height: 200, size: 15000 }],
     });
-    
+
     // Ensure the generateHTML method is available on the Image function
     Image.generateHTML = mockGenerateHTML;
 
@@ -116,7 +116,7 @@ describe('images plugin', () => {
       imageShortcode = (mockEleventyConfig.addAsyncShortcode as jest.Mock).mock.calls.find(
         (call) => call[0] === 'image'
       )[1];
-      Image = require('@11ty/eleventy-img').default;
+      // Image is already imported
     });
 
     it('should process images with required parameters', async () => {
@@ -178,7 +178,7 @@ describe('images plugin', () => {
       imageUrlShortcode = (mockEleventyConfig.addAsyncShortcode as jest.Mock).mock.calls.find(
         (call) => call[0] === 'imageUrl'
       )[1];
-      Image = require('@11ty/eleventy-img').default;
+      // Image is already imported
     });
 
     it('should return single image URL', async () => {
@@ -240,7 +240,7 @@ describe('images plugin', () => {
       imageMetadataShortcode = (mockEleventyConfig.addAsyncShortcode as jest.Mock).mock.calls.find(
         (call) => call[0] === 'imageMetadata'
       )[1];
-      Image = require('@11ty/eleventy-img').default;
+      // Image is already imported
     });
 
     it('should return image metadata', async () => {
@@ -313,7 +313,7 @@ describe('images plugin', () => {
     let Image: jest.Mock;
 
     beforeEach(() => {
-      Image = require('@11ty/eleventy-img').default;
+      // Image is already imported
     });
 
     it('should respect custom output directory', async () => {

@@ -4,7 +4,7 @@ layout: layout.html
 description: 'Demonstration of OpenID Connect Discovery Configuration generation in Anglesite 11ty'
 ---
 
-# OpenID Connect Discovery Demo
+## OpenID Connect Discovery Demo
 
 This page demonstrates the OpenID Connect Discovery Configuration feature in Anglesite 11ty, which automatically generates the standard `.well-known/openid_configuration` endpoint for OAuth2 and OpenID Connect servers.
 
