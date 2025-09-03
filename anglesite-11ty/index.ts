@@ -11,6 +11,7 @@ import addWebFinger from './plugins/webfinger.js';
 import addNodeInfo from './plugins/nodeinfo.js';
 import addOpenIDConfiguration from './plugins/openid-configuration.js';
 import addImages, { type ImageOptions } from './plugins/images.js';
+import addFeeds from './plugins/feeds.js';
 import EleventyWebcPlugin from '@11ty/eleventy-plugin-webc';
 import type { EleventyConfig } from '@11ty/eleventy';
 
@@ -55,6 +56,7 @@ export default function anglesiteEleventy(
   addWebFinger(eleventyConfig);
   addNodeInfo(eleventyConfig);
   addOpenIDConfiguration(eleventyConfig);
+  addFeeds(eleventyConfig);
 }
 
 // Export individual plugins for direct use if needed
@@ -72,4 +74,5 @@ export {
   addWebFinger,
   addNodeInfo,
   addOpenIDConfiguration,
+  addFeeds,
 };

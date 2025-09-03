@@ -1,7 +1,7 @@
 // Test configuration for Eleventy using the built anglesite-11ty plugin
 import anglesiteEleventy from './dist/index.js';
 
-export default function(eleventyConfig) {
+export default function (eleventyConfig) {
   // Use the main anglesite plugin with image optimization
   eleventyConfig.addPlugin(anglesiteEleventy, {
     imageOptions: {
@@ -9,7 +9,7 @@ export default function(eleventyConfig) {
       urlPath: '/img/',
       formats: ['avif', 'webp', 'jpeg'],
       widths: [300, 600, 1200],
-    }
+    },
   });
 
   return {
@@ -18,4 +18,4 @@ export default function(eleventyConfig) {
       includes: '_includes',
     },
   };
-};
+}

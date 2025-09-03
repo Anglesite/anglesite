@@ -12,6 +12,7 @@ import addWebFinger from './plugins/webfinger.js';
 import addNodeInfo from './plugins/nodeinfo.js';
 import addOpenIDConfiguration from './plugins/openid-configuration.js';
 import addImages from './plugins/images.js';
+import addFeeds from './plugins/feeds.js';
 import type { EleventyConfig } from '@11ty/eleventy';
 
 /**
@@ -35,6 +36,7 @@ export default function (eleventyConfig: EleventyConfig) {
   eleventyConfig.addPlugin(addWebFinger);
   eleventyConfig.addPlugin(addNodeInfo);
   eleventyConfig.addPlugin(addOpenIDConfiguration);
+  eleventyConfig.addPlugin(addFeeds);
 
   return {
     dir: {

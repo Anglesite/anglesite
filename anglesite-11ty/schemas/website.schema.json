@@ -22,6 +22,9 @@
     },
     {
       "$ref": "./modules/well-known.json"
+    },
+    {
+      "$ref": "./modules/feeds.json"
     }
   ],
   "additionalProperties": false

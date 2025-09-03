@@ -257,5 +257,56 @@
     "service_documentation": "https://example.com/docs/oauth2",
     "op_policy_uri": "https://example.com/privacy",
     "op_tos_uri": "https://example.com/terms"
+  },
+  "feeds": {
+    "enabled": true,
+    "defaultTypes": ["rss", "atom", "json"],
+    "collections": {
+      "blog": {
+        "enabled": true,
+        "title": "Anglesite 11ty Blog",
+        "description": "Latest posts about web development and static site generation",
+        "limit": 15
+      },
+      "posts": {
+        "enabled": true,
+        "types": ["rss", "json"],
+        "title": "Blog Posts",
+        "description": "Latest blog posts from Anglesite",
+        "limit": 10,
+        "path": "posts"
+      },
+      "podcast": {
+        "enabled": true,
+        "types": ["rss", "json"],
+        "title": "Anglesite Tech Podcast",
+        "description": "A podcast about static site generators and modern web development",
+        "limit": 50,
+        "path": "podcast",
+        "podcast": {
+          "enabled": true,
+          "explicit": false,
+          "type": "episodic",
+          "complete": false,
+          "block": false,
+          "owner": {
+            "name": "Podcast Producer",
+            "email": "podcast@example.com"
+          },
+          "categories": ["Technology", "Software How-To", "Web Design"],
+          "subtitle": "Modern web development with static site generators",
+          "summary": "Join us as we explore the world of static site generators, JAMstack architecture, and modern web development practices. Each episode features in-depth discussions, tutorials, and interviews with industry experts.",
+          "keywords": ["web development", "static sites", "jamstack", "eleventy", "technology"]
+        }
+      }
+    },
+    "author": {
+      "name": "Anglesite Author",
+      "email": "author@example.com",
+      "url": "https://example.com/author"
+    },
+    "copyright": "© 2025 Anglesite 11ty Website",
+    "category": "Technology",
+    "ttl": 1440
   }
 }

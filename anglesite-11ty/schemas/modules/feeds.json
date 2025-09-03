@@ -1,0 +1,197 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anglesite.dwk.io/schemas/modules/feeds.json",
+  "title": "Website Feeds Configuration Schema",
+  "type": "object",
+  "definitions": {
+    "feedTypes": {
+      "type": "array",
+      "description": "Array of feed types to generate",
+      "items": {
+        "type": "string",
+        "enum": ["rss", "atom", "json"]
+      },
+      "uniqueItems": true,
+      "default": ["rss"]
+    },
+    "feedConfig": {
+      "type": "object",
+      "description": "Configuration for a specific collection's feeds",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether feeds are enabled for this collection",
+          "default": false
+        },
+        "types": {
+          "$ref": "#/definitions/feedTypes",
+          "description": "Which feed types to generate for this collection"
+        },
+        "title": {
+          "type": "string",
+          "description": "Custom title for the feed (defaults to collection name)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description for the feed"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum number of items to include in the feed",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 20
+        },
+        "filename": {
+          "type": "string",
+          "description": "Custom filename pattern for feeds (without extension)",
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "path": {
+          "type": "string",
+          "description": "Custom path for collection feeds (defaults to collection name)",
+          "pattern": "^[a-zA-Z0-9/_-]+$",
+          "examples": ["blog", "news", "posts", "articles"]
+        },
+        "podcast": {
+          "type": "object",
+          "description": "Podcast-specific configuration for this collection",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether this collection contains podcast episodes",
+              "default": false
+            },
+            "explicit": {
+              "type": "boolean",
+              "description": "Whether the podcast contains explicit content",
+              "default": false
+            },
+            "type": {
+              "type": "string",
+              "enum": ["episodic", "serial"],
+              "description": "Podcast type (episodic or serial)",
+              "default": "episodic"
+            },
+            "complete": {
+              "type": "boolean",
+              "description": "Whether the podcast is complete (no more episodes)",
+              "default": false
+            },
+            "block": {
+              "type": "boolean",
+              "description": "Prevent podcast from appearing in iTunes Store",
+              "default": false
+            },
+            "owner": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Podcast owner name"
+                },
+                "email": {
+                  "$ref": "../common.json#/definitions/email",
+                  "description": "Podcast owner email"
+                }
+              },
+              "additionalProperties": false
+            },
+            "categories": {
+              "type": "array",
+              "description": "iTunes podcast categories",
+              "items": {
+                "type": "string"
+              }
+            },
+            "subtitle": {
+              "type": "string",
+              "description": "Short description of the podcast"
+            },
+            "summary": {
+              "type": "string",
+              "description": "Longer description of the podcast"
+            },
+            "keywords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Keywords for podcast discovery"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "feeds": {
+      "type": "object",
+      "description": "Website feed configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Global toggle for feeds functionality",
+          "default": false
+        },
+        "defaultTypes": {
+          "$ref": "#/definitions/feedTypes",
+          "description": "Default feed types to generate for collections"
+        },
+        "mainCollection": {
+          "type": "string",
+          "description": "Name of the collection to use as the main site feed",
+          "examples": ["posts", "blog", "articles"]
+        },
+        "collections": {
+          "type": "object",
+          "description": "Per-collection feed configuration",
+          "additionalProperties": {
+            "$ref": "#/definitions/feedConfig"
+          }
+        },
+        "author": {
+          "type": "object",
+          "description": "Default author information for feeds",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Author name"
+            },
+            "email": {
+              "$ref": "./common.json#/definitions/email",
+              "description": "Author email"
+            },
+            "url": {
+              "$ref": "./common.json#/definitions/url",
+              "description": "Author website URL"
+            }
+          },
+          "additionalProperties": false
+        },
+        "copyright": {
+          "type": "string",
+          "description": "Copyright notice for feeds"
+        },
+        "category": {
+          "type": "string",
+          "description": "Primary category for the website feeds"
+        },
+        "image": {
+          "$ref": "./common.json#/definitions/url",
+          "description": "URL to an image representing the website/feed"
+        },
+        "ttl": {
+          "type": "integer",
+          "description": "Time to live in minutes for RSS feeds",
+          "minimum": 1,
+          "maximum": 40320,
+          "default": 1440
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
