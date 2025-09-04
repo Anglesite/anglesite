@@ -57,7 +57,14 @@ export function setupFileHandlers(): void {
       // Resolve the absolute path using the website server's inputDir (which includes /src/)
       const fs = await import('fs');
       const path = await import('path');
-      const absolutePath = path.join(websiteServer.inputDir, relativePath);
+      
+      // Remove 'src/' prefix from relativePath if present, since websiteServer.inputDir already includes /src/
+      let cleanRelativePath = relativePath;
+      if (relativePath.startsWith('src/')) {
+        cleanRelativePath = relativePath.substring(4); // Remove 'src/' prefix
+      }
+      
+      const absolutePath = path.join(websiteServer.inputDir, cleanRelativePath);
 
       console.log(`[IPC] Reading file from: ${absolutePath}`);
       const content = fs.readFileSync(absolutePath, 'utf8');
@@ -83,7 +90,14 @@ export function setupFileHandlers(): void {
       // Resolve the absolute path using the website server's inputDir (which includes /src/)
       const fs = await import('fs');
       const path = await import('path');
-      const absolutePath = path.join(websiteServer.inputDir, relativePath);
+      
+      // Remove 'src/' prefix from relativePath if present, since websiteServer.inputDir already includes /src/
+      let cleanRelativePath = relativePath;
+      if (relativePath.startsWith('src/')) {
+        cleanRelativePath = relativePath.substring(4); // Remove 'src/' prefix
+      }
+      
+      const absolutePath = path.join(websiteServer.inputDir, cleanRelativePath);
 
       console.log(`[IPC] Saving file to: ${absolutePath}`);
       fs.writeFileSync(absolutePath, content, 'utf8');
