@@ -1083,7 +1083,7 @@
               showToast(`Page "${result.fileName}" created successfully`, 'success');
               
               // Refresh file tree
-              await loadWebsiteFiles();
+              await populateFileExplorer();
               
               // Auto-open the new page
               const relativePath = 'src/' + result.fileName;
