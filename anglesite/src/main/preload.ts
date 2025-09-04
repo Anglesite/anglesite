@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'get-website-server-url',
       'load-website-preview',
       'get-app-info',
+      'create-new-page',
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
@@ -69,6 +70,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'menu-reload',
       'menu-toggle-devtools',
       'menu-export-site',
+      'menu-save-requested',
       'show-website-name-input',
       'website-context-menu-action',
       'website-operation-completed',

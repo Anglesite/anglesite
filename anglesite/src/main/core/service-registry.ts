@@ -25,6 +25,7 @@ import {
   ServiceLifecycleState,
   IServiceMetadata,
   TypeGuards,
+  IGitHistoryManager,
 } from './interfaces';
 
 // Store class removed - now using DI with StoreService
@@ -553,6 +554,17 @@ export class ServiceRegistrar {
       'singleton'
     );
 
+    // Git history manager (needs to be registered before website manager)
+    container.register(
+      ServiceKeys.GIT_HISTORY_MANAGER,
+      () => {
+        const logger = container.resolve<ILogger>(ServiceKeys.LOGGER);
+        const { GitHistoryManager } = require('../utils/git-history-manager');
+        return new GitHistoryManager(logger);
+      },
+      'singleton'
+    );
+
     // Website management services
     container.register(
       ServiceKeys.WEBSITE_MANAGER,
@@ -560,7 +572,19 @@ export class ServiceRegistrar {
         const logger = container.resolve<ILogger>(ServiceKeys.LOGGER);
         const fileSystem = container.resolve<IFileSystem>(ServiceKeys.FILE_SYSTEM);
         const atomicOps = createStubAtomicOperations(fileSystem);
-        return createWebsiteManager(logger, fileSystem, atomicOps);
+        const websiteManager = createWebsiteManager(logger, fileSystem, atomicOps);
+        
+        // Inject GitHistoryManager if available
+        try {
+          const gitHistoryManager = container.resolve<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
+          if (websiteManager && 'setGitHistoryManager' in websiteManager) {
+            (websiteManager as any).setGitHistoryManager(gitHistoryManager);
+          }
+        } catch (error) {
+          logger.warn('GitHistoryManager not available', { error });
+        }
+        
+        return websiteManager;
       },
       'singleton'
     );

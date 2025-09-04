@@ -118,6 +118,30 @@ export interface WebsiteValidationResult {
 }
 
 /**
+ * Git history management service interface
+ */
+export interface IGitHistoryManager extends IDisposable {
+  initRepository(websitePath: string): Promise<void>;
+  autoCommit(websitePath: string, action: 'save' | 'close'): Promise<void>;
+  getHistory(websitePath: string, options?: { limit?: number; from?: string; to?: string }): Promise<GitCommitInfo[]>;
+  rollback(websitePath: string, commitHash: string): Promise<void>;
+  getCurrentCommit(websitePath: string): Promise<string | null>;
+  disposeWebsite(websitePath: string): void;
+  disposeAll(): void;
+}
+
+export interface GitCommitInfo {
+  hash: string;
+  date: Date;
+  message: string;
+  body: string;
+  author: {
+    name: string;
+    email: string;
+  };
+}
+
+/**
  * Website management service interface
  */
 export interface IWebsiteManager extends IDisposable {

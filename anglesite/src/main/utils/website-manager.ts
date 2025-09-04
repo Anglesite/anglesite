@@ -23,7 +23,7 @@ type BufferEncoding =
   | 'hex';
 import { dialog, BrowserWindow, app } from 'electron';
 import { createAtomicTransaction, atomicWriteFile, atomicCopyDirectory, atomicRename } from './atomic-operations';
-import { IWebsiteManager, ILogger, IFileSystem, IAtomicOperations } from '../core/interfaces';
+import { IWebsiteManager, ILogger, IFileSystem, IAtomicOperations, IGitHistoryManager } from '../core/interfaces';
 import { ErrorUtils, AtomicOperationError } from '../core/errors';
 
 // Helper classes for fallback functionality
@@ -124,6 +124,7 @@ function createStubAtomicOperations(fileSystem: IFileSystem): IAtomicOperations 
  */
 export class WebsiteManager implements IWebsiteManager {
   private readonly logger: ILogger;
+  private gitHistoryManager?: IGitHistoryManager;
 
   constructor(
     logger: ILogger,
@@ -131,6 +132,13 @@ export class WebsiteManager implements IWebsiteManager {
     private readonly atomicOperations: IAtomicOperations
   ) {
     this.logger = logger.child({ service: 'WebsiteManager' });
+  }
+
+  /**
+   * Set the GitHistoryManager for version control integration.
+   */
+  setGitHistoryManager(gitHistoryManager: IGitHistoryManager): void {
+    this.gitHistoryManager = gitHistoryManager;
   }
 
   /**
@@ -327,6 +335,20 @@ export class WebsiteManager implements IWebsiteManager {
         throw result.error || new Error('Website creation transaction failed');
       }
 
+      // Initialize git repository for version control
+      if (this.gitHistoryManager) {
+        try {
+          await this.gitHistoryManager.initRepository(newWebsitePath);
+          this.logger.info('Git repository initialized for website', { websiteName });
+        } catch (error) {
+          // Log but don't fail the website creation if git init fails
+          this.logger.warn('Failed to initialize git repository', { 
+            websiteName, 
+            error: error instanceof Error ? error.message : String(error) 
+          });
+        }
+      }
+
       this.logger.info('Website created successfully', { websiteName, path: newWebsitePath });
       return newWebsitePath;
     } catch (error) {
@@ -442,15 +464,15 @@ Happy building! 🚀`;
       // Use file paths to local packages since they're not published to npm yet
       if (packageJson.dependencies['@dwk/anglesite-11ty']) {
         // Use absolute path to anglesite-11ty package
-        // Navigate from dist/src/utils to the workspace root
-        const workspaceRoot = path.resolve(__dirname, '../../../../');
+        // Navigate from dist/src/main/utils to the workspace root (@dwk directory)
+        const workspaceRoot = path.resolve(__dirname, '../../../../../');
         const anglesitePackagePath = path.join(workspaceRoot, 'anglesite-11ty');
         packageJson.dependencies['@dwk/anglesite-11ty'] = `file:${anglesitePackagePath}`;
       }
       if (packageJson.dependencies['@dwk/web-components']) {
         // Use absolute path to web-components package
-        // Navigate from dist/src/utils to the workspace root
-        const workspaceRoot = path.resolve(__dirname, '../../../../');
+        // Navigate from dist/src/main/utils to the workspace root (@dwk directory)
+        const workspaceRoot = path.resolve(__dirname, '../../../../../');
         const webComponentsPackagePath = path.join(workspaceRoot, 'web-components');
         packageJson.dependencies['@dwk/web-components'] = `file:${webComponentsPackagePath}`;
       }
@@ -912,7 +934,21 @@ export async function createWebsiteWithName(websiteName: string): Promise<string
   const fileSystem = new FileSystemService();
   const atomicOps = createStubAtomicOperations(fileSystem);
   const manager = new WebsiteManager(logger, fileSystem, atomicOps);
-  return manager.createWebsite(websiteName);
+  
+  // Create website first
+  const websitePath = await manager.createWebsite(websiteName);
+  
+  // Manually initialize git repository since DI isn't available
+  try {
+    const { GitHistoryManager } = await import('./git-history-manager');
+    const gitHistoryManager = new GitHistoryManager(logger);
+    await gitHistoryManager.initRepository(websitePath);
+    console.log('Git repository initialized for legacy website creation');
+  } catch (error) {
+    console.warn('Failed to initialize git repository in fallback method:', error);
+  }
+  
+  return websitePath;
 }
 
 /**

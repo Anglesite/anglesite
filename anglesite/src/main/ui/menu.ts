@@ -292,6 +292,21 @@ export function createApplicationMenu(): Menu {
           type: 'separator',
         },
         {
+          label: 'Save',
+          accelerator: 'CmdOrCtrl+S',
+          enabled: isWebsiteWindowFocused(),
+          click: async () => {
+            // Trigger save on the focused website editor
+            const focusedWindow = BrowserWindow.getFocusedWindow();
+            if (focusedWindow && isWebsiteWindowFocused()) {
+              focusedWindow.webContents.send('menu-save-requested');
+            }
+          },
+        },
+        {
+          type: 'separator',
+        },
+        {
           label: 'Import Bundle…',
           accelerator: 'CmdOrCtrl+Shift+I',
           click: async () => {

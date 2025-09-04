@@ -4,7 +4,9 @@
 import { ipcMain, shell, BrowserWindow } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { IWebsiteServerManager } from '../core/interfaces';
+import { IWebsiteServerManager, IGitHistoryManager, IWebsiteManager } from '../core/interfaces';
+import { getGlobalContext } from '../core/service-registry';
+import { ServiceKeys } from '../core/container';
 
 interface WebsiteFile {
   name: string;
@@ -85,6 +87,20 @@ export function setupFileHandlers(): void {
 
       console.log(`[IPC] Saving file to: ${absolutePath}`);
       fs.writeFileSync(absolutePath, content, 'utf8');
+      
+      // Auto-commit the change with git
+      try {
+        const appContext = getGlobalContext();
+        const gitHistoryManager = appContext.getService<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
+        
+        // Get the website path (parent of src directory)
+        const websitePath = path.dirname(websiteServer.inputDir);
+        await gitHistoryManager.autoCommit(websitePath, 'save');
+        console.log(`[IPC] Git auto-commit queued for website: ${websiteName}`);
+      } catch (error) {
+        console.warn('[IPC] Failed to auto-commit file save:', error);
+      }
+      
       return true;
     } catch (error) {
       console.error('Error saving file:', error);
@@ -177,6 +193,331 @@ export function setupFileHandlers(): void {
     } catch (error) {
       console.error('Failed to start website dev server:', error);
       throw error;
+    }
+  });
+
+  // Helper function to validate page names
+  function validatePageName(pageName: string): { valid: boolean; error?: string } {
+    if (!pageName || !pageName.trim()) {
+      return { valid: false, error: 'Page name is required' };
+    }
+    
+    const trimmed = pageName.trim();
+    
+    // Check for path traversal attempts
+    if (trimmed.includes('..') || trimmed.includes('/') || trimmed.includes('\\')) {
+      return { valid: false, error: 'Page name cannot contain path separators or ".."' };
+    }
+    
+    // Check for filesystem unsafe characters (Windows and Unix)
+    const invalidChars = /[<>:"|?*\x00-\x1f]/;
+    if (invalidChars.test(trimmed)) {
+      return { valid: false, error: 'Page name contains invalid characters' };
+    }
+    
+    // Check for reserved names (Windows)
+    const reservedNames = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 
+                          'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 
+                          'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'];
+    const nameWithoutExt = trimmed.replace(/\.(html|md)$/i, '').toUpperCase();
+    if (reservedNames.includes(nameWithoutExt)) {
+      return { valid: false, error: 'Page name is a reserved system name' };
+    }
+    
+    // Check length limits (255 chars for most filesystems)
+    if (trimmed.length > 100) {
+      return { valid: false, error: 'Page name is too long (maximum 100 characters)' };
+    }
+    
+    // Check for leading/trailing dots or spaces (problematic on some systems)
+    if (trimmed.startsWith('.') || trimmed.endsWith('.') || 
+        trimmed.startsWith(' ') || trimmed.endsWith(' ')) {
+      return { valid: false, error: 'Page name cannot start or end with dots or spaces' };
+    }
+    
+    return { valid: true };
+  }
+
+  // Helper function to escape HTML for safe insertion
+  function escapeHtml(text: string): string {
+    const map: { [key: string]: string } = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, (m) => map[m]);
+  }
+
+  // Helper function to generate HTML template
+  function generatePageTemplate(pageName: string): string {
+    const safeName = escapeHtml(pageName);
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${safeName}</title>
+</head>
+<body>
+  <h1>${safeName}</h1>
+  <p>Welcome to your new page!</p>
+</body>
+</html>
+`;
+  }
+
+  // Error types for page creation
+  enum PageCreationErrorType {
+    VALIDATION = 'VALIDATION',
+    FILESYSTEM = 'FILESYSTEM',
+    GIT = 'GIT',
+    PERMISSION = 'PERMISSION',
+    UNKNOWN = 'UNKNOWN'
+  }
+
+  interface PageCreationError {
+    type: PageCreationErrorType;
+    message: string;
+    code: string;
+    details?: any;
+  }
+
+  function createPageError(type: PageCreationErrorType, message: string, code: string, details?: any): PageCreationError {
+    return { type, message, code, details };
+  }
+
+  function getErrorType(error: any): PageCreationErrorType {
+    if (!error) return PageCreationErrorType.UNKNOWN;
+    
+    const errorMessage = error.message || String(error);
+    
+    if (errorMessage.includes('Invalid') || errorMessage.includes('cannot contain') || 
+        errorMessage.includes('too long') || errorMessage.includes('required')) {
+      return PageCreationErrorType.VALIDATION;
+    }
+    
+    if (errorMessage.includes('EACCES') || errorMessage.includes('EPERM') || 
+        errorMessage.includes('Permission')) {
+      return PageCreationErrorType.PERMISSION;
+    }
+    
+    if (errorMessage.includes('ENOENT') || errorMessage.includes('EEXIST') || 
+        errorMessage.includes('already exists') || errorMessage.includes('file')) {
+      return PageCreationErrorType.FILESYSTEM;
+    }
+    
+    if (errorMessage.includes('git') || errorMessage.includes('commit')) {
+      return PageCreationErrorType.GIT;
+    }
+    
+    return PageCreationErrorType.UNKNOWN;
+  }
+
+  // Create new page handler with structured error handling
+  ipcMain.handle('create-new-page', async (event, websiteName: string, pageName: string) => {
+    const logger = console; // In production, use the actual logger service
+    const startTime = Date.now();
+    
+    logger.info('Creating new page', { websiteName, pageName });
+    
+    try {
+      // Validate input parameters
+      if (typeof websiteName !== 'string' || !websiteName.trim()) {
+        const error = createPageError(
+          PageCreationErrorType.VALIDATION,
+          'Website name is required',
+          'INVALID_WEBSITE_NAME'
+        );
+        logger.error('Page creation failed: Invalid website name', { error, websiteName });
+        throw new Error(error.message);
+      }
+      
+      if (typeof pageName !== 'string') {
+        const error = createPageError(
+          PageCreationErrorType.VALIDATION,
+          'Page name must be a string',
+          'INVALID_PAGE_NAME_TYPE'
+        );
+        logger.error('Page creation failed: Invalid page name type', { error, pageName });
+        throw new Error(error.message);
+      }
+
+      // Validate page name
+      const validation = validatePageName(pageName);
+      if (!validation.valid) {
+        const error = createPageError(
+          PageCreationErrorType.VALIDATION,
+          validation.error || 'Invalid page name',
+          'INVALID_PAGE_NAME',
+          { pageName }
+        );
+        logger.error('Page creation failed: Validation error', { error });
+        throw new Error(error.message);
+      }
+
+      const sanitizedPageName = pageName.trim();
+
+      // Get website path
+      let websitePath: string;
+      let usingFallback = false;
+      try {
+        const appContext = getGlobalContext();
+        const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+        websitePath = websiteManager.getWebsitePath(websiteName);
+        logger.debug('Got website path via DI', { websitePath });
+      } catch (diError) {
+        usingFallback = true;
+        logger.warn('DI service unavailable, using fallback', { error: diError });
+        const { getWebsitePath } = await import('../utils/website-manager');
+        websitePath = getWebsitePath(websiteName);
+        logger.debug('Got website path via fallback', { websitePath });
+      }
+
+      // Validate websitePath
+      if (!websitePath || typeof websitePath !== 'string') {
+        const error = createPageError(
+          PageCreationErrorType.FILESYSTEM,
+          'Could not determine website path',
+          'WEBSITE_PATH_INVALID',
+          { websiteName, websitePath }
+        );
+        logger.error('Page creation failed: Invalid website path', { error });
+        throw new Error(error.message);
+      }
+
+      const srcPath = path.join(websitePath, 'src');
+      
+      // Ensure src directory exists
+      try {
+        if (!fs.existsSync(srcPath)) {
+          fs.mkdirSync(srcPath, { recursive: true });
+          logger.debug('Created src directory', { srcPath });
+        }
+      } catch (fsError) {
+        const error = createPageError(
+          PageCreationErrorType.FILESYSTEM,
+          'Failed to create src directory',
+          'MKDIR_FAILED',
+          { srcPath, error: fsError }
+        );
+        logger.error('Page creation failed: Cannot create directory', { error });
+        throw new Error(error.message);
+      }
+
+      // Create the new HTML file
+      const fileName = sanitizedPageName.endsWith('.html') ? sanitizedPageName : `${sanitizedPageName}.html`;
+      
+      // Additional validation on the final filename
+      const filenameValidation = validatePageName(fileName);
+      if (!filenameValidation.valid) {
+        const error = createPageError(
+          PageCreationErrorType.VALIDATION,
+          filenameValidation.error || 'Invalid filename',
+          'INVALID_FILENAME',
+          { fileName }
+        );
+        logger.error('Page creation failed: Invalid filename', { error });
+        throw new Error(error.message);
+      }
+
+      const filePath = path.join(srcPath, fileName);
+      
+      // Use path.resolve to ensure we're writing to the correct directory
+      const resolvedPath = path.resolve(filePath);
+      const resolvedSrcPath = path.resolve(srcPath);
+      
+      if (!resolvedPath || !resolvedSrcPath || !resolvedPath.startsWith(resolvedSrcPath)) {
+        const error = createPageError(
+          PageCreationErrorType.VALIDATION,
+          'Path traversal attempt detected',
+          'PATH_TRAVERSAL',
+          { resolvedPath, resolvedSrcPath }
+        );
+        logger.error('Page creation failed: Security violation', { error });
+        throw new Error('Invalid file path');
+      }
+      
+      // Check if file already exists
+      if (fs.existsSync(resolvedPath)) {
+        const error = createPageError(
+          PageCreationErrorType.FILESYSTEM,
+          `A page named "${fileName}" already exists`,
+          'FILE_EXISTS',
+          { fileName, resolvedPath }
+        );
+        logger.error('Page creation failed: File exists', { error });
+        throw new Error(error.message);
+      }
+
+      // Generate HTML content with escaped values
+      const htmlContent = generatePageTemplate(sanitizedPageName.replace(/\.html$/i, ''));
+
+      // Write the file
+      try {
+        fs.writeFileSync(resolvedPath, htmlContent, 'utf-8');
+        logger.info('Page file created successfully', { fileName, resolvedPath });
+      } catch (writeError) {
+        const error = createPageError(
+          getErrorType(writeError),
+          'Failed to write page file',
+          'WRITE_FAILED',
+          { resolvedPath, error: writeError }
+        );
+        logger.error('Page creation failed: Write error', { error });
+        throw new Error(error.message);
+      }
+
+      // Auto-commit the new file using git history manager
+      let gitCommitted = false;
+      try {
+        const appContext = getGlobalContext();
+        const gitHistoryManager = appContext.getService<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
+        await gitHistoryManager.autoCommit(websitePath, 'save');
+        gitCommitted = true;
+        logger.debug('Page auto-committed to git', { fileName });
+      } catch (gitError) {
+        logger.warn('Git auto-commit failed (non-fatal)', { 
+          fileName,
+          error: gitError,
+          message: gitError instanceof Error ? gitError.message : String(gitError)
+        });
+        // Don't fail the operation if git commit fails
+      }
+
+      const duration = Date.now() - startTime;
+      logger.info('Page created successfully', {
+        fileName,
+        websiteName,
+        duration,
+        gitCommitted,
+        usingFallback
+      });
+
+      return {
+        success: true,
+        filePath: resolvedPath,
+        fileName: fileName
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorType = getErrorType(error);
+      
+      logger.error('Page creation failed', {
+        error: error instanceof Error ? error.message : String(error),
+        errorType,
+        websiteName,
+        pageName,
+        duration
+      });
+      
+      // Sanitize error message for frontend
+      const safeErrorMessage = error instanceof Error ? 
+        error.message.replace(/\/[^\/]+\//g, '/****/') : // Hide paths
+        'Failed to create page';
+        
+      throw new Error(safeErrorMessage);
     }
   });
 

@@ -693,7 +693,7 @@
 
       <div class="content-with-toolbar">
         <header class="toolbar" role="toolbar" aria-label="Editor Toolbar">
-          <button class="toolbar-button" aria-label="Create new file" title="Create new file">
+          <button class="toolbar-button" id="new-page-button" aria-label="Create new file" title="Create new file">
             <svg
               class="lucide lucide-file-plus"
               xmlns="http://www.w3.org/2000/svg"
@@ -930,6 +930,7 @@
 
         setupSimplePreviewToggle();
         setupSaveButton();
+        setupNewPageButton();
         setupFrontmatterEditor();
       });
 
@@ -938,6 +939,241 @@
         const saveButton = document.getElementById('save-button');
         if (saveButton) {
           saveButton.addEventListener('click', saveFileContent);
+        }
+      }
+
+      // Setup new page button
+      function setupNewPageButton() {
+        const newPageButton = document.getElementById('new-page-button');
+        if (newPageButton) {
+          newPageButton.addEventListener('click', createNewPage);
+        }
+      }
+
+      // Create modal dialog for page creation
+      function createPageModal() {
+        const modal = document.createElement('div');
+        modal.className = 'page-modal';
+        modal.innerHTML = `
+          <div class="page-modal-content">
+            <h3>Create New Page</h3>
+            <input type="text" id="page-name-input" placeholder="Enter page name" autocomplete="off">
+            <div id="page-name-error" class="error-message"></div>
+            <div class="page-modal-buttons">
+              <button id="page-create-btn" class="primary">Create</button>
+              <button id="page-cancel-btn">Cancel</button>
+            </div>
+            <div id="page-creating-spinner" class="spinner" style="display: none;">
+              <span>Creating page...</span>
+            </div>
+          </div>
+        `;
+        return modal;
+      }
+
+      // Validate page name on frontend
+      function validatePageNameFrontend(pageName) {
+        if (!pageName || !pageName.trim()) {
+          return { valid: false, error: 'Page name is required' };
+        }
+        
+        const trimmed = pageName.trim();
+        
+        if (trimmed.includes('..') || trimmed.includes('/') || trimmed.includes('\\')) {
+          return { valid: false, error: 'Page name cannot contain path separators or ".."' };
+        }
+        
+        const invalidChars = /[<>:"|?*\x00-\x1f]/;
+        if (invalidChars.test(trimmed)) {
+          return { valid: false, error: 'Page name contains invalid characters (<>:"|?*)' };
+        }
+        
+        if (trimmed.length > 100) {
+          return { valid: false, error: 'Page name is too long (max 100 characters)' };
+        }
+        
+        if (trimmed.startsWith('.') || trimmed.endsWith('.')) {
+          return { valid: false, error: 'Page name cannot start or end with a dot' };
+        }
+        
+        if (trimmed.startsWith(' ') || trimmed.endsWith(' ')) {
+          return { valid: false, error: 'Page name cannot start or end with spaces' };
+        }
+        
+        const reservedNames = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4',
+                               'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2',
+                               'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'];
+        const nameWithoutExt = trimmed.replace(/\.(html|md)$/i, '').toUpperCase();
+        if (reservedNames.includes(nameWithoutExt)) {
+          return { valid: false, error: 'This is a reserved system name' };
+        }
+        
+        return { valid: true };
+      }
+
+      // Create new page function with improved UX
+      async function createNewPage() {
+        const modal = createPageModal();
+        document.body.appendChild(modal);
+        
+        const input = document.getElementById('page-name-input');
+        const errorDiv = document.getElementById('page-name-error');
+        const createBtn = document.getElementById('page-create-btn');
+        const cancelBtn = document.getElementById('page-cancel-btn');
+        const spinner = document.getElementById('page-creating-spinner');
+        
+        // Focus input
+        input.focus();
+        
+        // Real-time validation
+        input.addEventListener('input', () => {
+          const validation = validatePageNameFrontend(input.value);
+          if (!validation.valid) {
+            errorDiv.textContent = validation.error;
+            errorDiv.style.display = 'block';
+            createBtn.disabled = true;
+          } else {
+            errorDiv.style.display = 'none';
+            createBtn.disabled = false;
+          }
+        });
+        
+        // Handle Enter key
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !createBtn.disabled) {
+            createBtn.click();
+          } else if (e.key === 'Escape') {
+            cancelBtn.click();
+          }
+        });
+        
+        // Handle create button
+        createBtn.addEventListener('click', async () => {
+          const pageName = input.value.trim();
+          const validation = validatePageNameFrontend(pageName);
+          
+          if (!validation.valid) {
+            errorDiv.textContent = validation.error;
+            errorDiv.style.display = 'block';
+            return;
+          }
+          
+          // Show loading state
+          input.disabled = true;
+          createBtn.disabled = true;
+          cancelBtn.disabled = true;
+          spinner.style.display = 'block';
+          errorDiv.style.display = 'none';
+          
+          try {
+            // Get website name
+            const websiteName = await getWebsiteName();
+            if (!websiteName) {
+              throw new Error('Could not determine website name');
+            }
+            
+            // Create the page
+            const result = await window.electronAPI?.invoke('create-new-page', websiteName, pageName);
+            
+            if (result && result.success) {
+              // Success - close modal and load the page
+              document.body.removeChild(modal);
+              
+              // Show success toast
+              showToast(`Page "${result.fileName}" created successfully`, 'success');
+              
+              // Refresh file tree
+              await loadWebsiteFiles();
+              
+              // Auto-open the new page
+              const relativePath = 'src/' + result.fileName;
+              await loadFileInEditor(relativePath);
+            }
+          } catch (error) {
+            // Show error in modal
+            errorDiv.textContent = error instanceof Error ? error.message : 'Failed to create page';
+            errorDiv.style.display = 'block';
+            
+            // Re-enable inputs
+            input.disabled = false;
+            createBtn.disabled = false;
+            cancelBtn.disabled = false;
+            spinner.style.display = 'none';
+            
+            console.error('Failed to create new page:', error);
+          }
+        });
+        
+        // Handle cancel button
+        cancelBtn.addEventListener('click', () => {
+          document.body.removeChild(modal);
+        });
+        
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            document.body.removeChild(modal);
+          }
+        });
+      }
+
+      // Toast notification function
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        // Animate in
+        setTimeout(() => toast.classList.add('show'), 10);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+          toast.classList.remove('show');
+          setTimeout(() => document.body.removeChild(toast), 300);
+        }, 3000);
+      }
+
+      // Helper function to get website name from current context
+      async function getWebsiteName() {
+        try {
+          // First try to get from URL parameters (most reliable)
+          const url = new URL(window.location.href);
+          const websiteNameParam = url.searchParams.get('websiteName');
+          if (websiteNameParam) {
+            console.log('Got website name from URL parameter:', websiteNameParam);
+            return websiteNameParam;
+          }
+
+          // Fallback: try to get from window title
+          const title = await window.electronAPI?.invoke('get-current-window-title');
+          console.log('Window title:', title); // Debug logging
+          
+          if (title) {
+            // Try different title formats
+            if (title.includes(' - ')) {
+              const websiteName = title.split(' - ')[0];
+              console.log('Extracted website name from title:', websiteName);
+              return websiteName;
+            }
+            // If title is just the website name
+            if (title && !title.includes('Anglesite') && !title.includes('Electron')) {
+              console.log('Using title as website name:', title);
+              return title;
+            }
+          }
+
+          // Last resort: prompt user
+          const websiteName = prompt('Could not automatically determine website name. Please enter the website name:');
+          if (websiteName) {
+            console.log('User provided website name:', websiteName);
+            return websiteName.trim();
+          }
+
+          return null;
+        } catch (error) {
+          console.error('Failed to get website name:', error);
+          return null;
         }
       }
 
@@ -1097,7 +1333,7 @@ You can create:
         }
       }
 
-      // Helper function to read anglesite.json configuration
+      // Helper function to read website.json configuration
       async function getAnglesiteConfig(websitePath) {
         try {
           const websiteName = currentWebsite?.name;
@@ -1108,7 +1344,7 @@ You can create:
           const configContent = await window.electronAPI.invoke(
             'get-file-content',
             websiteName,
-            '_data/anglesite.json'
+            '_data/website.json'
           );
           if (configContent) {
             return JSON.parse(configContent);
@@ -2701,6 +2937,193 @@ You can create:
         // Update frontmatter display after loading file
         updateFrontmatterDisplay(filePath);
       };
+
+      // Listen for save requests from the File menu
+      window.electronAPI?.on('menu-save-requested', () => {
+        // Find the active editor and save its content
+        const activeEditor = document.querySelector('.editor-container:not([style*="display: none"])');
+        if (activeEditor) {
+          const saveButton = activeEditor.querySelector('.save-button');
+          if (saveButton && !saveButton.disabled) {
+            saveButton.click();
+          }
+        }
+      });
     </script>
+    <style>
+      /* Page creation modal styles */
+      .page-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        animation: fadeIn 0.2s ease-out;
+      }
+      
+      .page-modal-content {
+        background: var(--bg-primary, white);
+        border-radius: 8px;
+        padding: 24px;
+        min-width: 400px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        animation: slideIn 0.2s ease-out;
+      }
+      
+      .page-modal-content h3 {
+        margin: 0 0 20px 0;
+        color: var(--text-primary, #333);
+        font-size: 18px;
+        font-weight: 600;
+      }
+      
+      #page-name-input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border-color, #ddd);
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+        background: var(--bg-secondary, white);
+        color: var(--text-primary, #333);
+      }
+      
+      #page-name-input:focus {
+        outline: none;
+        border-color: var(--accent-color, #007acc);
+        box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.1);
+      }
+      
+      .error-message {
+        color: #d32f2f;
+        font-size: 12px;
+        margin-top: 8px;
+        display: none;
+        animation: shake 0.3s ease-out;
+      }
+      
+      .page-modal-buttons {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+        justify-content: flex-end;
+      }
+      
+      .page-modal-buttons button {
+        padding: 8px 16px;
+        border-radius: 4px;
+        border: 1px solid var(--border-color, #ddd);
+        background: var(--bg-secondary, white);
+        color: var(--text-primary, #333);
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      
+      .page-modal-buttons button:hover:not(:disabled) {
+        background: var(--hover-bg, #f5f5f5);
+      }
+      
+      .page-modal-buttons button.primary {
+        background: var(--accent-color, #007acc);
+        color: white;
+        border-color: var(--accent-color, #007acc);
+      }
+      
+      .page-modal-buttons button.primary:hover:not(:disabled) {
+        background: var(--accent-hover, #005a9e);
+      }
+      
+      .page-modal-buttons button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      
+      .spinner {
+        text-align: center;
+        margin-top: 16px;
+        color: var(--text-secondary, #666);
+        font-size: 13px;
+      }
+      
+      .spinner::before {
+        content: '';
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        margin-right: 8px;
+        border: 2px solid var(--accent-color, #007acc);
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        vertical-align: middle;
+      }
+      
+      /* Toast notifications */
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: #333;
+        color: white;
+        border-radius: 4px;
+        font-size: 14px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.3s ease-out;
+        z-index: 10001;
+      }
+      
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      
+      .toast-success {
+        background: #4caf50;
+      }
+      
+      .toast-error {
+        background: #f44336;
+      }
+      
+      .toast-warning {
+        background: #ff9800;
+      }
+      
+      /* Animations */
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-4px); }
+        75% { transform: translateX(4px); }
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
   </body>
 </html>

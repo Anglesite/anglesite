@@ -6,7 +6,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { setLiveServerUrl, setCurrentWebsiteName } from '../server/eleventy';
 import { WebsiteServer } from '../server/per-website-server';
-import { IWebsiteServerManager, ManagedServer } from '../core/interfaces';
+import { IWebsiteServerManager, ManagedServer, IGitHistoryManager, IWebsiteManager } from '../core/interfaces';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
 
@@ -294,7 +294,9 @@ export function createWebsiteWindow(websiteName: string, websitePath?: string): 
 
   // Load the website editor template as a file URL to support relative paths
   const websiteEditorFileUrl = getTemplateFilePath('website-editor');
-  window.loadURL(websiteEditorFileUrl);
+  // Add website name as a URL parameter for the frontend to use
+  const urlWithWebsiteName = `${websiteEditorFileUrl}?websiteName=${encodeURIComponent(websiteName)}`;
+  window.loadURL(urlWithWebsiteName);
 
   // Add context menu for Anglesite's UI (non-production builds only)
   if (process.env.NODE_ENV !== 'production') {
@@ -417,6 +419,19 @@ export function createWebsiteWindow(websiteName: string, websitePath?: string): 
 
   // Clean up when window is closed
   window.on('closed', async () => {
+    // Auto-commit changes before closing
+    try {
+      const appContext = getGlobalContext();
+      const gitHistoryManager = appContext.getService<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
+      const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+      
+      const websitePath = websiteManager.getWebsitePath(websiteName);
+      await gitHistoryManager.autoCommit(websitePath, 'close');
+      console.log(`[Window] Git auto-commit on close for website: ${websiteName}`);
+    } catch (error) {
+      console.warn('[Window] Failed to auto-commit on window close:', error);
+    }
+    
     // Stop the server using the DI-based centralized manager
     try {
       const appContext = getGlobalContext();

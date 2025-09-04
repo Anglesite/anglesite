@@ -277,14 +277,30 @@ async function createNewWebsite(websiteName: string): Promise<void> {
     // Step 1: Create the website files (this validates name and creates directory)
     // Use DI-based website manager
     try {
+      console.log('Attempting to get global context...');
       const appContext = getGlobalContext();
+      if (!appContext) {
+        throw new Error('Global context not initialized');
+      }
+      console.log('Global context obtained, getting WebsiteManager service...');
       const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+      if (!websiteManager) {
+        throw new Error('WebsiteManager service not available');
+      }
+      console.log('WebsiteManager service obtained, creating website:', websiteName);
       newWebsitePath = await websiteManager.createWebsite(websiteName);
       websiteCreated = true;
+      console.log('Website created successfully via DI:', newWebsitePath);
     } catch (diError) {
       console.error('Failed to create website via DI:', diError);
+      console.error('DI Error details:', {
+        message: diError instanceof Error ? diError.message : String(diError),
+        stack: diError instanceof Error ? diError.stack : 'No stack trace'
+      });
+      console.log('Falling back to deprecated createWebsiteWithName - DI not available');
       // Fallback to legacy method if DI fails
       const { createWebsiteWithName } = await import('../utils/website-manager');
+      console.log('Using deprecated createWebsiteWithName - DI not available');
       newWebsitePath = await createWebsiteWithName(websiteName);
       websiteCreated = true;
     }
