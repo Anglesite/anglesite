@@ -3,13 +3,15 @@ title: Hello World!
 layout: base.webc
 ---
 
-This is your new website! Edit this file to get started.
+<p>This is your new website! Edit this file to get started.</p>
 
-## Getting Started
+<h2>Getting Started</h2>
 
-- Edit this markdown file to change the content
-- Add more pages by creating new .md files
-- Customize the layout in the \_includes directory
-- Add styles to style.css
+<ul>
+<li>Edit this markdown file to change the content</li>
+<li>Add more pages by creating new .md files</li>
+<li>Customize the layout in the _includes directory</li>
+<li>Add styles to style.css</li>
+</ul>
 
-Happy building! 🚀
+<p>Happy building! 🚀</p>
