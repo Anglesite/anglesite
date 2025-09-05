@@ -11,6 +11,7 @@
     "web-components"
   ],
   "scripts": {
+    "start": "npm run start --workspace=anglesite",
     "build": "npm run build --workspaces",
     "test": "jest --passWithNoTests && npm run test --workspaces",
     "test:root": "jest",
