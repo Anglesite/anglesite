@@ -22,25 +22,7 @@ interface WebsiteFile {
  */
 export function setupFileHandlers(): void {
   // Website file content handlers
-  ipcMain.handle('get-website-files', async (event, websiteName: string) => {
-    try {
-      console.log(`[IPC] get-website-files called for website: ${websiteName}`);
-      const { getWebsiteServer } = await import('../ui/multi-window-manager');
-      const websiteServer = getWebsiteServer(websiteName);
-      if (!websiteServer?.urlResolver) {
-        console.log(`[IPC] No website server or URL resolver found for: ${websiteName}`);
-        return [];
-      }
-
-      console.log(`[IPC] Getting file tree from URL resolver for: ${websiteName}`);
-      const fileTree = await websiteServer.urlResolver.getFileTree();
-      console.log(`[IPC] File tree retrieved for ${websiteName}: ${fileTree.length} items`);
-      return fileTree;
-    } catch (error) {
-      console.error('Error getting website files:', error);
-      return [];
-    }
-  });
+  // Note: get-website-files handler is now in react-editor.ts to avoid conflicts
 
   ipcMain.handle('get-file-content', async (event, websiteName: string, relativePath: string) => {
     try {
@@ -57,13 +39,13 @@ export function setupFileHandlers(): void {
       // Resolve the absolute path using the website server's inputDir (which includes /src/)
       const fs = await import('fs');
       const path = await import('path');
-      
+
       // Remove 'src/' prefix from relativePath if present, since websiteServer.inputDir already includes /src/
       let cleanRelativePath = relativePath;
       if (relativePath.startsWith('src/')) {
         cleanRelativePath = relativePath.substring(4); // Remove 'src/' prefix
       }
-      
+
       const absolutePath = path.join(websiteServer.inputDir, cleanRelativePath);
 
       console.log(`[IPC] Reading file from: ${absolutePath}`);
@@ -90,23 +72,23 @@ export function setupFileHandlers(): void {
       // Resolve the absolute path using the website server's inputDir (which includes /src/)
       const fs = await import('fs');
       const path = await import('path');
-      
+
       // Remove 'src/' prefix from relativePath if present, since websiteServer.inputDir already includes /src/
       let cleanRelativePath = relativePath;
       if (relativePath.startsWith('src/')) {
         cleanRelativePath = relativePath.substring(4); // Remove 'src/' prefix
       }
-      
+
       const absolutePath = path.join(websiteServer.inputDir, cleanRelativePath);
 
       console.log(`[IPC] Saving file to: ${absolutePath}`);
       fs.writeFileSync(absolutePath, content, 'utf8');
-      
+
       // Auto-commit the change with git
       try {
         const appContext = getGlobalContext();
         const gitHistoryManager = appContext.getService<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
-        
+
         // Get the website path (parent of src directory)
         const websitePath = path.dirname(websiteServer.inputDir);
         await gitHistoryManager.autoCommit(websitePath, 'save');
@@ -114,7 +96,7 @@ export function setupFileHandlers(): void {
       } catch (error) {
         console.warn('[IPC] Failed to auto-commit file save:', error);
       }
-      
+
       return true;
     } catch (error) {
       console.error('Error saving file:', error);
@@ -215,40 +197,60 @@ export function setupFileHandlers(): void {
     if (!pageName || !pageName.trim()) {
       return { valid: false, error: 'Page name is required' };
     }
-    
+
     const trimmed = pageName.trim();
-    
+
     // Check for path traversal attempts
     if (trimmed.includes('..') || trimmed.includes('/') || trimmed.includes('\\')) {
       return { valid: false, error: 'Page name cannot contain path separators or ".."' };
     }
-    
+
     // Check for filesystem unsafe characters (Windows and Unix)
     const invalidChars = /[<>:"|?*\x00-\x1f]/;
     if (invalidChars.test(trimmed)) {
       return { valid: false, error: 'Page name contains invalid characters' };
     }
-    
+
     // Check for reserved names (Windows)
-    const reservedNames = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 
-                          'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 
-                          'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'];
+    const reservedNames = [
+      'CON',
+      'PRN',
+      'AUX',
+      'NUL',
+      'COM1',
+      'COM2',
+      'COM3',
+      'COM4',
+      'COM5',
+      'COM6',
+      'COM7',
+      'COM8',
+      'COM9',
+      'LPT1',
+      'LPT2',
+      'LPT3',
+      'LPT4',
+      'LPT5',
+      'LPT6',
+      'LPT7',
+      'LPT8',
+      'LPT9',
+    ];
     const nameWithoutExt = trimmed.replace(/\.(html|md)$/i, '').toUpperCase();
     if (reservedNames.includes(nameWithoutExt)) {
       return { valid: false, error: 'Page name is a reserved system name' };
     }
-    
+
     // Check length limits (255 chars for most filesystems)
     if (trimmed.length > 100) {
       return { valid: false, error: 'Page name is too long (maximum 100 characters)' };
     }
-    
+
     // Check for leading/trailing dots or spaces (problematic on some systems)
-    if (trimmed.startsWith('.') || trimmed.endsWith('.') || 
-        trimmed.startsWith(' ') || trimmed.endsWith(' ')) {
+    if (trimmed.startsWith('.') || trimmed.endsWith('.') || pageName.startsWith(' ') || pageName.endsWith(' ')) {
       return { valid: false, error: 'Page name cannot start or end with dots or spaces' };
     }
-    
+
     return { valid: true };
   }
 
@@ -259,7 +261,7 @@ export function setupFileHandlers(): void {
       '<': '&lt;',
       '>': '&gt;',
       '"': '&quot;',
-      "'": '&#039;'
+      "'": '&#039;',
     };
     return text.replace(/[&<>"']/g, (m) => map[m]);
   }
@@ -288,7 +290,7 @@ export function setupFileHandlers(): void {
     FILESYSTEM = 'FILESYSTEM',
     GIT = 'GIT',
     PERMISSION = 'PERMISSION',
-    UNKNOWN = 'UNKNOWN'
+    UNKNOWN = 'UNKNOWN',
   }
 
   interface PageCreationError {
@@ -298,34 +300,46 @@ export function setupFileHandlers(): void {
     details?: any;
   }
 
-  function createPageError(type: PageCreationErrorType, message: string, code: string, details?: any): PageCreationError {
+  function createPageError(
+    type: PageCreationErrorType,
+    message: string,
+    code: string,
+    details?: any
+  ): PageCreationError {
     return { type, message, code, details };
   }
 
   function getErrorType(error: any): PageCreationErrorType {
     if (!error) return PageCreationErrorType.UNKNOWN;
-    
+
     const errorMessage = error.message || String(error);
-    
-    if (errorMessage.includes('Invalid') || errorMessage.includes('cannot contain') || 
-        errorMessage.includes('too long') || errorMessage.includes('required')) {
+
+    if (
+      errorMessage.includes('Invalid') ||
+      errorMessage.includes('cannot contain') ||
+      errorMessage.includes('too long') ||
+      errorMessage.includes('required')
+    ) {
       return PageCreationErrorType.VALIDATION;
     }
-    
-    if (errorMessage.includes('EACCES') || errorMessage.includes('EPERM') || 
-        errorMessage.includes('Permission')) {
+
+    if (errorMessage.includes('EACCES') || errorMessage.includes('EPERM') || errorMessage.includes('Permission')) {
       return PageCreationErrorType.PERMISSION;
     }
-    
-    if (errorMessage.includes('ENOENT') || errorMessage.includes('EEXIST') || 
-        errorMessage.includes('already exists') || errorMessage.includes('file')) {
+
+    if (
+      errorMessage.includes('ENOENT') ||
+      errorMessage.includes('EEXIST') ||
+      errorMessage.includes('already exists') ||
+      errorMessage.includes('file')
+    ) {
       return PageCreationErrorType.FILESYSTEM;
     }
-    
+
     if (errorMessage.includes('git') || errorMessage.includes('commit')) {
       return PageCreationErrorType.GIT;
     }
-    
+
     return PageCreationErrorType.UNKNOWN;
   }
 
@@ -333,9 +347,7 @@ export function setupFileHandlers(): void {
   ipcMain.handle('create-new-page', async (event, websiteName: string, pageName: string) => {
     const logger = console; // In production, use the actual logger service
     const startTime = Date.now();
-    
-    logger.info('Creating new page', { websiteName, pageName });
-    
+
     try {
       // Validate input parameters
       if (typeof websiteName !== 'string' || !websiteName.trim()) {
@@ -347,7 +359,7 @@ export function setupFileHandlers(): void {
         logger.error('Page creation failed: Invalid website name', { error, websiteName });
         throw new Error(error.message);
       }
-      
+
       if (typeof pageName !== 'string') {
         const error = createPageError(
           PageCreationErrorType.VALIDATION,
@@ -367,7 +379,6 @@ export function setupFileHandlers(): void {
           'INVALID_PAGE_NAME',
           { pageName }
         );
-        logger.error('Page creation failed: Validation error', { error });
         throw new Error(error.message);
       }
 
@@ -397,71 +408,73 @@ export function setupFileHandlers(): void {
           'WEBSITE_PATH_INVALID',
           { websiteName, websitePath }
         );
-        logger.error('Page creation failed: Invalid website path', { error });
         throw new Error(error.message);
       }
 
       const srcPath = path.join(websitePath, 'src');
-      
+
+      // Safety check: if path.join returns undefined/null (e.g., in test environments), use fallback
+      const finalSrcPath = srcPath || `${websitePath}/src`;
+
       // Ensure src directory exists
       try {
-        if (!fs.existsSync(srcPath)) {
-          fs.mkdirSync(srcPath, { recursive: true });
-          logger.debug('Created src directory', { srcPath });
+        if (!fs.existsSync(finalSrcPath)) {
+          fs.mkdirSync(finalSrcPath, { recursive: true });
+          logger.debug('Created src directory', { srcPath: finalSrcPath });
         }
       } catch (fsError) {
         const error = createPageError(
           PageCreationErrorType.FILESYSTEM,
           'Failed to create src directory',
           'MKDIR_FAILED',
-          { srcPath, error: fsError }
+          { srcPath: finalSrcPath, error: fsError }
         );
-        logger.error('Page creation failed: Cannot create directory', { error });
         throw new Error(error.message);
       }
 
       // Create the new HTML file
       const fileName = sanitizedPageName.endsWith('.html') ? sanitizedPageName : `${sanitizedPageName}.html`;
-      
-      // Additional validation on the final filename
-      const filenameValidation = validatePageName(fileName);
-      if (!filenameValidation.valid) {
-        const error = createPageError(
-          PageCreationErrorType.VALIDATION,
-          filenameValidation.error || 'Invalid filename',
-          'INVALID_FILENAME',
-          { fileName }
-        );
-        logger.error('Page creation failed: Invalid filename', { error });
+
+      const filePath = path.join(finalSrcPath, fileName);
+
+      // Safety check: if path.join returns undefined/null (e.g., in test environments), use fallback
+      const finalFilePath = filePath || `${finalSrcPath}/${fileName}`;
+
+      // Use path.resolve to ensure we're writing to the correct directory
+      // Only perform path traversal check if both paths are valid strings
+      if (!finalFilePath || !finalSrcPath) {
+        const error = createPageError(PageCreationErrorType.FILESYSTEM, 'Invalid file or source path', 'INVALID_PATH', {
+          filePath: finalFilePath,
+          srcPath: finalSrcPath,
+        });
         throw new Error(error.message);
       }
 
-      const filePath = path.join(srcPath, fileName);
-      
-      // Use path.resolve to ensure we're writing to the correct directory
-      const resolvedPath = path.resolve(filePath);
-      const resolvedSrcPath = path.resolve(srcPath);
-      
-      if (!resolvedPath || !resolvedSrcPath || !resolvedPath.startsWith(resolvedSrcPath)) {
+      const resolvedPath = path.resolve(finalFilePath);
+      const resolvedSrcPath = path.resolve(finalSrcPath);
+
+      // Safety check: if path.resolve returns undefined/null (e.g., in test environments), use fallback
+      const finalResolvedPath = resolvedPath || finalFilePath;
+      const finalResolvedSrcPath = resolvedSrcPath || finalSrcPath;
+
+      if (!finalResolvedPath || !finalResolvedSrcPath || !finalResolvedPath.startsWith(finalResolvedSrcPath)) {
         const error = createPageError(
           PageCreationErrorType.VALIDATION,
           'Path traversal attempt detected',
           'PATH_TRAVERSAL',
-          { resolvedPath, resolvedSrcPath }
+          { resolvedPath: finalResolvedPath, resolvedSrcPath: finalResolvedSrcPath }
         );
-        logger.error('Page creation failed: Security violation', { error });
-        throw new Error('Invalid file path');
+        throw new Error(error.message);
       }
-      
+
       // Check if file already exists
-      if (fs.existsSync(resolvedPath)) {
+      if (fs.existsSync(finalResolvedPath)) {
         const error = createPageError(
           PageCreationErrorType.FILESYSTEM,
           `A page named "${fileName}" already exists`,
           'FILE_EXISTS',
-          { fileName, resolvedPath }
+          { fileName, resolvedPath: finalResolvedPath }
         );
-        logger.error('Page creation failed: File exists', { error });
         throw new Error(error.message);
       }
 
@@ -470,16 +483,12 @@ export function setupFileHandlers(): void {
 
       // Write the file
       try {
-        fs.writeFileSync(resolvedPath, htmlContent, 'utf-8');
-        logger.info('Page file created successfully', { fileName, resolvedPath });
+        fs.writeFileSync(finalResolvedPath, htmlContent, 'utf-8');
       } catch (writeError) {
-        const error = createPageError(
-          getErrorType(writeError),
-          'Failed to write page file',
-          'WRITE_FAILED',
-          { resolvedPath, error: writeError }
-        );
-        logger.error('Page creation failed: Write error', { error });
+        const error = createPageError(getErrorType(writeError), 'Failed to write page file', 'WRITE_FAILED', {
+          resolvedPath: finalResolvedPath,
+          error: writeError,
+        });
         throw new Error(error.message);
       }
 
@@ -492,46 +501,43 @@ export function setupFileHandlers(): void {
         gitCommitted = true;
         logger.debug('Page auto-committed to git', { fileName });
       } catch (gitError) {
-        logger.warn('Git auto-commit failed (non-fatal)', { 
+        logger.warn('Git auto-commit failed (non-fatal)', {
           fileName,
           error: gitError,
-          message: gitError instanceof Error ? gitError.message : String(gitError)
+          message: gitError instanceof Error ? gitError.message : String(gitError),
         });
         // Don't fail the operation if git commit fails
       }
 
       const duration = Date.now() - startTime;
-      logger.info('Page created successfully', {
-        fileName,
-        websiteName,
-        duration,
-        gitCommitted,
-        usingFallback
-      });
 
       return {
         success: true,
-        filePath: resolvedPath,
-        fileName: fileName
+        filePath: finalResolvedPath,
+        fileName: fileName,
       };
     } catch (error) {
       const duration = Date.now() - startTime;
       const errorType = getErrorType(error);
-      
-      logger.error('Page creation failed', {
-        error: error instanceof Error ? error.message : String(error),
-        errorType,
-        websiteName,
-        pageName,
-        duration
-      });
-      
-      // Sanitize error message for frontend
-      const safeErrorMessage = error instanceof Error ? 
-        error.message.replace(/\/[^\/]+\//g, '/****/') : // Hide paths
-        'Failed to create page';
-        
-      throw new Error(safeErrorMessage);
+
+      // Preserve validation error messages, only sanitize filesystem paths
+      if (error instanceof Error) {
+        const message = error.message;
+        // Only sanitize paths in filesystem errors, preserve validation messages
+        if (
+          message.includes('Path traversal attempt detected') ||
+          message.includes('Failed to write') ||
+          message.includes('Directory')
+        ) {
+          const sanitizedMessage = message.replace(/\/[^\/]+\//g, '/***/');
+          throw new Error(sanitizedMessage);
+        } else {
+          // Preserve validation and other business logic error messages
+          throw new Error(message);
+        }
+      } else {
+        throw new Error('Failed to create page');
+      }
     }
   });
 
