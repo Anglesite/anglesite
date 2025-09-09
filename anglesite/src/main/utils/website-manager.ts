@@ -342,9 +342,9 @@ export class WebsiteManager implements IWebsiteManager {
           this.logger.info('Git repository initialized for website', { websiteName });
         } catch (error) {
           // Log but don't fail the website creation if git init fails
-          this.logger.warn('Failed to initialize git repository', { 
-            websiteName, 
-            error: error instanceof Error ? error.message : String(error) 
+          this.logger.warn('Failed to initialize git repository', {
+            websiteName,
+            error: error instanceof Error ? error.message : String(error),
           });
         }
       }
@@ -430,8 +430,15 @@ Your new website is ready to go! ${websiteName} is powered by Anglesite and uses
 
 Happy building! 🚀`;
 
-    // Replace the existing getting started section
-    indexContent = indexContent.replace(/## Getting Started[\s\S]*Happy building! 🚀/, welcomeSection.trim());
+    // Replace the existing getting started section more reliably
+    const gettingStartedIndex = indexContent.indexOf('## Getting Started');
+    if (gettingStartedIndex !== -1) {
+      // Replace from Getting Started to the end with our welcome section
+      indexContent = indexContent.substring(0, gettingStartedIndex) + welcomeSection.trim();
+    } else {
+      // If no getting started section found, append the welcome section
+      indexContent = indexContent + welcomeSection;
+    }
 
     return indexContent;
   }
@@ -934,10 +941,10 @@ export async function createWebsiteWithName(websiteName: string): Promise<string
   const fileSystem = new FileSystemService();
   const atomicOps = createStubAtomicOperations(fileSystem);
   const manager = new WebsiteManager(logger, fileSystem, atomicOps);
-  
+
   // Create website first
   const websitePath = await manager.createWebsite(websiteName);
-  
+
   // Manually initialize git repository since DI isn't available
   try {
     const { GitHistoryManager } = await import('./git-history-manager');
@@ -947,7 +954,7 @@ export async function createWebsiteWithName(websiteName: string): Promise<string
   } catch (error) {
     console.warn('Failed to initialize git repository in fallback method:', error);
   }
-  
+
   return websitePath;
 }
 

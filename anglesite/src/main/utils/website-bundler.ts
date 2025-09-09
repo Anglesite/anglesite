@@ -1,6 +1,6 @@
 /**
  * @file Website Bundling Service
- * 
+ *
  * Service for creating and extracting Anglesite website bundles (.anglesite files).
  * Bundles are ZIP archives with standardized structure and metadata that work
  * across all operating systems.
@@ -10,53 +10,60 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import archiver from 'archiver';
-import * as yauzl from 'yauzl';
+// Import yauzl conditionally to avoid test environment issues
+let yauzl: any;
+try {
+  yauzl = require('yauzl');
+} catch (e) {
+  // yauzl not available, will handle this in methods that use it
+}
 import * as crypto from 'crypto';
 import { ILogger, IFileSystem, IWebsiteManager } from '../core/interfaces';
 import { ErrorUtils } from '../core/errors';
 
 export interface AnglesiteBundleMetadata {
-  version: string;           // Bundle format version (e.g., "1.0.0")
-  websiteName: string;       // Original website name
-  createdAt: string;         // ISO timestamp
+  version: string; // Bundle format version (e.g., "1.0.0")
+  websiteName: string; // Original website name
+  createdAt: string; // ISO timestamp
   createdBy: {
-    anglesite: string;       // Anglesite version
-    platform: string;       // Creator's OS
-    user: string;           // System username
+    anglesite: string; // Anglesite version
+    platform: string; // Creator's OS
+    user: string; // System username
   };
   website: {
-    title: string;           // Website title from metadata
-    description?: string;    // Website description
-    dependencies: {          // Package dependencies
+    title: string; // Website title from metadata
+    description?: string; // Website description
+    dependencies: {
+      // Package dependencies
       [key: string]: string;
     };
   };
-  bundleType: 'source' | 'built' | 'both';  // What's included
-  checksum: string;          // Bundle integrity check (SHA-256)
+  bundleType: 'source' | 'built' | 'both'; // What's included
+  checksum: string; // Bundle integrity check (SHA-256)
 }
 
 export interface BundleManifest {
   files: Array<{
-    path: string;            // Relative path in bundle
-    size: number;            // File size in bytes
-    checksum: string;        // SHA-256 of file content
-    lastModified: string;    // ISO timestamp
+    path: string; // Relative path in bundle
+    size: number; // File size in bytes
+    checksum: string; // SHA-256 of file content
+    lastModified: string; // ISO timestamp
   }>;
-  totalSize: number;         // Total bundle size
-  fileCount: number;         // Total file count
+  totalSize: number; // Total bundle size
+  fileCount: number; // Total file count
 }
 
 export interface BundleCreationOptions {
-  includeSource: boolean;    // Include source files
-  includeBuilt: boolean;     // Include built files
+  includeSource: boolean; // Include source files
+  includeBuilt: boolean; // Include built files
   excludePatterns?: string[]; // Glob patterns to exclude
   buildBeforeBundling?: boolean; // Build the site first
 }
 
 export interface BundleExtractionOptions {
-  targetDirectory: string;   // Where to extract the bundle
+  targetDirectory: string; // Where to extract the bundle
   overwriteExisting?: boolean; // Overwrite existing files
-  validateChecksum?: boolean;  // Verify file integrity
+  validateChecksum?: boolean; // Verify file integrity
 }
 
 /**
@@ -78,14 +85,14 @@ export class WebsiteBundler {
    * Create a bundle from a website.
    */
   async createBundle(
-    websiteName: string, 
+    websiteName: string,
     outputPath: string,
     options: BundleCreationOptions = { includeSource: true, includeBuilt: false }
   ): Promise<void> {
     this.logger.info('Creating website bundle', { websiteName, outputPath, options });
 
     const websitePath = this.websiteManager.getWebsitePath(websiteName);
-    
+
     // Verify website exists
     if (!(await this.fileSystem.exists(websitePath))) {
       throw new Error(`Website "${websiteName}" not found at ${websitePath}`);
@@ -93,7 +100,7 @@ export class WebsiteBundler {
 
     // Create temporary directory for bundle preparation
     const tempDir = await this.createTempDirectory();
-    
+
     try {
       // Build the website if requested
       if (options.buildBeforeBundling && options.includeBuilt) {
@@ -101,11 +108,7 @@ export class WebsiteBundler {
       }
 
       // Prepare bundle contents
-      const bundleContents = await this.prepareBundleContents(
-        websitePath, 
-        tempDir, 
-        options
-      );
+      const bundleContents = await this.prepareBundleContents(websitePath, tempDir, options);
 
       // Create manifest
       const manifest = await this.createManifest(bundleContents);
@@ -115,20 +118,14 @@ export class WebsiteBundler {
       metadata.checksum = this.calculateBundleChecksum(manifest);
 
       // Create the bundle archive
-      await this.createBundleArchive(
-        bundleContents,
-        metadata,
-        manifest,
-        outputPath
-      );
+      await this.createBundleArchive(bundleContents, metadata, manifest, outputPath);
 
-      this.logger.info('Bundle created successfully', { 
-        websiteName, 
+      this.logger.info('Bundle created successfully', {
+        websiteName,
         outputPath,
         fileCount: manifest.fileCount,
-        totalSize: manifest.totalSize 
+        totalSize: manifest.totalSize,
       });
-
     } finally {
       // Clean up temporary directory
       await this.cleanupTempDirectory(tempDir);
@@ -138,10 +135,7 @@ export class WebsiteBundler {
   /**
    * Extract a bundle to a directory.
    */
-  async extractBundle(
-    bundlePath: string,
-    options: BundleExtractionOptions
-  ): Promise<AnglesiteBundleMetadata> {
+  async extractBundle(bundlePath: string, options: BundleExtractionOptions): Promise<AnglesiteBundleMetadata> {
     this.logger.info('Extracting website bundle', { bundlePath, options });
 
     if (!(await this.fileSystem.exists(bundlePath))) {
@@ -156,10 +150,10 @@ export class WebsiteBundler {
     // Extract bundle and validate
     const metadata = await this.extractBundleArchive(bundlePath, options);
 
-    this.logger.info('Bundle extracted successfully', { 
+    this.logger.info('Bundle extracted successfully', {
       bundlePath,
       websiteName: metadata.websiteName,
-      targetDirectory: options.targetDirectory 
+      targetDirectory: options.targetDirectory,
     });
 
     return metadata;
@@ -187,6 +181,10 @@ export class WebsiteBundler {
 
       // Validate ZIP structure and read metadata
       return new Promise((resolve) => {
+        if (!yauzl) {
+          resolve({ valid: false, error: 'ZIP validation not available in test environment' });
+          return;
+        }
         yauzl.open(bundlePath, { lazyEntries: true }, (err, zipfile) => {
           if (err) {
             resolve({ valid: false, error: `Invalid ZIP file: ${err.message}` });
@@ -205,7 +203,7 @@ export class WebsiteBundler {
 
           zipfile.readEntry();
 
-          zipfile.on('entry', (entry: yauzl.Entry) => {
+          zipfile.on('entry', (entry: any) => {
             const fileName = entry.fileName;
 
             if (fileName === 'metadata.json') {
@@ -225,12 +223,12 @@ export class WebsiteBundler {
                 readStream.on('end', () => {
                   try {
                     metadata = JSON.parse(metadataContent);
-                    
+
                     // Validate metadata structure
                     if (!metadata?.version || !metadata?.websiteName || !metadata?.createdAt) {
-                      resolve({ 
-                        valid: false, 
-                        error: 'Invalid bundle metadata - missing required fields' 
+                      resolve({
+                        valid: false,
+                        error: 'Invalid bundle metadata - missing required fields',
                       });
                       return;
                     }
@@ -239,14 +237,14 @@ export class WebsiteBundler {
                     if (metadata.version !== this.BUNDLE_FORMAT_VERSION) {
                       this.logger.warn('Bundle format version mismatch', {
                         expected: this.BUNDLE_FORMAT_VERSION,
-                        actual: metadata.version
+                        actual: metadata.version,
                       });
                       // For now, still accept it but log a warning
                     }
                   } catch (parseError) {
-                    resolve({ 
-                      valid: false, 
-                      error: 'Invalid metadata JSON format' 
+                    resolve({
+                      valid: false,
+                      error: 'Invalid metadata JSON format',
                     });
                     return;
                   }
@@ -254,9 +252,9 @@ export class WebsiteBundler {
                 });
 
                 readStream.on('error', () => {
-                  resolve({ 
-                    valid: false, 
-                    error: 'Failed to read metadata content' 
+                  resolve({
+                    valid: false,
+                    error: 'Failed to read metadata content',
                   });
                 });
               });
@@ -285,10 +283,10 @@ export class WebsiteBundler {
               return;
             }
 
-            resolve({ 
-              valid: true, 
+            resolve({
+              valid: true,
               metadata,
-              ...(hasManifest ? {} : { error: 'Bundle missing manifest.json (non-fatal)' })
+              ...(hasManifest ? {} : { error: 'Bundle missing manifest.json (non-fatal)' }),
             });
           });
 
@@ -297,12 +295,11 @@ export class WebsiteBundler {
           });
         });
       });
-
     } catch (error) {
       this.logger.error('Bundle validation failed', error as Error);
-      return { 
-        valid: false, 
-        error: error instanceof Error ? error.message : 'Unknown validation error' 
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : 'Unknown validation error',
       };
     }
   }
@@ -314,9 +311,9 @@ export class WebsiteBundler {
     const tempBase = os.tmpdir();
     const uniqueId = `anglesite-bundle-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const tempDir = path.join(tempBase, uniqueId);
-    
+
     await this.fileSystem.mkdir(tempDir, { recursive: true });
-    
+
     return tempDir;
   }
 
@@ -340,7 +337,7 @@ export class WebsiteBundler {
     // This would integrate with the existing Eleventy build system
     // For now, this is a placeholder
     this.logger.debug('Building website', { websitePath, tempDir });
-    
+
     // TODO: Implement Eleventy build integration
     // Could reuse code from src/main/ipc/export.ts
   }
@@ -392,7 +389,7 @@ export class WebsiteBundler {
       '.git/**',
       '**/.DS_Store',
       '**/Thumbs.db',
-      '**/*.tmp'
+      '**/*.tmp',
     ];
 
     const allExcludes = [...defaultExcludes, ...(excludePatterns || [])];
@@ -403,20 +400,16 @@ export class WebsiteBundler {
   /**
    * Recursively copy directory with exclusion patterns.
    */
-  private async copyDirectoryRecursive(
-    source: string,
-    target: string,
-    excludePatterns: string[]
-  ): Promise<void> {
+  private async copyDirectoryRecursive(source: string, target: string, excludePatterns: string[]): Promise<void> {
     const entries = await this.fileSystem.readdir(source);
 
     for (const entry of entries) {
       const sourcePath = path.join(source, entry);
       const targetPath = path.join(target, entry);
-      
+
       // Check if this path should be excluded
       const relativePath = path.relative(source, sourcePath);
-      const shouldExclude = excludePatterns.some(pattern => {
+      const shouldExclude = excludePatterns.some((pattern) => {
         // Simple pattern matching - could be enhanced with proper glob support
         if (pattern.endsWith('/**')) {
           const dirPattern = pattern.slice(0, -3);
@@ -434,7 +427,7 @@ export class WebsiteBundler {
       }
 
       const stats = await this.fileSystem.stat(sourcePath);
-      
+
       if (stats.isDirectory()) {
         await this.fileSystem.mkdir(targetPath, { recursive: true });
         await this.copyDirectoryRecursive(sourcePath, targetPath, excludePatterns);
@@ -457,18 +450,18 @@ export class WebsiteBundler {
     let websiteInfo = {
       title: websiteName,
       description: undefined as string | undefined,
-      dependencies: {} as { [key: string]: string }
+      dependencies: {} as { [key: string]: string },
     };
 
     if (await this.fileSystem.exists(packageJsonPath)) {
       try {
-        const packageContent = await this.fileSystem.readFile(packageJsonPath, 'utf8') as string;
+        const packageContent = (await this.fileSystem.readFile(packageJsonPath, 'utf8')) as string;
         const packageData = JSON.parse(packageContent);
-        
+
         websiteInfo = {
           title: packageData.name || websiteName,
           description: packageData.description,
-          dependencies: packageData.dependencies || {}
+          dependencies: packageData.dependencies || {},
         };
       } catch (error) {
         this.logger.warn('Failed to read website package.json', { websitePath, error });
@@ -480,7 +473,7 @@ export class WebsiteBundler {
     try {
       const appPackagePath = path.join(__dirname, '../../package.json');
       if (await this.fileSystem.exists(appPackagePath)) {
-        const appPackageContent = await this.fileSystem.readFile(appPackagePath, 'utf8') as string;
+        const appPackageContent = (await this.fileSystem.readFile(appPackagePath, 'utf8')) as string;
         const appPackageData = JSON.parse(appPackageContent);
         anglesiteVersion = appPackageData.version || '0.1.0';
       }
@@ -488,8 +481,8 @@ export class WebsiteBundler {
       this.logger.debug('Could not determine Anglesite version', { error });
     }
 
-    const bundleType = options.includeSource && options.includeBuilt ? 'both' :
-                      options.includeBuilt ? 'built' : 'source';
+    const bundleType =
+      options.includeSource && options.includeBuilt ? 'both' : options.includeBuilt ? 'built' : 'source';
 
     const metadata: AnglesiteBundleMetadata = {
       version: this.BUNDLE_FORMAT_VERSION,
@@ -498,11 +491,11 @@ export class WebsiteBundler {
       createdBy: {
         anglesite: anglesiteVersion,
         platform: `${os.type()} ${os.release()}`,
-        user: os.userInfo().username
+        user: os.userInfo().username,
       },
       website: websiteInfo,
       bundleType,
-      checksum: '' // Will be calculated later
+      checksum: '', // Will be calculated later
     };
 
     return metadata;
@@ -511,9 +504,7 @@ export class WebsiteBundler {
   /**
    * Create bundle manifest with file information.
    */
-  private async createManifest(
-    bundleContents: { sourceDir?: string; builtDir?: string }
-  ): Promise<BundleManifest> {
+  private async createManifest(bundleContents: { sourceDir?: string; builtDir?: string }): Promise<BundleManifest> {
     const files: BundleManifest['files'] = [];
     let totalSize = 0;
 
@@ -534,17 +525,14 @@ export class WebsiteBundler {
     return {
       files,
       totalSize,
-      fileCount: files.length
+      fileCount: files.length,
     };
   }
 
   /**
    * Get file manifest for a directory.
    */
-  private async getFileManifest(
-    directory: string, 
-    prefix: string
-  ): Promise<BundleManifest['files']> {
+  private async getFileManifest(directory: string, prefix: string): Promise<BundleManifest['files']> {
     const files: BundleManifest['files'] = [];
 
     const processDirectory = async (dir: string, basePath: string = '') => {
@@ -554,21 +542,18 @@ export class WebsiteBundler {
         const fullPath = path.join(dir, entry);
         const relativePath = path.join(basePath, entry);
         const bundlePath = path.join(prefix, relativePath).replace(/\\/g, '/'); // Normalize path separators
-        
+
         const stats = await this.fileSystem.stat(fullPath);
 
         if (stats.isFile()) {
           const content = await this.fileSystem.readFile(fullPath);
-          const checksum = crypto
-            .createHash('sha256')
-            .update(content)
-            .digest('hex');
+          const checksum = crypto.createHash('sha256').update(content).digest('hex');
 
           files.push({
             path: bundlePath,
             size: stats.size,
             checksum,
-            lastModified: stats.mtime.toISOString()
+            lastModified: stats.mtime.toISOString(),
           });
         } else if (stats.isDirectory()) {
           await processDirectory(fullPath, relativePath);
@@ -591,15 +576,15 @@ export class WebsiteBundler {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const output = fs.createWriteStream(outputPath);
-      const archive = archiver('zip', { 
+      const archive = archiver('zip', {
         zlib: { level: 9 }, // Best compression
-        forceLocalTime: true
+        forceLocalTime: true,
       });
 
       output.on('close', () => {
-        this.logger.debug('Bundle archive created', { 
-          outputPath, 
-          size: archive.pointer() 
+        this.logger.debug('Bundle archive created', {
+          outputPath,
+          size: archive.pointer(),
         });
         resolve();
       });
@@ -637,6 +622,10 @@ export class WebsiteBundler {
     options: BundleExtractionOptions
   ): Promise<AnglesiteBundleMetadata> {
     return new Promise((resolve, reject) => {
+      if (!yauzl) {
+        reject(new Error('ZIP extraction not available in test environment'));
+        return;
+      }
       yauzl.open(bundlePath, { lazyEntries: true }, (err, zipfile) => {
         if (err) {
           reject(new Error(`Failed to open bundle: ${err.message}`));
@@ -659,7 +648,7 @@ export class WebsiteBundler {
             if (metadata) {
               this.logger.info('Bundle extraction completed', {
                 websiteName: metadata.websiteName,
-                fileCount: extractedFiles.length
+                fileCount: extractedFiles.length,
               });
               resolve(metadata);
             } else {
@@ -670,9 +659,9 @@ export class WebsiteBundler {
 
         zipfile.readEntry();
 
-        zipfile.on('entry', (entry: yauzl.Entry) => {
+        zipfile.on('entry', (entry: any) => {
           const fileName = entry.fileName;
-          
+
           // Handle directory entries
           if (fileName.endsWith('/')) {
             // Create directory
@@ -769,10 +758,10 @@ export class WebsiteBundler {
 
           // Handle regular files (source/ or built/ directories)
           if (fileName.startsWith('source/') || fileName.startsWith('built/')) {
-            const relativePath = fileName.startsWith('source/') 
-              ? fileName.substring('source/'.length) 
+            const relativePath = fileName.startsWith('source/')
+              ? fileName.substring('source/'.length)
               : fileName.substring('built/'.length);
-            
+
             const targetPath = path.join(options.targetDirectory, relativePath);
             const targetDir = path.dirname(targetPath);
 
@@ -804,35 +793,33 @@ export class WebsiteBundler {
               }
 
               const writeStream = fs.createWriteStream(targetPath);
-              
+
               writeStream.on('finish', () => {
                 extractedFiles.push(targetPath);
-                
+
                 // Validate checksum if requested and manifest is available
                 if (options.validateChecksum && manifest) {
-                  const expectedFile = manifest.files.find(f => 
-                    f.path === fileName || f.path === `source/${relativePath}` || f.path === `built/${relativePath}`
+                  const expectedFile = manifest.files.find(
+                    (f) =>
+                      f.path === fileName || f.path === `source/${relativePath}` || f.path === `built/${relativePath}`
                   );
-                  
+
                   if (expectedFile) {
                     try {
                       const fileContent = fs.readFileSync(targetPath);
-                      const actualChecksum = crypto
-                        .createHash('sha256')
-                        .update(fileContent)
-                        .digest('hex');
-                      
+                      const actualChecksum = crypto.createHash('sha256').update(fileContent).digest('hex');
+
                       if (actualChecksum !== expectedFile.checksum) {
-                        this.logger.warn('File checksum mismatch', { 
-                          targetPath, 
-                          expected: expectedFile.checksum, 
-                          actual: actualChecksum 
+                        this.logger.warn('File checksum mismatch', {
+                          targetPath,
+                          expected: expectedFile.checksum,
+                          actual: actualChecksum,
                         });
                       }
                     } catch (checksumError) {
-                      this.logger.warn('Failed to validate file checksum', { 
-                        targetPath, 
-                        error: checksumError 
+                      this.logger.warn('Failed to validate file checksum', {
+                        targetPath,
+                        error: checksumError,
                       });
                     }
                   }
@@ -843,8 +830,8 @@ export class WebsiteBundler {
               });
 
               writeStream.on('error', (writeError) => {
-                this.logger.error('Failed to write extracted file', writeError, { 
-                  targetPath
+                this.logger.error('Failed to write extracted file', writeError, {
+                  targetPath,
                 });
                 pendingExtractions--;
                 checkCompletion();
@@ -874,14 +861,11 @@ export class WebsiteBundler {
    */
   private calculateBundleChecksum(manifest: BundleManifest): string {
     const checksumData = manifest.files
-      .map(file => `${file.path}:${file.checksum}:${file.size}`)
+      .map((file) => `${file.path}:${file.checksum}:${file.size}`)
       .sort()
       .join('\n');
 
-    return crypto
-      .createHash('sha256')
-      .update(checksumData)
-      .digest('hex');
+    return crypto.createHash('sha256').update(checksumData).digest('hex');
   }
 
   /**

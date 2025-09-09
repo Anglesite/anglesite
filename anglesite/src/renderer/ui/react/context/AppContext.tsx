@@ -23,7 +23,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [state, setState] = useState<AppState>({
     currentView: 'file-editor',
     selectedFile: null,
-    websiteName: 'My Website',
+    websiteName: '', // Will be loaded dynamically
     websitePath: null,
     loading: true,
   });
@@ -47,6 +47,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setLoading = (loading: boolean) => {
     setState((prev) => ({ ...prev, loading }));
   };
+
+  // Load current website name on mount
+  useEffect(() => {
+    const loadCurrentWebsiteName = async () => {
+      try {
+        if (window.electronAPI?.invoke) {
+          const websiteName = (await window.electronAPI.invoke('get-current-website-name')) as string | null;
+          if (websiteName) {
+            console.log('Loaded current website name:', websiteName);
+            setWebsiteName(websiteName);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading current website name:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCurrentWebsiteName();
+  }, []);
 
   // Listen for website loading events
   useEffect(() => {

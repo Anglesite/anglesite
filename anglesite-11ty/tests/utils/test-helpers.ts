@@ -8,7 +8,9 @@ import type { EleventyCollectionItem } from '@11ty/eleventy';
 /**
  * Creates a minimal website configuration for testing
  */
-export function createMockWebsiteConfig(overrides?: Partial<AnglesiteWebsiteConfiguration>): AnglesiteWebsiteConfiguration {
+export function createMockWebsiteConfig(
+  overrides?: Partial<AnglesiteWebsiteConfiguration>
+): AnglesiteWebsiteConfiguration {
   return {
     title: 'Test Site',
     url: 'https://example.com',
@@ -101,16 +103,17 @@ export function mockConsole() {
  * Extracts event handler from mock Eleventy config
  */
 export function extractEventHandler(mockConfig: ReturnType<typeof createMockEleventyConfig>, eventName: string) {
-  return (mockConfig.on as jest.Mock).mock.calls
-    .find(call => call[0] === eventName)?.[1];
+  return (mockConfig.on as jest.Mock).mock.calls.find((call) => call[0] === eventName)?.[1];
 }
 
 /**
  * Extracts collection handler from mock Eleventy config
  */
-export function extractCollectionHandler(mockConfig: ReturnType<typeof createMockEleventyConfig>, collectionName: string) {
-  return (mockConfig.addCollection as jest.Mock).mock.calls
-    .find(call => call[0] === collectionName)?.[1];
+export function extractCollectionHandler(
+  mockConfig: ReturnType<typeof createMockEleventyConfig>,
+  collectionName: string
+) {
+  return (mockConfig.addCollection as jest.Mock).mock.calls.find((call) => call[0] === collectionName)?.[1];
 }
 
 /**
@@ -119,12 +122,12 @@ export function extractCollectionHandler(mockConfig: ReturnType<typeof createMoc
 export function assertValidXml(xmlString: string): void {
   expect(xmlString).toContain('<?xml version="1.0" encoding="UTF-8"?>');
   expect(xmlString.trim()).not.toBe('');
-  
+
   // Basic XML structure validation
   const openTags = (xmlString.match(/<[^/!?][^>]*>/g) || []).length;
   const closeTags = (xmlString.match(/<\/[^>]+>/g) || []).length;
   const selfClosingTags = (xmlString.match(/<[^>]*\/>/g) || []).length;
-  
+
   // For self-closing tags, each counts as both open and close
   expect(openTags - selfClosingTags).toBe(closeTags);
 }
@@ -134,7 +137,7 @@ export function assertValidXml(xmlString: string): void {
  */
 export function assertValidJson(jsonString: string): void {
   expect(() => JSON.parse(jsonString)).not.toThrow();
-  
+
   const parsed = JSON.parse(jsonString);
   expect(typeof parsed).toBe('object');
   expect(parsed).not.toBeNull();
@@ -149,7 +152,7 @@ export const testPatterns = {
    */
   pluginRegistration: (pluginFn: (config: any) => void) => {
     const mockConfig = createMockEleventyConfig();
-    
+
     expect(() => pluginFn(mockConfig)).not.toThrow();
     expect(mockConfig.on).toHaveBeenCalled();
   },
@@ -162,7 +165,7 @@ export const testPatterns = {
       dir: { input: '/input', output: '/output' },
       results: [],
     };
-    
+
     await expect(eventHandler(mockEvent)).resolves.not.toThrow();
   },
 
@@ -174,7 +177,7 @@ export const testPatterns = {
       dir: { input: '/input', output: '/output' },
       results: [{}], // No website data
     };
-    
+
     await expect(eventHandler(mockEvent)).resolves.not.toThrow();
   },
 };

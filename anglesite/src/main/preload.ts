@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'set-theme',
       'load-website-files',
       'start-website-dev-server',
+      'get-current-website-name',
       'get-website-files',
       'get-file-content',
       'save-file-content',

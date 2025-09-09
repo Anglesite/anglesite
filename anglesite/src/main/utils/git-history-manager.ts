@@ -1,6 +1,6 @@
 /**
  * @file Git History Manager for Anglesite Websites
- * 
+ *
  * Manages git repositories for website projects to maintain version history.
  * Automatically commits changes on save and close events with human-readable timestamps.
  */
@@ -37,7 +37,7 @@ export class GitHistoryManager {
   private readonly gitInstances: Map<string, SimpleGit> = new Map();
   private readonly pendingCommits: Map<string, NodeJS.Timeout> = new Map();
   private readonly DEBOUNCE_DELAY = 5000; // 5 seconds debounce for saves
-  
+
   constructor(logger: ILogger) {
     this.logger = logger.child({ service: 'GitHistoryManager' });
   }
@@ -66,10 +66,10 @@ export class GitHistoryManager {
    */
   async initRepository(websitePath: string): Promise<void> {
     this.logger.info('Initializing git repository', { websitePath });
-    
+
     try {
       const git = this.getGitInstance(websitePath);
-      
+
       // Check if already a git repository
       let isRepo = false;
       try {
@@ -79,46 +79,50 @@ export class GitHistoryManager {
         this.logger.debug('Not a git repository yet', { websitePath });
         isRepo = false;
       }
-      
+
       if (isRepo) {
         this.logger.debug('Repository already exists', { websitePath });
         return;
       }
 
       this.logger.debug('Initializing new git repository', { websitePath });
-      
+
       // Initialize repository
       await git.init();
       this.logger.debug('Git init completed', { websitePath });
-      
+
       // Create .gitignore if it doesn't exist
       await this.createGitignore(websitePath);
       this.logger.debug('Created .gitignore file', { websitePath });
-      
+
       // Configure git user for this repository
       await git.addConfig('user.name', 'Anglesite');
       await git.addConfig('user.email', 'anglesite@localhost');
       this.logger.debug('Configured git user', { websitePath });
-      
+
       // Make initial commit
       await git.add('.');
       this.logger.debug('Added files to git staging', { websitePath });
-      
+
       const timestamp = format(new Date(), "MMMM d, yyyy 'at' h:mm a");
       await git.commit(`Initial commit: ${timestamp}`);
       this.logger.debug('Created initial commit', { websitePath });
-      
+
       // Verify repository was created successfully
       const finalCheck = await git.checkIsRepo();
       if (!finalCheck) {
         throw new Error('Git repository initialization verification failed');
       }
-      
+
       this.logger.info('Git repository initialized successfully', { websitePath });
     } catch (error) {
-      this.logger.error('Failed to initialize git repository', error instanceof Error ? error : new Error(String(error)), { 
-        websitePath
-      });
+      this.logger.error(
+        'Failed to initialize git repository',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          websitePath,
+        }
+      );
       throw error;
     }
   }
@@ -128,7 +132,7 @@ export class GitHistoryManager {
    */
   private async createGitignore(websitePath: string): Promise<void> {
     const gitignorePath = path.join(websitePath, '.gitignore');
-    
+
     try {
       await fs.access(gitignorePath);
       this.logger.debug('.gitignore already exists', { websitePath });
@@ -181,7 +185,7 @@ coverage/
 .anglesite-cache/
 .anglesite-temp/
 `;
-      
+
       await fs.writeFile(gitignorePath, gitignoreContent, 'utf-8');
       this.logger.debug('Created .gitignore file', { websitePath });
     }
@@ -192,7 +196,7 @@ coverage/
    */
   async autoCommit(websitePath: string, action: 'save' | 'close'): Promise<void> {
     this.logger.debug('Auto-commit requested', { websitePath, action });
-    
+
     // Cancel any pending commit for this website
     const pendingCommit = this.pendingCommits.get(websitePath);
     if (pendingCommit) {
@@ -206,7 +210,7 @@ coverage/
         await this.performCommit(websitePath, 'save');
         this.pendingCommits.delete(websitePath);
       }, this.DEBOUNCE_DELAY);
-      
+
       this.pendingCommits.set(websitePath, timeout);
     } else {
       // Immediate commit on close
@@ -220,7 +224,7 @@ coverage/
   private async performCommit(websitePath: string, action: string): Promise<void> {
     try {
       const git = this.getGitInstance(websitePath);
-      
+
       // Check if this is a git repository first
       let isRepo = false;
       try {
@@ -230,12 +234,12 @@ coverage/
         await this.initRepository(websitePath);
         isRepo = true;
       }
-      
+
       if (!isRepo) {
         this.logger.warn('Cannot commit: not a git repository', { websitePath });
         return;
       }
-      
+
       // Check if there are any changes to commit
       const status = await git.status();
       if (status.files.length === 0) {
@@ -245,19 +249,19 @@ coverage/
 
       // Stage all changes
       await git.add('.');
-      
+
       // Create commit message with human-readable timestamp
       const timestamp = format(new Date(), "MMMM d, yyyy 'at' h:mm a");
       const message = `${action}: ${timestamp}`;
-      
+
       // Commit changes
       await git.commit(message);
-      
+
       this.logger.info('Changes committed successfully', { websitePath, message });
     } catch (error) {
-      this.logger.error('Failed to commit changes', error instanceof Error ? error : new Error(String(error)), { 
-        websitePath, 
-        action
+      this.logger.error('Failed to commit changes', error instanceof Error ? error : new Error(String(error)), {
+        websitePath,
+        action,
       });
       // Don't throw - we don't want to interrupt the user's workflow
     }
@@ -268,36 +272,36 @@ coverage/
    */
   async getHistory(websitePath: string, options: GitHistoryOptions = {}): Promise<GitCommitInfo[]> {
     this.logger.debug('Getting git history', { websitePath, options });
-    
+
     try {
       const git = this.getGitInstance(websitePath);
-      
+
       const logOptions: any = {
         maxCount: options.limit || 100,
       };
-      
+
       if (options.from) {
         logOptions.from = options.from;
       }
       if (options.to) {
         logOptions.to = options.to;
       }
-      
+
       const log: LogResult<DefaultLogFields> = await git.log(logOptions);
-      
-      return log.all.map(commit => ({
+
+      return log.all.map((commit) => ({
         hash: commit.hash,
         date: new Date(commit.date),
         message: commit.message,
         body: commit.body || '',
         author: {
           name: commit.author_name || 'Unknown',
-          email: commit.author_email || 'unknown@localhost'
-        }
+          email: commit.author_email || 'unknown@localhost',
+        },
       }));
     } catch (error) {
-      this.logger.error('Failed to get git history', error instanceof Error ? error : new Error(String(error)), { 
-        websitePath
+      this.logger.error('Failed to get git history', error instanceof Error ? error : new Error(String(error)), {
+        websitePath,
       });
       throw error;
     }
@@ -308,25 +312,25 @@ coverage/
    */
   async rollback(websitePath: string, commitHash: string): Promise<void> {
     this.logger.info('Rolling back to commit', { websitePath, commitHash });
-    
+
     try {
       const git = this.getGitInstance(websitePath);
-      
+
       // Check for uncommitted changes
       const status = await git.status();
       if (status.files.length > 0) {
         // Commit current changes before rollback
         await this.performCommit(websitePath, 'save before rollback');
       }
-      
+
       // Reset to the specified commit (keeping changes as uncommitted)
       await git.reset(['--hard', commitHash]);
-      
+
       this.logger.info('Successfully rolled back to commit', { websitePath, commitHash });
     } catch (error) {
-      this.logger.error('Failed to rollback', error instanceof Error ? error : new Error(String(error)), { 
-        websitePath, 
-        commitHash
+      this.logger.error('Failed to rollback', error instanceof Error ? error : new Error(String(error)), {
+        websitePath,
+        commitHash,
       });
       throw error;
     }
@@ -341,8 +345,8 @@ coverage/
       const log = await git.log({ maxCount: 1 });
       return log.latest ? log.latest.hash : null;
     } catch (error) {
-      this.logger.error('Failed to get current commit', error instanceof Error ? error : new Error(String(error)), { 
-        websitePath
+      this.logger.error('Failed to get current commit', error instanceof Error ? error : new Error(String(error)), {
+        websitePath,
       });
       return null;
     }
@@ -358,10 +362,10 @@ coverage/
       clearTimeout(pendingCommit);
       this.pendingCommits.delete(websitePath);
     }
-    
+
     // Remove git instance
     this.gitInstances.delete(websitePath);
-    
+
     this.logger.debug('Disposed git history manager for website', { websitePath });
   }
 
@@ -381,10 +385,10 @@ coverage/
       clearTimeout(timeout);
     }
     this.pendingCommits.clear();
-    
+
     // Clear all git instances
     this.gitInstances.clear();
-    
+
     this.logger.debug('Disposed all git history managers');
   }
 }

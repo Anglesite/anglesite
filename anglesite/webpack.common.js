@@ -7,6 +7,7 @@
  */
 
 const path = require('path');
+const webpack = require('webpack');
 const CopyPlugin = require('copy-webpack-plugin');
 const ASSET_CONFIG = require('./assets.config');
 
@@ -15,7 +16,7 @@ const ASSET_CONFIG = require('./assets.config');
  * @type {import('webpack').Configuration}
  */
 module.exports = {
-  /** Target Electron's renderer process for proper module resolution */
+  /** Target Electron renderer environment */
   target: 'electron-renderer',
 
   /** Entry points for the application bundles */
@@ -38,6 +39,17 @@ module.exports = {
       '@components': path.resolve(__dirname, 'src/renderer/ui/react/components'),
       /** Styles directory alias */
       '@styles': path.resolve(__dirname, 'src/renderer/ui'),
+    },
+    /** Polyfill fallbacks for Node.js modules in browser environment */
+    fallback: {
+      buffer: 'buffer',
+      process: 'process/browser',
+      stream: false,
+      path: false,
+      fs: false,
+      crypto: false,
+      os: false,
+      util: false,
     },
   },
 
@@ -89,6 +101,23 @@ module.exports = {
 
   /** Webpack plugins configuration */
   plugins: [
+    /**
+     * Define global variables for browser compatibility
+     * Fixes "global is not defined" errors in Electron renderer
+     */
+    new webpack.DefinePlugin({
+      global: 'globalThis',
+    }),
+
+    /**
+     * Provide global variables as fallback
+     * Additional polyfills for Node.js globals in browser environment
+     */
+    new webpack.ProvidePlugin({
+      Buffer: ['buffer', 'Buffer'],
+      process: 'process/browser',
+    }),
+
     /**
      * Copy static assets to output directory
      * Copies icons while ignoring source files

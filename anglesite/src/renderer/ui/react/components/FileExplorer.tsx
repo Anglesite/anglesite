@@ -1,15 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { Tree, NodeApi } from 'react-arborist';
 import { useAppContext } from '../context/AppContext';
-import { FluentTreeView, FluentTreeItem, FluentButton, FluentCard } from '../fluent';
+import { FluentButton, FluentCard } from '../fluent';
 
 interface FileItem {
+  id: string;
   name: string;
   type: 'file' | 'directory';
   path: string;
   filePath: string;
   isDirectory: boolean;
   url?: string;
-  children: FileItem[];
+  children?: FileItem[] | null;
+}
+
+interface RawFileData {
+  name: string;
+  filePath: string;
+  isDirectory: boolean;
+  relativePath: string;
+  url?: string;
 }
 
 interface FileExplorerProps {
@@ -22,7 +32,6 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
 
   const loadFiles = async () => {
     if (!state.websiteName) return;
@@ -33,7 +42,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
 
       // Use Electron IPC to get website files
       const websiteFiles = (await window.electronAPI?.invoke('get-website-files', state.websiteName)) as
-        | any[]
+        | RawFileData[]
         | undefined;
 
       if (websiteFiles && Array.isArray(websiteFiles) && websiteFiles.length > 0) {
@@ -50,65 +59,55 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
     }
   };
 
-  const buildFileTree = async (rawFiles: any[]): Promise<FileItem[]> => {
+  const buildFileTree = async (rawFiles: RawFileData[]): Promise<FileItem[]> => {
     const tree: FileItem[] = [];
-    const websitePath = `/path/to/${state.websiteName}`; // This would come from context in real implementation
+    const nodeMap = new Map<string, FileItem>();
 
-    // Filter out files/folders that start with . or _
-    const filteredFiles = rawFiles.filter((file) => {
-      const fileName = file.name || file.filePath.split('/').pop() || '';
-      return !fileName.startsWith('.') && !fileName.startsWith('_');
-    });
-
-    filteredFiles.forEach((file) => {
-      const relativePath = file.filePath.replace(websitePath + '/src/', '');
-      const pathParts = relativePath.split('/');
-
-      // Skip if any part of the path starts with . or _
-      const hasHiddenPath = pathParts.some((part: string) => part.startsWith('.') || part.startsWith('_'));
-      if (hasHiddenPath) {
+    // Create nodes for all files and directories
+    rawFiles.forEach((file) => {
+      // Skip files with invalid relativePath
+      if (!file.relativePath || typeof file.relativePath !== 'string') {
+        console.warn('Skipping file with invalid relativePath:', file);
         return;
       }
+
+      const node: FileItem = {
+        id: file.filePath,
+        name: file.name,
+        type: file.isDirectory ? 'directory' : 'file',
+        path: file.relativePath,
+        filePath: file.filePath,
+        isDirectory: file.isDirectory,
+        url: file.url,
+        children: file.isDirectory ? [] : null,
+      };
+      nodeMap.set(file.relativePath, node);
+    });
+
+    // Build the tree structure
+    rawFiles.forEach((file) => {
+      // Ensure relativePath exists and is a string
+      if (!file.relativePath || typeof file.relativePath !== 'string') {
+        console.warn('Invalid relativePath for file:', file);
+        return;
+      }
+
+      const pathParts = file.relativePath.split('/');
 
       if (pathParts.length === 1) {
-        // Root level file or directory
-        tree.push({
-          name: pathParts[0],
-          type: file.isDirectory ? 'directory' : 'file',
-          path: file.filePath,
-          filePath: file.filePath,
-          isDirectory: file.isDirectory,
-          url: file.url,
-          children: [],
-        });
-      }
-    });
+        // Root level item
+        const node = nodeMap.get(file.relativePath);
+        if (node) {
+          tree.push(node);
+        }
+      } else {
+        // Find the parent directory
+        const parentPath = pathParts.slice(0, -1).join('/');
+        const parentNode = nodeMap.get(parentPath);
+        const currentNode = nodeMap.get(file.relativePath);
 
-    // Add children to directories
-    filteredFiles.forEach((file) => {
-      const relativePath = file.filePath.replace(websitePath + '/src/', '');
-      const pathParts = relativePath.split('/');
-
-      // Skip if any part of the path starts with . or _
-      const hasHiddenPath = pathParts.some((part: string) => part.startsWith('.') || part.startsWith('_'));
-      if (hasHiddenPath) {
-        return;
-      }
-
-      if (pathParts.length > 1) {
-        const parentDirName = pathParts[0];
-        const parentDir = tree.find((item) => item.name === parentDirName && item.isDirectory);
-
-        if (parentDir) {
-          parentDir.children.push({
-            name: pathParts[pathParts.length - 1],
-            type: file.isDirectory ? 'directory' : 'file',
-            path: file.filePath,
-            filePath: file.filePath,
-            isDirectory: file.isDirectory,
-            url: file.url,
-            children: [],
-          });
+        if (parentNode && currentNode && parentNode.children) {
+          parentNode.children.push(currentNode);
         }
       }
     });
@@ -122,8 +121,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
       });
 
       items.forEach((item) => {
-        if (item.children.length > 0) {
+        if (item.children && item.children.length > 0) {
           sortItems(item.children);
+        }
+        // Clean up empty children arrays for files
+        if (!item.isDirectory && item.children && item.children.length === 0) {
+          item.children = null;
         }
       });
     };
@@ -165,46 +168,91 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
     }
   };
 
-  // Convert FileItem to FluentTreeItem format
-  const convertToTreeItems = (items: FileItem[]): FluentTreeItem[] => {
-    return items.map((item) => ({
-      id: item.path,
-      label: item.name,
-      icon: getFileIcon(item.name, item.isDirectory),
-      expanded: expandedDirs.has(item.path),
-      selected: state.selectedFile === item.filePath,
-      children: item.children.length > 0 ? convertToTreeItems(item.children) : undefined,
-    }));
-  };
+  const Node: React.FC<{ node: NodeApi<FileItem> }> = React.memo(({ node }) => {
+    const fileItem = node.data;
+    const icon = getFileIcon(fileItem.name, fileItem.isDirectory);
 
-  const handleTreeItemClick = (treeItem: FluentTreeItem) => {
-    // Find the original file item
-    const findFileItem = (items: FileItem[], id: string): FileItem | undefined => {
-      for (const item of items) {
-        if (item.path === id) return item;
-        if (item.children) {
-          const found = findFileItem(item.children, id);
-          if (found) return found;
-        }
-      }
-    };
-
-    const fileItem = findFileItem(files, treeItem.id);
-    if (fileItem) {
-      if (fileItem.isDirectory) {
-        const newExpanded = new Set(expandedDirs);
-        if (newExpanded.has(fileItem.path)) {
-          newExpanded.delete(fileItem.path);
+    const handleClick = React.useCallback(
+      async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (fileItem.isDirectory) {
+          node.toggle();
         } else {
-          newExpanded.add(fileItem.path);
+          node.select();
+          // Trigger file selection callback
+          if (onFileSelect) {
+            console.log('Selected file path:', fileItem.path);
+            console.log('Selected file filePath:', fileItem.filePath);
+            onFileSelect(fileItem.path);
+          }
+          // Update app context with selected file (use relative path for display)
+          console.log('Updating selectedFile in context to:', fileItem.path);
+          setSelectedFile(fileItem.path);
+
+          // Load file preview in WebContentsView if file has a URL
+          if (fileItem.url && state.websiteName) {
+            // Get the website server URL and construct full URL
+            try {
+              const baseUrl = await window.electronAPI?.invoke('get-website-server-url', state.websiteName);
+              if (baseUrl && window.electronAPI?.send) {
+                const fullUrl = (baseUrl as string).replace(/\/$/, '') + fileItem.url; // Remove trailing slash and add file URL
+                window.electronAPI.send('load-file-preview', state.websiteName, fullUrl);
+              } else {
+              }
+            } catch (error) {
+              console.error('Error getting website server URL:', error);
+            }
+          } else {
+          }
         }
-        setExpandedDirs(newExpanded);
-      } else {
-        setSelectedFile(fileItem.filePath);
-        onFileSelect?.(fileItem.filePath);
-      }
-    }
-  };
+      },
+      [fileItem.isDirectory, fileItem.path, node]
+    );
+
+    // Use Fluent UI accent color for selection (matches system accent on macOS)
+    const selectedStyle = node.isSelected
+      ? {
+          backgroundColor: 'var(--accent-fill-rest)',
+          color: 'var(--accent-foreground-rest, white)',
+        }
+      : {};
+
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '4px 8px',
+          cursor: 'pointer',
+          fontSize: '13px',
+          borderRadius: '4px',
+          minHeight: '28px',
+          userSelect: 'none',
+          ...selectedStyle,
+        }}
+        onClick={handleClick}
+      >
+        {fileItem.isDirectory && (
+          <span
+            style={{
+              fontSize: '12px',
+              transition: 'transform 0.15s',
+              transform: node.isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+              width: '12px',
+              textAlign: 'center',
+            }}
+          >
+            ▶
+          </span>
+        )}
+        <span style={{ fontSize: '16px' }}>{icon}</span>
+        <span>{fileItem.name}</span>
+      </div>
+    );
+  });
+
+  Node.displayName = 'FileExplorerNode';
 
   const handleWebsiteConfigClick = () => {
     setSelectedFile(null);
@@ -258,8 +306,6 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
     );
   }
 
-  const treeItems = convertToTreeItems(files);
-
   return (
     <div style={{ padding: '16px', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <h3
@@ -287,6 +333,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
+          minHeight: '32px',
+          maxHeight: '40px',
+          flex: '0 0 auto',
+          padding: '8px 12px',
         }}
       >
         <span style={{ fontSize: '16px' }}>🌐</span>
@@ -294,14 +344,30 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
       </FluentCard>
 
       {/* File tree */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        {treeItems.length > 0 ? (
-          <FluentTreeView
-            items={treeItems}
-            selectionMode="single"
-            onItemClick={handleTreeItemClick}
-            style={{ border: 'none' }}
-          />
+      <div style={{ flex: 1, overflow: 'auto', minHeight: '200px' }}>
+        {files.length > 0 ? (
+          <Tree
+            data={files}
+            openByDefault={false}
+            width="100%"
+            height={300}
+            indent={16}
+            rowHeight={28}
+            disableDrop
+            disableDrag
+            selection={state.selectedFile}
+            onSelect={(nodes) => {
+              if (nodes.length > 0) {
+                const selectedNode = nodes[0];
+                if (!selectedNode.data.isDirectory) {
+                  setSelectedFile(selectedNode.data.filePath);
+                  onFileSelect?.(selectedNode.data.filePath);
+                }
+              }
+            }}
+          >
+            {Node}
+          </Tree>
         ) : (
           <div
             style={{

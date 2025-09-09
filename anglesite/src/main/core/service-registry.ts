@@ -573,7 +573,7 @@ export class ServiceRegistrar {
         const fileSystem = container.resolve<IFileSystem>(ServiceKeys.FILE_SYSTEM);
         const atomicOps = createStubAtomicOperations(fileSystem);
         const websiteManager = createWebsiteManager(logger, fileSystem, atomicOps);
-        
+
         // Inject GitHistoryManager if available
         try {
           const gitHistoryManager = container.resolve<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
@@ -583,7 +583,7 @@ export class ServiceRegistrar {
         } catch (error) {
           logger.warn('GitHistoryManager not available', { error });
         }
-        
+
         return websiteManager;
       },
       'singleton'

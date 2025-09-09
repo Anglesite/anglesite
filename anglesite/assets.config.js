@@ -109,7 +109,7 @@ const ASSET_CONFIG = {
     // Public path settings
     publicPath: {
       development: '/',
-      production: './',
+      production: '',
     },
 
     // Clean output directory

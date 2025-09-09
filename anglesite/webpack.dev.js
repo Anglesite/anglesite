@@ -40,6 +40,7 @@ module.exports = merge(common, {
     publicPath: ASSET_CONFIG.output.publicPath.development,
     clean: ASSET_CONFIG.output.clean,
     assetModuleFilename: 'assets/[name][ext]',
+    globalObject: 'globalThis',
   },
 
   /** Development-specific module rules */
@@ -146,7 +147,7 @@ module.exports = merge(common, {
      * Uses HMR-enabled template with unminified output for debugging
      */
     new HtmlWebpackPlugin({
-      template: path.resolve(__dirname, 'src/renderer/ui/templates/website-editor-react-hmr.html'),
+      template: path.resolve(__dirname, 'src/renderer/ui/templates/website-editor.html'),
       filename: 'index.html',
       inject: 'body',
       minify: false,

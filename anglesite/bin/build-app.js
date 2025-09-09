@@ -42,6 +42,22 @@ function buildApp() {
     copyDirectory('src/renderer/ui/templates', 'dist/src/main/ui/templates');
     copyFiles('src/renderer/ui', 'dist/src/main/ui', 'first-launch.html');
 
+    // Replace website-editor.html with webpack-generated bundle
+    console.log('Copying webpack-generated website-editor.html...');
+    const webpackBundlePath = 'dist/src/renderer/ui/react/index.html';
+    const mainTemplatePath = 'dist/src/main/ui/templates/website-editor.html';
+    if (fs.existsSync(webpackBundlePath)) {
+      fs.copyFileSync(webpackBundlePath, mainTemplatePath);
+
+      // Also copy the JS and CSS bundles so the HTML can find them
+      copyFiles('dist/src/renderer/ui/react', 'dist/src/main/ui/templates', '*.js');
+      copyFiles('dist/src/renderer/ui/react', 'dist/src/main/ui/templates', '*.css');
+
+      console.log('✅ Webpack bundle and assets copied to main templates');
+    } else {
+      console.warn('⚠️ Webpack bundle not found, using source template');
+    }
+
     // Inject static icons into templates
     console.log('Injecting static icons into templates...');
     const { injectStaticIcons } = require('./inject-static-icons');

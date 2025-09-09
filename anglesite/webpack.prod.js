@@ -42,6 +42,7 @@ module.exports = merge(common, {
     clean: ASSET_CONFIG.output.clean,
     assetModuleFilename: 'assets/[name].[contenthash:8][ext]',
     sourceMapFilename: ASSET_CONFIG.sourceMaps.production.filename,
+    globalObject: 'globalThis',
   },
 
   /** Production-specific module rules */
@@ -145,7 +146,7 @@ module.exports = merge(common, {
      * Minifies HTML and injects optimized assets
      */
     new HtmlWebpackPlugin({
-      template: path.resolve(__dirname, 'src/renderer/ui/templates/website-editor-react-production.html'),
+      template: path.resolve(__dirname, 'src/renderer/ui/templates/website-editor.html'),
       filename: 'index.html',
       inject: 'body',
       minify: {

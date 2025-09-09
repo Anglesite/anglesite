@@ -77,7 +77,6 @@ export function setupButtonEventHandlers(): void {
    */
   if (previewButton) {
     previewButton.addEventListener('click', () => {
-      console.log('Preview button clicked');
       window.electronAPI.send('preview');
     });
   }
@@ -98,7 +97,6 @@ export function setupButtonEventHandlers(): void {
    */
   if (reloadButton) {
     reloadButton.addEventListener('click', () => {
-      console.log('Reload button clicked');
       window.electronAPI.send('reload-preview');
     });
   }
@@ -109,9 +107,7 @@ export function setupButtonEventHandlers(): void {
    */
   if (devToolsButton) {
     devToolsButton.addEventListener('click', () => {
-      console.log('DevTools button clicked - sending IPC message');
       window.electronAPI.send('toggle-devtools');
-      console.log('IPC message sent');
     });
   } else {
     console.error('DevTools button not found!');
@@ -126,9 +122,7 @@ export function registerMenuEventListeners(): void {
    * Listens for preview loaded events from the main process.
    * @returns {void}
    */
-  window.electronAPI.on('preview-loaded', () => {
-    console.log('Preview BrowserView loaded');
-  });
+  window.electronAPI.on('preview-loaded', () => {});
 
   /**
    * Handle menu events from the application menu.
@@ -158,7 +152,6 @@ export function registerMenuEventListeners(): void {
   });
 
   window.electronAPI.on('menu-export-site', () => {
-    console.log('Export site requested from menu');
     window.electronAPI.send('export-site');
   });
 }

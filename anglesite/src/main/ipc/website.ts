@@ -295,7 +295,7 @@ async function createNewWebsite(websiteName: string): Promise<void> {
       console.error('Failed to create website via DI:', diError);
       console.error('DI Error details:', {
         message: diError instanceof Error ? diError.message : String(diError),
-        stack: diError instanceof Error ? diError.stack : 'No stack trace'
+        stack: diError instanceof Error ? diError.stack : 'No stack trace',
       });
       console.log('Falling back to deprecated createWebsiteWithName - DI not available');
       // Fallback to legacy method if DI fails

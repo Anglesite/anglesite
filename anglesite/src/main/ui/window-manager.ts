@@ -656,12 +656,11 @@ export function openReactWebsiteEditorWindow(websiteName?: string, websitePath?:
   } else {
     // Use webpack-built production bundle
     const bundlePath = path.resolve(__dirname, '../../dist/src/renderer/ui/react/index.html');
+
     if (fs.existsSync(bundlePath)) {
       websiteEditorWindow.loadFile(bundlePath);
     } else {
-      // Fallback to integrated template if webpack bundle doesn't exist
-      const reactEditorDataUrl = loadTemplateAsDataUrl('website-editor-react-integrated');
-      websiteEditorWindow.loadURL(reactEditorDataUrl);
+      throw new Error(`React bundle not found at ${bundlePath}. Run npm run build:react to generate the bundle.`);
     }
   }
 
@@ -696,7 +695,6 @@ export function openReactWebsiteEditorWindow(websiteName?: string, websitePath?:
 
         setTimeout(() => {
           if (websiteEditorWindow && !websiteEditorWindow.isDestroyed()) {
-            console.log('Sending load-website event to React app:', { name: websiteName, path: websitePath });
             websiteEditorWindow.webContents.send('load-website', {
               name: websiteName,
               path: websitePath,

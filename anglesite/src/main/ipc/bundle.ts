@@ -45,7 +45,7 @@ export function setupBundleHandlers(): void {
       const appContext = getGlobalContext();
       const bundler = appContext.getService<WebsiteBundler>(ServiceKeys.WEBSITE_BUNDLER);
       const validation = await bundler.validateBundle(bundlePath);
-      
+
       if (validation.valid && validation.metadata) {
         return { success: true, metadata: validation.metadata };
       } else {
@@ -111,7 +111,7 @@ export async function exportWebsiteBundleHandler(event: IpcMainEvent | null): Pr
       defaultPath: `${websiteToExport}.anglesite`,
       filters: [
         { name: 'Anglesite Bundle', extensions: ['anglesite'] },
-        { name: 'All Files', extensions: ['*'] }
+        { name: 'All Files', extensions: ['*'] },
       ],
     });
 
@@ -129,17 +129,17 @@ export async function exportWebsiteBundleHandler(event: IpcMainEvent | null): Pr
     const bundler = appContext.getService<WebsiteBundler>(ServiceKeys.WEBSITE_BUNDLER);
 
     // Show progress to user
-    win.webContents.send('bundle-export-progress', { 
-      stage: 'starting', 
-      message: 'Starting bundle creation...' 
+    win.webContents.send('bundle-export-progress', {
+      stage: 'starting',
+      message: 'Starting bundle creation...',
     });
 
     await bundler.createBundle(websiteToExport, finalPath, exportOptions);
 
     // Success feedback
-    win.webContents.send('bundle-export-progress', { 
-      stage: 'completed', 
-      message: 'Bundle created successfully!' 
+    win.webContents.send('bundle-export-progress', {
+      stage: 'completed',
+      message: 'Bundle created successfully!',
     });
 
     // Show success dialog with option to open bundle location
@@ -157,13 +157,12 @@ export async function exportWebsiteBundleHandler(event: IpcMainEvent | null): Pr
       const { shell } = require('electron');
       shell.showItemInFolder(finalPath);
     }
-
   } catch (error) {
     logger.error('Failed to export website bundle', { error: sanitize.error(error) });
-    
-    win.webContents.send('bundle-export-progress', { 
-      stage: 'error', 
-      message: 'Bundle export failed' 
+
+    win.webContents.send('bundle-export-progress', {
+      stage: 'error',
+      message: 'Bundle export failed',
     });
 
     dialog.showMessageBox(win, {
@@ -193,7 +192,7 @@ export async function importWebsiteBundleHandler(event: IpcMainEvent | null): Pr
       title: 'Import Website Bundle',
       filters: [
         { name: 'Anglesite Bundle', extensions: ['anglesite'] },
-        { name: 'All Files', extensions: ['*'] }
+        { name: 'All Files', extensions: ['*'] },
       ],
       properties: ['openFile'],
     });
@@ -228,18 +227,18 @@ export async function importWebsiteBundleHandler(event: IpcMainEvent | null): Pr
     }
 
     // Show progress to user
-    win.webContents.send('bundle-import-progress', { 
-      stage: 'starting', 
-      message: 'Starting bundle import...' 
+    win.webContents.send('bundle-import-progress', {
+      stage: 'starting',
+      message: 'Starting bundle import...',
     });
 
     // Extract the bundle
     const metadata = await bundler.extractBundle(bundlePath, importOptions);
 
     // Success feedback
-    win.webContents.send('bundle-import-progress', { 
-      stage: 'completed', 
-      message: 'Bundle imported successfully!' 
+    win.webContents.send('bundle-import-progress', {
+      stage: 'completed',
+      message: 'Bundle imported successfully!',
     });
 
     // Show success dialog
@@ -253,13 +252,12 @@ export async function importWebsiteBundleHandler(event: IpcMainEvent | null): Pr
 
     // Notify UI to refresh website list
     win.webContents.send('website-operation-completed');
-
   } catch (error) {
     logger.error('Failed to import website bundle', { error: sanitize.error(error) });
-    
-    win.webContents.send('bundle-import-progress', { 
-      stage: 'error', 
-      message: 'Bundle import failed' 
+
+    win.webContents.send('bundle-import-progress', {
+      stage: 'error',
+      message: 'Bundle import failed',
     });
 
     dialog.showMessageBox(win, {
@@ -275,22 +273,14 @@ export async function importWebsiteBundleHandler(event: IpcMainEvent | null): Pr
 /**
  * Show export options dialog to user.
  */
-async function showExportOptionsDialog(
-  win: BrowserWindow, 
-  websiteName: string
-): Promise<BundleCreationOptions | null> {
+async function showExportOptionsDialog(win: BrowserWindow, websiteName: string): Promise<BundleCreationOptions | null> {
   // For now, use a simple dialog. Could be enhanced with a custom UI later.
   const result = await dialog.showMessageBox(win, {
     type: 'question',
     title: 'Export Options',
     message: `Export options for "${websiteName}"`,
     detail: 'What would you like to include in the bundle?',
-    buttons: [
-      'Cancel',
-      'Source Only', 
-      'Built Site Only', 
-      'Source + Built Site'
-    ],
+    buttons: ['Cancel', 'Source Only', 'Built Site Only', 'Source + Built Site'],
     defaultId: 1,
     cancelId: 0,
   });
@@ -323,7 +313,7 @@ async function showExportOptionsDialog(
  * Show import options dialog to user.
  */
 async function showImportOptionsDialog(
-  win: BrowserWindow, 
+  win: BrowserWindow,
   bundlePath: string,
   metadata?: any // eslint-disable-line @typescript-eslint/no-explicit-any
 ): Promise<BundleExtractionOptions | null> {
@@ -332,7 +322,7 @@ async function showImportOptionsDialog(
   const websitesDir = websiteManager.getWebsitesDirectory();
 
   let websiteName = metadata?.websiteName || 'imported-website';
-  
+
   // Check if website name already exists and suggest alternatives
   let targetName = websiteName;
   let counter = 1;

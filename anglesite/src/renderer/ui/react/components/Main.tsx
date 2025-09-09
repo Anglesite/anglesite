@@ -32,7 +32,19 @@ class LazyComponentErrorBoundary extends Component<
 export const Main: React.FC = () => {
   const { state } = useAppContext();
 
+  // Debug state changes
+  React.useEffect(() => {
+    console.log('Main component state changed:', {
+      currentView: state.currentView,
+      selectedFile: state.selectedFile,
+      websiteName: state.websiteName,
+      loading: state.loading,
+    });
+  }, [state]);
+
   const renderContent = () => {
+    console.log('Main renderContent called with currentView:', state.currentView, 'selectedFile:', state.selectedFile);
+
     switch (state.currentView) {
       case 'website-config':
         // Create lazy import only when needed to ensure async chunk creation
@@ -72,8 +84,28 @@ export const Main: React.FC = () => {
             <div style={{ padding: '20px' }}>
               <h3>File Editor</h3>
               <p>Editing: {state.selectedFile}</p>
-              <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                File editor component will be implemented in the next phase.
+              <div
+                style={{
+                  background: 'var(--bg-secondary)',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  marginTop: '16px',
+                  border: '1px solid var(--border-primary)',
+                }}
+              >
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '14px' }}>Selected File Path Debug:</h4>
+                <code
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--text-secondary)',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {state.selectedFile}
+                </code>
+              </div>
+              <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: '16px' }}>
+                File content loading will be implemented in the next phase.
               </p>
             </div>
           );

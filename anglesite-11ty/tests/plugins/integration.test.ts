@@ -5,7 +5,7 @@ describe('Plugin Integration Tests', () => {
     it('should import all plugins without throwing errors', async () => {
       // This is a basic integration test to ensure plugins can be imported
       // and their exports are available
-      
+
       // Import all plugins and check they export default functions
       const addSitemap = (await import('../../plugins/sitemap.js')).default;
       const addRobots = (await import('../../plugins/robots.js')).default;
@@ -22,7 +22,7 @@ describe('Plugin Integration Tests', () => {
       const addShortcodes = (await import('../../plugins/shortcodes.js')).default;
       const addSyntaxHighlight = (await import('../../plugins/syntax-highlight.js')).default;
       const addImages = (await import('../../plugins/images.js')).default;
-      
+
       // Verify all exports are functions
       expect(typeof addSitemap).toBe('function');
       expect(typeof addRobots).toBe('function');
@@ -44,7 +44,7 @@ describe('Plugin Integration Tests', () => {
     it('should import utility functions without throwing errors', async () => {
       // Test utility imports
       const pageFilters = await import('../../plugins/utils/page-filters.js');
-      
+
       expect(typeof pageFilters.filterSitemapPages).toBe('function');
       expect(typeof pageFilters.isPagePublic).toBe('function');
     });
@@ -54,7 +54,7 @@ describe('Plugin Integration Tests', () => {
     it('should import type definitions without errors', async () => {
       // Test type imports - these should not throw during compilation
       const types = await import('../../types/index.js');
-      
+
       // The types module should export interfaces and types
       expect(typeof types).toBe('object');
     });

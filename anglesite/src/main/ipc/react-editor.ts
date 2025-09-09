@@ -1,15 +1,34 @@
 /**
  * @file IPC handlers for React website editor
  */
-import { ipcMain, IpcMainInvokeEvent } from 'electron';
+import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { getWebsitePath } from '../utils/website-manager';
+import { getAllWebsiteWindows } from '../ui/multi-window-manager';
 
 /**
  * Setup React website editor IPC handlers.
  */
 export function setupReactEditorHandlers(): void {
+  /**
+   * Get current website name for the active window.
+   */
+  ipcMain.handle('get-current-website-name', async (event: IpcMainInvokeEvent) => {
+    try {
+      const window = BrowserWindow.fromWebContents(event.sender);
+      if (window) {
+        const websiteName = getWebsiteNameForWindow(window);
+        console.log('Current website name for window:', websiteName);
+        return websiteName;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting current website name:', error);
+      return null;
+    }
+  });
+
   /**
    * Get website files for file explorer.
    */
@@ -184,4 +203,17 @@ async function getFilesRecursively(dirPath: string, basePath: string): Promise<F
   }
 
   return files;
+}
+
+/**
+ * Helper function to get website name from a BrowserWindow.
+ */
+function getWebsiteNameForWindow(window: BrowserWindow): string | null {
+  const websiteWindows = getAllWebsiteWindows();
+  for (const [websiteName, websiteWindow] of Array.from(websiteWindows)) {
+    if (websiteWindow.window === window) {
+      return websiteName;
+    }
+  }
+  return null;
 }

@@ -424,14 +424,14 @@ export function createWebsiteWindow(websiteName: string, websitePath?: string): 
       const appContext = getGlobalContext();
       const gitHistoryManager = appContext.getService<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
       const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
-      
+
       const websitePath = websiteManager.getWebsitePath(websiteName);
       await gitHistoryManager.autoCommit(websitePath, 'close');
       console.log(`[Window] Git auto-commit on close for website: ${websiteName}`);
     } catch (error) {
       console.warn('[Window] Failed to auto-commit on window close:', error);
     }
-    
+
     // Stop the server using the DI-based centralized manager
     try {
       const appContext = getGlobalContext();
