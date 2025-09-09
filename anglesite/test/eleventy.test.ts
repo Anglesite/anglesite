@@ -15,7 +15,8 @@ jest.mock('path', () => ({
   join: jest.fn((...args: string[]) => args.join('/')),
 }));
 
-// Now require the module
+// Now import the module (converted from require)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const eleventyConfig = require('../src/main/eleventy/.eleventy.js');
 
 /**
@@ -60,6 +61,7 @@ describe('Eleventy Configuration', () => {
   });
 
   it('should add the anglesite-11ty plugin', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const anglesitePlugin = require('@dwk/anglesite-11ty');
     eleventyConfig(mockConfig);
 
@@ -86,6 +88,7 @@ describe('Eleventy Configuration', () => {
   });
 
   it('should set data file base name to anglesite when base layout exists', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mockFs = require('fs');
     mockFs.existsSync.mockReturnValue(true);
 

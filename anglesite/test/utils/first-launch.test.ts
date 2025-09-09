@@ -35,11 +35,16 @@ jest.mock('electron', () => ({
 jest.mock('../../src/main/certificates');
 jest.mock('../../src/main/ui/window-manager');
 
-const mockApp = app as jest.Mocked<typeof app>;
-const mockDialog = dialog as jest.Mocked<typeof dialog>;
+// These mocks are created for potential future use
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _mockApp = app as jest.Mocked<typeof app>;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _mockDialog = dialog as jest.Mocked<typeof dialog>;
 const mockIsCAInstalledInSystem = isCAInstalledInSystem as jest.MockedFunction<typeof isCAInstalledInSystem>;
-const mockInstallCAInSystem = installCAInSystem as jest.MockedFunction<typeof installCAInSystem>;
-const mockShowFirstLaunchAssistant = showFirstLaunchAssistant as jest.MockedFunction<typeof showFirstLaunchAssistant>;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _mockInstallCAInSystem = installCAInSystem as jest.MockedFunction<typeof installCAInSystem>;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _mockShowFirstLaunchAssistant = showFirstLaunchAssistant as jest.MockedFunction<typeof showFirstLaunchAssistant>;
 
 describe('First Launch', () => {
   let mockStore: jest.Mocked<Partial<IStore>>;
