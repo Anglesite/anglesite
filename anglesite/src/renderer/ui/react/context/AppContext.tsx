@@ -82,7 +82,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Cleanup
       return () => {
-        window.electronAPI?.off('load-website', handleLoadWebsite);
+        if (window.electronAPI?.off) {
+          window.electronAPI.off('load-website', handleLoadWebsite);
+        }
       };
     } else {
       // For development without Electron, set some defaults

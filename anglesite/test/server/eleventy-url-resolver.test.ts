@@ -192,6 +192,10 @@ describe('EleventyUrlResolver', () => {
     });
 
     it('should handle file additions for content files', () => {
+      // Set NODE_ENV to development to enable logging
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'development';
+
       resolver['setupWatcher']();
 
       // Get the 'add' callback
@@ -207,6 +211,9 @@ describe('EleventyUrlResolver', () => {
       addCallback?.('/test/file.md');
 
       expect(consoleLogSpy).toHaveBeenCalledWith('Added URL mapping: /test/file.md → /test-url');
+
+      // Restore original NODE_ENV
+      process.env.NODE_ENV = originalEnv;
     });
 
     it('should ignore non-content files on addition', () => {
@@ -221,6 +228,10 @@ describe('EleventyUrlResolver', () => {
     });
 
     it('should handle file deletions', () => {
+      // Set NODE_ENV to development to enable logging
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'development';
+
       resolver['setupWatcher']();
 
       // Add a file to the URL map first
@@ -231,6 +242,9 @@ describe('EleventyUrlResolver', () => {
 
       expect(consoleLogSpy).toHaveBeenCalledWith('Removed URL mapping: /test/file.md');
       expect(resolver['urlMap'].has('/test/file.md')).toBe(false);
+
+      // Restore original NODE_ENV
+      process.env.NODE_ENV = originalEnv;
     });
 
     it('should ignore deletion of unmapped files', () => {
@@ -299,9 +313,9 @@ describe('EleventyUrlResolver', () => {
       expect(result).toBe('/about.html');
     });
 
-    it('should keep HTML files as .html URLs', () => {
+    it('should convert HTML files to pretty URLs', () => {
       const result = resolver['calculateEleventyUrl']('/resolved//test/input/about.html');
-      expect(result).toBe('/about.html');
+      expect(result).toBe('/about');
     });
 
     it('should convert template files to .html URLs', () => {
@@ -385,9 +399,18 @@ describe('EleventyUrlResolver', () => {
       expect(result).toBe(url);
     });
 
-    it('should return null for non-existing file', () => {
-      const filePath = '/nonexistent/file.md';
-      mockPath.resolve.mockReturnValue('/resolved/nonexistent/file.md');
+    it('should return calculated URL for non-mapped content file', () => {
+      const filePath = '/test/input/new/page.md';
+      mockPath.resolve.mockReturnValue('/test/input/new/page.md');
+      mockPath.relative.mockReturnValueOnce('new/page.md');
+
+      const result = resolver.getUrlForFile(filePath);
+      expect(result).toBe('/new/page.html'); // Fallback calculation for .md → .html
+    });
+
+    it('should return null for non-content file', () => {
+      const filePath = '/nonexistent/file.txt';
+      mockPath.resolve.mockReturnValue('/resolved/nonexistent/file.txt');
 
       const result = resolver.getUrlForFile(filePath);
       expect(result).toBeNull();
@@ -520,6 +543,10 @@ describe('EleventyUrlResolver', () => {
 
   describe('integration scenarios', () => {
     it('should handle complete workflow with file watching', async () => {
+      // Set NODE_ENV to development to enable logging
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'development';
+
       // Setup initial files
       const initialFiles = ['/test/input/index.md', '/test/input/about.md'];
       mockGlob.mockResolvedValue(initialFiles);
@@ -555,6 +582,9 @@ describe('EleventyUrlResolver', () => {
       // Cleanup
       resolver.destroy();
       expect(mockWatcher.close).toHaveBeenCalled();
+
+      // Restore original NODE_ENV
+      process.env.NODE_ENV = originalEnv;
     });
   });
 });

@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'trigger-new-website',
       'load-website',
       'bagit-metadata-defaults',
+      'refresh-file-explorer',
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (_event, ...args) => {
@@ -99,6 +100,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const validChannels = ['preview-loaded', 'preview-error'];
     if (validChannels.includes(channel)) {
       ipcRenderer.removeAllListeners(channel);
+    }
+  },
+  off: (channel: string, func: (...args: unknown[]) => void) => {
+    const validChannels = [
+      'preview-loaded',
+      'preview-error',
+      'reload-preview',
+      'restart-server',
+      'menu-new-website',
+      'menu-reload',
+      'menu-toggle-devtools',
+      'menu-export-site',
+      'menu-save-requested',
+      'show-website-name-input',
+      'website-context-menu-action',
+      'website-operation-completed',
+      'theme-updated',
+      'trigger-new-website',
+      'load-website',
+      'bagit-metadata-defaults',
+      'refresh-file-explorer',
+    ];
+    if (validChannels.includes(channel)) {
+      ipcRenderer.off(channel, func);
     }
   },
 

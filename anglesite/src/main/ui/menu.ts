@@ -229,53 +229,194 @@ export function createApplicationMenu(): Menu {
       label: 'File',
       submenu: [
         {
-          label: 'New Website…',
-          accelerator: 'CmdOrCtrl+N',
-          click: async () => {
-            // Create new website directly using imported functions
+          label: 'New',
+          submenu: [
+            {
+              label: 'Website…',
+              accelerator: 'CmdOrCtrl+Shift+N',
+              click: async () => {
+                // Create new website directly using imported functions
 
-            try {
-              let websiteName: string | null = null;
-              let validationError = '';
+                try {
+                  let websiteName: string | null = null;
+                  let validationError = '';
 
-              // Keep asking until user provides valid name or cancels
-              do {
-                let prompt = 'Enter a name for your new website:';
-                if (validationError) {
-                  prompt = `${validationError}\n\nPlease enter a valid website name:`;
+                  // Keep asking until user provides valid name or cancels
+                  do {
+                    let prompt = 'Enter a name for your new website:';
+                    if (validationError) {
+                      prompt = `${validationError}\n\nPlease enter a valid website name:`;
+                    }
+
+                    websiteName = await getNativeInput('New Website', prompt);
+
+                    if (!websiteName) {
+                      return; // User cancelled
+                    }
+
+                    // Validate website name
+                    const validation = validateWebsiteName(websiteName);
+                    if (!validation.valid) {
+                      validationError = validation.error || 'Invalid website name';
+                      websiteName = null; // Reset to continue the loop
+                    } else {
+                      validationError = ''; // Clear any previous error
+                    }
+                  } while (!websiteName);
+
+                  // Create the website and open it
+                  const newWebsitePath = await createWebsiteWithName(websiteName);
+
+                  // Open the new website in a new window (with isNewWebsite = true)
+                  await openWebsiteInNewWindow(websiteName, newWebsitePath, true);
+
+                  // Add to recent websites and update menu
+                  const store = getGlobalContext().getService<IStore>(ServiceKeys.STORE);
+                  store.addRecentWebsite(websiteName);
+                  updateApplicationMenu();
+                } catch (error) {
+                  console.error('Failed to create new website:', error);
+                  dialog.showErrorBox('Creation Failed', error instanceof Error ? error.message : String(error));
                 }
+              },
+            },
+            {
+              label: 'Webpage…',
+              accelerator: 'CmdOrCtrl+N',
+              enabled: isWebsiteWindowFocused(),
+              click: async () => {
+                // Create new webpage in the current website
 
-                websiteName = await getNativeInput('New Website', prompt);
+                try {
+                  // Get the focused website window
+                  const focusedWindow = BrowserWindow.getFocusedWindow();
+                  if (!focusedWindow || !isWebsiteWindowFocused()) {
+                    dialog.showErrorBox('No Website Open', 'Please open a website first before creating a new page.');
+                    return;
+                  }
 
-                if (!websiteName) {
-                  return; // User cancelled
+                  // Get the website name from the focused window
+                  const websiteWindows = getAllWebsiteWindows();
+                  let websiteName: string | null = null;
+
+                  for (const [name, websiteWindow] of Array.from(websiteWindows)) {
+                    if (websiteWindow.window === focusedWindow) {
+                      websiteName = name;
+                      break;
+                    }
+                  }
+
+                  if (!websiteName) {
+                    dialog.showErrorBox('Error', 'Could not determine the current website.');
+                    return;
+                  }
+
+                  let pageName: string | null = null;
+                  let validationError = '';
+
+                  // Keep asking until user provides valid name or cancels
+                  do {
+                    let prompt = 'Enter a name for your new webpage:';
+                    if (validationError) {
+                      prompt = `${validationError}\n\nPlease enter a valid page name:`;
+                    }
+
+                    pageName = await getNativeInput('New Webpage', prompt);
+
+                    if (!pageName) {
+                      return; // User cancelled
+                    }
+
+                    // Create the page
+                    try {
+                      // Import necessary modules
+                      const fs = await import('fs');
+                      const path = await import('path');
+                      const { getGlobalContext } = await import('../core/service-registry');
+                      const { ServiceKeys } = await import('../core/container');
+
+                      // Get website path
+                      let websitePath: string;
+                      try {
+                        const appContext = getGlobalContext();
+                        const websiteManager = appContext.getService(ServiceKeys.WEBSITE_MANAGER);
+                        websitePath = (websiteManager as any).getWebsitePath(websiteName);
+                      } catch {
+                        const { getWebsitePath } = await import('../utils/website-manager');
+                        websitePath = getWebsitePath(websiteName);
+                      }
+
+                      const srcPath = path.join(websitePath, 'src');
+
+                      // Ensure src directory exists
+                      if (!fs.existsSync(srcPath)) {
+                        fs.mkdirSync(srcPath, { recursive: true });
+                      }
+
+                      // Create the new HTML file
+                      const fileName = pageName.endsWith('.html') ? pageName : `${pageName}.html`;
+                      const filePath = path.join(srcPath, fileName);
+
+                      // Check if file already exists
+                      if (fs.existsSync(filePath)) {
+                        throw new Error(`A page named "${fileName}" already exists`);
+                      }
+
+                      // Generate HTML content
+                      const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${pageName.replace(/\.html$/i, '')}</title>
+</head>
+<body>
+  <h1>${pageName.replace(/\.html$/i, '')}</h1>
+  <p>Welcome to your new page!</p>
+</body>
+</html>`;
+
+                      // Write the file
+                      fs.writeFileSync(filePath, htmlContent, 'utf-8');
+
+                      // Auto-commit the new file using git history manager
+                      try {
+                        const appContext = getGlobalContext();
+                        const gitHistoryManager = appContext.getService(ServiceKeys.GIT_HISTORY_MANAGER);
+                        await (gitHistoryManager as any).autoCommit(websitePath, 'save');
+                      } catch {
+                        // Don't fail if git commit fails
+                      }
+
+                      // Immediately add the file to the URL resolver to avoid timing issues
+                      try {
+                        const { getWebsiteServer } = await import('../ui/multi-window-manager');
+                        const websiteServer = getWebsiteServer(websiteName);
+                        if (websiteServer?.urlResolver && (websiteServer.urlResolver as any).addFileMapping) {
+                          (websiteServer.urlResolver as any).addFileMapping(filePath);
+                        }
+                      } catch {
+                        // Non-critical if this fails - fallback logic will handle it
+                      }
+
+                      // Send notification to refresh the file explorer
+                      // Use a small delay to ensure file watcher has time to process the new file
+                      setTimeout(() => {
+                        focusedWindow.webContents.send('refresh-file-explorer');
+                      }, 100);
+                      return;
+                    } catch (createError) {
+                      validationError = createError instanceof Error ? createError.message : String(createError);
+                      pageName = null; // Reset to continue the loop
+                    }
+                  } while (!pageName);
+                } catch (error) {
+                  console.error('Failed to create new page:', error);
+                  dialog.showErrorBox('Creation Failed', error instanceof Error ? error.message : String(error));
                 }
-
-                // Validate website name
-                const validation = validateWebsiteName(websiteName);
-                if (!validation.valid) {
-                  validationError = validation.error || 'Invalid website name';
-                  websiteName = null; // Reset to continue the loop
-                } else {
-                  validationError = ''; // Clear any previous error
-                }
-              } while (!websiteName);
-
-              // Create the website and open it
-              const newWebsitePath = await createWebsiteWithName(websiteName);
-
-              // Open the new website in a new window (with isNewWebsite = true)
-              await openWebsiteInNewWindow(websiteName, newWebsitePath, true);
-
-              // Add to recent websites and update menu
-              const store = getGlobalContext().getService<IStore>(ServiceKeys.STORE);
-              store.addRecentWebsite(websiteName);
-              updateApplicationMenu();
-            } catch (error) {
-              console.error('Failed to create new website:', error);
-              dialog.showErrorBox('Creation Failed', error instanceof Error ? error.message : String(error));
-            }
-          },
+              },
+            },
+          ],
         },
         {
           label: 'Open Website…',

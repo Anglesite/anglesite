@@ -92,14 +92,18 @@ export class EleventyUrlResolver {
       if (this.isContentFile(filePath)) {
         const url = this.calculateEleventyUrl(filePath);
         this.urlMap.set(filePath, url);
-        console.log(`Added URL mapping: ${filePath} → ${url}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Added URL mapping: ${filePath} → ${url}`);
+        }
       }
     });
 
     this.watcher.on('unlink', (filePath) => {
       if (this.urlMap.has(filePath)) {
         this.urlMap.delete(filePath);
-        console.log(`Removed URL mapping: ${filePath}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Removed URL mapping: ${filePath}`);
+        }
       }
     });
 
@@ -111,7 +115,7 @@ export class EleventyUrlResolver {
   /**
    * Check if a file is a content file that Eleventy would process.
    */
-  private isContentFile(filePath: string): boolean {
+  isContentFile(filePath: string): boolean {
     const ext = path.extname(filePath);
     const contentExtensions = [
       '.md',
@@ -131,7 +135,7 @@ export class EleventyUrlResolver {
   /**
    * Calculate the output URL for a given file path based on Eleventy's rules.
    */
-  private calculateEleventyUrl(filePath: string): string {
+  calculateEleventyUrl(filePath: string): string {
     // Make path relative to input directory
     let relativePath = path.relative(this.inputDir, filePath);
     // Normalize path separators for URLs
@@ -146,17 +150,20 @@ export class EleventyUrlResolver {
     if (['.md', '.njk', '.liquid', '.hbs', '.mustache', '.ejs', '.haml', '.pug', '.jstl'].includes(ext)) {
       urlPath = basePath + '.html';
     } else if (ext === '.html') {
-      urlPath = relativePath;
+      urlPath = relativePath; // Keep .html for now, handle index files first
     } else {
       // For other files, keep as-is (like assets)
       urlPath = relativePath;
     }
 
-    // Handle index files
+    // Handle index files first (before removing .html extension)
     if (urlPath.endsWith('/index.html')) {
       urlPath = urlPath.slice(0, -10); // Remove 'index.html'
     } else if (urlPath === 'index.html') {
       urlPath = '';
+    } else if (ext === '.html') {
+      // For non-index HTML files, use pretty URLs (remove .html extension)
+      urlPath = urlPath.replace(/\.html$/, '');
     }
 
     // Ensure URL starts with /
@@ -170,11 +177,43 @@ export class EleventyUrlResolver {
   }
 
   /**
+   * Manually add a file to the URL map (useful for newly created files)
+   */
+  addFileMapping(filePath: string): string | null {
+    if (this.isContentFile(filePath)) {
+      const resolvedPath = path.resolve(filePath);
+      const url = this.calculateEleventyUrl(filePath);
+      this.urlMap.set(resolvedPath, url);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Manually added URL mapping: ${filePath} → ${url}`);
+      }
+      return url;
+    }
+    return null;
+  }
+
+  /**
    * Get the URL for a specific file path.
    */
   getUrlForFile(filePath: string): string | null {
     const resolvedPath = path.resolve(filePath);
-    return this.urlMap.get(resolvedPath) || null;
+    const mappedUrl = this.urlMap.get(resolvedPath);
+
+    if (mappedUrl) {
+      return mappedUrl;
+    }
+
+    // If no mapping exists (e.g., for newly created files),
+    // calculate the URL based on Eleventy's rules as a fallback
+    if (this.isContentFile(filePath)) {
+      const calculatedUrl = this.calculateEleventyUrl(filePath);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Calculated fallback URL for ${filePath}: ${calculatedUrl}`);
+      }
+      return calculatedUrl;
+    }
+
+    return null;
   }
 
   /**

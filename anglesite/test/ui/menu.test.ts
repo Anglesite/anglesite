@@ -409,15 +409,26 @@ describe('Menu', () => {
         expect(mockWindowManager.openWebsiteSelectionWindow).toHaveBeenCalled();
       });
 
-      it('should have New Website menu item with correct accelerator', () => {
+      it('should have New submenu with Website and Webpage items', () => {
         const fileMenu = template.find((item) => item.label === 'File');
-        const newWebsiteItem = (fileMenu?.submenu as MenuItemConstructorOptions[])?.find(
-          (item) => item.label === 'New Website…'
-        );
+        const newItem = (fileMenu?.submenu as MenuItemConstructorOptions[])?.find((item) => item.label === 'New');
 
-        expect(newWebsiteItem?.click).toBeDefined();
-        expect(newWebsiteItem?.accelerator).toBe('CmdOrCtrl+N');
-        expect(typeof newWebsiteItem?.click).toBe('function');
+        expect(newItem).toBeDefined();
+        expect(newItem?.submenu).toBeDefined();
+
+        const newSubmenu = newItem?.submenu as MenuItemConstructorOptions[];
+        const websiteItem = newSubmenu?.find((item) => item.label === 'Website…');
+        const webpageItem = newSubmenu?.find((item) => item.label === 'Webpage…');
+
+        // Test Website menu item
+        expect(websiteItem?.click).toBeDefined();
+        expect(websiteItem?.accelerator).toBe('CmdOrCtrl+Shift+N');
+        expect(typeof websiteItem?.click).toBe('function');
+
+        // Test Webpage menu item
+        expect(webpageItem?.click).toBeDefined();
+        expect(webpageItem?.accelerator).toBe('CmdOrCtrl+N');
+        expect(typeof webpageItem?.click).toBe('function');
       });
 
       it('should handle Export to Folder click', async () => {

@@ -263,6 +263,27 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
     loadFiles();
   }, [state.websiteName]);
 
+  // Listen for refresh events from the main process
+  useEffect(() => {
+    const handleRefresh = () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('File explorer refresh requested');
+      }
+      loadFiles();
+    };
+
+    if (window.electronAPI) {
+      window.electronAPI.on('refresh-file-explorer', handleRefresh);
+
+      // Cleanup
+      return () => {
+        if (window.electronAPI?.off) {
+          window.electronAPI.off('refresh-file-explorer', handleRefresh);
+        }
+      };
+    }
+  }, [state.websiteName]);
+
   if (loading) {
     return (
       <div style={{ padding: '16px' }}>

@@ -51,7 +51,7 @@ export function setupReactEditorHandlers(): void {
         return [];
       }
 
-      const files = await getFilesRecursively(srcPath, srcPath);
+      const files = await getFilesRecursively(srcPath, srcPath, websiteName);
       console.log(`Found ${files.length} files for website:`, websiteName);
 
       return files;
@@ -152,7 +152,7 @@ interface FileInfo {
   url?: string;
 }
 
-async function getFilesRecursively(dirPath: string, basePath: string): Promise<FileInfo[]> {
+async function getFilesRecursively(dirPath: string, basePath: string, websiteName: string): Promise<FileInfo[]> {
   const files: FileInfo[] = [];
 
   try {
@@ -178,14 +178,39 @@ async function getFilesRecursively(dirPath: string, basePath: string): Promise<F
       if (!entry.isDirectory()) {
         const ext = path.extname(entry.name).toLowerCase();
         if (ext === '.html' || ext === '.md') {
-          // Generate URL based on file path
+          // Calculate the fallback URL first (always needed)
           let url = '/' + relativePath.replace(/\\/g, '/');
           if (ext === '.md') {
             url = url.replace(/\.md$/, '.html');
+          } else if (ext === '.html') {
+            // For HTML files, use pretty URLs (remove .html extension)
+            url = url.replace(/\.html$/, '');
           }
-          if (url.endsWith('/index.html')) {
-            url = url.replace('/index.html', '/');
+          if (url.endsWith('/index')) {
+            url = url.replace('/index', '/');
+          } else if (url === '/index') {
+            url = '/';
           }
+
+          // Try to use the proper URL resolver for enhanced accuracy
+          try {
+            const { getWebsiteServer } = await import('../ui/multi-window-manager');
+            const websiteServer = getWebsiteServer(websiteName);
+
+            if (websiteServer?.urlResolver) {
+              const resolvedUrl = websiteServer.urlResolver.getUrlForFile(fullPath);
+              if (resolvedUrl) {
+                url = resolvedUrl; // Use the enhanced resolver result
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`Enhanced URL resolution for ${relativePath}: ${resolvedUrl}`);
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('Could not use enhanced URL resolver for file:', fullPath, error);
+            // Continue with the fallback URL calculated above
+          }
+
           fileInfo.url = url;
         }
       }
@@ -194,7 +219,7 @@ async function getFilesRecursively(dirPath: string, basePath: string): Promise<F
 
       // If it's a directory, recursively get its contents
       if (entry.isDirectory()) {
-        const subFiles = await getFilesRecursively(fullPath, basePath);
+        const subFiles = await getFilesRecursively(fullPath, basePath, websiteName);
         files.push(...subFiles);
       }
     }
