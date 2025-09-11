@@ -16,6 +16,7 @@ import {
   ICertificateManager,
   IMenuManager,
   IWindowManager,
+  IMonitorManager,
   ILogger,
   IFileSystem,
   IAtomicOperations,
@@ -360,7 +361,7 @@ export class ApplicationContext extends EventEmitter implements IApplicationCont
     // Initialize services that have been registered
     // For now, just ensure they can be resolved
 
-    const coreServices = [ServiceKeys.STORE, ServiceKeys.LOGGER, ServiceKeys.FILE_SYSTEM];
+    const coreServices = [ServiceKeys.STORE, ServiceKeys.LOGGER, ServiceKeys.FILE_SYSTEM, ServiceKeys.MONITOR_MANAGER];
 
     for (const serviceName of coreServices) {
       try {
@@ -606,6 +607,16 @@ export class ServiceRegistrar {
         const fileSystem = container.resolve<IFileSystem>(ServiceKeys.FILE_SYSTEM);
         const websiteManager = container.resolve<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
         return createWebsiteBundler(logger, fileSystem, websiteManager);
+      },
+      'singleton'
+    );
+
+    // Monitor Manager for multi-monitor window state persistence
+    container.register(
+      ServiceKeys.MONITOR_MANAGER,
+      () => {
+        const { MonitorManager } = require('../services/monitor-manager');
+        return new MonitorManager();
       },
       'singleton'
     );

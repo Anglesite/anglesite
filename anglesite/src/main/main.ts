@@ -97,14 +97,40 @@ app.on('window-all-closed', () => {
 
 // Clean up resources when the app is about to quit
 app.on('before-quit', async () => {
-  // Force save any pending settings changes
-  if (store) {
-    await store.forceSave();
-  }
-  await closeAllWindows();
+  console.log('[Quit] Starting application shutdown...');
 
-  // Shutdown DI container and services
-  await shutdownGlobalContext();
+  try {
+    // CRITICAL: Save window states FIRST, before any cleanup that might timeout
+    console.log('[Quit] Saving window states before cleanup...');
+    const { saveWindowStates } = await import('./ui/multi-window-manager');
+    saveWindowStates();
+
+    // Force save any pending settings changes (including the window states we just saved)
+    if (store) {
+      console.log('[Quit] Saving application state...');
+      await store.forceSave();
+    }
+
+    // Close all windows with timeout protection to prevent fsevents race condition
+    console.log('[Quit] Closing windows and stopping servers...');
+    await Promise.race([
+      closeAllWindows(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Window cleanup timeout')), 5000)),
+    ]);
+
+    console.log('[Quit] Shutting down services...');
+    // Shutdown DI container and services with timeout protection
+    await Promise.race([
+      shutdownGlobalContext(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Service shutdown timeout')), 3000)),
+    ]);
+
+    console.log('[Quit] Application shutdown completed successfully');
+  } catch (error) {
+    console.error('[Quit] Error during shutdown, forcing exit:', error);
+    // Don't block quit even if cleanup fails - this prevents hanging
+    // The timeout ensures we don't wait indefinitely for fsevents cleanup
+  }
 });
 
 // Handle certificate errors for development

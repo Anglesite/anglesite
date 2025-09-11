@@ -5,7 +5,7 @@
  * dependency injection, testing, and loose coupling between components.
  */
 
-import { WindowState, AppSettings } from './types';
+import { WindowState, AppSettings, MonitorInfo, MonitorConfiguration, Rectangle } from './types';
 import { AtomicOperationResult } from '../utils/atomic-operations';
 import { BrowserWindow } from 'electron';
 import type { EleventyUrlResolver } from '../server/eleventy-url-resolver';
@@ -236,6 +236,31 @@ export interface IMenuManager extends IDisposable {
 
   // Menu state
   setMenuEnabled(enabled: boolean): void;
+}
+
+/**
+ * Monitor management service interface for multi-monitor window placement.
+ */
+export interface IMonitorManager extends IDisposable {
+  // Monitor detection and configuration
+  getCurrentConfiguration(): MonitorConfiguration;
+  refreshConfiguration(): Promise<MonitorConfiguration>;
+
+  // Window placement logic
+  findBestMonitorForWindow(savedState: WindowState): MonitorInfo;
+  calculateWindowBounds(windowState: WindowState, targetMonitor: MonitorInfo): Rectangle;
+
+  // Monitor configuration analysis
+  isMonitorConfigurationChanged(saved: MonitorConfiguration): boolean;
+  findMonitorById(id: number): MonitorInfo | null;
+  getPrimaryMonitor(): MonitorInfo;
+
+  // Utility methods
+  ensureWindowVisible(bounds: Rectangle): Rectangle;
+  calculateRelativePosition(
+    bounds: Rectangle,
+    monitor: MonitorInfo
+  ): { percentX: number; percentY: number; percentWidth: number; percentHeight: number };
 }
 
 /**

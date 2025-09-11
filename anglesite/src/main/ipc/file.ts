@@ -24,85 +24,87 @@ export function setupFileHandlers(): void {
   // Website file content handlers
   // Note: get-website-files handler is now in react-editor.ts to avoid conflicts
 
-  ipcMain.handle('get-file-content', async (event, websiteName: string, relativePath: string) => {
-    try {
-      console.log(`[IPC] get-file-content called for website: ${websiteName}, file: ${relativePath}`);
+  // COMMENTED OUT: Duplicate handler - now handled in react-editor.ts
+  // ipcMain.handle('get-file-content', async (event, websiteName: string, relativePath: string) => {
+  //   try {
+  //     console.log(`[IPC] get-file-content called for website: ${websiteName}, file: ${relativePath}`);
+  //
+  //     const { getWebsiteServer } = await import('../ui/multi-window-manager');
+  //     const websiteServer = getWebsiteServer(websiteName);
+  //
+  //     if (!websiteServer) {
+  //       console.error(`[IPC] No website server found for: ${websiteName}`);
+  //       return null;
+  //     }
+  //
+  //     // Resolve the absolute path using the website server's inputDir (which includes /src/)
+  //     const fs = await import('fs');
+  //     const path = await import('path');
+  //
+  //     // Remove 'src/' prefix from relativePath if present, since websiteServer.inputDir already includes /src/
+  //     let cleanRelativePath = relativePath;
+  //     if (relativePath.startsWith('src/')) {
+  //       cleanRelativePath = relativePath.substring(4); // Remove 'src/' prefix
+  //     }
+  //
+  //     const absolutePath = path.join(websiteServer.inputDir, cleanRelativePath);
+  //
+  //     console.log(`[IPC] Reading file from: ${absolutePath}`);
+  //     const content = fs.readFileSync(absolutePath, 'utf8');
+  //     return content;
+  //   } catch (error) {
+  //     console.error('Error reading file:', error);
+  //     return null;
+  //   }
+  // });
 
-      const { getWebsiteServer } = await import('../ui/multi-window-manager');
-      const websiteServer = getWebsiteServer(websiteName);
-
-      if (!websiteServer) {
-        console.error(`[IPC] No website server found for: ${websiteName}`);
-        return null;
-      }
-
-      // Resolve the absolute path using the website server's inputDir (which includes /src/)
-      const fs = await import('fs');
-      const path = await import('path');
-
-      // Remove 'src/' prefix from relativePath if present, since websiteServer.inputDir already includes /src/
-      let cleanRelativePath = relativePath;
-      if (relativePath.startsWith('src/')) {
-        cleanRelativePath = relativePath.substring(4); // Remove 'src/' prefix
-      }
-
-      const absolutePath = path.join(websiteServer.inputDir, cleanRelativePath);
-
-      console.log(`[IPC] Reading file from: ${absolutePath}`);
-      const content = fs.readFileSync(absolutePath, 'utf8');
-      return content;
-    } catch (error) {
-      console.error('Error reading file:', error);
-      return null;
-    }
-  });
-
-  ipcMain.handle('save-file-content', async (event, websiteName: string, relativePath: string, content: string) => {
-    try {
-      console.log(`[IPC] save-file-content called for website: ${websiteName}, file: ${relativePath}`);
-
-      const { getWebsiteServer } = await import('../ui/multi-window-manager');
-      const websiteServer = getWebsiteServer(websiteName);
-
-      if (!websiteServer) {
-        console.error(`[IPC] No website server found for: ${websiteName}`);
-        return false;
-      }
-
-      // Resolve the absolute path using the website server's inputDir (which includes /src/)
-      const fs = await import('fs');
-      const path = await import('path');
-
-      // Remove 'src/' prefix from relativePath if present, since websiteServer.inputDir already includes /src/
-      let cleanRelativePath = relativePath;
-      if (relativePath.startsWith('src/')) {
-        cleanRelativePath = relativePath.substring(4); // Remove 'src/' prefix
-      }
-
-      const absolutePath = path.join(websiteServer.inputDir, cleanRelativePath);
-
-      console.log(`[IPC] Saving file to: ${absolutePath}`);
-      fs.writeFileSync(absolutePath, content, 'utf8');
-
-      // Auto-commit the change with git
-      try {
-        const appContext = getGlobalContext();
-        const gitHistoryManager = appContext.getService<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
-
-        // Get the website path (parent of src directory)
-        const websitePath = path.dirname(websiteServer.inputDir);
-        await gitHistoryManager.autoCommit(websitePath, 'save');
-        console.log(`[IPC] Git auto-commit queued for website: ${websiteName}`);
-      } catch (error) {
-        console.warn('[IPC] Failed to auto-commit file save:', error);
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error saving file:', error);
-      return false;
-    }
-  });
+  // COMMENTED OUT: Duplicate handler - now handled in react-editor.ts
+  // ipcMain.handle('save-file-content', async (event, websiteName: string, relativePath: string, content: string) => {
+  //   try {
+  //     console.log(`[IPC] save-file-content called for website: ${websiteName}, file: ${relativePath}`);
+  //
+  //     const { getWebsiteServer } = await import('../ui/multi-window-manager');
+  //     const websiteServer = getWebsiteServer(websiteName);
+  //
+  //     if (!websiteServer) {
+  //       console.error(`[IPC] No website server found for: ${websiteName}`);
+  //       return false;
+  //     }
+  //
+  //     // Resolve the absolute path using the website server's inputDir (which includes /src/)
+  //     const fs = await import('fs');
+  //     const path = await import('path');
+  //
+  //     // Remove 'src/' prefix from relativePath if present, since websiteServer.inputDir already includes /src/
+  //     let cleanRelativePath = relativePath;
+  //     if (relativePath.startsWith('src/')) {
+  //       cleanRelativePath = relativePath.substring(4); // Remove 'src/' prefix
+  //     }
+  //
+  //     const absolutePath = path.join(websiteServer.inputDir, cleanRelativePath);
+  //
+  //     console.log(`[IPC] Saving file to: ${absolutePath}`);
+  //     fs.writeFileSync(absolutePath, content, 'utf8');
+  //
+  //     // Auto-commit the change with git
+  //     try {
+  //       const appContext = getGlobalContext();
+  //       const gitHistoryManager = appContext.getService<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
+  //
+  //       // Get the website path (parent of src directory)
+  //       const websitePath = path.dirname(websiteServer.inputDir);
+  //       await gitHistoryManager.autoCommit(websitePath, 'save');
+  //       console.log(`[IPC] Git auto-commit queued for website: ${websiteName}`);
+  //     } catch (error) {
+  //       console.warn('[IPC] Failed to auto-commit file save:', error);
+  //     }
+  //
+  //     return true;
+  //   } catch (error) {
+  //     console.error('Error saving file:', error);
+  //     return false;
+  //   }
+  // });
 
   ipcMain.handle('get-file-url', async (event, websiteName: string, filePath: string) => {
     try {

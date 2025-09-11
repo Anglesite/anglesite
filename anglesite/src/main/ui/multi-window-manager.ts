@@ -163,8 +163,8 @@ export function showNativeLoadingError(websiteName: string): void {
 }
 import { updateApplicationMenu } from './menu';
 import { themeManager } from './theme-manager';
-import { WindowState } from '../core/types';
-import { IStore } from '../core/interfaces';
+import { WindowState, Rectangle } from '../core/types';
+import { IStore, IMonitorManager } from '../core/interfaces';
 import { loadTemplateAsDataUrl, getTemplateFilePath } from './template-loader';
 import { getWebsitePath } from '../utils/website-manager';
 
@@ -642,16 +642,61 @@ export function getAllWebsiteServers(): Map<string, WebsiteServer> {
 }
 
 /**
- * Save current window states to persistent storage.
+ * Calculate optimal window bounds using monitor-aware placement.
+ */
+function calculateOptimalWindowBounds(windowState: WindowState): Rectangle | null {
+  try {
+    const appContext = getGlobalContext();
+    const monitorManager = appContext.getService<IMonitorManager>(ServiceKeys.MONITOR_MANAGER);
+
+    if (!monitorManager) {
+      // Fallback to saved bounds if monitor manager not available
+      return windowState.bounds || null;
+    }
+
+    // Find the best monitor for this window
+    const bestMonitor = monitorManager.findBestMonitorForWindow(windowState);
+    if (!bestMonitor) {
+      return windowState.bounds || null;
+    }
+
+    // Calculate optimal bounds using monitor manager
+    const optimalBounds = monitorManager.calculateWindowBounds(windowState, bestMonitor);
+    return optimalBounds;
+  } catch (error) {
+    console.warn('Failed to calculate optimal window bounds, using fallback:', error);
+    return windowState.bounds || null;
+  }
+}
+
+/**
+ * Save current window states to persistent storage with monitor awareness.
  */
 export function saveWindowStates(): void {
-  const store = getGlobalContext().getService<IStore>(ServiceKeys.STORE);
+  console.log('💾 DEBUG: saveWindowStates() called - checking for open windows');
+  const appContext = getGlobalContext();
+  const store = appContext.getService<IStore>(ServiceKeys.STORE);
   const windowStates: WindowState[] = [];
+
+  // Try to get monitor manager for enhanced window state persistence
+  let monitorManager: IMonitorManager | null = null;
+  let currentMonitorConfig = null;
+
+  try {
+    monitorManager = appContext.getService<IMonitorManager>(ServiceKeys.MONITOR_MANAGER);
+    if (monitorManager) {
+      currentMonitorConfig = monitorManager.getCurrentConfiguration();
+    }
+  } catch (error) {
+    console.warn('Monitor manager not available, saving basic window states:', error);
+  }
 
   // Note: Help window state is no longer persisted since we don't auto-show it on startup
 
-  // Save website window states
+  // Save website window states with monitor awareness
+  console.log(`💾 DEBUG: Found ${websiteWindows.size} website windows to save`);
   websiteWindows.forEach((websiteWindow, websiteName) => {
+    console.log(`💾 DEBUG: Processing window for ${websiteName}`);
     if (!websiteWindow.window.isDestroyed()) {
       const bounds = websiteWindow.window.getBounds();
       const isMaximized = websiteWindow.window.isMaximized();
@@ -664,11 +709,28 @@ export function saveWindowStates(): void {
         windowType: websiteWindow.isEditorWindow ? 'editor' : 'preview',
       };
 
+      // Add monitor-aware data if monitor manager is available
+      if (monitorManager && currentMonitorConfig) {
+        try {
+          const bestMonitor = monitorManager.findBestMonitorForWindow(windowState);
+          if (bestMonitor) {
+            windowState.targetMonitorId = bestMonitor.id;
+            windowState.relativePosition = monitorManager.calculateRelativePosition(bounds, bestMonitor);
+            windowState.monitorConfig = currentMonitorConfig;
+          }
+        } catch (error) {
+          console.warn(`Failed to determine monitor data for window ${websiteName}:`, error);
+        }
+      }
+
       windowStates.push(windowState);
+      console.log(`💾 DEBUG: Added window state for ${websiteName}:`, windowState);
     }
   });
 
+  console.log(`💾 DEBUG: Saving ${windowStates.length} window states to store`);
   store.saveWindowStates(windowStates);
+  console.log('💾 DEBUG: Window states saved to store');
 }
 
 /**
@@ -705,11 +767,15 @@ export async function restoreWindowStates(): Promise<void> {
       // Restore window bounds and maximized state after a delay to ensure the window is ready
       setTimeout(() => {
         const websiteWindow = websiteWindows.get(windowState.websiteName);
-        if (websiteWindow && !websiteWindow.window.isDestroyed() && windowState.bounds) {
+        if (websiteWindow && !websiteWindow.window.isDestroyed()) {
           if (windowState.isMaximized) {
             websiteWindow.window.maximize();
           } else {
-            websiteWindow.window.setBounds(windowState.bounds);
+            // Use monitor-aware placement if available, otherwise fall back to saved bounds
+            const finalBounds = calculateOptimalWindowBounds(windowState);
+            if (finalBounds) {
+              websiteWindow.window.setBounds(finalBounds);
+            }
           }
         }
       }, 1000);
@@ -767,21 +833,41 @@ async function restoreWebsiteWindow(windowState: WindowState): Promise<void> {
 
 /**
  * Gracefully closes all open windows (website windows) and saves their states.
+ * Enhanced with timeout protection to prevent fsevents race condition crashes.
  */
 export async function closeAllWindows(): Promise<void> {
-  // Save window states before closing
-  saveWindowStates();
+  console.log('[CloseWindows] Starting graceful shutdown of all windows...');
+
+  // Note: Window states are now saved earlier in main.ts before cleanup begins
 
   // Use the DI-based centralized server manager to stop all servers
   try {
     const appContext = getGlobalContext();
     const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
-    await websiteServerManager.stopAllServers();
+
+    console.log('[CloseWindows] Stopping all website servers...');
+
+    // Add timeout protection specifically for server/file watcher cleanup
+    // This prevents the fsevents race condition by ensuring we don't wait
+    // indefinitely for file watcher cleanup
+    await Promise.race([
+      websiteServerManager.stopAllServers(),
+      new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Server shutdown timeout - preventing fsevents race condition'));
+        }, 4000); // 4 second timeout for server cleanup
+      }),
+    ]);
+
+    console.log('[CloseWindows] All servers stopped successfully');
   } catch (error) {
-    console.error('Error stopping servers during shutdown:', error);
+    console.error('[CloseWindows] Error stopping servers during shutdown (continuing with window closure):', error);
+    // Continue with window closure even if server shutdown fails
+    // This prevents the app from hanging if fsevents cleanup is stuck
   }
 
   // Close all windows
+  console.log(`[CloseWindows] Closing ${websiteWindows.size} windows...`);
   websiteWindows.forEach((websiteWindow) => {
     if (!websiteWindow.window.isDestroyed()) {
       websiteWindow.window.close();
@@ -789,6 +875,7 @@ export async function closeAllWindows(): Promise<void> {
   });
 
   websiteWindows.clear();
+  console.log('[CloseWindows] All windows closed');
 }
 
 // Start screen window instance declared at top of file

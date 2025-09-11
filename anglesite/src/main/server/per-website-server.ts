@@ -416,27 +416,54 @@ export async function stopWebsiteServer(server: WebsiteServer): Promise<void> {
     }
 
     // Stop the enhanced file watcher first to prevent fsevents crashes
+    // Enhanced with timeout protection to prevent race condition with Node.js module cleanup
     if (server.enhancedWatcher && process.env.NODE_ENV !== 'test') {
       try {
-        await server.enhancedWatcher.stop();
-        logger.info(`Enhanced file watcher stopped for port ${server.port}`);
+        logger.info(`Stopping enhanced file watcher for port ${server.port}...`);
+
+        // Add timeout protection for file watcher cleanup to prevent fsevents race condition
+        await Promise.race([
+          server.enhancedWatcher.stop(),
+          new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('Enhanced file watcher stop timeout - preventing fsevents deadlock'));
+            }, 2500); // 2.5 second timeout for individual watcher cleanup
+          }),
+        ]);
+
+        logger.info(`Enhanced file watcher stopped successfully for port ${server.port}`);
       } catch (watcherError) {
-        logger.error(`Error stopping enhanced file watcher for port ${server.port}`, {
+        logger.error(`Error stopping enhanced file watcher for port ${server.port} (continuing with server shutdown)`, {
           error: sanitize.error(watcherError),
           port: server.port,
         });
+        // Continue with cleanup even if watcher fails to stop properly
+        // This prevents the entire shutdown from hanging on one problematic watcher
       }
     }
 
     // Stop the legacy file watcher if it exists
     if (server.devServer && server.devServer.watcher) {
       try {
-        await server.devServer.watcher.close();
+        logger.info(`Stopping legacy file watcher for port ${server.port}...`);
+
+        // Add timeout protection for legacy watcher cleanup too
+        await Promise.race([
+          server.devServer.watcher.close(),
+          new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('Legacy file watcher close timeout - preventing fsevents deadlock'));
+            }, 2000); // 2 second timeout for legacy watcher cleanup
+          }),
+        ]);
+
+        logger.info(`Legacy file watcher stopped successfully for port ${server.port}`);
       } catch (watcherError) {
-        logger.error(`Error closing legacy file watcher for port ${server.port}`, {
+        logger.error(`Error closing legacy file watcher for port ${server.port} (continuing with server shutdown)`, {
           error: sanitize.error(watcherError),
           port: server.port,
         });
+        // Continue with cleanup even if legacy watcher fails
       }
     }
 

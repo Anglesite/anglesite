@@ -392,6 +392,7 @@ export const ServiceKeys = {
   // UI services
   MENU_MANAGER: 'menuManager',
   WINDOW_MANAGER: 'windowManager',
+  MONITOR_MANAGER: 'monitorManager',
 
   // System services
   DNS_MANAGER: 'dnsManager',

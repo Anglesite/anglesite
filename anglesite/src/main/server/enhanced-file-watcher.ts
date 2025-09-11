@@ -138,27 +138,50 @@ export class EnhancedFileWatcher {
   }
 
   /**
-   * Stop watching files.
+   * Stop watching files with enhanced cleanup to prevent fsevents race conditions.
    */
   public async stop(): Promise<void> {
+    console.log('[FileWatcher] Starting file watcher shutdown...');
+
+    // Clear any pending rebuilds immediately to prevent new operations
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
 
-    if (this.watcher) {
-      await this.watcher.close();
-      this.watcher = null;
-    }
-
-    // Clear pending changes
+    // Clear pending changes to prevent any new processing
     this.pendingChanges.clear();
+
+    if (this.watcher) {
+      try {
+        console.log('[FileWatcher] Closing chokidar watcher...');
+
+        // Add timeout protection for chokidar/fsevents cleanup
+        // This is critical to prevent the SIGABRT crash
+        await Promise.race([
+          this.watcher.close(),
+          new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('File watcher close timeout - fsevents may be hanging'));
+            }, 3000); // 3 second timeout for file watcher cleanup
+          }),
+        ]);
+
+        console.log('[FileWatcher] Chokidar watcher closed successfully');
+      } catch (error) {
+        console.error('[FileWatcher] Error closing file watcher (this may prevent fsevents crash):', error);
+        // Don't throw - we want to continue with cleanup even if watcher.close() fails
+        // This prevents the process from hanging on fsevents cleanup issues
+      } finally {
+        this.watcher = null;
+      }
+    }
 
     if (this.config.enableMetrics) {
       this.logFinalMetrics();
     }
 
-    console.log('[Watch Mode] Stopped watching files');
+    console.log('[FileWatcher] File watcher shutdown completed');
   }
 
   /**
