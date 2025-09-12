@@ -3,9 +3,36 @@ import * as path from 'path';
 import { parse as yamlParse } from 'yaml';
 import type { EleventyConfig } from '@11ty/eleventy';
 import { AnglesiteWebsiteConfiguration } from '../types/website.js';
+import {
+  getEffectiveLicenseConfiguration,
+  normalizeRSLConfiguration,
+  isRSLEnabledForCollection,
+} from './rsl/rsl-config.js';
+import type { RSLConfiguration, RSLLicenseConfiguration } from './rsl/types.js';
 
 /**
  * Custom error class for headers plugin errors
+ *
+ * @public
+ * @class HeadersPluginError
+ * @extends Error
+ * @description Specialized error class for headers plugin failures with structured error handling.
+ * Provides additional context through error codes and optional cause tracking.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   throw new HeadersPluginError(
+ *     'Validation failed',
+ *     originalError,
+ *     HeadersErrorCodes.VALIDATION_FAILED
+ *   );
+ * } catch (error) {
+ *   if (error instanceof HeadersPluginError) {
+ *     console.log(`Headers error (${error.code}): ${error.message}`);
+ *   }
+ * }
+ * ```
  */
 export class HeadersPluginError extends Error {
   constructor(
@@ -20,6 +47,27 @@ export class HeadersPluginError extends Error {
 
 /**
  * Error codes for different types of headers plugin errors
+ *
+ * @public
+ * @const HeadersErrorCodes
+ * @description Standardized error codes for headers plugin failures to enable consistent error handling.
+ * Use these codes to categorize and respond appropriately to different types of failures.
+ *
+ * @property {string} VALIDATION_FAILED - Header validation failed (security, format, or compliance issues)
+ * @property {string} FILE_READ_ERROR - Failed to read source files or configuration
+ * @property {string} FILE_WRITE_ERROR - Failed to write generated headers file
+ * @property {string} CONFIG_MISSING - Required configuration is missing or invalid
+ *
+ * @example
+ * ```typescript
+ * if (error.code === HeadersErrorCodes.VALIDATION_FAILED) {
+ *   // Handle validation errors - likely user configuration issue
+ *   console.error('Please check your headers configuration');
+ * } else if (error.code === HeadersErrorCodes.FILE_WRITE_ERROR) {
+ *   // Handle file system errors - likely permissions issue
+ *   console.error('Check write permissions for output directory');
+ * }
+ * ```
  */
 export const HeadersErrorCodes = {
   VALIDATION_FAILED: 'VALIDATION_FAILED',
@@ -282,6 +330,17 @@ function validateSecurityHeaderValue(name: string, value: string, errors: string
       }
       break;
     }
+
+    case 'link': {
+      // Special validation for Link headers that might contain RSL license references
+      // Check if this is an RSL Link header by looking for rel="license"
+      if (value.includes('rel="license"')) {
+        const rslErrors = validateRSLLinkHeader(value);
+        errors.push(...rslErrors);
+      }
+      // Additional general Link header validation could be added here
+      break;
+    }
   }
 }
 
@@ -294,9 +353,207 @@ interface PathHeaders {
 }
 
 /**
- * Generates CloudFlare _headers file content from website configuration.
- * @param website The website configuration object (for global headers).
- * @returns Object containing the file content and any validation errors
+ * RSL header generation configuration
+ */
+interface RSLHeaderContext {
+  /** The URL path being processed */
+  urlPath: string;
+  /** Base URL for the site */
+  baseUrl?: string;
+  /** Collection name if this content belongs to a collection */
+  collectionName?: string;
+  /** Content-specific license configuration */
+  contentLicense?: RSLLicenseConfiguration;
+}
+
+/**
+ * Resolves RSL license file URLs for a given content path
+ * @param context - The RSL header context with path and collection info
+ * @param rslConfig - The RSL configuration
+ * @returns Array of RSL URLs that apply to this content
+ */
+function resolveRSLUrls(context: RSLHeaderContext, rslConfig: RSLConfiguration): string[] {
+  if (!rslConfig.enabled) {
+    return [];
+  }
+
+  const urls: string[] = [];
+  const baseUrl = context.baseUrl || '';
+
+  // Determine effective license configuration
+  const effectiveLicense = getEffectiveLicenseConfiguration(rslConfig, context.collectionName, context.contentLicense);
+
+  // Skip if no effective license configuration
+  if (!effectiveLicense || Object.keys(effectiveLicense).length === 0) {
+    return urls;
+  }
+
+  // Check if this collection has RSL enabled
+  if (context.collectionName && !isRSLEnabledForCollection(rslConfig, context.collectionName)) {
+    return urls;
+  }
+
+  // 1. Individual content RSL file (if enabled for this collection)
+  if (
+    context.collectionName &&
+    rslConfig.collections?.[context.collectionName]?.outputFormats?.includes('individual')
+  ) {
+    // Convert /blog/post-name/ to /blog/post-name.rsl.xml
+    const individualUrl = context.urlPath.replace(/\/$/, '') + '.rsl.xml';
+    urls.push(baseUrl + individualUrl);
+  }
+
+  // 2. Collection RSL file (if collection is enabled)
+  if (
+    context.collectionName &&
+    rslConfig.collections?.[context.collectionName]?.enabled !== false &&
+    (rslConfig.collections?.[context.collectionName]?.outputFormats?.includes('collection') ||
+      rslConfig.defaultOutputFormats?.includes('collection'))
+  ) {
+    const collectionUrl = `/${context.collectionName}/${context.collectionName}.rsl.xml`;
+    urls.push(baseUrl + collectionUrl);
+  }
+
+  // 3. Site-wide RSL file (if enabled and mainCollection matches)
+  if (
+    (rslConfig.defaultOutputFormats?.includes('sitewide') ||
+      rslConfig.collections?.[context.collectionName || '']?.outputFormats?.includes('sitewide')) &&
+    rslConfig.mainCollection === context.collectionName
+  ) {
+    urls.push(baseUrl + '/rsl.xml');
+  }
+
+  return urls.filter((url) => url.length > 0);
+}
+
+/**
+ * Generates RSL Link headers for a given context
+ * @param context - The RSL header context
+ * @param rslConfig - The RSL configuration
+ * @returns Record of header names to values for RSL links
+ */
+function generateRSLHeaders(context: RSLHeaderContext, rslConfig: RSLConfiguration): Record<string, string> {
+  const headers: Record<string, string> = {};
+
+  const rslUrls = resolveRSLUrls(context, rslConfig);
+
+  if (rslUrls.length === 0) {
+    return headers;
+  }
+
+  // Generate Link headers according to RSL HTTP specification
+  // Format: Link: <license-URL>; rel="license"; type="application/rsl+xml"
+  const linkValues = rslUrls.map((url) => `<${url}>; rel="license"; type="application/rsl+xml"`);
+
+  // If multiple RSL files apply, combine them in a single Link header
+  headers['Link'] = linkValues.join(', ');
+
+  return headers;
+}
+
+/**
+ * Extracts collection name from URL path
+ * @param urlPath - The URL path (e.g., '/blog/post-name/')
+ * @returns The collection name or undefined
+ */
+function extractCollectionFromPath(urlPath: string): string | undefined {
+  if (!urlPath || urlPath === '/') {
+    return undefined;
+  }
+
+  // Remove leading/trailing slashes and get first segment
+  const segments = urlPath.replace(/^\/|\/$/g, '').split('/');
+  return segments.length > 0 ? segments[0] : undefined;
+}
+
+/**
+ * Validates RSL Link header format
+ * @param linkValue - The Link header value to validate
+ * @returns Array of validation errors
+ */
+function validateRSLLinkHeader(linkValue: string): string[] {
+  const errors: string[] = [];
+
+  // Split multiple links by comma (outside of angle brackets)
+  const links = linkValue.split(/,(?![^<]*>)/);
+
+  for (const link of links) {
+    const trimmedLink = link.trim();
+
+    // Validate basic Link header format: <url>; rel="license"; type="application/rsl+xml"
+    const linkPattern = /^<([^>]+)>;\s*rel="license";\s*type="application\/rsl\+xml"$/;
+    const match = trimmedLink.match(linkPattern);
+
+    if (!match) {
+      errors.push(
+        `Invalid RSL Link header format: ${trimmedLink}. Must be <url>; rel="license"; type="application/rsl+xml"`
+      );
+      continue;
+    }
+
+    const url = match[1];
+
+    // Validate URL format
+    if (!url.startsWith('/') && !url.startsWith('http')) {
+      errors.push(`Invalid RSL Link URL: ${url}. Must be absolute path or full URL`);
+    }
+
+    // Validate RSL file extension
+    if (!url.endsWith('.rsl.xml')) {
+      errors.push(`Invalid RSL Link URL: ${url}. Must end with .rsl.xml`);
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Generates CloudFlare _headers file content from website configuration
+ *
+ * @public
+ * @function generateHeaders
+ * @description Processes website configuration headers and generates CloudFlare-compatible _headers file content.
+ * Performs comprehensive validation including security checks, format compliance, and CloudFlare limits.
+ *
+ * @param {AnglesiteWebsiteConfiguration} website - The website configuration object containing headers
+ * @param {Record<string, string>} website.headers - HTTP headers to include in global configuration
+ * @param {string} [website.url] - Base URL for the website (used for validation)
+ *
+ * @returns {{content: string, errors: string[], warnings: string[]}} Result object
+ * @returns {string} returns.content - Generated _headers file content in CloudFlare format
+ * @returns {string[]} returns.errors - Validation errors that prevent deployment (build should fail)
+ * @returns {string[]} returns.warnings - Non-critical issues that should be logged but allow build to continue
+ *
+ * @throws {never} - This function does not throw; all errors are returned in the result object
+ *
+ * @example
+ * ```typescript
+ * const websiteConfig = {
+ *   headers: {
+ *     'X-Frame-Options': 'DENY',
+ *     'Content-Security-Policy': "default-src 'self'",
+ *     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
+ *   }
+ * };
+ *
+ * const result = generateHeaders(websiteConfig);
+ *
+ * if (result.errors.length > 0) {
+ *   console.error('Header validation failed:', result.errors);
+ *   process.exit(1);
+ * }
+ *
+ * if (result.warnings.length > 0) {
+ *   console.warn('Header warnings:', result.warnings);
+ * }
+ *
+ * // Write the generated content to _headers file
+ * fs.writeFileSync('_site/_headers', result.content);
+ * ```
+ *
+ * @see {@link https://developers.cloudflare.com/pages/platform/headers/} CloudFlare Pages Headers Documentation
+ * @see {@link HeadersErrorCodes} For standardized error codes
+ * @since 0.3.0
  */
 export function generateHeaders(website: AnglesiteWebsiteConfiguration): {
   content: string;
@@ -354,9 +611,61 @@ export function generateHeaders(website: AnglesiteWebsiteConfiguration): {
 }
 
 /**
- * Generates CloudFlare _headers file content from path-specific headers.
- * @param pathHeaders Array of path-specific header configurations.
- * @returns Object containing the file content and any validation errors
+ * Generates CloudFlare _headers file content from path-specific header configurations
+ *
+ * @public
+ * @function generateHeadersFromPaths
+ * @description Processes path-specific header configurations and generates CloudFlare-compatible _headers file content.
+ * Supports multiple path patterns, validation, and automatic RSL Link header integration.
+ *
+ * @param {PathHeaders[]} pathHeaders - Array of path-specific header configurations
+ * @param {string} pathHeaders[].path - URL path pattern (e.g., '/blog/*', '/api/v1/*')
+ * @param {Record<string, string | undefined>} pathHeaders[].headers - Headers to apply for this path
+ * @param {string} [pathHeaders[].headers._source] - Internal metadata for source file tracking
+ *
+ * @returns {{content: string, errors: string[], warnings: string[]}} Result object
+ * @returns {string} returns.content - Generated _headers file content with path-specific rules
+ * @returns {string[]} returns.errors - Critical validation errors that should fail the build
+ * @returns {string[]} returns.warnings - Non-critical issues for logging
+ *
+ * @throws {never} - This function does not throw; all errors are returned in the result object
+ *
+ * @example
+ * ```typescript
+ * const pathHeaders = [
+ *   {
+ *     path: '/blog/*',
+ *     headers: {
+ *       'X-Robots-Tag': 'index, follow',
+ *       'Link': '<https://example.com/blog/blog.rsl.xml>; rel="license"; type="application/rsl+xml"',
+ *       _source: './src/blog/index.md'
+ *     }
+ *   },
+ *   {
+ *     path: '/admin/*',
+ *     headers: {
+ *       'X-Frame-Options': 'DENY',
+ *       'X-Robots-Tag': 'noindex, nofollow'
+ *     }
+ *   }
+ * ];
+ *
+ * const result = generateHeadersFromPaths(pathHeaders);
+ * console.log(result.content);
+ * // Output:
+ * // # Headers from ./src/blog/index.md
+ * // /blog/*
+ * //   X-Robots-Tag: index, follow
+ * //   Link: <https://example.com/blog/blog.rsl.xml>; rel="license"; type="application/rsl+xml"
+ * //
+ * // /admin/*
+ * //   X-Frame-Options: DENY
+ * //   X-Robots-Tag: noindex, nofollow
+ * ```
+ *
+ * @see {@link https://developers.cloudflare.com/pages/platform/headers/} CloudFlare Pages Headers Documentation
+ * @see {@link collectPathHeaders} For collecting headers from Eleventy build results
+ * @since 0.3.0
  */
 export function generateHeadersFromPaths(pathHeaders: PathHeaders[]): {
   content: string;
@@ -471,9 +780,75 @@ async function writeHeadersFile(outputPath: string, content: string): Promise<vo
 }
 
 /**
- * Collects path-specific headers from Eleventy's data cascade
- * @param results Array of Eleventy build results
- * @returns Array of path-specific header configurations
+ * Collects path-specific headers from Eleventy's build results and data cascade
+ *
+ * @public
+ * @function collectPathHeaders
+ * @description Processes Eleventy build results to extract headers from front matter and automatically
+ * generates RSL Link headers for content with licensing information. Supports YAML front matter,
+ * JavaScript/TypeScript templates, and RSL license integration.
+ *
+ * @param {EleventyBuildResult[] | null} results - Array of Eleventy build results from eleventy.after event
+ * @param {string} [results[].url] - The output URL for the content (e.g., '/blog/post-name/')
+ * @param {string} [results[].outputPath] - File system path for the generated file
+ * @param {string} [results[].inputPath] - Source file path (e.g., './src/blog/post-name.md')
+ * @param {EleventyPageData} [results[].data] - Page data from Eleventy's data cascade
+ *
+ * @returns {Record<string, Record<string, string | undefined>>} Path headers map
+ * @returns {Record<string, string | undefined>} returns[path] - Headers for the specified path pattern
+ * @returns {string} returns[path]._source - Internal metadata tracking the source file
+ *
+ * @throws {never} - This function does not throw; errors are logged and processing continues
+ *
+ * @example
+ * ```typescript
+ * // In Eleventy plugin (eleventy.after event)
+ * eleventyConfig.on('eleventy.after', async ({ results }) => {
+ *   const pathHeaders = collectPathHeaders(results);
+ *
+ *   // Example result structure:
+ *   // {
+ *   //   '/blog/welcome-post/*': {
+ *   //     _source: './src/blog/welcome-post.md',
+ *   //     'X-Robots-Tag': 'index, follow',
+ *   //     'Link': '<https://example.com/blog/welcome-post.rsl.xml>; rel="license"; type="application/rsl+xml"'
+ *   //   },
+ *   //   '/admin/*': {
+ *   //     _source: './src/admin/index.md',
+ *   //     'X-Frame-Options': 'DENY',
+ *   //     'X-Robots-Tag': 'noindex'
+ *   //   }
+ *   // }
+ *
+ *   const headerResult = generateHeadersFromPaths(
+ *     Object.entries(pathHeaders).map(([path, headers]) => ({ path, headers }))
+ *   );
+ *
+ *   if (headerResult.content) {
+ *     fs.writeFileSync('_site/_headers', headerResult.content);
+ *   }
+ * });
+ * ```
+ *
+ * @example
+ * ```yaml
+ * # In markdown front matter (./src/blog/my-post.md)
+ * ---
+ * title: "My Blog Post"
+ * headers:
+ *   X-Robots-Tag: "index, follow"
+ *   Cache-Control: "public, max-age=3600"
+ * rsl:
+ *   permits:
+ *     - type: usage
+ *       values: [view, download]
+ * ---
+ * Content here...
+ * ```
+ *
+ * @see {@link generateHeadersFromPaths} For processing the collected headers
+ * @see {@link https://www.11ty.dev/docs/events/#eleventy.after} Eleventy after event documentation
+ * @since 0.3.0
  */
 export function collectPathHeaders(
   results: Array<{ url?: string; outputPath?: string; inputPath?: string; data?: EleventyPageData }> | null
@@ -484,11 +859,22 @@ export function collectPathHeaders(
 
   const pathHeadersMap = new Map<string, Record<string, string | undefined>>();
 
-  // First, try to read global headers from website.json
+  // First, try to read global headers and RSL config from website.json
+  let rslConfig: RSLConfiguration | null = null;
+  let baseUrl: string | undefined = undefined;
+
   try {
     const websiteJsonPath = './src/_data/website.json';
     const websiteContent = readFileSync(websiteJsonPath, 'utf8');
     const websiteConfig = JSON.parse(websiteContent);
+
+    // Extract RSL configuration
+    if (websiteConfig?.rsl) {
+      rslConfig = normalizeRSLConfiguration(websiteConfig.rsl);
+    }
+
+    // Extract base URL for RSL header generation
+    baseUrl = websiteConfig?.url;
 
     if (websiteConfig?.headers && Object.keys(websiteConfig.headers).length > 0) {
       // Add global headers with the wildcard path pattern and source info
@@ -552,10 +938,6 @@ export function collectPathHeaders(
         frontMatter = yamlParse(frontMatterMatch[1]);
       }
 
-      if (!frontMatter?.headers) {
-        continue; // No headers found
-      }
-
       // Use the URL from Eleventy results to determine path pattern
       let pathPattern = result.url;
 
@@ -570,10 +952,38 @@ export function collectPathHeaders(
         pathPattern = '/*';
       }
 
-      pathHeadersMap.set(pathPattern, {
+      // Start with page-specific headers from front matter (if any)
+      const combinedHeaders: Record<string, string | undefined> = {
         _source: result.inputPath,
-        ...frontMatter.headers,
-      });
+        ...(frontMatter?.headers || {}),
+      };
+
+      // Generate and add RSL headers if RSL is enabled
+      if (rslConfig && rslConfig.enabled) {
+        const collectionName = extractCollectionFromPath(result.url);
+        const contentLicense = frontMatter?.rsl || frontMatter?.license;
+
+        const rslContext: RSLHeaderContext = {
+          urlPath: result.url,
+          baseUrl,
+          collectionName,
+          contentLicense,
+        };
+
+        const rslHeaders = generateRSLHeaders(rslContext, rslConfig);
+
+        // Merge RSL headers with existing headers
+        // RSL headers take precedence if there are conflicts
+        Object.assign(combinedHeaders, rslHeaders);
+      }
+
+      // Only add to map if we have headers to include (excluding just _source)
+      const headersWithoutSource = { ...combinedHeaders };
+      delete headersWithoutSource._source;
+
+      if (Object.keys(headersWithoutSource).length > 0) {
+        pathHeadersMap.set(pathPattern, combinedHeaders);
+      }
     } catch (error) {
       console.warn(`[Eleventy] Failed to read front matter from ${result.inputPath}:`, error);
       continue;

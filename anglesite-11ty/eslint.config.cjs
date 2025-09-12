@@ -80,7 +80,7 @@ module.exports = [
 
   // Test files configuration (Jest environment)
   {
-    files: ['**/*.test.js', '**/test/**/*.js', 'tests/**/*.test.ts'],
+    files: ['**/*.test.js', '**/test/**/*.js', 'tests/**/*.test.ts', 'tests/**/test-helpers.ts'],
     languageOptions: {
       ecmaVersion: 2021,
       sourceType: 'module',
@@ -91,14 +91,18 @@ module.exports = [
       },
     },
     plugins: {
+      '@typescript-eslint': tsEslint,
       prettier: prettier,
       jsdoc,
     },
     rules: {
+      ...tsEslint.configs.recommended.rules,
       ...prettierConfig.rules,
       'prettier/prettier': 'error',
       'jsdoc/require-jsdoc': 'off', // Don't require JSDoc for test files
       'no-unused-vars': 'off', // Allow unused vars in test mocks
+      '@typescript-eslint/no-unused-vars': 'off', // Allow unused vars in test mocks
+      '@typescript-eslint/no-explicit-any': 'off', // Allow any in test helpers for mocking
     },
   },
 

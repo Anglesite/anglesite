@@ -2,9 +2,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { EleventyConfig } from '@11ty/eleventy';
 import { AnglesiteWebsiteConfiguration } from '../types/website.js';
+import type { RSLConfiguration } from './rsl/types.js';
+
+interface ExtendedWebsiteConfig extends AnglesiteWebsiteConfiguration {
+  rsl?: RSLConfiguration;
+}
 
 interface EleventyData {
-  website: AnglesiteWebsiteConfiguration;
+  website: ExtendedWebsiteConfig;
 }
 
 /**
@@ -13,7 +18,7 @@ interface EleventyData {
  * @param website The website configuration object.
  * @returns The contents of the robots.txt file.
  */
-export function generateRobotsTxt(website: AnglesiteWebsiteConfiguration): string {
+export function generateRobotsTxt(website: ExtendedWebsiteConfig): string {
   if (!website) {
     return '';
   }
@@ -61,6 +66,14 @@ export function generateRobotsTxt(website: AnglesiteWebsiteConfiguration): strin
     robotsTxt += `Sitemap: ${sitemapUrl}\n`;
   }
 
+  // Add License directive if RSL is enabled and site URL is provided
+  // This links to the site-wide RSL file as per RFC 9309
+  const isRSLEnabled = website.rsl?.enabled !== false && website.rsl;
+  if (isRSLEnabled && website.url) {
+    const rslUrl = new URL('rsl.xml', website.url).href;
+    robotsTxt += `License: ${rslUrl}\n`;
+  }
+
   return robotsTxt;
 }
 
@@ -78,7 +91,7 @@ export default function addRobotsTxt(eleventyConfig: EleventyConfig): void {
 
     // Try to get website configuration from page data first (for tests)
     // Then fallback to reading from filesystem (for real builds)
-    let websiteConfig: AnglesiteWebsiteConfiguration | undefined;
+    let websiteConfig: ExtendedWebsiteConfig | undefined;
 
     // Check if the first result has data property (test scenario)
     const firstResult = results[0] as { data?: EleventyData };
@@ -89,7 +102,7 @@ export default function addRobotsTxt(eleventyConfig: EleventyConfig): void {
       try {
         const websiteDataPath = path.resolve('src', '_data', 'website.json');
         const websiteData = await fs.promises.readFile(websiteDataPath, 'utf-8');
-        websiteConfig = JSON.parse(websiteData) as AnglesiteWebsiteConfiguration;
+        websiteConfig = JSON.parse(websiteData) as ExtendedWebsiteConfig;
       } catch {
         console.warn('[Eleventy] Robots plugin: Could not read website.json from _data directory');
         return;

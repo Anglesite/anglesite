@@ -258,6 +258,79 @@
     "op_policy_uri": "https://example.com/privacy",
     "op_tos_uri": "https://example.com/terms"
   },
+  "rsl": {
+    "enabled": true,
+    "defaultOutputFormats": ["sitewide", "collection"],
+    "copyright": "© 2025 Anglesite 11ty Website",
+    "defaultLicense": {
+      "permits": [
+        { "type": "usage", "values": ["view", "download"] },
+        { "type": "user", "values": ["individual", "educational"] }
+      ],
+      "prohibits": [{ "type": "usage", "values": ["commercial", "ai-training"] }],
+      "payment": {
+        "type": "free",
+        "attribution": true
+      },
+      "standard": "https://creativecommons.org/licenses/by-nc/4.0/"
+    },
+    "collections": {
+      "blog": {
+        "enabled": true,
+        "outputFormats": ["collection", "individual"],
+        "permits": [
+          { "type": "usage", "values": ["view", "download", "modify"] },
+          { "type": "user", "values": ["individual", "educational"] }
+        ]
+      },
+      "posts": {
+        "enabled": true,
+        "outputFormats": ["collection"],
+        "permits": [{ "type": "usage", "values": ["view", "download"] }]
+      },
+      "podcast": {
+        "enabled": true,
+        "outputFormats": ["collection"],
+        "permits": [{ "type": "usage", "values": ["view", "download", "stream"] }],
+        "copyright": "© 2025 Anglesite Tech Podcast",
+        "standard": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    "contentDiscovery": {
+      "enabled": true,
+      "includeExtensions": [".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp", ".pdf", ".mp3", ".mp4", ".webm"],
+      "excludeExtensions": [".tmp", ".log"],
+      "excludeDirectories": ["node_modules", ".git", "dist", "_site", "coverage"],
+      "generateChecksums": false,
+      "maxDepth": 5
+    },
+    "templates": {
+      "cc-by": {
+        "name": "Creative Commons Attribution 4.0",
+        "license": {
+          "permits": [{ "type": "usage", "values": ["view", "download", "modify", "distribute", "commercial"] }],
+          "payment": { "type": "free", "attribution": true },
+          "standard": "https://creativecommons.org/licenses/by/4.0/"
+        }
+      },
+      "cc-by-sa": {
+        "name": "Creative Commons Attribution-ShareAlike 4.0",
+        "license": {
+          "permits": [{ "type": "usage", "values": ["view", "download", "modify", "distribute", "commercial"] }],
+          "payment": { "type": "free", "attribution": true },
+          "standard": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      },
+      "all-rights-reserved": {
+        "name": "All Rights Reserved",
+        "license": {
+          "permits": [{ "type": "usage", "values": ["view"] }],
+          "prohibits": [{ "type": "usage", "values": ["download", "modify", "distribute", "commercial"] }],
+          "payment": { "type": "free", "attribution": false }
+        }
+      }
+    }
+  },
   "feeds": {
     "enabled": true,
     "defaultTypes": ["rss", "atom", "json"],

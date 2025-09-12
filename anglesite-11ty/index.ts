@@ -12,6 +12,7 @@ import addNodeInfo from './plugins/nodeinfo.js';
 import addOpenIDConfiguration from './plugins/openid-configuration.js';
 import addImages, { type ImageOptions } from './plugins/images.js';
 import addFeeds from './plugins/feeds.js';
+import addRSL from './plugins/rsl.js';
 import addSyntaxHighlight from './plugins/syntax-highlight.js';
 import EleventyWebcPlugin from '@11ty/eleventy-plugin-webc';
 import type { EleventyConfig } from '@11ty/eleventy';
@@ -61,6 +62,7 @@ export default function anglesiteEleventy(
   addNodeInfo(eleventyConfig);
   addOpenIDConfiguration(eleventyConfig);
   addFeeds(eleventyConfig);
+  addRSL(eleventyConfig);
 }
 
 // Export individual plugins for direct use if needed
@@ -80,4 +82,5 @@ export {
   addNodeInfo,
   addOpenIDConfiguration,
   addFeeds,
+  addRSL,
 };
