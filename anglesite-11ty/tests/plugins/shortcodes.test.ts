@@ -35,11 +35,12 @@ describe('shortcodes plugin', () => {
   });
 
   describe('plugin initialization', () => {
-    it('should add getPageTitle shortcode', () => {
+    it('should add both getPageTitle and rslScript shortcodes', () => {
       addShortcodes(mockEleventyConfig);
 
       expect(mockEleventyConfig.addShortcode).toHaveBeenCalledWith('getPageTitle', expect.any(Function));
-      expect(mockEleventyConfig.addShortcode).toHaveBeenCalledTimes(1);
+      expect(mockEleventyConfig.addShortcode).toHaveBeenCalledWith('rslScript', expect.any(Function));
+      expect(mockEleventyConfig.addShortcode).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -4,6 +4,8 @@ import * as path from 'path';
 import xml from 'xml';
 import type { EleventyConfig, EleventyCollectionItem, EleventyCollectionApi } from '@11ty/eleventy';
 import { AnglesiteWebsiteConfiguration } from '../types/website.js';
+import { getEffectiveLicenseConfiguration, normalizeRSLConfiguration } from './rsl/rsl-config.js';
+import type { RSLLicenseConfiguration, RSLConfiguration } from './rsl/types.js';
 
 interface EleventyData {
   website: AnglesiteWebsiteConfiguration;
@@ -95,6 +97,7 @@ interface FeedPageData {
   author?: string;
   date?: Date;
   tags?: string | string[];
+  license?: RSLLicenseConfiguration;
   page?: {
     date: Date;
     url: string;
@@ -151,6 +154,89 @@ function getItemContent(item: FeedCollectionItem): string {
 function getItemUrl(item: EleventyCollectionItem, baseUrl: string): string {
   const url = item.url || item.data.permalink || '/';
   return new URL(url, baseUrl).toString();
+}
+
+/**
+ * Type guard to check if RSL configuration is properly configured
+ * @param rsl - The RSL configuration to check
+ * @returns Whether RSL is properly configured
+ */
+function isRSLEnabled(rsl: unknown): rsl is RSLConfiguration & { enabled: true } {
+  return (
+    typeof rsl === 'object' && rsl !== null && 'enabled' in rsl && (rsl as Record<string, unknown>).enabled === true
+  );
+}
+
+/**
+ * Generates RSS-compatible license elements from RSL configuration.
+ * @param license - RSL license configuration
+ * @returns Array of RSS license elements
+ */
+function generateRSSLicenseElements(license: RSLLicenseConfiguration): Record<string, unknown>[] {
+  const elements: Record<string, unknown>[] = [];
+
+  // Add Creative Commons license if standard is CC
+  if (license.standard && license.standard.includes('creativecommons.org')) {
+    elements.push({
+      'cc:license': [{ _attr: { 'rdf:resource': license.standard } }],
+    });
+  }
+
+  // Add Dublin Core license element
+  if (license.standard) {
+    elements.push({
+      'dc:license': license.standard,
+    });
+  }
+
+  // Add custom license information as RSS license element
+  if (license.permits || license.prohibits || license.payment) {
+    const licenseDescription = [];
+
+    // Add permissions information
+    if (license.permits) {
+      const permissions = license.permits
+        .filter((permit) => permit.values && permit.values.length > 0)
+        .map((permit) => `${permit.type}: ${permit.values?.join(', ')}`)
+        .join('; ');
+      if (permissions) {
+        licenseDescription.push(`Permits: ${permissions}`);
+      }
+    }
+
+    // Add restrictions information
+    if (license.prohibits) {
+      const restrictions = license.prohibits
+        .filter((prohibit) => prohibit.values && prohibit.values.length > 0)
+        .map((prohibit) => `${prohibit.type}: ${prohibit.values?.join(', ')}`)
+        .join('; ');
+      if (restrictions) {
+        licenseDescription.push(`Prohibits: ${restrictions}`);
+      }
+    }
+
+    // Add payment information
+    if (license.payment) {
+      const payment = `Payment: ${license.payment.type}`;
+      const attribution = license.payment.attribution ? ' (attribution required)' : '';
+      licenseDescription.push(payment + attribution);
+    }
+
+    if (licenseDescription.length > 0) {
+      elements.push({
+        license: licenseDescription.join(' | '),
+      });
+    }
+  }
+
+  // Add attribution/copyright information
+  if (license.copyright) {
+    elements.push({
+      'dc:rights': license.copyright,
+    });
+  }
+
+  return elements;
 }
 
 /**
@@ -261,6 +347,23 @@ function generateRssFeed(
     }
   }
 
+  // Add RSL license information to channel if available
+  if (isRSLEnabled(config.rsl)) {
+    try {
+      const normalizedRSLConfig = normalizeRSLConfiguration(config.rsl);
+      const collectionLicense = getEffectiveLicenseConfiguration(normalizedRSLConfig, collectionName);
+
+      if (collectionLicense) {
+        const licenseElements = generateRSSLicenseElements(collectionLicense);
+        licenseElements.forEach((element) => {
+          channelElements.push(element);
+        });
+      }
+    } catch (error) {
+      console.warn(`RSS: Failed to add license information to channel for collection '${collectionName}':`, error);
+    }
+  }
+
   // Add items
   for (const item of items) {
     const pageData = item.data;
@@ -339,10 +442,29 @@ function generateRssFeed(
       }
     }
 
+    // Add RSL license information to individual item if available
+    if (isRSLEnabled(config.rsl)) {
+      try {
+        const normalizedRSLConfig = normalizeRSLConfiguration(config.rsl);
+        // Check for item-specific license in frontmatter, fallback to collection license
+        const itemLicense = pageData.license || undefined;
+        const effectiveLicense = getEffectiveLicenseConfiguration(normalizedRSLConfig, collectionName, itemLicense);
+
+        if (effectiveLicense) {
+          const licenseElements = generateRSSLicenseElements(effectiveLicense);
+          licenseElements.forEach((element) => {
+            itemElements.push(element);
+          });
+        }
+      } catch (error) {
+        console.warn(`RSS: Failed to add license information to item '${pageData.title}':`, error);
+      }
+    }
+
     channelElements.push({ item: itemElements });
   }
 
-  // Determine namespaces based on podcast configuration
+  // Determine namespaces based on podcast configuration and license information
   const namespaces: Record<string, string> = {
     version: '2.0',
     'xmlns:atom': 'http://www.w3.org/2005/Atom',
@@ -352,6 +474,13 @@ function generateRssFeed(
   if (feedConfig.podcast?.enabled) {
     namespaces['xmlns:itunes'] = 'http://www.itunes.com/dtds/podcast-1.0.dtd';
     namespaces['xmlns:content'] = 'http://purl.org/rss/1.0/modules/content/';
+  }
+
+  // Add license-related namespaces if RSL is enabled
+  if (isRSLEnabled(config.rsl)) {
+    namespaces['xmlns:dc'] = 'http://purl.org/dc/elements/1.1/';
+    namespaces['xmlns:cc'] = 'http://creativecommons.org/ns#';
+    namespaces['xmlns:rdf'] = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
   }
 
   const rssObj = {

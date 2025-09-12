@@ -13,6 +13,8 @@ import addNodeInfo from './plugins/nodeinfo.js';
 import addOpenIDConfiguration from './plugins/openid-configuration.js';
 import addImages from './plugins/images.js';
 import addFeeds from './plugins/feeds.js';
+import addRSL from './plugins/rsl.js';
+import addShortcodes from './plugins/shortcodes.js';
 import type { EleventyConfig } from '@11ty/eleventy';
 
 /**
@@ -37,6 +39,8 @@ export default function (eleventyConfig: EleventyConfig) {
   eleventyConfig.addPlugin(addNodeInfo);
   eleventyConfig.addPlugin(addOpenIDConfiguration);
   eleventyConfig.addPlugin(addFeeds);
+  eleventyConfig.addPlugin(addRSL);
+  eleventyConfig.addPlugin(addShortcodes);
 
   return {
     dir: {

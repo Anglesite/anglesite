@@ -25,6 +25,9 @@
     },
     {
       "$ref": "./modules/feeds.json"
+    },
+    {
+      "$ref": "./modules/rsl.json"
     }
   ],
   "additionalProperties": false

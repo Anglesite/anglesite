@@ -1,0 +1,321 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anglesite.dwk.io/schemas/modules/rsl.json",
+  "title": "RSL Configuration Module",
+  "description": "Configuration schema for RSL (Really Simple Licensing) settings",
+  "type": "object",
+  "properties": {
+    "rsl": {
+      "type": "object",
+      "description": "RSL (Really Simple Licensing) configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable RSL generation",
+          "default": true
+        },
+        "defaultOutputFormats": {
+          "type": "array",
+          "description": "Default output formats to generate",
+          "items": {
+            "type": "string",
+            "enum": ["individual", "collection", "sitewide"]
+          },
+          "default": ["sitewide"]
+        },
+        "copyright": {
+          "type": "string",
+          "description": "Global copyright notice that can be inherited by all licenses"
+        },
+        "defaultLicense": {
+          "$ref": "#/$defs/RSLLicenseConfiguration",
+          "description": "Default license configuration for the site"
+        },
+        "collections": {
+          "type": "object",
+          "description": "Per-collection RSL configurations",
+          "patternProperties": {
+            "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+              "$ref": "#/$defs/RSLCollectionConfig"
+            }
+          },
+          "additionalProperties": false
+        },
+        "contentDiscovery": {
+          "$ref": "#/$defs/RSLContentDiscoveryConfig",
+          "description": "Content discovery settings"
+        },
+        "templates": {
+          "type": "object",
+          "description": "License template definitions",
+          "patternProperties": {
+            "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+              "$ref": "#/$defs/RSLLicenseTemplate"
+            }
+          },
+          "additionalProperties": false
+        },
+        "mainCollection": {
+          "type": "string",
+          "description": "Main collection name for site-wide RSL",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+        },
+        "autoDiscoverCollections": {
+          "type": "boolean",
+          "description": "Enable automatic discovery of all collections based on tags",
+          "default": false
+        },
+        "includeCollections": {
+          "type": "array",
+          "description": "Glob patterns for collections to include in auto-discovery",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_*?-]+$"
+          },
+          "default": []
+        },
+        "excludeCollections": {
+          "type": "array",
+          "description": "Glob patterns for collections to exclude from auto-discovery",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_*?-]+$"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "RSLLicenseConfiguration": {
+      "type": "object",
+      "description": "RSL license configuration",
+      "properties": {
+        "permits": {
+          "type": "array",
+          "description": "Permitted actions",
+          "items": { "$ref": "#/$defs/RSLPermissionSet" }
+        },
+        "prohibits": {
+          "type": "array",
+          "description": "Prohibited actions",
+          "items": { "$ref": "#/$defs/RSLPermissionSet" }
+        },
+        "payment": {
+          "$ref": "#/$defs/RSLPaymentConfiguration",
+          "description": "Payment configuration"
+        },
+        "copyright": {
+          "type": "string",
+          "description": "Copyright notice"
+        },
+        "standard": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to standard license (e.g., Creative Commons)"
+        },
+        "custom": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to custom license"
+        },
+        "terms": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to terms of use"
+        },
+        "legal": {
+          "$ref": "#/$defs/RSLLegalInformation",
+          "description": "Legal disclaimers"
+        },
+        "schema": {
+          "$ref": "#/$defs/RSLSchemaMetadata",
+          "description": "Schema.org metadata"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RSLPermissionSet": {
+      "type": "object",
+      "description": "Set of permissions or prohibitions",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Permission type",
+          "enum": ["usage", "user", "geo", "time", "purpose", "platform"]
+        },
+        "values": {
+          "type": "array",
+          "description": "Permission values",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "RSLPaymentConfiguration": {
+      "type": "object",
+      "description": "Payment configuration",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Payment type",
+          "enum": ["free", "one-time", "subscription", "pay-per-use", "donation"]
+        },
+        "amount": {
+          "type": "number",
+          "description": "Payment amount",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code (ISO 4217)",
+          "pattern": "^[A-Z]{3}$",
+          "default": "USD"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Payment URL"
+        },
+        "attribution": {
+          "type": "boolean",
+          "description": "Attribution required"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "RSLLegalInformation": {
+      "type": "object",
+      "description": "Legal information and disclaimers",
+      "properties": {
+        "warranty": {
+          "type": "string",
+          "description": "Warranty disclaimer"
+        },
+        "liability": {
+          "type": "string",
+          "description": "Liability disclaimer"
+        },
+        "law": {
+          "type": "string",
+          "description": "Governing law"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RSLSchemaMetadata": {
+      "type": "object",
+      "description": "Schema.org metadata",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Schema.org type"
+        },
+        "properties": {
+          "type": "object",
+          "description": "Schema.org properties",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "RSLCollectionConfig": {
+      "type": "object",
+      "description": "Per-collection RSL configuration",
+      "allOf": [
+        {
+          "$ref": "#/$defs/RSLLicenseConfiguration"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable RSL for this collection",
+              "default": true
+            },
+            "outputFormats": {
+              "type": "array",
+              "description": "Output formats for this collection",
+              "items": {
+                "type": "string",
+                "enum": ["individual", "collection"]
+              }
+            },
+            "filename": {
+              "type": "string",
+              "description": "Custom filename for collection RSL",
+              "pattern": "^[a-zA-Z0-9_-]+$"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "RSLContentDiscoveryConfig": {
+      "type": "object",
+      "description": "Content discovery configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable content discovery",
+          "default": true
+        },
+        "includeExtensions": {
+          "type": "array",
+          "description": "File extensions to include",
+          "items": {
+            "type": "string",
+            "pattern": "^\\.[a-zA-Z0-9]+$"
+          }
+        },
+        "excludeExtensions": {
+          "type": "array",
+          "description": "File extensions to exclude",
+          "items": {
+            "type": "string",
+            "pattern": "^\\.[a-zA-Z0-9]+$"
+          }
+        },
+        "excludeDirectories": {
+          "type": "array",
+          "description": "Directories to exclude from scanning",
+          "items": { "type": "string" }
+        },
+        "generateChecksums": {
+          "type": "boolean",
+          "description": "Generate checksums for discovered assets",
+          "default": false
+        },
+        "maxDepth": {
+          "type": "integer",
+          "description": "Maximum directory traversal depth",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 10
+        }
+      },
+      "additionalProperties": false
+    },
+    "RSLLicenseTemplate": {
+      "type": "object",
+      "description": "License template definition",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Template display name"
+        },
+        "license": {
+          "$ref": "#/$defs/RSLLicenseConfiguration",
+          "description": "License configuration"
+        }
+      },
+      "required": ["name", "license"],
+      "additionalProperties": false
+    }
+  }
+}
