@@ -3,6 +3,7 @@ node_modules/
 _site
 coverage/
 .continue
+.claude/
 
 # Environment files
 .env*
