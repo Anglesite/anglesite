@@ -3,45 +3,99 @@ import Form from '@rjsf/core';
 import { RJSFSchema } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import { useAppContext } from '../context/AppContext';
+import { logger } from '../../../utils/logger';
+import { ErrorBoundary } from './ErrorBoundary';
 
 interface WebsiteConfigEditorProps {
   onSave?: (data: any) => void;
   onError?: (error: string) => void;
 }
 
-export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave, onError }) => {
+const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, onError }) => {
   const { state } = useAppContext();
+
+  logger.debug('WebsiteConfigEditor', 'Component initializing', {
+    websiteName: state.websiteName,
+    websitePath: state.websitePath,
+    loading: state.loading,
+    currentView: state.currentView,
+  });
+
   const [schema, setSchema] = useState<RJSFSchema | null>(null);
   const [formData, setFormData] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [initialData, setInitialData] = useState<any>(null);
+
+  // Early return if websiteName is not available
+  if (!state.websiteName) {
+    logger.debug('WebsiteConfigEditor', 'No website name available, showing loading state');
+    return (
+      <div style={{ padding: '20px' }}>
+        <h3>Website Configuration</h3>
+        <p style={{ color: 'var(--text-secondary)' }}>Waiting for website to load...</p>
+        <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+          Debug: websiteName={state.websiteName || 'undefined'}, loading={state.loading}
+        </div>
+      </div>
+    );
+  }
 
   // Load the website schema
   const loadSchema = async () => {
+    logger.debug('WebsiteConfigEditor', 'loadSchema called', { websiteName: state.websiteName });
+
+    if (!state.websiteName) {
+      logger.warn('WebsiteConfigEditor', 'Cannot load schema - no websiteName');
+      setError('No website loaded');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      // Try to load schema from the anglesite-11ty package
+      logger.debug('WebsiteConfigEditor', 'Loading website schema via IPC', { websiteName: state.websiteName });
+
+      // Use IPC to load schema from file system
       let websiteSchema: RJSFSchema;
 
       try {
-        const response = await fetch('../../anglesite-11ty/schemas/website.schema.json');
-        if (response.ok) {
-          websiteSchema = (await response.json()) as RJSFSchema;
+        const schemaResult = await window.electronAPI?.invoke('get-website-schema', state.websiteName);
+
+        if ((schemaResult as any)?.schema) {
+          websiteSchema = (schemaResult as any).schema as RJSFSchema;
+          logger.info('WebsiteConfigEditor', 'Schema loaded successfully from file system');
+
+          // Show warnings if any modules failed to load
+          if (
+            (schemaResult as any).warnings &&
+            Array.isArray((schemaResult as any).warnings) &&
+            (schemaResult as any).warnings.length > 0
+          ) {
+            logger.warn('WebsiteConfigEditor', 'Schema loading warnings', { warnings: (schemaResult as any).warnings });
+            setError(`Schema loaded with warnings: ${(schemaResult as any).warnings.join(', ')}`);
+          }
+        } else if ((schemaResult as any)?.error) {
+          logger.warn('WebsiteConfigEditor', 'Schema loading failed, using fallback', { error: (schemaResult as any).error });
+          setError(`Schema loading failed: ${(schemaResult as any).error}`);
+          websiteSchema = (schemaResult as any).fallbackSchema || getEmbeddedSchema();
         } else {
-          throw new Error('Schema file not found');
+          throw new Error('Invalid schema response from IPC');
         }
-      } catch {
-        // Fallback to embedded schema
+      } catch (err) {
+        logger.error('WebsiteConfigEditor', 'IPC schema loading failed', err);
+        setError(`Failed to load schema via IPC: ${(err as Error).message}. Using embedded fallback.`);
         websiteSchema = getEmbeddedSchema();
       }
 
       setSchema(websiteSchema);
     } catch (err) {
-      console.error('Failed to load schema:', err);
+      logger.error('WebsiteConfigEditor', 'Failed to load schema', err);
       setError('Failed to load website configuration schema');
     } finally {
       setLoading(false);
@@ -50,7 +104,12 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
 
   // Load existing website.json data
   const loadWebsiteData = async () => {
-    if (!state.websiteName) return;
+    logger.debug('WebsiteConfigEditor', 'loadWebsiteData called', { websiteName: state.websiteName });
+
+    if (!state.websiteName) {
+      logger.warn('WebsiteConfigEditor', 'Cannot load data - no websiteName');
+      return;
+    }
 
     try {
       const existingContent = await window.electronAPI?.invoke(
@@ -62,19 +121,27 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
       if (existingContent && typeof existingContent === 'string') {
         const data = JSON.parse(existingContent);
         setFormData(data);
+        setInitialData(data);
+        setHasUnsavedChanges(false);
       } else {
         // Set defaults
-        setFormData({
+        const defaults = {
           title: state.websiteName || 'My Website',
           language: 'en',
-        });
+        };
+        setFormData(defaults);
+        setInitialData(defaults);
+        setHasUnsavedChanges(false);
       }
     } catch (err) {
-      console.log('No existing website.json found, using defaults');
-      setFormData({
+      logger.info('WebsiteConfigEditor', 'No existing website.json found, using defaults');
+      const defaults = {
         title: state.websiteName || 'My Website',
         language: 'en',
-      });
+      };
+      setFormData(defaults);
+      setInitialData(defaults);
+      setHasUnsavedChanges(false);
     }
   };
 
@@ -100,10 +167,12 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
 
       if (success) {
         setSuccess('Configuration saved successfully!');
+        setInitialData(data);
+        setHasUnsavedChanges(false);
         onSave?.(data);
 
-        // Clear success message after 3 seconds
-        setTimeout(() => setSuccess(null), 3000);
+        // Clear success message after 5 seconds
+        setTimeout(() => setSuccess(null), 5000);
       } else {
         throw new Error('Failed to save file');
       }
@@ -116,11 +185,11 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
     }
   };
 
-  // Get embedded schema fallback
+  // Get embedded schema fallback (enhanced version)
   const getEmbeddedSchema = (): RJSFSchema => ({
     $schema: 'http://json-schema.org/draft-07/schema#',
-    title: 'Website Configuration',
-    description: 'Configure your website settings, metadata, and features',
+    title: 'Website Configuration (Fallback)',
+    description: 'Basic website configuration schema - enhanced fallback when full schema is unavailable',
     type: 'object',
     required: ['title', 'language'],
     properties: {
@@ -201,6 +270,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
           },
         },
       },
+      // Basic analytics (simplified)
       analytics: {
         type: 'object',
         title: 'Analytics & Tracking',
@@ -215,11 +285,23 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
           },
         },
       },
+      // Basic manifest (simplified)
       manifest: {
         type: 'object',
         title: 'Progressive Web App',
         description: 'Settings for Progressive Web App features',
         properties: {
+          name: {
+            type: 'string',
+            title: 'App Name',
+            description: 'Name for the Progressive Web App manifest',
+          },
+          short_name: {
+            type: 'string',
+            title: 'Short Name',
+            description: 'Short name for the PWA (12 characters or less)',
+            maxLength: 12,
+          },
           theme_color: {
             type: 'string',
             title: 'Theme Color',
@@ -234,65 +316,214 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
             pattern: '^#[0-9A-Fa-f]{6}$',
             examples: ['#ffffff', '#f8f9fa'],
           },
+          display: {
+            type: 'string',
+            title: 'Display Mode',
+            description: 'How the PWA should be displayed',
+            enum: ['fullscreen', 'standalone', 'minimal-ui', 'browser'],
+            default: 'standalone',
+          },
         },
+      },
+      // Basic feeds configuration (simplified)
+      feeds: {
+        type: 'object',
+        title: 'RSS/Atom Feeds',
+        description: 'Configure RSS and Atom feed generation',
+        properties: {
+          enabled: {
+            type: 'boolean',
+            title: 'Enable Feeds',
+            description: 'Generate RSS/Atom feeds for your content',
+            default: false,
+          },
+        },
+      },
+      // Basic robots configuration (simplified)
+      robots: {
+        type: 'array',
+        title: 'Robots.txt Rules',
+        description: 'Configure search engine crawler rules',
+        items: {
+          type: 'object',
+          properties: {
+            'User-agent': {
+              type: 'string',
+              title: 'User Agent',
+              default: '*',
+            },
+            Allow: {
+              type: 'array',
+              title: 'Allowed Paths',
+              items: { type: 'string' },
+            },
+            Disallow: {
+              type: 'array',
+              title: 'Disallowed Paths',
+              items: { type: 'string' },
+            },
+          },
+        },
+        default: [
+          {
+            'User-agent': '*',
+            Allow: ['/'],
+          },
+        ],
       },
     },
   });
 
-  // UI Schema for better form rendering
-  const uiSchema = {
-    title: {
-      'ui:placeholder': 'Enter your website title',
-    },
-    description: {
-      'ui:widget': 'textarea',
-      'ui:options': {
-        rows: 3,
+  // Enhanced UI Schema for better form rendering and organization
+  const getUiSchema = (schema: RJSFSchema) => {
+    const baseUiSchema: any = {
+      'ui:order': [
+        'title',
+        'description',
+        'url',
+        'language',
+        'author',
+        'social',
+        'analytics',
+        'manifest',
+        'feeds',
+        'robots',
+        '*',
+      ],
+
+      title: {
+        'ui:placeholder': 'Enter your website title',
+        'ui:help': 'This appears in browser tabs and search results',
       },
-      'ui:placeholder': 'Brief description of your website (max 160 characters)',
-    },
-    url: {
-      'ui:placeholder': 'https://example.com',
-    },
-    author: {
-      'ui:description': 'Information about you or your organization',
-      name: {
-        'ui:placeholder': 'Your name or company name',
-      },
-      email: {
-        'ui:placeholder': 'contact@example.com',
+      description: {
+        'ui:widget': 'textarea',
+        'ui:options': {
+          rows: 3,
+        },
+        'ui:placeholder': 'Brief description of your website (max 160 characters for SEO)',
       },
       url: {
-        'ui:placeholder': 'https://yourwebsite.com',
+        'ui:placeholder': 'https://example.com',
+        'ui:help': 'Must use HTTPS for security and SEO benefits',
       },
-    },
-    social: {
-      'ui:description': 'Connect your social media profiles',
-      twitter: {
-        'ui:placeholder': 'username',
+      language: {
+        'ui:help': 'ISO 639-1 language code (e.g., en, es, fr, de)',
       },
-      github: {
-        'ui:placeholder': 'username',
+      author: {
+        'ui:title': '👤 Author Information',
+        'ui:description': 'Information about you or your organization',
+        'ui:options': {
+          removable: false,
+        },
+        name: {
+          'ui:placeholder': 'Your name or company name',
+        },
+        email: {
+          'ui:placeholder': 'contact@example.com',
+        },
+        url: {
+          'ui:placeholder': 'https://yourwebsite.com',
+        },
       },
-      linkedin: {
-        'ui:placeholder': 'https://linkedin.com/in/username',
+      social: {
+        'ui:title': '🔗 Social Media Profiles',
+        'ui:description': 'Connect your social media accounts for better integration',
+        'ui:options': {
+          removable: false,
+        },
+        twitter: {
+          'ui:placeholder': 'username',
+          'ui:help': 'Without the @ symbol',
+        },
+        github: {
+          'ui:placeholder': 'username',
+        },
+        linkedin: {
+          'ui:placeholder': 'https://linkedin.com/in/username',
+        },
       },
-    },
-    analytics: {
-      'ui:description': "Track your website's performance",
-      google: {
-        'ui:placeholder': 'G-XXXXXXXXXX',
+      analytics: {
+        'ui:title': '📊 Analytics & Tracking',
+        'ui:description': "Track your website's performance and visitor behavior",
+        'ui:options': {
+          removable: false,
+        },
+        google: {
+          'ui:placeholder': 'G-XXXXXXXXXX',
+          'ui:help': 'From Google Analytics',
+        },
       },
-    },
-    manifest: {
-      'ui:description': 'Progressive Web App settings',
-      theme_color: {
-        'ui:widget': 'color',
+      manifest: {
+        'ui:title': '📱 Progressive Web App',
+        'ui:description': 'Make your website installable as a mobile app',
+        'ui:options': {
+          removable: false,
+        },
+        name: {
+          'ui:placeholder': 'My Awesome App',
+        },
+        short_name: {
+          'ui:placeholder': 'MyApp',
+          'ui:help': '12 characters or less for mobile icons',
+        },
+        theme_color: {
+          'ui:widget': 'color',
+          'ui:help': 'Primary brand color',
+        },
+        background_color: {
+          'ui:widget': 'color',
+          'ui:help': 'Splash screen background',
+        },
+        display: {
+          'ui:help': 'How the app appears when launched',
+        },
       },
-      background_color: {
-        'ui:widget': 'color',
-      },
-    },
+    };
+
+    // Add UI configuration for additional properties from full schema
+    if (schema.properties) {
+      if (schema.properties.feeds) {
+        baseUiSchema.feeds = {
+          'ui:title': '📡 RSS/Atom Feeds',
+          'ui:description': 'Syndicate your content via feeds',
+          'ui:options': {
+            removable: false,
+          },
+        };
+      }
+
+      if (schema.properties.robots) {
+        baseUiSchema.robots = {
+          'ui:title': '🤖 Search Engine Rules',
+          'ui:description': 'Configure how search engines crawl your site',
+          'ui:options': {
+            orderable: true,
+          },
+          items: {
+            'ui:options': {
+              removable: true,
+            },
+          },
+        };
+      }
+
+      // Add configuration for complex full-schema properties
+      if (schema.properties.headers) {
+        baseUiSchema.headers = {
+          'ui:title': '🔒 Security Headers',
+          'ui:description': 'Configure HTTP security headers',
+        };
+      }
+
+      if (schema.properties.rsl) {
+        baseUiSchema.rsl = {
+          'ui:title': '⚖️ Rights & Standards',
+          'ui:description': 'Configure content licensing and usage rights',
+        };
+      }
+    }
+
+    return baseUiSchema;
   };
 
   // Form event handlers
@@ -300,6 +531,10 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
     setFormData(e.formData);
     setError(null);
     setSuccess(null);
+
+    // Check if data has changed
+    const hasChanges = JSON.stringify(e.formData) !== JSON.stringify(initialData);
+    setHasUnsavedChanges(hasChanges);
   };
 
   const handleFormSubmit = (e: any) => {
@@ -307,7 +542,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
   };
 
   const handleFormError = (errors: any[]) => {
-    console.log('Form validation errors:', errors);
+    logger.warn('WebsiteConfigEditor', 'Form validation errors', { errors });
     const errorMessages = errors.map((error) => `${error.property}: ${error.message}`).join(', ');
     setError(`Please fix the following errors: ${errorMessages}`);
   };
@@ -317,6 +552,36 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
     loadSchema();
     loadWebsiteData();
   }, [state.websiteName]);
+
+  // Handle before unload - warn about unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+S or Ctrl+S to save
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        if (hasUnsavedChanges && !saving) {
+          saveWebsiteConfig(formData);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [hasUnsavedChanges, saving, formData]);
 
   if (loading) {
     return (
@@ -360,16 +625,29 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
       }}
     >
       <div style={{ marginBottom: '20px' }}>
-        <h3
-          style={{
-            margin: '0 0 10px 0',
-            color: 'var(--text-primary)',
-            fontSize: '18px',
-            fontWeight: 600,
-          }}
-        >
-          Website Configuration
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3
+            style={{
+              margin: '0',
+              color: 'var(--text-primary)',
+              fontSize: '18px',
+              fontWeight: 600,
+            }}
+          >
+            Website Configuration
+          </h3>
+          {hasUnsavedChanges && (
+            <span
+              style={{
+                fontSize: '12px',
+                color: 'var(--warning-color, #f0ad4e)',
+                fontWeight: 500,
+              }}
+            >
+              ● Unsaved changes
+            </span>
+          )}
+        </div>
         <p
           style={{
             margin: '0',
@@ -378,6 +656,11 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
           }}
         >
           Configure your website settings, metadata, and features using this powerful schema-driven editor.
+          {hasUnsavedChanges && (
+            <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+              (Press Cmd+S or Ctrl+S to save)
+            </span>
+          )}
         </p>
       </div>
 
@@ -421,7 +704,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
       >
         <Form
           schema={schema}
-          uiSchema={uiSchema}
+          uiSchema={getUiSchema(schema)}
           formData={formData}
           validator={validator}
           onChange={handleFormChange}
@@ -442,14 +725,23 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
               fontWeight: 500,
               cursor: saving ? 'not-allowed' : 'pointer',
               marginTop: '20px',
+              opacity: !hasUnsavedChanges && !saving ? 0.7 : 1,
             }}
+            title={hasUnsavedChanges ? 'Save changes (Cmd+S)' : 'No changes to save'}
           >
-            {saving ? 'Saving...' : 'Save Configuration'}
+            {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Configuration' : 'Configuration Saved'}
           </button>
         </Form>
       </div>
     </div>
   );
 };
+
+// Wrap with error boundary
+export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = (props) => (
+  <ErrorBoundary componentName="WebsiteConfigEditor">
+    <WebsiteConfigEditorInner {...props} />
+  </ErrorBoundary>
+);
 
 export default WebsiteConfigEditor;

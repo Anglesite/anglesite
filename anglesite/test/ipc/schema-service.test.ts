@@ -1,0 +1,281 @@
+/**
+ * @file Tests for Schema Service IPC handlers
+ */
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { ipcMain } from 'electron';
+import { setupSchemaHandlers } from '../../src/main/ipc/schema';
+
+// Mock electron IPC
+jest.mock('electron', () => ({
+  ipcMain: {
+    handle: jest.fn(),
+  },
+}));
+
+// Mock website manager - must return a valid path for schema resolution to work
+jest.mock('../../src/main/utils/website-manager', () => ({
+  getWebsitePath: jest.fn((websiteName: string) => {
+    const mockPath = path.join(__dirname, '../fixtures/websites', websiteName);
+    console.log('Mock getWebsitePath called with:', websiteName, '-> returning:', mockPath);
+    return mockPath;
+  }),
+}));
+
+describe('Schema Service IPC Handlers', () => {
+  let mockIpcInvokeEvent: any;
+  let testSchemaPath: string;
+  let mockHandlers: Record<string, Function>;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+
+    // Create mock IPC event
+    mockIpcInvokeEvent = {
+      sender: {
+        session: {},
+      },
+    };
+
+    // Track registered handlers
+    mockHandlers = {};
+    (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: Function) => {
+      mockHandlers[channel] = handler;
+    });
+
+    // Setup test schema directory structure
+    // The path should match the structure expected by our schema loader
+    testSchemaPath = path.join(__dirname, '../fixtures/anglesite-11ty/schemas');
+    await setupTestSchemas();
+
+    // Setup handlers
+    setupSchemaHandlers();
+  });
+
+  afterEach(async () => {
+    // Clean up test schemas
+    try {
+      await fs.rm(path.join(__dirname, '../fixtures'), { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
+
+  describe('get-website-schema handler', () => {
+    test('should resolve complete schema with all module references', async () => {
+      const handler = mockHandlers['get-website-schema'];
+      expect(handler).toBeDefined();
+
+      const result = await handler(mockIpcInvokeEvent, 'test-website');
+
+      expect(result).toBeDefined();
+      expect(result.schema).toBeDefined();
+      expect(result.schema.type).toBe('object');
+
+      // Verify main schema properties are resolved
+      expect(result.schema.properties).toBeDefined();
+      expect(result.schema.properties.title).toBeDefined();
+      expect(result.schema.properties.language).toBeDefined();
+
+      // Verify no unresolved $ref references remain in main properties
+      expect(JSON.stringify(result.schema.properties.title)).not.toContain('$ref');
+      expect(JSON.stringify(result.schema.properties.language)).not.toContain('$ref');
+    });
+
+    test('should resolve nested common.json references', async () => {
+      const handler = mockHandlers['get-website-schema'];
+      const result = await handler(mockIpcInvokeEvent, 'test-website');
+
+      // Check that email and URL references from common.json are resolved
+      const authorEmailProp = result.schema.properties.author?.properties?.email;
+      expect(authorEmailProp).toBeDefined();
+      expect(authorEmailProp.type).toBe('string');
+      expect(authorEmailProp.format).toBe('email');
+
+      // Should not contain unresolved $ref
+      expect(JSON.stringify(authorEmailProp)).not.toContain('$ref');
+    });
+
+    test('should include all required modules', async () => {
+      const handler = mockHandlers['get-website-schema'];
+      const result = await handler(mockIpcInvokeEvent, 'test-website');
+
+      // Verify properties from different modules are present
+      expect(result.schema.properties.title).toBeDefined(); // basic-info
+      expect(result.schema.properties.robots).toBeDefined(); // seo-robots
+      expect(result.schema.properties.feeds).toBeDefined(); // feeds
+      expect(result.schema.properties.rsl).toBeDefined(); // rsl
+    });
+
+    test('should handle missing schema directory gracefully', async () => {
+      // Remove schema directory
+      await fs.rm(testSchemaPath, { recursive: true, force: true });
+
+      const handler = mockHandlers['get-website-schema'];
+      const result = await handler(mockIpcInvokeEvent, 'test-website');
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain('Schema directory not found');
+      expect(result.fallbackSchema).toBeDefined();
+      expect(result.fallbackSchema.properties.title).toBeDefined();
+    });
+
+    test('should handle corrupted schema files gracefully', async () => {
+      // Create corrupted main schema file
+      await fs.writeFile(path.join(testSchemaPath, 'website.schema.json'), '{ invalid json content', 'utf-8');
+
+      const handler = mockHandlers['get-website-schema'];
+      const result = await handler(mockIpcInvokeEvent, 'test-website');
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain('JSON parsing error');
+      expect(result.fallbackSchema).toBeDefined();
+    });
+
+    test('should handle missing module references', async () => {
+      // Remove a required module
+      await fs.unlink(path.join(testSchemaPath, 'modules/feeds.json'));
+
+      const handler = mockHandlers['get-website-schema'];
+      const result = await handler(mockIpcInvokeEvent, 'test-website');
+
+      expect(result.warnings).toBeDefined();
+      expect(result.warnings).toContain('feeds.json');
+      expect(result.schema).toBeDefined();
+      // Should still have other modules
+      expect(result.schema.properties.title).toBeDefined();
+    });
+  });
+
+  describe('get-schema-module handler', () => {
+    test('should load individual schema modules', async () => {
+      const handler = mockHandlers['get-schema-module'];
+      expect(handler).toBeDefined();
+
+      const result = await handler(mockIpcInvokeEvent, 'test-website', 'basic-info');
+
+      expect(result).toBeDefined();
+      expect(result.properties).toBeDefined();
+      expect(result.properties.title).toBeDefined();
+      expect(result.properties.language).toBeDefined();
+    });
+
+    test('should handle non-existent modules', async () => {
+      const handler = mockHandlers['get-schema-module'];
+
+      await expect(handler(mockIpcInvokeEvent, 'test-website', 'non-existent-module')).rejects.toThrow(
+        'Module not found'
+      );
+    });
+  });
+
+  // Helper function to create test schema files
+  async function setupTestSchemas(): Promise<void> {
+    const modulesPath = path.join(testSchemaPath, 'modules');
+    await fs.mkdir(modulesPath, { recursive: true });
+
+    // Create main website schema
+    const mainSchema = {
+      $schema: 'http://json-schema.org/draft-07/schema#',
+      $id: 'https://anglesite.dwk.io/schemas/website.json',
+      title: 'Test Website Configuration',
+      type: 'object',
+      allOf: [
+        { $ref: './modules/basic-info.json' },
+        { $ref: './modules/seo-robots.json' },
+        { $ref: './modules/feeds.json' },
+        { $ref: './modules/rsl.json' },
+      ],
+      additionalProperties: false,
+    };
+
+    // Create common definitions
+    const commonSchema = {
+      $schema: 'http://json-schema.org/draft-07/schema#',
+      definitions: {
+        email: {
+          type: 'string',
+          format: 'email',
+        },
+        url: {
+          type: 'string',
+          format: 'uri',
+        },
+        nonEmptyString: {
+          type: 'string',
+          minLength: 1,
+        },
+      },
+    };
+
+    // Create basic-info module
+    const basicInfoSchema = {
+      type: 'object',
+      required: ['title', 'language'],
+      properties: {
+        title: {
+          $ref: './common.json#/definitions/nonEmptyString',
+        },
+        language: {
+          type: 'string',
+          pattern: '^[a-z]{2}$',
+        },
+        author: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            email: {
+              $ref: './common.json#/definitions/email',
+            },
+            url: {
+              $ref: './common.json#/definitions/url',
+            },
+          },
+        },
+      },
+    };
+
+    // Create other module schemas (simplified for testing)
+    const robotsSchema = {
+      type: 'object',
+      properties: {
+        robots: {
+          type: 'array',
+          items: { type: 'object' },
+        },
+      },
+    };
+
+    const feedsSchema = {
+      type: 'object',
+      properties: {
+        feeds: {
+          type: 'object',
+          properties: {
+            enabled: { type: 'boolean' },
+          },
+        },
+      },
+    };
+
+    const rslSchema = {
+      type: 'object',
+      properties: {
+        rsl: {
+          type: 'object',
+          properties: {
+            enabled: { type: 'boolean' },
+          },
+        },
+      },
+    };
+
+    // Write all schema files
+    await fs.writeFile(path.join(testSchemaPath, 'website.schema.json'), JSON.stringify(mainSchema, null, 2));
+    await fs.writeFile(path.join(modulesPath, 'common.json'), JSON.stringify(commonSchema, null, 2));
+    await fs.writeFile(path.join(modulesPath, 'basic-info.json'), JSON.stringify(basicInfoSchema, null, 2));
+    await fs.writeFile(path.join(modulesPath, 'seo-robots.json'), JSON.stringify(robotsSchema, null, 2));
+    await fs.writeFile(path.join(modulesPath, 'feeds.json'), JSON.stringify(feedsSchema, null, 2));
+    await fs.writeFile(path.join(modulesPath, 'rsl.json'), JSON.stringify(rslSchema, null, 2));
+  }
+});

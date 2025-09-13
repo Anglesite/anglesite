@@ -110,7 +110,7 @@ function analyzeBundleStats() {
     const nodeModules = modules
       .filter((module) => module.name && module.name.includes('node_modules'))
       .map((module) => {
-        const match = module.name.match(/node_modules[\/\\]([^\/\\]+)/);
+        const match = module.name.match(/node_modules[/\\]([^/\\]+)/);
         return {
           package: match ? match[1] : 'unknown',
           size: module.size || 0,

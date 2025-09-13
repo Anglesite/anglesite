@@ -20,7 +20,6 @@ import {
   FileNotFoundError,
   AtomicWriteError,
   RequiredFieldError,
-  HandleErrors,
 } from './index';
 
 /**

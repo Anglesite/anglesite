@@ -40,7 +40,7 @@ npm run dev:react:analyze
 
 ### Server Mode (Default)
 
-- Opens interactive web interface at http://localhost:8888
+- Opens interactive web interface at <http://localhost:8888>
 - Real-time exploration of bundle contents
 - Best for manual analysis and optimization
 

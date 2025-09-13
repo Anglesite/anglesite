@@ -2,7 +2,13 @@
  * @file Application menu creation
  */
 import { Menu, MenuItemConstructorOptions, shell, WebContents, BrowserWindow, dialog } from 'electron';
-import { openSettingsWindow, openAboutWindow, getNativeInput, openWebsiteSelectionWindow } from './window-manager';
+import {
+  openSettingsWindow,
+  openAboutWindow,
+  getNativeInput,
+  openWebsiteSelectionWindow,
+  openWebsiteEditorWindow,
+} from './window-manager';
 import { getAllWebsiteWindows, isWebsiteEditorFocused, getHelpWindow, createHelpWindow } from './multi-window-manager';
 import { createWebsiteWithName, validateWebsiteName } from '../utils/website-manager';
 import { openWebsiteInNewWindow } from '../ipc/website';
@@ -674,6 +680,29 @@ export function createApplicationMenu(): Menu {
     {
       label: 'Website',
       submenu: [
+        {
+          label: 'Edit Website…',
+          accelerator: 'CmdOrCtrl+E',
+          click: async () => {
+            // Get the current website name from the focused window
+            const focusedWindow = BrowserWindow.getFocusedWindow();
+            if (focusedWindow) {
+              const websiteWindows = getAllWebsiteWindows();
+              for (const [websiteName, websiteWindow] of Array.from(websiteWindows)) {
+                if (websiteWindow.window === focusedWindow) {
+                  // Open the website editor for this website
+                  openWebsiteEditorWindow(websiteName);
+                  return;
+                }
+              }
+            }
+            // If no website window is focused, show the selection dialog
+            openWebsiteSelectionWindow();
+          },
+        },
+        {
+          type: 'separator',
+        },
         {
           label: 'Publish…',
           enabled: isWebsiteWindowFocused(),

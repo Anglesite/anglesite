@@ -176,7 +176,7 @@ module.exports = [
 
   // Test files configuration (Jest + JSDOM environment)
   {
-    files: ['test/**/*.ts'],
+    files: ['test/**/*.ts', 'test/**/*.tsx'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {

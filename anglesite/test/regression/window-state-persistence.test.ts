@@ -1,6 +1,6 @@
 /**
  * @file Regression test for window state persistence bug
- * 
+ *
  * This test reproduces the bug where closing the app and reopening shows
  * the welcome screen instead of previously opened websites.
  */
@@ -63,10 +63,7 @@ import { IStore } from '../../src/main/core/interfaces';
 import { ServiceKeys } from '../../src/main/core/container';
 
 // Import the functions we need
-import { 
-  saveWindowStates,
-  restoreWindowStates 
-} from '../../src/main/ui/multi-window-manager';
+import { saveWindowStates, restoreWindowStates } from '../../src/main/ui/multi-window-manager';
 
 describe('Window State Persistence Bug - Regression Test', () => {
   let mockStore: jest.Mocked<IStore>;
@@ -109,18 +106,18 @@ describe('Window State Persistence Bug - Regression Test', () => {
   test('should save window states before timeout-protected cleanup', () => {
     // This test verifies that saveWindowStates() is called early in shutdown
     // and is not affected by timeout protection in closeAllWindows()
-    
+
     console.log('📋 TEST: Verifying fix - saveWindowStates called before cleanup');
-    
+
     // Mock some website windows in the internal map
     const mockMultiWindowManager = require('../../src/main/ui/multi-window-manager');
-    
+
     // Call saveWindowStates directly as it would be called in main.ts
     saveWindowStates();
-    
+
     // Verify the store's saveWindowStates was called
     expect(mockStore.saveWindowStates).toHaveBeenCalled();
-    
+
     console.log('✅ TEST: saveWindowStates was called successfully');
   });
 
@@ -133,7 +130,7 @@ describe('Window State Persistence Bug - Regression Test', () => {
 
     // Verify that getWindowStates was called
     expect(mockStore.getWindowStates).toHaveBeenCalled();
-    
+
     // With empty state, restoreWindowStates should complete without error
     // and in the real app would call showStartScreenIfNeeded()
     console.log('✅ TEST: Empty state handled correctly - would show welcome screen');
@@ -147,14 +144,14 @@ describe('Window State Persistence Bug - Regression Test', () => {
         websitePath: '/test/path',
         bounds: { x: 100, y: 100, width: 1200, height: 800 },
         isMaximized: false,
-        windowType: 'editor' as const
-      }
+        windowType: 'editor' as const,
+      },
     ];
 
     mockStore.getWindowStates.mockReturnValue(mockWindowStates);
 
     console.log('📋 TEST: Simulating restart with valid window states...');
-    
+
     try {
       await restoreWindowStates();
       console.log('✅ TEST: Window states restored successfully');

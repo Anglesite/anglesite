@@ -340,24 +340,24 @@
             <defs>
               <!-- Glowing effect filters -->
               <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="6" result="coloredBlur" />
-                <feMerge>
-                  <feMergeNode in="coloredBlur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
+                <fegaussianblur stdDeviation="6" result="coloredBlur" />
+                <femerge>
+                  <femergenode in="coloredBlur" />
+                  <femergenode in="SourceGraphic" />
+                </femerge>
               </filter>
 
               <filter id="outerGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="12" result="coloredBlur" />
-                <feMerge>
-                  <feMergeNode in="coloredBlur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
+                <fegaussianblur stdDeviation="12" result="coloredBlur" />
+                <femerge>
+                  <femergenode in="coloredBlur" />
+                  <femergenode in="SourceGraphic" />
+                </femerge>
               </filter>
 
               <filter id="neonFlicker" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                <feColorMatrix
+                <fegaussianblur stdDeviation="3" result="coloredBlur" />
+                <fecolormatrix
                   in="coloredBlur"
                   type="matrix"
                   values="0 0 0 0 0
@@ -365,26 +365,26 @@
                                 0 0.8 1 0 0.8
                                 0 0 0 1 0"
                 />
-                <feMerge>
-                  <feMergeNode in="coloredBlur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
+                <femerge>
+                  <femergenode in="coloredBlur" />
+                  <femergenode in="SourceGraphic" />
+                </femerge>
               </filter>
 
               <!-- Cyberpunk gradient -->
-              <linearGradient id="tronGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <lineargradient id="tronGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" style="stop-color: #00ffff; stop-opacity: 1" />
                 <stop offset="30%" style="stop-color: #0088ff; stop-opacity: 1" />
                 <stop offset="70%" style="stop-color: #0066cc; stop-opacity: 1" />
                 <stop offset="100%" style="stop-color: #004499; stop-opacity: 1" />
-              </linearGradient>
+              </lineargradient>
 
               <!-- Electric inner highlight -->
-              <linearGradient id="innerGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+              <lineargradient id="innerGlow" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" style="stop-color: #ffffff; stop-opacity: 0.8" />
                 <stop offset="50%" style="stop-color: #00ffff; stop-opacity: 0.4" />
                 <stop offset="100%" style="stop-color: #0099ff; stop-opacity: 0.2" />
-              </linearGradient>
+              </lineargradient>
             </defs>
 
             <!-- Outer glow backdrop -->

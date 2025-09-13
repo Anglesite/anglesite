@@ -1,6 +1,48 @@
 import React, { Suspense, lazy, Component } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { FluentButton } from '../fluent/FluentButton';
+import { logger } from '../../../utils/logger';
+
+// ViewModeToggle component
+const ViewModeToggle: React.FC = () => {
+  const { state } = useAppContext();
+  const [viewMode, setViewMode] = React.useState<'edit' | 'preview'>('edit');
+
+  const handleToggleMode = async () => {
+    if (!state.websiteName || !window.electronAPI?.invoke) return;
+
+    try {
+      const newMode = viewMode === 'edit' ? 'preview' : 'edit';
+      const channel = newMode === 'edit' ? 'set-edit-mode' : 'set-preview-mode';
+
+      await window.electronAPI.invoke(channel, state.websiteName);
+      setViewMode(newMode);
+    } catch (error) {
+      logger.error('Main', 'Failed to toggle view mode', error);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>View:</span>
+      <button
+        onClick={handleToggleMode}
+        style={{
+          background: viewMode === 'edit' ? 'var(--accent-fill-rest)' : 'var(--bg-primary)',
+          color: viewMode === 'edit' ? 'white' : 'var(--text-primary)',
+          border: '1px solid var(--border-primary)',
+          borderRadius: '4px',
+          padding: '4px 8px',
+          fontSize: '11px',
+          cursor: 'pointer',
+          minWidth: '60px',
+        }}
+      >
+        {viewMode === 'edit' ? '✏️ Edit' : '👁️ Preview'}
+      </button>
+    </div>
+  );
+};
 
 // Error Boundary for lazy-loaded components
 class LazyComponentErrorBoundary extends Component<
@@ -17,7 +59,12 @@ class LazyComponentErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Lazy component loading error:', error, errorInfo);
+    logger.error('Main', 'LazyComponentErrorBoundary caught error', {
+      message: error.message,
+      stack: error.stack,
+      errorInfo,
+      note: 'This usually indicates an issue with WebsiteConfigEditor rendering'
+    });
   }
 
   render() {
@@ -32,9 +79,9 @@ class LazyComponentErrorBoundary extends Component<
 export const Main: React.FC = () => {
   const { state } = useAppContext();
 
-  // Debug state changes
+  // Track state changes in development
   React.useEffect(() => {
-    console.log('Main component state changed:', {
+    logger.debug('Main', 'Component state changed', {
       currentView: state.currentView,
       selectedFile: state.selectedFile,
       websiteName: state.websiteName,
@@ -43,14 +90,77 @@ export const Main: React.FC = () => {
   }, [state]);
 
   const renderContent = () => {
-    console.log('Main renderContent called with currentView:', state.currentView, 'selectedFile:', state.selectedFile);
+    logger.debug('Main', 'renderContent called', {
+      currentView: state.currentView,
+      selectedFile: state.selectedFile,
+      fullState: state
+    });
 
     switch (state.currentView) {
       case 'website-config':
-        // Create lazy import only when needed to ensure async chunk creation
-        const WebsiteConfigEditor = lazy(
-          () => import(/* webpackChunkName: "website-config-editor" */ './WebsiteConfigEditor')
-        );
+        logger.debug('Main', 'Rendering website-config view', {
+          websiteName: state.websiteName,
+          websitePath: state.websitePath,
+          loading: state.loading,
+        });
+
+        // TEMPORARY FIX: Use direct import for all environments until React.lazy issue is resolved
+        // This bypasses the lazy loading issue that occurs in both Jest and Electron environments
+
+        try {
+          const { WebsiteConfigEditor: DirectWebsiteConfigEditor } = require('./WebsiteConfigEditor');
+          logger.debug('Main', 'Direct import successful, rendering WebsiteConfigEditor');
+
+          return (
+            <LazyComponentErrorBoundary
+              fallback={
+                <div style={{ padding: '20px' }}>
+                  <h3>Website Configuration</h3>
+                  <div style={{ color: 'var(--error-color)', marginBottom: '12px' }}>
+                    Failed to load configuration editor. Check console for details.
+                  </div>
+                  <FluentButton onClick={() => window.location.reload()} appearance="accent">
+                    Refresh Page
+                  </FluentButton>
+                </div>
+              }
+            >
+              <DirectWebsiteConfigEditor />
+            </LazyComponentErrorBoundary>
+          );
+        } catch (importError) {
+          logger.error('Main', 'Direct import failed', importError);
+          return (
+            <div style={{ padding: '20px' }}>
+              <h3>Website Configuration</h3>
+              <div style={{ color: 'var(--error-color)', marginBottom: '12px' }}>
+                Failed to load WebsiteConfigEditor:{' '}
+                {importError instanceof Error ? importError.message : String(importError)}
+              </div>
+              <FluentButton onClick={() => window.location.reload()} appearance="accent">
+                Refresh Page
+              </FluentButton>
+            </div>
+          );
+        }
+
+      // COMMENTED OUT: Unreachable lazy loading code that was causing issues
+      // This code will never execute because the try/catch above always returns
+      // Keeping it commented for reference until we implement a proper lazy loading solution
+      /*
+        console.log('🖥️  Main: Production environment, using lazy import for WebsiteConfigEditor...');
+        const WebsiteConfigEditor = lazy(async () => {
+          console.log('🖥️  Main: Dynamic import starting...');
+          try {
+            const module = await import(webpackChunkName: "website-config-editor" './WebsiteConfigEditor');
+            console.log('🖥️  Main: Dynamic import successful, module:', !!module);
+            console.log('🖥️  Main: Module exports:', Object.keys(module));
+            return module;
+          } catch (error) {
+            console.error('🚨 Main: Dynamic import failed:', error);
+            throw error;
+          }
+        });
 
         return (
           <LazyComponentErrorBoundary
@@ -58,7 +168,7 @@ export const Main: React.FC = () => {
               <div style={{ padding: '20px' }}>
                 <h3>Website Configuration</h3>
                 <div style={{ color: 'var(--error-color)', marginBottom: '12px' }}>
-                  Failed to load configuration editor. Please refresh the page to try again.
+                  Failed to load configuration editor. Check console for details.
                 </div>
                 <FluentButton onClick={() => window.location.reload()} appearance="accent">
                   Refresh Page
@@ -71,6 +181,9 @@ export const Main: React.FC = () => {
                 <div style={{ padding: '20px' }}>
                   <h3>Website Configuration</h3>
                   <p style={{ color: 'var(--text-secondary)' }}>Loading configuration editor...</p>
+                  <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    Debug: currentView={state.currentView}, websiteName={state.websiteName || 'undefined'}
+                  </div>
                 </div>
               }
             >
@@ -78,6 +191,7 @@ export const Main: React.FC = () => {
             </Suspense>
           </LazyComponentErrorBoundary>
         );
+        */
       case 'file-editor':
         if (state.selectedFile) {
           return (
@@ -136,9 +250,13 @@ export const Main: React.FC = () => {
                 color: 'var(--text-secondary)',
                 background: 'var(--bg-secondary)',
                 borderBottom: '1px solid var(--border-primary)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               }}
             >
-              🌐 Website Configuration
+              <span>🌐 Website Configuration</span>
+              <ViewModeToggle />
             </div>
           )}
           {state.currentView === 'file-editor' && state.selectedFile && (
@@ -149,9 +267,13 @@ export const Main: React.FC = () => {
                 color: 'var(--text-secondary)',
                 background: 'var(--bg-secondary)',
                 borderBottom: '1px solid var(--border-primary)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               }}
             >
-              📄 {state.selectedFile.split('/').pop()}
+              <span>📄 {state.selectedFile.split('/').pop()}</span>
+              <ViewModeToggle />
             </div>
           )}
         </div>

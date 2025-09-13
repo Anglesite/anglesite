@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { logger } from '../../../utils/logger';
 
 interface AppState {
   currentView: 'file-editor' | 'website-config';
@@ -29,7 +30,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const setCurrentView = (view: AppState['currentView']) => {
-    setState((prev) => ({ ...prev, currentView: view }));
+    logger.debug('AppContext', 'setCurrentView called', { view, previousState: state });
+    setState((prev) => {
+      const newState = { ...prev, currentView: view };
+      logger.debug('AppContext', 'State updated', { newState });
+      return newState;
+    });
   };
 
   const setSelectedFile = (file: string | null) => {
@@ -55,12 +61,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (window.electronAPI?.invoke) {
           const websiteName = (await window.electronAPI.invoke('get-current-website-name')) as string | null;
           if (websiteName) {
-            console.log('Loaded current website name:', websiteName);
+            logger.info('AppContext', 'Loaded current website name', { websiteName });
             setWebsiteName(websiteName);
           }
         }
       } catch (error) {
-        console.error('Error loading current website name:', error);
+        logger.error('AppContext', 'Error loading current website name', error);
       } finally {
         setLoading(false);
       }

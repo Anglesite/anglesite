@@ -49,15 +49,20 @@ export const FluentCard: React.FC<FluentCardProps> = ({ children, ...props }) =>
   if (!isReady) {
     // Show loading state with fallback styling
     const padding = props.size === 'small' ? '12px' : props.size === 'large' ? '24px' : '16px';
+
+    // Extract style-related props and pass through all other props including event handlers
+    const { size, appearance, orientation, selectable, selected, style, ...otherProps } = props;
+
     return (
       <div
+        {...otherProps}
         style={{
           padding,
           background: 'var(--card-bg, white)',
           border: '1px solid var(--border-primary, #e1e1e1)',
           borderRadius: '8px',
           opacity: 0.7,
-          ...props.style,
+          ...style,
         }}
       >
         {children}

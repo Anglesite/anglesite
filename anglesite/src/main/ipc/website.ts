@@ -9,6 +9,9 @@ import {
   createWebsiteWindow,
   startWebsiteServerAndUpdateWindow,
   getAllWebsiteWindows,
+  getWebsiteWindow,
+  hideWebsitePreview,
+  showWebsitePreview,
 } from '../ui/multi-window-manager';
 import { updateApplicationMenu } from '../ui/menu';
 import { getGlobalContext } from '../core/service-registry';
@@ -262,6 +265,27 @@ export function setupWebsiteHandlers(): void {
       openWebsiteSelectionWindow();
     } catch (error) {
       console.error('Failed to open website selection window:', error);
+    }
+  });
+
+  // View mode control handlers
+  ipcMain.handle('set-edit-mode', async (event, websiteName: string) => {
+    try {
+      hideWebsitePreview(websiteName);
+      return true;
+    } catch (error) {
+      console.error('Failed to set edit mode:', error);
+      return false;
+    }
+  });
+
+  ipcMain.handle('set-preview-mode', async (event, websiteName: string) => {
+    try {
+      showWebsitePreview(websiteName);
+      return true;
+    } catch (error) {
+      console.error('Failed to set preview mode:', error);
+      return false;
     }
   });
 }

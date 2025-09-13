@@ -4,15 +4,27 @@ import { useAppContext } from '../context/AppContext';
 import { FluentCard } from '../fluent';
 
 export const Sidebar: React.FC = () => {
-  const { setCurrentView } = useAppContext();
+  const { state, setCurrentView } = useAppContext();
 
-  const handleFileSelect = (filePath: string) => {
+  const handleFileSelect = async (filePath: string) => {
+    // Show the preview WebContentsView when selecting files
+    if (state.websiteName && window.electronAPI?.invoke) {
+      try {
+        const success = await window.electronAPI.invoke('set-preview-mode', state.websiteName);
+        console.log('🔄 Sidebar: Set preview mode result:', success);
+      } catch (error) {
+        console.error('🔄 Sidebar: Failed to set preview mode:', error);
+      }
+    }
+
     setCurrentView('file-editor');
     // File content loading will be handled by the FileExplorer
   };
 
   const handleWebsiteConfigSelect = () => {
+    console.log('🔄 Sidebar: handleWebsiteConfigSelect called - setting view to website-config');
     setCurrentView('website-config');
+    console.log('🔄 Sidebar: setCurrentView(website-config) call completed');
   };
 
   return (

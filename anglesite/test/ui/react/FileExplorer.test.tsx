@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FileExplorer } from '../../../src/renderer/ui/react/components/FileExplorer';
 import { AppProvider } from '../../../src/renderer/ui/react/context/AppContext';

@@ -395,7 +395,6 @@ export function setupFileHandlers(): void {
         websitePath = websiteManager.getWebsitePath(websiteName);
         logger.debug('Got website path via DI', { websitePath });
       } catch (diError) {
-        usingFallback = true;
         logger.warn('DI service unavailable, using fallback', { error: diError });
         const { getWebsitePath } = await import('../utils/website-manager');
         websitePath = getWebsitePath(websiteName);
@@ -500,7 +499,6 @@ export function setupFileHandlers(): void {
         const appContext = getGlobalContext();
         const gitHistoryManager = appContext.getService<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
         await gitHistoryManager.autoCommit(websitePath, 'save');
-        gitCommitted = true;
         logger.debug('Page auto-committed to git', { fileName });
       } catch (gitError) {
         logger.warn('Git auto-commit failed (non-fatal)', {
@@ -511,17 +509,12 @@ export function setupFileHandlers(): void {
         // Don't fail the operation if git commit fails
       }
 
-      const duration = Date.now() - startTime;
-
       return {
         success: true,
         filePath: finalResolvedPath,
         fileName: fileName,
       };
     } catch (error) {
-      const duration = Date.now() - startTime;
-      const errorType = getErrorType(error);
-
       // Preserve validation error messages, only sanitize filesystem paths
       if (error instanceof Error) {
         const message = error.message;
@@ -531,7 +524,7 @@ export function setupFileHandlers(): void {
           message.includes('Failed to write') ||
           message.includes('Directory')
         ) {
-          const sanitizedMessage = message.replace(/\/[^\/]+\//g, '/***/');
+          const sanitizedMessage = message.replace(/\/[^/]+\//g, '/***/');
           throw new Error(sanitizedMessage);
         } else {
           // Preserve validation and other business logic error messages

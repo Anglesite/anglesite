@@ -2,7 +2,7 @@
  * @file Preload script for the Electron application.
  * @see {@link https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts}
  */
-import { contextBridge, ipcRenderer, shell, clipboard } from 'electron';
+import { contextBridge, ipcRenderer, clipboard } from 'electron';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -51,11 +51,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'get-website-files',
       'get-file-content',
       'save-file-content',
+      'get-website-schema',
+      'get-schema-module',
       'get-file-url',
       'get-website-server-url',
       'load-website-preview',
       'get-app-info',
       'create-new-page',
+      'set-edit-mode',
+      'set-preview-mode',
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
