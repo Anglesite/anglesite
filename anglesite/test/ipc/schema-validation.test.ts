@@ -101,10 +101,7 @@ describe('Schema Validation and Resolution', () => {
         $schema: 'http://json-schema.org/draft-07/schema#',
         title: 'Main Schema',
         type: 'object',
-        allOf: [
-          { $ref: './modules/basic-info.json' },
-          { $ref: './modules/author.json' },
-        ],
+        allOf: [{ $ref: './modules/basic-info.json' }, { $ref: './modules/author.json' }],
       };
 
       const basicInfoModule = {
@@ -158,10 +155,7 @@ describe('Schema Validation and Resolution', () => {
         $schema: 'http://json-schema.org/draft-07/schema#',
         title: 'Main Schema',
         type: 'object',
-        allOf: [
-          { $ref: './modules/exists.json' },
-          { $ref: './modules/missing.json' },
-        ],
+        allOf: [{ $ref: './modules/exists.json' }, { $ref: './modules/missing.json' }],
       };
 
       const existsModule = {

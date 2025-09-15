@@ -9,7 +9,7 @@ interface LogEntry {
   level: LogLevel;
   component: string;
   message: string;
-  data?: any;
+  data?: unknown;
   timestamp: Date;
 }
 
@@ -49,7 +49,7 @@ class RendererLogger {
     return `[${component}] ${message}`;
   }
 
-  debug(component: string, message: string, data?: any): void {
+  debug(component: string, message: string, data?: unknown): void {
     const entry: LogEntry = {
       level: 'debug',
       component,
@@ -65,7 +65,7 @@ class RendererLogger {
     }
   }
 
-  info(component: string, message: string, data?: any): void {
+  info(component: string, message: string, data?: unknown): void {
     const entry: LogEntry = {
       level: 'info',
       component,
@@ -81,7 +81,7 @@ class RendererLogger {
     }
   }
 
-  warn(component: string, message: string, data?: any): void {
+  warn(component: string, message: string, data?: unknown): void {
     const entry: LogEntry = {
       level: 'warn',
       component,
@@ -97,7 +97,7 @@ class RendererLogger {
     }
   }
 
-  error(component: string, message: string, error?: Error | any): void {
+  error(component: string, message: string, error?: Error | unknown): void {
     const entry: LogEntry = {
       level: 'error',
       component,
@@ -114,21 +114,21 @@ class RendererLogger {
   }
 
   /**
-   * Get recent log entries for debugging
+   * Get recent log entries for debugging.
    */
   getLogBuffer(): LogEntry[] {
     return [...this.logBuffer];
   }
 
   /**
-   * Clear the log buffer
+   * Clear the log buffer.
    */
   clearBuffer(): void {
     this.logBuffer = [];
   }
 
   /**
-   * Enable or disable debug logging at runtime
+   * Enable or disable debug logging at runtime.
    */
   setDebugEnabled(enabled: boolean): void {
     this.isDebugEnabled = enabled;

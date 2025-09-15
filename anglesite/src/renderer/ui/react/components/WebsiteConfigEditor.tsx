@@ -7,7 +7,7 @@ import { logger } from '../../../utils/logger';
 import { ErrorBoundary } from './ErrorBoundary';
 
 interface WebsiteConfigEditorProps {
-  onSave?: (data: any) => void;
+  onSave?: (data: Record<string, unknown>) => void;
   onError?: (error: string) => void;
 }
 
@@ -22,13 +22,13 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
   });
 
   const [schema, setSchema] = useState<RJSFSchema | null>(null);
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [initialData, setInitialData] = useState<any>(null);
+  const [initialData, setInitialData] = useState<Record<string, unknown> | null>(null);
 
   // Early return if websiteName is not available
   if (!state.websiteName) {
@@ -67,23 +67,27 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
       try {
         const schemaResult = await window.electronAPI?.invoke('get-website-schema', state.websiteName);
 
-        if ((schemaResult as any)?.schema) {
-          websiteSchema = (schemaResult as any).schema as RJSFSchema;
+        const result = schemaResult as {
+          schema?: RJSFSchema;
+          error?: string;
+          warnings?: string[];
+          fallbackSchema?: RJSFSchema;
+        };
+        if (result?.schema) {
+          websiteSchema = result.schema;
           logger.info('WebsiteConfigEditor', 'Schema loaded successfully from file system');
 
           // Show warnings if any modules failed to load
-          if (
-            (schemaResult as any).warnings &&
-            Array.isArray((schemaResult as any).warnings) &&
-            (schemaResult as any).warnings.length > 0
-          ) {
-            logger.warn('WebsiteConfigEditor', 'Schema loading warnings', { warnings: (schemaResult as any).warnings });
-            setError(`Schema loaded with warnings: ${(schemaResult as any).warnings.join(', ')}`);
+          if (result.warnings && Array.isArray(result.warnings) && result.warnings.length > 0) {
+            logger.warn('WebsiteConfigEditor', 'Schema loading warnings', { warnings: result.warnings });
+            setError(`Schema loaded with warnings: ${result.warnings.join(', ')}`);
           }
-        } else if ((schemaResult as any)?.error) {
-          logger.warn('WebsiteConfigEditor', 'Schema loading failed, using fallback', { error: (schemaResult as any).error });
-          setError(`Schema loading failed: ${(schemaResult as any).error}`);
-          websiteSchema = (schemaResult as any).fallbackSchema || getEmbeddedSchema();
+        } else if (result?.error) {
+          logger.warn('WebsiteConfigEditor', 'Schema loading failed, using fallback', {
+            error: result.error,
+          });
+          setError(`Schema loading failed: ${result.error}`);
+          websiteSchema = result.fallbackSchema || getEmbeddedSchema();
         } else {
           throw new Error('Invalid schema response from IPC');
         }
@@ -133,7 +137,7 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
         setInitialData(defaults);
         setHasUnsavedChanges(false);
       }
-    } catch (err) {
+    } catch {
       logger.info('WebsiteConfigEditor', 'No existing website.json found, using defaults');
       const defaults = {
         title: state.websiteName || 'My Website',
@@ -146,7 +150,7 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
   };
 
   // Save website configuration
-  const saveWebsiteConfig = async (data: any) => {
+  const saveWebsiteConfig = async (data: Record<string, unknown>) => {
     if (!state.websiteName) {
       setError('No website loaded');
       return;
@@ -376,7 +380,7 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
 
   // Enhanced UI Schema for better form rendering and organization
   const getUiSchema = (schema: RJSFSchema) => {
-    const baseUiSchema: any = {
+    const baseUiSchema: Record<string, unknown> = {
       'ui:order': [
         'title',
         'description',
@@ -527,7 +531,7 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
   };
 
   // Form event handlers
-  const handleFormChange = (e: any) => {
+  const handleFormChange = (e: { formData: Record<string, unknown> }) => {
     setFormData(e.formData);
     setError(null);
     setSuccess(null);
@@ -537,11 +541,11 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
     setHasUnsavedChanges(hasChanges);
   };
 
-  const handleFormSubmit = (e: any) => {
+  const handleFormSubmit = (e: { formData: Record<string, unknown> }) => {
     saveWebsiteConfig(e.formData);
   };
 
-  const handleFormError = (errors: any[]) => {
+  const handleFormError = (errors: Array<{ property: string; message: string }>) => {
     logger.warn('WebsiteConfigEditor', 'Form validation errors', { errors });
     const errorMessages = errors.map((error) => `${error.property}: ${error.message}`).join(', ');
     setError(`Please fix the following errors: ${errorMessages}`);

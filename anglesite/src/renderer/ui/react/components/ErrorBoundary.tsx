@@ -102,9 +102,7 @@ export class ErrorBoundary extends Component<Props, State> {
             color: 'var(--error-text, #c00)',
           }}
         >
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', fontWeight: 600 }}>
-            Something went wrong
-          </h3>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', fontWeight: 600 }}>Something went wrong</h3>
 
           <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}>
             {componentName} encountered an error and couldn't recover.
@@ -113,9 +111,7 @@ export class ErrorBoundary extends Component<Props, State> {
           {/* Show error details in development */}
           {process.env.NODE_ENV !== 'production' && (
             <details style={{ marginTop: '10px' }}>
-              <summary style={{ cursor: 'pointer', fontSize: '12px' }}>
-                Error details (development only)
-              </summary>
+              <summary style={{ cursor: 'pointer', fontSize: '12px' }}>Error details (development only)</summary>
               <pre
                 style={{
                   marginTop: '10px',
@@ -179,7 +175,7 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 /**
- * HOC to wrap components with error boundary
+ * HOC to wrap components with error boundary.
  */
 export function withErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,

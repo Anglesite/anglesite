@@ -1,7 +1,8 @@
-import React, { Suspense, lazy, Component } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { FluentButton } from '../fluent/FluentButton';
 import { logger } from '../../../utils/logger';
+import { ErrorBoundary } from './ErrorBoundary';
 
 // ViewModeToggle component
 const ViewModeToggle: React.FC = () => {
@@ -44,37 +45,32 @@ const ViewModeToggle: React.FC = () => {
   );
 };
 
-// Error Boundary for lazy-loaded components
-class LazyComponentErrorBoundary extends Component<
-  { children: React.ReactNode; fallback: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode; fallback: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(): { hasError: boolean } {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    logger.error('Main', 'LazyComponentErrorBoundary caught error', {
-      message: error.message,
-      stack: error.stack,
-      errorInfo,
-      note: 'This usually indicates an issue with WebsiteConfigEditor rendering'
-    });
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback;
-    }
-
-    return this.props.children;
-  }
-}
+// Lazy load the WebsiteConfigEditor component
+// This component is only loaded when the website-config view is active
+const WebsiteConfigEditor = lazy(() =>
+  import(/* webpackChunkName: "website-config-editor" */ './WebsiteConfigEditor')
+    .then((module) => {
+      logger.debug('Main', 'WebsiteConfigEditor module loaded successfully');
+      return module;
+    })
+    .catch((error) => {
+      logger.error('Main', 'Failed to load WebsiteConfigEditor module', error);
+      // Return a fallback component that shows the error
+      return {
+        default: () => (
+          <div style={{ padding: '20px' }}>
+            <h3>Website Configuration</h3>
+            <div style={{ color: 'var(--error-color)', marginBottom: '12px' }}>
+              Failed to load configuration editor module.
+            </div>
+            <FluentButton onClick={() => window.location.reload()} appearance="accent">
+              Reload Page
+            </FluentButton>
+          </div>
+        ),
+      };
+    })
+);
 
 export const Main: React.FC = () => {
   const { state } = useAppContext();
@@ -93,7 +89,7 @@ export const Main: React.FC = () => {
     logger.debug('Main', 'renderContent called', {
       currentView: state.currentView,
       selectedFile: state.selectedFile,
-      fullState: state
+      fullState: state,
     });
 
     switch (state.currentView) {
@@ -104,66 +100,9 @@ export const Main: React.FC = () => {
           loading: state.loading,
         });
 
-        // TEMPORARY FIX: Use direct import for all environments until React.lazy issue is resolved
-        // This bypasses the lazy loading issue that occurs in both Jest and Electron environments
-
-        try {
-          const { WebsiteConfigEditor: DirectWebsiteConfigEditor } = require('./WebsiteConfigEditor');
-          logger.debug('Main', 'Direct import successful, rendering WebsiteConfigEditor');
-
-          return (
-            <LazyComponentErrorBoundary
-              fallback={
-                <div style={{ padding: '20px' }}>
-                  <h3>Website Configuration</h3>
-                  <div style={{ color: 'var(--error-color)', marginBottom: '12px' }}>
-                    Failed to load configuration editor. Check console for details.
-                  </div>
-                  <FluentButton onClick={() => window.location.reload()} appearance="accent">
-                    Refresh Page
-                  </FluentButton>
-                </div>
-              }
-            >
-              <DirectWebsiteConfigEditor />
-            </LazyComponentErrorBoundary>
-          );
-        } catch (importError) {
-          logger.error('Main', 'Direct import failed', importError);
-          return (
-            <div style={{ padding: '20px' }}>
-              <h3>Website Configuration</h3>
-              <div style={{ color: 'var(--error-color)', marginBottom: '12px' }}>
-                Failed to load WebsiteConfigEditor:{' '}
-                {importError instanceof Error ? importError.message : String(importError)}
-              </div>
-              <FluentButton onClick={() => window.location.reload()} appearance="accent">
-                Refresh Page
-              </FluentButton>
-            </div>
-          );
-        }
-
-      // COMMENTED OUT: Unreachable lazy loading code that was causing issues
-      // This code will never execute because the try/catch above always returns
-      // Keeping it commented for reference until we implement a proper lazy loading solution
-      /*
-        console.log('🖥️  Main: Production environment, using lazy import for WebsiteConfigEditor...');
-        const WebsiteConfigEditor = lazy(async () => {
-          console.log('🖥️  Main: Dynamic import starting...');
-          try {
-            const module = await import(webpackChunkName: "website-config-editor" './WebsiteConfigEditor');
-            console.log('🖥️  Main: Dynamic import successful, module:', !!module);
-            console.log('🖥️  Main: Module exports:', Object.keys(module));
-            return module;
-          } catch (error) {
-            console.error('🚨 Main: Dynamic import failed:', error);
-            throw error;
-          }
-        });
-
         return (
-          <LazyComponentErrorBoundary
+          <ErrorBoundary
+            componentName="WebsiteConfigEditor-Wrapper"
             fallback={
               <div style={{ padding: '20px' }}>
                 <h3>Website Configuration</h3>
@@ -180,18 +119,31 @@ export const Main: React.FC = () => {
               fallback={
                 <div style={{ padding: '20px' }}>
                   <h3>Website Configuration</h3>
-                  <p style={{ color: 'var(--text-secondary)' }}>Loading configuration editor...</p>
-                  <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    Debug: currentView={state.currentView}, websiteName={state.websiteName || 'undefined'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        border: '2px solid var(--accent-fill-rest)',
+                        borderTopColor: 'transparent',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                      }}
+                    />
+                    <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Loading configuration editor...</p>
                   </div>
+                  <style>{`
+                    @keyframes spin {
+                      to { transform: rotate(360deg); }
+                    }
+                  `}</style>
                 </div>
               }
             >
               <WebsiteConfigEditor />
             </Suspense>
-          </LazyComponentErrorBoundary>
+          </ErrorBoundary>
         );
-        */
       case 'file-editor':
         if (state.selectedFile) {
           return (
