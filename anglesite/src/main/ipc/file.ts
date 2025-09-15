@@ -208,6 +208,7 @@ export function setupFileHandlers(): void {
     }
 
     // Check for filesystem unsafe characters (Windows and Unix)
+    // eslint-disable-next-line no-control-regex
     const invalidChars = /[<>:"|?*\x00-\x1f]/;
     if (invalidChars.test(trimmed)) {
       return { valid: false, error: 'Page name contains invalid characters' };
@@ -299,19 +300,19 @@ export function setupFileHandlers(): void {
     type: PageCreationErrorType;
     message: string;
     code: string;
-    details?: any;
+    details?: unknown;
   }
 
   function createPageError(
     type: PageCreationErrorType,
     message: string,
     code: string,
-    details?: any
+    details?: unknown
   ): PageCreationError {
     return { type, message, code, details };
   }
 
-  function getErrorType(error: any): PageCreationErrorType {
+  function getErrorType(error: unknown): PageCreationErrorType {
     if (!error) return PageCreationErrorType.UNKNOWN;
 
     const errorMessage = error.message || String(error);
@@ -348,7 +349,7 @@ export function setupFileHandlers(): void {
   // Create new page handler with structured error handling
   ipcMain.handle('create-new-page', async (event, websiteName: string, pageName: string) => {
     const logger = console; // In production, use the actual logger service
-    const startTime = Date.now();
+    // const startTime = Date.now(); // Timing for future metrics
 
     try {
       // Validate input parameters
@@ -388,7 +389,7 @@ export function setupFileHandlers(): void {
 
       // Get website path
       let websitePath: string;
-      let usingFallback = false;
+      // let usingFallback = false; // For future fallback tracking
       try {
         const appContext = getGlobalContext();
         const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
@@ -494,7 +495,7 @@ export function setupFileHandlers(): void {
       }
 
       // Auto-commit the new file using git history manager
-      let gitCommitted = false;
+      // let gitCommitted = false; // For future git status tracking
       try {
         const appContext = getGlobalContext();
         const gitHistoryManager = appContext.getService<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);

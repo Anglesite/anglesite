@@ -154,6 +154,7 @@ export async function exportWebsiteBundleHandler(event: IpcMainEvent | null): Pr
 
     if (successResult.response === 1) {
       // Show in folder
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { shell } = require('electron');
       shell.showItemInFolder(finalPath);
     }

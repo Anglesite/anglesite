@@ -8,14 +8,17 @@ import * as path from 'path';
 import { getWebsitePath } from '../utils/website-manager';
 
 interface SchemaResult {
-  schema?: any;
+  schema?: Record<string, unknown>;
   error?: string;
   warnings?: string[];
-  fallbackSchema?: any;
+  fallbackSchema?: Record<string, unknown>;
 }
 
+// Interface for module loading results
+// Currently unused but kept for future module loading features
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface ModuleResult {
-  module?: any;
+  module?: Record<string, unknown>;
   error?: string;
 }
 
@@ -60,7 +63,7 @@ export function setupSchemaHandlers(): void {
 
         // Load main schema file
         const mainSchemaPath = path.join(schemaPath, 'website.schema.json');
-        let mainSchema: any;
+        let mainSchema: Record<string, unknown>;
 
         try {
           const mainSchemaContent = await fs.readFile(mainSchemaPath, 'utf-8');
@@ -97,7 +100,7 @@ export function setupSchemaHandlers(): void {
    */
   ipcMain.handle(
     'get-schema-module',
-    async (event: IpcMainInvokeEvent, websiteName: string, moduleName: string): Promise<any> => {
+    async (event: IpcMainInvokeEvent, websiteName: string, moduleName: string): Promise<Record<string, unknown>> => {
       try {
         console.log('Loading schema module:', moduleName, 'for website:', websiteName);
 
@@ -132,16 +135,16 @@ export function setupSchemaHandlers(): void {
  * Resolve schema references recursively.
  */
 async function resolveSchemaReferences(
-  schema: any,
+  schema: Record<string, unknown>,
   schemaBasePath: string
-): Promise<{ schema: any; warnings: string[] }> {
+): Promise<{ schema: Record<string, unknown>; warnings: string[] }> {
   const warnings: string[] = [];
   const resolvedSchema = { ...schema };
 
   try {
     // Handle allOf references to modules
     if (schema.allOf && Array.isArray(schema.allOf)) {
-      const mergedProperties: any = {};
+      const mergedProperties: Record<string, unknown> = {};
       const mergedRequired: string[] = [];
 
       for (const item of schema.allOf) {
@@ -186,7 +189,7 @@ async function resolveSchemaReferences(
 /**
  * Load a module from a $ref path.
  */
-async function loadModuleFromRef(ref: string, basePath: string): Promise<any> {
+async function loadModuleFromRef(ref: string, basePath: string): Promise<Record<string, unknown>> {
   // Handle relative references like "./modules/basic-info.json"
   const modulePath = path.resolve(basePath, ref);
 
@@ -201,7 +204,10 @@ async function loadModuleFromRef(ref: string, basePath: string): Promise<any> {
 /**
  * Resolve internal $ref references within a schema (e.g., to common.json).
  */
-async function resolveInternalReferences(schema: any, basePath: string): Promise<any> {
+async function resolveInternalReferences(
+  schema: Record<string, unknown>,
+  basePath: string
+): Promise<Record<string, unknown>> {
   const resolved = JSON.parse(JSON.stringify(schema)); // Deep copy
 
   await walkAndResolveRefs(resolved, basePath);
@@ -211,7 +217,11 @@ async function resolveInternalReferences(schema: any, basePath: string): Promise
 /**
  * Recursively walk through schema object and resolve $ref references.
  */
-async function walkAndResolveRefs(obj: any, basePath: string, visited = new Set<string>()): Promise<void> {
+async function walkAndResolveRefs(
+  obj: Record<string, unknown> | unknown[],
+  basePath: string,
+  visited = new Set<string>()
+): Promise<void> {
   if (!obj || typeof obj !== 'object') return;
 
   if (Array.isArray(obj)) {
@@ -274,7 +284,7 @@ async function walkAndResolveRefs(obj: any, basePath: string, visited = new Set<
 /**
  * Get fallback schema when main schema loading fails.
  */
-function getFallbackSchema(): any {
+function getFallbackSchema(): Record<string, unknown> {
   return {
     $schema: 'http://json-schema.org/draft-07/schema#',
     title: 'Website Configuration (Simplified)',

@@ -16,6 +16,7 @@ import {
   ICertificateManager,
   IMenuManager,
   IWindowManager,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   IMonitorManager,
   ILogger,
   IFileSystem,
@@ -560,6 +561,7 @@ export class ServiceRegistrar {
       ServiceKeys.GIT_HISTORY_MANAGER,
       () => {
         const logger = container.resolve<ILogger>(ServiceKeys.LOGGER);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { GitHistoryManager } = require('../utils/git-history-manager');
         return new GitHistoryManager(logger);
       },
@@ -579,6 +581,7 @@ export class ServiceRegistrar {
         try {
           const gitHistoryManager = container.resolve<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
           if (websiteManager && 'setGitHistoryManager' in websiteManager) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (websiteManager as any).setGitHistoryManager(gitHistoryManager);
           }
         } catch (error) {
@@ -615,6 +618,7 @@ export class ServiceRegistrar {
     container.register(
       ServiceKeys.MONITOR_MANAGER,
       () => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { MonitorManager } = require('../services/monitor-manager');
         return new MonitorManager();
       },
