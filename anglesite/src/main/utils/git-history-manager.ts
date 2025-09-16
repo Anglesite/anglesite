@@ -5,7 +5,7 @@
  * Automatically commits changes on save and close events with human-readable timestamps.
  */
 
-import simpleGit, { SimpleGit, LogResult, DefaultLogFields } from 'simple-git';
+import simpleGit, { SimpleGit, LogResult, DefaultLogFields, LogOptions } from 'simple-git';
 import { format } from 'date-fns';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -35,7 +35,7 @@ export interface GitHistoryOptions {
 export class GitHistoryManager {
   private readonly logger: ILogger;
   private readonly gitInstances: Map<string, SimpleGit> = new Map();
-  private readonly pendingCommits: Map<string, NodeJS.Timeout> = new Map();
+  private readonly pendingCommits: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private readonly DEBOUNCE_DELAY = 5000; // 5 seconds debounce for saves
 
   constructor(logger: ILogger) {
@@ -74,7 +74,7 @@ export class GitHistoryManager {
       let isRepo = false;
       try {
         isRepo = await git.checkIsRepo();
-      } catch (error) {
+      } catch {
         // checkIsRepo can fail if not in a git directory - that's expected
         this.logger.debug('Not a git repository yet', { websitePath });
         isRepo = false;
@@ -229,7 +229,7 @@ coverage/
       let isRepo = false;
       try {
         isRepo = await git.checkIsRepo();
-      } catch (error) {
+      } catch {
         this.logger.debug('Not a git repository, attempting to initialize', { websitePath });
         await this.initRepository(websitePath);
         isRepo = true;
@@ -276,7 +276,7 @@ coverage/
     try {
       const git = this.getGitInstance(websitePath);
 
-      const logOptions: any = {
+      const logOptions: LogOptions = {
         maxCount: options.limit || 100,
       };
 

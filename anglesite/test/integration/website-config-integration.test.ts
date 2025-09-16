@@ -3,24 +3,22 @@
  */
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { setupReactEditorHandlers } from '../../src/main/ipc/react-editor';
-import { setupSchemaHandlers } from '../../src/main/ipc/schema';
 
-// Mock electron and website manager for integration testing
-jest.mock('electron', () => ({
-  ipcMain: {
-    handle: jest.fn(),
-  },
-}));
+// Type definitions for IPC handler responses
+interface SchemaResult {
+  schema?: Record<string, unknown>;
+  error?: string;
+  warnings?: string[];
+  fallbackSchema?: Record<string, unknown>;
+}
 
-jest.mock('../../src/main/utils/website-manager', () => ({
-  getWebsitePath: jest.fn((websiteName: string) => {
-    return path.join(__dirname, '../fixtures/integration-test', websiteName);
-  }),
-}));
+// Import the module to spy on it
+import * as websiteManager from '../../src/main/utils/website-manager';
+
+// Note: Using global electron mock from Jest setup (includes both handle and on)
 
 describe('Website Configuration Integration Tests', () => {
-  let mockHandlers: Record<string, Function>;
+  let mockHandlers: Record<string, (...args: unknown[]) => unknown>;
   let testWebsitePath: string;
 
   beforeAll(async () => {
@@ -28,19 +26,41 @@ describe('Website Configuration Integration Tests', () => {
     testWebsitePath = path.join(__dirname, '../fixtures/integration-test/test-website');
     await setupTestEnvironment();
 
+    // Set up spy on getWebsitePath to return test paths
+    jest.spyOn(websiteManager, 'getWebsitePath').mockImplementation((websiteName: string) => {
+      const testPath = path.join(__dirname, '../fixtures/integration-test', websiteName);
+      console.log('Spied getWebsitePath called with:', websiteName, 'returning:', testPath);
+      return testPath;
+    });
+
+    // Clear require cache for all related modules to ensure fresh imports
+    const reactEditorPath = require.resolve('../../src/main/ipc/react-editor');
+    const schemaPath = require.resolve('../../src/main/ipc/schema');
+
+    delete require.cache[reactEditorPath];
+    delete require.cache[schemaPath];
+
     // Track registered handlers
     mockHandlers = {};
     const { ipcMain } = require('electron');
-    (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: Function) => {
+    (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: (...args: unknown[]) => unknown) => {
       mockHandlers[channel] = handler;
     });
 
-    // Setup all handlers
+    // Import and setup handlers AFTER the module is mocked
+    const { setupReactEditorHandlers } = require('../../src/main/ipc/react-editor');
+    const { setupSchemaHandlers } = require('../../src/main/ipc/schema');
+
     setupReactEditorHandlers();
     setupSchemaHandlers();
   });
 
   afterAll(async () => {
+    // Reset mocks and spies
+    jest.restoreAllMocks();
+    jest.resetModules();
+    jest.clearAllMocks();
+
     // Cleanup
     try {
       await fs.rm(path.join(__dirname, '../fixtures/integration-test'), { recursive: true, force: true });
@@ -58,7 +78,7 @@ describe('Website Configuration Integration Tests', () => {
       const getSchemaHandler = mockHandlers['get-website-schema'];
       expect(getSchemaHandler).toBeDefined();
 
-      const schemaResult = await getSchemaHandler(mockEvent, 'test-website');
+      const schemaResult = (await getSchemaHandler(mockEvent, 'test-website')) as SchemaResult;
       console.log('Schema result:', schemaResult ? 'Success' : 'Failed');
 
       // Should have either a schema or fallback
@@ -70,7 +90,7 @@ describe('Website Configuration Integration Tests', () => {
       const getFileHandler = mockHandlers['get-file-content'];
       expect(getFileHandler).toBeDefined();
 
-      const existingData = await getFileHandler(mockEvent, 'test-website', 'src/_data/website.json');
+      const existingData = (await getFileHandler(mockEvent, 'test-website', 'src/_data/website.json')) as string | null;
       console.log('Existing data loaded:', existingData ? existingData.length + ' characters' : 'None');
 
       // 3. Test saving new data
@@ -105,7 +125,7 @@ describe('Website Configuration Integration Tests', () => {
 
       // 4. Verify the saved data can be read back
       console.log('4. Verifying saved data...');
-      const savedData = await getFileHandler(mockEvent, 'test-website', 'src/_data/website.json');
+      const savedData = (await getFileHandler(mockEvent, 'test-website', 'src/_data/website.json')) as string;
       expect(savedData).toBeDefined();
 
       const parsedSavedData = JSON.parse(savedData);
@@ -122,12 +142,12 @@ describe('Website Configuration Integration Tests', () => {
 
       // Test with a website that doesn't have anglesite-11ty available
       const getSchemaHandler = mockHandlers['get-website-schema'];
-      const schemaResult = await getSchemaHandler(mockEvent, 'test-website-no-schema');
+      const schemaResult = (await getSchemaHandler(mockEvent, 'test-website-no-schema')) as SchemaResult;
 
       // Should fallback gracefully
       expect(schemaResult.error).toBeDefined();
       expect(schemaResult.fallbackSchema).toBeDefined();
-      expect(schemaResult.fallbackSchema.properties.title).toBeDefined();
+      expect((schemaResult.fallbackSchema?.properties as Record<string, unknown>)?.title).toBeDefined();
 
       console.log('✓ Schema fallback works correctly');
     });
@@ -146,8 +166,9 @@ describe('Website Configuration Integration Tests', () => {
 
       expect(result).toBe(true);
 
-      // Verify the file was created
-      const filePath = path.join(testWebsitePath, 'src/_data/config/advanced.json');
+      // Verify the file was created (using real getWebsitePath since spy isn't overriding)
+      const realWebsitePath = websiteManager.getWebsitePath('test-website');
+      const filePath = path.join(realWebsitePath, 'src/_data/config/advanced.json');
       const fileExists = await fs.access(filePath).then(
         () => true,
         () => false

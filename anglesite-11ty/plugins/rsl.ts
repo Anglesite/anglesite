@@ -25,6 +25,12 @@ import {
 import { discoverContentAssets } from './rsl/content-discovery.js';
 import { resolveLicense } from './rsl/license-resolver.js';
 import { generateIndividualRSL, generateCollectionRSL, generateSiteRSL, validateRSLXML } from './rsl/rsl-generator.js';
+import { createPluginLogger } from '../lib/build-logger.js';
+
+/**
+ * Plugin-specific logger for RSL operations
+ */
+const logger = createPluginLogger('RSL');
 
 /**
  * Extended website configuration that includes RSL settings
@@ -96,7 +102,7 @@ async function getWebsiteConfiguration(
       return JSON.parse(configContent) as ExtendedWebsiteConfig;
     }
   } catch (error) {
-    console.warn('Failed to read website configuration for RSL:', error);
+    logger.warn(`Failed to read website configuration for RSL: ${error}`);
   }
 
   return null;
@@ -126,7 +132,9 @@ async function resolveItemLicense(
       if (resolution.success) {
         itemLicense = resolution.license;
       } else {
-        console.warn(`Failed to resolve license ${item.data.license} for ${item.url}:`, resolution.warnings);
+        logger.warn(
+          `Failed to resolve license ${item.data.license} for ${item.url}: ${resolution.warnings.join(', ')}`
+        );
       }
     } else {
       itemLicense = item.data.license;
@@ -196,7 +204,7 @@ async function generateIndividualRSLFiles(
 
       return { success: true, url: item.url };
     } catch (error) {
-      console.error(`Failed to generate individual RSL for ${item.url}:`, error);
+      logger.error(`Failed to generate individual RSL for ${item.url}:`, error);
       return { success: false, url: item.url, error };
     }
   });
@@ -208,7 +216,7 @@ async function generateIndividualRSLFiles(
   const successCount = itemResults.filter((result) => result.status === 'fulfilled' && result.value.success).length;
 
   if (successCount < items.length) {
-    console.warn(`Generated ${successCount}/${items.length} individual RSL files for collection '${collectionName}'`);
+    logger.warn(`Generated ${successCount}/${items.length} individual RSL files for collection '${collectionName}'`);
   }
 }
 
@@ -269,9 +277,9 @@ async function generateCollectionRSLFile(
     fs.mkdirSync(collectionDir, { recursive: true });
     fs.writeFileSync(rslFilePath, rslXml, 'utf-8');
 
-    console.log(`Generated collection RSL: ${rslFilePath}`);
+    logger.info(`Generated collection RSL: ${rslFilePath}`);
   } catch (error) {
-    console.error(`Failed to generate collection RSL for ${collectionName}:`, error);
+    logger.error(`Failed to generate collection RSL for ${collectionName}:`, error);
   }
 }
 
@@ -370,19 +378,19 @@ async function generateSiteRSLFile(
     // Validate the generated XML
     const validation = validateRSLXML(rslXml);
     if (!validation.valid) {
-      console.warn('Generated site RSL has validation errors:', validation.errors);
+      logger.warn(`Generated site RSL has validation errors: ${validation.errors.join(', ')}`);
     }
     if (validation.warnings.length > 0) {
-      console.info('Site RSL validation warnings:', validation.warnings);
+      logger.info(`Site RSL validation warnings: ${validation.warnings.join(', ')}`);
     }
 
     // Write site-wide RSL file
     const rslFilePath = path.join(outputDir, 'rsl.xml');
     fs.writeFileSync(rslFilePath, rslXml, 'utf-8');
 
-    console.log(`Generated site-wide RSL: ${rslFilePath} (${uniqueAssets.length} assets)`);
+    logger.info(`Generated site-wide RSL: ${rslFilePath} (${uniqueAssets.length} assets)`);
   } catch (error) {
-    console.error('Failed to generate site-wide RSL:', error);
+    logger.error('Failed to generate site-wide RSL:', error);
   }
 }
 
@@ -401,20 +409,20 @@ export default function addRSL(eleventyConfig: EleventyConfig): void {
   // Hook into Eleventy's after-build event
   eleventyConfig.on('eleventy.after', async ({ dir, results }: EleventyAfterEvent) => {
     if (!results || results.length === 0) {
-      console.log('RSL: No build results, skipping RSL generation');
+      logger.info('No build results, skipping RSL generation');
       return;
     }
 
     // Get website configuration
     const websiteConfig = await getWebsiteConfiguration(results, dir.input);
     if (!websiteConfig) {
-      console.log('RSL: No website configuration found, skipping RSL generation');
+      logger.info('No website configuration found, skipping RSL generation');
       return;
     }
 
     // Check if RSL is enabled
     if (!websiteConfig.rsl?.enabled && websiteConfig.rsl?.enabled !== undefined) {
-      console.log('RSL: RSL generation is disabled');
+      logger.info('RSL generation is disabled');
       return;
     }
 
@@ -423,28 +431,27 @@ export default function addRSL(eleventyConfig: EleventyConfig): void {
     const validation = validateRSLConfiguration(rslConfig);
 
     if (!validation.valid) {
-      console.error('RSL: Invalid RSL configuration:', validation.errors);
+      logger.error(`Invalid RSL configuration: ${validation.errors.join(', ')}`);
       return;
     }
 
     if (validation.errors.length > 0) {
-      console.warn(
-        'RSL: RSL configuration warnings:',
-        validation.errors.filter((e) => e.severity === 'warning')
+      logger.warn(
+        `RSL configuration warnings: ${validation.errors.filter((e) => e.severity === 'warning').join(', ')}`
       );
     }
 
-    console.log('RSL: Starting RSL generation...');
+    logger.info('Starting RSL generation...');
 
     try {
       // Discover content assets
       const baseUrl = websiteConfig.url || 'https://example.com';
       const discoveredAssets = await discoverContentAssets(dir.input, rslConfig.contentDiscovery || {}, baseUrl);
 
-      console.log(`RSL: Discovered ${discoveredAssets.length} assets`);
+      logger.info(`Discovered ${discoveredAssets.length} assets`);
 
       if (!collections) {
-        console.warn('RSL: No collections available, generating site-wide RSL only');
+        logger.warn('No collections available, generating site-wide RSL only');
         await generateSiteRSLFile(
           results as RSLCollectionItem[],
           rslConfig,
@@ -470,7 +477,7 @@ export default function addRSL(eleventyConfig: EleventyConfig): void {
         (config.outputFormats || []).forEach((format) => requestedFormats.add(format));
       });
 
-      console.log(`RSL: Processing ${allRSLCollections.length} collections: ${allRSLCollections.join(', ')}`);
+      logger.info(`Processing ${allRSLCollections.length} collections: ${allRSLCollections.join(', ')}`);
 
       // Generate RSL files for all collections in parallel
       const collectionPromises = allRSLCollections.map(async (collectionName) => {
@@ -481,7 +488,7 @@ export default function addRSL(eleventyConfig: EleventyConfig): void {
 
           const collectionItems = collections.getFilteredByTag(collectionName);
           if (collectionItems && collectionItems.length > 0) {
-            console.log(`RSL: Generating RSL for collection '${collectionName}' (${collectionItems.length} items)`);
+            logger.info(`Generating RSL for collection '${collectionName}' (${collectionItems.length} items)`);
             await generateCollectionRSLFiles(
               collectionName,
               collectionItems as RSLCollectionItem[],
@@ -491,10 +498,10 @@ export default function addRSL(eleventyConfig: EleventyConfig): void {
               discoveredAssets
             );
           } else {
-            console.log(`RSL: No items found for collection '${collectionName}'`);
+            logger.info(`No items found for collection '${collectionName}'`);
           }
         } catch (error) {
-          console.error(`RSL: Failed to process collection ${collectionName}:`, error);
+          logger.error(`Failed to process collection ${collectionName}:`, error);
           throw error; // Re-throw to be handled by Promise.allSettled
         }
       });
@@ -508,14 +515,14 @@ export default function addRSL(eleventyConfig: EleventyConfig): void {
         .filter(({ result }) => result.status === 'rejected');
 
       if (failedCollections.length > 0) {
-        console.error(`RSL: ${failedCollections.length} collection(s) failed to process:`);
+        logger.error(`${failedCollections.length} collection(s) failed to process:`);
         failedCollections.forEach(({ collectionName, result }) => {
-          console.error(`RSL: - ${collectionName}: ${(result as PromiseRejectedResult).reason}`);
+          logger.error(`- ${collectionName}: ${(result as PromiseRejectedResult).reason}`);
         });
       }
 
       const successfulCollections = collectionResults.filter((result) => result.status === 'fulfilled').length;
-      console.log(`RSL: Successfully processed ${successfulCollections}/${allRSLCollections.length} collections`);
+      logger.info(`Successfully processed ${successfulCollections}/${allRSLCollections.length} collections`);
 
       // Generate site-wide RSL if requested
       if (requestedFormats.has('sitewide')) {
@@ -528,11 +535,11 @@ export default function addRSL(eleventyConfig: EleventyConfig): void {
         );
       }
 
-      console.log('RSL: RSL generation complete');
+      logger.info('RSL generation complete');
     } catch (error) {
-      console.error('RSL: Failed to generate RSL files:', error);
+      logger.error('Failed to generate RSL files:', error);
     }
   });
 
-  console.log('RSL: RSL plugin initialized');
+  logger.info('RSL plugin initialized');
 }

@@ -73,7 +73,7 @@ describe('Bundle Analyzer Build Integration Tests', () => {
           ).toString();
         } catch (error: unknown) {
           if (error && typeof error === 'object' && 'stdout' in error) {
-            output = String((error as any).stdout || '') || String(error);
+            output = String((error as Record<string, unknown>).stdout || '') || String(error);
           } else {
             output = error instanceof Error ? error.message : String(error);
           }
@@ -160,7 +160,7 @@ describe('Bundle Analyzer Build Integration Tests', () => {
           }).toString();
         } catch (error: unknown) {
           if (error && typeof error === 'object' && 'stdout' in error) {
-            output = String((error as any).stdout || '');
+            output = String((error as Record<string, unknown>).stdout || '');
           } else {
             output = '';
           }
@@ -192,7 +192,8 @@ describe('Bundle Analyzer Build Integration Tests', () => {
 
       // Check that analyzer plugin is included
       const hasAnalyzer = devConfig.plugins?.some(
-        (plugin: any) => plugin && plugin.constructor?.name === 'BundleAnalyzerPlugin'
+        (plugin: Record<string, unknown>) =>
+          plugin && (plugin.constructor as unknown as Record<string, unknown>)?.name === 'BundleAnalyzerPlugin'
       );
 
       expect(hasAnalyzer).toBe(true);
@@ -241,7 +242,7 @@ describe('Bundle Analyzer Build Integration Tests', () => {
         }).toString();
       } catch (error: unknown) {
         if (error && typeof error === 'object' && 'stdout' in error) {
-          output = String((error as any).stdout || '');
+          output = String((error as Record<string, unknown>).stdout || '');
         } else {
           output = '';
         }
@@ -257,7 +258,7 @@ describe('Bundle Analyzer Build Integration Tests', () => {
   describe('Error Handling', () => {
     it('should handle missing webpack config gracefully', () => {
       // Test with invalid config path
-      let error: any;
+      let error: unknown;
 
       try {
         execSync('ANALYZE_BUNDLE=true webpack --config webpack.nonexistent.js', {
@@ -269,7 +270,7 @@ describe('Bundle Analyzer Build Integration Tests', () => {
       }
 
       expect(error).toBeDefined();
-      expect(error.message).toContain('webpack');
+      expect((error as Error).message).toContain('webpack');
     });
 
     it('should have reasonable default port configuration', () => {

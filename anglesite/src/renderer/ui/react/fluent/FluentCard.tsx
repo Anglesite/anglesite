@@ -53,6 +53,14 @@ export const FluentCard: React.FC<FluentCardProps> = ({ children, ...props }) =>
     // Extract style-related props and pass through all other props including event handlers
     const { size, appearance, orientation, selectable, selected, style, ...otherProps } = props;
 
+    // These style props are extracted to prevent them from being passed to the DOM element
+    // Currently using basic styling but could be enhanced based on these props in the future
+    void size;
+    void appearance;
+    void orientation;
+    void selectable;
+    void selected;
+
     return (
       <div
         {...otherProps}
@@ -71,7 +79,7 @@ export const FluentCard: React.FC<FluentCardProps> = ({ children, ...props }) =>
   }
 
   // Cast props to work with JSX intrinsic elements
-  const fluentProps = props as any;
+  const fluentProps = props as React.HTMLAttributes<HTMLElement> & FluentCardProps;
 
   return React.createElement('fluent-card', fluentProps, children);
 };

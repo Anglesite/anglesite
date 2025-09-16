@@ -100,11 +100,12 @@ export const FluentCheckbox: React.FC<FluentCheckboxProps> = ({ onChange, label,
   const checkboxId = props.id || `checkbox-${Math.random().toString(36).slice(2, 11)}`;
 
   // Cast props to work with JSX intrinsic elements
-  const fluentProps = {
+  const fluentProps: React.HTMLAttributes<HTMLElement> &
+    Partial<FluentCheckboxProps> & { ref?: React.Ref<HTMLElement> } = {
     ...props,
     id: checkboxId,
     ref: checkboxRef,
-  } as any;
+  };
 
   // Remove React-specific props that shouldn't be passed to web component
   delete fluentProps.onChange;

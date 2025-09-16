@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { generateOpenIDConfiguration } from '../../plugins/openid-configuration';
 import addOpenIDConfiguration from '../../plugins/openid-configuration';
-import type { EleventyConfig } from '../types/eleventy-shim';
-import type { AnglesiteWebsiteConfiguration } from '../types/website';
+import type { EleventyConfig } from '../../types/eleventy-shim';
+import type { AnglesiteWebsiteConfiguration } from '../../types/website';
 
 // Mock fs operations
 jest.mock('fs', () => ({

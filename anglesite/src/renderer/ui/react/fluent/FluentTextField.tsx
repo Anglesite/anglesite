@@ -108,11 +108,12 @@ export const FluentTextField: React.FC<FluentTextFieldProps> = ({ children, onIn
   const fieldId = props.id || `field-${Math.random().toString(36).slice(2, 11)}`;
 
   // Cast props to work with JSX intrinsic elements
-  const fluentProps = {
+  const fluentProps: React.HTMLAttributes<HTMLElement> &
+    Partial<FluentTextFieldProps> & { ref?: React.Ref<HTMLElement> } = {
     ...props,
     id: fieldId,
     ref: fieldRef,
-  } as any;
+  };
 
   // Remove React-specific props that shouldn't be passed to web component
   delete fluentProps.onInput;

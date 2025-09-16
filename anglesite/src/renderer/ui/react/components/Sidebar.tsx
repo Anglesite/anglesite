@@ -7,6 +7,8 @@ export const Sidebar: React.FC = () => {
   const { state, setCurrentView } = useAppContext();
 
   const handleFileSelect = async (filePath: string) => {
+    console.log('🔄 Sidebar: File selected:', filePath);
+
     // Show the preview WebContentsView when selecting files
     if (state.websiteName && window.electronAPI?.invoke) {
       try {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tree, NodeApi } from 'react-arborist';
 import { useAppContext } from '../context/AppContext';
-import { FluentButton, FluentCard } from '../fluent';
+import { FluentButton } from '../fluent';
 
 interface FileItem {
   id: string;
@@ -199,11 +199,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
                 const fullUrl = (baseUrl as string).replace(/\/$/, '') + fileItem.url; // Remove trailing slash and add file URL
                 window.electronAPI.send('load-file-preview', state.websiteName, fullUrl);
               } else {
+                // No base URL available - cannot load preview
+                console.warn('No base URL available for file preview');
               }
             } catch (error) {
               console.error('Error getting website server URL:', error);
             }
           } else {
+            // File has no URL to preview - static file without web representation
+            console.debug('File has no URL for preview:', fileItem.path);
           }
         }
       },

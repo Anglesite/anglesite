@@ -14,6 +14,8 @@ import addImages, { type ImageOptions } from './plugins/images.js';
 import addFeeds from './plugins/feeds.js';
 import addRSL from './plugins/rsl.js';
 import addSyntaxHighlight from './plugins/syntax-highlight.js';
+import addAssets from './plugins/assets.js';
+import addPerformance from './plugins/performance.js';
 import EleventyWebcPlugin from '@11ty/eleventy-plugin-webc';
 import type { EleventyConfig } from '@11ty/eleventy';
 
@@ -83,4 +85,6 @@ export {
   addOpenIDConfiguration,
   addFeeds,
   addRSL,
+  addAssets,
+  addPerformance,
 };

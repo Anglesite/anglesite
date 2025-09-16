@@ -148,16 +148,21 @@ describe('Code Splitting Build Integration', () => {
       const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
 
       // Find forms chunk
-      const formsChunk = stats.chunks?.find((c: any) => c.names?.includes('forms') || c.id === 'forms');
+      const formsChunk = stats.chunks?.find(
+        (c: Record<string, unknown>) => (c.names as string[])?.includes('forms') || c.id === 'forms'
+      );
 
       if (formsChunk) {
         // Forms chunk should contain @rjsf modules
         const formsModules = stats.modules?.filter(
-          (m: any) => formsChunk.modules?.includes(m.id) || formsChunk.containedModules?.includes(m.id)
+          (m: Record<string, unknown>) =>
+            (formsChunk.modules as string[])?.includes(m.id as string) ||
+            (formsChunk.containedModules as string[])?.includes(m.id as string)
         );
 
         const hasRjsfModules = formsModules?.some(
-          (m: any) => m.name?.includes('@rjsf') || m.identifier?.includes('@rjsf')
+          (m: Record<string, unknown>) =>
+            (m.name as string)?.includes('@rjsf') || (m.identifier as string)?.includes('@rjsf')
         );
 
         expect(hasRjsfModules).toBe(true);
@@ -176,21 +181,32 @@ describe('Code Splitting Build Integration', () => {
   });
 
   describe('Error Boundary Component', () => {
-    it('should export LazyComponentErrorBoundary class', () => {
+    it('should export ErrorBoundary class', () => {
+      const errorBoundaryPath = path.join(projectRoot, 'src/renderer/ui/react/components/ErrorBoundary.tsx');
+      const errorBoundaryContent = fs.readFileSync(errorBoundaryPath, 'utf8');
+
+      // Check for Error Boundary class definition
+      expect(errorBoundaryContent).toMatch(/export\s+class\s+ErrorBoundary\s+extends\s+Component/);
+
+      // Check for getDerivedStateFromError method
+      expect(errorBoundaryContent).toMatch(/static\s+getDerivedStateFromError/);
+
+      // Check for componentDidCatch method
+      expect(errorBoundaryContent).toMatch(/componentDidCatch/);
+
+      // Check for error state handling
+      expect(errorBoundaryContent).toMatch(/hasError:\s*boolean/);
+    });
+
+    it('should be imported and used in Main.tsx', () => {
       const mainPath = path.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
       const mainContent = fs.readFileSync(mainPath, 'utf8');
 
-      // Check for Error Boundary class definition
-      expect(mainContent).toMatch(/class\s+LazyComponentErrorBoundary\s+extends\s+Component/);
+      // Check that ErrorBoundary is imported
+      expect(mainContent).toMatch(/import\s+.*ErrorBoundary.*from\s+['"]\.\/ErrorBoundary['"]/);
 
-      // Check for getDerivedStateFromError method
-      expect(mainContent).toMatch(/static\s+getDerivedStateFromError/);
-
-      // Check for componentDidCatch method
-      expect(mainContent).toMatch(/componentDidCatch/);
-
-      // Check for error state handling
-      expect(mainContent).toMatch(/hasError:\s*boolean/);
+      // Check that ErrorBoundary is used as a component
+      expect(mainContent).toMatch(/<ErrorBoundary/);
     });
   });
 

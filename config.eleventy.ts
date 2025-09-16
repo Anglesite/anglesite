@@ -1,11 +1,8 @@
 // Root Eleventy configuration - imports from anglesite-11ty workspace
 import type { EleventyConfig } from '@11ty/eleventy';
 
-// Import plugins from remaining plugins/ directory (non-well-known)
-import addAssetPipeline from './plugins/assets.js';
-
-// Import the main anglesite-11ty plugin (includes all well-known plugins)
-import anglesiteEleventy from '@dwk/anglesite-11ty';
+// Import the main anglesite-11ty plugin and the assets plugin
+import anglesiteEleventy, { addAssets } from '@dwk/anglesite-11ty';
 
 /**
  * Eleventy configuration function.
@@ -19,8 +16,8 @@ export default function (eleventyConfig: EleventyConfig) {
   // Add the main anglesite-11ty plugin (includes all well-known directory plugins)
   eleventyConfig.addPlugin(anglesiteEleventy);
 
-  // Add remaining plugins
-  eleventyConfig.addPlugin(addAssetPipeline, {
+  // Add assets plugin with custom configuration
+  eleventyConfig.addPlugin(addAssets, {
     passthroughCopy: {
       'src/assets/fonts': 'fonts',
       'src/assets/icons': 'assets/icons',

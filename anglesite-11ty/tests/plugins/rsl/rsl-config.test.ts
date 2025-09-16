@@ -11,8 +11,8 @@ import {
   resolveLicenseTemplate,
   DEFAULT_RSL_CONFIG,
   BUILTIN_LICENSE_TEMPLATES,
-} from '../../../plugins/rsl/rsl-config.js';
-import type { RSLConfiguration, RSLLicenseConfiguration } from '../../../plugins/rsl/types.js';
+} from '../../../plugins/rsl/rsl-config';
+import type { RSLConfiguration, RSLLicenseConfiguration } from '../../../plugins/rsl/types';
 
 describe('RSL Configuration Validation', () => {
   it('should validate a valid RSL configuration', () => {
@@ -439,7 +439,7 @@ describe('License Template Resolution', () => {
         MY_LICENSE: {
           id: 'MY_LICENSE',
           name: 'My License',
-          license: { permits: [{ type: 'usage', values: ['view'] }] },
+          license: { permits: [{ type: 'usage' as const, values: ['view'] }] },
         },
       },
     };

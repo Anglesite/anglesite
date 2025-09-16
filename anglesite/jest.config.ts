@@ -20,15 +20,22 @@ export default {
     '^bagit-fs$': '<rootDir>/test/mocks/__mocks__/bagit-fs.js',
     '^glob$': '<rootDir>/test/mocks/__mocks__/glob.js',
     '^chokidar$': '<rootDir>/test/mocks/__mocks__/chokidar.js',
+    // Mock FluentUI to prevent ESM loading issues
+    '^@fluentui/web-components$': '<rootDir>/test/mocks/__mocks__/fluentui.js',
   },
-  transformIgnorePatterns: ['node_modules/(?!(@11ty/eleventy|@11ty/eleventy-dev-server|bagit-fs)/)'],
-  // Prevent worker hanging
+  transformIgnorePatterns: ['node_modules/(?!(@11ty/eleventy|@11ty/eleventy-dev-server|bagit-fs|@fluentui)/)'],
+  // Performance optimizations
   maxWorkers: 1,
   detectOpenHandles: true,
   forceExit: true,
-  testTimeout: 5000,
-  // Add stricter cleanup
+  testTimeout: 10000, // Increased from 5000 for module loading
+  // Stricter cleanup and silence console output
   clearMocks: true,
   restoreMocks: true,
   resetMocks: true,
+  silent: true, // Suppress console output during tests
+  verbose: false, // Reduce verbose output
+  // Optimize module resolution
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
 };

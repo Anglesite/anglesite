@@ -9,7 +9,7 @@ import { createApplicationMenu } from './ui/menu';
 import { setupIpcMainListeners } from './ipc/handlers';
 // Store class removed - now using DI with IStore interface
 import { handleFirstLaunch } from './utils/first-launch';
-import { cleanupHostsFile, checkAndSuggestTouchIdSetup } from './dns/hosts-manager';
+import { checkAndSuggestTouchIdSetup } from './dns/hosts-manager';
 import { themeManager } from './ui/theme-manager';
 import { initializeGlobalContext, shutdownGlobalContext, getGlobalContext } from './core/service-registry';
 import { IStore } from './core/interfaces';

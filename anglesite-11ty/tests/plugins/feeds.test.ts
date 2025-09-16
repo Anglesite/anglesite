@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import addFeeds from '../../plugins/feeds.js';
+import addFeeds from '../../plugins/feeds';
 import type { EleventyConfig, EleventyCollectionApi, EleventyCollectionItem } from '@11ty/eleventy';
 
 // Mock the fs module

@@ -104,8 +104,9 @@ describe('New Website Integration', () => {
 
     const template = mockMenu.buildFromTemplate.mock.calls[0][0];
     const fileMenu = template.find((item: { label?: string; submenu?: unknown }) => item.label === 'File');
-    const newWebsiteItem = fileMenu?.submenu?.find(
-      (item: { label?: string; submenu?: unknown }) => item.label === 'New Website…'
+    const newMenu = fileMenu?.submenu?.find((item: { label?: string; submenu?: unknown }) => item.label === 'New');
+    const newWebsiteItem = newMenu?.submenu?.find(
+      (item: { label?: string; submenu?: unknown }) => item.label === 'Website…'
     );
 
     expect(newWebsiteItem).toBeDefined();
@@ -129,8 +130,9 @@ describe('New Website Integration', () => {
     createApplicationMenu();
     const template = mockMenu.buildFromTemplate.mock.calls[0][0];
     const fileMenu = template.find((item: { label?: string; submenu?: unknown }) => item.label === 'File');
-    const newWebsiteItem = fileMenu?.submenu?.find(
-      (item: { label?: string; submenu?: unknown }) => item.label === 'New Website…'
+    const newMenu = fileMenu?.submenu?.find((item: { label?: string; submenu?: unknown }) => item.label === 'New');
+    const newWebsiteItem = newMenu?.submenu?.find(
+      (item: { label?: string; submenu?: unknown }) => item.label === 'Website…'
     );
 
     await newWebsiteItem.click();
@@ -143,8 +145,9 @@ describe('New Website Integration', () => {
     createApplicationMenu();
     const template = mockMenu.buildFromTemplate.mock.calls[0][0];
     const fileMenu = template.find((item: { label?: string; submenu?: unknown }) => item.label === 'File');
-    const newWebsiteItem = fileMenu?.submenu?.find(
-      (item: { label?: string; submenu?: unknown }) => item.label === 'New Website…'
+    const newMenu = fileMenu?.submenu?.find((item: { label?: string; submenu?: unknown }) => item.label === 'New');
+    const newWebsiteItem = newMenu?.submenu?.find(
+      (item: { label?: string; submenu?: unknown }) => item.label === 'Website…'
     );
 
     await newWebsiteItem.click();
@@ -156,8 +159,9 @@ describe('New Website Integration', () => {
     createApplicationMenu();
     const template = mockMenu.buildFromTemplate.mock.calls[0][0];
     const fileMenu = template.find((item: { label?: string; submenu?: unknown }) => item.label === 'File');
-    const newWebsiteItem = fileMenu?.submenu?.find(
-      (item: { label?: string; submenu?: unknown }) => item.label === 'New Website…'
+    const newMenu = fileMenu?.submenu?.find((item: { label?: string; submenu?: unknown }) => item.label === 'New');
+    const newWebsiteItem = newMenu?.submenu?.find(
+      (item: { label?: string; submenu?: unknown }) => item.label === 'Website…'
     );
 
     await newWebsiteItem.click();
@@ -169,8 +173,9 @@ describe('New Website Integration', () => {
     createApplicationMenu();
     const template = mockMenu.buildFromTemplate.mock.calls[0][0];
     const fileMenu = template.find((item: { label?: string; submenu?: unknown }) => item.label === 'File');
-    const newWebsiteItem = fileMenu?.submenu?.find(
-      (item: { label?: string; submenu?: unknown }) => item.label === 'New Website…'
+    const newMenu = fileMenu?.submenu?.find((item: { label?: string; submenu?: unknown }) => item.label === 'New');
+    const newWebsiteItem = newMenu?.submenu?.find(
+      (item: { label?: string; submenu?: unknown }) => item.label === 'Website…'
     );
 
     await newWebsiteItem.click();
@@ -182,8 +187,9 @@ describe('New Website Integration', () => {
     createApplicationMenu();
     const template = mockMenu.buildFromTemplate.mock.calls[0][0];
     const fileMenu = template.find((item: { label?: string; submenu?: unknown }) => item.label === 'File');
-    const newWebsiteItem = fileMenu?.submenu?.find(
-      (item: { label?: string; submenu?: unknown }) => item.label === 'New Website…'
+    const newMenu = fileMenu?.submenu?.find((item: { label?: string; submenu?: unknown }) => item.label === 'New');
+    const newWebsiteItem = newMenu?.submenu?.find(
+      (item: { label?: string; submenu?: unknown }) => item.label === 'Website…'
     );
 
     await newWebsiteItem.click();
@@ -195,8 +201,9 @@ describe('New Website Integration', () => {
     createApplicationMenu();
     const template = mockMenu.buildFromTemplate.mock.calls[0][0];
     const fileMenu = template.find((item: { label?: string; submenu?: unknown }) => item.label === 'File');
-    const newWebsiteItem = fileMenu?.submenu?.find(
-      (item: { label?: string; submenu?: unknown }) => item.label === 'New Website…'
+    const newMenu = fileMenu?.submenu?.find((item: { label?: string; submenu?: unknown }) => item.label === 'New');
+    const newWebsiteItem = newMenu?.submenu?.find(
+      (item: { label?: string; submenu?: unknown }) => item.label === 'Website…'
     );
 
     await newWebsiteItem.click();
@@ -210,8 +217,9 @@ describe('New Website Integration', () => {
     createApplicationMenu();
     const template = mockMenu.buildFromTemplate.mock.calls[0][0];
     const fileMenu = template.find((item: { label?: string; submenu?: unknown }) => item.label === 'File');
-    const newWebsiteItem = fileMenu?.submenu?.find(
-      (item: { label?: string; submenu?: unknown }) => item.label === 'New Website…'
+    const newMenu = fileMenu?.submenu?.find((item: { label?: string; submenu?: unknown }) => item.label === 'New');
+    const newWebsiteItem = newMenu?.submenu?.find(
+      (item: { label?: string; submenu?: unknown }) => item.label === 'Website…'
     );
 
     await newWebsiteItem.click();
@@ -224,13 +232,14 @@ describe('New Website Integration', () => {
     createApplicationMenu();
     const template = mockMenu.buildFromTemplate.mock.calls[0][0];
     const fileMenu = template.find((item: { label?: string; submenu?: unknown }) => item.label === 'File');
-    const newWebsiteItem = fileMenu?.submenu?.find(
-      (item: { label?: string; submenu?: unknown }) => item.label === 'New Website…'
+    const newMenu = fileMenu?.submenu?.find((item: { label?: string; submenu?: unknown }) => item.label === 'New');
+    const newWebsiteItem = newMenu?.submenu?.find(
+      (item: { label?: string; submenu?: unknown }) => item.label === 'Website…'
     );
 
     expect(newWebsiteItem).toBeDefined();
-    expect(newWebsiteItem.label).toBe('New Website…');
-    expect(newWebsiteItem.accelerator).toBe('CmdOrCtrl+N');
+    expect(newWebsiteItem.label).toBe('Website…');
+    expect(newWebsiteItem.accelerator).toBe('CmdOrCtrl+Shift+N');
     expect(typeof newWebsiteItem.click).toBe('function');
   });
 });

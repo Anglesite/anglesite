@@ -4,12 +4,14 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs';
 import { Configuration } from 'webpack';
 
+// Use real fs module to avoid mock pollution from other tests
+const fs = jest.requireActual<typeof import('fs')>('fs');
+
 describe('Code Splitting Configuration', () => {
-  let prodConfig: any;
-  let assetsConfig: any;
+  let prodConfig: Record<string, unknown>;
+  let assetsConfig: Record<string, unknown>;
 
   beforeAll(() => {
     // Mock webpack-merge
@@ -34,15 +36,15 @@ describe('Code Splitting Configuration', () => {
 
   describe('SplitChunks Configuration', () => {
     it('should have splitChunks enabled with "all" chunks strategy', () => {
-      expect(prodConfig.optimization?.splitChunks).toBeDefined();
-      const splitChunks = prodConfig.optimization?.splitChunks;
+      expect((prodConfig as any).optimization?.splitChunks).toBeDefined();
+      const splitChunks = (prodConfig as any).optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         expect(splitChunks.chunks).toBe('all');
       }
     });
 
     it('should have increased async request limits for better code splitting', () => {
-      const splitChunks = prodConfig.optimization?.splitChunks;
+      const splitChunks = (prodConfig as any).optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         expect(splitChunks.maxAsyncRequests).toBe(20);
         expect(splitChunks.maxInitialRequests).toBe(10);
@@ -50,7 +52,7 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should have React cache group configured', () => {
-      const splitChunks = prodConfig.optimization?.splitChunks;
+      const splitChunks = (prodConfig as any).optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('react');
@@ -70,7 +72,7 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should have Forms cache group for @rjsf dependencies', () => {
-      const splitChunks = prodConfig.optimization?.splitChunks;
+      const splitChunks = (prodConfig as any).optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('forms');
@@ -94,7 +96,7 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should have Utils cache group for lodash', () => {
-      const splitChunks = prodConfig.optimization?.splitChunks;
+      const splitChunks = (prodConfig as any).optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('utils');
@@ -115,7 +117,7 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should have Vendor cache group with lower priority', () => {
-      const splitChunks = prodConfig.optimization?.splitChunks;
+      const splitChunks = (prodConfig as any).optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('vendor');
@@ -134,7 +136,7 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should have Common cache group for shared application code', () => {
-      const splitChunks = prodConfig.optimization?.splitChunks;
+      const splitChunks = (prodConfig as any).optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('common');
@@ -150,7 +152,7 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should have correct priority ordering for cache groups', () => {
-      const splitChunks = prodConfig.optimization?.splitChunks;
+      const splitChunks = (prodConfig as any).optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
 
@@ -166,7 +168,7 @@ describe('Code Splitting Configuration', () => {
 
   describe('Runtime Chunk Configuration', () => {
     it('should extract runtime chunk for better caching', () => {
-      expect(prodConfig.optimization?.runtimeChunk).toEqual({
+      expect((prodConfig as any).optimization?.runtimeChunk).toEqual({
         name: 'runtime',
       });
     });
@@ -174,18 +176,18 @@ describe('Code Splitting Configuration', () => {
 
   describe('Output Configuration for Code Splitting', () => {
     it('should use contenthash for chunk filenames', () => {
-      expect(prodConfig.output?.chunkFilename).toContain('[contenthash');
-      expect(prodConfig.output?.chunkFilename).toBe('[name].[contenthash:8].chunk.js');
+      expect((prodConfig as any).output?.chunkFilename).toContain('[contenthash');
+      expect((prodConfig as any).output?.chunkFilename).toBe('[name].[contenthash:8].chunk.js');
     });
 
     it('should have proper asset module filename pattern', () => {
-      expect(prodConfig.output?.assetModuleFilename).toBe('assets/[name].[contenthash:8][ext]');
+      expect((prodConfig as any).output?.assetModuleFilename).toBe('assets/[name].[contenthash:8][ext]');
     });
   });
 
   describe('Module Rules for Lazy Loading', () => {
     it('should have TypeScript loader configured for dynamic imports', () => {
-      const rules = prodConfig.module?.rules || [];
+      const rules = (prodConfig as any).module?.rules || [];
       const tsRule = rules.find(
         (rule) =>
           rule && typeof rule === 'object' && 'test' in rule && rule.test instanceof RegExp && rule.test.test('.tsx')
@@ -208,17 +210,17 @@ describe('Code Splitting Configuration', () => {
     it('should have appropriate performance hints for code-split bundles', () => {
       const performance = prodConfig.performance;
       if (performance && typeof performance === 'object') {
-        expect(performance.hints).toBe('warning');
-        expect(performance.maxEntrypointSize).toBe(1200000); // 1.2MB
-        expect(performance.maxAssetSize).toBe(800000); // 800KB
+        expect((performance as any).hints).toBe('warning');
+        expect((performance as any).maxEntrypointSize).toBe(1200000); // 1.2MB
+        expect((performance as any).maxAssetSize).toBe(800000); // 800KB
       }
     });
 
     it('should match assets config performance settings', () => {
       const performance = prodConfig.performance;
       if (performance && typeof performance === 'object') {
-        expect(performance.maxEntrypointSize).toBe(assetsConfig.performance.maxEntrypointSize);
-        expect(performance.maxAssetSize).toBe(assetsConfig.performance.maxAssetSize);
+        expect((performance as any).maxEntrypointSize).toBe((assetsConfig as any).performance.maxEntrypointSize);
+        expect((performance as any).maxAssetSize).toBe((assetsConfig as any).performance.maxAssetSize);
       }
     });
   });
@@ -280,13 +282,13 @@ describe('Code Splitting Configuration', () => {
       expect(mainContent).toMatch(/<Suspense/);
 
       // Check for Error Boundary
-      expect(mainContent).toMatch(/LazyComponentErrorBoundary/);
+      expect(mainContent).toMatch(/ErrorBoundary/);
     });
   });
 
   describe('Code Splitting Validation', () => {
     it('should have forms dependencies properly configured for splitting', () => {
-      const splitChunks = prodConfig.optimization?.splitChunks;
+      const splitChunks = (prodConfig as any).optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         const formsGroup = cacheGroups?.forms;
@@ -303,14 +305,14 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should prevent duplicate chunks with reuseExistingChunk', () => {
-      const splitChunks = prodConfig.optimization?.splitChunks;
+      const splitChunks = (prodConfig as any).optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
 
         // All cache groups should reuse existing chunks
-        Object.values(cacheGroups || {}).forEach((group: any) => {
+        Object.values(cacheGroups || {}).forEach((group) => {
           if (typeof group === 'object' && group !== null) {
-            expect(group.reuseExistingChunk).toBe(true);
+            expect((group as Record<string, unknown>).reuseExistingChunk).toBe(true);
           }
         });
       }

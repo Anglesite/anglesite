@@ -226,7 +226,9 @@ async function walkAndResolveRefs(
 
   if (Array.isArray(obj)) {
     for (const item of obj) {
-      await walkAndResolveRefs(item, basePath, visited);
+      if (item && typeof item === 'object') {
+        await walkAndResolveRefs(item as Record<string, unknown> | unknown[], basePath, visited);
+      }
     }
     return;
   }
@@ -276,7 +278,9 @@ async function walkAndResolveRefs(
       }
     } else {
       // Recursively process nested objects/arrays
-      await walkAndResolveRefs(value, basePath, visited);
+      if (value && typeof value === 'object') {
+        await walkAndResolveRefs(value as Record<string, unknown> | unknown[], basePath, visited);
+      }
     }
   }
 }

@@ -4,7 +4,6 @@
  */
 
 /* eslint-env browser */
-/* global window, document */
 
 export type Theme = 'system' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';

@@ -4,7 +4,7 @@ module.exports = {
       displayName: 'anglesite',
       preset: 'ts-jest',
       testEnvironment: 'node',
-      testMatch: ['<rootDir>/anglesite/**/*.test.ts'],
+      testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
       rootDir: '<rootDir>/anglesite',
       transform: {
         '^.+\\.tsx?$': 'ts-jest',
@@ -13,9 +13,9 @@ module.exports = {
     },
     {
       displayName: 'anglesite-11ty',
-      preset: 'ts-jest', 
+      preset: 'ts-jest',
       testEnvironment: 'node',
-      testMatch: ['<rootDir>/anglesite-11ty/**/*.test.ts'],
+      testMatch: ['**/tests/**/*.test.{ts,tsx,js,jsx}'],
       rootDir: '<rootDir>/anglesite-11ty',
       transform: {
         '^.+\\.tsx?$': 'ts-jest',
@@ -25,8 +25,8 @@ module.exports = {
     {
       displayName: 'web-components',
       preset: 'ts-jest',
-      testEnvironment: 'jsdom', 
-      testMatch: ['<rootDir>/web-components/**/*.test.ts'],
+      testEnvironment: 'jsdom',
+      testMatch: ['**/*.test.ts'],
       rootDir: '<rootDir>/web-components',
       transform: {
         '^.+\\.tsx?$': 'ts-jest',

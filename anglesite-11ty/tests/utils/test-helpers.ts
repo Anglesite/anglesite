@@ -7,6 +7,8 @@ import type { EleventyCollectionItem } from '@11ty/eleventy';
 
 /**
  * Creates a minimal website configuration for testing
+ * @param {Partial<AnglesiteWebsiteConfiguration>} [overrides] - Optional overrides for the default configuration
+ * @returns {AnglesiteWebsiteConfiguration} A complete website configuration object
  */
 export function createMockWebsiteConfig(
   overrides?: Partial<AnglesiteWebsiteConfiguration>
@@ -21,6 +23,8 @@ export function createMockWebsiteConfig(
 
 /**
  * Creates a mock Eleventy collection item for testing
+ * @param {Partial<EleventyCollectionItem>} [overrides] - Optional overrides for the default collection item
+ * @returns {EleventyCollectionItem} A mock Eleventy collection item
  */
 export function createMockCollectionItem(overrides?: Partial<EleventyCollectionItem>): EleventyCollectionItem {
   return {
@@ -36,6 +40,7 @@ export function createMockCollectionItem(overrides?: Partial<EleventyCollectionI
 
 /**
  * Creates a mock Eleventy config for testing
+ * @returns {object} A mock Eleventy configuration object with Jest mocked functions
  */
 export function createMockEleventyConfig() {
   return {
@@ -59,6 +64,7 @@ export function createMockEleventyConfig() {
 
 /**
  * Creates a mock file system interface for testing
+ * @returns {object} A mock file system object with Jest mocked functions
  */
 export function createMockFileSystem() {
   return {
@@ -74,6 +80,7 @@ export function createMockFileSystem() {
 
 /**
  * Mock console methods for testing
+ * @returns {object} Object containing mocked console methods and a restore function
  */
 export function mockConsole() {
   const originalLog = console.log;
@@ -101,6 +108,9 @@ export function mockConsole() {
 
 /**
  * Extracts event handler from mock Eleventy config
+ * @param {ReturnType<typeof createMockEleventyConfig>} mockConfig - The mock Eleventy config
+ * @param {string} eventName - The name of the event to extract handler for
+ * @returns {Function | undefined} The event handler function if found
  */
 export function extractEventHandler(mockConfig: ReturnType<typeof createMockEleventyConfig>, eventName: string) {
   return (mockConfig.on as jest.Mock).mock.calls.find((call) => call[0] === eventName)?.[1];
@@ -108,6 +118,9 @@ export function extractEventHandler(mockConfig: ReturnType<typeof createMockElev
 
 /**
  * Extracts collection handler from mock Eleventy config
+ * @param {ReturnType<typeof createMockEleventyConfig>} mockConfig - The mock Eleventy config
+ * @param {string} collectionName - The name of the collection to extract handler for
+ * @returns {Function | undefined} The collection handler function if found
  */
 export function extractCollectionHandler(
   mockConfig: ReturnType<typeof createMockEleventyConfig>,
@@ -118,6 +131,7 @@ export function extractCollectionHandler(
 
 /**
  * Asserts that a string is valid XML
+ * @param {string} xmlString - The XML string to validate
  */
 export function assertValidXml(xmlString: string): void {
   expect(xmlString).toContain('<?xml version="1.0" encoding="UTF-8"?>');
@@ -134,6 +148,7 @@ export function assertValidXml(xmlString: string): void {
 
 /**
  * Asserts that a string is valid JSON
+ * @param {string} jsonString - The JSON string to validate
  */
 export function assertValidJson(jsonString: string): void {
   expect(() => JSON.parse(jsonString)).not.toThrow();
@@ -149,6 +164,7 @@ export function assertValidJson(jsonString: string): void {
 export const testPatterns = {
   /**
    * Standard test for plugin registration
+   * @param {Function} pluginFn - The plugin function to test
    */
   pluginRegistration: (pluginFn: (config: any) => void) => {
     const mockConfig = createMockEleventyConfig();
@@ -159,6 +175,7 @@ export const testPatterns = {
 
   /**
    * Standard test for empty results handling
+   * @param {Function} eventHandler - The event handler to test
    */
   emptyResults: async (eventHandler: (event: any) => Promise<void>) => {
     const mockEvent = {
@@ -171,6 +188,7 @@ export const testPatterns = {
 
   /**
    * Standard test for missing configuration handling
+   * @param {Function} eventHandler - The event handler to test
    */
   missingConfig: async (eventHandler: (event: any) => Promise<void>) => {
     const mockEvent = {

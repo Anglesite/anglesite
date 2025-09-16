@@ -28,6 +28,8 @@ interface FluentTreeViewProps extends React.HTMLAttributes<HTMLElement> {
 }
 
 export const FluentTreeView: React.FC<FluentTreeViewProps> = ({ items, onItemClick, onItemToggle, ...props }) => {
+  // onItemToggle is available for future toggle functionality
+  void onItemToggle;
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -84,7 +86,13 @@ export const FluentTreeView: React.FC<FluentTreeViewProps> = ({ items, onItemCli
       }
 
       // Fluent UI tree item
-      const treeItemProps: any = {
+      const treeItemProps: React.HTMLAttributes<HTMLElement> & {
+        'data-item-id': string;
+        disabled?: boolean;
+        selected?: boolean;
+        expanded?: boolean;
+        key?: string;
+      } = {
         key: item.id,
         'data-item-id': item.id,
         disabled: item.disabled,
@@ -154,10 +162,10 @@ export const FluentTreeView: React.FC<FluentTreeViewProps> = ({ items, onItemCli
   }
 
   // Cast props to work with JSX intrinsic elements
-  const fluentProps = {
+  const fluentProps: React.HTMLAttributes<HTMLElement> & Partial<FluentTreeViewProps> = {
     ...props,
     id: props.id || 'tree-view',
-  } as any;
+  };
 
   // Remove React-specific props
   delete fluentProps.items;

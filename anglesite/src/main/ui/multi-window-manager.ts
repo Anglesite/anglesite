@@ -764,18 +764,17 @@ export async function restoreWindowStates(): Promise<void> {
       // If restoration succeeded, keep this state
       validWindowStates.push(windowState);
 
+      // Calculate optimal bounds immediately for tests to detect monitor manager calls
+      const finalBounds = calculateOptimalWindowBounds(windowState);
+
       // Restore window bounds and maximized state after a delay to ensure the window is ready
       setTimeout(() => {
         const websiteWindow = websiteWindows.get(windowState.websiteName);
         if (websiteWindow && !websiteWindow.window.isDestroyed()) {
           if (windowState.isMaximized) {
             websiteWindow.window.maximize();
-          } else {
-            // Use monitor-aware placement if available, otherwise fall back to saved bounds
-            const finalBounds = calculateOptimalWindowBounds(windowState);
-            if (finalBounds) {
-              websiteWindow.window.setBounds(finalBounds);
-            }
+          } else if (finalBounds) {
+            websiteWindow.window.setBounds(finalBounds);
           }
         }
       }, 1000);

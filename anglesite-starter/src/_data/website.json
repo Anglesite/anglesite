@@ -1,5 +1,5 @@
 {
-  "$schema": "../../schemas/website.json",
+  "$schema": "../../anglesite-11ty/schemas/website.schema.json",
   "title": "Anglesite Starter",
   "language": "en",
   "description": "A local-first, open-source WYSIWYG static site generator starter template",

@@ -16,7 +16,7 @@ export const App: React.FC = () => {
 };
 
 // Enable HMR for this component (webpack only)
-declare let module: any;
+declare let module: { hot?: { accept(): void } };
 if (typeof module !== 'undefined' && module.hot) {
   module.hot.accept();
 }

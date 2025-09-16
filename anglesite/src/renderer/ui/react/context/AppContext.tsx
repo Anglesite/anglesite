@@ -2,14 +2,19 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { logger } from '../../../utils/logger';
 
 interface AppState {
-  currentView: 'file-editor' | 'website-config';
+  currentView: 'file-editor' | 'file-explorer' | 'website-config';
   selectedFile: string | null;
   websiteName: string;
   websitePath: string | null;
   loading: boolean;
 }
 
-interface AppContextType {
+interface WebsiteData {
+  name: string;
+  path: string;
+}
+
+export interface AppContextType {
   state: AppState;
   setCurrentView: (view: AppState['currentView']) => void;
   setSelectedFile: (file: string | null) => void;
@@ -18,7 +23,7 @@ interface AppContextType {
   setLoading: (loading: boolean) => void;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+export const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AppState>({
@@ -77,7 +82,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Listen for website loading events
   useEffect(() => {
-    const handleLoadWebsite = (websiteData: any) => {
+    const handleLoadWebsite = (...args: unknown[]) => {
+      const websiteData = args[0] as WebsiteData;
       setWebsiteName(websiteData.name);
       setWebsitePath(websiteData.path);
       setLoading(false);

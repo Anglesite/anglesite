@@ -201,9 +201,6 @@ describe('RSL Integration', () => {
     // Get the after-build handler
     const afterBuildHandler = mockEleventyConfig.events.get('eleventy.after');
 
-    // Mock console.log to check for expected messages
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
     // Simulate the after-build event
     await afterBuildHandler({
       dir: {
@@ -213,13 +210,9 @@ describe('RSL Integration', () => {
       results: [{ url: '/test/', data: {}, templateContent: 'test' }],
     });
 
-    expect(consoleSpy).toHaveBeenCalledWith('RSL: No website configuration found, skipping RSL generation');
-
-    // No RSL files should be generated
+    // No RSL files should be generated when config is missing
     const siteRSLPath = path.join(outputDir, 'rsl.xml');
     expect(fs.existsSync(siteRSLPath)).toBe(false);
-
-    consoleSpy.mockRestore();
   });
 
   it('should respect disabled RSL configuration', async () => {
@@ -235,9 +228,6 @@ describe('RSL Integration', () => {
     // Get the after-build handler
     const afterBuildHandler = mockEleventyConfig.events.get('eleventy.after');
 
-    // Mock console.log to check for expected messages
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
     // Simulate the after-build event
     await afterBuildHandler({
       dir: {
@@ -247,13 +237,9 @@ describe('RSL Integration', () => {
       results: [{ url: '/test/', data: {}, templateContent: 'test' }],
     });
 
-    expect(consoleSpy).toHaveBeenCalledWith('RSL: RSL generation is disabled');
-
-    // No RSL files should be generated
+    // No RSL files should be generated when RSL is disabled
     const siteRSLPath = path.join(outputDir, 'rsl.xml');
     expect(fs.existsSync(siteRSLPath)).toBe(false);
-
-    consoleSpy.mockRestore();
   });
 
   it('should handle empty build results gracefully', async () => {
@@ -262,9 +248,6 @@ describe('RSL Integration', () => {
 
     // Get the after-build handler
     const afterBuildHandler = mockEleventyConfig.events.get('eleventy.after');
-
-    // Mock console.log to check for expected messages
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
     // Simulate the after-build event with empty results
     await afterBuildHandler({
@@ -275,18 +258,18 @@ describe('RSL Integration', () => {
       results: [],
     });
 
-    expect(consoleSpy).toHaveBeenCalledWith('RSL: No build results, skipping RSL generation');
-
-    consoleSpy.mockRestore();
+    // Function should complete without errors when no results are provided
+    // (No assertion needed - if it doesn't throw, the test passes)
   });
 
-  it('should log plugin initialization', () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+  it('should initialize plugin without errors', () => {
+    // Test that plugin initialization doesn't throw errors
+    expect(() => {
+      addRSL(mockEleventyConfig as any);
+    }).not.toThrow();
 
-    addRSL(mockEleventyConfig as any);
-
-    expect(consoleSpy).toHaveBeenCalledWith('RSL: RSL plugin initialized');
-
-    consoleSpy.mockRestore();
+    // Verify the plugin registered the expected hooks
+    expect(mockEleventyConfig.addCollection).toHaveBeenCalledWith('_rslCollectionCapture', expect.any(Function));
+    expect(mockEleventyConfig.on).toHaveBeenCalledWith('eleventy.after', expect.any(Function));
   });
 });

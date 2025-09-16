@@ -70,7 +70,6 @@ jest.mock('fs', () => mockFs);
 jest.mock('path', () => ({
   join: (...args: string[]) => {
     const result = args.join('/');
-    console.log('path.join called with:', args, '-> result:', result);
     return result;
   },
   resolve: jest.fn(() => TEST_CONSTANTS.PATHS.RESOLVED_PATH),
@@ -85,7 +84,6 @@ const mockGetBagItMetadata = jest.fn();
 const mockGetAllWebsiteWindows = jest.fn();
 const mockGetWebsitePath = jest.fn(() => {
   const result = TEST_CONSTANTS.PATHS.TEST_PATH;
-  console.log('mockGetWebsitePath returning:', result);
   return result;
 });
 

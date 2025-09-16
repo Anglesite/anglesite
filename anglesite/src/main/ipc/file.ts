@@ -315,7 +315,7 @@ export function setupFileHandlers(): void {
   function getErrorType(error: unknown): PageCreationErrorType {
     if (!error) return PageCreationErrorType.UNKNOWN;
 
-    const errorMessage = error.message || String(error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
 
     if (
       errorMessage.includes('Invalid') ||

@@ -6,7 +6,8 @@
  */
 
 import { BrowserWindow, WebContentsView } from 'electron';
-import { MonitorManager } from '../../src/main/services/monitor-manager';
+// Note: MonitorManager import available for future direct testing scenarios
+// import { MonitorManager } from '../../src/main/services/monitor-manager';
 import { MonitorInfo, WindowState } from '../../src/main/core/types';
 import { IStore, IMonitorManager } from '../../src/main/core/interfaces';
 
@@ -15,18 +16,23 @@ import {
   saveWindowStates,
   restoreWindowStates,
   addWebsiteEditorWindow,
-  removeWebsiteEditorWindow,
   getAllWebsiteWindows,
+  // Note: Additional imports available for future test scenarios
+  // removeWebsiteEditorWindow,
 } from '../../src/main/ui/multi-window-manager';
 
 // Mock dependencies
 jest.mock('electron');
 jest.mock('../../src/main/core/service-registry');
 jest.mock('../../src/main/services/monitor-manager');
+jest.mock('../../src/main/ui/template-loader');
+jest.mock('../../src/main/utils/website-manager');
+jest.mock('../../src/main/ui/window-manager');
 
-const mockBrowserWindow = BrowserWindow as jest.MockedClass<typeof BrowserWindow>;
-const mockWebContentsView = WebContentsView as jest.MockedClass<typeof WebContentsView>;
-const MockMonitorManager = MonitorManager as jest.MockedClass<typeof MonitorManager>;
+// Note: Mock classes available for future test scenarios
+// const mockBrowserWindow = BrowserWindow as jest.MockedClass<typeof BrowserWindow>;
+// const mockWebContentsView = WebContentsView as jest.MockedClass<typeof WebContentsView>;
+// const MockMonitorManager = MonitorManager as jest.MockedClass<typeof MonitorManager>;
 
 describe('Multi-Window Manager Monitor Integration', () => {
   let mockStore: jest.Mocked<IStore>;
@@ -45,6 +51,9 @@ describe('Multi-Window Manager Monitor Integration', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Clear the website windows map to prevent state bleeding between tests
+    getAllWebsiteWindows().clear();
 
     // Mock store
     mockStore = {
@@ -89,6 +98,13 @@ describe('Multi-Window Manager Monitor Integration', () => {
       focus: jest.fn(),
       show: jest.fn(),
       close: jest.fn(),
+      loadURL: jest.fn(),
+      webContents: {
+        send: jest.fn(),
+      },
+      contentView: {
+        addChildView: jest.fn(),
+      },
     } as unknown as jest.Mocked<BrowserWindow>;
 
     // Mock WebContentsView
@@ -97,6 +113,20 @@ describe('Multi-Window Manager Monitor Integration', () => {
         isDestroyed: jest.fn().mockReturnValue(false),
       },
     } as unknown as jest.Mocked<WebContentsView>;
+
+    // Mock additional dependencies
+    const mockTemplateLoader = require('../../src/main/ui/template-loader');
+    mockTemplateLoader.loadTemplateAsDataUrl = jest.fn().mockReturnValue('data:text/html,<html></html>');
+
+    const mockWebsiteManager = require('../../src/main/utils/website-manager');
+    mockWebsiteManager.getWebsitePath = jest.fn().mockReturnValue('/path/to/site');
+
+    const mockWindowManager = require('../../src/main/ui/window-manager');
+    mockWindowManager.openReactWebsiteEditorWindow = jest.fn().mockResolvedValue(undefined);
+
+    // Mock BrowserWindow constructor
+    const mockBrowserWindow = BrowserWindow as jest.MockedClass<typeof BrowserWindow>;
+    mockBrowserWindow.mockImplementation(() => mockWindow);
 
     // Mock global context service registry
     const mockGetGlobalContext = require('../../src/main/core/service-registry').getGlobalContext;
@@ -255,6 +285,7 @@ describe('Multi-Window Manager Monitor Integration', () => {
         websiteName: 'test-site',
         websitePath: '/path/to/site',
         bounds: { x: 2200, y: 200, width: 1280, height: 864 },
+        windowType: 'editor', // Use editor type to use mocked path
         targetMonitorId: 2, // This monitor no longer exists
         relativePosition: {
           percentX: 0.1,
@@ -289,6 +320,7 @@ describe('Multi-Window Manager Monitor Integration', () => {
         websiteName: 'valid-site',
         websitePath: '/path/to/valid/site',
         bounds: { x: 100, y: 100, width: 800, height: 600 },
+        windowType: 'editor', // Use editor type to use the mocked path
       };
 
       const invalidState: WindowState = {

@@ -14,7 +14,6 @@ import {
   Rectangle,
   RelativePosition,
   validateMonitorConfiguration,
-  validateMonitorInfo,
 } from '../core/types';
 import { IMonitorManager } from '../core/interfaces';
 
@@ -288,7 +287,7 @@ export class MonitorManager implements IMonitorManager {
   }
 
   /**
-   * Find monitor by ID.
+   * Searches the current monitor configuration for a monitor with the specified ID.
    */
   findMonitorById(id: number): MonitorInfo | null {
     const config = this.getCurrentConfiguration();
@@ -296,7 +295,7 @@ export class MonitorManager implements IMonitorManager {
   }
 
   /**
-   * Get the primary monitor.
+   * Returns the primary monitor or the first available monitor as fallback.
    */
   getPrimaryMonitor(): MonitorInfo {
     const config = this.getCurrentConfiguration();

@@ -4,11 +4,15 @@
 
 import { ipcMain } from 'electron';
 import * as fs from 'fs/promises';
-import * as path from 'path';
+// import * as path from 'path'; // Not used in this test file
 import { setupSchemaHandlers } from '../../src/main/ipc/schema';
 
 // Mock electron
 jest.mock('electron', () => ({
+  app: {
+    getPath: jest.fn(() => '/test/userData'),
+    getName: jest.fn(() => 'Test App'),
+  },
   ipcMain: {
     handle: jest.fn(),
   },
@@ -20,20 +24,24 @@ jest.mock('fs/promises', () => ({
   access: jest.fn(),
 }));
 
-// Mock website manager
-jest.mock('../../src/main/utils/website-manager', () => ({
+// Use doMock to ensure mock is applied before module caching
+jest.doMock('../../src/main/utils/website-manager', () => ({
   getWebsitePath: jest.fn((websiteName: string) => `/test/websites/${websiteName}`),
+  WebsiteManager: jest.fn().mockImplementation(() => ({
+    getWebsitePath: jest.fn((websiteName: string) => `/test/websites/${websiteName}`),
+  })),
+  createStubAtomicOperations: jest.fn(),
 }));
 
 describe('Schema Validation and Resolution', () => {
-  let mockHandlers: Record<string, Function>;
+  let mockHandlers: Record<string, (...args: unknown[]) => unknown>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockHandlers = {};
 
     // Capture registered handlers
-    (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: Function) => {
+    (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: (...args: unknown[]) => unknown) => {
       mockHandlers[channel] = handler;
     });
 
@@ -57,7 +65,7 @@ describe('Schema Validation and Resolution', () => {
       (fs.readFile as jest.Mock).mockResolvedValue(JSON.stringify(mockSchema));
 
       const handler = mockHandlers['get-website-schema'];
-      const result = await handler({}, 'test-website');
+      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
 
       expect(result.schema).toBeDefined();
       expect(result.schema.title).toBe('Test Schema');
@@ -68,7 +76,7 @@ describe('Schema Validation and Resolution', () => {
       (fs.access as jest.Mock).mockRejectedValue(new Error('ENOENT'));
 
       const handler = mockHandlers['get-website-schema'];
-      const result = await handler({}, 'test-website');
+      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
 
       expect(result.error).toBeDefined();
       expect(result.fallbackSchema).toBeDefined();
@@ -80,7 +88,7 @@ describe('Schema Validation and Resolution', () => {
       (fs.readFile as jest.Mock).mockResolvedValue('invalid json {');
 
       const handler = mockHandlers['get-website-schema'];
-      const result = await handler({}, 'test-website');
+      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
 
       expect(result.error).toContain('JSON parsing error');
       expect(result.fallbackSchema).toBeDefined();
@@ -88,7 +96,7 @@ describe('Schema Validation and Resolution', () => {
 
     it('should handle missing website name', async () => {
       const handler = mockHandlers['get-website-schema'];
-      const result = await handler({}, '');
+      const result = (await handler({}, '')) as { schema?: any; error?: string; fallbackSchema?: any };
 
       expect(result.error).toContain('Website name is required');
       expect(result.fallbackSchema).toBeDefined();
@@ -141,7 +149,7 @@ describe('Schema Validation and Resolution', () => {
       });
 
       const handler = mockHandlers['get-website-schema'];
-      const result = await handler({}, 'test-website');
+      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
 
       expect(result.schema).toBeDefined();
       expect(result.schema.properties.title).toBeDefined();
@@ -177,7 +185,12 @@ describe('Schema Validation and Resolution', () => {
       });
 
       const handler = mockHandlers['get-website-schema'];
-      const result = await handler({}, 'test-website');
+      const result = (await handler({}, 'test-website')) as {
+        schema?: any;
+        error?: string;
+        fallbackSchema?: any;
+        warnings?: string[];
+      };
 
       expect(result.schema).toBeDefined();
       expect(result.schema.properties.title).toBeDefined();
@@ -229,7 +242,7 @@ describe('Schema Validation and Resolution', () => {
       });
 
       const handler = mockHandlers['get-website-schema'];
-      const result = await handler({}, 'test-website');
+      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
 
       expect(result.schema).toBeDefined();
       expect(result.schema.properties.email).toBeDefined();
@@ -265,7 +278,7 @@ describe('Schema Validation and Resolution', () => {
       });
 
       const handler = mockHandlers['get-website-schema'];
-      const result = await handler({}, 'test-website');
+      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
 
       // Should not throw or enter infinite loop
       expect(result.schema).toBeDefined();
@@ -285,7 +298,7 @@ describe('Schema Validation and Resolution', () => {
       (fs.readFile as jest.Mock).mockResolvedValue(JSON.stringify(testModule));
 
       const handler = mockHandlers['get-schema-module'];
-      const result = await handler({}, 'test-website', 'test-module');
+      const result = (await handler({}, 'test-website', 'test-module')) as any;
 
       expect(result).toBeDefined();
       expect(result.properties.test).toBeDefined();
@@ -315,7 +328,7 @@ describe('Schema Validation and Resolution', () => {
       (fs.access as jest.Mock).mockRejectedValue(new Error('ENOENT'));
 
       const handler = mockHandlers['get-website-schema'];
-      const result = await handler({}, 'test-website');
+      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
 
       const fallback = result.fallbackSchema;
       expect(fallback).toBeDefined();

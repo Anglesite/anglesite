@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { generateSecurityTxt } from '../../plugins/security';
 import addSecurityTxt from '../../plugins/security';
-import type { EleventyConfig } from '../types/eleventy-shim';
-import type { AnglesiteWebsiteConfiguration } from '../types/website';
+import type { EleventyConfig } from '../../types/eleventy-shim';
+import type { AnglesiteWebsiteConfiguration } from '../../types/website';
 
 // Mock fs.writeFileSync and mkdirSync to prevent actual file operations during tests
 jest.mock('fs', () => ({

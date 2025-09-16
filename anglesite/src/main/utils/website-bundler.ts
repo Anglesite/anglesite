@@ -11,15 +11,25 @@ import * as path from 'path';
 import * as os from 'os';
 import archiver from 'archiver';
 // Import yauzl conditionally to avoid test environment issues
-let yauzl: any;
+import type { ZipFile, Entry } from 'yauzl';
+
+let yauzl:
+  | {
+      open: (
+        path: string,
+        options: { lazyEntries: boolean },
+        callback: (err: Error | null, zipfile?: ZipFile) => void
+      ) => void;
+    }
+  | undefined;
 try {
-  yauzl = require('yauzl');
-} catch (e) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  yauzl = require('yauzl') as typeof yauzl;
+} catch {
   // yauzl not available, will handle this in methods that use it
 }
 import * as crypto from 'crypto';
 import { ILogger, IFileSystem, IWebsiteManager } from '../core/interfaces';
-import { ErrorUtils } from '../core/errors';
 
 export interface AnglesiteBundleMetadata {
   version: string; // Bundle format version (e.g., "1.0.0")
@@ -203,7 +213,7 @@ export class WebsiteBundler {
 
           zipfile.readEntry();
 
-          zipfile.on('entry', (entry: any) => {
+          zipfile.on('entry', (entry: Entry) => {
             const fileName = entry.fileName;
 
             if (fileName === 'metadata.json') {
@@ -241,7 +251,7 @@ export class WebsiteBundler {
                       });
                       // For now, still accept it but log a warning
                     }
-                  } catch (parseError) {
+                  } catch {
                     resolve({
                       valid: false,
                       error: 'Invalid metadata JSON format',
@@ -659,7 +669,7 @@ export class WebsiteBundler {
 
         zipfile.readEntry();
 
-        zipfile.on('entry', (entry: any) => {
+        zipfile.on('entry', (entry: Entry) => {
           const fileName = entry.fileName;
 
           // Handle directory entries
@@ -695,7 +705,7 @@ export class WebsiteBundler {
                 try {
                   metadata = JSON.parse(metadataContent);
                   this.logger.debug('Bundle metadata loaded', { websiteName: metadata?.websiteName });
-                } catch (parseError) {
+                } catch {
                   reject(new Error('Invalid bundle metadata format'));
                   return;
                 }

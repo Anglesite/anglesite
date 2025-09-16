@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { generateWebFingerResponse, generateStaticWebFinger, generateWebFingerIndex } from '../../plugins/webfinger.js';
-import addWebFinger from '../../plugins/webfinger.js';
-import type { EleventyConfig } from '../types/eleventy-shim.js';
-import type { AnglesiteWebsiteConfiguration } from '../../types/website.js';
+import { generateWebFingerResponse, generateStaticWebFinger, generateWebFingerIndex } from '../../plugins/webfinger';
+import addWebFinger from '../../plugins/webfinger';
+import type { EleventyConfig } from '../../types/eleventy-shim';
+import type { AnglesiteWebsiteConfiguration } from '../../types/website';
 
 // Mock fs operations to prevent actual file operations during tests
 jest.mock('fs', () => ({

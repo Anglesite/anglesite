@@ -177,7 +177,7 @@ export class EleventyUrlResolver {
   }
 
   /**
-   * Manually add a file to the URL map (useful for newly created files)
+   * Manually add a file to the URL map for newly created files.
    */
   addFileMapping(filePath: string): string | null {
     if (this.isContentFile(filePath)) {

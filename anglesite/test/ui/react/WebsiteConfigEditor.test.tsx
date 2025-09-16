@@ -33,14 +33,31 @@ jest.mock('../../../src/renderer/utils/logger', () => ({
   },
 }));
 
-// Mock AppContext with test data
+// Mock AppContext with test data - Fixed version that provides websiteName synchronously
+import { AppContext } from '../../../src/renderer/ui/react/context/AppContext';
+
 const MockAppProvider: React.FC<{ children: React.ReactNode; websiteName?: string }> = ({
   children,
   websiteName = 'test-website',
 }) => {
-  // Set up the mock to return our test website name
-  React.useEffect(() => {
-    mockElectronAPI.invoke.mockImplementation((channel: string, ...args: any[]) => {
+  const mockContextValue = {
+    state: {
+      currentView: 'website-config' as const,
+      selectedFile: null,
+      websiteName: websiteName,
+      websitePath: '/test/path',
+      loading: false,
+    },
+    setCurrentView: jest.fn(),
+    setSelectedFile: jest.fn(),
+    setWebsiteName: jest.fn(),
+    setWebsitePath: jest.fn(),
+    setLoading: jest.fn(),
+  };
+
+  // Set up mocks synchronously
+  React.useMemo(() => {
+    mockElectronAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
       if (channel === 'get-current-website-name') {
         return Promise.resolve(websiteName || null);
       }
@@ -86,7 +103,7 @@ const MockAppProvider: React.FC<{ children: React.ReactNode; websiteName?: strin
     });
   }, [websiteName]);
 
-  return <AppProvider>{children}</AppProvider>;
+  return <AppContext.Provider value={mockContextValue}>{children}</AppContext.Provider>;
 };
 
 describe('WebsiteConfigEditor', () => {
@@ -94,7 +111,7 @@ describe('WebsiteConfigEditor', () => {
     jest.clearAllMocks();
 
     // Setup default mocks for IPC calls
-    mockElectronAPI.invoke.mockImplementation((channel: string, ...args: any[]) => {
+    mockElectronAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
       if (channel === 'get-website-schema') {
         return Promise.resolve({
           schema: {
@@ -156,7 +173,10 @@ describe('WebsiteConfigEditor', () => {
         expect(screen.getByText('Website Configuration')).toBeInTheDocument();
       });
 
-      expect(screen.getByText(/Configure your website settings/)).toBeInTheDocument();
+      // Wait for the component to finish loading
+      await waitFor(() => {
+        expect(screen.getByText(/Configure your website settings, metadata, and features/)).toBeInTheDocument();
+      });
     });
 
     it('should show loading state when no website is selected', async () => {
@@ -186,29 +206,60 @@ describe('WebsiteConfigEditor', () => {
     });
 
     it('should handle schema loading errors gracefully', async () => {
-      mockElectronAPI.invoke.mockImplementation((channel: string) => {
+      // Create a dedicated mock context for this test
+      const TestErrorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+        const mockContextValue = {
+          state: {
+            currentView: 'website-config' as const,
+            selectedFile: null,
+            websiteName: 'test-website',
+            websitePath: '/test/path',
+            loading: false,
+          },
+          setCurrentView: jest.fn(),
+          setSelectedFile: jest.fn(),
+          setWebsiteName: jest.fn(),
+          setWebsitePath: jest.fn(),
+          setLoading: jest.fn(),
+        };
+
+        return <AppContext.Provider value={mockContextValue}>{children}</AppContext.Provider>;
+      };
+
+      // Setup mock that returns error
+      mockElectronAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
         if (channel === 'get-website-schema') {
           return Promise.resolve({
             error: 'Schema not found',
             fallbackSchema: {
               type: 'object',
               properties: {
-                title: { type: 'string' },
+                title: { type: 'string', title: 'Website Title' },
+                language: { type: 'string', title: 'Language', default: 'en' },
               },
+              required: ['title', 'language'],
             },
           });
+        }
+        if (channel === 'get-file-content') {
+          return Promise.resolve(
+            JSON.stringify({
+              title: 'Test Website',
+              language: 'en',
+            })
+          );
         }
         return Promise.resolve(null);
       });
 
       render(
-        <MockAppProvider>
+        <TestErrorProvider>
           <WebsiteConfigEditor />
-        </MockAppProvider>
+        </TestErrorProvider>
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/Schema loading failed/)).toBeInTheDocument();
+        expect(screen.getByText(/Schema loading failed: Schema not found/)).toBeInTheDocument();
       });
     });
   });
@@ -239,6 +290,16 @@ describe('WebsiteConfigEditor', () => {
         </MockAppProvider>
       );
 
+      // Wait for form to load
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+      });
+
+      // Make a change to trigger unsaved state
+      const titleInput = screen.getByLabelText(/Website Title/);
+      fireEvent.change(titleInput, { target: { value: 'Modified Title' } });
+
+      // Now the save button should show "Save Configuration"
       await waitFor(() => {
         expect(screen.getByText(/Save Configuration/)).toBeInTheDocument();
       });
@@ -267,6 +328,15 @@ describe('WebsiteConfigEditor', () => {
         </MockAppProvider>
       );
 
+      // Wait for form to load
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+      });
+
+      // Make a change to trigger unsaved state
+      const titleInput = screen.getByLabelText(/Website Title/);
+      fireEvent.change(titleInput, { target: { value: 'New Title' } });
+
       await waitFor(() => {
         expect(screen.getByText(/Save Configuration/)).toBeInTheDocument();
       });
@@ -282,19 +352,80 @@ describe('WebsiteConfigEditor', () => {
     it('should handle save errors gracefully', async () => {
       const onError = jest.fn();
 
+      // Create a dedicated mock context for this test
+      const TestSaveErrorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+        const mockContextValue = {
+          state: {
+            currentView: 'website-config' as const,
+            selectedFile: null,
+            websiteName: 'test-website',
+            websitePath: '/test/path',
+            loading: false,
+          },
+          setCurrentView: jest.fn(),
+          setSelectedFile: jest.fn(),
+          setWebsiteName: jest.fn(),
+          setWebsitePath: jest.fn(),
+          setLoading: jest.fn(),
+        };
+
+        return <AppContext.Provider value={mockContextValue}>{children}</AppContext.Provider>;
+      };
+
+      // Setup mock that returns save error
       mockElectronAPI.invoke.mockImplementation((channel: string) => {
         if (channel === 'save-file-content') {
           return Promise.resolve(false);
+        }
+        if (channel === 'get-website-schema') {
+          return Promise.resolve({
+            schema: {
+              $schema: 'http://json-schema.org/draft-07/schema#',
+              title: 'Test Website Schema',
+              type: 'object',
+              required: ['title', 'language'],
+              properties: {
+                title: {
+                  type: 'string',
+                  title: 'Website Title',
+                  description: 'The main title of your website',
+                },
+                language: {
+                  type: 'string',
+                  title: 'Language',
+                  default: 'en',
+                },
+              },
+            },
+          });
+        }
+        if (channel === 'get-file-content') {
+          return Promise.resolve(
+            JSON.stringify({
+              title: 'Existing Website',
+              language: 'en',
+            })
+          );
         }
         return Promise.resolve(null);
       });
 
       render(
-        <MockAppProvider>
+        <TestSaveErrorProvider>
           <WebsiteConfigEditor onError={onError} />
-        </MockAppProvider>
+        </TestSaveErrorProvider>
       );
 
+      // Wait for form to load
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+      });
+
+      // Make a change to trigger unsaved state
+      const titleInput = screen.getByLabelText(/Website Title/);
+      fireEvent.change(titleInput, { target: { value: 'Modified Title' } });
+
+      // Now the save button should show "Save Configuration"
       await waitFor(() => {
         expect(screen.getByText(/Save Configuration/)).toBeInTheDocument();
       });
@@ -310,56 +441,175 @@ describe('WebsiteConfigEditor', () => {
 
   describe('Unsaved Changes', () => {
     it('should track unsaved changes', async () => {
+      // Create a dedicated mock context for this test
+      const TestUnsavedChangesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+        const mockContextValue = {
+          state: {
+            currentView: 'website-config' as const,
+            selectedFile: null,
+            websiteName: 'test-website',
+            websitePath: '/test/path',
+            loading: false,
+          },
+          setCurrentView: jest.fn(),
+          setSelectedFile: jest.fn(),
+          setWebsiteName: jest.fn(),
+          setWebsitePath: jest.fn(),
+          setLoading: jest.fn(),
+        };
+
+        return <AppContext.Provider value={mockContextValue}>{children}</AppContext.Provider>;
+      };
+
+      // Setup standard mocks
+      mockElectronAPI.invoke.mockImplementation((channel: string) => {
+        if (channel === 'get-website-schema') {
+          return Promise.resolve({
+            schema: {
+              $schema: 'http://json-schema.org/draft-07/schema#',
+              title: 'Test Website Schema',
+              type: 'object',
+              required: ['title', 'language'],
+              properties: {
+                title: {
+                  type: 'string',
+                  title: 'Website Title',
+                  description: 'The main title of your website',
+                },
+                language: {
+                  type: 'string',
+                  title: 'Language',
+                  default: 'en',
+                },
+              },
+            },
+          });
+        }
+        if (channel === 'get-file-content') {
+          return Promise.resolve(
+            JSON.stringify({
+              title: 'Existing Website',
+              language: 'en',
+            })
+          );
+        }
+        return Promise.resolve(null);
+      });
+
       render(
-        <MockAppProvider>
+        <TestUnsavedChangesProvider>
           <WebsiteConfigEditor />
-        </MockAppProvider>
+        </TestUnsavedChangesProvider>
       );
 
       // Wait for form to load
       await waitFor(() => {
-        expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument();
+        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
       });
 
-      // Find and modify a form field (this is simplified, actual implementation may vary)
-      const inputs = screen.getAllByRole('textbox');
-      if (inputs.length > 0) {
-        await userEvent.type(inputs[0], ' Modified');
+      // Initially should not show unsaved changes
+      expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument();
 
-        await waitFor(() => {
-          expect(screen.getByText(/Unsaved changes/)).toBeInTheDocument();
-        });
-      }
+      // Modify a form field
+      const titleInput = screen.getByLabelText(/Website Title/);
+      await userEvent.type(titleInput, ' Modified');
+
+      // Should now show unsaved changes
+      await waitFor(() => {
+        expect(screen.getByText(/Unsaved changes/)).toBeInTheDocument();
+      });
     });
 
     it('should clear unsaved changes indicator after save', async () => {
-      render(
-        <MockAppProvider>
-          <WebsiteConfigEditor />
-        </MockAppProvider>
-      );
+      // Create a dedicated mock context for this test
+      const TestClearChangesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+        const mockContextValue = {
+          state: {
+            currentView: 'website-config' as const,
+            selectedFile: null,
+            websiteName: 'test-website',
+            websitePath: '/test/path',
+            loading: false,
+          },
+          setCurrentView: jest.fn(),
+          setSelectedFile: jest.fn(),
+          setWebsiteName: jest.fn(),
+          setWebsitePath: jest.fn(),
+          setLoading: jest.fn(),
+        };
 
-      await waitFor(() => {
-        expect(screen.getByText(/Save Configuration/)).toBeInTheDocument();
+        return <AppContext.Provider value={mockContextValue}>{children}</AppContext.Provider>;
+      };
+
+      // Setup standard mocks including save success
+      mockElectronAPI.invoke.mockImplementation((channel: string) => {
+        if (channel === 'get-website-schema') {
+          return Promise.resolve({
+            schema: {
+              $schema: 'http://json-schema.org/draft-07/schema#',
+              title: 'Test Website Schema',
+              type: 'object',
+              required: ['title', 'language'],
+              properties: {
+                title: {
+                  type: 'string',
+                  title: 'Website Title',
+                  description: 'The main title of your website',
+                },
+                language: {
+                  type: 'string',
+                  title: 'Language',
+                  default: 'en',
+                },
+              },
+            },
+          });
+        }
+        if (channel === 'get-file-content') {
+          return Promise.resolve(
+            JSON.stringify({
+              title: 'Existing Website',
+              language: 'en',
+            })
+          );
+        }
+        if (channel === 'save-file-content') {
+          return Promise.resolve(true);
+        }
+        return Promise.resolve(null);
       });
 
+      render(
+        <TestClearChangesProvider>
+          <WebsiteConfigEditor />
+        </TestClearChangesProvider>
+      );
+
+      // Wait for form to load
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+      });
+
+      // Initially should not show unsaved changes
+      expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument();
+
       // Modify form to create unsaved changes
-      const inputs = screen.getAllByRole('textbox');
-      if (inputs.length > 0) {
-        await userEvent.type(inputs[0], ' Modified');
+      const titleInput = screen.getByLabelText(/Website Title/);
+      await userEvent.type(titleInput, ' Modified');
 
-        await waitFor(() => {
-          expect(screen.getByText(/Unsaved changes/)).toBeInTheDocument();
-        });
+      // Should show unsaved changes
+      await waitFor(() => {
+        expect(screen.getByText(/Unsaved changes/)).toBeInTheDocument();
+      });
 
-        // Save the changes
-        const saveButton = screen.getByRole('button', { name: /Save/i });
-        fireEvent.click(saveButton);
+      // Save the changes
+      const saveButton = screen.getByRole('button', { name: /Save Configuration/i });
+      fireEvent.click(saveButton);
 
-        await waitFor(() => {
-          expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument();
-        });
-      }
+      // Should clear unsaved changes indicator after save
+      await waitFor(() => {
+        expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument();
+      });
     });
   });
 
@@ -370,6 +620,15 @@ describe('WebsiteConfigEditor', () => {
           <WebsiteConfigEditor />
         </MockAppProvider>
       );
+
+      // Wait for form to load
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+      });
+
+      // Make a change to trigger unsaved state
+      const titleInput = screen.getByLabelText(/Website Title/);
+      fireEvent.change(titleInput, { target: { value: 'Keyboard Test' } });
 
       await waitFor(() => {
         expect(screen.getByText(/Save Configuration/)).toBeInTheDocument();
@@ -391,20 +650,27 @@ describe('WebsiteConfigEditor', () => {
 
   describe('Error Boundary', () => {
     it('should catch and display errors gracefully', async () => {
-      // Mock a schema that will cause an error
-      mockElectronAPI.invoke.mockImplementation(() => {
-        throw new Error('Test error');
-      });
+      // Create a simple component that always throws
+      const ThrowingComponent = () => {
+        throw new Error('Test render error');
+      };
+
+      // Import ErrorBoundary directly for testing
+      const { ErrorBoundary } = await import('../../../src/renderer/ui/react/components/ErrorBoundary');
+
+      // Spy on console.error to suppress error logging during test
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       render(
-        <MockAppProvider>
-          <WebsiteConfigEditor />
-        </MockAppProvider>
+        <ErrorBoundary componentName="TestComponent">
+          <ThrowingComponent />
+        </ErrorBoundary>
       );
 
-      await waitFor(() => {
-        expect(screen.getByText(/Something went wrong/)).toBeInTheDocument();
-      });
+      expect(screen.getByText(/Something went wrong/)).toBeInTheDocument();
+      expect(screen.getByText(/TestComponent encountered an error/)).toBeInTheDocument();
+
+      consoleErrorSpy.mockRestore();
     });
   });
 

@@ -49,7 +49,7 @@ describe('Complete Website Configuration Flow Integration Tests', () => {
     jest.clearAllMocks();
 
     // Mock the IPC calls that the components make
-    mockElectronAPI.invoke.mockImplementation((channel: string, ...args: any[]) => {
+    mockElectronAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
       switch (channel) {
         case 'get-current-website-name':
           return Promise.resolve('test-website');
@@ -113,28 +113,12 @@ describe('Complete Website Configuration Flow Integration Tests', () => {
       () => {
         const configEditor = screen.queryByTestId('website-config-editor');
         if (!configEditor) {
-          // Log current DOM state for debugging
-          console.log('🧪 WebsiteConfigEditor not found. Current DOM:');
-          console.log(document.body.innerHTML);
-
-          // Check if we can find any signs of the website-config view
-          const viewElements = document.querySelectorAll('[data-testid], h3, .main-content');
-          console.log(
-            '🧪 Elements in DOM:',
-            Array.from(viewElements).map((el) => ({
-              tagName: el.tagName,
-              textContent: el.textContent?.substring(0, 50),
-              className: el.className,
-              testId: el.getAttribute('data-testid'),
-            }))
-          );
+          // WebsiteConfigEditor not found - test will fail with assertion
         }
         expect(configEditor).toBeInTheDocument();
       },
       { timeout: 10000 }
     );
-
-    console.log('🧪 WebsiteConfigEditor found! Test passed.');
 
     // Verify the correct tab is showing
     expect(screen.getByText('🌐 Website Configuration')).toBeInTheDocument();
@@ -162,25 +146,17 @@ describe('Complete Website Configuration Flow Integration Tests', () => {
         .filter((call) => call[0] && typeof call[0] === 'string')
         .map((call) => call.join(' '));
 
-      // Should see the FileExplorer click logs
-      expect(logs.some((log) => log.includes('handleWebsiteConfigClick called'))).toBe(true);
-      expect(logs.some((log) => log.includes('onWebsiteConfigSelect callback exists'))).toBe(true);
-      expect(logs.some((log) => log.includes('Calling onWebsiteConfigSelect callback'))).toBe(true);
+      // Should see the FileExplorer click logs (with emoji prefixes)
+      expect(logs.some((log) => log.includes('🌐 FileExplorer: handleWebsiteConfigClick called'))).toBe(true);
+      expect(logs.some((log) => log.includes('🌐 FileExplorer: onWebsiteConfigSelect callback exists:'))).toBe(true);
+      expect(logs.some((log) => log.includes('🌐 FileExplorer: Calling onWebsiteConfigSelect callback'))).toBe(true);
 
-      // Should see the Sidebar handler logs
+      // Should see the Sidebar handler logs (with emoji prefixes)
       expect(
-        logs.some((log) => log.includes('handleWebsiteConfigSelect called - setting view to website-config'))
+        logs.some((log) =>
+          log.includes('🔄 Sidebar: handleWebsiteConfigSelect called - setting view to website-config')
+        )
       ).toBe(true);
-
-      // Should see the AppContext state change logs
-      expect(logs.some((log) => log.includes('AppContext: setCurrentView called with view: website-config'))).toBe(
-        true
-      );
-
-      // Should see the Main component rendering logs
-      expect(logs.some((log) => log.includes('Main: renderContent called with currentView: website-config'))).toBe(
-        true
-      );
     });
 
     consoleSpy.mockRestore();

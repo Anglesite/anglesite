@@ -9,7 +9,6 @@ import {
   createWebsiteWindow,
   startWebsiteServerAndUpdateWindow,
   getAllWebsiteWindows,
-  getWebsiteWindow,
   hideWebsitePreview,
   showWebsitePreview,
 } from '../ui/multi-window-manager';

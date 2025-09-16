@@ -52,7 +52,7 @@
     "test:coverage": "jest --coverage --silent",
     "test:coverage:fast": "jest --coverage --silent --runInBand --bail",
     "test:integration": "npm run test:integration --prefix ../",
-    "test:unit": "jest --testPathIgnorePatterns='/integration/' --testPathIgnorePatterns='/e2e/'",
+    "test:unit": "jest --testPathIgnorePatterns='/integration/' --testPathIgnorePatterns='/e2e/' --silent",
     "test:all": "npm run test:coverage && npm run test:integration",
     "test:parallel": "concurrently \"npm run test:unit\" \"npm run lint:parallel\" --names \"tests,lint\" --prefix-colors \"green,red\" --kill-others-on-fail",
     "test": "jest --silent"
@@ -188,6 +188,7 @@
     "@types/jest": "^30.0.0",
     "@types/jsdom": "^21.1.7",
     "@types/webpack-env": "^1.18.8",
+    "@types/yauzl": "2.10.3",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "autoprefixer": "^10.4.21",

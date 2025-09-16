@@ -6,8 +6,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { promisify } from 'util';
-import { discoverContentAssets, validateDiscoveredAssets } from '../../../plugins/rsl/content-discovery.js';
-import type { RSLContentDiscoveryConfig, RSLContentAsset } from '../../../plugins/rsl/types.js';
+import { discoverContentAssets, validateDiscoveredAssets } from '../../../plugins/rsl/content-discovery';
+import type { RSLContentDiscoveryConfig, RSLContentAsset } from '../../../plugins/rsl/types';
 
 const mkdir = promisify(fs.mkdir);
 const writeFile = promisify(fs.writeFile);

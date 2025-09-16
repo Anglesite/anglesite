@@ -46,6 +46,7 @@ interface FluentButtonProps extends React.HTMLAttributes<HTMLElement> {
  * </FluentButton>
  * ```
  * @param props FluentButton properties
+ * @param props.children Content to display inside the button
  * @returns React component that renders a Fluent UI button
  */
 export const FluentButton: React.FC<FluentButtonProps> = ({ children, ...props }) => {
@@ -99,7 +100,7 @@ export const FluentButton: React.FC<FluentButtonProps> = ({ children, ...props }
   }
 
   // Cast props to work with JSX intrinsic elements
-  const fluentProps = props as any;
+  const fluentProps = props as React.HTMLAttributes<HTMLElement> & FluentButtonProps;
 
   return React.createElement('fluent-button', fluentProps, children);
 };

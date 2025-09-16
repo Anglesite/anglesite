@@ -13,7 +13,9 @@ describe('Schema Resolution with Real Files', () => {
       await fs.access(realSchemaPath);
       console.log('Real schema directory found:', realSchemaPath);
     } catch (error) {
-      throw new Error(`Real anglesite-11ty schemas not found at: ${realSchemaPath}. Test cannot proceed.`);
+      throw new Error(
+        `Real anglesite-11ty schemas not found at: ${realSchemaPath}. Test cannot proceed. Error: ${error}`
+      );
     }
   });
 
@@ -71,7 +73,7 @@ describe('Schema Resolution with Real Files', () => {
     const schema = JSON.parse(schemaContent);
 
     const resolvedSchema = { ...schema };
-    const mergedProperties: any = {};
+    const mergedProperties: Record<string, unknown> = {};
     const mergedRequired: string[] = [];
 
     // Manually resolve allOf references

@@ -16,7 +16,7 @@ import { exportSiteHandler } from '../ipc/export';
 import { exportWebsiteBundleHandler, importWebsiteBundleHandler } from '../ipc/bundle';
 import { cleanupHostsFile } from '../dns/hosts-manager';
 import { installCAInSystem, isCAInstalledInSystem } from '../certificates';
-import { IStore } from '../core/interfaces';
+import { IStore, IWebsiteManager, IGitHistoryManager } from '../core/interfaces';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
 
@@ -346,7 +346,7 @@ export function createApplicationMenu(): Menu {
                       try {
                         const appContext = getGlobalContext();
                         const websiteManager = appContext.getService(ServiceKeys.WEBSITE_MANAGER);
-                        websitePath = (websiteManager as any).getWebsitePath(websiteName);
+                        websitePath = (websiteManager as IWebsiteManager).getWebsitePath(websiteName);
                       } catch {
                         const { getWebsitePath } = await import('../utils/website-manager');
                         websitePath = getWebsitePath(websiteName);
@@ -389,7 +389,7 @@ export function createApplicationMenu(): Menu {
                       try {
                         const appContext = getGlobalContext();
                         const gitHistoryManager = appContext.getService(ServiceKeys.GIT_HISTORY_MANAGER);
-                        await (gitHistoryManager as any).autoCommit(websitePath, 'save');
+                        await (gitHistoryManager as IGitHistoryManager).autoCommit(websitePath, 'save');
                       } catch {
                         // Don't fail if git commit fails
                       }
@@ -398,8 +398,8 @@ export function createApplicationMenu(): Menu {
                       try {
                         const { getWebsiteServer } = await import('../ui/multi-window-manager');
                         const websiteServer = getWebsiteServer(websiteName);
-                        if (websiteServer?.urlResolver && (websiteServer.urlResolver as any).addFileMapping) {
-                          (websiteServer.urlResolver as any).addFileMapping(filePath);
+                        if (websiteServer?.urlResolver && websiteServer.urlResolver.addFileMapping) {
+                          websiteServer.urlResolver.addFileMapping(filePath);
                         }
                       } catch {
                         // Non-critical if this fails - fallback logic will handle it

@@ -107,7 +107,7 @@ export const FluentDivider: React.FC<FluentDividerProps> = ({ children, ...props
   }
 
   // Cast props to work with JSX intrinsic elements
-  const fluentProps = props as any;
+  const fluentProps = props as React.HTMLAttributes<HTMLElement> & FluentDividerProps;
 
   return React.createElement('fluent-divider', fluentProps, children);
 };

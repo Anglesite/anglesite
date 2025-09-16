@@ -12,7 +12,8 @@
 // Jest is globally available
 
 // Import and use existing test infrastructure
-import { TEST_CONSTANTS } from '../constants/test-constants';
+// Note: TEST_CONSTANTS not used in this test but available for future test scenarios
+// import { TEST_CONSTANTS } from '../constants/test-constants';
 import {
   mockMultiWindowManager,
   mockAppMenu,
@@ -66,6 +67,61 @@ describe('FSEvents Crash Regression Tests', () => {
     mockHostsManager.checkAndSuggestTouchIdSetup.mockResolvedValue(undefined);
     mockMultiWindowManager.restoreWindowStates.mockResolvedValue(undefined);
 
+    // Mock server manager with required methods
+    mockServerManager = {
+      getAllServers: jest.fn(() => new Map()),
+      getAllRunningServers: jest.fn(() => new Map()), // Keep for backward compatibility in test
+      stopAllServers: jest.fn(() => Promise.resolve()),
+      // Add other required IWebsiteServerManager methods as no-ops
+      getServer: jest.fn(() => undefined),
+      getServerInfo: jest.fn(() => undefined),
+      isServerRunning: jest.fn(() => false),
+      startServer: jest.fn(() => Promise.resolve({ port: 8080, url: 'http://localhost:8080' })),
+      stopServer: jest.fn(() => Promise.resolve()),
+      restartServer: jest.fn(() => Promise.resolve({ port: 8080, url: 'http://localhost:8080' })),
+      cleanupOrphanedServers: jest.fn(() => Promise.resolve()),
+      dispose: jest.fn(() => Promise.resolve()),
+      on: jest.fn(() => mockServerManager),
+    };
+
+    // Mock application context
+    const mockAppContext = {
+      getService: jest.fn((key: string) => {
+        if (key === 'store') return mockStoreInstance;
+        if (key === 'websiteServerManager') return mockServerManager;
+        return {};
+      }),
+    };
+
+    // Mock service registry
+    mockServiceRegistry = {
+      bootstrapServices: jest.fn(() => Promise.resolve(mockAppContext)),
+      shutdownServices: jest.fn(() => Promise.resolve()),
+      initializeGlobalContext: jest.fn(() => Promise.resolve(mockAppContext)),
+      getGlobalContext: jest.fn(() => mockAppContext),
+      shutdownGlobalContext: jest.fn(() => Promise.resolve()),
+      globalAppContext: null,
+    };
+
+    // Setup server manager mock
+    jest.doMock('../../src/main/server/website-server-manager', () => ({
+      getWebsiteServerManager: () => mockServerManager,
+    }));
+
+    jest.doMock('../../src/main/core/service-registry', () => mockServiceRegistry);
+
+    // Mock multi-window-manager to prevent setupServerManagerEventListeners errors
+    jest.doMock('../../src/main/ui/multi-window-manager', () => ({
+      setupServerManagerEventListeners: jest.fn(),
+      closeAllWindows: jest.fn(),
+      restoreWindowStates: jest.fn(),
+      getAllWebsiteWindows: jest.fn(() => new Map()),
+      createWebsiteWindow: jest.fn(),
+      loadWebsiteContent: jest.fn(),
+      getWebsiteWindow: jest.fn(),
+      saveWindowStates: jest.fn(),
+    }));
+
     // Mock chokidar with realistic fsevents behavior
     mockChokidarWatcher = {
       on: jest.fn().mockReturnThis(),
@@ -95,14 +151,6 @@ describe('FSEvents Crash Regression Tests', () => {
 
   describe('App Quit Sequence Race Conditions', () => {
     it('should handle rapid app quit with multiple active file watchers', async () => {
-      // Import main after mocks are set up
-      require('../../src/main/main');
-
-      // Get the before-quit handler
-      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
-
-      expect(beforeQuitHandler).toBeDefined();
-
       // Create a scenario with multiple active file watchers
       const multipleWatchers = new Map([
         ['site1', { fileWatcher: { ...mockFileWatcher, stop: jest.fn(() => Promise.resolve()) } }],
@@ -110,7 +158,7 @@ describe('FSEvents Crash Regression Tests', () => {
         ['site3', { fileWatcher: { ...mockFileWatcher, stop: jest.fn(() => Promise.resolve()) } }],
       ]);
 
-      mockServerManager.getAllRunningServers.mockReturnValue(multipleWatchers);
+      mockServerManager.getAllServers.mockReturnValue(multipleWatchers);
 
       // Mock closeAllWindows to trigger server cleanup
       const mockMultiWindowManager = {
@@ -118,9 +166,24 @@ describe('FSEvents Crash Regression Tests', () => {
           // Simulate the server cleanup that happens in closeAllWindows
           await mockServerManager.stopAllServers();
         }),
+        setupServerManagerEventListeners: jest.fn(),
+        restoreWindowStates: jest.fn(),
+        getAllWebsiteWindows: jest.fn(() => new Map()),
+        createWebsiteWindow: jest.fn(),
+        loadWebsiteContent: jest.fn(),
+        getWebsiteWindow: jest.fn(),
+        saveWindowStates: jest.fn(),
       };
 
       jest.doMock('../../src/main/ui/multi-window-manager', () => mockMultiWindowManager);
+
+      // Import main AFTER mocks are set up
+      require('../../src/main/main');
+
+      // Get the before-quit handler
+      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
+
+      expect(beforeQuitHandler).toBeDefined();
 
       // Execute the before-quit handler
       const quitPromise = beforeQuitHandler();
@@ -142,22 +205,29 @@ describe('FSEvents Crash Regression Tests', () => {
         isWatching: jest.fn(() => true),
       };
 
-      mockServerManager.getAllRunningServers.mockReturnValue(
-        new Map([['slow-site', { fileWatcher: slowFileWatcher }]])
-      );
+      mockServerManager.getAllServers.mockReturnValue(new Map([['slow-site', { fileWatcher: slowFileWatcher }]]));
+
+      // Mock closeAllWindows with realistic server shutdown that includes delay
+      const mockMultiWindowManager = {
+        closeAllWindows: jest.fn(async () => {
+          await mockServerManager.stopAllServers();
+          // Simulate the delay from the slow file watcher
+          await slowFileWatcher.stop();
+        }),
+        setupServerManagerEventListeners: jest.fn(),
+        restoreWindowStates: jest.fn(),
+        getAllWebsiteWindows: jest.fn(() => new Map()),
+        createWebsiteWindow: jest.fn(),
+        loadWebsiteContent: jest.fn(),
+        getWebsiteWindow: jest.fn(),
+        saveWindowStates: jest.fn(),
+      };
+
+      jest.doMock('../../src/main/ui/multi-window-manager', () => mockMultiWindowManager);
 
       require('../../src/main/main');
 
       const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
-
-      // Mock closeAllWindows with realistic server shutdown
-      const mockMultiWindowManager = {
-        closeAllWindows: jest.fn(async () => {
-          await mockServerManager.stopAllServers();
-        }),
-      };
-
-      jest.doMock('../../src/main/ui/multi-window-manager', () => mockMultiWindowManager);
 
       // Execute quit sequence and measure timing
       const startTime = Date.now();
@@ -176,26 +246,33 @@ describe('FSEvents Crash Regression Tests', () => {
         isWatching: jest.fn(() => true),
       };
 
-      mockServerManager.getAllRunningServers.mockReturnValue(
-        new Map([['failing-site', { fileWatcher: failingFileWatcher }]])
-      );
-
-      require('../../src/main/main');
-
-      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
+      mockServerManager.getAllServers.mockReturnValue(new Map([['failing-site', { fileWatcher: failingFileWatcher }]]));
 
       const mockMultiWindowManager = {
         closeAllWindows: jest.fn(async () => {
           try {
             await mockServerManager.stopAllServers();
+            // Simulate calling the failing file watcher
+            await failingFileWatcher.stop();
           } catch (error) {
             // Should handle cleanup failures gracefully
             console.error('Server cleanup failed:', error);
           }
         }),
+        setupServerManagerEventListeners: jest.fn(),
+        restoreWindowStates: jest.fn(),
+        getAllWebsiteWindows: jest.fn(() => new Map()),
+        createWebsiteWindow: jest.fn(),
+        loadWebsiteContent: jest.fn(),
+        getWebsiteWindow: jest.fn(),
+        saveWindowStates: jest.fn(),
       };
 
       jest.doMock('../../src/main/ui/multi-window-manager', () => mockMultiWindowManager);
+
+      require('../../src/main/main');
+
+      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
 
       // This should not throw even if file watcher cleanup fails
       await expect(beforeQuitHandler()).resolves.toBeUndefined();
@@ -206,8 +283,8 @@ describe('FSEvents Crash Regression Tests', () => {
   describe('Concurrent File Watcher Operations During Quit', () => {
     it('should handle file changes during quit sequence', async () => {
       // Set up file watcher that receives events during shutdown
-      let changeHandler: Function;
-      mockChokidarWatcher.on.mockImplementation((event: string, handler: Function) => {
+      let changeHandler: (path: string) => void;
+      mockChokidarWatcher.on.mockImplementation((event: string, handler: (path: string) => void) => {
         if (event === 'change') {
           changeHandler = handler;
         }
@@ -225,21 +302,28 @@ describe('FSEvents Crash Regression Tests', () => {
         isWatching: jest.fn(() => true),
       };
 
-      mockServerManager.getAllRunningServers.mockReturnValue(
-        new Map([['active-site', { fileWatcher: activeFileWatcher }]])
-      );
-
-      require('../../src/main/main');
-
-      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
+      mockServerManager.getAllServers.mockReturnValue(new Map([['active-site', { fileWatcher: activeFileWatcher }]]));
 
       const mockMultiWindowManager = {
         closeAllWindows: jest.fn(async () => {
           await mockServerManager.stopAllServers();
+          // Simulate the active file watcher being stopped
+          await activeFileWatcher.stop();
         }),
+        setupServerManagerEventListeners: jest.fn(),
+        restoreWindowStates: jest.fn(),
+        getAllWebsiteWindows: jest.fn(() => new Map()),
+        createWebsiteWindow: jest.fn(),
+        loadWebsiteContent: jest.fn(),
+        getWebsiteWindow: jest.fn(),
+        saveWindowStates: jest.fn(),
       };
 
       jest.doMock('../../src/main/ui/multi-window-manager', () => mockMultiWindowManager);
+
+      require('../../src/main/main');
+
+      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
 
       // Should handle concurrent file events during shutdown
       await expect(beforeQuitHandler()).resolves.toBeUndefined();
@@ -288,31 +372,36 @@ describe('FSEvents Crash Regression Tests', () => {
         isWatching: jest.fn(() => true),
       };
 
-      mockServerManager.getAllRunningServers.mockReturnValue(
-        new Map([['tracked-site', { fileWatcher: trackedFileWatcher }]])
-      );
+      mockServerManager.getAllServers.mockReturnValue(new Map([['tracked-site', { fileWatcher: trackedFileWatcher }]]));
 
       mockServerManager.stopAllServers.mockImplementation(async () => {
         resourceCleanupCalls.push('stop-all-servers');
-        for (const [, server] of mockServerManager.getAllRunningServers()) {
+        for (const [, server] of mockServerManager.getAllServers()) {
           if (server.fileWatcher) {
             await server.fileWatcher.stop();
           }
         }
       });
 
-      require('../../src/main/main');
-
-      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
-
       const mockMultiWindowManager = {
         closeAllWindows: jest.fn(async () => {
           resourceCleanupCalls.push('close-all-windows');
           await mockServerManager.stopAllServers();
         }),
+        setupServerManagerEventListeners: jest.fn(),
+        restoreWindowStates: jest.fn(),
+        getAllWebsiteWindows: jest.fn(() => new Map()),
+        createWebsiteWindow: jest.fn(),
+        loadWebsiteContent: jest.fn(),
+        getWebsiteWindow: jest.fn(),
+        saveWindowStates: jest.fn(),
       };
 
       jest.doMock('../../src/main/ui/multi-window-manager', () => mockMultiWindowManager);
+
+      require('../../src/main/main');
+
+      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
 
       await beforeQuitHandler();
 
@@ -335,13 +424,16 @@ describe('FSEvents Crash Regression Tests', () => {
         isWatching: jest.fn(() => true),
       };
 
-      mockServerManager.getAllRunningServers.mockReturnValue(
-        new Map([['hanging-site', { fileWatcher: hangingFileWatcher }]])
-      );
+      mockServerManager.getAllServers.mockReturnValue(new Map([['hanging-site', { fileWatcher: hangingFileWatcher }]]));
 
-      require('../../src/main/main');
-
-      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
+      // Mock stopAllServers to actually try to stop the hanging file watcher
+      mockServerManager.stopAllServers.mockImplementation(async () => {
+        for (const [, server] of mockServerManager.getAllServers()) {
+          if (server.fileWatcher) {
+            await server.fileWatcher.stop(); // This will hang
+          }
+        }
+      });
 
       const mockMultiWindowManager = {
         closeAllWindows: jest.fn(async () => {
@@ -358,9 +450,20 @@ describe('FSEvents Crash Regression Tests', () => {
             console.error('Cleanup timed out, forcing quit:', error);
           }
         }),
+        setupServerManagerEventListeners: jest.fn(),
+        restoreWindowStates: jest.fn(),
+        getAllWebsiteWindows: jest.fn(() => new Map()),
+        createWebsiteWindow: jest.fn(),
+        loadWebsiteContent: jest.fn(),
+        getWebsiteWindow: jest.fn(),
+        saveWindowStates: jest.fn(),
       };
 
       jest.doMock('../../src/main/ui/multi-window-manager', () => mockMultiWindowManager);
+
+      require('../../src/main/main');
+
+      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
 
       // Should complete even if cleanup hangs
       const startTime = Date.now();
@@ -389,19 +492,28 @@ describe('FSEvents Crash Regression Tests', () => {
         isWatching: jest.fn(() => true),
       };
 
-      mockServerManager.getAllRunningServers.mockReturnValue(new Map([['mac-site', { fileWatcher: macFileWatcher }]]));
-
-      require('../../src/main/main');
-
-      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
+      mockServerManager.getAllServers.mockReturnValue(new Map([['mac-site', { fileWatcher: macFileWatcher }]]));
 
       const mockMultiWindowManager = {
         closeAllWindows: jest.fn(async () => {
           await mockServerManager.stopAllServers();
+          // Simulate the macOS file watcher delay
+          await macFileWatcher.stop();
         }),
+        setupServerManagerEventListeners: jest.fn(),
+        restoreWindowStates: jest.fn(),
+        getAllWebsiteWindows: jest.fn(() => new Map()),
+        createWebsiteWindow: jest.fn(),
+        loadWebsiteContent: jest.fn(),
+        getWebsiteWindow: jest.fn(),
+        saveWindowStates: jest.fn(),
       };
 
       jest.doMock('../../src/main/ui/multi-window-manager', () => mockMultiWindowManager);
+
+      require('../../src/main/main');
+
+      const beforeQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'before-quit')?.[1];
 
       const startTime = Date.now();
       await beforeQuitHandler();

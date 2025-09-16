@@ -2,24 +2,27 @@
 
 import type * as fs from 'fs';
 
-// Mock fs module
+// Get the real fs module for fallback behavior
+const realFs = jest.requireActual<typeof fs>('fs');
+
+// Mock fs module with spy functions that default to real behavior
 export const mockFs = {
-  existsSync: jest.fn(),
-  mkdirSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  readFileSync: jest.fn(),
-  readdirSync: jest.fn(),
-  unlinkSync: jest.fn(),
-  copyFileSync: jest.fn(),
-  rmSync: jest.fn(),
-  statSync: jest.fn(),
-  renameSync: jest.fn(),
+  existsSync: jest.fn().mockImplementation(realFs.existsSync),
+  mkdirSync: jest.fn().mockImplementation(realFs.mkdirSync),
+  writeFileSync: jest.fn().mockImplementation(realFs.writeFileSync),
+  readFileSync: jest.fn().mockImplementation(realFs.readFileSync),
+  readdirSync: jest.fn().mockImplementation(realFs.readdirSync),
+  unlinkSync: jest.fn().mockImplementation(realFs.unlinkSync),
+  copyFileSync: jest.fn().mockImplementation(realFs.copyFileSync),
+  rmSync: jest.fn().mockImplementation(realFs.rmSync),
+  statSync: jest.fn().mockImplementation(realFs.statSync),
+  renameSync: jest.fn().mockImplementation(realFs.renameSync),
   promises: {
-    readFile: jest.fn(),
-    writeFile: jest.fn(),
-    mkdir: jest.fn(),
-    rm: jest.fn(),
-    stat: jest.fn(),
+    readFile: jest.fn().mockImplementation(realFs.promises.readFile),
+    writeFile: jest.fn().mockImplementation(realFs.promises.writeFile),
+    mkdir: jest.fn().mockImplementation(realFs.promises.mkdir),
+    rm: jest.fn().mockImplementation(realFs.promises.rm),
+    stat: jest.fn().mockImplementation(realFs.promises.stat),
   },
 };
 

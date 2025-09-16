@@ -7,8 +7,8 @@ import {
   generateCollectionRSL,
   generateSiteRSL,
   validateRSLXML,
-} from '../../../plugins/rsl/rsl-generator.js';
-import type { RSLContentAsset, RSLLicenseConfiguration } from '../../../plugins/rsl/types.js';
+} from '../../../plugins/rsl/rsl-generator';
+import type { RSLContentAsset, RSLLicenseConfiguration } from '../../../plugins/rsl/types';
 
 describe('RSL Generation Module', () => {
   const testAsset: RSLContentAsset = {

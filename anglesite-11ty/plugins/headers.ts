@@ -12,13 +12,11 @@ import type { RSLConfiguration, RSLLicenseConfiguration } from './rsl/types.js';
 
 /**
  * Custom error class for headers plugin errors
- *
  * @public
  * @class HeadersPluginError
- * @extends Error
+ * @augments Error
  * @description Specialized error class for headers plugin failures with structured error handling.
  * Provides additional context through error codes and optional cause tracking.
- *
  * @example
  * ```typescript
  * try {
@@ -47,17 +45,14 @@ export class HeadersPluginError extends Error {
 
 /**
  * Error codes for different types of headers plugin errors
- *
  * @public
- * @const HeadersErrorCodes
+ * @constant HeadersErrorCodes
  * @description Standardized error codes for headers plugin failures to enable consistent error handling.
  * Use these codes to categorize and respond appropriately to different types of failures.
- *
  * @property {string} VALIDATION_FAILED - Header validation failed (security, format, or compliance issues)
  * @property {string} FILE_READ_ERROR - Failed to read source files or configuration
  * @property {string} FILE_WRITE_ERROR - Failed to write generated headers file
  * @property {string} CONFIG_MISSING - Required configuration is missing or invalid
- *
  * @example
  * ```typescript
  * if (error.code === HeadersErrorCodes.VALIDATION_FAILED) {
@@ -509,23 +504,15 @@ function validateRSLLinkHeader(linkValue: string): string[] {
 
 /**
  * Generates CloudFlare _headers file content from website configuration
- *
  * @public
  * @function generateHeaders
  * @description Processes website configuration headers and generates CloudFlare-compatible _headers file content.
  * Performs comprehensive validation including security checks, format compliance, and CloudFlare limits.
- *
  * @param {AnglesiteWebsiteConfiguration} website - The website configuration object containing headers
  * @param {Record<string, string>} website.headers - HTTP headers to include in global configuration
  * @param {string} [website.url] - Base URL for the website (used for validation)
- *
- * @returns {{content: string, errors: string[], warnings: string[]}} Result object
- * @returns {string} returns.content - Generated _headers file content in CloudFlare format
- * @returns {string[]} returns.errors - Validation errors that prevent deployment (build should fail)
- * @returns {string[]} returns.warnings - Non-critical issues that should be logged but allow build to continue
- *
+ * @returns {{content: string, errors: string[], warnings: string[]}} Result object containing generated content, errors, and warnings
  * @throws {never} - This function does not throw; all errors are returned in the result object
- *
  * @example
  * ```typescript
  * const websiteConfig = {
@@ -550,7 +537,6 @@ function validateRSLLinkHeader(linkValue: string): string[] {
  * // Write the generated content to _headers file
  * fs.writeFileSync('_site/_headers', result.content);
  * ```
- *
  * @see {@link https://developers.cloudflare.com/pages/platform/headers/} CloudFlare Pages Headers Documentation
  * @see {@link HeadersErrorCodes} For standardized error codes
  * @since 0.3.0
@@ -612,24 +598,16 @@ export function generateHeaders(website: AnglesiteWebsiteConfiguration): {
 
 /**
  * Generates CloudFlare _headers file content from path-specific header configurations
- *
  * @public
  * @function generateHeadersFromPaths
  * @description Processes path-specific header configurations and generates CloudFlare-compatible _headers file content.
  * Supports multiple path patterns, validation, and automatic RSL Link header integration.
- *
  * @param {PathHeaders[]} pathHeaders - Array of path-specific header configurations
  * @param {string} pathHeaders[].path - URL path pattern (e.g., '/blog/*', '/api/v1/*')
  * @param {Record<string, string | undefined>} pathHeaders[].headers - Headers to apply for this path
  * @param {string} [pathHeaders[].headers._source] - Internal metadata for source file tracking
- *
- * @returns {{content: string, errors: string[], warnings: string[]}} Result object
- * @returns {string} returns.content - Generated _headers file content with path-specific rules
- * @returns {string[]} returns.errors - Critical validation errors that should fail the build
- * @returns {string[]} returns.warnings - Non-critical issues for logging
- *
+ * @returns {{content: string, errors: string[], warnings: string[]}} Result object containing generated content, errors, and warnings
  * @throws {never} - This function does not throw; all errors are returned in the result object
- *
  * @example
  * ```typescript
  * const pathHeaders = [
@@ -662,7 +640,6 @@ export function generateHeaders(website: AnglesiteWebsiteConfiguration): {
  * //   X-Frame-Options: DENY
  * //   X-Robots-Tag: noindex, nofollow
  * ```
- *
  * @see {@link https://developers.cloudflare.com/pages/platform/headers/} CloudFlare Pages Headers Documentation
  * @see {@link collectPathHeaders} For collecting headers from Eleventy build results
  * @since 0.3.0
@@ -781,25 +758,18 @@ async function writeHeadersFile(outputPath: string, content: string): Promise<vo
 
 /**
  * Collects path-specific headers from Eleventy's build results and data cascade
- *
  * @public
  * @function collectPathHeaders
  * @description Processes Eleventy build results to extract headers from front matter and automatically
  * generates RSL Link headers for content with licensing information. Supports YAML front matter,
  * JavaScript/TypeScript templates, and RSL license integration.
- *
- * @param {EleventyBuildResult[] | null} results - Array of Eleventy build results from eleventy.after event
+ * @param {Array<any> | null} results - Array of Eleventy build results from eleventy.after event
  * @param {string} [results[].url] - The output URL for the content (e.g., '/blog/post-name/')
  * @param {string} [results[].outputPath] - File system path for the generated file
  * @param {string} [results[].inputPath] - Source file path (e.g., './src/blog/post-name.md')
  * @param {EleventyPageData} [results[].data] - Page data from Eleventy's data cascade
- *
- * @returns {Record<string, Record<string, string | undefined>>} Path headers map
- * @returns {Record<string, string | undefined>} returns[path] - Headers for the specified path pattern
- * @returns {string} returns[path]._source - Internal metadata tracking the source file
- *
+ * @returns {Record<string, Record<string, string | undefined>>} Path headers map with headers for each path pattern
  * @throws {never} - This function does not throw; errors are logged and processing continues
- *
  * @example
  * ```typescript
  * // In Eleventy plugin (eleventy.after event)
@@ -829,7 +799,6 @@ async function writeHeadersFile(outputPath: string, content: string): Promise<vo
  *   }
  * });
  * ```
- *
  * @example
  * ```yaml
  * # In markdown front matter (./src/blog/my-post.md)
@@ -845,7 +814,6 @@ async function writeHeadersFile(outputPath: string, content: string): Promise<vo
  * ---
  * Content here...
  * ```
- *
  * @see {@link generateHeadersFromPaths} For processing the collected headers
  * @see {@link https://www.11ty.dev/docs/events/#eleventy.after} Eleventy after event documentation
  * @since 0.3.0

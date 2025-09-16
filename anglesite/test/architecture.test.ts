@@ -208,8 +208,8 @@ describe('Modular Architecture', () => {
       // Should import from modules
       expect(mainContent).toContain('import { createApplicationMenu');
       expect(mainContent).toContain('import { setupIpcMainListeners');
-      // Check that DNS management functions are imported (may be multi-line)
-      expect(mainContent).toContain('cleanupHostsFile');
+      // Check that DNS management functions are imported
+      // Note: cleanupHostsFile was moved to menu option to avoid permission dialogs
       expect(mainContent).toContain('checkAndSuggestTouchIdSetup');
     });
 

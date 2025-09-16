@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import Form from '@rjsf/core';
-import { RJSFSchema } from '@rjsf/utils';
+import React, { useState, useEffect, FormEvent } from 'react';
+import Form, { IChangeEvent } from '@rjsf/core';
+import { RJSFSchema, RJSFValidationError, ValidatorType } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import { useAppContext } from '../context/AppContext';
 import { logger } from '../../../utils/logger';
@@ -26,23 +26,10 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [schemaError, setSchemaError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialData, setInitialData] = useState<Record<string, unknown> | null>(null);
-
-  // Early return if websiteName is not available
-  if (!state.websiteName) {
-    logger.debug('WebsiteConfigEditor', 'No website name available, showing loading state');
-    return (
-      <div style={{ padding: '20px' }}>
-        <h3>Website Configuration</h3>
-        <p style={{ color: 'var(--text-secondary)' }}>Waiting for website to load...</p>
-        <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-          Debug: websiteName={state.websiteName || 'undefined'}, loading={state.loading}
-        </div>
-      </div>
-    );
-  }
 
   // Load the website schema
   const loadSchema = async () => {
@@ -58,6 +45,7 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
     try {
       setLoading(true);
       setError(null);
+      setSchemaError(null);
 
       logger.debug('WebsiteConfigEditor', 'Loading website schema via IPC', { websiteName: state.websiteName });
 
@@ -86,7 +74,7 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
           logger.warn('WebsiteConfigEditor', 'Schema loading failed, using fallback', {
             error: result.error,
           });
-          setError(`Schema loading failed: ${result.error}`);
+          setSchemaError(`Schema loading failed: ${result.error}`);
           websiteSchema = result.fallbackSchema || getEmbeddedSchema();
         } else {
           throw new Error('Invalid schema response from IPC');
@@ -531,23 +519,34 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
   };
 
   // Form event handlers
-  const handleFormChange = (e: { formData: Record<string, unknown> }) => {
-    setFormData(e.formData);
+  const handleFormChange = (data: IChangeEvent<Record<string, unknown>, RJSFSchema, Record<string, unknown>>) => {
+    if (data.formData) {
+      setFormData(data.formData);
+    }
     setError(null);
     setSuccess(null);
 
     // Check if data has changed
-    const hasChanges = JSON.stringify(e.formData) !== JSON.stringify(initialData);
-    setHasUnsavedChanges(hasChanges);
+    if (data.formData) {
+      const hasChanges = JSON.stringify(data.formData) !== JSON.stringify(initialData);
+      setHasUnsavedChanges(hasChanges);
+    }
   };
 
-  const handleFormSubmit = (e: { formData: Record<string, unknown> }) => {
-    saveWebsiteConfig(e.formData);
+  const handleFormSubmit = (
+    data: IChangeEvent<Record<string, unknown>, RJSFSchema, Record<string, unknown>>,
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    // Prevent default form submission
+    event.preventDefault();
+    if (data.formData) {
+      saveWebsiteConfig(data.formData);
+    }
   };
 
-  const handleFormError = (errors: Array<{ property: string; message: string }>) => {
+  const handleFormError = (errors: RJSFValidationError[]) => {
     logger.warn('WebsiteConfigEditor', 'Form validation errors', { errors });
-    const errorMessages = errors.map((error) => `${error.property}: ${error.message}`).join(', ');
+    const errorMessages = errors.map((error) => `${error.property || 'field'}: ${error.message}`).join(', ');
     setError(`Please fix the following errors: ${errorMessages}`);
   };
 
@@ -586,6 +585,20 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [hasUnsavedChanges, saving, formData]);
+
+  // Early return if websiteName is not available - but AFTER hooks are defined
+  if (!state.websiteName) {
+    logger.debug('WebsiteConfigEditor', 'No website name available, showing loading state');
+    return (
+      <div style={{ padding: '20px' }}>
+        <h3>Website Configuration</h3>
+        <p style={{ color: 'var(--text-secondary)' }}>Waiting for website to load...</p>
+        <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+          Debug: websiteName={state.websiteName || 'undefined'}, loading={state.loading}
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -652,6 +665,22 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
             </span>
           )}
         </div>
+        {(error || schemaError) && (
+          <div
+            style={{
+              margin: '8px 0',
+              padding: '8px 12px',
+              background: 'var(--error-bg, #ffeaea)',
+              border: '1px solid var(--error-border, #ffb3b3)',
+              borderRadius: '4px',
+              color: 'var(--error-color)',
+              fontSize: '14px',
+            }}
+          >
+            {schemaError && <div>{schemaError}</div>}
+            {error && <div>{error}</div>}
+          </div>
+        )}
         <p
           style={{
             margin: '0',
@@ -710,7 +739,7 @@ const WebsiteConfigEditorInner: React.FC<WebsiteConfigEditorProps> = ({ onSave, 
           schema={schema}
           uiSchema={getUiSchema(schema)}
           formData={formData}
-          validator={validator}
+          validator={validator as ValidatorType}
           onChange={handleFormChange}
           onSubmit={handleFormSubmit}
           onError={handleFormError}

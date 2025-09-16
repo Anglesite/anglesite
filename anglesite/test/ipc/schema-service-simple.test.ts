@@ -5,7 +5,8 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 // Import the actual function we want to test directly
-import { setupSchemaHandlers } from '../../src/main/ipc/schema';
+// Note: setupSchemaHandlers is imported for potential future use
+// import { setupSchemaHandlers } from '../../src/main/ipc/schema';
 
 describe('Schema Service Implementation (Direct Testing)', () => {
   let testSchemaPath: string;
@@ -36,8 +37,6 @@ describe('Schema Service Implementation (Direct Testing)', () => {
     expect(mainSchema).toBeDefined();
     expect(mainSchema.allOf).toHaveLength(4);
     expect(mainSchema.allOf[0].$ref).toBe('./modules/basic-info.json');
-
-    console.log('Schema resolution test completed successfully');
   });
 
   test('should load module files correctly', async () => {
@@ -48,8 +47,6 @@ describe('Schema Service Implementation (Direct Testing)', () => {
     expect(basicInfo.properties.title).toBeDefined();
     expect(basicInfo.properties.language).toBeDefined();
     expect(basicInfo.properties.author).toBeDefined();
-
-    console.log('Module loading test completed successfully');
   });
 
   test('should handle nested references to common.json', async () => {
@@ -60,8 +57,6 @@ describe('Schema Service Implementation (Direct Testing)', () => {
     expect(common.definitions.email).toBeDefined();
     expect(common.definitions.email.type).toBe('string');
     expect(common.definitions.email.format).toBe('email');
-
-    console.log('Common definitions test completed successfully');
   });
 
   // Helper function to create test schema files

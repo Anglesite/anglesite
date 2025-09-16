@@ -79,11 +79,29 @@ jest.doMock('electron', () => ({
 // Import jest-dom matchers
 import '@testing-library/jest-dom';
 
+// Import TypeScript declarations for custom matchers
+import './types/jest-custom-matchers.d.ts';
+
+// Import and register our new custom matchers
+import { registerCustomMatchers } from './utils/custom-assertions';
+registerCustomMatchers();
+
 // Import custom matchers to make them available in all test files
 import './matchers/custom-matchers';
 
 // Import third-party mocks to ensure they're applied early
 import './mocks/third-party';
+
+// Global test setup using Jest hooks
+beforeEach(() => {
+  // Clear all mocks before each test
+  jest.clearAllMocks();
+
+  // Reset any global state
+  if (typeof window !== 'undefined' && 'electronAPI' in window) {
+    delete (window as any).electronAPI;
+  }
+});
 
 // Global afterEach cleanup to prevent hanging tests
 afterEach(() => {
@@ -94,6 +112,9 @@ afterEach(() => {
   // Clear all mocks after each test
   jest.clearAllMocks();
 });
+
+// Global test timeout (can be overridden in individual tests)
+jest.setTimeout(10000);
 
 // Setup TextEncoder/TextDecoder for JSDOM
 if (typeof global.TextEncoder === 'undefined') {

@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { generateSitemapXml, generateSitemapFiles } from '../../plugins/sitemap';
 import addSitemap from '../../plugins/sitemap';
-import type { EleventyConfig } from '../types/eleventy-shim';
-import type { AnglesiteWebsiteConfiguration } from '../types/website';
+import type { EleventyConfig } from '../../types/eleventy-shim';
+import type { AnglesiteWebsiteConfiguration } from '../../types/website';
 
 // Local interface for testing (matches the one in sitemap.ts)
 interface PageData {

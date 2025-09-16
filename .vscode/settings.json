@@ -2,7 +2,7 @@
   "json.schemas": [
     {
       "fileMatch": ["src/_data/website.json"],
-      "url": "./schemas/website.schema.json"
+      "url": "./anglesite-11ty/schemas/website.schema.json"
     }
   ]
 }

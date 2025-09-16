@@ -9,7 +9,7 @@
     "url": "https://dwk.io/"
   },
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/anglesite-11ty/index.js",
   "types": "dist/types/eleventy.d.ts",
   "scripts": {
     "build": "tsc && npx @11ty/eleventy --config=dist/config.eleventy.js",

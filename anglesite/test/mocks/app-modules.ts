@@ -72,14 +72,14 @@ const mockStoreInstance = {
 // Mock the service registry to provide mocked services
 jest.mock('../../src/main/core/service-registry', () => ({
   initializeGlobalContext: jest.fn(() => Promise.resolve()),
-  getGlobalContext: () => ({
+  getGlobalContext: jest.fn(() => ({
     getService: (key: string) => {
       if (key === 'store') {
         return mockStoreInstance;
       }
       throw new Error(`Unknown service: ${key}`);
     },
-  }),
+  })),
   shutdownGlobalContext: jest.fn(() => Promise.resolve()),
 }));
 

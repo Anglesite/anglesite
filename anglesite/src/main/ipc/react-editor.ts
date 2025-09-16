@@ -72,7 +72,15 @@ export function setupReactEditorHandlers(): void {
         throw new Error('Website name and file path are required');
       }
 
+      if (typeof websiteName !== 'string' || typeof relativePath !== 'string') {
+        throw new Error('Website name and relative path must be strings');
+      }
+
       const websitePath = getWebsitePath(websiteName);
+      if (!websitePath) {
+        throw new Error(`Unable to get website path for: ${websiteName}`);
+      }
+
       const fullPath = path.join(websitePath, relativePath);
 
       // Security check: ensure the path is within the website directory
@@ -113,7 +121,15 @@ export function setupReactEditorHandlers(): void {
           throw new Error('Website name, file path, and content are required');
         }
 
+        if (typeof websiteName !== 'string' || typeof relativePath !== 'string' || typeof content !== 'string') {
+          throw new Error('Website name, relative path, and content must be strings');
+        }
+
         const websitePath = getWebsitePath(websiteName);
+        if (!websitePath) {
+          throw new Error(`Unable to get website path for: ${websiteName}`);
+        }
+
         const fullPath = path.join(websitePath, relativePath);
 
         // Security check: ensure the path is within the website directory

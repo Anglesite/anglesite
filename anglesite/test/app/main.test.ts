@@ -67,9 +67,12 @@ describe('Main Process', () => {
     mockMultiWindowManager.restoreWindowStates.mockResolvedValue(undefined);
 
     // Capture the initialization callback for testing
-    mockApp.whenReady.mockImplementation((callback) => {
-      initializeAppCallback = callback;
-      return Promise.resolve();
+    mockApp.whenReady.mockImplementation(() => {
+      // The actual app.whenReady() returns a Promise, not takes a callback
+      return Promise.resolve().then(() => {
+        // We can set a flag or call a captured callback here if needed for testing
+        // but the mock signature should match the real Electron API
+      });
     });
 
     // Set environment to development for testing

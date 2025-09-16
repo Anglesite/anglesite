@@ -7,9 +7,7 @@
 describe('Main Component Code Splitting', () => {
   // Test that the component file exists and has the right structure
   it('should have lazy loading implementation', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require('path');
 
     const mainPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/Main.tsx');
@@ -25,25 +23,24 @@ describe('Main Component Code Splitting', () => {
   });
 
   it('should have Error Boundary for lazy components', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require('path');
 
     const mainPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/Main.tsx');
     const mainContent = fs.readFileSync(mainPath, 'utf8');
 
-    // Check for Error Boundary implementation
-    expect(mainContent).toMatch(/class.*ErrorBoundary.*extends.*Component/);
-    expect(mainContent).toMatch(/getDerivedStateFromError/);
-    expect(mainContent).toMatch(/componentDidCatch/);
-    expect(mainContent).toMatch(/hasError/);
+    // Check for Error Boundary import and usage
+    expect(mainContent).toMatch(/import.*ErrorBoundary.*from.*ErrorBoundary/);
+    expect(mainContent).toMatch(/<ErrorBoundary/);
+    expect(mainContent).toMatch(/<\/ErrorBoundary>/);
+
+    // Verify ErrorBoundary exists as separate file
+    const errorBoundaryPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/ErrorBoundary.tsx');
+    expect(fs.existsSync(errorBoundaryPath)).toBe(true);
   });
 
   it('should have conditional lazy loading', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require('path');
 
     const mainPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/Main.tsx');
@@ -55,9 +52,7 @@ describe('Main Component Code Splitting', () => {
   });
 
   it('should have proper fallback UI for loading states', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require('path');
 
     const mainPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/Main.tsx');
@@ -70,9 +65,7 @@ describe('Main Component Code Splitting', () => {
   });
 
   it('should export Main component properly', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require('path');
 
     const mainPath = path.resolve(__dirname, '../../../src/renderer/ui/react/components/Main.tsx');

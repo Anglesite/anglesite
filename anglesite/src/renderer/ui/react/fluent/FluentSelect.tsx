@@ -119,11 +119,12 @@ export const FluentSelect: React.FC<FluentSelectProps> = ({ options, onChange, .
   const selectId = props.id || `select-${Math.random().toString(36).slice(2, 11)}`;
 
   // Cast props to work with JSX intrinsic elements
-  const fluentProps = {
-    ...props,
-    id: selectId,
-    ref: selectRef,
-  } as any;
+  const fluentProps: React.HTMLAttributes<HTMLElement> & Partial<FluentSelectProps> & { ref?: React.Ref<HTMLElement> } =
+    {
+      ...props,
+      id: selectId,
+      ref: selectRef,
+    };
 
   // Remove React-specific props that shouldn't be passed to web component
   delete fluentProps.onChange;

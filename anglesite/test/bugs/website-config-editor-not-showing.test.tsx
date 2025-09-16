@@ -6,7 +6,8 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AppProvider } from '../../src/renderer/ui/react/context/AppContext';
-import { Sidebar } from '../../src/renderer/ui/react/components/Sidebar';
+// Note: Sidebar import available for future test scenarios
+// import { Sidebar } from '../../src/renderer/ui/react/components/Sidebar';
 import { Main } from '../../src/renderer/ui/react/components/Main';
 import { FileExplorer } from '../../src/renderer/ui/react/components/FileExplorer';
 
@@ -38,7 +39,7 @@ describe('Website Configuration Editor Bug Regression Tests', () => {
     jest.clearAllMocks();
 
     // Mock the IPC calls that the components make
-    mockElectronAPI.invoke.mockImplementation((channel: string, ...args: any[]) => {
+    mockElectronAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
       switch (channel) {
         case 'get-current-website-name':
           return Promise.resolve('tester');
@@ -72,11 +73,18 @@ describe('Website Configuration Editor Bug Regression Tests', () => {
   test('REGRESSION: Globe icon click should show website configuration editor', async () => {
     const mockOnWebsiteConfigSelect = jest.fn();
 
-    render(
-      <AppProvider>
-        <FileExplorer onWebsiteConfigSelect={mockOnWebsiteConfigSelect} />
-      </AppProvider>
-    );
+    // Create a stable component wrapper with useCallback
+    const TestComponent = () => {
+      const stableCallback = React.useCallback(mockOnWebsiteConfigSelect, []);
+
+      return (
+        <AppProvider>
+          <FileExplorer onWebsiteConfigSelect={stableCallback} />
+        </AppProvider>
+      );
+    };
+
+    render(<TestComponent />);
 
     // Wait for the website name to load
     await waitFor(
@@ -92,11 +100,16 @@ describe('Website Configuration Editor Bug Regression Tests', () => {
     expect(websiteCard).toBeInTheDocument();
     expect(websiteCard).toContainElement(screen.getByText('tester'));
 
-    // Click the website card
-    fireEvent.click(websiteCard!);
+    // Click the website card wrapped in act()
+    await React.act(async () => {
+      fireEvent.click(websiteCard!);
+    });
 
-    // Verify the callback was called (this indicates the click handler is working)
-    expect(mockOnWebsiteConfigSelect).toHaveBeenCalledTimes(1);
+    // Wait for any state updates to complete
+    await waitFor(() => {
+      // Check that the callback was called (this indicates the click handler is working)
+      expect(mockOnWebsiteConfigSelect).toHaveBeenCalledTimes(1);
+    });
   });
 
   test('REGRESSION: FileExplorer renders website config card with correct styling', async () => {

@@ -2,7 +2,7 @@
  * @file First launch setup flow utilities
  */
 import { IStore } from '../core/interfaces';
-import { isCAInstalledInSystem, installCAInSystem } from '../certificates';
+import { isCAInstalledInSystem } from '../certificates';
 
 /**
  * Handle first launch setup flow.
@@ -23,7 +23,7 @@ export async function handleFirstLaunch(store: IStore): Promise<void> {
       console.log('Defaulting to HTTPS mode. Install certificate in settings for full trust.');
       store.set('httpsMode', 'https');
     }
-  } catch (error) {
+  } catch {
     // If CA check fails, default to HTTPS mode anyway
     console.log('Defaulting to HTTPS mode. Install certificate in settings for full trust.');
     store.set('httpsMode', 'https');

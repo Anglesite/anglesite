@@ -20,8 +20,6 @@ describe('Data Persistence Functionality', () => {
     };
 
     await fs.writeFile(path.join(testWebsitePath, 'src/_data/website.json'), JSON.stringify(initialConfig, null, 2));
-
-    console.log('✓ Test environment setup complete');
   });
 
   afterAll(async () => {
@@ -44,8 +42,6 @@ describe('Data Persistence Functionality', () => {
         expect(data.title).toBe('Test Website');
         expect(data.language).toBe('en');
         expect(data.description).toBe('Test description');
-
-        console.log('✓ File reading works correctly');
       } catch (error) {
         throw new Error(`File reading failed: ${error}`);
       }
@@ -80,8 +76,6 @@ describe('Data Persistence Functionality', () => {
       expect(savedData.url).toBe('https://test.example.com');
       expect(savedData.author.name).toBe('Test Author');
       expect(savedData.manifest.theme_color).toBe('#007bff');
-
-      console.log('✓ File writing works correctly');
     });
 
     test('should create directories when writing to nested paths', async () => {
@@ -106,8 +100,6 @@ describe('Data Persistence Functionality', () => {
 
       expect(savedData.advanced).toBe(true);
       expect(savedData.settings.cache).toBe(true);
-
-      console.log('✓ Nested directory creation works correctly');
     });
 
     test('should handle JSON parsing and formatting correctly', async () => {
@@ -135,8 +127,6 @@ describe('Data Persistence Functionality', () => {
       expect(parsedData.title).toBe('JSON Test');
       expect(parsedData.complex.nested.array).toEqual(['item1', 'item2']);
       expect(parsedData.features).toHaveLength(3);
-
-      console.log('✓ JSON handling works correctly');
     });
 
     test('should validate that file operations work with real schema structure', async () => {
@@ -209,9 +199,6 @@ describe('Data Persistence Functionality', () => {
       expect(savedData.feeds.collections.blog.enabled).toBe(true);
       expect(savedData.robots[0]['User-agent']).toBe('*');
       expect(savedData.robots[0].Allow).toEqual(['/']);
-
-      console.log('✓ Full schema structure persistence works correctly');
-      console.log('✓ Data persistence functionality verified');
     });
   });
 });

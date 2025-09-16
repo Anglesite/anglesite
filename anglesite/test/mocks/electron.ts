@@ -2,7 +2,7 @@
 
 const mockApp = {
   setName: jest.fn(),
-  whenReady: jest.fn(),
+  whenReady: jest.fn(() => Promise.resolve()),
   on: jest.fn(),
   quit: jest.fn(),
   commandLine: {
@@ -126,6 +126,7 @@ jest.mock('electron', () => ({
 export const resetElectronMocks = () => {
   mockApp.setName.mockClear();
   mockApp.whenReady.mockClear();
+  mockApp.whenReady.mockReturnValue(Promise.resolve()); // Ensure whenReady returns Promise
   mockApp.on.mockClear();
   mockApp.quit.mockClear();
   mockApp.commandLine.appendSwitch.mockClear();

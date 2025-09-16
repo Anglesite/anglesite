@@ -380,9 +380,9 @@ describe('create-new-page IPC handler', () => {
 
       try {
         await createPageHandler({}, 'test-site', 'existing');
-      } catch (error: any) {
-        expect(error.message).not.toContain('/test/websites');
-        expect(error.message).toContain('already exists');
+      } catch (error: unknown) {
+        expect((error as Error).message).not.toContain('/test/websites');
+        expect((error as Error).message).toContain('already exists');
       }
     });
   });
