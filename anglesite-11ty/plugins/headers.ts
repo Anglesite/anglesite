@@ -752,6 +752,7 @@ async function writeHeadersFile(outputPath: string, content: string): Promise<vo
     await fs.writeFile(outputPath, content);
     console.log(`[Eleventy] Wrote ${outputPath}`);
   } catch (error) {
+    // handlePluginError throws, so we don't need to rethrow
     handlePluginError(error, `Failed to write _headers file to ${outputPath}`, HeadersErrorCodes.FILE_WRITE_ERROR);
   }
 }

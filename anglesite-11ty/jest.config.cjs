@@ -18,4 +18,7 @@ module.exports = {
     '!**/node_modules/**',
   ],
   testMatch: ['**/tests/**/*.test.{ts,tsx,js,jsx}'],
+  // Suppress console output from code under test but keep Jest's own output
+  silent: false,
+  verbose: false,
 };

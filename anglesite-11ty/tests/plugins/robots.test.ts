@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { generateRobotsTxt } from '../../plugins/robots';
 import addRobotsTxt from '../../plugins/robots';
-import type { EleventyConfig } from '../types/eleventy-shim';
-import type { AnglesiteWebsiteConfiguration } from '../types/website';
+import type { EleventyConfig } from '@11ty/eleventy';
+import type { AnglesiteWebsiteConfiguration } from '../../types/website';
 
 // Mock fs.writeFileSync and mkdirSync to prevent actual file operations during tests
 jest.mock('fs', () => ({

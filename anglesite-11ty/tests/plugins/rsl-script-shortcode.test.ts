@@ -47,11 +47,27 @@ describe('RSL Script Shortcode', () => {
 
     jest.clearAllMocks();
 
-    // Set up default mock behavior for fs.readFileSync to return real website.json content
+    // Set up default mock behavior for fs.readFileSync to return test website.json content
     mockedFs.readFileSync.mockImplementation((filePath: any, encoding?: any) => {
-      // For the website.json path, return the actual content
+      // For the website.json path, return test content
       if (typeof filePath === 'string' && filePath.endsWith('website.json')) {
-        return realFs.readFileSync(filePath, encoding);
+        return JSON.stringify({
+          title: "Anglesite 11ty Website",
+          url: "https://example.com",
+          rsl: {
+            enabled: true,
+            copyright: "© 2025 Anglesite 11ty Website",
+            defaultLicense: {
+              permits: [
+                { type: "usage", values: ["view", "download"] }
+              ],
+              payment: {
+                type: "free",
+                attribution: true
+              }
+            }
+          }
+        });
       }
       // For other files, just return empty string
       return '';

@@ -16,4 +16,16 @@ registerCustomMatchers();
   electronAPI: undefined,
 };
 
-console.log('✓ anglesite-11ty Jest setup completed: custom matchers registered');
+// Jest setup completed: custom matchers registered
+
+// Global console mock to reduce noise in test output
+// Tests can override with jest.spyOn(console, 'log') etc when they need to verify console calls
+const noop = () => {};
+global.console = {
+  ...global.console,
+  log: process.env.JEST_VERBOSE === 'true' ? global.console.log : jest.fn(noop),
+  warn: process.env.JEST_VERBOSE === 'true' ? global.console.warn : jest.fn(noop),
+  error: process.env.JEST_VERBOSE === 'true' ? global.console.error : jest.fn(noop),
+  info: process.env.JEST_VERBOSE === 'true' ? global.console.info : jest.fn(noop),
+  debug: process.env.JEST_VERBOSE === 'true' ? global.console.debug : jest.fn(noop),
+};

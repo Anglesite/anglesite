@@ -97,6 +97,9 @@ export default function addImages(eleventyConfig: EleventyConfig, options: Image
         formats: [format],
         outputDir: eleventyConfig.dir?.output ? `${eleventyConfig.dir.output}/${outputDir}` : `_site/${outputDir}`,
         urlPath,
+        filenameFormat: function (id: string, src: string, width: number, format: string): string {
+          return `${id}-${width}w.${format}`;
+        },
       });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,6 +118,9 @@ export default function addImages(eleventyConfig: EleventyConfig, options: Image
       formats: ['jpeg'], // Use JPEG for reliable metadata
       outputDir: eleventyConfig.dir?.output ? `${eleventyConfig.dir.output}/${outputDir}` : `_site/${outputDir}`,
       urlPath,
+      filenameFormat: function (id: string, src: string, width: number, format: string): string {
+        return `${id}-${width}w.${format}`;
+      },
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

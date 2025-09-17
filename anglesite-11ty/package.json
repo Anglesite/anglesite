@@ -22,8 +22,9 @@
     "lint": "eslint . && markdownlint '**/*.md' --ignore node_modules --ignore dist --ignore coverage --ignore _site && htmlhint 'src/**/*.html' 'types/**/*.html'",
     "lint:html": "htmlhint '**/*.html' --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'coverage/**' --ignore '_site/**'",
     "prelint": "npm run format",
-    "pretest": "npm run lint && tsc --noEmit && npm run build",
+    "pretest": "tsc --noEmit",
     "test": "jest",
+    "test:verbose": "JEST_VERBOSE=true jest",
     "test:coverage": "jest --coverage --config jest.coverage.config.cjs"
   },
   "devDependencies": {

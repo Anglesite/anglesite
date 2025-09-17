@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { generateSitemapXml, generateSitemapFiles } from '../../plugins/sitemap';
 import addSitemap from '../../plugins/sitemap';
-import type { EleventyConfig } from '../../types/eleventy-shim';
+import type { EleventyConfig } from '@11ty/eleventy';
 import type { AnglesiteWebsiteConfiguration } from '../../types/website';
 
 // Local interface for testing (matches the one in sitemap.ts)
@@ -77,6 +77,7 @@ describe('sitemap plugin', () => {
 
     const mockPages = [
       {
+        website: mockWebsite,
         page: {
           url: '/',
           date: new Date('2024-01-01'),
@@ -85,6 +86,7 @@ describe('sitemap plugin', () => {
         },
       },
       {
+        website: mockWebsite,
         page: {
           url: '/about/',
           date: new Date('2024-01-02'),
@@ -122,11 +124,11 @@ describe('sitemap plugin', () => {
       const pagesWithChangefreq = [
         {
           ...mockPages[0],
-          sitemap: { changefreq: 'daily' },
+          sitemap: { changefreq: 'daily' as const },
         },
         {
           ...mockPages[1],
-          sitemap: { changefreq: 'monthly' },
+          sitemap: { changefreq: 'monthly' as const },
         },
       ];
       const xml = generateSitemapXml(mockWebsite, pagesWithChangefreq);
@@ -201,6 +203,7 @@ describe('sitemap plugin', () => {
       const mixedPages = [
         mockPages[0],
         {
+          website: mockWebsite,
           page: {
             url: '/robots.txt',
             date: new Date('2024-01-03'),
@@ -217,6 +220,7 @@ describe('sitemap plugin', () => {
     it('should escape XML special characters', () => {
       const pagesWithSpecialChars = [
         {
+          website: mockWebsite,
           page: {
             url: '/search/?q=test&sort=<desc>',
             date: new Date('2024-01-01'),
@@ -235,6 +239,7 @@ describe('sitemap plugin', () => {
     it('should handle invalid dates gracefully', () => {
       const pagesWithInvalidDate = [
         {
+          website: mockWebsite,
           page: {
             url: '/',
             date: new Date('2024-01-01'),
@@ -254,6 +259,7 @@ describe('sitemap plugin', () => {
 
       const pagesWithInvalidPriority = [
         {
+          website: mockWebsite,
           page: {
             url: '/',
             date: new Date('2024-01-01'),
@@ -263,6 +269,7 @@ describe('sitemap plugin', () => {
           sitemap: { priority: 1.5 }, // Invalid: > 1.0
         },
         {
+          website: mockWebsite,
           page: {
             url: '/about/',
             date: new Date('2024-01-02'),
@@ -295,6 +302,7 @@ describe('sitemap plugin', () => {
 
       const pagesWithVariousUrls = [
         {
+          website: websiteWithoutTrailingSlash,
           page: {
             url: '/', // Root with slash
             date: new Date('2024-01-01'),
@@ -303,6 +311,7 @@ describe('sitemap plugin', () => {
           },
         },
         {
+          website: websiteWithoutTrailingSlash,
           page: {
             url: 'about', // No leading slash
             date: new Date('2024-01-02'),
@@ -321,6 +330,7 @@ describe('sitemap plugin', () => {
       const pagesWithMissingUrl = [
         mockPages[0], // Valid page
         {
+          website: mockWebsite,
           page: {
             url: undefined,
             date: new Date('2024-01-02'),
@@ -339,6 +349,7 @@ describe('sitemap plugin', () => {
       const pagesWithMissingPage = [
         mockPages[0], // Valid page
         {
+          website: mockWebsite,
           page: undefined,
         } as PageData,
       ];
@@ -525,6 +536,7 @@ describe('sitemap plugin', () => {
 
     const createMockPages = (count: number): PageData[] => {
       return Array.from({ length: count }, (_, i) => ({
+        website: mockWebsite,
         page: {
           url: `/page-${i + 1}/`,
           date: new Date('2024-01-01'),
