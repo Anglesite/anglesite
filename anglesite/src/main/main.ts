@@ -133,21 +133,33 @@ app.on('before-quit', async () => {
   }
 });
 
-// Handle certificate errors for development
-app.on('certificate-error', (event, _webContents, url, _error, _certificate, callback) => {
-  // Allow self-signed certificates for local development
-  if (url.includes('localhost') || url.includes('.test')) {
+// Handle certificate errors ONLY for development
+app.on('certificate-error', (event, _webContents, url, error, certificate, callback) => {
+  // SECURITY: Only allow self-signed certificates for local development in non-production
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    (url.includes('localhost') || url.includes('.test') || url.includes('127.0.0.1'))
+  ) {
+    console.warn(`[DEV] Accepting self-signed certificate for: ${url}`, {
+      error: error,
+      fingerprint: certificate?.fingerprint || 'N/A',
+    });
     event.preventDefault();
     callback(true);
   } else {
+    // SECURITY: Reject all invalid certificates in production or for external domains
+    console.error(`[SECURITY] Certificate error rejected for: ${url}`, { error: error });
     callback(false);
   }
 });
 
-// Disable web security for development (allows self-signed certs)
-app.commandLine.appendSwitch('--ignore-certificate-errors-spki-list');
-app.commandLine.appendSwitch('--ignore-certificate-errors');
-app.commandLine.appendSwitch('--ignore-ssl-errors');
+// SECURITY: Only disable certificate validation in development for local domains
+if (process.env.NODE_ENV !== 'production') {
+  console.warn('[DEV] Certificate validation relaxed for local development');
+  app.commandLine.appendSwitch('--ignore-certificate-errors-spki-list');
+  app.commandLine.appendSwitch('--ignore-certificate-errors');
+  app.commandLine.appendSwitch('--ignore-ssl-errors');
+}
 
 // Suppress Node.js deprecation warnings in development
 if (process.env.NODE_ENV !== 'production') {
