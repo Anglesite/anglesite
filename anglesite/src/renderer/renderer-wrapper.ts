@@ -9,19 +9,17 @@ declare function prompt(message?: string, defaultValue?: string): string | null;
 
 export function executeRendererInitialization(): void {
   // Send a message to main process to confirm renderer is loaded
-  if (window.electronAPI) {
-    window.electronAPI.send('renderer-loaded', 'Renderer is working!');
-  }
+  window.electronAPI?.send('renderer-loaded', 'Renderer is working!');
 }
 
 export function registerShowWebsiteNameInputListener(): void {
   try {
-    if (window.electronAPI && window.electronAPI.on) {
+    if (window.electronAPI?.on) {
       window.electronAPI.on('show-website-name-input', () => {
         const websiteName = prompt('Enter a name for your new website:', 'My Website');
 
         if (websiteName && websiteName.trim()) {
-          window.electronAPI.send('create-website-with-name', websiteName.trim());
+          window.electronAPI?.send('create-website-with-name', websiteName.trim());
         }
       });
     } else {
@@ -41,31 +39,31 @@ export function setupButtonEventHandlers(): void {
 
   if (newWebsiteButton) {
     newWebsiteButton.addEventListener('click', () => {
-      window.electronAPI.send('new-website');
+      window.electronAPI?.send('new-website');
     });
   }
 
   if (previewButton) {
     previewButton.addEventListener('click', () => {
-      window.electronAPI.send('preview');
+      window.electronAPI?.send('preview');
     });
   }
 
   if (openBrowserButton) {
     openBrowserButton.addEventListener('click', () => {
-      window.electronAPI.send('open-browser');
+      window.electronAPI?.send('open-browser');
     });
   }
 
   if (reloadButton) {
     reloadButton.addEventListener('click', () => {
-      window.electronAPI.send('reload-preview');
+      window.electronAPI?.send('reload-preview');
     });
   }
 
   if (devToolsButton) {
     devToolsButton.addEventListener('click', () => {
-      window.electronAPI.send('toggle-devtools');
+      window.electronAPI?.send('toggle-devtools');
     });
   } else {
     console.error('DevTools button not found!');
@@ -73,33 +71,33 @@ export function setupButtonEventHandlers(): void {
 }
 
 export function registerMenuEventListeners(): void {
-  window.electronAPI.on('preview-loaded', () => {});
+  window.electronAPI?.on('preview-loaded', () => {});
 
-  window.electronAPI.on('menu-new-website', () => {
-    window.electronAPI.send('new-website');
+  window.electronAPI?.on('menu-new-website', () => {
+    window.electronAPI?.send('new-website');
   });
 
   // Handle trigger-new-website from menu
-  window.electronAPI.on('trigger-new-website', () => {
-    window.electronAPI.send('new-website');
+  window.electronAPI?.on('trigger-new-website', () => {
+    window.electronAPI?.send('new-website');
   });
 
-  window.electronAPI.on('menu-reload', () => {
+  window.electronAPI?.on('menu-reload', () => {
     const reloadButton = document.getElementById('reload');
     if (reloadButton) {
       reloadButton.click();
     }
   });
 
-  window.electronAPI.on('menu-toggle-devtools', () => {
+  window.electronAPI?.on('menu-toggle-devtools', () => {
     const devToolsButton = document.getElementById('devtools');
     if (devToolsButton) {
       devToolsButton.click();
     }
   });
 
-  window.electronAPI.on('menu-export-site', () => {
-    window.electronAPI.send('export-site');
+  window.electronAPI?.on('menu-export-site', () => {
+    window.electronAPI?.send('export-site');
   });
 }
 

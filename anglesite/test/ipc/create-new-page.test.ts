@@ -360,12 +360,18 @@ describe('create-new-page IPC handler', () => {
     });
 
     test('should handle fallback errors gracefully', async () => {
+      // Reset modules to ensure clean mock state
+      jest.resetModules();
+
+      // Mock the website-manager before any imports
+      jest.doMock('../../src/main/utils/website-manager', () => ({
+        getWebsitePath: jest.fn(() => {
+          throw new Error('Fallback also failed');
+        }),
+      }));
+
       (getGlobalContext as jest.Mock).mockImplementation(() => {
         throw new Error('DI not available');
-      });
-
-      jest.doMock('../../src/main/utils/website-manager', () => {
-        throw new Error('Fallback also failed');
       });
 
       await expect(createPageHandler({}, 'test-site', 'page')).rejects.toThrow();

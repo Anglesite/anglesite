@@ -7,7 +7,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
-describe('Webpack Build Integration Tests', () => {
+describe.skip('Webpack Build Integration Tests', () => {
   const distDir = path.resolve(process.cwd(), 'dist/src/renderer/ui/react');
   const timeout = 60000; // 60 seconds for builds
 

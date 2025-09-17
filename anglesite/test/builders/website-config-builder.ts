@@ -47,7 +47,7 @@ class WebsiteConfigBuilder {
   private config: Partial<AnglesiteWebsiteConfiguration> = {};
 
   /**
-   * Set the website title
+   * Set the website title.
    */
   withTitle(title: string): WebsiteConfigBuilder {
     this.config.title = title;
@@ -55,7 +55,7 @@ class WebsiteConfigBuilder {
   }
 
   /**
-   * Set the website URL
+   * Set the website URL.
    */
   withUrl(url: string): WebsiteConfigBuilder {
     this.config.url = url;
@@ -63,7 +63,7 @@ class WebsiteConfigBuilder {
   }
 
   /**
-   * Set the website language
+   * Set the website language.
    */
   withLanguage(language: string): WebsiteConfigBuilder {
     this.config.language = language;
@@ -71,7 +71,7 @@ class WebsiteConfigBuilder {
   }
 
   /**
-   * Set the website description
+   * Set the website description.
    */
   withDescription(description: string): WebsiteConfigBuilder {
     this.config.description = description;
@@ -79,7 +79,7 @@ class WebsiteConfigBuilder {
   }
 
   /**
-   * Set the author information
+   * Set the author information.
    */
   withAuthor(name: string, email?: string): WebsiteConfigBuilder {
     this.config.author = {
@@ -90,7 +90,7 @@ class WebsiteConfigBuilder {
   }
 
   /**
-   * Add RSL configuration to the website
+   * Add RSL configuration to the website.
    */
   withRSL(rslConfig?: Partial<RSLConfiguration>): WebsiteConfigBuilder {
     this.config.rsl = {
@@ -123,14 +123,14 @@ class WebsiteConfigBuilder {
   }
 
   /**
-   * Create a minimal configuration for quick tests
+   * Create a minimal configuration for quick tests.
    */
   minimal(): WebsiteConfigBuilder {
     return this.withTitle('Test Site').withUrl('https://test.example.com').withLanguage('en');
   }
 
   /**
-   * Create a comprehensive configuration for integration tests
+   * Create a comprehensive configuration for integration tests.
    */
   comprehensive(): WebsiteConfigBuilder {
     return this.minimal()
@@ -140,21 +140,21 @@ class WebsiteConfigBuilder {
   }
 
   /**
-   * Create configuration for RSL-specific tests
+   * Create configuration for RSL-specific tests.
    */
   withRSLEnabled(): WebsiteConfigBuilder {
     return this.minimal().withRSL();
   }
 
   /**
-   * Create configuration with RSL disabled
+   * Create configuration with RSL disabled.
    */
   withRSLDisabled(): WebsiteConfigBuilder {
     return this.minimal().withRSL({ enabled: false });
   }
 
   /**
-   * Build the final configuration object
+   * Build the final configuration object.
    */
   build(): AnglesiteWebsiteConfiguration {
     return {
@@ -218,7 +218,7 @@ class CollectionItemBuilder {
   }
 
   /**
-   * Create a typical blog post item
+   * Create a typical blog post item.
    */
   asBlogPost(title?: string): CollectionItemBuilder {
     const postTitle = title || 'Test Blog Post';
@@ -230,7 +230,7 @@ class CollectionItemBuilder {
   }
 
   /**
-   * Create a typical page item
+   * Create a typical page item.
    */
   asPage(title?: string): CollectionItemBuilder {
     const pageTitle = title || 'Test Page';
@@ -280,7 +280,7 @@ class FileSystemBuilder {
   }
 
   /**
-   * Add typical website files
+   * Add typical website files.
    */
   withStandardFiles(): FileSystemBuilder {
     return this.addFile('index.md')
@@ -292,7 +292,7 @@ class FileSystemBuilder {
   }
 
   /**
-   * Add blog-specific files
+   * Add blog-specific files.
    */
   withBlogFiles(): FileSystemBuilder {
     return this.withStandardFiles()
@@ -336,7 +336,7 @@ class SchemaBuilder {
   }
 
   /**
-   * Create a standard website schema
+   * Create a standard website schema.
    */
   asWebsiteSchema(): SchemaBuilder {
     return this.withTitle('Website Configuration Schema')
@@ -361,37 +361,37 @@ class SchemaBuilder {
  */
 export const TestData = {
   /**
-   * Create a minimal website configuration
+   * Create a minimal website configuration.
    */
   minimalWebsiteConfig: () => new WebsiteConfigBuilder().minimal().build(),
 
   /**
-   * Create a comprehensive website configuration
+   * Create a comprehensive website configuration.
    */
   comprehensiveWebsiteConfig: () => new WebsiteConfigBuilder().comprehensive().build(),
 
   /**
-   * Create a blog post collection item
+   * Create a blog post collection item.
    */
   blogPost: (title?: string) => new CollectionItemBuilder().asBlogPost(title).build(),
 
   /**
-   * Create a page collection item
+   * Create a page collection item.
    */
   page: (title?: string) => new CollectionItemBuilder().asPage(title).build(),
 
   /**
-   * Create standard website files structure
+   * Create standard website files structure.
    */
   standardFiles: () => new FileSystemBuilder().withStandardFiles().build(),
 
   /**
-   * Create blog website files structure
+   * Create blog website files structure.
    */
   blogFiles: () => new FileSystemBuilder().withBlogFiles().build(),
 
   /**
-   * Create a standard website schema
+   * Create a standard website schema.
    */
   websiteSchema: () => new SchemaBuilder().asWebsiteSchema().build(),
 };

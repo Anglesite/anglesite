@@ -2,6 +2,20 @@
  * @file Unit tests for schema validation and resolution
  */
 
+// Type definitions for schema validation testing
+interface SchemaResult {
+  schema?: Record<string, unknown>;
+  error?: string;
+  fallbackSchema?: Record<string, unknown>;
+  warnings?: string[];
+}
+
+interface NodeError extends Error {
+  code?: string;
+}
+
+type IPCHandler = (event: Record<string, unknown>, ...args: unknown[]) => Promise<unknown> | unknown;
+
 import { ipcMain } from 'electron';
 import * as fs from 'fs/promises';
 // import * as path from 'path'; // Not used in this test file
@@ -34,14 +48,14 @@ jest.doMock('../../src/main/utils/website-manager', () => ({
 }));
 
 describe('Schema Validation and Resolution', () => {
-  let mockHandlers: Record<string, (...args: unknown[]) => unknown>;
+  let mockHandlers: Record<string, IPCHandler>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockHandlers = {};
 
     // Capture registered handlers
-    (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: (...args: unknown[]) => unknown) => {
+    (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: IPCHandler) => {
       mockHandlers[channel] = handler;
     });
 
@@ -65,7 +79,7 @@ describe('Schema Validation and Resolution', () => {
       (fs.readFile as jest.Mock).mockResolvedValue(JSON.stringify(mockSchema));
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
+      const result = (await handler({}, 'test-website')) as SchemaResult;
 
       expect(result.schema).toBeDefined();
       expect(result.schema.title).toBe('Test Schema');
@@ -76,11 +90,11 @@ describe('Schema Validation and Resolution', () => {
       (fs.access as jest.Mock).mockRejectedValue(new Error('ENOENT'));
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
+      const result = (await handler({}, 'test-website')) as SchemaResult;
 
       expect(result.error).toBeDefined();
       expect(result.fallbackSchema).toBeDefined();
-      expect(result.fallbackSchema.properties.title).toBeDefined();
+      expect((result.fallbackSchema.properties as any).title).toBeDefined();
     });
 
     it('should handle JSON parsing errors gracefully', async () => {
@@ -88,7 +102,7 @@ describe('Schema Validation and Resolution', () => {
       (fs.readFile as jest.Mock).mockResolvedValue('invalid json {');
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
+      const result = (await handler({}, 'test-website')) as SchemaResult;
 
       expect(result.error).toContain('JSON parsing error');
       expect(result.fallbackSchema).toBeDefined();
@@ -96,7 +110,7 @@ describe('Schema Validation and Resolution', () => {
 
     it('should handle missing website name', async () => {
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler({}, '')) as { schema?: any; error?: string; fallbackSchema?: any };
+      const result = (await handler({}, '')) as SchemaResult;
 
       expect(result.error).toContain('Website name is required');
       expect(result.fallbackSchema).toBeDefined();
@@ -149,12 +163,12 @@ describe('Schema Validation and Resolution', () => {
       });
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
+      const result = (await handler({}, 'test-website')) as SchemaResult;
 
       expect(result.schema).toBeDefined();
-      expect(result.schema.properties.title).toBeDefined();
-      expect(result.schema.properties.description).toBeDefined();
-      expect(result.schema.properties.author).toBeDefined();
+      expect((result.schema.properties as any).title).toBeDefined();
+      expect((result.schema.properties as any).description).toBeDefined();
+      expect((result.schema.properties as any).author).toBeDefined();
       expect(result.schema.required).toContain('title');
     });
 
@@ -185,15 +199,10 @@ describe('Schema Validation and Resolution', () => {
       });
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler({}, 'test-website')) as {
-        schema?: any;
-        error?: string;
-        fallbackSchema?: any;
-        warnings?: string[];
-      };
+      const result = (await handler({}, 'test-website')) as SchemaResult;
 
       expect(result.schema).toBeDefined();
-      expect(result.schema.properties.title).toBeDefined();
+      expect((result.schema.properties as any).title).toBeDefined();
       expect(result.warnings).toBeDefined();
       expect(result.warnings.length).toBeGreaterThan(0);
       expect(result.warnings[0]).toContain('Failed to load module: missing');
@@ -242,12 +251,12 @@ describe('Schema Validation and Resolution', () => {
       });
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
+      const result = (await handler({}, 'test-website')) as SchemaResult;
 
       expect(result.schema).toBeDefined();
-      expect(result.schema.properties.email).toBeDefined();
-      expect(result.schema.properties.email.format).toBe('email');
-      expect(result.schema.properties.email.pattern).toBeDefined();
+      expect((result.schema.properties as any).email).toBeDefined();
+      expect((result.schema.properties as any).email.format).toBe('email');
+      expect((result.schema.properties as any).email.pattern).toBeDefined();
     });
 
     it('should handle circular references gracefully', async () => {
@@ -278,11 +287,11 @@ describe('Schema Validation and Resolution', () => {
       });
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
+      const result = (await handler({}, 'test-website')) as SchemaResult;
 
       // Should not throw or enter infinite loop
       expect(result.schema).toBeDefined();
-      expect(result.schema.properties.name).toBeDefined();
+      expect((result.schema.properties as any).name).toBeDefined();
     });
   });
 
@@ -298,15 +307,15 @@ describe('Schema Validation and Resolution', () => {
       (fs.readFile as jest.Mock).mockResolvedValue(JSON.stringify(testModule));
 
       const handler = mockHandlers['get-schema-module'];
-      const result = (await handler({}, 'test-website', 'test-module')) as any;
+      const result = (await handler({}, 'test-website', 'test-module')) as Record<string, unknown>;
 
       expect(result).toBeDefined();
-      expect(result.properties.test).toBeDefined();
+      expect((result.properties as any).test).toBeDefined();
     });
 
     it('should handle missing module with appropriate error', async () => {
-      const error = new Error('ENOENT');
-      (error as any).code = 'ENOENT';
+      const error: NodeError = new Error('ENOENT');
+      error.code = 'ENOENT';
       (fs.readFile as jest.Mock).mockRejectedValue(error);
 
       const handler = mockHandlers['get-schema-module'];
@@ -328,18 +337,18 @@ describe('Schema Validation and Resolution', () => {
       (fs.access as jest.Mock).mockRejectedValue(new Error('ENOENT'));
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler({}, 'test-website')) as { schema?: any; error?: string; fallbackSchema?: any };
+      const result = (await handler({}, 'test-website')) as SchemaResult;
 
       const fallback = result.fallbackSchema;
       expect(fallback).toBeDefined();
       expect(fallback.type).toBe('object');
       expect(fallback.required).toContain('title');
       expect(fallback.required).toContain('language');
-      expect(fallback.properties.title).toBeDefined();
-      expect(fallback.properties.language).toBeDefined();
-      expect(fallback.properties.description).toBeDefined();
-      expect(fallback.properties.url).toBeDefined();
-      expect(fallback.properties.author).toBeDefined();
+      expect((fallback.properties as any).title).toBeDefined();
+      expect((fallback.properties as any).language).toBeDefined();
+      expect((fallback.properties as any).description).toBeDefined();
+      expect((fallback.properties as any).url).toBeDefined();
+      expect((fallback.properties as any).author).toBeDefined();
     });
   });
 });

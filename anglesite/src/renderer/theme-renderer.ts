@@ -26,11 +26,11 @@ class ThemeRenderer {
   async initialize(): Promise<void> {
     // Get initial theme from main process
     try {
-      const themeInfo = await window.electronAPI.getCurrentTheme();
+      const themeInfo = await window.electronAPI?.getCurrentTheme();
       this.applyTheme(themeInfo.resolvedTheme);
 
       // Listen for theme updates from main process
-      window.electronAPI.onThemeUpdated((themeInfo: ThemeInfo) => {
+      window.electronAPI?.onThemeUpdated((themeInfo: ThemeInfo) => {
         this.applyTheme(themeInfo.resolvedTheme);
       });
     } catch (error) {
@@ -67,7 +67,7 @@ class ThemeRenderer {
    */
   async setTheme(theme: Theme): Promise<ThemeInfo> {
     try {
-      const themeInfo = await window.electronAPI.setTheme(theme);
+      const themeInfo = await window.electronAPI?.setTheme(theme);
       return themeInfo;
     } catch (error) {
       console.error('Failed to set theme:', error);
@@ -80,7 +80,7 @@ class ThemeRenderer {
    */
   async getThemeInfo(): Promise<ThemeInfo> {
     try {
-      return await window.electronAPI.getCurrentTheme();
+      return await window.electronAPI?.getCurrentTheme();
     } catch (error) {
       console.error('Failed to get theme info:', error);
       throw error;

@@ -99,7 +99,7 @@ beforeEach(() => {
 
   // Reset any global state
   if (typeof window !== 'undefined' && 'electronAPI' in window) {
-    delete (window as any).electronAPI;
+    delete (window as unknown as Record<string, unknown>).electronAPI;
   }
 });
 
@@ -142,12 +142,29 @@ Object.defineProperty(window, 'electronAPI', {
 // Export for tests that need direct access
 (global as unknown as { mockElectronAPI: typeof mockElectronAPI }).mockElectronAPI = mockElectronAPI;
 
-// Suppress console.warn for deprecated functions during tests to reduce noise
-const originalWarn = console.warn;
+// Suppress all console outputs during tests to reduce noise
+const originalConsole = {
+  log: console.log,
+  info: console.info,
+  warn: console.warn,
+  error: console.error,
+  debug: console.debug,
+};
+
 beforeEach(() => {
+  // Mock all console methods to reduce test output noise
+  console.log = jest.fn();
+  console.info = jest.fn();
   console.warn = jest.fn();
+  console.error = jest.fn();
+  console.debug = jest.fn();
 });
 
 afterEach(() => {
-  console.warn = originalWarn;
+  // Restore original console methods
+  console.log = originalConsole.log;
+  console.info = originalConsole.info;
+  console.warn = originalConsole.warn;
+  console.error = originalConsole.error;
+  console.debug = originalConsole.debug;
 });

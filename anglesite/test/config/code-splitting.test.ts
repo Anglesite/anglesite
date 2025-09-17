@@ -9,9 +9,64 @@ import { Configuration } from 'webpack';
 // Use real fs module to avoid mock pollution from other tests
 const fs = jest.requireActual<typeof import('fs')>('fs');
 
+// Webpack configuration interfaces
+interface WebpackSplitChunksConfig {
+  chunks: string;
+  maxAsyncRequests?: number;
+  maxInitialRequests?: number;
+  cacheGroups?: Record<string, WebpackCacheGroup>;
+}
+
+interface WebpackCacheGroup {
+  name: string;
+  priority: number;
+  reuseExistingChunk: boolean;
+  enforce?: boolean;
+  chunks?: string;
+  minSize?: number;
+  test: RegExp;
+}
+
+interface WebpackOptimization {
+  splitChunks?: WebpackSplitChunksConfig;
+  runtimeChunk?: { name: string };
+}
+
+interface WebpackRule {
+  test: RegExp;
+  use: WebpackLoader | WebpackLoader[];
+}
+
+interface WebpackLoader {
+  loader: string;
+  options?: Record<string, unknown>;
+}
+
+interface WebpackModule {
+  rules: WebpackRule[];
+}
+
+interface WebpackOutput {
+  chunkFilename?: string;
+  assetModuleFilename?: string;
+}
+
+interface WebpackPerformance {
+  hints: string;
+  maxEntrypointSize: number;
+  maxAssetSize: number;
+}
+
+interface WebpackConfig {
+  optimization?: WebpackOptimization;
+  module?: WebpackModule;
+  output?: WebpackOutput;
+  performance?: WebpackPerformance;
+}
+
 describe('Code Splitting Configuration', () => {
-  let prodConfig: Record<string, unknown>;
-  let assetsConfig: Record<string, unknown>;
+  let prodConfig: WebpackConfig;
+  let assetsConfig: WebpackConfig;
 
   beforeAll(() => {
     // Mock webpack-merge
@@ -36,15 +91,15 @@ describe('Code Splitting Configuration', () => {
 
   describe('SplitChunks Configuration', () => {
     it('should have splitChunks enabled with "all" chunks strategy', () => {
-      expect((prodConfig as any).optimization?.splitChunks).toBeDefined();
-      const splitChunks = (prodConfig as any).optimization?.splitChunks;
+      expect(prodConfig.optimization?.splitChunks).toBeDefined();
+      const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         expect(splitChunks.chunks).toBe('all');
       }
     });
 
     it('should have increased async request limits for better code splitting', () => {
-      const splitChunks = (prodConfig as any).optimization?.splitChunks;
+      const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         expect(splitChunks.maxAsyncRequests).toBe(20);
         expect(splitChunks.maxInitialRequests).toBe(10);
@@ -52,7 +107,7 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should have React cache group configured', () => {
-      const splitChunks = (prodConfig as any).optimization?.splitChunks;
+      const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('react');
@@ -67,12 +122,12 @@ describe('Code Splitting Configuration', () => {
 
         // Test regex pattern for React libraries
         const testPath = '/node_modules/react-dom/index.js';
-        expect(reactGroup.test.test(testPath)).toBe(true);
+        expect(reactGroup?.test.test(testPath)).toBe(true);
       }
     });
 
     it('should have Forms cache group for @rjsf dependencies', () => {
-      const splitChunks = (prodConfig as any).optimization?.splitChunks;
+      const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('forms');
@@ -90,13 +145,13 @@ describe('Code Splitting Configuration', () => {
         // Test regex pattern for form libraries
         const rjsfPath = '/node_modules/@rjsf/core/index.js';
         const ajvPath = '/node_modules/ajv/index.js';
-        expect(formsGroup.test.test(rjsfPath)).toBe(true);
-        expect(formsGroup.test.test(ajvPath)).toBe(true);
+        expect(formsGroup?.test.test(rjsfPath)).toBe(true);
+        expect(formsGroup?.test.test(ajvPath)).toBe(true);
       }
     });
 
     it('should have Utils cache group for lodash', () => {
-      const splitChunks = (prodConfig as any).optimization?.splitChunks;
+      const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('utils');
@@ -111,13 +166,13 @@ describe('Code Splitting Configuration', () => {
         // Test regex pattern for lodash
         const lodashPath = '/node_modules/lodash/index.js';
         const lodashEsPath = '/node_modules/lodash-es/index.js';
-        expect(utilsGroup.test.test(lodashPath)).toBe(true);
-        expect(utilsGroup.test.test(lodashEsPath)).toBe(true);
+        expect(utilsGroup?.test.test(lodashPath)).toBe(true);
+        expect(utilsGroup?.test.test(lodashEsPath)).toBe(true);
       }
     });
 
     it('should have Vendor cache group with lower priority', () => {
-      const splitChunks = (prodConfig as any).optimization?.splitChunks;
+      const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('vendor');
@@ -131,12 +186,12 @@ describe('Code Splitting Configuration', () => {
 
         // Test that it catches node_modules
         const vendorPath = '/node_modules/some-package/index.js';
-        expect(vendorGroup.test.test(vendorPath)).toBe(true);
+        expect(vendorGroup?.test.test(vendorPath)).toBe(true);
       }
     });
 
     it('should have Common cache group for shared application code', () => {
-      const splitChunks = (prodConfig as any).optimization?.splitChunks;
+      const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         expect(cacheGroups).toHaveProperty('common');
@@ -152,7 +207,7 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should have correct priority ordering for cache groups', () => {
-      const splitChunks = (prodConfig as any).optimization?.splitChunks;
+      const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
 
@@ -168,7 +223,7 @@ describe('Code Splitting Configuration', () => {
 
   describe('Runtime Chunk Configuration', () => {
     it('should extract runtime chunk for better caching', () => {
-      expect((prodConfig as any).optimization?.runtimeChunk).toEqual({
+      expect(prodConfig.optimization?.runtimeChunk).toEqual({
         name: 'runtime',
       });
     });
@@ -176,20 +231,20 @@ describe('Code Splitting Configuration', () => {
 
   describe('Output Configuration for Code Splitting', () => {
     it('should use contenthash for chunk filenames', () => {
-      expect((prodConfig as any).output?.chunkFilename).toContain('[contenthash');
-      expect((prodConfig as any).output?.chunkFilename).toBe('[name].[contenthash:8].chunk.js');
+      expect(prodConfig.output?.chunkFilename).toContain('[contenthash');
+      expect(prodConfig.output?.chunkFilename).toBe('[name].[contenthash:8].chunk.js');
     });
 
     it('should have proper asset module filename pattern', () => {
-      expect((prodConfig as any).output?.assetModuleFilename).toBe('assets/[name].[contenthash:8][ext]');
+      expect(prodConfig.output?.assetModuleFilename).toBe('assets/[name].[contenthash:8][ext]');
     });
   });
 
   describe('Module Rules for Lazy Loading', () => {
     it('should have TypeScript loader configured for dynamic imports', () => {
-      const rules = (prodConfig as any).module?.rules || [];
+      const rules = prodConfig.module?.rules || [];
       const tsRule = rules.find(
-        (rule) =>
+        (rule): rule is WebpackRule =>
           rule && typeof rule === 'object' && 'test' in rule && rule.test instanceof RegExp && rule.test.test('.tsx')
       );
 
@@ -199,7 +254,7 @@ describe('Code Splitting Configuration', () => {
         if (typeof tsLoader === 'object' && tsLoader !== null) {
           expect(tsLoader.loader).toBe('ts-loader');
           if (typeof tsLoader.options === 'object') {
-            expect(tsLoader.options.transpileOnly).toBe(true);
+            expect(tsLoader.options?.transpileOnly).toBe(true);
           }
         }
       }
@@ -210,17 +265,17 @@ describe('Code Splitting Configuration', () => {
     it('should have appropriate performance hints for code-split bundles', () => {
       const performance = prodConfig.performance;
       if (performance && typeof performance === 'object') {
-        expect((performance as any).hints).toBe('warning');
-        expect((performance as any).maxEntrypointSize).toBe(1200000); // 1.2MB
-        expect((performance as any).maxAssetSize).toBe(800000); // 800KB
+        expect(performance.hints).toBe('warning');
+        expect(performance.maxEntrypointSize).toBe(1200000); // 1.2MB
+        expect(performance.maxAssetSize).toBe(800000); // 800KB
       }
     });
 
     it('should match assets config performance settings', () => {
       const performance = prodConfig.performance;
       if (performance && typeof performance === 'object') {
-        expect((performance as any).maxEntrypointSize).toBe((assetsConfig as any).performance.maxEntrypointSize);
-        expect((performance as any).maxAssetSize).toBe((assetsConfig as any).performance.maxAssetSize);
+        expect(performance.maxEntrypointSize).toBe(assetsConfig.performance?.maxEntrypointSize);
+        expect(performance.maxAssetSize).toBe(assetsConfig.performance?.maxAssetSize);
       }
     });
   });
@@ -288,7 +343,7 @@ describe('Code Splitting Configuration', () => {
 
   describe('Code Splitting Validation', () => {
     it('should have forms dependencies properly configured for splitting', () => {
-      const splitChunks = (prodConfig as any).optimization?.splitChunks;
+      const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
         const formsGroup = cacheGroups?.forms;
@@ -305,14 +360,14 @@ describe('Code Splitting Configuration', () => {
     });
 
     it('should prevent duplicate chunks with reuseExistingChunk', () => {
-      const splitChunks = (prodConfig as any).optimization?.splitChunks;
+      const splitChunks = prodConfig.optimization?.splitChunks;
       if (splitChunks && typeof splitChunks === 'object') {
         const cacheGroups = splitChunks.cacheGroups;
 
         // All cache groups should reuse existing chunks
-        Object.values(cacheGroups || {}).forEach((group) => {
+        Object.values(cacheGroups || {}).forEach((group: WebpackCacheGroup) => {
           if (typeof group === 'object' && group !== null) {
-            expect((group as Record<string, unknown>).reuseExistingChunk).toBe(true);
+            expect(group.reuseExistingChunk).toBe(true);
           }
         });
       }

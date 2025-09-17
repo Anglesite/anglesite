@@ -11,7 +11,6 @@ describe('Schema Resolution with Real Files', () => {
     // Check if the real schema directory exists
     try {
       await fs.access(realSchemaPath);
-      console.log('Real schema directory found:', realSchemaPath);
     } catch (error) {
       throw new Error(
         `Real anglesite-11ty schemas not found at: ${realSchemaPath}. Test cannot proceed. Error: ${error}`
@@ -30,8 +29,6 @@ describe('Schema Resolution with Real Files', () => {
     expect(schema.allOf).toBeDefined();
     expect(Array.isArray(schema.allOf)).toBe(true);
     expect(schema.allOf.length).toBeGreaterThan(0);
-
-    console.log(`Main schema loaded successfully with ${schema.allOf.length} modules`);
   });
 
   test('should load all referenced module files', async () => {
@@ -48,7 +45,6 @@ describe('Schema Resolution with Real Files', () => {
 
         expect(moduleData).toBeDefined();
         expect(moduleData.type).toBe('object');
-        console.log(`✓ Module loaded: ${item.$ref}`);
       }
     }
   });
@@ -62,8 +58,6 @@ describe('Schema Resolution with Real Files', () => {
     expect(common.definitions.email).toBeDefined();
     expect(common.definitions.url).toBeDefined();
     expect(common.definitions.nonEmptyString).toBeDefined();
-
-    console.log('Common definitions loaded successfully');
   });
 
   test('should test manual schema resolution logic', async () => {
@@ -106,8 +100,5 @@ describe('Schema Resolution with Real Files', () => {
     // Should have basic properties
     expect(resolvedSchema.properties.title).toBeDefined();
     expect(resolvedSchema.properties.language).toBeDefined();
-
-    console.log(`✓ Schema resolved with ${Object.keys(resolvedSchema.properties).length} properties`);
-    console.log('Sample properties:', Object.keys(resolvedSchema.properties).slice(0, 5));
   });
 });

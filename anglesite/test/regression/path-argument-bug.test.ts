@@ -42,7 +42,7 @@ describe('Path Argument Bug Regression', () => {
     };
 
     expect(() => {
-      validateAndJoinPath('/test/path', undefined as any);
+      validateAndJoinPath('/test/path', undefined as unknown as string);
     }).toThrow('Website name and file path are required');
 
     expect(() => {

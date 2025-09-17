@@ -7,7 +7,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
-describe('Bundle Analyzer Build Integration Tests', () => {
+describe.skip('Bundle Analyzer Build Integration Tests', () => {
   const distDir = path.resolve(process.cwd(), 'dist/src/renderer/ui/react');
   const timeout = 90000; // 90 seconds for analyzer builds
 

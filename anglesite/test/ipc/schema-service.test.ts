@@ -1,6 +1,32 @@
 /**
  * @file Tests for Schema Service IPC handlers
  */
+
+// Type definitions for schema testing
+interface SchemaResult {
+  schema?: Record<string, unknown>;
+  error?: string;
+  fallbackSchema?: Record<string, unknown>;
+  warnings?: string[];
+}
+
+interface SchemaProperty {
+  type?: string;
+  $ref?: string;
+  properties?: Record<string, SchemaProperty>;
+  required?: string[];
+  title?: string;
+  allOf?: Array<{ $ref: string }>;
+  additionalProperties?: boolean;
+}
+
+interface MockIpcEvent {
+  sender: {
+    session: Record<string, unknown>;
+  };
+}
+
+type IPCHandler = (event: MockIpcEvent, ...args: unknown[]) => Promise<unknown> | unknown;
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ipcMain } from 'electron';
@@ -31,9 +57,9 @@ jest.mock('../../src/main/utils/website-manager', () => ({
 import { setupSchemaHandlers } from '../../src/main/ipc/schema';
 
 describe('Schema Service IPC Handlers', () => {
-  let mockIpcInvokeEvent: Record<string, unknown>;
+  let mockIpcInvokeEvent: MockIpcEvent;
   let testSchemaPath: string;
-  let mockHandlers: Record<string, (...args: unknown[]) => unknown>;
+  let mockHandlers: Record<string, IPCHandler>;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -54,7 +80,7 @@ describe('Schema Service IPC Handlers', () => {
 
     // Track registered handlers
     mockHandlers = {};
-    (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: (...args: unknown[]) => unknown) => {
+    (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: IPCHandler) => {
       mockHandlers[channel] = handler;
     });
 
@@ -81,7 +107,7 @@ describe('Schema Service IPC Handlers', () => {
       const handler = mockHandlers['get-website-schema'];
       expect(handler).toBeDefined();
 
-      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as any;
+      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as SchemaResult;
 
       expect(result).toBeDefined();
 
@@ -90,8 +116,8 @@ describe('Schema Service IPC Handlers', () => {
 
       // Verify main schema properties are present
       expect(result.schema.properties).toBeDefined();
-      expect(result.schema.properties.title).toBeDefined();
-      expect(result.schema.properties.language).toBeDefined();
+      expect((result.schema.properties as any).title).toBeDefined();
+      expect((result.schema.properties as any).language).toBeDefined();
 
       // Verify schema structure is correct
       expect(result.schema.title).toBe('Test Website Configuration');
@@ -101,32 +127,32 @@ describe('Schema Service IPC Handlers', () => {
 
     test('should resolve nested common.json references', async () => {
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as any;
+      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as SchemaResult;
 
       // Check that author properties reference the common schema
-      expect(result.schema.properties.author).toBeDefined();
-      expect(result.schema.properties.author.type).toBe('object');
-      expect(result.schema.properties.author.properties).toBeDefined();
+      expect((result.schema?.properties as any)?.author).toBeDefined();
+      expect(((result.schema?.properties as any)?.author as SchemaProperty)?.type).toBe('object');
+      expect(((result.schema?.properties as any)?.author as SchemaProperty)?.properties).toBeDefined();
 
       // Email and URL may be $ref references to common.json
-      const authorEmailProp = result.schema.properties.author.properties.email;
+      const authorEmailProp = ((result.schema?.properties as any)?.author as SchemaProperty)?.properties?.email;
       expect(authorEmailProp).toBeDefined();
 
       // Should either be resolved or contain reference to common definitions
-      expect(authorEmailProp.type === 'string' || authorEmailProp.$ref === './common.json#/definitions/email').toBe(
+      expect(authorEmailProp?.type === 'string' || authorEmailProp?.$ref === './common.json#/definitions/email').toBe(
         true
       );
     });
 
     test('should include all required modules', async () => {
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as any;
+      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as SchemaResult;
 
       // Verify properties from different modules are present
-      expect(result.schema.properties.title).toBeDefined(); // basic-info
-      expect(result.schema.properties.robots).toBeDefined(); // seo-robots
-      expect(result.schema.properties.feeds).toBeDefined(); // feeds
-      expect(result.schema.properties.rsl).toBeDefined(); // rsl
+      expect((result.schema?.properties as any)?.title).toBeDefined(); // basic-info
+      expect((result.schema?.properties as any)?.robots).toBeDefined(); // seo-robots
+      expect((result.schema?.properties as any)?.feeds).toBeDefined(); // feeds
+      expect((result.schema?.properties as any)?.rsl).toBeDefined(); // rsl
     });
 
     test('should handle missing schema directory gracefully', async () => {
@@ -134,12 +160,12 @@ describe('Schema Service IPC Handlers', () => {
       await fs.rm(testSchemaPath, { recursive: true, force: true });
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as any;
+      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as SchemaResult;
 
       expect(result.error).toBeDefined();
       expect(result.error).toContain('Schema directory not found');
       expect(result.fallbackSchema).toBeDefined();
-      expect(result.fallbackSchema.properties.title).toBeDefined();
+      expect((result.fallbackSchema?.properties as any)?.title).toBeDefined();
     });
 
     test('should handle corrupted schema files gracefully', async () => {
@@ -147,7 +173,7 @@ describe('Schema Service IPC Handlers', () => {
       await fs.writeFile(path.join(testSchemaPath, 'website.schema.json'), '{ invalid json content', 'utf-8');
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as any;
+      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as SchemaResult;
 
       expect(result.error).toBeDefined();
       expect(result.error).toContain('JSON parsing error');
@@ -159,13 +185,13 @@ describe('Schema Service IPC Handlers', () => {
       await fs.unlink(path.join(testSchemaPath, 'modules/feeds.json'));
 
       const handler = mockHandlers['get-website-schema'];
-      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as any;
+      const result = (await handler(mockIpcInvokeEvent, 'test-website')) as SchemaResult;
 
       expect(result.warnings).toBeDefined();
       expect(result.warnings).toEqual(expect.arrayContaining([expect.stringContaining('feeds.json')]));
       expect(result.schema).toBeDefined();
       // Should still have other modules
-      expect(result.schema.properties.title).toBeDefined();
+      expect((result.schema?.properties as any)?.title).toBeDefined();
     });
   });
 
@@ -174,12 +200,12 @@ describe('Schema Service IPC Handlers', () => {
       const handler = mockHandlers['get-schema-module'];
       expect(handler).toBeDefined();
 
-      const result = (await handler(mockIpcInvokeEvent, 'test-website', 'basic-info')) as any;
+      const result = (await handler(mockIpcInvokeEvent, 'test-website', 'basic-info')) as SchemaProperty;
 
       expect(result).toBeDefined();
       expect(result.properties).toBeDefined();
-      expect(result.properties.title).toBeDefined();
-      expect(result.properties.language).toBeDefined();
+      expect(result.properties?.title).toBeDefined();
+      expect(result.properties?.language).toBeDefined();
     });
 
     test('should handle non-existent modules', async () => {

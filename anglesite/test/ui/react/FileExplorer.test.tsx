@@ -28,8 +28,19 @@ const MockAppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) 
 };
 
 describe('FileExplorer Integration Tests', () => {
+  let consoleLogSpy: jest.SpyInstance;
+  let consoleWarnSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
+  let consoleDebugSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Mock console methods to suppress logging during tests
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    consoleDebugSpy = jest.spyOn(console, 'debug').mockImplementation();
 
     // Setup default mocks
     mockElectronAPI.invoke.mockImplementation((channel: string) => {
@@ -59,6 +70,12 @@ describe('FileExplorer Integration Tests', () => {
   });
 
   afterEach(() => {
+    // Restore console methods
+    consoleLogSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+    consoleDebugSpy.mockRestore();
+
     jest.restoreAllMocks();
   });
 

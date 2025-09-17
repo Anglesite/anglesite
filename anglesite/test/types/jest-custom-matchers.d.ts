@@ -3,8 +3,6 @@
  * @description Extends Jest's expect interface with our domain-specific matchers
  */
 
-import type { AnglesiteWebsiteConfiguration } from '../../anglesite-11ty/types/website';
-
 declare global {
   namespace jest {
     interface Matchers<R> {

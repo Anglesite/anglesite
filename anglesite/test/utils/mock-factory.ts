@@ -1,6 +1,6 @@
 /**
- * @file Centralized mock factory for common test dependencies
- * @description Provides reusable mocks to reduce duplication across test files
+ * @file Centralized mock factory for common test dependencies.
+ * @description Provides reusable mocks to reduce duplication across test files.
  */
 
 import type { Display } from 'electron';
@@ -28,11 +28,11 @@ export interface MockElectronScreen {
 }
 
 /**
- * Factory class for creating standardized test mocks
+ * Factory class for creating standardized test mocks.
  */
 export class MockFactory {
   /**
-   * Creates a mock ElectronAPI with standard IPC methods
+   * Creates a mock ElectronAPI with standard IPC methods.
    */
   static createElectronAPI(customResponses?: Record<string, unknown>): MockElectronAPI {
     const mockAPI = {
@@ -85,7 +85,7 @@ export class MockFactory {
   }
 
   /**
-   * Sets up the global window.electronAPI mock
+   * Sets up the global window.electronAPI mock.
    */
   static setupWindowElectronAPI(mockAPI?: MockElectronAPI): MockElectronAPI {
     const api = mockAPI || MockFactory.createElectronAPI();
@@ -100,7 +100,7 @@ export class MockFactory {
   }
 
   /**
-   * Creates a mock Electron app object
+   * Creates a mock Electron app object.
    */
   static createElectronApp(): MockElectronApp {
     return {
@@ -112,7 +112,7 @@ export class MockFactory {
   }
 
   /**
-   * Creates a mock Electron screen object with realistic display data
+   * Creates a mock Electron screen object with realistic display data.
    */
   static createElectronScreen(): MockElectronScreen {
     const mockDisplay: Display = {
@@ -147,7 +147,7 @@ export class MockFactory {
   }
 
   /**
-   * Creates a mock console object for testing console outputs
+   * Creates a mock console object for testing console outputs.
    */
   static createMockConsole() {
     const originalConsole = {
@@ -174,7 +174,7 @@ export class MockFactory {
   }
 
   /**
-   * Creates a mock file system interface
+   * Creates a mock file system interface.
    */
   static createFileSystemMock() {
     return {
@@ -197,7 +197,7 @@ export class MockFactory {
   }
 
   /**
-   * Sets up comprehensive Electron module mocks
+   * Sets up comprehensive Electron module mocks.
    */
   static setupElectronMocks() {
     jest.mock('electron', () => ({
@@ -223,7 +223,7 @@ export class MockFactory {
   }
 
   /**
-   * Creates a temporary directory mock for integration tests
+   * Creates a temporary directory mock for integration tests.
    */
   static createTempDirMock(basePath = '/tmp/test') {
     let counter = 0;
@@ -236,7 +236,7 @@ export class MockFactory {
   }
 
   /**
-   * Creates a mock EleventyConfig object for testing plugins
+   * Creates a mock EleventyConfig object for testing plugins.
    */
   static createMockEleventyConfig() {
     const collections = new Map();
@@ -276,27 +276,27 @@ export class MockFactory {
   }
 
   /**
-   * Resets all mocks created by the factory
+   * Resets all mocks created by the factory.
    */
   static resetAllMocks() {
     jest.clearAllMocks();
 
     // Clear window.electronAPI if it exists
     if ('electronAPI' in window) {
-      delete (window as any).electronAPI;
+      delete (window as unknown as Record<string, unknown>).electronAPI;
     }
   }
 }
 
 /**
- * Convenience function for quick ElectronAPI setup in tests
+ * Convenience function for quick ElectronAPI setup in tests.
  */
 export function setupElectronAPI(customResponses?: Record<string, unknown>): MockElectronAPI {
   return MockFactory.setupWindowElectronAPI(MockFactory.createElectronAPI(customResponses));
 }
 
 /**
- * Common test setup function that initializes all standard mocks
+ * Common test setup function that initializes all standard mocks.
  */
 export function setupStandardMocks() {
   const electronAPI = MockFactory.setupWindowElectronAPI();

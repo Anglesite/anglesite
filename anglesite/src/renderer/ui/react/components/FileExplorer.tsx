@@ -28,7 +28,6 @@ interface FileExplorerProps {
 }
 
 export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebsiteConfigSelect }) => {
-  console.log('🌐 FileExplorer: Component initialized with onWebsiteConfigSelect:', !!onWebsiteConfigSelect);
   const { state, setSelectedFile } = useAppContext();
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,12 +181,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
           node.select();
           // Trigger file selection callback
           if (onFileSelect) {
-            console.log('Selected file path:', fileItem.path);
-            console.log('Selected file filePath:', fileItem.filePath);
             onFileSelect(fileItem.path);
           }
           // Update app context with selected file (use relative path for display)
-          console.log('Updating selectedFile in context to:', fileItem.path);
           setSelectedFile(fileItem.path);
 
           // Load file preview in WebContentsView if file has a URL
@@ -260,14 +256,11 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
   Node.displayName = 'FileExplorerNode';
 
   const handleWebsiteConfigClick = async () => {
-    console.log('🌐 FileExplorer: handleWebsiteConfigClick called');
-    console.log('🌐 FileExplorer: onWebsiteConfigSelect callback exists:', !!onWebsiteConfigSelect);
 
     // Hide the preview WebContentsView to show the React editor
     if (state.websiteName && window.electronAPI?.invoke) {
       try {
         const success = await window.electronAPI.invoke('set-edit-mode', state.websiteName);
-        console.log('🌐 FileExplorer: Set edit mode result:', success);
       } catch (error) {
         console.error('🌐 FileExplorer: Failed to set edit mode:', error);
       }
@@ -275,9 +268,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
 
     setSelectedFile(null);
     if (onWebsiteConfigSelect) {
-      console.log('🌐 FileExplorer: Calling onWebsiteConfigSelect callback');
       onWebsiteConfigSelect();
-      console.log('🌐 FileExplorer: onWebsiteConfigSelect callback completed');
     } else {
       console.warn('🌐 FileExplorer: onWebsiteConfigSelect callback is not provided!');
     }
@@ -287,17 +278,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
     loadFiles();
   }, [state.websiteName]);
 
-  // Debug logging for website config card rendering
-  useEffect(() => {
-    console.log('🌐 FileExplorer: Rendering website config card with onClick handler:', !!handleWebsiteConfigClick);
-  }, [handleWebsiteConfigClick]);
 
   // Listen for refresh events from the main process
   useEffect(() => {
     const handleRefresh = () => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('File explorer refresh requested');
-      }
       loadFiles();
     };
 
@@ -387,15 +371,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
           borderRadius: '4px',
           border: '1px solid var(--stroke-color)',
         }}
-        onClick={() => {
-          console.log('🔧 DIRECT DIV CLICK: Globe clicked at', new Date().toISOString());
-          console.log('🔧 DIRECT DIV CLICK: About to call handleWebsiteConfigClick');
-          handleWebsiteConfigClick();
-        }}
-        onMouseDown={() => console.log('🔧 DIRECT DIV: Mouse down')}
-        onMouseUp={() => console.log('🔧 DIRECT DIV: Mouse up')}
-        onPointerDown={() => console.log('🔧 DIRECT DIV: Pointer down')}
-        onPointerUp={() => console.log('🔧 DIRECT DIV: Pointer up')}
+        onClick={handleWebsiteConfigClick}
       >
         <span style={{ fontSize: '16px' }}>🌐</span>
         <span style={{ fontWeight: 500, fontSize: '13px' }}>{state.websiteName}</span>
@@ -407,8 +383,6 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
         size="small"
         selectable
         onClick={handleWebsiteConfigClick}
-        onMouseDown={() => console.log('🌐 FileExplorer: Mouse down on website card')}
-        onMouseUp={() => console.log('🌐 FileExplorer: Mouse up on website card')}
         style={{
           marginBottom: '16px',
           cursor: 'pointer',

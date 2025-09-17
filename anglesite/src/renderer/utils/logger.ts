@@ -15,6 +15,7 @@ interface LogEntry {
 
 class RendererLogger {
   private isDevelopment: boolean;
+  private isTestEnvironment: boolean;
   private isDebugEnabled: boolean;
   private logBuffer: LogEntry[] = [];
   private maxBufferSize = 100;
@@ -22,11 +23,21 @@ class RendererLogger {
   constructor() {
     // Check if we're in development mode
     this.isDevelopment = process.env.NODE_ENV !== 'production';
+    // Check if we're in test environment
+    this.isTestEnvironment = process.env.NODE_ENV === 'test';
     // Allow debug logging to be enabled via localStorage for troubleshooting
-    this.isDebugEnabled = this.isDevelopment || localStorage.getItem('DEBUG_LOGGING') === 'true';
+    // But disable by default in test environment to reduce noise
+    this.isDebugEnabled =
+      (!this.isTestEnvironment && this.isDevelopment) ||
+      localStorage.getItem('DEBUG_LOGGING') === 'true';
   }
 
   private shouldLog(level: LogLevel): boolean {
+    // In test environment, only log warnings and errors by default
+    if (this.isTestEnvironment && !this.isDebugEnabled) {
+      return level === 'warn' || level === 'error';
+    }
+
     if (!this.isDebugEnabled && level === 'debug') {
       return false;
     }
@@ -34,8 +45,8 @@ class RendererLogger {
     if (level === 'warn' || level === 'error') {
       return true;
     }
-    // Only log info and debug in development
-    return this.isDevelopment;
+    // Only log info and debug in development (but not in tests)
+    return this.isDevelopment && !this.isTestEnvironment;
   }
 
   private addToBuffer(entry: LogEntry): void {

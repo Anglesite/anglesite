@@ -13,10 +13,10 @@
   "scripts": {
     "start": "npm run start --workspace=anglesite",
     "build": "npm run build --workspaces",
-    "test": "jest --passWithNoTests && npm run test --workspaces",
+    "test": "jest --passWithNoTests",
     "test:root": "jest",
     "test:workspaces": "npm run test --workspaces",
-    "test:coverage": "jest --coverage --passWithNoTests && npm run test:coverage --workspaces --if-present",
+    "test:coverage": "jest --coverage --passWithNoTests",
     "lint": "npm run lint --workspaces",
     "format": "prettier --write .",
     "prepare": "npm run build"

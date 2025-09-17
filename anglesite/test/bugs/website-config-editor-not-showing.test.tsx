@@ -35,8 +35,19 @@ Object.defineProperty(window, 'electronAPI', {
 });
 
 describe('Website Configuration Editor Bug Regression Tests', () => {
+  let consoleLogSpy: jest.SpyInstance;
+  let consoleWarnSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
+  let consoleDebugSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Mock console methods to suppress logging during tests
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    consoleDebugSpy = jest.spyOn(console, 'debug').mockImplementation();
 
     // Mock the IPC calls that the components make
     mockElectronAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
@@ -67,6 +78,12 @@ describe('Website Configuration Editor Bug Regression Tests', () => {
   });
 
   afterEach(() => {
+    // Restore console methods
+    consoleLogSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+    consoleDebugSpy.mockRestore();
+
     jest.restoreAllMocks();
   });
 

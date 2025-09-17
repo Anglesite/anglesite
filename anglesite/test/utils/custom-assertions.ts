@@ -1,11 +1,11 @@
 /**
- * @file Custom domain-specific assertions for improved test readability
- * @description Provides custom Jest matchers for common test scenarios in the application
+ * @file Custom domain-specific assertions for improved test readability.
+ * @description Provides custom Jest matchers for common test scenarios in the application.
  */
 
-// Note: Using relative import to project root types
-import type { AnglesiteWebsiteConfiguration } from '../../../anglesite-11ty/types/website';
-// Note: EleventyCollectionItem type might not be exported, define locally
+import type { MockElectronAPI } from './mock-factory';
+
+// Type for Eleventy collection items
 interface EleventyCollectionItem {
   url: string;
   date: Date;
@@ -14,9 +14,48 @@ interface EleventyCollectionItem {
   data: Record<string, unknown>;
   templateContent: string;
 }
-import type { MockElectronAPI } from './mock-factory';
+
+// Type for website config validation
+interface WebsiteConfig {
+  title: string;
+  url: string;
+  language: string;
+}
+
+// Type for RSL structure validation
+interface RSLStructure {
+  enabled: boolean;
+  defaultLicense: {
+    permits: unknown[];
+    payment: Record<string, unknown>;
+  };
+}
+
+// Type for schema structure validation
+interface SchemaStructure {
+  type: string;
+  properties: Record<string, unknown>;
+  title: string;
+}
+
+// Type for file structure validation
+interface FileStructureItem {
+  name: string;
+  filePath: string;
+  isDirectory: boolean;
+  relativePath: string;
+}
+
+// Type for Electron display validation
+interface ElectronDisplay {
+  id: number;
+  bounds: Record<string, unknown>;
+  workArea: Record<string, unknown>;
+  scaleFactor: number;
+}
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace jest {
     interface Matchers<R> {
       toBeValidWebsiteConfig(): R;
@@ -38,18 +77,19 @@ declare global {
 }
 
 /**
- * Custom matcher for validating website configurations
+ * Custom matcher for validating website configurations.
  */
 function toBeValidWebsiteConfig(received: unknown) {
+  const config = received as WebsiteConfig;
   const pass =
     typeof received === 'object' &&
     received !== null &&
-    typeof (received as any).title === 'string' &&
-    typeof (received as any).url === 'string' &&
-    typeof (received as any).language === 'string' &&
-    (received as any).title.length > 0 &&
-    (received as any).url.startsWith('http') &&
-    (received as any).language.length >= 2;
+    typeof config.title === 'string' &&
+    typeof config.url === 'string' &&
+    typeof config.language === 'string' &&
+    config.title.length > 0 &&
+    config.url.startsWith('http') &&
+    config.language.length >= 2;
 
   return {
     pass,
@@ -61,10 +101,10 @@ function toBeValidWebsiteConfig(received: unknown) {
 }
 
 /**
- * Custom matcher for validating Eleventy collection items
+ * Custom matcher for validating Eleventy collection items.
  */
 function toBeValidCollectionItem(received: unknown) {
-  const item = received as any;
+  const item = received as EleventyCollectionItem;
   const pass =
     typeof item === 'object' &&
     item !== null &&
@@ -85,7 +125,7 @@ function toBeValidCollectionItem(received: unknown) {
 }
 
 /**
- * Custom matcher for validating XML content
+ * Custom matcher for validating XML content.
  */
 function toBeValidXML(received: unknown) {
   if (typeof received !== 'string') {
@@ -118,7 +158,7 @@ function toBeValidXML(received: unknown) {
 }
 
 /**
- * Custom matcher for validating JSON content
+ * Custom matcher for validating JSON content.
  */
 function toBeValidJSON(received: unknown) {
   if (typeof received !== 'string') {
@@ -146,7 +186,7 @@ function toBeValidJSON(received: unknown) {
 }
 
 /**
- * Custom matcher for validating file paths
+ * Custom matcher for validating file paths.
  */
 function toBeValidFilePath(received: unknown) {
   if (typeof received !== 'string') {
@@ -171,7 +211,7 @@ function toBeValidFilePath(received: unknown) {
 }
 
 /**
- * Custom matcher for validating website names
+ * Custom matcher for validating website names.
  */
 function toBeValidWebsiteName(received: unknown) {
   if (typeof received !== 'string') {
@@ -185,7 +225,7 @@ function toBeValidWebsiteName(received: unknown) {
   const isEmpty = name.trim().length === 0;
   const hasLeadingSpace = name.startsWith(' ');
   const hasTrailingSpace = name.endsWith(' ');
-  const hasInvalidChars = /[<>:"|?*\/\\]/.test(name);
+  const hasInvalidChars = /[<>:"|?*/\\]/.test(name);
   const hasPathTraversal = name.includes('..');
   const isReservedName = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(name);
 
@@ -202,7 +242,7 @@ function toBeValidWebsiteName(received: unknown) {
 }
 
 /**
- * Custom matcher for validating IPC calls
+ * Custom matcher for validating IPC calls.
  */
 function toHaveCalledIPC(mockAPI: MockElectronAPI, channel: string, ...expectedArgs: unknown[]) {
   const calls = (mockAPI.invoke as jest.Mock).mock.calls;
@@ -225,7 +265,7 @@ function toHaveCalledIPC(mockAPI: MockElectronAPI, channel: string, ...expectedA
 }
 
 /**
- * Custom matcher for validating IPC call count
+ * Custom matcher for validating IPC call count.
  */
 function toHaveCalledIPCTimes(mockAPI: MockElectronAPI, channel: string, expectedTimes: number) {
   const calls = (mockAPI.invoke as jest.Mock).mock.calls;
@@ -244,10 +284,10 @@ function toHaveCalledIPCTimes(mockAPI: MockElectronAPI, channel: string, expecte
 }
 
 /**
- * Custom matcher for validating RSL structure
+ * Custom matcher for validating RSL structure.
  */
 function toHaveValidRSLStructure(received: unknown) {
-  const rsl = received as any;
+  const rsl = received as RSLStructure;
   const hasEnabled = typeof rsl?.enabled === 'boolean';
   const hasDefaultLicense = typeof rsl?.defaultLicense === 'object';
   const hasPermits = Array.isArray(rsl?.defaultLicense?.permits);
@@ -265,10 +305,10 @@ function toHaveValidRSLStructure(received: unknown) {
 }
 
 /**
- * Custom matcher for validating JSON schema structure
+ * Custom matcher for validating JSON schema structure.
  */
 function toHaveValidSchemaStructure(received: unknown) {
-  const schema = received as any;
+  const schema = received as SchemaStructure;
   const hasType = typeof schema?.type === 'string';
   const hasProperties = typeof schema?.properties === 'object';
   const hasTitle = typeof schema?.title === 'string';
@@ -285,7 +325,7 @@ function toHaveValidSchemaStructure(received: unknown) {
 }
 
 /**
- * Custom matcher for validating URLs
+ * Custom matcher for validating URLs.
  */
 function toBeValidURL(received: unknown) {
   if (typeof received !== 'string') {
@@ -310,7 +350,7 @@ function toBeValidURL(received: unknown) {
 }
 
 /**
- * Custom matcher for validating file structure arrays
+ * Custom matcher for validating file structure arrays.
  */
 function toHaveValidFileStructure(received: unknown) {
   if (!Array.isArray(received)) {
@@ -320,7 +360,7 @@ function toHaveValidFileStructure(received: unknown) {
     };
   }
 
-  const files = received as any[];
+  const files = received as FileStructureItem[];
   const allValid = files.every(
     (file) =>
       typeof file === 'object' &&
@@ -340,10 +380,10 @@ function toHaveValidFileStructure(received: unknown) {
 }
 
 /**
- * Custom matcher for validating Electron display objects
+ * Custom matcher for validating Electron display objects.
  */
 function toBeValidElectronDisplay(received: unknown) {
-  const display = received as any;
+  const display = received as ElectronDisplay;
   const hasId = typeof display?.id === 'number';
   const hasBounds = typeof display?.bounds === 'object';
   const hasWorkArea = typeof display?.workArea === 'object';
@@ -361,7 +401,7 @@ function toBeValidElectronDisplay(received: unknown) {
 }
 
 /**
- * Custom matcher for validating console output
+ * Custom matcher for validating console output.
  */
 function toHaveValidConsoleOutput(consoleMock: jest.SpyInstance, level: 'log' | 'error' | 'warn' | 'debug') {
   const wasCalled = consoleMock.mock.calls.length > 0;
@@ -381,7 +421,7 @@ function toHaveValidConsoleOutput(consoleMock: jest.SpyInstance, level: 'log' | 
 }
 
 /**
- * Register all custom matchers with Jest
+ * Register all custom matchers with Jest.
  */
 export function registerCustomMatchers() {
   // Check if expect is available before trying to extend it
@@ -408,13 +448,13 @@ export function registerCustomMatchers() {
 }
 
 /**
- * Convenience functions for common assertion patterns
- * Created as a factory to avoid accessing expect at module load time
+ * Convenience functions for common assertion patterns.
+ * Created as a factory to avoid accessing expect at module load time.
  */
 export function createAssertionHelpers() {
   return {
     /**
-     * Assert that an object contains all required website config fields
+     * Assert that an object contains all required website config fields.
      */
     expectCompleteWebsiteConfig(config: unknown) {
       expect(config).toBeValidWebsiteConfig();
@@ -424,7 +464,7 @@ export function createAssertionHelpers() {
     },
 
     /**
-     * Assert that an array contains valid collection items
+     * Assert that an array contains valid collection items.
      */
     expectValidCollectionItems(items: unknown[]) {
       expect(Array.isArray(items)).toBe(true);
@@ -434,7 +474,7 @@ export function createAssertionHelpers() {
     },
 
     /**
-     * Assert that IPC was called with website operations
+     * Assert that IPC was called with website operations.
      */
     expectWebsiteOperations(mockAPI: MockElectronAPI, websiteName: string) {
       expect(mockAPI).toHaveCalledIPC('get-current-website-name');
@@ -442,7 +482,7 @@ export function createAssertionHelpers() {
     },
 
     /**
-     * Assert that error handling works correctly
+     * Assert that error handling works correctly.
      */
     expectErrorHandling(errorObject: unknown, expectedMessage?: string) {
       expect(errorObject).toBeInstanceOf(Error);
@@ -452,7 +492,7 @@ export function createAssertionHelpers() {
     },
 
     /**
-     * Assert that console logging works correctly
+     * Assert that console logging works correctly.
      */
     expectConsoleLogging(consoleMock: jest.SpyInstance, level: 'log' | 'error' | 'warn' | 'debug') {
       expect(consoleMock).toHaveValidConsoleOutput(level);
@@ -461,8 +501,8 @@ export function createAssertionHelpers() {
 }
 
 /**
- * Pre-created assertion helpers for convenience
- * Note: Only use these after Jest is fully initialized
+ * Pre-created assertion helpers for convenience.
+ * Note: Only use these after Jest is fully initialized.
  */
 export function getAssertionHelpers() {
   return createAssertionHelpers();

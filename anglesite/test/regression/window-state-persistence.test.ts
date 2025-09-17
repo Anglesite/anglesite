@@ -74,11 +74,9 @@ jest.mock('../../src/main/ui/multi-window-manager', () => ({
 }));
 
 import { IStore } from '../../src/main/core/interfaces';
-import { ServiceKeys } from '../../src/main/core/container';
 
 describe('Window State Persistence Bug - Regression Test', () => {
   let mockStore: jest.Mocked<IStore>;
-  let mockGlobalContext: Record<string, unknown>;
 
   beforeEach(() => {
     // Reset mocks

@@ -1,16 +1,29 @@
 // ABOUTME: Tests concurrent development script configuration and functionality
 // ABOUTME: Validates package.json scripts for parallel development workflows
 
-import fs from 'fs';
-import path from 'path';
+// Wrap in a function to avoid global scope pollution and mock interference
+const getConcurrentDevModules = () => {
+  // Use real fs and path modules to avoid mock pollution
+  const fs = jest.requireActual('fs');
+  const path = jest.requireActual('path');
+  return { fs, path };
+};
+
+const actualFs = getConcurrentDevModules().fs;
+const actualPath = getConcurrentDevModules().path;
 
 describe('Concurrent Development Configuration', () => {
-  const projectRoot = path.resolve(__dirname, '../..');
-  const packageJsonPath = path.join(projectRoot, 'package.json');
+  beforeEach(() => {
+    // Reset modules to ensure clean state
+    jest.resetModules();
+  });
+
+  const projectRoot = actualPath.resolve(__dirname, '../..');
+  const packageJsonPath = actualPath.join(projectRoot, 'package.json');
   let packageJson: { scripts: Record<string, string>; devDependencies: Record<string, string> };
 
   beforeAll(() => {
-    const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
+    const packageContent = actualFs.readFileSync(packageJsonPath, 'utf8');
     packageJson = JSON.parse(packageContent);
   });
 
@@ -103,10 +116,10 @@ describe('Concurrent Development Configuration', () => {
 
   describe('Documentation', () => {
     it('should have concurrent development documentation', () => {
-      const docsPath = path.join(projectRoot, 'docs', 'concurrent-development.md');
-      expect(fs.existsSync(docsPath)).toBe(true);
+      const docsPath = actualPath.join(projectRoot, 'docs', 'concurrent-development.md');
+      expect(actualFs.existsSync(docsPath)).toBe(true);
 
-      const docsContent = fs.readFileSync(docsPath, 'utf8');
+      const docsContent = actualFs.readFileSync(docsPath, 'utf8');
       expect(docsContent).toContain('Concurrent Development Scripts');
       expect(docsContent).toContain('concurrently');
       expect(docsContent).toContain('dev:full');

@@ -1,12 +1,12 @@
 /**
- * @file IPC testing utilities for backend handler tests
- * @description Provides standardized utilities for testing IPC handlers and backend functionality
+ * @file IPC testing utilities for backend handler tests.
+ * @description Provides standardized utilities for testing IPC handlers and backend functionality.
  */
 
 import type { MockElectronAPI } from './mock-factory';
 
 /**
- * Utility class for testing IPC handlers
+ * Utility class for testing IPC handlers.
  */
 export class IPCTestHelper {
   private mockAPI: MockElectronAPI;
@@ -16,14 +16,14 @@ export class IPCTestHelper {
   }
 
   /**
-   * Assert that an IPC call was made with specific parameters
+   * Assert that an IPC call was made with specific parameters.
    */
   expectCall(channel: string, ...expectedArgs: unknown[]): void {
     expect(this.mockAPI.invoke).toHaveBeenCalledWith(channel, ...expectedArgs);
   }
 
   /**
-   * Assert that an IPC call was made a specific number of times
+   * Assert that an IPC call was made a specific number of times.
    */
   expectCallCount(channel: string, count: number): void {
     const calls = this.mockAPI.invoke.mock.calls.filter((call) => call[0] === channel);
@@ -31,7 +31,7 @@ export class IPCTestHelper {
   }
 
   /**
-   * Get the arguments from a specific IPC call
+   * Get the arguments from a specific IPC call.
    */
   getCallArgs(channel: string, callIndex = 0): unknown[] {
     const calls = this.mockAPI.invoke.mock.calls.filter((call) => call[0] === channel);
@@ -42,7 +42,7 @@ export class IPCTestHelper {
   }
 
   /**
-   * Assert that an IPC call was made with arguments matching a pattern
+   * Assert that an IPC call was made with arguments matching a pattern.
    */
   expectCallMatching(channel: string, matcher: (args: unknown[]) => boolean): void {
     const calls = this.mockAPI.invoke.mock.calls.filter((call) => call[0] === channel);
@@ -51,10 +51,10 @@ export class IPCTestHelper {
   }
 
   /**
-   * Setup responses for multiple IPC channels
+   * Setup responses for multiple IPC channels.
    */
   setupResponses(responses: Record<string, unknown>): void {
-    this.mockAPI.invoke.mockImplementation((channel: string, ...args: unknown[]) => {
+    this.mockAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
       if (channel in responses) {
         const response = responses[channel];
         return response instanceof Error ? Promise.reject(response) : Promise.resolve(response);
@@ -64,7 +64,7 @@ export class IPCTestHelper {
   }
 
   /**
-   * Setup a response for a specific channel that depends on the arguments
+   * Setup a response for a specific channel that depends on the arguments.
    */
   setupDynamicResponse(channel: string, responseFunction: (...args: unknown[]) => unknown): void {
     const originalImplementation = this.mockAPI.invoke.getMockImplementation();
@@ -85,7 +85,7 @@ export class IPCTestHelper {
   }
 
   /**
-   * Reset all IPC mocks
+   * Reset all IPC mocks.
    */
   reset(): void {
     this.mockAPI.invoke.mockClear();
@@ -96,7 +96,7 @@ export class IPCTestHelper {
 }
 
 /**
- * Common IPC test patterns for standard operations
+ * Common IPC test patterns for standard operations.
  */
 export class IPCTestPatterns {
   private helper: IPCTestHelper;
@@ -106,7 +106,7 @@ export class IPCTestPatterns {
   }
 
   /**
-   * Test pattern for file operations
+   * Test pattern for file operations.
    */
   async fileOperation(
     channel: string,
@@ -125,7 +125,7 @@ export class IPCTestPatterns {
   }
 
   /**
-   * Test pattern for schema operations
+   * Test pattern for schema operations.
    */
   async schemaOperation(websiteName: string, expectedSchema: unknown, shouldSucceed = true): Promise<void> {
     const response = shouldSucceed
@@ -141,7 +141,7 @@ export class IPCTestPatterns {
   }
 
   /**
-   * Test pattern for website creation
+   * Test pattern for website creation.
    */
   async websiteCreation(websiteName: string, websitePath: string, shouldSucceed = true): Promise<void> {
     const expectedResult = shouldSucceed ? { success: true } : { error: 'Creation failed' };
@@ -155,7 +155,7 @@ export class IPCTestPatterns {
   }
 
   /**
-   * Test pattern for configuration save operations
+   * Test pattern for configuration save operations.
    */
   async configurationSave(websiteName: string, configData: unknown, shouldSucceed = true): Promise<void> {
     const expectedResult = shouldSucceed ? true : false;
@@ -174,7 +174,7 @@ export class IPCTestPatterns {
   }
 
   /**
-   * Test pattern for error handling
+   * Test pattern for error handling.
    */
   async errorHandling(channel: string, args: unknown[], expectedError: string | Error): Promise<void> {
     const error = typeof expectedError === 'string' ? new Error(expectedError) : expectedError;
@@ -186,12 +186,15 @@ export class IPCTestPatterns {
   }
 }
 
+// Event handler type for IPC communications
+type IPCEventHandler = (...args: unknown[]) => void;
+
 /**
- * Utility for testing event-based IPC communications
+ * Utility for testing event-based IPC communications.
  */
 export class IPCEventTestHelper {
   private mockAPI: MockElectronAPI;
-  private eventHandlers: Map<string, Function[]> = new Map();
+  private eventHandlers: Map<string, IPCEventHandler[]> = new Map();
 
   constructor(mockAPI: MockElectronAPI) {
     this.mockAPI = mockAPI;
@@ -199,14 +202,14 @@ export class IPCEventTestHelper {
   }
 
   private setupEventMocks(): void {
-    this.mockAPI.on.mockImplementation((event: string, handler: Function) => {
+    this.mockAPI.on.mockImplementation((event: string, handler: IPCEventHandler) => {
       if (!this.eventHandlers.has(event)) {
         this.eventHandlers.set(event, []);
       }
       this.eventHandlers.get(event)!.push(handler);
     });
 
-    this.mockAPI.off.mockImplementation((event: string, handler?: Function) => {
+    this.mockAPI.off.mockImplementation((event: string, handler?: IPCEventHandler) => {
       if (handler) {
         const handlers = this.eventHandlers.get(event) || [];
         const index = handlers.indexOf(handler);
@@ -220,7 +223,7 @@ export class IPCEventTestHelper {
   }
 
   /**
-   * Trigger an event and call all registered handlers
+   * Trigger an event and call all registered handlers.
    */
   triggerEvent(event: string, ...args: unknown[]): void {
     const handlers = this.eventHandlers.get(event) || [];
@@ -228,21 +231,21 @@ export class IPCEventTestHelper {
   }
 
   /**
-   * Assert that an event listener was registered
+   * Assert that an event listener was registered.
    */
   expectEventListener(event: string): void {
     expect(this.mockAPI.on).toHaveBeenCalledWith(event, expect.any(Function));
   }
 
   /**
-   * Get the number of handlers registered for an event
+   * Get the number of handlers registered for an event.
    */
   getHandlerCount(event: string): number {
     return this.eventHandlers.get(event)?.length || 0;
   }
 
   /**
-   * Clear all event handlers
+   * Clear all event handlers.
    */
   clearEventHandlers(): void {
     this.eventHandlers.clear();
@@ -250,7 +253,7 @@ export class IPCEventTestHelper {
 }
 
 /**
- * Factory for creating IPC test helpers
+ * Factory for creating IPC test helpers.
  */
 export class IPCTestFactory {
   static createHelper(mockAPI: MockElectronAPI): IPCTestHelper {
@@ -266,7 +269,7 @@ export class IPCTestFactory {
   }
 
   /**
-   * Create a complete IPC testing environment
+   * Create a complete IPC testing environment.
    */
   static createTestEnvironment(mockAPI: MockElectronAPI) {
     return {
@@ -279,11 +282,11 @@ export class IPCTestFactory {
 }
 
 /**
- * Common assertions for IPC testing
+ * Common assertions for IPC testing.
  */
 export const IPCAssertions = {
   /**
-   * Assert that a website name is valid
+   * Assert that a website name is valid.
    */
   validWebsiteName(name: unknown): void {
     expect(typeof name).toBe('string');
@@ -293,7 +296,7 @@ export const IPCAssertions = {
   },
 
   /**
-   * Assert that a file path is valid
+   * Assert that a file path is valid.
    */
   validFilePath(path: unknown): void {
     expect(typeof path).toBe('string');
@@ -301,7 +304,7 @@ export const IPCAssertions = {
   },
 
   /**
-   * Assert that a configuration object is valid
+   * Assert that a configuration object is valid.
    */
   validConfiguration(config: unknown): void {
     expect(config).toBeInstanceOf(Object);
@@ -310,7 +313,7 @@ export const IPCAssertions = {
   },
 
   /**
-   * Assert that an IPC response has the expected structure
+   * Assert that an IPC response has the expected structure.
    */
   validIPCResponse(response: unknown, expectedProperties: string[]): void {
     expect(response).toBeInstanceOf(Object);
@@ -320,21 +323,21 @@ export const IPCAssertions = {
   },
 
   /**
-   * Assert that an error response has the expected structure
+   * Assert that an error response has the expected structure.
    */
   validErrorResponse(response: unknown): void {
     expect(response).toBeInstanceOf(Object);
     expect(response).toHaveProperty('error');
-    expect(typeof (response as any).error).toBe('string');
+    expect(typeof (response as { error: unknown }).error).toBe('string');
   },
 };
 
 /**
- * Convenience functions for common IPC test scenarios
+ * Convenience functions for common IPC test scenarios.
  */
 export const IPCTestScenarios = {
   /**
-   * Test successful file loading
+   * Test successful file loading.
    */
   async successfulFileLoad(helper: IPCTestHelper, websiteName: string, filePath: string, content: string) {
     helper.setupResponses({ 'get-file-content': content });
@@ -344,7 +347,7 @@ export const IPCTestScenarios = {
   },
 
   /**
-   * Test file loading failure
+   * Test file loading failure.
    */
   async failedFileLoad(helper: IPCTestHelper, websiteName: string, filePath: string) {
     const error = new Error('File not found');
@@ -354,7 +357,7 @@ export const IPCTestScenarios = {
   },
 
   /**
-   * Test successful configuration save
+   * Test successful configuration save.
    */
   async successfulConfigSave(helper: IPCTestHelper, websiteName: string, config: unknown) {
     helper.setupResponses({ 'save-file-content': true });

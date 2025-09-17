@@ -23,8 +23,13 @@ describe('EnhancedFileWatcher', () => {
     on: jest.MockedFunction<(event: string, callback: (...args: unknown[]) => void) => typeof mockChokidarWatcher>;
     close: jest.MockedFunction<() => Promise<void>>;
   };
+  let consoleLogSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
+    // Mock console methods to suppress logging during tests
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
     mockRebuildCallback = jest.fn().mockResolvedValue(undefined);
     mockChokidarWatcher = {
       on: jest.fn().mockReturnThis(),
@@ -45,6 +50,9 @@ describe('EnhancedFileWatcher', () => {
 
   afterEach(async () => {
     await watcher.stop();
+    // Restore console methods
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   describe('initialization', () => {
@@ -263,8 +271,6 @@ describe('EnhancedFileWatcher', () => {
     });
 
     it('should handle watcher errors', async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-
       await watcher.start();
 
       const errorHandler = mockChokidarWatcher.on.mock.calls.find((call) => call[0] === 'error')[1];
@@ -272,9 +278,7 @@ describe('EnhancedFileWatcher', () => {
       const testError = new Error('File system error');
       errorHandler(testError);
 
-      expect(consoleSpy).toHaveBeenCalledWith('[Watch Mode] Watcher error:', testError);
-
-      consoleSpy.mockRestore();
+      expect(consoleErrorSpy).toHaveBeenCalledWith('[Watch Mode] Watcher error:', testError);
     });
   });
 });

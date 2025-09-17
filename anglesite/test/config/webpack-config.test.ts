@@ -20,7 +20,19 @@ interface ExtendedConfiguration extends Configuration {
 }
 
 describe('Webpack Configuration Tests', () => {
-  const configDir = path.resolve(__dirname, '../..');
+  // Handle both direct anglesite directory execution and monorepo root execution
+  const possibleConfigDirs = [
+    path.resolve(__dirname, '../..'), // When run from anglesite directory
+    path.resolve(__dirname, '../../../anglesite'), // When run from monorepo root
+  ];
+
+  const configDir = possibleConfigDirs.find(dir => {
+    try {
+      return fs.existsSync(path.join(dir, 'webpack.common.js'));
+    } catch {
+      return false;
+    }
+  }) || possibleConfigDirs[0];
 
   describe('Configuration Files Exist', () => {
     it('should have webpack.common.js', () => {

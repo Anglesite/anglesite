@@ -689,7 +689,7 @@ export const BlogTestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 };
 ```
 
-### Custom Assertions
+### Adding Custom Assertions
 
 ```typescript
 // Add project-specific assertions

@@ -26,7 +26,8 @@ export const mockFs = {
   },
 };
 
-jest.mock('fs', () => mockFs);
+// Don't globally mock fs - let individual tests mock it when needed
+// jest.mock('fs', () => mockFs);
 
 // Mock path module
 export const mockPath = {
@@ -104,22 +105,37 @@ jest.mock('os', () => mockOs);
 
 // Reset functions for all Node module mocks
 export const resetNodeModuleMocks = () => {
-  // Reset fs mocks
+  // Reset fs mocks - restore original implementations
   mockFs.existsSync.mockClear();
+  mockFs.existsSync.mockImplementation(realFs.existsSync);
   mockFs.mkdirSync.mockClear();
+  mockFs.mkdirSync.mockImplementation(realFs.mkdirSync);
   mockFs.writeFileSync.mockClear();
+  mockFs.writeFileSync.mockImplementation(realFs.writeFileSync);
   mockFs.readFileSync.mockClear();
+  mockFs.readFileSync.mockImplementation(realFs.readFileSync);
   mockFs.readdirSync.mockClear();
+  mockFs.readdirSync.mockImplementation(realFs.readdirSync);
   mockFs.unlinkSync.mockClear();
+  mockFs.unlinkSync.mockImplementation(realFs.unlinkSync);
   mockFs.copyFileSync.mockClear();
+  mockFs.copyFileSync.mockImplementation(realFs.copyFileSync);
   mockFs.rmSync.mockClear();
+  mockFs.rmSync.mockImplementation(realFs.rmSync);
   mockFs.statSync.mockClear();
+  mockFs.statSync.mockImplementation(realFs.statSync);
   mockFs.renameSync.mockClear();
+  mockFs.renameSync.mockImplementation(realFs.renameSync);
   mockFs.promises.readFile.mockClear();
+  mockFs.promises.readFile.mockImplementation(realFs.promises.readFile);
   mockFs.promises.writeFile.mockClear();
+  mockFs.promises.writeFile.mockImplementation(realFs.promises.writeFile);
   mockFs.promises.mkdir.mockClear();
+  mockFs.promises.mkdir.mockImplementation(realFs.promises.mkdir);
   mockFs.promises.rm.mockClear();
+  mockFs.promises.rm.mockImplementation(realFs.promises.rm);
   mockFs.promises.stat.mockClear();
+  mockFs.promises.stat.mockImplementation(realFs.promises.stat);
 
   // Reset path mocks
   mockPath.join.mockClear();

@@ -1,6 +1,6 @@
 /**
- * @file Standardized React test providers and utilities
- * @description Provides reusable context providers and rendering utilities for React component tests
+ * @file Standardized React test providers and utilities.
+ * @description Provides reusable context providers and rendering utilities for React component tests.
  */
 
 import React from 'react';
@@ -10,7 +10,7 @@ import { MockFactory, setupElectronAPI } from './mock-factory';
 import { TestData } from '../builders/website-config-builder';
 
 /**
- * Default test context values that work for most test scenarios
+ * Default test context values that work for most test scenarios.
  */
 const defaultTestContext: AppContextType = {
   state: {
@@ -28,7 +28,7 @@ const defaultTestContext: AppContextType = {
 };
 
 /**
- * Creates a test context with optional overrides
+ * Creates a test context with optional overrides.
  */
 export function createTestContext(overrides?: Partial<AppContextType>): AppContextType {
   return {
@@ -42,7 +42,7 @@ export function createTestContext(overrides?: Partial<AppContextType>): AppConte
 }
 
 /**
- * Test provider component that wraps components with AppContext
+ * Test provider component that wraps components with AppContext.
  */
 export interface TestAppProviderProps {
   children: React.ReactNode;
@@ -71,7 +71,7 @@ export const TestAppProvider: React.FC<TestAppProviderProps> = ({
 
   // Setup default IPC responses for this context
   React.useEffect(() => {
-    const electronAPI = setupElectronAPI({
+    setupElectronAPI({
       'get-current-website-name': websiteName || null,
       'get-website-schema': { schema: TestData.websiteSchema() },
       'get-file-content': JSON.stringify(TestData.minimalWebsiteConfig()),
@@ -88,27 +88,31 @@ export const TestAppProvider: React.FC<TestAppProviderProps> = ({
 };
 
 /**
- * Custom render function that automatically wraps components with test providers
+ * Custom render function that automatically wraps components with test providers.
  */
 export interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   /**
-   * App context overrides
+   * App context overrides.
    */
   contextOverrides?: Partial<AppContextType>;
+
   /**
-   * Website name for the test
+   * Website name for the test.
    */
   websiteName?: string;
+
   /**
-   * Current view state
+   * Current view state.
    */
   currentView?: AppContextType['state']['currentView'];
+
   /**
-   * Custom ElectronAPI responses
+   * Custom ElectronAPI responses.
    */
   electronAPIResponses?: Record<string, unknown>;
+
   /**
-   * Whether to setup standard mocks automatically
+   * Whether to setup standard mocks automatically.
    */
   setupMocks?: boolean;
 }
@@ -139,7 +143,7 @@ export function renderWithTestProviders(ui: React.ReactElement, options: CustomR
 }
 
 /**
- * Provider specifically for testing WebsiteConfigEditor
+ * Provider specifically for testing WebsiteConfigEditor.
  */
 export const WebsiteConfigTestProvider: React.FC<{
   children: React.ReactNode;
@@ -183,7 +187,7 @@ export const WebsiteConfigTestProvider: React.FC<{
 };
 
 /**
- * Provider for testing FileExplorer component
+ * Provider for testing FileExplorer component.
  */
 export const FileExplorerTestProvider: React.FC<{
   children: React.ReactNode;
@@ -211,7 +215,7 @@ export const FileExplorerTestProvider: React.FC<{
 };
 
 /**
- * Provider for testing components in loading state
+ * Provider for testing components in loading state.
  */
 export const LoadingTestProvider: React.FC<{
   children: React.ReactNode;
@@ -230,7 +234,7 @@ export const LoadingTestProvider: React.FC<{
 };
 
 /**
- * Provider for testing error states
+ * Provider for testing error states.
  */
 export const ErrorTestProvider: React.FC<{
   children: React.ReactNode;
@@ -277,7 +281,7 @@ export const ErrorTestProvider: React.FC<{
 };
 
 /**
- * Utility to render component with specific view state
+ * Utility to render component with specific view state.
  */
 export function renderWithView(
   ui: React.ReactElement,
@@ -288,14 +292,14 @@ export function renderWithView(
 }
 
 /**
- * Utility to render component with loading state
+ * Utility to render component with loading state.
  */
 export function renderWithLoading(ui: React.ReactElement) {
   return render(ui, { wrapper: LoadingTestProvider });
 }
 
 /**
- * Utility to render component with error state
+ * Utility to render component with error state.
  */
 export function renderWithError(ui: React.ReactElement, errorType?: 'network' | 'schema' | 'file' | 'generic') {
   const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -305,7 +309,7 @@ export function renderWithError(ui: React.ReactElement, errorType?: 'network' | 
 }
 
 /**
- * Cleanup function to reset all test state
+ * Cleanup function to reset all test state.
  */
 export function cleanupTestProviders() {
   MockFactory.resetAllMocks();

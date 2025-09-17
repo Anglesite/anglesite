@@ -14,11 +14,10 @@ jest.mock('electron');
 jest.mock('chokidar');
 jest.mock('../../src/main/core/service-registry');
 
-import { mockApp, resetElectronMocks } from '../mocks/electron';
+import { resetElectronMocks } from '../mocks/electron';
 
 describe('FSEvents Stress Tests - Race Condition Reproduction', () => {
   // Note: mockChokidarWatcher available for future test scenarios
-  let mockServiceRegistry: Record<string, unknown>;
   let originalPlatform: string;
 
   beforeEach(() => {

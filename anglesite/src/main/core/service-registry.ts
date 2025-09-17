@@ -55,10 +55,16 @@ type BufferEncoding =
  * Enhanced logger implementation.
  */
 export class Logger implements ILogger {
+  private isTestEnvironment: boolean;
+
   constructor(
     private context: string = 'app',
     private parentContext?: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
-  ) {}
+  ) {
+    // Detect test environment - same logic as build-logger.ts
+    this.isTestEnvironment =
+      process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined || typeof jest !== 'undefined';
+  }
 
   // prettier-ignore
   debug(message: string, meta?: Record<string, any>): void { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -86,8 +92,33 @@ export class Logger implements ILogger {
     return new Logger(this.context, { ...this.parentContext, ...context });
   }
 
+  private shouldLog(level: string, message?: string): boolean {
+    // Suppress info/debug in tests
+    if (this.isTestEnvironment && (level === 'debug' || level === 'info')) {
+      return false;
+    }
+
+    // In test environment, suppress validation error logs as they're typically intentional test cases
+    if (this.isTestEnvironment && level === 'error' && message) {
+      if (message.includes('validation failed') || message.includes('Setting validation failed')) {
+        return false;
+      }
+    }
+
+    // Always log errors and warnings (except suppressed validation errors above)
+    if (level === 'error' || level === 'warn') {
+      return true;
+    }
+
+    return true;
+  }
+
   // prettier-ignore
   private log(level: string, message: string, meta?: Record<string, any>): void { // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (!this.shouldLog(level, message)) {
+      return;
+    }
+
     const timestamp = new Date().toISOString();
     const contextStr = this.parentContext ? JSON.stringify(this.parentContext) : '';
     const metaStr = meta ? JSON.stringify(meta) : '';

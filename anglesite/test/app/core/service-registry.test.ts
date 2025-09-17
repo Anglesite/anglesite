@@ -172,34 +172,52 @@ describe('Service Registry', () => {
       consoleSpy.mockRestore();
     });
 
-    it('should log messages with context', () => {
+    it('should suppress info and debug messages in test environment', () => {
       logger.info('test message');
+      logger.debug('debug message');
 
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/\[.*\] INFO \[test\] test message/), '', '');
+      // In test environment, info and debug should be suppressed
+      expect(consoleSpy).not.toHaveBeenCalled();
     });
 
-    it('should log messages with metadata', () => {
-      logger.info('test message', { key: 'value' });
+    it('should still log errors and warnings in test environment', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/\[.*\] INFO \[test\] test message/),
-        '',
-        '{"key":"value"}'
-      );
+      try {
+        logger.warn('warn message');
+        logger.error('error message', new Error('test error'));
+
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringMatching(/\[.*\] WARN \[test\] warn message/), '', '');
+        expect(errorSpy).toHaveBeenCalledWith(
+          expect.stringMatching(/\[.*\] ERROR \[test\] error message/),
+          '',
+          expect.stringMatching(/\{"error":"test error","stack":".*"\}/)
+        );
+      } finally {
+        warnSpy.mockRestore();
+        errorSpy.mockRestore();
+      }
     });
 
-    it('should create child loggers', () => {
-      const childLogger = logger.child({ requestId: '123' });
-      childLogger.info('child message');
+    it('should create child loggers with proper context', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/\[.*\] INFO \[test\] child message/),
-        '{"requestId":"123"}',
-        ''
-      );
+      try {
+        const childLogger = logger.child({ requestId: '123' });
+        childLogger.warn('child warning');
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringMatching(/\[.*\] WARN \[test\] child warning/),
+          '{"requestId":"123"}',
+          ''
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
 
-    it('should handle different log levels', () => {
+    it('should suppress debug and info but log warn and error in test environment', () => {
       const debugSpy = jest.spyOn(console, 'debug').mockImplementation();
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
       const errorSpy = jest.spyOn(console, 'error').mockImplementation();
@@ -210,8 +228,11 @@ describe('Service Registry', () => {
         logger.warn('warn message');
         logger.error('error message', new Error('test error'));
 
-        expect(debugSpy).toHaveBeenCalled();
-        expect(consoleSpy).toHaveBeenCalled();
+        // Debug and info should NOT be called in test environment
+        expect(debugSpy).not.toHaveBeenCalled();
+        expect(consoleSpy).not.toHaveBeenCalled(); // info uses console.log
+
+        // Warn and error should still be called
         expect(warnSpy).toHaveBeenCalled();
         expect(errorSpy).toHaveBeenCalled();
       } finally {

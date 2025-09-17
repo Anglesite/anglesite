@@ -4,9 +4,6 @@
  */
 
 describe('Electron Mock Override Regression', () => {
-  // Store original mock for restoration
-  let originalElectronMock: unknown;
-
   beforeEach(() => {
     // Clear any existing mock overrides
     jest.resetModules();

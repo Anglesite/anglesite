@@ -3,6 +3,13 @@
  * @description This test reproduces the bug where tests import non-existent utilities and matchers
  */
 
+// Type for Jest expect with non-existent matchers
+interface ExtendedExpect {
+  toBeCompletelyUndefinedMatcher(): unknown;
+  toBeAnotherNonExistentMatcher(): unknown;
+  toValidateThisNonExistentThing(): unknown;
+}
+
 // Import modules at the top level to avoid Jest hook registration issues
 import * as reactTestProviders from '../utils/react-test-providers';
 import * as mockFactory from '../utils/mock-factory';
@@ -52,15 +59,15 @@ describe('Missing Test Dependencies Regression', () => {
   test('should fail when using truly undefined custom Jest matchers', () => {
     // Test with matchers that actually don't exist
     expect(() => {
-      (expect('test') as any).toBeCompletelyUndefinedMatcher();
+      (expect('test') as unknown as ExtendedExpect).toBeCompletelyUndefinedMatcher();
     }).toThrow();
 
     expect(() => {
-      (expect({}) as any).toBeAnotherNonExistentMatcher();
+      (expect({}) as unknown as ExtendedExpect).toBeAnotherNonExistentMatcher();
     }).toThrow();
 
     expect(() => {
-      (expect({}) as any).toValidateThisNonExistentThing();
+      (expect({}) as unknown as ExtendedExpect).toValidateThisNonExistentThing();
     }).toThrow();
   });
 

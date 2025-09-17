@@ -7,7 +7,6 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { WebsiteConfigEditor } from '../../../src/renderer/ui/react/components/WebsiteConfigEditor';
-import { AppProvider } from '../../../src/renderer/ui/react/context/AppContext';
 
 // Mock the electron API
 const mockElectronAPI = {

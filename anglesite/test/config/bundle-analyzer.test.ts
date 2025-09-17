@@ -9,6 +9,15 @@ import { execSync } from 'child_process';
 // Use real fs module to avoid mock pollution from other tests
 const fs = jest.requireActual<typeof import('fs')>('fs');
 
+// Type definitions for webpack plugins
+interface WebpackPlugin {
+  constructor: { name: string };
+}
+
+interface WebpackConfig {
+  plugins?: (WebpackPlugin | null | undefined)[];
+}
+
 describe('Bundle Analyzer Integration Tests', () => {
   const projectRoot = path.resolve(__dirname, '../..');
   const distDir = path.resolve(projectRoot, 'dist/src/renderer/ui/react');
@@ -53,8 +62,8 @@ describe('Bundle Analyzer Integration Tests', () => {
   });
 
   describe('Webpack Configuration', () => {
-    let prodConfig: Record<string, unknown>;
-    let devConfig: Record<string, unknown>;
+    let prodConfig: WebpackConfig;
+    let devConfig: WebpackConfig;
 
     beforeAll(() => {
       // Set environment variable to enable analyzer
@@ -73,15 +82,15 @@ describe('Bundle Analyzer Integration Tests', () => {
     });
 
     it('should include BundleAnalyzerPlugin in production config when enabled', () => {
-      const analyzerPlugin = (prodConfig.plugins as any[])?.find(
-        (plugin: any) => plugin && (plugin.constructor as any)?.name === 'BundleAnalyzerPlugin'
+      const analyzerPlugin = prodConfig.plugins?.find(
+        (plugin: WebpackPlugin | null | undefined) => plugin && plugin.constructor?.name === 'BundleAnalyzerPlugin'
       );
       expect(analyzerPlugin).toBeDefined();
     });
 
     it('should include BundleAnalyzerPlugin in development config when enabled', () => {
-      const analyzerPlugin = (devConfig.plugins as any[])?.find(
-        (plugin: any) => plugin && (plugin.constructor as any)?.name === 'BundleAnalyzerPlugin'
+      const analyzerPlugin = devConfig.plugins?.find(
+        (plugin: WebpackPlugin | null | undefined) => plugin && plugin.constructor?.name === 'BundleAnalyzerPlugin'
       );
       expect(analyzerPlugin).toBeDefined();
     });
@@ -106,9 +115,9 @@ describe('Bundle Analyzer Integration Tests', () => {
         expect(Array.isArray(configWithoutAnalyzer.plugins)).toBe(true);
 
         // Filter out falsy plugins (this mimics what webpack does)
-        const filteredPlugins = configWithoutAnalyzer.plugins.filter(Boolean);
+        const filteredPlugins = (configWithoutAnalyzer as WebpackConfig).plugins?.filter(Boolean) || [];
         const analyzerPlugin = filteredPlugins.find(
-          (plugin: any) => plugin && (plugin.constructor as any)?.name === 'BundleAnalyzerPlugin'
+          (plugin: WebpackPlugin | null | undefined) => plugin && plugin.constructor?.name === 'BundleAnalyzerPlugin'
         );
 
         // The test verifies that BundleAnalyzerPlugin should not be present when ANALYZE_BUNDLE is not set
