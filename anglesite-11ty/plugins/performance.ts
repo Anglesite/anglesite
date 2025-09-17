@@ -448,7 +448,7 @@ export default function addPerformanceOptimization(
 
       return optimizedContent;
     } catch (error) {
-      logger.error(`Performance optimization failed for ${outputPath}`, error);
+      console.warn(`Performance optimization failed for ${outputPath}`, error);
       return content; // Return original content on error
     }
   });
@@ -467,7 +467,7 @@ export default function addPerformanceOptimization(
         return `<link rel="stylesheet" href="${cssPath}">`;
       }
     } catch (error) {
-      logger.error(`Error inlining CSS ${cssPath}`, error);
+      console.warn(`Error inlining CSS ${cssPath}:`, error);
       return `<link rel="stylesheet" href="${cssPath}">`;
     }
   });
@@ -486,7 +486,7 @@ export default function addPerformanceOptimization(
         return `<script src="${jsPath}"></script>`;
       }
     } catch (error) {
-      logger.error(`Error inlining JS ${jsPath}`, error);
+      console.warn(`Error inlining JS ${jsPath}:`, error);
       return `<script src="${jsPath}"></script>`;
     }
   });
@@ -498,6 +498,6 @@ export default function addPerformanceOptimization(
 
   // Log performance stats after build
   eleventyConfig.on('eleventy.after', () => {
-    logger.info(`Performance optimization complete. Cache entries: ${getCacheSize()}`);
+    console.log(`Performance optimization complete. Cache entries: ${getCacheSize()}`);
   });
 }

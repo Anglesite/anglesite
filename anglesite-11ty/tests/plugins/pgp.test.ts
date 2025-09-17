@@ -55,8 +55,14 @@ describe('PGP Key Plugin', () => {
     // Restore original environment
     process.env = originalEnv;
 
-    // Clear all mocks
-    jest.restoreAllMocks();
+    // Clear mock history but preserve the mock implementations
+    jest.clearAllMocks();
+
+    // Reset the mock implementations to ensure consistent behavior
+    (fs.mkdirSync as jest.MockedFunction<typeof fs.mkdirSync>).mockImplementation(() => {});
+    (fs.writeFileSync as jest.MockedFunction<typeof fs.writeFileSync>).mockImplementation(() => {});
+    (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockImplementation(() => false);
+    (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockImplementation(() => '');
   });
 
   describe('Plugin Registration', () => {
@@ -300,7 +306,7 @@ describe('PGP Key Plugin', () => {
   });
 
   describe('Priority Order', () => {
-    it.skip('should prioritize environment variable over file path', async () => {
+    it('should prioritize environment variable over file path', async () => {
       // SKIP: Complex Jest mocking interference issue. Plugin works correctly in production.
       // This test passes when run individually but fails due to test isolation problems
       // when run with the full test suite. Functionality is confirmed working.
@@ -319,7 +325,7 @@ describe('PGP Key Plugin', () => {
       expect(fs.writeFileSync).toHaveBeenCalledWith('_site/.well-known/pgp-key.txt', mockPgpKey);
     });
 
-    it.skip('should prioritize file path over default location', async () => {
+    it('should prioritize file path over default location', async () => {
       // SKIP: Complex Jest mocking interference issue. Plugin works correctly in production.
       // This test passes when run individually but fails due to test isolation problems
       // when run with the full test suite. Functionality is confirmed working.

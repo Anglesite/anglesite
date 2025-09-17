@@ -3,6 +3,15 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { generateHeaders } from '../../plugins/headers';
 import { AnglesiteWebsiteConfiguration } from '../../types/website';
 
+// Mock fs module for integration tests
+jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
+  promises: {
+    mkdir: jest.fn().mockResolvedValue(undefined),
+    writeFile: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 describe('generateHeaders', () => {
   it('should generate headers in CloudFlare format', () => {
     const website: AnglesiteWebsiteConfiguration = {
@@ -590,17 +599,10 @@ describe('generateHeaders', () => {
     // Skipped due to complex Jest mocking issues - functionality works in production
     it.skip('should process website config from test data', async () => {
       const addHeaders = require('../../plugins/headers').default;
-      const fs = require('fs').promises;
-
-      // Mock fs operations
-      const originalMkdir = fs.mkdir;
-      const originalWriteFile = fs.writeFile;
-      fs.mkdir = jest.fn().mockResolvedValue(undefined);
-      fs.writeFile = jest.fn().mockResolvedValue(undefined);
+      const fs = require('fs');
 
       // Mock console.log to capture output
-      const originalLog = console.log;
-      console.log = jest.fn();
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
       try {
         addHeaders(mockEleventyConfig);
@@ -621,19 +623,19 @@ describe('generateHeaders', () => {
           },
         ];
 
-        await eventHandler({ dir: { output: '/test/output' }, results: testData });
+        await eventHandler({ dir: { output: '_site' }, results: testData });
 
-        expect(fs.mkdir).toHaveBeenCalledWith('/test/output', { recursive: true });
-        expect(fs.writeFile).toHaveBeenCalledWith(
-          '/test/output/_headers',
-          expect.stringContaining('X-Test-Header: test-value')
+        expect(fs.promises.mkdir).toHaveBeenCalledWith('_site', { recursive: true });
+        expect(fs.promises.writeFile).toHaveBeenCalledWith(
+          '_site/_headers',
+          expect.stringMatching(
+            /X-Test-Header: test-value[\s\S]*X-Custom: custom-value|X-Custom: custom-value[\s\S]*X-Test-Header: test-value/
+          )
         );
-        expect(console.log).toHaveBeenCalledWith('[Eleventy] Wrote /test/output/_headers');
+        expect(consoleLogSpy).toHaveBeenCalledWith('[Eleventy] Wrote _site/_headers');
       } finally {
-        // Restore mocks
-        fs.mkdir = originalMkdir;
-        fs.writeFile = originalWriteFile;
-        console.log = originalLog;
+        // Restore console spy
+        consoleLogSpy.mockRestore();
       }
     });
 
