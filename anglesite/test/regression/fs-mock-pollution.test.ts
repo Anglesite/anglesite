@@ -39,6 +39,9 @@ describe('fs Mock Pollution Regression Tests', () => {
   beforeEach(() => {
     // Reset modules to ensure clean state
     jest.resetModules();
+    // Clear all mocks to prevent interference
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   const projectRoot = findProjectRoot();
@@ -47,9 +50,12 @@ describe('fs Mock Pollution Regression Tests', () => {
 
   // This test should fail before the fix, demonstrating the bug
   it('should reproduce bug: fs.existsSync returns undefined instead of boolean', () => {
+    // Get a fresh fs module to avoid any cached mocks
+    const freshFs = require('fs');
+
     // This will fail with the current setup because fs.existsSync is mocked
     // but not configured, returning undefined instead of true/false
-    const result = fsMockPollutionRealFs.existsSync(testFilePath);
+    const result = freshFs.existsSync(testFilePath);
 
     // This assertion should pass now with fs unmocked
     expect(typeof result).toBe('boolean');
@@ -57,7 +63,9 @@ describe('fs Mock Pollution Regression Tests', () => {
   });
 
   it('should reproduce bug: fs.existsSync returns undefined for docs', () => {
-    const result = fsMockPollutionRealFs.existsSync(testDocsPath);
+    // Get a fresh fs module to avoid any cached mocks
+    const freshFs = require('fs');
+    const result = freshFs.existsSync(testDocsPath);
 
     expect(typeof result).toBe('boolean');
     expect(result).toBe(true); // File actually exists
@@ -77,9 +85,12 @@ describe('fs Mock Pollution Regression Tests', () => {
 
   describe('Fix verification', () => {
     it('should demonstrate that the bug is fixed', () => {
+      // Get a fresh fs module to avoid any cached mocks
+      const freshFs = require('fs');
+
       // The main issue was fs.existsSync returning undefined
       // Now it should return proper boolean values
-      const result = fsMockPollutionRealFs.existsSync(testFilePath);
+      const result = freshFs.existsSync(testFilePath);
 
       // This should pass - no more undefined results
       expect(typeof result).toBe('boolean');
@@ -87,16 +98,19 @@ describe('fs Mock Pollution Regression Tests', () => {
     });
 
     it('should work correctly in test suite context', () => {
+      // Get a fresh fs module to avoid any cached mocks
+      const freshFs = require('fs');
+
       // The issue only occurred when tests ran together
       // This verifies fs works correctly even with other test mocks present
-      const scriptExists = fsMockPollutionRealFs.existsSync(testFilePath);
-      const docsExist = fsMockPollutionRealFs.existsSync(testDocsPath);
+      const scriptExists = freshFs.existsSync(testFilePath);
+      const docsExist = freshFs.existsSync(testDocsPath);
 
       expect(scriptExists).toBe(true);
       expect(docsExist).toBe(true);
 
       // Test a non-existent file to ensure false also works
-      const nonExistent = fsMockPollutionRealFs.existsSync('/definitely/does/not/exist');
+      const nonExistent = freshFs.existsSync('/definitely/does/not/exist');
       expect(nonExistent).toBe(false);
     });
   });

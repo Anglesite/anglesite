@@ -25,7 +25,8 @@ export function addWebContentsListener(
   listener: (...args: unknown[]) => void
 ): void {
   // Add the listener
-  webContents.on(event as any, listener);
+  // TypeScript can't narrow union types in event listeners, so we use type assertion
+  (webContents as { on: (event: string, listener: (...args: unknown[]) => void) => void }).on(event, listener);
 
   // Track for cleanup
   if (!webContentsEventListeners.has(webContents)) {
@@ -73,7 +74,10 @@ export function cleanupWebContentsListeners(webContents: WebContents): void {
   for (const { event, listener } of listeners) {
     try {
       if (!webContents.isDestroyed()) {
-        webContents.removeListener(event as any, listener);
+        // TypeScript can't narrow union types in event listeners, so we use type assertion
+        (
+          webContents as { removeListener: (event: string, listener: (...args: unknown[]) => void) => void }
+        ).removeListener(event, listener);
       }
     } catch (error) {
       console.warn(`Failed to remove WebContents listener for event ${event}:`, error);

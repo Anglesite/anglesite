@@ -3,8 +3,17 @@
  * Tests that reproduce the bug where RSL requires hardcoded collection names
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+// Wrap in a function to avoid global scope pollution and bypass Jest mocking
+const getRSLTestModules = () => {
+  // Use Node.js require directly to completely bypass Jest's module mocking
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require('fs');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require('path');
+  return { fs, path };
+};
+
+const { fs, path } = getRSLTestModules();
 import * as os from 'os';
 import addRSL from '../../../plugins/rsl.js';
 import type { RSLConfiguration } from '../../../plugins/rsl/types.js';

@@ -3,9 +3,15 @@
  * @description Focused tests for lazy loading and error boundary behavior
  */
 
-// Use real fs and path modules to avoid mock pollution
-const realFs = require('fs');
-const realPath = require('path');
+// Wrap in a function to avoid global scope pollution and bypass Jest mocking
+const getReactTestModules = () => {
+  // Use Node.js require directly to completely bypass Jest's module mocking
+  const fs = require('fs');
+  const path = require('path');
+  return { fs, path };
+};
+
+const { fs: realFs, path: realPath } = getReactTestModules();
 
 // Find the anglesite project root - more robust for monorepo setups
 function findProjectRoot() {
@@ -49,12 +55,16 @@ function findProjectRoot() {
 describe('Main Component Code Splitting', () => {
   // Test that the component file exists and has the right structure
   it('should have lazy loading implementation', () => {
+    // Get a fresh fs module to avoid any cached mocks
+    const freshFs = require('fs');
+    const freshPath = require('path');
+
     const projectRoot = findProjectRoot();
-    const mainPath = realPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
+    const mainPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
 
-    expect(realFs.existsSync(mainPath)).toBe(true);
+    expect(freshFs.existsSync(mainPath)).toBe(true);
 
-    const mainContent = realFs.readFileSync(mainPath, 'utf8');
+    const mainContent = freshFs.readFileSync(mainPath, 'utf8');
 
     // Check for lazy loading patterns
     expect(mainContent).toMatch(/lazy\(/);
@@ -64,9 +74,13 @@ describe('Main Component Code Splitting', () => {
   });
 
   it('should have Error Boundary for lazy components', () => {
+    // Get a fresh fs module to avoid any cached mocks
+    const freshFs = require('fs');
+    const freshPath = require('path');
+
     const projectRoot = findProjectRoot();
-    const mainPath = realPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
-    const mainContent = realFs.readFileSync(mainPath, 'utf8');
+    const mainPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
+    const mainContent = freshFs.readFileSync(mainPath, 'utf8');
 
     // Check for Error Boundary import and usage
     expect(mainContent).toMatch(/import.*ErrorBoundary.*from.*ErrorBoundary/);
@@ -74,15 +88,19 @@ describe('Main Component Code Splitting', () => {
     expect(mainContent).toMatch(/<\/ErrorBoundary>/);
 
     // Verify ErrorBoundary exists as separate file
-    const errorBoundaryPath = realPath.join(projectRoot, 'src/renderer/ui/react/components/ErrorBoundary.tsx');
+    const errorBoundaryPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/ErrorBoundary.tsx');
 
-    expect(realFs.existsSync(errorBoundaryPath)).toBe(true);
+    expect(freshFs.existsSync(errorBoundaryPath)).toBe(true);
   });
 
   it('should have conditional lazy loading', () => {
+    // Get a fresh fs module to avoid any cached mocks
+    const freshFs = require('fs');
+    const freshPath = require('path');
+
     const projectRoot = findProjectRoot();
-    const mainPath = realPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
-    const mainContent = realFs.readFileSync(mainPath, 'utf8');
+    const mainPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
+    const mainContent = freshFs.readFileSync(mainPath, 'utf8');
 
     // Check that lazy import is done conditionally
     expect(mainContent).toMatch(/case\s+['"]website-config['"]/);
@@ -90,9 +108,13 @@ describe('Main Component Code Splitting', () => {
   });
 
   it('should have proper fallback UI for loading states', () => {
+    // Get a fresh fs module to avoid any cached mocks
+    const freshFs = require('fs');
+    const freshPath = require('path');
+
     const projectRoot = findProjectRoot();
-    const mainPath = realPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
-    const mainContent = realFs.readFileSync(mainPath, 'utf8');
+    const mainPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
+    const mainContent = freshFs.readFileSync(mainPath, 'utf8');
 
     // Check for loading and error fallbacks
     expect(mainContent).toMatch(/Loading configuration editor/);
@@ -101,9 +123,13 @@ describe('Main Component Code Splitting', () => {
   });
 
   it('should export Main component properly', () => {
+    // Get a fresh fs module to avoid any cached mocks
+    const freshFs = require('fs');
+    const freshPath = require('path');
+
     const projectRoot = findProjectRoot();
-    const mainPath = realPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
-    const mainContent = realFs.readFileSync(mainPath, 'utf8');
+    const mainPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
+    const mainContent = freshFs.readFileSync(mainPath, 'utf8');
 
     // Check for proper export
     expect(mainContent).toMatch(/export.*Main/);

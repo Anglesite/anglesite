@@ -8,6 +8,7 @@
 
 import { DIContainer, ServiceKeys, container } from './container';
 import { SystemError, AtomicOperationError, ErrorUtils, withContext, handleError } from './errors';
+import { ResilientServiceWrapper, HealthMonitor } from './service-resilience';
 import {
   IStore,
   IWebsiteManager,
@@ -205,11 +206,15 @@ export class ApplicationContext extends EventEmitter implements IApplicationCont
   private isInitialized = false;
   private services = new Map<string, any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
   private serviceMetadata = new Map<string, IServiceMetadata>();
+  private resilientServices = new Map<string, ResilientServiceWrapper<any>>(); // eslint-disable-line @typescript-eslint/no-explicit-any
+  private healthMonitor: HealthMonitor;
   private logger: ILogger;
 
   constructor(private container: DIContainer) {
     super();
     this.logger = new Logger('ApplicationContext');
+    this.healthMonitor = new HealthMonitor(this.logger);
+    this.setupHealthMonitorEvents();
   }
 
   async initialize(): Promise<void> {
@@ -271,8 +276,12 @@ export class ApplicationContext extends EventEmitter implements IApplicationCont
       // Dispose container
       await this.container.dispose();
 
+      // Dispose health monitor
+      this.healthMonitor.dispose();
+
       this.services.clear();
       this.serviceMetadata.clear();
+      this.resilientServices.clear();
       this.isInitialized = false;
 
       this.emit('shutdown');
@@ -365,6 +374,73 @@ export class ApplicationContext extends EventEmitter implements IApplicationCont
 
   async dispose(): Promise<void> {
     await this.shutdown();
+  }
+
+  /**
+   * Setup health monitor event handlers for service state tracking.
+   */
+  private setupHealthMonitorEvents(): void {
+    this.healthMonitor.on('unhealthy', (serviceName: string) => {
+      this.logger.warn(`Service ${serviceName} is unhealthy`);
+      this.emit('serviceUnhealthy', serviceName);
+    });
+
+    this.healthMonitor.on('healthy', (serviceName: string) => {
+      this.logger.info(`Service ${serviceName} is healthy`);
+      this.emit('serviceHealthy', serviceName);
+    });
+  }
+
+  /**
+   * Get a service wrapped with circuit breaker and retry protection.
+   */
+  getResilientService<T>(serviceName: string): ResilientServiceWrapper<T> {
+    if (!this.isInitialized) {
+      throw new (class ContextNotInitializedError extends SystemError {
+        constructor() {
+          super('Application context is not initialized', 'CONTEXT_NOT_INITIALIZED');
+        }
+      })();
+    }
+
+    const existingWrapper = this.resilientServices.get(serviceName);
+    if (existingWrapper) {
+      return existingWrapper as ResilientServiceWrapper<T>;
+    }
+
+    // Create new resilient wrapper
+    const service = this.getService<T>(serviceName);
+    const wrapper = new ResilientServiceWrapper(serviceName, service, this.logger.child({ service: serviceName }));
+
+    this.resilientServices.set(serviceName, wrapper);
+    return wrapper;
+  }
+
+  /**
+   * Register a service for automated health monitoring and status tracking.
+   */
+  registerHealthCheck(serviceName: string, healthCheck: () => Promise<boolean>, checkInterval?: number): void {
+    this.healthMonitor.registerService(serviceName, healthCheck, checkInterval);
+  }
+
+  /**
+   * Get comprehensive health status for all monitored services.
+   */
+  getServiceHealth(): Map<string, unknown> {
+    return this.healthMonitor.getAllHealthStatus();
+  }
+
+  /**
+   * Get circuit breaker and retry metrics for all resilient services.
+   */
+  getResilienceMetrics(): Record<string, unknown> {
+    const metrics: Record<string, unknown> = {};
+
+    for (const [serviceName, wrapper] of this.resilientServices) {
+      metrics[serviceName] = wrapper.getMetrics();
+    }
+
+    return metrics;
   }
 
   private async initializeCoreServices(): Promise<void> {

@@ -214,8 +214,13 @@ describe('Modular Architecture', () => {
     });
 
     it('should have separate module files', () => {
-      const fs = require('fs');
-      const path = require('path');
+      // Get fresh modules to avoid mock pollution
+      const getArchTestModules = () => {
+        const fs = require('fs');
+        const path = require('path');
+        return { fs, path };
+      };
+      const { fs, path } = getArchTestModules();
 
       // Check that modular files exist
       const modules = [
