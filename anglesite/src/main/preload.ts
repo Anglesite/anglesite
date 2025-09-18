@@ -38,6 +38,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
   invoke: (channel: string, ...args: unknown[]) => {
+    // SECURITY: Validate channel name to prevent injection
+    if (typeof channel !== 'string' || channel.length === 0) {
+      return Promise.reject(new Error('SECURITY: Invalid channel type or empty channel'));
+    }
+
+    // SECURITY: Prevent script injection in channel names
+    if (/<script|javascript:|data:|vbscript:/i.test(channel)) {
+      return Promise.reject(new Error(`SECURITY: Script injection detected in channel: ${channel}`));
+    }
+
     // Whitelist invoke channels for security
     const validChannels = [
       'list-websites',
@@ -64,7 +74,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
     }
-    return Promise.reject(new Error(`Invalid invoke channel: ${channel}`));
+    return Promise.reject(new Error(`SECURITY: Invalid invoke channel: ${channel}`));
   },
   on: (channel: string, func: (...args: unknown[]) => void) => {
     // Whitelist channels for security

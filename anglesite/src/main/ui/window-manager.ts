@@ -130,6 +130,9 @@ export async function getBagItMetadata(websiteName: string): Promise<BagItMetada
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        allowRunningInsecureContent: false,
+        experimentalFeatures: false,
+        webSecurity: true,
         preload: path.join(__dirname, '..', 'preload.js'),
       },
     });
@@ -211,6 +214,9 @@ export async function getNativeInput(title: string, prompt: string): Promise<str
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        allowRunningInsecureContent: false,
+        experimentalFeatures: false,
+        webSecurity: true,
         preload: path.join(__dirname, '..', 'preload.js'),
       },
     });
@@ -273,6 +279,9 @@ export async function showFirstLaunchAssistant(): Promise<'https' | 'http' | nul
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        allowRunningInsecureContent: false,
+        experimentalFeatures: false,
+        webSecurity: true,
         preload: path.join(__dirname, '..', 'preload.js'),
       },
     });
@@ -484,6 +493,9 @@ export function openVanillaWebsiteEditorWindow(websiteName?: string, websitePath
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
+      webSecurity: true,
     },
   });
 
@@ -642,6 +654,9 @@ export function openReactWebsiteEditorWindow(websiteName?: string, websitePath?:
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
+      webSecurity: true,
     },
   });
 
@@ -649,11 +664,23 @@ export function openReactWebsiteEditorWindow(websiteName?: string, websitePath?:
   websiteEditorWindow.contentView.addChildView(websiteEditorWebContentsView);
 
   // Load React-based template (check for dev mode)
-  const isDevelopment = process.argv.includes('--dev-react');
+  const isDevelopment = process.argv.includes('--dev-react') || process.env.NODE_ENV === 'development';
   if (isDevelopment) {
-    // Use webpack dev server for HMR
+    // SECURITY: In development, we need to relax CSP for webpack dev server
+    console.warn('[DEV] Loading React dev server with relaxed CSP for development');
+    websiteEditorWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self' http://localhost:3000; script-src 'self' 'unsafe-eval' http://localhost:3000; style-src 'self' 'unsafe-inline' http://localhost:3000; connect-src 'self' ws://localhost:3000 http://localhost:3000; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none';",
+          ],
+        },
+      });
+    });
     websiteEditorWindow.loadURL('http://localhost:3000');
   } else {
+    // SECURITY: Production uses strict CSP from HTML meta tag
     // Use webpack-built production bundle
     const bundlePath = path.resolve(__dirname, '../../dist/src/renderer/ui/react/index.html');
 

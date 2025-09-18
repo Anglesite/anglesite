@@ -87,6 +87,9 @@ function createLoadingView(websiteWindow: WebsiteWindow): WebContentsView {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
+      webSecurity: true,
       preload: path.join(__dirname, '..', 'preload.js'),
     },
   });
@@ -280,6 +283,9 @@ export function createWebsiteWindow(websiteName: string, websitePath?: string): 
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
+      webSecurity: true,
       preload: path.join(__dirname, '..', 'preload.js'),
     },
     titleBarStyle: 'default',
@@ -322,6 +328,9 @@ export function createWebsiteWindow(websiteName: string, websitePath?: string): 
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
+      webSecurity: true,
     },
   });
 
@@ -900,6 +909,9 @@ export function createStartScreen(): BrowserWindow {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
+      webSecurity: true,
       preload: path.join(__dirname, '..', 'preload.js'),
     },
   });
@@ -1086,6 +1098,9 @@ export function createHelpWindow(): BrowserWindow {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
+      webSecurity: true,
     },
   });
 
