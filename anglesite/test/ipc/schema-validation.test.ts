@@ -10,6 +10,18 @@ interface SchemaResult {
   warnings?: string[];
 }
 
+interface SchemaProperty {
+  type?: string;
+  $ref?: string;
+  properties?: Record<string, SchemaProperty>;
+  required?: string[];
+  title?: string;
+  allOf?: Array<{ $ref: string }>;
+  additionalProperties?: boolean;
+  format?: string;
+  pattern?: string;
+}
+
 interface NodeError extends Error {
   code?: string;
 }
@@ -94,7 +106,8 @@ describe('Schema Validation and Resolution', () => {
 
       expect(result.error).toBeDefined();
       expect(result.fallbackSchema).toBeDefined();
-      expect((result.fallbackSchema.properties as any).title).toBeDefined();
+      const properties = result.fallbackSchema?.properties as Record<string, SchemaProperty>;
+      expect(properties?.title).toBeDefined();
     });
 
     it('should handle JSON parsing errors gracefully', async () => {
@@ -166,9 +179,10 @@ describe('Schema Validation and Resolution', () => {
       const result = (await handler({}, 'test-website')) as SchemaResult;
 
       expect(result.schema).toBeDefined();
-      expect((result.schema.properties as any).title).toBeDefined();
-      expect((result.schema.properties as any).description).toBeDefined();
-      expect((result.schema.properties as any).author).toBeDefined();
+      const properties = result.schema.properties as Record<string, SchemaProperty>;
+      expect(properties.title).toBeDefined();
+      expect(properties.description).toBeDefined();
+      expect(properties.author).toBeDefined();
       expect(result.schema.required).toContain('title');
     });
 
@@ -202,7 +216,7 @@ describe('Schema Validation and Resolution', () => {
       const result = (await handler({}, 'test-website')) as SchemaResult;
 
       expect(result.schema).toBeDefined();
-      expect((result.schema.properties as any).title).toBeDefined();
+      expect((result.schema.properties as Record<string, SchemaProperty>).title).toBeDefined();
       expect(result.warnings).toBeDefined();
       expect(result.warnings.length).toBeGreaterThan(0);
       expect(result.warnings[0]).toContain('Failed to load module: missing');
@@ -254,9 +268,9 @@ describe('Schema Validation and Resolution', () => {
       const result = (await handler({}, 'test-website')) as SchemaResult;
 
       expect(result.schema).toBeDefined();
-      expect((result.schema.properties as any).email).toBeDefined();
-      expect((result.schema.properties as any).email.format).toBe('email');
-      expect((result.schema.properties as any).email.pattern).toBeDefined();
+      expect((result.schema.properties as Record<string, SchemaProperty>).email).toBeDefined();
+      expect((result.schema.properties as Record<string, SchemaProperty>).email.format).toBe('email');
+      expect((result.schema.properties as Record<string, SchemaProperty>).email.pattern).toBeDefined();
     });
 
     it('should handle circular references gracefully', async () => {
@@ -291,7 +305,7 @@ describe('Schema Validation and Resolution', () => {
 
       // Should not throw or enter infinite loop
       expect(result.schema).toBeDefined();
-      expect((result.schema.properties as any).name).toBeDefined();
+      expect((result.schema.properties as Record<string, SchemaProperty>).name).toBeDefined();
     });
   });
 
@@ -310,7 +324,7 @@ describe('Schema Validation and Resolution', () => {
       const result = (await handler({}, 'test-website', 'test-module')) as Record<string, unknown>;
 
       expect(result).toBeDefined();
-      expect((result.properties as any).test).toBeDefined();
+      expect((result.properties as Record<string, SchemaProperty>).test).toBeDefined();
     });
 
     it('should handle missing module with appropriate error', async () => {
@@ -344,11 +358,11 @@ describe('Schema Validation and Resolution', () => {
       expect(fallback.type).toBe('object');
       expect(fallback.required).toContain('title');
       expect(fallback.required).toContain('language');
-      expect((fallback.properties as any).title).toBeDefined();
-      expect((fallback.properties as any).language).toBeDefined();
-      expect((fallback.properties as any).description).toBeDefined();
-      expect((fallback.properties as any).url).toBeDefined();
-      expect((fallback.properties as any).author).toBeDefined();
+      expect((fallback.properties as Record<string, SchemaProperty>).title).toBeDefined();
+      expect((fallback.properties as Record<string, SchemaProperty>).language).toBeDefined();
+      expect((fallback.properties as Record<string, SchemaProperty>).description).toBeDefined();
+      expect((fallback.properties as Record<string, SchemaProperty>).url).toBeDefined();
+      expect((fallback.properties as Record<string, SchemaProperty>).author).toBeDefined();
     });
   });
 });

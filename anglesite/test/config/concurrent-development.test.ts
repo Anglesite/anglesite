@@ -3,9 +3,9 @@
 
 // Wrap in a function to avoid global scope pollution and mock interference
 const getConcurrentDevModules = () => {
-  // Use real fs and path modules to avoid mock pollution
-  const fs = jest.requireActual('fs');
-  const path = jest.requireActual('path');
+  // Use Node.js require directly to completely bypass Jest's module mocking
+  const fs = require('fs');
+  const path = require('path');
   return { fs, path };
 };
 
@@ -116,7 +116,8 @@ describe('Concurrent Development Configuration', () => {
 
   describe('Documentation', () => {
     it('should have concurrent development documentation', () => {
-      const docsPath = actualPath.join(projectRoot, 'docs', 'concurrent-development.md');
+      const workspaceRoot = actualPath.resolve(__dirname, '../../..');
+      const docsPath = actualPath.join(workspaceRoot, 'docs', 'concurrent-development.md');
       expect(actualFs.existsSync(docsPath)).toBe(true);
 
       const docsContent = actualFs.readFileSync(docsPath, 'utf8');

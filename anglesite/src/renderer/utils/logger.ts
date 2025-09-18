@@ -28,8 +28,7 @@ class RendererLogger {
     // Allow debug logging to be enabled via localStorage for troubleshooting
     // But disable by default in test environment to reduce noise
     this.isDebugEnabled =
-      (!this.isTestEnvironment && this.isDevelopment) ||
-      localStorage.getItem('DEBUG_LOGGING') === 'true';
+      (!this.isTestEnvironment && this.isDevelopment) || localStorage.getItem('DEBUG_LOGGING') === 'true';
   }
 
   private shouldLog(level: LogLevel): boolean {

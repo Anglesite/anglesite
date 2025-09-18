@@ -256,11 +256,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
   Node.displayName = 'FileExplorerNode';
 
   const handleWebsiteConfigClick = async () => {
-
     // Hide the preview WebContentsView to show the React editor
     if (state.websiteName && window.electronAPI?.invoke) {
       try {
-        const success = await window.electronAPI.invoke('set-edit-mode', state.websiteName);
+        await window.electronAPI.invoke('set-edit-mode', state.websiteName);
       } catch (error) {
         console.error('🌐 FileExplorer: Failed to set edit mode:', error);
       }
@@ -277,7 +276,6 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
   useEffect(() => {
     loadFiles();
   }, [state.websiteName]);
-
 
   // Listen for refresh events from the main process
   useEffect(() => {

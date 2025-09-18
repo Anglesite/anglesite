@@ -108,25 +108,27 @@ describe('RSL Integration (Refactored)', () => {
       collectionFn!(mockCollectionApi);
 
       // Create mock build results using our builder
+      const websiteConfig = new WebsiteConfigBuilder()
+        .withTitle('Test Website')
+        .withUrl('https://test.example.com')
+        .withRSL({
+          enabled: true,
+          defaultOutputFormats: ['sitewide'],
+          defaultLicense: {
+            permits: [{ type: 'usage', values: ['view'] }],
+            payment: { type: 'free', attribution: true },
+            copyright: 'Test Copyright',
+          },
+          contentDiscovery: { enabled: false },
+        })
+        .build();
+
       const mockResults = [
         new CollectionItemBuilder()
           .withUrl('/index.html')
           .withData({
             title: 'Home Page',
-            website: new WebsiteConfigBuilder()
-              .withTitle('Test Website')
-              .withUrl('https://test.example.com')
-              .withRSL({
-                enabled: true,
-                defaultOutputFormats: ['sitewide'],
-                defaultLicense: {
-                  permits: [{ type: 'usage', values: ['view'] }],
-                  payment: { type: 'free', attribution: true },
-                  copyright: 'Test Copyright',
-                },
-                contentDiscovery: { enabled: false },
-              })
-              .build(),
+            website: websiteConfig,
           })
           .withTemplateContent('<h1>Home</h1>')
           .build(),

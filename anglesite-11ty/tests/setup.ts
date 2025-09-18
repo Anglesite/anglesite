@@ -11,7 +11,6 @@ registerCustomMatchers();
 
 // Mock browser globals for Node.js environment when needed
 // This creates a safe version of window that can be used in MockFactory.resetAllMocks()
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (global as any).window = {
   electronAPI: undefined,
 };

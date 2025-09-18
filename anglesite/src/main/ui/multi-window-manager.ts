@@ -9,6 +9,11 @@ import { WebsiteServer } from '../server/per-website-server';
 import { IWebsiteServerManager, ManagedServer, IGitHistoryManager, IWebsiteManager } from '../core/interfaces';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
+import {
+  setupWebContentsWithCleanup,
+  cleanupWebContentsListeners,
+  monitorWebContentsMemory,
+} from './webcontents-cleanup';
 
 // Type definition for website window
 interface WebsiteWindow {
@@ -334,27 +339,35 @@ export function createWebsiteWindow(websiteName: string, websitePath?: string): 
     },
   });
 
-  // Add error handling
-  webContentsView.webContents.on('render-process-gone', (_event, details) => {
-    console.error('Website WebContentsView render process gone:', details);
-    setTimeout(() => {
-      try {
-        webContentsView?.webContents.reload();
-      } catch (error) {
-        console.error('Failed to reload website WebContentsView:', error);
-      }
-    }, 1000);
-  });
+  // Set up WebContents with proper cleanup and monitoring
+  setupWebContentsWithCleanup(webContentsView.webContents, (webContents) => {
+    // Add memory monitoring
+    monitorWebContentsMemory(webContents, `website-${websiteName}`);
 
-  webContentsView.webContents.on('unresponsive', () => {
-    console.error('Website WebContentsView webContents unresponsive');
-  });
+    // Add error handling
+    webContents.on('render-process-gone', (_event, details) => {
+      console.error('Website WebContentsView render process gone:', details);
+      setTimeout(() => {
+        try {
+          if (!webContents.isDestroyed()) {
+            webContents.reload();
+          }
+        } catch (error) {
+          console.error('Failed to reload website WebContentsView:', error);
+        }
+      }, 1000);
+    });
 
-  webContentsView.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
-    console.error('Website WebContentsView failed to load:', {
-      errorCode,
-      errorDescription,
-      validatedURL,
+    webContents.on('unresponsive', () => {
+      console.error('Website WebContentsView webContents unresponsive');
+    });
+
+    webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+      console.error('Website WebContentsView failed to load:', {
+        errorCode,
+        errorDescription,
+        validatedURL,
+      });
     });
   });
 
@@ -428,6 +441,25 @@ export function createWebsiteWindow(websiteName: string, websitePath?: string): 
 
   // Clean up when window is closed
   window.on('closed', async () => {
+    // Clean up WebContents listeners first to prevent memory leaks
+    const websiteWindow = websiteWindows.get(websiteName);
+    if (websiteWindow) {
+      // Clean up main WebContentsView
+      if (websiteWindow.webContentsView && !websiteWindow.webContentsView.webContents.isDestroyed()) {
+        cleanupWebContentsListeners(websiteWindow.webContentsView.webContents);
+      }
+
+      // Clean up loading view WebContents
+      if (websiteWindow.loadingView && !websiteWindow.loadingView.webContents.isDestroyed()) {
+        cleanupWebContentsListeners(websiteWindow.loadingView.webContents);
+        try {
+          websiteWindow.loadingView.webContents.close();
+        } catch (error) {
+          console.error(`Error closing loading view for ${websiteName}:`, error);
+        }
+      }
+    }
+
     // Auto-commit changes before closing
     try {
       const appContext = getGlobalContext();
@@ -448,16 +480,6 @@ export function createWebsiteWindow(websiteName: string, websitePath?: string): 
       await websiteServerManager.stopServer(websiteName);
     } catch (error) {
       console.error(`Error stopping server for ${websiteName}:`, error);
-    }
-
-    // Clean up loading view if it exists
-    const websiteWindow = websiteWindows.get(websiteName);
-    if (websiteWindow?.loadingView && !websiteWindow.loadingView.webContents.isDestroyed()) {
-      try {
-        websiteWindow.loadingView.webContents.close();
-      } catch (error) {
-        console.error(`Error closing loading view for ${websiteName}:`, error);
-      }
     }
 
     websiteWindows.delete(websiteName);

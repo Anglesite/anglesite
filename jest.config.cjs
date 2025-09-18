@@ -26,6 +26,14 @@ module.exports = {
       },
       transformIgnorePatterns: ['node_modules/(?!(@11ty/eleventy|@11ty/eleventy-dev-server|bagit-fs|@fluentui)/)'],
       extensionsToTreatAsEsm: ['.ts', '.tsx'],
+      // Prevent Jest from finding fs mocks in node_modules
+      modulePathIgnorePatterns: ['<rootDir>/node_modules/.*/.*/__mocks__/fs.*'],
+      // Prevent Jest from automatically mocking Node.js built-in modules
+      unmockedModulePathPatterns: ['fs', 'path', 'os', 'crypto', 'util'],
+      // Clear mocks before each test to prevent pollution
+      clearMocks: true,
+      resetMocks: false,
+      restoreMocks: false,
       // Limit parallel workers to prevent CPU overload
       maxWorkers: 2
     },

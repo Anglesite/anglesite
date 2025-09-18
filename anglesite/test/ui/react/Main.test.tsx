@@ -4,8 +4,8 @@
  */
 
 // Use real fs and path modules to avoid mock pollution
-const realFs = jest.requireActual('fs');
-const realPath = jest.requireActual('path');
+const realFs = require('fs');
+const realPath = require('path');
 
 // Find the anglesite project root - more robust for monorepo setups
 function findProjectRoot() {
@@ -52,7 +52,6 @@ describe('Main Component Code Splitting', () => {
     const projectRoot = findProjectRoot();
     const mainPath = realPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
 
-
     expect(realFs.existsSync(mainPath)).toBe(true);
 
     const mainContent = realFs.readFileSync(mainPath, 'utf8');
@@ -76,7 +75,6 @@ describe('Main Component Code Splitting', () => {
 
     // Verify ErrorBoundary exists as separate file
     const errorBoundaryPath = realPath.join(projectRoot, 'src/renderer/ui/react/components/ErrorBoundary.tsx');
-
 
     expect(realFs.existsSync(errorBoundaryPath)).toBe(true);
   });

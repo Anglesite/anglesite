@@ -11,7 +11,7 @@ describe('Jest Module Mocking Timing Regression', () => {
       // This is the PROBLEMATIC pattern from the failing integration test
       // jest.doMock() inside beforeAll() is too late for ES6 imports
       jest.doMock('../../src/main/utils/website-manager', () => ({
-        getWebsitePath: jest.fn((websiteName: string) => {
+        getWebsitePath: jest.fn((_websiteName: string) => {
           // Return null to trigger the error condition that should be tested
           return null;
         }),
@@ -54,8 +54,8 @@ describe('Jest Module Mocking Timing Regression', () => {
 
       // Apply mock at top level BEFORE any imports
       jest.doMock('../../src/main/utils/website-manager', () => ({
-        getWebsitePath: jest.fn((websiteName: string) => {
-          return `/working/mocked/path/${websiteName}`;
+        getWebsitePath: jest.fn((_websiteName: string) => {
+          return `/working/mocked/path/${_websiteName}`;
         }),
       }));
 

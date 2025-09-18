@@ -26,13 +26,14 @@ describe('Webpack Configuration Tests', () => {
     path.resolve(__dirname, '../../../anglesite'), // When run from monorepo root
   ];
 
-  const configDir = possibleConfigDirs.find(dir => {
-    try {
-      return fs.existsSync(path.join(dir, 'webpack.common.js'));
-    } catch {
-      return false;
-    }
-  }) || possibleConfigDirs[0];
+  const configDir =
+    possibleConfigDirs.find((dir) => {
+      try {
+        return fs.existsSync(path.join(dir, 'webpack.common.js'));
+      } catch {
+        return false;
+      }
+    }) || possibleConfigDirs[0];
 
   describe('Configuration Files Exist', () => {
     it('should have webpack.common.js', () => {

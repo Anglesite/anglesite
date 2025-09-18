@@ -80,7 +80,7 @@ module.exports = [
 
   // Test files configuration (Jest environment)
   {
-    files: ['**/*.test.js', '**/test/**/*.js', 'tests/**/*.test.ts', 'tests/**/test-helpers.ts'],
+    files: ['**/*.test.js', '**/test/**/*.js', 'tests/**/*.test.ts', 'tests/**/test-helpers.ts', 'tests/setup.ts'],
     languageOptions: {
       ecmaVersion: 2021,
       sourceType: 'module',

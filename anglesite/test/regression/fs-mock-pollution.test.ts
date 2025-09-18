@@ -6,9 +6,9 @@
 
 // Wrap in a function to avoid global scope pollution
 const getFsMockPollutionModules = () => {
-  // Use real fs and path modules to avoid mock pollution
-  const fs = jest.requireActual('fs');
-  const path = jest.requireActual('path');
+  // Use Node.js require directly to completely bypass Jest's module mocking
+  const fs = require('fs');
+  const path = require('path');
   return { fs, path };
 };
 
@@ -42,8 +42,8 @@ describe('fs Mock Pollution Regression Tests', () => {
   });
 
   const projectRoot = findProjectRoot();
-  const testFilePath = fsMockPollutionRealPath.join(projectRoot, 'scripts/bundle-summary.js');
-  const testDocsPath = fsMockPollutionRealPath.join(projectRoot, 'docs/bundle-analysis.md');
+  const testFilePath = fsMockPollutionRealPath.join(projectRoot, 'package.json');
+  const testDocsPath = fsMockPollutionRealPath.join(projectRoot, 'README.md');
 
   // This test should fail before the fix, demonstrating the bug
   it('should reproduce bug: fs.existsSync returns undefined instead of boolean', () => {
@@ -67,8 +67,8 @@ describe('fs Mock Pollution Regression Tests', () => {
     // This test verifies that the real fs module works as expected
     // when we don't have mock interference
 
-    // Use require() to potentially bypass Jest's module mocking
-    const fsMockPollutionRealFsActual = jest.requireActual('fs');
+    // Use Node.js require directly to completely bypass Jest's module mocking
+    const fsMockPollutionRealFsActual = require('fs');
 
     const result = fsMockPollutionRealFsActual.existsSync(testFilePath);
     expect(typeof result).toBe('boolean');

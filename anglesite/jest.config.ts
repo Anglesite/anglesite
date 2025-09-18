@@ -31,11 +31,13 @@ export default {
   testTimeout: 10000, // Increased from 5000 for module loading
   // Stricter cleanup and silence console output
   clearMocks: true,
-  restoreMocks: true,
-  resetMocks: true,
+  restoreMocks: false,
+  resetMocks: false,
   silent: true, // Suppress console output during tests
   verbose: false, // Reduce verbose output
   // Optimize module resolution
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
+  // Prevent Jest from automatically mocking Node.js built-in modules
+  unmockedModulePathPatterns: ['fs', 'path', 'os', 'crypto', 'util'],
 };

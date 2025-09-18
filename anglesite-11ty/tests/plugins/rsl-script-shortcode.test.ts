@@ -52,21 +52,19 @@ describe('RSL Script Shortcode', () => {
       // For the website.json path, return test content
       if (typeof filePath === 'string' && filePath.endsWith('website.json')) {
         return JSON.stringify({
-          title: "Anglesite 11ty Website",
-          url: "https://example.com",
+          title: 'Anglesite 11ty Website',
+          url: 'https://example.com',
           rsl: {
             enabled: true,
-            copyright: "© 2025 Anglesite 11ty Website",
+            copyright: '© 2025 Anglesite 11ty Website',
             defaultLicense: {
-              permits: [
-                { type: "usage", values: ["view", "download"] }
-              ],
+              permits: [{ type: 'usage', values: ['view', 'download'] }],
               payment: {
-                type: "free",
-                attribution: true
-              }
-            }
-          }
+                type: 'free',
+                attribution: true,
+              },
+            },
+          },
         });
       }
       // For other files, just return empty string

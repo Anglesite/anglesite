@@ -164,6 +164,16 @@ module.exports = merge(common, {
     }),
 
     /**
+     * DefinePlugin for production environment variables
+     * Explicitly disables React DevTools in production
+     */
+    new (require('webpack').DefinePlugin)({
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      __REACT_DEVTOOLS_GLOBAL_HOOK__: 'false',
+      __DEV__: 'false',
+    }),
+
+    /**
      * CSS extraction plugin for production
      * Separates CSS into cacheable files with content hashes
      */

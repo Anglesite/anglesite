@@ -1,7 +1,9 @@
-import React from 'react';
-import { FileExplorer } from './FileExplorer';
+import React, { Suspense, lazy } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { FluentCard } from '../fluent';
+
+// Lazy load FileExplorer since it's heavy with tree components
+const FileExplorer = lazy(() => import('./FileExplorer').then((module) => ({ default: module.FileExplorer })));
 
 export const Sidebar: React.FC = () => {
   const { state, setCurrentView } = useAppContext();
@@ -53,7 +55,31 @@ export const Sidebar: React.FC = () => {
           padding: 0,
         }}
       >
-        <FileExplorer onFileSelect={handleFileSelect} onWebsiteConfigSelect={handleWebsiteConfigSelect} />
+        <Suspense
+          fallback={
+            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+              <div
+                style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid var(--accent-fill-rest)',
+                  borderTopColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 8px',
+                }}
+              />
+              Loading files...
+              <style>{`
+                @keyframes spin {
+                  to { transform: rotate(360deg); }
+                }
+              `}</style>
+            </div>
+          }
+        >
+          <FileExplorer onFileSelect={handleFileSelect} onWebsiteConfigSelect={handleWebsiteConfigSelect} />
+        </Suspense>
       </FluentCard>
     </aside>
   );

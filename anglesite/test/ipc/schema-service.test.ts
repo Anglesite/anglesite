@@ -116,8 +116,8 @@ describe('Schema Service IPC Handlers', () => {
 
       // Verify main schema properties are present
       expect(result.schema.properties).toBeDefined();
-      expect((result.schema.properties as any).title).toBeDefined();
-      expect((result.schema.properties as any).language).toBeDefined();
+      expect((result.schema.properties as Record<string, SchemaProperty>).title).toBeDefined();
+      expect((result.schema.properties as Record<string, SchemaProperty>).language).toBeDefined();
 
       // Verify schema structure is correct
       expect(result.schema.title).toBe('Test Website Configuration');
@@ -130,12 +130,13 @@ describe('Schema Service IPC Handlers', () => {
       const result = (await handler(mockIpcInvokeEvent, 'test-website')) as SchemaResult;
 
       // Check that author properties reference the common schema
-      expect((result.schema?.properties as any)?.author).toBeDefined();
-      expect(((result.schema?.properties as any)?.author as SchemaProperty)?.type).toBe('object');
-      expect(((result.schema?.properties as any)?.author as SchemaProperty)?.properties).toBeDefined();
+      const properties = result.schema?.properties as Record<string, SchemaProperty>;
+      expect(properties?.author).toBeDefined();
+      expect(properties?.author?.type).toBe('object');
+      expect(properties?.author?.properties).toBeDefined();
 
       // Email and URL may be $ref references to common.json
-      const authorEmailProp = ((result.schema?.properties as any)?.author as SchemaProperty)?.properties?.email;
+      const authorEmailProp = properties?.author?.properties?.email;
       expect(authorEmailProp).toBeDefined();
 
       // Should either be resolved or contain reference to common definitions
@@ -149,10 +150,11 @@ describe('Schema Service IPC Handlers', () => {
       const result = (await handler(mockIpcInvokeEvent, 'test-website')) as SchemaResult;
 
       // Verify properties from different modules are present
-      expect((result.schema?.properties as any)?.title).toBeDefined(); // basic-info
-      expect((result.schema?.properties as any)?.robots).toBeDefined(); // seo-robots
-      expect((result.schema?.properties as any)?.feeds).toBeDefined(); // feeds
-      expect((result.schema?.properties as any)?.rsl).toBeDefined(); // rsl
+      const properties = result.schema?.properties as Record<string, SchemaProperty>;
+      expect(properties?.title).toBeDefined(); // basic-info
+      expect(properties?.robots).toBeDefined(); // seo-robots
+      expect(properties?.feeds).toBeDefined(); // feeds
+      expect(properties?.rsl).toBeDefined(); // rsl
     });
 
     test('should handle missing schema directory gracefully', async () => {
@@ -165,7 +167,8 @@ describe('Schema Service IPC Handlers', () => {
       expect(result.error).toBeDefined();
       expect(result.error).toContain('Schema directory not found');
       expect(result.fallbackSchema).toBeDefined();
-      expect((result.fallbackSchema?.properties as any)?.title).toBeDefined();
+      const fallbackProperties = result.fallbackSchema?.properties as Record<string, SchemaProperty>;
+      expect(fallbackProperties?.title).toBeDefined();
     });
 
     test('should handle corrupted schema files gracefully', async () => {
@@ -191,7 +194,8 @@ describe('Schema Service IPC Handlers', () => {
       expect(result.warnings).toEqual(expect.arrayContaining([expect.stringContaining('feeds.json')]));
       expect(result.schema).toBeDefined();
       // Should still have other modules
-      expect((result.schema?.properties as any)?.title).toBeDefined();
+      const properties = result.schema?.properties as Record<string, SchemaProperty>;
+      expect(properties?.title).toBeDefined();
     });
   });
 

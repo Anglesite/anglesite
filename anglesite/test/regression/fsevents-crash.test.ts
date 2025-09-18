@@ -26,10 +26,10 @@ import { mockApp, resetElectronMocks } from '../mocks/electron';
 import { setupConsoleSpies, restoreConsoleSpies } from '../mocks/utils';
 
 describe('FSEvents Crash Regression Tests', () => {
-  let mockChokidarWatcher: any;
-  let mockServiceRegistry: any;
-  let mockServerManager: any;
-  let mockFileWatcher: any;
+  let mockChokidarWatcher: jest.Mocked<Record<string, jest.Mock>>;
+  let mockServiceRegistry: jest.Mocked<Record<string, jest.Mock>>;
+  let mockServerManager: jest.Mocked<Record<string, jest.Mock>>;
+  let mockFileWatcher: jest.Mocked<Record<string, jest.Mock>>;
   let consoleSpy: jest.SpyInstance;
   let consoleErrorSpy: jest.SpyInstance;
 
