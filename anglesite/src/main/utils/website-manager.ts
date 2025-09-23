@@ -1018,7 +1018,6 @@ export async function listWebsites(): Promise<string[]> {
   return manager.listWebsites();
 }
 
-
 /**
  * @deprecated Use WebsiteManager service through DI container instead
  * This is kept as a fallback for when DI is not yet initialized.
@@ -1057,4 +1056,24 @@ export async function deleteWebsite(websiteName: string): Promise<boolean> {
   const atomicOps = createStubAtomicOperations(fileSystem);
   const manager = new WebsiteManager(logger, fileSystem, atomicOps);
   return manager.deleteWebsite(websiteName);
+}
+
+/**
+ * @deprecated Use WebsiteManager service through DI container instead
+ * This is kept as a fallback for when DI is not yet initialized.
+ */
+export function getWebsitePath(websiteName: string): string {
+  console.warn('Using deprecated getWebsitePath - DI not available');
+  // Create a temporary instance for fallback
+  const logger = {
+    debug: () => {},
+    info: () => {},
+    warn: console.warn,
+    error: console.error,
+    child: () => logger,
+  } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const fileSystem = new FileSystemService();
+  const atomicOps = createStubAtomicOperations(fileSystem);
+  const manager = new WebsiteManager(logger, fileSystem, atomicOps);
+  return manager.getWebsitePath(websiteName);
 }
