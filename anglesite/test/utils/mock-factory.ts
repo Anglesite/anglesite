@@ -90,11 +90,19 @@ export class MockFactory {
   static setupWindowElectronAPI(mockAPI?: MockElectronAPI): MockElectronAPI {
     const api = mockAPI || MockFactory.createElectronAPI();
 
-    Object.defineProperty(window, 'electronAPI', {
-      value: api,
-      writable: true,
-      configurable: true,
-    });
+    // Check if property exists and is configurable
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'electronAPI');
+    if (descriptor && !descriptor.configurable) {
+      // If not configurable, just assign the value
+      (window as any).electronAPI = api; // eslint-disable-line @typescript-eslint/no-explicit-any
+    } else {
+      // Otherwise, define the property
+      Object.defineProperty(window, 'electronAPI', {
+        value: api,
+        writable: true,
+        configurable: true,
+      });
+    }
 
     return api;
   }
@@ -150,13 +158,6 @@ export class MockFactory {
    * Creates a mock console object for testing console outputs.
    */
   static createMockConsole() {
-    const originalConsole = {
-      log: console.log,
-      error: console.error,
-      warn: console.warn,
-      debug: console.debug,
-    };
-
     const mockConsole = {
       log: jest.spyOn(console, 'log').mockImplementation(),
       error: jest.spyOn(console, 'error').mockImplementation(),
@@ -167,8 +168,11 @@ export class MockFactory {
     return {
       mocks: mockConsole,
       restore: () => {
-        Object.assign(console, originalConsole);
-        Object.values(mockConsole).forEach((mock) => mock.mockRestore());
+        // Restore all mocked console methods
+        mockConsole.log.mockRestore();
+        mockConsole.error.mockRestore();
+        mockConsole.warn.mockRestore();
+        mockConsole.debug.mockRestore();
       },
     };
   }
