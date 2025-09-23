@@ -5,6 +5,7 @@ import { RJSFSchema } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import { useAppContext } from '../context/AppContext';
 import { logger } from '../../../utils/logger';
+import { PATHS } from '../../../../shared/constants';
 
 interface SchemaResult {
   schema?: RJSFSchema;
@@ -89,7 +90,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
         const existingContent = await window.electronAPI.invoke(
           'get-file-content',
           state.websiteName,
-          'src/_data/website.json'
+          PATHS.WEBSITE_DATA
         );
 
         if (isCancelled) return;
@@ -148,7 +149,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
    * 3. Converts to JSON format with proper formatting
    *
    * **IPC Communication:**
-   * Uses `save-file-content` channel to write JSON data to `src/_data/website.json`
+   * Uses `save-file-content` channel to write JSON data to `${PATHS.WEBSITE_DATA}`
    *
    * **Error Handling:**
    * - Reports validation errors through onError callback
@@ -189,7 +190,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
       const success = await window.electronAPI.invoke(
         'save-file-content',
         state.websiteName,
-        'src/_data/website.json',
+        PATHS.WEBSITE_DATA,
         websiteJson
       );
 

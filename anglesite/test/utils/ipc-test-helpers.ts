@@ -4,6 +4,7 @@
  */
 
 import type { MockElectronAPI } from './mock-factory';
+import { PATHS } from '../../src/shared/constants';
 
 /**
  * Utility class for testing IPC handlers.
@@ -165,12 +166,12 @@ export class IPCTestPatterns {
     const result = await this.helper.mockAPI.invoke(
       'save-file-content',
       websiteName,
-      'src/_data/website.json',
+      PATHS.WEBSITE_DATA,
       JSON.stringify(configData)
     );
 
     expect(result).toBe(expectedResult);
-    this.helper.expectCall('save-file-content', websiteName, 'src/_data/website.json', JSON.stringify(configData));
+    this.helper.expectCall('save-file-content', websiteName, PATHS.WEBSITE_DATA, JSON.stringify(configData));
   }
 
   /**
@@ -364,10 +365,10 @@ export const IPCTestScenarios = {
     const result = await helper.mockAPI.invoke(
       'save-file-content',
       websiteName,
-      'src/_data/website.json',
+      PATHS.WEBSITE_DATA,
       JSON.stringify(config)
     );
     expect(result).toBe(true);
-    helper.expectCall('save-file-content', websiteName, 'src/_data/website.json', JSON.stringify(config));
+    helper.expectCall('save-file-content', websiteName, PATHS.WEBSITE_DATA, JSON.stringify(config));
   },
 };

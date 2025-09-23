@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { logger } from '../../../utils/logger';
 import { ErrorBoundary } from './ErrorBoundary';
+import { COMPONENT_NAMES } from '../../../../shared/constants';
 
 // ViewModeToggle component
 const ViewModeToggle: React.FC = () => {
@@ -100,7 +101,7 @@ export const Main: React.FC = () => {
 
         return (
           <ErrorBoundary
-            componentName="WebsiteConfigEditor-Wrapper"
+            componentName={`${COMPONENT_NAMES.WEBSITE_CONFIG_EDITOR}-Wrapper`}
             onError={(error, errorInfo) => {
               logger.error('Main', 'WebsiteConfigEditor crashed in onError callback', {
                 error: error.message,

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { Header } from './Header';
 import { ErrorBoundary } from './ErrorBoundary';
+import { COMPONENT_NAMES } from '../../../../shared/constants';
 
 // Lazy load non-critical components for better initial load performance
 const Sidebar = lazy(() => import('./Sidebar').then((module) => ({ default: module.Sidebar })));
@@ -42,12 +43,12 @@ export const App: React.FC = () => {
     <div className="app">
       <Header />
       <div className="app-body">
-        <ErrorBoundary componentName="Sidebar" fallback={<div>Failed to load sidebar</div>}>
+        <ErrorBoundary componentName={COMPONENT_NAMES.SIDEBAR} fallback={<div>Failed to load sidebar</div>}>
           <Suspense fallback={<LoadingFallback componentName="sidebar" />}>
             <Sidebar />
           </Suspense>
         </ErrorBoundary>
-        <ErrorBoundary componentName="Main" fallback={<div>Failed to load main content</div>}>
+        <ErrorBoundary componentName={COMPONENT_NAMES.MAIN} fallback={<div>Failed to load main content</div>}>
           <Suspense fallback={<LoadingFallback componentName="main content" />}>
             <Main />
           </Suspense>

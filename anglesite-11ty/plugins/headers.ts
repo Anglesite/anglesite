@@ -3,6 +3,7 @@ import * as path from 'path';
 import { parse as yamlParse } from 'yaml';
 import type { EleventyConfig } from '@11ty/eleventy';
 import { AnglesiteWebsiteConfiguration } from '../types/website.js';
+import { PATHS } from '../src/constants.js';
 import {
   getEffectiveLicenseConfiguration,
   normalizeRSLConfiguration,
@@ -833,7 +834,7 @@ export function collectPathHeaders(
   let baseUrl: string | undefined = undefined;
 
   try {
-    const websiteJsonPath = './src/_data/website.json';
+    const websiteJsonPath = PATHS.WEBSITE_DATA;
     const websiteContent = readFileSync(websiteJsonPath, 'utf8');
     const websiteConfig = JSON.parse(websiteContent);
 
