@@ -89,11 +89,13 @@ describe('Schema Service IPC Handlers', () => {
     });
 
     // Reset mock implementations for service registry
-    mockWebsiteManager.execute.mockImplementation(async (callback: (service: any) => Promise<string>) => {
-      return callback({
-        getWebsitePath: (websiteName: string) => `/test/websites/${websiteName}`,
-      });
-    });
+    mockWebsiteManager.execute.mockImplementation(
+      async (callback: (service: { getWebsitePath: (name: string) => string }) => Promise<string>) => {
+        return callback({
+          getWebsitePath: (websiteName: string) => path.join(__dirname, '../fixtures/websites', websiteName),
+        });
+      }
+    );
 
     // Create mock IPC event
     mockIpcInvokeEvent = {

@@ -344,7 +344,9 @@ export function createApplicationMenu(): Menu {
                       // Get website path
                       let websitePath: string;
                       const appContext = getGlobalContext();
-                      const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+                      const websiteManager = appContext.getResilientService<IWebsiteManager>(
+                        ServiceKeys.WEBSITE_MANAGER
+                      );
                       websitePath = await websiteManager.execute(async (service) => {
                         return service.getWebsitePath(websiteName);
                       });

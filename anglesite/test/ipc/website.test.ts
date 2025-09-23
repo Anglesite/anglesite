@@ -591,9 +591,7 @@ describe.skip('Website IPC Handlers (disabled due to DI timeout issues)', () => 
     it('should handle missing website directory', async () => {
       mockFs.existsSync.mockReturnValue(false);
 
-      await expect(openWebsiteInNewWindow('test-website')).rejects.toThrow(
-        'Website directory does not exist:'
-      );
+      await expect(openWebsiteInNewWindow('test-website')).rejects.toThrow('Website directory does not exist:');
 
       expect(mockCreateWebsiteWindow).not.toHaveBeenCalled();
     });

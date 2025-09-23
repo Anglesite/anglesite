@@ -35,11 +35,17 @@ describe('FSEvents Stress Tests - Race Condition Reproduction', () => {
   });
 
   afterEach(() => {
-    // Restore original platform
-    Object.defineProperty(process, 'platform', {
-      value: originalPlatform,
-      configurable: true,
-    });
+    // Ensure platform is always restored, even if test fails
+    try {
+      // Clean up any remaining mocks
+      jest.clearAllMocks();
+    } finally {
+      // Always restore original platform
+      Object.defineProperty(process, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      });
+    }
   });
 
   describe('High-Load Quit Scenarios', () => {

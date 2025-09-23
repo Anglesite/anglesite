@@ -84,11 +84,13 @@ describe('Schema Validation and Resolution', () => {
     mockHandlers = {};
 
     // Reset mock implementations
-    mockWebsiteManager.execute.mockImplementation(async (callback: (service: any) => Promise<string>) => {
-      return callback({
-        getWebsitePath: (websiteName: string) => `/test/websites/${websiteName}`,
-      });
-    });
+    mockWebsiteManager.execute.mockImplementation(
+      async (callback: (service: { getWebsitePath: (name: string) => string }) => Promise<string>) => {
+        return callback({
+          getWebsitePath: (websiteName: string) => `/test/websites/${websiteName}`,
+        });
+      }
+    );
 
     // Capture registered handlers
     (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: IPCHandler) => {

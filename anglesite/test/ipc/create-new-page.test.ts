@@ -104,12 +104,14 @@ describe('create-new-page IPC handler', () => {
         return null;
       }),
       getResilientService: jest.fn((key: string) => {
-        if (key === ServiceKeys.WEBSITE_MANAGER) return {
-          execute: jest.fn(async (callback) => callback(mockWebsiteManager)),
-        };
-        if (key === ServiceKeys.GIT_HISTORY_MANAGER) return {
-          execute: jest.fn(async (callback) => callback(mockGitHistoryManager)),
-        };
+        if (key === ServiceKeys.WEBSITE_MANAGER)
+          return {
+            execute: jest.fn(async (callback) => callback(mockWebsiteManager)),
+          };
+        if (key === ServiceKeys.GIT_HISTORY_MANAGER)
+          return {
+            execute: jest.fn(async (callback) => callback(mockGitHistoryManager)),
+          };
         return null;
       }),
     };

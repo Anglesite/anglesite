@@ -12,8 +12,8 @@ interface SchemaResult {
   fallbackSchema?: Record<string, unknown>;
 }
 
-// Import the module to spy on it
-import * as websiteManager from '../../src/main/utils/website-manager';
+// Import the module to spy on it (if needed for future test expansion)
+// import * as websiteManager from '../../src/main/utils/website-manager';
 
 // Note: Using global electron mock from Jest setup (includes both handle and on)
 
