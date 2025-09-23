@@ -346,9 +346,11 @@ describe('WebsiteConfigEditor', () => {
       fireEvent.click(saveButton);
 
       await waitFor(() => {
-        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
-          title: 'New Title'
-        }));
+        expect(onSave).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'New Title',
+          })
+        );
       });
     });
 

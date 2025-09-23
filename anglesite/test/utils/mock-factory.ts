@@ -313,3 +313,70 @@ export function setupStandardMocks() {
     },
   };
 }
+
+/**
+ * Creates a mock AppContext value for React component testing.
+ */
+export function createMockAppContextValue(
+  overrides?: Partial<{
+    currentView: string;
+    selectedFile: unknown;
+    websiteName: string;
+    websitePath: string;
+    loading: boolean;
+  }>
+) {
+  return {
+    state: {
+      currentView: 'website-config' as const,
+      selectedFile: null,
+      websiteName: 'test-website',
+      websitePath: '/test/path',
+      loading: false,
+      ...overrides,
+    },
+    setCurrentView: jest.fn(),
+    setSelectedFile: jest.fn(),
+    setWebsiteName: jest.fn(),
+    setWebsitePath: jest.fn(),
+    setLoading: jest.fn(),
+  };
+}
+
+/**
+ * Creates a standardized website configuration object for testing.
+ */
+export function createMockWebsiteConfig(overrides?: Record<string, unknown>) {
+  return {
+    title: 'Test Website',
+    language: 'en',
+    description: 'A test website configuration',
+    author: {
+      name: 'Test Author',
+      email: 'test@example.com',
+    },
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock process.platform restoration guard for tests that modify platform.
+ */
+export function createPlatformGuard() {
+  const originalPlatform = process.platform;
+
+  return {
+    setPlatform: (platform: NodeJS.Platform) => {
+      Object.defineProperty(process, 'platform', {
+        value: platform,
+        configurable: true,
+      });
+    },
+    restore: () => {
+      Object.defineProperty(process, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      });
+    },
+  };
+}

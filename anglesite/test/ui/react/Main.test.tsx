@@ -5,9 +5,9 @@
 
 // Wrap in a function to avoid global scope pollution and bypass Jest mocking
 const getReactTestModules = () => {
-  // Use Node.js require directly to completely bypass Jest's module mocking
-  const fs = require('fs');
-  const path = require('path');
+  // Use jest.requireActual to completely bypass Jest's module mocking
+  const fs = jest.requireActual('fs');
+  const path = jest.requireActual('path');
   return { fs, path };
 };
 
@@ -56,8 +56,8 @@ describe('Main Component Code Splitting', () => {
   // Test that the component file exists and has the right structure
   it('should have lazy loading implementation', () => {
     // Get a fresh fs module to avoid any cached mocks
-    const freshFs = require('fs');
-    const freshPath = require('path');
+    const freshFs = jest.requireActual('fs');
+    const freshPath = jest.requireActual('path');
 
     const projectRoot = findProjectRoot();
     const mainPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
@@ -75,8 +75,8 @@ describe('Main Component Code Splitting', () => {
 
   it('should have Error Boundary for lazy components', () => {
     // Get a fresh fs module to avoid any cached mocks
-    const freshFs = require('fs');
-    const freshPath = require('path');
+    const freshFs = jest.requireActual('fs');
+    const freshPath = jest.requireActual('path');
 
     const projectRoot = findProjectRoot();
     const mainPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
@@ -95,8 +95,8 @@ describe('Main Component Code Splitting', () => {
 
   it('should have conditional lazy loading', () => {
     // Get a fresh fs module to avoid any cached mocks
-    const freshFs = require('fs');
-    const freshPath = require('path');
+    const freshFs = jest.requireActual('fs');
+    const freshPath = jest.requireActual('path');
 
     const projectRoot = findProjectRoot();
     const mainPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
@@ -109,8 +109,8 @@ describe('Main Component Code Splitting', () => {
 
   it('should have proper fallback UI for loading states', () => {
     // Get a fresh fs module to avoid any cached mocks
-    const freshFs = require('fs');
-    const freshPath = require('path');
+    const freshFs = jest.requireActual('fs');
+    const freshPath = jest.requireActual('path');
 
     const projectRoot = findProjectRoot();
     const mainPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
@@ -123,8 +123,8 @@ describe('Main Component Code Splitting', () => {
 
   it('should export Main component properly', () => {
     // Get a fresh fs module to avoid any cached mocks
-    const freshFs = require('fs');
-    const freshPath = require('path');
+    const freshFs = jest.requireActual('fs');
+    const freshPath = jest.requireActual('path');
 
     const projectRoot = findProjectRoot();
     const mainPath = freshPath.join(projectRoot, 'src/renderer/ui/react/components/Main.tsx');
