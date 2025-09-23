@@ -33,14 +33,20 @@ describe('Code Splitting Build Integration', () => {
 
       // Check for expected chunks (names may vary due to contenthash)
       const hasReactChunk = jsFiles.some((f) => f.startsWith('react.'));
-      const hasFormsChunk = jsFiles.some((f) => f.startsWith('forms.'));
+      const hasRjsfChunk = jsFiles.some((f) => f.startsWith('rjsf.'));
+      const hasAjvChunk = jsFiles.some((f) => f.startsWith('ajv.'));
+      const hasMuiChunk = jsFiles.some((f) => f.startsWith('mui.'));
+      const hasEmotionChunk = jsFiles.some((f) => f.startsWith('emotion.'));
       const hasUtilsChunk = jsFiles.some((f) => f.startsWith('utils.'));
       const hasVendorsChunk = jsFiles.some((f) => f.startsWith('vendors.'));
       const hasMainChunk = jsFiles.some((f) => f.startsWith('main.'));
       const hasRuntimeChunk = jsFiles.some((f) => f.startsWith('runtime.'));
 
       expect(hasReactChunk).toBe(true);
-      expect(hasFormsChunk).toBe(true);
+      expect(hasRjsfChunk).toBe(true);
+      expect(hasAjvChunk).toBe(true);
+      expect(hasMuiChunk).toBe(true);
+      expect(hasEmotionChunk).toBe(true);
       expect(hasUtilsChunk).toBe(true);
       expect(hasVendorsChunk).toBe(true);
       expect(hasMainChunk).toBe(true);
@@ -58,12 +64,36 @@ describe('Code Splitting Build Integration', () => {
         expect(stats.size).toBeLessThan(250000); // < 250KB
       }
 
-      // Check Forms chunk size (should be ~297KB minified)
-      const formsChunk = files.find((f) => f.startsWith('forms.') && f.endsWith('.js'));
-      if (formsChunk) {
-        const stats = fs.statSync(path.join(distPath, formsChunk));
-        expect(stats.size).toBeGreaterThan(250000); // > 250KB
+      // Check RJSF chunk size (should be ~400KB minified)
+      const rjsfChunk = files.find((f) => f.startsWith('rjsf.') && f.endsWith('.js'));
+      if (rjsfChunk) {
+        const stats = fs.statSync(path.join(distPath, rjsfChunk));
+        expect(stats.size).toBeGreaterThan(300000); // > 300KB
+        expect(stats.size).toBeLessThan(500000); // < 500KB
+      }
+
+      // Check AJV chunk size (should be ~300KB minified)
+      const ajvChunk = files.find((f) => f.startsWith('ajv.') && f.endsWith('.js'));
+      if (ajvChunk) {
+        const stats = fs.statSync(path.join(distPath, ajvChunk));
+        expect(stats.size).toBeGreaterThan(200000); // > 200KB
         expect(stats.size).toBeLessThan(400000); // < 400KB
+      }
+
+      // Check MUI chunk size (should be ~350KB minified)
+      const muiChunk = files.find((f) => f.startsWith('mui.') && f.endsWith('.js'));
+      if (muiChunk) {
+        const stats = fs.statSync(path.join(distPath, muiChunk));
+        expect(stats.size).toBeGreaterThan(250000); // > 250KB
+        expect(stats.size).toBeLessThan(450000); // < 450KB
+      }
+
+      // Check Emotion chunk size (should be ~200KB minified)
+      const emotionChunk = files.find((f) => f.startsWith('emotion.') && f.endsWith('.js'));
+      if (emotionChunk) {
+        const stats = fs.statSync(path.join(distPath, emotionChunk));
+        expect(stats.size).toBeGreaterThan(100000); // > 100KB
+        expect(stats.size).toBeLessThan(300000); // < 300KB
       }
 
       // Check Main chunk size (should be small, ~20KB)
@@ -147,25 +177,46 @@ describe('Code Splitting Build Integration', () => {
       const statsPath = path.join(distPath, 'bundle-stats.json');
       const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
 
-      // Find forms chunk
-      const formsChunk = stats.chunks?.find(
-        (c: Record<string, unknown>) => (c.names as string[])?.includes('forms') || c.id === 'forms'
+      // Find RJSF chunk
+      const rjsfChunk = stats.chunks?.find(
+        (c: Record<string, unknown>) => (c.names as string[])?.includes('rjsf') || c.id === 'rjsf'
       );
 
-      if (formsChunk) {
-        // Forms chunk should contain @rjsf modules
-        const formsModules = stats.modules?.filter(
+      if (rjsfChunk) {
+        // RJSF chunk should contain @rjsf modules
+        const rjsfModules = stats.modules?.filter(
           (m: Record<string, unknown>) =>
-            (formsChunk.modules as string[])?.includes(m.id as string) ||
-            (formsChunk.containedModules as string[])?.includes(m.id as string)
+            (rjsfChunk.modules as string[])?.includes(m.id as string) ||
+            (rjsfChunk.containedModules as string[])?.includes(m.id as string)
         );
 
-        const hasRjsfModules = formsModules?.some(
+        const hasRjsfModules = rjsfModules?.some(
           (m: Record<string, unknown>) =>
             (m.name as string)?.includes('@rjsf') || (m.identifier as string)?.includes('@rjsf')
         );
 
         expect(hasRjsfModules).toBe(true);
+      }
+
+      // Find AJV chunk
+      const ajvChunk = stats.chunks?.find(
+        (c: Record<string, unknown>) => (c.names as string[])?.includes('ajv') || c.id === 'ajv'
+      );
+
+      if (ajvChunk) {
+        // AJV chunk should contain ajv modules
+        const ajvModules = stats.modules?.filter(
+          (m: Record<string, unknown>) =>
+            (ajvChunk.modules as string[])?.includes(m.id as string) ||
+            (ajvChunk.containedModules as string[])?.includes(m.id as string)
+        );
+
+        const hasAjvModules = ajvModules?.some(
+          (m: Record<string, unknown>) =>
+            (m.name as string)?.includes('ajv') || (m.identifier as string)?.includes('ajv')
+        );
+
+        expect(hasAjvModules).toBe(true);
       }
     });
   });

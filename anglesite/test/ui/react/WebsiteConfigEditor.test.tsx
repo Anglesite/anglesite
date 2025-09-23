@@ -108,6 +108,8 @@ const MockAppProvider: React.FC<{ children: React.ReactNode; websiteName?: strin
 describe('WebsiteConfigEditor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Use fake timers for debounce testing
+    jest.useFakeTimers();
 
     // Setup default mocks for IPC calls
     mockElectronAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
@@ -158,6 +160,9 @@ describe('WebsiteConfigEditor', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    // Clean up timers
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
   });
 
   describe('Component Rendering', () => {
@@ -289,7 +294,8 @@ describe('WebsiteConfigEditor', () => {
         </MockAppProvider>
       );
 
-      // Wait for form to load
+      // Wait for form to load (advance timers to resolve promises)
+      jest.advanceTimersByTime(0);
       await waitFor(() => {
         expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
       });
@@ -305,6 +311,9 @@ describe('WebsiteConfigEditor', () => {
 
       const saveButton = screen.getByRole('button', { name: /submit/i });
       fireEvent.click(saveButton);
+
+      // Fast-forward through the debounce delay
+      jest.advanceTimersByTime(1000);
 
       await waitFor(() => {
         expect(mockElectronAPI.invoke).toHaveBeenCalledWith(
@@ -329,7 +338,8 @@ describe('WebsiteConfigEditor', () => {
         </MockAppProvider>
       );
 
-      // Wait for form to load
+      // Wait for form to load (advance timers to resolve promises)
+      jest.advanceTimersByTime(0);
       await waitFor(() => {
         expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
       });
@@ -344,6 +354,9 @@ describe('WebsiteConfigEditor', () => {
 
       const saveButton = screen.getByRole('button', { name: /Submit/i });
       fireEvent.click(saveButton);
+
+      // Fast-forward through the debounce delay
+      jest.advanceTimersByTime(1000);
 
       await waitFor(() => {
         expect(onSave).toHaveBeenCalledWith(
@@ -421,7 +434,8 @@ describe('WebsiteConfigEditor', () => {
         </TestSaveErrorProvider>
       );
 
-      // Wait for form to load
+      // Wait for form to load (advance timers to resolve promises)
+      jest.advanceTimersByTime(0);
       await waitFor(() => {
         expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
       });
@@ -438,6 +452,9 @@ describe('WebsiteConfigEditor', () => {
       const saveButton = screen.getByRole('button', { name: /Submit/i });
       fireEvent.click(saveButton);
 
+      // Fast-forward through the debounce delay
+      jest.advanceTimersByTime(1000);
+
       await waitFor(() => {
         expect(onError).toHaveBeenCalledWith(expect.stringContaining('Failed to save'));
       });
@@ -446,6 +463,9 @@ describe('WebsiteConfigEditor', () => {
 
   describe('Form Interactions', () => {
     it('should allow form field modifications', async () => {
+      // Use real timers for this test since it doesn't involve debouncing
+      jest.useRealTimers();
+
       // Create a dedicated mock context for this test
       const TestUnsavedChangesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         const mockContextValue = {
@@ -507,7 +527,8 @@ describe('WebsiteConfigEditor', () => {
         </TestUnsavedChangesProvider>
       );
 
-      // Wait for form to load
+      // Wait for form to load (advance timers to resolve promises)
+      jest.advanceTimersByTime(0);
       await waitFor(() => {
         expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
       });
@@ -520,9 +541,15 @@ describe('WebsiteConfigEditor', () => {
       await waitFor(() => {
         expect(titleInput).toHaveValue('Existing Website Modified');
       });
+
+      // Restore fake timers for subsequent tests
+      jest.useFakeTimers();
     });
 
     it('should save form changes when submitted', async () => {
+      // Use real timers initially for form loading
+      jest.useRealTimers();
+
       // Create a dedicated mock context for this test
       const TestClearChangesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         const mockContextValue = {
@@ -587,7 +614,8 @@ describe('WebsiteConfigEditor', () => {
         </TestClearChangesProvider>
       );
 
-      // Wait for form to load
+      // Wait for form to load (advance timers to resolve promises)
+      jest.advanceTimersByTime(0);
       await waitFor(() => {
         expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
       });
@@ -601,9 +629,13 @@ describe('WebsiteConfigEditor', () => {
         expect(titleInput).toHaveValue('Existing Website Modified');
       });
 
-      // Save the changes
+      // Save the changes - switch back to fake timers for debouncing
+      jest.useFakeTimers();
       const saveButton = screen.getByRole('button', { name: /Submit/i });
       fireEvent.click(saveButton);
+
+      // Fast-forward through the debounce delay
+      jest.advanceTimersByTime(1000);
 
       // Verify save was called
       await waitFor(() => {
@@ -614,6 +646,93 @@ describe('WebsiteConfigEditor', () => {
           expect.stringContaining('Existing Website Modified')
         );
       });
+    });
+  });
+
+  describe('Performance Optimization', () => {
+    it('should debounce rapid save operations', async () => {
+      const onSave = jest.fn();
+
+      render(
+        <MockAppProvider>
+          <WebsiteConfigEditor onSave={onSave} />
+        </MockAppProvider>
+      );
+
+      // Wait for form to load (advance timers to resolve promises)
+      jest.advanceTimersByTime(0);
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+      });
+
+      const titleInput = screen.getByLabelText(/Website Title/);
+      const saveButton = screen.getByRole('button', { name: /Submit/i });
+
+      // Rapidly submit form multiple times
+      fireEvent.change(titleInput, { target: { value: 'Title 1' } });
+      fireEvent.click(saveButton);
+
+      fireEvent.change(titleInput, { target: { value: 'Title 2' } });
+      fireEvent.click(saveButton);
+
+      fireEvent.change(titleInput, { target: { value: 'Title 3' } });
+      fireEvent.click(saveButton);
+
+      // Only advance time by 500ms - should not trigger saves yet
+      jest.advanceTimersByTime(500);
+      expect(mockElectronAPI.invoke).not.toHaveBeenCalledWith(
+        'save-file-content',
+        expect.anything(),
+        expect.anything(),
+        expect.anything()
+      );
+
+      // Advance time to complete debounce delay
+      jest.advanceTimersByTime(500);
+
+      // Should only have one save call with the final value
+      await waitFor(() => {
+        const saveCalls = mockElectronAPI.invoke.mock.calls.filter((call) => call[0] === 'save-file-content');
+        expect(saveCalls).toHaveLength(1);
+        expect(saveCalls[0][3]).toContain('Title 3');
+      });
+
+      expect(onSave).toHaveBeenCalledTimes(1);
+    });
+
+    it('should cancel pending saves on component unmount', async () => {
+      const { unmount } = render(
+        <MockAppProvider>
+          <WebsiteConfigEditor />
+        </MockAppProvider>
+      );
+
+      // Wait for form to load (advance timers to resolve promises)
+      jest.advanceTimersByTime(0);
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+      });
+
+      const titleInput = screen.getByLabelText(/Website Title/);
+      const saveButton = screen.getByRole('button', { name: /Submit/i });
+
+      // Trigger save
+      fireEvent.change(titleInput, { target: { value: 'Cancelled Save' } });
+      fireEvent.click(saveButton);
+
+      // Unmount before debounce completes
+      unmount();
+
+      // Complete the debounce delay
+      jest.advanceTimersByTime(1000);
+
+      // Should not have called save after unmount
+      expect(mockElectronAPI.invoke).not.toHaveBeenCalledWith(
+        'save-file-content',
+        expect.anything(),
+        expect.anything(),
+        expect.anything()
+      );
     });
   });
 

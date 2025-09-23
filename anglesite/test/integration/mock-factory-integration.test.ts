@@ -4,7 +4,7 @@
  * Testing real-world usage patterns and mock interactions
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { MockFactory, MockElectronAPI } from '../utils/mock-factory';
 

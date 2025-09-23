@@ -258,17 +258,59 @@ module.exports = merge(common, {
         },
 
         /**
-         * Form libraries chunk (@rjsf, ajv, mui) - async only for lazy loading
-         * Heavy dependencies separated due to size (1+ MB)
+         * React JSON Schema Form chunk - async only for lazy loading
+         * Form generation and validation libraries (~400KB)
          */
-        forms: {
-          test: /[\\/]node_modules[\\/](@rjsf|ajv|ajv-formats|@mui|@emotion)[\\/]/,
-          name: 'forms',
+        rjsf: {
+          test: /[\\/]node_modules[\\/]@rjsf[\\/]/,
+          name: 'rjsf',
+          priority: 38,
+          reuseExistingChunk: true,
+          chunks: 'async', // Only split async chunks (lazy imports)
+          enforce: true,
+          minSize: 10000,
+        },
+
+        /**
+         * JSON Schema validation chunk - async only for lazy loading
+         * AJV validation engine and formats (~300KB)
+         */
+        ajv: {
+          test: /[\\/]node_modules[\\/](ajv|ajv-formats)[\\/]/,
+          name: 'ajv',
+          priority: 37,
+          reuseExistingChunk: true,
+          chunks: 'async', // Only split async chunks (lazy imports)
+          enforce: true,
+          minSize: 10000,
+        },
+
+        /**
+         * Material-UI chunk - async only for lazy loading
+         * UI components and theming (~350KB)
+         */
+        mui: {
+          test: /[\\/]node_modules[\\/]@mui[\\/]/,
+          name: 'mui',
+          priority: 36,
+          reuseExistingChunk: true,
+          chunks: 'async', // Only split async chunks (lazy imports)
+          enforce: true,
+          minSize: 10000,
+        },
+
+        /**
+         * Emotion styling chunk - async only for lazy loading
+         * CSS-in-JS styling engine (~200KB)
+         */
+        emotion: {
+          test: /[\\/]node_modules[\\/]@emotion[\\/]/,
+          name: 'emotion',
           priority: 35,
           reuseExistingChunk: true,
           chunks: 'async', // Only split async chunks (lazy imports)
           enforce: true,
-          minSize: 10000, // Lower threshold for better splitting
+          minSize: 10000,
         },
 
         /**
