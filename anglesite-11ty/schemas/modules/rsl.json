@@ -226,35 +226,68 @@
     "RSLCollectionConfig": {
       "type": "object",
       "description": "Per-collection RSL configuration",
-      "allOf": [
-        {
-          "$ref": "#/$defs/RSLLicenseConfiguration"
+      "properties": {
+        "permits": {
+          "type": "array",
+          "description": "Permitted actions",
+          "items": { "$ref": "#/$defs/RSLPermissionSet" }
         },
-        {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable RSL for this collection",
-              "default": true
-            },
-            "outputFormats": {
-              "type": "array",
-              "description": "Output formats for this collection",
-              "items": {
-                "type": "string",
-                "enum": ["individual", "collection"]
-              }
-            },
-            "filename": {
-              "type": "string",
-              "description": "Custom filename for collection RSL",
-              "pattern": "^[a-zA-Z0-9_-]+$"
-            }
-          },
-          "additionalProperties": false
+        "prohibits": {
+          "type": "array",
+          "description": "Prohibited actions",
+          "items": { "$ref": "#/$defs/RSLPermissionSet" }
+        },
+        "payment": {
+          "$ref": "#/$defs/RSLPaymentConfiguration",
+          "description": "Payment configuration"
+        },
+        "copyright": {
+          "type": "string",
+          "description": "Copyright notice"
+        },
+        "standard": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to standard license (e.g., Creative Commons)"
+        },
+        "custom": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to custom license"
+        },
+        "terms": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to terms of use"
+        },
+        "legal": {
+          "$ref": "#/$defs/RSLLegalInformation",
+          "description": "Legal disclaimers"
+        },
+        "schema": {
+          "$ref": "#/$defs/RSLSchemaMetadata",
+          "description": "Schema.org metadata"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable RSL for this collection",
+          "default": true
+        },
+        "outputFormats": {
+          "type": "array",
+          "description": "Output formats for this collection",
+          "items": {
+            "type": "string",
+            "enum": ["individual", "collection"]
+          }
+        },
+        "filename": {
+          "type": "string",
+          "description": "Custom filename for collection RSL",
+          "pattern": "^[a-zA-Z0-9_-]+$"
         }
-      ]
+      },
+      "additionalProperties": false
     },
     "RSLContentDiscoveryConfig": {
       "type": "object",

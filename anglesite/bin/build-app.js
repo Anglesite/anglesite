@@ -67,6 +67,12 @@ function buildApp() {
     console.log('Syncing Eleventy files...');
     copyDirectory('src/main/eleventy', 'dist/src/main/eleventy');
 
+    // Copy schema files from anglesite-11ty workspace
+    console.log('Copying schema files...');
+    const schemaSourceDir = '../anglesite-11ty/schemas';
+    const schemaDestDir = 'dist/schemas';
+    copyDirectory(schemaSourceDir, schemaDestDir);
+
     console.log('App build complete!');
   } catch (error) {
     console.error('Build failed:', error.message);

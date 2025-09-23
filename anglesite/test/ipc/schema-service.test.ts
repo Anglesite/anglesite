@@ -53,6 +53,23 @@ jest.mock('../../src/main/utils/website-manager', () => ({
   createStubAtomicOperations: jest.fn(),
 }));
 
+// Mock the service registry to provide proper getResilientService method
+const mockWebsiteManager = {
+  execute: jest.fn(),
+  getWebsitePath: jest.fn((websiteName: string) => `/test/websites/${websiteName}`),
+};
+
+jest.mock('../../src/main/core/service-registry', () => ({
+  getGlobalContext: jest.fn(() => ({
+    getResilientService: jest.fn((serviceKey: string) => {
+      if (serviceKey === 'websiteManager') {
+        return mockWebsiteManager;
+      }
+      throw new Error(`Unknown service: ${serviceKey}`);
+    }),
+  })),
+}));
+
 // Import setupSchemaHandlers after mocks
 import { setupSchemaHandlers } from '../../src/main/ipc/schema';
 
@@ -69,6 +86,13 @@ describe('Schema Service IPC Handlers', () => {
       const mockPath = path.join(__dirname, '../fixtures/websites', websiteName);
       console.log('Mock getWebsitePath called with:', websiteName, 'returning:', mockPath);
       return mockPath;
+    });
+
+    // Reset mock implementations for service registry
+    mockWebsiteManager.execute.mockImplementation(async (callback: (service: any) => Promise<string>) => {
+      return callback({
+        getWebsitePath: (websiteName: string) => `/test/websites/${websiteName}`,
+      });
     });
 
     // Create mock IPC event

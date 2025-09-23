@@ -390,17 +390,12 @@ export function setupFileHandlers(): void {
       // Get website path
       let websitePath: string;
       // let usingFallback = false; // For future fallback tracking
-      try {
-        const appContext = getGlobalContext();
-        const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
-        websitePath = websiteManager.getWebsitePath(websiteName);
-        logger.debug('Got website path via DI', { websitePath });
-      } catch (diError) {
-        logger.warn('DI service unavailable, using fallback', { error: diError });
-        const { getWebsitePath } = await import('../utils/website-manager');
-        websitePath = getWebsitePath(websiteName);
-        logger.debug('Got website path via fallback', { websitePath });
-      }
+      const appContext = getGlobalContext();
+      const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+      websitePath = await websiteManager.execute(async (service) => {
+        return service.getWebsitePath(websiteName);
+      });
+      logger.debug('Got website path via DI', { websitePath });
 
       // Validate websitePath
       if (!websitePath || typeof websitePath !== 'string') {

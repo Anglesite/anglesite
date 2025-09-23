@@ -119,7 +119,6 @@ describe('Main Component Code Splitting', () => {
     // Check for loading and error fallbacks
     expect(mainContent).toMatch(/Loading configuration editor/);
     expect(mainContent).toMatch(/Failed to load configuration editor/);
-    expect(mainContent).toMatch(/Refresh Page/);
   });
 
   it('should export Main component properly', () => {

@@ -17,7 +17,6 @@ import {
   createWebsiteWithName,
   validateWebsiteName,
   listWebsites,
-  getWebsitePath,
   renameWebsite,
   deleteWebsite,
 } from '../../src/main/utils/website-manager';
@@ -73,7 +72,6 @@ const mockGetAllWebsiteWindows = getAllWebsiteWindows as jest.MockedFunction<typ
 const mockCreateWebsiteWithName = createWebsiteWithName as jest.MockedFunction<typeof createWebsiteWithName>;
 const mockValidateWebsiteName = validateWebsiteName as jest.MockedFunction<typeof validateWebsiteName>;
 const mockListWebsites = listWebsites as jest.MockedFunction<typeof listWebsites>;
-const mockGetWebsitePath = getWebsitePath as jest.MockedFunction<typeof getWebsitePath>;
 const mockRenameWebsite = renameWebsite as jest.MockedFunction<typeof renameWebsite>;
 const mockDeleteWebsite = deleteWebsite as jest.MockedFunction<typeof deleteWebsite>;
 const mockUpdateApplicationMenu = updateApplicationMenu as jest.MockedFunction<typeof updateApplicationMenu>;
@@ -140,7 +138,6 @@ describe.skip('Website IPC Handlers (disabled due to DI timeout issues)', () => 
     // Setup default mock implementations
     mockValidateWebsiteName.mockReturnValue({ valid: true });
     mockCreateWebsiteWithName.mockResolvedValue('/path/to/website');
-    mockGetWebsitePath.mockReturnValue('/path/to/website');
     mockFs.existsSync.mockReturnValue(true);
     mockGetAllWebsiteWindows.mockReturnValue(new Map());
     mockListWebsites.mockResolvedValue(['site1', 'site2', 'site3']);
@@ -573,9 +570,9 @@ describe.skip('Website IPC Handlers (disabled due to DI timeout issues)', () => 
 
       await openWebsiteInNewWindow('test-website');
 
-      expect(mockGetWebsitePath).toHaveBeenCalledWith('test-website');
-      expect(mockCreateWebsiteWindow).toHaveBeenCalledWith('test-website', '/path/to/website');
-      expect(mockStartWebsiteServerAndUpdateWindow).toHaveBeenCalledWith('test-website', '/path/to/website');
+      // The websitePath is now resolved internally via DI system
+      expect(mockCreateWebsiteWindow).toHaveBeenCalledWith('test-website', expect.any(String));
+      expect(mockStartWebsiteServerAndUpdateWindow).toHaveBeenCalledWith('test-website', expect.any(String));
     });
 
     it('should skip adding to recent websites for new websites', async () => {
@@ -595,7 +592,7 @@ describe.skip('Website IPC Handlers (disabled due to DI timeout issues)', () => 
       mockFs.existsSync.mockReturnValue(false);
 
       await expect(openWebsiteInNewWindow('test-website')).rejects.toThrow(
-        'Website directory does not exist: /path/to/website'
+        'Website directory does not exist:'
       );
 
       expect(mockCreateWebsiteWindow).not.toHaveBeenCalled();
@@ -653,8 +650,8 @@ describe.skip('Website IPC Handlers (disabled due to DI timeout issues)', () => 
       const handler = ipcHandlers.get('new-website')!;
       await handler(event);
 
-      // Should try to open the existing website
-      expect(mockCreateWebsiteWindow).toHaveBeenCalledWith('existing-website', '/path/to/website');
+      // Should try to open the existing website using DI-resolved path
+      expect(mockCreateWebsiteWindow).toHaveBeenCalledWith('existing-website', expect.any(String));
     });
 
     it('should clean up on failure after creation', async () => {

@@ -343,14 +343,11 @@ export function createApplicationMenu(): Menu {
 
                       // Get website path
                       let websitePath: string;
-                      try {
-                        const appContext = getGlobalContext();
-                        const websiteManager = appContext.getService(ServiceKeys.WEBSITE_MANAGER);
-                        websitePath = (websiteManager as IWebsiteManager).getWebsitePath(websiteName);
-                      } catch {
-                        const { getWebsitePath } = await import('../utils/website-manager');
-                        websitePath = getWebsitePath(websiteName);
-                      }
+                      const appContext = getGlobalContext();
+                      const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+                      websitePath = await websiteManager.execute(async (service) => {
+                        return service.getWebsitePath(websiteName);
+                      });
 
                       const srcPath = path.join(websitePath, 'src');
 

@@ -4,7 +4,9 @@
 import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { getWebsitePath } from '../utils/website-manager';
+import { getGlobalContext } from '../core/service-registry';
+import { ServiceKeys } from '../core/container';
+import type { IWebsiteManager } from '../core/interfaces';
 import { getAllWebsiteWindows } from '../ui/multi-window-manager';
 
 /**
@@ -40,7 +42,12 @@ export function setupReactEditorHandlers(): void {
         throw new Error('Website name is required');
       }
 
-      const websitePath = getWebsitePath(websiteName);
+      const appContext = getGlobalContext();
+      const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+
+      const websitePath = await websiteManager.execute(async (service) => {
+        return service.getWebsitePath(websiteName);
+      });
       const srcPath = path.join(websitePath, 'src');
 
       // Check if src directory exists
@@ -76,7 +83,13 @@ export function setupReactEditorHandlers(): void {
         throw new Error('Website name and relative path must be strings');
       }
 
-      const websitePath = getWebsitePath(websiteName);
+      const appContext = getGlobalContext();
+      const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+
+      const websitePath = await websiteManager.execute(async (service) => {
+        return service.getWebsitePath(websiteName);
+      });
+
       if (!websitePath) {
         throw new Error(`Unable to get website path for: ${websiteName}`);
       }
@@ -125,7 +138,13 @@ export function setupReactEditorHandlers(): void {
           throw new Error('Website name, relative path, and content must be strings');
         }
 
-        const websitePath = getWebsitePath(websiteName);
+        const appContext = getGlobalContext();
+        const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+
+        const websitePath = await websiteManager.execute(async (service) => {
+          return service.getWebsitePath(websiteName);
+        });
+
         if (!websitePath) {
           throw new Error(`Unable to get website path for: ${websiteName}`);
         }

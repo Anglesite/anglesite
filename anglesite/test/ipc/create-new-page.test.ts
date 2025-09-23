@@ -77,6 +77,7 @@ describe('create-new-page IPC handler', () => {
   };
   let mockContext: {
     getService: jest.Mock;
+    getResilientService: jest.Mock;
   };
 
   beforeEach(() => {
@@ -100,6 +101,15 @@ describe('create-new-page IPC handler', () => {
       getService: jest.fn((key: string) => {
         if (key === ServiceKeys.WEBSITE_MANAGER) return mockWebsiteManager;
         if (key === ServiceKeys.GIT_HISTORY_MANAGER) return mockGitHistoryManager;
+        return null;
+      }),
+      getResilientService: jest.fn((key: string) => {
+        if (key === ServiceKeys.WEBSITE_MANAGER) return {
+          execute: jest.fn(async (callback) => callback(mockWebsiteManager)),
+        };
+        if (key === ServiceKeys.GIT_HISTORY_MANAGER) return {
+          execute: jest.fn(async (callback) => callback(mockGitHistoryManager)),
+        };
         return null;
       }),
     };

@@ -14,7 +14,9 @@ import {
   isWebsiteEditorFocused,
   getCurrentWebsiteEditorProject,
 } from '../ui/multi-window-manager';
-import { getWebsitePath } from '../utils/website-manager';
+import { getGlobalContext } from '../core/service-registry';
+import { ServiceKeys } from '../core/container';
+import type { IWebsiteManager } from '../core/interfaces';
 
 /**
  * Setup export functionality IPC handlers.
@@ -133,7 +135,12 @@ export async function exportSiteHandler(event: IpcMainEvent | null, exportFormat
     const exportPath = result.filePath;
 
     // Get the website source path
-    const websitePath = getWebsitePath(websiteToExport);
+    const appContext = getGlobalContext();
+    const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+
+    const websitePath = await websiteManager.execute(async (service) => {
+      return service.getWebsitePath(websiteToExport);
+    });
 
     // Determine the build output directory
     let buildDir: string;

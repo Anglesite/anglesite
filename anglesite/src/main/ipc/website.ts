@@ -365,14 +365,11 @@ async function createNewWebsite(websiteName: string): Promise<void> {
       try {
         // Try DI first, then fallback
         let existingPath: string;
-        try {
-          const appContext = getGlobalContext();
-          const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
-          existingPath = websiteManager.getWebsitePath(websiteName);
-        } catch {
-          const { getWebsitePath } = await import('../utils/website-manager');
-          existingPath = getWebsitePath(websiteName);
-        }
+        const appContext = getGlobalContext();
+        const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+        existingPath = await websiteManager.execute(async (service) => {
+          return service.getWebsitePath(websiteName);
+        });
         if (fs.existsSync(existingPath)) {
           // Website exists, try to open it instead
           await openWebsiteInNewWindow(websiteName, existingPath, false);
@@ -403,16 +400,11 @@ export async function openWebsiteInNewWindow(
       actualWebsitePath = websitePath;
     } else {
       // Use DI-based website manager
-      try {
-        const appContext = getGlobalContext();
-        const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
-        actualWebsitePath = websiteManager.getWebsitePath(websiteName);
-      } catch (diError) {
-        console.error('Failed to get website path via DI:', diError);
-        // Fallback to legacy method if DI fails
-        const { getWebsitePath } = await import('../utils/website-manager');
-        actualWebsitePath = getWebsitePath(websiteName);
-      }
+      const appContext = getGlobalContext();
+      const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+      actualWebsitePath = await websiteManager.execute(async (service) => {
+        return service.getWebsitePath(websiteName);
+      });
     }
 
     // Verify the website directory exists

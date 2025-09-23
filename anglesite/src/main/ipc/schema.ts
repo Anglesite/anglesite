@@ -5,7 +5,9 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { getWebsitePath } from '../utils/website-manager';
+import { getGlobalContext } from '../core/service-registry';
+import { ServiceKeys } from '../core/container';
+import type { IWebsiteManager } from '../core/interfaces';
 
 interface SchemaResult {
   schema?: Record<string, unknown>;
@@ -39,27 +41,51 @@ export function setupSchemaHandlers(): void {
           throw new Error('Website name is required');
         }
 
-        const websitePath = getWebsitePath(websiteName);
-        console.log('Got websitePath from getWebsitePath:', websitePath, typeof websitePath);
+        const appContext = getGlobalContext();
+        const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+
+        const websitePath = await websiteManager.execute(async (service) => {
+          return service.getWebsitePath(websiteName);
+        });
 
         if (!websitePath) {
-          throw new Error('Unable to get website path - getWebsitePath returned undefined');
+          throw new Error('Unable to get website path - website manager returned undefined');
         }
 
-        const schemaPath = path.join(websitePath, '..', '..', 'anglesite-11ty', 'schemas');
+        // Look for schemas in the source anglesite-11ty package
+        // Try multiple locations where schemas might be
+        const possibleSchemaPaths = [
+          // In production build: copied schemas
+          path.join(__dirname, '..', '..', 'schemas'),
+          // In development: monorepo structure
+          path.join(__dirname, '..', '..', '..', '..', '..', 'anglesite-11ty', 'schemas'),
+          // In production: installed package
+          path.join(__dirname, '..', '..', 'node_modules', '@dwk', 'anglesite-11ty', 'schemas'),
+          // Legacy location (for compatibility)
+          path.join(websitePath, '..', '..', 'anglesite-11ty', 'schemas'),
+        ];
 
-        console.log('Schema path:', schemaPath);
+        let schemaPath: string | null = null;
+        for (const testPath of possibleSchemaPaths) {
+          try {
+            await fs.access(testPath);
+            schemaPath = testPath;
+            console.log('Found schema directory at:', schemaPath);
+            break;
+          } catch {
+            // Continue to next path
+          }
+        }
 
-        // Check if schema directory exists
-        try {
-          await fs.access(schemaPath);
-        } catch {
-          console.log('Schema directory not found:', schemaPath);
+        if (!schemaPath) {
+          console.log('Schema directory not found in any expected location');
           return {
             error: 'Schema directory not found. Using fallback schema.',
             fallbackSchema: getFallbackSchema(),
           };
         }
+
+        console.log('Schema path:', schemaPath);
 
         // Load main schema file
         const mainSchemaPath = path.join(schemaPath, 'website.schema.json');
@@ -108,9 +134,58 @@ export function setupSchemaHandlers(): void {
           throw new Error('Website name and module name are required');
         }
 
-        const websitePath = getWebsitePath(websiteName);
-        const schemaPath = path.join(websitePath, '..', '..', 'anglesite-11ty', 'schemas', 'modules');
-        const modulePath = path.join(schemaPath, `${moduleName}.json`);
+        const appContext = getGlobalContext();
+        const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+
+        const websitePath = await websiteManager.execute(async (service) => {
+          return service.getWebsitePath(websiteName);
+        });
+
+        // Look for schema modules in the source anglesite-11ty package
+        const possibleModulePaths = [
+          // In development: monorepo structure
+          path.join(
+            __dirname,
+            '..',
+            '..',
+            '..',
+            '..',
+            '..',
+            'anglesite-11ty',
+            'schemas',
+            'modules',
+            `${moduleName}.json`
+          ),
+          // In production: installed package
+          path.join(
+            __dirname,
+            '..',
+            '..',
+            'node_modules',
+            '@dwk',
+            'anglesite-11ty',
+            'schemas',
+            'modules',
+            `${moduleName}.json`
+          ),
+          // Legacy location (for compatibility)
+          path.join(websitePath, '..', '..', 'anglesite-11ty', 'schemas', 'modules', `${moduleName}.json`),
+        ];
+
+        let modulePath: string | null = null;
+        for (const testPath of possibleModulePaths) {
+          try {
+            await fs.access(testPath);
+            modulePath = testPath;
+            break;
+          } catch {
+            // Continue to next path
+          }
+        }
+
+        if (!modulePath) {
+          throw new Error(`Module not found: ${moduleName}`);
+        }
 
         try {
           const moduleContent = await fs.readFile(modulePath, 'utf-8');
@@ -153,7 +228,9 @@ async function resolveSchemaReferences(
             const moduleData = await loadModuleFromRef(item.$ref, schemaBasePath);
 
             // Resolve internal references within the module
-            const resolvedModule = await resolveInternalReferences(moduleData, schemaBasePath);
+            // Pass the module's own path as the basePath for resolving its internal references
+            const modulePath = path.resolve(schemaBasePath, item.$ref);
+            const resolvedModule = await resolveInternalReferences(moduleData, modulePath);
 
             // Merge properties and required fields
             if (resolvedModule.properties) {
@@ -210,7 +287,9 @@ async function resolveInternalReferences(
 ): Promise<Record<string, unknown>> {
   const resolved = JSON.parse(JSON.stringify(schema)); // Deep copy
 
-  await walkAndResolveRefs(resolved, basePath);
+  // When resolving references within a module, use the module's directory as base
+  const baseDir = path.dirname(basePath);
+  await walkAndResolveRefs(resolved, baseDir, [], new Set());
   return resolved;
 }
 
@@ -219,15 +298,21 @@ async function resolveInternalReferences(
  */
 async function walkAndResolveRefs(
   obj: Record<string, unknown> | unknown[],
-  basePath: string,
-  visited = new Set<string>()
+  baseDir: string,
+  currentPath: string[] = [],
+  resolutionStack: Set<string> = new Set()
 ): Promise<void> {
   if (!obj || typeof obj !== 'object') return;
 
   if (Array.isArray(obj)) {
-    for (const item of obj) {
-      if (item && typeof item === 'object') {
-        await walkAndResolveRefs(item as Record<string, unknown> | unknown[], basePath, visited);
+    for (let i = 0; i < obj.length; i++) {
+      if (obj[i] && typeof obj[i] === 'object') {
+        await walkAndResolveRefs(
+          obj[i] as Record<string, unknown> | unknown[],
+          baseDir,
+          [...currentPath, i.toString()],
+          resolutionStack
+        );
       }
     }
     return;
@@ -238,18 +323,27 @@ async function walkAndResolveRefs(
       try {
         const refValue = value as string;
 
-        // Avoid circular references
-        if (visited.has(refValue)) {
-          console.warn(`Circular reference detected: ${refValue}`);
+        // Create a unique identifier for this reference resolution
+        const refId = `${baseDir}:${refValue}`;
+
+        // Check for circular references in the current resolution stack
+        if (resolutionStack.has(refId)) {
+          console.warn(`Circular reference detected: ${refValue} already being resolved in current stack`);
           continue;
         }
-        visited.add(refValue);
 
         // Parse reference (e.g., "./common.json#/definitions/email")
         const [filePath, jsonPointer] = refValue.split('#');
 
         if (filePath) {
-          const resolvedPath = path.resolve(path.dirname(basePath), 'modules', filePath);
+          // Resolve the reference path relative to the base directory
+          const resolvedPath = path.resolve(baseDir, filePath);
+          console.log(`Resolving reference: ${refValue} from base: ${baseDir} to: ${resolvedPath}`);
+
+          // Add this reference to the resolution stack
+          const newResolutionStack = new Set(resolutionStack);
+          newResolutionStack.add(refId);
+
           const refContent = await fs.readFile(resolvedPath, 'utf-8');
           const refData = JSON.parse(refContent);
 
@@ -268,8 +362,10 @@ async function walkAndResolveRefs(
             delete obj[key]; // Remove $ref
             Object.assign(obj, targetDef); // Merge resolved definition
 
-            // Recursively resolve any nested references
-            await walkAndResolveRefs(obj, basePath, visited);
+            // Recursively resolve any nested references with the resolution stack
+            // Use the directory of the referenced file as the new base directory for nested refs
+            const newBaseDir = path.dirname(resolvedPath);
+            await walkAndResolveRefs(obj, newBaseDir, [...currentPath, `resolved:${refValue}`], newResolutionStack);
           }
         }
       } catch (error) {
@@ -279,7 +375,12 @@ async function walkAndResolveRefs(
     } else {
       // Recursively process nested objects/arrays
       if (value && typeof value === 'object') {
-        await walkAndResolveRefs(value as Record<string, unknown> | unknown[], basePath, visited);
+        await walkAndResolveRefs(
+          value as Record<string, unknown> | unknown[],
+          baseDir,
+          [...currentPath, key],
+          resolutionStack
+        );
       }
     }
   }

@@ -41,6 +41,15 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     const { componentName = 'Unknown', onError } = this.props;
 
+    // Immediate console logging for debugging
+    console.error(`🔥 [ErrorBoundary] Component ${componentName} crashed:`, {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+    });
+    console.error('🔥 Full error object:', error);
+    console.error('🔥 Full errorInfo object:', errorInfo);
+
     logger.error(`ErrorBoundary[${componentName}]`, 'Component crashed', {
       error: error.message,
       stack: error.stack,
@@ -129,7 +138,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </details>
           )}
 
-          <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+          <div style={{ marginTop: '15px' }}>
             <button
               onClick={this.handleReset}
               style={{
@@ -144,26 +153,11 @@ export class ErrorBoundary extends Component<Props, State> {
             >
               Try Again
             </button>
-
-            <button
-              onClick={() => window.location.reload()}
-              style={{
-                padding: '6px 12px',
-                background: 'transparent',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-primary)',
-                borderRadius: '4px',
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              Reload Page
-            </button>
           </div>
 
           {errorCount > 2 && (
             <p style={{ marginTop: '10px', fontSize: '12px', fontStyle: 'italic' }}>
-              This component has crashed {errorCount} times. Consider reloading the application.
+              This component has crashed {errorCount} times. Please check the console for details.
             </p>
           )}
         </div>

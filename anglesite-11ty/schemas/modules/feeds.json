@@ -91,7 +91,7 @@
                   "description": "Podcast owner name"
                 },
                 "email": {
-                  "$ref": "../common.json#/definitions/email",
+                  "$ref": "./common.json#/definitions/email",
                   "description": "Podcast owner email"
                 }
               },

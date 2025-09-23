@@ -374,8 +374,8 @@ export class WebsiteManager implements IWebsiteManager {
     const possiblePaths = [
       path.join(__dirname, '..', '..', 'node_modules', '@dwk', 'anglesite-starter'),
       path.join(process.cwd(), 'node_modules', '@dwk', 'anglesite-starter'),
-      // For monorepo development, check the workspace sibling directory (6 levels up from dist/src/main/utils, then into @dwk)
-      path.join(__dirname, '..', '..', '..', '..', '..', '..', '@dwk', 'anglesite-starter'),
+      // For monorepo development, check the workspace sibling directory (from dist/src/main/utils, go up 5 levels to monorepo root, then to anglesite-starter)
+      path.join(__dirname, '..', '..', '..', '..', '..', 'anglesite-starter'),
     ];
 
     for (const starterPath of possiblePaths) {
@@ -1018,25 +1018,6 @@ export async function listWebsites(): Promise<string[]> {
   return manager.listWebsites();
 }
 
-/**
- * @deprecated Use WebsiteManager service through DI container instead
- * This is kept as a fallback for when DI is not yet initialized.
- */
-export function getWebsitePath(websiteName: string): string {
-  console.warn('Using deprecated getWebsitePath - DI not available');
-  // Create a temporary instance for fallback
-  const logger = {
-    debug: () => {},
-    info: () => {},
-    warn: console.warn,
-    error: console.error,
-    child: () => logger,
-  } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const fileSystem = new FileSystemService();
-  const atomicOps = createStubAtomicOperations(fileSystem);
-  const manager = new WebsiteManager(logger, fileSystem, atomicOps);
-  return manager.getWebsitePath(websiteName);
-}
 
 /**
  * @deprecated Use WebsiteManager service through DI container instead

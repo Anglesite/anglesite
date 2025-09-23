@@ -1,6 +1,5 @@
 import React, { Suspense, lazy } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { FluentButton } from '../fluent/FluentButton';
 import { logger } from '../../../utils/logger';
 import { ErrorBoundary } from './ErrorBoundary';
 
@@ -55,17 +54,15 @@ const WebsiteConfigEditor = lazy(() =>
     })
     .catch((error) => {
       logger.error('Main', 'Failed to load WebsiteConfigEditor module', error);
+      console.error('🔥 Failed to load WebsiteConfigEditor module:', error);
       // Return a fallback component that shows the error
       return {
         default: () => (
           <div style={{ padding: '20px' }}>
             <h3>Website Configuration</h3>
-            <div style={{ color: 'var(--error-color)', marginBottom: '12px' }}>
-              Failed to load configuration editor module.
+            <div style={{ color: 'var(--error-color)' }}>
+              Failed to load configuration editor module. Please check the console for technical details.
             </div>
-            <FluentButton onClick={() => window.location.reload()} appearance="accent">
-              Reload Page
-            </FluentButton>
           </div>
         ),
       };
@@ -86,6 +83,12 @@ export const Main: React.FC = () => {
   }, [state]);
 
   const renderContent = () => {
+    console.log('🔍 Main.renderContent called with state:', {
+      currentView: state.currentView,
+      selectedFile: state.selectedFile,
+      websiteName: state.websiteName,
+      loading: state.loading,
+    });
     logger.debug('Main', 'renderContent called', {
       currentView: state.currentView,
       selectedFile: state.selectedFile,
@@ -103,15 +106,17 @@ export const Main: React.FC = () => {
         return (
           <ErrorBoundary
             componentName="WebsiteConfigEditor-Wrapper"
+            onError={(error, errorInfo) => {
+              console.error('🔥 WebsiteConfigEditor crashed:', error);
+              console.error('🔥 Component stack:', errorInfo.componentStack);
+              console.error('🔥 Error stack:', error.stack);
+            }}
             fallback={
               <div style={{ padding: '20px' }}>
                 <h3>Website Configuration</h3>
-                <div style={{ color: 'var(--error-color)', marginBottom: '12px' }}>
+                <div style={{ color: 'var(--error-color)' }}>
                   Failed to load configuration editor. Check console for details.
                 </div>
-                <FluentButton onClick={() => window.location.reload()} appearance="accent">
-                  Refresh Page
-                </FluentButton>
               </div>
             }
           >
@@ -130,7 +135,13 @@ export const Main: React.FC = () => {
                         animation: 'spin 1s linear infinite',
                       }}
                     />
-                    <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Loading configuration editor...</p>
+                    <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                      Loading configuration editor...
+                      {(() => {
+                        console.log('🔄 WebsiteConfigEditor Suspense fallback is rendering');
+                        return null;
+                      })()}
+                    </p>
                   </div>
                   <style>{`
                     @keyframes spin {

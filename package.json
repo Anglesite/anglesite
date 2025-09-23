@@ -17,7 +17,8 @@
     "test:root": "jest",
     "test:workspaces": "npm run test --workspaces",
     "test:coverage": "jest --coverage --passWithNoTests",
-    "lint": "npm run lint --workspaces",
+    "lint": "npm run lint --workspaces && npm run lint:schemas",
+    "lint:schemas": "npm run lint:schemas --workspace=anglesite-11ty",
     "format": "prettier --write .",
     "prepare": "npm run build"
   },

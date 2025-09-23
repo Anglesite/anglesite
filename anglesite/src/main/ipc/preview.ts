@@ -9,7 +9,9 @@ import {
   startWebsiteServerAndUpdateWindow,
 } from '../ui/multi-window-manager';
 import { getCurrentLiveServerUrl } from '../server/eleventy';
-import { getWebsitePath } from '../utils/website-manager';
+import { getGlobalContext } from '../core/service-registry';
+import { ServiceKeys } from '../core/container';
+import type { IWebsiteManager } from '../core/interfaces';
 
 /**
  * Setup preview and development tools IPC handlers.
@@ -62,7 +64,13 @@ export function setupPreviewHandlers(): void {
       const websiteName = getWebsiteNameForWindow(window);
       if (websiteName) {
         try {
-          const websitePath = getWebsitePath(websiteName);
+          const appContext = getGlobalContext();
+          const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+
+          const websitePath = await websiteManager.execute(async (service) => {
+            return service.getWebsitePath(websiteName);
+          });
+
           if (websitePath) {
             await startWebsiteServerAndUpdateWindow(websiteName, websitePath);
           } else {

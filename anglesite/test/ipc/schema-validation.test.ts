@@ -50,6 +50,23 @@ jest.mock('fs/promises', () => ({
   access: jest.fn(),
 }));
 
+// Mock the service registry to provide proper getResilientService method
+const mockWebsiteManager = {
+  execute: jest.fn(),
+  getWebsitePath: jest.fn((websiteName: string) => `/test/websites/${websiteName}`),
+};
+
+jest.mock('../../src/main/core/service-registry', () => ({
+  getGlobalContext: jest.fn(() => ({
+    getResilientService: jest.fn((serviceKey: string) => {
+      if (serviceKey === 'websiteManager') {
+        return mockWebsiteManager;
+      }
+      throw new Error(`Unknown service: ${serviceKey}`);
+    }),
+  })),
+}));
+
 // Use doMock to ensure mock is applied before module caching
 jest.doMock('../../src/main/utils/website-manager', () => ({
   getWebsitePath: jest.fn((websiteName: string) => `/test/websites/${websiteName}`),
@@ -65,6 +82,13 @@ describe('Schema Validation and Resolution', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockHandlers = {};
+
+    // Reset mock implementations
+    mockWebsiteManager.execute.mockImplementation(async (callback: (service: any) => Promise<string>) => {
+      return callback({
+        getWebsitePath: (websiteName: string) => `/test/websites/${websiteName}`,
+      });
+    });
 
     // Capture registered handlers
     (ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: IPCHandler) => {

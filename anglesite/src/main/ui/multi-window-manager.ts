@@ -174,7 +174,6 @@ import { themeManager } from './theme-manager';
 import { WindowState, Rectangle } from '../core/types';
 import { IStore, IMonitorManager } from '../core/interfaces';
 import { loadTemplateAsDataUrl, getTemplateFilePath } from './template-loader';
-import { getWebsitePath } from '../utils/website-manager';
 
 // Variables declared at top of file
 export function setupServerManagerEventListeners(): void {
@@ -464,9 +463,11 @@ export function createWebsiteWindow(websiteName: string, websitePath?: string): 
     try {
       const appContext = getGlobalContext();
       const gitHistoryManager = appContext.getService<IGitHistoryManager>(ServiceKeys.GIT_HISTORY_MANAGER);
-      const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+      const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
 
-      const websitePath = websiteManager.getWebsitePath(websiteName);
+      const websitePath = await websiteManager.execute(async (service) => {
+        return service.getWebsitePath(websiteName);
+      });
       await gitHistoryManager.autoCommit(websitePath, 'close');
       console.log(`[Window] Git auto-commit on close for website: ${websiteName}`);
     } catch (error) {
@@ -782,7 +783,14 @@ export async function restoreWindowStates(): Promise<void> {
   for (const windowState of windowStates) {
     try {
       // Check if website directory exists before attempting restoration
-      const websitePath = windowState.websitePath || getWebsitePath(windowState.websiteName);
+      let websitePath = windowState.websitePath;
+      if (!websitePath) {
+        const appContext = getGlobalContext();
+        const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+        websitePath = await websiteManager.execute(async (service) => {
+          return service.getWebsitePath(windowState.websiteName);
+        });
+      }
 
       if (!fs.existsSync(websitePath)) {
         console.log(`Skipping restoration of deleted website: ${windowState.websiteName}`);
@@ -833,7 +841,14 @@ export async function restoreWindowStates(): Promise<void> {
 async function restoreWebsiteWindow(windowState: WindowState): Promise<void> {
   try {
     // Get the website path (directory existence already verified by caller)
-    const websitePath = windowState.websitePath || getWebsitePath(windowState.websiteName);
+    let websitePath = windowState.websitePath;
+    if (!websitePath) {
+      const appContext = getGlobalContext();
+      const websiteManager = appContext.getResilientService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+      websitePath = await websiteManager.execute(async (service) => {
+        return service.getWebsitePath(windowState.websiteName);
+      });
+    }
 
     // Create the appropriate window type
     if (windowState.windowType === 'editor') {

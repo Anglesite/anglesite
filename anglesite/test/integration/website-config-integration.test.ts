@@ -26,12 +26,7 @@ describe.skip('Website Configuration Integration Tests', () => {
     testWebsitePath = path.join(__dirname, '../fixtures/integration-test/test-website');
     await setupTestEnvironment();
 
-    // Set up spy on getWebsitePath to return test paths
-    jest.spyOn(websiteManager, 'getWebsitePath').mockImplementation((websiteName: string) => {
-      const testPath = path.join(__dirname, '../fixtures/integration-test', websiteName);
-      console.log('Spied getWebsitePath called with:', websiteName, 'returning:', testPath);
-      return testPath;
-    });
+    // Note: getWebsitePath function has been removed - tests now rely on DI system
 
     // Clear require cache for all related modules to ensure fresh imports
     const reactEditorPath = require.resolve('../../src/main/ipc/react-editor');
@@ -166,8 +161,8 @@ describe.skip('Website Configuration Integration Tests', () => {
 
       expect(result).toBe(true);
 
-      // Verify the file was created (using real getWebsitePath since spy isn't overriding)
-      const realWebsitePath = websiteManager.getWebsitePath('test-website');
+      // Verify the file was created (using test path since getWebsitePath is removed)
+      const realWebsitePath = path.join(__dirname, '../fixtures/integration-test/test-website');
       const filePath = path.join(realWebsitePath, 'src/_data/config/advanced.json');
       const fileExists = await fs.access(filePath).then(
         () => true,
