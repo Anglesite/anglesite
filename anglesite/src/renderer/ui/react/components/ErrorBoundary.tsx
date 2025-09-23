@@ -41,20 +41,25 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     const { componentName = 'Unknown', onError } = this.props;
 
-    // Immediate console logging for debugging
-    console.error(`🔥 [ErrorBoundary] Component ${componentName} crashed:`, {
+    // Enhanced logging with both logger and console for debugging
+    logger.error(`ErrorBoundary[${componentName}]`, 'Component crashed with full context', {
       error: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
+      fullError: error,
+      fullErrorInfo: errorInfo,
     });
-    console.error('🔥 Full error object:', error);
-    console.error('🔥 Full errorInfo object:', errorInfo);
 
-    logger.error(`ErrorBoundary[${componentName}]`, 'Component crashed', {
-      error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-    });
+    // Console logging for immediate debugging visibility in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`🔥 [ErrorBoundary] Component ${componentName} crashed:`, {
+        error: error.message,
+        stack: error.stack,
+        componentStack: errorInfo.componentStack,
+      });
+      console.error('🔥 Full error object:', error);
+      console.error('🔥 Full errorInfo object:', errorInfo);
+    }
 
     this.setState((prevState) => ({
       errorInfo,

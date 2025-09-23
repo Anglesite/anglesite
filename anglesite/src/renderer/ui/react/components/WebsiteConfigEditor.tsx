@@ -4,6 +4,7 @@ import Form, { IChangeEvent } from '@rjsf/core';
 import { RJSFSchema } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import { useAppContext } from '../context/AppContext';
+import { logger } from '../../../utils/logger';
 
 interface SchemaResult {
   schema?: RJSFSchema;
@@ -81,7 +82,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
         setSchema(typedResult.schema);
 
         if (typedResult.warnings?.length) {
-          console.warn('Schema warnings:', typedResult.warnings);
+          logger.warn('WebsiteConfigEditor', 'Schema loading warnings', { warnings: typedResult.warnings });
         }
 
         // Load existing data
@@ -102,7 +103,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
               throw new Error('Invalid JSON data structure');
             }
           } catch (parseError) {
-            console.error('Failed to parse existing configuration:', parseError);
+            logger.error('WebsiteConfigEditor', 'Failed to parse existing configuration', parseError);
             setFormData({
               title: state.websiteName || 'My Website',
               language: 'en',
@@ -116,7 +117,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
         }
       } catch (error) {
         if (!isCancelled) {
-          console.error('Error loading schema or data:', error);
+          logger.error('WebsiteConfigEditor', 'Error loading schema or data', error);
           const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
           onError?.(`Failed to load configuration: ${errorMessage}`);
         }
@@ -198,7 +199,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
         onError?.('Failed to save configuration: Server returned false');
       }
     } catch (error) {
-      console.error('Error saving configuration:', error);
+      logger.error('WebsiteConfigEditor', 'Error saving configuration', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       onError?.(`Failed to save configuration: ${errorMessage}`);
     }

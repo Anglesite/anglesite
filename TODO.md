@@ -9,10 +9,11 @@
 
 ## Code Quality
 
-- [ ] Replace console.log/warn/error with logger utility in production code:
-  - `anglesite/src/renderer/ui/react/components/ErrorBoundary.tsx` - Lines 45-51 (keep for debugging but use logger)
-  - `anglesite/src/renderer/ui/react/components/Main.tsx` - Multiple console.log statements
-  - Search for other instances with: `grep -r "console\." --include="*.tsx" --include="*.ts" --exclude-dir=test`
+- [x] Replace console.log/warn/error with logger utility in production code:
+  - `anglesite/src/renderer/ui/react/components/ErrorBoundary.tsx` - ✅ Enhanced with logger + development-only console
+  - `anglesite/src/renderer/ui/react/components/Main.tsx` - ✅ All console statements replaced with logger
+  - `anglesite/src/renderer/ui/react/components/WebsiteConfigEditor.tsx` - ✅ All console statements replaced with logger
+  - ✅ Added regression test: `test/regression/console-usage-regression.test.ts`
 
 ## Code Refactoring
 

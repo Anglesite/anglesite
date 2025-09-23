@@ -54,7 +54,6 @@ const WebsiteConfigEditor = lazy(() =>
     })
     .catch((error) => {
       logger.error('Main', 'Failed to load WebsiteConfigEditor module', error);
-      console.error('🔥 Failed to load WebsiteConfigEditor module:', error);
       // Return a fallback component that shows the error
       return {
         default: () => (
@@ -83,15 +82,11 @@ export const Main: React.FC = () => {
   }, [state]);
 
   const renderContent = () => {
-    console.log('🔍 Main.renderContent called with state:', {
+    logger.debug('Main', 'renderContent called with state', {
       currentView: state.currentView,
       selectedFile: state.selectedFile,
       websiteName: state.websiteName,
       loading: state.loading,
-    });
-    logger.debug('Main', 'renderContent called', {
-      currentView: state.currentView,
-      selectedFile: state.selectedFile,
       fullState: state,
     });
 
@@ -107,9 +102,13 @@ export const Main: React.FC = () => {
           <ErrorBoundary
             componentName="WebsiteConfigEditor-Wrapper"
             onError={(error, errorInfo) => {
-              console.error('🔥 WebsiteConfigEditor crashed:', error);
-              console.error('🔥 Component stack:', errorInfo.componentStack);
-              console.error('🔥 Error stack:', error.stack);
+              logger.error('Main', 'WebsiteConfigEditor crashed in onError callback', {
+                error: error.message,
+                componentStack: errorInfo.componentStack,
+                errorStack: error.stack,
+                fullError: error,
+                fullErrorInfo: errorInfo,
+              });
             }}
             fallback={
               <div style={{ padding: '20px' }}>
@@ -138,7 +137,7 @@ export const Main: React.FC = () => {
                     <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
                       Loading configuration editor...
                       {(() => {
-                        console.log('🔄 WebsiteConfigEditor Suspense fallback is rendering');
+                        logger.debug('Main', 'WebsiteConfigEditor Suspense fallback is rendering');
                         return null;
                       })()}
                     </p>
