@@ -33,7 +33,33 @@ import { createPluginLogger } from '../lib/build-logger.js';
 const logger = createPluginLogger('RSL');
 
 /**
- * Extended website configuration that includes RSL settings
+ * Extended website configuration that includes RSL settings.
+ *
+ * Extends the base AnglesiteWebsiteConfiguration to include optional RSL
+ * (Really Simple Licensing) configuration. This interface is used throughout
+ * the RSL plugin to access both website metadata and licensing information.
+ *
+ * The RSL configuration is optional - if not provided, the plugin will skip
+ * RSL generation. When present, it controls license templates, collection
+ * configurations, and output formats for generated RSL files.
+ * @augments AnglesiteWebsiteConfiguration
+ * @example
+ * ```typescript
+ * const config: ExtendedWebsiteConfig = {
+ *   title: 'My Website',
+ *   url: 'https://example.com',
+ *   language: 'en',
+ *   rsl: {
+ *     enabled: true,
+ *     defaultLicense: 'CC-BY-4.0',
+ *     collections: {
+ *       posts: { outputFormats: ['individual', 'collection'] },
+ *       blog: { outputFormats: ['collection'] }
+ *     },
+ *     defaultOutputFormats: ['sitewide']
+ *   }
+ * };
+ * ```
  */
 interface ExtendedWebsiteConfig extends AnglesiteWebsiteConfiguration {
   rsl?: RSLConfiguration;
@@ -51,7 +77,43 @@ interface EleventyAfterEvent {
 }
 
 /**
- * Extended collection item with RSL-specific data
+ * Extended collection item with RSL-specific data.
+ *
+ * Extends the standard EleventyCollectionItem to include RSL licensing metadata.
+ * This interface represents individual content items (pages, posts, etc.) that
+ * can have licensing information attached for RSL generation.
+ *
+ * The RSL-specific fields allow content to specify custom licensing either
+ * through direct license configuration or license template names. If neither
+ * is provided, the item will inherit the collection or site-wide license.
+ * @augments EleventyCollectionItem
+ * @example
+ * ```typescript
+ * // Content with custom RSL license configuration
+ * const item: RSLCollectionItem = {
+ *   url: '/posts/my-article/',
+ *   content: '<p>Article content...</p>',
+ *   data: {
+ *     title: 'My Article',
+ *     author: 'John Doe',
+ *     date: new Date('2024-01-01'),
+ *     rsl: {
+ *       license: 'CC-BY-4.0',
+ *       attribution: 'John Doe',
+ *       permissions: ['commercial', 'derivative']
+ *     }
+ *   }
+ * };
+ *
+ * // Content using license template
+ * const templateItem: RSLCollectionItem = {
+ *   url: '/posts/another-article/',
+ *   data: {
+ *     title: 'Another Article',
+ *     license: 'creative-commons-by' // References license template
+ *   }
+ * };
+ * ```
  */
 interface RSLCollectionItem extends EleventyCollectionItem {
   content?: string;
@@ -145,10 +207,39 @@ async function resolveItemLicense(
 }
 
 /**
- * Converts Eleventy collection item to RSL content asset
- * @param item - Collection item
- * @param baseUrl - Base URL for the site
- * @returns Content asset
+ * Converts Eleventy collection item to RSL content asset.
+ *
+ * Transforms an Eleventy collection item (page, post, etc.) into an RSL
+ * content asset with the metadata needed for RSL XML generation. This
+ * includes resolving the canonical URL, determining content type, and
+ * extracting modification dates and size information.
+ *
+ * The function handles URL resolution by preferring the item's URL, falling
+ * back to permalink data, and using the root path as a final fallback.
+ * Content size is determined from the template content length when available.
+ * @param item - Collection item from Eleventy build results
+ * @param baseUrl - Base URL for the site to resolve relative URLs
+ * @returns Content asset with URL, type, modification date, and size
+ * @example
+ * ```typescript
+ * const item: RSLCollectionItem = {
+ *   url: '/posts/my-article/',
+ *   templateContent: '<h1>My Article</h1><p>Content...</p>',
+ *   data: {
+ *     title: 'My Article',
+ *     date: new Date('2024-01-01')
+ *   }
+ * };
+ *
+ * const asset = convertItemToAsset(item, 'https://example.com');
+ * // Result:
+ * // {
+ * //   url: 'https://example.com/posts/my-article/',
+ * //   type: 'text/html',
+ * //   lastmod: new Date('2024-01-01'),
+ * //   size: 35
+ * // }
+ * ```
  */
 function convertItemToAsset(item: RSLCollectionItem, baseUrl: string): RSLContentAsset {
   const url = new URL(item.url || item.data?.permalink || '/', baseUrl).toString();
@@ -395,8 +486,48 @@ async function generateSiteRSLFile(
 }
 
 /**
- * Main RSL plugin function for Eleventy
- * @param eleventyConfig - Eleventy configuration object
+ * Main RSL plugin function for Eleventy.
+ *
+ * This plugin adds Really Simple Licensing (RSL) support to Eleventy sites,
+ * automatically generating RSL XML files for content licensing information.
+ * The plugin hooks into Eleventy's build process and generates RSL files
+ * after the site is built.
+ *
+ * **Key Features:**
+ * - Automatic RSL XML generation for individual content items
+ * - Collection-level RSL files for grouped content
+ * - Site-wide RSL files covering all content
+ * - Flexible license configuration via templates or direct specification
+ * - Content discovery for static assets
+ * - Validation of generated RSL XML
+ *
+ * **Configuration:**
+ * RSL configuration is defined in the website's `_data/website.json` file
+ * under the `rsl` property. If no configuration is provided or RSL is
+ * disabled, the plugin will skip generation.
+ *
+ * **Generated Files:**
+ * - Individual: `[content-path]/[filename].rsl.xml` for each content item
+ * - Collection: `[collection]/[collection].rsl.xml` for each collection
+ * - Site-wide: `rsl.xml` at the site root
+ * @param eleventyConfig - Eleventy configuration object to register plugin hooks
+ * @example
+ * ```typescript
+ * // In .eleventy.js or eleventy.config.js
+ * import addRSL from './plugins/rsl.js';
+ *
+ * export default function(eleventyConfig) {
+ *   // Add RSL plugin
+ *   eleventyConfig.addPlugin(addRSL);
+ *
+ *   return {
+ *     dir: {
+ *       input: 'src',
+ *       output: '_site'
+ *     }
+ *   };
+ * }
+ * ```
  */
 export default function addRSL(eleventyConfig: EleventyConfig): void {
   // Store collections reference for later use

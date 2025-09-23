@@ -4,15 +4,19 @@ import { RJSFSchema } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import { useAppContext } from '../context/AppContext';
 
+interface FormSubmissionData {
+  formData: Record<string, unknown>;
+}
+
 interface WebsiteConfigEditorProps {
-  onSave?: (data: any) => void;
+  onSave?: (data: FormSubmissionData) => void;
   onError?: (error: string) => void;
 }
 
 export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave, onError }) => {
   const { state } = useAppContext();
   const [schema, setSchema] = useState<RJSFSchema | null>(null);
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +73,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
           language: 'en',
         });
       }
-    } catch (err) {
+    } catch {
       console.log('No existing website.json found, using defaults');
       setFormData({
         title: state.websiteName || 'My Website',
@@ -79,7 +83,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
   };
 
   // Save website configuration
-  const saveWebsiteConfig = async (data: any) => {
+  const saveWebsiteConfig = async (data: FormSubmissionData) => {
     if (!state.websiteName) {
       setError('No website loaded');
       return;
@@ -296,19 +300,24 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
   };
 
   // Form event handlers
-  const handleFormChange = (e: any) => {
+  const handleFormChange = (e: { formData: Record<string, unknown> }) => {
     setFormData(e.formData);
     setError(null);
     setSuccess(null);
   };
 
-  const handleFormSubmit = (e: any) => {
-    saveWebsiteConfig(e.formData);
+  const handleFormSubmit = (e: FormSubmissionData) => {
+    saveWebsiteConfig(e);
   };
 
-  const handleFormError = (errors: any[]) => {
+  const handleFormError = (errors: unknown[]) => {
     console.log('Form validation errors:', errors);
-    const errorMessages = errors.map((error) => `${error.property}: ${error.message}`).join(', ');
+    const errorMessages = errors
+      .map((error) => {
+        const errorObj = error as { property?: string; message?: string };
+        return `${errorObj.property || 'field'}: ${errorObj.message || 'invalid value'}`;
+      })
+      .join(', ');
     setError(`Please fix the following errors: ${errorMessages}`);
   };
 

@@ -316,6 +316,36 @@ export function setupStandardMocks() {
 
 /**
  * Creates a mock AppContext value for React component testing.
+ *
+ * Provides a standardized way to mock the AppContext for testing React components
+ * that depend on website state, file selection, and loading states. Supports
+ * partial overrides for testing specific scenarios without having to recreate
+ * the entire context structure.
+ *
+ * All setter functions are Jest mocks, allowing you to verify that components
+ * correctly call context methods and test component behavior under different states.
+ * @param overrides Partial state overrides for testing specific scenarios
+ * @returns Mock AppContext value with default test data and Jest mock functions
+ * @example
+ * ```typescript
+ * // Basic usage with default test values
+ * const mockContext = createMockAppContextValue();
+ * render(
+ *   <AppProvider value={mockContext}>
+ *     <MyComponent />
+ *   </AppProvider>
+ * );
+ *
+ * // Override specific state for testing scenarios
+ * const loadingContext = createMockAppContextValue({
+ *   websiteName: 'my-test-site',
+ *   loading: true
+ * });
+ *
+ * // Verify context methods are called
+ * fireEvent.click(getByText('Select File'));
+ * expect(mockContext.setSelectedFile).toHaveBeenCalledWith('index.md');
+ * ```
  */
 export function createMockAppContextValue(
   overrides?: Partial<{
@@ -345,6 +375,34 @@ export function createMockAppContextValue(
 
 /**
  * Creates a standardized website configuration object for testing.
+ *
+ * Generates a complete website configuration object that matches the expected
+ * structure for Anglesite websites. Includes all commonly used fields with
+ * sensible test defaults, while allowing specific fields to be overridden
+ * for testing different scenarios.
+ *
+ * The returned configuration object is compatible with website schema validation
+ * and can be used in tests for components that consume website configuration data.
+ * @param overrides Object with properties to override default configuration values
+ * @returns Complete website configuration object with test-friendly defaults
+ * @example
+ * ```typescript
+ * // Basic configuration with defaults
+ * const config = createMockWebsiteConfig();
+ * expect(config.title).toBe('Test Website');
+ * expect(config.language).toBe('en');
+ *
+ * // Override specific properties for testing
+ * const customConfig = createMockWebsiteConfig({
+ *   title: 'My Custom Site',
+ *   url: 'https://example.com',
+ *   author: { name: 'John Doe', email: 'john@example.com' }
+ * });
+ *
+ * // Use in component tests that need website data
+ * mockElectronAPI.invoke.mockResolvedValue(config);
+ * render(<WebsiteConfigEditor />);
+ * ```
  */
 export function createMockWebsiteConfig(overrides?: Record<string, unknown>) {
   return {
@@ -361,6 +419,45 @@ export function createMockWebsiteConfig(overrides?: Record<string, unknown>) {
 
 /**
  * Creates a mock process.platform restoration guard for tests that modify platform.
+ *
+ * Provides a safe way to temporarily modify `process.platform` for cross-platform
+ * testing while ensuring the original value is restored afterward. This prevents
+ * test pollution where platform changes in one test affect other tests.
+ *
+ * The guard captures the original platform value when created and provides methods
+ * to change the platform during testing and restore it when done. Always call
+ * `restore()` in test cleanup to prevent side effects.
+ * @returns Object with setPlatform and restore methods for platform testing
+ * @example
+ * ```typescript
+ * describe('Cross-platform behavior', () => {
+ *   let platformGuard: ReturnType<typeof createPlatformGuard>;
+ *
+ *   beforeEach(() => {
+ *     platformGuard = createPlatformGuard();
+ *   });
+ *
+ *   afterEach(() => {
+ *     platformGuard.restore();
+ *   });
+ *
+ *   test('behaves differently on Windows', () => {
+ *     platformGuard.setPlatform('win32');
+ *     expect(process.platform).toBe('win32');
+ *
+ *     // Test Windows-specific behavior
+ *     const result = myPlatformSpecificFunction();
+ *     expect(result).toMatch(/\\\\path\\\\separators/);
+ *   });
+ *
+ *   test('behaves differently on macOS', () => {
+ *     platformGuard.setPlatform('darwin');
+ *     expect(process.platform).toBe('darwin');
+ *
+ *     // Test macOS-specific behavior
+ *   });
+ * });
+ * ```
  */
 export function createPlatformGuard() {
   const originalPlatform = process.platform;

@@ -1,3 +1,4 @@
+/* eslint-disable jsdoc/match-description */
 import React, { useState, useEffect } from 'react';
 import Form, { IChangeEvent } from '@rjsf/core';
 import { RJSFSchema } from '@rjsf/utils';
@@ -25,6 +26,35 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
   useEffect(() => {
     let isCancelled = false;
 
+    /**
+     * Loads website schema and configuration data from the main process.
+     *
+     * This async function orchestrates the loading of both the JSON schema
+     * (used for form validation and UI generation) and existing website
+     * configuration data. It includes comprehensive error handling and
+     * graceful fallbacks for missing or invalid data.
+     *
+     * **IPC Communication:**
+     * - `get-website-schema`: Retrieves JSON schema for form generation
+     * - `get-file-content`: Loads existing website.json configuration
+     *
+     * **Error Handling:**
+     * - Type validation for schema response structure
+     * - JSON parsing errors with fallback to default configuration
+     * - Cancellation handling for component unmounting
+     *
+     * **State Management:**
+     * - Updates loading state for UI feedback
+     * - Sets error state for user notification
+     * - Populates form with existing data or sensible defaults
+     * @example
+     * ```typescript
+     * // Called automatically when websiteName changes
+     * useEffect(() => {
+     *   loadSchemaAndData();
+     * }, [state.websiteName]);
+     * ```
+     */
     const loadSchemaAndData = async () => {
       if (!state.websiteName) {
         setLoading(false);
@@ -104,6 +134,43 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
     };
   }, [state.websiteName, onError]);
 
+  /**
+   * Handles form submission for website configuration changes.
+   *
+   * Processes form data from React JSON Schema Form and saves it to the
+   * website's configuration file via IPC communication. Includes validation,
+   * error handling, and success/failure callbacks for parent components.
+   *
+   * **Validation Steps:**
+   * 1. Ensures a website is currently loaded
+   * 2. Validates form data structure from RJSF
+   * 3. Converts to JSON format with proper formatting
+   *
+   * **IPC Communication:**
+   * Uses `save-file-content` channel to write JSON data to `src/_data/website.json`
+   *
+   * **Error Handling:**
+   * - Reports validation errors through onError callback
+   * - Handles IPC communication failures
+   * - Provides user-friendly error messages
+   * @param data Form submission data from React JSON Schema Form
+   * @example
+   * ```typescript
+   * // Form submission flow
+   * <Form
+   *   schema={schema}
+   *   formData={formData}
+   *   onSubmit={handleSubmit}
+   *   validator={validator}
+   * />
+   *
+   * // Success/error handling in parent component
+   * <WebsiteConfigEditor
+   *   onSave={(data) => showSuccessMessage('Configuration saved!')}
+   *   onError={(error) => showErrorMessage(error)}
+   * />
+   * ```
+   */
   const handleSubmit = async (data: IChangeEvent) => {
     if (!state.websiteName) {
       onError?.('No website loaded');

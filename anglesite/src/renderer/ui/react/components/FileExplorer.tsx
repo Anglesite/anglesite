@@ -33,6 +33,31 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Loads website files through Electron IPC and builds a hierarchical tree structure.
+   *
+   * This function handles the complete file loading workflow including:
+   * - IPC communication with the main process to retrieve file data
+   * - Error handling and user feedback through state management
+   * - Tree structure building from flat file data
+   * - Loading state management for UI feedback
+   *
+   * The function communicates with the main process via the 'get-website-files' IPC channel,
+   * which returns an array of raw file data that gets transformed into a hierarchical structure.
+   * @throws {Error} When IPC communication fails or website name is unavailable
+   * @example
+   * ```typescript
+   * // Called automatically when website changes
+   * useEffect(() => {
+   *   loadFiles();
+   * }, [state.websiteName]);
+   *
+   * // Can also be called manually to refresh files
+   * const handleRefresh = () => {
+   *   loadFiles();
+   * };
+   * ```
+   */
   const loadFiles = async () => {
     if (!state.websiteName) return;
 
@@ -59,6 +84,39 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
     }
   };
 
+  /**
+   * Builds a hierarchical file tree structure from flat file data.
+   *
+   * Transforms the flat array of file data returned from the main process into
+   * a nested tree structure suitable for display in the file explorer UI. The
+   * function handles directory relationships, sorting, and data validation.
+   *
+   * **Processing Steps:**
+   * 1. Create file/directory nodes from raw data with validation
+   * 2. Build parent-child relationships based on file paths
+   * 3. Sort directories first, then alphabetically within each level
+   * 4. Clean up empty children arrays for leaf nodes
+   *
+   * **Error Handling:**
+   * Files with invalid or missing `relativePath` properties are skipped with
+   * console warnings to prevent tree corruption.
+   * @param rawFiles Array of file data from the main process IPC call
+   * @returns Promise resolving to hierarchical file tree structure
+   * @example
+   * ```typescript
+   * const rawFiles = [
+   *   { name: 'index.md', relativePath: 'index.md', isDirectory: false },
+   *   { name: 'posts', relativePath: 'posts', isDirectory: true },
+   *   { name: 'first-post.md', relativePath: 'posts/first-post.md', isDirectory: false }
+   * ];
+   *
+   * const tree = await buildFileTree(rawFiles);
+   * // Result: [
+   * //   { name: 'posts', children: [{ name: 'first-post.md', children: null }] },
+   * //   { name: 'index.md', children: null }
+   * // ]
+   * ```
+   */
   const buildFileTree = async (rawFiles: RawFileData[]): Promise<FileItem[]> => {
     const tree: FileItem[] = [];
     const nodeMap = new Map<string, FileItem>();
