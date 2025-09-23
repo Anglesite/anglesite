@@ -188,6 +188,7 @@ module.exports = [
         ...globals.jest,
         ...globals.browser, // For DOM globals in Jest with JSDOM
         ...globals.es2021,
+        NodeJS: 'readonly', // TypeScript NodeJS namespace
       },
     },
     plugins: {

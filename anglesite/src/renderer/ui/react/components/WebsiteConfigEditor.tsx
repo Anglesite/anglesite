@@ -1,29 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import Form from '@rjsf/core';
+import Form, { IChangeEvent } from '@rjsf/core';
+import { RJSFSchema } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import { useAppContext } from '../context/AppContext';
 
 interface SchemaResult {
-  schema?: Record<string, unknown>;
+  schema?: RJSFSchema;
   error?: string;
   warnings?: string[];
-  fallbackSchema?: Record<string, unknown>;
+  fallbackSchema?: RJSFSchema;
 }
 
 interface WebsiteConfigEditorProps {
-  onSave?: (data: any) => void;
+  onSave?: (data: Record<string, unknown>) => void;
   onError?: (error: string) => void;
 }
 
 export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave, onError }) => {
   const { state } = useAppContext();
-  const [schema, setSchema] = useState<Record<string, unknown> | null>(null);
+  const [schema, setSchema] = useState<RJSFSchema | null>(null);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isCancelled = false;
-    const abortController = new AbortController();
 
     const loadSchemaAndData = async () => {
       if (!state.websiteName) {
@@ -33,10 +33,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
 
       try {
         // Load schema
-        const schemaResult = await window.electronAPI.invoke(
-          'get-website-schema',
-          state.websiteName
-        );
+        const schemaResult = await window.electronAPI.invoke('get-website-schema', state.websiteName);
 
         if (isCancelled) return;
 
@@ -104,11 +101,10 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
 
     return () => {
       isCancelled = true;
-      abortController.abort();
     };
   }, [state.websiteName, onError]);
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: IChangeEvent) => {
     if (!state.websiteName) {
       onError?.('No website loaded');
       return;
@@ -152,12 +148,7 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
   return (
     <div style={{ padding: '20px' }}>
       <h3>Website Configuration</h3>
-      <Form
-        schema={schema}
-        formData={formData}
-        validator={validator as any}
-        onSubmit={handleSubmit}
-      />
+      <Form schema={schema} formData={formData} validator={validator} onSubmit={handleSubmit} />
     </div>
   );
 };

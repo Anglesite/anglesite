@@ -50,7 +50,9 @@ export const mockPath = {
   posix: {},
 };
 
-jest.mock('path', () => mockPath);
+// Don't globally mock path - Jest config specifies it should be unmocked
+// Individual tests can mock path when needed using mockPath
+// jest.mock('path', () => mockPath);
 
 // Mock child_process module
 export const mockExecSync = jest.fn();
