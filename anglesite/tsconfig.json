@@ -17,6 +17,6 @@
     "types": ["node", "jest", "react", "react-dom"],
     "typeRoots": ["./types", "./node_modules/@types"]
   },
-  "include": ["src", "types/**/*.d.ts", "../anglesite-11ty/types/eleventy.d.ts"],
+  "include": ["src", "types/**/*.d.ts", "test/types/**/*.d.ts", "../anglesite-11ty/types/eleventy.d.ts"],
   "exclude": ["src/common/core/errors/examples.ts"]
 }
