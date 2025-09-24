@@ -1,6 +1,7 @@
 /**
  * @file Security utilities for validating dynamic imports and preventing code injection
  */
+import { logger, sanitize } from '../utils/logging';
 
 /**
  * Whitelist of allowed modules for dynamic imports
@@ -67,7 +68,10 @@ export async function safeImport<T = unknown>(modulePath: string): Promise<T> {
     const module = await import(modulePath);
     return module as T;
   } catch (error) {
-    console.error(`Failed to import module: ${modulePath}`, error);
-    throw new Error(`Module import failed: ${modulePath}`);
+    logger.error('Failed to import module', {
+      module: sanitize.path(modulePath),
+      error: sanitize.error(error),
+    });
+    throw new Error('Module import failed: [REDACTED]');
   }
 }

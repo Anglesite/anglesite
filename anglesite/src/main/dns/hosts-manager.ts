@@ -18,6 +18,7 @@ import * as hostile from 'hostile';
 
 import sudoPrompt from 'sudo-prompt';
 import isElevated from 'native-is-elevated';
+import { logger } from '../utils/logging';
 
 const execFileAsync = promisify(execFile);
 
@@ -205,16 +206,9 @@ export async function checkAndSuggestTouchIdSetup(): Promise<void> {
   const canEnable = await canEnableTouchId();
 
   if (touchIdAvailable) {
-    console.log('🔐 Touch ID is configured for sudo commands - biometric authentication available');
+    logger.debug('Biometric authentication configured for system operations');
   } else if (canEnable) {
-    console.log('💡 Touch ID detected but not configured for sudo.');
-    console.log('   To enable Touch ID for administrator access:');
-    console.log('   1. Open Terminal');
-    console.log('   2. Run: sudo cp /etc/pam.d/sudo_local.template /etc/pam.d/sudo_local');
-    console.log('   3. Edit: sudo nano /etc/pam.d/sudo_local');
-    console.log('   4. Uncomment: auth sufficient pam_tid.so');
-    console.log('   5. Save and restart Terminal');
-    console.log('   This will enable Touch ID for all sudo operations.');
+    logger.debug('Biometric authentication available but not configured for system operations');
   }
 }
 
@@ -234,8 +228,8 @@ async function executeWithElevatedPrivileges(
       const { stdout } = await execFileAsync(command, args);
       return { success: true, output: stdout };
     } else {
-      // Check if Touch ID is available
-      const touchIdAvailable = await isTouchIdAvailable();
+      // Check if Touch ID is available for secure logging context
+      await isTouchIdAvailable();
 
       // Need to request elevated privileges
       const options = {
@@ -243,12 +237,8 @@ async function executeWithElevatedPrivileges(
         icns: process.platform === 'darwin' ? undefined : undefined, // Can be set to app icon path
       };
 
-      // Log authentication method for debugging
-      if (touchIdAvailable) {
-        console.log('🔐 Requesting administrator access (Touch ID available)');
-      } else {
-        console.log('🔑 Requesting administrator access (password required)');
-      }
+      // Log authentication request for debugging (no sensitive method details)
+      logger.debug('Requesting elevated privileges for DNS operations');
 
       // Create a secure command string for sudo-prompt
       // Unfortunately, sudo-prompt requires a string, but we can at least properly escape it
@@ -258,20 +248,16 @@ async function executeWithElevatedPrivileges(
       return new Promise((resolve) => {
         sudoPrompt.exec(fullCommand, options, (error?: Error, stdout?: string | Buffer) => {
           if (error) {
-            // Check for specific Touch ID cancellation or failure
+            // Check for user cancellation without exposing authentication method
             if (error.message.includes('User cancelled') || (error as Error & { code?: number }).code === -128) {
-              console.log('Authentication cancelled by user');
-            } else if (touchIdAvailable) {
-              console.log('Touch ID authentication failed, may have fallen back to password');
+              logger.debug('Authentication cancelled by user');
+            } else {
+              logger.debug('Authentication failed, operation cancelled');
             }
-            console.error('Failed to execute with elevated privileges:', error.message);
+            logger.error('Failed to execute with elevated privileges', { error: error.message });
             resolve({ success: false });
           } else {
-            if (touchIdAvailable) {
-              console.log('✅ Authentication successful (Touch ID or password)');
-            } else {
-              console.log('✅ Authentication successful (password)');
-            }
+            logger.debug('Authentication successful, operation completed');
             resolve({ success: true, output: stdout?.toString() });
           }
         });

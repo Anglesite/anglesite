@@ -14,6 +14,7 @@ import { themeManager } from './ui/theme-manager';
 import { initializeGlobalContext, shutdownGlobalContext, getGlobalContext } from './core/service-registry';
 import { IStore } from './core/interfaces';
 import { ServiceKeys } from './core/container';
+import { logger, sanitize } from './utils/logging';
 
 // Set application name as early as possible
 app.setName('Anglesite');
@@ -140,15 +141,18 @@ app.on('certificate-error', (event, _webContents, url, error, certificate, callb
     process.env.NODE_ENV !== 'production' &&
     (url.includes('localhost') || url.includes('.test') || url.includes('127.0.0.1'))
   ) {
-    console.warn(`[DEV] Accepting self-signed certificate for: ${url}`, {
-      error: error,
+    logger.warn('[DEV] Accepting self-signed certificate for local development', {
+      url: sanitize.path(url),
       fingerprint: certificate?.fingerprint || 'N/A',
     });
     event.preventDefault();
     callback(true);
   } else {
     // SECURITY: Reject all invalid certificates in production or for external domains
-    console.error(`[SECURITY] Certificate error rejected for: ${url}`, { error: error });
+    logger.error('[SECURITY] Certificate error rejected for external domain', {
+      domain: sanitize.path(url),
+      error: sanitize.error(error),
+    });
     callback(false);
   }
 });
