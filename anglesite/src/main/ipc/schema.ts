@@ -8,6 +8,19 @@ import * as path from 'path';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
 import type { IWebsiteManager } from '../core/interfaces';
+import { createIPCErrorReporter } from '../utils/error-handler-integration';
+
+/**
+ * Get error reporter for schema IPC operations
+ */
+function getErrorReporter() {
+  try {
+    const context = getGlobalContext();
+    return createIPCErrorReporter(context, 'schema');
+  } catch {
+    return null; // Graceful degradation when DI not available
+  }
+}
 
 interface SchemaResult {
   schema?: Record<string, unknown>;
@@ -96,7 +109,12 @@ export function setupSchemaHandlers(): void {
           mainSchema = JSON.parse(mainSchemaContent);
           console.log('Loaded main schema successfully');
         } catch (error) {
-          console.error('Error loading main schema:', error);
+          const errorReporter = getErrorReporter();
+          if (errorReporter) {
+            errorReporter('schemaLoadError', error, { operation: 'load-main-schema', mainSchemaPath }).catch(() => {});
+          } else {
+            console.error('Error loading main schema:', error);
+          }
           return {
             error: `JSON parsing error in main schema: ${(error as Error).message}`,
             fallbackSchema: getFallbackSchema(),
@@ -112,7 +130,12 @@ export function setupSchemaHandlers(): void {
           warnings: resolvedSchema.warnings,
         };
       } catch (error) {
-        console.error('Error in get-website-schema:', error);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('websiteSchemaError', error, { operation: 'get-website-schema' }).catch(() => {});
+        } else {
+          console.error('Error in get-website-schema:', error);
+        }
         return {
           error: `Failed to load schema: ${(error as Error).message}`,
           fallbackSchema: getFallbackSchema(),
@@ -199,7 +222,12 @@ export function setupSchemaHandlers(): void {
           throw new Error(`Failed to parse module ${moduleName}: ${(error as Error).message}`);
         }
       } catch (error) {
-        console.error('Error in get-schema-module:', error);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('schemaModuleError', error, { operation: 'get-schema-module', moduleName }).catch(() => {});
+        } else {
+          console.error('Error in get-schema-module:', error);
+        }
         throw error;
       }
     }
@@ -242,7 +270,14 @@ async function resolveSchemaReferences(
           } catch (error) {
             const moduleName = path.basename(item.$ref, '.json');
             warnings.push(`Failed to load module: ${moduleName} - ${(error as Error).message}`);
-            console.warn(`Skipping module ${moduleName}:`, error);
+            const errorReporter = getErrorReporter();
+            if (errorReporter) {
+              errorReporter('moduleLoadSkipped', error, { operation: 'load-schema-module', moduleName }).catch(
+                () => {}
+              );
+            } else {
+              console.warn(`Skipping module ${moduleName}:`, error);
+            }
           }
         }
       }
@@ -258,7 +293,12 @@ async function resolveSchemaReferences(
     console.log(`Schema resolution completed with ${Object.keys(resolvedSchema.properties || {}).length} properties`);
     return { schema: resolvedSchema, warnings };
   } catch (error) {
-    console.error('Error resolving schema references:', error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('schemaReferenceResolution', error, { operation: 'resolve-schema-references' }).catch(() => {});
+    } else {
+      console.error('Error resolving schema references:', error);
+    }
     throw error;
   }
 }
@@ -328,7 +368,15 @@ async function walkAndResolveRefs(
 
         // Check for circular references in the current resolution stack
         if (resolutionStack.has(refId)) {
-          console.warn(`Circular reference detected: ${refValue} already being resolved in current stack`);
+          const errorReporter = getErrorReporter();
+          if (errorReporter) {
+            errorReporter('circularReferenceDetected', new Error(`Circular reference detected: ${refValue}`), {
+              operation: 'resolve-references',
+              refValue,
+            }).catch(() => {});
+          } else {
+            console.warn(`Circular reference detected: ${refValue} already being resolved in current stack`);
+          }
           continue;
         }
 
@@ -369,7 +417,14 @@ async function walkAndResolveRefs(
           }
         }
       } catch (error) {
-        console.warn(`Failed to resolve reference ${value}:`, error);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('referenceResolutionFailed', error, { operation: 'resolve-reference', reference: value }).catch(
+            () => {}
+          );
+        } else {
+          console.warn(`Failed to resolve reference ${value}:`, error);
+        }
         // Keep the original $ref if resolution fails
       }
     } else {

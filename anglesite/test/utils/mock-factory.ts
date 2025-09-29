@@ -6,10 +6,39 @@
 import type { Display } from 'electron';
 
 export interface MockElectronAPI {
-  invoke: jest.Mock;
   send: jest.Mock;
+  invoke: jest.Mock;
   on: jest.Mock;
+  once: jest.Mock;
+  removeAllListeners: jest.Mock;
   off: jest.Mock;
+  getCurrentTheme: jest.Mock;
+  setTheme: jest.Mock;
+  onThemeUpdated: jest.Mock;
+  openExternal: jest.Mock;
+  getAppInfo: jest.Mock;
+  clipboard: {
+    writeText: jest.Mock;
+    readText: jest.Mock;
+  };
+  diagnostics: {
+    getErrors: jest.Mock;
+    getStatistics: jest.Mock;
+    getNotifications: jest.Mock;
+    dismissNotification: jest.Mock;
+    clearErrors: jest.Mock;
+    exportErrors: jest.Mock;
+    showWindow: jest.Mock;
+    closeWindow: jest.Mock;
+    toggleWindow: jest.Mock;
+    getWindowState: jest.Mock;
+    getPreferences: jest.Mock;
+    setPreferences: jest.Mock;
+    getServiceHealth: jest.Mock;
+    subscribeToErrors: jest.Mock;
+    onSubscriptionConfirmed: jest.Mock;
+    onSubscriptionError: jest.Mock;
+  };
 }
 
 export interface MockElectronApp {
@@ -36,13 +65,42 @@ export class MockFactory {
    */
   static createElectronAPI(customResponses?: Record<string, unknown>): MockElectronAPI {
     const mockAPI = {
-      invoke: jest.fn(),
       send: jest.fn(),
+      invoke: jest.fn(),
       on: jest.fn(),
+      once: jest.fn(),
+      removeAllListeners: jest.fn(),
       off: jest.fn(),
+      getCurrentTheme: jest.fn(),
+      setTheme: jest.fn(),
+      onThemeUpdated: jest.fn(),
+      openExternal: jest.fn(),
+      getAppInfo: jest.fn(),
+      clipboard: {
+        writeText: jest.fn(),
+        readText: jest.fn(),
+      },
+      diagnostics: {
+        getErrors: jest.fn(),
+        getStatistics: jest.fn(),
+        getNotifications: jest.fn(),
+        dismissNotification: jest.fn(),
+        clearErrors: jest.fn(),
+        exportErrors: jest.fn(),
+        showWindow: jest.fn(),
+        closeWindow: jest.fn(),
+        toggleWindow: jest.fn(),
+        getWindowState: jest.fn(),
+        getPreferences: jest.fn(),
+        setPreferences: jest.fn(),
+        getServiceHealth: jest.fn(),
+        subscribeToErrors: jest.fn(),
+        onSubscriptionConfirmed: jest.fn(),
+        onSubscriptionError: jest.fn(),
+      },
     };
 
-    // Setup default responses for common IPC calls
+    // Setup default responses for IPC invoke calls
     mockAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
       // Handle custom responses first
       if (customResponses && channel in customResponses) {
@@ -76,10 +134,50 @@ export class MockFactory {
           return Promise.resolve('{"title": "Test Website", "language": "en"}');
         case 'save-file-content':
           return Promise.resolve(true);
+        case 'get-current-theme':
+          return Promise.resolve('system');
+        case 'get-app-info':
+          return Promise.resolve({ version: '1.0.0', name: 'Test App' });
         default:
           return Promise.resolve(null);
       }
     });
+
+    // Setup default responses for theme API
+    mockAPI.getCurrentTheme.mockImplementation(() => mockAPI.invoke('get-current-theme'));
+    mockAPI.setTheme.mockImplementation((theme: string) => mockAPI.invoke('set-theme', theme));
+    mockAPI.getAppInfo.mockImplementation(() => mockAPI.invoke('get-app-info'));
+
+    // Setup default responses for clipboard API
+    mockAPI.clipboard.readText.mockReturnValue('');
+
+    // Setup default responses for diagnostics API
+    mockAPI.diagnostics.getErrors.mockImplementation((filter?: unknown) =>
+      mockAPI.invoke('diagnostics:get-errors', filter)
+    );
+    mockAPI.diagnostics.getStatistics.mockImplementation((filter?: unknown) =>
+      mockAPI.invoke('diagnostics:get-statistics', filter)
+    );
+    mockAPI.diagnostics.getNotifications.mockImplementation(() => mockAPI.invoke('diagnostics:get-notifications'));
+    mockAPI.diagnostics.dismissNotification.mockImplementation((id: string) =>
+      mockAPI.invoke('diagnostics:dismiss-notification', id)
+    );
+    mockAPI.diagnostics.clearErrors.mockImplementation((errorIds?: string[]) =>
+      mockAPI.invoke('diagnostics:clear-errors', errorIds)
+    );
+    mockAPI.diagnostics.exportErrors.mockImplementation((filter?: unknown) =>
+      mockAPI.invoke('diagnostics:export-errors', filter)
+    );
+    mockAPI.diagnostics.showWindow.mockImplementation(() => mockAPI.invoke('diagnostics:show-window'));
+    mockAPI.diagnostics.closeWindow.mockImplementation(() => mockAPI.invoke('diagnostics:close-window'));
+    mockAPI.diagnostics.toggleWindow.mockImplementation(() => mockAPI.invoke('diagnostics:toggle-window'));
+    mockAPI.diagnostics.getWindowState.mockImplementation(() => mockAPI.invoke('diagnostics:get-window-state'));
+    mockAPI.diagnostics.getPreferences.mockImplementation(() => mockAPI.invoke('diagnostics:get-preferences'));
+    mockAPI.diagnostics.setPreferences.mockImplementation((prefs: unknown) =>
+      mockAPI.invoke('diagnostics:set-preferences', prefs)
+    );
+    mockAPI.diagnostics.getServiceHealth.mockImplementation(() => mockAPI.invoke('diagnostics:get-service-health'));
+    mockAPI.diagnostics.subscribeToErrors.mockImplementation(() => jest.fn()); // Return unsubscribe function
 
     return mockAPI;
   }

@@ -75,7 +75,8 @@ export const FluentCheckbox: React.FC<FluentCheckboxProps> = ({ onChange, label,
         <input
           type="checkbox"
           checked={props.checked}
-          disabled
+          data-testid={props['data-testid']}
+          onChange={(e) => onChange?.(e.target.checked)}
           style={{
             marginRight: '8px',
             ...props.style,
@@ -92,6 +93,7 @@ export const FluentCheckbox: React.FC<FluentCheckboxProps> = ({ onChange, label,
             {props.required && <span style={{ color: 'var(--error-color, red)' }}> *</span>}
           </label>
         )}
+        {props.children}
       </div>
     );
   }

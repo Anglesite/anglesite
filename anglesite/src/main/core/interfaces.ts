@@ -86,6 +86,62 @@ export interface ILogger {
 }
 
 /**
+ * Error reporting service interface
+ */
+export interface IErrorReportingService extends IDisposable, IInitializable {
+  // Report an error
+  report(error: Error | unknown, context?: Record<string, unknown>): Promise<void>;
+
+  // Get error statistics
+  getStatistics(since?: Date): Promise<{
+    total: number;
+    byCategory: Record<string, number>;
+    bySeverity: Record<string, number>;
+  }>;
+
+  // Get recent errors
+  getRecentErrors(limit?: number): Promise<unknown[]>;
+
+  // Clear error history
+  clearHistory(): Promise<void>;
+
+  // Enable/disable error reporting
+  setEnabled(enabled: boolean): void;
+
+  // Check if reporting is enabled
+  isEnabled(): boolean;
+
+  // Export errors for analysis
+  exportErrors(filePath: string, since?: Date): Promise<void>;
+}
+
+/**
+ * System notification service interface
+ */
+export interface ISystemNotificationService extends IDisposable, IInitializable {
+  // Notification management
+  showCriticalNotification(notification: unknown): Promise<void>;
+  dismissSystemNotification(notificationId: string): Promise<void>;
+  dismissAllSystemNotifications(): Promise<void>;
+
+  // Badge management
+  updateBadgeCount(): void;
+  clearBadgeCount(): void;
+
+  // State queries
+  getActiveNotifications(): unknown[];
+  isNotificationActive(notificationId: string): boolean;
+
+  // Preferences
+  setNotificationPreferences(prefs: unknown): void;
+  getNotificationPreferences(): unknown;
+
+  // Service status
+  getCapabilities(): unknown;
+  isHealthy(): boolean;
+}
+
+/**
  * Settings store interface
  */
 export interface IStore extends IDisposable {

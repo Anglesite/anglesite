@@ -17,10 +17,23 @@ import { getGlobalContext } from '../core/service-registry';
 import { logger, sanitize } from '../utils/logging';
 import { ServiceKeys } from '../core/container';
 import { IWebsiteManager, IStore } from '../core/interfaces';
+import { createIPCErrorReporter } from '../utils/error-handler-integration';
 
 // Safe fs.promises.rm fallback for Node.js compatibility
 const rm =
   fs.promises && fs.promises.rm ? fs.promises.rm : fs.rmdir ? promisify(fs.rmdir.bind(fs)) : () => Promise.resolve();
+
+/**
+ * Get error reporter for website IPC operations
+ */
+function getErrorReporter() {
+  try {
+    const context = getGlobalContext();
+    return createIPCErrorReporter(context, 'website');
+  } catch {
+    return null; // Graceful degradation when DI not available
+  }
+}
 
 // Helper to check if file exists using fs.stat instead of fs.access
 async function exists(filePath: string): Promise<boolean> {
@@ -42,7 +55,13 @@ export function setupWebsiteHandlers(): void {
   ipcMain.on('new-website', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) {
-      console.error('No window found for new-website IPC message');
+      const errorReporter = getErrorReporter();
+      const error = new Error('No window found for new-website IPC message');
+      if (errorReporter) {
+        errorReporter('new-website', error, {}).catch(() => {});
+      } else {
+        console.error('No window found for new-website IPC message');
+      }
       return;
     }
 
@@ -76,7 +95,12 @@ export function setupWebsiteHandlers(): void {
             validationError = ''; // Clear any previous error
           }
         } catch (error) {
-          console.error('Validation error:', error);
+          const errorReporter = getErrorReporter();
+          if (errorReporter) {
+            errorReporter('websiteValidationViaDI', error, { stage: 'validation' }).catch(() => {});
+          } else {
+            console.error('Validation error:', error);
+          }
           // Fallback to legacy method if DI fails
           try {
             const { validateWebsiteNameAsync } = await import('../utils/website-manager');
@@ -88,7 +112,14 @@ export function setupWebsiteHandlers(): void {
               validationError = '';
             }
           } catch (fallbackError) {
-            console.error('Fallback validation error:', fallbackError);
+            const errorReporter = getErrorReporter();
+            if (errorReporter) {
+              errorReporter('websiteValidationFallback', fallbackError, { stage: 'validation-fallback' }).catch(
+                () => {}
+              );
+            } else {
+              console.error('Fallback validation error:', fallbackError);
+            }
             validationError = 'Unable to validate website name';
             websiteName = null;
           }
@@ -125,7 +156,12 @@ export function setupWebsiteHandlers(): void {
 
       return availableWebsites;
     } catch (error) {
-      console.error('Failed to list websites via DI:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('listWebsitesViaDI', error, { operation: 'list-websites' }).catch(() => {});
+      } else {
+        console.error('Failed to list websites via DI:', error);
+      }
       // Fallback to legacy method if DI fails
       try {
         const { listWebsites } = await import('../utils/website-manager');
@@ -135,7 +171,12 @@ export function setupWebsiteHandlers(): void {
         const availableWebsites = allWebsites.filter((websiteName: string) => !openWebsiteNames.includes(websiteName));
         return availableWebsites;
       } catch (fallbackError) {
-        console.error('Fallback failed to list websites:', fallbackError);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('listWebsitesFallback', fallbackError, { operation: 'list-websites-fallback' }).catch(() => {});
+        } else {
+          console.error('Fallback failed to list websites:', fallbackError);
+        }
         throw fallbackError;
       }
     }
@@ -196,13 +237,25 @@ export function setupWebsiteHandlers(): void {
       const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
       return websiteManager.validateWebsiteName(name);
     } catch (error) {
-      console.error('Failed to validate website name via DI:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('validateWebsiteNameViaDI', error, { operation: 'validate-website-name' }).catch(() => {});
+      } else {
+        console.error('Failed to validate website name via DI:', error);
+      }
       // Fallback to legacy method if DI fails
       try {
         const { validateWebsiteName } = await import('../utils/website-manager');
         return validateWebsiteName(name);
       } catch (fallbackError) {
-        console.error('Fallback failed to validate website name:', fallbackError);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('validateWebsiteNameFallback', fallbackError, {
+            operation: 'validate-website-name-fallback',
+          }).catch(() => {});
+        } else {
+          console.error('Fallback failed to validate website name:', fallbackError);
+        }
         return { valid: false, error: 'Unable to validate website name' };
       }
     }
@@ -218,7 +271,12 @@ export function setupWebsiteHandlers(): void {
       event.sender.send('website-operation-completed');
       return success;
     } catch (error) {
-      console.error('Failed to rename website via DI:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('renameWebsiteViaDI', error, { operation: 'rename-website', oldName, newName }).catch(() => {});
+      } else {
+        console.error('Failed to rename website via DI:', error);
+      }
       // Fallback to legacy method if DI fails
       try {
         const { renameWebsite } = await import('../utils/website-manager');
@@ -226,7 +284,16 @@ export function setupWebsiteHandlers(): void {
         event.sender.send('website-operation-completed');
         return success;
       } catch (fallbackError) {
-        console.error('Fallback failed to rename website:', fallbackError);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('renameWebsiteFallback', fallbackError, {
+            operation: 'rename-website-fallback',
+            oldName,
+            newName,
+          }).catch(() => {});
+        } else {
+          console.error('Fallback failed to rename website:', fallbackError);
+        }
         throw fallbackError; // Let the frontend handle the error display
       }
     }
@@ -244,7 +311,12 @@ export function setupWebsiteHandlers(): void {
         event.sender.send('website-operation-completed');
       }
     } catch (error) {
-      console.error('Failed to delete website:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('deleteWebsite', error, { operation: 'delete-website', websiteName }).catch(() => {});
+      } else {
+        console.error('Failed to delete website:', error);
+      }
       const window = BrowserWindow.fromWebContents(event.sender);
       if (window) {
         dialog.showMessageBox(window, {
@@ -263,7 +335,12 @@ export function setupWebsiteHandlers(): void {
     try {
       openWebsiteSelectionWindow();
     } catch (error) {
-      console.error('Failed to open website selection window:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('openWebsiteSelectionWindow', error, { operation: 'open-website-selection' }).catch(() => {});
+      } else {
+        console.error('Failed to open website selection window:', error);
+      }
     }
   });
 
@@ -273,7 +350,12 @@ export function setupWebsiteHandlers(): void {
       hideWebsitePreview(websiteName);
       return true;
     } catch (error) {
-      console.error('Failed to set edit mode:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('setEditMode', error, { operation: 'set-edit-mode' }).catch(() => {});
+      } else {
+        console.error('Failed to set edit mode:', error);
+      }
       return false;
     }
   });
@@ -283,7 +365,12 @@ export function setupWebsiteHandlers(): void {
       showWebsitePreview(websiteName);
       return true;
     } catch (error) {
-      console.error('Failed to set preview mode:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('setPreviewMode', error, { operation: 'set-preview-mode' }).catch(() => {});
+      } else {
+        console.error('Failed to set preview mode:', error);
+      }
       return false;
     }
   });
@@ -315,11 +402,22 @@ async function createNewWebsite(websiteName: string): Promise<void> {
       websiteCreated = true;
       console.log('Website created successfully via DI:', newWebsitePath);
     } catch (diError) {
-      console.error('Failed to create website via DI:', diError);
-      console.error('DI Error details:', {
-        message: diError instanceof Error ? diError.message : String(diError),
-        stack: diError instanceof Error ? diError.stack : 'No stack trace',
-      });
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('createWebsiteViaDI', diError, {
+          operation: 'create-website-via-di',
+          errorDetails: {
+            message: diError instanceof Error ? diError.message : String(diError),
+            stack: diError instanceof Error ? diError.stack : 'No stack trace',
+          },
+        }).catch(() => {});
+      } else {
+        console.error('Failed to create website via DI:', diError);
+        console.error('DI Error details:', {
+          message: diError instanceof Error ? diError.message : String(diError),
+          stack: diError instanceof Error ? diError.stack : 'No stack trace',
+        });
+      }
       console.log('Falling back to deprecated createWebsiteWithName - DI not available');
       // Fallback to legacy method if DI fails
       const { createWebsiteWithName } = await import('../utils/website-manager');
@@ -338,12 +436,25 @@ async function createNewWebsite(websiteName: string): Promise<void> {
       store.addRecentWebsite(websiteName);
       updateApplicationMenu();
     } catch (error) {
-      console.error('Failed to update recent websites - DI system required:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('updateRecentWebsites', error, {
+          operation: 'update-recent-websites',
+          context: 'di-required',
+        }).catch(() => {});
+      } else {
+        console.error('Failed to update recent websites - DI system required:', error);
+      }
       // DI system is now required, no fallback available
       updateApplicationMenu();
     }
   } catch (error) {
-    console.error('Failed to create new website:', error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('createNewWebsite', error, { operation: 'create-new-website' }).catch(() => {});
+    } else {
+      console.error('Failed to create new website:', error);
+    }
 
     // If we created the website directory but failed to open it, clean up
     if (websiteCreated && newWebsitePath) {
@@ -376,7 +487,12 @@ async function createNewWebsite(websiteName: string): Promise<void> {
           return; // Success - exit without throwing
         }
       } catch (openError) {
-        console.error('Failed to open existing website:', openError);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('openExistingWebsite', openError, { operation: 'open-existing-website' }).catch(() => {});
+        } else {
+          console.error('Failed to open existing website:', openError);
+        }
         // Fall through to throw original error
       }
     }
@@ -426,7 +542,15 @@ export async function openWebsiteInNewWindow(
         store.addRecentWebsite(websiteName);
         updateApplicationMenu();
       } catch (error) {
-        console.error('Failed to update recent websites - DI system required:', error);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('updateRecentWebsitesOnOpen', error, {
+            operation: 'update-recent-websites-on-open',
+            websiteName,
+          }).catch(() => {});
+        } else {
+          console.error('Failed to update recent websites - DI system required:', error);
+        }
         // DI system is now required, no fallback available
         updateApplicationMenu();
       }

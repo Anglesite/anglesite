@@ -12,6 +12,19 @@ import { getCurrentLiveServerUrl } from '../server/eleventy';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
 import type { IWebsiteManager } from '../core/interfaces';
+import { createIPCErrorReporter } from '../utils/error-handler-integration';
+
+/**
+ * Get error reporter for preview IPC operations
+ */
+function getErrorReporter() {
+  try {
+    const context = getGlobalContext();
+    return createIPCErrorReporter(context, 'preview');
+  } catch {
+    return null; // Graceful degradation when DI not available
+  }
+}
 
 /**
  * Setup preview and development tools IPC handlers.
@@ -23,7 +36,12 @@ export function setupPreviewHandlers(): void {
   ipcMain.on('build', () => {
     exec('npm run build', (err, stdout) => {
       if (err) {
-        console.error(err);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('buildCommand', err, { operation: 'npm-run-build' }).catch(() => {});
+        } else {
+          console.error(err);
+        }
         return;
       }
       console.log(stdout);
@@ -74,10 +92,23 @@ export function setupPreviewHandlers(): void {
           if (websitePath) {
             await startWebsiteServerAndUpdateWindow(websiteName, websitePath);
           } else {
-            console.error(`Could not find path for website: ${websiteName}`);
+            const errorReporter = getErrorReporter();
+            if (errorReporter) {
+              errorReporter('websitePathNotFound', new Error(`Could not find path for website: ${websiteName}`), {
+                operation: 'reload-preview',
+                websiteName,
+              }).catch(() => {});
+            } else {
+              console.error(`Could not find path for website: ${websiteName}`);
+            }
           }
         } catch (error) {
-          console.error(`Failed to reload preview for ${websiteName}:`, error);
+          const errorReporter = getErrorReporter();
+          if (errorReporter) {
+            errorReporter('previewReloadFailed', error, { operation: 'reload-preview', websiteName }).catch(() => {});
+          } else {
+            console.error(`Failed to reload preview for ${websiteName}:`, error);
+          }
         }
       }
     }
@@ -92,7 +123,14 @@ export function setupPreviewHandlers(): void {
       try {
         await shell.openExternal(localhostUrl);
       } catch (fallbackError) {
-        console.error('Failed to open in browser:', fallbackError);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('browserOpenFailed', fallbackError, { operation: 'open-in-browser', localhostUrl }).catch(
+            () => {}
+          );
+        } else {
+          console.error('Failed to open in browser:', fallbackError);
+        }
       }
     }
   });

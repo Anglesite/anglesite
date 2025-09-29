@@ -89,7 +89,8 @@ export const FluentTextField: React.FC<FluentTextFieldProps> = ({ children, onIn
           type={props.type || 'text'}
           value={props.value}
           placeholder={props.placeholder}
-          disabled
+          data-testid={props['data-testid']}
+          onChange={props.onChange}
           style={{
             width: '100%',
             padding: '8px 12px',

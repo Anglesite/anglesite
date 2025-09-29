@@ -129,8 +129,38 @@ process.env.ANGLESITE_TEST_DATA = '/tmp/anglesite-test';
 // Mock electronAPI globally for all tests
 const mockElectronAPI = {
   send: jest.fn(),
+  invoke: jest.fn(),
   on: jest.fn(),
+  once: jest.fn(),
   removeAllListeners: jest.fn(),
+  off: jest.fn(),
+  getCurrentTheme: jest.fn(),
+  setTheme: jest.fn(),
+  onThemeUpdated: jest.fn(),
+  openExternal: jest.fn(),
+  getAppInfo: jest.fn(),
+  clipboard: {
+    writeText: jest.fn(),
+    readText: jest.fn(),
+  },
+  diagnostics: {
+    getErrors: jest.fn(),
+    getStatistics: jest.fn(),
+    getNotifications: jest.fn(),
+    dismissNotification: jest.fn(),
+    clearErrors: jest.fn(),
+    exportErrors: jest.fn(),
+    showWindow: jest.fn(),
+    closeWindow: jest.fn(),
+    toggleWindow: jest.fn(),
+    getWindowState: jest.fn(),
+    getPreferences: jest.fn(),
+    setPreferences: jest.fn(),
+    getServiceHealth: jest.fn(),
+    subscribeToErrors: jest.fn(),
+    onSubscriptionConfirmed: jest.fn(),
+    onSubscriptionError: jest.fn(),
+  },
 };
 
 // Set up window.electronAPI for renderer tests

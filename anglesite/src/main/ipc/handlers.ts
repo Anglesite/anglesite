@@ -12,6 +12,8 @@ import { setupReactEditorHandlers } from './react-editor';
 import { setupBundleHandlers, exportWebsiteBundleHandler, importWebsiteBundleHandler } from './bundle';
 import { setupSchemaHandlers } from './schema';
 import { setupDebuggingHandlers } from './debugging';
+import { setupErrorReportingHandlers } from './error-reporting';
+import { setupDiagnosticsHandlers } from './diagnostics';
 
 /**
  * Setup all IPC main listeners.
@@ -26,6 +28,8 @@ export function setupIpcMainListeners(): void {
   setupBundleHandlers();
   setupSchemaHandlers();
   setupDebuggingHandlers();
+  setupErrorReportingHandlers();
+  setupDiagnosticsHandlers();
 }
 
 // Export handler functions that are used by tests and menu system

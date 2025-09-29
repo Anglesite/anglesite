@@ -8,6 +8,19 @@ import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
 import type { IWebsiteManager } from '../core/interfaces';
 import { getAllWebsiteWindows } from '../ui/multi-window-manager';
+import { createIPCErrorReporter } from '../utils/error-handler-integration';
+
+/**
+ * Get error reporter for react editor IPC operations
+ */
+function getErrorReporter() {
+  try {
+    const context = getGlobalContext();
+    return createIPCErrorReporter(context, 'react-editor');
+  } catch {
+    return null; // Graceful degradation when DI not available
+  }
+}
 
 /**
  * Setup React website editor IPC handlers.
@@ -26,7 +39,12 @@ export function setupReactEditorHandlers(): void {
       }
       return null;
     } catch (error) {
-      console.error('Error getting current website name:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('getCurrentWebsiteName', error, { operation: 'get-current-website-name' }).catch(() => {});
+      } else {
+        console.error('Error getting current website name:', error);
+      }
       return null;
     }
   });
@@ -63,7 +81,12 @@ export function setupReactEditorHandlers(): void {
 
       return files;
     } catch (error) {
-      console.error('Error getting website files:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('getWebsiteFiles', error, { operation: 'get-website-files', websiteName }).catch(() => {});
+      } else {
+        console.error('Error getting website files:', error);
+      }
       throw error;
     }
   });
@@ -116,7 +139,12 @@ export function setupReactEditorHandlers(): void {
         throw error;
       }
     } catch (error) {
-      console.error('Error getting file content:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('getFileContent', error, { operation: 'get-file-content', relativePath }).catch(() => {});
+      } else {
+        console.error('Error getting file content:', error);
+      }
       throw error;
     }
   });
@@ -169,7 +197,12 @@ export function setupReactEditorHandlers(): void {
 
         return true;
       } catch (error) {
-        console.error('Error saving file content:', error);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('saveFileContent', error, { operation: 'save-file-content', relativePath }).catch(() => {});
+        } else {
+          console.error('Error saving file content:', error);
+        }
         throw error;
       }
     }
@@ -242,7 +275,14 @@ async function getFilesRecursively(dirPath: string, basePath: string, websiteNam
               }
             }
           } catch (error) {
-            console.warn('Could not use enhanced URL resolver for file:', fullPath, error);
+            const errorReporter = getErrorReporter();
+            if (errorReporter) {
+              errorReporter('urlResolverFallback', error, { operation: 'enhanced-url-resolver', fullPath }).catch(
+                () => {}
+              );
+            } else {
+              console.warn('Could not use enhanced URL resolver for file:', fullPath, error);
+            }
             // Continue with the fallback URL calculated above
           }
 
@@ -259,7 +299,12 @@ async function getFilesRecursively(dirPath: string, basePath: string, websiteNam
       }
     }
   } catch (error) {
-    console.error('Error reading directory:', dirPath, error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('directoryRead', error, { operation: 'read-directory', dirPath }).catch(() => {});
+    } else {
+      console.error('Error reading directory:', dirPath, error);
+    }
   }
 
   return files;

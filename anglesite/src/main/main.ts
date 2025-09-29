@@ -30,6 +30,40 @@ let mainWindow: BrowserWindow | null = null;
 let store: IStore;
 
 /**
+ * Set up global error handlers for the main process
+ */
+function setupGlobalErrorHandlers(errorReportingService: any): void {
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error: Error) => {
+    logger.error(`Uncaught exception in main process: ${sanitize.error(error)}`);
+    errorReportingService
+      .report(error, {
+        type: 'uncaughtException',
+        process: 'main',
+      })
+      .catch((reportError: Error) => {
+        logger.error(`Failed to report uncaught exception: ${sanitize.error(reportError)}`);
+      });
+  });
+
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+    logger.error(`Unhandled promise rejection in main process: ${sanitize.error(reason)}`);
+    errorReportingService
+      .report(reason, {
+        type: 'unhandledRejection',
+        process: 'main',
+        promise: promise.toString(),
+      })
+      .catch((reportError: Error) => {
+        logger.error(`Failed to report unhandled rejection: ${sanitize.error(reportError)}`);
+      });
+  });
+
+  logger.info('Global error handlers configured');
+}
+
+/**
  * Initialize the application.
  */
 async function initializeApp(): Promise<void> {
@@ -39,6 +73,36 @@ async function initializeApp(): Promise<void> {
   // Initialize app settings store from DI container
   const appContext = getGlobalContext();
   store = appContext.getService<IStore>(ServiceKeys.STORE);
+
+  // Initialize error reporting service (skip in test environment)
+  let errorReportingService: any = null;
+  if (process.env.NODE_ENV !== 'test') {
+    errorReportingService = appContext.getService(ServiceKeys.ERROR_REPORTING) as any;
+    await errorReportingService.initialize();
+
+    // Set up global error handlers
+    setupGlobalErrorHandlers(errorReportingService);
+  }
+
+  // Initialize notification services
+  try {
+    logger.info('Initializing notification services');
+    const { registerNotificationServices, initializeNotificationServices } = await import(
+      './services/notification-service-registrar'
+    );
+    const { container } = await import('./core/container');
+
+    // Register notification services in the DI container
+    registerNotificationServices(container);
+
+    // Initialize the services
+    await initializeNotificationServices(container);
+
+    logger.info('Notification services initialized successfully');
+  } catch (error) {
+    logger.error(`Failed to initialize notification services: ${sanitize.error(error)}`);
+    // Don't fail the app if notification services fail to initialize
+  }
 
   // Check if first launch is needed
   if (!store.get('firstLaunchCompleted')) {

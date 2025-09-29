@@ -116,7 +116,8 @@ export class MonitorManager implements IMonitorManager {
 
       return configuration;
     } catch (error) {
-      console.error('Failed to get monitor configuration:', error);
+      // TODO: Integrate with ErrorReportingService once dependency injection is available
+      console.error('MonitorManager: Failed to get monitor configuration:', error);
 
       // Fallback to minimal single monitor configuration
       const fallbackMonitor: MonitorInfo = {

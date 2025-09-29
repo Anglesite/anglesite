@@ -7,6 +7,7 @@ import * as path from 'path';
 import { IWebsiteServerManager, IGitHistoryManager, IWebsiteManager } from '../core/interfaces';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
+import { createIPCErrorReporter } from '../utils/error-handler-integration';
 
 interface WebsiteFile {
   name: string;
@@ -15,6 +16,18 @@ interface WebsiteFile {
   extension: string | null;
   modified: Date;
   size: number | null;
+}
+
+/**
+ * Get error reporter for file IPC operations
+ */
+function getErrorReporter() {
+  try {
+    const context = getGlobalContext();
+    return createIPCErrorReporter(context, 'file');
+  } catch {
+    return null; // Graceful degradation when DI not available
+  }
 }
 
 /**
@@ -116,7 +129,12 @@ export function setupFileHandlers(): void {
 
       return websiteServer.urlResolver.getUrlForFile(filePath);
     } catch (error) {
-      console.error('Error getting file URL:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('getFileUrl', error, { operation: 'get-file-url', websiteName, filePath }).catch(() => {});
+      } else {
+        console.error('Error getting file URL:', error);
+      }
       return null;
     }
   });
@@ -133,7 +151,14 @@ export function setupFileHandlers(): void {
 
       return websiteWindow.serverUrl;
     } catch (error) {
-      console.error('Error getting website server URL:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('getWebsiteServerUrl', error, { operation: 'get-website-server-url', websiteName }).catch(
+          () => {}
+        );
+      } else {
+        console.error('Error getting website server URL:', error);
+      }
       return null;
     }
   });
@@ -145,18 +170,39 @@ export function setupFileHandlers(): void {
       const websiteWindow = websiteWindows.get(websiteName);
 
       if (!websiteWindow || websiteWindow.window.isDestroyed()) {
-        console.error(`Website window not found for preview load: ${websiteName}`);
+        const errorReporter = getErrorReporter();
+        const error = new Error(`Website window not found for preview load: ${websiteName}`);
+        if (errorReporter) {
+          errorReporter('previewLoadWindowNotFound', error, { operation: 'preview-load', websiteName }).catch(() => {});
+        } else {
+          console.error(`Website window not found for preview load: ${websiteName}`);
+        }
         return;
       }
 
       if (!websiteWindow.webContentsView || websiteWindow.webContentsView.webContents.isDestroyed()) {
-        console.error(`WebContentsView not available for preview load: ${websiteName}`);
+        const errorReporter = getErrorReporter();
+        const error = new Error(`WebContentsView not available for preview load: ${websiteName}`);
+        if (errorReporter) {
+          errorReporter('previewLoadWebContentsNotFound', error, { operation: 'preview-load', websiteName }).catch(
+            () => {}
+          );
+        } else {
+          console.error(`WebContentsView not available for preview load: ${websiteName}`);
+        }
         return;
       }
 
       websiteWindow.webContentsView.webContents.loadURL(fileUrl);
     } catch (error) {
-      console.error('Error loading file preview:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('loadFilePreview', error, { operation: 'load-file-preview', websiteName, fileUrl }).catch(
+          () => {}
+        );
+      } else {
+        console.error('Error loading file preview:', error);
+      }
     }
   });
 
@@ -172,7 +218,12 @@ export function setupFileHandlers(): void {
     try {
       return await loadWebsiteFiles(websitePath);
     } catch (error) {
-      console.error('Failed to load website files:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('loadWebsiteFiles', error, { operation: 'load-website-files', websitePath }).catch(() => {});
+      } else {
+        console.error('Failed to load website files:', error);
+      }
       throw error;
     }
   });
@@ -189,7 +240,14 @@ export function setupFileHandlers(): void {
       const serverUrl = serverInfo.url || `http://localhost:${serverInfo.port}`;
       return serverUrl;
     } catch (error) {
-      console.error('Failed to start website dev server:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('startWebsiteDevServer', error, { operation: 'start-website-dev-server', websiteName }).catch(
+          () => {}
+        );
+      } else {
+        console.error('Failed to start website dev server:', error);
+      }
       throw error;
     }
   });
@@ -559,7 +617,12 @@ export function setupFileHandlers(): void {
       }
       return null;
     } catch (error) {
-      console.error('Error getting current window title:', error);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('getCurrentWindowTitle', error, { operation: 'get-current-window-title' }).catch(() => {});
+      } else {
+        console.error('Error getting current window title:', error);
+      }
       return null;
     }
   });

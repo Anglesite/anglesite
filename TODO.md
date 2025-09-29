@@ -62,7 +62,16 @@
 
 ## Future Enhancements
 
-- [ ] Consider implementing a global error reporting service
+- [-] Consider implementing a global error reporting service
+  - [x] Write comprehensive unit tests for ErrorReportingService
+  - [x] Update existing error handlers to report through the new service
+  - [-] Add error reporting UI for administrators
+    - [x] Module 1: ErrorDiagnosticsService - Core data management and real-time subscriptions
+    - [x] Module 2: DiagnosticsWindowManager - Window lifecycle and IPC setup
+    - [x] Module 3: Diagnostics IPC Handlers - Communication layer between main and renderer
+    - [x] Module 4: React Components - UI components with Fluent design
+    - [x] Module 5: Menu Integration - Help menu integration and keyboard shortcuts
+    - [x] Module 6: Notification System - Critical error notifications and dismissal
 - [ ] Add telemetry for tracking component errors in production
 - [ ] Implement retry logic for failed IPC calls
 - [ ] Add user-friendly error messages for common failure scenarios

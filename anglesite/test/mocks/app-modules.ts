@@ -25,6 +25,23 @@ const mockMultiWindowManager = {
 
 jest.mock('../../src/main/ui/multi-window-manager', () => mockMultiWindowManager);
 
+// Mock ErrorReportingService to prevent initialization errors in tests
+const mockErrorReportingService = {
+  initialize: jest.fn().mockResolvedValue(undefined),
+  dispose: jest.fn().mockResolvedValue(undefined),
+  report: jest.fn().mockResolvedValue(undefined),
+  isHealthy: jest.fn(() => true),
+  getErrors: jest.fn(() => []),
+  clearErrors: jest.fn().mockResolvedValue(undefined),
+};
+
+jest.mock('../../src/main/services/error-reporting-service', () => ({
+  ErrorReportingService: jest.fn().mockImplementation(() => mockErrorReportingService),
+}));
+
+// Also need to export the mock for tests that need access
+export { mockErrorReportingService };
+
 const mockAppMenu = {
   createApplicationMenu: jest.fn(),
   updateApplicationMenu: jest.fn(),

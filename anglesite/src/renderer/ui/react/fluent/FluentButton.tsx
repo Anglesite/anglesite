@@ -92,9 +92,9 @@ export const FluentButton: React.FC<FluentButtonProps> = ({ children, ...props }
           opacity: 0.7,
           ...props.style,
         }}
-        disabled
+        disabled={props.disabled}
       >
-        Loading...
+        {children}
       </button>
     );
   }

@@ -28,6 +28,8 @@ module.exports = [
       '**/*.min.js',
       '**/*.map',
       'app/core/errors/examples.ts',
+      'test/temp/**/*',
+      'test/mocks/__mocks__/**/*',
     ],
   },
 

@@ -23,6 +23,8 @@ module.exports = {
   entry: {
     /** Main React application entry point */
     main: './src/renderer/ui/react/index.tsx',
+    /** Diagnostics React application entry point */
+    diagnostics: './src/renderer/diagnostics/index.tsx',
     /** CSS styles bundle including Tailwind and custom styles */
     styles: ['./src/renderer/ui/tailwind-base.css', './src/renderer/ui/default-theme.css', './src/renderer/styles.css'],
   },

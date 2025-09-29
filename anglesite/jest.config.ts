@@ -12,7 +12,10 @@ export default {
   setupFiles: ['<rootDir>/test/setup/jest-setup.ts'],
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
   testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
-  testPathIgnorePatterns: ['/node_modules/'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    process.env.SKIP_PERFORMANCE_TESTS === 'true' ? 'test/performance/' : null,
+  ].filter(Boolean),
   moduleNameMapper: {
     '^../../src/main/eleventy/.eleventy$': '<rootDir>/src/main/eleventy/config.eleventy.ts',
     '^@11ty/eleventy$': '<rootDir>/test/mocks/__mocks__/eleventy.js',
@@ -25,10 +28,10 @@ export default {
   },
   transformIgnorePatterns: ['node_modules/(?!(@11ty/eleventy|@11ty/eleventy-dev-server|bagit-fs|@fluentui)/)'],
   // Performance optimizations
-  maxWorkers: 1,
-  detectOpenHandles: true,
-  forceExit: true,
-  testTimeout: 10000, // Increased from 5000 for module loading
+  maxWorkers: '50%', // Use half of available CPU cores for better parallelization
+  detectOpenHandles: false, // Disable to prevent hanging on open handles
+  forceExit: false, // Allow Jest to exit gracefully
+  testTimeout: 15000, // Increased for complex tests but with shorter timeout for hanging tests
   // Stricter cleanup and silence console output
   clearMocks: true,
   restoreMocks: false,

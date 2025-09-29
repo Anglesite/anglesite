@@ -89,7 +89,8 @@ function createStubAtomicOperations(fileSystem: IFileSystem): IAtomicOperations 
       const error = new AtomicOperationError(
         'copyDirectoryAtomic not implemented yet',
         'NOT_IMPLEMENTED',
-        'copyDirectoryAtomic'
+        'copyDirectoryAtomic',
+        false
       );
       return Promise.resolve({
         success: false,
@@ -114,7 +115,12 @@ function createStubAtomicOperations(fileSystem: IFileSystem): IAtomicOperations 
       );
     },
     createTransaction: () => {
-      throw new AtomicOperationError('createTransaction not implemented yet', 'NOT_IMPLEMENTED', 'createTransaction');
+      throw new AtomicOperationError(
+        'createTransaction not implemented yet',
+        'NOT_IMPLEMENTED',
+        'createTransaction',
+        false
+      );
     },
   };
 }

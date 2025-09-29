@@ -3,6 +3,8 @@
  * @description Extends Jest's expect interface with our domain-specific matchers
  */
 
+/// <reference types="@testing-library/jest-dom" />
+
 declare global {
   namespace jest {
     interface Matchers<R> {

@@ -7,7 +7,15 @@
  */
 
 import { DIContainer, ServiceKeys, container } from './container';
-import { SystemError, AtomicOperationError, ErrorUtils, withContext, handleError } from './errors';
+import {
+  AngleError,
+  AtomicOperationError,
+  ErrorUtils,
+  withContext,
+  ErrorCategory,
+  ErrorSeverity,
+  SystemError,
+} from './errors';
 import { ResilientServiceWrapper, HealthMonitor } from './service-resilience';
 import {
   IStore,
@@ -29,6 +37,7 @@ import {
   IServiceMetadata,
   TypeGuards,
   IGitHistoryManager,
+  IErrorReportingService,
 } from './interfaces';
 
 // Store class removed - now using DI with StoreService
@@ -243,7 +252,7 @@ export class ApplicationContext extends EventEmitter implements IApplicationCont
       const wrappedError = ErrorUtils.wrap(error, {
         operation: 'initializeApplicationContext',
       });
-      await handleError(wrappedError);
+      this.logger.error(`Failed to initialize service: ${wrappedError.message}`);
       throw wrappedError;
     }
   }
@@ -294,11 +303,7 @@ export class ApplicationContext extends EventEmitter implements IApplicationCont
 
   getService<T>(serviceName: string): T {
     if (!this.isInitialized) {
-      throw new (class ContextNotInitializedError extends SystemError {
-        constructor() {
-          super('Application context is not initialized', 'CONTEXT_NOT_INITIALIZED');
-        }
-      })();
+      throw new SystemError('Application context is not initialized', 'CONTEXT_NOT_INITIALIZED');
     }
 
     try {
@@ -316,11 +321,7 @@ export class ApplicationContext extends EventEmitter implements IApplicationCont
 
   async getServiceAsync<T>(serviceName: string): Promise<T> {
     if (!this.isInitialized) {
-      throw new (class ContextNotInitializedError extends SystemError {
-        constructor() {
-          super('Application context is not initialized', 'CONTEXT_NOT_INITIALIZED');
-        }
-      })();
+      throw new SystemError('Application context is not initialized', 'CONTEXT_NOT_INITIALIZED');
     }
 
     try {
@@ -396,11 +397,7 @@ export class ApplicationContext extends EventEmitter implements IApplicationCont
    */
   getResilientService<T>(serviceName: string): ResilientServiceWrapper<T> {
     if (!this.isInitialized) {
-      throw new (class ContextNotInitializedError extends SystemError {
-        constructor() {
-          super('Application context is not initialized', 'CONTEXT_NOT_INITIALIZED');
-        }
-      })();
+      throw new SystemError('Application context is not initialized', 'CONTEXT_NOT_INITIALIZED');
     }
 
     const existingWrapper = this.resilientServices.get(serviceName);
@@ -597,7 +594,8 @@ function createStubAtomicOperations(fileSystem: IFileSystem): IAtomicOperations 
       const error = new AtomicOperationError(
         'copyDirectoryAtomic not implemented yet',
         'NOT_IMPLEMENTED',
-        'copyDirectoryAtomic'
+        'copyDirectoryAtomic',
+        false
       );
       return Promise.resolve({
         success: false,
@@ -624,7 +622,12 @@ function createStubAtomicOperations(fileSystem: IFileSystem): IAtomicOperations 
     },
     createTransaction: () => {
       // Basic stub implementation
-      throw new AtomicOperationError('createTransaction not implemented yet', 'NOT_IMPLEMENTED', 'createTransaction');
+      throw new AtomicOperationError(
+        'createTransaction not implemented yet',
+        'NOT_IMPLEMENTED',
+        'createTransaction',
+        false
+      );
     },
   };
 }
@@ -661,6 +664,19 @@ export class ServiceRegistrar {
         return createStoreService(logger, fileSystem, undefined, appDataPath);
       },
       'singleton'
+    );
+
+    // Error reporting service
+    container.register(
+      ServiceKeys.ERROR_REPORTING,
+      () => {
+        const store = container.resolve<IStore>(ServiceKeys.STORE);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { ErrorReportingService } = require('../services/error-reporting-service');
+        return new ErrorReportingService(store);
+      },
+      'singleton',
+      [ServiceKeys.STORE]
     );
 
     // Git history manager (needs to be registered before website manager)

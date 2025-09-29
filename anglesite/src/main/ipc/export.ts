@@ -17,6 +17,19 @@ import {
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
 import type { IWebsiteManager } from '../core/interfaces';
+import { createIPCErrorReporter } from '../utils/error-handler-integration';
+
+/**
+ * Get error reporter for export IPC operations
+ */
+function getErrorReporter() {
+  try {
+    const context = getGlobalContext();
+    return createIPCErrorReporter(context, 'export');
+  } catch {
+    return null; // Graceful degradation when DI not available
+  }
+}
 
 /**
  * Setup export functionality IPC handlers.
@@ -199,7 +212,14 @@ export async function exportSiteHandler(event: IpcMainEvent | null, exportFormat
         await createZipArchive(buildDir, exportPath, win);
       }
     } catch (buildErr) {
-      console.error('Build failed:', buildErr);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('websiteBuild', buildErr, { operation: 'website-build', websitePath, exportPath }).catch(
+          () => {}
+        );
+      } else {
+        console.error('Build failed:', buildErr);
+      }
       dialog.showMessageBox(win, {
         type: 'error',
         title: 'Export Failed',
@@ -210,7 +230,12 @@ export async function exportSiteHandler(event: IpcMainEvent | null, exportFormat
       return;
     }
   } catch (error) {
-    console.error('Export failed:', error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('websiteExport', error, { operation: 'website-export' }).catch(() => {});
+    } else {
+      console.error('Export failed:', error);
+    }
     dialog.showMessageBox(win, {
       type: 'error',
       title: 'Export Failed',
@@ -248,7 +273,12 @@ async function createZipArchive(buildDir: string, exportPath: string, win: Brows
     });
 
     archive.on('error', (err: Error) => {
-      console.error('Zip archive error:', err);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('zipArchiveError', err, { operation: 'zip-archive', exportPath }).catch(() => {});
+      } else {
+        console.error('Zip archive error:', err);
+      }
       dialog.showMessageBox(win, {
         type: 'error',
         title: 'Export Failed',
@@ -415,7 +445,16 @@ async function createBagItArchive(
     fs.rmSync(tempZipPath, { force: true });
     fs.rmSync(buildDir, { recursive: true, force: true });
   } catch (error) {
-    console.error('BagIt archive creation failed:', error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('bagItArchiveCreation', error, {
+        operation: 'bagit-archive-creation',
+        websiteName,
+        exportPath,
+      }).catch(() => {});
+    } else {
+      console.error('BagIt archive creation failed:', error);
+    }
 
     // Clean up any temporary files on error
     const tmpDir = os.tmpdir();
@@ -459,7 +498,14 @@ async function createZipArchiveFromDirectory(sourceDir: string, outputPath: stri
     });
 
     archive.on('error', (err: Error) => {
-      console.error('BagIt zip archive error:', err);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('bagItZipArchiveError', err, { operation: 'bagit-zip-archive', sourceDir, outputPath }).catch(
+          () => {}
+        );
+      } else {
+        console.error('BagIt zip archive error:', err);
+      }
       reject(err);
     });
 

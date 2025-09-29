@@ -14,6 +14,7 @@ import { promisify } from 'util';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
 import { IWebsiteManager } from '../core/interfaces';
+import { createServiceErrorReporter } from '../utils/error-handler-integration';
 import * as hostile from 'hostile';
 
 import sudoPrompt from 'sudo-prompt';
@@ -21,6 +22,18 @@ import isElevated from 'native-is-elevated';
 import { logger } from '../utils/logging';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Get error reporter for DNS/hosts operations
+ */
+function getErrorReporter() {
+  try {
+    const context = getGlobalContext();
+    return createServiceErrorReporter(context, 'HostsManager');
+  } catch {
+    return null; // Graceful degradation when DI not available
+  }
+}
 
 /**
  * Add local DNS resolution for a hostname with biometric authentication.
@@ -84,7 +97,13 @@ All future websites will automatically work at:
       if (success) {
         console.log(`✅ DNS resolution for ${hostname} configured automatically`);
       } else {
-        console.error(`❌ Failed to add ${hostname} to hosts file`);
+        const errorReporter = getErrorReporter();
+        const error = new Error(`Failed to add ${hostname} to hosts file`);
+        if (errorReporter) {
+          errorReporter('addToAnglesiteSection', error, { hostname, autoConfig: true }).catch(() => {});
+        } else {
+          console.error(`❌ Failed to add ${hostname} to hosts file`);
+        }
       }
     }
     return;
@@ -104,7 +123,12 @@ All future websites will automatically work at:
     console.log(`2. Or manually add: 127.0.0.1\t*.test to /etc/hosts`);
     console.log(`========================================\n`);
   } catch (error) {
-    console.warn('Could not check DNS resolution:', error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('checkDnsResolution', error, { hostname }).catch(() => {});
+    } else {
+      console.warn('Could not check DNS resolution:', error);
+    }
     console.log(`\nAccess your site at: https://localhost:8080`);
     console.log(`Or set up custom domain in Settings`);
   }
@@ -117,7 +141,12 @@ async function checkAnglesiteSection(): Promise<boolean> {
   try {
     return await hostEntryExists('anglesite.test');
   } catch (error) {
-    console.error('Error checking hosts file:', error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('checkAnglesiteSection', error, {}).catch(() => {});
+    } else {
+      console.error('Error checking hosts file:', error);
+    }
     return false;
   }
 }
@@ -264,10 +293,15 @@ async function executeWithElevatedPrivileges(
       });
     }
   } catch (error: unknown) {
-    console.error(
-      'Failed to execute with elevated privileges:',
-      error instanceof Error ? error.message : String(error)
-    );
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('executeWithElevatedPrivileges', error, { command, args }).catch(() => {});
+    } else {
+      console.error(
+        'Failed to execute with elevated privileges:',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
     return { success: false };
   }
 }
@@ -283,11 +317,22 @@ async function addHostEntry(hostname: string, ipAddress: string = '127.0.0.1'): 
       console.log(`✅ Added ${hostname} to hosts file`);
       return true;
     } else {
-      console.error(`Failed to add ${hostname} to hosts file`);
+      const errorReporter = getErrorReporter();
+      const err = new Error(`Failed to add ${hostname} to hosts file`);
+      if (errorReporter) {
+        errorReporter('addToAnglesiteSection', err, { hostname }).catch(() => {});
+      } else {
+        console.error(`Failed to add ${hostname} to hosts file`);
+      }
       return false;
     }
   } catch (error) {
-    console.error(`Failed to add ${hostname} to hosts file:`, error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('addToAnglesiteSection', error, { hostname }).catch(() => {});
+    } else {
+      console.error(`Failed to add ${hostname} to hosts file:`, error);
+    }
     return false;
   }
 }
@@ -303,11 +348,22 @@ async function removeHostEntry(hostname: string): Promise<boolean> {
       console.log(`✅ Removed ${hostname} from hosts file`);
       return true;
     } else {
-      console.error(`Failed to remove ${hostname} from hosts file`);
+      const errorReporter = getErrorReporter();
+      const err = new Error(`Failed to remove ${hostname} from hosts file`);
+      if (errorReporter) {
+        errorReporter('removeFromAnglesiteSection', err, { hostname }).catch(() => {});
+      } else {
+        console.error(`Failed to remove ${hostname} from hosts file`);
+      }
       return false;
     }
   } catch (error) {
-    console.error(`Failed to remove ${hostname} from hosts file:`, error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('removeFromAnglesiteSection', error, { hostname }).catch(() => {});
+    } else {
+      console.error(`Failed to remove ${hostname} from hosts file:`, error);
+    }
     return false;
   }
 }
@@ -319,7 +375,12 @@ async function hostEntryExists(hostname: string): Promise<boolean> {
   return new Promise((resolve) => {
     hostile.get(false, (err: Error | null, lines: unknown) => {
       if (err) {
-        console.error(`Failed to check hosts file for ${hostname}:`, err);
+        const errorReporter = getErrorReporter();
+        if (errorReporter) {
+          errorReporter('checkHostEntry', err, { hostname }).catch(() => {});
+        } else {
+          console.error(`Failed to check hosts file for ${hostname}:`, err);
+        }
         resolve(false);
         return;
       }
@@ -345,7 +406,12 @@ async function setupAnglesiteWildcardSection(): Promise<boolean> {
     }
     return success;
   } catch (error) {
-    console.error('Failed to setup Anglesite domain:', error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('setupAnglesiteWildcardSection', error, {}).catch(() => {});
+    } else {
+      console.error('Failed to setup Anglesite domain:', error);
+    }
     return false;
   }
 }
@@ -365,7 +431,12 @@ async function addToAnglesiteSection(hostname: string, ipAddress: string = '127.
     // Add the host entry
     return await addHostEntry(hostname, ipAddress);
   } catch (error) {
-    console.error('Failed to add to hosts file:', error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('addHostEntry', error, { hostname, ipAddress }).catch(() => {});
+    } else {
+      console.error('Failed to add to hosts file:', error);
+    }
     return false;
   }
 }
@@ -392,7 +463,12 @@ export async function cleanupHostsFile(): Promise<boolean> {
       const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
       existingWebsites = await websiteManager.listWebsites();
     } catch (diError) {
-      console.warn('Failed to list websites via DI, falling back to legacy method:', diError);
+      const errorReporter = getErrorReporter();
+      if (errorReporter) {
+        errorReporter('listWebsitesViaDI', diError, {}).catch(() => {});
+      } else {
+        console.warn('Failed to list websites via DI, falling back to legacy method:', diError);
+      }
       // Fallback to legacy method if DI fails (for when DI is not initialized yet)
       const { listWebsites } = await import('../utils/website-manager');
       existingWebsites = await listWebsites();
@@ -446,7 +522,12 @@ export async function cleanupHostsFile(): Promise<boolean> {
 
     return allSucceeded;
   } catch (error) {
-    console.error('Failed to clean up hosts file:', error);
+    const errorReporter = getErrorReporter();
+    if (errorReporter) {
+      errorReporter('cleanupHostsFile', error, {}).catch(() => {});
+    } else {
+      console.error('Failed to clean up hosts file:', error);
+    }
     return false;
   }
 }

@@ -309,12 +309,9 @@ export async function atomicWriteFile(
     }
 
     if (!writeSuccess) {
-      throw new AtomicWriteError(
-        filePath,
-        writeError?.message || 'Failed to write temporary file',
-        { operation: 'atomicWriteFile' },
-        writeError || undefined
-      );
+      throw new AtomicWriteError(writeError?.message || 'Failed to write temporary file', tempPath, filePath, {
+        operation: 'atomicWriteFile',
+      });
     }
 
     // Validate the written data if validator provided
@@ -323,7 +320,9 @@ export async function atomicWriteFile(
       const dataAsString = Buffer.isBuffer(writtenData) ? writtenData.toString() : writtenData;
       const isValid = await validate(dataAsString);
       if (!isValid) {
-        throw new AtomicWriteError(filePath, 'File validation failed after write', { operation: 'validation' });
+        throw new AtomicWriteError('File validation failed after write', tempPath, filePath, {
+          operation: 'validation',
+        });
       }
     }
 
@@ -583,8 +582,7 @@ async function copyDirectoryRecursive(
       'copyDirectoryRecursive',
       false,
       undefined,
-      undefined,
-      { context: { maxDepth, currentDepth } }
+      { maxDepth, currentDepth }
     );
   }
 

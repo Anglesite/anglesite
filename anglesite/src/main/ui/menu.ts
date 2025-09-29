@@ -16,9 +16,43 @@ import { exportSiteHandler } from '../ipc/export';
 import { exportWebsiteBundleHandler, importWebsiteBundleHandler } from '../ipc/bundle';
 import { cleanupHostsFile } from '../dns/hosts-manager';
 import { installCAInSystem, isCAInstalledInSystem } from '../certificates';
-import { IStore, IWebsiteManager, IGitHistoryManager } from '../core/interfaces';
+import { IStore, IWebsiteManager, IGitHistoryManager, ISystemNotificationService } from '../core/interfaces';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
+import { checkDiagnosticsServiceAvailability, handleDiagnosticsMenuClick } from './menu/diagnostics-menu-handlers';
+
+/**
+ * Get the count of pending critical notifications for menu badge
+ */
+function getPendingNotificationCount(): number {
+  try {
+    const appContext = getGlobalContext();
+    const systemNotificationService = appContext.getService<ISystemNotificationService>(
+      ServiceKeys.SYSTEM_NOTIFICATION
+    );
+
+    // Get active system notifications
+    const activeNotifications = systemNotificationService.getActiveNotifications();
+    return activeNotifications.length;
+  } catch {
+    // If service not available, return 0
+    return 0;
+  }
+}
+
+/**
+ * Create a formatted diagnostics menu label with notification badge
+ */
+function createDiagnosticsMenuLabel(): string {
+  const pendingCount = getPendingNotificationCount();
+  const baseLabel = 'Website Diagnostics...';
+
+  if (pendingCount > 0) {
+    return `${baseLabel} (${pendingCount})`;
+  }
+
+  return baseLabel;
+}
 
 /**
  * Check if the current focused window is a website window or website editor.
@@ -941,6 +975,20 @@ export function createApplicationMenu(): Menu {
           click: async () => {
             createHelpWindow();
           },
+        },
+        {
+          type: 'separator',
+        },
+        {
+          label: createDiagnosticsMenuLabel(),
+          accelerator: 'CmdOrCtrl+Shift+D',
+          enabled: checkDiagnosticsServiceAvailability(),
+          click: async () => {
+            await handleDiagnosticsMenuClick();
+          },
+        },
+        {
+          type: 'separator',
         },
         {
           label: 'Report Issue',

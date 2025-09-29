@@ -32,6 +32,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'first-launch-result',
       'open-external-url',
       'close-about-window',
+      // Diagnostics send channels
+      'diagnostics:subscribe-errors',
+      'diagnostics:unsubscribe-errors',
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, ...args);
@@ -70,6 +73,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'create-new-page',
       'set-edit-mode',
       'set-preview-mode',
+      // Diagnostics channels
+      'diagnostics:get-errors',
+      'diagnostics:get-statistics',
+      'diagnostics:get-notifications',
+      'diagnostics:dismiss-notification',
+      'diagnostics:clear-errors',
+      'diagnostics:export-errors',
+      'diagnostics:show-window',
+      'diagnostics:close-window',
+      'diagnostics:toggle-window',
+      'diagnostics:get-window-state',
+      'diagnostics:get-preferences',
+      'diagnostics:set-preferences',
+      'diagnostics:get-service-health',
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
@@ -94,6 +111,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'load-website',
       'bagit-metadata-defaults',
       'refresh-file-explorer',
+      // Diagnostics listener channels
+      'diagnostics:error-update',
+      'diagnostics:subscription-confirmed',
+      'diagnostics:subscription-error',
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (_event, ...args) => {
@@ -163,6 +184,55 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     readText: () => {
       return clipboard.readText();
+    },
+  },
+
+  // Diagnostics API
+  diagnostics: {
+    // Error data retrieval
+    getErrors: (filter?: unknown) => ipcRenderer.invoke('diagnostics:get-errors', filter),
+    getStatistics: (filter?: unknown) => ipcRenderer.invoke('diagnostics:get-statistics', filter),
+
+    // Notifications
+    getNotifications: () => ipcRenderer.invoke('diagnostics:get-notifications'),
+    dismissNotification: (id: string) => ipcRenderer.invoke('diagnostics:dismiss-notification', id),
+
+    // Error management
+    clearErrors: (errorIds?: string[]) => ipcRenderer.invoke('diagnostics:clear-errors', errorIds),
+    exportErrors: (filter?: unknown) => ipcRenderer.invoke('diagnostics:export-errors', filter),
+
+    // Window management
+    showWindow: () => ipcRenderer.invoke('diagnostics:show-window'),
+    closeWindow: () => ipcRenderer.invoke('diagnostics:close-window'),
+    toggleWindow: () => ipcRenderer.invoke('diagnostics:toggle-window'),
+    getWindowState: () => ipcRenderer.invoke('diagnostics:get-window-state'),
+
+    // Preferences
+    getPreferences: () => ipcRenderer.invoke('diagnostics:get-preferences'),
+    setPreferences: (prefs: unknown) => ipcRenderer.invoke('diagnostics:set-preferences', prefs),
+
+    // Service health
+    getServiceHealth: () => ipcRenderer.invoke('diagnostics:get-service-health'),
+
+    // Real-time subscriptions
+    subscribeToErrors: (callback: (...args: unknown[]) => void) => {
+      // Subscribe to error updates
+      ipcRenderer.send('diagnostics:subscribe-errors');
+      ipcRenderer.on('diagnostics:error-update', (_event, ...args) => callback(...args));
+
+      // Return unsubscribe function
+      return () => {
+        ipcRenderer.send('diagnostics:unsubscribe-errors');
+        ipcRenderer.removeAllListeners('diagnostics:error-update');
+      };
+    },
+
+    // Event listeners
+    onSubscriptionConfirmed: (callback: (...args: unknown[]) => void) => {
+      ipcRenderer.on('diagnostics:subscription-confirmed', (_event, ...args) => callback(...args));
+    },
+    onSubscriptionError: (callback: (...args: unknown[]) => void) => {
+      ipcRenderer.on('diagnostics:subscription-error', (_event, ...args) => callback(...args));
     },
   },
 });

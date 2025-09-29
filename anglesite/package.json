@@ -49,13 +49,15 @@
     "dev:full": "concurrently -k \"npm run dev:react\" \"npm run start:dev\" --names \"webpack,electron\" --prefix-colors \"blue,green\"",
     "dev:watch": "concurrently -k \"npm run dev:react\" \"npm run test:unit -- --watch\" --names \"webpack,tests\" --prefix-colors \"blue,yellow\"",
     "dev:complete": "concurrently -k \"npm run dev:react:debug\" \"npm run test:unit -- --watch\" \"npm run analyze:bundle:server\" --names \"webpack,tests,analyzer\" --prefix-colors \"blue,yellow,magenta\"",
-    "test:coverage": "jest --coverage --silent",
-    "test:coverage:fast": "jest --coverage --silent --runInBand --bail",
+    "test:coverage": "SKIP_PERFORMANCE_TESTS=true NODE_ENV=test jest --coverage --silent",
+    "test:coverage:fast": "SKIP_PERFORMANCE_TESTS=true NODE_ENV=test jest --coverage --silent --runInBand --bail",
     "test:integration": "npm run test:integration --prefix ../",
-    "test:unit": "jest --testPathIgnorePatterns='/integration/' --testPathIgnorePatterns='/e2e/' --silent",
+    "test:unit": "SKIP_PERFORMANCE_TESTS=true NODE_ENV=test jest --testPathIgnorePatterns='/integration/' --testPathIgnorePatterns='/e2e/' --silent",
+    "test:performance": "NODE_ENV=test jest test/performance/ --silent",
     "test:all": "npm run test:coverage && npm run test:integration",
+    "test:with-performance": "NODE_ENV=test jest --silent",
     "test:parallel": "concurrently \"npm run test:unit\" \"npm run lint:parallel\" --names \"tests,lint\" --prefix-colors \"green,red\" --kill-others-on-fail",
-    "test": "jest --silent"
+    "test": "SKIP_PERFORMANCE_TESTS=true NODE_ENV=test jest --silent"
   },
   "keywords": [
     "static site generator",
@@ -203,6 +205,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsdoc": "^53.0.1",
     "eslint-plugin-prettier": "^5.5.4",
+    "fast-check": "4.3.0",
     "globals": "^16.3.0",
     "html-webpack-plugin": "^5.6.4",
     "htmlhint": "^1.6.3",
@@ -250,6 +253,7 @@
     "@types/archiver": "^6.0.3",
     "@types/react": "18.3.24",
     "@types/react-dom": "18.3.7",
+    "@types/uuid": "10.0.0",
     "ace-builds": "^1.43.2",
     "ansi_up": "^6.0.6",
     "archiver": "^7.0.1",
@@ -265,6 +269,7 @@
     "react-arborist": "3.4.3",
     "react-dom": "18.3.1",
     "sudo-prompt": "^9.2.1",
+    "uuid": "13.0.0",
     "yauzl": "3.2.0"
   }
 }
