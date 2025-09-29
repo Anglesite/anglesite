@@ -102,6 +102,18 @@ export interface AppSettings {
   openWebsiteWindows: WindowState[];
   /** List of recently opened websites (up to 10, most recent first) */
   recentWebsites: string[];
+  /** Whether telemetry for component error tracking is enabled */
+  telemetryEnabled?: boolean;
+  /** Telemetry configuration */
+  telemetryConfig?: {
+    enabled: boolean;
+    samplingRate: number;
+    maxBatchSize: number;
+    batchIntervalMs: number;
+    maxStorageMb: number;
+    retentionDays: number;
+    anonymizeErrors: boolean;
+  };
   // Add more settings here as needed
 }
 

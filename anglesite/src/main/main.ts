@@ -84,6 +84,33 @@ async function initializeApp(): Promise<void> {
     setupGlobalErrorHandlers(errorReportingService);
   }
 
+  // Initialize telemetry service (skip in test environment)
+  if (process.env.NODE_ENV !== 'test') {
+    try {
+      logger.info('Initializing telemetry service');
+      const telemetryService = appContext.getService(ServiceKeys.TELEMETRY) as any;
+      await telemetryService.initialize();
+
+      // Enable telemetry in production by default (user can opt-out)
+      if (process.env.NODE_ENV === 'production') {
+        const telemetryEnabled = store.get('telemetryEnabled');
+        if (telemetryEnabled !== false) {
+          // Default to true if not explicitly disabled
+          await telemetryService.configure({
+            enabled: true,
+            samplingRate: 1.0,
+            anonymizeErrors: true,
+          });
+        }
+      }
+
+      logger.info('Telemetry service initialized successfully');
+    } catch (error) {
+      logger.error(`Failed to initialize telemetry service: ${sanitize.error(error)}`);
+      // Don't fail the app if telemetry fails to initialize
+    }
+  }
+
   // Initialize notification services
   try {
     logger.info('Initializing notification services');

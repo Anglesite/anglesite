@@ -14,6 +14,8 @@ import { setupSchemaHandlers } from './schema';
 import { setupDebuggingHandlers } from './debugging';
 import { setupErrorReportingHandlers } from './error-reporting';
 import { setupDiagnosticsHandlers } from './diagnostics';
+import { registerTelemetryHandlers } from './telemetry';
+import { container } from '../core/container';
 
 /**
  * Setup all IPC main listeners.
@@ -30,6 +32,7 @@ export function setupIpcMainListeners(): void {
   setupDebuggingHandlers();
   setupErrorReportingHandlers();
   setupDiagnosticsHandlers();
+  registerTelemetryHandlers(container);
 }
 
 // Export handler functions that are used by tests and menu system

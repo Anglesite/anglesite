@@ -384,6 +384,7 @@ export const ServiceKeys = {
   CONFIG: 'config',
   ERROR_REPORTING: 'errorReporting',
   SYSTEM_NOTIFICATION: 'systemNotification',
+  TELEMETRY: 'telemetry',
 
   // Website management
   WEBSITE_MANAGER: 'websiteManager',

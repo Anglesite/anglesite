@@ -679,6 +679,33 @@ export class ServiceRegistrar {
       [ServiceKeys.STORE]
     );
 
+    // Telemetry service for component error tracking
+    container.register(
+      ServiceKeys.TELEMETRY,
+      () => {
+        const store = container.resolve<IStore>(ServiceKeys.STORE);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const Database = require('better-sqlite3');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { TelemetryService } = require('../services/telemetry-service');
+
+        // Get data path with fallback for test environments
+        let appDataPath: string;
+        try {
+          appDataPath = app.getPath('userData');
+        } catch {
+          appDataPath = process.env.ANGLESITE_TEST_DATA || '/tmp/anglesite-test';
+        }
+
+        const dbPath = `${appDataPath}/telemetry.db`;
+        const db = new Database(dbPath);
+
+        return new TelemetryService(store, db);
+      },
+      'singleton',
+      [ServiceKeys.STORE]
+    );
+
     // Git history manager (needs to be registered before website manager)
     container.register(
       ServiceKeys.GIT_HISTORY_MANAGER,

@@ -57,7 +57,8 @@
     "test:all": "npm run test:coverage && npm run test:integration",
     "test:with-performance": "NODE_ENV=test jest --silent",
     "test:parallel": "concurrently \"npm run test:unit\" \"npm run lint:parallel\" --names \"tests,lint\" --prefix-colors \"green,red\" --kill-others-on-fail",
-    "test": "SKIP_PERFORMANCE_TESTS=true NODE_ENV=test jest --silent"
+    "test": "SKIP_PERFORMANCE_TESTS=true NODE_ENV=test jest --silent",
+    "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "keywords": [
     "static site generator",
@@ -201,6 +202,7 @@
     "css-minimizer-webpack-plugin": "^7.0.2",
     "electron": "^37.2.6",
     "electron-builder": "^26.0.12",
+    "electron-rebuild": "3.2.9",
     "eslint": "^9.33.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsdoc": "^53.0.1",
@@ -251,6 +253,7 @@
     "@rjsf/utils": "5.24.13",
     "@rjsf/validator-ajv8": "5.24.13",
     "@types/archiver": "^6.0.3",
+    "@types/better-sqlite3": "7.6.13",
     "@types/react": "18.3.24",
     "@types/react-dom": "18.3.7",
     "@types/uuid": "10.0.0",
@@ -258,6 +261,7 @@
     "ansi_up": "^6.0.6",
     "archiver": "^7.0.1",
     "bagit-fs": "^1.1.1",
+    "better-sqlite3": "12.2.0",
     "chokidar": "^3.6.0",
     "glob": "^11.0.3",
     "hostile": "^1.4.0",

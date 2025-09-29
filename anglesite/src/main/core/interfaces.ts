@@ -142,6 +142,24 @@ export interface ISystemNotificationService extends IDisposable, IInitializable 
 }
 
 /**
+ * Telemetry service interface for tracking component errors in production
+ */
+export interface ITelemetryService extends IDisposable, IInitializable {
+  // Configure telemetry settings
+  configure(config: any): Promise<void>;
+  // Get current configuration
+  getConfig(): any;
+  // Record a telemetry event
+  recordEvent(event: any): Promise<any>;
+  // Query telemetry events
+  queryEvents(query?: any): Promise<any[]>;
+  // Get telemetry statistics
+  getStats(): Promise<any>;
+  // Clean up old events
+  cleanupOldEvents(): Promise<void>;
+}
+
+/**
  * Settings store interface
  */
 export interface IStore extends IDisposable {
