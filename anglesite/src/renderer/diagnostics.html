@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self';"
+    />
+    <title>Website Diagnostics - Anglesite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Critical CSS following Electron dark mode best practices -->
+    <style>
+      /* Enable native dark mode support - prevents white flash */
+      :root {
+        color-scheme: light dark;
+      }
+
+      /* Base styles with CSS variables that respect color-scheme */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background-color: Canvas;
+        color: CanvasText;
+        overflow: hidden; /* Prevent body scroll, let components handle scrolling */
+      }
+
+      /* Override with custom colors that respect system preference */
+      @media (prefers-color-scheme: light) {
+        html,
+        body {
+          background-color: #ffffff;
+          color: #333333;
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background-color: #1e1e1e;
+          color: #ffffff;
+        }
+      }
+
+      /* Loading state to prevent flash */
+      #diagnostics-root {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Simple loading spinner for initial load */
+      .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-size: 16px;
+      }
+
+      .loading-spinner::after {
+        content: '';
+        width: 24px;
+        height: 24px;
+        margin-left: 12px;
+        border: 2px solid transparent;
+        border-top: 2px solid currentColor;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+
+    <link rel="stylesheet" href="./styles.css" />
+
+    <!-- Theme detection script -->
+    <script>
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    </script>
+  </head>
+  <body>
+    <div id="diagnostics-root">
+      <!-- Loading state shown until React app loads -->
+      <div class="loading-spinner" id="loading-indicator">Loading diagnostics...</div>
+    </div>
+
+    <!-- Scripts will be injected by webpack HtmlWebpackPlugin -->
+  </body>
+</html>

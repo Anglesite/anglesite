@@ -142,12 +142,37 @@ module.exports = merge(common, {
   /** Production-specific plugins */
   plugins: [
     /**
-     * HTML template plugin for production
+     * HTML template plugin for main website editor
      * Minifies HTML and injects optimized assets
      */
     new HtmlWebpackPlugin({
       template: path.resolve(__dirname, 'src/renderer/ui/templates/website-editor.html'),
       filename: 'index.html',
+      chunks: ['main', 'react', 'vendors', 'common', 'utils'],
+      inject: 'body',
+      minify: {
+        removeComments: true,
+        collapseWhitespace: true,
+        removeRedundantAttributes: true,
+        useShortDoctype: true,
+        removeEmptyAttributes: true,
+        removeStyleLinkTypeAttributes: true,
+        keepClosingSlash: true,
+        minifyJS: true,
+        minifyCSS: true,
+        minifyURLs: true,
+      },
+    }),
+
+    /**
+     * HTML template plugin for diagnostics window
+     * Generates optimized diagnostics.html with correct script injection
+     * HTML must be in same directory as scripts for relative paths to work
+     */
+    new HtmlWebpackPlugin({
+      template: path.resolve(__dirname, 'src/renderer/diagnostics.html'),
+      filename: 'diagnostics.html', // Same directory as scripts (react folder)
+      chunks: ['diagnostics', 'react', 'vendors', 'common', 'utils'],
       inject: 'body',
       minify: {
         removeComments: true,
