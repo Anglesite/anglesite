@@ -7,6 +7,7 @@ import { useAppContext } from '../context/AppContext';
 import { logger } from '../../../utils/logger';
 import { PATHS } from '../../../../shared/constants';
 import { useIPCInvoke } from '../hooks/useIPCInvoke';
+import { InlineError } from './InlineError';
 
 interface SchemaResult {
   schema?: RJSFSchema;
@@ -242,10 +243,32 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
   // Combined loading state from both schema and file content
   const isLoading = schemaResult.loading || fileContentResult.loading;
 
+  // Get the first error that occurred
+  const friendlyError = schemaResult.friendlyError || fileContentResult.friendlyError;
+
   // Show retry indicator when loading data
   const showRetryIndicator =
     (schemaResult.retryCount > 0 || fileContentResult.retryCount > 0) &&
     (schemaResult.isRetrying || fileContentResult.isRetrying);
+
+  // If there's an error, show it with the inline error component
+  if (friendlyError && !isLoading) {
+    return (
+      <div style={{ padding: '20px' }}>
+        <h3>Website Configuration</h3>
+        <InlineError
+          error={friendlyError}
+          onRetry={() => {
+            if (schemaResult.friendlyError) {
+              schemaResult.retry();
+            } else if (fileContentResult.friendlyError) {
+              fileContentResult.retry();
+            }
+          }}
+        />
+      </div>
+    );
+  }
 
   if (isLoading || !schema) {
     return (

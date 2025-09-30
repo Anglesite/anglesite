@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { invokeWithRetry, InvokeWithRetryOptions } from '../../../utils/ipc-retry';
 import { recordRetrySuccess, recordRetryFailure } from '../../../utils/ipc-retry-telemetry';
 import { logger } from '../../../utils/logger';
+import { translateError, FriendlyError } from '../../../utils/error-translator';
 
 /**
  * Options for useIPCInvoke hook
@@ -22,6 +23,7 @@ export interface UseIPCInvokeResult<T> {
   data: T | null;
   loading: boolean;
   error: Error | null;
+  friendlyError: FriendlyError | null; // NEW: User-friendly error for display
   retryCount: number;
   isRetrying: boolean;
   retry: () => Promise<void>;
@@ -67,6 +69,7 @@ export function useIPCInvoke<T = unknown>(
   const [data, setData] = useState<T | null>(initialData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [friendlyError, setFriendlyError] = useState<FriendlyError | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -142,6 +145,7 @@ export function useIPCInvoke<T = unknown>(
 
         setData(result);
         setError(null);
+        setFriendlyError(null);
         setIsRetrying(false);
 
         onSuccess?.(result);
@@ -164,6 +168,15 @@ export function useIPCInvoke<T = unknown>(
         }
 
         setError(error);
+
+        // Translate to friendly error
+        const friendly = translateError(error, {
+          channel,
+          operation: 'IPC call',
+          retryCount,
+          maxRetries: retryOptions.maxAttempts,
+        });
+        setFriendlyError(friendly);
         setIsRetrying(false);
 
         onError?.(error);
@@ -200,6 +213,7 @@ export function useIPCInvoke<T = unknown>(
     data,
     loading,
     error,
+    friendlyError,
     retryCount,
     isRetrying,
     retry,
