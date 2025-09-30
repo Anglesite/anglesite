@@ -4,7 +4,6 @@
 import { ipcMain, BrowserWindow, dialog, Menu, MenuItem } from 'electron';
 import * as fs from 'fs';
 import { promisify } from 'util';
-import { getNativeInput, openWebsiteSelectionWindow } from '../ui/window-manager';
 import {
   createWebsiteWindow,
   startWebsiteServerAndUpdateWindow,
@@ -76,6 +75,7 @@ export function setupWebsiteHandlers(): void {
           prompt = `${validationError}\n\nPlease enter a valid website name:`;
         }
 
+        const { getNativeInput } = await import('../ui/window-manager');
         websiteName = await getNativeInput('New Website', prompt);
 
         if (!websiteName) {
@@ -331,8 +331,9 @@ export function setupWebsiteHandlers(): void {
   });
 
   // Website selection window handler
-  ipcMain.on('open-website-selection', () => {
+  ipcMain.on('open-website-selection', async () => {
     try {
+      const { openWebsiteSelectionWindow } = await import('../ui/window-manager');
       openWebsiteSelectionWindow();
     } catch (error) {
       const errorReporter = getErrorReporter();

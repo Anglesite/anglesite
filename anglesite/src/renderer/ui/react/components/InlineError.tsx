@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import { FriendlyError } from '../../../utils/error-translator';
-import { ErrorSeverity } from '../../../../main/core/errors/base';
+import { ErrorSeverity } from '../../../types/errors';
 
 interface InlineErrorProps {
   error: FriendlyError | null;

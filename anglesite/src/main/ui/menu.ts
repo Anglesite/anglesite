@@ -2,13 +2,6 @@
  * @file Application menu creation
  */
 import { Menu, MenuItemConstructorOptions, shell, WebContents, BrowserWindow, dialog } from 'electron';
-import {
-  openSettingsWindow,
-  openAboutWindow,
-  getNativeInput,
-  openWebsiteSelectionWindow,
-  openWebsiteEditorWindow,
-} from './window-manager';
 import { getAllWebsiteWindows, isWebsiteEditorFocused, getHelpWindow, createHelpWindow } from './multi-window-manager';
 import { createWebsiteWithName, validateWebsiteName } from '../utils/website-manager';
 import { openWebsiteInNewWindow } from '../ipc/website';
@@ -216,7 +209,8 @@ export function createApplicationMenu(): Menu {
       submenu: [
         {
           label: 'About Anglesite',
-          click: () => {
+          click: async () => {
+            const { openAboutWindow } = await import('./window-manager');
             openAboutWindow();
           },
         },
@@ -226,7 +220,8 @@ export function createApplicationMenu(): Menu {
         {
           label: 'Settings...',
           accelerator: 'CmdOrCtrl+,',
-          click: () => {
+          click: async () => {
+            const { openSettingsWindow } = await import('./window-manager');
             openSettingsWindow();
           },
         },
@@ -288,6 +283,7 @@ export function createApplicationMenu(): Menu {
                       prompt = `${validationError}\n\nPlease enter a valid website name:`;
                     }
 
+                    const { getNativeInput } = await import('./window-manager');
                     websiteName = await getNativeInput('New Website', prompt);
 
                     if (!websiteName) {
@@ -361,6 +357,7 @@ export function createApplicationMenu(): Menu {
                       prompt = `${validationError}\n\nPlease enter a valid page name:`;
                     }
 
+                    const { getNativeInput } = await import('./window-manager');
                     pageName = await getNativeInput('New Webpage', prompt);
 
                     if (!pageName) {
@@ -460,7 +457,8 @@ export function createApplicationMenu(): Menu {
         {
           label: 'Open Website…',
           accelerator: 'CmdOrCtrl+Shift+O',
-          click: () => {
+          click: async () => {
+            const { openWebsiteSelectionWindow } = await import('./window-manager');
             openWebsiteSelectionWindow();
           },
         },
@@ -717,6 +715,7 @@ export function createApplicationMenu(): Menu {
           label: 'Edit Website…',
           accelerator: 'CmdOrCtrl+E',
           click: async () => {
+            const { openWebsiteEditorWindow, openWebsiteSelectionWindow } = await import('./window-manager');
             // Get the current website name from the focused window
             const focusedWindow = BrowserWindow.getFocusedWindow();
             if (focusedWindow) {

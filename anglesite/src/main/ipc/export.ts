@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as os from 'os';
 import archiver from 'archiver';
 import BagIt from 'bagit-fs';
-import { getBagItMetadata, BagItMetadata } from '../ui/window-manager';
+import type { BagItMetadata } from '../ui/window-manager';
 import {
   getAllWebsiteWindows,
   isWebsiteEditorFocused,
@@ -113,6 +113,7 @@ export async function exportSiteHandler(event: IpcMainEvent | null, exportFormat
     // For BagIt exports, collect metadata first
     let metadata: BagItMetadata | null = null;
     if (isBagIt) {
+      const { getBagItMetadata } = await import('../ui/window-manager');
       metadata = await getBagItMetadata(websiteToExport);
       if (!metadata) {
         // User cancelled the metadata dialog

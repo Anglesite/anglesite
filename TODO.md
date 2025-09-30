@@ -80,7 +80,12 @@
   - [x] Module 3: useIPCInvoke Integration - Enhanced with `friendlyError` field
   - [x] Module 4: InlineError UI Component - Accessible, responsive error display
   - [x] WebsiteConfigEditor Integration - Displays user-friendly errors automatically
-- [ ] Fix Website Configuration editor: Failed to load configuration editor. Check console for details.
+- [x] Fix Website Configuration editor: Failed to load configuration editor. Check console for details.
+  - Root cause: InlineError component imported from main/core/errors/base.ts causing lazy-load failure
+  - Solution: Created renderer-side type definitions (src/renderer/types/errors.ts)
+  - Updated 3 files to use renderer types instead of main process imports
+  - Added regression test to prevent future cross-process import issues
+- [ ] Repeated log line: "Current website name for window: test"
 - [ ] File Explorer should look like Xcode
 
 ---

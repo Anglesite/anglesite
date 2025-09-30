@@ -44,17 +44,6 @@ function getBuildNumber(): string {
   }
 }
 
-// Set up IPC handler for opening external URLs
-ipcMain.on('open-external-url', (_event, url: string) => {
-  shell.openExternal(url);
-});
-
-// Set up IPC handler for closing about window
-ipcMain.on('close-about-window', () => {
-  if (aboutWindow && !aboutWindow.isDestroyed()) {
-    aboutWindow.close();
-  }
-});
 let websiteEditorWindow: BrowserWindow | null = null;
 let websiteEditorWebContentsView: WebContentsView | null = null;
 let currentWebsiteEditorProject: string | null = null;
@@ -816,4 +805,22 @@ export async function loadWebsiteIntoPreview(serverUrl: string): Promise<void> {
   };
 
   return tryLoad();
+}
+
+/**
+ * Initialize window manager IPC handlers.
+ * Must be called after Electron app is ready.
+ */
+export function initializeWindowManagerIPC(): void {
+  // Set up IPC handler for opening external URLs
+  ipcMain.on('open-external-url', (_event, url: string) => {
+    shell.openExternal(url);
+  });
+
+  // Set up IPC handler for closing about window
+  ipcMain.on('close-about-window', () => {
+    if (aboutWindow && !aboutWindow.isDestroyed()) {
+      aboutWindow.close();
+    }
+  });
 }

@@ -5,7 +5,7 @@
  * FriendlyError format with sanitization and context enrichment.
  */
 
-import { AngleError, ErrorCategory, ErrorSeverity } from '../../main/core/errors/base';
+import { ErrorCategory, ErrorSeverity } from '../types/errors';
 import { MESSAGE_CATALOG, matchErrorPattern, renderTemplate, ErrorMessageTemplate } from './friendly-error-messages';
 
 /**
@@ -155,10 +155,28 @@ function truncateMessage(message: string, maxLength: number): string {
 }
 
 /**
- * Get the error code from an error
+ * Check if an error has AngleError-like properties (duck typing).
+ * We can't use instanceof since AngleError is in the main process.
+ */
+function isAngleErrorLike(error: Error): error is Error & {
+  code: string;
+  category: ErrorCategory;
+  severity: ErrorSeverity;
+  metadata: Record<string, unknown>;
+} {
+  return (
+    'code' in error &&
+    typeof (error as unknown as { code: unknown }).code === 'string' &&
+    'category' in error &&
+    'severity' in error
+  );
+}
+
+/**
+ * Get the error code from an error.
  */
 function getErrorCode(error: Error): string | undefined {
-  if (error instanceof AngleError) {
+  if (isAngleErrorLike(error)) {
     return error.code;
   }
 
@@ -168,10 +186,10 @@ function getErrorCode(error: Error): string | undefined {
 }
 
 /**
- * Get the error category from an error
+ * Get the error category from an error.
  */
 function getErrorCategory(error: Error): ErrorCategory | undefined {
-  if (error instanceof AngleError) {
+  if (isAngleErrorLike(error)) {
     return error.category;
   }
 
@@ -179,10 +197,10 @@ function getErrorCategory(error: Error): ErrorCategory | undefined {
 }
 
 /**
- * Get the error severity from an error
+ * Get the error severity from an error.
  */
 function getErrorSeverity(error: Error): ErrorSeverity | undefined {
-  if (error instanceof AngleError) {
+  if (isAngleErrorLike(error)) {
     return error.severity;
   }
 
@@ -212,9 +230,14 @@ export function translateError(error: Error, context: TranslationContext = {}): 
       ...context,
     };
 
-    // Add metadata from AngleError if available
-    if (error instanceof AngleError) {
-      const metadata = error.metadata;
+    // Add metadata from AngleError-like errors
+    if (isAngleErrorLike(error) && error.metadata) {
+      const metadata = error.metadata as {
+        resource?: string;
+        operation?: string;
+        context?: Record<string, unknown>;
+      };
+
       if (metadata.resource) {
         templateContext.resource = sanitizePath(metadata.resource);
         // Also set as filename if it looks like a file

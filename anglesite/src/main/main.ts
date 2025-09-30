@@ -145,6 +145,10 @@ async function initializeApp(): Promise<void> {
   // Setup IPC handlers
   setupIpcMainListeners();
 
+  // Initialize window manager IPC handlers
+  const { initializeWindowManagerIPC } = await import('./ui/window-manager');
+  initializeWindowManagerIPC();
+
   // Initialize theme manager
   themeManager.initialize();
 

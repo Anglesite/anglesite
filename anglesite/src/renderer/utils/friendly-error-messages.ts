@@ -6,7 +6,7 @@
  * with actionable recovery suggestions.
  */
 
-import { ErrorCategory, ErrorSeverity } from '../../main/core/errors/base';
+import { ErrorCategory, ErrorSeverity } from '../types/errors';
 
 /**
  * Template for rendering user-friendly error messages
