@@ -73,7 +73,7 @@
     - [x] Module 5: Menu Integration - Help menu integration and keyboard shortcuts
     - [x] Module 6: Notification System - Critical error notifications and dismissal
 - [x] Add telemetry for tracking component errors in production
-- [ ] Implement retry logic for failed IPC calls
+- [-] Implement retry logic for failed IPC calls
 - [ ] Add user-friendly error messages for common failure scenarios
 - [ ] Fix Website Configuration editor: Failed to load configuration editor. Check console for details.
 - [ ] File Explorer should look like Xcode

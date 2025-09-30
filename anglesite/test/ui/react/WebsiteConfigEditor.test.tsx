@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { WebsiteConfigEditor } from '../../../src/renderer/ui/react/components/WebsiteConfigEditor';
@@ -54,53 +54,8 @@ const MockAppProvider: React.FC<{ children: React.ReactNode; websiteName?: strin
     setLoading: jest.fn(),
   };
 
-  // Set up mocks synchronously
-  React.useMemo(() => {
-    mockElectronAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
-      if (channel === 'get-current-website-name') {
-        return Promise.resolve(websiteName || null);
-      }
-      if (channel === 'get-website-schema') {
-        return Promise.resolve({
-          schema: {
-            $schema: 'http://json-schema.org/draft-07/schema#',
-            title: 'Test Website Schema',
-            type: 'object',
-            required: ['title', 'language'],
-            properties: {
-              title: {
-                type: 'string',
-                title: 'Website Title',
-                description: 'The main title of your website',
-              },
-              language: {
-                type: 'string',
-                title: 'Language',
-                default: 'en',
-              },
-              description: {
-                type: 'string',
-                title: 'Description',
-              },
-            },
-          },
-        });
-      }
-      if (channel === 'get-file-content') {
-        return Promise.resolve(
-          JSON.stringify({
-            title: 'Existing Website',
-            language: 'en',
-            description: 'An existing website configuration',
-          })
-        );
-      }
-      if (channel === 'save-file-content') {
-        return Promise.resolve(true);
-      }
-      return Promise.resolve(null);
-    });
-  }, [websiteName]);
+  // MockAppProvider relies on global mocks from beforeEach
+  // No need to override here as it can cause timing issues
 
   return <AppContext.Provider value={mockContextValue}>{children}</AppContext.Provider>;
 };
@@ -108,8 +63,8 @@ const MockAppProvider: React.FC<{ children: React.ReactNode; websiteName?: strin
 describe('WebsiteConfigEditor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Use fake timers for debounce testing
-    jest.useFakeTimers();
+    // DON'T use fake timers by default - let individual tests control this
+    jest.useRealTimers();
 
     // Setup default mocks for IPC calls
     mockElectronAPI.invoke.mockImplementation((channel: string, ..._args: unknown[]) => {
@@ -154,14 +109,21 @@ describe('WebsiteConfigEditor', () => {
         return Promise.resolve(true);
       }
 
+      if (channel === 'telemetry:get-config') {
+        return Promise.resolve({ enabled: false });
+      }
+
+      if (channel === 'telemetry:record-event') {
+        return Promise.resolve(true);
+      }
+
       return Promise.resolve(null);
     });
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
-    // Clean up timers
-    jest.runOnlyPendingTimers();
+    // Clean up timers - always end with real timers
     jest.useRealTimers();
   });
 
@@ -173,15 +135,21 @@ describe('WebsiteConfigEditor', () => {
         </MockAppProvider>
       );
 
-      await waitFor(() => {
-        expect(screen.getByText('Website Configuration')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Website Configuration')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       // Wait for the component to finish loading and show the form
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /submit/i })).toBeInTheDocument();
-      });
-    });
+      await waitFor(
+        () => {
+          expect(screen.getByRole('button', { name: /submit/i })).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
+    }, 15000);
 
     it('should show loading state when no website is selected', async () => {
       render(
@@ -198,18 +166,30 @@ describe('WebsiteConfigEditor', () => {
 
   describe('Schema Loading', () => {
     it('should load schema from IPC', async () => {
+      // Use real timers for this test
+      jest.useRealTimers();
+
       render(
         <MockAppProvider>
           <WebsiteConfigEditor />
         </MockAppProvider>
       );
 
-      await waitFor(() => {
-        expect(mockElectronAPI.invoke).toHaveBeenCalledWith('get-website-schema', 'test-website');
-      });
-    });
+      await waitFor(
+        () => {
+          expect(mockElectronAPI.invoke).toHaveBeenCalledWith('get-website-schema', 'test-website');
+        },
+        { timeout: 5000 }
+      );
+
+      // Restore fake timers
+      jest.useFakeTimers();
+    }, 15000);
 
     it('should handle schema loading errors gracefully', async () => {
+      // Use real timers for this test
+      jest.useRealTimers();
+
       // Create a dedicated mock context for this test
       const TestErrorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         const mockContextValue = {
@@ -253,6 +233,12 @@ describe('WebsiteConfigEditor', () => {
             })
           );
         }
+        if (channel === 'telemetry:get-config') {
+          return Promise.resolve({ enabled: false });
+        }
+        if (channel === 'telemetry:record-event') {
+          return Promise.resolve(true);
+        }
         return Promise.resolve(null);
       });
 
@@ -262,30 +248,47 @@ describe('WebsiteConfigEditor', () => {
         </TestErrorProvider>
       );
 
-      await waitFor(() => {
-        expect(screen.getByText('Loading...')).toBeInTheDocument();
-      });
-    });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Loading configuration...')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
+
+      // Restore fake timers
+      jest.useFakeTimers();
+    }, 15000);
   });
 
   describe('Data Loading and Saving', () => {
     it('should load existing website.json data', async () => {
+      // Use real timers for this test
+      jest.useRealTimers();
+
       render(
         <MockAppProvider>
           <WebsiteConfigEditor />
         </MockAppProvider>
       );
 
-      await waitFor(() => {
-        expect(mockElectronAPI.invoke).toHaveBeenCalledWith(
-          'get-file-content',
-          'test-website',
-          'src/_data/website.json'
-        );
-      });
-    });
+      await waitFor(
+        () => {
+          expect(mockElectronAPI.invoke).toHaveBeenCalledWith(
+            'get-file-content',
+            'test-website',
+            'src/_data/website.json'
+          );
+        },
+        { timeout: 5000 }
+      );
+
+      // Restore fake timers
+      jest.useFakeTimers();
+    }, 15000);
 
     it('should save configuration when save button is clicked', async () => {
+      // Use real timers for initial load
+      jest.useRealTimers();
       const onSave = jest.fn();
 
       render(
@@ -294,42 +297,65 @@ describe('WebsiteConfigEditor', () => {
         </MockAppProvider>
       );
 
-      // Wait for form to load (advance timers to resolve promises)
-      jest.advanceTimersByTime(0);
-      await waitFor(() => {
-        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       // Make a change to trigger unsaved state
       const titleInput = screen.getByLabelText(/Website Title/);
       fireEvent.change(titleInput, { target: { value: 'Modified Title' } });
 
       // The submit button should be available
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /submit/i })).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByRole('button', { name: /submit/i })).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       const saveButton = screen.getByRole('button', { name: /submit/i });
+
+      // Switch to fake timers for debouncing
+      jest.useFakeTimers();
       fireEvent.click(saveButton);
 
       // Fast-forward through the debounce delay
-      jest.advanceTimersByTime(1000);
-
-      await waitFor(() => {
-        expect(mockElectronAPI.invoke).toHaveBeenCalledWith(
-          'save-file-content',
-          'test-website',
-          'src/_data/website.json',
-          expect.any(String)
-        );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
       });
 
-      await waitFor(() => {
-        expect(onSave).toHaveBeenCalled();
-      });
-    });
+      // Switch back to real timers for async verification
+      jest.useRealTimers();
+
+      await waitFor(
+        () => {
+          expect(mockElectronAPI.invoke).toHaveBeenCalledWith(
+            'save-file-content',
+            'test-website',
+            'src/_data/website.json',
+            expect.any(String)
+          );
+        },
+        { timeout: 5000 }
+      );
+
+      await waitFor(
+        () => {
+          expect(onSave).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
+
+      // Restore fake timers
+      jest.useFakeTimers();
+    }, 15000);
 
     it('should call onSave prop when form is saved successfully', async () => {
+      // Use real timers for initial load
+      jest.useRealTimers();
       const onSave = jest.fn();
 
       render(
@@ -338,36 +364,56 @@ describe('WebsiteConfigEditor', () => {
         </MockAppProvider>
       );
 
-      // Wait for form to load (advance timers to resolve promises)
-      jest.advanceTimersByTime(0);
-      await waitFor(() => {
-        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       // Make a change
       const titleInput = screen.getByLabelText(/Website Title/);
       fireEvent.change(titleInput, { target: { value: 'New Title' } });
 
-      await waitFor(() => {
-        expect(screen.getByText(/Submit/)).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Submit/)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       const saveButton = screen.getByRole('button', { name: /Submit/i });
+
+      // Switch to fake timers for debouncing
+      jest.useFakeTimers();
       fireEvent.click(saveButton);
 
       // Fast-forward through the debounce delay
-      jest.advanceTimersByTime(1000);
-
-      await waitFor(() => {
-        expect(onSave).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: 'New Title',
-          })
-        );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
       });
-    });
+
+      // Switch back to real timers for async verification
+      jest.useRealTimers();
+
+      await waitFor(
+        () => {
+          expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'New Title',
+            })
+          );
+        },
+        { timeout: 5000 }
+      );
+
+      // Restore fake timers
+      jest.useFakeTimers();
+    }, 15000);
 
     it('should handle save errors gracefully', async () => {
+      // Use real timers for initial load
+      jest.useRealTimers();
       const onError = jest.fn();
 
       // Create a dedicated mock context for this test
@@ -425,6 +471,12 @@ describe('WebsiteConfigEditor', () => {
             })
           );
         }
+        if (channel === 'telemetry:get-config') {
+          return Promise.resolve({ enabled: false });
+        }
+        if (channel === 'telemetry:record-event') {
+          return Promise.resolve(true);
+        }
         return Promise.resolve(null);
       });
 
@@ -434,31 +486,49 @@ describe('WebsiteConfigEditor', () => {
         </TestSaveErrorProvider>
       );
 
-      // Wait for form to load (advance timers to resolve promises)
-      jest.advanceTimersByTime(0);
-      await waitFor(() => {
-        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       // Make a change to trigger unsaved state
       const titleInput = screen.getByLabelText(/Website Title/);
       fireEvent.change(titleInput, { target: { value: 'Modified Title' } });
 
       // Now the save button should show "Submit"
-      await waitFor(() => {
-        expect(screen.getByText(/Submit/)).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Submit/)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       const saveButton = screen.getByRole('button', { name: /Submit/i });
+
+      // Switch to fake timers for debouncing
+      jest.useFakeTimers();
       fireEvent.click(saveButton);
 
       // Fast-forward through the debounce delay
-      jest.advanceTimersByTime(1000);
-
-      await waitFor(() => {
-        expect(onError).toHaveBeenCalledWith(expect.stringContaining('Failed to save'));
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
       });
-    });
+
+      // Switch back to real timers for async verification
+      jest.useRealTimers();
+
+      await waitFor(
+        () => {
+          expect(onError).toHaveBeenCalledWith(expect.stringContaining('Failed to save'));
+        },
+        { timeout: 5000 }
+      );
+
+      // Restore fake timers
+      jest.useFakeTimers();
+    }, 15000);
   });
 
   describe('Form Interactions', () => {
@@ -518,6 +588,12 @@ describe('WebsiteConfigEditor', () => {
             })
           );
         }
+        if (channel === 'telemetry:get-config') {
+          return Promise.resolve({ enabled: false });
+        }
+        if (channel === 'telemetry:record-event') {
+          return Promise.resolve(true);
+        }
         return Promise.resolve(null);
       });
 
@@ -527,20 +603,25 @@ describe('WebsiteConfigEditor', () => {
         </TestUnsavedChangesProvider>
       );
 
-      // Wait for form to load (advance timers to resolve promises)
-      jest.advanceTimersByTime(0);
-      await waitFor(() => {
-        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
-      });
+      // Wait for form to load
+      await waitFor(
+        () => {
+          expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       // Modify a form field
       const titleInput = screen.getByLabelText(/Website Title/);
       await userEvent.type(titleInput, ' Modified');
 
       // Verify the input value changed
-      await waitFor(() => {
-        expect(titleInput).toHaveValue('Existing Website Modified');
-      });
+      await waitFor(
+        () => {
+          expect(titleInput).toHaveValue('Existing Website Modified');
+        },
+        { timeout: 5000 }
+      );
 
       // Restore fake timers for subsequent tests
       jest.useFakeTimers();
@@ -605,6 +686,12 @@ describe('WebsiteConfigEditor', () => {
         if (channel === 'save-file-content') {
           return Promise.resolve(true);
         }
+        if (channel === 'telemetry:get-config') {
+          return Promise.resolve({ enabled: false });
+        }
+        if (channel === 'telemetry:record-event') {
+          return Promise.resolve(true);
+        }
         return Promise.resolve(null);
       });
 
@@ -614,20 +701,25 @@ describe('WebsiteConfigEditor', () => {
         </TestClearChangesProvider>
       );
 
-      // Wait for form to load (advance timers to resolve promises)
-      jest.advanceTimersByTime(0);
-      await waitFor(() => {
-        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
-      });
+      // Wait for form to load
+      await waitFor(
+        () => {
+          expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       // Modify form to update content
       const titleInput = screen.getByLabelText(/Website Title/);
       await userEvent.type(titleInput, ' Modified');
 
       // Verify the input value changed
-      await waitFor(() => {
-        expect(titleInput).toHaveValue('Existing Website Modified');
-      });
+      await waitFor(
+        () => {
+          expect(titleInput).toHaveValue('Existing Website Modified');
+        },
+        { timeout: 5000 }
+      );
 
       // Save the changes - switch back to fake timers for debouncing
       jest.useFakeTimers();
@@ -635,22 +727,29 @@ describe('WebsiteConfigEditor', () => {
       fireEvent.click(saveButton);
 
       // Fast-forward through the debounce delay
-      jest.advanceTimersByTime(1000);
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
 
       // Verify save was called
-      await waitFor(() => {
-        expect(mockElectronAPI.invoke).toHaveBeenCalledWith(
-          'save-file-content',
-          'test-website',
-          'src/_data/website.json',
-          expect.stringContaining('Existing Website Modified')
-        );
-      });
+      await waitFor(
+        () => {
+          expect(mockElectronAPI.invoke).toHaveBeenCalledWith(
+            'save-file-content',
+            'test-website',
+            'src/_data/website.json',
+            expect.stringContaining('Existing Website Modified')
+          );
+        },
+        { timeout: 5000 }
+      );
     });
   });
 
   describe('Performance Optimization', () => {
     it('should debounce rapid save operations', async () => {
+      // Use real timers for initial load
+      jest.useRealTimers();
       const onSave = jest.fn();
 
       render(
@@ -659,14 +758,18 @@ describe('WebsiteConfigEditor', () => {
         </MockAppProvider>
       );
 
-      // Wait for form to load (advance timers to resolve promises)
-      jest.advanceTimersByTime(0);
-      await waitFor(() => {
-        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       const titleInput = screen.getByLabelText(/Website Title/);
       const saveButton = screen.getByRole('button', { name: /Submit/i });
+
+      // Switch to fake timers for debouncing
+      jest.useFakeTimers();
 
       // Rapidly submit form multiple times
       fireEvent.change(titleInput, { target: { value: 'Title 1' } });
@@ -679,7 +782,10 @@ describe('WebsiteConfigEditor', () => {
       fireEvent.click(saveButton);
 
       // Only advance time by 500ms - should not trigger saves yet
-      jest.advanceTimersByTime(500);
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+
       expect(mockElectronAPI.invoke).not.toHaveBeenCalledWith(
         'save-file-content',
         expect.anything(),
@@ -688,33 +794,51 @@ describe('WebsiteConfigEditor', () => {
       );
 
       // Advance time to complete debounce delay
-      jest.advanceTimersByTime(500);
-
-      // Should only have one save call with the final value
-      await waitFor(() => {
-        const saveCalls = mockElectronAPI.invoke.mock.calls.filter((call) => call[0] === 'save-file-content');
-        expect(saveCalls).toHaveLength(1);
-        expect(saveCalls[0][3]).toContain('Title 3');
+      await act(async () => {
+        jest.advanceTimersByTime(500);
       });
 
+      // Switch back to real timers for async verification
+      jest.useRealTimers();
+
+      // Should only have one save call with the final value
+      await waitFor(
+        () => {
+          const saveCalls = mockElectronAPI.invoke.mock.calls.filter((call) => call[0] === 'save-file-content');
+          expect(saveCalls).toHaveLength(1);
+          expect(saveCalls[0][3]).toContain('Title 3');
+        },
+        { timeout: 5000 }
+      );
+
       expect(onSave).toHaveBeenCalledTimes(1);
-    });
+
+      // Restore fake timers
+      jest.useFakeTimers();
+    }, 15000);
 
     it('should cancel pending saves on component unmount', async () => {
+      // Use real timers for initial load
+      jest.useRealTimers();
+
       const { unmount } = render(
         <MockAppProvider>
           <WebsiteConfigEditor />
         </MockAppProvider>
       );
 
-      // Wait for form to load (advance timers to resolve promises)
-      jest.advanceTimersByTime(0);
-      await waitFor(() => {
-        expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByLabelText(/Website Title/)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       const titleInput = screen.getByLabelText(/Website Title/);
       const saveButton = screen.getByRole('button', { name: /Submit/i });
+
+      // Switch to fake timers for debouncing
+      jest.useFakeTimers();
 
       // Trigger save
       fireEvent.change(titleInput, { target: { value: 'Cancelled Save' } });
@@ -724,7 +848,9 @@ describe('WebsiteConfigEditor', () => {
       unmount();
 
       // Complete the debounce delay
-      jest.advanceTimersByTime(1000);
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
 
       // Should not have called save after unmount
       expect(mockElectronAPI.invoke).not.toHaveBeenCalledWith(
@@ -733,7 +859,10 @@ describe('WebsiteConfigEditor', () => {
         expect.anything(),
         expect.anything()
       );
-    });
+
+      // Restore fake timers
+      jest.useFakeTimers();
+    }, 15000);
   });
 
   describe('Keyboard Shortcuts', () => {

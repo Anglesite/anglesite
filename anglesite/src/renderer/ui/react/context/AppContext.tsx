@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { logger } from '../../../utils/logger';
+import { useIPCInvoke } from '../hooks/useIPCInvoke';
 
 interface AppState {
   currentView: 'file-editor' | 'file-explorer' | 'website-config';
@@ -59,26 +60,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((prev) => ({ ...prev, loading }));
   };
 
-  // Load current website name on mount
-  useEffect(() => {
-    const loadCurrentWebsiteName = async () => {
-      try {
-        if (window.electronAPI?.invoke) {
-          const websiteName = (await window.electronAPI.invoke('get-current-website-name')) as string | null;
-          if (websiteName) {
-            logger.info('AppContext', 'Loaded current website name', { websiteName });
-            setWebsiteName(websiteName);
-          }
-        }
-      } catch (error) {
-        logger.error('AppContext', 'Error loading current website name', error);
-      } finally {
-        setLoading(false);
+  // Use hook to load current website name on mount
+  const websiteNameResult = useIPCInvoke<string | null>('get-current-website-name', [], {
+    enabled: !!window.electronAPI?.invoke,
+    retry: true,
+    onSuccess: (websiteName) => {
+      if (websiteName) {
+        logger.info('AppContext', 'Loaded current website name', { websiteName });
+        setWebsiteName(websiteName);
       }
-    };
+    },
+    onError: (error) => {
+      logger.error('AppContext', 'Error loading current website name', error);
+    },
+  });
 
-    loadCurrentWebsiteName();
-  }, []);
+  // Update loading state based on hook status
+  useEffect(() => {
+    if (!websiteNameResult.loading) {
+      setLoading(false);
+    }
+  }, [websiteNameResult.loading]);
 
   // Listen for website loading events
   useEffect(() => {

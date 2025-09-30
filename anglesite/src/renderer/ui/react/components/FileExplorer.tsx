@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Tree, NodeApi } from 'react-arborist';
 import { useAppContext } from '../context/AppContext';
 import { FluentButton } from '../fluent';
+import { useIPCInvoke } from '../hooks/useIPCInvoke';
 
 interface FileItem {
   id: string;
@@ -226,12 +227,38 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
     }
   };
 
+  // State to trigger server URL fetch for specific file
+  const [fileToPreview, setFileToPreview] = useState<FileItem | null>(null);
+
+  // Use hook for get-website-server-url IPC call
+  const serverUrlResult = useIPCInvoke<string>('get-website-server-url', [state.websiteName], {
+    enabled: !!fileToPreview && !!state.websiteName,
+    retry: true,
+    onError: (error) => {
+      console.error('Error getting website server URL:', error);
+    },
+  });
+
+  // Handle server URL result and load preview
+  useEffect(() => {
+    if (fileToPreview && serverUrlResult.data && !serverUrlResult.loading) {
+      const baseUrl = serverUrlResult.data;
+      if (baseUrl && window.electronAPI?.send) {
+        const fullUrl = baseUrl.replace(/\/$/, '') + fileToPreview.url;
+        window.electronAPI.send('load-file-preview', state.websiteName, fullUrl);
+      } else {
+        console.warn('No base URL available for file preview');
+      }
+      setFileToPreview(null); // Reset after handling
+    }
+  }, [fileToPreview, serverUrlResult.data, serverUrlResult.loading, state.websiteName]);
+
   const Node: React.FC<{ node: NodeApi<FileItem> }> = React.memo(({ node }) => {
     const fileItem = node.data;
     const icon = getFileIcon(fileItem.name, fileItem.isDirectory);
 
     const handleClick = React.useCallback(
-      async (e: React.MouseEvent) => {
+      (e: React.MouseEvent) => {
         e.stopPropagation();
         if (fileItem.isDirectory) {
           node.toggle();
@@ -246,26 +273,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
 
           // Load file preview in WebContentsView if file has a URL
           if (fileItem.url && state.websiteName) {
-            // Get the website server URL and construct full URL
-            try {
-              const baseUrl = await window.electronAPI?.invoke('get-website-server-url', state.websiteName);
-              if (baseUrl && window.electronAPI?.send) {
-                const fullUrl = (baseUrl as string).replace(/\/$/, '') + fileItem.url; // Remove trailing slash and add file URL
-                window.electronAPI.send('load-file-preview', state.websiteName, fullUrl);
-              } else {
-                // No base URL available - cannot load preview
-                console.warn('No base URL available for file preview');
-              }
-            } catch (error) {
-              console.error('Error getting website server URL:', error);
-            }
+            // Trigger server URL fetch
+            setFileToPreview(fileItem);
           } else {
             // File has no URL to preview - static file without web representation
             console.debug('File has no URL for preview:', fileItem.path);
           }
         }
       },
-      [fileItem.isDirectory, fileItem.path, node]
+      [fileItem.isDirectory, fileItem.path, fileItem.url, node]
     );
 
     // Use Fluent UI accent color for selection (matches system accent on macOS)
@@ -313,23 +329,47 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, onWebs
 
   Node.displayName = 'FileExplorerNode';
 
-  const handleWebsiteConfigClick = async () => {
-    // Hide the preview WebContentsView to show the React editor
-    if (state.websiteName && window.electronAPI?.invoke) {
-      try {
-        await window.electronAPI.invoke('set-edit-mode', state.websiteName);
-      } catch (error) {
-        console.error('🌐 FileExplorer: Failed to set edit mode:', error);
+  // State to trigger edit mode IPC call conditionally
+  const [shouldSetEditMode, setShouldSetEditMode] = useState(false);
+
+  // Use hook for set-edit-mode IPC call (idempotent, no retry indicator needed)
+  const editModeResult = useIPCInvoke<boolean>('set-edit-mode', [state.websiteName], {
+    enabled: shouldSetEditMode && !!state.websiteName,
+    retry: true, // Idempotent operation, safe to retry
+    onError: (error) => {
+      console.error('🌐 FileExplorer: Failed to set edit mode:', error);
+    },
+  });
+
+  // Handle edit mode result
+  useEffect(() => {
+    if (shouldSetEditMode && !editModeResult.loading) {
+      setShouldSetEditMode(false);
+      if (editModeResult.data) {
+        setSelectedFile(null);
+        if (onWebsiteConfigSelect) {
+          onWebsiteConfigSelect();
+        } else {
+          console.warn('🌐 FileExplorer: onWebsiteConfigSelect callback is not provided!');
+        }
       }
     }
+  }, [shouldSetEditMode, editModeResult.loading, editModeResult.data, onWebsiteConfigSelect]);
 
-    setSelectedFile(null);
-    if (onWebsiteConfigSelect) {
-      onWebsiteConfigSelect();
+  const handleWebsiteConfigClick = useCallback(() => {
+    // Trigger edit mode IPC call
+    if (state.websiteName && window.electronAPI?.invoke) {
+      setShouldSetEditMode(true);
     } else {
-      console.warn('🌐 FileExplorer: onWebsiteConfigSelect callback is not provided!');
+      // No IPC available, proceed directly
+      setSelectedFile(null);
+      if (onWebsiteConfigSelect) {
+        onWebsiteConfigSelect();
+      } else {
+        console.warn('🌐 FileExplorer: onWebsiteConfigSelect callback is not provided!');
+      }
     }
-  };
+  }, [state.websiteName, onWebsiteConfigSelect]);
 
   useEffect(() => {
     loadFiles();

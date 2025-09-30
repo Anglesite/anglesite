@@ -6,6 +6,7 @@ import validator from '@rjsf/validator-ajv8';
 import { useAppContext } from '../context/AppContext';
 import { logger } from '../../../utils/logger';
 import { PATHS } from '../../../../shared/constants';
+import { useIPCInvoke } from '../hooks/useIPCInvoke';
 
 interface SchemaResult {
   schema?: RJSFSchema;
@@ -21,120 +22,80 @@ interface WebsiteConfigEditorProps {
 
 export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave, onError }) => {
   const { state } = useAppContext();
-  const [schema, setSchema] = useState<RJSFSchema | null>(null);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
-  const [loading, setLoading] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef<IChangeEvent | null>(null);
 
-  useEffect(() => {
-    let isCancelled = false;
-
-    /**
-     * Loads website schema and configuration data from the main process.
-     *
-     * This async function orchestrates the loading of both the JSON schema
-     * (used for form validation and UI generation) and existing website
-     * configuration data. It includes comprehensive error handling and
-     * graceful fallbacks for missing or invalid data.
-     *
-     * **IPC Communication:**
-     * - `get-website-schema`: Retrieves JSON schema for form generation
-     * - `get-file-content`: Loads existing website.json configuration
-     *
-     * **Error Handling:**
-     * - Type validation for schema response structure
-     * - JSON parsing errors with fallback to default configuration
-     * - Cancellation handling for component unmounting
-     *
-     * **State Management:**
-     * - Updates loading state for UI feedback
-     * - Sets error state for user notification
-     * - Populates form with existing data or sensible defaults
-     * @example
-     * ```typescript
-     * // Called automatically when websiteName changes
-     * useEffect(() => {
-     *   loadSchemaAndData();
-     * }, [state.websiteName]);
-     * ```
-     */
-    const loadSchemaAndData = async () => {
-      if (!state.websiteName) {
-        setLoading(false);
+  // Use hook to load schema with retry
+  const schemaResult = useIPCInvoke<SchemaResult>('get-website-schema', [state.websiteName], {
+    enabled: !!state.websiteName,
+    retry: true,
+    onSuccess: (result) => {
+      // Type guard for schema result
+      if (!result || typeof result !== 'object' || result === null) {
+        onError?.('Invalid schema response from main process');
         return;
       }
 
-      try {
-        // Load schema
-        const schemaResult = await window.electronAPI.invoke('get-website-schema', state.websiteName);
+      if (!result.schema || typeof result.schema !== 'object') {
+        onError?.('Failed to load website configuration schema');
+        return;
+      }
 
-        if (isCancelled) return;
+      if (result.warnings?.length) {
+        logger.warn('WebsiteConfigEditor', 'Schema loading warnings', { warnings: result.warnings });
+      }
+    },
+    onError: (error) => {
+      logger.error('WebsiteConfigEditor', 'Error loading schema', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      onError?.(`Failed to load configuration: ${errorMessage}`);
+    },
+  });
 
-        // Type guard for schema result
-        if (!schemaResult || typeof schemaResult !== 'object' || schemaResult === null) {
-          throw new Error('Invalid schema response from main process');
-        }
+  // Extract schema for easier access
+  const schema = schemaResult.data?.schema ?? null;
 
-        const typedResult = schemaResult as Partial<SchemaResult>;
-
-        if (!typedResult.schema || typeof typedResult.schema !== 'object') {
-          throw new Error('Failed to load website configuration schema');
-        }
-
-        setSchema(typedResult.schema);
-
-        if (typedResult.warnings?.length) {
-          logger.warn('WebsiteConfigEditor', 'Schema loading warnings', { warnings: typedResult.warnings });
-        }
-
-        // Load existing data
-        const existingContent = await window.electronAPI.invoke(
-          'get-file-content',
-          state.websiteName,
-          PATHS.WEBSITE_DATA
-        );
-
-        if (isCancelled) return;
-
-        if (existingContent && typeof existingContent === 'string') {
-          try {
-            const parsedData = JSON.parse(existingContent);
-            if (parsedData && typeof parsedData === 'object') {
-              setFormData(parsedData);
-            } else {
-              throw new Error('Invalid JSON data structure');
-            }
-          } catch (parseError) {
-            logger.error('WebsiteConfigEditor', 'Failed to parse existing configuration', parseError);
-            setFormData({
-              title: state.websiteName || 'My Website',
-              language: 'en',
-            });
+  // Use hook to load existing file content with retry
+  const fileContentResult = useIPCInvoke<string>('get-file-content', [state.websiteName, PATHS.WEBSITE_DATA], {
+    enabled: !!state.websiteName && !schemaResult.loading && !!schemaResult.data, // Only load after schema data is available
+    retry: true,
+    onSuccess: (existingContent) => {
+      if (existingContent && typeof existingContent === 'string') {
+        try {
+          const parsedData = JSON.parse(existingContent);
+          if (parsedData && typeof parsedData === 'object') {
+            setFormData(parsedData);
+          } else {
+            throw new Error('Invalid JSON data structure');
           }
-        } else {
+        } catch (parseError) {
+          logger.error('WebsiteConfigEditor', 'Failed to parse existing configuration', parseError);
           setFormData({
             title: state.websiteName || 'My Website',
             language: 'en',
           });
         }
-      } catch (error) {
-        if (!isCancelled) {
-          logger.error('WebsiteConfigEditor', 'Error loading schema or data', error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-          onError?.(`Failed to load configuration: ${errorMessage}`);
-        }
-      } finally {
-        if (!isCancelled) {
-          setLoading(false);
-        }
+      } else {
+        setFormData({
+          title: state.websiteName || 'My Website',
+          language: 'en',
+        });
       }
-    };
+    },
+    onError: (error) => {
+      logger.error('WebsiteConfigEditor', 'Error loading file content', error);
+      // Set default data on error
+      setFormData({
+        title: state.websiteName || 'My Website',
+        language: 'en',
+      });
+    },
+  });
 
-    loadSchemaAndData();
-
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
-      isCancelled = true;
       // Clear any pending save operations on unmount
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -142,10 +103,14 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
       }
       pendingSaveRef.current = null;
     };
-  }, [state.websiteName, onError]);
+  }, []);
+
+  // State to track save status and retry attempts
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [saveRetryCount, setSaveRetryCount] = useState(0);
 
   /**
-   * Executes the actual save operation without debouncing.
+   * Executes the actual save operation with retry logic.
    * Separated from handleSubmit to allow immediate execution when needed.
    * @param data Form submission data from React JSON Schema Form
    */
@@ -162,21 +127,41 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
           throw new Error('Invalid form data structure');
         }
 
+        setSaveStatus('saving');
+        setSaveRetryCount(0);
+
         const websiteJson = JSON.stringify(data.formData, null, 2);
 
-        const success = await window.electronAPI.invoke(
+        // Use invokeWithRetry for save operations with cautious retry (2 attempts for writes)
+        const { invokeWithRetry } = await import('../../../utils/ipc-retry');
+
+        const success = await invokeWithRetry<boolean>(
           'save-file-content',
-          state.websiteName,
-          PATHS.WEBSITE_DATA,
-          websiteJson
+          [state.websiteName, PATHS.WEBSITE_DATA, websiteJson],
+          {
+            maxAttempts: 2, // More cautious for write operations
+            baseDelay: 1000,
+            maxDelay: 3000,
+            onRetry: (attempt) => {
+              setSaveRetryCount(attempt);
+              logger.debug('WebsiteConfigEditor', `Save retry attempt ${attempt}`, {
+                websiteName: state.websiteName,
+              });
+            },
+          }
         );
 
         if (success) {
+          setSaveStatus('success');
           onSave?.(data.formData);
+          // Reset status after 2 seconds
+          setTimeout(() => setSaveStatus('idle'), 2000);
         } else {
+          setSaveStatus('error');
           onError?.('Failed to save configuration: Server returned false');
         }
       } catch (error) {
+        setSaveStatus('error');
         logger.error('WebsiteConfigEditor', 'Error saving configuration', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
         onError?.(`Failed to save configuration: ${errorMessage}`);
@@ -254,13 +239,55 @@ export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave
     return <div>No website loaded</div>;
   }
 
-  if (loading || !schema) {
-    return <div>Loading...</div>;
+  // Combined loading state from both schema and file content
+  const isLoading = schemaResult.loading || fileContentResult.loading;
+
+  // Show retry indicator when loading data
+  const showRetryIndicator =
+    (schemaResult.retryCount > 0 || fileContentResult.retryCount > 0) &&
+    (schemaResult.isRetrying || fileContentResult.isRetrying);
+
+  if (isLoading || !schema) {
+    return (
+      <div style={{ padding: '20px' }}>
+        <h3>Website Configuration</h3>
+        <div style={{ marginTop: '16px' }}>
+          {showRetryIndicator ? (
+            <div style={{ color: 'var(--accent-fill-rest)', fontSize: '14px' }}>
+              Retrying... (attempt {Math.max(schemaResult.retryCount, fileContentResult.retryCount)}/3)
+            </div>
+          ) : (
+            <div>Loading configuration...</div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div style={{ padding: '20px' }}>
       <h3>Website Configuration</h3>
+
+      {/* Save status indicator */}
+      {saveStatus !== 'idle' && (
+        <div
+          style={{
+            marginBottom: '16px',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            backgroundColor:
+              saveStatus === 'saving' ? 'var(--fill-color)' : saveStatus === 'success' ? '#d4edda' : '#f8d7da',
+            color: saveStatus === 'saving' ? 'var(--text-primary)' : saveStatus === 'success' ? '#155724' : '#721c24',
+            fontSize: '14px',
+          }}
+        >
+          {saveStatus === 'saving' && saveRetryCount > 0 && `Retrying save... (attempt ${saveRetryCount}/2)`}
+          {saveStatus === 'saving' && saveRetryCount === 0 && 'Saving...'}
+          {saveStatus === 'success' && 'Configuration saved successfully'}
+          {saveStatus === 'error' && 'Failed to save configuration'}
+        </div>
+      )}
+
       <Form schema={schema} formData={formData} validator={validator} onSubmit={handleSubmit} />
     </div>
   );

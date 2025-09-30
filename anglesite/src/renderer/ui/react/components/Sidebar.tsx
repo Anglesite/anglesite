@@ -1,24 +1,40 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { FluentCard } from '../fluent';
+import { useIPCInvoke } from '../hooks/useIPCInvoke';
 
 // Lazy load FileExplorer since it's heavy with tree components
 const FileExplorer = lazy(() => import('./FileExplorer').then((module) => ({ default: module.FileExplorer })));
 
 export const Sidebar: React.FC = () => {
   const { state, setCurrentView } = useAppContext();
+  const [shouldSetPreviewMode, setShouldSetPreviewMode] = React.useState(false);
+
+  // Use hook for set-preview-mode IPC call with conditional execution
+  const previewModeResult = useIPCInvoke<boolean>('set-preview-mode', [state.websiteName], {
+    enabled: shouldSetPreviewMode && !!state.websiteName,
+    retry: true, // Idempotent operation, safe to retry
+  });
+
+  // Reset trigger after execution
+  useEffect(() => {
+    if (shouldSetPreviewMode && !previewModeResult.loading) {
+      setShouldSetPreviewMode(false);
+      if (previewModeResult.data) {
+        console.log('🔄 Sidebar: Set preview mode result:', previewModeResult.data);
+      }
+      if (previewModeResult.error) {
+        console.error('🔄 Sidebar: Failed to set preview mode:', previewModeResult.error);
+      }
+    }
+  }, [shouldSetPreviewMode, previewModeResult.loading, previewModeResult.data, previewModeResult.error]);
 
   const handleFileSelect = async (filePath: string) => {
     console.log('🔄 Sidebar: File selected:', filePath);
 
-    // Show the preview WebContentsView when selecting files
+    // Trigger the preview mode IPC call
     if (state.websiteName && window.electronAPI?.invoke) {
-      try {
-        const success = await window.electronAPI.invoke('set-preview-mode', state.websiteName);
-        console.log('🔄 Sidebar: Set preview mode result:', success);
-      } catch (error) {
-        console.error('🔄 Sidebar: Failed to set preview mode:', error);
-      }
+      setShouldSetPreviewMode(true);
     }
 
     setCurrentView('file-editor');
