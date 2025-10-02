@@ -2,7 +2,7 @@
  * @file WebContents cleanup utilities to prevent memory leaks
  */
 
-import { WebContents, ipcMain } from 'electron';
+import { WebContents, ipcMain, app } from 'electron';
 
 /**
  * WeakMap to track event listeners for cleanup.
@@ -198,6 +198,7 @@ export function createCleanupFunction(cleanupActions: (() => void)[]): () => voi
 
 /**
  * Memory usage monitoring for WebContents.
+ * Uses Electron's app.getAppMetrics() to get accurate per-process memory usage.
  * @param webContents The WebContents instance to monitor
  * @param identifier A unique identifier for logging purposes
  */
@@ -205,16 +206,34 @@ export function monitorWebContentsMemory(webContents: WebContents, identifier: s
   const checkMemory = () => {
     if (webContents.isDestroyed()) return;
 
-    // Use process.memoryUsage() as a fallback since getProcessMemoryInfo may not be available
     try {
-      const memoryInfo = process.memoryUsage();
-      const { heapUsed, heapTotal } = memoryInfo;
+      // Get the process ID for this WebContents
+      const webContentsProcessId = webContents.getProcessId();
+
+      // Get metrics for all processes from Electron
+      const appMetrics = app.getAppMetrics();
+
+      // Find the metrics for this specific WebContents process
+      const processMetric = appMetrics.find((metric) => metric.pid === webContentsProcessId);
+
+      if (!processMetric || !processMetric.memory) {
+        // Process not found or no memory info - skip silently (may be during shutdown)
+        return;
+      }
+
+      // Memory values from Electron are in Kilobytes
+      const workingSetSizeKB = processMetric.memory.workingSetSize;
+      const peakWorkingSetSizeKB = processMetric.memory.peakWorkingSetSize;
+
+      // Convert to MB for comparison and logging
+      const workingSetSizeMB = workingSetSizeKB / 1024;
+      const peakWorkingSetSizeMB = peakWorkingSetSizeKB / 1024;
 
       // Log warning if memory usage is high (>100MB)
-      if (heapUsed > 100 * 1024 * 1024) {
+      if (workingSetSizeMB > 100) {
         console.warn(`High memory usage for WebContents ${identifier}:`, {
-          heapUsed: Math.round(heapUsed / (1024 * 1024)) + 'MB',
-          heapTotal: Math.round(heapTotal / (1024 * 1024)) + 'MB',
+          workingSetSize: Math.round(workingSetSizeMB) + 'MB',
+          peakWorkingSetSize: Math.round(peakWorkingSetSizeMB) + 'MB',
         });
       }
     } catch (error) {

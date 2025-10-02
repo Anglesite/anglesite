@@ -220,7 +220,16 @@ export class WebsiteManager implements IWebsiteManager {
     try {
       // Step 1: Atomically copy template to target location
       const copyResult = await atomicCopyDirectory(templateSourcePath, newWebsitePath, {
-        exclude: ['node_modules', '_site', '.git', 'dist'],
+        exclude: [
+          'node_modules',
+          '_site',
+          '.git',
+          'dist',
+          // Exclude Eleventy config file - Anglesite uses programmatic configuration
+          // This prevents Eleventy v3 auto-discovery issues and potential conflicts
+          'eleventy.config.js',
+          '.eleventy.js',
+        ],
         validate: async (contents) => {
           // Validate that essential files are present
           const requiredFiles = ['src', 'package.json'];
@@ -375,26 +384,45 @@ export class WebsiteManager implements IWebsiteManager {
 
   /**
    * Find the template source path from possible locations.
+   *
+   * Checks paths in the following priority order:
+   * 1. Production: node_modules relative to dist/ directory (__dirname goes up 4 levels from dist/src/main/utils)
+   * 2. Production: node_modules in current working directory
+   * 3. Development: monorepo workspace sibling (goes up 5 levels from dist/src/main/utils to reach monorepo root)
    */
   private async findTemplateSourcePath(): Promise<string | null> {
     const possiblePaths = [
-      path.join(__dirname, '..', '..', 'node_modules', '@dwk', 'anglesite-starter'),
+      // Production: From dist/src/main/utils, go up 4 levels to anglesite/ root, then to node_modules
+      path.join(__dirname, '..', '..', '..', '..', 'node_modules', '@dwk', 'anglesite-starter'),
+      // Production: Check process.cwd() for installed packages
       path.join(process.cwd(), 'node_modules', '@dwk', 'anglesite-starter'),
-      // For monorepo development, check the workspace sibling directory (from dist/src/main/utils, go up 5 levels to monorepo root, then to anglesite-starter)
+      // Development: Monorepo workspace sibling (from dist/src/main/utils, go up 5 levels to monorepo root)
       path.join(__dirname, '..', '..', '..', '..', '..', 'anglesite-starter'),
     ];
 
-    for (const starterPath of possiblePaths) {
-      this.logger.debug('Checking template path', { path: starterPath });
+    this.logger.debug('Searching for anglesite-starter template in fallback locations', {
+      totalPaths: possiblePaths.length,
+    });
+
+    for (let i = 0; i < possiblePaths.length; i++) {
+      const starterPath = possiblePaths[i];
+      const locationLabel = i === 0 || i === 1 ? 'production' : 'development';
+
+      this.logger.debug(`Checking template path [${i + 1}/${possiblePaths.length}] (${locationLabel})`, {
+        path: starterPath,
+      });
+
       if (await this.exists(starterPath)) {
-        this.logger.debug('Found template source', { path: starterPath });
+        this.logger.debug('Found template source', { path: starterPath, location: locationLabel });
         return starterPath;
-      } else {
-        this.logger.debug('Path does not exist', { path: starterPath });
       }
+      // No logging for missing paths - this is expected fallback behavior
     }
 
-    this.logger.warn('Template source path not found in any expected location');
+    this.logger.warn('Template source path not found in any expected location', {
+      checkedPaths: possiblePaths.length,
+      hint: 'Ensure @dwk/anglesite-starter package is installed or available in workspace',
+    });
     return null;
   }
 

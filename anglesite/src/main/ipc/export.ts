@@ -2,7 +2,8 @@
  * @file IPC handlers for website export functionality
  */
 import { ipcMain, BrowserWindow, dialog, IpcMainEvent } from 'electron';
-import Eleventy from '@11ty/eleventy';
+// Dynamic import for 11ty to avoid loading at module initialization
+// import Eleventy from '@11ty/eleventy';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -168,21 +169,10 @@ export async function exportSiteHandler(event: IpcMainEvent | null, exportFormat
 
     // Build the current website in the target directory using Eleventy programmatic API
     try {
-      // Look for .eleventy.js config file in the website directory
-      const configPath = path.join(websitePath, '.eleventy.js');
-      let eleventyConfig: unknown;
-
-      if (fs.existsSync(configPath)) {
-        try {
-          // Clear the require cache to ensure we get fresh config
-          delete require.cache[require.resolve(configPath)];
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          eleventyConfig = require(configPath);
-        } catch (error) {
-          console.warn(`Failed to load config from ${configPath}, using default config:`, error);
-          eleventyConfig = undefined;
-        }
-      }
+      // NOTE: We used to load eleventy.config.js here, but it's incompatible with Eleventy v3's ESM requirements.
+      // Instead, we'll pass the config path to Eleventy and let it handle loading.
+      // The config file at src/main/eleventy/eleventy.config.js will be auto-discovered by Eleventy.
+      const eleventyConfig = undefined; // Let Eleventy auto-discover its config
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const eleventyOptions: any = {
@@ -195,6 +185,9 @@ export async function exportSiteHandler(event: IpcMainEvent | null, exportFormat
 
       // Account for the new src/ directory structure
       const actualInputDir = fs.existsSync(path.join(websitePath, 'src')) ? path.join(websitePath, 'src') : websitePath;
+
+      // Dynamically import Eleventy to avoid loading at module initialization
+      const { default: Eleventy } = await import('@11ty/eleventy');
 
       const elev = new Eleventy(actualInputDir, buildDir, eleventyOptions);
 

@@ -116,9 +116,7 @@ export class MonitorManager implements IMonitorManager {
 
       return configuration;
     } catch (error) {
-      // TODO: Integrate with ErrorReportingService once dependency injection is available
-      console.error('MonitorManager: Failed to get monitor configuration:', error);
-
+      // Gracefully handle Electron screen API failures - fall back to default configuration
       // Fallback to minimal single monitor configuration
       const fallbackMonitor: MonitorInfo = {
         id: 1,
@@ -156,7 +154,7 @@ export class MonitorManager implements IMonitorManager {
       if (targetMonitor) {
         return targetMonitor;
       }
-      console.log(`Target monitor ${savedState.targetMonitorId} not found, falling back`);
+      // Target monitor not found, fallback to primary monitor
     }
 
     // Strategy 2: Use window bounds to determine which monitor it was on

@@ -131,7 +131,11 @@ export class EnhancedFileWatcher {
       .on('unlink', (filePath) => this.handleFileChange('unlink', filePath))
       .on('addDir', (dirPath, stats) => this.handleFileChange('addDir', dirPath, stats))
       .on('unlinkDir', (dirPath) => this.handleFileChange('unlinkDir', dirPath))
-      .on('error', (error) => this.handleWatcherError(error));
+      .on('error', (error) => {
+        // Type narrowing: chokidar error events provide unknown type, convert to Error
+        const err = error instanceof Error ? error : new Error(String(error));
+        this.handleWatcherError(err);
+      });
 
     console.log(`[Watch Mode] Started watching: ${watchPattern}`);
     console.log(`[Watch Mode] Debounce: ${this.config.debounceMs}ms, Max batch: ${this.config.maxBatchSize}`);

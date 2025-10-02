@@ -34,7 +34,6 @@ export function setupReactEditorHandlers(): void {
       const window = BrowserWindow.fromWebContents(event.sender);
       if (window) {
         const websiteName = getWebsiteNameForWindow(window);
-        console.log('Current website name for window:', websiteName);
         return websiteName;
       }
       return null;

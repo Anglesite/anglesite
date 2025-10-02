@@ -16,9 +16,6 @@ import { IStore } from './core/interfaces';
 import { ServiceKeys } from './core/container';
 import { logger, sanitize } from './utils/logging';
 
-// Set application name as early as possible
-app.setName('Anglesite');
-
 /**
  * Main window instance
  */
@@ -67,6 +64,9 @@ function setupGlobalErrorHandlers(errorReportingService: any): void {
  * Initialize the application.
  */
 async function initializeApp(): Promise<void> {
+  // Set application name
+  app.setName('Anglesite');
+
   // Initialize DI container and global application context first
   await initializeGlobalContext();
 

@@ -9,6 +9,7 @@ import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
 import type { IWebsiteManager } from '../core/interfaces';
 import { createIPCErrorReporter } from '../utils/error-handler-integration';
+import { logger, sanitize } from '../utils/logging';
 
 /**
  * Get error reporter for schema IPC operations
@@ -48,7 +49,7 @@ export function setupSchemaHandlers(): void {
     'get-website-schema',
     async (event: IpcMainInvokeEvent, websiteName: string): Promise<SchemaResult> => {
       try {
-        console.log('Loading website schema for:', websiteName);
+        logger.debug(`Loading website schema for: ${sanitize.message(websiteName)}`);
 
         if (!websiteName) {
           throw new Error('Website name is required');
@@ -83,7 +84,7 @@ export function setupSchemaHandlers(): void {
           try {
             await fs.access(testPath);
             schemaPath = testPath;
-            console.log('Found schema directory at:', schemaPath);
+            logger.debug(`Found schema directory at: ${sanitize.path(schemaPath)}`);
             break;
           } catch {
             // Continue to next path
@@ -91,14 +92,14 @@ export function setupSchemaHandlers(): void {
         }
 
         if (!schemaPath) {
-          console.log('Schema directory not found in any expected location');
+          logger.debug('Schema directory not found in any expected location');
           return {
             error: 'Schema directory not found. Using fallback schema.',
             fallbackSchema: getFallbackSchema(),
           };
         }
 
-        console.log('Schema path:', schemaPath);
+        logger.debug(`Using schema path: ${sanitize.path(schemaPath)}`);
 
         // Load main schema file
         const mainSchemaPath = path.join(schemaPath, 'website.schema.json');
@@ -107,7 +108,7 @@ export function setupSchemaHandlers(): void {
         try {
           const mainSchemaContent = await fs.readFile(mainSchemaPath, 'utf-8');
           mainSchema = JSON.parse(mainSchemaContent);
-          console.log('Loaded main schema successfully');
+          logger.debug('Loaded main schema successfully');
         } catch (error) {
           const errorReporter = getErrorReporter();
           if (errorReporter) {
@@ -124,7 +125,6 @@ export function setupSchemaHandlers(): void {
         // Resolve all module references and combine into a single schema
         const resolvedSchema = await resolveSchemaReferences(mainSchema, schemaPath);
 
-        console.log('Schema resolution completed');
         return {
           schema: resolvedSchema.schema,
           warnings: resolvedSchema.warnings,
@@ -151,7 +151,9 @@ export function setupSchemaHandlers(): void {
     'get-schema-module',
     async (event: IpcMainInvokeEvent, websiteName: string, moduleName: string): Promise<Record<string, unknown>> => {
       try {
-        console.log('Loading schema module:', moduleName, 'for website:', websiteName);
+        logger.debug(
+          `Loading schema module: ${sanitize.message(moduleName)} for website: ${sanitize.message(websiteName)}`
+        );
 
         if (!websiteName || !moduleName) {
           throw new Error('Website name and module name are required');
@@ -213,7 +215,7 @@ export function setupSchemaHandlers(): void {
         try {
           const moduleContent = await fs.readFile(modulePath, 'utf-8');
           const moduleData = JSON.parse(moduleContent);
-          console.log(`Loaded module ${moduleName} successfully`);
+          logger.debug(`Loaded module ${sanitize.message(moduleName)} successfully`);
           return moduleData;
         } catch (error) {
           if ((error as { code?: string }).code === 'ENOENT') {
@@ -290,7 +292,6 @@ async function resolveSchemaReferences(
       }
     }
 
-    console.log(`Schema resolution completed with ${Object.keys(resolvedSchema.properties || {}).length} properties`);
     return { schema: resolvedSchema, warnings };
   } catch (error) {
     const errorReporter = getErrorReporter();
@@ -386,7 +387,6 @@ async function walkAndResolveRefs(
         if (filePath) {
           // Resolve the reference path relative to the base directory
           const resolvedPath = path.resolve(baseDir, filePath);
-          console.log(`Resolving reference: ${refValue} from base: ${baseDir} to: ${resolvedPath}`);
 
           // Add this reference to the resolution stack
           const newResolutionStack = new Set(resolutionStack);
