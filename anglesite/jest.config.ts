@@ -5,7 +5,7 @@
 export default {
   preset: 'ts-jest',
   transform: {
-    '^.+.ts$': 'ts-jest',
+    '^.+.ts$': ['ts-jest', { tsconfig: 'tsconfig.test.json' }],
     '^.+.js$': 'ts-jest',
   },
   testEnvironment: 'jsdom',

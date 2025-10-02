@@ -36,6 +36,21 @@ function clearUserDataCache() {
   }
 }
 
+function clearWebpackCache() {
+  const webpackCacheDir = path.join(__dirname, '..', 'node_modules', '.cache');
+
+  try {
+    if (fs.existsSync(webpackCacheDir)) {
+      fs.rmSync(webpackCacheDir, { recursive: true, force: true });
+      console.log('✅ Cleared webpack cache:', webpackCacheDir);
+    } else {
+      console.log('ℹ️  Webpack cache already clear:', webpackCacheDir);
+    }
+  } catch (error) {
+    console.log('⚠️  Could not clear webpack cache:', error.message);
+  }
+}
+
 function clearTempFiles() {
   const tempDirs = ['_site_temp', 'dist/', '_site'];
 
@@ -55,5 +70,6 @@ function clearTempFiles() {
 
 console.log('🧹 Clearing Anglesite caches...');
 clearUserDataCache();
+clearWebpackCache();
 clearTempFiles();
 console.log('✨ Cache clearing complete!');

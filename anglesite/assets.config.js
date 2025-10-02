@@ -112,8 +112,9 @@ const ASSET_CONFIG = {
       production: '',
     },
 
-    // Clean output directory
-    clean: true,
+    // Clean output directory disabled - using pre-build script instead
+    // to avoid webpack race condition (ENOTEMPTY errors)
+    clean: false,
   },
 
   // Performance settings - adjusted for Electron desktop app

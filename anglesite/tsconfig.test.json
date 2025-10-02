@@ -8,15 +8,15 @@
     "strictNullChecks": false,
     "noImplicitAny": false,
     "skipLibCheck": true,
-    "outDir": "dist/src",
+    "outDir": "dist/test",
     "allowJs": true,
     "downlevelIteration": true,
     "jsx": "react-jsx",
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
-    "types": ["node", "react", "react-dom"],
+    "types": ["node", "jest", "react", "react-dom"],
     "typeRoots": ["./types", "./node_modules/@types"]
   },
-  "include": ["src", "types/**/*.d.ts", "test/types/**/*.d.ts", "../anglesite-11ty/types/eleventy.d.ts"],
-  "exclude": ["src/common/core/errors/examples.ts", "test/**/*.ts", "test/**/*.tsx", "!test/types/**/*.d.ts"]
+  "include": ["src", "test", "types/**/*.d.ts", "../anglesite-11ty/types/eleventy.d.ts"],
+  "exclude": ["src/common/core/errors/examples.ts"]
 }

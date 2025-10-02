@@ -8,7 +8,7 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.js",
-    ".eleventy.js"
+    "eleventy.config.js"
   ],
   "exclude": [
     "node_modules",
