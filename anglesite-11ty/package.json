@@ -12,7 +12,7 @@
   "main": "dist/anglesite-11ty/index.js",
   "types": "dist/types/eleventy.d.ts",
   "scripts": {
-    "build": "tsc && npx @11ty/eleventy --config=dist/config.eleventy.js",
+    "build": "tsc && npx @11ty/eleventy --config=dist/anglesite-11ty/config.eleventy.js",
     "build:lib": "tsc && cp -r types dist/",
     "build:site": "npx @11ty/eleventy --config=.eleventy.test.js",
     "serve": "npx @11ty/eleventy --serve --config=.eleventy.test.js",
@@ -30,16 +30,16 @@
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.1.2",
-    "@apidevtools/json-schema-ref-parser": "11.9.3",
+    "@apidevtools/json-schema-ref-parser": "14.2.1",
     "ajv": "8.17.1",
     "ajv-formats": "3.0.1",
     "json-schema-to-typescript": "^15.0.4",
-    "jsonc-eslint-parser": "^2.4.0",
+    "jsonc-eslint-parser": "2.4.1",
     "prettier": "^3.4.2",
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@11ty/eleventy-img": "^5.0.0",
+    "@11ty/eleventy-img": "6.0.4",
     "@11ty/eleventy-plugin-syntaxhighlight": "5.0.2",
     "@11ty/eleventy-plugin-webc": "0.12.0-beta.7",
     "html-minifier-terser": "^7.2.0",
