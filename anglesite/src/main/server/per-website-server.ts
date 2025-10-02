@@ -5,29 +5,44 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { EleventyUrlResolver } from './eleventy-url-resolver';
 import { logger, sanitize } from '../utils/logging';
-import Eleventy from '@11ty/eleventy';
-import EleventyDevServer from '@11ty/eleventy-dev-server';
+// Dynamic imports for 11ty to avoid loading at module initialization
+// import Eleventy from '@11ty/eleventy';
+// import EleventyDevServer from '@11ty/eleventy-dev-server';
 import { EnhancedFileWatcher, createEnhancedFileWatcher, FileChangeInfo } from './enhanced-file-watcher';
 
 /**
- * Send log message to website window.
+ * Log message callback type for layer boundary communication.
+ * Instead of directly importing UI layer, we accept a callback.
  */
-async function sendLogToWindow(websiteName: string, message: string, level: string = 'info') {
-  try {
-    // Import dynamically to avoid circular dependencies
-    const multiWindowManager = await import('../ui/multi-window-manager');
+type LogCallback = (websiteName: string, message: string, level: string) => void;
 
-    // Use the exported function instead of accessing the map directly
-    if (typeof multiWindowManager.sendLogToWebsite === 'function') {
-      multiWindowManager.sendLogToWebsite(websiteName, message, level);
-    } else {
-      logger.debug(`sendLogToWebsite function not available for ${websiteName}`);
+/**
+ * Global log callback set by the orchestrator layer.
+ * This allows the server layer to send logs without knowing about the UI layer.
+ */
+let logCallback: LogCallback | null = null;
+
+/**
+ * Set the log callback for this server instance.
+ * Called by the orchestrator layer to establish communication.
+ */
+export function setServerLogCallback(callback: LogCallback | null): void {
+  logCallback = callback;
+}
+
+/**
+ * Send log message through the callback (no direct UI dependency).
+ */
+function sendLogToWindow(websiteName: string, message: string, level: string = 'info') {
+  if (logCallback) {
+    try {
+      logCallback(websiteName, message, level);
+    } catch (error) {
+      // Silently fail if callback errors
+      logger.debug(`Log callback failed for ${websiteName}`, {
+        error: sanitize.error(error),
+      });
     }
-  } catch (error) {
-    // Silently fail if window is not available
-    logger.debug(`Could not send log to window for ${websiteName}`, {
-      error: sanitize.error(error),
-    });
   }
 }
 
@@ -123,7 +138,7 @@ export async function startWebsiteServer(inputDir: string, websiteName: string, 
     };
 
     // Use programmatic configuration instead of config file to avoid path resolution issues
-    sendLogToWindow(websiteName, `📋 Using programmatic configuration (ignoring .eleventy.js)`, 'debug');
+    sendLogToWindow(websiteName, `📋 Using programmatic configuration (ignoring eleventy.config.js)`, 'debug');
 
     sendLogToWindow(websiteName, `📂 Input: ${inputDir}/src, Output: ${outputDir}`, 'debug');
 
@@ -148,11 +163,21 @@ export async function startWebsiteServer(inputDir: string, websiteName: string, 
     // Add configuration callback to options (proper Eleventy API)
     const eleventyOptionsWithConfig = {
       ...eleventyOptions,
+      // Disable auto-discovery of config files (.eleventy.js, etc.) to prevent
+      // Eleventy v3 from trying to require() user config files with ESM syntax
+      configPath: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      config: function (eleventyConfig: any) {
-        // Import and add the anglesite-11ty plugin
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const anglesiteEleventy = require('@dwk/anglesite-11ty').default;
+      config: async function (eleventyConfig: any) {
+        // Import and add the anglesite-11ty plugin using dynamic import
+        // Dynamic import is required because @dwk/anglesite-11ty is an ESM module
+        let anglesiteEleventy;
+        if (process.env.NODE_ENV === 'test') {
+          anglesiteEleventy = (await import('@dwk/anglesite-11ty')).default;
+        } else {
+          // Use Function constructor to prevent TypeScript from transforming to require()
+          const dynamicImport = new Function('specifier', 'return import(specifier)');
+          anglesiteEleventy = (await dynamicImport('@dwk/anglesite-11ty')).default;
+        }
 
         // FIXME: Workaround for eleventy-plugin-webc issue
         eleventyConfig.setFreezeReservedData(false);
@@ -184,7 +209,67 @@ export async function startWebsiteServer(inputDir: string, websiteName: string, 
       },
     };
 
-    eleventy = new Eleventy(srcAbsolutePath, outputDir, eleventyOptionsWithConfig);
+    // Temporarily rename config files to prevent Eleventy from auto-discovering them
+    // This is necessary because Eleventy v3 will try to require() ESM config files,
+    // which causes an error even though we're using programmatic configuration
+    const websiteRoot = inputDir; // Parent of src/
+    const configFiles = [
+      'eleventy.config.js',
+      'eleventy.config.cjs',
+      'eleventy.config.mjs',
+      '.eleventy.js',
+      '.eleventy.cjs',
+      '.eleventy.mjs',
+    ];
+
+    const renamedConfigs: Array<{ from: string; to: string }> = [];
+
+    try {
+      // Rename any existing config files temporarily
+      for (const configFile of configFiles) {
+        const configPath = path.join(websiteRoot, configFile);
+        if (fs.existsSync(configPath)) {
+          const tempPath = `${configPath}.anglesite-temp`;
+          sendLogToWindow(websiteName, `🔧 Temporarily hiding ${configFile} to use programmatic config`, 'debug');
+          fs.renameSync(configPath, tempPath);
+          renamedConfigs.push({ from: configPath, to: tempPath });
+        }
+      }
+
+      // Dynamically import Eleventy to avoid loading at module initialization
+      sendLogToWindow(websiteName, `📦 Loading Eleventy module...`, 'debug');
+
+      // Use Function constructor to create true dynamic import that TypeScript can't transform to require()
+      // This is necessary because TypeScript with module:"commonjs" transforms await import() to require()
+      // In test environment, jest.mock handles the module, so we can use a simpler approach
+      let Eleventy;
+      if (process.env.NODE_ENV === 'test') {
+        // In test environment, use require which is already mocked by Jest
+        Eleventy = (await import('@11ty/eleventy')).default;
+      } else {
+        // In production, use Function constructor to prevent TypeScript transformation
+        const dynamicImport = new Function('specifier', 'return import(specifier)');
+        Eleventy = (await dynamicImport('@11ty/eleventy')).default;
+      }
+
+      eleventy = new Eleventy(srcAbsolutePath, outputDir, eleventyOptionsWithConfig);
+    } finally {
+      // Restore any renamed config files
+      for (const { from, to } of renamedConfigs) {
+        try {
+          if (fs.existsSync(to)) {
+            fs.renameSync(to, from);
+            sendLogToWindow(websiteName, `✅ Restored ${path.basename(from)}`, 'debug');
+          }
+        } catch (restoreError) {
+          logger.error(`Failed to restore config file`, {
+            error: sanitize.error(restoreError),
+            from: sanitize.path(from),
+            to: sanitize.path(to),
+          });
+        }
+      }
+    }
 
     try {
       // Initial build
@@ -234,6 +319,16 @@ export async function startWebsiteServer(inputDir: string, websiteName: string, 
 
       // Track the actual server URL
       let actualServerUrl = '';
+
+      // Dynamically import EleventyDevServer
+      sendLogToWindow(websiteName, `📦 Loading Eleventy Dev Server module...`, 'debug');
+      let EleventyDevServer;
+      if (process.env.NODE_ENV === 'test') {
+        EleventyDevServer = (await import('@11ty/eleventy-dev-server')).default;
+      } else {
+        const dynamicImport = new Function('specifier', 'return import(specifier)');
+        EleventyDevServer = (await dynamicImport('@11ty/eleventy-dev-server')).default;
+      }
 
       // Create dev server instance
       const devServer = new EleventyDevServer(websiteName, outputDir, {

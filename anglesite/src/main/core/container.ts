@@ -391,6 +391,7 @@ export const ServiceKeys = {
   WEBSITE_SERVER_MANAGER: 'websiteServerManager',
   WEBSITE_BUNDLER: 'websiteBundler',
   GIT_HISTORY_MANAGER: 'gitHistoryManager',
+  WEBSITE_ORCHESTRATOR: 'websiteOrchestrator', // Central orchestration layer
 
   // UI services
   MENU_MANAGER: 'menuManager',

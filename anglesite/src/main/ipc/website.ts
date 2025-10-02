@@ -144,10 +144,10 @@ export function setupWebsiteHandlers(): void {
   // Website listing handler
   ipcMain.handle('list-websites', async () => {
     try {
-      // Use DI-based website manager
+      // Use DI-based orchestrator
       const appContext = getGlobalContext();
-      const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
-      const allWebsites = await websiteManager.listWebsites();
+      const orchestrator = appContext.getService(ServiceKeys.WEBSITE_ORCHESTRATOR) as any;
+      const allWebsites = await orchestrator.listAllWebsites();
       const openWebsiteWindows = getAllWebsiteWindows();
       const openWebsiteNames = Array.from(openWebsiteWindows.keys());
 
@@ -158,11 +158,11 @@ export function setupWebsiteHandlers(): void {
     } catch (error) {
       const errorReporter = getErrorReporter();
       if (errorReporter) {
-        errorReporter('listWebsitesViaDI', error, { operation: 'list-websites' }).catch(() => {});
+        errorReporter('listWebsitesViaOrchestrator', error, { operation: 'list-websites' }).catch(() => {});
       } else {
-        console.error('Failed to list websites via DI:', error);
+        console.error('Failed to list websites via orchestrator:', error);
       }
-      // Fallback to legacy method if DI fails
+      // Fallback to legacy method if orchestrator fails
       try {
         const { listWebsites } = await import('../utils/website-manager');
         const allWebsites = await listWebsites();
@@ -385,49 +385,53 @@ async function createNewWebsite(websiteName: string): Promise<void> {
   let newWebsitePath = '';
 
   try {
-    // Step 1: Create the website files (this validates name and creates directory)
-    // Use DI-based website manager
+    // Step 1: Create the website using the orchestrator (which also starts the server)
+    // Use DI-based orchestrator
     try {
       console.log('Attempting to get global context...');
       const appContext = getGlobalContext();
       if (!appContext) {
         throw new Error('Global context not initialized');
       }
-      console.log('Global context obtained, getting WebsiteManager service...');
-      const websiteManager = appContext.getService<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
-      if (!websiteManager) {
-        throw new Error('WebsiteManager service not available');
+      console.log('Global context obtained, getting WebsiteOrchestrator service...');
+      const orchestrator = appContext.getService(ServiceKeys.WEBSITE_ORCHESTRATOR) as any;
+      if (!orchestrator) {
+        throw new Error('WebsiteOrchestrator service not available');
       }
-      console.log('WebsiteManager service obtained, creating website:', websiteName);
-      newWebsitePath = await websiteManager.createWebsite(websiteName);
+      console.log('WebsiteOrchestrator service obtained, creating website:', websiteName);
+
+      // Orchestrator creates the website AND starts the server - returns IsolatedWebsiteInstance
+      const instance = await orchestrator.createWebsite(websiteName);
+      newWebsitePath = instance.rootPath;
       websiteCreated = true;
-      console.log('Website created successfully via DI:', newWebsitePath);
+      console.log('Website created and server started via orchestrator:', newWebsitePath, instance.url);
     } catch (diError) {
       const errorReporter = getErrorReporter();
       if (errorReporter) {
-        errorReporter('createWebsiteViaDI', diError, {
-          operation: 'create-website-via-di',
+        errorReporter('createWebsiteViaOrchestrator', diError, {
+          operation: 'create-website-via-orchestrator',
           errorDetails: {
             message: diError instanceof Error ? diError.message : String(diError),
             stack: diError instanceof Error ? diError.stack : 'No stack trace',
           },
         }).catch(() => {});
       } else {
-        console.error('Failed to create website via DI:', diError);
-        console.error('DI Error details:', {
+        console.error('Failed to create website via orchestrator:', diError);
+        console.error('Orchestrator error details:', {
           message: diError instanceof Error ? diError.message : String(diError),
           stack: diError instanceof Error ? diError.stack : 'No stack trace',
         });
       }
-      console.log('Falling back to deprecated createWebsiteWithName - DI not available');
-      // Fallback to legacy method if DI fails
+      console.log('Falling back to deprecated createWebsiteWithName - orchestrator not available');
+      // Fallback to legacy method if orchestrator fails
       const { createWebsiteWithName } = await import('../utils/website-manager');
-      console.log('Using deprecated createWebsiteWithName - DI not available');
+      console.log('Using deprecated createWebsiteWithName - orchestrator not available');
       newWebsitePath = await createWebsiteWithName(websiteName);
       websiteCreated = true;
     }
 
     // Step 2: Open the new website in a new window (with isNewWebsite = true)
+    // Note: Server is already started by the orchestrator
     await openWebsiteInNewWindow(websiteName, newWebsitePath, true);
 
     // Step 3: Add to recent websites and update menu using DI store service

@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import { setLiveServerUrl, setCurrentWebsiteName } from '../server/eleventy';
 import { WebsiteServer } from '../server/per-website-server';
 import { IWebsiteServerManager, ManagedServer, IGitHistoryManager, IWebsiteManager } from '../core/interfaces';
+import { IWebsiteOrchestrator, IsolatedWebsiteInstance } from '../core/layer-boundaries';
 import { getGlobalContext } from '../core/service-registry';
 import { ServiceKeys } from '../core/container';
 import {
@@ -14,6 +15,7 @@ import {
   cleanupWebContentsListeners,
   monitorWebContentsMemory,
 } from './webcontents-cleanup';
+import { logger } from '../utils/logging';
 
 // Type definition for website window
 interface WebsiteWindow {
@@ -32,8 +34,9 @@ interface WebsiteWindow {
 
 const websiteWindows: Map<string, WebsiteWindow> = new Map();
 
-// Set up server manager event listeners for logging (DI-compatible)
+// Set up orchestrator communication bus listeners (DI-compatible)
 let eventListenersSetup = false;
+let communicationBusUnsubscribers: Array<() => void> = [];
 
 // Help window instance
 let helpWindow: BrowserWindow | null = null;
@@ -181,30 +184,76 @@ export function setupServerManagerEventListeners(): void {
 
   try {
     const appContext = getGlobalContext();
-    const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
+    const orchestrator = appContext.getService<IWebsiteOrchestrator>(ServiceKeys.WEBSITE_ORCHESTRATOR);
 
-    websiteServerManager.on('server-log', (websiteName: string, message: string, level: string) => {
+    // Get the orchestrator's communication bus
+    // Note: We need to cast to access getCommunicationBus() since it's implementation-specific
+    const orchestratorImpl = orchestrator as any;
+    if (typeof orchestratorImpl.getCommunicationBus !== 'function') {
+      console.warn('Orchestrator does not expose communication bus - falling back to legacy system');
+      // Fall back to old WebsiteServerManager if orchestrator doesn't support bus
+      const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
+      websiteServerManager.on('server-log', (websiteName: string, message: string, level: string) => {
+        sendLogToWebsite(websiteName, message, level);
+      });
+      websiteServerManager.on('server-started', (websiteName: string, managedServer: ManagedServer) => {
+        const websiteWindow = websiteWindows.get(websiteName);
+        if (websiteWindow) {
+          websiteWindow.managedServer = managedServer;
+          websiteWindow.server = managedServer.server;
+          websiteWindow.eleventyPort = managedServer.port;
+          websiteWindow.serverUrl = managedServer.actualUrl;
+        }
+      });
+      websiteServerManager.on('server-error', (websiteName: string, error: Error) => {
+        sendLogToWebsite(websiteName, `❌ Server error: ${error.message}`, 'error');
+        showNativeLoadingError(websiteName);
+      });
+      eventListenersSetup = true;
+      return;
+    }
+
+    const bus = orchestratorImpl.getCommunicationBus();
+
+    // Subscribe to website events from the orchestrator layer
+    const unsubscribeLog = bus.subscribeFromManager('website:log', (websiteName, message, level) => {
       sendLogToWebsite(websiteName, message, level);
     });
+    communicationBusUnsubscribers.push(unsubscribeLog);
 
-    websiteServerManager.on('server-started', (websiteName: string, managedServer: ManagedServer) => {
-      const websiteWindow = websiteWindows.get(websiteName);
-      if (websiteWindow) {
-        websiteWindow.managedServer = managedServer;
-        websiteWindow.server = managedServer.server;
-        websiteWindow.eleventyPort = managedServer.port;
-        websiteWindow.serverUrl = managedServer.actualUrl;
+    const unsubscribeStarted = bus.subscribeFromManager(
+      'website:started',
+      (websiteName, instance: IsolatedWebsiteInstance) => {
+        const websiteWindow = websiteWindows.get(websiteName);
+        if (websiteWindow) {
+          websiteWindow.eleventyPort = instance.port;
+          websiteWindow.serverUrl = instance.url;
+        }
+        sendLogToWebsite(websiteName, `✅ Server started at ${instance.url}`, 'info');
       }
-    });
+    );
+    communicationBusUnsubscribers.push(unsubscribeStarted);
 
-    websiteServerManager.on('server-error', (websiteName: string, error: Error) => {
-      sendLogToWebsite(websiteName, `❌ Server error: ${error.message}`, 'error');
+    const unsubscribeStopped = bus.subscribeFromManager('website:stopped', (websiteName) => {
+      sendLogToWebsite(websiteName, `🛑 Server stopped`, 'info');
+    });
+    communicationBusUnsubscribers.push(unsubscribeStopped);
+
+    const unsubscribeBuildComplete = bus.subscribeFromManager('website:build-complete', (websiteName, buildTimeMs) => {
+      sendLogToWebsite(websiteName, `✅ Build completed in ${buildTimeMs}ms`, 'info');
+    });
+    communicationBusUnsubscribers.push(unsubscribeBuildComplete);
+
+    const unsubscribeBuildFailed = bus.subscribeFromManager('website:build-failed', (websiteName, error) => {
+      sendLogToWebsite(websiteName, `❌ Build failed: ${error.message}`, 'error');
       showNativeLoadingError(websiteName);
     });
+    communicationBusUnsubscribers.push(unsubscribeBuildFailed);
 
     eventListenersSetup = true;
+    logger.info('Orchestrator communication bus connected to GUI layer');
   } catch (error) {
-    console.warn('Server manager event listeners not set up yet (DI not initialized):', error);
+    console.warn('Orchestrator communication bus not set up yet (DI not initialized):', error);
   }
 }
 
@@ -521,27 +570,18 @@ export async function startWebsiteServerAndUpdateWindow(websiteName: string, web
   try {
     sendLogToWebsite(websiteName, `🔄 Preparing to start server for ${websiteName}...`, 'startup');
 
-    // Use the DI-based centralized server manager to start the server
+    // Use the DI-based orchestrator to start the server
     const appContext = getGlobalContext();
-    const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
-    const serverInfo = await websiteServerManager.startServer(websiteName, websitePath);
+    const orchestrator = appContext.getService<IWebsiteOrchestrator>(ServiceKeys.WEBSITE_ORCHESTRATOR);
 
-    // Get the internal managed server for additional properties
-    const managedServer = websiteServerManager.getServer(websiteName);
+    // Start the server through the orchestrator (uses centralized management)
+    const instance = await orchestrator.startWebsiteServer(websiteName);
 
-    // Update website window with server info
-    if (managedServer) {
-      websiteWindow.managedServer = managedServer;
-      websiteWindow.server = managedServer.server;
-      websiteWindow.eleventyPort = managedServer.port;
-      websiteWindow.serverUrl = managedServer.actualUrl;
-    } else {
-      // Fallback to server info from interface
-      websiteWindow.eleventyPort = serverInfo.port;
-      websiteWindow.serverUrl = serverInfo.url;
-    }
+    // Update website window with server info from the isolated instance
+    websiteWindow.eleventyPort = instance.port;
+    websiteWindow.serverUrl = instance.url;
 
-    sendLogToWebsite(websiteName, `✅ Server startup completed!`, 'info');
+    sendLogToWebsite(websiteName, `✅ Server startup completed at ${instance.url}!`, 'info');
 
     // Send website data to the editor window now that server is ready
     websiteWindow.window.webContents.send('load-website', {
@@ -705,7 +745,7 @@ function calculateOptimalWindowBounds(windowState: WindowState): Rectangle | nul
  * Save current window states to persistent storage with monitor awareness.
  */
 export function saveWindowStates(): void {
-  console.log('💾 DEBUG: saveWindowStates() called - checking for open windows');
+  logger.debug('saveWindowStates() called - checking for open windows');
   const appContext = getGlobalContext();
   const store = appContext.getService<IStore>(ServiceKeys.STORE);
   const windowStates: WindowState[] = [];
@@ -720,15 +760,15 @@ export function saveWindowStates(): void {
       currentMonitorConfig = monitorManager.getCurrentConfiguration();
     }
   } catch (error) {
-    console.warn('Monitor manager not available, saving basic window states:', error);
+    logger.warn('Monitor manager not available, saving basic window states', { error });
   }
 
   // Note: Help window state is no longer persisted since we don't auto-show it on startup
 
   // Save website window states with monitor awareness
-  console.log(`💾 DEBUG: Found ${websiteWindows.size} website windows to save`);
+  logger.debug(`Found ${websiteWindows.size} website windows to save`);
   websiteWindows.forEach((websiteWindow, websiteName) => {
-    console.log(`💾 DEBUG: Processing window for ${websiteName}`);
+    logger.debug(`Processing window for ${websiteName}`);
     if (!websiteWindow.window.isDestroyed()) {
       const bounds = websiteWindow.window.getBounds();
       const isMaximized = websiteWindow.window.isMaximized();
@@ -751,18 +791,18 @@ export function saveWindowStates(): void {
             windowState.monitorConfig = currentMonitorConfig;
           }
         } catch (error) {
-          console.warn(`Failed to determine monitor data for window ${websiteName}:`, error);
+          logger.warn(`Failed to determine monitor data for window ${websiteName}`, { error });
         }
       }
 
       windowStates.push(windowState);
-      console.log(`💾 DEBUG: Added window state for ${websiteName}:`, windowState);
+      logger.debug(`Added window state for ${websiteName}`, { windowState });
     }
   });
 
-  console.log(`💾 DEBUG: Saving ${windowStates.length} window states to store`);
+  logger.debug(`Saving ${windowStates.length} window states to store`);
   store.saveWindowStates(windowStates);
-  console.log('💾 DEBUG: Window states saved to store');
+  logger.debug('Window states saved to store');
 }
 
 /**
@@ -885,18 +925,18 @@ export async function closeAllWindows(): Promise<void> {
 
   // Note: Window states are now saved earlier in main.ts before cleanup begins
 
-  // Use the DI-based centralized server manager to stop all servers
+  // Use the DI-based orchestrator to stop all servers
   try {
     const appContext = getGlobalContext();
-    const websiteServerManager = appContext.getService<IWebsiteServerManager>(ServiceKeys.WEBSITE_SERVER_MANAGER);
+    const orchestrator = appContext.getService<IWebsiteOrchestrator>(ServiceKeys.WEBSITE_ORCHESTRATOR);
 
-    console.log('[CloseWindows] Stopping all website servers...');
+    console.log('[CloseWindows] Stopping all website servers via orchestrator...');
 
     // Add timeout protection specifically for server/file watcher cleanup
     // This prevents the fsevents race condition by ensuring we don't wait
     // indefinitely for file watcher cleanup
     await Promise.race([
-      websiteServerManager.stopAllServers(),
+      orchestrator.shutdownAll(),
       new Promise((_, reject) => {
         setTimeout(() => {
           reject(new Error('Server shutdown timeout - preventing fsevents race condition'));
@@ -904,7 +944,7 @@ export async function closeAllWindows(): Promise<void> {
       }),
     ]);
 
-    console.log('[CloseWindows] All servers stopped successfully');
+    console.log('[CloseWindows] All servers stopped successfully via orchestrator');
   } catch (error) {
     console.error('[CloseWindows] Error stopping servers during shutdown (continuing with window closure):', error);
     // Continue with window closure even if server shutdown fails

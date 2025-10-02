@@ -32,7 +32,6 @@ import {
   IAtomicOperations,
   IHealthMonitor,
   IApplicationContext,
-  IServiceFactory,
   ServiceLifecycleState,
   IServiceMetadata,
   TypeGuards,
@@ -71,9 +70,9 @@ export class Logger implements ILogger {
     private context: string = 'app',
     private parentContext?: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
   ) {
-    // Detect test environment - same logic as build-logger.ts
-    this.isTestEnvironment =
-      process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined || typeof jest !== 'undefined';
+    // Detect test environment using environment variables only
+    // Note: typeof jest check removed as it causes TS2708 during build (jest is a type namespace)
+    this.isTestEnvironment = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;
   }
 
   // prettier-ignore
@@ -496,77 +495,8 @@ export class ApplicationContext extends EventEmitter implements IApplicationCont
   }
 }
 
-/**
- * Service factory implementation.
- */
-export class ServiceFactory implements IServiceFactory {
-  constructor(private logger: ILogger) {}
-
-  createStore(): IStore {
-    // Use the new DI-compatible StoreService
-    const logger = this.logger.child({ service: 'Store' });
-    const fileSystem = new FileSystemService();
-
-    // Get data path with fallback for test environments
-    let appDataPath: string;
-    try {
-      appDataPath = app.getPath('userData');
-    } catch {
-      appDataPath = process.env.ANGLESITE_TEST_DATA || '/tmp/anglesite-test';
-    }
-
-    return createStoreService(logger, fileSystem, undefined, appDataPath);
-  }
-
-  createWebsiteManager(): IWebsiteManager {
-    // Will be fully implemented when AtomicOperations is refactored for DI
-    throw new Error('WebsiteManager not yet fully refactored - waiting for AtomicOperations DI');
-  }
-
-  createWebsiteServerManager(): IWebsiteServerManager {
-    const logger = this.logger.child({ service: 'WebsiteServerManager' });
-    const fileSystem = new FileSystemService();
-    return createWebsiteServerManager(logger, fileSystem);
-  }
-
-  createDnsManager(): IDnsManager {
-    // Will be implemented when we refactor DnsManager
-    throw new Error('DnsManager not yet refactored for DI');
-  }
-
-  createCertificateManager(): ICertificateManager {
-    // Will be implemented when we refactor CertificateManager
-    throw new Error('CertificateManager not yet refactored for DI');
-  }
-
-  createMenuManager(): IMenuManager {
-    // Will be implemented when we refactor MenuManager
-    throw new Error('MenuManager not yet refactored for DI');
-  }
-
-  createWindowManager(): IWindowManager {
-    // Will be implemented when we refactor WindowManager
-    throw new Error('WindowManager not yet refactored for DI');
-  }
-
-  createLogger(context?: string): ILogger {
-    return new Logger(context);
-  }
-
-  createFileSystem(): IFileSystem {
-    return new FileSystemService();
-  }
-
-  createAtomicOperations(): IAtomicOperations {
-    // Will be implemented when we refactor AtomicOperations
-    throw new Error('AtomicOperations not yet refactored for DI');
-  }
-
-  createHealthMonitor(): IHealthMonitor {
-    // Will be implemented as needed
-    throw new Error('HealthMonitor not yet implemented');
-  }
-}
+// ServiceFactory removed - was unused and contained only stub methods throwing errors
+// Services are now created directly through the DI container or factory functions
 
 /**
  * Create a stub atomic operations service for temporary use.
@@ -764,6 +694,21 @@ export class ServiceRegistrar {
       'singleton'
     );
 
+    // Website Orchestrator - Central management layer (Layer 2 in architecture diagram)
+    container.register(
+      ServiceKeys.WEBSITE_ORCHESTRATOR,
+      () => {
+        const logger = container.resolve<ILogger>(ServiceKeys.LOGGER);
+        const websiteManager = container.resolve<IWebsiteManager>(ServiceKeys.WEBSITE_MANAGER);
+        const fileSystem = container.resolve<IFileSystem>(ServiceKeys.FILE_SYSTEM);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { createWebsiteOrchestrator } = require('../orchestrator/website-orchestrator');
+        return createWebsiteOrchestrator(logger, websiteManager, fileSystem);
+      },
+      'singleton',
+      [ServiceKeys.LOGGER, ServiceKeys.WEBSITE_MANAGER, ServiceKeys.FILE_SYSTEM]
+    );
+
     // Monitor Manager for multi-monitor window state persistence
     container.register(
       ServiceKeys.MONITOR_MANAGER,
@@ -771,16 +716,6 @@ export class ServiceRegistrar {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { MonitorManager } = require('../services/monitor-manager');
         return new MonitorManager();
-      },
-      'singleton'
-    );
-
-    // Factory
-    container.register(
-      'serviceFactory',
-      () => {
-        const logger = container.resolve<ILogger>(ServiceKeys.LOGGER);
-        return new ServiceFactory(logger);
       },
       'singleton'
     );
