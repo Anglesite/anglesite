@@ -60,6 +60,25 @@ cd anglesite && npm run analyze:bundle:static
 cd anglesite && npm run analyze:view
 ```
 
+### Troubleshooting
+
+```bash
+# Clear all caches (webpack, user data, temp files)
+# From anglesite directory:
+npm run clear-cache
+
+# From monorepo root:
+cd anglesite && npm run clear-cache
+
+# If you encounter webpack build errors like "TypeError: Cannot read properties of null"
+# This is often due to corrupted webpack cache, especially after Node.js version upgrades
+# Common triggers:
+# - Node.js version upgrades
+# - Interrupted builds
+# - Cache format incompatibilities
+# Solution: Run the clear-cache command above and rebuild
+```
+
 ## Architecture
 
 ### Monorepo Structure

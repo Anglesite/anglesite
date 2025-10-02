@@ -1,4 +1,5 @@
 /* eslint-disable jsdoc/match-description */
+console.log('[WebsiteConfigEditor] Module loading...');
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Form, { IChangeEvent } from '@rjsf/core';
 import { RJSFSchema } from '@rjsf/utils';
@@ -8,6 +9,7 @@ import { logger } from '../../../utils/logger';
 import { PATHS } from '../../../../shared/constants';
 import { useIPCInvoke } from '../hooks/useIPCInvoke';
 import { InlineError } from './InlineError';
+console.log('[WebsiteConfigEditor] Module loaded successfully!');
 
 interface SchemaResult {
   schema?: RJSFSchema;
@@ -22,6 +24,7 @@ interface WebsiteConfigEditorProps {
 }
 
 export const WebsiteConfigEditor: React.FC<WebsiteConfigEditorProps> = ({ onSave, onError }) => {
+  console.log('[WebsiteConfigEditor] Component initializing...');
   const { state } = useAppContext();
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
