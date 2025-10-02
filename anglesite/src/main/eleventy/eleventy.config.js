@@ -1,13 +1,14 @@
-const anglesiteEleventy = require('@dwk/anglesite-11ty');
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import anglesiteEleventy from '@dwk/anglesite-11ty';
+import EleventyWebcPlugin from '@11ty/eleventy-plugin-webc';
 
 /**
  * Eleventy configuration function for Anglesite websites.
- * @param eleventyConfig Configuration object
- * @returns Configuration return object
+ * @param {import("@11ty/eleventy/src/UserConfig")} eleventyConfig The Eleventy configuration object
+ * @returns {object} Eleventy configuration settings
  */
-module.exports = function (eleventyConfig) {
+export default function (eleventyConfig) {
   // FIXME: Workaround for a known issue in eleventy-plugin-webc (https://github.com/11ty/eleventy-plugin-webc/issues/86).
   // When using `permalink` in front matter, especially with dynamic values or for non-HTML files,
   // `page.url` may not be correctly populated or available to other plugins/filters.
@@ -23,7 +24,6 @@ module.exports = function (eleventyConfig) {
   });
 
   // Add WebC plugin directly here with proper configuration
-  const EleventyWebcPlugin = require('@11ty/eleventy-plugin-webc');
   eleventyConfig.addPlugin(EleventyWebcPlugin, {
     components: '_includes/**/*.webc', // Standardized path - consistent with per-website-server
   });
@@ -52,4 +52,4 @@ module.exports = function (eleventyConfig) {
       layouts: '_includes',
     },
   };
-};
+}
