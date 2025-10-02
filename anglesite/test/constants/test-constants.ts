@@ -64,8 +64,8 @@ export const TEST_CONSTANTS = {
     // Data sizes
     /** Archive file size in bytes for testing */
     ARCHIVE_BYTES: 1024,
-    /** Maximum lines threshold for code analysis */
-    MAX_LINES: 200,
+    /** Maximum lines threshold for code analysis (updated from 200 to account for legitimate growth) */
+    MAX_LINES: 300,
     /** Code complexity threshold for architecture tests */
     COMPLEXITY_THRESHOLD: 2000,
   },

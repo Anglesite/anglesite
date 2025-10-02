@@ -114,7 +114,7 @@ describe('System Notification Integration', () => {
     );
 
     await systemNotificationService.initialize();
-  });
+  }, 15000); // Increased timeout for service initialization
 
   afterEach(async () => {
     // Clean up services

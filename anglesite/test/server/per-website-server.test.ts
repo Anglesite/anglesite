@@ -527,7 +527,9 @@ describe('Per-Website Server', () => {
       };
 
       // Mock the requires inside the config function
+      // __esModule: true tells TypeScript's __importStar helper to use the module as-is
       jest.doMock('@dwk/anglesite-11ty', () => ({
+        __esModule: true,
         default: 'anglesite-plugin',
       }));
 
@@ -545,10 +547,13 @@ describe('Per-Website Server', () => {
       await startWebsiteServer('/test/website', 'test-site', 3000);
 
       // Call the configuration function with our mock config
+      // NOTE: The config function is now async because it uses dynamic import()
       expect(configFunction).toBeDefined();
-      const result = configFunction!(mockEleventyConfig);
+      const result = await configFunction!(mockEleventyConfig);
 
       expect(mockEleventyConfig.setFreezeReservedData).toHaveBeenCalledWith(false);
+      // The plugin is now loaded via dynamic import with proper __esModule interop
+      // The mock with __esModule: true allows proper destructuring
       expect(mockEleventyConfig.addPlugin).toHaveBeenCalledWith('anglesite-plugin', {
         webComponents: '_includes/**/*.webc',
       });
@@ -578,7 +583,9 @@ describe('Per-Website Server', () => {
       };
 
       // Mock the anglesite-11ty plugin
+      // __esModule: true tells TypeScript's __importStar helper to use the module as-is
       jest.doMock('@dwk/anglesite-11ty', () => ({
+        __esModule: true,
         default: jest.fn(),
       }));
 
@@ -596,26 +603,25 @@ describe('Per-Website Server', () => {
       await startWebsiteServer('/test/website', 'test-site', 3000);
 
       // Call the configuration function with our mock config
+      // NOTE: The config function is now async because it uses dynamic import()
       expect(configFunction).toBeDefined();
-      configFunction!(mockEleventyConfig);
+      await configFunction!(mockEleventyConfig);
 
       // Verify anglesite-11ty plugin is called with WebC configuration
-      expect(mockEleventyConfig.addPlugin).toHaveBeenCalledWith(
-        'anglesite-plugin', // The mock string being used
+      // The mock returns a jest.fn(), so we verify the call with any function
+      const addPluginCalls = mockEleventyConfig.addPlugin.mock.calls;
+      expect(addPluginCalls).toHaveLength(1);
+      expect(addPluginCalls[0][1]).toEqual(
         expect.objectContaining({
           webComponents: '_includes/**/*.webc',
         })
       );
 
       // Verify WebC plugin is NOT registered directly
-      const pluginCalls = mockEleventyConfig.addPlugin.mock.calls;
-      const webCDirectCall = pluginCalls.find(
+      const webCDirectCall = addPluginCalls.find(
         (call) => call[0] && typeof call[0] === 'string' && call[0].includes('webc')
       );
       expect(webCDirectCall).toBeUndefined();
-
-      // Should only be called once for anglesite-11ty (not separately for WebC)
-      expect(mockEleventyConfig.addPlugin).toHaveBeenCalledTimes(1);
     });
 
     it('should test global data function in Eleventy config', async () => {
@@ -646,8 +652,9 @@ describe('Per-Website Server', () => {
       await startWebsiteServer('/test/website', 'test-site', 3000);
 
       // Call the configuration function
+      // NOTE: The config function is now async because it uses dynamic import()
       expect(configFunction).toBeDefined();
-      configFunction!(mockEleventyConfig);
+      await configFunction!(mockEleventyConfig);
 
       // Test with ELEVENTY_VERSION set
       process.env.ELEVENTY_VERSION = '2.0.0';

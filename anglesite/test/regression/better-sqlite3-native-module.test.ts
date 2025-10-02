@@ -2,7 +2,7 @@
  * Regression test for better-sqlite3 native module compatibility
  *
  * Bug: better-sqlite3 compiled against wrong Node.js version
- * Fix: Rebuild native module using electron-rebuild
+ * Fix: Rebuild native module using @electron/rebuild
  *
  * This test ensures better-sqlite3 works with Electron's Node.js version
  *
