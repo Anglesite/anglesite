@@ -4,7 +4,7 @@ This is the source code for your website. It lives in iCloud Drive so it's backe
 
 ## Getting started
 
-Open this folder in Claude Desktop's Code tab, then type `/setup`. Claude will install everything and walk you through it.
+Open this folder in Claude Desktop's Code tab, then type `/start`. Your webmaster will introduce themselves, learn about your business, design the site with you, and get everything running.
 
 ## What you can do
 
@@ -12,7 +12,7 @@ Open this folder in Claude Desktop's Code tab, then type `/setup`. Claude will i
 | --- | --- |
 | Write a blog post | Click **Preview** in the toolbar, then type `localhost:4321/keystatic` in the address bar |
 | Publish changes | Type `/deploy` |
-| Customize the design | Type `/design-interview` |
+| Redesign the site | Type `/design-interview` |
 | Check the site for problems | Type `/check` |
 | Fix something | Type `/fix` |
 

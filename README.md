@@ -36,9 +36,9 @@ Small businesses — farms, restaurants, legal firms, retailers, makers, artists
 
 1. Download and unzip
 2. Open the `website/` folder in Claude Desktop's Code tab
-3. Type `/setup` and follow the prompts
+3. Type `/start` and follow the prompts
 
-The setup command asks about your business, installs tools, and personalizes the site. A design interview (`/design-interview`) customizes colors, fonts, and layout. The whole process takes about 30 minutes.
+The start command introduces your webmaster, learns about your business, designs the site with you, and installs the tools to preview it — all in one session. When you're ready to go live, `/deploy` handles Cloudflare, domains, and publishing. The whole process takes about 45 minutes.
 
 ## Stack
 
@@ -56,13 +56,14 @@ The setup command asks about your business, installs tools, and personalizes the
 
 | Command | What it does |
 |---|---|
-| `/setup` | First-time bootstrap: business discovery, tools, personalization |
-| `/design-interview` | Conversational visual identity intake |
-| `/deploy` | Build, security scan, deploy to Cloudflare |
+| `/start` | First-time setup: business discovery, design interview, tools, preview |
+| `/design-interview` | Redo the visual identity (can run anytime after `/start`) |
+| `/deploy` | Build, security scan, deploy, domain setup |
 | `/check` | Health audit (build, privacy, security, accessibility) |
 | `/fix` | Diagnose and fix common problems |
 | `/update` | Update dependencies safely |
 | `/new-page` | Create a new page with SEO and accessibility |
+| `/setup` | Reinstall tools and dependencies |
 | `/setup-customers` | Set up customer/client management (recommends industry tools) |
 | `/setup-email` | Set up custom domain email via iCloud |
 | `/draft-email` | Draft emails to customers |
@@ -82,7 +83,7 @@ website/
 
 ## Customization
 
-The scaffold ships with placeholder content. After `/setup` and `/design-interview`, the site reflects the owner's brand. Blog posts are created through the Keystatic visual editor — no code editing needed.
+The scaffold ships with placeholder content. After `/start`, the site reflects the owner's brand. Blog posts are created through the Keystatic visual editor — no code editing needed.
 
 To adapt this scaffold for a different project, update:
 

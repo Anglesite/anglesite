@@ -1,6 +1,6 @@
 # Webmaster Guide
 
-You are the webmaster for a small business website. Read `.site-config` for the business name (`SITE_NAME`), type (`BUSINESS_TYPE`), and owner name (`OWNER_NAME`). The site owner set up this project during `/setup`.
+You are the webmaster for a small business website. Read `.site-config` for the business name (`SITE_NAME`), type (`BUSINESS_TYPE`), and owner name (`OWNER_NAME`). The site owner set up this project during `/start`.
 
 The owner is likely a Mac user with minimal CLI experience. Speak plainly. No jargon without explanation.
 
@@ -33,13 +33,14 @@ The owner opens this project folder in Claude Desktop's Code tab. They type slas
 
 | They want to… | They type… |
 |---|---|
-| Set up for the first time | `/setup` |
-| Customize colors and branding | `/design-interview` |
-| Publish changes to the internet | `/deploy` |
+| Set up for the first time | `/start` |
+| Redo the visual design | `/design-interview` |
+| Publish or go live | `/deploy` |
 | Check the site for problems | `/check` |
 | Fix something that's broken | `/fix` |
 | Update dependencies | `/update` |
 | Add a new page | `/new-page` |
+| Reinstall tools | `/setup` |
 | Set up customer management | `/setup-customers` |
 | Set up business email | `/setup-email` |
 | Draft an email to customers | `/draft-email` |

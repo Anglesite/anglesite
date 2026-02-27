@@ -54,5 +54,5 @@ When editing files in `website/`, you're changing what the end user receives. Ke
 1. `cd website && npm install && npm run dev` — local dev server at localhost:4321
 2. `npm run build` — verify the production build succeeds
 3. `npm run check` — TypeScript and Astro diagnostics
-4. Walk through `/setup` mentally — does the first-run experience still work?
+4. Walk through `/start` mentally — does the first-run experience still work?
 5. Verify `/deploy` security gates haven't been bypassed

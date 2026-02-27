@@ -1,8 +1,8 @@
-Build, scan, and deploy the site to Cloudflare Pages.
+Build, scan, and deploy the site to Cloudflare Pages. On first deploy, this also handles Cloudflare account creation and domain setup.
 
 Before every tool call or command that will trigger a permission prompt, tell the owner what you're about to do and why in plain English. They should never see a permission dialog without context.
 
-## Step 0 — First deploy check
+## Step 0 — First deploy: Cloudflare account
 
 If Wrangler has never been authorized (first time running `/deploy`), the owner needs a Cloudflare account first.
 
@@ -85,15 +85,97 @@ If this is the first deploy, open the live site and celebrate:
 open https://CF_PROJECT_NAME.pages.dev
 ```
 
-After first deploy, ask if they have a custom domain. If yes, save it and update the Astro config:
+Tell the owner: "Your website is live! Anyone can visit it at that address."
+
+On subsequent deploys, skip to Step 6 (commit).
+
+## Step 4 — First deploy: Domain setup
+
+Ask: "Do you want a custom domain for your website — like www.yourbusiness.com — or is the .pages.dev address fine for now?"
+
+If they want to skip, that's fine. They can add a domain later by running `/deploy` and asking about it.
+
+If they want a custom domain, ask which path fits:
+
+### Option A — Buy a new domain
+
+Tell the owner: "Let's search for a domain name. Cloudflare sells domains at cost — no markup, no surprise renewals."
+
+```sh
+open https://dash.cloudflare.com/?to=/:account/domains/register
+```
+
+Walk them through:
+1. Search for their desired domain name
+2. Pick a TLD (.com, .org, .net, etc.) — explain price differences
+3. Complete purchase (requires payment method on Cloudflare account)
+4. Wait for registration to complete (usually instant)
+
+### Option B — Transfer an existing domain
+
+Tell the owner: "We can move your domain to Cloudflare so everything is in one place. Cloudflare charges only the registry cost — usually cheaper than other registrars."
+
+Walk them through:
+1. At their current registrar: unlock the domain and get the transfer authorization code (sometimes called EPP code or auth code)
+2. Open the Cloudflare transfer page:
+   ```sh
+   open https://dash.cloudflare.com/?to=/:account/domains/transfer
+   ```
+3. Enter the domain and auth code
+4. Confirm transfer and pay (extends registration by 1 year)
+5. Approve the transfer confirmation email from the current registrar
+
+Tell the owner: "Transfers can take up to 5 days, but usually finish within a few hours. Your website will keep working during the transfer."
+
+### Option C — Point an existing domain (keep current registrar)
+
+Tell the owner: "We can point your domain at Cloudflare without moving it. Your domain stays where it is, but Cloudflare will handle the DNS."
+
+Walk them through:
+1. Open Cloudflare and add the domain:
+   ```sh
+   open https://dash.cloudflare.com/?to=/:account/add-site
+   ```
+2. Choose the Free plan
+3. Cloudflare will show nameservers to use (e.g., `ada.ns.cloudflare.com`)
+4. At their current registrar: change nameservers to the ones Cloudflare provided
+5. Wait for propagation (usually minutes, can take up to 48 hours)
+
+Save the domain to `.site-config`:
 
 ```sh
 echo "SITE_DOMAIN=www.example.com" >> .site-config
 ```
 
-Update `astro.config.ts` with the site URL so sitemaps and canonical URLs work correctly. Update `docs/cloudflare.md` with the domain and DNS setup.
+## Step 5 — First deploy: Configure custom domain on Pages
 
-## Step 4 — Commit
+Once the domain is on Cloudflare (purchased, transferred, or pointed):
+
+1. Open the Pages project settings in Cloudflare dashboard and add the custom domain
+2. Cloudflare will auto-create the DNS record (CNAME pointing to the .pages.dev URL)
+3. SSL certificate is provisioned automatically (free, usually within minutes)
+
+Update the site configuration:
+
+- `astro.config.ts`: set `site` to `https://SITE_DOMAIN`
+- `public/robots.txt`: add `Sitemap: https://SITE_DOMAIN/sitemap-index.xml`
+- `docs/cloudflare.md`: note the domain and DNS setup
+
+Rebuild and redeploy with the correct URLs:
+
+```sh
+npm run build
+```
+
+```sh
+npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME
+```
+
+Tell the owner: "Your website is now live at your custom domain! SSL is handled automatically."
+
+Suggest: "Now that you have a custom domain, you can set up a business email address (like you@yourdomain.com) by running `/setup-email`."
+
+## Step 6 — Commit
 
 ```sh
 git add -A
@@ -103,4 +185,4 @@ git add -A
 git commit -m "Publish: $(date '+%Y-%m-%d %H:%M')"
 ```
 
-Tell the owner: "Your changes are live! They'll appear on the site in about a minute."
+Tell the owner: "Your changes are saved and live! They'll appear on the site in about a minute."
