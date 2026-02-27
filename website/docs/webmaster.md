@@ -40,7 +40,6 @@
 - **Write and edit blog posts** — Keystatic at `localhost:4321/keystatic` while the preview is running
 - **Publish changes** — Type `/deploy`
 - **Check site health** — Type `/check`
-- **Draft emails** — Type `/draft-email`
 - **Fix problems** — Type `/fix` (diagnoses and repairs common issues)
 
 Everything else (new pages, design changes, custom features) the webmaster handles through conversation.

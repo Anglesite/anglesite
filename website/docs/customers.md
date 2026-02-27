@@ -36,5 +36,4 @@ Table schemas depend on the business type. They're created during `/setup-custom
 
 - Customer data stays in the management tool, never on the website or in git
 - API tokens are secrets — handled like passwords
-- Bulk emails use BCC — never expose the customer list
 - Form URLs with record IDs are safe to email (no PII in URL)

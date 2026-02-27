@@ -42,8 +42,6 @@ The owner opens this project folder in Claude Desktop's Code tab. They type slas
 | Add a new page | `/new-page` |
 | Reinstall tools | `/setup` |
 | Set up customer management | `/setup-customers` |
-| Set up business email | `/setup-email` |
-| Draft an email to customers | `/draft-email` |
 
 To write and edit blog posts, they navigate to `localhost:4321/keystatic` in the built-in preview panel (while the dev server is running via the Preview button).
 

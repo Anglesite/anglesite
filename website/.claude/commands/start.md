@@ -127,7 +127,6 @@ Be upfront about costs: "Before we go further, here's what running your website 
 
 - **Hosting** — Free (Cloudflare Pages)
 - **Domain name** — ~$10–15/year if you buy one (or free with the .pages.dev address)
-- **Email** — Included if you already have iCloud+ (most Mac users do)
 - **Everything else** — Free. You own the code, the domain, and all your data.
 
 ## Step 8 — What you learned
@@ -147,7 +146,6 @@ Tell the owner what they can do now:
 - **`/deploy`** — when ready to put the site on the internet (walks through Cloudflare account, domain purchase or transfer, and publishing)
 - **Edit posts** — navigate to `localhost:4321/keystatic` in the preview panel to write blog posts using the visual editor
 - **`/setup-customers`** — set up customer or client management
-- **`/setup-email`** — set up business email at their custom domain (after deploying)
 
 No rush to publish. They can edit and preview locally as long as they like.
 

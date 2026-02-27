@@ -54,12 +54,6 @@ Posts with `draft: true` are excluded from both pages in production builds.
 
 Configured via `/setup-customers`. Asks what the owner already uses first, then recommends tools following the SaaS criteria (tool reduction, open source, affordable, values-aligned, ease of use). See `docs/customers.md`.
 
-## Email
-
-The owner sends email from Mail.app using a custom domain address (iCloud custom domain). The webmaster drafts emails via `/draft-email` and opens them in Mail.app with `mailto:` links. The owner reviews and sends manually.
-
-Custom domain email requires iCloud+ and DNS records in Cloudflare. Set up via `/setup-email`.
-
 ## Output
 
 `static` mode in Astro config. All pages pre-rendered at build time. Keystatic integration runs server-side in dev mode only.

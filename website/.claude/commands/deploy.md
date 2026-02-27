@@ -173,8 +173,6 @@ npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME
 
 Tell the owner: "Your website is now live at your custom domain! SSL is handled automatically."
 
-Suggest: "Now that you have a custom domain, you can set up a business email address (like you@yourdomain.com) by running `/setup-email`."
-
 ## Step 6 — First deploy: Show analytics
 
 Tell the owner: "Cloudflare automatically tracks how many people visit your site — no cookies, completely private. You can check anytime."

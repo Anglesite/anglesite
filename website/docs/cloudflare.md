@@ -25,12 +25,6 @@ Typical configuration after domain is on Cloudflare:
 - Root redirect: `example.com` → `www.example.com` (redirect rule in Cloudflare dashboard)
 - SSL certificate: provisioned automatically (free)
 
-### Email DNS (added during `/setup-email`)
-
-- MX records pointing to iCloud mail servers
-- TXT record for SPF
-- CNAME records for DKIM
-
 ## Web Analytics
 
 Enabled on the Pages project. Cloudflare auto-injects the beacon script. No additional configuration needed. Privacy-first: no cookies, no personal data collected.

@@ -18,4 +18,4 @@ Open this folder in Claude Desktop's Code tab, then type `/start`. Your webmaste
 
 ## Getting help
 
-Type anything in the chat — describe what you need in plain English. Your webmaster can write new pages, fix problems, update the design, draft emails, and more.
+Type anything in the chat — describe what you need in plain English. Your webmaster can write new pages, fix problems, update the design, and more.
