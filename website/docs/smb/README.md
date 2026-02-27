@@ -47,6 +47,14 @@ These have full coverage in `/start`, `/design-interview`, `/setup-customers`, a
 | [hardware.md](hardware.md) | Hardware stores, lumber yards, garden centers |
 | [government.md](government.md) | Small towns, counties, special districts (water, fire, library, parks) |
 
+## Multi-mode businesses
+
+Most businesses span multiple types. See [multi-mode.md](multi-mode.md) for how to identify, merge, and structure guidance when a business has more than one mode (e.g., farm+hospitality, church+food bank). Key rules:
+
+- `BUSINESS_TYPE` in `.site-config` supports comma-separated values (primary type first)
+- Read the SMB doc for each type and merge: pages are unioned, compliance is additive, tools avoid duplication
+- One website, one nav — secondary modes are sections, not separate sites
+
 ## Structure of each file
 
 Every file follows the same format:

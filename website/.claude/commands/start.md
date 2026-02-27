@@ -25,6 +25,8 @@ Ask:
    - Content creator or influencer
    - Service business (consulting, coaching, trades, etc.)
    - Other (ask them to describe it — then check `docs/smb/` for specialty guidance)
+
+   Many businesses span multiple types ("we're a farm but we also rent cabins"). If the owner describes more than one activity, ask which is the primary one. Save all types comma-separated, primary first. See `docs/smb/multi-mode.md` for how to merge guidance across types.
 4. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
 5. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
 6. If the business has a physical location, ask:
@@ -46,6 +48,12 @@ echo "SITE_NAME=Business Name" >> .site-config
 
 ```sh
 echo "BUSINESS_TYPE=restaurant" >> .site-config
+```
+
+For multi-mode businesses, comma-separate (primary first):
+
+```sh
+echo "BUSINESS_TYPE=farm,hospitality" >> .site-config
 ```
 
 If they provided location info:
