@@ -34,6 +34,9 @@ These have full coverage in `/start`, `/design-interview`, `/setup-customers`, a
 | [pet-services.md](pet-services.md) | Grooming, boarding, training, dog walking |
 | [hospitality.md](hospitality.md) | Bed & breakfasts, vacation rentals, tour operators |
 | [education.md](education.md) | Tutors, music teachers, driving schools, test prep |
+| [bookshop.md](bookshop.md) | Independent bookstores, used bookshops, comic stores |
+| [grocery.md](grocery.md) | Independent grocery, co-ops, specialty food shops |
+| [hardware.md](hardware.md) | Hardware stores, lumber yards, garden centers |
 
 ## Structure of each file
 
