@@ -6,7 +6,7 @@ Before every tool call or command that will trigger a permission prompt, tell Ju
 
 > "Next I'm going to [action] — this [why]. You'll see a prompt asking to allow it."
 
-Keep each step conversational. Celebrate progress. If something fails, read `~/.pairadocs/logs/setup.log` and explain plainly.
+Keep each step conversational. Celebrate progress. If something fails, read `~/.anglesite/logs/setup.log` and explain plainly.
 
 ## Step 1 — Install tools and dependencies
 
@@ -21,7 +21,7 @@ The script installs Xcode CLI tools, fnm, Node.js LTS, creates iCloud-safe `.nos
 If the script succeeds, tell Julia what was installed and move on. If it fails, read the log:
 
 ```sh
-cat ~/.pairadocs/logs/setup.log
+cat ~/.anglesite/logs/setup.log
 ```
 
 ## Step 2 — Preview the site

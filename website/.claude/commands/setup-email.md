@@ -54,15 +54,15 @@ Have her send a test email from her new @pairadocs.farm address to herself (or t
 
 ## Step 6 — Save to config
 
-Save the farm email to `.farm-config` so `/draft-email` can use it:
+Save the farm email to `.site-config` so `/draft-email` can use it:
 
 ```sh
-grep -q '^FARM_EMAIL=' .farm-config 2>/dev/null
+grep -q '^SITE_EMAIL=' .site-config 2>/dev/null
 ```
 
 If not present:
 ```sh
-echo "FARM_EMAIL=julia@pairadocs.farm" >> .farm-config
+echo "SITE_EMAIL=julia@pairadocs.farm" >> .site-config
 ```
 
 Update `docs/cloudflare.md` with the DNS records that were added.

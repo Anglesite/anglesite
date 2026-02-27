@@ -65,14 +65,24 @@ If this returns results, STOP. Admin routes leaked into production.
 
 Tell Julia: "Everything looks clean. I'm uploading your site to Cloudflare now."
 
+Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their business name), then save it:
+
 ```sh
-npx wrangler pages deploy dist/ --project-name pairadocs-farm
+echo "CF_PROJECT_NAME=project-name" >> .site-config
 ```
+
+Deploy:
+
+```sh
+npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME
+```
+
+(Replace `CF_PROJECT_NAME` with the actual value from `.site-config`.)
 
 If this is the first deploy, open the live site and celebrate:
 
 ```sh
-open https://pairadocs-farm.pages.dev
+open https://CF_PROJECT_NAME.pages.dev
 ```
 
 ## Step 4 — Commit

@@ -33,7 +33,7 @@ Defined in `public/_headers`. Applied to all routes:
 
 ## Troubleshooting
 
-- **Deploy fails:** Check `~/.pairadocs/logs/deploy.log`. Common: Wrangler auth expired → `npx wrangler login`
+- **Deploy fails:** Check `~/.anglesite/logs/deploy.log`. Common: Wrangler auth expired → `npx wrangler login`
 - **Site not updating:** Cloudflare cache. Wait 1–2 minutes or purge cache in dashboard.
 - **DNS not resolving:** CNAME propagation can take up to 48 hours (usually minutes).
 - **CSP errors in console:** A script or style is loading from an unapproved domain. Check `_headers`.

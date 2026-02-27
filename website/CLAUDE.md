@@ -60,7 +60,7 @@ If you changed it, document it. Same session. No exceptions.
 | Blog frontmatter or content schema | `docs/content-guide.md` and `src/content/config.ts` |
 | Deploy, DNS, or hosting config | `docs/cloudflare.md` |
 | Colors, fonts, or branding | `docs/brand.md` |
-| Service URLs (Airtable base, etc.) | `.farm-config` |
+| Service URLs (Airtable base, etc.) | `.site-config` |
 | Slash command added or modified | The command file in `.claude/commands/` |
 | Anything that changes how webmaster works | `CLAUDE.md` |
 
@@ -74,7 +74,7 @@ If you changed it, document it. Same session. No exceptions.
 ### Secrets management
 - API tokens (Airtable, Cloudflare) live in env vars or `~/.claude.json`, never in project files
 - `.env` and `.env.*` are gitignored. Verify they're never tracked.
-- `.farm-config` IS committed — it contains site config (project path, Airtable base URL), not secrets
+- `.site-config` IS committed — it contains site config (project path, Airtable base URL), not secrets
 - If a token is ever committed to git, treat it as compromised — rotate immediately
 - Never echo, log, or display tokens in terminal output shown to Julia
 

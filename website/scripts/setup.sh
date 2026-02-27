@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Pairadocs Farm — First-time setup
+# Anglesite — First-time setup
 # Installs Node.js via fnm (no Homebrew needed), creates iCloud-safe
 # symlinks, then npm install. Safe to rerun (idempotent).
 
@@ -11,8 +11,8 @@ set -euo pipefail
 # Self-locate: derive project dir from this script's location
 SCRIPT_DIR="${0:a:h}"
 PROJECT_DIR="${SCRIPT_DIR:h}"
-CONFIG_FILE="$PROJECT_DIR/.farm-config"
-LOG_DIR="$HOME/.pairadocs/logs"
+CONFIG_FILE="$PROJECT_DIR/.site-config"
+LOG_DIR="$HOME/.anglesite/logs"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/setup.log"
 
@@ -20,7 +20,7 @@ log() { echo "[$(date '+%H:%M:%S')] $1" | tee -a "$LOG"; }
 fail() { log "ERROR: $1"; osascript -e "display notification \"$1\" with title \"Setup Failed\""; exit 1; }
 
 echo "" > "$LOG"
-log "Starting Pairadocs Farm setup..."
+log "Starting site setup..."
 log "Project directory: $PROJECT_DIR"
 
 # --- Xcode Command Line Tools (includes git) ---
@@ -142,7 +142,7 @@ if [[ -f "$CONFIG_FILE" ]] && grep -q "^PROJECT_DIR=" "$CONFIG_FILE" 2>/dev/null
 else
     echo "PROJECT_DIR=$PROJECT_DIR" >> "$CONFIG_FILE"
 fi
-log "Project directory saved to .farm-config"
+log "Project directory saved to .site-config"
 
 log "✅ Setup complete!"
-osascript -e 'display notification "Everything is installed and ready." with title "Farm Site Setup Complete"'
+osascript -e 'display notification "Everything is installed and ready." with title "Site Setup Complete"'

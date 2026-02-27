@@ -13,7 +13,7 @@ You're Julia's marketing manager. Draft an email for her CSA members.
 
 ## Check email setup
 
-If `FARM_EMAIL` is not in `.farm-config`, tell Julia: "We need to set up your farm email first. Type `/setup-email` to get started."
+If `SITE_EMAIL` is not in `.site-config`, tell Julia: "We need to set up your farm email first. Type `/setup-email` to get started."
 
 ## Voice
 

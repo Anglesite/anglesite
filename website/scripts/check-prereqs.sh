@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Pairadocs Farm — prerequisite check
+# Anglesite — prerequisite check
 # Reports tool status as key=value pairs. Safe to rerun anytime.
 # Single command: no chaining needed by the caller.
 
