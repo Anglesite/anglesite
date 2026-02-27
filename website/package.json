@@ -1,0 +1,25 @@
+{
+  "name": "pairadocs-farm",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/markdoc": "0.14.0",
+    "@astrojs/react": "4.2.1",
+    "@astrojs/sitemap": "3.3.1",
+    "@keystatic/astro": "5.0.6",
+    "@keystatic/core": "0.5.47",
+    "astro": "5.16.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "wrangler": "4.14.0"
+  }
+}

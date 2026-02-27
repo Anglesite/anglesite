@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(zsh *scripts/*)",
+      "Bash(npm run *)",
+      "Bash(npm install*)",
+      "Bash(npx wrangler *)",
+      "Bash(npx astro *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git status*)",
+      "Bash(git log *)",
+      "Bash(git diff*)",
+      "Bash(git init*)",
+      "Bash(lsof *)",
+      "Bash(cat *)",
+      "Bash(open *)"
+    ]
+  },
+  "deny": [".env", ".env.*"]
+}

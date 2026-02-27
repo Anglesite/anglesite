@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /keystatic/
+
+Sitemap: https://www.pairadocs.farm/sitemap-index.xml
