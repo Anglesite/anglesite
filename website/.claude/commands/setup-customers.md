@@ -65,6 +65,7 @@ Based on `BUSINESS_TYPE`, mention relevant tools. Be transparent about tradeoffs
 - **HoneyBook** (~$19/mo) or **Dubsado** (~$20/mo) — Full client management with contracts and invoicing. Proprietary but polished.
 
 **Generic / other**
+- Check `docs/smb/` for industry-specific tool recommendations (healthcare, real estate, nonprofit, fitness, salon, trades, photography, pet services, hospitality, education).
 - **Monica CRM** (open source, free) — Contacts and relationship tracking.
 - **Airtable** (free tier, proprietary) — Flexible database for anything.
 - **Cal.com** (open source, free tier) — If they need scheduling.
@@ -151,6 +152,8 @@ Using the Airtable MCP, create a base named after `SITE_NAME`. Choose tables bas
 **Restaurant adds:**
 - **Events:** Name, Date, Type, Guest Count, Notes
 - **Catering:** Client (linked), Date, Menu, Guest Count, Status
+
+For other business types, check the Airtable schema section in `docs/smb/` for the relevant type.
 
 ### Save config
 

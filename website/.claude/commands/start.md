@@ -24,7 +24,7 @@ Ask:
    - Artist, maker, or craftsperson
    - Content creator or influencer
    - Service business (consulting, coaching, trades, etc.)
-   - Other (ask them to describe it)
+   - Other (ask them to describe it — then check `docs/smb/` for specialty guidance)
 4. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
 5. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
 6. If the business has a physical location, ask:
@@ -62,18 +62,6 @@ echo "SITE_PHONE=(555) 123-4567" >> .site-config
 echo "SITE_HOURS=Mon-Fri 9am-5pm" >> .site-config
 ```
 
-```sh
-echo "OWNER_NAME=Name" >> .site-config
-```
-
-```sh
-echo "SITE_NAME=Business Name" >> .site-config
-```
-
-```sh
-echo "BUSINESS_TYPE=restaurant" >> .site-config
-```
-
 ## Step 2 — Design interview
 
 Now that you know the business, conduct the visual identity intake. This is a conversation, not a form — let the owner's answers guide the next question.
@@ -93,6 +81,7 @@ Tailor your questions to the business type. Cover these topics naturally (not ne
    - Artist/maker: portfolio, about, commissions, shop
    - Creator/influencer: about, portfolio/media kit, collaborations, blog, links
    - Service: services, about, testimonials, contact, booking
+   - For other types, check `docs/smb/` for industry-specific pages
 7. **Social & community** — Which platforms? How do they talk about the business there? Add `rel="me"` links to their profiles for IndieWeb identity verification.
 8. **Accessibility** — Does their audience include people with specific accessibility needs? (Regardless: WCAG AA is the baseline — good contrast, readable fonts, semantic structure.)
 9. **Inspiration** — Any websites they like the look of?

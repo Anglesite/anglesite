@@ -60,6 +60,8 @@ Content brings people to the site. Help the owner think about what their custome
 
 **Service business** — Tips related to the service, client success stories, process explanations, availability updates, FAQ answers, industry news.
 
+For other business types, check `docs/smb/` for industry-specific content ideas.
+
 Aim for 1–4 posts per month. Consistency matters more than frequency. One good post a month beats four rushed ones.
 
 ## Why each page matters

@@ -38,6 +38,8 @@ Common pages by business type:
 - **Creator/influencer:** about, portfolio/media kit, collaborations, blog, links
 - **Service:** services, about, testimonials, contact, booking
 
+For other business types (healthcare, real estate, nonprofit, fitness, salon, trades, photography, pet services, hospitality, education), see `docs/smb/` for industry-specific pages, tools, compliance notes, and structured data guidance.
+
 All sites include:
 - `/` — Home page (customized during `/design-interview`)
 - `/blog/` — Blog listing (last 30 days, link to archive)

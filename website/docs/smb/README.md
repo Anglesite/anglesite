@@ -1,0 +1,47 @@
+# Small Business Type Reference
+
+Industry-specific guidance for the webmaster agent. These files supplement the core business types that are documented inline in the slash commands.
+
+## How to use
+
+When the owner selects "Other" during `/start` or `/design-interview`, check if their business matches one of these specialties. If so, read the relevant file and apply its recommendations for pages, tools, content, structured data, and compliance.
+
+These files are reference material for the agent, not user-facing documentation.
+
+## Core types (inline in prompts)
+
+These have full coverage in `/start`, `/design-interview`, `/setup-customers`, and `docs/content-guide.md`:
+
+- Farm or CSA
+- Restaurant or food business
+- Retail shop
+- Legal or professional services
+- Artist, maker, or craftsperson
+- Content creator or influencer
+- Service business (consulting, coaching, trades)
+
+## Extended types (this directory)
+
+| File | Business type |
+|---|---|
+| [healthcare.md](healthcare.md) | Healthcare, wellness, therapy, dental, veterinary |
+| [real-estate.md](real-estate.md) | Real estate agents, property management |
+| [nonprofit.md](nonprofit.md) | Nonprofits, churches, community organizations |
+| [fitness.md](fitness.md) | Gyms, yoga studios, martial arts, personal training |
+| [salon.md](salon.md) | Hair salons, spas, barbers, beauty services |
+| [trades.md](trades.md) | Contractors, plumbers, electricians, HVAC, landscaping |
+| [photography.md](photography.md) | Photographers, videographers |
+| [pet-services.md](pet-services.md) | Grooming, boarding, training, dog walking |
+| [hospitality.md](hospitality.md) | Bed & breakfasts, vacation rentals, tour operators |
+| [education.md](education.md) | Tutors, music teachers, driving schools, test prep |
+
+## Structure of each file
+
+Every file follows the same format:
+
+1. **Pages** — Priority pages for this business type
+2. **Tools** — Industry-specific SaaS recommendations (following the SaaS criteria)
+3. **Compliance** — Legal or regulatory considerations
+4. **Content ideas** — What to blog about
+5. **Structured data** — JSON-LD schema type and properties
+6. **Airtable schema** — Tables for the fallback CRM
