@@ -25,6 +25,7 @@ For special districts, focus on the district's specific function:
 ## Tools
 
 - **CivicPlus** or **Municode** — Government website platforms. Many municipalities already use one. If they do, the Anglesite scaffold may not be the right fit — but small towns and special districts often don't have a website at all, which is exactly where Anglesite helps.
+- **OpenSlides** (open source, free self-hosted) — Digital meeting management: agendas, motions, voting, participant management, projector control. Built for assemblies and councils. openslides.com
 - **Granicus** — Meeting management, agendas, minutes, video archiving. govdelivery.com
 - **Boardable** (~$99/mo, proprietary) — Board management for small boards. Meeting scheduling, document sharing, voting.
 - **Nextdoor** — Community communication platform. Link from the website, don't rely on it as the primary channel.
