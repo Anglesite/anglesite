@@ -1,6 +1,6 @@
 # Repair Business
 
-Covers: auto repair, auto body/collision, computer/phone/electronics repair, appliance repair, bicycle repair, shoe/leather repair, watch/jewelry repair, furniture repair/upholstery, musical instrument repair, small engine repair, sewing machine repair, lawnmower repair.
+Covers: auto repair, auto body/collision, computer/phone/electronics repair, appliance repair, bicycle repair, cobbler/shoe/leather repair, tailor/clothing alterations, watch/jewelry repair, furniture repair/upholstery, musical instrument repair, small engine repair, sewing machine repair, lawnmower repair.
 
 ## Pages
 

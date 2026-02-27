@@ -1,4 +1,4 @@
-Help the site owner set up customer or client management.
+Help the site owner set up customer or client management
 
 Read `.site-config` for `BUSINESS_TYPE` and `SITE_NAME` before starting.
 
@@ -81,8 +81,6 @@ echo "CUSTOMER_TOOL=square" >> .site-config
 ```
 
 Add relevant links to their website (e.g., online ordering page links to Square, booking page links to Calendly).
-
-Update `docs/customers.md` noting which tool they chose and how it integrates with the website.
 
 Done. No Airtable needed.
 
@@ -177,6 +175,3 @@ git commit -m "Add customer management config"
 
 Show the owner their tables and how to add/edit records.
 
-## Keep docs in sync
-
-Update `docs/customers.md` with the chosen tool, any table schemas, and integration details.

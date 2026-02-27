@@ -65,7 +65,6 @@ If a symlink breaks, run `zsh scripts/setup.sh` to recreate them.
 | `docs/brand.md` | Visual identity (created by `/design-interview`) |
 | `docs/content-guide.md` | Blog schema, Keystatic, images, POSSE |
 | `docs/cloudflare.md` | Hosting, DNS, analytics |
-| `docs/customers.md` | Customer management approach and tools |
 | `docs/webmaster.md` | Best practices checklist |
 
 ## Keep docs in sync
@@ -74,7 +73,6 @@ If you changed it, document it. Same session. No exceptions.
 
 | What changed | Update |
 |---|---|
-| Customer management tool or config | `docs/customers.md` |
 | Page added, navigation changed | `docs/architecture.md` |
 | Blog frontmatter or content schema | `docs/content-guide.md` and `src/content/config.ts` |
 | Deploy, DNS, or hosting config | `docs/cloudflare.md` |

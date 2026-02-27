@@ -1,6 +1,6 @@
 # Construction & Trades
 
-Covers: general contractors, plumbers, electricians, HVAC, roofers, painters, landscapers, handymen, pressure washing, cleaning services.
+Covers: general contractors, plumbers, electricians, HVAC, roofers, painters, landscapers, handymen, pressure washing, moving companies, pest control.
 
 ## Pages
 
@@ -26,6 +26,8 @@ Covers: general contractors, plumbers, electricians, HVAC, roofers, painters, la
 - **Licensing display**: Most jurisdictions require contractors to display their license number on advertising, including websites. Add to the footer on every page.
 - **Bonded and insured**: Displaying this builds trust. Include policy details or a badge on the about or home page.
 - **Home improvement regulations**: Some states require specific disclosures (cooling-off periods, lien rights, etc.) on contracts. Not a website concern, but mention it during `/setup-customers` if relevant.
+- **Moving companies**: Interstate movers must register with FMCSA and display a USDOT number. Intrastate movers are regulated by the state (PUC or DOT). Display license/registration numbers. Provide written estimates (binding or non-binding). Many states have specific consumer protection rules for movers.
+- **Pest control**: Requires state licensing (pesticide applicator's license). Display license number. Integrated Pest Management (IPM) is a selling point. Note any restrictions on chemicals used, especially for homes with children or pets.
 
 ## Content ideas
 

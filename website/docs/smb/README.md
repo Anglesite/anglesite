@@ -37,17 +37,29 @@ These have full coverage in `/start`, `/design-interview`, `/setup-customers`, a
 | [social-services.md](social-services.md) | Shelters, crisis centers, housing, job training |
 | [fitness.md](fitness.md) | Gyms, yoga studios, martial arts, personal training |
 | [salon.md](salon.md) | Hair salons, spas, barbers, beauty services |
-| [trades.md](trades.md) | Contractors, plumbers, electricians, HVAC, landscaping |
+| [trades.md](trades.md) | Contractors, plumbers, electricians, HVAC, landscaping, movers, pest control |
 | [photography.md](photography.md) | Photographers, videographers |
 | [pet-services.md](pet-services.md) | Grooming, boarding, training, dog walking |
-| [hospitality.md](hospitality.md) | Bed & breakfasts, vacation rentals, tour operators |
+| [hospitality.md](hospitality.md) | B&Bs, boutique hotels, vacation rentals, tour operators |
+| [campground.md](campground.md) | RV parks, campgrounds, glamping, seasonal parks |
 | [education.md](education.md) | Tutors, music teachers, driving schools, test prep |
 | [bookshop.md](bookshop.md) | Independent bookstores, used bookshops, comic stores |
 | [grocery.md](grocery.md) | Independent grocery, co-ops, specialty food shops |
 | [hardware.md](hardware.md) | Hardware stores, lumber yards, garden centers |
 | [government.md](government.md) | Small towns, counties, special districts (water, fire, library, parks) |
 | [credit-union.md](credit-union.md) | Credit unions, CDFIs, cooperative banks |
-| [repair.md](repair.md) | Auto, electronics, appliance, bicycle, instrument, any repair shop |
+| [repair.md](repair.md) | Auto, electronics, appliance, bicycle, cobbler, tailor, any repair shop |
+| [childcare.md](childcare.md) | Daycare, preschool, in-home daycare, after-school, learning centers |
+| [funeral-home.md](funeral-home.md) | Funeral homes, mortuaries, cremation, memorial services |
+| [florist.md](florist.md) | Flower shops, floral design, wedding/event florists, plant shops |
+| [cleaning.md](cleaning.md) | Residential cleaning, commercial janitorial, carpet/window cleaning |
+| [brewery.md](brewery.md) | Breweries, wineries, distilleries, cideries, tasting rooms |
+| [tattoo.md](tattoo.md) | Tattoo shops, piercing studios, permanent makeup |
+| [laundry.md](laundry.md) | Dry cleaners, laundromats, wash-and-fold, laundry delivery |
+| [accounting.md](accounting.md) | CPA firms, tax preparation, bookkeeping, payroll services |
+| [insurance.md](insurance.md) | Insurance agents, brokers, benefits consultants |
+| [auto-dealer.md](auto-dealer.md) | Used car dealers, specialty/classic dealers, motorcycle, RV |
+| [storage.md](storage.md) | Self-storage, climate-controlled, vehicle/boat/RV storage |
 
 ## Pre-launch businesses
 
@@ -60,6 +72,12 @@ Most businesses span multiple types. See [multi-mode.md](multi-mode.md) for how 
 - `BUSINESS_TYPE` in `.site-config` supports comma-separated values (primary type first)
 - Read the SMB doc for each type and merge: pages are unioned, compliance is additive, tools avoid duplication
 - One website, one nav — secondary modes are sections, not separate sites
+
+## Out of scope
+
+Some business types need more than a static site scaffold can provide. If someone asks, acknowledge that Anglesite isn't the right fit and point them to appropriate resources:
+
+- **Local newspapers / media outlets** — Need a CMS built for journalism (article workflows, breaking news, paywall, advertising). Consider Ghost, WordPress with Flavor, or custom solutions. May be supported in a future version.
 
 ## Structure of each file
 
