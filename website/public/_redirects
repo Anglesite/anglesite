@@ -1,0 +1,8 @@
+# Cloudflare Pages redirects
+# Format: /from /to [status]
+#
+# Examples:
+#   /old-page /new-page 301
+#   /blog/old-slug /blog/new-slug 301
+#
+# Docs: https://developers.cloudflare.com/pages/configuration/redirects/
