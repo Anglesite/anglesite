@@ -1,6 +1,8 @@
 # Salon & Spa
 
-Covers: hair salons, barbershops, nail salons, spas, aestheticians, lash/brow studios, tattoo studios.
+Covers: hair salons, barbershops, nail salons, spas, aestheticians, lash/brow studios, tattoo studios, chair/booth renters, and independent beauty professionals.
+
+**Chair renters and booth renters:** Many beauty professionals rent a chair or suite in someone else's salon. They're independent businesses that need their own website, booking, and online presence — separate from the salon that houses them. Everything in this file applies. During `/start`, ask: "Do you own the salon, or do you rent a chair or suite?" If they rent, the website is about *them* (the provider), not the salon. The location page should mention the salon by name and address but make clear the provider is the focus.
 
 ## Pages
 
@@ -19,7 +21,8 @@ Covers: hair salons, barbershops, nail salons, spas, aestheticians, lash/brow st
 - **Fresha** (free, commission on new clients only) — Salon-specific booking and POS. fresha.com
 - **Vagaro** (~$25/mo, proprietary) — Booking, payments, marketing. Popular with salons and spas. vagaro.com
 - If they already use Booksy, GlossGenius, or Boulevard — keep it. Link from the website.
-- **Instagram** is often the primary portfolio for visual businesses. Link prominently and keep `rel="me"` for verification.
+- **Instagram** is the primary portfolio for most beauty professionals — often more important than the website gallery. Embed or link the feed prominently on the home page and gallery. Keep `rel="me"` for verification. During `/start`, ask for the Instagram handle early and feature it in the site design.
+- **Reviews** — Clients choose beauty providers based on reviews. Encourage and link to reviews on Google, Yelp, and the booking platform (Booksy, Fresha, etc.). Add a "Reviews" section to the home page or a dedicated page with a link to leave a review.
 
 ## Compliance
 

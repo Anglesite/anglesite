@@ -40,9 +40,10 @@ Small businesses — farms, restaurants, legal firms, retailers, makers, artists
 
 ## Getting started
 
-1. Download and unzip
-2. Open the `website/` folder in Claude Desktop's Code tab
-3. Type `/start` and follow the prompts
+1. Install [Claude Desktop](https://claude.ai/download) (free, requires an Anthropic account)
+2. Download and unzip the Anglesite scaffold
+3. Open the `website/` folder in Claude Desktop's Code tab
+4. Type `/start` and follow the prompts
 
 The start command introduces your webmaster, learns about your business, designs the site with you, and installs the tools to preview it — all in one session. When you're ready to go live, `/deploy` handles Cloudflare, domains, and publishing. The whole process takes about 45 minutes.
 

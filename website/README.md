@@ -4,7 +4,9 @@ This is the source code for your website. It lives in iCloud Drive so it's backe
 
 ## Getting started
 
-Open this folder in Claude Desktop's Code tab, then type `/start`. Your webmaster will introduce themselves, learn about your business, design the site with you, and get everything running.
+1. **Install Claude Desktop** — Download it free from [claude.ai/download](https://claude.ai/download). You'll need to create an Anthropic account if you don't have one. Claude Desktop is the app that powers your AI webmaster.
+2. **Open this folder** — In Claude Desktop, click the **Code** tab, then open this `website/` folder.
+3. **Type `/start`** — Your webmaster will introduce themselves, learn about your business, design the site with you, and get everything running. The whole process takes about 30 minutes.
 
 ## What you can do
 

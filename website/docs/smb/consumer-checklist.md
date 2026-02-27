@@ -122,3 +122,27 @@ Consumers actively search "[business name] gift cards" around holidays. It's a r
 **Where to add:** Near the booking button/link, on the Policies page, or in a FAQ. Repeat it in booking confirmation messages.
 
 **Ask the owner:** "What's your cancellation or refund policy?"
+
+---
+
+### 10. Deposit and no-show policy
+
+**types:** salon, tattoo, photography, hospitality, fitness (personal training), cleaning, trades
+
+"A $25 deposit is required to book. Deposits are applied to your service total." For appointment-based businesses, no-shows are lost revenue. Customers who know there's a deposit are more likely to show up — and less likely to feel surprised. Surfacing the policy before booking builds trust; hiding it in a confirmation email feels like a trap.
+
+**Where to add:** Near the booking button/link, on the Services page, or alongside the cancellation policy. If the business uses a booking platform (Square, Fresha, Vagaro), note whether the deposit is collected there.
+
+**Ask the owner:** "Do you require a deposit to book? What's your no-show policy?"
+
+---
+
+### 11. Products and brands you use or carry
+
+**types:** salon, tattoo, fitness, healthcare (wellness, chiropractic), farm, retail, restaurant
+
+"We use Olaplex, Redken, and Aveda products." For beauty businesses, the product line is a selling point — clients seek out salons that use specific brands. For restaurants, "locally sourced from [farm name]" builds credibility. For fitness, equipment brands and supplement lines matter. Listing products also helps with search — people search for "Olaplex salon near me."
+
+**Where to add:** Services page, a dedicated Products page, or the About page. For beauty: list products on the stylist/provider profiles too.
+
+**Ask the owner:** "What products or brands do you use in your services, or carry in your shop?"

@@ -1,5 +1,7 @@
 # First-Time Setup
 
+**Prerequisite:** Claude Desktop installed from [claude.ai/download](https://claude.ai/download) with an Anthropic account.
+
 The user opens the `website/` folder in Claude Desktop's Code tab and types `/start`.
 
 ## Three phases
