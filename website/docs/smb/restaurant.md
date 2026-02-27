@@ -16,7 +16,7 @@ Covers: restaurants, cafés, coffee shops, bakeries, food trucks, catering, deli
 - **Square** (free POS, 2.6% per transaction, proprietary) — Payments, online ordering, marketing. Free tier is generous and easy to start. square.com
 - **Toast** (~$0–$69/mo + processing, proprietary) — Restaurant-specific POS with online ordering, delivery integration. More features but more complex. toasttab.com
 - For reservations: consider whether the owner actually needs reservation software, or if a phone number and email work fine. Most small restaurants don't need Resy or OpenTable.
-- **Google Business Profile** — Essential for "restaurants near me" searches. Free. Post menu updates and photos regularly.
+- **Map listings** — Essential for "restaurants near me" searches. Claim the business on Google Business Profile, Apple Business Connect, and OpenStreetMap. Post menu updates and photos regularly. See `docs/webmaster.md` → Map listings.
 
 ## Compliance
 

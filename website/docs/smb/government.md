@@ -29,8 +29,8 @@ For special districts, focus on the district's specific function:
 - **Granicus** — Meeting management, agendas, minutes, video archiving. govdelivery.com
 - **Boardable** (~$99/mo, proprietary) — Board management for small boards. Meeting scheduling, document sharing, voting.
 - **Nextdoor** — Community communication platform. Link from the website, don't rely on it as the primary channel.
-- **Google Calendar embed** — Simple way to display meeting schedules and community events.
-- **JotForm** or **Google Forms** — For permit applications, public records requests, feedback forms. JotForm has a government plan.
+- **Calendar embed** — Display meeting schedules and community events. Options: embed an ICS-compatible calendar, use a static schedule page, or link to a shared calendar (Google Calendar, Apple Calendar, or Nextcloud Calendar for self-hosted).
+- **Forms** — For permit applications, public records requests, feedback forms. **JotForm** (has a government plan), **Tally** (free tier, privacy-focused), or **LimeSurvey** (open source, self-hosted) are better for government use than consumer form tools.
 - Most small towns and special districts have no tools at all. Start simple — a static website with meeting info and contact numbers is a massive improvement over nothing.
 
 ## Compliance

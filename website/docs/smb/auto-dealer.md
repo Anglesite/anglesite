@@ -7,7 +7,7 @@ Covers: used car dealerships, independent auto dealers, specialty/classic car de
 - **Inventory** — Current vehicles with photos, price, mileage, features, VIN, vehicle history report link. This is the most important page. For small dealers, a well-organized gallery works. For larger inventories, link to a listing platform rather than maintaining a full inventory system on the website.
 - **Financing** — Finance options, credit application link (to a secure portal, not a website form), buy-here-pay-here terms if applicable. Pre-approval process.
 - **About** — Dealer story, values, years in business, team. Independent dealers compete on trust — especially against the "used car salesman" stereotype.
-- **Testimonials** — Customer reviews with photos of happy buyers. Google reviews are especially important.
+- **Testimonials** — Customer reviews with photos of happy buyers. Reviews on Google, Yelp, Facebook, and DealerRater all matter — encourage customers to leave reviews where they already have accounts.
 - **Services** — If offering maintenance, detailing, inspections. Service department hours.
 - **Trade-in** — How to get a trade-in value, what to bring.
 - **Contact / visit** — Hours, directions, test drive scheduling.

@@ -90,4 +90,7 @@ Ask the owner: "Have you claimed your business on Google Maps, Apple Maps, and O
 
 The home page includes JSON-LD structured data (`LocalBusiness` or `Organization` schema) with the business name, address, phone, and hours. This helps search engines understand the business and display rich results.
 
-Update the JSON-LD whenever the business info changes (new phone number, new hours, new address). Test with Google's Rich Results Test: https://search.google.com/test/rich-results
+Update the JSON-LD whenever the business info changes (new phone number, new hours, new address). Validate with:
+- **Schema.org Validator** — validator.schema.org (vendor-neutral, checks schema.org compliance)
+- **Google Rich Results Test** — search.google.com/test/rich-results (checks Google-specific rich result eligibility)
+- **Bing Markup Validator** — bing.com/webmasters/markup-validator (checks Bing-specific rendering)

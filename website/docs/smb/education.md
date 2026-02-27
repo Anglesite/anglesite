@@ -19,7 +19,7 @@ Covers: private tutors, music teachers, driving schools, test prep, language sch
 - **Cal.com** (open source, free tier) — Session scheduling with recurring appointments. Good for tutors.
 - **TutorBird** (~$15/mo, proprietary) — Built for tutors. Scheduling, invoicing, student tracking. tutorbird.com
 - **Square Invoices** (free, proprietary) — For collecting payment. Simple invoicing.
-- **Zoom** or **Google Meet** — For online sessions. Link from the website.
+- **Video conferencing** — For online sessions. Link from the website. **Jitsi Meet** (open source, free, no account required — meet.jit.si), **Zoom** (free tier, proprietary), or **Google Meet** / **FaceTime** depending on what the student uses.
 - **Monica CRM** (open source, free) — Track students and parents.
 - For driving schools: look into **ScheduleOnce** or similar for multi-instructor, multi-vehicle scheduling.
 

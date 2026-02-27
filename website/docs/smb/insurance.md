@@ -18,7 +18,7 @@ Covers: independent insurance agents, captive agents (State Farm, Allstate, Farm
 - **Agency management systems** (Applied Epic, HawkSoft, EZLynx, AMS360) — Core agency systems. Never suggest replacing these. The website links to client portals if available.
 - **Cal.com** (open source, free tier) — Appointment scheduling for policy reviews.
 - **Buttondown** (open source) — Policy renewal reminders, seasonal tips newsletters.
-- **Google Business Profile** — Critical for local insurance agents. Most clients find agents through local search.
+- **Map listings** — Critical for local insurance agents. Claim the business on Google Business Profile, Apple Business Connect, and OpenStreetMap. Most clients find agents through local search. See `docs/webmaster.md` → Map listings.
 - Most agencies have a carrier-provided or vendor website. Independent agents may want something better — that's the Anglesite opportunity.
 
 ## Compliance

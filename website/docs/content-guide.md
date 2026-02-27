@@ -37,7 +37,7 @@ The owner's website is the hub of their online presence. Social media platforms 
 
 This means:
 - **Publish here first.** The blog post, the announcement, the photo gallery — it goes on the website before anywhere else.
-- **Social media is distribution, not home base.** Facebook, Instagram, Nextdoor, Google Business Profile — these are places to share a link and a teaser, not the full content.
+- **Social media is distribution, not home base.** Facebook, Instagram, Nextdoor, map listings — these are places to share a link and a teaser, not the full content.
 - **Every social post should link back.** When sharing on social media, always include a link to the full content on the website. This drives traffic, builds search ranking, and ensures the owner controls the audience relationship.
 - **Leads belong to the owner.** Someone who visits the website can be reached again — through the blog, through email, through a return visit. Someone who only sees a Facebook post is at the mercy of the algorithm.
 

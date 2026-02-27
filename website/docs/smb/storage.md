@@ -17,7 +17,7 @@ Covers: self-storage units, climate-controlled storage, vehicle/boat/RV storage,
 - **SiteLink** (pricing varies, proprietary) — Industry-leading self-storage management: rentals, payments, gate access, reporting. sitelink.com
 - **storEDGE** (pricing varies, proprietary) — Online rentals, website integration, marketing.
 - **Tenant Inc** (pricing varies, proprietary) — Cloud-based storage management.
-- **Google Business Profile** — Critical. Most storage customers search "[city] storage" — local SEO drives this business.
+- **Map listings** — Critical. Most storage customers search "[city] storage" — local SEO drives this business. Claim on Google Business Profile, Apple Business Connect, and OpenStreetMap. See `docs/webmaster.md` → Map listings.
 - Small storage facilities (under 100 units) may manage with a spreadsheet and a payment processor. That's fine.
 
 ## Compliance
