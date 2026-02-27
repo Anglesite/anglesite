@@ -1,16 +1,45 @@
-Walk Julia through first-time setup. The goal is to get her editing locally — publishing comes later when she runs `/deploy`.
+Walk the site owner through first-time setup. The goal: editing locally. Publishing comes later with `/deploy`.
 
 ## How to communicate
 
-Before every tool call or command that will trigger a permission prompt, tell Julia what you're about to do and why in plain English. She should never see a permission dialog without context. Pattern:
+Before every tool call or command that will trigger a permission prompt, tell the owner what you're about to do and why in plain English. They should never see a permission dialog without context. Pattern:
 
 > "Next I'm going to [action] — this [why]. You'll see a prompt asking to allow it."
 
 Keep each step conversational. Celebrate progress. If something fails, read `~/.anglesite/logs/setup.log` and explain plainly.
 
-## Step 1 — Install tools and dependencies
+## Step 1 — Learn about the business
 
-Tell Julia: "First I'll run a setup script that installs everything your website needs — a code runner called Node.js, a version manager, and the project's building blocks. It's safe to rerun if anything interrupts it. You may see a macOS dialog asking to install developer tools — click Install."
+Ask the owner:
+
+1. "What's the name of your business?"
+2. "What kind of business is it?" Offer categories:
+   - Farm or CSA
+   - Restaurant or food business
+   - Retail shop
+   - Legal or professional services
+   - Artist, maker, or craftsperson
+   - Service business (consulting, coaching, trades, etc.)
+   - Other (ask them to describe it)
+3. "What's your name?" (so you know who you're talking to)
+
+Save answers to `.site-config`:
+
+```sh
+echo "SITE_NAME=Business Name" >> .site-config
+```
+
+```sh
+echo "BUSINESS_TYPE=restaurant" >> .site-config
+```
+
+```sh
+echo "OWNER_NAME=Name" >> .site-config
+```
+
+## Step 2 — Install tools and dependencies
+
+Tell the owner: "First I'll run a setup script that installs everything your website needs — a code runner called Node.js, a version manager, and the project's building blocks. It's safe to rerun if anything interrupts it. You may see a macOS dialog asking to install developer tools — click Install."
 
 ```sh
 zsh scripts/setup.sh
@@ -18,29 +47,50 @@ zsh scripts/setup.sh
 
 The script installs Xcode CLI tools, fnm, Node.js LTS, creates iCloud-safe `.nosync` symlinks, runs `npm install`, and initializes git. It skips anything already present.
 
-If the script succeeds, tell Julia what was installed and move on. If it fails, read the log:
+If the script succeeds, tell the owner what was installed and move on. If it fails, read the log:
 
 ```sh
 cat ~/.anglesite/logs/setup.log
 ```
 
-## Step 2 — Preview the site
+## Step 3 — Personalize the scaffold
 
-Tell Julia: "Everything's installed. Let's see your website! Click the **Preview** button in the toolbar above — it will start your site and show it right here in the app."
+Using the business name from Step 1, update these files:
 
-The dev server is pre-configured in `.claude/launch.json`. Wait for Julia to confirm the preview is showing before continuing.
+1. `package.json` — set `name` to a slugified version of the business name
+2. `src/pages/index.astro` — replace placeholder title and heading with the business name
+3. `src/layouts/BaseLayout.astro` — replace header and footer text with the business name
 
-Once she sees it, tell her: "That's your website running on your computer. Only you can see it right now — it's not on the internet yet. You can also type `localhost:4321/keystatic` in the preview's address bar to open the post editor."
+Commit these changes:
 
-## Step 3 — Next steps
+```sh
+git add -A
+```
 
-Tell Julia what she can do now:
+```sh
+git commit -m "Setup: configure for BUSINESS_NAME"
+```
 
-- **`/design-interview`** — customize colors, fonts, and branding
+(Replace BUSINESS_NAME with the actual name.)
+
+## Step 4 — Preview the site
+
+Tell the owner: "Everything's installed. Let's see your website! Click the **Preview** button in the toolbar above — it will start your site and show it right here in the app."
+
+The dev server is pre-configured in `.claude/launch.json`. Wait for them to confirm the preview is showing before continuing.
+
+Once they see it: "That's your website running on your computer. Only you can see it right now — it's not on the internet yet."
+
+## Step 5 — Next steps
+
+Tell the owner what they can do now:
+
+- **`/design-interview`** — customize colors, fonts, and layout for their business
 - **Edit posts** — navigate to `localhost:4321/keystatic` in the preview panel to write blog posts using the visual editor
-- **`/deploy`** — when she's ready to put the site on the internet (this will walk her through creating a free Cloudflare account)
+- **`/deploy`** — when ready to put the site on the internet (walks through creating a free Cloudflare account)
+- **`/setup-customers`** — set up customer or client management (recommends industry-specific tools first)
 
-No rush to publish. She can edit and preview locally as long as she likes.
+No rush to publish. They can edit and preview locally as long as they like.
 
 ## Keep docs in sync
 
