@@ -62,3 +62,22 @@ The site must be usable by people with disabilities. This is legally required in
 - Renew domain registration (Cloudflare sends email reminders)
 - Verify iCloud+ subscription is active
 - Consider refreshing the design if the brand has evolved
+
+## Local SEO
+
+For businesses with a physical location:
+
+### Google Business Profile
+Suggest the owner claim or create their Google Business Profile at https://business.google.com. This is free and helps the business appear in Google Maps and local search results.
+
+Key details to keep consistent everywhere (website, Google Business Profile, social media, directories):
+- **N**ame — exact business name
+- **A**ddress — exact street address
+- **P**hone — primary phone number
+
+This is called NAP consistency. Search engines use it to verify the business is legitimate.
+
+### Structured data
+The home page includes JSON-LD structured data (`LocalBusiness` or `Organization` schema) with the business name, address, phone, and hours. This helps search engines understand the business and display rich results.
+
+Update the JSON-LD whenever the business info changes (new phone number, new hours, new address). Test with Google's Rich Results Test: https://search.google.com/test/rich-results

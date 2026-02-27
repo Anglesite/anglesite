@@ -61,6 +61,36 @@ find dist/ -path '*keystatic*' -type f
 ```
 If this returns results, STOP. Admin routes leaked into production.
 
+## Step 2.5 — Staging preview (first deploy only)
+
+If this is the first deploy, offer a preview before going live:
+
+Tell the owner: "Before your site goes live for everyone, I can put it on a private preview link so you can check it. Want to do that first?"
+
+If yes:
+
+Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their business name), then save it:
+
+```sh
+echo "CF_PROJECT_NAME=project-name" >> .site-config
+```
+
+```sh
+npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --branch preview
+```
+
+This creates a preview URL like `preview.CF_PROJECT_NAME.pages.dev`. Open it:
+
+```sh
+open https://preview.CF_PROJECT_NAME.pages.dev
+```
+
+Tell the owner: "This is a preview — only people with this link can see it. Take a look and let me know if everything looks right. When you're ready, I'll make it live for everyone."
+
+Wait for approval, then continue to Step 3 for the production deploy.
+
+On subsequent deploys, skip this step.
+
 ## Step 3 — Deploy
 
 Tell the owner: "Everything looks clean. I'm uploading your site to Cloudflare now."
@@ -172,6 +202,8 @@ npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME
 ```
 
 Tell the owner: "Your website is now live at your custom domain! SSL is handled automatically."
+
+Tell the owner: "Try pasting your website URL into a text message or social media post draft — you should see a nice preview card with your site name and description. If it doesn't look right, we can adjust the preview image and description."
 
 ## Step 6 — First deploy: Show analytics
 

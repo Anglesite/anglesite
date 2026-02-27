@@ -35,6 +35,52 @@ Dashboard: `https://dash.cloudflare.com/?to=/:account/web-analytics`
 
 The Cloudflare MCP is provided by the Claude.ai built-in integration (claude.ai Cloudflare Developer Platform). No local `.mcp.json` needed — it's always available when using Claude Code with a claude.ai account.
 
+## Staging previews
+
+Wrangler supports branch deploys. Deploy to a non-production branch to get a preview URL:
+
+```sh
+npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --branch preview
+```
+
+This creates `preview.CF_PROJECT_NAME.pages.dev`. The preview is not indexed by search engines and is separate from the production deploy.
+
+Use previews for:
+- First-time review before going live
+- Testing major changes before publishing
+- Showing the owner changes before they're public
+
+## Rollback
+
+If a deploy breaks something:
+
+**Quick rollback via Cloudflare dashboard:**
+1. Open the Cloudflare dashboard
+2. Go to **Workers & Pages** → your project → **Deployments**
+3. Find the last working deploy
+4. Click **Rollback to this deploy**
+
+This instantly reverts the live site. The broken code is still in git — you'll need to fix it and redeploy.
+
+**Rollback via git:**
+If the issue is in a recent commit, use git revert to undo it, then rebuild and redeploy:
+
+```sh
+git revert HEAD
+```
+
+```sh
+npm run build
+```
+
+```sh
+npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME
+```
+
+**When to use which:**
+- **Dashboard rollback** — Immediate fix, site is down or broken, need it fixed in seconds
+- **Git revert** — The code change caused the issue, you want a clean history
+
 ## Security headers
 
 Defined in `public/_headers`. Applied to all routes:

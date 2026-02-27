@@ -32,12 +32,23 @@ Ask one topic at a time. Listen, reflect, then move on.
 2. Update CSS custom properties in `src/styles/global.css` (colors, fonts, spacing)
 3. Verify color contrast meets WCAG AA (4.5:1 for body text, 3:1 for large text)
 4. Update the favicon (`public/favicon.svg`) to match the identity
-5. Build a styled home page that reflects the brand and business type
-6. Add `rel="me"` links to social profiles in the site footer or about page
-7. Ensure the `h-card` in the site header has the business name, URL, and location if relevant
-8. Create pages based on the content priorities discussion
-9. Update `keystatic.config.ts` tags to match the business
-10. Show the owner the result and iterate until they approve
+5. Create an apple-touch-icon: generate a 180x180 PNG version of the favicon and save to `public/apple-touch-icon.png`
+6. Update `public/manifest.webmanifest` with the business name and brand colors (`theme_color` from `--color-primary`, `background_color` from `--color-bg`)
+7. Build a styled home page that reflects the brand and business type
+8. Add `rel="me"` links to social profiles in the site footer or about page
+9. Ensure the `h-card` in the site header has the business name, URL, and location if relevant
+10. Create pages based on the content priorities discussion
+11. Update `keystatic.config.ts` tags to match the business
+12. Update the RSS feed title and description in `src/pages/rss.xml.ts` to match the business
+13. Show the owner the result and iterate until they approve
+
+After applying the design, create the JSON-LD structured data for the home page. Use the business info collected during the interview:
+
+- If the business has a physical location: use `LocalBusiness` schema with name, address, phone, hours
+- If online-only: use `Organization` schema with name and URL
+- Pass the JSON-LD object as the `jsonLd` prop to `<BaseLayout>` on the home page
+
+Save `SITE_ADDRESS`, `SITE_PHONE`, and `SITE_HOURS` to `.site-config` if the owner provides them. This is the business's public contact info (intentionally published), not customer data.
 
 **Don't publish until they approve.** This is their business's face to the world.
 

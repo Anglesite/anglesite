@@ -71,6 +71,25 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] `h-card` microformat present in site header
 - [ ] `h-entry` microformat present on blog posts
 
+## Performance
+- [ ] Images are in modern formats (.webp preferred) and optimized (<500KB)
+- [ ] No render-blocking resources in `<head>` beyond essential CSS
+- [ ] CSS is reasonably sized (check for unused rules)
+- [ ] No large JavaScript bundles in `dist/_astro/` (Astro should produce near-zero client JS)
+
+For a thorough performance audit, tell the owner: "Let's check how fast your site loads. I'll open Google's free speed test tool." Then open:
+
+```sh
+open https://pagespeed.web.dev/
+```
+
+Have the owner paste their site URL. Explain the scores: green (90+) is great, orange (50-89) needs work, red (<50) is urgent.
+
+## Social preview
+- [ ] OG image exists and is approximately 1200x630 pixels
+- [ ] Test by pasting the site URL into a group chat or social media draft — the preview card should show the site title, description, and image
+- [ ] Each page has its own `og:title` and `og:description` (not all the same)
+
 ## iCloud health
 - [ ] `.nosync` symlinks intact for node_modules, dist, .astro, .wrangler
 - [ ] No large binary files syncing unnecessarily

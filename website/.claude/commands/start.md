@@ -26,8 +26,40 @@ Ask:
    - Other (ask them to describe it)
 4. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
 5. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
+6. If the business has a physical location, ask:
+   - "What's your business address?" (for maps and local search)
+   - "What's your business phone number?" (for the website and local search)
+   - "What are your hours?" (for the website and Google)
+
+   This is the business's public contact info that the owner wants on their website — not customer data.
 
 Save answers to `.site-config`:
+
+```sh
+echo "OWNER_NAME=Name" >> .site-config
+```
+
+```sh
+echo "SITE_NAME=Business Name" >> .site-config
+```
+
+```sh
+echo "BUSINESS_TYPE=restaurant" >> .site-config
+```
+
+If they provided location info:
+
+```sh
+echo "SITE_ADDRESS=123 Main St, City, ST 12345" >> .site-config
+```
+
+```sh
+echo "SITE_PHONE=(555) 123-4567" >> .site-config
+```
+
+```sh
+echo "SITE_HOURS=Mon-Fri 9am-5pm" >> .site-config
+```
 
 ```sh
 echo "OWNER_NAME=Name" >> .site-config
