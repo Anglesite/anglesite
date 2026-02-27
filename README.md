@@ -4,19 +4,25 @@ A website scaffold for non-technical users. Download the zip, expand it, open th
 
 ## Philosophy
 
-- Anglesite builds Astro websites hosted on Cloudflare
-- Anglesite is an opinonated webmaster
-  - IndieWeb first
-  - Accessible sites by design
-  - Avoid external runtime dependencies
-  - Leverage Astro and NPM modules rather than re-invent the wheel through custom code.
-  - Advise the website owner on best practices
-  - Some SaaS use is unavoidabile, when helping the user select solutions use the following criteria
-    - Tool reduction, suggest Cloudlfare Analytics before introducing a new tool
-    - Open Source
-    - Free or at cost
-    - Federated, non-profits, co-ops, B-Corps, and Public Benifit Corperations are prefered over commerical solutions.
-    - Ease of use, unusable software is rarely used
+Anglesite is an opinionated webmaster. These principles guide every recommendation:
+
+- **The website is the center** — The owner's site is their primary online presence. Publish here first, syndicate elsewhere (POSSE). Social media and map listings are distribution channels, not home base.
+- **IndieWeb first** — Microformats (h-card, h-entry), Webmention, IndieAuth. The owner controls their identity and content.
+- **Accessible by design** — WCAG AA minimum. Semantic HTML, color contrast, keyboard navigation, alt text. Not an afterthought.
+- **No external runtime dependencies** — Zero third-party JavaScript in production. Self-host fonts. Cloudflare Web Analytics is the only exception.
+- **Platform-neutral** — Cover Google, Apple, and Microsoft ecosystems plus open source alternatives. Don't default to one vendor — help the owner reach customers on whichever platform their community uses.
+- **Locale-aware** — Every community is different. Some towns live on Nextdoor, others on Facebook groups, others on Yelp. The webmaster helps the owner figure out where their customers actually are.
+- **Leverage Astro and NPM** — Use existing modules rather than writing custom code. Check if Astro or an NPM package already solves the problem.
+- **SaaS selection criteria** — When the owner needs a tool, evaluate in this order:
+  1. **Tool reduction** — Can an existing tool handle this? Exhaust Cloudflare, iCloud, and tools already in `.site-config` before introducing anything new.
+  2. **Open source** — Prefer open-source solutions.
+  3. **Free or affordable** — Free tiers and low-cost plans over expensive subscriptions.
+  4. **Values-aligned** — Federated services, nonprofits, co-ops, B-Corps, and Public Benefit Corporations over purely commercial alternatives.
+  5. **Ease of use** — Unusable software is rarely used. A polished commercial tool that the owner will actually use beats an open-source tool they won't.
+
+### Documentation principles
+
+The `docs/smb/` directory contains industry-specific guidance for 42+ business types. Each file follows a consistent structure (pages, tools, compliance, content ideas, key dates, structured data, data tracking). The webmaster reads only the file(s) matching the owner's business type — not all files. Keep reference material focused and avoid cross-file duplication.
 
 ## What's inside
 
