@@ -12,8 +12,6 @@
 
 **Cloudflare Web Analytics** — Free, privacy-first (no cookies). Auto-injected into Pages projects.
 
-**Airtable** — Member management, weekly deliveries, egg tracking, payments. Accessed via forms with unique URLs (no login required).
-
 ## Content collections
 
 Blog posts in `src/content/posts/`. Schema defined in both `src/content/config.ts` (Astro) and `keystatic.config.ts` (editor). Keep them in sync.
@@ -25,32 +23,26 @@ CSS custom properties in `src/styles/global.css`. Values set during `/design-int
 - `--font-heading`, `--font-body`
 - `--space-*` for consistent spacing
 
-System fonts by default (no external font loading). Override in brand.md if Julia chooses specific fonts.
+System fonts by default (no external font loading). Override in brand.md if the owner chooses specific fonts.
 
 ## Pages
 
-### Live now
-- `/` — Home: hero with farm photos, mission statement, 4 section cards linking to subpages
-- `/blog/` — Blog listing (last month of posts, link to archive)
+The scaffold ships with a home page and blog. Additional pages are created during `/design-interview` based on the business type, or added later via `/new-page`.
+
+Common pages by business type:
+- **Restaurant:** menu, hours/location, about, reservations, events
+- **Retail:** products, about, location, events
+- **Legal:** practice areas, attorneys, contact, testimonials
+- **Farm:** what we grow, subscriptions, blog, events
+- **Artist/maker:** portfolio, about, commissions, shop
+- **Service:** services, about, testimonials, contact, booking
+
+All sites include:
+- `/` — Home page (customized during `/design-interview`)
+- `/blog/` — Blog listing (last 30 days, link to archive)
 - `/blog/[slug]` — Individual posts
-- `/blog/archive/` — Older posts (more than 1 month old)
-- `/csa/` — CSA program: what they sell, how subscriptions work, inquiry email link
+- `/blog/archive/` — Older posts
 - `/keystatic/` — CMS editor (dev only, blocked in production)
-
-### Coming soon (placeholder pages)
-- `/furniture/` — Dogwood Dazed custom furniture and woodworking by Harry
-- `/stay/` — LEED house Airbnb listing
-
-Coming-soon pages show a brief description and "coming soon" message. When Julia's ready to launch them, she asks the webmaster to build them out.
-
-## Home page structure
-
-The landing page has:
-1. **Hero** — Farm photos (tractor Xmas card, logo from Facebook), description, mission statement. Sustainability theme.
-2. **Blog** card — Latest post preview, link to `/blog/`
-3. **CSA** card — Description, photo of produce & eggs, link to `/csa/`
-4. **Furniture** card — Description, photo, link to `/furniture/` (coming soon)
-5. **Stay** card — Description, photo, link to `/stay/` (coming soon)
 
 ## Blog archive strategy
 
@@ -58,18 +50,13 @@ The blog listing page (`/blog/`) shows posts from the last 30 days, newest first
 
 Posts with `draft: true` are excluded from both pages in production builds.
 
-## Customer interactions via Airtable
+## Customer management
 
-All member-facing features use Airtable forms with unique URLs — no login system needed:
-- **Preference form** — each member gets a unique URL to update favorites, allergies, dislikes
-- **Weekly delivery info** — Julia updates the Weekly Delivery table; members get a summary email via `/draft-email`
-- **Payment reminders** — Venmo payment links (pre-filled amount + note) included in emails
-
-See `docs/airtable.md` for full table schemas and form details.
+Configured via `/setup-customers`, which recommends industry-specific tools (Square, Shopify, Clio, etc.) before falling back to Airtable. See `docs/customers.md`.
 
 ## Email
 
-Julia sends email from Mail.app using her @pairadocs.farm address (iCloud custom domain). The webmaster drafts emails via `/draft-email` and opens them in Mail.app with `mailto:` links. Julia reviews and sends manually.
+The owner sends email from Mail.app using a custom domain address (iCloud custom domain). The webmaster drafts emails via `/draft-email` and opens them in Mail.app with `mailto:` links. The owner reviews and sends manually.
 
 Custom domain email requires iCloud+ and DNS records in Cloudflare. Set up via `/setup-email`.
 

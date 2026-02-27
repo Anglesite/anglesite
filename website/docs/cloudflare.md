@@ -2,15 +2,18 @@
 
 ## Pages project
 
-- Project name: `pairadocs-farm`
-- Deploy command: `npx wrangler pages deploy dist/ --project-name pairadocs-farm`
+- Project name: stored in `.site-config` as `CF_PROJECT_NAME` (set during first `/deploy`)
+- Deploy command: `npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME`
 - First deploy triggers OAuth in browser (Sign in with Apple)
 
 ## Custom domain
 
-- Primary: `www.pairadocs.farm`
-- DNS: CNAME `www` → `pairadocs-farm.pages.dev`
-- Root redirect: `pairadocs.farm` → `www.pairadocs.farm` (Page Rule or redirect rule)
+Configured during `/deploy` after the first publish. Stored in `.site-config` as `SITE_DOMAIN`.
+
+Typical setup:
+- Primary: `www.example.com`
+- DNS: CNAME `www` → `project-name.pages.dev`
+- Root redirect: `example.com` → `www.example.com` (redirect rule)
 
 ## Web Analytics
 

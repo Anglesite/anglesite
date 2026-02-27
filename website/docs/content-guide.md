@@ -2,7 +2,7 @@
 
 ## Blog posts
 
-Posts live in `src/content/posts/` as `.mdx` files. Julia creates them via Keystatic at `/keystatic/collection/posts`.
+Posts live in `src/content/posts/` as `.mdx` files. The owner creates them via Keystatic at `/keystatic/collection/posts`.
 
 ### Required frontmatter
 - `title` — Post title
@@ -10,9 +10,9 @@ Posts live in `src/content/posts/` as `.mdx` files. Julia creates them via Keyst
 - `publishDate` — YYYY-MM-DD format
 
 ### Optional frontmatter
-- `image` — Path relative to public/ (e.g., `/images/blog/tomatoes.webp`)
+- `image` — Path relative to public/ (e.g., `/images/blog/photo.webp`)
 - `imageAlt` — Required if image is set
-- `tags` — Array: `weekly-share`, `farm-update`, `recipe`, `seasonal`, `events`, `furniture`
+- `tags` — Array of strings. Default tags: `news`, `update`, `event`. Updated by `/design-interview` to match the business.
 - `draft` — Boolean. Drafts excluded from production builds.
 - `syndication` — Array of URLs. Added after sharing on social media.
 
@@ -34,8 +34,8 @@ If you add or change a field, update both files.
 ## POSSE workflow
 
 Publish On (own) Site, Syndicate Elsewhere:
-1. Write and publish the post on pairadocs.farm
-2. Share on social media (Facebook, Instagram, Nextdoor)
+1. Write and publish the post on the website
+2. Share on social media
 3. Copy the share URLs
 4. Edit the post in Keystatic → add URLs to the Syndication Links field
 5. Save and publish again

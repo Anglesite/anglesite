@@ -23,7 +23,7 @@
 14. Syndication links render as `u-syndication`
 
 ### Privacy & security
-15. No member PII in built site
+15. No customer PII in built site
 16. No API tokens or secrets in source or built files
 17. No third-party scripts except Cloudflare Web Analytics
 18. No `/keystatic` routes in production build
