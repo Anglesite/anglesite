@@ -30,6 +30,7 @@
 19. Security headers intact in `public/_headers`
 20. `.env` files gitignored and not tracked
 21. Docs updated to reflect configuration changes
+22. Privacy policy, copyright notice, and accessibility statement present (see `docs/smb/legal-checklist.md`)
 
 ### iCloud
 22. `.nosync` symlinks intact for heavy directories
