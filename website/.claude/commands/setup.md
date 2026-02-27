@@ -49,7 +49,7 @@ Tell Julia: "You can drag **Pairadocs Farm** from your Applications folder to th
 Tell Julia what she can do now:
 
 - **`/design-interview`** — customize colors, fonts, and branding
-- **✏️ Edit Posts** (from the app menu) — write a blog post using the visual editor
+- **Edit posts** — open `http://localhost:4321/keystatic` in the browser (while the dev server is running) to write blog posts using the visual editor
 - **`/deploy`** — when she's ready to put the site on the internet (this will walk her through creating a free Cloudflare account)
 
 No rush to publish. She can edit and preview locally as long as she likes.
