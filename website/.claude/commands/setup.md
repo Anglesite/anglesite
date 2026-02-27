@@ -26,11 +26,11 @@ cat ~/.pairadocs/logs/setup.log
 
 ## Step 2 — Preview the site
 
-Tell Julia: "Everything's installed. Let's see your website! Use the **Preview** button in the toolbar to start the dev server — your site will appear right here in the app."
+Tell Julia: "Everything's installed. Let's see your website! Click the **Preview** button in the toolbar above — it will start your site and show it right here in the app."
 
-The dev server is pre-configured in `.claude/launch.json`. Once it starts, Julia can see her site in the built-in preview panel at `http://localhost:4321`. She can also navigate to `http://localhost:4321/keystatic` in the preview to use the visual post editor.
+The dev server is pre-configured in `.claude/launch.json`. Wait for Julia to confirm the preview is showing before continuing.
 
-Tell Julia: "This is your website running on your computer. Only you can see it right now — it's not on the internet yet."
+Once she sees it, tell her: "That's your website running on your computer. Only you can see it right now — it's not on the internet yet. You can also type `localhost:4321/keystatic` in the preview's address bar to open the post editor."
 
 ## Step 3 — Next steps
 
