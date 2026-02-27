@@ -69,6 +69,7 @@ The most interesting content often comes from the intersection of modes:
 - Church+food bank: impact stories connecting both missions
 - Bookshop+theater: event previews that cross both worlds
 - Photographer+educator: teaching posts that showcase portfolio work
+- Food-as-craft: process videos that show the art of decorating, recipe-adjacent content, "behind the order" stories
 
 ### Data tracking — merge tables, add a Mode/Type field
 
@@ -94,6 +95,8 @@ These combinations appear frequently. The agent should recognize them:
 | **Museum + education** | Museum | Education | School visit booking, teacher resources. Already covered in museum.md but depth in education.md. |
 | **Salon + education** | Salon | Education | Training academy or continuing ed. Separate class schedule from appointment booking. |
 | **Photographer + educator** | Photography | Education | Workshop booking separate from client session booking. |
+| **Food as craft** | Artist/maker | Restaurant | Custom decorated cookies, cake design, artisan chocolate, bread art. Portfolio organized by occasion, not a restaurant menu. Custom order workflow, not catering. If baking from home, cottage food compliance (see restaurant.md), not health department permits. |
+| **Maker + marketplace** | Artist/maker | Retail | Sells on Etsy/Faire plus own website. Website is home base for custom orders and repeat customers; marketplace is for discovery. See marketplace integration in artist.md. |
 | **Retail + maker** | Retail | Artist/maker | Shop page doubles as portfolio. Commission and custom order process. |
 | **Fitness + wellness** | Fitness | Healthcare | Practitioner bios need credentials. Waivers for both fitness and treatment. |
 | **Hospitality + restaurant** | Hospitality | Restaurant | Menu page, reservation system. Guests vs. walk-in diners. |

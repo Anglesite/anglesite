@@ -1,6 +1,6 @@
 # Restaurant & Food Business
 
-Covers: restaurants, cafés, coffee shops, bakeries, food trucks, catering, delis, ice cream shops, juice bars.
+Covers: restaurants, cafés, coffee shops, bakeries, food trucks, catering, delis, ice cream shops, juice bars, home bakers, cottage food businesses.
 
 ## Pages
 
@@ -10,6 +10,8 @@ Covers: restaurants, cafés, coffee shops, bakeries, food trucks, catering, deli
 - **Catering / private events** — If offered. Separate page with menus, pricing guidance, and a contact form.
 - **Gallery** — Food photos, interior, events. Real photos of real food — not stock photography.
 - **Contact** — Phone (make it tappable), email, directions. Include a "call to order" CTA if they do takeout.
+- **Custom orders** — If the business takes custom orders (decorated cookies, custom cakes, catering). Include: what they make, lead time ("order 2–3 weeks ahead"), price ranges or "request a quote" form, order form or inquiry form collecting event date, theme, quantity, dietary needs, design inspiration. Show past work organized by occasion (weddings, birthdays, holidays, corporate).
+- **Shipping** — If they ship products (cookies, sauces, packaged goods). Shipping policy, turnaround time, zones/costs, packaging details, seasonal restrictions (e.g., chocolate in summer). Set expectations: "Shipped items are packaged for freshness — here's what to expect."
 
 ## Tools
 
@@ -20,8 +22,15 @@ Covers: restaurants, cafés, coffee shops, bakeries, food trucks, catering, deli
 
 ## Compliance
 
-- **Health department permits**: Required. Display permit number if required by jurisdiction. Link to latest inspection report if publicly available (builds trust).
-- **Food allergen disclosure**: Many jurisdictions require allergen information. At minimum, add "Please inform your server of any allergies" to the menu page.
+- **Health department permits**: Required for commercial kitchens. Display permit number if required by jurisdiction. Link to latest inspection report if publicly available (builds trust).
+- **Cottage food laws**: Home bakers and makers of shelf-stable foods (cookies, breads, jams, candy) can often sell without a commercial kitchen under state cottage food laws. Requirements vary widely by state — check the specific state's rules. Common requirements:
+  - Revenue caps (typically $25K–$75K/year, some states unlimited)
+  - Labeling: "Made in a home kitchen that is not inspected by [state department of health]"
+  - Ingredient and allergen listing on labels
+  - Restricted to shelf-stable products (no dairy fillings, no items needing refrigeration in most states)
+  - Direct-to-consumer sales only (no wholesale in most states)
+  - Ask the owner: "Are you baking from home or from a commercial kitchen?" If home, search "[state] cottage food law" for specific requirements. Note the path forward: cottage food → renting time in a commercial kitchen → own commercial space.
+- **Food allergen disclosure**: Many jurisdictions require allergen information. At minimum, add "Please inform us of any allergies" to the menu or order page.
 - **Alcohol licensing**: If serving alcohol, display license type and number if required. Some states restrict advertising drink specials online.
 - **Nutritional information**: Required for chains (20+ locations) under FDA rules. Optional for small restaurants but helpful for customer trust.
 - **ADA compliance**: Menu must be accessible (not image-only PDFs). Ensure the website is screen-reader friendly.
@@ -29,6 +38,8 @@ Covers: restaurants, cafés, coffee shops, bakeries, food trucks, catering, deli
 ## Content ideas
 
 New menu items, seasonal specials, behind-the-scenes photos, event announcements, chef spotlights, community involvement, recipes (shareable and brings search traffic), "meet the team" features, holiday hours announcements, catering highlights, customer features (with permission), food sourcing stories, local supplier spotlights.
+
+**Video content** — Food businesses thrive on video. Process videos (decorating, plating, cooking), order reveals, packaging and shipping, "day in the life." TikTok and Instagram Reels are the primary discovery channels for food businesses — short-form video drives more traffic than any other content type. The website hosts the permanent version (blog post with embedded video or gallery); social gets the clip. During `/start`, ask if they create video content and plan the site to feature it.
 
 ## Key dates
 

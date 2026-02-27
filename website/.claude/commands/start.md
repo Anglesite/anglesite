@@ -16,22 +16,28 @@ Ask:
 
 1. "What's your name?"
 2. "What's the name of your business?"
-3. "What kind of business is it?" Offer categories:
-   - Farm or CSA
-   - Restaurant or food business
-   - Retail shop
-   - Legal or professional services
-   - Artist, maker, or craftsperson
-   - Content creator or influencer
-   - Service business (consulting, coaching, trades, etc.)
-   - Other (ask them to describe it — then check `docs/smb/` for specialty guidance)
+3. "Tell me about your business in a sentence or two — what do you do?"
 
-   Many businesses span multiple types ("we're a farm but we also rent cabins"). If the owner describes more than one activity, ask which is the primary one. Save all types comma-separated, primary first. See `docs/smb/multi-mode.md` for how to merge guidance across types.
+   Let them describe it in their own words. Don't offer categories or a multiple-choice list — just listen. Then match their description to one or more files in `docs/smb/`. Check the table in `docs/smb/README.md` for all 42+ types.
+
+   Examples of how to map natural descriptions:
+
+   - "I make custom decorated cookies" → `artist`, `restaurant` (see food-as-craft in `multi-mode.md`)
+   - "I'm a plumber" → `trades`
+   - "We run a yoga studio" → `fitness`
+   - "I sell vintage clothes on Etsy and at flea markets" → `retail`, `artist`
+   - "I'm a therapist starting a private practice" → `healthcare`
+   - "We're a church that also runs a food pantry" → `house-of-worship`, `food-bank`
+   - "I bake from home and sell at the farmers market" → `restaurant` (cottage food), `farm`
+   - "I'm a freelance photographer" → `photography`
+
+   If the description spans multiple types, ask which activity is the primary one. Save all types comma-separated, primary first. See `docs/smb/multi-mode.md` for how to merge guidance.
 
    If the owner is still forming their business — no name yet, no customers, just an idea — that's fine. Read `docs/smb/pre-launch.md` for how to adjust the session. Build a simple site with what they have now and share relevant startup resources at the end.
+
 4. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
 5. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
-6. "Are you already using any tools or apps for your business?" — booking systems (Square, Vagaro, Booksy, Fresha), payment processing, email marketing, social media scheduling, accounting. If they already have tools, don't replace them — integrate with the website. Save tool names to `.site-config` as `EXISTING_TOOLS=vagaro,square` so the agent doesn't recommend redundant tools later.
+6. "Are you already using any tools or apps for your business?" — anything counts: Etsy, Square, Venmo, Instagram for sales, a booking app, a spreadsheet. If they already have tools, don't replace them — integrate with the website. Save tool names to `.site-config` as `EXISTING_TOOLS=etsy,venmo` so the agent doesn't recommend redundant tools later. Recognize informal tools (Venmo, PayPal, Cash App, Zelle) as valid starting points — suggest professional invoicing (Square, Stripe) when they're ready, not as an immediate replacement.
 7. If the business has a physical location, ask:
    - "What's your business address?" (for maps and local search)
    - "What's your business phone number?" (for the website and local search)

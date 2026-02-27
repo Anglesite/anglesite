@@ -17,7 +17,7 @@ This file supplements the individual SMB docs. The SMB doc says *which pages to 
 
 ### 1. Payment methods accepted
 
-**types:** all (especially farm, salon, repair, trades, tattoo, florist, food-bank)
+**types:** all (especially farm, salon, repair, trades, tattoo, florist, food-bank, artist)
 
 "We accept cash, all major credit cards, and Apple Pay." Consumers avoid businesses where they're unsure about payment. Farmers market vendors, mobile businesses, and trades people especially — customers want to know before they show up.
 
