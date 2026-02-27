@@ -1,10 +1,11 @@
 {
-  "dev_servers": [
+  "version": "0.0.1",
+  "configurations": [
     {
-      "name": "Astro Dev Server",
-      "command": "npm run dev",
-      "url": "http://localhost:4321",
-      "timeout": 15000
+      "name": "astro",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 4321
     }
   ]
 }

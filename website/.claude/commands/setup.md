@@ -24,32 +24,20 @@ If the script succeeds, tell Julia what was installed and move on. If it fails, 
 cat ~/.pairadocs/logs/setup.log
 ```
 
-## Step 2 — Start the local server
+## Step 2 — Preview the site
 
-Tell Julia: "Everything's installed. Let's start your website so you can see it on your computer."
+Tell Julia: "Everything's installed. Let's see your website! Use the **Preview** button in the toolbar to start the dev server — your site will appear right here in the app."
 
-```sh
-npm run dev
-```
-
-Once the server is running, open the local preview:
-
-```sh
-open http://localhost:4321
-```
+The dev server is pre-configured in `.claude/launch.json`. Once it starts, Julia can see her site in the built-in preview panel at `http://localhost:4321`. She can also navigate to `http://localhost:4321/keystatic` in the preview to use the visual post editor.
 
 Tell Julia: "This is your website running on your computer. Only you can see it right now — it's not on the internet yet."
 
-## Step 3 — Add to Dock
-
-Tell Julia: "You can drag **Pairadocs Farm** from your Applications folder to the Dock for quick access. Click it anytime to see your task menu."
-
-## Step 4 — Next steps
+## Step 3 — Next steps
 
 Tell Julia what she can do now:
 
 - **`/design-interview`** — customize colors, fonts, and branding
-- **Edit posts** — open `http://localhost:4321/keystatic` in the browser (while the dev server is running) to write blog posts using the visual editor
+- **Edit posts** — navigate to `localhost:4321/keystatic` in the preview panel to write blog posts using the visual editor
 - **`/deploy`** — when she's ready to put the site on the internet (this will walk her through creating a free Cloudflare account)
 
 No rush to publish. She can edit and preview locally as long as she likes.
