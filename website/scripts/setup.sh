@@ -84,7 +84,11 @@ cd "$PROJECT_DIR" || fail "Project folder not found at $PROJECT_DIR"
 setup_nosync() {
     local name="$1"
     if [[ -d "$name" && ! -L "$name" ]]; then
-        # Real directory exists (e.g., after git clone) — convert it
+        # Real directory exists (e.g., npm replaced our symlink) — convert it.
+        # Remove stale .nosync dir first so mv doesn't nest inside it.
+        if [[ -d "${name}.nosync" ]]; then
+            rm -rf "${name}.nosync"
+        fi
         mv "$name" "${name}.nosync"
         ln -s "${name}.nosync" "$name"
         log "Converted $name to .nosync symlink"
