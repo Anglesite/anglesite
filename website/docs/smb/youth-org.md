@@ -50,7 +50,7 @@ Use `SportsOrganization` or `NGO` with:
 - `sport` if applicable
 - `nonprofitStatus`
 
-## Airtable schema
+## Data tracking
 
 - **Families:** Parent Name, Email, Phone, Children (text or linked), Emergency Contact, Notes, Created Date
 - **Participants:** Name, Age, Family (linked), Program, Season, Status, Medical Notes

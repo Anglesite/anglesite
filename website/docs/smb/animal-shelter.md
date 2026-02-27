@@ -44,7 +44,7 @@ Use `NGO` with:
 - `nonprofitStatus` — "Nonprofit501c3"
 - `knowsAbout` — "animal welfare", "pet adoption"
 
-## Airtable schema
+## Data tracking
 
 - **Contacts:** Name, Email, Phone, Type (Adopter/Foster/Volunteer/Donor), Status, Notes, Created Date
 - **Animals:** Name, Species, Breed, Age, Sex, Status (Available/Adopted/Foster/Hold), Photo URL, Intake Date, Notes

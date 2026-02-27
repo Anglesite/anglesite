@@ -57,7 +57,7 @@ Use `GovernmentOrganization` with:
 
 For special districts, `GovernmentOrganization` is still appropriate. Add `description` with the district type.
 
-## Airtable schema
+## Data tracking
 
 Most government record-keeping has legal requirements that Airtable can't meet (retention schedules, FOIA compliance). Use Airtable only for non-sensitive operational tracking:
 

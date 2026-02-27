@@ -37,7 +37,7 @@ Use `BeautySalon`, `BarberShop`, or `HealthAndBeautyBusiness` with:
 - name, address, phone, hours
 - `priceRange` — approximate price range
 
-## Airtable schema
+## Data tracking
 
 - **Clients:** Name, Email, Phone, Preferred Provider, Notes, Last Visit, Created Date
 - **Services:** Name, Category, Price, Duration, Provider (linked)

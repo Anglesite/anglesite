@@ -45,7 +45,7 @@ Use `Museum` (or `ArtGallery`, `Zoo`, `Aquarium`) with:
 - `isAccessibleForFree` — if admission is free
 - `priceRange` or `offers` for admission
 
-## Airtable schema
+## Data tracking
 
 - **Contacts:** Name, Email, Phone, Type (Member/Donor/Educator/Vendor), Membership Level, Status, Notes, Created Date
 - **Events:** Name, Date, Type (Exhibition Opening/Lecture/Workshop/Family), Capacity, RSVP Count, Notes

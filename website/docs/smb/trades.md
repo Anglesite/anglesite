@@ -38,7 +38,7 @@ Use `HomeAndConstructionBusiness` (or more specific: `Plumber`, `Electrician`, `
 - `areaServed` — list of cities or regions
 - `hasOfferCatalog` for services
 
-## Airtable schema
+## Data tracking
 
 - **Clients:** Name, Email, Phone, Address, Source (referral/search/ad), Status, Notes, Created Date
 - **Jobs:** Client (linked), Service Type, Status (Lead/Quoted/Scheduled/In Progress/Complete), Address, Start Date, Value, Notes

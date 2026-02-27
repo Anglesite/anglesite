@@ -38,7 +38,7 @@ Use `MedicalBusiness` (or more specific: `Dentist`, `Optician`, `Physician`, `Ve
 - `medicalSpecialty` if applicable
 - `availableService` for key services
 
-## Airtable schema
+## Data tracking
 
 - **Patients/Clients:** Name, Phone, Email, Provider (linked), Status, Notes, Created Date
 - **Appointments:** Client (linked), Provider (linked), Date, Type, Status, Notes

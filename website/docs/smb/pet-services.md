@@ -38,7 +38,7 @@ Use `LocalBusiness` with:
 - name, address, phone, hours
 - `description` mentioning services offered
 
-## Airtable schema
+## Data tracking
 
 - **Clients:** Owner Name, Email, Phone, Pet Name, Pet Breed, Vaccination Due Date, Notes, Created Date
 - **Bookings:** Client (linked), Service, Date, Time, Status, Notes

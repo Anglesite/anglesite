@@ -153,7 +153,7 @@ Using the Airtable MCP, create a base named after `SITE_NAME`. Choose tables bas
 - **Events:** Name, Date, Type, Guest Count, Notes
 - **Catering:** Client (linked), Date, Menu, Guest Count, Status
 
-For other business types, check the Airtable schema section in `docs/smb/` for the relevant type.
+For other business types, check the data tracking section in `docs/smb/` for the relevant type.
 
 ### Save config
 

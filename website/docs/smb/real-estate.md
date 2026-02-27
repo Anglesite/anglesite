@@ -36,7 +36,7 @@ Use `RealEstateAgent` with:
 - `areaServed` for neighborhoods/cities
 - Link to brokerage as `memberOf`
 
-## Airtable schema
+## Data tracking
 
 - **Contacts:** Name, Email, Phone, Type (Buyer/Seller/Both/Investor/Lead), Status, Source, Notes, Created Date
 - **Properties:** Address, Type (listing/sold/buyer interest), Price, Status, Contact (linked), Notes

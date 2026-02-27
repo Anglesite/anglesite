@@ -55,4 +55,4 @@ Every file follows the same format:
 3. **Compliance** — Legal or regulatory considerations
 4. **Content ideas** — What to blog about
 5. **Structured data** — JSON-LD schema type and properties
-6. **Airtable schema** — Tables for the fallback CRM
+6. **Data tracking** — Suggested tables and fields for the business type

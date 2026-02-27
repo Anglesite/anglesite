@@ -37,7 +37,7 @@ Use `HardwareStore` with:
 - name, address, phone, hours
 - `hasOfferCatalog` for key departments/services
 
-## Airtable schema
+## Data tracking
 
 - **Contacts:** Name, Email, Phone, Type (Customer/Contractor/Vendor), Notes, Created Date
 - **Services:** Name, Description, Price (if fixed), Notes

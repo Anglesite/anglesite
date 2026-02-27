@@ -43,7 +43,7 @@ Use `LodgingBusiness` (or `BedAndBreakfast`, `Hotel`, `Hostel`) with:
 
 For tour operators, use `TouristAttraction` or `TravelAgency`.
 
-## Airtable schema
+## Data tracking
 
 - **Guests:** Name, Email, Phone, Source (direct/Airbnb/VRBO/referral), Visits, Notes, Created Date
 - **Reservations:** Guest (linked), Room/Property, Check-in, Check-out, Guests Count, Rate, Status, Notes

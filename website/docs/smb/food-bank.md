@@ -43,7 +43,7 @@ Use `NGO` with:
 - `knowsAbout` — "food assistance", "hunger relief"
 - `areaServed` for service territory
 
-## Airtable schema
+## Data tracking
 
 - **Contacts:** Name, Email, Phone, Type (Donor/Volunteer/Partner Agency/Corporate), Notes, Created Date
 - **Volunteers:** Contact (linked), Availability, Skills, Status, Hours Logged, Notes

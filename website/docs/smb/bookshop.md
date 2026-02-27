@@ -39,7 +39,7 @@ Use `BookStore` with:
 - name, address, phone, hours
 - `event` for upcoming author events (optional)
 
-## Airtable schema
+## Data tracking
 
 - **Contacts:** Name, Email, Phone, Type (Customer/Author/Publisher/Vendor), Notes, Created Date
 - **Events:** Name, Date, Author (linked to Contacts), Type (Reading/Signing/Book Club/Workshop), RSVP Count, Notes

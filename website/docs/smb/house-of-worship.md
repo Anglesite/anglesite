@@ -44,7 +44,7 @@ Use `Church` (or `Mosque`, `Synagogue`, `HinduTemple`, `BuddhistTemple`) with:
 - `openingHours` for service times
 - `event` for special services
 
-## Airtable schema
+## Data tracking
 
 - **Members:** Name, Email, Phone, Family, Membership Date, Groups, Status, Notes
 - **Events:** Name, Date, Type (Service/Class/Social/Outreach), Location, Notes

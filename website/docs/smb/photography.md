@@ -36,7 +36,7 @@ Use `ProfessionalService` with:
 - name, address (or service area), phone
 - `knowsAbout` for specialties (wedding, portrait, etc.)
 
-## Airtable schema
+## Data tracking
 
 - **Clients:** Name, Email, Phone, Session Type, Date, Status (Inquiry/Booked/Shot/Delivered), Gallery Link, Notes, Created Date
 - **Sessions:** Client (linked), Type, Date, Location, Package, Total, Status, Delivery Date, Notes

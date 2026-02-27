@@ -47,7 +47,7 @@ Use `NGO` with:
 - `knowsAbout` for service areas
 - `areaServed`
 
-## Airtable schema
+## Data tracking
 
 Note: Case management data should NOT be in Airtable — use a proper case management system. Airtable is only for the fundraising/volunteer side:
 

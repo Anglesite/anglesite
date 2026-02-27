@@ -37,7 +37,7 @@ Use `SportsActivityLocation` or `ExerciseGym` with:
 - name, address, phone, hours
 - `event` for regular classes (optional, can be complex)
 
-## Airtable schema
+## Data tracking
 
 - **Members:** Name, Email, Phone, Membership Type, Start Date, Status, Notes
 - **Classes:** Name, Instructor, Day, Time, Capacity, Notes

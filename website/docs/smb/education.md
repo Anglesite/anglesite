@@ -42,7 +42,7 @@ Use `EducationalOrganization` or `School` with:
 - `knowsAbout` for subjects taught
 - For individual tutors, `Person` with `hasCredential` may be more appropriate
 
-## Airtable schema
+## Data tracking
 
 - **Students:** Name, Parent Name, Parent Email, Parent Phone, Subject, Grade Level, Status, Notes, Created Date
 - **Sessions:** Student (linked), Date, Time, Subject, Duration, Status, Notes

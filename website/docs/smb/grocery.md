@@ -39,7 +39,7 @@ Use `GroceryStore` with:
 - name, address, phone, hours
 - `paymentAccepted` — mention EBT/SNAP if applicable
 
-## Airtable schema
+## Data tracking
 
 - **Contacts:** Name, Email, Phone, Type (Customer/Vendor/Producer/Member), Notes, Created Date
 - **Producers:** Name, Contact (linked), Products, Location, Notes

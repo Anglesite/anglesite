@@ -44,7 +44,7 @@ Use `PerformingArtsTheater` or `MusicGroup` or `DanceGroup` with:
 - name, address, phone
 - `event` for shows and performances with dates, times, ticketing URLs
 
-## Airtable schema
+## Data tracking
 
 - **Contacts:** Name, Email, Phone, Type (Patron/Performer/Volunteer/Donor/Sponsor), Notes, Created Date
 - **Productions:** Title, Season, Director, Dates, Venue, Ticket URL, Status (Upcoming/Running/Closed), Notes
