@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /keystatic/
 
-Sitemap: https://www.pairadocs.farm/sitemap-index.xml
+# Sitemap URL added by /deploy when domain is known

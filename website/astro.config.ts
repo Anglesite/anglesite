@@ -5,7 +5,7 @@ import keystatic from "@keystatic/astro";
 import sitemap from "@astrojs/sitemap";
 
 export default defineConfig({
-  site: "https://www.pairadocs.farm",
+  site: "", // Set during /deploy when domain is known
   output: "static",
   integrations: [react(), markdoc(), keystatic(), sitemap()],
 });

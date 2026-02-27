@@ -20,21 +20,19 @@ export default config({
         }),
         image: fields.text({
           label: "Image",
-          description: "Path relative to public/ (e.g., /images/blog/tomatoes.webp)",
+          description: "Path relative to public/ (e.g., /images/blog/photo.webp)",
         }),
         imageAlt: fields.text({
           label: "Image Alt Text",
           description: "Required if image is set",
         }),
+        // Tags are updated by /design-interview to match the business
         tags: fields.multiselect({
           label: "Tags",
           options: [
-            { label: "Weekly Share", value: "weekly-share" },
-            { label: "Farm Update", value: "farm-update" },
-            { label: "Recipe", value: "recipe" },
-            { label: "Seasonal", value: "seasonal" },
-            { label: "Events", value: "events" },
-            { label: "Furniture", value: "furniture" },
+            { label: "News", value: "news" },
+            { label: "Update", value: "update" },
+            { label: "Event", value: "event" },
           ],
         }),
         draft: fields.checkbox({
