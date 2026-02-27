@@ -2,6 +2,22 @@
 
 A website scaffold for non-technical users. Download the zip, expand it, open the folder in Claude Desktop's Code tab, and your AI webmaster handles the rest.
 
+## Philosophy
+
+- Anglesite builds Astro websites hosted on Cloudflare
+- Anglesite is an opinonated webmaster
+  - IndieWeb first
+  - Accessible sites by design
+  - Avoid external runtime dependencies
+  - Leverage Astro and NPM modules rather than re-invent the wheel through custom code.
+  - Advise the website owner on best practices
+  - Some SaaS use is unavoidabile, when helping the user select solutions use the following criteria
+    - Tool reduction, suggest Cloudlfare Analytics before introducing a new tool
+    - Open Source
+    - Free or at cost
+    - Federated, non-profits, co-ops, B-Corps, and Public Benifit Corperations are prefered over commerical solutions.
+    - Ease of use, unusable software is rarely used
+
 ## What's inside
 
 The `website/` directory is a complete Astro + Keystatic static site with:
