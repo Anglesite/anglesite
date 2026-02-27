@@ -24,6 +24,7 @@ These have full coverage in `/start`, `/design-interview`, `/setup-customers`, a
 
 | File | Business type |
 |---|---|
+| [farm.md](farm.md) | Farm, CSA, market garden, u-pick, farm stand (supplements core type) |
 | [healthcare.md](healthcare.md) | Healthcare, wellness, therapy, dental, veterinary |
 | [real-estate.md](real-estate.md) | Real estate agents, property management |
 | [nonprofit.md](nonprofit.md) | Nonprofit overview — shared traits, then see sub-types: |
