@@ -41,3 +41,9 @@ Publish On (own) Site, Syndicate Elsewhere:
 5. Save and publish again
 
 The syndication URLs render as `u-syndication` links in the `h-entry` markup, connecting the original post to its copies.
+
+## Blog archive
+
+The blog listing page (`/blog/`) shows only posts from the last 30 days, newest first. Older posts move to `/blog/archive/`. This keeps the main page fresh without deleting content.
+
+Implementation: both pages query the same content collection, filtered by `publishDate` relative to the current build date. The archive page shows everything older than 30 days. The blog listing links to the archive at the bottom.
