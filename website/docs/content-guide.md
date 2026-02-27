@@ -56,6 +56,8 @@ Content brings people to the site. Help the owner think about what their custome
 
 **Artist / maker** — New work, process photos, commission availability, exhibition announcements, inspiration and influences, behind-the-scenes.
 
+**Content creator / influencer** — Behind-the-scenes of content creation, brand partnership announcements, personal takes on industry trends, audience Q&A recaps, event appearances, product reviews (owned, not just on social), collaboration highlights, media kit updates.
+
 **Service business** — Tips related to the service, client success stories, process explanations, availability updates, FAQ answers, industry news.
 
 Aim for 1–4 posts per month. Consistency matters more than frequency. One good post a month beats four rushed ones.

@@ -35,6 +35,7 @@ Common pages by business type:
 - **Legal:** practice areas, attorneys, contact, testimonials
 - **Farm:** what we grow, subscriptions, blog, events
 - **Artist/maker:** portfolio, about, commissions, shop
+- **Creator/influencer:** about, portfolio/media kit, collaborations, blog, links
 - **Service:** services, about, testimonials, contact, booking
 
 All sites include:

@@ -53,6 +53,12 @@ Based on `BUSINESS_TYPE`, mention relevant tools. Be transparent about tradeoffs
 - **Ko-fi** (free, no fees on donations) — Commissions, memberships, shop. Indie-friendly.
 - **Etsy** (listing fee + 6.5% transaction fee) — Marketplace for discovery. Use alongside own website, not instead of it.
 
+**Content creator / influencer**
+- **Ko-fi** (free, no fees on donations) — Tips, memberships, commissions, and shop. Indie-friendly and creator-focused.
+- **Patreon** (5–12% of income, proprietary) — Membership and subscription content. Well-known but takes a significant cut.
+- **Cal.com** (open source, free tier) — For booking brand collaboration calls, podcast appearances, etc.
+- The website itself is the most important tool — it's the media kit, portfolio, and owned hub that outlasts any platform.
+
 **Service business (consulting, coaching, trades)**
 - **Monica CRM** (open source, free) — Client relationship tracking.
 - **Cal.com** (open source, free tier) — Scheduling. Self-hostable alternative to Calendly.
@@ -137,6 +143,10 @@ Using the Airtable MCP, create a base named after `SITE_NAME`. Choose tables bas
 **Retail/maker adds:**
 - **Products:** Name, Category, Price, Inventory, Status
 - **Orders:** Customer (linked), Date, Items, Total, Status
+
+**Creator/influencer adds:**
+- **Collaborations:** Brand (linked to Contacts), Platform, Deliverables, Rate, Status (Pitched/Confirmed/Completed/Paid), Date, Notes
+- **Content:** Title, Platform, Date Published, URL, Sponsored (checkbox), Brand (linked)
 
 **Restaurant adds:**
 - **Events:** Name, Date, Type, Guest Count, Notes

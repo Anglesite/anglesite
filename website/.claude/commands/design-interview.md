@@ -19,6 +19,7 @@ Tailor your questions to the business type. Cover these topics naturally (not ne
    - Legal: practice areas, attorneys, contact, testimonials
    - Farm: what we grow, subscriptions, blog, events
    - Artist/maker: portfolio, about, commissions, shop
+   - Creator/influencer: about, portfolio/media kit, collaborations, blog, links
    - Service: services, about, testimonials, contact, booking
 7. **Social & community** — Which platforms? How do they talk about the business there? Add `rel="me"` links to their profiles for IndieWeb identity verification.
 8. **Accessibility** — Does their audience include people with specific accessibility needs? (Regardless: WCAG AA is the baseline — good contrast, readable fonts, semantic structure.)

@@ -30,7 +30,7 @@ The `website/` directory is a complete Astro + Keystatic static site with:
 
 ## Who this is for
 
-Small businesses — farms, restaurants, legal firms, retailers, makers, artists, service providers — who want a fast, private, professional website without learning to code. The site owner interacts through Claude Desktop — no terminal required after initial setup.
+Small businesses — farms, restaurants, legal firms, retailers, makers, artists, content creators, service providers — who want a fast, private, professional website without learning to code. The site owner interacts through Claude Desktop — no terminal required after initial setup.
 
 ## Getting started
 
