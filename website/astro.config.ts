@@ -6,6 +6,6 @@ import sitemap from "@astrojs/sitemap";
 
 export default defineConfig({
   site: "https://www.pairadocs.farm",
-  output: "hybrid",
+  output: "static",
   integrations: [react(), markdoc(), keystatic(), sitemap()],
 });
