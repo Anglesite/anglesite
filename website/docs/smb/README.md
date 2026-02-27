@@ -44,6 +44,7 @@ These have full coverage in `/start`, `/design-interview`, `/setup-customers`, a
 | [bookshop.md](bookshop.md) | Independent bookstores, used bookshops, comic stores |
 | [grocery.md](grocery.md) | Independent grocery, co-ops, specialty food shops |
 | [hardware.md](hardware.md) | Hardware stores, lumber yards, garden centers |
+| [government.md](government.md) | Small towns, counties, special districts (water, fire, library, parks) |
 
 ## Structure of each file
 
