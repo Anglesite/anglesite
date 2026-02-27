@@ -4,8 +4,16 @@ import markdoc from "@astrojs/markdoc";
 import keystatic from "@keystatic/astro";
 import sitemap from "@astrojs/sitemap";
 
+const isDev = process.argv[1]?.includes("astro") &&
+  process.argv.includes("dev");
+
 export default defineConfig({
-  site: "", // Set during /deploy when domain is known
-  output: "static",
-  integrations: [react(), markdoc(), keystatic(), sitemap()],
+  site: "http://localhost:4321", // Updated by /deploy when domain is known
+  output: isDev ? "server" : "static",
+  integrations: [
+    react(),
+    markdoc(),
+    ...(isDev ? [keystatic()] : []),
+    sitemap(),
+  ],
 });
