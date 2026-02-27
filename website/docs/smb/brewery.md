@@ -39,6 +39,14 @@ Covers: craft breweries, microbreweries, brewpubs, wineries, vineyards, distille
 
 New release announcements, brewing/winemaking process stories, ingredient spotlights (hops, grapes, grain), food pairing guides, event recaps, taproom playlist or vibe features, seasonal specials, collaboration brew stories, "meet the brewer/winemaker," harvest updates (wineries), sustainability practices, behind-the-scenes production, local agriculture partnerships, award announcements.
 
+## Key dates
+
+- **National Beer Day** (Apr 7) — Taproom specials, beer history posts, new release timing.
+- **American Craft Beer Week** (mid-May) — Brewery tours, collaboration brews, tap takeovers.
+- **Oktoberfest** (Sep–Oct) — Seasonal releases, German-style events, food pairings.
+- **National Wine Day** (May 25) — For wineries. Tasting events, vineyard tours, new vintage releases.
+- **Repeal Day** (Dec 5) — End of Prohibition anniversary. History posts, special tappings.
+
 ## Structured data
 
 Use `Brewery`, `Winery`, or `LocalBusiness` with:

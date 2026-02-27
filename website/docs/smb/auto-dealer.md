@@ -33,6 +33,10 @@ Covers: used car dealerships, independent auto dealers, specialty/classic car de
 
 New inventory spotlights, vehicle comparison guides, financing tips, "what to look for in a used car," maintenance tips by vehicle type, customer delivery photos, local car show events, seasonal driving tips, vehicle recall alerts, "trade-in vs. sell privately" guides.
 
+## Key dates
+
+- **National Car Care Month** (Apr, Oct) — Maintenance tips, service specials, inspection reminders.
+
 ## Structured data
 
 Use `AutoDealer` (schema.org) with:

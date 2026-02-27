@@ -36,6 +36,12 @@ Covers: funeral homes, mortuaries, cremation services, memorial chapels, cemeter
 
 Grief resources, "what to do when someone dies" guides, pre-planning benefits, veteran honor stories (with family permission), community memorial events (Memorial Day, Day of the Dead), staff spotlights, historical obituary archives, funeral tradition explainers, green burial information, estate planning basics, holiday grief support.
 
+## Key dates
+
+- **Memorial Day** (last Mon May) — Remembrance content, cemetery services, community ceremonies.
+- **Day of the Dead** (Nov 1–2) — Cultural celebrations, altar displays, community events (if relevant to community served).
+- **National Hospice Month** (Nov) — Grief support resources, hospice partnerships, end-of-life planning awareness.
+
 ## Structured data
 
 Use `FuneralHome` (schema.org) with:

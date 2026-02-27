@@ -37,6 +37,12 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 
 Exhibition previews and reviews, "object of the month" deep dives, curator Q&As, artist interviews, behind-the-scenes of exhibition installation, education program recaps, conservation and restoration stories, collection acquisition announcements, community event recaps, seasonal programming highlights, "what's on this weekend" roundups.
 
+## Key dates
+
+- **International Museum Day** (May 18) — Free admission, special programming, community outreach.
+- **Museum Month** (varies by state) — Extended programming, membership drives, exhibit previews.
+- **Arts & Humanities Month** (Oct) — Cultural events, educational programs, community partnerships.
+
 ## Structured data
 
 Use `Museum` (or `ArtGallery`, `Zoo`, `Aquarium`) with:

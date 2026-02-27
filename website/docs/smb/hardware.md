@@ -31,6 +31,11 @@ Covers: independent hardware stores, lumber yards, garden centers, paint stores,
 
 Seasonal project guides ("winterize your home," "spring garden prep"), how-to articles for common repairs, product comparisons and recommendations, new product spotlights, staff expertise highlights ("meet our paint expert"), workshop and event announcements, local contractor tips, holiday gift guides for DIYers, community project spotlights.
 
+## Key dates
+
+- **National DIY Day** (Apr) — Project tutorials, tool recommendations, workshop announcements.
+- **National Home Improvement Month** (May) — Seasonal project guides, contractor referrals, product spotlights.
+
 ## Structured data
 
 Use `HardwareStore` with:

@@ -33,6 +33,12 @@ Covers: general contractors, plumbers, electricians, HVAC, roofers, painters, la
 
 Project spotlights with before/after photos, seasonal maintenance checklists ("winterize your plumbing," "spring lawn prep"), "when to call a professional vs. DIY" guides, behind-the-scenes of a project, team member spotlights, community involvement, answers to common questions (great for SEO).
 
+## Key dates
+
+- **National Skilled Trades Day** (1st Wed May) — Skilled labor appreciation, apprenticeship spotlights, "why trades matter" content.
+- **National Handyman Day** (varies) — DIY tips, maintenance checklists, service promotions.
+- **HVAC Tech Day** (Jun 22) — For HVAC businesses. Technician spotlights, maintenance reminders.
+
 ## Structured data
 
 Use `HomeAndConstructionBusiness` (or more specific: `Plumber`, `Electrician`, `RoofingContractor`, `HousePainter`, `LockSmith`, `GeneralContractor`) with:

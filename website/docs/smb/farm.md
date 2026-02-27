@@ -2,7 +2,6 @@
 
 Covers: small farms, CSA (community-supported agriculture) programs, market gardens, u-pick operations, homesteads with direct sales, farm stands, flower farms.
 
-Farm/CSA is a core type with inline guidance in the slash commands. This file adds depth for the agent — compliance details, tool specifics, and content strategy that don't fit in the prompts.
 
 ## Pages
 
@@ -37,6 +36,13 @@ Farm/CSA is a core type with inline guidance in the slash commands. This file ad
 ## Content ideas
 
 Weekly harvest updates ("what's in the box this week"), seasonal planting and harvest photos, recipes using farm products, behind-the-scenes of farm life (people love this), farmers market schedule and what to expect, CSA sign-up reminders before the season, crop profiles ("why we grow this variety"), farm event announcements, preservation and storage tips, collaborations with local chefs or restaurants, end-of-season wrap-ups, winter planning posts.
+
+## Key dates
+
+- **National Agriculture Day** (Mar) — Farm story, "where your food comes from" content, school visits.
+- **Earth Day** (Apr 22) — Sustainable farming practices, soil health, environmental stewardship.
+- **National Farmers Market Week** (1st full week Aug) — Market schedules, vendor spotlights, "meet your farmer" events.
+- **World Food Day** (Oct 16) — Food access, community partnerships, harvest celebrations.
 
 ## Structured data
 

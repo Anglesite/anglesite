@@ -33,6 +33,13 @@ Don't try to replicate a full online catalog. The website's job is to get people
 
 Staff picks with personal reviews, monthly reading lists by theme or mood, event announcements and recaps, author Q&As, "what we're reading this month" posts, seasonal gift guides, local author spotlights, book club selections and discussion guides, behind-the-scenes of running a bookshop, banned books week features, indie bookstore day promotions.
 
+## Key dates
+
+- **Independent Bookstore Day** (last Sat Apr) — The biggest day for indie bookstores. Exclusive editions, events, community celebration.
+- **World Book Day** (Apr 23) — Reading promotions, staff picks, literacy awareness.
+- **Banned Books Week** (last week Sep) — Intellectual freedom displays, reading lists, community conversations.
+- **National Book Month** (Oct) — Author events, reading challenges, gift guide previews.
+
 ## Structured data
 
 Use `BookStore` with:

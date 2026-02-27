@@ -48,6 +48,12 @@ For special districts, focus on the district's specific function:
 
 Meeting summaries in plain language (not just posting raw minutes), road and infrastructure project updates, seasonal reminders (leaf pickup, snow plowing, water conservation), community event announcements, new ordinance explainers, budget breakdowns in simple terms, "meet your officials" profiles, public hearing notices, park and recreation program announcements, emergency preparedness tips, water quality reports with plain-language summaries.
 
+## Key dates
+
+- **National Night Out** (1st Tue Aug) — Community-police partnership events, neighborhood gatherings, safety awareness.
+- **Constitution Day** (Sep 17) — Civic education, government service spotlights.
+- **National Voter Registration Day** (4th Tue Sep) — Registration drives, polling place information, civic participation.
+
 ## Structured data
 
 Use `GovernmentOrganization` with:

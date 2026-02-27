@@ -33,6 +33,12 @@ Covers: independent grocery stores, co-op markets, specialty food shops (cheese,
 
 Weekly specials and seasonal highlights, recipes using products from the shop, local producer spotlights with photos, seasonal eating guides ("what's fresh this month"), cooking tips and techniques, event announcements (tastings, classes), community stories, holiday gift guides, co-op membership benefits and updates, food preservation tips.
 
+## Key dates
+
+- **National Nutrition Month** (Mar) — Healthy eating features, dietitian partnerships, recipe content.
+- **World Food Day** (Oct 16) — Food access, local sourcing stories, community partnerships.
+- **National Co-op Month** (Oct) — For co-ops. Member appreciation, cooperative values, community ownership stories.
+
 ## Structured data
 
 Use `GroceryStore` with:

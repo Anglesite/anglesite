@@ -30,6 +30,12 @@ Covers: wedding photographers, portrait photographers, commercial photographers,
 
 Full session or wedding features (with client permission), "what to wear" guides for different session types, behind-the-scenes of a shoot, seasonal mini-session announcements, tips for getting the most out of your session, venue spotlights (great for wedding photographer SEO), gear reviews, editing before/after.
 
+## Key dates
+
+- **National Photography Month** (May) — Portfolio highlights, behind-the-scenes content, photography tips.
+- **National Camera Day** (Jun 29) — Gear spotlights, photography history, community photo walks.
+- **World Photography Day** (Aug 19) — Personal work, artistic vision posts, industry reflections.
+
 ## Structured data
 
 Use `ProfessionalService` with:

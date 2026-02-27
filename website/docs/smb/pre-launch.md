@@ -63,6 +63,19 @@ Share relevant resources from the list below. Don't dump the entire list — pic
 - **Community college** — Small business courses, continuing education, sometimes free workshops.
 - **Local economic development office** — Grants, incentives, startup programs. Search "[city/county] economic development."
 
+### Brand and identity
+
+- **Business name** — If they don't have one yet, that's OK. The website can launch with a working name and update later. Don't let naming block progress.
+- **Logo** — A logo helps but isn't required to start. Free options:
+  - **Canva** (free tier) — Logo maker with templates. Good enough to start. canva.com
+  - **Looka** (free to design, paid to download) — AI-assisted logo generator. looka.com
+  - **Hatchful by Shopify** (free) — Simple logo maker. hatchful.shopify.com
+- **Professional design** — When they're ready to invest (~$200–$2,000 range):
+  - **99designs by Vistaprint** — Design contests and 1:1 projects. 99designs.com
+  - **Local graphic designer** — Ask at the Chamber of Commerce, SBDC, or community college design program. Supporting local is on-brand.
+  - **Fiverr / Upwork** — Budget option. Quality varies — review portfolios carefully.
+- **Brand colors and fonts** — Canva's brand kit tool can help choose a palette. During `/design-interview`, the agent will set up CSS custom properties for colors and typography.
+
 ### Online presence basics
 
 - **Google Business Profile** — Free. Claim it as soon as the business has a name, phone number, and either an address or service area. business.google.com

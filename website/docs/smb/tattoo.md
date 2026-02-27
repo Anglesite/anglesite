@@ -36,6 +36,10 @@ Covers: tattoo shops, piercing studios, permanent makeup/microblading, body art 
 
 Healed tattoo spotlights, style explainers ("what is American Traditional?"), aftercare tips, guest artist announcements, convention appearances, cover-up transformations, piercing jewelry spotlights, tattoo history and culture, "what to expect at your first tattoo" guides, seasonal flash events, studio renovations, artist interviews, myth-busting ("does it really hurt that much?").
 
+## Key dates
+
+- **National Tattoo Day** (Jul 17) — Flash events, artist spotlights, tattoo stories, walk-in specials.
+
 ## Structured data
 
 Use `TattooParlor` (schema.org) with:

@@ -35,6 +35,11 @@ Covers: residential cleaning (housekeeping, maid service), commercial/janitorial
 
 Cleaning tips and hacks, seasonal deep-clean reminders, product recommendations, "what's included" breakdowns, before/after photos, team spotlights, green cleaning explainers, move-in/move-out checklists, home maintenance tips, myth-busting ("do you really need to clean your oven that often?").
 
+## Key dates
+
+- **National Cleaning Week** (last week Mar) — Spring cleaning promotions, deep-clean packages, tips content.
+- **Spring Cleaning Month** (Apr) — Extended spring cleaning content and booking push.
+
 ## Structured data
 
 Use `HousekeepingService` or `ProfessionalService` with:

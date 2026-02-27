@@ -54,15 +54,23 @@ The syndication URLs render as `u-syndication` links in the `h-entry` markup, co
 
 ### Where to share
 
-Help the owner identify where their customers already are:
-- **Facebook** — Still dominant for local businesses, events, community groups. Share blog post link with a short teaser and photo.
-- **Instagram** — Visual businesses (restaurants, florists, tattoo, photography, makers). Post the photo with a caption that says "link in bio" pointing to the website.
-- **Nextdoor** — Hyperlocal. Great for trades, cleaning, pet services, childcare, repair shops. Share a helpful tip with a link to the full article.
-- **Google Business Profile** — Post updates directly. Helps local search ranking. Link to the website.
-- **LinkedIn** — Professional services, accounting, insurance, B2B. Share expertise posts with a link.
-- **TikTok / YouTube** — If the owner creates video content. The website hosts the permanent version; social gets the clip.
+Every community is different. Some towns live on Nextdoor, others on Facebook groups, others on Yelp. Don't assume — help the owner figure out where *their* customers actually are. Ask:
 
-The owner doesn't need to be on every platform. Pick 1–2 where their customers actually are.
+- "Where do people in your area talk about local businesses?" (Facebook groups, Nextdoor, Yelp, Reddit, community forums)
+- "Where do your competitors show up?" (Check their social profiles, review sites, directory listings)
+- "Where have you gotten word-of-mouth so far?" (If they're already hearing "I found you on Yelp," lean into that)
+
+Common platforms and when they're strongest:
+- **Facebook** — Dominant for local businesses, events, and community groups in many areas. Some communities have active "buy local" or neighborhood groups that are the real discovery channel.
+- **Instagram** — Visual businesses (restaurants, florists, tattoo, photography, makers). Stronger in urban and suburban areas.
+- **Nextdoor** — Hyperlocal. Strong in suburban residential areas for trades, cleaning, pet services, childcare, repair shops.
+- **Yelp** — Still the first search for restaurants, salons, repair, and services in many West Coast and urban markets. Less dominant elsewhere but still matters for reviews.
+- **Google Business Profile** — Universal. Post updates directly. Helps local search ranking. Every business should claim this.
+- **LinkedIn** — Professional services, accounting, insurance, B2B. Stronger for client-based businesses than consumer retail.
+- **TikTok / YouTube** — If the owner creates video content. The website hosts the permanent version; social gets the clip.
+- **Community-specific** — Local forums, town Facebook groups, church bulletins, library bulletin boards, community newsletters. These aren't "social media" but they're where people find businesses.
+
+The owner doesn't need to be on every platform. Pick 1–2 where their customers already are. Revisit after 3 months — if a platform isn't driving website visits, drop it and try another.
 
 ## What to post about
 
@@ -75,26 +83,12 @@ Not everything has to be a long blog post. Mix formats:
 - **Blog posts** — Longer, evergreen content. Tips, guides, how-tos, explainers. Great for search traffic. Published on the website, shared everywhere.
 - **Photo posts** — Before/after shots, new products, behind the scenes, event photos. Quick to create, highly shareable. Post the photo on the website with a caption, then share on social.
 - **Announcements** — New hours, new services, holiday closures, event dates. Short and factual. Post on the website first so there's a permanent link, then share on social.
-- **Seasonal/timely** — Holiday specials, seasonal tips, weather-related advice. Plan these ahead — they're predictable and high-traffic.
+- **Seasonal/timely** — Holiday specials, seasonal tips, weather-related advice. Plan these ahead — they're predictable and high-traffic. See `docs/smb/seasonal-calendar.md` for month-by-month hooks by business type.
 - **Customer stories** — Testimonials, case studies, "before and after" features (with permission). The most persuasive content there is.
 
 ### Ideas by business type
 
-**Restaurant** — New menu items, seasonal specials, behind-the-scenes photos, event announcements, chef spotlights, community involvement.
-
-**Retail** — New products, restocks, sale announcements, how-to guides for products, customer stories, local event participation.
-
-**Legal / professional services** — Answers to common client questions, explainers on legal topics, case study summaries (anonymized), team updates, community involvement.
-
-**Farm / CSA** — What's in season, harvest updates, farm life photos, subscription info, recipes using farm products, market schedule.
-
-**Artist / maker** — New work, process photos, commission availability, exhibition announcements, inspiration and influences, behind-the-scenes.
-
-**Content creator / influencer** — Behind-the-scenes of content creation, brand partnership announcements, personal takes on industry trends, audience Q&A recaps, event appearances, product reviews (owned, not just on social), collaboration highlights, media kit updates.
-
-**Service business** — Tips related to the service, client success stories, process explanations, availability updates, FAQ answers, industry news.
-
-For all other business types, check `docs/smb/` — each file has a "Content ideas" section with industry-specific suggestions.
+Every SMB file in `docs/smb/` has a "Content ideas" section with industry-specific suggestions. Read the file matching the owner's `BUSINESS_TYPE` from `.site-config` and use those ideas as starting points.
 
 ### Frequency
 

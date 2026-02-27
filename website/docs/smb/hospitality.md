@@ -33,6 +33,11 @@ Covers: bed & breakfasts, boutique hotels, small independent hotels, vacation re
 
 Seasonal guide to the area ("fall foliage," "summer activities"), local restaurant and attraction recommendations, guest stories and experiences, behind-the-scenes of hosting, event recaps, "what to pack" guides for the area, holiday specials and packages, local history or fun facts.
 
+## Key dates
+
+- **National Travel and Tourism Week** (1st full week May) — Area spotlights, travel tips, booking specials.
+- **National B&B Day** (Oct 1) — Property features, host stories, fall getaway promotions.
+
 ## Structured data
 
 Use `LodgingBusiness` (or `BedAndBreakfast`, `Hotel`, `Hostel`) with:

@@ -34,6 +34,11 @@ Covers: dry cleaners, laundromats (self-service), wash-and-fold services, laundr
 
 Garment care tips, stain removal guides, "what those laundry symbols mean," seasonal wardrobe care (winter coat cleaning, summer whites), eco-friendly cleaning explainers, behind-the-scenes of the cleaning process, alterations tips, wedding dress preservation guide, "what to do before you donate clothes."
 
+## Key dates
+
+- **National Laundry Day** (Apr 15) — Promotions, fabric care tips, service spotlights.
+- **Clean Out Your Closet Week** (varies) — Seasonal wardrobe transitions, donation drives, cleaning specials.
+
 ## Structured data
 
 Use `DryCleaningOrLaundry` (schema.org) with:

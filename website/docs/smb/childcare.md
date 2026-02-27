@@ -38,6 +38,12 @@ Covers: daycare centers, preschools, in-home daycare, after-school programs, Mon
 
 Developmental milestones, parenting tips, activity ideas for home, curriculum highlights, staff spotlights, holiday event recaps, enrollment open dates, summer program announcements, community partnership features, nutrition and meal planning, seasonal crafts and learning activities.
 
+## Key dates
+
+- **Week of the Young Child** (Apr) — NAEYC-sponsored. Activities, parent engagement, curriculum highlights.
+- **Provider Appreciation Day** (Fri before Mother's Day) — Staff spotlights, parent thank-you campaigns.
+- **Child Care Aware Month** (varies) — Awareness of childcare access and quality. Community engagement.
+
 ## Structured data
 
 Use `ChildCare` (schema.org) with:

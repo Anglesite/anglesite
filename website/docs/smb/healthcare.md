@@ -31,6 +31,13 @@ Covers: chiropractors, dentists, therapists (physical, occupational, mental heal
 
 Seasonal health tips, "what to expect" guides for common procedures, provider spotlights, office news, community health events, answers to frequently asked questions (great for SEO), new service announcements.
 
+## Key dates
+
+- **American Heart Month** (Feb) — Heart health screenings, wellness tips, preventive care content.
+- **Mental Health Month** (May) — Resource guides, destigmatization content, community support.
+- **National Immunization Awareness Month** (Aug) — Back-to-school vaccines, flu shot prep, preventive care.
+- **Breast Cancer Awareness Month** (Oct) — Screening reminders, early detection education, community walks.
+
 ## Structured data
 
 Use `MedicalBusiness` (or more specific: `Dentist`, `Optician`, `Physician`, `VeterinaryCare`) with:

@@ -43,6 +43,12 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 
 Season recaps and highlights, player/participant spotlights (with parental consent), volunteer and coach appreciation, registration reminders and deadlines, fundraiser announcements, scholarship recipient stories (anonymized or with consent), community event participation, facility improvement updates, safety tip articles, "what to expect" guides for new families.
 
+## Key dates
+
+- **National Mentoring Month** (Jan) — Mentor recruitment, impact stories, program spotlights.
+- **Scouting Anniversary Week** (Feb) — For scout organizations. History, community service, membership drives.
+- **National Youth Sports Safety Month** (Apr) — Safety education, equipment checks, coaching resources.
+
 ## Structured data
 
 Use `SportsOrganization` or `NGO` with:

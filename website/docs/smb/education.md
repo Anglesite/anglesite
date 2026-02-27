@@ -35,6 +35,12 @@ Covers: private tutors, music teachers, driving schools, test prep, language sch
 
 Study tips and learning strategies, subject-specific guides ("how to prepare for the SAT"), student success stories (with permission), parent resources, seasonal posts ("back to school prep"), new program announcements, teacher spotlights, educational news relevant to your subject area.
 
+## Key dates
+
+- **Read Across America Day** (Mar 2) — Literacy activities, reading challenges, community events.
+- **Teacher Appreciation Week** (1st full week May) — Thank-you campaigns, teacher spotlights, referral promotions.
+- **National Tutoring Week** (Oct) — Success stories, new student specials, parent resources.
+
 ## Structured data
 
 Use `EducationalOrganization` or `School` with:

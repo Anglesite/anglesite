@@ -35,6 +35,12 @@ Covers: independent insurance agents, captive agents (State Farm, Allstate, Farm
 
 Seasonal risk tips (winter driving, hurricane prep, wildfire defense), "do I need umbrella insurance?" explainers, home inventory guides, coverage gap warnings, local weather/risk alerts, life event coverage reviews (new baby, new home, retirement), small business insurance guides, teen driver tips, claim process walkthroughs, carrier spotlight posts, community sponsorship recaps.
 
+## Key dates
+
+- **Financial Literacy Month** (Apr) — Insurance education, coverage review reminders, "are you underinsured?" content.
+- **National Insurance Awareness Day** (Jun 28) — Coverage checkup promotions, policy review offers.
+- **National Preparedness Month** (Sep) — Disaster insurance, emergency planning, flood/hurricane coverage.
+
 ## Structured data
 
 Use `InsuranceAgency` (schema.org) with:

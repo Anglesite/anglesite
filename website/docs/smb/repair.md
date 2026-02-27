@@ -38,6 +38,11 @@ Covers: auto repair, auto body/collision, computer/phone/electronics repair, app
 
 Repair tips and maintenance guides ("how to extend your phone battery life," "when to change your oil"), before-and-after photo features, Right to Repair news and advocacy, "repair vs. replace" decision guides, common problem explainers, seasonal maintenance reminders (winterize your car, spring appliance checkup), customer save stories ("they said it was dead, we brought it back"), new capability announcements, tool and parts spotlights.
 
+## Key dates
+
+- **International Repair Day** (3rd Sat Oct) — Repair culture, sustainability messaging, special offers, "repair don't replace" content.
+- **Right to Repair** advocacy days (varies) — If relevant to the shop. Consumer rights, repairability, community education.
+
 ## Structured data
 
 Use `LocalBusiness` with a more specific type if available (`AutoRepair`, `AutoBodyShop`, `ElectronicsRepair` — note: not all repair types have schema.org subtypes):

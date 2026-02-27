@@ -39,6 +39,12 @@ Covers: credit unions, community development financial institutions (CDFIs), len
 
 Rate change announcements, financial literacy tips (budgeting, credit building, home buying), community event sponsorships and recaps, member spotlights (with consent), new product or service announcements, scholarship recipient features, fraud and scam alerts, holiday closures, annual meeting announcements, "why credit unions are different" explainers, youth savings program updates, partnership announcements with local organizations.
 
+## Key dates
+
+- **America Saves Week** (Feb) — Savings challenges, financial goal-setting, account promotions.
+- **National Financial Literacy Month** (Apr) — Educational workshops, youth programs, budgeting resources.
+- **International Credit Union Day** (3rd Thu Oct) — Member appreciation, community impact stories, the credit union difference.
+
 ## Structured data
 
 Use `CreditUnion` with:

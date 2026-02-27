@@ -39,6 +39,12 @@ Covers: RV parks, campgrounds, glamping sites, tent-only campgrounds, seasonal/l
 
 Seasonal activity guides, local trail and fishing reports, campground improvement updates (new sites, new amenities), wildlife spotlights, camping tips for beginners, "what to pack" checklists, event recaps (potlucks, movie nights, holiday weekends), fire safety reminders, seasonal opening/closing announcements, pet-friendly camping tips, star-gazing guides, local attraction features, long-term camper community features, history of the area.
 
+## Key dates
+
+- **National Park Week** (3rd week Apr) — Outdoor recreation promotion, nature programming, early season specials.
+- **National Camping Month** (Jun) — First-time camper promotions, family packages, "learn to camp" events.
+- **Great American Campout** (Jun) — National participation event. Social media engagement, community camping nights.
+
 ## Structured data
 
 Use `Campground` (schema.org) with:

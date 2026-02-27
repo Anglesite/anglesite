@@ -37,6 +37,13 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 
 New animal arrivals, adoption success stories (the #1 engagement driver), volunteer spotlights, foster family features, "pet of the week" features, seasonal safety tips (heatstroke, fireworks anxiety, antifreeze), spay/neuter awareness, fundraiser announcements, "wish list" updates, community cat program updates, lost-and-found alerts.
 
+## Key dates
+
+- **Spay/Neuter Awareness Month** (Feb) — Low-cost clinic promotions, education on benefits.
+- **National Pet Day** (Apr 11) — Adoption spotlights, foster stories, volunteer appreciation.
+- **Adopt a Shelter Pet Month** (Oct) — Adoption fee specials, success stories, available animals push.
+- **National Animal Shelter Appreciation Week** (1st week Nov) — Volunteer recognition, impact numbers, donation drives.
+
 ## Structured data
 
 Use `NGO` with:

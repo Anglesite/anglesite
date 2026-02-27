@@ -39,6 +39,12 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 
 Impact stories (anonymized or with explicit consent — never pressure clients), program milestone announcements ("we housed 50 families this year"), volunteer spotlights, donor recognition, awareness month features (Hunger and Homelessness Awareness Week, DV Awareness Month), policy and advocacy updates, community resource roundups, staff spotlights, fundraiser announcements and recaps.
 
+## Key dates
+
+- **Social Work Month** (Mar) — Staff spotlights, impact stories, advocacy, volunteer appreciation.
+- **Domestic Violence Awareness Month** (Oct) — Resource sharing, awareness campaigns, community partnerships.
+- **Hunger and Homelessness Awareness Week** (Nov) — Fundraising push, volunteer drives, media outreach.
+
 ## Structured data
 
 Use `NGO` with:

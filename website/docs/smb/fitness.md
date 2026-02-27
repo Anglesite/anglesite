@@ -31,6 +31,12 @@ Covers: gyms, yoga studios, Pilates, martial arts schools, dance studios, CrossF
 
 Weekly or monthly class schedule highlights, new class announcements, instructor spotlights, member transformation stories (with consent), wellness tips (nutrition, recovery, mobility), workshop or special event announcements, seasonal challenges ("30-day challenge"), community event participation.
 
+## Key dates
+
+- **National Physical Fitness & Sports Month** (May) — Community fitness challenges, open house events, new member specials.
+- **Global Running Day** (1st Wed Jun) — Group runs, couch-to-5K starts, running club promotions.
+- **National Yoga Month** (Sep) — Free introductory classes, yoga challenges, wellness workshops.
+
 ## Structured data
 
 Use `SportsActivityLocation` or `ExerciseGym` with:

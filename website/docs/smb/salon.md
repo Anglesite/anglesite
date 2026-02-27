@@ -31,6 +31,12 @@ Covers: hair salons, barbershops, nail salons, spas, aestheticians, lash/brow st
 
 Style transformations with before/after photos (with client consent), seasonal trend posts, product recommendations, stylist spotlights, "how to maintain your [service] at home" guides, new service announcements, behind-the-scenes of the studio.
 
+## Key dates
+
+- **National Hairstylist Day** (Apr 30) — Stylist spotlights, team appreciation, behind-the-chair content.
+- **National Nail Tech Day** (1st Sun May) — Nail art showcases, technician features.
+- **National Barber Day** (Sep 16) — For barbershops. History, community role, style spotlights.
+
 ## Structured data
 
 Use `BeautySalon`, `BarberShop`, or `HealthAndBeautyBusiness` with:

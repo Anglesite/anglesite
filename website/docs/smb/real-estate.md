@@ -29,6 +29,11 @@ Covers: real estate agents, brokerages, property management companies.
 
 Monthly market reports for the service area, neighborhood spotlight posts, home maintenance tips by season, "what to expect" guides for buying/selling, open house announcements, client success stories, local business features (builds community ties).
 
+## Key dates
+
+- **National Homeownership Month** (Jun) — First-time buyer resources, homeownership stories, market updates.
+- **National Open House Weekend** (varies) — Listing push, open house events, buyer education.
+
 ## Structured data
 
 Use `RealEstateAgent` with:

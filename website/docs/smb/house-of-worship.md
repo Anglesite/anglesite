@@ -37,6 +37,18 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 
 Weekly devotionals or reflections, event announcements, sermon summaries or follow-up discussion questions, volunteer spotlights, outreach project updates, seasonal content (Advent, Lent, Ramadan, High Holidays), new member welcomes, community service recaps, "meet our staff" series.
 
+## Key dates
+
+Varies by faith tradition. Major observances the agent should surface:
+- **Christian**: Advent/Christmas, Lent/Easter, Pentecost
+- **Jewish**: Rosh Hashanah, Yom Kippur, Hanukkah, Passover, Sukkot
+- **Muslim**: Ramadan, Eid al-Fitr, Eid al-Adha
+- **Hindu**: Diwali, Holi, Navratri
+- **Buddhist**: Vesak, Bodhi Day
+- **Interfaith**: National Day of Prayer (1st Thu May), Interfaith Harmony Week (1st week Feb)
+
+Post service times, special programming, and community events well in advance.
+
 ## Structured data
 
 Use `Church` (or `Mosque`, `Synagogue`, `HinduTemple`, `BuddhistTemple`) with:

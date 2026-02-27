@@ -33,6 +33,13 @@ Covers: flower shops, floral design studios, wedding/event florists, plant shops
 
 Seasonal arrangement spotlights, flower care tips ("how to make your bouquet last"), behind-the-scenes of event setups, "flower of the month," sourcing stories (local farm partnerships), wedding trend recaps, sympathy etiquette guides, houseplant care, DIY arrangement tutorials, holiday ordering deadlines.
 
+## Key dates
+
+- **Valentine's Day** (Feb 14) — #1 revenue day. Pre-orders, delivery schedules, arrangement showcases. Lead time: 3 weeks.
+- **National Floral Design Day** (Feb 28) — Behind-the-scenes, designer spotlights, arrangement process content.
+- **Mother's Day** (2nd Sun May) — #2 revenue day. Pre-order push, gift guides, delivery planning. Lead time: 3 weeks.
+- **Petal It Forward** (3rd Wed Oct) — SAF-sponsored. Give flowers to strangers, community goodwill, social media engagement.
+
 ## Structured data
 
 Use `Florist` (schema.org) with:

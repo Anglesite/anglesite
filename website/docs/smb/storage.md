@@ -34,6 +34,11 @@ Covers: self-storage units, climate-controlled storage, vehicle/boat/RV storage,
 
 Packing and organization tips, "what size storage unit do I need?" guides, moving checklists, seasonal storage tips (holiday decorations, winter gear), business storage use cases, climate control explainers, security feature spotlights, local moving guides, decluttering advice, "how to prepare items for long-term storage."
 
+## Key dates
+
+- **National Organize Your Home Day** (Jan 14) — Decluttering tips, storage solutions, "start fresh" promotions.
+- **National Moving Month** (Jun) — Moving tips, storage unit specials, packing resources.
+
 ## Structured data
 
 Use `SelfStorage` (schema.org) with:

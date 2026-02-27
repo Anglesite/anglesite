@@ -32,6 +32,13 @@ Covers: dog grooming, pet boarding/kennels, dog walking, pet sitting, dog traini
 
 Pet of the month/week, grooming tips by breed, training tips for common behavioral issues, seasonal pet safety (heatstroke, holiday hazards, winter paw care), facility updates, staff spotlights, vaccination reminder posts, fun pet photos.
 
+## Key dates
+
+- **Responsible Pet Owners Month** (Feb) — Pet care tips, wellness resources, training spotlights.
+- **National Pet Day** (Apr 11) — Client pet features, photo contests, special treats.
+- **National Dog Day** (Aug 26) — Dog-focused promotions, adoption partnerships, social media engagement.
+- **National Cat Day** (Oct 29) — Cat-focused content, cat boarding/grooming specials.
+
 ## Structured data
 
 Use `LocalBusiness` with:

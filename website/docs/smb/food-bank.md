@@ -35,6 +35,12 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 
 Impact numbers ("this month we served X families"), food drive announcements and results, volunteer spotlights, partner agency features, seasonal needs ("holiday meal program"), recipes using common pantry items, SNAP/benefits enrollment info, community garden updates, donor recognition (with permission), behind-the-scenes of operations.
 
+## Key dates
+
+- **National Food Bank Day** (1st Fri Sep) — Volunteer drives, impact stories, donation campaigns.
+- **Hunger Action Month** (Sep) — Awareness content, advocacy, community events, food drive coordination.
+- **Hunger and Homelessness Awareness Week** (week before Thanksgiving) — Intensified fundraising, media outreach, volunteer recruitment.
+
 ## Structured data
 
 Use `NGO` with:

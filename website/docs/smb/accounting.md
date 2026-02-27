@@ -35,6 +35,12 @@ Covers: CPA firms, bookkeeping services, tax preparation (seasonal and year-roun
 
 Tax deadline reminders, "documents you need for your tax appointment" checklists, tax law change summaries (annual), deduction guides by profession, estimated tax payment reminders (quarterly), "should I itemize?" explainers, small business tax tips, retirement contribution deadline reminders, IRS notice explainers, year-end tax planning strategies, "new client" walkthroughs.
 
+## Key dates
+
+- **Tax Day** (Apr 15) — The biggest day. "Last chance" content, extension reminders, "what if you missed it" posts.
+- **Estimated tax deadlines** (Apr 15, Jun 15, Sep 15, Jan 15) — Quarterly reminders for self-employed clients.
+- **Financial Literacy Month** (Apr) — Educational content, budgeting tips, tax planning basics.
+
 ## Structured data
 
 Use `AccountingService` (schema.org) with:
