@@ -29,6 +29,7 @@ These files are reference material for the agent, not user-facing documentation.
 | [creator.md](creator.md) | Bloggers, YouTubers, podcasters, streamers, newsletter writers |
 | [credit-union.md](credit-union.md) | Credit unions, CDFIs, cooperative banks |
 | [education.md](education.md) | Tutors, music teachers, driving schools, test prep |
+| [event-venue.md](event-venue.md) | Barn venues, estate venues, garden venues, retreat centers, event spaces |
 | [farm.md](farm.md) | Farm, CSA, market garden, u-pick, farm stand |
 | [fitness.md](fitness.md) | Gyms, yoga studios, martial arts, personal training |
 | [florist.md](florist.md) | Flower shops, floral design, wedding/event florists, plant shops |
@@ -49,7 +50,9 @@ These files are reference material for the agent, not user-facing documentation.
 | [photography.md](photography.md) | Photographers, videographers |
 | [real-estate.md](real-estate.md) | Real estate agents, property management |
 | [repair.md](repair.md) | Auto, electronics, appliance, bicycle, cobbler, tailor, any repair shop |
-| [restaurant.md](restaurant.md) | Restaurants, cafés, bakeries, food trucks, catering |
+| [food-truck.md](food-truck.md) | Food trucks, food carts, pop-ups, mobile food vendors |
+| [restaurant.md](restaurant.md) | Restaurants, cafés, bakeries, catering, cottage food |
+| [roadside-attraction.md](roadside-attraction.md) | Roadside attractions, novelty museums, curiosity stops, tourist landmarks |
 | [retail.md](retail.md) | Gift shops, boutiques, clothing, toys, antiques, thrift, specialty |
 | [salon.md](salon.md) | Hair salons, spas, barbers, beauty services |
 | [service.md](service.md) | Consultants, coaches, freelancers, event planners, general services |

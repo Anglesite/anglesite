@@ -30,6 +30,10 @@ Ask:
    - "We're a church that also runs a food pantry" → `house-of-worship`, `food-bank`
    - "I bake from home and sell at the farmers market" → `restaurant` (cottage food), `farm`
    - "I'm a freelance photographer" → `photography`
+   - "I have a food truck" → `food-truck`
+   - "We rent out our barn for weddings" → `event-venue`
+   - "I have 20 acres and want to start something" → start with `pre-launch.md`, discuss options, then assign type(s)
+   - "I'm a roadside attraction — giant ball of twine" → `hospitality` or `museum` depending on the experience
 
    If the description spans multiple types, ask which activity is the primary one. Save all types comma-separated, primary first. See `docs/smb/multi-mode.md` for how to merge guidance.
 

@@ -1,6 +1,6 @@
 # Hospitality & Tourism
 
-Covers: bed & breakfasts, boutique hotels, small independent hotels, vacation rentals, tour operators, travel guides, event venues. See also [campground.md](campground.md) for RV parks and campgrounds.
+Covers: bed & breakfasts, boutique hotels, small independent hotels, vacation rentals, tour operators, travel guides. See also [campground.md](campground.md) for RV parks and campgrounds, and [event-venue.md](event-venue.md) for barn venues, estate venues, and dedicated event spaces.
 
 ## Pages
 

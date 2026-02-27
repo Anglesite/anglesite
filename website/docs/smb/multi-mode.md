@@ -65,6 +65,7 @@ Or use separate JSON-LD blocks on relevant pages — farm schema on the home pag
 
 The most interesting content often comes from the intersection of modes:
 
+- Farm+event venue: "Our barn in every season" photo series, wedding features on the farm
 - Farm+hospitality: "A weekend on the farm" guest experience posts
 - Church+food bank: impact stories connecting both missions
 - Bookshop+theater: event previews that cross both worlds
@@ -85,7 +86,7 @@ These combinations appear frequently. The agent should recognize them:
 
 | Pattern | Primary | Secondary | Key consideration |
 |---|---|---|---|
-| **Agritourism** | Farm | Hospitality | Separate booking for farm activities vs. lodging. Agritourism liability statutes. |
+| **Agritourism** | Farm | Hospitality, Event venue | Separate booking for farm activities vs. lodging vs. events. Agritourism liability statutes. Zoning check required for each activity type. |
 | **Farm-to-table** | Farm | Restaurant | Menu changes seasonally. Content connects plate to field. |
 | **Farm + retail** | Farm | Retail | Farm stand or on-farm shop. Square POS for both. |
 | **Church + food bank** | House of worship | Food bank | Separate "get food" page from worship info. Different audiences. |
@@ -98,6 +99,9 @@ These combinations appear frequently. The agent should recognize them:
 | **Food as craft** | Artist/maker | Restaurant | Custom decorated cookies, cake design, artisan chocolate, bread art. Portfolio organized by occasion, not a restaurant menu. Custom order workflow, not catering. If baking from home, cottage food compliance (see restaurant.md), not health department permits. |
 | **Maker + marketplace** | Artist/maker | Retail | Sells on Etsy/Faire plus own website. Website is home base for custom orders and repeat customers; marketplace is for discovery. See marketplace integration in artist.md. |
 | **Retail + maker** | Retail | Artist/maker | Shop page doubles as portfolio. Commission and custom order process. |
+| **Farm + event venue** | Farm | Event venue | Zoning is critical — agricultural zoning may not permit commercial events. Agritourism statutes may help. Separate booking for farm activities vs. venue rental. |
+| **Farm + hospitality** | Farm | Hospitality | Separate booking for farm activities vs. lodging. Agritourism liability statutes. |
+| **Property + mixed use** | Varies | Varies | Landowner with multiple uses (events, lodging, farm, campground). Primary type is whatever drives the most revenue. Zoning review essential — different uses may require different permits. |
 | **Fitness + wellness** | Fitness | Healthcare | Practitioner bios need credentials. Waivers for both fitness and treatment. |
 | **Hospitality + restaurant** | Hospitality | Restaurant | Menu page, reservation system. Guests vs. walk-in diners. |
 | **Nonprofit + retail** | Any nonprofit | Retail | Thrift stores, museum gift shops, shelter resale. Revenue supports mission. |

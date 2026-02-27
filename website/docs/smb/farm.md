@@ -1,6 +1,6 @@
 # Farm & CSA
 
-Covers: small farms, CSA (community-supported agriculture) programs, market gardens, u-pick operations, homesteads with direct sales, farm stands, flower farms.
+Covers: small farms, CSA (community-supported agriculture) programs, market gardens, u-pick operations, homesteads with direct sales, farm stands, flower farms, maple sugaring, Christmas tree farms, forest product operations. See also [event-venue.md](event-venue.md) for farms that host events, and [hospitality.md](hospitality.md) for farms with lodging.
 
 
 ## Pages
@@ -11,7 +11,8 @@ Covers: small farms, CSA (community-supported agriculture) programs, market gard
 - **About** — The farmers, the land, the story, farming philosophy. People buy from farms they feel connected to.
 - **Where to find us** — Farmers markets (days, locations, hours), retail partners, restaurants that carry your products
 - **Blog** — Farm updates, what's in season, recipes, behind-the-scenes
-- **Events** — Farm dinners, tours, workshops, u-pick days, seasonal festivals
+- **Events** — Farm dinners, tours, workshops, u-pick days, seasonal festivals. If events are a major revenue stream, consider the full event-venue treatment — see [event-venue.md](event-venue.md).
+- **Forest products** — If applicable: maple syrup (grades, sizes, bulk pricing, sugaring season dates), Christmas trees (varieties, choose-and-cut vs. pre-cut, hours during season), firewood (species, cord pricing, delivery area), mushrooms, wreaths, woodland crafts. These are often seasonal — the page should be clear about availability and pre-ordering.
 - **Contact** — Phone, email, directions to the farm (many farms are hard to find — include landmarks)
 
 ## Tools
@@ -31,11 +32,14 @@ Covers: small farms, CSA (community-supported agriculture) programs, market gard
 - **Raw milk**: Heavily regulated and illegal to sell in many states. If the farm sells raw milk where legal, note the state's specific requirements and display required disclaimers.
 - **Pesticide disclosure**: Some states require disclosure of pesticide use. Even without a legal requirement, transparency builds trust — note growing practices on the website.
 - **Food safety (FSMA)**: The FDA's Food Safety Modernization Act exempts most small farms selling direct to consumers, but farms selling to retailers or institutions may need a food safety plan. Not a website concern, but worth noting during `/setup-customers` if the farm sells wholesale.
-- **Liability for u-pick and farm visits**: If the public visits the farm, note any agritourism liability protections (many states have agritourism statutes) and display safety rules for visitors.
+- **Liability for u-pick and farm visits**: If the public visits the farm, note any agritourism liability protections (many states have agritourism statutes) and display safety rules for visitors. Agritourism liability waivers are common but enforceability varies — consult an attorney. Post visitor rules prominently: closed-toe shoes, supervised children, stay on paths, no dogs near livestock.
+- **Zoning and land use**: Agricultural zoning may not permit commercial activities beyond farming (events, retail shops, lodging). Check with the town or county planning office before building pages for non-agricultural activities. A special use permit or variance may be needed. This is the #1 surprise for farms adding tourism or events.
+- **Insurance for visitor access**: Standard farm insurance may not cover public visitors. Agritourism riders, event liability coverage, and umbrella policies are worth discussing with an insurance agent. If hosting events, see [event-venue.md](event-venue.md) compliance for additional requirements.
+- **State agricultural resources**: Every state has a Cooperative Extension Service (through land-grant universities) offering free advice on production, marketing, food safety, and regulations. Many states also have product-specific associations (maple producers, Christmas tree growers, farmers market associations) with marketing support, shared labeling, and group insurance. Search "[state] cooperative extension" and "[state] [product] association."
 
 ## Content ideas
 
-Weekly harvest updates ("what's in the box this week"), seasonal planting and harvest photos, recipes using farm products, behind-the-scenes of farm life (people love this), farmers market schedule and what to expect, CSA sign-up reminders before the season, crop profiles ("why we grow this variety"), farm event announcements, preservation and storage tips, collaborations with local chefs or restaurants, end-of-season wrap-ups, winter planning posts.
+Weekly harvest updates ("what's in the box this week"), seasonal planting and harvest photos, recipes using farm products, behind-the-scenes of farm life (people love this), farmers market schedule and what to expect, CSA sign-up reminders before the season, crop profiles ("why we grow this variety"), farm event announcements, preservation and storage tips, collaborations with local chefs or restaurants, end-of-season wrap-ups, winter planning posts, sugaring season updates (sap run reports, boiling photos, yield), Christmas tree farm prep and opening day, firewood stacking and delivery, forest walk and wildlife photos.
 
 ## Key dates
 
@@ -55,5 +59,5 @@ Use `LocalBusiness` with `additionalType` of `https://schema.org/Farm` (or just 
 ## Data tracking
 
 - **Members:** Name, Email, Phone, Share Size, Pickup Location, Season, Status (Active/Waitlist/Past), Payment Status, Notes
-- **Products:** Name, Category (Vegetable/Fruit/Herb/Flower/Value-Added), Season, Status (Available/Coming Soon/Done), Notes
+- **Products:** Name, Category (Vegetable/Fruit/Herb/Flower/Value-Added/Forest/Maple), Season, Status (Available/Coming Soon/Done), Notes
 - **Markets:** Name, Day, Location, Hours, Season, Notes

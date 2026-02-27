@@ -1,6 +1,6 @@
 # Restaurant & Food Business
 
-Covers: restaurants, cafés, coffee shops, bakeries, food trucks, catering, delis, ice cream shops, juice bars, home bakers, cottage food businesses.
+Covers: restaurants, cafés, coffee shops, bakeries, catering, delis, ice cream shops, juice bars, home bakers, cottage food businesses. See also [food-truck.md](food-truck.md) for food trucks and mobile food vendors — their discovery model is fundamentally different (schedule-driven, not address-driven).
 
 ## Pages
 

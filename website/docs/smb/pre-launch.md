@@ -1,18 +1,25 @@
 # Pre-Launch Businesses
 
-Not every owner who runs `/start` has an established business. Some are just getting started — they might not have a name, a license, or even a clear plan yet. The website is their first step. That's fine. Meet them where they are.
+Not every owner who runs `/start` has a fully established business. Some are just getting started — they might not have a name, a license, or even a clear plan yet. Others have formed the business but aren't ready for a full website — they have a name and maybe a license, but no hours, no full product list, or no storefront yet. Either way, the website is a great next step. Meet them where they are.
 
 ## How to detect a pre-launch business
 
 Listen for clues during Step 1 of `/start`:
 
+**Not yet started:**
 - "I'm still figuring out the name"
 - "I haven't officially started yet"
-- "I don't have customers yet"
 - "I'm thinking about starting a..."
 - "I just have an idea right now"
 - No business phone, no address, no hours
-- Answers to "how do customers find you?" are blank or aspirational
+
+**Started but not ready for a full site:**
+- "I have the LLC but I'm not open yet"
+- "I'm still setting up the space"
+- "I have some customers but it's mostly word of mouth"
+- "I'm selling on Etsy/at markets but don't have a website"
+- Has a business name and maybe a license, but missing hours, full product list, physical location, or consistent schedule
+- Answers to "how do customers find you?" are limited to one channel (social, markets, referrals)
 
 Don't press for details they don't have. A website doesn't require a business license. Build what they have now and tell them the site will grow with them.
 
@@ -23,16 +30,41 @@ Don't press for details they don't have. A website doesn't require a business li
 - Skip questions they can't answer yet (address, phone, hours). These can be added later.
 - For `BUSINESS_TYPE`, use their best description. If they're unsure, use `service` as a default — it's the most flexible.
 - For goals, listen for pre-launch signals: "build credibility," "look professional," "have something to share," "test the idea." These are different from "get phone calls" or "book appointments."
+- For partially formed businesses, goals sound different: "get customers beyond word of mouth," "look more official," "stop relying on just Instagram." These owners need a real site, just not a maxed-out one.
 
 ### During design
 
 - Keep the site simple. Home page, about page, contact page, blog. Don't create pages for services or products they haven't defined yet.
+- For partially formed businesses, build the pages they can fill now and stub the ones they can't. A services page with three items is fine — it doesn't need to be exhaustive. A "coming soon" section is better than a missing page.
 - The about page is the most important page for a new business. It answers "who is this person and why should I trust them?"
 - A blog is especially valuable for new businesses — it builds search presence before the business has customers to generate word-of-mouth.
 
 ### After setup
 
 Share relevant resources from the list below. Don't dump the entire list — pick 2–3 that match their situation.
+
+## Starting from what you have
+
+Some people start from a skill, others from a place. Both paths need different resources.
+
+### "I have a hobby — can I sell this?"
+
+The transition from hobby to business is common for makers, bakers, artists, photographers, fitness instructors, and anyone who's been doing something for free and wonders if people would pay. Key resources:
+
+- **SCORE mentors** — Free 1:1 advice from experienced business owners. The first question to work through: "Is there a market for this?" score.org
+- **Cottage food laws** — Home bakers and food makers: search "[state] cottage food law" to learn what you can legally sell from home without a commercial kitchen. See [restaurant.md](restaurant.md) compliance section for details.
+- **Marketplace testing** — Before building a full business, test demand on Etsy, at a farmers market, or through social media. If people buy, you have a business. The website comes when you're ready to own the customer relationship. See [artist.md](artist.md) marketplace integration section.
+- **Pricing guidance** — SCORE and SBDCs can help with pricing. Common mistake: pricing based on materials cost without accounting for labor, overhead, or market rates.
+
+### "I have property — what business could I start?"
+
+Land is an asset, but the business depends on the land, the location, the zoning, and the owner. Anglesite helps build the website — it doesn't tell you what business to start. But these resources can:
+
+- **Cooperative Extension Service** — Every state has one (through land-grant universities). Free advice on agriculture, forestry, land management, and rural business. Search "[state] cooperative extension."
+- **USDA resources** — Beginning farmer programs, rural business grants, conservation programs. Search "USDA beginning farmers" or visit farmers.gov.
+- **Zoning office** — Before planning any commercial use (events, retail, lodging), check with the town or county planning office. Agricultural and residential zoning may not permit it. This is the first call to make.
+- **State agritourism resources** — Many states actively support agritourism (farm stays, events, u-pick) with guides, liability protections, and marketing programs. Search "[state] agritourism."
+- **Common paths from property**: farm or market garden → [farm.md](farm.md), event venue → [event-venue.md](event-venue.md), campground or glamping → [campground.md](campground.md), B&B or vacation rental → [hospitality.md](hospitality.md), Christmas tree farm or maple → [farm.md](farm.md). Many properties support multiple uses — see [multi-mode.md](multi-mode.md).
 
 ## Free resources for new business owners
 

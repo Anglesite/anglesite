@@ -88,6 +88,29 @@ Not everything has to be a long blog post. Mix formats:
 - **Seasonal/timely** — Holiday specials, seasonal tips, weather-related advice. Plan these ahead — they're predictable and high-traffic. See `docs/smb/seasonal-calendar.md` for month-by-month hooks by business type.
 - **Customer stories** — Testimonials, case studies, "before and after" features (with permission). The most persuasive content there is.
 
+### Podcast and video as marketing
+
+A business doesn't need to be a "content creator" to use audio and video. Many small businesses benefit from podcast appearances, video content, or even hosting their own show — not as their product, but as their marketing. This is different from being a creator (see [creator.md](smb/creator.md) for businesses where content IS the product).
+
+**When podcast/video makes sense for a non-creator business:**
+- Professional services (accounting, legal, healthcare, insurance) — Expert positioning. A monthly podcast or YouTube series answering common questions builds trust and search presence. "Ask a [profession]" format works.
+- Trades and repair — Process videos (how we fixed this, what we found, why this matters) drive discovery. YouTube is the second-largest search engine — people search "how to fix [thing]" and find the business.
+- Restaurants and food businesses — Recipe videos, cooking process, plating, behind-the-counter. TikTok and Reels are primary discovery. See [restaurant.md](smb/restaurant.md) content ideas.
+- Farms and makers — Process and craft videos (harvest, production, making). Visual and satisfying content that builds connection.
+- Real estate — Property walkthroughs, neighborhood guides, market updates. Video IS the listing now.
+- Fitness — Workout clips, form demonstrations, nutrition tips. Drives class bookings.
+
+**How the website supports it:**
+- Each video or podcast episode becomes a blog post on the website (embedded player + show notes or description). This is the canonical home — social platforms are distribution.
+- Episode archive page if producing a series. Organized by topic, not just chronologically.
+- RSS feed for podcast distribution (the website can host this; see creator.md for hosting tools).
+- Transcripts improve SEO dramatically — search engines can't watch videos but can read transcripts.
+
+**What to tell the owner during `/start`:**
+- Ask: "Do you create any video or audio content — even casually?" If yes, plan the site to feature it.
+- If they're interested but haven't started: a smartphone, natural light, and a quiet room is enough. Don't let equipment be a barrier. Start with one short video or appear as a guest on someone else's podcast.
+- If they're already producing content on social but not on their website: that's the #1 quick win. Embed existing content in blog posts. The content already exists — it just needs a permanent home.
+
 ### Ideas by business type
 
 Every SMB file in `docs/smb/` has a "Content ideas" section with industry-specific suggestions. Read the file matching the owner's `BUSINESS_TYPE` from `.site-config` and use those ideas as starting points.
@@ -95,6 +118,19 @@ Every SMB file in `docs/smb/` has a "Content ideas" section with industry-specif
 ### Frequency
 
 Aim for 1–4 posts per month. Consistency matters more than frequency. One good post a month beats four rushed ones. Social shares can happen more often — reshare older blog posts, post quick photos, respond to community events.
+
+## Off-season strategy
+
+Many businesses are seasonal — farms, campgrounds, event venues, food trucks, Christmas tree farms, tourist-area businesses. The website shouldn't go dark when the business does. An off-season website that's clearly dormant looks abandoned to search engines and potential customers.
+
+What to do during the off-season:
+
+- **Keep the site alive.** Update the home page to reflect the current state: "We're closed for the season — see you in May!" with a mailing list signup or pre-order form. Don't just leave last summer's content as-is.
+- **Mailing list signup.** The off-season is the best time to capture future customers: "Sign up to know when we open" or "Get first pick of 2027 CSA shares." A simple email form is the highest-value off-season feature.
+- **Off-season content.** Behind-the-scenes posts (barn renovation, new plantings, recipe testing), planning and preparation stories, "what we learned this year" wrap-ups. This keeps the blog active and maintains search ranking.
+- **Pre-season ordering.** CSA signups, event venue availability for next year, campground reservations. Many seasonal businesses book months ahead — the website should support that year-round.
+- **Seasonal homepage rotation.** If the business has a strong seasonal cycle, plan 2–4 homepage variations per year. During `/design-interview`, ask: "What does your business look like in each season?" and plan content accordingly.
+- **Update key dates.** Before the new season, update hours, pricing, availability, and any seasonal pages. Don't make customers wonder if last year's info is still current.
 
 ## Why each page matters
 
