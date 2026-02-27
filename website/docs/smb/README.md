@@ -48,6 +48,10 @@ These have full coverage in `/start`, `/design-interview`, `/setup-customers`, a
 | [government.md](government.md) | Small towns, counties, special districts (water, fire, library, parks) |
 | [credit-union.md](credit-union.md) | Credit unions, CDFIs, cooperative banks |
 
+## Pre-launch businesses
+
+Not every owner has an established business. Some are just starting out — no name, no customers, just an idea. See [pre-launch.md](pre-launch.md) for how to adjust `/start`, what to build (simple site, about page, blog), and free resources to share (SBA, SCORE, SBDCs, state registration, EIN).
+
 ## Multi-mode businesses
 
 Most businesses span multiple types. See [multi-mode.md](multi-mode.md) for how to identify, merge, and structure guidance when a business has more than one mode (e.g., farm+hospitality, church+food bank). Key rules:

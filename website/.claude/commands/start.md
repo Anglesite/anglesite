@@ -27,6 +27,8 @@ Ask:
    - Other (ask them to describe it — then check `docs/smb/` for specialty guidance)
 
    Many businesses span multiple types ("we're a farm but we also rent cabins"). If the owner describes more than one activity, ask which is the primary one. Save all types comma-separated, primary first. See `docs/smb/multi-mode.md` for how to merge guidance across types.
+
+   If the owner is still forming their business — no name yet, no customers, just an idea — that's fine. Read `docs/smb/pre-launch.md` for how to adjust the session. Build a simple site with what they have now and share relevant startup resources at the end.
 4. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
 5. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
 6. If the business has a physical location, ask:
