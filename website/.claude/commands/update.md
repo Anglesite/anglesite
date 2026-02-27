@@ -12,7 +12,7 @@ Update dependencies and resolve security issues.
    - Try `npm audit fix` first
    - For remaining issues, evaluate severity and explain options
 5. Commit: `git add -A && git commit -m "Update dependencies: $(date '+%Y-%m-%d')"`
-6. Ask Julia if she wants to deploy
+6. Ask if they want to deploy
 
 ## Important: Keep docs in sync
 

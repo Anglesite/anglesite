@@ -7,8 +7,8 @@ Run a full health check on the site. Group results by severity.
 - [ ] Images have alt text and are reasonably sized (<500KB)
 
 ## Privacy audit
-- [ ] No member PII in `dist/` (emails, phone numbers, names)
-- [ ] No member PII in git staging area
+- [ ] No customer PII in `dist/` (emails, phone numbers, names)
+- [ ] No customer PII in git staging area
 - [ ] `.env` files not tracked by git
 - [ ] No API tokens or secrets in source or built files
 

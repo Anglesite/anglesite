@@ -11,8 +11,8 @@ Create a new page on the site.
    - SEO (title, meta description, OG tags)
    - Matches the brand from `docs/brand.md`
 5. Add navigation link if appropriate
-6. Preview with Julia on the dev server
-7. Ask if she wants to publish
+6. Preview on the dev server
+7. Ask if they want to publish
 
 ## Important: Keep docs in sync
 
