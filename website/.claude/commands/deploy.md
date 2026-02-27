@@ -175,7 +175,19 @@ Tell the owner: "Your website is now live at your custom domain! SSL is handled 
 
 Suggest: "Now that you have a custom domain, you can set up a business email address (like you@yourdomain.com) by running `/setup-email`."
 
-## Step 6 — Commit
+## Step 6 — First deploy: Show analytics
+
+Tell the owner: "Cloudflare automatically tracks how many people visit your site — no cookies, completely private. You can check anytime."
+
+```sh
+open https://dash.cloudflare.com/?to=/:account/web-analytics
+```
+
+Explain what they'll see: page views, visitor count, where visitors come from (Google, social media, direct links), and which pages get the most traffic. Suggest checking monthly.
+
+Remind them of the goals they shared during `/start`: "You said you wanted [goal]. Once you've been live for a few weeks, check analytics to see if visitors are finding the pages that matter — like your [menu/services/portfolio] page."
+
+## Step 7 — Commit
 
 ```sh
 git add -A

@@ -42,6 +42,33 @@ Publish On (own) Site, Syndicate Elsewhere:
 
 The syndication URLs render as `u-syndication` links in the `h-entry` markup, connecting the original post to its copies.
 
+## What to write about
+
+Content brings people to the site. Help the owner think about what their customers want to know.
+
+**Restaurant** — New menu items, seasonal specials, behind-the-scenes photos, event announcements, chef spotlights, community involvement.
+
+**Retail** — New products, restocks, sale announcements, how-to guides for products, customer stories, local event participation.
+
+**Legal / professional services** — Answers to common client questions, explainers on legal topics, case study summaries (anonymized), team updates, community involvement.
+
+**Farm / CSA** — What's in season, harvest updates, farm life photos, subscription info, recipes using farm products, market schedule.
+
+**Artist / maker** — New work, process photos, commission availability, exhibition announcements, inspiration and influences, behind-the-scenes.
+
+**Service business** — Tips related to the service, client success stories, process explanations, availability updates, FAQ answers, industry news.
+
+Aim for 1–4 posts per month. Consistency matters more than frequency. One good post a month beats four rushed ones.
+
+## Why each page matters
+
+- **Home** — First impression. Should answer: who are you, what do you do, why should I care?
+- **About** — Builds trust. Search engines reward sites with clear identity.
+- **Blog** — Brings search traffic. Write about problems your customers have.
+- **Service/product pages** — What search engines look for when someone searches "restaurant near me" or "family lawyer in [city]."
+- **Contact** — Make it easy. Phone, email, location, hours. Don't hide it.
+- **Testimonials** — Social proof. Real quotes from real customers.
+
 ## Blog archive
 
 The blog listing page (`/blog/`) shows only posts from the last 30 days, newest first. Older posts move to `/blog/archive/`. This keeps the main page fresh without deleting content.

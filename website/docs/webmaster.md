@@ -34,3 +34,32 @@
 ### iCloud
 22. `.nosync` symlinks intact for heavy directories
 23. No large unnecessary files syncing to iCloud
+
+## What the owner can do without a developer
+
+- **Write and edit blog posts** — Keystatic at `localhost:4321/keystatic` while the preview is running
+- **Publish changes** — Type `/deploy`
+- **Check site health** — Type `/check`
+- **Draft emails** — Type `/draft-email`
+- **Fix problems** — Type `/fix` (diagnoses and repairs common issues)
+
+Everything else (new pages, design changes, custom features) the webmaster handles through conversation.
+
+## Accessibility is not optional
+
+The site must be usable by people with disabilities. This is legally required in many jurisdictions (ADA in the US, EAA in the EU) and it's the right thing to do. The `/check` and `/deploy` commands enforce WCAG AA compliance. Never skip these checks.
+
+## Maintenance schedule
+
+**Monthly**
+- Run `/check` to verify site health
+- Glance at Cloudflare Analytics — are visitors finding the site?
+
+**Quarterly**
+- Run `/update` to get security patches and dependency updates
+- Review blog posts — is the content still accurate and relevant?
+
+**Annually**
+- Renew domain registration (Cloudflare sends email reminders)
+- Verify iCloud+ subscription is active
+- Consider refreshing the design if the brand has evolved

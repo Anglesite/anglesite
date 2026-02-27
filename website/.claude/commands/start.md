@@ -24,6 +24,8 @@ Ask:
    - Artist, maker, or craftsperson
    - Service business (consulting, coaching, trades, etc.)
    - Other (ask them to describe it)
+4. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
+5. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
 
 Save answers to `.site-config`:
 
@@ -119,7 +121,26 @@ Ask: "What do you think? Want to change anything?"
 
 If they want changes, make them now. If they want to redo the whole design later, they can run `/design-interview`.
 
-## Step 7 — Next steps
+## Step 7 — What this costs
+
+Be upfront about costs: "Before we go further, here's what running your website costs:"
+
+- **Hosting** — Free (Cloudflare Pages)
+- **Domain name** — ~$10–15/year if you buy one (or free with the .pages.dev address)
+- **Email** — Included if you already have iCloud+ (most Mac users do)
+- **Everything else** — Free. You own the code, the domain, and all your data.
+
+## Step 8 — What you learned
+
+Summarize what the owner now knows:
+
+- Their website is running on their computer (the preview)
+- They can write and edit blog posts using Keystatic (the visual editor in the preview)
+- Changes go live with `/deploy`
+- Their files are backed up automatically in iCloud and git
+- They own everything — code, domain, content. No lock-in.
+
+## Step 9 — Next steps
 
 Tell the owner what they can do now:
 
