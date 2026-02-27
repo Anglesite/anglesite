@@ -178,6 +178,7 @@ Tell the owner what they can do now:
 - **`/deploy`** — when ready to put the site on the internet (walks through Cloudflare account, domain purchase or transfer, and publishing)
 - **Edit posts** — navigate to `localhost:4321/keystatic` in the preview panel to write blog posts using the visual editor
 - **`/setup-customers`** — set up customer or client management
+- **`/domain`** — manage DNS records (email, Bluesky verification, and more) — available after deploying with a custom domain
 
 No rush to publish. They can edit and preview locally as long as they like.
 

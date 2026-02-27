@@ -65,6 +65,7 @@ The start command introduces your webmaster, learns about your business, designs
 | `/new-page` | Create a new page with SEO and accessibility |
 | `/setup` | Reinstall tools and dependencies |
 | `/setup-customers` | Set up customer/client management (recommends industry tools) |
+| `/domain` | Manage DNS records (email, Bluesky verification, etc.) |
 
 ## Project structure
 
