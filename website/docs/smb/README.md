@@ -26,7 +26,14 @@ These have full coverage in `/start`, `/design-interview`, `/setup-customers`, a
 |---|---|
 | [healthcare.md](healthcare.md) | Healthcare, wellness, therapy, dental, veterinary |
 | [real-estate.md](real-estate.md) | Real estate agents, property management |
-| [nonprofit.md](nonprofit.md) | Nonprofits, churches, community organizations |
+| [nonprofit.md](nonprofit.md) | Nonprofit overview — shared traits, then see sub-types: |
+| [house-of-worship.md](house-of-worship.md) | Churches, synagogues, mosques, temples |
+| [food-bank.md](food-bank.md) | Food banks, pantries, meal programs |
+| [animal-shelter.md](animal-shelter.md) | Animal shelters, rescues, humane societies |
+| [museum.md](museum.md) | Art, history, science, and children's museums |
+| [youth-org.md](youth-org.md) | Youth sports, scouts, after-school, mentoring |
+| [community-theater.md](community-theater.md) | Theater companies, orchestras, dance, arts councils |
+| [social-services.md](social-services.md) | Shelters, crisis centers, housing, job training |
 | [fitness.md](fitness.md) | Gyms, yoga studios, martial arts, personal training |
 | [salon.md](salon.md) | Hair salons, spas, barbers, beauty services |
 | [trades.md](trades.md) | Contractors, plumbers, electricians, HVAC, landscaping |
