@@ -2,11 +2,16 @@
 
 ## Approach
 
-This scaffold recommends industry-specific tools over generic databases. The `/setup-customers` command guides the site owner through choosing the right tool for their business type.
+The `/setup-customers` command first asks what the owner already uses. If an existing tool is working, we integrate it with the website rather than replacing it.
 
-Purpose-built tools (Square, Shopify, Clio, etc.) handle payments, inventory, scheduling, and other domain-specific needs out of the box. They cost more per month but require far less maintenance than a custom database.
+When recommending new tools, we apply the SaaS selection criteria:
+1. **Tool reduction** — Use what they already have before adding vendors
+2. **Open source** — Prefer open-source solutions (Monica CRM, CiviCRM, Cal.com, Open Food Network)
+3. **Free or affordable** — Free tiers and low-cost plans over expensive subscriptions
+4. **Values-aligned** — Co-ops, B-Corps, nonprofits preferred (e.g., Clio is a certified B-Corp)
+5. **Ease of use** — A tool the owner will actually use beats a philosophically perfect one they won't
 
-Airtable is the fallback for businesses that don't fit a specific category, want to stay on a free tier, or prefer full control over their data structure.
+Airtable is the general-purpose fallback — not open source, but free tier is generous and it's flexible enough for any business type.
 
 ## Configuration
 

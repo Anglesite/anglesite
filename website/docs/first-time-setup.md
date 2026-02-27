@@ -11,7 +11,7 @@ Business name, type, and owner name. Then tools (fnm, Node, Git), dependencies, 
 Conversational intake tailored to the business type. Results saved to `docs/brand.md`. CSS updated. Pages created based on business needs. Can happen same day or later.
 
 ### Phase 3: `/setup-customers` — Customer management (optional, ~10 minutes)
-Recommends industry-specific tools first (Square, Shopify, Clio, etc.). Falls back to Airtable only if no better option exists. Can happen anytime.
+Asks what the owner already uses, then recommends tools using the SaaS criteria (tool reduction, open source, affordable, values-aligned, ease of use). Can happen anytime.
 
 ## Detection
 

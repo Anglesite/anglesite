@@ -52,7 +52,7 @@ Posts with `draft: true` are excluded from both pages in production builds.
 
 ## Customer management
 
-Configured via `/setup-customers`, which recommends industry-specific tools (Square, Shopify, Clio, etc.) before falling back to Airtable. See `docs/customers.md`.
+Configured via `/setup-customers`. Asks what the owner already uses first, then recommends tools following the SaaS criteria (tool reduction, open source, affordable, values-aligned, ease of use). See `docs/customers.md`.
 
 ## Email
 

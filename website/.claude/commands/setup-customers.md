@@ -6,60 +6,66 @@ Read `.site-config` for `BUSINESS_TYPE` and `SITE_NAME` before starting.
 
 Before every step that requires the owner to do something, explain what they're doing and why in plain English.
 
-## Step 1 — Recommend industry-specific tools
+## Step 1 — Ask what they already use
 
-Based on `BUSINESS_TYPE`, recommend purpose-built tools first. These are almost always better than a generic database — they're designed for the business, handle payments, and require less maintenance.
+Before recommending anything, ask: "What do you currently use to keep track of customers or clients? That could be a spreadsheet, an app, a notebook — anything."
 
-### Restaurant / food business
-- **Square** (free POS, online ordering, marketing) — square.com
-- **Toast** (restaurant-specific POS) — toasttab.com
-- **OpenTable** (reservations) — restaurant.opentable.com
+If they already have a tool that's working, don't replace it. Help them integrate it with the website (link to their booking page, online store, etc.) and skip to Step 3.
 
-Typical setup: Square for payments + online ordering. OpenTable if reservations matter. Cost: Square is free (2.6% per transaction). Toast starts at $0/month.
+If they don't have anything or want to switch, continue to Step 2.
 
-### Retail shop
-- **Square** (free POS, inventory, online store) — square.com
-- **Shopify** (online store + POS) — shopify.com ($39/month)
-- **Etsy** (marketplace, good for handmade/vintage) — etsy.com
+## Step 2 — Recommend tools using the SaaS criteria
 
-Typical setup: Square if mostly in-person. Shopify if online sales matter. Cost: Square is free; Shopify starts at $39/mo.
+Present options honestly with tradeoffs. Apply the SaaS criteria from the philosophy: tool reduction (use what they have), open source, free/affordable, values-aligned organizations (co-ops, B-Corps, nonprofits), ease of use.
 
-### Legal / professional services
-- **Clio** (practice management, billing, client portal) — clio.com
-- **MyCase** (case management + payments) — mycase.com
-- **LawPay** (legal payment processing) — lawpay.com
+Ask about their budget and comfort level before listing options.
 
-Typical setup: Clio Manage + Clio Grow. Cost: starts ~$49/user/mo.
+### Open-source and values-aligned options (all business types)
 
-### Farm / CSA
-- **Local Line** (online farm store, CSA management) — localline.ca
-- **Harvie** (CSA share customization) — harvie.farm
-- **Farmigo** (CSA + farmers market management) — farmigo.com
+- **Monica CRM** (open source, self-hostable, free) — Personal relationship manager. Good for service businesses and small client lists. monicahq.com
+- **CiviCRM** (open source, nonprofit-backed) — Full CRM for contacts, memberships, events. More complex but very capable. civicrm.org
+- **Airtable** (free tier, proprietary) — Flexible database. Good fallback when nothing else fits. Not open source but generous free tier. airtable.com
 
-Typical setup: Local Line for online sales and CSA subscriptions. Cost: starts ~$75/mo. Airtable is a good free/cheap fallback for small operations (<30 members).
+### Industry-specific options
 
-### Artist / maker / craftsperson
-- **Etsy** (marketplace) — etsy.com
-- **Big Cartel** (simple online store) — bigcartel.com (free for 5 products)
-- **Ko-fi** (commissions, memberships) — ko-fi.com
+Based on `BUSINESS_TYPE`, mention relevant tools. Be transparent about tradeoffs — note cost, whether it's open source or proprietary, whether it adds a new vendor, and how easy it is to get started:
 
-Typical setup: Etsy for discovery + own website for brand. Cost: Etsy listing fee $0.20 + 6.5% transaction fee.
+**Restaurant / food business**
+- **Square** (free POS, 2.6% per transaction, proprietary) — Payments, online ordering, marketing. Free tier is generous and easy to use.
+- For reservations: consider whether the owner actually needs reservation software, or if a phone number and email work fine.
 
-### Service business (consulting, coaching, trades)
-- **HoneyBook** (proposals, contracts, invoicing) — honeybook.com
-- **Dubsado** (CRM, workflows, scheduling) — dubsado.com
-- **Calendly** (scheduling) — calendly.com (free tier available)
+**Retail shop**
+- **Square** (free POS, proprietary) — Good for in-person and simple online sales.
+- **WooCommerce** (open source, self-hosted) — Full online store. More setup but no monthly fees.
+- **Shopify** ($39/mo, proprietary) — Polished but expensive. Only if WooCommerce is too complex and they need a full e-commerce platform.
 
-Typical setup: HoneyBook or Dubsado for client management. Calendly for scheduling. Cost: ~$19–35/mo.
+**Legal / professional services**
+- **Monica CRM** (open source, free) — Client relationship tracking.
+- **Clio** (~$49/user/mo, proprietary, certified B-Corp) — Practice management with billing. Expensive but purpose-built. B-Corp status is a plus.
 
-### Generic / other
-- **Google Workspace** (email, contacts, docs) — workspace.google.com
-- **Airtable** (flexible database) — airtable.com (free tier)
-- **Notion** (docs + light database) — notion.so (free tier)
+**Farm / CSA**
+- **Open Food Network** (open source, nonprofit) — Built for farms, food hubs, and CSAs. Community-run. openfoodnetwork.org
+- **Local Line** (~$75/mo, proprietary) — Farm-specific online store and CSA management.
+- Airtable is a good free fallback for small operations (<30 members).
 
-Present the recommendations for their business type. Explain the tradeoffs: cost per month, ease of use, what it handles that a spreadsheet doesn't. Ask: "Would any of these work for you, or would you rather we set up something simple ourselves?"
+**Artist / maker / craftsperson**
+- **Big Cartel** (free for 5 products, proprietary) — Simple online store for makers.
+- **Ko-fi** (free, no fees on donations) — Commissions, memberships, shop. Indie-friendly.
+- **Etsy** (listing fee + 6.5% transaction fee) — Marketplace for discovery. Use alongside own website, not instead of it.
 
-## Step 2 — If they choose an external tool
+**Service business (consulting, coaching, trades)**
+- **Monica CRM** (open source, free) — Client relationship tracking.
+- **Cal.com** (open source, free tier) — Scheduling. Self-hostable alternative to Calendly.
+- **HoneyBook** (~$19/mo) or **Dubsado** (~$20/mo) — Full client management with contracts and invoicing. Proprietary but polished.
+
+**Generic / other**
+- **Monica CRM** (open source, free) — Contacts and relationship tracking.
+- **Airtable** (free tier, proprietary) — Flexible database for anything.
+- **Cal.com** (open source, free tier) — If they need scheduling.
+
+Ask: "Would any of these work for you, or would you rather we set up something simple ourselves?"
+
+## Step 3 — If they choose an external tool
 
 Help them sign up and note it in `.site-config`:
 
@@ -73,7 +79,7 @@ Update `docs/customers.md` noting which tool they chose and how it integrates wi
 
 Done. No Airtable needed.
 
-## Step 3 — If they want Airtable (fallback)
+## Step 4 — If they want Airtable (fallback)
 
 Only proceed here if:
 - They explicitly want Airtable, OR

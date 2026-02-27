@@ -16,8 +16,9 @@ Tailor your questions to the business type. Cover these topics naturally (not ne
    - Farm: what we grow, subscriptions, blog, events
    - Artist/maker: portfolio, about, commissions, shop
    - Service: services, about, testimonials, contact, booking
-7. **Social & community** — Which platforms? How do they talk about the business there?
-8. **Inspiration** — Any websites they like the look of?
+7. **Social & community** — Which platforms? How do they talk about the business there? Add `rel="me"` links to their profiles for IndieWeb identity verification.
+8. **Accessibility** — Does their audience include people with specific accessibility needs? (Regardless: WCAG AA is the baseline — good contrast, readable fonts, semantic structure.)
+9. **Inspiration** — Any websites they like the look of?
 
 Ask one topic at a time. Listen, reflect, then move on.
 
@@ -25,11 +26,14 @@ Ask one topic at a time. Listen, reflect, then move on.
 
 1. Save the results to `docs/brand.md` with all their answers and your design decisions
 2. Update CSS custom properties in `src/styles/global.css` (colors, fonts, spacing)
-3. Update the favicon (`public/favicon.svg`) to match the identity
-4. Build a styled home page that reflects the brand and business type
-5. Create pages based on the content priorities discussion
-6. Update `keystatic.config.ts` tags to match the business
-7. Show the owner the result and iterate until they approve
+3. Verify color contrast meets WCAG AA (4.5:1 for body text, 3:1 for large text)
+4. Update the favicon (`public/favicon.svg`) to match the identity
+5. Build a styled home page that reflects the brand and business type
+6. Add `rel="me"` links to social profiles in the site footer or about page
+7. Ensure the `h-card` in the site header has the business name, URL, and location if relevant
+8. Create pages based on the content priorities discussion
+9. Update `keystatic.config.ts` tags to match the business
+10. Show the owner the result and iterate until they approve
 
 **Don't publish until they approve.** This is their business's face to the world.
 
