@@ -1,0 +1,87 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection, render } from "astro:content";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("posts", ({ data }) => {
+    return import.meta.env.PROD ? !data.draft : true;
+  });
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: post.data.title,
+  description: post.data.description,
+  datePublished: post.data.publishDate.toISOString(),
+  ...(post.data.image && {
+    image: new URL(post.data.image, Astro.site).toString(),
+  }),
+};
+---
+
+<BaseLayout
+  title={post.data.title}
+  description={post.data.description}
+  image={post.data.image}
+  jsonLd={articleJsonLd}
+>
+  <article class="h-entry">
+    <h1 class="p-name">{post.data.title}</h1>
+    <time
+      class="dt-published"
+      datetime={post.data.publishDate.toISOString()}
+    >
+      {post.data.publishDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}
+    </time>
+
+    {
+      post.data.image && (
+        <img
+          src={post.data.image}
+          alt={post.data.imageAlt || ""}
+          class="u-photo"
+        />
+      )
+    }
+
+    <div class="e-content">
+      <Content />
+    </div>
+
+    {
+      post.data.tags.length > 0 && (
+        <ul class="tags">
+          {post.data.tags.map((tag) => (
+            <li class="p-category">{tag}</li>
+          ))}
+        </ul>
+      )
+    }
+
+    {
+      post.data.syndication.length > 0 && (
+        <ul class="syndication">
+          {post.data.syndication.map((url) => (
+            <li>
+              <a href={url} class="u-syndication" rel="syndication">
+                {new URL(url).hostname}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </article>
+</BaseLayout>

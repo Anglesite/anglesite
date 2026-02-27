@@ -12,6 +12,7 @@
   "dependencies": {
     "@astrojs/markdoc": "0.14.0",
     "@astrojs/react": "4.2.1",
+    "@astrojs/rss": "^4.0.0",
     "@astrojs/sitemap": "3.3.1",
     "@keystatic/astro": "5.0.6",
     "@keystatic/core": "0.5.47",
