@@ -59,6 +59,7 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] `robots.txt` blocks `/keystatic/`
 - [ ] No `.env` files in `dist/` or `public/`
 - [ ] `npm audit` — check for known vulnerabilities
+- [ ] Images in `public/images/` checked for EXIF GPS data (see `docs/security.md`)
 
 ## Content and SEO
 - [ ] Every page has a unique `<title>` and `<meta name="description">`

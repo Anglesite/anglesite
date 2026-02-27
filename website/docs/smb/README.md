@@ -71,6 +71,7 @@ These files apply across business types. Read them alongside the type-specific f
 | [seasonal-calendar.md](seasonal-calendar.md) | Month-by-month marketing hooks with `types:` tags. Use during content planning. |
 | [consumer-checklist.md](consumer-checklist.md) | Details consumers expect (payment methods, parking, walk-in policy, etc.). Apply during `/design-interview`. |
 | [legal-checklist.md](legal-checklist.md) | Website legal requirements (privacy policy, copyright, accessibility, disclaimers). Apply during `/design-interview`. |
+| [../security.md](../security.md) | Contact form security, privacy by design, owner account security, incident response. |
 | [multi-mode.md](multi-mode.md) | How to merge guidance when a business spans multiple types. |
 | [pre-launch.md](pre-launch.md) | Adjustments for businesses that haven't launched yet. |
 

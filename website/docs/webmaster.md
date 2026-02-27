@@ -31,6 +31,8 @@
 20. `.env` files gitignored and not tracked
 21. Docs updated to reflect configuration changes
 22. Privacy policy, copyright notice, and accessibility statement present (see `docs/smb/legal-checklist.md`)
+23. Contact form has honeypot field and submission handler (see `docs/security.md`)
+24. Images stripped of EXIF metadata before publishing (see `docs/security.md`)
 
 ### iCloud
 22. `.nosync` symlinks intact for heavy directories
