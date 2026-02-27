@@ -66,6 +66,8 @@ Common platforms and when they're strongest:
 - **Nextdoor** — Hyperlocal. Strong in suburban residential areas for trades, cleaning, pet services, childcare, repair shops.
 - **Yelp** — Still the first search for restaurants, salons, repair, and services in many West Coast and urban markets. Less dominant elsewhere but still matters for reviews.
 - **Google Business Profile** — Universal. Post updates directly. Helps local search ranking. Every business should claim this.
+- **Apple Business Connect** — Claim the business on Apple Maps. Half of US smartphone users are on iPhone — if the business isn't on Apple Maps, those customers can't find it. See `docs/webmaster.md` → Map listings.
+- **OpenStreetMap** — Open data powering DuckDuckGo, Bing, and many navigation apps. Add or correct the business listing for free.
 - **LinkedIn** — Professional services, accounting, insurance, B2B. Stronger for client-based businesses than consumer retail.
 - **TikTok / YouTube** — If the owner creates video content. The website hosts the permanent version; social gets the clip.
 - **Community-specific** — Local forums, town Facebook groups, church bulletins, library bulletin boards, community newsletters. These aren't "social media" but they're where people find businesses.

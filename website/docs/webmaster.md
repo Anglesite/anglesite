@@ -67,17 +67,27 @@ The site must be usable by people with disabilities. This is legally required in
 
 For businesses with a physical location:
 
-### Google Business Profile
-Suggest the owner claim or create their Google Business Profile at https://business.google.com. This is free and helps the business appear in Google Maps and local search results.
+### NAP consistency
 
-Key details to keep consistent everywhere (website, Google Business Profile, social media, directories):
+Key details must be consistent everywhere (website, map listings, social media, directories):
 - **N**ame — exact business name
 - **A**ddress — exact street address
 - **P**hone — primary phone number
 
-This is called NAP consistency. Search engines use it to verify the business is legitimate.
+Search engines cross-reference these to verify the business is legitimate. Inconsistencies (abbreviations, old phone numbers, wrong suite number) hurt rankings.
+
+### Map listings
+
+Customers find local businesses through maps. Each platform draws from different audiences — claim all three:
+
+- **Google Business Profile** — business.google.com. Free. Powers Google Maps and "near me" searches. The most impactful listing for most businesses. Post updates, add photos, respond to reviews.
+- **Apple Business Connect** — businessconnect.apple.com. Free. Powers Apple Maps results on iPhone, iPad, Mac, Siri, and CarPlay. iPhone users are roughly half the US market — if the business isn't on Apple Maps, it's invisible to those customers. Claim the listing and verify hours, photos, and categories.
+- **OpenStreetMap** — openstreetmap.org. Community-maintained, open data. Powers many apps and services (DuckDuckGo, Bing Maps, many in-car systems, hiking/cycling apps). Anyone can add or edit a business. Search for the business — if it's missing or wrong, edit it. No account required for small edits; create a free account for ongoing updates.
+
+Ask the owner: "Have you claimed your business on Google Maps, Apple Maps, and OpenStreetMap?" Most know about Google but haven't heard of Apple Business Connect.
 
 ### Structured data
+
 The home page includes JSON-LD structured data (`LocalBusiness` or `Organization` schema) with the business name, address, phone, and hours. This helps search engines understand the business and display rich results.
 
 Update the JSON-LD whenever the business info changes (new phone number, new hours, new address). Test with Google's Rich Results Test: https://search.google.com/test/rich-results

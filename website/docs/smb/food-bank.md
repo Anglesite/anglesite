@@ -22,7 +22,7 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **Pantry Soft** (~$50/mo, proprietary) — Food pantry management. Inventory, clients, volunteers, reporting. pantrysoft.com
 - **SignUpGenius** (free tier, proprietary) — Volunteer shift scheduling. Simple and well-known. signupgenius.com
 - **GiveButter** (free, tips-based) — Fundraising pages with built-in donor management.
-- **Google Maps embed** — Critical for distribution locations. Embed a map on the "get food" page.
+- **Map embed** — Critical for distribution locations. Embed OpenStreetMap (privacy-friendly, no third-party JS) or link to Google Maps, Apple Maps, and OpenStreetMap on the "get food" page.
 
 ## Compliance
 

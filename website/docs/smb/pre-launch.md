@@ -78,7 +78,10 @@ Share relevant resources from the list below. Don't dump the entire list — pic
 
 ### Online presence basics
 
-- **Google Business Profile** — Free. Claim it as soon as the business has a name, phone number, and either an address or service area. business.google.com
+- **Map listings** — Claim the business on all three as soon as it has a name, phone, and address or service area:
+  - **Google Business Profile** — business.google.com. Powers Google Maps and local search.
+  - **Apple Business Connect** — businessconnect.apple.com. Powers Apple Maps on iPhone, iPad, Siri, CarPlay.
+  - **OpenStreetMap** — openstreetmap.org. Open data used by DuckDuckGo, Bing, and many apps.
 - **Domain name** — Can buy one during `/deploy` even before the business is officially registered. The domain doesn't need to match the legal business name.
 - **Social media** — Claim the business name on relevant platforms before someone else does. Even if inactive, it reserves the name.
 

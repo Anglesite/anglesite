@@ -33,9 +33,11 @@ This file supplements the individual SMB docs. The SMB doc says *which pages to 
 
 Beyond the street address: "Free parking behind the building," "metered street parking on Main St," "we're in Suite 204 — take the elevator," "look for the blue awning." Businesses in strip malls, shared buildings, downtown areas, or non-obvious locations lose customers who can't find them or don't know where to park.
 
+Embed a map on the contact or location page. Use OpenStreetMap (privacy-friendly, no third-party JS) or link to all three platforms so the customer can use their preferred app: Google Maps, Apple Maps, or OpenStreetMap. See `docs/webmaster.md` → Map listings for how to claim the business on each.
+
 **Where to add:** Hours/Location page, or a "Getting here" section on the Contact page.
 
-**Ask the owner:** "Is your business easy to find? Is parking available? Any tips for first-time visitors?"
+**Ask the owner:** "Is your business easy to find? Is parking available? Any tips for first-time visitors? Have you claimed your business on Google Maps, Apple Maps, and OpenStreetMap?"
 
 ---
 
