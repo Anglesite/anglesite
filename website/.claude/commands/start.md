@@ -18,7 +18,7 @@ Ask:
 2. "What's the name of your business?"
 3. "Tell me about your business in a sentence or two — what do you do?"
 
-   Let them describe it in their own words. Don't offer categories or a multiple-choice list — just listen. Then match their description to one or more files in `docs/smb/`. Check the table in `docs/smb/README.md` for all 42+ types.
+   Let them describe it in their own words. Don't offer categories or a multiple-choice list — just listen. Then match their description to one or more files in `docs/smb/`. Check the "Business types" table in `docs/smb/README.md` for all types — you only need the table for type matching, not the cross-cutting references or other sections.
 
    Examples of how to map natural descriptions:
 

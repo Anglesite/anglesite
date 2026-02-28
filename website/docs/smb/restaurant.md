@@ -43,7 +43,7 @@ New menu items, seasonal specials, behind-the-scenes photos, event announcements
 
 ## Key dates
 
-No single industry awareness day dominates — restaurant hooks are spread throughout the year. The big revenue dates are Valentine's Day dinner (Feb 14), Mother's Day brunch (2nd Sun May), and holiday catering season (Nov–Dec). See `seasonal-calendar.md` for month-by-month hooks tagged `types: restaurant`.
+No single industry awareness day dominates — restaurant hooks are spread throughout the year. The big revenue dates are Valentine's Day dinner (Feb 14), Mother's Day brunch (2nd Sun May), and holiday catering season (Nov–Dec). See `seasonal-calendar/` for month-by-month hooks tagged `types: restaurant`.
 
 ## Structured data
 

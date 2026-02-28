@@ -54,7 +54,7 @@ Blog posts are the primary tool for attracting search traffic beyond the busines
 
 - **Questions their customers ask.** Every "how do I..." or "what's the difference between..." that a customer asks in person is a blog post. These posts answer real questions and attract people searching for answers.
 - **Local topics.** "[Town] farmer's market guide," "best hiking near [area]," "what to do in [town] this weekend." Local content with geographic keywords ranks well because there's less competition.
-- **Seasonal content.** "Preparing your [thing] for winter," "spring cleaning checklist," "holiday gift guide from [business]." Predictable, plannable, and searched every year. See `docs/smb/seasonal-calendar.md`.
+- **Seasonal content.** "Preparing your [thing] for winter," "spring cleaning checklist," "holiday gift guide from [business]." Predictable, plannable, and searched every year. See `docs/smb/seasonal-calendar/`.
 - **Service/product deep dives.** A plumber writing about "Why your water heater makes that noise" demonstrates expertise and attracts search traffic. Every service page should have a companion blog post that goes deeper.
 
 Frequency matters less than quality. One useful post per month is better than four thin ones. See `docs/content-guide.md` → Frequency.

@@ -8,7 +8,7 @@ The owner owns everything. There is no platform lock-in, no proprietary code, no
 
 | Asset | Where it lives | How to transfer |
 |---|---|---|
-| Website code and content | Local `website/` folder (and iCloud backup) | Copy the folder |
+| Website code and content | Local `website/` folder (and cloud backup if configured) | Copy the folder |
 | Git history | `.git/` directory inside `website/` | Included when copying the folder |
 | Domain name | Cloudflare Registrar (or owner's registrar) | Domain transfer or nameserver change |
 | Cloudflare Pages project | Owner's Cloudflare account | Add the new person as a Cloudflare member, or redeploy from their own account |
@@ -153,7 +153,7 @@ If the owner is closing but maintains a social media presence:
 
 Regardless of handoff scenario, the owner should always have:
 
-1. **A copy of the `website/` folder** — On their computer and backed up via iCloud (already configured by the scaffold)
+1. **A copy of the `website/` folder** — On their computer (and cloud backup if the folder is in iCloud Drive or another synced location)
 2. **Access credentials written down** — Cloudflare login, domain registrar, 2FA recovery codes (see `docs/security.md` → Recovery plan)
 3. **A recent successful build** — Run `npm run build` before any handoff to verify the site builds correctly
 

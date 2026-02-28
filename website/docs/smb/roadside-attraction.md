@@ -47,7 +47,7 @@ Visitor photos and stories (with permission), the history of the attraction, "ho
 - **Fall foliage / harvest season** (Sep–Oct) — Second peak for many attractions, especially those in scenic areas.
 - **Atlas Obscura Day** (if running events) — Community-organized events at unusual places.
 
-See `seasonal-calendar.md` for broader tourism hooks tagged `types: hospitality`.
+See `seasonal-calendar/` for broader tourism hooks tagged `types: hospitality`.
 
 ## Structured data
 

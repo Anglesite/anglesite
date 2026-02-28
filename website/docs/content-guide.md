@@ -85,7 +85,7 @@ Not everything has to be a long blog post. Mix formats:
 - **Blog posts** — Longer, evergreen content. Tips, guides, how-tos, explainers. Great for search traffic. Published on the website, shared everywhere.
 - **Photo posts** — Before/after shots, new products, behind the scenes, event photos. Quick to create, highly shareable. Post the photo on the website with a caption, then share on social.
 - **Announcements** — New hours, new services, holiday closures, event dates. Short and factual. Post on the website first so there's a permanent link, then share on social.
-- **Seasonal/timely** — Holiday specials, seasonal tips, weather-related advice. Plan these ahead — they're predictable and high-traffic. See `docs/smb/seasonal-calendar.md` for month-by-month hooks by business type.
+- **Seasonal/timely** — Holiday specials, seasonal tips, weather-related advice. Plan these ahead — they're predictable and high-traffic. See `docs/smb/seasonal-calendar/` for month-by-month hooks by business type.
 - **Customer stories** — Testimonials, case studies, "before and after" features (with permission). The most persuasive content there is.
 
 ### Podcast and video as marketing

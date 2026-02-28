@@ -6,7 +6,8 @@ Industry-specific guidance for the webmaster agent. Each file covers one busines
 
 1. Read `BUSINESS_TYPE` from `.site-config` (may be comma-separated for multi-mode businesses).
 2. Read the matching file from this directory.
-3. Apply its recommendations during `/start`, `/design-interview`, `/setup-customers`, and ongoing content planning.
+3. When the SMB file's Tools section mentions a shared platform (Square, Cal.com, Google Business Profile, Buttondown, Mailchimp, Yelp, TripAdvisor, HoneyBook, Ko-fi, The Knot), read the matching file from `docs/platforms/` for setup and integration guidance.
+4. Apply recommendations during `/start`, `/design-interview`, `/setup-customers`, and ongoing content planning.
 
 Only read the file(s) relevant to the owner's business type. Don't load all files — keep context focused.
 
@@ -75,25 +76,25 @@ These files are reference material for the agent, not user-facing documentation.
 
 ## Cross-cutting references
 
-These files apply across business types. Read them alongside the type-specific file:
+These files apply across business types. **Don't load all of them at once** — read only the ones needed for the current phase:
 
-| File | Purpose |
-|---|---|
-| [seasonal-calendar.md](seasonal-calendar.md) | Month-by-month marketing hooks with `types:` tags. Use during content planning. |
-| [consumer-checklist.md](consumer-checklist.md) | Details consumers expect (payment methods, parking, walk-in policy, etc.). Apply during `/design-interview`. |
-| [legal-checklist.md](legal-checklist.md) | Website legal requirements (privacy policy, copyright, accessibility, disclaimers). Apply during `/design-interview`. |
-| [../security.md](../security.md) | Contact form security, privacy by design, owner account security, incident response. |
-| [../seo.md](../seo.md) | SEO fundamentals, discoverability, Google Business Profile, monitoring. |
-| [../accessibility.md](../accessibility.md) | Practical accessibility guidance for content changes over time. |
-| [../measuring-success.md](../measuring-success.md) | How to know if the website is helping the business. Monthly and quarterly checks. |
-| [../cost-of-ownership.md](../cost-of-ownership.md) | What the website costs to run — required, optional, and scaling costs. |
-| [../handoff.md](../handoff.md) | Transferring the website to another developer, new owner, or different platform. |
-| [info-changes.md](info-changes.md) | What to update (and where) when business details change. |
-| [reviews.md](reviews.md) | Reviews, reputation, testimonials — getting, managing, and displaying them. |
-| [competitor-awareness.md](competitor-awareness.md) | Understanding what competitors do online. Applied during `/design-interview`. |
-| [../platforms/](../platforms/) | Best practices for shared SaaS platforms. Read only the platform(s) relevant to the business type — see `platforms/README.md` for the index. |
-| [multi-mode.md](multi-mode.md) | How to merge guidance when a business spans multiple types. |
-| [pre-launch.md](pre-launch.md) | Adjustments for businesses that haven't launched yet. |
+| File | Purpose | When to read |
+|---|---|---|
+| [seasonal-calendar/](seasonal-calendar/) | Month-by-month marketing hooks by quarter. | Content planning, monthly `/check` |
+| [consumer-checklist.md](consumer-checklist.md) | Details consumers expect (payment methods, parking, walk-in policy, etc.). | `/design-interview` |
+| [legal-checklist.md](legal-checklist.md) | Website legal requirements (privacy policy, copyright, accessibility, disclaimers). | `/design-interview`, `/deploy` |
+| [../security.md](../security.md) | Contact form security, privacy by design, owner account security, incident response. | Adding forms, `/deploy`, `/check` |
+| [../seo.md](../seo.md) | SEO fundamentals, discoverability, Google Business Profile, monitoring. | `/deploy`, quarterly review |
+| [../accessibility.md](../accessibility.md) | Practical accessibility guidance for content changes over time. | Content changes, `/check` |
+| [../measuring-success.md](../measuring-success.md) | How to know if the website is helping the business. | Monthly `/check`, quarterly review |
+| [../cost-of-ownership.md](../cost-of-ownership.md) | What the website costs to run — required, optional, and scaling costs. | Annual review, owner asks about costs |
+| [../handoff.md](../handoff.md) | Transferring the website to another developer, new owner, or different platform. | Owner asks about transferring |
+| [info-changes.md](info-changes.md) | What to update (and where) when business details change. | Owner reports a change |
+| [reviews.md](reviews.md) | Reviews, reputation, testimonials — getting, managing, and displaying them. | `/design-interview`, monthly `/check` |
+| [competitor-awareness.md](competitor-awareness.md) | Understanding what competitors do online. | `/design-interview`, quarterly review |
+| [../platforms/](../platforms/) | Best practices for shared SaaS platforms. Read only the relevant platform file(s). | `/start`, setting up a platform |
+| [multi-mode.md](multi-mode.md) | How to merge guidance when a business spans multiple types. | `/start` if multi-type |
+| [pre-launch.md](pre-launch.md) | Adjustments for businesses that haven't launched yet. | `/start` if pre-launch |
 
 ## Pre-launch businesses
 
