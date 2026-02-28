@@ -21,6 +21,8 @@
 12. OG tags on every page (title, description, image)
 13. Blog posts have proper `h-entry` markup
 14. Syndication links render as `u-syndication`
+15. Page titles include business type and location for key pages (see `docs/seo.md`)
+16. Image alt text is descriptive (not filenames or keyword stuffing — see `docs/accessibility.md`)
 
 ### Privacy & security
 15. No customer PII in built site
@@ -55,16 +57,22 @@ The site must be usable by people with disabilities. This is legally required in
 
 **Monthly**
 - Run `/check` to verify site health
-- Glance at Cloudflare Analytics — are visitors finding the site?
+- Glance at Cloudflare Analytics — are visitors finding the site? (see `docs/measuring-success.md`)
+- Check for new Google reviews and respond (see `docs/smb/reviews.md`)
+- Verify business info is current on website and map listings (see `docs/smb/info-changes.md`)
 
 **Quarterly**
 - Run `/update` to get security patches and dependency updates
 - Review blog posts — is the content still accurate and relevant?
+- Quick competitor scan — any changes in the local landscape? (see `docs/smb/competitor-awareness.md`)
+- Review analytics trends and check goals (see `docs/measuring-success.md`)
 
 **Annually**
 - Renew domain registration (Cloudflare sends email reminders)
 - Verify iCloud+ subscription is active
 - Consider refreshing the design if the brand has evolved
+- Review all costs — any unused paid tools? (see `docs/cost-of-ownership.md`)
+- Verify map listings are still claimed and accurate
 
 ## Local SEO
 

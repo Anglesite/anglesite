@@ -72,6 +72,14 @@ These files apply across business types. Read them alongside the type-specific f
 | [consumer-checklist.md](consumer-checklist.md) | Details consumers expect (payment methods, parking, walk-in policy, etc.). Apply during `/design-interview`. |
 | [legal-checklist.md](legal-checklist.md) | Website legal requirements (privacy policy, copyright, accessibility, disclaimers). Apply during `/design-interview`. |
 | [../security.md](../security.md) | Contact form security, privacy by design, owner account security, incident response. |
+| [../seo.md](../seo.md) | SEO fundamentals, discoverability, Google Business Profile, monitoring. |
+| [../accessibility.md](../accessibility.md) | Practical accessibility guidance for content changes over time. |
+| [../measuring-success.md](../measuring-success.md) | How to know if the website is helping the business. Monthly and quarterly checks. |
+| [../cost-of-ownership.md](../cost-of-ownership.md) | What the website costs to run — required, optional, and scaling costs. |
+| [../handoff.md](../handoff.md) | Transferring the website to another developer, new owner, or different platform. |
+| [info-changes.md](info-changes.md) | What to update (and where) when business details change. |
+| [reviews.md](reviews.md) | Reviews, reputation, testimonials — getting, managing, and displaying them. |
+| [competitor-awareness.md](competitor-awareness.md) | Understanding what competitors do online. Applied during `/design-interview`. |
 | [multi-mode.md](multi-mode.md) | How to merge guidance when a business spans multiple types. |
 | [pre-launch.md](pre-launch.md) | Adjustments for businesses that haven't launched yet. |
 
