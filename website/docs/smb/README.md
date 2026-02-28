@@ -26,7 +26,7 @@ These files are reference material for the agent, not user-facing documentation.
 | [childcare.md](childcare.md) | Daycare, preschool, in-home daycare, after-school, learning centers |
 | [cleaning.md](cleaning.md) | Residential cleaning, commercial janitorial, carpet/window cleaning |
 | [community-theater.md](community-theater.md) | Theater companies, orchestras, dance, arts councils |
-| [creator.md](creator.md) | Bloggers, YouTubers, podcasters, streamers, newsletter writers |
+| [creator.md](creator.md) | Bloggers, social media influencers, newsletter writers, online educators |
 | [credit-union.md](credit-union.md) | Credit unions, CDFIs, cooperative banks |
 | [education.md](education.md) | Tutors, music teachers, driving schools, test prep |
 | [event-venue.md](event-venue.md) | Barn venues, estate venues, garden venues, retreat centers, event spaces |
@@ -45,9 +45,11 @@ These files are reference material for the agent, not user-facing documentation.
 | [laundry.md](laundry.md) | Dry cleaners, laundromats, wash-and-fold, laundry delivery |
 | [legal.md](legal.md) | Law firms, solo attorneys, notaries, mediators |
 | [museum.md](museum.md) | Art, history, science, and children's museums |
+| [musician.md](musician.md) | Bands, solo artists, DJs, singer-songwriters, music producers |
 | [nonprofit.md](nonprofit.md) | Nonprofit overview — shared traits, then see sub-types |
 | [pet-services.md](pet-services.md) | Grooming, boarding, training, dog walking |
 | [photography.md](photography.md) | Photographers, videographers |
+| [podcaster.md](podcaster.md) | Podcast shows, podcast networks, podcast studios |
 | [real-estate.md](real-estate.md) | Real estate agents, property management |
 | [repair.md](repair.md) | Auto, electronics, appliance, bicycle, cobbler, tailor, any repair shop |
 | [food-truck.md](food-truck.md) | Food trucks, food carts, pop-ups, mobile food vendors |
@@ -60,6 +62,7 @@ These files are reference material for the agent, not user-facing documentation.
 | [storage.md](storage.md) | Self-storage, climate-controlled, vehicle/boat/RV storage |
 | [tattoo.md](tattoo.md) | Tattoo shops, piercing studios, permanent makeup |
 | [trades.md](trades.md) | Contractors, plumbers, electricians, HVAC, landscaping, movers, pest control |
+| [video-creator.md](video-creator.md) | YouTubers, streamers, video essayists, filmmakers |
 | [youth-org.md](youth-org.md) | Youth sports, scouts, after-school, mentoring |
 
 ## Cross-cutting references
