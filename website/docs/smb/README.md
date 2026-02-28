@@ -91,7 +91,7 @@ These files apply across business types. Read them alongside the type-specific f
 | [info-changes.md](info-changes.md) | What to update (and where) when business details change. |
 | [reviews.md](reviews.md) | Reviews, reputation, testimonials — getting, managing, and displaying them. |
 | [competitor-awareness.md](competitor-awareness.md) | Understanding what competitors do online. Applied during `/design-interview`. |
-| [../platforms.md](../platforms.md) | Best practices for shared SaaS platforms (Square, Google Business Profile, Cal.com, etc.). |
+| [../platforms/](../platforms/) | Best practices for shared SaaS platforms. Read only the platform(s) relevant to the business type — see `platforms/README.md` for the index. |
 | [multi-mode.md](multi-mode.md) | How to merge guidance when a business spans multiple types. |
 | [pre-launch.md](pre-launch.md) | Adjustments for businesses that haven't launched yet. |
 
