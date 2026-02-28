@@ -92,6 +92,7 @@ These files apply across business types. **Don't load all of them at once** — 
 | [info-changes.md](info-changes.md) | What to update (and where) when business details change. | Owner reports a change |
 | [reviews.md](reviews.md) | Reviews, reputation, testimonials — getting, managing, and displaying them. | `/design-interview`, monthly `/check` |
 | [competitor-awareness.md](competitor-awareness.md) | Understanding what competitors do online. | `/design-interview`, quarterly review |
+| [../indieweb.md](../indieweb.md) | Microformats, rel="me", webmentions, IndieAuth, h-event markup. | `/start`, `/check`, adding events |
 | [../platforms/](../platforms/) | Best practices for shared SaaS platforms. Read only the relevant platform file(s). | `/start`, setting up a platform |
 | [multi-mode.md](multi-mode.md) | How to merge guidance when a business spans multiple types. | `/start` if multi-type |
 | [pre-launch.md](pre-launch.md) | Adjustments for businesses that haven't launched yet. | `/start` if pre-launch |

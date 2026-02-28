@@ -52,6 +52,8 @@ Publish On (own) Site, Syndicate Elsewhere:
 
 The syndication URLs render as `u-syndication` links in the `h-entry` markup, connecting the original post to its copies.
 
+POSSE handles the outbound side — publishing and syndicating. The inbound side is **Webmentions**: when another website links to the owner's post, it can notify the site automatically. This completes the conversation loop across the open web. See `docs/indieweb.md` → Webmentions for setup (optional, recommended for owners active in blogging communities).
+
 ### Where to share
 
 Every community is different. Some towns live on Nextdoor, others on Facebook groups, others on Yelp. Don't assume — help the owner figure out where *their* customers actually are. Ask:

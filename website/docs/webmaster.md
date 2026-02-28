@@ -20,9 +20,11 @@
 ### SEO & social
 12. OG tags on every page (title, description, image)
 13. Blog posts have proper `h-entry` markup
-14. Syndication links render as `u-syndication`
-15. Page titles include business type and location for key pages (see `docs/seo.md`)
-16. Image alt text is descriptive (not filenames or keyword stuffing — see `docs/accessibility.md`)
+14. Blog listing wrapped in `h-feed`
+15. Syndication links render as `u-syndication`
+16. `rel="me"` links present for the owner's social profiles (see `docs/indieweb.md`)
+17. Page titles include business type and location for key pages (see `docs/seo.md`)
+18. Image alt text is descriptive (not filenames or keyword stuffing — see `docs/accessibility.md`)
 
 ### Privacy & security
 15. No customer PII in built site

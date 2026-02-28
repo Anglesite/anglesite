@@ -69,8 +69,15 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] No broken internal links — scan `dist/` for hrefs that don't resolve to a file
 - [ ] Blog posts have valid frontmatter (title, description, publishDate)
 - [ ] Business name, address, and contact info are easy to find (not buried)
-- [ ] `h-card` microformat present in site header
-- [ ] `h-entry` microformat present on blog posts
+
+## IndieWeb (see `docs/indieweb.md`)
+- [ ] `h-card` in site header with `p-name` and `u-url`
+- [ ] `h-entry` on blog posts with `p-name`, `dt-published`, `e-content`
+- [ ] Blog listing page wrapped in `h-feed`
+- [ ] `rel="me"` links present for the owner's social profiles
+- [ ] Syndication links render as `u-syndication` with `rel="syndication"`
+- [ ] RSS feed at `/rss.xml` with `<link rel="alternate">` discovery in `<head>`
+- [ ] Event pages use `h-event` markup if the business hosts events
 
 ## Performance
 - [ ] Images are in modern formats (.webp preferred) and optimized (<500KB)

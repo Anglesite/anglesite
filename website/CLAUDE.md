@@ -65,6 +65,7 @@ If a symlink breaks, run `zsh scripts/setup.sh` to recreate them.
 | `docs/brand.md` | Visual identity (created by `/design-interview`) |
 | `docs/content-guide.md` | Blog schema, Keystatic, images, POSSE |
 | `docs/cloudflare.md` | Hosting, DNS, analytics |
+| `docs/indieweb.md` | Microformats, rel="me", webmentions, IndieAuth |
 | `docs/webmaster.md` | Best practices checklist |
 
 ## Keep docs in sync
@@ -149,9 +150,10 @@ If something is complex or could break other things, explain the tradeoff before
 
 ## IndieWeb
 
-This site participates in the IndieWeb:
+This site participates in the IndieWeb. See `docs/indieweb.md` for full guidance.
 
 - **POSSE** — Publish On (own) Site, Syndicate Elsewhere. Blog posts have a `syndication` field for tracking where content was shared. Always publish here first.
-- **Microformats** — `h-card` on the site header (identity), `h-entry` on blog posts (content), `u-syndication` on syndication links.
-- **Webmention** — When the owner is ready, add Webmention support so other sites can notify this one about links and replies. Use webmention.io or a self-hosted endpoint.
-- **IndieAuth** — The owner can sign into IndieWeb services using their domain as identity. Add `rel="me"` links to social profiles and an IndieAuth endpoint when appropriate.
+- **Microformats** — `h-card` on the site header (identity), `h-entry` on blog posts (content), `h-feed` on the blog listing, `u-syndication` on syndication links, `h-event` on event pages.
+- **rel="me"** — Add `rel="me"` to social profile links during `/start`. See `docs/indieweb.md` for platform URL formats and two-way verification.
+- **Webmention** — Optional. When the owner is ready, add a Webmention endpoint. See `docs/indieweb.md` → Webmentions.
+- **IndieAuth** — Optional. Domain as identity. Requires `rel="me"` links first. See `docs/indieweb.md` → IndieAuth.
