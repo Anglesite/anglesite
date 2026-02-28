@@ -23,12 +23,16 @@ These files are reference material for the agent, not user-facing documentation.
 | [bookshop.md](bookshop.md) | Independent bookstores, used bookshops, comic stores |
 | [brewery.md](brewery.md) | Breweries, wineries, distilleries, cideries, tasting rooms |
 | [campground.md](campground.md) | RV parks, campgrounds, glamping, seasonal parks |
+| [car-wash.md](car-wash.md) | Car washes, auto detailing, mobile detailing, ceramic coating |
 | [childcare.md](childcare.md) | Daycare, preschool, in-home daycare, after-school, learning centers |
 | [cleaning.md](cleaning.md) | Residential cleaning, commercial janitorial, carpet/window cleaning |
 | [community-theater.md](community-theater.md) | Theater companies, orchestras, dance, arts councils |
 | [creator.md](creator.md) | Bloggers, social media influencers, newsletter writers, online educators |
 | [credit-union.md](credit-union.md) | Credit unions, CDFIs, cooperative banks |
+| [dance-studio.md](dance-studio.md) | Ballet, hip-hop, ballroom, social dance, children's dance, competitive teams |
 | [education.md](education.md) | Tutors, music teachers, driving schools, test prep |
+| [entertainment.md](entertainment.md) | Bowling, escape rooms, mini golf, arcades, trampoline parks, skating rinks |
+| [equipment-rental.md](equipment-rental.md) | Tool rental, party rental, tent/table/chair, inflatables, heavy equipment |
 | [event-venue.md](event-venue.md) | Barn venues, estate venues, garden venues, retreat centers, event spaces |
 | [farm.md](farm.md) | Farm, CSA, market garden, u-pick, farm stand |
 | [fitness.md](fitness.md) | Gyms, yoga studios, martial arts, personal training |
@@ -44,12 +48,15 @@ These files are reference material for the agent, not user-facing documentation.
 | [insurance.md](insurance.md) | Insurance agents, brokers, benefits consultants |
 | [laundry.md](laundry.md) | Dry cleaners, laundromats, wash-and-fold, laundry delivery |
 | [legal.md](legal.md) | Law firms, solo attorneys, notaries, mediators |
+| [marina.md](marina.md) | Marinas, boat dealers, boat repair, charter fishing, kayak rental |
 | [museum.md](museum.md) | Art, history, science, and children's museums |
 | [musician.md](musician.md) | Bands, solo artists, DJs, singer-songwriters, music producers |
 | [nonprofit.md](nonprofit.md) | Nonprofit overview — shared traits, then see sub-types |
 | [pet-services.md](pet-services.md) | Grooming, boarding, training, dog walking |
+| [pharmacy.md](pharmacy.md) | Independent pharmacies, compounding, specialty pharmacies |
 | [photography.md](photography.md) | Photographers, videographers |
 | [podcaster.md](podcaster.md) | Podcast shows, podcast networks, podcast studios |
+| [printing.md](printing.md) | Print shops, sign makers, screen printers, embroidery, custom apparel |
 | [real-estate.md](real-estate.md) | Real estate agents, property management |
 | [repair.md](repair.md) | Auto, electronics, appliance, bicycle, cobbler, tailor, any repair shop |
 | [food-truck.md](food-truck.md) | Food trucks, food carts, pop-ups, mobile food vendors |
@@ -61,6 +68,7 @@ These files are reference material for the agent, not user-facing documentation.
 | [social-services.md](social-services.md) | Shelters, crisis centers, housing, job training |
 | [storage.md](storage.md) | Self-storage, climate-controlled, vehicle/boat/RV storage |
 | [tattoo.md](tattoo.md) | Tattoo shops, piercing studios, permanent makeup |
+| [tour-guide.md](tour-guide.md) | Fishing guides, adventure tours, nature tours, kayak tours, food tours |
 | [trades.md](trades.md) | Contractors, plumbers, electricians, HVAC, landscaping, movers, pest control |
 | [video-creator.md](video-creator.md) | YouTubers, streamers, video essayists, filmmakers |
 | [youth-org.md](youth-org.md) | Youth sports, scouts, after-school, mentoring |
