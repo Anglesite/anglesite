@@ -17,7 +17,7 @@ To check tool status, run `zsh scripts/check-prereqs.sh` — never write ad-hoc 
 | What changed | Update |
 |---|---|
 | Slash command added or modified | The command file in `.claude/commands/` |
-| Anything that changes how webmaster works | `CLAUDE.md` and `AGENTS.md` |
+| Anything that changes how webmaster works | `CLAUDE.md`, `GEMINI.md`, and `AGENTS.md` |
 
 ## Secrets
 
