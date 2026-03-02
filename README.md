@@ -78,13 +78,28 @@ The start command introduces your webmaster, learns about your business, designs
 
 ```
 website/
-├── .claude/commands/   Claude Code slash commands
-├── docs/               Architecture, hosting, content, and customer docs
-├── src/                Astro source (pages, layouts, components, content)
-├── public/             Static assets, security headers, robots.txt
-├── scripts/            Shell scripts (setup, prerequisites)
-├── CLAUDE.md           Webmaster instructions (read by Claude Code)
-└── README.md           End-user guide (read by the site owner)
+├── .claude/commands/       Slash commands (/start, /deploy, /check, …)
+├── docs/
+│   ├── architecture.md     Stack decisions, content collections, styling
+│   ├── brand.md            Visual identity (created by /design-interview)
+│   ├── cloudflare.md       Hosting, DNS, analytics
+│   ├── content-guide.md    Blog schema, Keystatic, images, POSSE
+│   ├── design-system.md    Color, typography, spacing, layout guidance
+│   ├── indieweb.md         Microformats, rel="me", webmentions, IndieAuth
+│   ├── local-https.md      Dev server HTTPS setup reference
+│   ├── webmaster.md        Best practices and maintenance schedule
+│   ├── smb/                Industry-specific guidance (56 business types)
+│   │   ├── README.md       Type index and cross-cutting references
+│   │   ├── restaurant.md   Example: restaurant/food business
+│   │   ├── trades.md       Example: electrician, plumber, HVAC
+│   │   └── …
+│   └── platforms/          SaaS integration guides (Square, Yelp, …)
+├── src/                    Astro source (pages, layouts, components, content)
+├── public/                 Static assets, security headers, robots.txt
+├── scripts/                Shell scripts (setup, prerequisites, cleanup)
+├── AGENTS.md               Shared webmaster guide (loaded by all AI tools)
+├── CLAUDE.md               Claude Code specifics (includes @AGENTS.md)
+└── README.md               End-user guide (read by the site owner)
 ```
 
 ## Customization
