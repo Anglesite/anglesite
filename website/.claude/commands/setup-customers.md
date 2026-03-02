@@ -74,11 +74,7 @@ Ask: "Would any of these work for you, or would you rather we set up something s
 
 ## Step 3 — If they choose an external tool
 
-Help them sign up and note it in `.site-config`:
-
-```sh
-echo "CUSTOMER_TOOL=square" >> .site-config
-```
+Help them sign up and add `CUSTOMER_TOOL=square` to `.site-config` using the **Write tool** (update the existing file — don't use shell echo commands).
 
 Add relevant links to their website (e.g., online ordering page links to Square, booking page links to Calendly).
 
@@ -155,13 +151,9 @@ For other business types, check the data tracking section in `docs/smb/` for the
 
 ### Save config
 
-```sh
-echo "AIRTABLE_BASE_URL=https://airtable.com/BASE_ID" >> .site-config
-```
+Add `AIRTABLE_BASE_URL=https://airtable.com/BASE_ID` and `CUSTOMER_TOOL=airtable` to `.site-config` using the **Write tool** (update the existing file).
 
-```sh
-echo "CUSTOMER_TOOL=airtable" >> .site-config
-```
+Then commit:
 
 ```sh
 git add .site-config

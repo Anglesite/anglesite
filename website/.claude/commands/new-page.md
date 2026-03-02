@@ -9,7 +9,7 @@ Create a new page on the site.
    - Accessible (alt text, skip links, color contrast)
    - Performance (optimized images, no unnecessary JS)
    - SEO (title, meta description, OG tags)
-   - Matches the brand from `docs/brand.md`
+   - Matches the brand from `docs/brand.md` and follows `docs/design-system.md`
 5. Add navigation link if appropriate
 6. Preview on the dev server
 7. Ask if they want to publish

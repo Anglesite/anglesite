@@ -1,6 +1,6 @@
 Install or reinstall the development tools and dependencies.
 
-This command is for technical setup only — installing Node.js, npm dependencies, and iCloud symlinks. If this is the first time setting up the site, run `/start` instead (it includes this step plus business discovery and design).
+This command is for technical setup only — installing Node.js, npm dependencies, local HTTPS, and iCloud symlinks. If this is the first time setting up the site, run `/start` instead (it includes this step plus business discovery and design).
 
 ## Before starting
 
@@ -12,13 +12,13 @@ Before every tool call or command that will trigger a permission prompt, tell th
 
 ## Step 1 — Run setup script
 
-Tell the owner: "I'm going to install the tools your website needs — a code runner called Node.js, a version manager, and the project's building blocks. It's safe to rerun if anything interrupts it. You may see a macOS dialog asking to install developer tools — click Install."
+Tell the owner: "I'm going to install the tools your website needs — a code runner called Node.js, a version manager, a local security certificate for your preview, and the project's building blocks. It's safe to rerun if anything interrupts it. You may see a macOS dialog asking to install developer tools — click Install, and you may need to enter your Mac password for the HTTPS setup."
 
 ```sh
 zsh scripts/setup.sh
 ```
 
-The script installs Xcode CLI tools, fnm, Node.js LTS, creates iCloud-safe `.nosync` symlinks, runs `npm install`, and initializes git. It skips anything already present.
+The script installs Xcode CLI tools, fnm, Node.js LTS, mkcert (locally-trusted HTTPS certificates), hostname resolution via `/etc/hosts`, port forwarding (443 → 4321), iCloud-safe `.nosync` symlinks, runs `npm install`, and initializes git. It skips anything already present.
 
 ## Step 2 — Report results
 

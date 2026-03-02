@@ -6,7 +6,7 @@ What the website costs to run, now and ongoing. Reference for the webmaster agen
 
 The owner hears this during initial setup:
 
-- **Building the website:** Free (the owner already has Claude Code)
+- **Building the website:** Free (the owner already has an AI coding tool)
 - **Hosting:** Free (Cloudflare Pages, unlimited bandwidth)
 - **SSL/HTTPS:** Free (Cloudflare, automatic)
 - **Analytics:** Free (Cloudflare Web Analytics, cookieless)

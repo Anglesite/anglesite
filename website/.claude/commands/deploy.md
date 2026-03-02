@@ -69,11 +69,7 @@ Tell the owner: "Before your site goes live for everyone, I can put it on a priv
 
 If yes:
 
-Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their business name), then save it:
-
-```sh
-echo "CF_PROJECT_NAME=project-name" >> .site-config
-```
+Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their business name), then add `CF_PROJECT_NAME=project-name` to `.site-config` using the **Write tool** (update the existing file).
 
 ```sh
 npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --branch preview
@@ -95,11 +91,7 @@ On subsequent deploys, skip this step.
 
 Tell the owner: "Everything looks clean. I'm uploading your site to Cloudflare now."
 
-Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their business name), then save it:
-
-```sh
-echo "CF_PROJECT_NAME=project-name" >> .site-config
-```
+Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their business name), then add `CF_PROJECT_NAME=project-name` to `.site-config` using the **Write tool** (update the existing file).
 
 Deploy:
 

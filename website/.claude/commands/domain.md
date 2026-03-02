@@ -39,11 +39,7 @@ Tell the owner what each record does in plain English. Don't just add records si
 
 After adding records, tell the owner: "DNS changes can take a few minutes to kick in. Try sending yourself a test email in about 15 minutes."
 
-Save the email address to `.site-config`:
-
-```sh
-echo "SITE_EMAIL=name@domain.com" >> .site-config
-```
+Add `SITE_EMAIL=name@domain.com` to `.site-config` using the **Write tool** (update the existing file).
 
 ### Bluesky verification
 

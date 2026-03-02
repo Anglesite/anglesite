@@ -8,7 +8,7 @@ Before anything else, run the prereq checker and check the project path:
 zsh scripts/check-prereqs.sh
 ```
 
-Then read `.site-config` to verify `PROJECT_DIR` matches `$(pwd)`. If they don't match, update `.site-config` and commit.
+Then read `.site-config` to verify it has `SITE_NAME` and `DEV_HOSTNAME`. If either is missing, suggest running `/start` first.
 
 ### Common iCloud issues
 - **`.nosync` symlinks broken:** A git clone or copy can break them. Run `zsh scripts/setup.sh` to recreate.

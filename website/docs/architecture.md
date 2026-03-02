@@ -18,7 +18,7 @@ Blog posts in `src/content/posts/`. Schema defined in both `src/content/config.t
 
 ## Styling
 
-CSS custom properties in `src/styles/global.css`. Values set during `/design-interview` and documented in `docs/brand.md`:
+CSS custom properties in `src/styles/global.css`. Design foundations in `docs/design-system.md` (color, typography, spacing, layout patterns). Owner-specific choices set during `/design-interview` and documented in `docs/brand.md`:
 - `--color-primary`, `--color-accent`, `--color-bg`, `--color-text`
 - `--font-heading`, `--font-body`
 - `--space-*` for consistent spacing
