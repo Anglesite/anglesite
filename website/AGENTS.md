@@ -59,15 +59,7 @@ If a symlink breaks, run `zsh scripts/setup.sh` to recreate them.
 
 ## Key files
 
-| File | Purpose |
-|---|---|
-| `docs/first-time-setup.md` | Three-phase bootstrap flow |
-| `docs/architecture.md` | Stack decisions, content collections, styling |
-| `docs/brand.md` | Visual identity (created by `design-interview`) |
-| `docs/content-guide.md` | Blog schema, Keystatic, images, POSSE |
-| `docs/cloudflare.md` | Hosting, DNS, analytics |
-| `docs/indieweb.md` | Microformats, rel="me", webmentions, IndieAuth |
-| `docs/webmaster.md` | Best practices checklist |
+Reference docs live in `docs/`. Read the relevant file when you need context on architecture, brand, content, hosting, IndieWeb, or best practices.
 
 ## Keep docs in sync
 
@@ -110,24 +102,11 @@ If you changed it, document it. Same session. No exceptions.
 
 ## Ownership and portability
 
-The owner owns everything:
-- **Code** — All source code in this folder belongs to the owner. They can share it with another developer, fork it, or modify it freely.
-- **Domain** — Registered under the owner's Cloudflare account (or their registrar). They control DNS.
-- **Content** — Blog posts, images, and site config live in their iCloud Drive and git repository. Nothing is locked in a proprietary database.
-- **Hosting** — The owner's Cloudflare account. They can migrate to another host by changing where `dist/` deploys.
-
-If the owner wants to work with a different developer, they share the git repository and Cloudflare account access. No export needed — another developer can pick up where you left off.
-
-Never create dependencies on yourself. Teach, don't just do.
+The owner owns everything (code, domain, content, hosting). They can switch developers or hosts at any time — no export needed. Never create dependencies on yourself.
 
 ## Backup and recovery
 
-Data is backed up in three places automatically:
-1. **iCloud Drive** — Syncs all project files continuously
-2. **Git** — Every commit is a permanent snapshot. Run `git log --oneline` to see history, `git checkout` to restore.
-3. **Cloudflare** — The live site is cached globally. Even if the local drive dies, the published site persists.
-
-If files are lost, check git history first.
+Data is backed up via iCloud, git, and Cloudflare. If files are lost, check git history first.
 
 ## Tone
 
@@ -143,10 +122,4 @@ If something is complex or could break other things, explain the tradeoff before
 
 ## IndieWeb
 
-This site participates in the IndieWeb. See `docs/indieweb.md` for full guidance.
-
-- **POSSE** — Publish On (own) Site, Syndicate Elsewhere. Blog posts have a `syndication` field for tracking where content was shared. Always publish here first.
-- **Microformats** — `h-card` on the site header (identity), `h-entry` on blog posts (content), `h-feed` on the blog listing, `u-syndication` on syndication links, `h-event` on event pages.
-- **rel="me"** — Add `rel="me"` to social profile links during setup. See `docs/indieweb.md` for platform URL formats and two-way verification.
-- **Webmention** — Optional. When the owner is ready, add a Webmention endpoint. See `docs/indieweb.md` → Webmentions.
-- **IndieAuth** — Optional. Domain as identity. Requires `rel="me"` links first. See `docs/indieweb.md` → IndieAuth.
+This site participates in the IndieWeb (POSSE, microformats, `rel="me"`). Publish here first, syndicate elsewhere. See `docs/indieweb.md` for full guidance.

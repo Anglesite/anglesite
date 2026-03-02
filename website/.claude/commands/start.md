@@ -70,36 +70,7 @@ Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `BUSINESS_TYPE`, 
 
 ## Step 2 — Design interview
 
-Now that you know the business, conduct the visual identity intake. This is a conversation, not a form — think of yourself as a designer sitting across the table from a client, sketchbook in hand. Let the owner's answers guide the next question.
-
-Tailor your questions to the business type. Cover these topics naturally (not necessarily in this order):
-
-1. **First impressions** — "When someone visits your website, what feeling do you want them to have?" Give examples that match their business type: "Warm and welcoming? Sleek and modern? Fun and creative? Calm and professional?"
-2. **Colors** — Ask what colors feel like the business. Work from their words, not a color picker. If they're stuck: "Think about your business space — what colors are in it?"
-3. **Logo & identity** — Do they have a logo? What does the business name mean to them visually?
-4. **Photography** — What photos do they have? What do they wish they had?
-5. **Typography feel** — "Should the text feel modern? Classic? Elegant? Playful?" (Don't name fonts — describe the vibe.)
-6. **Content priorities** — Read the matching `docs/smb/` file for industry-specific page recommendations. Frame it as: "For a [business type], the pages people look for most are [X, Y, Z]. Does that match what you'd want?"
-7. **Social & community** — "Where are your customers online?" If they have an Instagram or portfolio central to their work, plan to feature it prominently. Add `rel="me"` links to their profiles for IndieWeb identity verification.
-8. **Existing tools** — Reference `EXISTING_TOOLS` from `.site-config` if set. Acknowledge what they're already using and plan to integrate it with the website.
-9. **Accessibility** — Does their audience include people with specific accessibility needs? (Regardless: WCAG AA is the baseline — good contrast, readable fonts, semantic structure.)
-10. **Inspiration** — "Show me a website you think looks great — it doesn't have to be in your industry."
-
-Ask one topic at a time. Listen, reflect back what you heard, then move on. After each answer, briefly describe what you're thinking design-wise so the owner feels like they're designing *with* you.
-
-After the interview, apply the design — all of these are file edits that don't require tools to be installed yet:
-
-1. Save the results to `docs/brand.md` with all their answers and your design decisions
-2. Update CSS custom properties in `src/styles/global.css` (colors, fonts, spacing)
-3. Verify color contrast meets WCAG AA (4.5:1 for body text, 3:1 for large text)
-4. Update the favicon (`public/favicon.svg`) to match the identity
-5. Build a styled home page that reflects the brand and business type
-6. Add `rel="me"` links to social profiles in the site footer or about page
-7. Ensure the `h-card` in the site header has the business name, URL, and location if relevant
-8. Update `package.json` name to a slugified version of the business name
-9. Update `src/layouts/BaseLayout.astro` header and footer with the business name
-10. Create pages based on the content priorities discussion
-11. Update `keystatic.config.ts` tags to match the business
+Run the design interview. Follow the full instructions in `.claude/commands/design-interview.md` — it covers the interview questions, applying the design, structured data, and docs sync. All design edits are file changes that don't require tools to be installed yet.
 
 ## Step 3 — Install tools
 
