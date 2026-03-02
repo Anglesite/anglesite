@@ -24,3 +24,7 @@ Thumbs.db
 # wrangler
 .wrangler
 .wrangler.nosync
+
+# local HTTPS certs
+.certs
+.certs.nosync

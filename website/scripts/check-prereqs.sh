@@ -46,7 +46,7 @@ else
 fi
 
 # .nosync symlinks
-for name in node_modules dist .astro .wrangler; do
+for name in node_modules dist .astro .wrangler .certs; do
     if [[ -L "$PROJECT_DIR/$name" && -d "$PROJECT_DIR/${name}.nosync" ]]; then
         echo "nosync_${name}=ok"
     elif [[ -d "$PROJECT_DIR/${name}.nosync" ]]; then
@@ -55,3 +55,53 @@ for name in node_modules dist .astro .wrangler; do
         echo "nosync_${name}=missing"
     fi
 done
+
+# --- HTTPS ---
+export PATH="$HOME/.local/bin:$PATH"
+
+# mkcert
+MKCERT_BIN="$HOME/.local/bin/mkcert"
+if [[ -x "$MKCERT_BIN" ]]; then
+    echo "mkcert=installed $("$MKCERT_BIN" --version 2>/dev/null | head -1)"
+else
+    echo "mkcert=missing"
+fi
+
+# Local HTTPS certificate
+CONFIG_FILE="$PROJECT_DIR/.site-config"
+CERTS_DIR="$PROJECT_DIR/.certs"
+[[ -L "$CERTS_DIR" ]] && CERTS_DIR="$PROJECT_DIR/.certs.nosync"
+
+if [[ -f "$CERTS_DIR/cert.pem" ]]; then
+    if openssl x509 -in "$CERTS_DIR/cert.pem" -checkend 86400 -noout 2>/dev/null; then
+        CERT_HOSTNAME=""
+        if [[ -f "$CERTS_DIR/.hostname" ]]; then
+            CERT_HOSTNAME=$(cat "$CERTS_DIR/.hostname")
+        fi
+        echo "https_cert=valid ($CERT_HOSTNAME)"
+    else
+        echo "https_cert=expiring"
+    fi
+else
+    echo "https_cert=missing"
+fi
+
+# /etc/hosts entry
+DEV_HOSTNAME="localhost"
+if [[ -f "$CONFIG_FILE" ]] && grep -q "^DEV_HOSTNAME=" "$CONFIG_FILE" 2>/dev/null; then
+    DEV_HOSTNAME=$(grep "^DEV_HOSTNAME=" "$CONFIG_FILE" | cut -d= -f2-)
+fi
+if [[ "$DEV_HOSTNAME" != "localhost" ]]; then
+    if grep -q "$DEV_HOSTNAME" /etc/hosts 2>/dev/null; then
+        echo "https_hosts=ok ($DEV_HOSTNAME)"
+    else
+        echo "https_hosts=missing ($DEV_HOSTNAME not in /etc/hosts)"
+    fi
+fi
+
+# pfctl port forwarding
+if [[ -f "/etc/pf.anchors/com.anglesite" ]]; then
+    echo "https_portforward=configured"
+else
+    echo "https_portforward=missing"
+fi

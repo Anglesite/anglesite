@@ -44,7 +44,7 @@ The owner uses AI-assisted commands to manage their site:
 | Set up customer management | `setup-customers` |
 | Manage DNS (email, Bluesky, etc.) | `domain` |
 
-To write and edit blog posts, they navigate to `localhost:4321/keystatic` in the preview panel (while the dev server is running).
+To write and edit blog posts, they navigate to `https://DEV_HOSTNAME/keystatic` in the preview panel (while the dev server is running). Read `DEV_HOSTNAME` from `.site-config`.
 
 ## Project location
 
@@ -53,6 +53,7 @@ The project lives in iCloud Drive. Heavy directories use `.nosync` symlinks so i
 - `dist` → `dist.nosync/`
 - `.astro` → `.astro.nosync/`
 - `.wrangler` → `.wrangler.nosync/`
+- `.certs` → `.certs.nosync/`
 
 If a symlink breaks, run `zsh scripts/setup.sh` to recreate them.
 

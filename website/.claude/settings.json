@@ -14,7 +14,9 @@
       "Bash(git init*)",
       "Bash(lsof *)",
       "Bash(cat *)",
-      "Bash(open *)"
+      "Bash(open *)",
+      "Bash(dscacheutil *)",
+      "Bash(openssl *)"
     ]
   },
   "deny": [".env", ".env.*"]

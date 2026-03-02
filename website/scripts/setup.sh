@@ -108,6 +108,7 @@ setup_nosync "node_modules"
 setup_nosync "dist"
 setup_nosync ".astro"
 setup_nosync ".wrangler"
+setup_nosync ".certs"
 
 # --- Install dependencies ---
 log "Installing project dependencies (this may take a minute)..."
@@ -121,6 +122,123 @@ setup_nosync "node_modules"
 setup_nosync "dist"
 setup_nosync ".astro"
 setup_nosync ".wrangler"
+setup_nosync ".certs"
+
+# --- mkcert (local HTTPS certificates) ---
+MKCERT_BIN="$HOME/.local/bin/mkcert"
+if [[ ! -x "$MKCERT_BIN" ]]; then
+    log "Installing mkcert (for local HTTPS)..."
+    mkdir -p "$HOME/.local/bin"
+    ARCH=$(uname -m)
+    case "$ARCH" in
+        arm64) MKCERT_ARCH="arm64" ;;
+        x86_64) MKCERT_ARCH="amd64" ;;
+        *) fail "Unsupported architecture: $ARCH" ;;
+    esac
+    MKCERT_URL="https://dl.filippo.io/mkcert/latest?for=darwin/$MKCERT_ARCH"
+    curl -fsSL "$MKCERT_URL" -o "$MKCERT_BIN" || fail "Failed to download mkcert"
+    chmod +x "$MKCERT_BIN"
+    log "mkcert installed."
+else
+    log "mkcert already installed."
+fi
+export PATH="$HOME/.local/bin:$PATH"
+
+# --- Trust the local CA (one-time macOS Keychain prompt) ---
+CA_ROOT=$("$MKCERT_BIN" -CAROOT 2>/dev/null)
+if [[ ! -f "$CA_ROOT/rootCA.pem" ]]; then
+    log "Trusting the local certificate authority..."
+    log "A macOS Keychain dialog will appear — enter your password or click Allow."
+    "$MKCERT_BIN" -install >> "$LOG" 2>&1 || fail "Failed to install mkcert CA"
+    log "Local CA trusted."
+else
+    log "Local CA already trusted."
+fi
+
+# --- Generate local HTTPS certificate ---
+CERTS_DIR="$PROJECT_DIR/.certs"
+[[ -L "$PROJECT_DIR/.certs" ]] && CERTS_DIR="$PROJECT_DIR/.certs.nosync"
+mkdir -p "$CERTS_DIR"
+
+DEV_HOSTNAME="localhost"
+if [[ -f "$CONFIG_FILE" ]] && grep -q "^DEV_HOSTNAME=" "$CONFIG_FILE" 2>/dev/null; then
+    DEV_HOSTNAME=$(grep "^DEV_HOSTNAME=" "$CONFIG_FILE" | cut -d= -f2-)
+fi
+
+CERT_FILE="$CERTS_DIR/cert.pem"
+KEY_FILE="$CERTS_DIR/key.pem"
+HOSTNAME_FILE="$CERTS_DIR/.hostname"
+
+if [[ ! -f "$CERT_FILE" ]] || [[ ! -f "$HOSTNAME_FILE" ]] || [[ "$(cat "$HOSTNAME_FILE" 2>/dev/null)" != "$DEV_HOSTNAME" ]]; then
+    log "Generating HTTPS certificate for $DEV_HOSTNAME..."
+    "$MKCERT_BIN" -cert-file "$CERT_FILE" -key-file "$KEY_FILE" \
+        "$DEV_HOSTNAME" localhost 127.0.0.1 >> "$LOG" 2>&1 \
+        || fail "Failed to generate certificate"
+    echo "$DEV_HOSTNAME" > "$HOSTNAME_FILE"
+    log "Certificate generated for $DEV_HOSTNAME."
+else
+    log "Certificate for $DEV_HOSTNAME already exists."
+fi
+
+# --- System changes requiring admin password ---
+NEEDS_SUDO=false
+
+if [[ "$DEV_HOSTNAME" != "localhost" ]]; then
+    # Check /etc/hosts
+    if ! grep -q "$DEV_HOSTNAME" /etc/hosts 2>/dev/null; then
+        NEEDS_SUDO=true
+    fi
+fi
+
+# Check pfctl anchor
+PFCTL_ANCHOR="com.anglesite"
+if [[ ! -f "/etc/pf.anchors/$PFCTL_ANCHOR" ]]; then
+    NEEDS_SUDO=true
+fi
+
+if $NEEDS_SUDO; then
+    log "Some setup steps need your Mac password (admin access)."
+    log "Type your password below — nothing will appear as you type. Press Enter."
+    sudo -v || fail "Admin access is required for local HTTPS setup"
+fi
+
+# --- /etc/hosts entry ---
+if [[ "$DEV_HOSTNAME" != "localhost" ]]; then
+    if ! grep -q "$DEV_HOSTNAME" /etc/hosts 2>/dev/null; then
+        log "Adding $DEV_HOSTNAME to hosts file..."
+        echo "127.0.0.1 $DEV_HOSTNAME" | sudo tee -a /etc/hosts >> "$LOG" 2>&1
+        log "Hosts file updated."
+    else
+        log "$DEV_HOSTNAME already in hosts file."
+    fi
+fi
+
+# --- pfctl port forwarding: 443 → 4321 ---
+PFCTL_FILE="/etc/pf.anchors/$PFCTL_ANCHOR"
+PFCTL_RULE="rdr pass on lo0 inet proto tcp from any to 127.0.0.1 port 443 -> 127.0.0.1 port 4321"
+
+if [[ ! -f "$PFCTL_FILE" ]]; then
+    log "Setting up port forwarding (443 → 4321)..."
+    sudo cp /etc/pf.conf /etc/pf.conf.anglesite-backup 2>/dev/null || true
+    echo "$PFCTL_RULE" | sudo tee "$PFCTL_FILE" > /dev/null
+
+    # Add anchor references to pf.conf if not present
+    if ! sudo grep -q "$PFCTL_ANCHOR" /etc/pf.conf 2>/dev/null; then
+        # Insert rdr-anchor after existing rdr-anchor lines, or before first rule
+        sudo sed -i '' "/^rdr-anchor/a\\
+rdr-anchor \"$PFCTL_ANCHOR\"" /etc/pf.conf 2>/dev/null \
+            || echo "rdr-anchor \"$PFCTL_ANCHOR\"" | sudo tee -a /etc/pf.conf > /dev/null
+        echo "load anchor \"$PFCTL_ANCHOR\" from \"/etc/pf.anchors/$PFCTL_ANCHOR\"" \
+            | sudo tee -a /etc/pf.conf > /dev/null
+    fi
+
+    sudo pfctl -ef /etc/pf.conf >> "$LOG" 2>&1 || true
+    log "Port forwarding configured."
+else
+    # Ensure rules are loaded (may have been lost after reboot)
+    sudo pfctl -ef /etc/pf.conf >> "$LOG" 2>&1 || true
+    log "Port forwarding already configured."
+fi
 
 # --- Git init ---
 if [[ ! -d ".git" ]]; then

@@ -13,9 +13,9 @@ Before every tool call or command that will trigger a permission prompt, tell th
 These checks are not optional. Accessibility failures are as serious as security failures.
 
 ### Automated checks
-Build the site first, then scan the output:
+Build the site first, then scan the output. Read `DEV_HOSTNAME` from `.site-config` for the URL (fall back to `localhost` if not set):
 ```sh
-npx pa11y-ci --sitemap http://localhost:4321/sitemap-index.xml
+npx pa11y-ci --sitemap https://DEV_HOSTNAME/sitemap-index.xml
 ```
 If `pa11y-ci` is not installed, run:
 ```sh

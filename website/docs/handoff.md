@@ -38,10 +38,10 @@ The most common scenario — the owner wants someone else to manage the site.
 
 The new developer needs to understand:
 
-- **How to run locally:** `cd website && npm install && npm run dev` — opens at localhost:4321
+- **How to run locally:** `cd website && npm install && zsh scripts/setup.sh && npm run dev` — runs with HTTPS at the hostname configured in `.site-config`. The setup script installs mkcert, generates a locally-trusted certificate, adds the hostname to `/etc/hosts`, and configures port forwarding (443 → 4321). See `docs/local-https.md`.
 - **How to build:** `npm run build`
 - **How to deploy:** `npx wrangler pages deploy dist/ --project-name PROJECT_NAME`
-- **How to edit content:** Keystatic at `localhost:4321/keystatic` while the dev server is running
+- **How to edit content:** Keystatic at `https://DEV_HOSTNAME/keystatic` while the dev server is running (read `DEV_HOSTNAME` from `.site-config`)
 - **Where the docs are:** `website/docs/` contains all architecture and reference documentation
 - **Where the commands are:** `website/.claude/commands/` — the slash commands that manage the site
 

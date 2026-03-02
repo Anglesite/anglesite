@@ -12,7 +12,7 @@ This is the source code for your website. It lives in iCloud Drive so it's backe
 
 | I want to… | What to do |
 | --- | --- |
-| Write a blog post | Click **Preview** in the toolbar, then type `localhost:4321/keystatic` in the address bar |
+| Write a blog post | Click **Preview** in the toolbar, then type `https://yourbusiness.com.local/keystatic` in the address bar (your webmaster will tell you the exact address) |
 | Publish changes | Type `/deploy` |
 | Redesign the site | Type `/design-interview` |
 | Check the site for problems | Type `/check` |

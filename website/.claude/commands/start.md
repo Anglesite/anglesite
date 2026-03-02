@@ -2,10 +2,6 @@ Welcome a new site owner. This is the first command they'll run — it combines 
 
 ## How to communicate
 
-Before every tool call or command that will trigger a permission prompt, tell the owner what you're about to do and why in plain English. They should never see a permission dialog without context. Pattern:
-
-> "Next I'm going to [action] — this [why]. You'll see a prompt asking to allow it."
-
 Keep each step conversational. Celebrate progress. If something fails, read `~/.anglesite/logs/setup.log` and explain plainly.
 
 ## Step 1 — Meet the owner
@@ -49,47 +45,28 @@ Ask:
 
    This is the business's public contact info that the owner wants on their website — not customer data.
 
+8. "What web address would you like for your website? For example, keithelectric.com."
+
+   If they know, save it and derive the local hostname: `DEV_HOSTNAME=keithelectric.com.local`.
+
+   If they don't know yet, derive from the business name. Slugify the name (lowercase, hyphens, no special characters) and append `.local`: "Keith Electric" → `DEV_HOSTNAME=keithelectric.local`. Tell them: "No problem — we'll use keithelectric.local for now. You can pick a real domain later when you're ready to go live."
+
 Before moving on, mention costs: "Quick note on cost — building and hosting your website is free. The only thing that costs money is a custom domain name (like yourbusiness.com), which is about $10–15 a year. You can also use a free address. We'll get to that later."
 
-Save answers to `.site-config`:
+Save all answers to `.site-config` using the **Write tool** — not shell commands. Write the complete file in one operation:
 
-```sh
-echo "OWNER_NAME=Name" >> .site-config
+```
+OWNER_NAME=Name
+SITE_NAME=Business Name
+BUSINESS_TYPE=restaurant
+DEV_HOSTNAME=businessname.com.local
+SITE_ADDRESS=123 Main St, City, ST 12345
+SITE_PHONE=(555) 123-4567
+SITE_HOURS=Mon-Fri 9am-5pm
+EXISTING_TOOLS=vagaro,square
 ```
 
-```sh
-echo "SITE_NAME=Business Name" >> .site-config
-```
-
-```sh
-echo "BUSINESS_TYPE=restaurant" >> .site-config
-```
-
-For multi-mode businesses, comma-separate (primary first):
-
-```sh
-echo "BUSINESS_TYPE=farm,hospitality" >> .site-config
-```
-
-If they provided location info:
-
-```sh
-echo "SITE_ADDRESS=123 Main St, City, ST 12345" >> .site-config
-```
-
-```sh
-echo "SITE_PHONE=(555) 123-4567" >> .site-config
-```
-
-```sh
-echo "SITE_HOURS=Mon-Fri 9am-5pm" >> .site-config
-```
-
-If they already use tools:
-
-```sh
-echo "EXISTING_TOOLS=vagaro,square" >> .site-config
-```
+Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `BUSINESS_TYPE`, and `DEV_HOSTNAME` are always present. The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
 
 ## Step 2 — Design interview
 
@@ -126,15 +103,27 @@ After the interview, apply the design — all of these are file edits that don't
 
 ## Step 3 — Install tools
 
-Tell the owner: "Your website design is ready! Now I'll install the tools needed to preview it on your computer. This takes a couple of minutes. You may see a macOS dialog asking to install developer tools — click Install."
+Your design is saved. Before running setup, present the wizard summary so the owner knows exactly what's coming:
+
+"Your website design is ready! Now I need to install the tools to run it on your computer and set up a secure local preview. Here's what will happen — I'll walk you through each step:
+
+1. **macOS developer tools** — If this is your first time, macOS will pop up a window asking to install developer tools. Click **Install** and wait about a minute.
+2. **Mac password** — Your Mac password is needed to set up secure local preview. Type your password — nothing will appear as you type. Press Enter.
+3. **Keychain trust** — A system dialog asks to trust a local security certificate so your browser shows a padlock. Click **Allow** (or enter your password again).
+
+That's it — three things, and I'll tell you when each one is coming. Ready?"
+
+Then run the setup script:
 
 ```sh
 zsh scripts/setup.sh
 ```
 
-The script installs Xcode CLI tools, fnm, Node.js LTS, creates iCloud-safe `.nosync` symlinks, runs `npm install`, and initializes git. It skips anything already present.
+The script installs Xcode CLI tools, fnm, Node.js LTS, mkcert, a locally-trusted HTTPS certificate, hostname resolution, port forwarding, iCloud-safe `.nosync` symlinks, npm dependencies, and initializes git. It skips anything already present.
 
-If the script succeeds, tell the owner what was installed. If it fails, read the log:
+If the script succeeds, read `DEV_HOSTNAME` from `.site-config` and tell the owner: "Everything is installed! Your website now runs securely at https://DEV_HOSTNAME — just like a real website, but only visible on your computer."
+
+If it fails, read the log:
 
 ```sh
 cat ~/.anglesite/logs/setup.log
@@ -158,7 +147,9 @@ Tell the owner: "Let's see your website! Click the **Preview** button in the too
 
 The dev server is pre-configured in `.claude/launch.json`. Wait for them to confirm the preview is showing before continuing.
 
-Once they see it: "That's your website running on your computer. Only you can see it right now — it's not on the internet yet."
+Once they see it: "That's your website running securely on your computer — see the https:// and the padlock? Only you can see it right now — it's not on the internet yet."
+
+If they want to open it in a regular browser: "You can also visit https://DEV_HOSTNAME in Safari or Chrome." (Replace `DEV_HOSTNAME` with the actual value from `.site-config`.)
 
 ## Step 6 — Iterate
 
@@ -189,7 +180,7 @@ Summarize what the owner now knows:
 Tell the owner what they can do now:
 
 - **`/deploy`** — when ready to put the site on the internet (walks through Cloudflare account, domain purchase or transfer, and publishing)
-- **Edit posts** — navigate to `localhost:4321/keystatic` in the preview panel to write blog posts using the visual editor
+- **Edit posts** — navigate to `https://DEV_HOSTNAME/keystatic` in the preview panel to write blog posts using the visual editor (replace `DEV_HOSTNAME` with the actual value from `.site-config`)
 - **`/setup-customers`** — set up customer or client management
 - **`/domain`** — set up email, verify your Bluesky handle, and other domain settings — available after deploying with a custom domain
 

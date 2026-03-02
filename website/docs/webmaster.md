@@ -44,7 +44,7 @@
 
 ## What the owner can do without a developer
 
-- **Write and edit blog posts** — Keystatic at `localhost:4321/keystatic` while the preview is running
+- **Write and edit blog posts** — Keystatic at `https://DEV_HOSTNAME/keystatic` while the preview is running (read `DEV_HOSTNAME` from `.site-config`)
 - **Publish changes** — Type `/deploy`
 - **Check site health** — Type `/check`
 - **Fix problems** — Type `/fix` (diagnoses and repairs common issues)

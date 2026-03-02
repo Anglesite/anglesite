@@ -171,11 +171,20 @@ Walk them through:
 4. At their current registrar: change nameservers to the ones Cloudflare provided
 5. Wait for propagation (usually minutes, can take up to 48 hours)
 
-Save the domain to `.site-config`:
+Save the domain to `.site-config` using the Write tool (update the existing file, adding `SITE_DOMAIN=www.example.com`).
+
+### Update local HTTPS for the new domain
+
+If `DEV_HOSTNAME` in `.site-config` doesn't already end with the chosen domain, update it:
+
+1. Update `DEV_HOSTNAME=SITE_DOMAIN.local` in `.site-config` using the Write tool (e.g., `DEV_HOSTNAME=keithelectric.com.local`)
+2. Tell the owner: "I need to update your local preview to use your new domain name. The setup script will generate a new certificate — you may need to enter your Mac password again."
 
 ```sh
-echo "SITE_DOMAIN=www.example.com" >> .site-config
+zsh scripts/setup.sh
 ```
+
+The script detects the hostname change, generates a new certificate, and updates `/etc/hosts`.
 
 ## Step 5 — First deploy: Configure custom domain on Pages
 
@@ -185,9 +194,8 @@ Once the domain is on Cloudflare (purchased, transferred, or pointed):
 2. Cloudflare will auto-create the DNS record (CNAME pointing to the .pages.dev URL)
 3. SSL certificate is provisioned automatically (free, usually within minutes)
 
-Update the site configuration:
+Update the site configuration (astro.config.ts reads `SITE_DOMAIN` from `.site-config` automatically, so no manual edit needed):
 
-- `astro.config.ts`: set `site` to `https://SITE_DOMAIN`
 - `public/robots.txt`: add `Sitemap: https://SITE_DOMAIN/sitemap-index.xml`
 - `docs/cloudflare.md`: note the domain and DNS setup
 
