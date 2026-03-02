@@ -13,6 +13,20 @@ Covers: flower shops, floral design studios, wedding/event florists, plant shops
 - **Sympathy & funeral** — Standing sprays, casket pieces, arrangements for services. Sensitive, clear, and easy to order quickly.
 - **Contact / order** — Phone (people call for sympathy orders especially), order form, walk-in hours.
 
+## Design
+
+**Visual mood:** Beautiful, natural, and romantic. The site should feel like receiving flowers — delightful, fresh, and personal.
+
+**Color direction:** Soft, botanical palette — blush, sage green, cream, soft pink, lavender. Let the floral photography provide the color pops. Avoid harsh or saturated tones that compete with the arrangements.
+
+**Typography feel:** Classic stack (Georgia) for headings — elegant and timeless. Pairs naturally with botanical imagery.
+
+**Layout emphasis:** Arrangement gallery and order CTA above the fold — visitors are here to see flowers and place orders. Pattern 4 (card grid) for the arrangement gallery. Max-width 56rem.
+
+**Photography style:** Beautiful floral photography with natural light is everything. This is a visual business — the photos do the selling. 1:1 aspect ratio for the arrangement grid, 4:5 for feature images.
+
+**Key component:** Arrangement card — photo, arrangement name, occasion or style tag, starting price, and an "Order" button. Clean, shoppable, and beautiful.
+
 ## Tools
 
 - **Floranext** (~$50+/mo, proprietary) — Florist POS, website, delivery management, wire service integration. floranext.com

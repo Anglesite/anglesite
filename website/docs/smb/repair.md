@@ -15,6 +15,20 @@ Covers: auto repair, auto body/collision, computer/phone/electronics repair, app
 - **Blog** — Maintenance tips, repair guides, Right to Repair news
 - **Contact** — Phone (people call when something breaks), email, drop-off instructions
 
+## Design
+
+**Visual mood:** Trustworthy, practical, competent. The site should feel like handing your broken item to someone who knows exactly what they're doing. Similar to trades but more focused on specific items — precision and care, not brute force.
+
+**Color direction:** Navy, dark green, or dark gray paired with white. Grounded, professional palette. One clear accent color for CTAs (request estimate, drop off). Avoid flashy or trendy colors — repair customers want reliability, not novelty.
+
+**Typography feel:** Modern stack (system-ui sans-serif). Medium-bold headings (600–700). Clean and readable. Body text at 1rem–1.125rem for easy scanning of service lists and pricing.
+
+**Layout emphasis:** "What we fix" and contact info (phone, drop-off hours) prominent above the fold. Trust signals — experience, warranty, reviews — visible on the home page. Use Pattern 2 (hero + content) for home, Pattern 4 (card grid) for services organized by item type. Max-width 56rem.
+
+**Photography style:** Before/after repair photos are the most compelling content. Clean workshop shots, tools of the trade, finished work. Authentic over polished. 4:3 aspect ratio for project photos.
+
+**Key component:** Repair service list — item types (phones, appliances, bikes, etc.), typical turnaround time, and pricing ranges ("starting at" or flat-rate). Organized by category with clear visual separation.
+
 ## Tools
 
 - **RepairDesk** (~$50/mo, proprietary) — Repair shop management: tickets, inventory, POS, customer communication. For electronics/phone repair. repairdesk.co

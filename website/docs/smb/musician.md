@@ -14,6 +14,20 @@ Covers: bands, solo artists, singer-songwriters, DJs, cover bands, tribute acts,
 - **Contact / booking** — Booking email (separate from personal), booking agent info if they have one, press inquiries contact, general fan contact. Make it clear who to contact for what.
 - **Mailing list** — The most important page for an independent musician. Social media algorithms hide posts; the mailing list reaches fans directly. Prominent signup on every page. "Be the first to hear about new music and shows."
 
+## Design
+
+**Visual mood:** Expressive and genre-dependent. Rock/punk: dark, bold, high-energy. Jazz/classical: elegant, restrained, sophisticated. Pop/indie: bright, approachable, energetic. The site should feel like an extension of the music — visitors should sense the genre before they press play.
+
+**Color direction:** Genre-appropriate palettes. Dark backgrounds with bright accents for rock/electronic. Warm neutrals and gold tones for jazz/folk. Bold primaries for pop. Avoid generic — the palette should feel intentional and artist-specific, not like a default theme.
+
+**Typography feel:** Modern stack (system-ui sans-serif) for most genres. Mono stack (monospace) works for electronic, experimental, or lo-fi aesthetics. Medium to bold weight for headings. Let the genre guide the typographic personality.
+
+**Layout emphasis:** Audio player and upcoming shows above the fold — these are the two things visitors need immediately. Use Pattern 2 (hero + content) for the home page with a featured release or show announcement as the hero. Mailing list signup prominent on every page. Max-width 64rem.
+
+**Photography style:** Live performance photos and moody, atmospheric lighting. Consistency in color grading across the site. Press photos should be high-quality and downloadable from the EPK. 16:9 for hero/banner images, 1:1 for album artwork and artist portraits.
+
+**Key component:** Upcoming shows list with date, venue, city, and ticket link. Dead simple, scannable, mobile-friendly. Each show is one row. Past shows collapse into an archive.
+
 ## Tools
 
 - **Bandcamp** (free to list, 15% revenue share on digital, 10% on merch) — Direct-to-fan sales for music, vinyl, merch, and digital downloads. Artists keep the most revenue here. Fans can pay above the asking price. bandcamp.com

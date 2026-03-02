@@ -13,6 +13,20 @@ Covers: general contractors, plumbers, electricians, HVAC, roofers, painters, la
 - **Free estimate / contact** — Phone number prominent, contact form for estimate requests
 - **Blog** — Maintenance tips, seasonal checklists, project spotlights
 
+## Design
+
+**Visual mood:** Dependable, straightforward, professional. The site should feel like a firm handshake — confident without being flashy. Trust signals (licensing, insurance, reviews) matter more than visual flair.
+
+**Color direction:** Strong, grounded colors — navy, dark green, dark gray, or a bold primary (red, orange, blue) with white. Industrial palette. Avoid pastels or overly corporate blues. One bold accent for CTAs (call now, get a quote).
+
+**Typography feel:** Modern stack (system-ui sans-serif). Medium to bold heading weight (600–700). Straightforward and readable. No decorative fonts. Slightly larger body text (1.125rem) for readability — many visitors are on phones at a job site.
+
+**Layout emphasis:** Phone number and "Get a Quote" above the fold on every page. Service areas clearly listed. Trust signals (licensed, insured, years in business) prominent. Use Pattern 2 (hero + content) for home, Pattern 1 (single column) for service pages. Max-width 56rem.
+
+**Photography style:** Real job photos — before/after transformations, team on site, equipment, finished work. Candid and authentic beats polished studio shots. Smartphone photos are fine if well-lit. 4:3 or 16:9 for project galleries.
+
+**Key component:** Service area list with "areas we serve" as a clear section. Before/after photo pairs for completed projects — side by side on desktop, stacked on mobile.
+
 ## Tools
 
 - **Jobber** (~$49/mo, proprietary) — Job scheduling, quoting, invoicing, client management. Built for field service businesses. getjobber.com

@@ -13,6 +13,20 @@ Covers: bloggers, social media influencers, newsletter writers, online educators
 - **Appearances / events** — Speaking engagements, podcast guest spots, meetups, conventions. Both upcoming and past.
 - **Contact** — Business inquiries email (separate from personal). Social links. Collaboration form.
 
+## Design
+
+**Visual mood:** Personal brand forward. Clean, personality-driven, and immediately recognizable. The site should feel like the creator's content — familiar to their existing audience and inviting to new visitors. Varies by niche but always intentional.
+
+**Color direction:** Warm or cool based on the creator's content tone and existing brand colors. Pull from their established palette (channel art, social profiles, merch). Consistency with their cross-platform brand is more important than any design trend. Avoid generic — the palette should be unmistakably theirs.
+
+**Typography feel:** Modern stack (system-ui sans-serif). Medium weight. Clean and readable — the creator's personality comes through in content, not type ornamentation. Headings can be bolder to create hierarchy on content-heavy pages.
+
+**Layout emphasis:** Links/bio page and latest content above the fold. The home page is the hub — it answers "who is this person and where do I find their stuff?" Use Pattern 2 (hero + content) for home with a personal photo and quick bio as the hero, followed by latest content and platform links. Max-width 64rem.
+
+**Photography style:** Brand-consistent photos that match the creator's cross-platform identity. Professional headshot for the hero/about page. Casual behind-the-scenes shots for blog and content pages. Aspect ratios match the platforms they're on — 1:1 for profile-style, 16:9 for banner-style.
+
+**Key component:** Link hub — a curated, branded links page (like Linktree but built into the site). Platform links, latest content, newsletter signup, shop, and support all in one scannable section. This replaces the "link in bio" service entirely.
+
 ## Tools
 
 - **Ko-fi** (free, no fees on donations) — Tips, memberships, commissions, and shop. Indie-friendly and creator-focused. ko-fi.com

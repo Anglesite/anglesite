@@ -15,6 +15,20 @@ Covers: marinas, boat dealers (new and used), boat repair and service, charter f
 - **Events** — Fishing tournaments, boat shows, rendezvous, cookouts, kids' fishing derbies, sailing regattas, paddle events.
 - **Contact / directions** — Address, phone, GPS coordinates (essential — many marinas are hard to find by street address alone). Directions by water and by road. VHF channel if monitored.
 
+## Design
+
+**Visual mood:** Nautical, relaxed, outdoorsy. The site should feel like a day on the water — clean air, blue sky, rocking boats. Professional but laid-back, not corporate.
+
+**Color direction:** Blues, whites, sandy tans. Rope and wood textures as accents. Navy or ocean blue as primary, sandy warm as accent. White background. Avoid anything landlocked or overly bright.
+
+**Typography feel:** Classic stack (Georgia serif) for a traditional maritime feel, or modern stack (system-ui) for a cleaner, contemporary marina. Heading weight 600–700. Readable and no-nonsense.
+
+**Layout emphasis:** Slip availability and services above the fold — boaters want to know if there's room and what you offer. Home page uses Pattern 2 (hero + content) with a waterfront panorama. Services organized as a clear list or grid. Max-width 56rem.
+
+**Photography style:** Water, boats, and dock photography. Aerial and drone shots of the marina layout are especially effective. Sunrise and sunset shots on the water. 16:9 for hero images, 4:3 for services and facilities. Real marina, real boats — not stock.
+
+**Key component:** Services list with rates and seasonal availability — a structured display of what the marina offers (slips, storage, fuel, launch, repair) with pricing or "call for rates" and seasonal notes. Boaters comparison-shop marinas on services and price.
+
 ## Tools
 
 - **Dockwa** (~$50/mo, proprietary) — Marina management: online slip reservations, transient booking, payments, customer messaging. The standard for marina reservation software. dockwa.com

@@ -14,6 +14,20 @@ Covers: independent grocery stores, co-op markets, specialty food shops (cheese,
 - **Catering / gift baskets** — If offered
 - **Contact** — Phone, email, delivery/order info
 
+## Design
+
+**Visual mood:** Fresh, local, community-oriented. Clean and wholesome — the site should feel like walking into a well-kept neighborhood market. Approachable, not corporate.
+
+**Color direction:** Bright greens, warm yellows, earth tones. White or cream background. Green as primary (freshness), warm accent (gold, orange) for specials and CTAs. Avoid anything that feels like a big-box chain.
+
+**Typography feel:** Humanist stack (Segoe UI/Roboto) for friendly readability. Heading weight 600–700. Clean and welcoming, not overly stylized.
+
+**Layout emphasis:** Hours, location, and weekly specials above the fold. Home page uses Pattern 2 (hero + content) with fresh produce photography. Specials section updated weekly. Max-width 56rem.
+
+**Photography style:** Fresh produce and store interior photos with natural lighting. Bright, clean, appetizing. Show the real store and real products. 4:3 aspect ratio. Avoid stock photos — authenticity matters for local grocers.
+
+**Key component:** Weekly specials or featured products section — a card or list highlighting this week's deals, seasonal items, or local producer features. Updated regularly to give customers a reason to check back.
+
 ## Tools
 
 - **Square** (free POS, proprietary) — Good for in-person sales. Handles inventory basics.

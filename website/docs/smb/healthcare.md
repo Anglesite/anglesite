@@ -13,6 +13,20 @@ Covers: chiropractors, dentists, therapists (physical, occupational, mental heal
 - **Blog** — Health tips, seasonal wellness, FAQ answers
 - **Contact** — Phone, fax (many healthcare offices still use fax), email
 
+## Design
+
+**Visual mood:** Calming, trustworthy, clinical but warm. The design should lower anxiety — patients visiting a healthcare site are often stressed or in pain. Clean and reassuring.
+
+**Color direction:** Soft blues, greens, and white. Light, airy backgrounds. Warm accents (soft gold, sage) to avoid feeling sterile. Avoid harsh reds or high-contrast patterns. The palette should feel clean without feeling cold.
+
+**Typography feel:** Humanist stack (Segoe UI / Roboto) for warmth and readability. Heading weight 600. Approachable and clear — healthcare content must be easy to read for all literacy levels.
+
+**Layout emphasis:** Patient portal link and online booking CTA above the fold — these are the #1 and #2 reasons people visit. Provider bios with photos build trust before the first visit. Insurance/payment info should be easy to find. Use Pattern 2 (hero + content) for home. Max-width 56rem.
+
+**Photography style:** Clean, bright, natural-light photography. Real office and provider photos are far better than stock. Warm and welcoming — show the space patients will actually visit. Avoid clinical stock photos with stethoscopes and clipboards.
+
+**Key component:** Provider bio card — professional photo, name, title/credentials, specialties, brief personal note, and "book with this provider" link. Patients choose providers, not practices.
+
 ## Tools
 
 - **Jane App** (~$55/mo, proprietary) — Practice management, online booking, charting, insurance billing. Purpose-built for health and wellness. janeapp.com

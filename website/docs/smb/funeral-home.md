@@ -14,6 +14,20 @@ Covers: funeral homes, mortuaries, cremation services, memorial chapels, cemeter
 - **FAQ** — What to do when someone dies, what to bring to the arrangement conference, embalming questions, green/natural burial options.
 - **Contact** — Phone (24/7 availability is standard — note it prominently), email, address with directions.
 
+## Design
+
+**Visual mood:** Dignified, serene, and compassionate. The site should feel calm and reassuring — a place of care, not sadness. Visitors are often under stress; the design should ease, not add to it.
+
+**Color direction:** Soft, muted palette — deep blues, warm grays, cream, sage. Never dark or gloomy. Calm and peaceful instead. Avoid stark black-and-white or anything clinical.
+
+**Typography feel:** Classic stack (Georgia) for headings — dignity and tradition. Readable body text at generous sizes. Families reading this site may be emotional and distracted; legibility is an act of compassion.
+
+**Layout emphasis:** Services and "Contact Us" above the fold in a gentle, unhurried tone. No aggressive CTAs — a quiet "We're here to help" approach. Pattern 1 (single column) for service detail pages, Pattern 2 (hero + content) for the home page. Max-width 52rem for comfortable reading.
+
+**Photography style:** Peaceful exterior and interior photos — well-maintained grounds, warm interiors, natural light. Avoid stock photos entirely. Show the actual facility. 4:3 or 16:9 aspect ratio.
+
+**Key component:** Services overview — service type (traditional, cremation, memorial, pre-planning) with a brief, compassionate description and a gentle CTA to learn more. Each option should feel like a conversation, not a sales pitch.
+
 ## Tools
 
 - **FrontRunner Professional** (pricing varies, proprietary) — Funeral home websites, obituary management, pre-planning tools. Industry-specific. frontrunner.com

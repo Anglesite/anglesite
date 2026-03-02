@@ -13,6 +13,20 @@ Covers: restaurants, cafés, coffee shops, bakeries, catering, delis, ice cream 
 - **Custom orders** — If the business takes custom orders (decorated cookies, custom cakes, catering). Include: what they make, lead time ("order 2–3 weeks ahead"), price ranges or "request a quote" form, order form or inquiry form collecting event date, theme, quantity, dietary needs, design inspiration. Show past work organized by occasion (weddings, birthdays, holidays, corporate).
 - **Shipping** — If they ship products (cookies, sauces, packaged goods). Shipping policy, turnaround time, zones/costs, packaging details, seasonal restrictions (e.g., chocolate in summer). Set expectations: "Shipped items are packaged for freshness — here's what to expect."
 
+## Design
+
+**Visual mood:** Warm, inviting, appetite-stimulating. Dark backgrounds with warm lighting for upscale dining; bright and clean for cafés and bakeries; rustic textures for farm-to-table.
+
+**Color direction:** Warm tones — amber, terracotta, deep red, olive, espresso. Avoid cool blues and purples (they suppress appetite). Accent color for CTAs (order, reserve, call).
+
+**Typography feel:** Classic stack (serif headings) for character and tradition. Clean sans-serif body. Heading weight 700+. Cafés and bakeries can go lighter and more modern with the humanist stack.
+
+**Layout emphasis:** Menu page is the priority — card grid or structured list, not a wall of text. Home page hero should feature food photography or restaurant atmosphere. Hours and location must be visible without scrolling on mobile. Use Pattern 4 (card grid) for menus, Pattern 2 (hero + content) for the home page.
+
+**Photography style:** Food close-ups with warm, natural light. Interior shots showing ambiance. Real food, not stock. 3:2 or 4:3 aspect ratio for consistency. Avoid overhead flat-lay unless the brand is modern/minimal.
+
+**Key component:** Menu item card — name, description, price aligned right. Optional photo. Group by category with clear section headings. Use `--color-surface` background with subtle `--shadow-sm`.
+
 ## Tools
 
 - **Square** (free POS, 2.6% per transaction, proprietary) — Payments, online ordering, marketing. Free tier is generous and easy to start. square.com

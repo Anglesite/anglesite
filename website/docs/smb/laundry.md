@@ -13,6 +13,20 @@ Covers: dry cleaners, laundromats (self-service), wash-and-fold services, laundr
 - **FAQ** — Turnaround times, stain treatment, how to handle delicates, what can't be dry cleaned.
 - **Contact** — Phone, email, pickup scheduling.
 
+## Design
+
+**Visual mood:** Clean, efficient, modern. The site should feel crisp and organized — like freshly pressed clothes. No fuss, no clutter. Customers want to know services, prices, and hours fast.
+
+**Color direction:** Crisp blues and whites as the foundation, with fresh accents (light teal, soft green, or a bright pop for CTAs). Clean and hygienic feeling. Avoid dark or heavy palettes. The design should feel as fresh as the laundry.
+
+**Typography feel:** Modern stack (system-ui sans-serif). Clean and minimal — regular to medium weight (400–500) for body, medium-bold for headings. No decorative fonts. Straightforward and scannable.
+
+**Layout emphasis:** Services, pricing, and hours prominent above the fold. Customers visit for practical information — give it to them immediately. Use Pattern 2 (hero + content) for home. Keep pages short and focused. Max-width 52rem.
+
+**Photography style:** Clean, bright facility photos — machines, folding area, the storefront. Show the space looking its best. For pickup/delivery services, show the process. 4:3 or 16:9 aspect ratio. Authentic but well-lit.
+
+**Key component:** Pricing table — service type (dry cleaning, wash-and-fold, self-service), turnaround time, and price per item or per pound. Clear columns, easy to scan, updated when prices change.
+
 ## Tools
 
 - **Starchup** (pricing varies, proprietary) — Dry cleaning POS, pickup/delivery management, customer portal. starchup.com

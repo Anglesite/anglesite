@@ -14,6 +14,20 @@ Covers: bed & breakfasts, boutique hotels, small independent hotels, vacation re
 - **Contact** — Phone, email, directions, parking instructions
 - **Events** — If the venue hosts events (weddings, retreats, meetings)
 
+## Design
+
+**Visual mood:** Welcoming, aspirational, experience-driven. The site should make visitors picture themselves there — relaxing, exploring, arriving. Warm and polished without being sterile.
+
+**Color direction:** Warm and inviting — creams, sage, soft blues, warm wood tones. Muted saturation. White or cream background. Avoid harsh or bright colors. The palette should feel like a comfortable room.
+
+**Typography feel:** Classic stack (Georgia serif headings) for B&Bs and boutique hotels — conveys character and permanence. Sans-serif body for readability. Heading weight 600–700.
+
+**Layout emphasis:** Rooms/rates and a booking CTA above the fold. Home page uses Pattern 2 (hero + content) with a stunning property photo — the first impression must be aspirational. Room pages with large photos and clear pricing. Max-width 56rem.
+
+**Photography style:** Professional interior and exterior photography — rooms, common areas, grounds, views, nearby attractions. 16:9 for hero banners, 4:3 for room photos. Natural light, warm tones. Show the property at its best season. Real guests enjoying the space (with permission) add warmth.
+
+**Key component:** Room or accommodation card — photo, room name, brief description, rate (or "from $X"), amenity icons, and a "Book" or "Check Availability" button. Each room should feel distinct and inviting.
+
 ## Tools
 
 - **Lodgify** (~$17/mo, proprietary) — Vacation rental management, direct booking widget, channel management. lodgify.com

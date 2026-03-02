@@ -30,6 +30,15 @@ Every nonprofit website needs these regardless of sub-type:
 - **Gift acknowledgment**: Written acknowledgment required for gifts over $250. Donation platforms usually handle this.
 - **Churches**: Generally exempt from 501(c)(3) filing but should still display nonprofit status.
 
+## Design
+
+- **Visual mood:** Mission-driven, trustworthy, and emotionally engaging. The design should convey purpose and invite participation without feeling like a corporate annual report.
+- **Color direction:** Warm, approachable colors — not corporate. Earth tones, warm blues, and mission-related accent colors. Avoid sterile grays or overly bright palettes that undermine seriousness.
+- **Typography feel:** Humanist sans-serif (Segoe UI/Roboto stack) for warmth and approachability. Medium weight. Readable at all sizes since donors and volunteers span every age group.
+- **Layout emphasis:** Pattern 2 (hero + content) for the home page with the mission statement and a donate CTA above the fold. Pattern 5 (alternating features) for impact stories and program descriptions. Max-width 48rem for narrative content.
+- **Photography style:** Impact photography — real people, real community, real work. Avoid stock photos. 4:3 for general use, 16:9 for hero banners. Warm and authentic treatment.
+- **Key component:** Impact stat cards — a large number with a brief description (e.g., "1,200 meals served this month"). These build donor confidence and make the mission tangible.
+
 ## Shared tools
 
 - **Donorbox** (free up to $1000/mo) — Embeddable donation forms. donorbox.org

@@ -13,6 +13,20 @@ Covers: tool and equipment rental (construction, landscaping, moving), party and
 - **About** — Company history, team, fleet size, service area. If family-owned or long-established, say so — it's a trust signal. Photos of the warehouse and fleet.
 - **Contact / quote request** — Phone, email, form. The quote request form should ask: event date, event type, estimated guest count, items interested in, delivery address, and any special needs. This form is the primary lead generator.
 
+## Design
+
+**Visual mood:** Practical, industrial, and clear. The site should feel like a well-organized equipment yard — everything has a place, and you can find what you need fast.
+
+**Color direction:** Bold primary colors (yellow, orange, red) with dark backgrounds or clean white. Industrial and high-visibility. Avoid pastels or anything delicate.
+
+**Typography feel:** Modern stack (system-ui) with bold weight. Direct and functional. Readability over elegance.
+
+**Layout emphasis:** Equipment categories and "Get a Quote" CTA above the fold — visitors need to find what they're looking for and make contact quickly. Pattern 4 (card grid) for the equipment catalog. Max-width 64rem.
+
+**Photography style:** Equipment photos on clean backgrounds, well-lit and clearly showing the item. 4:3 or 1:1 aspect ratio for consistency across the catalog.
+
+**Key component:** Equipment card — photo, item name, day/week rental rates, availability status, and a "Reserve" button. Functional and scannable.
+
 ## Tools
 
 - **Point of Rental** (pricing varies, proprietary) — Rental management software: inventory tracking, reservations, contracts, delivery scheduling, billing. The industry standard. point-of-rental.com

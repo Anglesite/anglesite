@@ -14,6 +14,20 @@ Covers: tattoo shops, piercing studios, permanent makeup/microblading, body art 
 - **Shop policies** — Age requirements (18+ for tattoos, varies for piercings with parental consent), deposit and cancellation policy, health screening (no alcohol, blood thinners), acceptable behavior.
 - **Contact** — Phone, email, social media (Instagram is essential for tattoo shops), walk-in hours.
 
+## Design
+
+**Visual mood:** Bold, high-contrast, visual-forward. The site should feel like walking into the shop — confident, a little edgy, unapologetically itself. Dark and dramatic, not corporate or sterile.
+
+**Color direction:** Dark backgrounds (black or very dark gray) as the default. Bright accent colors — neon, gold, or red — for interactive elements and highlights. The dark canvas makes tattoo photography pop. Avoid pastels, light themes, or anything that softens the work.
+
+**Typography feel:** Modern stack (system-ui sans-serif). Medium weight (500) for body, bold for headings. Clean and readable against dark backgrounds. Decorative type only if it matches the shop's specific brand (e.g., a traditional shop might use a blackletter logo, but body text stays clean).
+
+**Layout emphasis:** Portfolio gallery is everything — the work sells itself. Home page opens with the strongest portfolio images. Artist profiles and booking info visible without scrolling. Use Pattern 4 (card grid) for the portfolio gallery, Pattern 2 (hero) for the home page with a featured piece. Max-width 64rem.
+
+**Photography style:** Close-up portfolio shots of healed work on consistent backgrounds. Consistent lighting and framing across the portfolio. 1:1 aspect ratio for the grid — uniform squares create a tight, professional gallery. Detail shots that show line quality and color saturation.
+
+**Key component:** Tattoo portfolio grid with style categorization (traditional, realism, blackwork, Japanese, fine line, etc.). Filter by artist and/or style. Click to enlarge. Each image can note the artist, style, and placement.
+
 ## Tools
 
 - **Instagram** — Not optional. Tattoo is a visual art — Instagram is the primary portfolio and discovery platform. The website should link to and complement Instagram, not replace it.

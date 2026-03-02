@@ -12,6 +12,20 @@ Covers: real estate agents, brokerages, property management companies.
 - **Blog** — Market updates, neighborhood guides, home tips
 - **Contact** — Phone, email, office address, scheduling link
 
+## Design
+
+**Visual mood:** Aspirational, local expertise. The design should feel polished and confident — this agent knows the market and the neighborhoods. Warm but sharp.
+
+**Color direction:** Warm neutrals (cream, sand, warm gray) with a bold accent color (deep teal, terracotta, navy). The accent should feel distinctive — agents need to stand out from brokerage templates. Avoid cold or generic corporate palettes.
+
+**Typography feel:** Modern stack (system-ui) with bold headings (weight 700+). Clean, contemporary, confident. The typography should feel current without being trendy — real estate moves fast but trust is timeless.
+
+**Layout emphasis:** Property search and current listings are the primary draw — link prominently to the agent's MLS/IDX profile. Neighborhood pages are individual landing pages for local SEO. Agent bio and credentials must be visible early. Use Pattern 4 (card grid) for listings and area pages, Pattern 2 (hero + content) for home. Max-width 64rem for visual impact.
+
+**Photography style:** Property photography in 16:9 aspect ratio. High quality, well-lit, professionally staged when possible. Agent headshot should be polished and approachable. Neighborhood photos add local flavor. Avoid generic stock — every photo should feel like it belongs to this market.
+
+**Key component:** Property listing card — featured image (16:9), address, price, bed/bath/sqft, status badge (active, pending, sold), and link to full listing on the brokerage IDX site.
+
 ## Tools
 
 - **Cal.com** (open source, free tier) — Schedule showings and consultations.

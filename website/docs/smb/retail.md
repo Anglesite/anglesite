@@ -12,6 +12,20 @@ Covers: gift shops, boutiques, clothing stores, toy stores, antique shops, thrif
 - **Events** — Trunk shows, workshops, sidewalk sales, holiday open houses.
 - **Contact** — Phone, email, directions. "Can I check if you have something in stock?" is a common reason to call.
 
+## Design
+
+**Visual mood:** Inviting, browsable, personality-driven. The site should reflect the store's character — a curated boutique feels different from a vintage shop. Match the energy of the physical space.
+
+**Color direction:** Depends on the store's personality. Boutiques: muted, warm, elegant (blush, sage, cream, gold). Vintage/thrift: bold, eclectic, slightly retro (mustard, teal, brick). Gift shops: bright and cheerful. Use the store's actual decor as the starting palette.
+
+**Typography feel:** Modern stack for clean contemporary shops. Classic stack for established or vintage stores. Humanist stack for warm, community-oriented shops. Match the signage font vibe if they have one.
+
+**Layout emphasis:** Feature new arrivals and seasonal highlights — what's in the window should be on the home page. Hours, location, and parking prominent. If they sell online, shop links above the fold. Use Pattern 2 (hero) for home, Pattern 4 (card grid) for product highlights. Max-width 56rem.
+
+**Photography style:** Product photos on consistent backgrounds (white for clean, lifestyle for context). Store interior shots showing the browsing experience. 1:1 aspect ratio for product grids. 16:9 for store interior banners.
+
+**Key component:** Product highlight card — photo, name, price (if shown), and link to purchase or visit. Curated selection, not a full catalog. "Visit us" or "Shop online" CTAs.
+
 ## Tools
 
 - **Square** (free POS, proprietary) — Good for in-person and simple online sales. Easy setup, no monthly fee for basic POS. square.com

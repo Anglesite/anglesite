@@ -16,6 +16,20 @@ The business model: the property IS the product. Customers rent the space for th
 - **About** — The property's story, the people behind it, what makes the space special. For barn venues: the barn's history. For estates: the grounds and gardens. Customers choose venues emotionally — the story matters.
 - **Contact** — Phone, email, booking inquiry form. Include a "schedule a tour" CTA — venue tours are the primary conversion step.
 
+## Design
+
+**Visual mood:** Romantic, aspirational, emotionally-driven. The site should make couples and planners fall in love with the space before they visit. Elegant but not stuffy — warm and dreamlike.
+
+**Color direction:** Soft, warm palette — blush, sage, cream, gold, warm gray. Muted and sophisticated. White or cream background. Avoid bold or saturated colors — the venue photos provide the visual richness. Gold or warm accent for CTAs.
+
+**Typography feel:** Classic stack (Georgia serif headings) for elegance and timelessness. Lightweight serif headings (weight 600) feel more refined than bold. Sans-serif body for readability.
+
+**Layout emphasis:** Gallery and inquiry form above the fold — the venue sells on visuals, and the CTA is "schedule a tour." Home page uses Pattern 2 (hero + content) with the single best venue photo as a full-width hero. Let the photography breathe with generous whitespace. Max-width 56rem.
+
+**Photography style:** Professional event photography — beautifully decorated spaces, golden hour exterior shots, candlelit interiors, real events in progress (with permission). Show the venue in different configurations and seasons. 16:9 for banners and hero images, 3:2 for gallery photos. Warm, natural, editorial quality.
+
+**Key component:** Full-width photo gallery — the signature element. Show the venue dressed for weddings, corporate events, and intimate gatherings. Multiple seasons and lighting conditions. Clicking a photo should open a larger view. This gallery is the primary sales tool.
+
 ## Tools
 
 - **HoneyBook** (~$19/mo, proprietary) — Client management, proposals, contracts, invoices. Popular with wedding and event venues. honeybook.com

@@ -12,6 +12,20 @@ Covers: law firms, solo attorneys, immigration consultants, notaries, mediators.
 - **Blog** — Explainers on legal topics relevant to the practice. Avoid giving legal advice — frame as "general information, not legal advice." Disclaimers matter here.
 - **Resources** — Court links, government forms, checklists ("what to bring to your first meeting"). Useful for clients and great for search traffic.
 
+## Design
+
+**Visual mood:** Authoritative, calm, trustworthy. Restrained rather than flashy. The design communicates competence and stability — not creativity.
+
+**Color direction:** Cool neutrals — navy, dark slate, charcoal. Conservative accent: burgundy, forest green, or gold. Low saturation. White or very light gray background. Avoid bright or playful colors.
+
+**Typography feel:** Classic stack (serif headings — Georgia) for tradition and authority. Sans-serif body for readability. Heading weight 600–700. Bold but not aggressive.
+
+**Layout emphasis:** Practice area pages are individual landing pages for search — each one needs its own page, not a list. Attorney bio pages need headshots, credentials, and a human detail. CTA is "schedule a consultation" — visible on every practice area page. Use Pattern 1 (single column) for practice areas, Pattern 3 (sidebar) for attorney bios. Max-width 48rem.
+
+**Photography style:** Professional headshots with neutral backgrounds. Office or courtroom environment shots optional. Avoid stock photos of gavels and handshakes — they signal "template site."
+
+**Key component:** Attorney bio card — professional headshot, name, title, practice areas, bar admissions, brief personal note. Links to full bio page.
+
 ## Tools
 
 - **Monica CRM** (open source, free) — Client relationship tracking. Good for solo practitioners and small firms.

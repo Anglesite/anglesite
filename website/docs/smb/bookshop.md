@@ -15,6 +15,20 @@ Covers: independent bookstores, used bookshops, comic book stores, rare/antiquar
 
 Don't try to replicate a full online catalog. The website's job is to get people into the shop or calling to order — not to compete with Amazon's inventory system.
 
+## Design
+
+**Visual mood:** Literary, warm, and inviting. The site should feel like stepping into a well-loved bookshop — rich textures, curated shelves, a sense of discovery.
+
+**Color direction:** Rich wood tones, deep greens, burgundy, and cream. Warm and grounded. Avoid bright primaries or anything that feels like a tech company.
+
+**Typography feel:** Classic stack (Georgia) for headings — bookish and literary. Pair with a readable body font. Let the serif do the work.
+
+**Layout emphasis:** Staff picks and upcoming events above the fold — these are what bring people in and back. Pattern 2 (hero + content) for the home page, Pattern 4 (card grid) for staff picks and new arrivals. Max-width 56rem.
+
+**Photography style:** Cozy interior shots, book displays, reading nooks, event photos. Show the space, not just the product. 4:3 aspect ratio for consistency.
+
+**Key component:** Staff pick card — book cover image, title, author, and a brief staff recommendation. Personal curation is the indie bookshop's superpower; the card format makes it scannable and shareable.
+
 ## Tools
 
 - **Bookmanager** or **IndieLite** — Industry-specific POS and inventory. Most indie bookshops already use one. Don't replace it.

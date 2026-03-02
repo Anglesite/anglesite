@@ -14,6 +14,20 @@ Covers: bowling alleys, escape rooms, mini golf, arcades, go-kart tracks, trampo
 - **Events** — Leagues (bowling, pool, darts), tournaments, themed nights, holiday events, live entertainment, DJ nights. League schedules and standings.
 - **Contact / location** — Address, phone, directions, parking. Note if the location is hard to find or inside a larger complex.
 
+## Design
+
+**Visual mood:** Fun, exciting, and high-energy. The site should feel like walking through the front door — you immediately want to play.
+
+**Color direction:** Bold, saturated colors — adapt to the venue's personality. Neon tones for arcades, bright and cheerful for family centers, sleek dark palettes for escape rooms. Avoid muted or corporate tones.
+
+**Typography feel:** Modern stack (system-ui) with bold, playful weight. Big headings that match the energy of the space.
+
+**Layout emphasis:** Hours, activities, and pricing above the fold — families plan by budget and availability. Pattern 2 (hero + content) with an action photo for the home page, Pattern 4 (card grid) for activities. Max-width 56rem.
+
+**Photography style:** Action shots of people having fun, facility highlights, activity close-ups. Show the experience, not just the space. 16:9 for the hero image, 4:3 for activity cards.
+
+**Key component:** Activity or attraction card — photo, name, brief description, age suitability, price, and a "Book" button. Each card should answer: "What is it, can my kids do it, and how much?"
+
 ## Tools
 
 - **Party Bookings**: Most entertainment venues manage party bookings through phone calls and a calendar. For higher volume, consider:

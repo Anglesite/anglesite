@@ -13,6 +13,20 @@ Covers: independent insurance agents, captive agents (State Farm, Allstate, Farm
 - **Blog** — Seasonal risk reminders, coverage explainers, local risk factors.
 - **Contact** — Phone, email, hours, appointment scheduling.
 
+## Design
+
+**Visual mood:** Approachable but credible. Warm professionalism — clients need to feel safe and confident, not intimidated. The design should say "we'll take care of you."
+
+**Color direction:** Blues, greens, and warm grays. A touch of warmth to avoid feeling corporate. Avoid stark or cold palettes. Earth tones as accents work well for independent agents.
+
+**Typography feel:** Humanist stack (Segoe UI / Roboto) for approachability and warmth. Heading weight 600. Friendly but not casual — insurance is a trust business.
+
+**Layout emphasis:** Quote request CTA is the primary conversion — keep it prominent on every page. Carrier logos build credibility for independent agents. Claims links need to be easy to find when something bad has happened. Use Pattern 2 (hero + content) for home. Max-width 56rem.
+
+**Photography style:** Family and lifestyle stock photography is acceptable here — insurance is about protecting what matters. Local community photos are even better. Avoid staged corporate imagery. Warm, natural lighting.
+
+**Key component:** Coverage comparison cards or quote request form. Comparison cards show product types (auto, home, life, business) with brief descriptions and "get a quote" CTAs. The quote request form should be short — name, insurance type, contact info — complex quoting happens offline.
+
 ## Tools
 
 - **Agency management systems** (Applied Epic, HawkSoft, EZLynx, AMS360) — Core agency systems. Never suggest replacing these. The website links to client portals if available.

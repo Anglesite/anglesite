@@ -17,6 +17,15 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **News / blog** — Impact stories (with great care for client privacy), program updates, advocacy updates
 - **Contact** — Office hours, intake phone, referral contacts
 
+## Design
+
+- **Visual mood:** Dignified, accessible, and reassuring. Many visitors arrive in crisis. The design must feel calm, trustworthy, and immediately useful.
+- **Color direction:** Warm, calming colors — soft blues, greens, and warm neutrals. Must not feel clinical or bureaucratic. Avoid harsh whites, institutional grays, or anything that feels cold or impersonal.
+- **Typography feel:** Humanist sans-serif (Segoe UI/Roboto stack). Large, clear text. Many visitors are reading under stress, on older devices, or in unfamiliar languages. Legibility is paramount.
+- **Layout emphasis:** Pattern 2 (hero + content) for the home page. "How to get help" and crisis contact numbers above the fold in large text. Accessibility is paramount — many visitors are in crisis and need information immediately. Max-width 48rem. Minimal visual noise.
+- **Photography style:** Warm community photos showing support, connection, and agency. Never show clients in identifiable or vulnerable situations. 4:3 aspect ratio. Soft, warm treatment.
+- **Key component:** Help finder — clear categories of assistance (housing, food, safety, jobs, legal) with phone numbers and next steps for each. A person in crisis should find the right resource within seconds.
+
 ## Tools
 
 - **Apricot by Bonterra (formerly Social Solutions)** — Case management built for human services. Client tracking, outcomes, reporting. apricot.socialsolutions.com

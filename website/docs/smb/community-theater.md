@@ -17,6 +17,15 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **Venue** — Address, parking, accessibility, seating chart, box office hours
 - **Blog / news** — Rehearsal diaries, director's notes, cast spotlights, season announcements
 
+## Design
+
+- **Visual mood:** Creative, vibrant, and inviting. The website should feel like the lobby of a theater — energetic, warm, and promising a great experience.
+- **Color direction:** Rich, theatrical colors — deep reds, purples, and golds. These can be bold without being overwhelming. Avoid cold or muted palettes that drain the drama.
+- **Typography feel:** Classic serif headings (Georgia stack) for dramatic, traditional theater; Modern stack (system-ui) for contemporary or experimental companies. Bold heading weights to capture the stage presence.
+- **Layout emphasis:** Pattern 2 (hero + content) for the home page with a production photo hero. Current show and "Get Tickets" prominently above the fold. Max-width 48rem for narrative pages, wider for season grid layouts.
+- **Photography style:** Production photography, rehearsal shots, and cast portraits. 16:9 for show photos and hero images, 1:1 for headshots. Well-lit, capturing the energy and emotion of live performance.
+- **Key component:** Current season lineup — show poster or image, title, dates, brief tagline, and ticket link. This is the reason most people visit the site.
+
 ## Tools
 
 - **Ludus** (~$0.50/ticket, proprietary) — Ticketing designed for performing arts. Seating charts, box office, patron management. ludus.com

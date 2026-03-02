@@ -4,6 +4,10 @@ If `.site-config` doesn't exist or is missing `SITE_NAME`, tell the owner: "Let'
 
 This is a conversation, not a form — let the owner's answers guide the next question. Think of yourself as a designer sitting across the table from a client, sketchbook in hand.
 
+## Before you begin
+
+Read `docs/design-system.md` for color, typography, spacing, and layout guidance. Read the `## Design` section in the matching `docs/smb/` file for the owner's `BUSINESS_TYPE`. Use these as your design foundation — the interview refines them, not replaces them.
+
 ## The interview
 
 Tailor your questions to the business type. Cover these topics naturally (not necessarily in this order):

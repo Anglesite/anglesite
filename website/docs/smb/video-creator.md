@@ -14,6 +14,20 @@ Covers: YouTubers, video essayists, educational video creators, streamers (Twitc
 - **Streaming schedule** — If the creator live-streams: regular schedule, platform (Twitch, YouTube Live), what to expect. Past streams as VODs (video on demand) if archived.
 - **Contact** — Business inquiries (separate from fan mail), collaboration requests, press contact. Make it clear: "For business inquiries, email [business email]. For fan messages, use [social platform]."
 
+## Design
+
+**Visual mood:** Dynamic, screen-friendly, built for visual content. Dark mode is natural for video creators — it matches the viewing environment and makes embedded video pop. The site should feel like a curated channel, not a blog with videos dropped in.
+
+**Color direction:** Dark backgrounds with bold accent colors for CTAs and navigation. The accent should complement the creator's channel branding (pull from their YouTube banner, Twitch overlay, or logo). Avoid light/bright backgrounds that wash out video thumbnails and embedded players.
+
+**Typography feel:** Modern stack (system-ui sans-serif) or mono stack (monospace) for tech/gaming creators. Medium to bold weight. Clean and high-contrast against dark backgrounds. Readable at a glance — video pages have a lot of metadata (title, date, description, links).
+
+**Layout emphasis:** Latest video and subscribe CTA above the fold. The home page hero is the newest or best video, embedded and ready to play. Use Pattern 2 (hero + content) for home with a featured video embed as the hero. Video archive uses a thumbnail grid. Max-width 72rem to give video embeds proper width.
+
+**Photography style:** Thumbnail-style images — bold, high-contrast, readable at small sizes. 16:9 aspect ratio for video thumbnails in grids. Creator headshot/portrait for about page. Behind-the-scenes studio shots for blog content. Consistent thumbnail style across the archive creates visual cohesion.
+
+**Key component:** Video grid with thumbnails, titles, and platform links. Each video card shows the thumbnail (16:9), title, publish date, and a link to watch on the creator's preferred platform. Click through to a detail page with embedded player, description, timestamps, and transcript.
+
 ## Tools
 
 ### Video production

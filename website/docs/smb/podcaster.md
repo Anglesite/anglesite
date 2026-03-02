@@ -15,6 +15,20 @@ Covers: independent podcast shows, podcast networks, interview-format podcasts, 
 - **Live events** — If the show does live recordings, meetups, or touring shows. Dates, venues, ticket links.
 - **Merch / support** — Show merch, listener support (Patreon, Ko-fi, memberships), bonus episodes behind a paywall.
 
+## Design
+
+**Visual mood:** Clean, audio-focused, and inviting. The site can be bold or minimal depending on the show's personality — a true-crime podcast feels different from a comedy show. The design should reflect the show's tone, but audio content needs clear structure more than visual flair.
+
+**Color direction:** Show brand colors drive everything. Pull from the podcast cover art — that artwork is the most recognized visual asset. Warm or cool based on the show's personality. Strong contrast for readability since episode pages are text-heavy (show notes, transcripts). Avoid clutter — the design frames the content, not competes with it.
+
+**Typography feel:** Modern stack (system-ui sans-serif). Medium weight. Episode pages need clear hierarchy — episode title, guest name, date, and description must be instantly scannable. Body text optimized for reading show notes and transcripts at length.
+
+**Layout emphasis:** Latest episode and subscribe/listen links above the fold. The home page hero is the current episode with an embedded player ready to go. Use Pattern 2 (hero + content) for home with show artwork and the latest episode as the hero. Episode archive below. Mailing list signup prominent on every page. Max-width 64rem.
+
+**Photography style:** Show artwork as the primary visual — it appears everywhere (hero, social sharing, structured data). Guest photos for interview shows (consistent size and framing across episodes). Host photos for the about page. 1:1 for podcast cover art and guest portraits. 16:9 for page heroes and social share images.
+
+**Key component:** Episode list with play button, title, date, description snippet, and platform links. Each episode expands or links to a detail page with full show notes, guest info, timestamps, transcript, and links mentioned in the episode. Subscribe buttons for all platforms on every episode.
+
 ## Tools
 
 ### Podcast hosting

@@ -15,6 +15,20 @@ Covers: hair salons, barbershops, nail salons, spas, aestheticians, lash/brow st
 - **Blog** — Style tips, product recommendations, seasonal trends
 - **Contact** — Phone (many clients still call), social links
 
+## Design
+
+**Visual mood:** Polished, aspirational, visually-driven. The site should feel like the experience of walking into a well-designed salon — clean, inviting, and confidence-building.
+
+**Color direction:** Warm neutrals and muted tones — blush, mauve, warm gray, champagne, soft black. Pops of gold or rose gold for accents. High-end salons: dark backgrounds with light text. Casual salons: light and airy. Avoid neon or harsh colors.
+
+**Typography feel:** Modern stack for clean professionalism, or humanist stack for warmth. Light to medium heading weight (400–600) for elegance. All-caps headings with letter-spacing work well in this space.
+
+**Layout emphasis:** Visual portfolio is critical — before/after photos, style galleries. Services and pricing must be scannable (table or card layout, not paragraphs). Book-now CTA on every page. Use Pattern 4 (card grid) for gallery, Pattern 2 (hero) for home with the best transformation photo.
+
+**Photography style:** High-quality before/after photos are the most powerful marketing tool. Consistent backgrounds and lighting. Individual stylist portraits. 4:5 portrait aspect ratio for person-focused shots. 1:1 for grid thumbnails.
+
+**Key component:** Service card — service name, brief description, price, duration, and "Book" button. Optionally grouped by category (hair, nails, skin, etc.). Clean alignment with consistent pricing format.
+
 ## Tools
 
 - **Square Appointments** (free for individuals, proprietary) — Booking, payments, client management. Good starting point. squareup.com

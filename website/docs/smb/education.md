@@ -14,6 +14,20 @@ Covers: private tutors, music teachers, driving schools, test prep, language sch
 - **Location** — If in-person: address, parking. If online: what platform, tech requirements.
 - **Contact / enroll** — Phone, email, enrollment form or booking link
 
+## Design
+
+**Visual mood:** Encouraging, professional, and approachable. The site should feel like a great teacher — knowledgeable, warm, and invested in your success.
+
+**Color direction:** Warm blues, greens, and bright accents. Inviting without being childish (even for children's programs). Avoid dull or institutional colors.
+
+**Typography feel:** Humanist stack (Segoe UI/Roboto) for approachability and readability. Friendly and clear.
+
+**Layout emphasis:** Services or subjects, scheduling, and contact above the fold — parents and students want to know what you teach and how to get started. Pattern 2 (hero + content) for the home page, Pattern 4 (card grid) for subjects and services. Max-width 56rem.
+
+**Photography style:** Bright learning environment photos, tutor-student interactions, engaged faces. Show the teaching relationship. 4:3 aspect ratio.
+
+**Key component:** Subject or service card — subject name, brief description, levels offered (beginner through advanced, or grade ranges), and a scheduling link. Clear and actionable.
+
 ## Tools
 
 - **Cal.com** (open source, free tier) — Session scheduling with recurring appointments. Good for tutors.

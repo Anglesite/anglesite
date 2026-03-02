@@ -17,6 +17,15 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **Contact** — Office, program coordinators, emergency contact
 - **News / blog** — Season recaps, player spotlights, event announcements
 
+## Design
+
+- **Visual mood:** Energetic, inclusive, safe, and age-appropriate. The design should appeal to parents making a trust decision while reflecting the fun and growth kids experience.
+- **Color direction:** Bright but not garish — blues, greens, and warm yellows. Friendly and active without looking childish. Avoid overly dark or corporate palettes.
+- **Typography feel:** Humanist sans-serif (Segoe UI/Roboto stack). Clean, friendly, and highly readable. Parents scan quickly during registration periods.
+- **Layout emphasis:** Pattern 2 (hero + content) for the home page. Registration and program information above the fold. Pattern 4 (card grid) for program listings. Max-width 48rem for content pages.
+- **Photography style:** Kids in action (with parental consent), group activities, coaches and mentors engaged with participants. 4:3 aspect ratio. Bright, natural settings. Never use photos of identifiable minors without documented media releases.
+- **Key component:** Program card — age group, schedule, description, and registration link. Parents need to quickly determine "is this for my kid?" and sign up.
+
 ## Tools
 
 - **TeamSnap** (free tier for basic, ~$13/mo for premium, proprietary) — Sports team management. Schedules, rosters, communication, availability. teamsnap.com

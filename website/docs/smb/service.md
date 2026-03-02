@@ -13,6 +13,20 @@ Covers: consultants, coaches (business, life, executive), freelancers, virtual a
 - **Contact** — Email, phone, scheduling link. Include timezone and response time expectations ("I respond within 24 hours").
 - **Resources** — Templates, guides, checklists, tools the owner recommends. Builds authority and gives visitors a reason to return.
 
+## Design
+
+**Visual mood:** Clean, professional, and adaptable. Service businesses vary widely — the design should feel competent and polished without being locked to any one industry aesthetic.
+
+**Color direction:** Adaptable palette based on the specific service type. Neutrals (white, warm gray, charcoal) as a foundation with one or two accent colors that reflect the owner's personality and field. Consultants can go bolder than bookkeepers. Avoid overly corporate palettes for solo practitioners.
+
+**Typography feel:** Modern stack (system-ui) for a clean, contemporary look. Heading weight 600–700. Professional and current. The typography should feel confident without being heavy-handed.
+
+**Layout emphasis:** Clear service descriptions and a booking CTA are the core conversion path. The "process" page reduces buyer anxiety — make it prominent. Blog content drives search traffic and demonstrates expertise. Use Pattern 2 (hero + content) for home, Pattern 4 (card grid) for services. Max-width 56rem.
+
+**Photography style:** Professional headshot of the owner is essential — clients hire the person. Natural, approachable, well-lit. Workspace or in-action photos add authenticity. Avoid generic stock. If using lifestyle photography, it should reflect the actual client base.
+
+**Key component:** Service card — service name, brief description, who it's for, outcome, and CTA ("book a call" or "learn more"). Each card should help a prospect self-select into the right service.
+
 ## Tools
 
 - **Monica CRM** (open source, free) — Client relationship tracking. Good for solo practitioners. monicahq.com

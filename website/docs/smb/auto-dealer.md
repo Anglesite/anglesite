@@ -12,6 +12,20 @@ Covers: used car dealerships, independent auto dealers, specialty/classic car de
 - **Trade-in** — How to get a trade-in value, what to bring.
 - **Contact / visit** — Hours, directions, test drive scheduling.
 
+## Design
+
+**Visual mood:** Bold, trustworthy, and inventory-focused. The site should feel confident and professional — combating the "used car lot" stereotype with clean design and transparency.
+
+**Color direction:** Dark backgrounds (black, dark gray) with a bright accent color (red, blue, or white). High contrast and modern. Avoid anything that feels cheap or cluttered.
+
+**Typography feel:** Modern stack (system-ui) with heavy headings. Bold and direct. The typography should convey confidence and clarity.
+
+**Layout emphasis:** Current inventory and search above the fold — visitors come to browse vehicles. Pattern 4 (card grid) for vehicle listings. Max-width 64rem to give vehicle cards room.
+
+**Photography style:** Vehicle photography on clean backgrounds with multiple angles. Consistent framing across the inventory. 16:9 for the hero image, 4:3 for vehicle cards.
+
+**Key component:** Vehicle listing card — photo, year/make/model, mileage, price, and a "View Details" button. Clean, scannable, and honest. Every card should answer: "What is it, how many miles, and how much?"
+
 ## Tools
 
 - **DealerSocket** / **vAuto** / **Frazer** — Dealer management and inventory systems. Industry-specific. Don't replace these.

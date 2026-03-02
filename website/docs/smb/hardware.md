@@ -13,6 +13,20 @@ Covers: independent hardware stores, lumber yards, garden centers, paint stores,
 - **Events / workshops** — DIY classes, product demos, kids' build days
 - **Contact** — Phone (people call hardware stores constantly), email
 
+## Design
+
+**Visual mood:** Practical, knowledgeable, and community-oriented. The site should feel like talking to the expert behind the counter — no-nonsense, helpful, and trustworthy.
+
+**Color direction:** Strong, honest colors — red, deep green, navy, and brown with clean white backgrounds. Avoid anything trendy or overly polished. These are working colors.
+
+**Typography feel:** Modern stack (system-ui) with bold headings. Direct and readable. Weight matters more than elegance here.
+
+**Layout emphasis:** Hours, departments, and "how-to" content prominent — the things people check before visiting. Pattern 2 (hero + content) for the home page. Max-width 56rem.
+
+**Photography style:** Store aisles, team members helping customers, finished project photos. Show the expertise and the depth of inventory. 4:3 or 16:9 aspect ratios.
+
+**Key component:** Department directory — what they carry, brands stocked, and the knowledgeable staff who can help. This is the "ask us anything" value proposition in card form.
+
 ## Tools
 
 - **Epicor (formerly Eagle)** or **Paladin POS** — Hardware-specific POS with inventory and vendor management. Most established stores already use one.

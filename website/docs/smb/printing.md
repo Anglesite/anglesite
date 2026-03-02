@@ -13,6 +13,20 @@ Covers: print shops, sign makers, screen printers, embroidery shops, custom appa
 - **Blog** — Design tips, material comparisons, project spotlights, industry trends, seasonal marketing tips for businesses. "How to prepare artwork for screen printing" is evergreen search content.
 - **Contact** — Phone, email, address, hours, directions. Walk-in vs. appointment. Parking. Note if the shop has a front counter or is production-only.
 
+## Design
+
+**Visual mood:** Industrial-creative hybrid. Bold, practical, slightly technical — the site should feel capable and professional, like walking into a well-equipped shop. Not flashy, not sterile. Confident and no-nonsense, with just enough personality to show there are craftspeople behind the machines.
+
+**Color direction:** Strong primary color (red, blue, or black) paired with white. High contrast, clean backgrounds. The palette should feel like the shop's brand — workmanlike and reliable. Avoid pastels or trendy gradients. Product photos provide the visual interest; the design stays out of the way.
+
+**Typography feel:** Modern stack (system-ui sans-serif). Medium-bold headings (600), medium body weight (400–500). Readable and professional. Service descriptions and technical specs (file guidelines, pricing) need clear hierarchy. Nothing decorative — this is a business that values precision.
+
+**Layout emphasis:** Product showcase and quote request form prominent on every relevant page. Home page leads with capabilities and a strong CTA to request a quote. Use Pattern 2 (hero + content) for the home page with a work sample as the hero, Pattern 4 (card grid) for the services/products pages. Quote request accessible from everywhere. Max-width 64rem.
+
+**Photography style:** Product close-ups showing print quality, material texture, and color accuracy. Consistent lighting on a clean background. Before-and-after shots for sign installations and vehicle wraps. 1:1 aspect ratio for product grid cards. Wider shots (16:9 or 3:2) for installation and project showcase photos.
+
+**Key component:** Product/service card with sample image, brief description, and a prominent "Request Quote" CTA. Each card represents a service category (business cards, banners, vehicle wraps, custom apparel) and links to a detail page or triggers the quote form with the category pre-selected.
+
 ## Tools
 
 - **Printavo** (~$49/mo, proprietary) — Shop management for screen printers and custom apparel. Quotes, invoices, production workflow, customer management. printavo.com

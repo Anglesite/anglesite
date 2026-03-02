@@ -15,6 +15,20 @@ The business model: people stop because it's worth the detour. Discovery is road
 - **Reviews** — Visitor testimonials. These matter enormously for "is it worth the stop?" decisions. Embed or link to TripAdvisor, Google Reviews, and Yelp. Feature the best quotes on the home page.
 - **Contact** — Phone, email, social links. Include "report a problem" and "press/media inquiries" if applicable.
 
+## Design
+
+**Visual mood:** Quirky, fun, and memorable. The site should feel like the attraction itself — weird-and-proud, one-of-a-kind, worth the detour.
+
+**Color direction:** Bold, playful colors that match the attraction's personality. Kitschy, retro, or deliberately over-the-top is fine — authenticity is the brand. Avoid generic corporate palettes.
+
+**Typography feel:** Modern stack (system-ui) with bold weight. Possibly playful — a roadside attraction can get away with personality in the type that a law firm can't.
+
+**Layout emphasis:** The main attraction photo and directions above the fold. Answer two questions immediately: "What is this?" and "How do I get there?" Pattern 2 (hero + content) for the home page, with the best photo of the attraction as the hero. Max-width 56rem.
+
+**Photography style:** Fun, shareable photos — the thing that makes people stop their car. Encourage visitor photos. 4:3 or 1:1 for social sharing compatibility.
+
+**Key component:** Hero image of the attraction that's share-worthy and unmistakable, paired with clear "How to Find Us" directions including highway exit numbers and landmarks. The photo sells the stop; the directions close it.
+
 ## Tools
 
 - **Google Business Profile** — Critical. Claim it, keep hours updated, respond to reviews, post photos regularly. Most discovery comes from Google Maps searches like "things to do near [highway/town]." See `docs/webmaster.md` → Map listings.

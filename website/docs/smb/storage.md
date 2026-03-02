@@ -12,6 +12,20 @@ Covers: self-storage units, climate-controlled storage, vehicle/boat/RV storage,
 - **FAQ** — What can't be stored (hazmat, perishables, animals), insurance options, payment methods, lease terms, late fees, what happens at auction.
 - **Contact** — Phone, email, office hours.
 
+## Design
+
+**Visual mood:** Clean, organized, and secure. The site should feel like the facility itself — orderly, trustworthy, and simple to navigate.
+
+**Color direction:** Blues, grays, and white. Trustworthy and straightforward. Avoid clutter or bright colors — simplicity signals security.
+
+**Typography feel:** Modern stack (system-ui). Clean and functional. Nothing decorative — storage is a utility purchase.
+
+**Layout emphasis:** Unit sizes, rates, and availability above the fold — this is a comparison-driven purchase and people want numbers fast. Pattern 2 (hero + content) for the home page. Max-width 56rem.
+
+**Photography style:** Clean facility exterior and interior shots, security features (cameras, gates, lighting). Show that the facility is well-maintained and safe. 16:9 for facility overview, 4:3 for unit type photos.
+
+**Key component:** Unit size comparison — dimensions, description of what fits (e.g., "fits a 1-bedroom apartment"), monthly rate, and availability status. A clear, scannable table or card layout that lets visitors compare options at a glance.
+
 ## Tools
 
 - **SiteLink** (pricing varies, proprietary) — Industry-leading self-storage management: rentals, payments, gate access, reporting. sitelink.com

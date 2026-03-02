@@ -13,6 +13,20 @@ The key difference from a fixed-location restaurant: **customers need to know wh
 - **Gallery** — The truck itself, the food, events you've worked. The truck's exterior is part of the brand.
 - **Contact** — Phone, email, social links. Include a booking inquiry form for events.
 
+## Design
+
+**Visual mood:** Fun, energetic, street-food vibe. Bold and colorful — the site should match the truck's actual paint job and branding. High energy, not refined.
+
+**Color direction:** Bright primary colors pulled from the truck's wrap or logo. Bold contrasts. Warm and saturated. Avoid muted or corporate palettes — food trucks are loud by nature.
+
+**Typography feel:** Modern stack (system-ui) with bold headings (weight 800+). Big, punchy type. The truck name should hit hard.
+
+**Layout emphasis:** Schedule and location finder is the #1 feature — above the fold on every device. Home page uses Pattern 2 (hero + content) with the truck photo as hero and this week's schedule immediately below. Max-width 56rem.
+
+**Photography style:** Truck exterior and food action shots — cooking, serving, lines of customers. The truck itself is the brand. 16:9 for truck photos, 1:1 for food close-ups. Bright, outdoor lighting. Real and energetic.
+
+**Key component:** Weekly schedule/location grid — date, location, hours in a scannable table or card layout. Updated weekly. This is the page customers visit most.
+
 ## Tools
 
 - **Square** (free POS, 2.6% per transaction, proprietary) — Standard for food trucks. Payments, online ordering, marketing. square.com

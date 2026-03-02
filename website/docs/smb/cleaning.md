@@ -14,6 +14,20 @@ Covers: residential cleaning (housekeeping, maid service), commercial/janitorial
 - **FAQ** — Do I need to be home? What products do you use? Do you bring your own supplies? How do I prepare? Cancellation policy?
 - **Contact** — Phone, email, booking link.
 
+## Design
+
+**Visual mood:** Clean, bright, fresh. The design should embody the service — when someone lands on the page, it should feel like a room that was just cleaned. Airy, uncluttered, and inviting.
+
+**Color direction:** Light palette — whites, light blues, fresh greens, touches of lemon. Crisp and sparkling. Avoid dark or heavy backgrounds. Accent color for booking CTAs should pop against the light base.
+
+**Typography feel:** Modern stack (system-ui sans-serif). Clean weight (400–500) for body, medium weight for headings. Light and breathable. Generous line-height. The typography should feel as tidy as the service.
+
+**Layout emphasis:** Before/after photos and booking CTA prominent above the fold. Service tiers with clear "what's included" checklists. Use Pattern 2 (hero + content) for home, Pattern 5 (alternating features) for before/after showcase sections. Max-width 56rem.
+
+**Photography style:** Bright, well-lit before/after shots are the strongest content. Natural light, clean compositions. Show the transformation. 16:9 for before/after comparisons (side by side). Facility and team photos should feel warm and professional.
+
+**Key component:** Before/after photo slider or side-by-side comparison — showing the cleaning transformation. Each pair with a brief caption (room type, service performed). On desktop, side by side; on mobile, stacked with clear "before" and "after" labels.
+
 ## Tools
 
 - **Jobber** (~$40+/mo, proprietary) — Scheduling, quoting, invoicing, client management, GPS tracking. jobber.com

@@ -15,6 +15,20 @@ Covers: RV parks, campgrounds, glamping sites, tent-only campgrounds, seasonal/l
 - **Seasonal / long-term** — If offering monthly or seasonal rates, give this its own page: rates, what's included, application process, waiting list.
 - **Contact** — Phone, email, office hours, after-hours check-in instructions.
 
+## Design
+
+**Visual mood:** Outdoorsy, natural, adventurous but family-friendly. The site should feel like opening the tent flap to a beautiful morning — fresh air, trees, open sky. Inviting to both experienced campers and first-timers.
+
+**Color direction:** Earth greens, sky blues, warm browns. Muted natural palette. White or cream background. Green as primary, warm brown or gold as accent. Avoid anything urban or synthetic.
+
+**Typography feel:** Humanist stack (Segoe UI/Roboto) for a friendly, approachable feel. Heading weight 600–700. Clean and readable — campers are often browsing on phones with outdoor glare.
+
+**Layout emphasis:** Availability and booking above the fold — can I get a site this weekend? Home page uses Pattern 2 (hero + content) with a scenic park photo. Site types use Pattern 4 (card grid) for easy comparison. Park map prominently linked. Max-width 56rem.
+
+**Photography style:** Landscape photography — nature, campsites (empty and occupied), amenities, activities, views. Drone and aerial shots show the park layout. 16:9 for hero images, 4:3 for site and amenity photos. Golden hour and blue hour shots. Seasonal variety.
+
+**Key component:** Campsite type card — photo of a representative site, site type name, description, amenities icons (hookups, fire ring, picnic table, shade), and rate. Clear comparison between site types helps campers choose.
+
 ## Tools
 
 - **Campspot** (pricing varies, proprietary) — Campground reservation system: online booking, site management, dynamic pricing. campspot.com

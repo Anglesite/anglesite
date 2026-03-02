@@ -15,6 +15,20 @@ Covers: independent pharmacies, compounding pharmacies, specialty pharmacies, ap
 - **Health resources** — Drug interaction checker link, medication disposal info, health tips, seasonal health reminders. Positions the pharmacy as a health resource, not just a dispensary.
 - **Contact** — Phone (pharmacists answer the phone — this matters), fax, address, hours, refill line if separate, delivery request line.
 
+## Design
+
+**Visual mood:** Trustworthy, clean, and health-focused. The site should feel like a well-run pharmacy — professional, approachable, and reassuring.
+
+**Color direction:** Healthcare palette — calming blues, clean whites, soft greens. Avoid red (alarm) and anything clinical or cold. Warmth builds trust.
+
+**Typography feel:** Humanist stack (Segoe UI/Roboto) for approachability. Clear and easy to read at all sizes — many pharmacy customers are elderly or have low vision.
+
+**Layout emphasis:** Services, hours, and prescription transfer CTA above the fold — these are why people visit the site. Pattern 2 (hero + content) for the home page. Max-width 56rem.
+
+**Photography style:** Clean, bright, well-organized store photos. The pharmacist at the counter, tidy shelves, friendly service. Avoid stock photos — authenticity matters for healthcare trust. 4:3 aspect ratio.
+
+**Key component:** Services list with icons — prescriptions, immunizations, compounding, delivery. Each service gets a clear label, brief description, and link to learn more. This is how the pharmacy differentiates from chains.
+
 ## Tools
 
 - **Pharmacy management systems** are specialized and usually pre-existing. The website integrates with them, not the other way around. Common systems:

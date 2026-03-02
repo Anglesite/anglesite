@@ -12,6 +12,20 @@ Covers: wedding photographers, portrait photographers, commercial photographers,
 - **Contact / booking** — Inquiry form, availability calendar, turnaround times
 - **FAQ** — What to wear, how sessions work, timeline for delivery, usage rights
 
+## Design
+
+**Visual mood:** The work IS the design. Ultra-minimal frame that disappears behind the photography. Neutral, gallery-like presentation — the site should feel like a white-wall exhibition space, not a template.
+
+**Color direction:** Neutral backgrounds — white or black depending on the photographer's editing style. No competing color. A single muted accent for interactive elements at most. Avoid anything that shifts perceived color in the portfolio images.
+
+**Typography feel:** Modern stack (system-ui sans-serif). Very light weight (300–400). Typography should be nearly invisible — functional labels, not design elements. Let the images carry all visual weight.
+
+**Layout emphasis:** Portfolio first, full-bleed images. Home page opens with the strongest work — a single hero image or curated gallery with zero intro text above the fold. Use Pattern 2 (hero) for home with a featured image, Pattern 4 (card grid) for portfolio categories. Max-width 72rem to give images room to breathe.
+
+**Photography style:** The photographer's own work drives the entire site aesthetic. Consistent editing style across the portfolio matters more than any design decision. Standard aspect ratios: 3:2 or 2:3 for the portfolio grid. Full-bleed for hero and feature images.
+
+**Key component:** Full-width portfolio gallery with category filtering (weddings, portraits, commercial, etc.). Click-to-expand or detail view. Minimal captions — let the images speak.
+
 ## Tools
 
 - **HoneyBook** (~$19/mo, proprietary) — Contracts, invoicing, scheduling, client management. Very popular with photographers. honeybook.com

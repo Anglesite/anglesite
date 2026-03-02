@@ -16,6 +16,20 @@ Covers: fishing guides, hunting outfitters, adventure tours (zip lines, rafting,
 - **Gift certificates** — Tours are popular gifts. Offer purchasable gift certificates. Promote heavily Nov–Dec and before Father's Day and Mother's Day.
 - **Contact** — Phone (many bookings still happen by phone), email, location/meeting point with detailed directions. For water-based tours: boat ramp or dock address and GPS coordinates.
 
+## Design
+
+**Visual mood:** Adventurous, experiential, visually-driven. The site should make visitors feel the excitement of the experience — wind, water, wildlife, wonder. Energetic but trustworthy.
+
+**Color direction:** Vibrant but natural colors — ocean blues, forest greens, sunset oranges depending on the tour type. Match the environment where tours operate. Saturated but not neon. White or light background with color accents. Avoid dull or corporate palettes.
+
+**Typography feel:** Modern stack (system-ui) with bold headings (weight 700+). Clean, confident, easy to scan on mobile. Tour names and prices should be immediately visible.
+
+**Layout emphasis:** Tour options and booking CTA above the fold — visitors arrive ready to book. Home page can use Pattern 2 (hero + content) with an action shot hero, but the tour listing page is the workhorse and should use Pattern 4 (card grid) for easy comparison. Max-width 56rem.
+
+**Photography style:** Action photography — guests on tours, scenic locations, wildlife encounters, catch photos (fishing), group shots. Real trips, real people. 16:9 for hero images, 4:3 for tour cards. Bright, vivid, and dynamic. Update with fresh photos each season.
+
+**Key component:** Tour card — stunning photo, tour name, duration, price, difficulty level, and a prominent "Book Now" button. Each card should sell the experience at a glance. Group by tour type if multiple options exist.
+
 ## Tools
 
 - **FareHarbor** (commission-based, no monthly fee, proprietary) — Activity and tour booking. Calendar, waivers, automated emails, channel management (distributes to OTAs). The standard for tour operators. fareharbor.com

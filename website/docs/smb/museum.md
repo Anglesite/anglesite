@@ -17,6 +17,15 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **Shop** — If they have a gift shop, link to the online store
 - **Blog / magazine** — Behind-the-scenes, curator essays, collection deep dives, artist interviews
 
+## Design
+
+- **Visual mood:** Cultural, curated, and experience-driven. The website is an extension of the museum experience — it should feel intentional and well-composed.
+- **Color direction:** Varies by museum type. Art museums: minimal, gallery-like with neutral backgrounds that let content shine. History museums: warm and narrative. Science centers: bold and modern. Children's museums: bright and playful. In all cases, the background should never compete with exhibition imagery.
+- **Typography feel:** Modern stack (system-ui) for science and children's museums; Classic serif (Georgia stack) for art and history museums. Let the institution's character guide the choice. Medium to light weight.
+- **Layout emphasis:** Pattern 2 (hero + content) for the home page with current exhibitions and visit info above the fold. Pattern 4 (card grid) for exhibition listings and collection highlights. Max-width 60rem to give imagery room to breathe.
+- **Photography style:** Exhibition photography, collection highlights, and visitor experience shots. 16:9 for banners and hero images, 4:3 for collection items and event photos. High quality is essential — the imagery represents the collection.
+- **Key component:** Exhibition card — image, title, dates, and brief description. This is the core browsing unit for visitors deciding what to see.
+
 ## Tools
 
 - **Tessitura** or **Altru (Blackbaud)** — Museum-specific CRM, ticketing, membership, fundraising. Enterprise-level and expensive, but most mid-to-large museums already use one. Don't replace.

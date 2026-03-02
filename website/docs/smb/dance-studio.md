@@ -17,6 +17,20 @@ Covers: ballet studios, hip-hop dance, ballroom and social dance, contemporary/m
 - **Events** — Recitals, showcases, competitions, open houses, parent observation weeks, holiday performances, community performances.
 - **Contact** — Phone, email, address, studio hours (office hours vs. class hours — they're often different). Parking. Note if the studio is inside a larger building.
 
+## Design
+
+**Visual mood:** Graceful, energetic, and community-oriented. The site should reflect the studio's primary style — a ballet school feels different from a hip-hop studio.
+
+**Color direction:** Varies by style. Ballet and ballroom: soft pinks, lavender, cream, warm golds — elegant and classic. Hip-hop and contemporary: bold, dark, urban — black, white, strong accents. Children's dance: bright, cheerful, welcoming. Let the studio's identity lead.
+
+**Typography feel:** Classic stack (Georgia) for ballet and ballroom studios — elegant and traditional. Modern stack (system-ui) for contemporary, hip-hop, and mixed-style studios. Match the typography to the dance culture.
+
+**Layout emphasis:** Class schedule and "Try a Class" CTA above the fold — prospective students need to see what's offered and how to start. Pattern 2 (hero + content) for the home page, Pattern 4 (card grid) for class listings. Max-width 56rem.
+
+**Photography style:** Dance photos in action — movement, expression, studio environment. Show dancers doing what they love. 4:5 portrait for individual dancer shots, 16:9 for group and performance photos.
+
+**Key component:** Class schedule — grouped by style, with age level, day/time, instructor name, and a "Try a Class" button. The schedule is the most important page; make it scannable and easy to filter.
+
 ## Tools
 
 - **Jackrabbit Dance** (~$59/mo, proprietary) — Studio management: class scheduling, registration, billing, attendance, costume ordering, recital management. The dominant platform for dance studios. jackrabbitdance.com

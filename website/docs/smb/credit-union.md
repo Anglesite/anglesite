@@ -16,6 +16,20 @@ Covers: credit unions, community development financial institutions (CDFIs), len
 - **Contact** — Phone, email, branch-specific contacts, lost/stolen card hotline (prominent)
 - **Careers** — Open positions, benefits, culture. Credit unions are local employers.
 
+## Design
+
+**Visual mood:** Community-focused, trustworthy, warm. The design should feel welcoming and member-owned — not corporate banking. Approachable, local, human.
+
+**Color direction:** Blues and greens as primaries — these are trust and stability colors in financial services. Earthy accents (warm gold, terracotta, sage) to differentiate from big banks. Warm enough to feel community-driven, professional enough to feel safe with your money.
+
+**Typography feel:** Humanist stack (Segoe UI / Roboto) for approachability. Heading weight 600. Friendly and clear — credit unions serve a broad membership and content must be readable by everyone.
+
+**Layout emphasis:** Current rates and membership CTA are the two primary draws — rates should be scannable on a dedicated page, and "join" should be visible on every page. Online banking login needs to be findable in one click (header). Use Pattern 2 (hero + content) for home. Max-width 56rem.
+
+**Photography style:** Community photos — real members (with consent), local events, branch staff, neighborhood landmarks. Warmth and diversity. Avoid corporate stock photography. Show the community the credit union serves.
+
+**Key component:** Rates comparison table — clean, scannable rows for savings APY, loan APR, and CD terms. Updated regularly. This page gets bookmarked — make it fast, accessible, and easy to read on mobile.
+
 ## Tools
 
 - Credit unions use regulated core banking systems (Symitar, Corelation, CU*Answers, etc.) — never suggest replacing these. The website links to online banking; it doesn't provide it.

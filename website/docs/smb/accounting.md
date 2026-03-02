@@ -13,6 +13,20 @@ Covers: CPA firms, bookkeeping services, tax preparation (seasonal and year-roun
 - **Testimonials** — Reviews from business clients and individuals.
 - **Contact** — Phone, email, appointment scheduling. Seasonal hours (extended during tax season).
 
+## Design
+
+**Visual mood:** Trustworthy, organized, professional. The design signals precision and reliability — clients trust you with their most sensitive financial data.
+
+**Color direction:** Cool blues or navy with conservative accents. White or light gray backgrounds. Avoid bright or trendy palettes — this is a credibility-first business.
+
+**Typography feel:** Classic stack (serif headings — Georgia) for tradition and professionalism. Sans-serif body for readability. Heading weight 600–700. Restrained, not flashy.
+
+**Layout emphasis:** Services and pricing are the primary draw — make them easy to scan. Tax season deadlines and document checklists should be prominent seasonally. Client portal login needs to be findable in one click (header or top of contact page). Use Pattern 1 (single column) for service pages, Pattern 2 (hero + content) for home. Max-width 48rem.
+
+**Photography style:** Professional headshots with neutral backgrounds. Office environment optional. Avoid generic stock photos of calculators and spreadsheets. Clean, simple, human.
+
+**Key component:** Service/pricing table — clear rows for each service offering with scope description and price range or "starting at" figure. Helps prospects self-qualify before calling.
+
 ## Tools
 
 - **Drake Tax** / **Lacerte** / **ProSeries** / **UltraTax** — Professional tax preparation software. Industry standard, never suggest replacing.

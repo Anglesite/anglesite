@@ -22,6 +22,15 @@ For special districts, focus on the district's specific function:
 - **Library district:** catalog, hours/locations, programs, card registration, meeting rooms
 - **Parks district:** facilities, programs, reservations, trail maps, seasonal hours
 
+## Design
+
+- **Visual mood:** Functional, accessible, authoritative but approachable. Residents are here to find information and complete tasks, not admire the design. Get out of their way.
+- **Color direction:** Conservative palette — navy, dark teal, or dark green with white. High contrast is essential. ADA compliance is extra-critical for government sites — WCAG AA is the legal minimum, aim higher.
+- **Typography feel:** Modern stack (system-ui) at a slightly larger base size (18px) for readability. Government sites serve all ages and abilities. Clarity over personality.
+- **Layout emphasis:** Pattern 2 (hero + content) for the home page. Services directory and contact information above the fold — citizens need to find information fast. Pattern 1 (single column) for content-heavy pages like meeting minutes and ordinances. Max-width 48rem for readability.
+- **Photography style:** Community and infrastructure photos — town buildings, parks, public works, community events. 4:3 or 16:9 depending on context. Straightforward, professional treatment. Avoid stock photos.
+- **Key component:** Services directory — department name, contact information, hours, and key actions (pay a bill, report an issue, request a permit, etc.). This is what residents come to the site to use.
+
 ## Tools
 
 - **CivicPlus** or **Municode** — Government website platforms. Many municipalities already use one. If they do, the Anglesite scaffold may not be the right fit — but small towns and special districts often don't have a website at all, which is exactly where Anglesite helps.

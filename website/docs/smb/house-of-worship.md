@@ -16,6 +16,15 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **Contact / visit** — Address, parking, childcare info, accessibility, what to wear. Remove every barrier to a first visit.
 - **Blog / news** — Congregation updates, devotionals, event recaps
 
+## Design
+
+- **Visual mood:** Welcoming, warm, and community-centered. The design should reflect the congregation's tradition and make visitors feel invited before they ever walk through the door.
+- **Color direction:** Warm golds and earth tones for traditional congregations; clean blues and whites for contemporary ones. Let the faith tradition guide the palette. Avoid cold or corporate palettes.
+- **Typography feel:** Classic serif headings (Georgia stack) for traditional congregations; Humanist sans-serif (Segoe UI/Roboto stack) for contemporary communities. Medium weight — authoritative but not heavy.
+- **Layout emphasis:** Pattern 2 (hero + content) for the home page. Service times and a clear "Visit Us" call to action above the fold. Max-width 48rem for reading comfort on sermon and program pages.
+- **Photography style:** Community gathering photos, building exterior and interior shots that show the space people will enter. 16:9 for hero images, 4:3 for event and program photos. Warm, natural lighting.
+- **Key component:** Service times display — day, time, service type, and brief description. This is the single most important piece of information on the site.
+
 ## Tools
 
 - **Planning Center** (~$0–$200/mo, tiered by module, proprietary) — Church management: people, giving, services, groups, registration. The most widely used platform for US churches. planningcenter.com

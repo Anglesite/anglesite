@@ -15,6 +15,20 @@ Covers: small farms, CSA (community-supported agriculture) programs, market gard
 - **Forest products** — If applicable: maple syrup (grades, sizes, bulk pricing, sugaring season dates), Christmas trees (varieties, choose-and-cut vs. pre-cut, hours during season), firewood (species, cord pricing, delivery area), mushrooms, wreaths, woodland crafts. These are often seasonal — the page should be clear about availability and pre-ordering.
 - **Contact** — Phone, email, directions to the farm (many farms are hard to find — include landmarks)
 
+## Design
+
+**Visual mood:** Honest, earthy, close to the land. The site should feel like a farm stand — welcoming, natural, and unpretentious. Avoid corporate polish.
+
+**Color direction:** Earth tones — forest green, terra cotta, warm brown, straw gold, cream. Muted saturation. White or off-white background. Green as primary, warm accent (gold, orange, brown). Avoid anything synthetic-feeling.
+
+**Typography feel:** Classic stack (serif headings — Georgia) for a rooted, timeless feel. Sans-serif body for readability. Or humanist sans for a friendlier, more approachable tone. Heading weight 600–700.
+
+**Layout emphasis:** What's available now is the most important content — seasonal produce, CSA pickup dates, farm stand hours. Home page should feature a seasonal hero image and current availability. Use Pattern 2 (hero + content) for home, Pattern 4 (card grid) for "what we grow." Max-width 56rem.
+
+**Photography style:** Seasonal farm photography — crops in the field, harvest shots, farm stand displays, family/team working. Golden hour lighting. Real and unposed. 4:3 or 3:2 landscape orientation. Update photos seasonally.
+
+**Key component:** Seasonal availability display — what's in season now, what's coming soon. Card or list format with photos. Update frequently (weekly during growing season).
+
 ## Tools
 
 - **Open Food Network** (open source, nonprofit) — Online store for farms, food hubs, and CSAs. Community-run, no platform fees. openfoodnetwork.org

@@ -13,6 +13,20 @@ Covers: dog grooming, pet boarding/kennels, dog walking, pet sitting, dog traini
 - **Testimonials** — Reviews from pet parents (bonus: include the pet's name)
 - **Contact / booking** — Phone, booking link, emergency contact
 
+## Design
+
+**Visual mood:** Friendly, warm, playful but professional. The site should feel like a place where pets are loved and well cared for — approachable without being cartoonish. Pet parents need to trust you with their family member.
+
+**Color direction:** Warm colors — teal, warm orange, soft green, cream. Friendly and inviting without being garish. Avoid sterile clinical whites or overly dark palettes. Accent color for booking CTAs should feel cheerful and confident.
+
+**Typography feel:** Humanist stack (Segoe UI, Roboto, sans-serif) for approachability and warmth. Medium weight headings (500–600). Rounded, friendly feel. Body text generous and readable — pet parents scan quickly.
+
+**Layout emphasis:** Services and booking CTA above the fold. Happy pet photos everywhere. Trust signals (insured, vaccination policy, emergency procedures) visible on the home page. Use Pattern 2 (hero + content) for home, Pattern 4 (card grid) for services. Max-width 56rem.
+
+**Photography style:** Happy pet photos — real clients with permission, not stock. Show the animals enjoying the experience (post-groom glow-ups, dogs playing at daycare, cats lounging at the facility). 1:1 or 4:5 for pet portraits, 4:3 for facility and environment shots.
+
+**Key component:** Service card with photo (happy pet), service name, description, pricing, and "Book" button. Cards grouped by service type (grooming, boarding, walking, training). Each card feels like a mini promise of how the pet will be treated.
+
 ## Tools
 
 - **Time To Pet** (~$25/mo, proprietary) — Built for dog walking and pet sitting. Scheduling, invoicing, GPS tracking. timetopet.com

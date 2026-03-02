@@ -23,6 +23,20 @@ Covers: visual artists, sculptors, potters, woodworkers, jewelers, fiber artists
 - **Contact** — Email, social links, studio visit policy. Include wholesale/gallery inquiries if applicable.
 - **Press / CV** — If they exhibit or sell to galleries. Exhibition history, publications, awards, residencies. Standard format for the art world.
 
+## Design
+
+**Visual mood:** Let the work speak. The design is a frame, not a competing element. Minimal chrome, maximum image real estate. Quiet and confident.
+
+**Color direction:** Neutral backgrounds — white, off-white, very light gray, or black for dramatic/dark work. The art provides all the color. Accent can subtly reference the artist's most common palette. Avoid competing with the work.
+
+**Typography feel:** Modern stack (system-ui sans-serif) for both heading and body. Light to medium weight (400–500). The typography should be invisible — functional, not decorative. Mono stack acceptable for contemporary/conceptual artists.
+
+**Layout emphasis:** Portfolio/gallery is the core. Home page opens with the strongest work — a single large image or curated grid. Minimal text above the fold. Use Pattern 4 (card grid) for portfolio, Pattern 2 (hero) for home with a featured piece. Max-width 64rem.
+
+**Photography style:** Clean product photography on neutral backgrounds, or in-situ lifestyle shots. Consistent lighting and framing across portfolio. 1:1 or 4:5 for grid consistency. Full-bleed for hero images.
+
+**Key component:** Portfolio grid — masonry or uniform grid of work images. Click to enlarge or detail page. Filter by category/medium if the body of work is large (10+ pieces). Minimal captions — title, medium, dimensions.
+
 ## Tools
 
 - **Big Cartel** (free for 5 products, proprietary) — Simple online store built for makers. Clean, minimal. bigcartel.com

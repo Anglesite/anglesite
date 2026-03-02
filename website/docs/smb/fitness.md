@@ -13,6 +13,20 @@ Covers: gyms, yoga studios, Pilates, martial arts schools, dance studios, CrossF
 - **Blog** — Wellness tips, member spotlights, event recaps
 - **Contact** — Phone, email, social links
 
+## Design
+
+**Visual mood:** Energetic, motivating, strong. The site should make visitors want to move. High energy without being aggressive — welcoming intensity that says "you belong here, let's go."
+
+**Color direction:** Bold, high-contrast palette — black or dark charcoal as the base with a bright accent (orange, red, or electric blue). White text on dark backgrounds for hero sections. The accent color drives CTAs (join now, try a class). Avoid muted or pastel tones — they undercut the energy.
+
+**Typography feel:** Modern stack (system-ui sans-serif). Heavy weight headings (700–800) for impact. Bold, confident, and unapologetic. All-caps headings work well for class names and CTAs.
+
+**Layout emphasis:** Class schedule and membership/trial CTA above the fold. Make it easy to see what's happening today and how to start. Use Pattern 2 (hero + content) for home with a high-energy photo, Pattern 4 (card grid) for the class lineup. Max-width 64rem.
+
+**Photography style:** Action photos of real members and trainers — mid-workout, not posed. Show the gym environment, the community, the effort. 16:9 for hero and environment shots, 1:1 for trainer portraits. Authentic energy over stock fitness photography.
+
+**Key component:** Class schedule grid or weekly timetable — days as columns, time slots as rows, color-coded by class type. Each cell shows class name, time, instructor, and a link to book or drop in.
+
 ## Tools
 
 - **Momoyoga** (~$32/mo, proprietary) — Built for yoga studios. Scheduling, payments, member management. momoyoga.com

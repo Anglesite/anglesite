@@ -14,6 +14,20 @@ Covers: automatic car washes (tunnel and in-bay), self-serve car washes, hand wa
 - **Gift cards** — Available in-store and online. Promote for holidays, Father's Day, birthdays. Note denominations or custom amounts.
 - **Contact** — Phone, email, address. For mobile detailing: booking form with vehicle type, location, preferred date/time, services requested.
 
+## Design
+
+**Visual mood:** Bold, shiny, satisfying. The site should feel like the moment you drive away in a gleaming car. High-impact visuals, clean lines, and a sense of premium quality — even for a $10 wash.
+
+**Color direction:** High contrast — deep blue, black, or red as the base with chrome or silver accents. White text on dark hero sections. The palette should evoke shine and polish. Accent color for CTAs (buy a wash, join membership) should pop aggressively.
+
+**Typography feel:** Modern stack (system-ui sans-serif). Bold headings (700) for package names and pricing. Clean, confident, easy to read at a glance — customers are often on their phone in the parking lot deciding which wash to buy.
+
+**Layout emphasis:** Wash packages and pricing above the fold. Make it dead simple to compare tiers and pick one. Membership plan featured prominently. Use Pattern 2 (hero + content) for home with a gleaming car photo, Pattern 4 (card grid) for service tiers. Max-width 60rem.
+
+**Photography style:** Before/after car shots for detailing. Gleaming results, water beading on paint, the "after" moment. Facility exterior showing a clean, modern operation. 16:9 for hero images, 4:3 for results and facility photos.
+
+**Key component:** Wash package cards — tier name (e.g., "Express," "Premium," "The Works"), bullet list of what's included, price, and a visual upsell to the next tier. Cards side by side for easy comparison, with the recommended tier highlighted.
+
 ## Tools
 
 - **Washify** (pricing varies, proprietary) — Car wash management: unlimited plan management, POS, license plate recognition, customer tracking, mobile app. washify.com

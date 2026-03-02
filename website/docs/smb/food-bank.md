@@ -16,6 +16,15 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **News / blog** — Impact stories, food drive results, program updates
 - **Contact** — Office phone, helpline if applicable
 
+## Design
+
+- **Visual mood:** Warm, dignified, and community-focused. Never poverty-tourism imagery. The design must respect the people it serves.
+- **Color direction:** Warm greens, oranges, and earthy browns. Approachable and grounded. Avoid clinical whites or charity-cliche reds.
+- **Typography feel:** Humanist sans-serif (Segoe UI/Roboto stack). Clear and legible — many visitors may be reading on older devices or in stressful situations.
+- **Layout emphasis:** Pattern 2 (hero + content) for the home page. Hours, location, and "How to Get Help" above the fold. Accessibility of information is the number one design priority — large text, clear hierarchy, minimal clutter. Max-width 48rem.
+- **Photography style:** Community photos showing dignity and agency, not despair. Volunteers in action, food distribution in progress, community meals. 4:3 aspect ratio. Warm, natural lighting.
+- **Key component:** Location and hours finder — clear, large text, easy to scan on any device. If multiple distribution sites exist, each one gets its own entry with address, hours, and what to bring.
+
 ## Tools
 
 - **Link2Feed** (pricing varies, proprietary) — Purpose-built for food banks. Client intake, reporting, USDA compliance. link2feed.com

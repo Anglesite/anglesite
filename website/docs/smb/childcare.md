@@ -15,6 +15,20 @@ Covers: daycare centers, preschools, in-home daycare, after-school programs, Mon
 - **Testimonials** — Parent reviews. Critical for trust.
 - **Contact** — Phone, email, tour scheduling.
 
+## Design
+
+**Visual mood:** Safe, nurturing, cheerful but not childish. The site speaks to parents, not children. It should feel warm, trustworthy, and professional — like a place where kids thrive and parents feel confident. Avoid clip-art energy.
+
+**Color direction:** Soft, warm pastels — light blue, soft yellow, gentle green, warm peach. Calming and inviting. White or very light backgrounds. Avoid bright primaries that read as "daycare clip art." The palette should say "thoughtful care," not "birthday party."
+
+**Typography feel:** Humanist stack (Segoe UI, Roboto, sans-serif) for warmth and approachability. Medium weight headings (500–600). Friendly but not bubbly — parents need to take the site seriously. Generous spacing and readable body text.
+
+**Layout emphasis:** Safety credentials, licensing info, and enrollment CTA above the fold. Parents need reassurance first, details second. Use Pattern 2 (hero + content) for home, Pattern 5 (alternating features) for program highlights. Max-width 56rem.
+
+**Photography style:** Bright, natural-light facility photos. Children learning, playing, and exploring (with written parent consent for every child shown). Show the environment — classrooms, outdoor spaces, reading corners. Warm and authentic. 4:3 aspect ratio.
+
+**Key component:** Program card — age group (e.g., "Toddlers 18–36 months"), hours, brief description of curriculum/approach, teacher-to-child ratio, and enrollment status (open, waitlist, full). One card per program, visually consistent.
+
 ## Tools
 
 - **Brightwheel** (~$15+/mo per classroom, proprietary) — Check-in/out, daily reports, photos, billing, parent communication. Industry standard. brightwheel.com

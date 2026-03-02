@@ -15,6 +15,20 @@ Covers: craft breweries, microbreweries, brewpubs, wineries, vineyards, distille
 - **Blog** — Brewing/winemaking process, ingredient spotlights, new release announcements, event recaps.
 - **Contact** — Phone, email, reservations if applicable.
 
+## Design
+
+**Visual mood:** Craft, artisanal, community gathering place. The vibe depends on the taproom: industrial (dark, textured, exposed materials), rustic (wood tones, warm, lodge-like), or modern (clean, minimal, Scandinavian). Match the physical space.
+
+**Color direction:** Warm earth tones or dark moody palettes — amber, charcoal, deep brown, copper, cream. Dark backgrounds work well for the industrial vibe. Avoid bright or playful colors unless the brand is explicitly fun/casual.
+
+**Typography feel:** Classic stack (Georgia serif) for traditional or rustic breweries, modern stack (system-ui) for contemporary taprooms. Heading weight 700+. The beer names and tap list should be easy to scan.
+
+**Layout emphasis:** Taproom hours and the current tap list should be prominent — above the fold. Home page uses Pattern 2 (hero + content) with an atmospheric taproom photo. Beer list uses Pattern 4 (card grid) for individual beer cards. Max-width 56rem.
+
+**Photography style:** Atmospheric interior shots — the taproom, the bar, the brewing equipment. Beer close-ups with rich color and texture. Event photos showing community. 4:3 aspect ratio. Warm, moody lighting matches the space.
+
+**Key component:** Current tap list — each beer displayed as a card or row with beer name, style, ABV, and tasting notes. Indicate what's on tap now vs. seasonal/coming soon. Update whenever the taps rotate.
+
 ## Tools
 
 - **Untappd for Business** (~$50+/mo, proprietary) — Brewery menu management, customer check-ins, print menus. untappd.com
