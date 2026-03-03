@@ -6,8 +6,8 @@ An AI webmaster for small business websites — a [Claude Code plugin](https://d
 
 1. Install [Claude Desktop](https://claude.ai/download) (free, requires an Anthropic account)
 2. Install the Anglesite plugin:
-   - **From the UI:** type `/plugin`, go to the **Discover** tab, search for **anglesite**, and click **Install**
-   - **From the chat:** `/plugin install anglesite@claude-plugins-official`
+   - **From the plugin browser:** type `/plugin`, go to the **Discover** tab, search for **anglesite**, and click **Install**
+   - **From GitHub:** `/plugin marketplace add Anglesite/anglesite` then `/plugin install anglesite@Anglesite/anglesite`
 3. Create a new folder for your site and open it in Claude Desktop
 4. Type `/anglesite:start`
 
