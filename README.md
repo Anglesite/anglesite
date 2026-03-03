@@ -22,11 +22,11 @@ Anglesite is an opinionated webmaster. These principles guide every recommendati
 
 ### Documentation principles
 
-The `website/template/docs/smb/` directory contains industry-specific guidance for 56 business types. Each file follows a consistent structure (pages, tools, compliance, content ideas, key dates, structured data, data tracking). The webmaster reads only the file(s) matching the owner's business type — not all files. Keep reference material focused and avoid cross-file duplication.
+The `template/docs/smb/` directory contains industry-specific guidance for 56 business types. Each file follows a consistent structure (pages, tools, compliance, content ideas, key dates, structured data, data tracking). The webmaster reads only the file(s) matching the owner's business type — not all files. Keep reference material focused and avoid cross-file duplication.
 
 ## What's inside
 
-The `website/` directory is the Anglesite Claude Code plugin with:
+Anglesite is a Claude Code plugin with:
 
 - 10 user-invocable skills for setup, design, deployment, and maintenance
 - Astro 5 + Keystatic CMS project template (scaffolded during `/anglesite:start`)
@@ -77,7 +77,6 @@ The start command scaffolds your project, introduces your webmaster, learns abou
 ## Plugin structure
 
 ```
-website/
 ├── .claude-plugin/         Plugin manifest
 ├── skills/                 User-invocable skills (10)
 │   ├── start/SKILL.md      First-time setup + scaffolding
@@ -96,7 +95,7 @@ website/
 │   ├── AGENTS.md           Shared webmaster guide (all AI tools)
 │   └── README.md           End-user guide
 ├── CLAUDE.md               Plugin development context
-└── README.md               Plugin README
+└── README.md               This file
 ```
 
 ## Customization

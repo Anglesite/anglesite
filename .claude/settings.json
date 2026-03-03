@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsx bin/average-tokens.ts)",
+      "Bash(python3 -m json.tool)",
+      "Bash(npx wrangler --version)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

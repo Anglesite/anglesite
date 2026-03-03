@@ -45,10 +45,10 @@ const SMB_CROSS_CUTTING = new Set([
 // Helpers
 // ---------------------------------------------------------------------------
 
-const WEBSITE = join(__dirname, "..", "website");
+const PLUGIN_ROOT = join(__dirname, "..");
 
 function bytes(relativePath: string): number {
-  return statSync(join(WEBSITE, relativePath)).size;
+  return statSync(join(PLUGIN_ROOT, relativePath)).size;
 }
 
 function tokens(byteCount: number): number {
@@ -108,7 +108,7 @@ function measure(): Measurements {
   // Step 1: business type discovery
   const smbReadme = bytes("template/docs/smb/README.md");
 
-  const smbDir = join(WEBSITE, "template/docs/smb");
+  const smbDir = join(PLUGIN_ROOT, "template/docs/smb");
   const smbTypeFiles = readdirSync(smbDir)
     .filter((f) => f.endsWith(".md") && !SMB_CROSS_CUTTING.has(f));
   const smbSizes = smbTypeFiles.map((f) => statSync(join(smbDir, f)).size);

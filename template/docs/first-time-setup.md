@@ -2,7 +2,7 @@
 
 **Prerequisite:** An AI coding tool — [Claude Desktop](https://claude.ai/download) (recommended), Codex, Gemini CLI, Cursor, Windsurf, or GitHub Copilot.
 
-The user opens the `website/` folder in their AI coding tool and runs the `anglesite:start` command.
+The user opens the project folder in their AI coding tool and runs the `anglesite:start` command.
 
 ## Three phases
 

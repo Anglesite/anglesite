@@ -8,8 +8,8 @@ The owner owns everything. There is no platform lock-in, no proprietary code, no
 
 | Asset | Where it lives | How to transfer |
 |---|---|---|
-| Website code and content | Local `website/` folder (and cloud backup if configured) | Copy the folder |
-| Git history | `.git/` directory inside `website/` | Included when copying the folder |
+| Website code and content | Local project folder (and cloud backup if configured) | Copy the folder |
+| Git history | `.git/` directory inside the project folder | Included when copying the folder |
 | Domain name | Cloudflare Registrar (or owner's registrar) | Domain transfer or nameserver change |
 | Cloudflare Pages project | Owner's Cloudflare account | Add the new person as a Cloudflare member, or redeploy from their own account |
 | DNS records | Cloudflare DNS | Export/recreate in new DNS provider |
@@ -28,7 +28,7 @@ The most common scenario — the owner wants someone else to manage the site.
 
 ### What to give them
 
-1. **The website folder** — The entire `website/` directory. This contains everything needed to build, run, and deploy the site. Copy it via AirDrop, USB drive, or zip and email.
+1. **The website folder** — The entire project directory. This contains everything needed to build, run, and deploy the site. Copy it via AirDrop, USB drive, or zip and email.
 2. **Cloudflare access** — Add the developer as a member on the Cloudflare account with appropriate permissions (not Super Administrator). Go to: Cloudflare dashboard → Manage Account → Members → Invite.
 3. **Git access** — If the project is on GitLab (or GitHub), add the developer as a member. If it's local-only, the folder copy is the repository.
 4. **Domain registrar access** — If the domain is on Cloudflare, the Cloudflare member invitation covers it. If it's on a separate registrar, add the developer as an authorized contact.
@@ -38,11 +38,11 @@ The most common scenario — the owner wants someone else to manage the site.
 
 The new developer needs to understand:
 
-- **How to run locally:** `cd website && npm install && zsh scripts/setup.sh && npm run dev` — runs with HTTPS at the hostname configured in `.site-config`. The setup script installs mkcert, generates a locally-trusted certificate, adds the hostname to `/etc/hosts`, and configures port forwarding (443 → 4321). See `docs/local-https.md`.
+- **How to run locally:** `npm install && zsh scripts/setup.sh && npm run dev` — runs with HTTPS at the hostname configured in `.site-config`. The setup script installs mkcert, generates a locally-trusted certificate, adds the hostname to `/etc/hosts`, and configures port forwarding (443 → 4321). See `docs/local-https.md`.
 - **How to build:** `npm run build`
 - **How to deploy:** `npx wrangler pages deploy dist/ --project-name PROJECT_NAME`
 - **How to edit content:** Keystatic at `https://DEV_HOSTNAME/keystatic` while the dev server is running (read `DEV_HOSTNAME` from `.site-config`)
-- **Where the docs are:** `website/docs/` contains all architecture and reference documentation
+- **Where the docs are:** `docs/` contains all architecture and reference documentation
 - **Where the commands are:** Commands are provided by the Anglesite plugin (skills like `/anglesite:start`, `/anglesite:deploy`, etc.)
 
 ### What NOT to share
@@ -84,7 +84,7 @@ Transfer ownership of:
 ### Step 4: Website folder
 
 Give the new owner:
-- The complete `website/` folder
+- The complete project folder
 - Instructions for running it (the README in the folder covers this)
 - Any passwords or API keys stored in `.env` or `.site-config`
 
@@ -141,7 +141,7 @@ If the owner is closing the business and doesn't need the website anymore:
 2. **Delete the Cloudflare Pages project** — Dashboard → Pages → Project → Settings → Delete
 3. **Update Google Business Profile** — Mark the business as "permanently closed"
 4. **Update Apple Business Connect** — Same
-5. **Keep a local backup** — The `website/` folder is a complete archive. The owner can rebuild the site from it at any time.
+5. **Keep a local backup** — The project folder is a complete archive. The owner can rebuild the site from it at any time.
 
 ### Option C: Redirect to social media
 
@@ -153,8 +153,8 @@ If the owner is closing but maintains a social media presence:
 
 Regardless of handoff scenario, the owner should always have:
 
-1. **A copy of the `website/` folder** — On their computer (and cloud backup if the folder is in iCloud Drive or another synced location)
+1. **A copy of the project folder** — On their computer (and cloud backup if the folder is in iCloud Drive or another synced location)
 2. **Access credentials written down** — Cloudflare login, domain registrar, 2FA recovery codes (see `docs/security.md` → Recovery plan)
 3. **A recent successful build** — Run `npm run build` before any handoff to verify the site builds correctly
 
-The `website/` folder is the complete source of truth. If the owner has that folder, they can recreate everything.
+The project folder is the complete source of truth. If the owner has that folder, they can recreate everything.
