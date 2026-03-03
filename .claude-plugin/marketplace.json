@@ -4,14 +4,12 @@
     "name": "David W. Keith"
   },
   "metadata": {
-    "description": "AI webmaster for small business websites"
+    "description": "AI webmaster that scaffolds, designs, and deploys websites"
   },
   "plugins": [
     {
       "name": "anglesite",
-      "source": "./",
-      "description": "Scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Pages",
-      "version": "0.9.0"
+      "source": "https://github.com/Anglesite/anglesite.git"
     }
   ]
 }
