@@ -64,6 +64,7 @@ const siteUrl = siteDomain
 
 export default defineConfig({
   site: siteUrl,
+  devToolbar: { enabled: false },
   output: isDev ? "server" : "static",
   integrations: [
     react(),
