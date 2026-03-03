@@ -1,0 +1,8 @@
+{
+  "name": "anglesite",
+  "version": "1.0.0",
+  "description": "AI webmaster for small business websites. Scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Pages.",
+  "author": {
+    "name": "David W. Keith"
+  }
+}

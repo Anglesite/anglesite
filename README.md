@@ -1,6 +1,6 @@
 # Anglesite
 
-A website scaffold for non-technical users. Download the zip, expand it, open the folder in Claude Desktop's Code tab, and your AI webmaster handles the rest.
+A Claude Code plugin that acts as an AI webmaster for small business websites. Install the plugin, run `/anglesite:start`, and your webmaster handles the rest.
 
 ## Philosophy
 
@@ -22,17 +22,17 @@ Anglesite is an opinionated webmaster. These principles guide every recommendati
 
 ### Documentation principles
 
-The `docs/smb/` directory contains industry-specific guidance for 42+ business types. Each file follows a consistent structure (pages, tools, compliance, content ideas, key dates, structured data, data tracking). The webmaster reads only the file(s) matching the owner's business type — not all files. Keep reference material focused and avoid cross-file duplication.
+The `website/template/docs/smb/` directory contains industry-specific guidance for 56 business types. Each file follows a consistent structure (pages, tools, compliance, content ideas, key dates, structured data, data tracking). The webmaster reads only the file(s) matching the owner's business type — not all files. Keep reference material focused and avoid cross-file duplication.
 
 ## What's inside
 
-The `website/` directory is a complete Astro + Keystatic static site with:
+The `website/` directory is the Anglesite Claude Code plugin with:
 
-- Blog engine with a visual editor (Keystatic CMS)
+- 10 user-invocable skills for setup, design, deployment, and maintenance
+- Astro 5 + Keystatic CMS project template (scaffolded during `/anglesite:start`)
 - Cloudflare Pages hosting with zero third-party JavaScript
-- Built-in Claude Code commands for setup, design, deployment, and maintenance
 - iCloud sync support (heavy directories excluded via `.nosync` symlinks)
-- Business-type discovery that tailors the site to your industry
+- Business-type discovery that tailors the site to your industry (56 types)
 
 ## Who this is for
 
@@ -41,11 +41,11 @@ Small businesses — farms, restaurants, legal firms, retailers, makers, artists
 ## Getting started
 
 1. Install [Claude Desktop](https://claude.ai/download) (free, requires an Anthropic account)
-2. Download and unzip the Anglesite scaffold
-3. Open the `website/` folder in Claude Desktop's Code tab
-4. Type `/start` and follow the prompts
+2. Install the Anglesite plugin from the marketplace
+3. Create a new directory for your site and open it in Claude Desktop
+4. Type `/anglesite:start` and follow the prompts
 
-The start command introduces your webmaster, learns about your business, designs the site with you, and installs the tools to preview it — all in one session. When you're ready to go live, `/deploy` handles Cloudflare, domains, and publishing. The whole process takes about 45 minutes.
+The start command scaffolds your project, introduces your webmaster, learns about your business, designs the site with you, and installs the tools to preview it — all in one session. When you're ready to go live, `/anglesite:deploy` handles Cloudflare, domains, and publishing. The whole process takes about 45 minutes.
 
 ## Stack
 
@@ -59,69 +59,66 @@ The start command introduces your webmaster, learns about your business, designs
 | Styling | Vanilla CSS with custom properties |
 | Customer management (optional) | Industry tools or Airtable |
 
-## Available commands
+## Available skills
 
-| Command | What it does |
+| Skill | What it does |
 |---|---|
-| `/start` | First-time setup: business discovery, design interview, tools, preview |
-| `/design-interview` | Redo the visual identity (can run anytime after `/start`) |
-| `/deploy` | Build, security scan, deploy, domain setup |
-| `/check` | Health audit (build, privacy, security, accessibility) |
-| `/fix` | Diagnose and fix common problems |
-| `/update` | Update dependencies safely |
-| `/new-page` | Create a new page with SEO and accessibility |
-| `/setup` | Reinstall tools and dependencies |
-| `/setup-customers` | Set up customer/client management (recommends industry tools) |
-| `/domain` | Manage DNS records (email, Bluesky verification, etc.) |
+| `/anglesite:start` | First-time setup: scaffolding, business discovery, design, tools, preview |
+| `/anglesite:design-interview` | Redo the visual identity (can run anytime after start) |
+| `/anglesite:deploy` | Build, security scan, deploy, domain setup |
+| `/anglesite:check` | Health audit (build, privacy, security, accessibility) |
+| `/anglesite:fix` | Diagnose and fix common problems |
+| `/anglesite:update` | Update dependencies safely |
+| `/anglesite:new-page` | Create a new page with SEO and accessibility |
+| `/anglesite:setup` | Reinstall tools and dependencies |
+| `/anglesite:setup-customers` | Set up customer/client management (recommends industry tools) |
+| `/anglesite:domain` | Manage DNS records (email, Bluesky verification, etc.) |
 
-## Project structure
+## Plugin structure
 
 ```
 website/
-├── .claude/commands/       Slash commands (/start, /deploy, /check, …)
-├── docs/
-│   ├── architecture.md     Stack decisions, content collections, styling
-│   ├── brand.md            Visual identity (created by /design-interview)
-│   ├── cloudflare.md       Hosting, DNS, analytics
-│   ├── content-guide.md    Blog schema, Keystatic, images, POSSE
-│   ├── design-system.md    Color, typography, spacing, layout guidance
-│   ├── indieweb.md         Microformats, rel="me", webmentions, IndieAuth
-│   ├── local-https.md      Dev server HTTPS setup reference
-│   ├── webmaster.md        Best practices and maintenance schedule
-│   ├── smb/                Industry-specific guidance (56 business types)
-│   │   ├── README.md       Type index and cross-cutting references
-│   │   ├── restaurant.md   Example: restaurant/food business
-│   │   ├── trades.md       Example: electrician, plumber, HVAC
-│   │   └── …
-│   └── platforms/          SaaS integration guides (Square, Yelp, …)
-├── src/                    Astro source (pages, layouts, components, content)
-├── public/                 Static assets, security headers, robots.txt
-├── scripts/                Shell scripts (setup, prerequisites, cleanup)
-├── AGENTS.md               Shared webmaster guide (loaded by all AI tools)
-├── CLAUDE.md               Claude Code specifics (includes @AGENTS.md)
-└── README.md               End-user guide (read by the site owner)
+├── .claude-plugin/         Plugin manifest
+├── skills/                 User-invocable skills (10)
+│   ├── start/SKILL.md      First-time setup + scaffolding
+│   ├── deploy/SKILL.md     Build, scan, deploy
+│   └── …
+├── settings.json           Plugin permissions
+├── scripts/scaffold.sh     Copies template/ to user's project
+├── template/               Files scaffolded to user's project
+│   ├── src/                Astro source (pages, layouts, styles, content)
+│   ├── public/             Static assets, security headers
+│   ├── scripts/            setup.sh, check-prereqs.sh, cleanup.sh
+│   ├── docs/               Reference documentation (80+ files)
+│   │   ├── smb/            Industry-specific guidance (56 business types)
+│   │   └── platforms/      SaaS integration guides (Square, Yelp, …)
+│   ├── CLAUDE.md           Webmaster instructions (Claude Code)
+│   ├── AGENTS.md           Shared webmaster guide (all AI tools)
+│   └── README.md           End-user guide
+├── CLAUDE.md               Plugin development context
+└── README.md               Plugin README
 ```
 
 ## Customization
 
-The scaffold ships with placeholder content. After `/start`, the site reflects the owner's brand. Blog posts are created through the Keystatic visual editor — no code editing needed.
+The template ships with placeholder content. After `/anglesite:start`, the site reflects the owner's brand. Blog posts are created through the Keystatic visual editor — no code editing needed.
 
-To adapt this scaffold for a different project, update:
+To adapt this plugin for a different project, update:
 
-- `CLAUDE.md` — webmaster context
-- `README.md` — end-user instructions
-- `keystatic.config.ts` — content schema
-- `.claude/commands/` — slash commands
+- `template/CLAUDE.md` — webmaster context
+- `template/AGENTS.md` — cross-tool instructions
+- `template/keystatic.config.ts` — content schema
+- `skills/` — plugin skills
 
 <!-- token-efficiency-start -->
 ## Token Efficiency
 
-Estimated cost per `/start` session (~30 turns):
+Estimated cost per `/anglesite:start` session (~30 turns):
 
 | Model | Cached input | New input | Output | Est. cost |
 |---|---|---|---|---|
-| Opus | 422k | 410k | 25k | $8.81 |
-| Sonnet | 422k | 410k | 25k | $1.76 |
+| Opus | 430k | 410k | 25k | $8.83 |
+| Sonnet | 430k | 410k | 25k | $1.77 |
 
 <details>
 <summary>Context budget breakdown</summary>
@@ -131,29 +128,29 @@ Estimated cost per `/start` session (~30 turns):
 | File | Tokens |
 |---|---|
 | System prompt (est.) | 2,000 |
-| CLAUDE.md | 250 |
-| AGENTS.md | 1,580 |
-| **Subtotal** | **3,830** |
+| CLAUDE.md | 229 |
+| AGENTS.md | 1,608 |
+| **Subtotal** | **3,837** |
 
-### Command + on-demand reads
+### Skill + on-demand reads
 
 | File | Tokens | Loaded after |
 |---|---|---|
-| start.md | 2,352 | Command invocation |
-| smb/README.md | 2,561 | Step 1 |
+| start/SKILL.md | 2,533 | Skill invocation |
+| smb/README.md | 2,614 | Step 1 |
 | Avg SMB type (1 of 56 files) | 1,619 | Step 1 |
-| design-interview.md | 1,292 | Step 2 |
-| design-system.md | 2,897 | Step 2 |
-| **Subtotal** | **10,721** | |
+| design-interview/SKILL.md | 1,321 | Step 2 |
+| design-system.md | 2,905 | Step 2 |
+| **Subtotal** | **10,992** | |
 
 ### Session model
 
 | Parameter | Value |
 |---|---|
 | Turns | 30 |
-| Context per turn (after step 2) | 14,551 |
+| Context per turn (after step 2) | 14,829 |
 | New content per turn | ~850 |
-| Total input (all API calls) | 832k |
+| Total input (all API calls) | 840k |
 | Total output | 25k |
 
 </details>

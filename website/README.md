@@ -1,43 +1,57 @@
-# Your Website
+# Anglesite
 
-This is the source code for your website. It lives in iCloud Drive so it's backed up automatically.
+A Claude Code plugin that acts as an AI webmaster for small business websites. Scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Pages.
 
-## Getting started
+## Installation
 
-Choose the AI tool you'd like to use as your webmaster:
+Install from the Claude Code marketplace:
 
-### Claude Desktop (recommended)
+```
+claude plugin install anglesite
+```
 
-1. **Install Claude Desktop** — Download it free from [claude.ai/download](https://claude.ai/download). You'll need to create an Anthropic account if you don't have one.
-2. **Open this folder** — Click the **Code** tab, then open this `website/` folder.
-3. **Type `/start`** — Your webmaster will introduce themselves, learn about your business, design the site with you, and get everything running.
+Or install locally during development:
 
-### Gemini CLI
+```
+claude --plugin-dir ./website
+```
 
-1. **Install Gemini CLI** — Follow the instructions at [github.com/google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli).
-2. **Open this folder** — Run `cd` into this `website/` directory.
-3. **Type `start`** — Ask your webmaster to run the `start` command. Command prompts live in `.claude/commands/` as Markdown files that Gemini can read.
+## Usage
 
-### Other AI coding tools
+1. Create a new directory for your site
+2. Run `/anglesite:start` — the plugin scaffolds the project, interviews the owner, designs the site, and installs tools
+3. Run `/anglesite:deploy` — builds, security-scans, and deploys to Cloudflare Pages
 
-This project uses the `AGENTS.md` standard. Any AI coding tool that reads `AGENTS.md` (Cursor, Windsurf, Cline, etc.) can act as your webmaster. Open this `website/` folder and ask it to run the `start` command from `.claude/commands/start.md`.
+## Available skills
 
----
+| Skill | What it does |
+|---|---|
+| `/anglesite:start` | First-time setup: business discovery, design, tools, preview |
+| `/anglesite:design-interview` | Redo the visual identity |
+| `/anglesite:deploy` | Build, security scan, deploy, domain setup |
+| `/anglesite:check` | Health audit (build, privacy, security, accessibility) |
+| `/anglesite:fix` | Diagnose and fix common problems |
+| `/anglesite:update` | Update dependencies safely |
+| `/anglesite:new-page` | Create a new page with SEO and accessibility |
+| `/anglesite:setup` | Reinstall tools and dependencies |
+| `/anglesite:setup-customers` | Set up customer/client management |
+| `/anglesite:domain` | Manage DNS records (email, Bluesky, etc.) |
 
-The setup process takes about 30 minutes regardless of which tool you use.
+## Stack
 
-## What you can do
+| Component | Technology |
+|---|---|
+| Site generator | Astro 5 |
+| Content editor | Keystatic |
+| Hosting | Cloudflare Pages |
+| Analytics | Cloudflare Web Analytics |
+| Language | TypeScript (strict) |
+| Styling | Vanilla CSS with custom properties |
 
-| I want to… | What to do |
-| --- | --- |
-| Write a blog post | Click **Preview** in the toolbar, then go to `https://yourbusiness.com.local/keystatic` (your webmaster will tell you the exact address) |
-| Publish changes | Run `deploy` |
-| Redesign the site | Run `design-interview` |
-| Check the site for problems | Run `check` |
-| Fix something | Run `fix` |
+## Development
 
-In Claude Desktop, prefix commands with `/` (e.g., `/deploy`). In other tools, ask the webmaster to run the command by name.
+See [CLAUDE.md](website/CLAUDE.md) for plugin development context.
 
-## Getting help
+## License
 
-Type anything in the chat — describe what you need in plain English. Your webmaster can write new pages, fix problems, update the design, and more.
+Private. Not open source.

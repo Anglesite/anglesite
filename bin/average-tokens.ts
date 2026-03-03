@@ -1,5 +1,5 @@
 /**
- * Token efficiency calculator for Anglesite's /start command.
+ * Token efficiency calculator for Anglesite's /anglesite:start skill.
  *
  * Measures actual file sizes, models a 30-turn session cost, and
  * writes a deterministic "Token Efficiency" section into README.md.
@@ -99,16 +99,16 @@ interface Measurements {
 
 function measure(): Measurements {
   // Always-loaded context (every turn)
-  const claudeMd = bytes("CLAUDE.md");
-  const agentsMd = bytes("AGENTS.md");
+  const claudeMd = bytes("template/CLAUDE.md");
+  const agentsMd = bytes("template/AGENTS.md");
 
-  // Command context (in history from turn 1)
-  const startMd = bytes(".claude/commands/start.md");
+  // Skill context (in history from turn 1)
+  const startMd = bytes("skills/start/SKILL.md");
 
   // Step 1: business type discovery
-  const smbReadme = bytes("docs/smb/README.md");
+  const smbReadme = bytes("template/docs/smb/README.md");
 
-  const smbDir = join(WEBSITE, "docs/smb");
+  const smbDir = join(WEBSITE, "template/docs/smb");
   const smbTypeFiles = readdirSync(smbDir)
     .filter((f) => f.endsWith(".md") && !SMB_CROSS_CUTTING.has(f));
   const smbSizes = smbTypeFiles.map((f) => statSync(join(smbDir, f)).size);
@@ -116,23 +116,23 @@ function measure(): Measurements {
   const smbAvgBytes = Math.round(smbTotal / smbSizes.length);
 
   // Step 2: design interview
-  const designInterview = bytes(".claude/commands/design-interview.md");
-  const designSystem = bytes("docs/design-system.md");
+  const designInterview = bytes("skills/design-interview/SKILL.md");
+  const designSystem = bytes("template/docs/design-system.md");
 
   return {
     alwaysLoaded: [
-      { label: "CLAUDE.md", path: "CLAUDE.md", bytes: claudeMd, tokens: tokens(claudeMd) },
-      { label: "AGENTS.md", path: "AGENTS.md", bytes: agentsMd, tokens: tokens(agentsMd) },
+      { label: "CLAUDE.md", path: "template/CLAUDE.md", bytes: claudeMd, tokens: tokens(claudeMd) },
+      { label: "AGENTS.md", path: "template/AGENTS.md", bytes: agentsMd, tokens: tokens(agentsMd) },
     ],
     command: [
-      { label: "start.md", path: ".claude/commands/start.md", bytes: startMd, tokens: tokens(startMd) },
+      { label: "start/SKILL.md", path: "skills/start/SKILL.md", bytes: startMd, tokens: tokens(startMd) },
     ],
     step1: [
-      { label: "smb/README.md", path: "docs/smb/README.md", bytes: smbReadme, tokens: tokens(smbReadme) },
+      { label: "smb/README.md", path: "template/docs/smb/README.md", bytes: smbReadme, tokens: tokens(smbReadme) },
     ],
     step2: [
-      { label: "design-interview.md", path: ".claude/commands/design-interview.md", bytes: designInterview, tokens: tokens(designInterview) },
-      { label: "design-system.md", path: "docs/design-system.md", bytes: designSystem, tokens: tokens(designSystem) },
+      { label: "design-interview/SKILL.md", path: "skills/design-interview/SKILL.md", bytes: designInterview, tokens: tokens(designInterview) },
+      { label: "design-system.md", path: "template/docs/design-system.md", bytes: designSystem, tokens: tokens(designSystem) },
     ],
     smb: {
       count: smbSizes.length,
@@ -205,7 +205,7 @@ function render(m: Measurements, contextPerTurn: number, costs: SessionCost[]): 
   const lines: string[] = [
     "## Token Efficiency",
     "",
-    `Estimated cost per \`/start\` session (~${N} turns):`,
+    `Estimated cost per \`/anglesite:start\` session (~${N} turns):`,
     "",
     "| Model | Cached input | New input | Output | Est. cost |",
     "|---|---|---|---|---|",
@@ -239,14 +239,14 @@ function render(m: Measurements, contextPerTurn: number, costs: SessionCost[]): 
 
   lines.push(
     "",
-    "### Command + on-demand reads",
+    "### Skill + on-demand reads",
     "",
     "| File | Tokens | Loaded after |",
     "|---|---|---|",
   );
 
   for (const f of m.command) {
-    lines.push(`| ${f.label} | ${fmt(f.tokens)} | Command invocation |`);
+    lines.push(`| ${f.label} | ${fmt(f.tokens)} | Skill invocation |`);
   }
   for (const f of m.step1) {
     lines.push(`| ${f.label} | ${fmt(f.tokens)} | Step 1 |`);

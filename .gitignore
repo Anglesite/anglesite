@@ -1,2 +1,6 @@
 .DS_Store
 site/
+website/node_modules/
+website/dist/
+website/.astro/
+website/.wrangler/

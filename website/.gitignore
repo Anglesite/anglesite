@@ -1,30 +1,13 @@
-# build
-dist
-dist.nosync
-.astro
-.astro.nosync
-
-# deps
-node_modules
-node_modules.nosync
-
-# env
-.env
-.env.*
-
-# OS
 .DS_Store
-Thumbs.db
-
-# editors
-.vscode/
-.idea/
-*.swp
-
-# wrangler
-.wrangler
-.wrangler.nosync
-
-# local HTTPS certs
-.certs
-.certs.nosync
+template/node_modules/
+template/node_modules.nosync/
+template/dist/
+template/dist.nosync/
+template/.astro/
+template/.astro.nosync/
+template/.wrangler/
+template/.wrangler.nosync/
+template/.certs/
+template/.certs.nosync/
+template/.env
+template/.env.*
