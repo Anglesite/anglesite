@@ -10,7 +10,7 @@ This command is for technical setup only — installing Node.js, npm dependencie
 
 ## Before starting
 
-Check if `.site-config` exists with `SITE_NAME`. If not, tell the owner: "It looks like this is a fresh start. Type `/anglesite:start` to set up your business and website from scratch — it includes the tool installation."
+Check if `.site-config` exists with `SITE_NAME`. If not, this is a first-time setup — read and follow the full instructions in `${CLAUDE_PLUGIN_ROOT}/skills/start/SKILL.md` instead of continuing here. The start skill includes tool installation plus discovery and design.
 
 ## How to communicate
 
