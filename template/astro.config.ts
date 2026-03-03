@@ -1,3 +1,14 @@
+/**
+ * Astro configuration for an Anglesite-managed website.
+ *
+ * Reads site identity from `.site-config` (written by `/anglesite:start`).
+ * In dev mode, enables Keystatic CMS, local HTTPS via mkcert, and server
+ * output. In production, builds static HTML with no client JavaScript.
+ *
+ * @see https://docs.astro.build/en/reference/configuration-reference/
+ * @module
+ */
+
 import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
 import markdoc from "@astrojs/markdoc";
@@ -6,10 +17,16 @@ import sitemap from "@astrojs/sitemap";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 
+/** True when running `astro dev`, false during `astro build`. */
 const isDev =
   process.argv[1]?.includes("astro") && process.argv.includes("dev");
 
-/** Read a key from .site-config (KEY=value format). */
+/**
+ * Read a value from `.site-config` (KEY=value format, one per line).
+ *
+ * @param key - The config key to look up (e.g. `"SITE_DOMAIN"`)
+ * @returns The trimmed value, or `undefined` if the file or key is missing
+ */
 function readConfig(key: string): string | undefined {
   const configPath = resolve(process.cwd(), ".site-config");
   if (!existsSync(configPath)) return undefined;
@@ -18,7 +35,15 @@ function readConfig(key: string): string | undefined {
   return match?.[1]?.trim();
 }
 
-/** Load mkcert certificates for local HTTPS, if they exist. */
+/**
+ * Load mkcert TLS certificates for local HTTPS.
+ *
+ * Looks for `cert.pem` and `key.pem` in the `.certs/` directory
+ * (created by `scripts/setup.sh`). Returns `undefined` if either
+ * file is missing, which disables HTTPS in the dev server.
+ *
+ * @returns Vite HTTPS config object, or `undefined`
+ */
 function getHttpsConfig() {
   const dir = resolve(process.cwd(), ".certs");
   const cert = resolve(dir, "cert.pem");

@@ -1,3 +1,17 @@
+/**
+ * Keystatic CMS configuration — defines the content schema for the
+ * visual editor at `/keystatic`.
+ *
+ * Blog posts are stored as Markdoc files in `src/content/posts/`.
+ * The schema here must stay in sync with the Zod schema in
+ * `src/content/config.ts`; both validate the same frontmatter fields.
+ *
+ * Tags are customized per business during `/anglesite:design-interview`.
+ *
+ * @see https://keystatic.com/docs/configuration
+ * @module
+ */
+
 import { config, fields, collection } from "@keystatic/core";
 
 export default config({
