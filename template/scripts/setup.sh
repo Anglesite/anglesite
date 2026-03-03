@@ -27,6 +27,17 @@ log "Project directory: $PROJECT_DIR"
 if ! xcode-select -p &>/dev/null; then
     log "Installing Xcode command line tools (includes Git)..."
     log "A macOS dialog will appear — click Install and wait for it to finish."
+# Simple flags
+DRY_RUN=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -n|--dry-run) DRY_RUN=true; shift ;;
+    -h|--help) echo "Usage: $0 [--dry-run]"; exit 0 ;;
+    --) shift; break ;;
+    *) echo "Unknown arg: $1"; exit 1 ;;
+  esac
+done
+
     xcode-select --install
     until xcode-select -p &>/dev/null; do
         sleep 5

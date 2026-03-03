@@ -1,26 +1,26 @@
+// Plugin permissions (JSONC). Keep minimal and explicit.
 {
   "permissions": {
     "allow": [
-      "Bash(zsh *scripts/*)",
-      "Bash(npm run *)",
+      // Minimal commands the plugin needs to scaffold and setup projects
+      "Bash(scripts/scaffold.sh *)",
+      "Bash(scripts/check-prereqs.sh *)",
+      "Bash(template/scripts/setup.sh *)",
       "Bash(npm install *)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
       "Bash(npx wrangler *)",
-      "Bash(npx astro *)",
+      "Bash(git status)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git status *)",
-      "Bash(git log *)",
-      "Bash(git diff *)",
-      "Bash(git init *)",
-      "Bash(lsof *)",
-      "Bash(cat .site-config)",
-      "Bash(open *)",
-      "Bash(dscacheutil *)",
-      "Bash(openssl *)"
+      "Bash(git init)"
     ],
     "deny": [
+      // Prevent accidental exposure of environment files
       "Read(.env)",
       "Read(.env.*)"
     ]
-  }
+  },
+  // Notes: adjust these entries if a skill requires additional, narrow commands.
+  "notes": "Only allow the specific commands needed by skills; avoid broad globs."
 }
