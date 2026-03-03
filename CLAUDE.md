@@ -21,7 +21,6 @@ Anglesite is a Claude Code plugin that scaffolds and manages websites for small 
     ├── scripts/                   setup.sh, check-prereqs.sh, cleanup.sh
     ├── docs/                      Reference documentation (80+ files)
     ├── CLAUDE.md                  Webmaster instructions
-    ├── AGENTS.md                  Cross-tool AI instructions
     └── ...                        Config files (package.json, astro.config.ts, etc.)
 ```
 

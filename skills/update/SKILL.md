@@ -2,6 +2,7 @@
 name: Update
 description: "Update dependencies and resolve security issues"
 user-invocable: true
+disable-model-invocation: true
 ---
 
 Update dependencies and resolve security issues.

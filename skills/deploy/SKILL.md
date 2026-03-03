@@ -2,6 +2,7 @@
 name: Deploy
 description: "Build, security scan, and deploy to Cloudflare Pages"
 user-invocable: true
+disable-model-invocation: true
 ---
 
 Build, scan, and deploy the site to Cloudflare Pages. On first deploy, this also handles Cloudflare account creation and domain setup.

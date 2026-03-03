@@ -2,6 +2,7 @@
 name: Start
 description: "First-time setup: business discovery, design, tools, preview"
 user-invocable: true
+disable-model-invocation: true
 ---
 
 Welcome a new site owner. This is the first command they'll run — it combines project scaffolding, business discovery, design, and tool installation into one guided session.

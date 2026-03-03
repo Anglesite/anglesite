@@ -1,45 +1,50 @@
 # Your Website
 
-This is the source code for your website. It lives on GitHub so it's backed up automatically. Under the hood Anglesite uses Astro to build your website, so if you get stuck [any web development agency that works with Astro](https://astro.build/agencies/) can help.
+This site was built with [Astro](https://astro.build) and [Keystatic](https://keystatic.com), scaffolded by the [Anglesite](https://anglesite.dwk.io) plugin for Claude Code. It deploys to [Cloudflare Pages](https://pages.cloudflare.com).
 
-## Getting started
+You own everything — code, content, domain, hosting. If you ever want to move on from Anglesite, any [Astro-compatible agency](https://astro.build/agencies/) can pick up where it left off.
 
-Your website is managed by the **Anglesite** plugin for your AI coding tool.
+## Project structure
 
-### Claude Desktop (recommended)
+```
+├── src/
+│   ├── pages/          Astro pages (.astro)
+│   ├── layouts/        Page layouts
+│   ├── components/     Reusable components
+│   ├── content/        Blog posts and collections (.mdx)
+│   └── styles/         Global CSS (custom properties for theming)
+├── public/             Static assets (images, fonts, _headers, robots.txt)
+├── docs/               Reference documentation
+├── scripts/            Setup and maintenance scripts
+├── astro.config.ts     Astro configuration
+├── keystatic.config.ts Content schema
+└── package.json        Dependencies
+```
 
-1. **Install Claude Desktop** — Download it free from [claude.ai/download](https://claude.ai/download). You'll need to create an Anthropic account if you don't have one.
-2. **Install GitHub CLI** — Download it free from https://cli.github.com. You'll need to create a GitHub account if you don't have one.
-3. **Install the Anglesite plugin** — Your webmaster told you how to do this, or it was pre-installed.
-4. **Open this folder** — Click the **Code** tab, then open this folder.
-5. **Type `/anglesite:start`** — Your webmaster will introduce themselves, learn about your business, design the site with you, and get everything running.
+## Development
 
-### Gemini CLI
+```sh
+npm run dev       # Start dev server at https://DEV_HOSTNAME (see .site-config)
+npm run build     # Production build to dist/
+npm run preview   # Preview production build locally
+```
 
-1. **Install Gemini CLI** — Follow the instructions at [github.com/google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli).
-2. **Open this folder** — Run `cd` into this directory.
-3. **Run `anglesite:start`** — Ask your webmaster to run the start command.
+Astro produces static HTML with zero client JavaScript by default. Pages in `src/pages/` map directly to URL routes.
 
-### Other AI coding tools
+## Content editing
 
-This project uses the `AGENTS.md` standard. Any AI coding tool that reads `AGENTS.md` (Cursor, Windsurf, Cline, etc.) can act as your webmaster. Open this folder and ask it to run the `anglesite:start` command.
+Blog posts and other content live in `src/content/` as `.mdx` files. You can edit them directly or use the Keystatic visual editor at `https://DEV_HOSTNAME/keystatic` while the dev server is running.
 
----
+Content schemas are defined in `keystatic.config.ts`. Frontmatter fields (title, description, publishDate, etc.) are validated at build time.
 
-The setup process takes about 30 minutes regardless of which tool you use.
+## Styling
 
-## What you can do
+The site uses vanilla CSS with custom properties defined in `src/styles/global.css`. No CSS frameworks. Colors, fonts, and spacing are controlled through custom properties so the design can be updated in one place.
 
-| I want to… | What to do |
-| --- | --- |
-| Write a blog post | Click **Preview** in the toolbar, then go to `https://yourbusiness.com.local/keystatic` (your webmaster will tell you the exact address) |
-| Publish changes | Run `anglesite:deploy` |
-| Redesign the site | Run `anglesite:design-interview` |
-| Check the site for problems | Run `anglesite:check` |
-| Fix something | Run `anglesite:fix` |
+## Deployment
 
-In Claude Desktop, prefix commands with `/` (e.g., `/anglesite:deploy`). In other tools, ask the webmaster to run the command by name.
+The site deploys to Cloudflare Pages via [Wrangler](https://developers.cloudflare.com/workers/wrangler/). DNS records are managed through the Cloudflare API.
 
-## Getting help
+## More information
 
-Type anything in the chat — describe what you need in plain English. Your webmaster can write new pages, fix problems, update the design, and more.
+For plugin documentation, skills reference, and support: [anglesite.dwk.io](https://anglesite.dwk.io)

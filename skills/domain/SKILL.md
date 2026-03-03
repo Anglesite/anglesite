@@ -2,6 +2,7 @@
 name: Domain
 description: "Manage DNS records: email, Bluesky, verification"
 user-invocable: true
+disable-model-invocation: true
 ---
 
 Manage DNS records for the owner's domain on Cloudflare. All DNS changes are made directly via the Cloudflare API — never ask the owner to add, remove, or modify DNS records themselves. Never open the Cloudflare dashboard for DNS operations.
