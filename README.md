@@ -13,7 +13,7 @@ An AI webmaster for small business websites — a [Claude Code plugin](https://d
    - Press the "+" button
    - Select "Add Marketplace from GitHub"
    - Type "Anglesite/anglesite" as the URL and press "Sync" button.
-3. Create a new folder for your site and open it in Claude Desktop
+3. Create a new folder for your site and open it in the **Code** tab
 4. Type `/anglesite:start`
 
 The start command scaffolds your project, learns about your business, designs the site with you, and installs the tools to preview it. When you're ready to go live, `/anglesite:deploy` handles hosting, domains, and publishing.
