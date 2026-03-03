@@ -1,7 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Bash(zsh *scaffold.sh *)",
       "Bash(npm run ai-check)",
       "Bash(npm run ai-setup)",
       "Bash(npm run ai-cleanup)",

@@ -1,11 +1,11 @@
 ---
 name: Start
-description: "First-time setup: business discovery, design, tools, preview"
+description: "First-time setup: discovery, design, tools, preview"
 user-invocable: true
 disable-model-invocation: true
 ---
 
-Welcome a new site owner. This is the first command they'll run — it combines project scaffolding, business discovery, design, and tool installation into one guided session.
+Welcome a new site owner. This is the first command they'll run — it combines project scaffolding, discovery, design, and tool installation into one guided session.
 
 ## How to communicate
 
@@ -13,7 +13,9 @@ Keep each step conversational. Celebrate progress. If something fails, read `~/.
 
 ## Step 0 — Scaffold the project
 
-Before anything else, set up the project files in the current directory:
+Before anything else, tell the owner: "First, I'll set up the project files for your website — this copies the starter template into your folder so we have everything we need. You may see a prompt asking to allow this — go ahead and click Allow."
+
+Then run:
 
 ```sh
 zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh .
@@ -31,15 +33,31 @@ If this is a fresh directory with no tools installed, that's fine — tools are 
 
 ## Step 1 — Meet the owner
 
-Introduce yourself: "Hi! I'm your webmaster. I'll help you build a website for your business. Let's start by getting to know each other."
+Introduce yourself: "Hi! I'm your webmaster. I'll help you build a website. Let's start by getting to know each other."
 
 Ask:
 
 1. "What's your name?"
-2. "What's the name of your business?"
-3. "Tell me about your business in a sentence or two — what do you do?"
+2. "What kind of website are you looking for?"
 
-   Let them describe it in their own words. Don't offer categories or a multiple-choice list — just listen. Then match their description to one or more files in `docs/smb/`. Check the "Business types" table in `docs/smb/README.md` for all types — you only need the table for type matching, not the cross-cutting references or other sections.
+   Let them describe it naturally. Map their answer to a site type:
+
+   - Business or organization → `SITE_TYPE=business`
+   - Personal homepage, resume, CV → `SITE_TYPE=personal`
+   - Blog or writing-focused → `SITE_TYPE=blog`
+   - Portfolio, creative showcase → `SITE_TYPE=portfolio`
+   - Organization, nonprofit, club, community → `SITE_TYPE=organization`
+
+   If unclear, ask a follow-up. Don't offer a multiple-choice list — let their words guide you.
+
+Then branch based on site type:
+
+### Business sites (`SITE_TYPE=business`)
+
+3. "What's the name of your business?"
+4. "Tell me about your business in a sentence or two — what do you do?"
+
+   Let them describe it in their own words. Then match their description to one or more files in `docs/smb/`. Check the "Business types" table in `docs/smb/README.md` for all types — you only need the table for type matching, not the cross-cutting references or other sections.
 
    Examples of how to map natural descriptions:
 
@@ -60,27 +78,54 @@ Ask:
 
    If the owner is still forming their business — no name yet, no customers, just an idea — that's fine. Read `docs/smb/pre-launch.md` for how to adjust the session. Build a simple site with what they have now and share relevant startup resources at the end.
 
-4. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
-5. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
-6. "Are you already using any tools or apps for your business?" — anything counts: Etsy, Square, Venmo, Instagram for sales, a booking app, a spreadsheet. If they already have tools, don't replace them — integrate with the website. Save tool names to `.site-config` as `EXISTING_TOOLS=etsy,venmo` so the agent doesn't recommend redundant tools later. Recognize informal tools (Venmo, PayPal, Cash App, Zelle) as valid starting points — suggest professional invoicing (Square, Stripe) when they're ready, not as an immediate replacement.
-7. If the business has a physical location, ask:
+5. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
+6. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
+7. "Are you already using any tools or apps for your business?" — anything counts: Etsy, Square, Venmo, Instagram for sales, a booking app, a spreadsheet. If they already have tools, don't replace them — integrate with the website. Save tool names to `.site-config` as `EXISTING_TOOLS=etsy,venmo` so the agent doesn't recommend redundant tools later. Recognize informal tools (Venmo, PayPal, Cash App, Zelle) as valid starting points — suggest professional invoicing (Square, Stripe) when they're ready, not as an immediate replacement.
+8. If the business has a physical location, ask:
    - "What's your business address?" (for maps and local search)
    - "What's your business phone number?" (for the website and local search)
    - "What are your hours?" (for the website and Google)
 
    This is the business's public contact info that the owner wants on their website — not customer data.
 
-8. "What web address would you like for your website? For example, keithelectric.com."
+### Personal sites (`SITE_TYPE=personal`)
 
-   If they know, save it and derive the local hostname: `DEV_HOSTNAME=keithelectric.com.local`.
+3. "What should we call your site?" — their name, a nickname, or a creative title.
+4. "What do you want on it?" — about page, resume, links to projects, photos, contact info. Listen for what matters to them.
 
-   If they don't know yet, derive from the business name. Slugify the name (lowercase, hyphens, no special characters) and append `.local`: "Keith Electric" → `DEV_HOSTNAME=keithelectric.local`. Tell them: "No problem — we'll use keithelectric.local for now. You can pick a real domain later when you're ready to go live."
+### Blog sites (`SITE_TYPE=blog`)
 
-Before moving on, mention costs: "Quick note on cost — building and hosting your website is free. The only thing that costs money is a custom domain name (like yourbusiness.com), which is about $10–15 a year. You can also use a free address. We'll get to that later."
+3. "What's the name of your blog?" — or suggest using their name.
+4. "What will you write about?" — topics, audience, tone. This shapes categories and tags.
+
+### Portfolio sites (`SITE_TYPE=portfolio`)
+
+3. "What's the name of your portfolio?" — their name, studio name, or brand.
+4. "What kind of work will you showcase?" — photography, design, illustration, writing, code, music, etc.
+5. "Where else do you share your work?" — Instagram, Behance, Dribbble, GitHub, SoundCloud. These become featured links on the site. Save as `EXISTING_TOOLS`.
+
+### Organization sites (`SITE_TYPE=organization`)
+
+3. "What's the name of your organization?"
+4. "What does your organization do?" — mission, community, cause. Match to `docs/smb/` if applicable (e.g., `nonprofit`, `house-of-worship`, `youth-org`, `food-bank`). Save as `BUSINESS_TYPE`.
+5. "What should the website help people do?" — donate, volunteer, find events, learn about your mission, contact you.
+
+### All site types — wrap up
+
+Ask everyone:
+
+- "What web address would you like? For example, yourname.com."
+
+  If they know, save it and derive the local hostname: `DEV_HOSTNAME=example.com.local`.
+
+  If they don't know yet, derive from the site name. Slugify (lowercase, hyphens, no special characters) and append `.local`: "Keith Electric" → `DEV_HOSTNAME=keithelectric.local`. Tell them: "No problem — we'll use that for now. You can pick a real domain later when you're ready to go live."
+
+Before moving on, mention costs: "Quick note on cost — building and hosting your website is free. The only thing that costs money is a custom domain name (like yourname.com), which is about $10–15 a year. You can also use a free address. We'll get to that later."
 
 Save all answers to `.site-config` using the **Write tool** — not shell commands. Write the complete file in one operation:
 
 ```
+SITE_TYPE=business
 OWNER_NAME=Name
 SITE_NAME=Business Name
 BUSINESS_TYPE=restaurant
@@ -92,7 +137,7 @@ SITE_HOURS=Mon-Fri 9am-5pm
 EXISTING_TOOLS=vagaro,square
 ```
 
-Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `BUSINESS_TYPE`, `DEV_HOSTNAME`, and `AI_MODEL` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
+Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, and `AI_MODEL` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
 
 ## Step 2 — Design interview
 
@@ -130,7 +175,7 @@ cat ~/.anglesite/logs/setup.log
 
 Tell the owner: "I'm saving a snapshot of your website so you can always get back to this point."
 
-Run `git add -A` then `git commit -m "Setup: BUSINESS_NAME website"` (replace BUSINESS_NAME with the actual name). Do not ask the owner to run these — just do it.
+Run `git add -A` then `git commit -m "Setup: SITE_NAME website"` (replace SITE_NAME with the actual name from `.site-config`). Do not ask the owner to run these — just do it.
 
 ## Step 5 — Preview
 
