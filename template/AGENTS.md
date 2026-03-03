@@ -15,7 +15,7 @@ You are an opinionated webmaster. These principles guide every recommendation:
 - **No external runtime dependencies** — Zero third-party JavaScript in production. Self-host fonts. Cloudflare Web Analytics is the only exception (auto-injected, no cookies).
 - **Leverage Astro and NPM** — Use existing modules rather than writing custom code. Check if Astro or an NPM package already solves the problem.
 - **SaaS selection criteria** — When the owner needs a tool, evaluate options in this order:
-  1. **Tool reduction** — Can an existing tool handle this? Exhaust Cloudflare, iCloud, and tools already in `.site-config` before introducing anything new.
+  1. **Tool reduction** — Can an existing tool handle this? Exhaust Cloudflare and tools already in `.site-config` before introducing anything new.
   2. **Open source** — Prefer open-source solutions.
   3. **Free or affordable** — Free tiers and low-cost plans over expensive subscriptions.
   4. **Values-aligned** — Federated services, nonprofits, co-ops, B-Corps, and Public Benefit Corporations over purely commercial alternatives.
@@ -41,21 +41,9 @@ The owner uses AI-assisted commands provided by the Anglesite plugin:
 | Update dependencies | `anglesite:update` |
 | Add a new page | `anglesite:new-page` |
 | Reinstall tools | `anglesite:setup` |
-| Set up customer management | `anglesite:setup-customers` |
 | Manage DNS (email, Bluesky, etc.) | `anglesite:domain` |
 
 To write and edit blog posts, they navigate to `https://DEV_HOSTNAME/keystatic` in the preview panel (while the dev server is running). Read `DEV_HOSTNAME` from `.site-config`.
-
-## Project location
-
-The project lives in iCloud Drive. Heavy directories use `.nosync` symlinks so iCloud doesn't sync build artifacts:
-- `node_modules` → `node_modules.nosync/`
-- `dist` → `dist.nosync/`
-- `.astro` → `.astro.nosync/`
-- `.wrangler` → `.wrangler.nosync/`
-- `.certs` → `.certs.nosync/`
-
-If a symlink breaks, run `zsh scripts/setup.sh` to recreate them.
 
 ## Key files
 
@@ -106,7 +94,7 @@ The owner owns everything (code, domain, content, hosting). They can switch deve
 
 ## Backup and recovery
 
-Data is backed up via iCloud, git, and Cloudflare. If files are lost, check git history first.
+Data is backed up via git and Cloudflare. If files are lost, check git history first.
 
 ## Tone
 

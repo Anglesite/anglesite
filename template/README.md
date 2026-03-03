@@ -1,6 +1,6 @@
 # Your Website
 
-This is the source code for your website. It lives in iCloud Drive so it's backed up automatically.
+This is the source code for your website. It lives on GitHub so it's backed up automatically. Under the hood Anglesite uses Astro to build your website, so if you get stuck [any web development agency that works with Astro](https://astro.build/agencies/) can help.
 
 ## Getting started
 
@@ -9,9 +9,10 @@ Your website is managed by the **Anglesite** plugin for your AI coding tool.
 ### Claude Desktop (recommended)
 
 1. **Install Claude Desktop** — Download it free from [claude.ai/download](https://claude.ai/download). You'll need to create an Anthropic account if you don't have one.
-2. **Install the Anglesite plugin** — Your webmaster told you how to do this, or it was pre-installed.
-3. **Open this folder** — Click the **Code** tab, then open this folder.
-4. **Type `/anglesite:start`** — Your webmaster will introduce themselves, learn about your business, design the site with you, and get everything running.
+2. **Install GitHub CLI** — Download it free from https://cli.github.com. You'll need to create a GitHub account if you don't have one.
+3. **Install the Anglesite plugin** — Your webmaster told you how to do this, or it was pre-installed.
+4. **Open this folder** — Click the **Code** tab, then open this folder.
+5. **Type `/anglesite:start`** — Your webmaster will introduce themselves, learn about your business, design the site with you, and get everything running.
 
 ### Gemini CLI
 

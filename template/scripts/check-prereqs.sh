@@ -37,24 +37,11 @@ check fnm fnm
 # node_modules
 SCRIPT_DIR="${0:a:h}"
 PROJECT_DIR="${SCRIPT_DIR:h}"
-if [[ -d "$PROJECT_DIR/node_modules.nosync" ]]; then
+if [[ -d "$PROJECT_DIR/node_modules" ]]; then
     echo "node_modules=installed"
-elif [[ -d "$PROJECT_DIR/node_modules" ]]; then
-    echo "node_modules=installed (not nosync)"
 else
     echo "node_modules=missing"
 fi
-
-# .nosync symlinks
-for name in node_modules dist .astro .wrangler .certs; do
-    if [[ -L "$PROJECT_DIR/$name" && -d "$PROJECT_DIR/${name}.nosync" ]]; then
-        echo "nosync_${name}=ok"
-    elif [[ -d "$PROJECT_DIR/${name}.nosync" ]]; then
-        echo "nosync_${name}=dir_only (symlink missing)"
-    else
-        echo "nosync_${name}=missing"
-    fi
-done
 
 # --- HTTPS ---
 export PATH="$HOME/.local/bin:$PATH"
@@ -70,7 +57,6 @@ fi
 # Local HTTPS certificate
 CONFIG_FILE="$PROJECT_DIR/.site-config"
 CERTS_DIR="$PROJECT_DIR/.certs"
-[[ -L "$CERTS_DIR" ]] && CERTS_DIR="$PROJECT_DIR/.certs.nosync"
 
 if [[ -f "$CERTS_DIR/cert.pem" ]]; then
     if openssl x509 -in "$CERTS_DIR/cert.pem" -checkend 86400 -noout 2>/dev/null; then

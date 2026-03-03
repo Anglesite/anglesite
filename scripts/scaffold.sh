@@ -62,11 +62,11 @@ if ! $FORCE; then
 fi
 
 # Excludes
-RSYNC_OPTS+=( --exclude='node_modules' --exclude='node_modules.nosync' )
-RSYNC_OPTS+=( --exclude='dist' --exclude='dist.nosync' )
-RSYNC_OPTS+=( --exclude='.astro' --exclude='.astro.nosync' )
-RSYNC_OPTS+=( --exclude='.wrangler' --exclude='.wrangler.nosync' )
-RSYNC_OPTS+=( --exclude='.certs' --exclude='.certs.nosync' )
+RSYNC_OPTS+=( --exclude='node_modules' )
+RSYNC_OPTS+=( --exclude='dist' )
+RSYNC_OPTS+=( --exclude='.astro' )
+RSYNC_OPTS+=( --exclude='.wrangler' )
+RSYNC_OPTS+=( --exclude='.certs' )
 RSYNC_OPTS+=( --exclude='.DS_Store' --exclude='.site-config' )
 
 if $DRY_RUN; then

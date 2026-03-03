@@ -1,14 +1,9 @@
 .DS_Store
 site/
 template/node_modules/
-template/node_modules.nosync/
 template/dist/
-template/dist.nosync/
 template/.astro/
-template/.astro.nosync/
 template/.wrangler/
-template/.wrangler.nosync/
 template/.certs/
-template/.certs.nosync/
 template/.env
 template/.env.*

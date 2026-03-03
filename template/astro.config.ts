@@ -20,9 +20,7 @@ function readConfig(key: string): string | undefined {
 
 /** Load mkcert certificates for local HTTPS, if they exist. */
 function getHttpsConfig() {
-  const certsDir = resolve(process.cwd(), ".certs");
-  const nosyncDir = resolve(process.cwd(), ".certs.nosync");
-  const dir = existsSync(certsDir) ? certsDir : nosyncDir;
+  const dir = resolve(process.cwd(), ".certs");
   const cert = resolve(dir, "cert.pem");
   const key = resolve(dir, "key.pem");
   if (existsSync(cert) && existsSync(key)) {

@@ -43,7 +43,7 @@ For podcast-specific tools, see [podcaster.md](podcaster.md). For video-specific
 - **COPPA**: If the audience includes children under 13, strict rules apply to data collection. Relevant for family/kid content creators.
 - **Music and media licensing**: Background music, stock footage, and images must be properly licensed. Note licensing in content if required. See [musician.md](musician.md), [podcaster.md](podcaster.md), and [video-creator.md](video-creator.md) for type-specific licensing guidance.
 - **Podcast/video accessibility**: Transcripts and captions are increasingly expected (and legally required in some contexts). Captions on video improve engagement regardless of legal requirements. Auto-generated captions are a starting point; review for accuracy. See `docs/accessibility.md`.
-- **Tax obligations**: Brand deals and platform income are taxable. Creators are self-employed (Schedule C). Mention this during `/anglesite:setup-customers` if relevant.
+- **Tax obligations**: Brand deals and platform income are taxable. Creators are self-employed (Schedule C). Quarterly estimated taxes apply.
 - **Privacy policy**: Required if collecting email addresses (newsletter). Must comply with CAN-SPAM (US), GDPR (EU audience), etc.
 
 ## Content ideas

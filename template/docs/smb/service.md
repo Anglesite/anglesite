@@ -40,7 +40,7 @@ Covers: consultants, coaches (business, life, executive), freelancers, virtual a
 - **Contracts**: Always use a written agreement. Scope of work, payment terms, cancellation policy, intellectual property ownership. Templates from SCORE or SBA are a starting point.
 - **Professional licensing**: Some services require licenses (financial advising, certain coaching certifications, bookkeeping in some states). Check state requirements.
 - **Insurance**: General liability at minimum. Professional liability (errors & omissions) for advice-based businesses. Required by some clients before engagement.
-- **Tax obligations**: Service income is self-employment income (Schedule C). Quarterly estimated taxes apply. Mention during `/anglesite:setup-customers`.
+- **Tax obligations**: Service income is self-employment income (Schedule C). Quarterly estimated taxes apply.
 - **Non-compete / non-disclosure**: If working with business clients, understand confidentiality obligations. Don't share client information on the website without permission.
 
 ## Content ideas

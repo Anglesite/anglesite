@@ -48,7 +48,7 @@ Covers: bands, solo artists, singer-songwriters, DJs, cover bands, tribute acts,
 - **Music licensing and sync**: If the artist licenses music for film, TV, ads, or games, note availability for sync licensing on the EPK page. Include contact info for licensing inquiries.
 - **Cover songs**: Cover bands and artists who record covers need mechanical licenses (through the Harry Fox Agency or services like Easy Song Licensing). Live covers are covered by the venue's ASCAP/BMI blanket license, but recorded covers require separate licensing.
 - **Merch sales tax**: Selling merch online or at shows may require collecting sales tax. Varies by state. Square handles tax calculation for in-person sales. Online stores (Big Cartel, Bandcamp) can be configured for tax.
-- **Venue contracts**: Not a website concern, but worth mentioning during `/anglesite:setup-customers` — always get venue agreements in writing (compensation, load-in time, set length, sound/backline provided, ticket split).
+- **Venue contracts**: Not a website concern, but always get venue agreements in writing (compensation, load-in time, set length, sound/backline provided, ticket split).
 - **Copyright notice**: The artist owns their recordings and compositions. Display `© [Year] [Artist Name]` on the website. For music specifically: `℗ [Year] [Artist Name]` denotes sound recording copyright.
 - **DMCA**: If someone uses the artist's music without permission, they can file a DMCA takedown. If someone claims the artist's original work, they may need to file a counter-notice. Note the artist's rights on the website.
 

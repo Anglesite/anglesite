@@ -6,12 +6,12 @@ Anglesite is a Claude Code plugin that scaffolds and manages websites for small 
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest
-├── skills/                        User-invocable skills (10)
+├── skills/                        User-invocable skills (9)
 │   ├── start/SKILL.md             First-time setup + scaffolding
 │   ├── deploy/SKILL.md            Build, scan, deploy
 │   ├── design-interview/SKILL.md  Visual identity intake
 │   ├── check/SKILL.md             Health audit
-│   └── ...                        setup, fix, domain, new-page, update, setup-customers
+│   └── ...                        setup, fix, domain, new-page, update
 ├── settings.json                  Plugin permissions
 ├── scripts/scaffold.sh            Copies template/ to user's project
 ├── bin/average-tokens.ts          Token cost calculator
@@ -56,7 +56,6 @@ Two levels of CLAUDE.md:
 | Keystatic (not headless CMS) | Local `.mdx` files, no external API dependency |
 | Cloudflare Pages (not Vercel/Netlify) | Free, fast, direct Wrangler deploy without Git integration |
 | Vanilla CSS | No build-time framework overhead, custom properties for theming |
-| iCloud + .nosync | Automatic backup on the user's existing infrastructure |
 | Industry tools first | Recommend purpose-built solutions (Square, Shopify, Clio, etc.) over generic databases |
 
 ## Testing changes

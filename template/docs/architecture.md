@@ -53,10 +53,6 @@ The blog listing page (`/blog/`) shows posts from the last 30 days, newest first
 
 Posts with `draft: true` are excluded from both pages in production builds.
 
-## Customer management
-
-Configured via `/anglesite:setup-customers`. Asks what the owner already uses first, then recommends tools following the SaaS criteria (tool reduction, open source, affordable, values-aligned, ease of use). See `docs/smb/` for industry-specific tool and data tracking recommendations.
-
 ## Output
 
 `static` mode in Astro config. All pages pre-rendered at build time. Keystatic integration runs server-side in dev mode only.

@@ -114,7 +114,7 @@ Then run the setup script:
 zsh scripts/setup.sh
 ```
 
-The script installs Xcode CLI tools, fnm, Node.js LTS, mkcert, a locally-trusted HTTPS certificate, hostname resolution, port forwarding, iCloud-safe `.nosync` symlinks, npm dependencies, and initializes git. It skips anything already present.
+The script installs Xcode CLI tools, fnm, Node.js LTS, mkcert, a locally-trusted HTTPS certificate, hostname resolution, port forwarding, npm dependencies, and initializes git. It skips anything already present.
 
 If the script succeeds, read `DEV_HOSTNAME` from `.site-config` and tell the owner: "Everything is installed! Your website now runs securely at https://DEV_HOSTNAME — just like a real website, but only visible on your computer."
 
@@ -124,17 +124,11 @@ If it fails, read the log:
 cat ~/.anglesite/logs/setup.log
 ```
 
-## Step 4 — Commit the design
+## Step 4 — Save a snapshot
 
-```sh
-git add -A
-```
+Tell the owner: "I'm saving a snapshot of your website so you can always get back to this point."
 
-```sh
-git commit -m "Setup: BUSINESS_NAME website"
-```
-
-(Replace BUSINESS_NAME with the actual name.)
+Run `git add -A` then `git commit -m "Setup: BUSINESS_NAME website"` (replace BUSINESS_NAME with the actual name). Do not ask the owner to run these — just do it.
 
 ## Step 5 — Preview
 
@@ -167,7 +161,7 @@ Summarize what the owner now knows:
 - Their website is running on their computer (the preview)
 - They can write and edit blog posts using Keystatic (the visual editor in the preview)
 - Changes go live with `/anglesite:deploy`
-- Their files are backed up automatically in iCloud and in version history (so they can undo changes)
+- Their files are backed up in version history (so they can undo changes)
 - They own everything — code, domain name, content. No lock-in.
 
 ## Step 9 — Next steps
@@ -176,7 +170,6 @@ Tell the owner what they can do now:
 
 - **`/anglesite:deploy`** — when ready to put the site on the internet (walks through Cloudflare account, domain purchase or transfer, and publishing)
 - **Edit posts** — navigate to `https://DEV_HOSTNAME/keystatic` in the preview panel to write blog posts using the visual editor (replace `DEV_HOSTNAME` with the actual value from `.site-config`)
-- **`/anglesite:setup-customers`** — set up customer or client management
 - **`/anglesite:domain`** — set up email, verify your Bluesky handle, and other domain settings — available after deploying with a custom domain
 
 No rush to publish. They can edit and preview locally as long as they like.

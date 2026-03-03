@@ -18,4 +18,4 @@ API tokens live in env vars, never in project files.
 
 ## Diagnostics
 
-If iCloud is misbehaving, run the `anglesite:fix` command.
+If something is broken, run the `anglesite:fix` command.

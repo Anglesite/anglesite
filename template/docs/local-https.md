@@ -9,7 +9,7 @@ The dev server runs with HTTPS using locally-trusted certificates. The browser s
 | Component | Role |
 |---|---|
 | **mkcert** | Generates certificates trusted by macOS Keychain. Binary at `~/.local/bin/mkcert`. |
-| **.certs/** | Cert + key files. Gitignored, .nosync'd. Machine-specific. |
+| **.certs/** | Cert + key files. Gitignored. Machine-specific. |
 | **/etc/hosts** | Maps `DEV_HOSTNAME` to 127.0.0.1. |
 | **pfctl** | Forwards port 443 → 4321 on loopback. Persists via `/etc/pf.conf` anchor. |
 | **Vite server.https** | Astro reads certs from `.certs/` via Vite pass-through in `astro.config.ts`. |

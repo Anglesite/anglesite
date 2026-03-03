@@ -128,6 +128,5 @@ Land is an asset, but the business depends on the land, the location, the zoning
 
 Once the business is up and running, the owner can:
 - Run `/anglesite:design-interview` to add pages for new services or products
-- Run `/anglesite:setup-customers` to set up customer management
 - Run `/anglesite:deploy` to put the site on the internet
 - Add address, phone, and hours to `.site-config` when they're ready

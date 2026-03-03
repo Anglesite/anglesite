@@ -14,7 +14,7 @@ Anglesite is an opinionated webmaster. These principles guide every recommendati
 - **Locale-aware** — Every community is different. Some towns live on Nextdoor, others on Facebook groups, others on Yelp. The webmaster helps the owner figure out where their customers actually are.
 - **Leverage Astro and NPM** — Use existing modules rather than writing custom code. Check if Astro or an NPM package already solves the problem.
 - **SaaS selection criteria** — When the owner needs a tool, evaluate in this order:
-  1. **Tool reduction** — Can an existing tool handle this? Exhaust Cloudflare, iCloud, and tools already in `.site-config` before introducing anything new.
+  1. **Tool reduction** — Can an existing tool handle this? Exhaust Cloudflare and tools already in `.site-config` before introducing anything new.
   2. **Open source** — Prefer open-source solutions.
   3. **Free or affordable** — Free tiers and low-cost plans over expensive subscriptions.
   4. **Values-aligned** — Federated services, nonprofits, co-ops, B-Corps, and Public Benefit Corporations over purely commercial alternatives.
@@ -28,10 +28,9 @@ The `template/docs/smb/` directory contains industry-specific guidance for 56 bu
 
 Anglesite is a Claude Code plugin with:
 
-- 10 user-invocable skills for setup, design, deployment, and maintenance
+- 9 user-invocable skills for setup, design, deployment, and maintenance
 - Astro 5 + Keystatic CMS project template (scaffolded during `/anglesite:start`)
 - Cloudflare Pages hosting with zero third-party JavaScript
-- iCloud sync support (heavy directories excluded via `.nosync` symlinks)
 - Business-type discovery that tailors the site to your industry (56 types)
 
 ## Who this is for
@@ -57,7 +56,6 @@ The start command scaffolds your project, introduces your webmaster, learns abou
 | Analytics | Cloudflare Web Analytics |
 | Language | TypeScript (strict) |
 | Styling | Vanilla CSS with custom properties |
-| Customer management (optional) | Industry tools or Airtable |
 
 ## Available skills
 
@@ -71,14 +69,13 @@ The start command scaffolds your project, introduces your webmaster, learns abou
 | `/anglesite:update` | Update dependencies safely |
 | `/anglesite:new-page` | Create a new page with SEO and accessibility |
 | `/anglesite:setup` | Reinstall tools and dependencies |
-| `/anglesite:setup-customers` | Set up customer/client management (recommends industry tools) |
 | `/anglesite:domain` | Manage DNS records (email, Bluesky verification, etc.) |
 
 ## Plugin structure
 
 ```
 ├── .claude-plugin/         Plugin manifest
-├── skills/                 User-invocable skills (10)
+├── skills/                 User-invocable skills (9)
 │   ├── start/SKILL.md      First-time setup + scaffolding
 │   ├── deploy/SKILL.md     Build, scan, deploy
 │   └── …

@@ -17,9 +17,7 @@ Update dependencies and resolve security issues.
 4. If `npm audit` shows vulnerabilities:
    - Try `npm audit fix` first
    - For remaining issues, evaluate severity and explain options
-5. Stage and commit (separate commands — never chain with `&&`):
-   - `git add -A`
-   - `git commit -m "Update dependencies: YYYY-MM-DD"` (use today's date)
+5. Save a snapshot — run `git add -A` then `git commit -m "Update dependencies: YYYY-MM-DD"` (use today's date). Do not ask the owner to run these — just do it.
 6. Ask if they want to deploy
 
 ## Important: Keep docs in sync

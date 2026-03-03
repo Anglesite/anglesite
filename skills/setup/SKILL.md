@@ -6,7 +6,7 @@ user-invocable: true
 
 Install or reinstall the development tools and dependencies.
 
-This command is for technical setup only — installing Node.js, npm dependencies, local HTTPS, and iCloud symlinks. If this is the first time setting up the site, run `/anglesite:start` instead (it includes this step plus business discovery and design).
+This command is for technical setup only — installing Node.js, npm dependencies, and local HTTPS. If this is the first time setting up the site, run `/anglesite:start` instead (it includes this step plus business discovery and design).
 
 ## Before starting
 
@@ -24,7 +24,7 @@ Tell the owner: "I'm going to install the tools your website needs — a code ru
 zsh scripts/setup.sh
 ```
 
-The script installs Xcode CLI tools, fnm, Node.js LTS, mkcert (locally-trusted HTTPS certificates), hostname resolution via `/etc/hosts`, port forwarding (443 → 4321), iCloud-safe `.nosync` symlinks, runs `npm install`, and initializes git. It skips anything already present.
+The script installs Xcode CLI tools, fnm, Node.js LTS, mkcert (locally-trusted HTTPS certificates), hostname resolution via `/etc/hosts`, port forwarding (443 → 4321), runs `npm install`, and initializes git. It skips anything already present.
 
 ## Step 2 — Report results
 

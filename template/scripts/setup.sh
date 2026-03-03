@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Anglesite — First-time setup
-# Installs Node.js via fnm (no Homebrew needed), creates iCloud-safe
-# symlinks, then npm install. Safe to rerun (idempotent).
+# Installs Node.js via fnm (no Homebrew needed), then npm install.
+# Safe to rerun (idempotent).
 
 # Re-exec under zsh if invoked with bash
 if [ -z "${ZSH_VERSION-}" ]; then exec /bin/zsh "$0" "$@"; fi
@@ -89,51 +89,10 @@ fi
 # --- Project directory ---
 cd "$PROJECT_DIR" || fail "Project folder not found at $PROJECT_DIR"
 
-# --- iCloud .nosync symlinks ---
-# Heavy directories get .nosync suffix so iCloud Drive skips them.
-# A symlink with the standard name lets npm/Astro work normally.
-setup_nosync() {
-    local name="$1"
-    if [[ -d "$name" && ! -L "$name" ]]; then
-        # Real directory exists (e.g., npm replaced our symlink) — convert it.
-        # Remove stale .nosync dir first so mv doesn't nest inside it.
-        if [[ -d "${name}.nosync" ]]; then
-            rm -rf "${name}.nosync"
-        fi
-        mv "$name" "${name}.nosync"
-        ln -s "${name}.nosync" "$name"
-        log "Converted $name to .nosync symlink"
-    elif [[ ! -e "${name}.nosync" ]]; then
-        # Nothing exists yet — create the .nosync dir and symlink
-        mkdir -p "${name}.nosync"
-        ln -sf "${name}.nosync" "$name"
-        log "Created .nosync symlink for $name"
-    elif [[ ! -L "$name" ]]; then
-        # .nosync exists but symlink is missing — recreate it
-        ln -sf "${name}.nosync" "$name"
-        log "Recreated symlink for $name"
-    fi
-}
-
-setup_nosync "node_modules"
-setup_nosync "dist"
-setup_nosync ".astro"
-setup_nosync ".wrangler"
-setup_nosync ".certs"
-
 # --- Install dependencies ---
 log "Installing project dependencies (this may take a minute)..."
 npm install >> "$LOG" 2>&1
 log "Dependencies installed."
-
-# --- Re-verify .nosync symlinks ---
-# npm install can replace the node_modules symlink with a real directory.
-# Re-run setup_nosync to convert it back.
-setup_nosync "node_modules"
-setup_nosync "dist"
-setup_nosync ".astro"
-setup_nosync ".wrangler"
-setup_nosync ".certs"
 
 # --- mkcert (local HTTPS certificates) ---
 MKCERT_BIN="$HOME/.local/bin/mkcert"
@@ -168,7 +127,6 @@ fi
 
 # --- Generate local HTTPS certificate ---
 CERTS_DIR="$PROJECT_DIR/.certs"
-[[ -L "$PROJECT_DIR/.certs" ]] && CERTS_DIR="$PROJECT_DIR/.certs.nosync"
 mkdir -p "$CERTS_DIR"
 
 DEV_HOSTNAME="localhost"

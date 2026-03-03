@@ -6,7 +6,7 @@ user-invocable: true
 
 Something isn't working. Diagnose and fix it.
 
-## Step 1 — Check for iCloud / path issues
+## Step 1 — Check prerequisites
 
 Before anything else, run the prereq checker and check the project path:
 
@@ -15,12 +15,6 @@ zsh scripts/check-prereqs.sh
 ```
 
 Then read `.site-config` to verify it has `SITE_NAME` and `DEV_HOSTNAME`. If either is missing, suggest running `/anglesite:start` first.
-
-### Common iCloud issues
-- **`.nosync` symlinks broken:** A git clone or copy can break them. Run `zsh scripts/setup.sh` to recreate.
-- **`node_modules` missing:** iCloud doesn't sync `.nosync` dirs (by design). Run `npm install`.
-- **Files showing as "downloading":** iCloud is syncing. Wait, or click the download icon in Finder.
-- **Build artifacts in iCloud:** The prereq checker reports `.nosync` status. If any show "missing", run `zsh scripts/setup.sh`.
 
 ### Common tool issues
 - **Wrangler auth expired:** Run `npx wrangler login` to re-authenticate.

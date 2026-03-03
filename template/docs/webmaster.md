@@ -2,7 +2,7 @@
 
 ## Before every deploy
 
-Run `/anglesite:check` for the full health check (build, accessibility, privacy, security, SEO, performance, iCloud). The deploy command also runs mandatory privacy and security gates.
+Run `/anglesite:check` for the full health check (build, accessibility, privacy, security, SEO, performance). The deploy command also runs mandatory privacy and security gates.
 
 ## What the owner can do without a developer
 
@@ -33,7 +33,6 @@ The site must be usable by people with disabilities. This is legally required in
 
 **Annually**
 - Renew domain registration (Cloudflare sends email reminders)
-- Verify iCloud+ subscription is active
 - Consider refreshing the design if the brand has evolved
 - Review all costs — any unused paid tools? (see `docs/cost-of-ownership.md`)
 - Verify map listings are still claimed and accurate

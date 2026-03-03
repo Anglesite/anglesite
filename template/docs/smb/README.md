@@ -7,7 +7,7 @@ Industry-specific guidance for the webmaster agent. Each file covers one busines
 1. Read `BUSINESS_TYPE` from `.site-config` (may be comma-separated for multi-mode businesses).
 2. Read the matching file from this directory.
 3. When the SMB file's Tools section mentions a shared platform (Square, Cal.com, Google Business Profile, Buttondown, Mailchimp, Yelp, TripAdvisor, HoneyBook, Ko-fi, The Knot), read the matching file from `docs/platforms/` for setup and integration guidance.
-4. Apply recommendations during `/anglesite:start`, `/anglesite:design-interview`, `/anglesite:setup-customers`, and ongoing content planning.
+4. Apply recommendations during `/anglesite:start`, `/anglesite:design-interview`, and ongoing content planning.
 
 Only read the file(s) relevant to the owner's business type. Don't load all files — keep context focused.
 

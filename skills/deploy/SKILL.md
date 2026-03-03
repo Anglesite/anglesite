@@ -223,14 +223,8 @@ Explain what they'll see: page views, visitor count, where visitors come from (G
 
 Remind them of the goals they shared during `/anglesite:start`: "You said you wanted [goal]. Once you've been live for a few weeks, check analytics to see if visitors are finding the pages that matter — like your [menu/services/portfolio] page."
 
-## Step 7 — Commit
+## Step 7 — Save a snapshot
 
-```sh
-git add -A
-```
-
-```sh
-git commit -m "Publish: $(date '+%Y-%m-%d %H:%M')"
-```
+Run `git add -A` then `git commit -m "Publish: YYYY-MM-DD HH:MM"` (use the current date and time). Do not ask the owner to run these — just do it.
 
 Tell the owner: "Your changes are saved and live! They'll appear on the site in about a minute."

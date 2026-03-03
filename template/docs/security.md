@@ -91,7 +91,7 @@ The owner should know where form submissions go and how long they're kept:
 
 - **Cloudflare Worker → email**: submissions are emailed to the owner and not stored server-side (unless the Worker uses KV storage). Data lives in the owner's email inbox.
 - **Formspree**: data is stored on Formspree's servers per their retention policy. Disclose in privacy policy.
-- **Airtable** (if `/anglesite:setup-customers` is used): customer data lives on Airtable's servers (US-based). Disclose in privacy policy if used. Note for EU-audience businesses: Airtable processes data in the US.
+- **Airtable** (if used for customer data): customer data lives on Airtable's servers (US-based). Disclose in privacy policy if used. Note for EU-audience businesses: Airtable processes data in the US.
 
 ### Right to deletion
 

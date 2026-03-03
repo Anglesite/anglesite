@@ -1,12 +1,9 @@
 # build
 dist
-dist.nosync
 .astro
-.astro.nosync
 
 # deps
 node_modules
-node_modules.nosync
 
 # env
 .env
@@ -23,8 +20,6 @@ Thumbs.db
 
 # wrangler
 .wrangler
-.wrangler.nosync
 
 # local HTTPS certs
 .certs
-.certs.nosync

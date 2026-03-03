@@ -24,4 +24,4 @@ API tokens live in env vars or `~/.claude.json`, never in project files.
 
 ## Diagnostics
 
-If iCloud is misbehaving, run `/anglesite:fix`.
+If something is broken, run `/anglesite:fix`.
