@@ -9,7 +9,10 @@
   "plugins": [
     {
       "name": "anglesite",
-      "source": "https://github.com/Anglesite/anglesite.git"
+      "source": {
+        "source": "github",
+        "repo": "Anglesite/anglesite"
+      }
     }
   ]
 }
