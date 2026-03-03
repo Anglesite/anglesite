@@ -47,7 +47,7 @@ If rules are lost (macOS update, manual pf.conf edit), `setup.sh` re-applies the
 
 ## New machine setup
 
-When the project is moved to a new machine (handoff, new laptop), run `zsh scripts/setup.sh`. It installs mkcert, trusts the CA, generates new certs, adds `/etc/hosts`, and configures pfctl. Certificates are machine-specific and never committed to git.
+When the project is moved to a new machine (handoff, new laptop), run `npm run ai-setup`. It installs mkcert, trusts the CA, generates new certs, adds `/etc/hosts`, and configures pfctl. Certificates are machine-specific and never committed to git.
 
 ## Cleanup
 

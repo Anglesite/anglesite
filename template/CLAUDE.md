@@ -40,7 +40,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Fix something that's broken | `/anglesite:fix` |
 | Update dependencies | `/anglesite:update` |
 | Add a new page | `/anglesite:new-page` |
-| Reinstall tools | `/anglesite:setup` |
+| Reinstall tools | `npm run ai-setup` |
 | Manage DNS (email, Bluesky, etc.) | `/anglesite:domain` |
 
 To write and edit blog posts, they navigate to `https://DEV_HOSTNAME/keystatic` in the preview panel (while the dev server is running). Read `DEV_HOSTNAME` from `.site-config`.

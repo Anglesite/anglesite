@@ -5,9 +5,14 @@ An AI webmaster for small business websites — a [Claude Code plugin](https://d
 ## Install
 
 1. Install [Claude Desktop](https://claude.ai/download) (free, requires an Anthropic account)
-2. Install the Anglesite plugin:
-   - **From the plugin browser:** type `/plugin`, go to the **Discover** tab, search for **anglesite**, and click **Install**
-   - **From GitHub:** `/plugin marketplace add Anglesite/anglesite` then `/plugin install anglesite@anglesite`
+2. Install the Anglesite plugin for Claude:
+   - Open the "Code" tab
+   - Press the "+" button
+   - Select: "Plugins" > "Add Plugin"
+   - Select "Personal" tab
+   - Press the "+" button
+   - Select "Add Marketplace from GitHub"
+   - Type "Anglesite/anglesite" as the URL and press "Sync" button.
 3. Create a new folder for your site and open it in Claude Desktop
 4. Type `/anglesite:start`
 
@@ -17,14 +22,13 @@ The start command scaffolds your project, learns about your business, designs th
 
 | Skill | What it does |
 |---|---|
-| `/anglesite:start` | First-time setup: scaffolding, business discovery, design, tools, preview |
+| `/anglesite:start` | First-time setup: discovery, design, tools, preview |
 | `/anglesite:deploy` | Build, security scan, deploy, domain setup |
 | `/anglesite:design-interview` | Redo the visual identity (can run anytime after start) |
 | `/anglesite:check` | Health audit (build, privacy, security, accessibility) |
 | `/anglesite:fix` | Diagnose and fix common problems |
 | `/anglesite:update` | Update dependencies safely |
 | `/anglesite:new-page` | Create a new page with SEO and accessibility |
-| `/anglesite:setup` | Reinstall tools and dependencies |
 | `/anglesite:domain` | Manage DNS records (email, Bluesky verification, etc.) |
 
 ## Who this is for
