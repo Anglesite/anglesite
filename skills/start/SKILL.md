@@ -5,33 +5,13 @@ user-invocable: true
 disable-model-invocation: true
 ---
 
-Welcome a new site owner. This is the first command they'll run — it combines project scaffolding, discovery, design, and tool installation into one guided session.
+Welcome a new site owner. This is the first command they'll run — it combines discovery, project scaffolding, design, and tool installation into one guided session.
 
 ## How to communicate
 
 Keep each step conversational. Celebrate progress. If something fails, read `~/.anglesite/logs/setup.log` and explain plainly.
 
-## Step 0 — Scaffold the project
-
-Before anything else, tell the owner: "First, I'll set up the project files for your website — this copies the starter template into your folder so we have everything we need. You may see a prompt asking to allow this — go ahead and click Allow."
-
-Then run:
-
-```sh
-zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh .
-```
-
-This copies the website template (source code, docs, scripts, configuration) into the current directory. All subsequent steps work with these scaffolded files.
-
-Then verify the project is ready:
-
-```sh
-npm run ai-check
-```
-
-If this is a fresh directory with no tools installed, that's fine — tools are installed in Step 3.
-
-## Step 1 — Meet the owner
+## Step 0 — Meet the owner
 
 Introduce yourself: "Hi! I'm your webmaster. I'll help you build a website. Let's start by getting to know each other."
 
@@ -57,7 +37,7 @@ Then branch based on site type:
 3. "What's the name of your business?"
 4. "Tell me about your business in a sentence or two — what do you do?"
 
-   Let them describe it in their own words. Then match their description to one or more files in `docs/smb/`. Check the "Business types" table in `docs/smb/README.md` for all types — you only need the table for type matching, not the cross-cutting references or other sections.
+   Let them describe it in their own words. Then match their description to one or more files in `${CLAUDE_PLUGIN_ROOT}/template/docs/smb/`. Check the "Business types" table in `${CLAUDE_PLUGIN_ROOT}/template/docs/smb/README.md` for all types — you only need the table for type matching, not the cross-cutting references or other sections.
 
    Examples of how to map natural descriptions:
 
@@ -74,13 +54,13 @@ Then branch based on site type:
    - "I have 20 acres and want to start something" → start with `pre-launch.md`, discuss options, then assign type(s)
    - "I'm a roadside attraction — giant ball of twine" → `hospitality` or `museum` depending on the experience
 
-   If the description spans multiple types, ask which activity is the primary one. Save all types comma-separated, primary first. See `docs/smb/multi-mode.md` for how to merge guidance.
+   If the description spans multiple types, ask which activity is the primary one. Save all types comma-separated, primary first. See `${CLAUDE_PLUGIN_ROOT}/template/docs/smb/multi-mode.md` for how to merge guidance.
 
-   If the owner is still forming their business — no name yet, no customers, just an idea — that's fine. Read `docs/smb/pre-launch.md` for how to adjust the session. Build a simple site with what they have now and share relevant startup resources at the end.
+   If the owner is still forming their business — no name yet, no customers, just an idea — that's fine. Read `${CLAUDE_PLUGIN_ROOT}/template/docs/smb/pre-launch.md` for how to adjust the session. Build a simple site with what they have now and share relevant startup resources at the end.
 
 5. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
 6. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
-7. "Are you already using any tools or apps for your business?" — anything counts: Etsy, Square, Venmo, Instagram for sales, a booking app, a spreadsheet. If they already have tools, don't replace them — integrate with the website. Save tool names to `.site-config` as `EXISTING_TOOLS=etsy,venmo` so the agent doesn't recommend redundant tools later. Recognize informal tools (Venmo, PayPal, Cash App, Zelle) as valid starting points — suggest professional invoicing (Square, Stripe) when they're ready, not as an immediate replacement.
+7. "Are you already using any tools or apps for your business?" — anything counts: Etsy, Square, Venmo, Instagram for sales, a booking app, a spreadsheet. If they already have tools, don't replace them — integrate with the website. Recognize informal tools (Venmo, PayPal, Cash App, Zelle) as valid starting points — suggest professional invoicing (Square, Stripe) when they're ready, not as an immediate replacement.
 8. If the business has a physical location, ask:
    - "What's your business address?" (for maps and local search)
    - "What's your business phone number?" (for the website and local search)
@@ -102,12 +82,12 @@ Then branch based on site type:
 
 3. "What's the name of your portfolio?" — their name, studio name, or brand.
 4. "What kind of work will you showcase?" — photography, design, illustration, writing, code, music, etc.
-5. "Where else do you share your work?" — Instagram, Behance, Dribbble, GitHub, SoundCloud. These become featured links on the site. Save as `EXISTING_TOOLS`.
+5. "Where else do you share your work?" — Instagram, Behance, Dribbble, GitHub, SoundCloud. These become featured links on the site.
 
 ### Organization sites (`SITE_TYPE=organization`)
 
 3. "What's the name of your organization?"
-4. "What does your organization do?" — mission, community, cause. Match to `docs/smb/` if applicable (e.g., `nonprofit`, `house-of-worship`, `youth-org`, `food-bank`). Save as `BUSINESS_TYPE`.
+4. "What does your organization do?" — mission, community, cause. Match to `${CLAUDE_PLUGIN_ROOT}/template/docs/smb/` if applicable (e.g., `nonprofit`, `house-of-worship`, `youth-org`, `food-bank`). Save as `BUSINESS_TYPE`.
 5. "What should the website help people do?" — donate, volunteer, find events, learn about your mission, contact you.
 
 ### All site types — wrap up
@@ -122,7 +102,29 @@ Ask everyone:
 
 Before moving on, mention costs: "Quick note on cost — building and hosting your website is free. The only thing that costs money is a custom domain name (like yourname.com), which is about $10–15 a year. You can also use a free address. We'll get to that later."
 
-Save all answers to `.site-config` using the **Write tool** — not shell commands. Write the complete file in one operation:
+Hold all answers in memory — they'll be saved to `.site-config` after the project files are set up in the next step.
+
+## Step 1 — Scaffold the project
+
+Tell the owner: "Great — I know enough to get started! Now I'll set up the project files for your website. You may see a prompt asking to allow this — go ahead and click Allow."
+
+Then run:
+
+```sh
+zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh .
+```
+
+This copies the website template (source code, docs, scripts, configuration) into the current directory. All subsequent steps work with these scaffolded files.
+
+Then verify the project is ready:
+
+```sh
+npm run ai-check
+```
+
+If this is a fresh directory with no tools installed, that's fine — tools are installed in Step 3.
+
+Now save all answers from Step 0 to `.site-config` using the **Write tool** — not shell commands. Write the complete file in one operation:
 
 ```
 SITE_TYPE=business
@@ -137,7 +139,7 @@ SITE_HOURS=Mon-Fri 9am-5pm
 EXISTING_TOOLS=vagaro,square
 ```
 
-Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, and `AI_MODEL` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
+Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, and `AI_MODEL` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. `EXISTING_TOOLS` is present if the owner mentioned tools (business) or social platforms (portfolio). The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
 
 ## Step 2 — Design interview
 
