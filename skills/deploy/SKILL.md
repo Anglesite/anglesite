@@ -159,15 +159,28 @@ Tell the owner: "Transfers can take up to 5 days, but usually finish within a fe
 
 Tell the owner: "We can point your domain at Cloudflare without moving it. Your domain stays where it is, but Cloudflare will handle the DNS."
 
-Walk them through:
-1. Open Cloudflare and add the domain:
-   ```sh
-   open https://dash.cloudflare.com/?to=/:account/add-site
-   ```
-2. Choose the Free plan
-3. Cloudflare will show nameservers to use (e.g., `ada.ns.cloudflare.com`)
-4. At their current registrar: change nameservers to the ones Cloudflare provided
-5. Wait for propagation (usually minutes, can take up to 48 hours)
+Add the domain to Cloudflare via the API:
+
+```sh
+CF_API_TOKEN=$(npx wrangler auth token 2>/dev/null)
+CF_ACCOUNT_ID=$(curl -s "https://api.cloudflare.com/client/v4/accounts" \
+  -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[0].id')
+```
+
+Tell the owner: "I'm adding your domain to Cloudflare now."
+
+```sh
+curl -s "https://api.cloudflare.com/client/v4/zones" \
+  -X POST -H "Authorization: Bearer $CF_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data "{\"name\":\"DOMAIN\",\"account\":{\"id\":\"$CF_ACCOUNT_ID\"},\"type\":\"full\"}"
+```
+
+The response includes `name_servers` — two Cloudflare nameserver addresses. Tell the owner:
+
+"I've added your domain to Cloudflare. Now you need to do one thing at your current domain provider: change the nameservers to these two addresses: [nameserver 1] and [nameserver 2]. This is usually under 'DNS settings' or 'Nameservers' in your domain provider's website. This is the only step I can't do for you — it has to be done where you bought the domain."
+
+Wait for confirmation. Propagation usually takes minutes but can take up to 48 hours.
 
 Save the domain to `.site-config` using the Write tool (update the existing file, adding `SITE_DOMAIN=www.example.com`).
 
@@ -188,9 +201,28 @@ The script detects the hostname change, generates a new certificate, and updates
 
 Once the domain is on Cloudflare (purchased, transferred, or pointed):
 
-1. Open the Pages project settings in Cloudflare dashboard and add the custom domain
-2. Cloudflare will auto-create the DNS record (CNAME pointing to the .pages.dev URL)
-3. SSL certificate is provisioned automatically (free, usually within minutes)
+Tell the owner: "I'm connecting your domain to your website now."
+
+Add the custom domain to the Pages project via the API:
+
+```sh
+CF_API_TOKEN=$(npx wrangler auth token 2>/dev/null)
+CF_ACCOUNT_ID=$(curl -s "https://api.cloudflare.com/client/v4/accounts" \
+  -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[0].id')
+```
+
+```sh
+curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/CF_PROJECT_NAME/domains" \
+  -X POST -H "Authorization: Bearer $CF_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"name":"SITE_DOMAIN"}'
+```
+
+(Replace `CF_PROJECT_NAME` and `SITE_DOMAIN` with values from `.site-config`.)
+
+Cloudflare auto-creates the CNAME DNS record and provisions a free SSL certificate (usually within minutes).
+
+Tell the owner: "Done — I connected your domain to your website. Cloudflare set up the DNS record and SSL certificate automatically."
 
 Update the site configuration (astro.config.ts reads `SITE_DOMAIN` from `.site-config` automatically, so no manual edit needed):
 

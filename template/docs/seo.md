@@ -88,7 +88,7 @@ The owner may ask about these. Explain why they're bad ideas:
 The owner doesn't need paid SEO tools. Free options that actually help:
 
 - **Cloudflare Analytics** — Already set up. Shows page views, top pages, referral sources, and search queries. Check monthly.
-- **Google Search Console** — Free. Shows which search queries bring people to the site, click-through rates, and indexing issues. Set up during `/anglesite:domain` (requires a DNS TXT record for verification — see `domain.md`). Check monthly.
+- **Google Search Console** — Free. Shows which search queries bring people to the site, click-through rates, and indexing issues. Set up during `/anglesite:domain` (the webmaster adds the verification DNS record automatically). Check monthly.
 - **Google Business Profile insights** — Shows how many people found the business through Maps, what they searched for, and what actions they took (called, asked for directions, visited the website). Check monthly.
 
 During monthly `/anglesite:check`, remind the owner: "Have you looked at your Cloudflare Analytics and Google Business Profile this month? Are people finding your site?"

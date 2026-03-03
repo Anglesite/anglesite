@@ -16,14 +16,17 @@ Configured during `/anglesite:deploy` after the first publish. Stored in `.site-
 
 **Transfer an existing domain** — Move a domain from another registrar to Cloudflare. Requires: domain unlocked at current registrar, authorization/EPP code. Transfers extend registration by 1 year. Usually completes within hours, can take up to 5 days.
 
-**Point an existing domain** — Keep the domain at its current registrar but use Cloudflare's nameservers for DNS. Add the domain at `dash.cloudflare.com → Add a Site`, then update nameservers at the current registrar. Propagation usually takes minutes, can take up to 48 hours.
+**Point an existing domain** — Keep the domain at its current registrar but use Cloudflare's nameservers for DNS. The webmaster adds the domain via the Cloudflare API and tells the owner which nameservers to set at their current registrar. Propagation usually takes minutes, can take up to 48 hours.
 
-### DNS setup
+### DNS management
+
+All DNS records are managed by the webmaster via the Cloudflare API (`npx wrangler auth token` + REST API). The owner is never asked to add, remove, or modify DNS records directly. The webmaster explains what will be done and why before each change, and confirms what was done after.
 
 Typical configuration after domain is on Cloudflare:
-- CNAME `www` → `project-name.pages.dev` (auto-created when adding custom domain to Pages project)
-- Root redirect: `example.com` → `www.example.com` (redirect rule in Cloudflare dashboard)
+- CNAME `www` → `project-name.pages.dev` (auto-created when custom domain is added to Pages project via API)
 - SSL certificate: provisioned automatically (free)
+- Email records (MX, SPF, DKIM, DMARC) added via `/anglesite:domain`
+- Verification records (Bluesky, Google) added via `/anglesite:domain`
 
 ## Web Analytics
 
