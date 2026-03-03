@@ -21,6 +21,7 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@types/node": "22.13.10",
     "wrangler": "4.14.0"
   }
 }

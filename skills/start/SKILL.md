@@ -85,13 +85,14 @@ OWNER_NAME=Name
 SITE_NAME=Business Name
 BUSINESS_TYPE=restaurant
 DEV_HOSTNAME=businessname.com.local
+AI_MODEL=Claude Opus 4.6
 SITE_ADDRESS=123 Main St, City, ST 12345
 SITE_PHONE=(555) 123-4567
 SITE_HOURS=Mon-Fri 9am-5pm
 EXISTING_TOOLS=vagaro,square
 ```
 
-Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `BUSINESS_TYPE`, and `DEV_HOSTNAME` are always present. The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
+Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `BUSINESS_TYPE`, `DEV_HOSTNAME`, and `AI_MODEL` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
 
 ## Step 2 — Design interview
 

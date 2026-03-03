@@ -66,6 +66,7 @@ If you changed it, document it. Same session. No exceptions.
 | Deploy, DNS, or hosting config | `docs/cloudflare.md` |
 | Colors, fonts, or branding | `docs/brand.md` |
 | Service URLs or site config | `.site-config` |
+| AI model changed | `AI_MODEL` in `.site-config` (used in the generator meta tag) |
 
 ## Privacy and security
 
