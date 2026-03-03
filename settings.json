@@ -2,8 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(zsh *scaffold.sh *)",
-      "Bash(zsh scripts/check-prereqs.sh)",
-      "Bash(zsh scripts/setup.sh)",
+      "Bash(npm run ai-check)",
+      "Bash(npm run ai-setup)",
+      "Bash(npm run ai-cleanup)",
       "Bash(npm install *)",
       "Bash(npm run build)",
       "Bash(npm run dev)",

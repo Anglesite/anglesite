@@ -11,7 +11,7 @@ Something isn't working. Diagnose and fix it.
 Before anything else, run the prereq checker and check the project path:
 
 ```sh
-zsh scripts/check-prereqs.sh
+npm run ai-check
 ```
 
 Then read `.site-config` to verify it has `SITE_NAME` and `DEV_HOSTNAME`. If either is missing, suggest running `/anglesite:start` first.
@@ -20,15 +20,15 @@ Then read `.site-config` to verify it has `SITE_NAME` and `DEV_HOSTNAME`. If eit
 - **Wrangler auth expired:** Run `npx wrangler login` to re-authenticate.
 - **MCP disconnected:** Check `/mcp` for the relevant service.
 - **Dev server port conflict:** Run `lsof -i :4321` to find what's using port 4321, or `lsof -i :443` for port 443.
-- **fnm/Node not in PATH:** Run `zsh scripts/setup.sh` to fix shell profile.
+- **fnm/Node not in PATH:** Run `npm run ai-setup` to fix shell profile.
 
 ### HTTPS / local preview issues
-- **Certificate error in browser:** The local CA may not be trusted. Run `zsh scripts/setup.sh` to reinstall it.
-- **"This site can't be reached":** Check hostname resolution — run `dscacheutil -q host -a name HOSTNAME` (replace HOSTNAME with the value from `.site-config`). If it doesn't resolve to 127.0.0.1, run `zsh scripts/setup.sh`.
-- **Port 443 not forwarding:** Run `zsh scripts/check-prereqs.sh` and look for `https_portforward`. If missing, run `zsh scripts/setup.sh`.
-- **Certificate hostname mismatch:** Domain changed since cert was generated. Run `zsh scripts/setup.sh` to regenerate.
-- **"Your connection is not private" warning:** The local CA cert expired or was removed from Keychain. Run `zsh scripts/setup.sh`.
-- **HTTPS works at :4321 but not :443:** pfctl rules not loaded. Run `zsh scripts/setup.sh` to reload them.
+- **Certificate error in browser:** The local CA may not be trusted. Run `npm run ai-setup` to reinstall it.
+- **"This site can't be reached":** Check hostname resolution — run `dscacheutil -q host -a name HOSTNAME` (replace HOSTNAME with the value from `.site-config`). If it doesn't resolve to 127.0.0.1, run `npm run ai-setup`.
+- **Port 443 not forwarding:** Run `npm run ai-check` and look for `https_portforward`. If missing, run `npm run ai-setup`.
+- **Certificate hostname mismatch:** Domain changed since cert was generated. Run `npm run ai-setup` to regenerate.
+- **"Your connection is not private" warning:** The local CA cert expired or was removed from Keychain. Run `npm run ai-setup`.
+- **HTTPS works at :4321 but not :443:** pfctl rules not loaded. Run `npm run ai-setup` to reload them.
 
 ## Step 2 — Diagnose the reported problem
 

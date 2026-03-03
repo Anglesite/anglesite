@@ -193,10 +193,10 @@ If `DEV_HOSTNAME` in `.site-config` doesn't already end with the chosen domain, 
 2. Tell the owner: "I need to update your local preview to use your new domain name. The setup script will generate a new certificate — you may need to enter your Mac password again."
 
 ```sh
-zsh scripts/setup.sh
+npm run ai-setup
 ```
 
-The script detects the hostname change, generates a new certificate, and updates `/etc/hosts`.
+The setup script detects the hostname change, generates a new certificate, and updates `/etc/hosts`.
 
 ## Step 5 — First deploy: Configure custom domain on Pages
 

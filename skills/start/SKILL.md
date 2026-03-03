@@ -24,7 +24,7 @@ This copies the website template (source code, docs, scripts, configuration) int
 Then verify the project is ready:
 
 ```sh
-zsh scripts/check-prereqs.sh
+npm run ai-check
 ```
 
 If this is a fresh directory with no tools installed, that's fine — tools are installed in Step 3.
@@ -113,10 +113,10 @@ That's it — three things, and I'll tell you when each one is coming. Ready?"
 Then run the setup script:
 
 ```sh
-zsh scripts/setup.sh
+npm run ai-setup
 ```
 
-The script installs Xcode CLI tools, fnm, Node.js LTS, mkcert, a locally-trusted HTTPS certificate, hostname resolution, port forwarding, npm dependencies, and initializes git. It skips anything already present.
+The setup script installs Xcode CLI tools, fnm, Node.js LTS, mkcert, a locally-trusted HTTPS certificate, hostname resolution, port forwarding, npm dependencies, and initializes git. It skips anything already present.
 
 If the script succeeds, read `DEV_HOSTNAME` from `.site-config` and tell the owner: "Everything is installed! Your website now runs securely at https://DEV_HOSTNAME — just like a real website, but only visible on your computer."
 

@@ -21,10 +21,10 @@ Before every tool call or command that will trigger a permission prompt, tell th
 Tell the owner: "I'm going to install the tools your website needs — a code runner called Node.js, a version manager, a local security certificate for your preview, and the project's building blocks. It's safe to rerun if anything interrupts it. You may see a macOS dialog asking to install developer tools — click Install, and you may need to enter your Mac password for the HTTPS setup."
 
 ```sh
-zsh scripts/setup.sh
+npm run ai-setup
 ```
 
-The script installs Xcode CLI tools, fnm, Node.js LTS, mkcert (locally-trusted HTTPS certificates), hostname resolution via `/etc/hosts`, port forwarding (443 → 4321), runs `npm install`, and initializes git. It skips anything already present.
+The setup script installs Xcode CLI tools, fnm, Node.js LTS, mkcert (locally-trusted HTTPS certificates), hostname resolution via `/etc/hosts`, port forwarding (443 → 4321), runs `npm install`, and initializes git. It skips anything already present.
 
 ## Step 2 — Report results
 

@@ -53,7 +53,7 @@ Reference docs live in `docs/`. Read the relevant file when you need context on 
 
 **Never chain commands** with `&&`, `||`, or `;`. Chained commands bypass the pre-approved permission rules and trigger a "Do you want to proceed?" prompt that confuses the owner. One command per invocation.
 
-To check tool status, run `zsh scripts/check-prereqs.sh` — never write ad-hoc version/existence checks.
+To check tool status, run `npm run ai-check` — never write ad-hoc version/existence checks.
 
 ## Keep docs in sync
 
