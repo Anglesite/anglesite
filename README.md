@@ -159,4 +159,4 @@ Estimated cost per `/anglesite:start` session (~30 turns):
 
 ## License
 
-Private. Not open source.
+Code is [ISC](LICENSE). Documentation is [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
