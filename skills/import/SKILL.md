@@ -1,14 +1,15 @@
 ---
 name: import
-description: "Import content from an existing website (WordPress, Squarespace, Wix, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr) or static site generator project"
+description: "Import content from an existing website (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project"
 argument-hint: "[website URL or local path]"
 allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(sips *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
 Import blog posts, pages, and images from an existing website or static site
-generator project. Accepts a live URL (WordPress, Squarespace, Wix, Ghost,
-Medium, Substack, Blogger, Shopify, Weebly, Tumblr) or a local
+generator project. Accepts a live URL (WordPress, Squarespace, Wix, Webflow,
+GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr,
+Micro.blog, WriteFreely, Carrd) or a local
 directory path (Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress,
 MkDocs, Eleventy, Hexo). Detects the platform automatically and uses the best
 extraction method. Migrates content into the site's Markdoc collection, downloads
@@ -104,7 +105,12 @@ Use WebFetch on SITE_URL with this prompt:
 > in the source, 'cdn.shopify.com' or '/collections/' paths, 'media.tumblr.com'
 > or tumblr theme files, 'miro.medium.com' or Medium-specific markup,
 > 'substackcdn.com' or substack paths, 'cdnjs.weebly.com' or 'Powered by
-> Weebly'. Report which platform you detect, or 'unknown' if you can't tell."
+> Weebly', 'data-wf-site' or 'assets.website-files.com' for Webflow,
+> 'img1.wsimg.com' or 'secureservercdn.net' for GoDaddy Website Builder,
+> 'static.carrd.co' or Carrd HTML structure for Carrd,
+> 'micro.blog' or micropub links for Micro.blog,
+> 'writefreely' or 'write.as' for WriteFreely.
+> Report which platform you detect, or 'unknown' if you can't tell."
 
 For each detected platform, read the corresponding doc from `docs/import/`:
 
@@ -117,6 +123,11 @@ For each detected platform, read the corresponding doc from `docs/import/`:
 | Substack | `substackcdn.com`, `.substack.com` domain | `docs/import/substack.md` |
 | Weebly | `cdnjs.weebly.com`, "Powered by Weebly" | `docs/import/weebly.md` |
 | Tumblr | `media.tumblr.com`, `.tumblr.com` domain | `docs/import/tumblr.md` |
+| Webflow | `data-wf-site`, `assets.website-files.com` | `docs/import/webflow.md` |
+| GoDaddy | `img1.wsimg.com`, `secureservercdn.net` | `docs/import/godaddy.md` |
+| Carrd | `static.carrd.co`, `.carrd.co` domain | `docs/import/carrd.md` |
+| Micro.blog | `micro.blog`, micropub endpoint | `docs/import/microblog.md` |
+| WriteFreely | `writefreely` generator, `.write.as` domain | `docs/import/writefreely.md` |
 
 Tell the owner what platform was detected and read the platform doc for
 extraction instructions. For unknown platforms, tell the owner:
@@ -388,6 +399,84 @@ Tumblr has multiple post types (text, photo, quote, link, chat, audio, video).
 Import text and photo posts as blog posts. Ask the owner about other types.
 
 Read `docs/import/tumblr.md` for post type mapping and image CDN details.
+
+#### Webflow
+
+Check for an RSS feed first:
+```sh
+curl -s "SITE_URL/blog/rss.xml"
+```
+
+If no RSS feed, discover content via the sitemap:
+```sh
+curl -s SITE_URL/sitemap.xml
+```
+
+If the owner has an API token (from Site Settings → Integrations → API Access):
+```sh
+curl -s -H "Authorization: Bearer API_TOKEN" "https://api.webflow.com/v2/sites"
+```
+
+Then list collections and fetch items via the API. Without API access, use
+WebFetch on each page URL discovered from the sitemap.
+
+Read `docs/import/webflow.md` for CMS field mapping and content extraction details.
+
+#### GoDaddy Website Builder
+
+GoDaddy has no API and usually no RSS feed. Discover pages from the sitemap:
+```sh
+curl -s SITE_URL/sitemap.xml
+```
+
+If no sitemap, WebFetch the homepage to extract navigation links. For each page,
+use WebFetch with the standard extraction prompt. GoDaddy sites are typically
+small (5–15 pages).
+
+Read `docs/import/godaddy.md` for detection signals and content extraction details.
+
+#### Carrd
+
+Carrd sites are single-page. Use WebFetch on SITE_URL to extract all content
+in one call. For Carrd Pro multi-page sites, check for internal navigation
+links and WebFetch each page.
+
+Carrd imports produce **pages** (not blog posts) since Carrd sites don't have
+blogs.
+
+Read `docs/import/carrd.md` for content structuring details.
+
+#### Micro.blog
+
+```sh
+curl -s "SITE_URL/feed.json"
+```
+
+Micro.blog uses JSON Feed as its primary format. The feed contains full HTML
+content, tags, and dates. Paginate by following the `next_url` field.
+
+Tell the owner:
+> "If you can export your data from micro.blog (Account → Export), I'll get
+> the most complete copy including all your images."
+
+Read `docs/import/microblog.md` for untitled post handling and image details.
+
+#### WriteFreely / Write.as
+
+```sh
+curl -s "SITE_URL/api/collections/USERNAME/posts"
+```
+
+The WriteFreely API returns content in **Markdown** (not HTML), making this one
+of the cleanest import sources. No content conversion is needed beyond
+frontmatter mapping.
+
+For Write.as:
+```sh
+curl -s "https://write.as/api/collections/USERNAME/posts"
+```
+
+Read `docs/import/writefreely.md` for API details and untitled post handling.
 
 #### Unknown platform
 
@@ -910,7 +999,13 @@ Give the owner a plain-English summary:
 >   redirect for now — we can set up an alternative together.
 >
 > The site builds correctly and all the redirects are in place. Your search
-> rankings should carry over once you publish."
+> rankings should carry over once you publish.
+>
+> **One more thing:** This first pass focuses on getting all your content
+> moved over accurately. The formatting and layout might not match your old
+> site exactly — that's normal. Once you've had a chance to look through it,
+> just let me know what you'd like adjusted and I'll make design tweaks
+> until it looks right."
 
 List FAILED_POSTS and FAILED_IMAGES so the owner knows what needs attention.
 

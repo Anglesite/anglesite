@@ -18,6 +18,11 @@ These platforms serve content from their own infrastructure. The import skill fe
 - [Shopify](shopify.md) — Atom feed for blog content (store products not imported)
 - [Weebly](weebly.md) — RSS feed and WebFetch (limited export capabilities)
 - [Tumblr](tumblr.md) — API v2 (best), RSS feed, or data export
+- [Webflow](webflow.md) — CMS API (best), RSS feed, or sitemap + WebFetch
+- [GoDaddy Website Builder](godaddy.md) — Sitemap + WebFetch (no API or export)
+- [Carrd](carrd.md) — WebFetch (single-page sites, no API)
+- [Micro.blog](microblog.md) — JSON Feed (best), RSS feed, or data export
+- [WriteFreely / Write.as](writefreely.md) — API with Markdown source (best), RSS feed
 
 ## Static site generators
 

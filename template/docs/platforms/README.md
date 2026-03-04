@@ -11,6 +11,7 @@ Each SMB file recommends tools specific to that business type. These files cover
 | [square.md](square.md) | Business takes payments, sends invoices, books appointments, or sells online |
 | [google-business-profile.md](google-business-profile.md) | Any business with a physical location or service area |
 | [cal-com.md](cal-com.md) | Business books appointments or consultations |
+| [calendly.md](calendly.md) | Alternative to Cal.com — polished UI, well-known, good free tier |
 | [buttondown.md](buttondown.md) | Business wants a mailing list (default recommendation) |
 | [mailchimp.md](mailchimp.md) | Business already uses Mailchimp or needs 100–500 subscriber free tier |
 | [ghost-newsletter.md](ghost-newsletter.md) | Migrating from Ghost/Substack with existing subscribers, or wants paid subscriptions or self-hosted email |
