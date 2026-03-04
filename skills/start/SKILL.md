@@ -100,7 +100,7 @@ Ask everyone:
 
   If they don't know yet, derive from the site name. Slugify (lowercase, hyphens, no special characters) and append `.local`: "Keith Electric" → `DEV_HOSTNAME=keithelectric.local`. Tell them: "No problem — we'll use that for now. You can pick a real domain later when you're ready to go live."
 
-Before moving on, mention costs: "Quick note on cost — building and hosting your website is free. The only thing that costs money is a custom domain name (like yourname.com), which is about $10–15 a year. You can also use a free address. We'll get to that later."
+Before moving on, mention costs — but read the room. If the owner is clearly technical or building a developer/software site, keep it brief: "Hosting is free on Cloudflare Pages. A custom domain is ~$10–15/year, or you can use a free .pages.dev address." For everyone else, be warmer: "Quick note on cost — building and hosting your website is free. The only thing that costs money is a custom domain name (like yourname.com), which is about $10–15 a year. You can also use a free address. We'll get to that later."
 
 Hold all answers in memory — they'll be saved to `.site-config` after the project files are set up in the next step.
 
@@ -111,18 +111,10 @@ Tell the owner: "Great — I know enough to get started! Now I'll set up the pro
 Then run:
 
 ```sh
-zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh .
+zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh --yes .
 ```
 
 This copies the website template (source code, docs, scripts, configuration) into the current directory. All subsequent steps work with these scaffolded files.
-
-Then verify the project is ready:
-
-```sh
-npm run ai-check
-```
-
-If this is a fresh directory with no tools installed, that's fine — tools are installed in Step 3.
 
 Now save all answers from Step 0 to `.site-config` using the **Write tool** — not shell commands. Write the complete file in one operation:
 
@@ -156,6 +148,12 @@ Your design is saved. Before running setup, present the wizard summary so the ow
 3. **Keychain trust** — A system dialog asks to trust a local security certificate so your browser shows a padlock. Click **Allow** (or enter your password again).
 
 That's it — three things, and I'll tell you when each one is coming. Ready?"
+
+First install project dependencies (needed to run the setup script):
+
+```sh
+npm install
+```
 
 Then run the setup script:
 

@@ -83,6 +83,14 @@ if ! $YES && ! $DRY_RUN; then
   fi
 fi
 
+# Clear stale build caches from any previous Astro project
+for cache in "$DEST/node_modules/.astro" "$DEST/node_modules/.vite" "$DEST/.astro"; do
+  if [[ -d "$cache" ]]; then
+    rm -rf "$cache"
+    echo "Cleared stale cache: $cache"
+  fi
+done
+
 # Execute rsync
 rsync "${RSYNC_OPTS[@]}" "$TEMPLATE/" "$DEST/"
 

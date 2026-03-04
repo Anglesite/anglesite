@@ -50,6 +50,9 @@ const LOG_FILE = resolve(LOG_DIR, "setup.log");
 /** When true, log what would happen without executing. */
 const DRY_RUN = process.argv.includes("--dry-run") || process.argv.includes("-n");
 
+/** Steps that failed non-fatally and were skipped. Reported at the end. */
+const skipped: string[] = [];
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -184,8 +187,9 @@ async function installFnm(): Promise<void> {
   const response = await fetch("https://fnm.vercel.app/install");
   const installer = await response.text();
   if (!installer.startsWith("#!")) {
-    consola.fail("fnm installer download failed or was corrupted.");
-    process.exit(1);
+    consola.warn("fnm installer download failed — Node.js setup will be skipped.");
+    skipped.push("fnm install (download failed)");
+    return;
   }
 
   const tmpFile = resolve(LOG_DIR, "fnm-installer.sh");
@@ -282,8 +286,9 @@ async function installMkcert(): Promise<void> {
 
   const response = await fetch(url);
   if (!response.ok) {
-    consola.fail("Failed to download mkcert.");
-    process.exit(1);
+    consola.warn("Failed to download mkcert — HTTPS setup will be skipped.");
+    skipped.push("mkcert download");
+    return;
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
@@ -302,8 +307,9 @@ async function trustLocalCA(): Promise<void> {
       log("[dry-run] would trust local CA");
       return;
     }
-    consola.fail("mkcert not found — run setup without --dry-run first.");
-    process.exit(1);
+    consola.warn("mkcert not found — skipping CA trust.");
+    skipped.push("local CA trust (mkcert not available)");
+    return;
   }
 
   const { stdout: caRoot } = await execa(mkcertBin, ["-CAROOT"]);
@@ -314,8 +320,13 @@ async function trustLocalCA(): Promise<void> {
 
   log("Trusting the local certificate authority…");
   log("A macOS Keychain dialog will appear — enter your password or click Allow.");
-  await run(`${mkcertBin} -install`);
-  log("Local CA trusted.");
+  try {
+    await run(`${mkcertBin} -install`);
+    log("Local CA trusted.");
+  } catch {
+    log("Could not trust the local CA (this may require running manually).");
+    skipped.push("mkcert -install (local CA trust)");
+  }
 }
 
 /** Generate local HTTPS certificate for the dev hostname. */
@@ -380,7 +391,13 @@ async function configureSystemHttps(): Promise<void> {
     log("Some setup steps need your Mac password (admin access).");
     log("Type your password below — nothing will appear as you type. Press Enter.");
     if (!DRY_RUN) {
-      await execa("sudo", ["-v"], { stdio: "inherit" });
+      try {
+        await execa("sudo", ["-v"], { stdio: "inherit" });
+      } catch {
+        consola.warn("Could not get admin access — skipping hosts and port forwarding.");
+        skipped.push("/etc/hosts entry", "port forwarding (443 → 4321)");
+        return;
+      }
     }
   }
 
@@ -517,8 +534,15 @@ async function main(): Promise<void> {
   await initGit();
   saveProjectDir();
 
-  consola.success("Setup complete!");
-  await notify("Site Setup Complete", "Everything is installed and ready.");
+  if (skipped.length > 0) {
+    consola.warn(`Setup finished with ${skipped.length} skipped step(s):`);
+    for (const s of skipped) consola.warn(`  • ${s}`);
+    consola.info("Run `npm run ai-setup` again to retry, or use `/anglesite:fix` for help.");
+    await notify("Setup Finished", `${skipped.length} step(s) need attention.`);
+  } else {
+    consola.success("Setup complete!");
+    await notify("Site Setup Complete", "Everything is installed and ready.");
+  }
 }
 
 main().catch(async (err) => {
