@@ -1,21 +1,23 @@
 ---
 name: import
-description: "Import content from a Wix website into this Astro site"
-argument-hint: "[Wix site URL]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(sips *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images/blog *)", "Write", "Read", "Glob", "Edit"]
+description: "Import content from an existing website (WordPress, Squarespace, Wix, or other)"
+argument-hint: "[website URL]"
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(sips *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
-Import blog posts and pages from a Wix website. Migrates content into the site's
-Markdoc collection, downloads and optimizes images, and generates redirect mappings
-so existing links and search rankings are preserved.
+Import blog posts, pages, and images from an existing website. Detects the
+platform automatically (WordPress, Squarespace, Wix) and uses the best
+extraction method for each. Migrates content into the site's Markdoc collection,
+downloads and optimizes images, and generates redirect mappings so existing links
+and search rankings are preserved.
 
 ## Architecture decisions
 
 - [ADR-0002 Keystatic CMS](docs/decisions/0002-keystatic-local-cms.md) — content lands as `.mdoc` files in `src/content/posts/`, the same format Keystatic edits
-- [ADR-0006 IndieWeb POSSE](docs/decisions/0006-indieweb-posse.md) — imported posts get `syndication` URLs pointing back to their Wix originals so the provenance trail is preserved
-- [ADR-0008 No third-party JS](docs/decisions/0008-no-third-party-javascript.md) — Wix tracking scripts, embedded iframes, and widget code must be stripped during import
-- [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — imported content must not depend on Wix to display correctly
+- [ADR-0006 IndieWeb POSSE](docs/decisions/0006-indieweb-posse.md) — imported posts get `syndication` URLs pointing back to their originals so the provenance trail is preserved
+- [ADR-0008 No third-party JS](docs/decisions/0008-no-third-party-javascript.md) — tracking scripts, embedded iframes, and widget code must be stripped during import
+- [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — imported content must not depend on the old platform to display correctly
 - [ADR-0012 Verify first](docs/decisions/0012-verify-before-presenting.md) — build must pass after import before presenting results to the owner
 
 Before every tool call or command that will trigger a permission prompt, explain
@@ -27,66 +29,175 @@ Read `src/content/config.ts` to confirm the project has been scaffolded. If the
 file does not exist, stop and tell the owner:
 
 > "It looks like the site hasn't been set up yet. Run `/anglesite:start` first
-> to create the project, then come back to import your Wix content."
+> to create the project, then come back to import your content."
 
 Read `.site-config` to load `SITE_NAME` and `OWNER_NAME`.
 
-Ask the owner for their Wix site URL if they didn't provide one as an argument.
-Accept a custom domain (`https://www.example.com`) or a Wix subdomain
-(`https://name.wixsite.com/mysite`). Normalize the URL: strip trailing slashes,
-ensure `https://` scheme. Store as WIX_URL throughout.
+Ask the owner for their website URL if they didn't provide one as an argument.
+Normalize: strip trailing slashes, ensure `https://` scheme. Store as SITE_URL.
 
-## Step 1 — Discover the content inventory
+## Step 1 — Detect platform and discover content
 
 Tell the owner:
-> "I'm going to look at your Wix website to see what content is there. This
-> takes about a minute."
+> "I'm going to look at your existing website to see what content is there and
+> figure out the best way to import it. This takes about a minute."
 
-### 1a — Fetch and parse the sitemap
+### 1a — Detect the platform
 
-```sh
-curl -s WIX_URL/sitemap.xml
-```
+Probe the site to determine the platform. Check in this order:
 
-Parse the response to find child sitemap URLs. Wix typically returns:
-- `WIX_URL/blog-posts-sitemap.xml`
-- `WIX_URL/pages-sitemap.xml`
-
-If the root sitemap is empty or returns non-XML, try fetching each child directly.
+**WordPress** — check for the REST API:
 
 ```sh
-curl -s WIX_URL/blog-posts-sitemap.xml
-curl -s WIX_URL/pages-sitemap.xml
+curl -s -o /dev/null -w "%{http_code}" SITE_URL/wp-json/
 ```
 
-From the blog posts sitemap, extract each post's `<loc>` URL, slug (the path
-segment after `/post/`), and `<lastmod>` date.
+If the response is `200`, this is a WordPress site. Tell the owner:
+> "Your site is built on WordPress. That makes importing easier — WordPress has
+> a built-in API I can read directly."
 
-From the pages sitemap, extract each page's `<loc>` URL and path.
+**Squarespace or Wix** — if not WordPress, use WebFetch on the homepage:
 
-Filter out Wix system pages. Skip URLs containing: `/blank`, `/_api`, `/apps/`,
-`/#`, `?`, `/_partials`.
+Use WebFetch on SITE_URL with this prompt:
+> "Look at the page source. Is this site built on Squarespace, Wix, or something
+> else? Check for: 'squarespace' in script URLs or meta tags, 'wix' or
+> 'Thunderbolt' in the source, 'wp-content' in URLs. Report which platform you
+> detect, or 'unknown' if you can't tell."
 
-Build two lists:
-- **BLOG_POSTS**: `{ url, slug, lastmod }` for each post
-- **STATIC_PAGES**: `{ url, path }` for each page
+For Squarespace, tell the owner:
+> "Your site is built on Squarespace. I can import your content — if you're
+> able to export an XML file from Squarespace, that gives me the most complete
+> version of your posts."
 
-### 1b — Fetch the RSS feed for blog metadata
+For Wix, tell the owner:
+> "Your site is built on Wix. Wix makes it tricky to get content out, but I can
+> read each page individually and bring it over."
+
+For unknown platforms, tell the owner:
+> "I'm not sure what platform your site uses, but I can still import the content
+> by reading each page. It just takes a bit longer."
+
+Store the detected platform as PLATFORM (wordpress, squarespace, wix, or unknown).
+
+### 1b — Platform-specific content discovery
+
+#### WordPress
+
+Fetch posts, pages, categories, and tags via the REST API:
 
 ```sh
-curl -s WIX_URL/blog-feed.xml
+curl -s "SITE_URL/wp-json/wp/v2/posts?per_page=100&page=1"
 ```
 
-For each `<item>`, extract:
+```sh
+curl -s "SITE_URL/wp-json/wp/v2/pages?per_page=100&page=1"
+```
+
+```sh
+curl -s "SITE_URL/wp-json/wp/v2/categories?per_page=100"
+```
+
+```sh
+curl -s "SITE_URL/wp-json/wp/v2/tags?per_page=100"
+```
+
+Paginate posts and pages: if the response contains 100 items, fetch `&page=2`,
+`&page=3`, etc. until the response is empty or returns a 400 error.
+
+Each post JSON object contains: `title.rendered`, `content.rendered`, `date`,
+`slug`, `excerpt.rendered`, `featured_media` (media ID), `categories` (ID array),
+`tags` (ID array), `link` (the original URL).
+
+Build BLOG_POSTS from the posts response and STATIC_PAGES from the pages response.
+Build lookup maps for category IDs → names and tag IDs → names.
+
+#### Squarespace
+
+Ask the owner:
+> "Squarespace lets you export your content as an XML file, which gives me the
+> most complete version of your posts and pages. Would you like to do that?
+>
+> Go to your Squarespace dashboard → Settings → Import & Export → Export.
+> Download the XML file and tell me where you saved it."
+
+**If they provide a WXR file:** Read it with the Read tool. Parse the XML
+`<item>` elements. Each item has:
 - `<title>` → title
-- `<pubDate>` → publication date (convert to YYYY-MM-DD)
-- `<description>` → excerpt (strip HTML tags for the `description` field)
-- `<enclosure url="...">` → hero image URL
-- `<dc:creator>` → author name (informational)
-- `<link>` → match to BLOG_POSTS by URL
+- `<content:encoded>` → full HTML content
+- `<wp:post_date>` → publish date
+- `<wp:post_type>` → "post" or "page"
+- `<wp:post_name>` → slug
+- `<category domain="post_tag">` → tags
+- `<category domain="category">` → categories
 
-The RSS feed may not include all posts (typically 20–50). Track which posts have
-RSS metadata and which need individual fetching.
+Build BLOG_POSTS from items where `<wp:post_type>` is "post" and STATIC_PAGES
+from items where it is "page".
+
+**If they decline or can't export:** Fall back to RSS + sitemap + WebFetch.
+
+```sh
+curl -s "SITE_URL/blog?format=rss"
+```
+
+```sh
+curl -s SITE_URL/sitemap.xml
+```
+
+The RSS feed contains the 20 most recent blog posts with full content. The
+sitemap lists all pages. Posts not in the RSS feed will be fetched via WebFetch
+in Step 2.
+
+#### Wix
+
+```sh
+curl -s SITE_URL/sitemap.xml
+```
+
+Parse the sitemap index to find child sitemaps. Fetch each:
+
+```sh
+curl -s SITE_URL/blog-posts-sitemap.xml
+```
+
+```sh
+curl -s SITE_URL/pages-sitemap.xml
+```
+
+From the blog posts sitemap, extract each post's `<loc>` URL, slug (path segment
+after `/post/`), and `<lastmod>` date.
+
+From the pages sitemap, extract each page's `<loc>` URL and path. Filter out Wix
+system pages — skip URLs containing `/blank`, `/_api`, `/apps/`, `/#`, `?`, or
+`/_partials`.
+
+Then fetch the RSS feed for blog metadata:
+
+```sh
+curl -s SITE_URL/blog-feed.xml
+```
+
+For each `<item>`, extract `<title>`, `<pubDate>`, `<description>` (excerpt),
+`<enclosure url="...">` (hero image), and `<dc:creator>`. Match items to
+BLOG_POSTS by `<link>` URL. The RSS feed contains only excerpts — full content
+requires WebFetch in Step 2.
+
+#### Unknown platform
+
+```sh
+curl -s SITE_URL/sitemap.xml
+```
+
+```sh
+curl -s SITE_URL/feed
+```
+
+```sh
+curl -s SITE_URL/rss.xml
+```
+
+Use whatever sitemap or feed is found. If no sitemap exists, WebFetch the
+homepage to identify the main navigation links, then build STATIC_PAGES from
+those. Build BLOG_POSTS from any RSS/feed items found.
 
 ### 1c — Check for existing content
 
@@ -95,8 +206,8 @@ find src/content/posts -name "*.mdoc" -type f
 ```
 
 If `.mdoc` files exist, note their slugs and tell the owner:
-> "I found [N] existing posts. If any Wix posts have the same slug, I'll skip
-> them rather than overwrite."
+> "I found [N] existing posts. If any imported posts have the same slug, I'll
+> skip them rather than overwrite."
 
 Build a SKIPPED_SLUGS set from existing filenames.
 
@@ -104,7 +215,7 @@ Build a SKIPPED_SLUGS set from existing filenames.
 
 Tell the owner what was found. Example:
 
-> "Here's what I found on your Wix site:
+> "Here's what I found on your website:
 >
 > **Blog posts:** 23 posts (July 2024 – February 2026)
 > **Pages:** 6 pages (About, FAQ, Services, Contact, Gallery, Get Involved)
@@ -112,11 +223,12 @@ Tell the owner what was found. Example:
 > I'll import all the blog posts and create placeholder pages for the static
 > pages. The import will take about 5–10 minutes for a blog this size."
 
-If BLOG_POSTS is empty, skip to Step 3 for static pages only (see edge cases).
+If BLOG_POSTS is empty, tell the owner — skip to Step 3 for pages only, or
+Step 4 if image galleries were detected.
 
 Ask:
 > "Would you like to import all of it, or just the blog posts?"
-> - **Everything** — import posts + create page stubs + redirects (recommended)
+> - **Everything** — import posts + page stubs + redirects (recommended)
 > - **Blog posts only** — skip static pages
 
 Wait for their answer before continuing.
@@ -124,8 +236,7 @@ Wait for their answer before continuing.
 ## Step 2 — Import blog posts
 
 Tell the owner:
-> "I'm importing your blog posts now. Each one needs to be fetched individually
-> from Wix, so this will take a few minutes. I'll keep you posted."
+> "I'm importing your blog posts now. I'll keep you posted on progress."
 
 Ensure the image directory exists:
 
@@ -135,47 +246,76 @@ mkdir -p public/images/blog
 
 Process each post in BLOG_POSTS that is not in SKIPPED_SLUGS.
 
-### 2a — Fetch the full post content
+### 2a — Extract the full post content
 
-Use WebFetch on the post URL with this prompt:
+The extraction method depends on the platform:
 
-> "Extract the full blog post content from this Wix page. Return:
+**WordPress:** The content is already in the REST API response from Step 1b.
+Use `content.rendered` (full HTML) and `excerpt.rendered`. To get the featured
+image URL, fetch the media endpoint:
+
+```sh
+curl -s "SITE_URL/wp-json/wp/v2/media/FEATURED_MEDIA_ID"
+```
+
+The response contains `source_url` — the full-size image URL. Look up category
+and tag names using the ID maps built in Step 1b.
+
+**Squarespace (WXR export):** The content is already in the XML from Step 1b.
+Use `<content:encoded>` (full HTML).
+
+**Squarespace (RSS fallback):** For posts in the RSS feed, use the `<description>`
+or `<content:encoded>` field. For posts NOT in the RSS feed (older than the 20
+most recent), use WebFetch on the post URL with the extraction prompt below.
+
+**Wix / Unknown:** Use WebFetch on each post URL with this prompt:
+
+> "Extract the full blog post content from this page. Return:
 > 1. The post title (from the main heading, not browser title)
 > 2. The publication date in YYYY-MM-DD format
 > 3. The full body content converted to clean Markdown. Remove navigation,
->    headers, footers, sidebars, comments, social share buttons, and any Wix
+>    headers, footers, sidebars, comments, social share buttons, and any
 >    widget content. Keep headings, paragraphs, lists, blockquotes, and inline
 >    links. Convert embedded images to Markdown image syntax with their src URLs.
 >    Strip tracking links and JavaScript event handlers.
 > 4. A 1–2 sentence description suitable for a meta description
 > 5. Any tags or categories shown on the page"
 
-If WebFetch returns an error or empty content, add the post to FAILED_POSTS and
-continue. Do not stop the import for individual failures.
+If extraction returns an error or empty content, add the post to FAILED_POSTS
+and continue. Do not stop the import for individual failures.
 
-### 2b — Assemble frontmatter
+### 2b — Convert HTML to Markdown
 
-- `title`: from WebFetch, or from RSS feed as fallback
-- `description`: from WebFetch, or stripped RSS excerpt
-- `publishDate`: from WebFetch, RSS `<pubDate>`, or sitemap `<lastmod>` (YYYY-MM-DD)
-- `image`: set after image download (step 2c), or omit
-- `imageAlt`: derive from the post title (e.g., "Hero image for [title]")
-- `tags`: from WebFetch if available, otherwise `[]`
-- `draft`: `false`
-- `syndication`: `["WIX_POST_URL"]` — the original Wix URL, preserving provenance per ADR-0006
+For WordPress and Squarespace content that arrives as rendered HTML, convert it
+to clean Markdown:
+- `<h2>` → `##`, `<h3>` → `###`, etc.
+- `<p>` → paragraph with blank line separation
+- `<a href="...">text</a>` → `[text](url)`
+- `<img src="..." alt="...">` → `![alt](src)` (download image in step 2c)
+- `<ul>/<li>` → `- item`
+- `<ol>/<li>` → `1. item`
+- `<blockquote>` → `> text`
+- `<strong>` → `**text**`, `<em>` → `*text*`
+- Strip all other HTML tags (`<div>`, `<span>`, `<figure>`, `<section>`, etc.)
+- Strip inline styles, class attributes, and data attributes
+- Strip empty paragraphs and excessive whitespace
 
-### 2c — Download and optimize the hero image
-
-If the RSS feed or WebFetch result contains a hero image URL (typically from
-`static.wixstatic.com`):
+### 2c — Download and optimize images
 
 Tell the owner (once, not per-post):
-> "I'm downloading images from your Wix site and converting them to a
+> "I'm downloading images from your website and converting them to a
 > web-friendly format."
 
-Strip Wix transform parameters from the image URL. Everything from `/v1/` onward
-or any query string should be removed to get the base URL. Append `?w=1200` to
-request a reasonable size.
+**Hero/featured images:**
+
+The image URL source depends on the platform:
+- WordPress: `source_url` from the media API response
+- Squarespace: image URLs in the content, typically from `images.squarespace-cdn.com`
+- Wix: `<enclosure>` URL from the RSS feed, typically from `static.wixstatic.com`
+
+For Wix images, strip transform parameters: remove everything from `/v1/` onward
+or any query string, then append `?w=1200`. For WordPress and Squarespace, use
+the URL as-is.
 
 ```sh
 curl -L -s -o "public/images/blog/SLUG-hero.jpg" "IMAGE_URL"
@@ -200,17 +340,31 @@ ls public/images/blog/SLUG-hero.webp
 ```
 
 If `.webp` exists, set frontmatter `image` to `/images/blog/SLUG-hero.webp`.
-If conversion failed or the original was under 500KB, keep the JPEG.
+If conversion failed or the original was under 500KB, keep the original file.
 
-If the image download itself fails, add to FAILED_IMAGES and omit the `image`
-field from frontmatter.
+If the download fails, add to FAILED_IMAGES and omit `image` from frontmatter.
 
-For images embedded in the post body, download them using the same approach with
-a `SLUG-body-N.webp` naming pattern and replace inline image URLs with local paths.
+**Inline images:** For images embedded in the post body, download using the same
+approach with a `SLUG-body-N.webp` naming pattern and replace the inline image
+URLs with local paths.
 
-### 2d — Write the .mdoc file
+### 2d — Assemble frontmatter and write the .mdoc file
 
-Write to `src/content/posts/SLUG.mdoc`. Format:
+Assemble frontmatter fields:
+- `title`: from API/export/WebFetch
+- `description`: from excerpt or WebFetch summary
+- `publishDate`: in YYYY-MM-DD format
+- `image`: local path after download, or omit
+- `imageAlt`: derive from post title (e.g., "Hero image for [title]")
+- `tags`: from categories/tags data, or `[]`
+- `draft`: `false`
+- `syndication`: `["ORIGINAL_POST_URL"]` — the URL on the old platform, preserving provenance per ADR-0006
+
+Sanitize the slug before using as filename: lowercase, replace spaces with
+hyphens, remove characters other than `[a-z0-9-]`, trim leading/trailing
+hyphens. If the slug conflicts with an existing file, append `-imported`.
+
+Write to `src/content/posts/SLUG.mdoc`:
 
 ```
 ---
@@ -221,10 +375,10 @@ image: "/images/blog/my-post-hero.webp"
 imageAlt: "Hero image for The Post Title"
 tags: []
 draft: false
-syndication: ["https://www.example.com/post/the-post-slug"]
+syndication: ["https://www.oldsite.com/blog/the-post-slug"]
 ---
 
-The full post body content in Markdown goes here.
+The full post body content in clean Markdown goes here.
 
 ## Subheadings use ## syntax
 
@@ -234,13 +388,9 @@ Links look like [this](https://example.com).
 ```
 
 Rules for the body content:
-- No HTML tags. Strip remaining `<div>`, `<span>`, `<br>`, `<p>` and convert to
-  Markdown equivalents.
-- No MDX component syntax. Markdoc uses `{% %}` tags, but plain Markdown is
-  sufficient for imported content.
-- Sanitize the slug before using as filename: lowercase, replace spaces with
-  hyphens, remove characters other than `[a-z0-9-]`, trim leading/trailing
-  hyphens. If the slug conflicts with an existing file, append `-imported`.
+- No HTML tags — convert everything to Markdown equivalents
+- No MDX component syntax — plain Markdown is sufficient for imported content
+- No platform-specific shortcodes or embeds
 
 ### 2e — Progress updates
 
@@ -251,69 +401,146 @@ After every 5 posts, tell the owner:
 
 If the owner chose "Everything" in Step 1, process STATIC_PAGES.
 
-For each page, use WebFetch with this prompt:
-> "Look at this Wix page and tell me:
+**WordPress:** Page content is already available from the REST API (`content.rendered`).
+Convert HTML to Markdown as in Step 2b.
+
+**Squarespace (WXR):** Page content is in the XML export (`<content:encoded>`).
+Note that Squarespace only exports text blocks — complex layouts (galleries,
+forms, product grids) are not included in the export.
+
+**All platforms (including fallback):** For pages without pre-fetched content,
+use WebFetch with this prompt:
+> "Look at this page and tell me:
 > 1. The page title
-> 2. Whether the page uses a Wix app (Booking, Stores, Events, Forum, Members).
->    If so, name the app.
+> 2. Whether the page uses a platform feature that can't be statically exported
+>    (booking/scheduling, e-commerce/store, event calendar, forum, member area,
+>    contact form, image gallery with 10+ images). If so, name the feature.
 > 3. A 1–3 sentence summary of the page's purpose and content
-> 4. The primary sections or content blocks on the page"
+> 4. The full text content converted to clean Markdown (if it's a content page)"
 
 Categorize each page:
-- **App-powered**: uses Wix Booking, Stores, Events, Forum, or Members
+- **App-powered**: uses booking, store, events, forum, members, or similar
+  platform features that require runtime infrastructure
+- **Gallery**: primarily an image gallery or portfolio (10+ images)
 - **Content page**: regular text/image content
 
-For content pages, create a stub `.astro` file in `src/pages/` with:
+For **content pages**, create a `.astro` file in `src/pages/` with the page title,
+meta description, `BaseLayout` wrapper, and the converted content. If the content
+couldn't be fully extracted, add a `<!-- TODO: Review content from: PAGE_URL -->`
+comment.
+
+For **gallery pages**, add them to GALLERY_PAGES for processing in Step 4.
+
+For **app-powered pages**, do NOT create a stub. Add to APP_PAGES for reporting
+in Step 7. Do not try to replicate platform app functionality — booking, store,
+and event features have industry-appropriate alternatives in `docs/platforms/`.
+
+## Step 4 — Handle galleries and portfolios
+
+If GALLERY_PAGES is empty, skip this step entirely.
+
+For each gallery page, tell the owner:
+> "I found a gallery with images on your [page name] page. Would you like me
+> to download them all? I'll create a gallery page on your new site."
+
+If they say yes:
+
+Use WebFetch on the gallery page with this prompt:
+> "List every image URL on this page. For each image, provide:
+> 1. The full image URL (from the src attribute)
+> 2. The alt text (if any)
+> 3. Any caption or title text associated with the image"
+
+Ensure the gallery image directory exists:
+
+```sh
+mkdir -p public/images/gallery
+```
+
+Download each image:
+
+```sh
+curl -L -s -o "public/images/gallery/PAGE-SLUG-NN.jpg" "IMAGE_URL"
+```
+
+Check file size and convert with `sips` if over 500KB (same as Step 2c).
+
+Create a gallery `.astro` page in `src/pages/` with:
 - The page title and meta description
 - `BaseLayout` wrapper
-- A `<!-- TODO: Fill in content from Wix page: PAGE_URL -->` comment
+- A responsive CSS grid layout displaying all downloaded images
+- Each image using Astro's `<img>` tag with the local path and alt text
+- A note that the owner can rearrange or edit in the source file
 
-For app-powered pages, do NOT create a stub. Add to APP_PAGES for reporting in
-Step 6. Do not try to replicate Wix app functionality — booking pages, store
-pages, and event calendars have industry-appropriate alternatives in
-`docs/platforms/`.
-
-## Step 4 — Generate redirect mappings
+## Step 5 — Generate redirect mappings
 
 Read the existing `public/_redirects` file. Append new rules — do not overwrite
 existing entries.
 
 ### Blog post redirects
 
-For each imported post:
+The redirect pattern depends on the platform's URL structure:
+
+**WordPress:** WordPress has multiple permalink structures. Use the actual URLs
+from the API response (`link` field) to determine the pattern.
+
+Common patterns:
 ```
-/post/SLUG /blog/SLUG 301
+# "Day and name" or "Month and name" permalinks
+/YYYY/MM/DD/slug/ /blog/slug 301
+/YYYY/MM/slug/ /blog/slug 301
+
+# "Post name" permalink
+/slug/ /blog/slug 301
+
+# Default (query parameter)
+/?p=123 /blog/slug 301
 ```
 
-Wix blog URLs use `/post/SLUG`. The new site uses `/blog/SLUG`.
+Generate a redirect for each post using the actual old URL path.
+
+**Squarespace:**
+```
+/blog/slug /blog/slug 200
+```
+
+If old and new paths match, use `200` (passthrough). If they differ:
+```
+/old-path /blog/slug 301
+```
+
+**Wix:**
+```
+/post/slug /blog/slug 301
+```
 
 ### Static page redirects
 
-For pages where the URL path stays the same (e.g., `/about`), no redirect needed.
+For pages where the old and new URL paths match, no redirect is needed.
 
-For pages with different URL structures or app pages being replaced:
+For pages with different paths:
 ```
 /old-path /new-path 301
 ```
 
 For app-powered pages with no equivalent yet, use a temporary redirect:
 ```
-/wix-app-page / 302
+/app-page / 302
 ```
 
 Note the 302s in the output — they should be updated to 301s once the owner
 sets up the replacement tool.
 
-### Common Wix system paths
+### Common platform paths
 
-Add these regardless of what was in the sitemap:
+Add trailing-slash redirects as needed:
 ```
 /blog/ /blog 301
 ```
 
-Write the updated `_redirects` file, preserving all existing rules.
+Write the updated `_redirects` file, preserving all existing rules and comments.
 
-## Step 5 — Build and verify
+## Step 6 — Build and verify
 
 Tell the owner:
 > "I'm checking that everything imported correctly."
@@ -326,20 +553,20 @@ If the build fails, diagnose and fix. Common causes:
 - Frontmatter doesn't match schema: check `src/content/config.ts` for expected fields
 - Invalid `publishDate` format: must be YYYY-MM-DD string
 - Missing required `description`: add a placeholder and note for review
-- Image path typo: verify file exists in `public/images/blog/`
+- Image path typo: verify file exists in `public/images/`
 
 Fix all build errors before presenting results (ADR-0012).
 
-After a clean build, check for remaining Wix dependencies:
+After a clean build, check for remaining external image dependencies:
 
 ```sh
-grep -r "wixstatic.com" dist/ --include="*.html"
+grep -rE "wixstatic\.com|squarespace-cdn\.com|wp-content/uploads" dist/ --include="*.html"
 ```
 
-If any `wixstatic.com` references appear in the built HTML, find the source files
-and replace with locally downloaded images (ADR-0008).
+If any references to the old platform's CDN appear in the built HTML, find the
+source files and replace with locally downloaded images (ADR-0008, ADR-0011).
 
-## Step 6 — Present the results
+## Step 7 — Present the results
 
 Give the owner a plain-English summary:
 
@@ -347,37 +574,40 @@ Give the owner a plain-English summary:
 >
 > **Blog posts:** 21 of 23 imported successfully
 > **Images:** 19 downloaded and optimized
-> **Redirects:** 21 redirect rules added
-> **Page stubs created:** 4 (About, FAQ, Services, Contact)
+> **Redirects:** 27 redirect rules added
+> **Pages created:** 4 (About, FAQ, Services, Contact)
 >
 > **A couple of things to know:**
-> - 2 posts couldn't be fetched from Wix (listed below). You can add them
->   manually in Keystatic.
-> - Your FAQ page used Wix's form tool. I've set up a redirect to the home
->   page for now — we can build a replacement together.
+> - 2 posts couldn't be fetched (listed below). You can add them manually
+>   in Keystatic.
+> - Your booking page used [Platform]'s scheduling tool. I've set up a
+>   redirect for now — we can set up an alternative together.
 >
-> The site builds correctly and all the redirects are in place."
+> The site builds correctly and all the redirects are in place. Your search
+> rankings should carry over once you publish."
 
 List FAILED_POSTS and FAILED_IMAGES so the owner knows what needs attention.
 
 For each APP_PAGES entry, suggest a replacement:
-- Wix Booking → "For scheduling, Cal.com or Calendly integrate well. See `docs/platforms/`."
-- Wix Stores → "For selling products, Square or Shopify work great. See `docs/platforms/`."
-- Wix Events → "I can build a custom events page for you."
+- Booking/scheduling → "Cal.com or Calendly integrate well. See `docs/platforms/`."
+- Store/e-commerce → "Square or Shopify work great. See `docs/platforms/`."
+- Events → "I can build a custom events page for you."
+- Contact form → "I can add a simple email link, or we can set up a form service."
+- Forum/members → "This would need a separate platform — let's discuss options."
 
-## Step 7 — Save a snapshot
+## Step 8 — Save a snapshot
 
 ```sh
 git add -A
 ```
 
 ```sh
-git commit -m "Import content from Wix (N posts, N pages)"
+git commit -m "Import content from PLATFORM (N posts, N pages)"
 ```
 
-Replace N with actual counts.
+Replace PLATFORM and N with actual values.
 
-## Step 8 — Offer to deploy
+## Step 9 — Offer to deploy
 
 Ask:
 > "Would you like to publish the imported content now? I'll run the security
@@ -389,19 +619,19 @@ If they say yes, run `/anglesite:deploy`.
 ## Keep docs in sync
 
 After this skill runs, update `docs/architecture.md` to note that content was
-imported from Wix and the date. Example:
-> "Content imported from Wix on YYYY-MM-DD. N posts, N pages. Redirects in
-> `public/_redirects`."
+imported and the date. Example:
+> "Content imported from [Platform] on YYYY-MM-DD. N posts, N pages. Redirects
+> in `public/_redirects`."
 
 ## Edge cases
 
-### No blog on the Wix site
+### No blog on the site
 
-If BLOG_POSTS is empty after fetching the sitemap and RSS:
-> "Your Wix site doesn't appear to have a blog. I can still create page stubs
-> for your static pages and set up redirects."
+If BLOG_POSTS is empty after discovery:
+> "Your website doesn't appear to have a blog. I can still import your pages
+> and images, and set up redirects."
 
-Continue with Steps 3–4 for static pages only.
+Continue with Steps 3–5 for pages, galleries, and redirects only.
 
 ### Images still too large after conversion
 
@@ -412,20 +642,42 @@ advise the owner:
 
 ### Multilingual content
 
-If the sitemap contains URLs with language path segments (`/es/`, `/fr/`, etc.):
-> "Your Wix site has content in multiple languages. I'll import the primary
-> language for now. Setting up multiple languages requires additional planning."
+If the sitemap or API contains content in multiple languages:
+> "Your site has content in multiple languages. I'll import the primary language
+> for now. Setting up multiple languages requires additional planning."
 
-Import only primary-language URLs (no language prefix).
+Import only primary-language content.
 
-### Wix app pages
+### Platform app pages
 
-Booking, store, event, forum, and member pages cannot be imported — the content
-is generated at runtime by Wix's infrastructure. Redirect to home (302) and
-present replacement options in Step 6.
+Booking, store, event, forum, and member pages cannot be meaningfully imported —
+the content depends on the platform's runtime infrastructure. Redirect to home
+(302) and present replacement options in Step 7.
 
 ### Slug conflicts
 
 Before writing each `.mdoc` file, sanitize the slug (lowercase, hyphens only,
 `[a-z0-9-]`). If it conflicts with an existing file, append `-imported` and log
 the conflict.
+
+### WordPress REST API is disabled
+
+Some WordPress sites disable the REST API. If `/wp-json/` returns 403 or 401,
+fall back to the RSS feed (`/feed/`) which usually contains full post content,
+then use WebFetch for anything not in the feed.
+
+### Squarespace images disappear after cancellation
+
+Warn the owner before they cancel their Squarespace subscription:
+> "Important: the images on your Squarespace site will stop being available
+> after you cancel your subscription. Make sure I've downloaded everything
+> before you cancel. Let me verify all images are saved locally."
+
+Run the build verification (Step 6) to confirm no external image URLs remain.
+
+### WordPress custom post types
+
+Some WordPress sites use custom post types (portfolios, testimonials, products).
+The REST API may expose these at `/wp-json/wp/v2/TYPE_NAME`. If the categories
+or tags response mentions custom taxonomies, probe for custom endpoints. Report
+any custom post types to the owner and ask how they'd like to handle them.
