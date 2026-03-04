@@ -1,6 +1,6 @@
 # Anglesite — Development Context
 
-Anglesite is a Claude Code plugin that scaffolds and manages websites for small businesses.
+Anglesite is a Claude Code plugin that scaffolds and manages websites.
 
 ## Plugin structure
 
@@ -18,10 +18,10 @@ Anglesite is a Claude Code plugin that scaffolds and manages websites for small 
 └── template/                      Files scaffolded to user's project
     ├── src/                       Astro source (pages, layouts, styles)
     ├── public/                    Static assets
-    ├── scripts/                   setup.sh, check-prereqs.sh, cleanup.sh
+    ├── scripts/                   setup.ts, check-prereqs.ts, cleanup.ts
     ├── docs/                      Reference documentation (80+ files)
     ├── CLAUDE.md                  Webmaster instructions
-    └── ...                        Config files (package.json, astro.config.ts, etc.)
+    └── ...                        Config (package.json, astro.config.ts, etc.)
 ```
 
 Two levels of CLAUDE.md:
@@ -33,7 +33,7 @@ Two levels of CLAUDE.md:
 
 1. User installs the plugin from the marketplace (or `claude --plugin-dir .`)
 2. `/anglesite:start` runs `scripts/scaffold.sh` to copy `template/` to the user's project
-3. Start skill proceeds with business interview, design, and tool installation
+3. Start skill proceeds with discovery interview, design, and tool installation
 4. All other skills (`/anglesite:deploy`, `/anglesite:check`, etc.) execute in the user's working directory — relative paths to `docs/`, `scripts/` work because they were scaffolded
 
 ## Editing guidelines
