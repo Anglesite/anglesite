@@ -1,7 +1,7 @@
 ---
-name: Update
+name: update
 description: "Update dependencies and resolve security issues"
-user-invocable: true
+user-invokable: true
 disable-model-invocation: true
 ---
 

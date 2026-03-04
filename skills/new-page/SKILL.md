@@ -1,7 +1,7 @@
 ---
-name: New Page
+name: new-page
 description: "Create a new page with SEO and accessibility"
-user-invocable: true
+user-invokable: true
 ---
 
 Create a new page on the site.

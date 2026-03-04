@@ -1,7 +1,7 @@
 ---
-name: Check
+name: check
 description: "Full health audit: build, privacy, security, accessibility"
-user-invocable: true
+user-invokable: true
 ---
 
 Run a full health check on the site. The checklists below are for you (the agent) — **do not show raw checklist items, technical terms, or jargon to the owner.** Translate every finding into plain English. See the Results section at the bottom for how to present findings.

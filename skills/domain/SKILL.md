@@ -1,7 +1,7 @@
 ---
-name: Domain
+name: domain
 description: "Manage DNS records: email, Bluesky, verification"
-user-invocable: true
+user-invokable: true
 disable-model-invocation: true
 ---
 
@@ -17,20 +17,34 @@ Read `CF_PROJECT_NAME` from `.site-config` to identify the Cloudflare project.
 
 ## Cloudflare API access
 
-All DNS operations use the Cloudflare API with wrangler's stored credentials.
+All DNS operations use the Cloudflare API with a scoped API token.
 
-Get the auth token and zone ID at the start of every session:
+Read `CF_API_TOKEN` from `.site-config`. If not set, the owner needs to create one (one-time setup):
+
+Tell the owner: "To manage your domain's DNS records, I need a Cloudflare API token. I'll walk you through creating one — it takes about 30 seconds."
 
 ```sh
-CF_API_TOKEN=$(npx wrangler auth token 2>/dev/null)
+open "https://dash.cloudflare.com/profile/api-tokens"
 ```
 
+Walk them through:
+1. Click **Create Token**
+2. Find the **Edit zone DNS** template and click **Use template**
+3. Under Zone Resources, select **Specific zone** → their domain
+4. Click **Continue to summary** → **Create Token**
+5. Copy the token value shown
+
+Save the token to `.site-config` using the **Write tool** (update the existing file, adding `CF_API_TOKEN=the-token-value`).
+
+Then get the zone ID:
+
 ```sh
+CF_API_TOKEN=$(grep CF_API_TOKEN .site-config | cut -d= -f2)
 CF_ZONE_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=SITE_DOMAIN" \
   -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[0].id')
 ```
 
-Replace `SITE_DOMAIN` with the root domain (no `www.`). If the zone ID comes back null, wrangler may not be authorized — run `npx wrangler login` first.
+Replace `SITE_DOMAIN` with the root domain (no `www.`). If the zone ID comes back null, the token may be invalid or the domain not yet active on Cloudflare.
 
 ## What do you need?
 

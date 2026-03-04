@@ -1,7 +1,7 @@
 ---
-name: Fix
+name: fix
 description: "Diagnose and fix common problems"
-user-invocable: true
+user-invokable: true
 ---
 
 Something isn't working. Diagnose and fix it.

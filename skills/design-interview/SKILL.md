@@ -1,7 +1,7 @@
 ---
-name: Design Interview
+name: design-interview
 description: "Redo the visual identity and branding"
-user-invocable: true
+user-invokable: true
 ---
 
 You're a professional web designer conducting a visual identity intake. Read `.site-config` for `SITE_TYPE`, `SITE_NAME`, `BUSINESS_TYPE`, `OWNER_NAME`, and `EXISTING_TOOLS`.

@@ -1,7 +1,7 @@
 ---
-name: Deploy
+name: deploy
 description: "Build, security scan, and deploy to Cloudflare Pages"
-user-invocable: true
+user-invokable: true
 disable-model-invocation: true
 ---
 
@@ -70,16 +70,28 @@ If this returns results, STOP. Admin routes leaked into production.
 
 ## Step 2.5 — Staging preview (first deploy only)
 
-If this is the first deploy, offer a preview before going live:
+If this is the first deploy, offer a choice:
 
-Tell the owner: "Before your site goes live for everyone, I can put it on a private preview link so you can check it. Want to do that first?"
+Tell the owner: "Your site is ready to go online. Would you like to:"
+- **Preview first** — "Put it on a private link so you can check it before anyone else sees it"
+- **Go live** — "Publish it right away"
 
-If yes:
+If they choose **preview first**, continue below. If they choose **go live**, skip to Step 3.
 
-Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their business name), then add `CF_PROJECT_NAME=project-name` to `.site-config` using the **Write tool** (update the existing file).
+Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their site name), then add `CF_PROJECT_NAME=project-name` to `.site-config` using the **Write tool** (update the existing file).
+
+Create the project (first deploy only — this is required before any deploy):
 
 ```sh
-npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --branch preview
+npx wrangler pages project create CF_PROJECT_NAME --production-branch main
+```
+
+If this fails with "A project with this name already exists", that's fine — continue.
+
+Deploy to a preview branch:
+
+```sh
+npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --branch preview --commit-dirty=true
 ```
 
 This creates a preview URL like `preview.CF_PROJECT_NAME.pages.dev`. Open it:
@@ -98,12 +110,20 @@ On subsequent deploys, skip this step.
 
 Tell the owner: "Everything looks clean. I'm uploading your site to Cloudflare now."
 
-Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their business name), then add `CF_PROJECT_NAME=project-name` to `.site-config` using the **Write tool** (update the existing file).
+Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their site name), then add `CF_PROJECT_NAME=project-name` to `.site-config` using the **Write tool** (update the existing file).
+
+On first deploy, create the project (skip if already done in Step 2.5):
+
+```sh
+npx wrangler pages project create CF_PROJECT_NAME --production-branch main
+```
+
+If this fails with "A project with this name already exists", that's fine — continue.
 
 Deploy:
 
 ```sh
-npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME
+npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --commit-dirty=true
 ```
 
 (Replace `CF_PROJECT_NAME` with the actual value from `.site-config`.)
@@ -116,7 +136,7 @@ open https://CF_PROJECT_NAME.pages.dev
 
 Tell the owner: "Your website is live! Anyone can visit it at that address."
 
-On subsequent deploys, skip to Step 6 (commit).
+On subsequent deploys, skip to Step 7 (commit).
 
 ## Step 4 — First deploy: Domain setup
 
@@ -124,7 +144,7 @@ Ask: "Do you want a custom domain for your website — like www.yourbusiness.com
 
 If they want to skip, that's fine. They can add a domain later by running `/anglesite:deploy` and asking about it.
 
-If they want a custom domain, ask which path fits:
+If they want a custom domain, first determine the right path. Ask: "Do you already own a domain, or do you need to buy one?"
 
 ### Option A — Buy a new domain
 
@@ -140,7 +160,7 @@ Walk them through:
 3. Complete purchase (requires payment method on Cloudflare account)
 4. Wait for registration to complete (usually instant)
 
-### Option B — Transfer an existing domain
+### Option B — Transfer an existing domain to Cloudflare
 
 Tell the owner: "We can move your domain to Cloudflare so everything is in one place. Cloudflare charges only the registry cost — usually cheaper than other registrars."
 
@@ -160,32 +180,28 @@ Tell the owner: "Transfers can take up to 5 days, but usually finish within a fe
 
 Tell the owner: "We can point your domain at Cloudflare without moving it. Your domain stays where it is, but Cloudflare will handle the DNS."
 
-Add the domain to Cloudflare via the API:
-
 ```sh
-CF_API_TOKEN=$(npx wrangler auth token 2>/dev/null)
-CF_ACCOUNT_ID=$(curl -s "https://api.cloudflare.com/client/v4/accounts" \
-  -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[0].id')
+open https://dash.cloudflare.com/?to=/:account/domains
 ```
 
-Tell the owner: "I'm adding your domain to Cloudflare now."
+Walk them through:
+1. Click "Add a domain" (or "Add a site")
+2. Enter their domain name
+3. Choose the Free plan
+4. Cloudflare will show two nameserver addresses
+5. At their current domain registrar, change nameservers to the two Cloudflare addresses (usually under "DNS settings" or "Nameservers")
 
-```sh
-curl -s "https://api.cloudflare.com/client/v4/zones" \
-  -X POST -H "Authorization: Bearer $CF_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data "{\"name\":\"DOMAIN\",\"account\":{\"id\":\"$CF_ACCOUNT_ID\"},\"type\":\"full\"}"
-```
+Tell the owner: "That's the only step I can't do for you — it has to be done where you bought the domain. Propagation usually takes minutes but can take up to 48 hours."
 
-The response includes `name_servers` — two Cloudflare nameserver addresses. Tell the owner:
+### Option D — Use a subdomain of an existing Cloudflare zone
 
-"I've added your domain to Cloudflare. Now you need to do one thing at your current domain provider: change the nameservers to these two addresses: [nameserver 1] and [nameserver 2]. This is usually under 'DNS settings' or 'Nameservers' in your domain provider's website. This is the only step I can't do for you — it has to be done where you bought the domain."
+If the domain is a subdomain (e.g., `shop.example.com`) and the parent zone (`example.com`) is already on Cloudflare, the buy/transfer/point steps don't apply. Skip straight to Step 5 — the custom domain just needs a CNAME record added to the existing zone.
 
-Wait for confirmation. Propagation usually takes minutes but can take up to 48 hours.
+Tell the owner: "Since your parent domain is already on Cloudflare, we just need to connect this subdomain to your site. I'll do that in the next step."
 
-Save the domain to `.site-config` using the Write tool (update the existing file, adding `SITE_DOMAIN=www.example.com`).
+### After domain setup — save and update local HTTPS
 
-### Update local HTTPS for the new domain
+Save the domain to `.site-config` using the Write tool (update the existing file, adding `SITE_DOMAIN=example.com`).
 
 If `DEV_HOSTNAME` in `.site-config` doesn't already end with the chosen domain, update it:
 
@@ -198,32 +214,27 @@ npm run ai-setup
 
 The setup script detects the hostname change, generates a new certificate, and updates `/etc/hosts`.
 
-## Step 5 — First deploy: Configure custom domain on Pages
+## Step 5 — First deploy: Connect custom domain to Pages
 
-Once the domain is on Cloudflare (purchased, transferred, or pointed):
+Once the domain is on Cloudflare (purchased, transferred, or pointed), connect it to the Pages project via the Cloudflare dashboard.
 
-Tell the owner: "I'm connecting your domain to your website now."
-
-Add the custom domain to the Pages project via the API:
+Tell the owner: "I'm opening the Cloudflare dashboard so we can connect your domain to your website."
 
 ```sh
-CF_API_TOKEN=$(npx wrangler auth token 2>/dev/null)
-CF_ACCOUNT_ID=$(curl -s "https://api.cloudflare.com/client/v4/accounts" \
-  -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[0].id')
+open https://dash.cloudflare.com/?to=/:account/pages/view/CF_PROJECT_NAME/domains
 ```
 
-```sh
-curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/CF_PROJECT_NAME/domains" \
-  -X POST -H "Authorization: Bearer $CF_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data '{"name":"SITE_DOMAIN"}'
-```
+(Replace `CF_PROJECT_NAME` with the actual value from `.site-config`.)
 
-(Replace `CF_PROJECT_NAME` and `SITE_DOMAIN` with values from `.site-config`.)
+Walk them through:
+1. Click "Set up a custom domain"
+2. Enter their domain (e.g., `www.example.com` or `example.com`)
+3. Click "Activate domain"
+4. Cloudflare auto-creates the CNAME DNS record and provisions a free SSL certificate (usually within minutes)
 
-Cloudflare auto-creates the CNAME DNS record and provisions a free SSL certificate (usually within minutes).
+Tell the owner: "Done — Cloudflare is connecting your domain and setting up SSL. This usually takes a minute or two."
 
-Tell the owner: "Done — I connected your domain to your website. Cloudflare set up the DNS record and SSL certificate automatically."
+Save `SITE_DOMAIN` to `.site-config` if not already saved.
 
 Update the site configuration (astro.config.ts reads `SITE_DOMAIN` from `.site-config` automatically, so no manual edit needed):
 
@@ -237,7 +248,7 @@ npm run build
 ```
 
 ```sh
-npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME
+npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --commit-dirty=true
 ```
 
 Tell the owner: "Your website is now live at your custom domain! SSL is handled automatically."
