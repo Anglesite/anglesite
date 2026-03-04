@@ -2,6 +2,8 @@
 
 WriteFreely is open-source federated blogging software. Write.as is the hosted version. Both support ActivityPub federation and have a simple API for content retrieval.
 
+See [hosted-platforms.md](hosted-platforms.md) for image optimization pipeline and missing field fallbacks. WriteFreely is unique among hosted platforms — its API returns raw Markdown, so the standard HTML-to-Markdown conversion rules don't apply. This doc covers only what's specific to WriteFreely.
+
 ## How it detects this platform
 
 URL patterns:

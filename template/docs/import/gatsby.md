@@ -2,6 +2,8 @@
 
 Gatsby is a React-based SSG (56k GitHub stars) that uses a GraphQL data layer and plugin ecosystem. Content locations and frontmatter vary by starter template and plugin configuration.
 
+See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance including frontmatter conventions, template syntax stripping patterns, image handling, and redirect generation. This doc covers only what's specific to Gatsby.
+
 ## How it detects this platform
 
 Config file: `gatsby-config.js` or `gatsby-config.ts` in the project root.

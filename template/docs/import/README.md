@@ -4,6 +4,13 @@ These guides tell the Webmaster agent how to import content from other platforms
 
 The `/anglesite:import` skill reads the relevant guide at runtime based on platform detection.
 
+## Shared guidance
+
+Read the appropriate shared doc before the platform-specific one:
+
+- [hosted-platforms.md](hosted-platforms.md) — HTML-to-Markdown conversion, image CDN handling, extraction method hierarchy, pagination, missing field fallbacks, redirect best practices, quality checks
+- [ssg-migrations.md](ssg-migrations.md) — Content discovery, frontmatter conventions, template syntax stripping, image file handling, redirect generation, data files
+
 ## Hosted platforms
 
 These platforms serve content from their own infrastructure. The import skill fetches content remotely via APIs, RSS feeds, or page scraping.

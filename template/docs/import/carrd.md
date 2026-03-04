@@ -2,6 +2,8 @@
 
 Carrd is a single-page website builder popular for landing pages, link-in-bio pages, and simple business sites. It has no API, no RSS feed, and no export. WebFetch is the only extraction method. Carrd sites are almost always a single page, making the import fast but simple.
 
+See [hosted-platforms.md](hosted-platforms.md) for image optimization pipeline and missing field fallbacks. This doc covers only what's specific to Carrd.
+
 ## How it detects this platform
 
 Check for Carrd indicators:

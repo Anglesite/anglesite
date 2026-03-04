@@ -2,6 +2,8 @@
 
 Medium is a hosted blogging platform popular with writers and tech bloggers. Content is stored on Medium's servers with no public API for content retrieval. The RSS feed is the primary extraction method.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Medium.
+
 ## How it detects this platform
 
 URL patterns:
@@ -59,21 +61,14 @@ For posts not in the RSS feed, use WebFetch on each post URL with the standard b
 
 ## Content conversion
 
-Medium RSS content arrives as HTML. Convert to Markdown, with these Medium-specific adjustments:
+Apply the standard HTML-to-Markdown conversion from [hosted-platforms.md](hosted-platforms.md), plus these Medium-specific adjustments:
 
-**Elements to handle:**
-- `<figure>` with `<figcaption>` → `![alt](src)` (use caption as alt)
-- `<pre>` code blocks → fenced code blocks (Medium doesn't specify language)
-- `<blockquote>` — may be a pull quote or a standard blockquote → keep as `>`
 - `<h3>` — Medium uses `<h3>` for subheadings (not `<h2>`) → convert to `##`
 - `<h4>` → convert to `###`
-- Horizontal rules (`<hr>`) — Medium uses these as section breaks → keep
-- `<a>` tags with Medium-internal links (`medium.com/...`) → keep the URL
+- `<pre>` code blocks → fenced code blocks (Medium doesn't specify language)
 - Embedded tweets, YouTube, GitHub gists → note for manual review
-
-**Elements to strip:**
-- Medium member prompts and subscription CTAs
-- "Read more" links
+- Medium member prompts and subscription CTAs → strip
+- "Read more" links → strip
 - Clap/response buttons and social sharing UI
 - `<div class="section-divider">` — decorative dividers
 

@@ -2,6 +2,8 @@
 
 Micro.blog is an IndieWeb-native blogging and social platform. It supports microformats, Webmention, and ActivityPub natively. Content is available via a JSON Feed, RSS, and the Micropub/Micro.blog API.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, and missing field fallbacks. This doc covers only what's specific to Micro.blog.
+
 ## How it detects this platform
 
 URL patterns:

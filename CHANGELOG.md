@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.14] — 2026-03-04
+
+### Added
+- Import support for 5 new platforms: Webflow, GoDaddy Website Builder, Carrd, Micro.blog, WriteFreely/Write.as
+- Calendly platform integration doc (alternative to Cal.com for scheduling)
+- Shared import guidance docs: `hosted-platforms.md` (HTML-to-Markdown, image CDN handling, pagination, redirects) and `ssg-migrations.md` (template syntax, frontmatter, content discovery)
+- 9 universal import principles in the import skill (content accuracy, local images, provenance, no embeds)
+- First-pass expectation setting: import results now tell owners design tweaks come after content migration
+
+### Changed
+- All 25 platform import docs now cross-reference the appropriate shared guidance doc
+- Trimmed duplicated content conversion rules from WordPress, Squarespace, Ghost, Blogger, Medium, Weebly, and Webflow docs
+- Import skill description updated to list all 15 hosted platforms
+
 ## [0.9.13] — 2026-03-04
 
 ### Added

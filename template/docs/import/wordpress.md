@@ -2,6 +2,8 @@
 
 WordPress powers ~43% of the web. It has the best content extraction options of any platform — a REST API, WXR XML export, and RSS feeds with full content.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to WordPress.
+
 ## How it detects this platform
 
 The import skill checks if `SITE_URL/wp-json/` returns HTTP 200. If it does, this is a WordPress site with an active REST API.
@@ -50,12 +52,10 @@ The feed at `/feed/` usually contains full post content in `<content:encoded>`. 
 
 ## Content conversion
 
-WordPress content is rendered HTML. Convert to Markdown:
-- Strip `<div>`, `<span>`, `<figure>`, `<section>` wrappers
-- Convert `<h2>`→`##`, `<a>`→`[text](url)`, `<img>`→`![alt](src)`, `<ul>/<li>`→`- item`
+WordPress content is rendered HTML. Apply the standard HTML-to-Markdown conversion from [hosted-platforms.md](hosted-platforms.md), plus these WordPress-specific adjustments:
+
 - Strip WordPress block comments (`<!-- wp:paragraph -->`, `<!-- /wp:paragraph -->`)
-- Strip inline styles and class attributes (e.g., `class="wp-block-image"`)
-- Convert `<blockquote class="wp-block-quote">` → `> text`
+- Strip class attributes with `wp-block-*` prefixes
 - Strip shortcodes like `[gallery]`, `[caption]`, `[embed]` — extract the content if possible
 
 ## Image handling

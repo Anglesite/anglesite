@@ -2,6 +2,8 @@
 
 Shopify is an e-commerce platform with built-in blogging. Blog content is secondary to the store, but many Shopify sites have substantial blog sections. The Atom feed is the easiest extraction method.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Shopify.
+
 ## How it detects this platform
 
 Check for Shopify indicators:

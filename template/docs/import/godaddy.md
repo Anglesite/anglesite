@@ -2,6 +2,8 @@
 
 GoDaddy Website Builder (also known as GoDaddy Websites + Marketing) is a drag-and-drop website builder bundled with GoDaddy domain purchases. It has no content API, no RSS feed, and no structured export. WebFetch and sitemap scraping are the only extraction methods.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to GoDaddy.
+
 ## How it detects this platform
 
 Check for GoDaddy indicators:

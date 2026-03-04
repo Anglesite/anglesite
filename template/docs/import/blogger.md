@@ -2,6 +2,8 @@
 
 Blogger (Blogspot) is Google's free blogging platform. Content is stored on Google's infrastructure with excellent export options — an Atom XML export and a full-featured API.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Blogger.
+
 ## How it detects this platform
 
 URL patterns:
@@ -73,21 +75,14 @@ Returns JSON with full post content. The feed approach is simpler and doesn't re
 
 ## Content conversion
 
-Blogger content is HTML. Convert to Markdown with these Blogger-specific adjustments:
+Apply the standard HTML-to-Markdown conversion from [hosted-platforms.md](hosted-platforms.md), plus these Blogger-specific adjustments:
 
-**Elements to handle:**
 - `<div class="separator">` wrapping images → extract `<img>` and `<a>` tags
-- `<a>` wrapping `<img>` — Blogger wraps images in links to full-size versions → extract image with the link href as the image source (it's the full-size URL)
+- `<a>` wrapping `<img>` — Blogger wraps images in links to full-size versions → use the `<a href>` as the image source (it's the full-size URL)
 - `<br/>` tags — Blogger uses `<br/>` liberally instead of proper paragraphs → convert double `<br/>` to paragraph breaks
-- `<span>` with inline styles — Blogger's WYSIWYG editor adds font-size, color, and font-family styles → strip all inline styles
-- `<div>` wrapping paragraphs → unwrap to plain text
-- `<table>` — keep as-is (Markdown tables) if simple; note for review if complex
-
-**Elements to strip:**
-- `<script>` tags (Blogger widgets)
+- `<script>` tags (Blogger widgets) → strip
 - `<iframe>` embeds (Google Maps, YouTube) → note for manual review
-- Adsense blocks
-- Social sharing widgets
+- Adsense blocks → strip
 
 ## Image handling
 

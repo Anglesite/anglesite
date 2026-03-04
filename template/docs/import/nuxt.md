@@ -2,6 +2,8 @@
 
 Nuxt is the Vue.js meta-framework (60k GitHub stars). Blog content is managed through the `@nuxt/content` module, which stores Markdown files in a `content/` directory.
 
+See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance including frontmatter conventions, template syntax stripping patterns, image handling, and redirect generation. This doc covers only what's specific to Nuxt.
+
 ## How it detects this platform
 
 Config file: `nuxt.config.js`, `nuxt.config.ts`, or `nuxt.config.mjs` in the project root.

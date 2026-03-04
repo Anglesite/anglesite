@@ -2,6 +2,8 @@
 
 MkDocs is a Python-based documentation SSG (22k GitHub stars). Content is plain Markdown files organized in a `docs/` directory, configured by a `mkdocs.yml` file.
 
+See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance including frontmatter conventions, template syntax stripping patterns, image handling, and redirect generation. This doc covers only what's specific to MkDocs.
+
 ## How it detects this platform
 
 Config file: `mkdocs.yml` in the project root.

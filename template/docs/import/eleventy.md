@@ -2,6 +2,8 @@
 
 Eleventy (11ty) is a flexible, zero-config SSG (19k GitHub stars) that supports multiple template languages. Its flexibility means content can be in many formats and locations.
 
+See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance including frontmatter conventions, template syntax stripping patterns, image handling, and redirect generation. This doc covers only what's specific to Eleventy.
+
 ## How it detects this platform
 
 Config file: `.eleventy.js`, `eleventy.config.js`, `eleventy.config.mjs`, or `eleventy.config.cjs` in the project root.

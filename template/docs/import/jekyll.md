@@ -2,6 +2,8 @@
 
 Jekyll is the original static site generator (51k GitHub stars), tightly integrated with GitHub Pages. It uses Markdown with YAML frontmatter and Liquid template tags.
 
+See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance including frontmatter conventions, template syntax stripping patterns, image handling, and redirect generation. This doc covers only what's specific to Jekyll.
+
 ## How it detects this platform
 
 Config file: `_config.yml` in the project root, combined with either a `Gemfile` containing `jekyll` or a `_posts/` directory.

@@ -2,6 +2,8 @@
 
 Ghost is an open-source publishing platform (48k GitHub stars) focused on professional blogging and newsletters. Content is stored as HTML (internally as MobileDoc JSON), with a clean Content API for extraction.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Ghost.
+
 ## How it detects this platform
 
 Check the page source for `<meta name="generator" content="Ghost">` or probe `SITE_URL/ghost/api/content/` for a response. The RSS feed is at `/rss/` (not `/feed/`).
@@ -63,9 +65,7 @@ The owner can export from Ghost Admin → Settings → Advanced → Import/Expor
 
 ## Content conversion
 
-Ghost content arrives as rendered HTML. Convert to Markdown using the same HTML-to-Markdown process as WordPress (Step 2b in the import skill).
-
-**Ghost-specific elements to handle:**
+Ghost content arrives as rendered HTML. Apply the standard HTML-to-Markdown conversion from [hosted-platforms.md](hosted-platforms.md), plus these Ghost-specific adjustments:
 - `<figure>` with `<figcaption>` → `![alt](src)` (use caption as alt if no alt attribute)
 - `<div class="kg-card">` — Ghost's card system wrapper → strip wrapper, keep content
 - `<div class="kg-bookmark-card">` — bookmark embeds → convert to `[title](url)`

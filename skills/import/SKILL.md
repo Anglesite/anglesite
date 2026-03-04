@@ -16,6 +16,29 @@ extraction method. Migrates content into the site's Markdoc collection, download
 or copies images, and generates redirect mappings so existing links and search
 rankings are preserved.
 
+## Shared guidance docs
+
+Before reading the platform-specific doc, read the appropriate shared guidance:
+
+- **Hosted platforms** (WordPress, Squarespace, Wix, etc.): Read `docs/import/hosted-platforms.md` for HTML-to-Markdown conversion rules, image CDN handling, pagination patterns, missing field fallbacks, and redirect best practices.
+- **SSG migrations** (Hugo, Jekyll, Eleventy, etc.): Read `docs/import/ssg-migrations.md` for template syntax stripping, frontmatter mapping conventions, image file handling, and config-driven content discovery.
+
+The platform-specific docs (`docs/import/PLATFORM.md`) cover only what's unique to that platform — detection signals, API/feed endpoints, platform-specific HTML elements, and CDN URL patterns. The shared docs cover everything common.
+
+## Import principles
+
+These apply to every import regardless of platform:
+
+1. **Content accuracy over visual fidelity.** The first pass prioritizes getting all content moved correctly. Design tweaks come after.
+2. **Download all images locally.** No external image dependencies — even stable CDNs. The site must render without any network calls to the old platform (ADR-0011).
+3. **Generate descriptions from content.** If the platform has no excerpt field, use the first 1–2 sentences of the post body.
+4. **Generate titles for untitled posts.** Microblog-style posts (Micro.blog, WriteFreely, Tumblr) need titles — use the first sentence, truncated at 60 characters.
+5. **Preserve provenance.** Every imported post gets a `syndication` URL pointing to the original. This maintains the content trail (ADR-0006).
+6. **Strip all third-party embeds.** YouTube, Twitter, Instagram embeds become comments noting what was there. No third-party JavaScript (ADR-0008).
+7. **Don't replicate platform features.** Booking, store, events, forums can't be imported — redirect and recommend purpose-built replacements.
+8. **Build must pass.** Fix every build error before presenting results to the owner (ADR-0012).
+9. **Warn before cancellation.** For platforms where CDN URLs expire, explicitly warn the owner to verify all images are saved before they cancel their old account.
+
 ## Architecture decisions
 
 - [ADR-0002 Keystatic CMS](docs/decisions/0002-keystatic-local-cms.md) — content lands as `.mdoc` files in `src/content/posts/`, the same format Keystatic edits

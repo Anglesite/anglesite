@@ -2,6 +2,8 @@
 
 Hexo is a Node.js-based blogging framework (39k GitHub stars) popular in the Chinese developer community. It uses Markdown with YAML frontmatter and Nunjucks-style template tags.
 
+See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance including frontmatter conventions, template syntax stripping patterns, image handling, and redirect generation. This doc covers only what's specific to Hexo.
+
 ## How it detects this platform
 
 Config file: `_config.yml` in the project root AND `package.json` containing `"hexo"` as a dependency.

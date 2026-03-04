@@ -2,6 +2,8 @@
 
 Squarespace sites are server-rendered HTML with content stored in Squarespace's proprietary database. The best extraction path is the built-in XML export, which uses WordPress's WXR format.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Squarespace.
+
 ## How it detects this platform
 
 The import skill uses WebFetch on the homepage and checks for `squarespace` in script URLs, meta tags, or the `X-ServedBy` header.
@@ -44,13 +46,12 @@ For pages not in the export or RSS feed, use WebFetch on each page URL. Squaresp
 
 ## Content conversion
 
-Squarespace HTML is cleaner than WordPress but may contain:
-- `<div class="sqs-block">` wrappers — strip
-- `<div class="sqs-html-content">` — strip wrapper, keep inner content
-- `<figure>` / `<figcaption>` — convert to Markdown image + caption text
-- Squarespace-specific data attributes (`data-block-type`, `data-layout-label`) — strip
-- Newsletter signup blocks — remove entirely
-- Social media embed blocks — note as needing manual review
+Apply the standard HTML-to-Markdown conversion from [hosted-platforms.md](hosted-platforms.md), plus these Squarespace-specific adjustments:
+
+- `<div class="sqs-block">` and `<div class="sqs-html-content">` wrappers → strip wrapper, keep inner content
+- Squarespace-specific data attributes (`data-block-type`, `data-layout-label`) → strip
+- Newsletter signup blocks → remove entirely
+- Social media embed blocks → note as needing manual review
 
 ## Image handling
 
@@ -62,10 +63,7 @@ https://images.squarespace-cdn.com/content/v1/SITE_ID/ASSET_ID/image.jpg
 
 Download the URL as-is — no transform parameter stripping needed (unlike Wix).
 
-**Critical warning:** Squarespace CDN image URLs stop working after the owner cancels their Squarespace subscription. The import skill must:
-1. Download ALL images during import
-2. Verify no external image URLs remain after build (`grep` for `squarespace-cdn.com`)
-3. Warn the owner before they cancel
+Squarespace CDN URLs expire after cancellation — see the CDN expiration warning in [hosted-platforms.md](hosted-platforms.md).
 
 ## URL patterns for redirects
 

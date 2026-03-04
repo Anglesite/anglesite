@@ -2,6 +2,8 @@
 
 Wix has the most restrictive content export of any major platform. There is no content API, no full export feature, and pages are JavaScript-rendered (Wix Thunderbolt), making standard HTML scraping unreliable. The import skill uses a combination of sitemaps, RSS metadata, and WebFetch page-by-page extraction.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Wix.
+
 ## How it detects this platform
 
 The import skill uses WebFetch on the homepage and checks for `wix` or `Thunderbolt` in the page source, or `static.wixstatic.com` in asset URLs.

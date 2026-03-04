@@ -2,6 +2,8 @@
 
 VuePress is a Vue-powered documentation SSG (23k GitHub stars). Content is Markdown with YAML frontmatter and optional Vue component embedding.
 
+See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance including frontmatter conventions, template syntax stripping patterns, image handling, and redirect generation. This doc covers only what's specific to VuePress.
+
 ## How it detects this platform
 
 Config directory: `.vuepress/config.js` or `.vuepress/config.ts` in the docs directory. The project may have content in a `docs/` subdirectory with `.vuepress/` inside it.

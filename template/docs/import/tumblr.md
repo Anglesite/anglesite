@@ -2,6 +2,8 @@
 
 Tumblr is a microblogging and social networking platform. It supports multiple post types (text, photo, quote, link, chat, audio, video) and has a full API for content extraction. The RSS feed works for simpler imports.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Tumblr.
+
 ## How it detects this platform
 
 URL patterns:

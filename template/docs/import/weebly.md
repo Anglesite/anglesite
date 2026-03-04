@@ -2,6 +2,8 @@
 
 Weebly is a drag-and-drop website builder (now owned by Square). It has limited export capabilities — there is no content API and no structured export format. The RSS feed and WebFetch are the primary extraction methods.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Weebly.
+
 ## How it detects this platform
 
 Check for Weebly indicators:
@@ -58,25 +60,14 @@ The owner can download a site archive from the Weebly editor: General settings �
 
 ## Content conversion
 
-Weebly content arrives as HTML (from RSS or WebFetch). Convert to Markdown:
+Apply the standard HTML-to-Markdown conversion from [hosted-platforms.md](hosted-platforms.md), plus these Weebly-specific adjustments:
 
-**Elements to handle:**
-- `<div class="wsite-section-wrap">` — Weebly section wrappers → strip wrapper, keep content
-- `<div class="wsite-section-elements">` → strip wrapper
+- `<div class="wsite-section-wrap">` and `<div class="wsite-section-elements">` → strip wrappers, keep content
 - `<div class="paragraph">` — Weebly paragraph wrappers → unwrap
 - `<div class="wsite-image">` wrapping `<img>` → extract image
 - `<div class="wsite-button">` — CTA buttons → convert to link or strip
-- `<blockquote>` → keep as `>`
-- `<table>` → keep as Markdown table if simple
-- Form elements (`<div class="wsite-form">`) → strip (forms require Weebly's runtime)
-
-**Elements to strip:**
-- Weebly-specific JavaScript and CSS
-- Form widgets
-- Map embeds
-- Social media widgets
-- E-commerce elements (if using Weebly's store features)
-- Contact forms
+- `<div class="wsite-form">` — forms require Weebly's runtime → strip
+- E-commerce elements (Weebly/Square store features) → strip
 
 ## Image handling
 

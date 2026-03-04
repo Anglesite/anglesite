@@ -2,6 +2,8 @@
 
 Next.js is the most popular React framework (138k GitHub stars). It has no standard content structure — blog implementations vary widely by project, making automatic detection harder than other SSGs.
 
+See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance including frontmatter conventions, template syntax stripping patterns, image handling, and redirect generation. This doc covers only what's specific to Next.js.
+
 ## How it detects this platform
 
 Config file: `next.config.js`, `next.config.mjs`, or `next.config.ts` in the project root.

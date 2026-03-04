@@ -2,6 +2,8 @@
 
 Substack is a newsletter and blogging platform. Content is primarily delivered via email but also published as web pages. Every Substack publication has a public RSS feed with full content.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Substack.
+
 ## How it detects this platform
 
 URL patterns:

@@ -2,6 +2,8 @@
 
 Docusaurus is a documentation-focused SSG by Meta (64k GitHub stars). It uses MDX for both documentation and blog content, with built-in support for admonitions, tabs, and code blocks.
 
+See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance including frontmatter conventions, template syntax stripping patterns, image handling, and redirect generation. This doc covers only what's specific to Docusaurus.
+
 ## How it detects this platform
 
 Config file: `docusaurus.config.js` or `docusaurus.config.ts` in the project root.

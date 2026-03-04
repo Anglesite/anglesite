@@ -2,6 +2,8 @@
 
 Webflow is a visual website builder popular with small businesses and agencies. It offers a CMS with structured content, a REST API for content retrieval, and a built-in export feature for static sites on paid plans.
 
+See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Webflow.
+
 ## How it detects this platform
 
 Check for Webflow indicators:
@@ -75,23 +77,15 @@ CMS field names are project-specific. The API response includes the collection s
 
 ## Content conversion
 
-Webflow content arrives as HTML. Convert to Markdown with these Webflow-specific adjustments:
+Apply the standard HTML-to-Markdown conversion from [hosted-platforms.md](hosted-platforms.md), plus these Webflow-specific adjustments:
 
-**Elements to handle:**
 - `<div class="w-richtext">` — Webflow's rich text wrapper → strip wrapper, keep inner content
-- `<figure>` with `<figcaption>` → `![caption](src)`
 - `<div class="w-embed">` — custom embed blocks → strip (these contain arbitrary HTML/JS)
 - `<a>` with `w-inline-block` class — Webflow's styled link blocks → extract as plain link
-- Nested `<div>` structures — Webflow generates deeply nested divs for layout → flatten and extract text content
+- Nested `<div>` structures — Webflow generates deeply nested divs for layout → flatten aggressively
 - `<img>` with `srcset` — use the largest image from the srcset or the `src` attribute
-
-**Elements to strip:**
-- Webflow interaction/animation attributes (`data-w-id`, `data-animation-type`)
-- Webflow form elements (`<div class="w-form">`)
-- Lightbox wrappers (`<div class="w-lightbox">`) → extract image
-- Video embeds (`<div class="w-video">`) → note for manual review
-- Navigation, footer, and header components
-- Custom code embed blocks
+- Webflow interaction/animation attributes (`data-w-id`, `data-animation-type`) → strip
+- `<div class="w-form">`, `<div class="w-lightbox">`, `<div class="w-video">` → strip (extract images from lightbox)
 
 ## Image handling
 

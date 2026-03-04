@@ -2,6 +2,8 @@
 
 Hugo is the second most popular SSG (87k GitHub stars). It uses Markdown files with YAML, TOML, or JSON frontmatter and has its own shortcode syntax.
 
+See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance including frontmatter conventions, template syntax stripping patterns, image handling, and redirect generation. This doc covers only what's specific to Hugo.
+
 ## How it detects this platform
 
 Config file in the project root: `hugo.toml`, `hugo.yaml`, `hugo.json`, or the legacy `config.toml`, `config.yaml`, `config.json`.
