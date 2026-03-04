@@ -2,7 +2,7 @@
 name: fix
 description: "Diagnose and fix common problems"
 argument-hint: "[describe the problem]"
-allowed-tools: ["Bash(npm run *)", "Bash(npx astro check)", "Bash(lsof *)", "Bash(dscacheutil *)", "Write", "Read", "Glob"]
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(lsof *), Bash(dscacheutil *), Write, Read, Glob
 ---
 
 Something isn't working. Diagnose and fix it.

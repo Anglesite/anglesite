@@ -1,7 +1,7 @@
 ---
 name: start
 description: "First-time setup: discovery, design, tools, preview"
-allowed-tools: ["Bash(zsh *)", "Bash(npm install)", "Bash(npm run *)", "Write", "Read", "Glob"]
+allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Write, Read, Glob
 disable-model-invocation: true
 ---
 

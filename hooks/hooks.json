@@ -1,4 +1,5 @@
 {
+  "description": "Security scans before deploy",
   "hooks": {
     "PreToolUse": [
       {

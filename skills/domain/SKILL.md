@@ -2,7 +2,7 @@
 name: domain
 description: "Manage DNS records: email, Bluesky, verification"
 argument-hint: "[email, bluesky, or service name]"
-allowed-tools: ["Bash(curl *)", "Bash(open *)", "Write", "Read"]
+allowed-tools: Bash(curl *), Bash(open *), Write, Read
 disable-model-invocation: true
 ---
 

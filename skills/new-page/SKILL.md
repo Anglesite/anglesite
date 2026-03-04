@@ -2,7 +2,7 @@
 name: new-page
 description: "Create a new page with SEO and accessibility"
 argument-hint: "[page name or purpose]"
-allowed-tools: ["Write", "Read", "Glob"]
+allowed-tools: Write, Read, Glob
 ---
 
 Create a new page on the site.
