@@ -1,13 +1,14 @@
 ---
 name: import
-description: "Import content from an existing website or static site generator project"
+description: "Import content from an existing website (WordPress, Squarespace, Wix, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr) or static site generator project"
 argument-hint: "[website URL or local path]"
 allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(sips *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
 Import blog posts, pages, and images from an existing website or static site
-generator project. Accepts a live URL (WordPress, Squarespace, Wix) or a local
+generator project. Accepts a live URL (WordPress, Squarespace, Wix, Ghost,
+Medium, Substack, Blogger, Shopify, Weebly, Tumblr) or a local
 directory path (Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress,
 MkDocs, Eleventy, Hexo). Detects the platform automatically and uses the best
 extraction method. Migrates content into the site's Markdoc collection, downloads
@@ -68,28 +69,61 @@ If the response is `200`, this is a WordPress site. Tell the owner:
 > "Your site is built on WordPress. That makes importing easier — WordPress has
 > a built-in API I can read directly."
 
-**Squarespace or Wix** — if not WordPress, use WebFetch on the homepage:
+**Ghost** — check for the Ghost Content API:
+
+```sh
+curl -s -o /dev/null -w "%{http_code}" SITE_URL/ghost/api/
+```
+
+Also check for `<meta name="generator" content="Ghost">` via WebFetch. If Ghost
+is detected, tell the owner:
+> "Your site is built on Ghost. If you can give me a Content API key from
+> your Ghost admin panel (Integrations → Custom Integration), I can pull
+> everything directly. Otherwise I can use the RSS feed."
+
+Read `docs/import/ghost.md` for platform-specific extraction details.
+
+**Blogger** — check for the Atom feed:
+
+```sh
+curl -s -o /dev/null -w "%{http_code}" SITE_URL/feeds/posts/default
+```
+
+Also check for `.blogspot.com` in the URL or `<meta name="generator" content="Blogger"/>`.
+If detected, tell the owner:
+> "Your site is on Blogger. Blogger has great export options — I can read
+> everything directly from its feed."
+
+Read `docs/import/blogger.md` for platform-specific extraction details.
+
+**Other hosted platforms** — if none of the above matched, use WebFetch on the homepage:
 
 Use WebFetch on SITE_URL with this prompt:
-> "Look at the page source. Is this site built on Squarespace, Wix, or something
-> else? Check for: 'squarespace' in script URLs or meta tags, 'wix' or
-> 'Thunderbolt' in the source, 'wp-content' in URLs. Report which platform you
-> detect, or 'unknown' if you can't tell."
+> "Look at the page source. Identify which platform this site is built on.
+> Check for: 'squarespace' in script URLs or meta tags, 'wix' or 'Thunderbolt'
+> in the source, 'cdn.shopify.com' or '/collections/' paths, 'media.tumblr.com'
+> or tumblr theme files, 'miro.medium.com' or Medium-specific markup,
+> 'substackcdn.com' or substack paths, 'cdnjs.weebly.com' or 'Powered by
+> Weebly'. Report which platform you detect, or 'unknown' if you can't tell."
 
-For Squarespace, tell the owner:
-> "Your site is built on Squarespace. I can import your content — if you're
-> able to export an XML file from Squarespace, that gives me the most complete
-> version of your posts."
+For each detected platform, read the corresponding doc from `docs/import/`:
 
-For Wix, tell the owner:
-> "Your site is built on Wix. Wix makes it tricky to get content out, but I can
-> read each page individually and bring it over."
+| Platform | Detection signals | Doc reference |
+| --- | --- | --- |
+| Squarespace | `squarespace` in scripts/meta, `squarespace-cdn.com` | `docs/import/squarespace.md` |
+| Wix | `wix` or `Thunderbolt` in source, `wixstatic.com` | `docs/import/wix.md` |
+| Shopify | `cdn.shopify.com`, `/collections/`, `/products/` | `docs/import/shopify.md` |
+| Medium | `miro.medium.com`, `.medium.com` domain | `docs/import/medium.md` |
+| Substack | `substackcdn.com`, `.substack.com` domain | `docs/import/substack.md` |
+| Weebly | `cdnjs.weebly.com`, "Powered by Weebly" | `docs/import/weebly.md` |
+| Tumblr | `media.tumblr.com`, `.tumblr.com` domain | `docs/import/tumblr.md` |
 
-For unknown platforms, tell the owner:
+Tell the owner what platform was detected and read the platform doc for
+extraction instructions. For unknown platforms, tell the owner:
 > "I'm not sure what platform your site uses, but I can still import the content
 > by reading each page. It just takes a bit longer."
 
-Store the detected platform as PLATFORM (wordpress, squarespace, wix, or unknown).
+Store the detected platform as PLATFORM.
 
 **Local SSG detection** — check SOURCE_DIR for config files in this order:
 
@@ -240,6 +274,120 @@ For each `<item>`, extract `<title>`, `<pubDate>`, `<description>` (excerpt),
 `<enclosure url="...">` (hero image), and `<dc:creator>`. Match items to
 BLOG_POSTS by `<link>` URL. The RSS feed contains only excerpts — full content
 requires WebFetch in Step 2.
+
+#### Ghost
+
+If the owner provides a Content API key, use the API:
+
+```sh
+curl -s "SITE_URL/ghost/api/content/posts/?key=API_KEY&limit=100&include=tags,authors&formats=plaintext"
+```
+
+Paginate with `&page=2`, etc. Each post contains `title`, `html`, `slug`,
+`published_at`, `feature_image`, `tags[]`, and `url`.
+
+For pages:
+```sh
+curl -s "SITE_URL/ghost/api/content/pages/?key=API_KEY&limit=100&include=tags"
+```
+
+If no API key, fall back to the RSS feed:
+```sh
+curl -s SITE_URL/rss/
+```
+
+Read `docs/import/ghost.md` for full field mapping and content conversion details.
+
+#### Medium
+
+```sh
+curl -s "SITE_URL/feed"
+```
+
+For standard Medium profiles: `https://medium.com/feed/@USERNAME`
+
+The RSS feed contains full HTML content in `<content:encoded>`, plus title,
+date, tags (as `<category>` elements), and post URL. The feed typically returns
+only the 10–20 most recent posts. For older posts, use WebFetch on each URL.
+
+Read `docs/import/medium.md` for image CDN handling and URL patterns.
+
+#### Substack
+
+```sh
+curl -s "SITE_URL/feed"
+```
+
+The RSS feed contains full HTML content for public posts. Each `<item>` includes
+title, content, date, author, and enclosure (cover image). Paywalled posts have
+truncated content.
+
+Read `docs/import/substack.md` for content conversion details.
+
+#### Blogger
+
+```sh
+curl -s "SITE_URL/feeds/posts/default?max-results=500"
+```
+
+The Atom feed contains full post content, labels, dates, and author info.
+Paginate with `start-index` if over 500 posts.
+
+Differentiate posts from pages by `<category>` term:
+- Posts: `kind#post`
+- Pages: `kind#page`
+- Comments: `kind#comment` (skip)
+
+Read `docs/import/blogger.md` for XML structure and image handling.
+
+#### Shopify
+
+```sh
+curl -s "SITE_URL/blogs/news.atom"
+```
+
+The default blog handle is `news`. Try other handles (`blog`, `journal`) if 404.
+Check the sitemap for blog URLs:
+```sh
+curl -s SITE_URL/sitemap.xml
+```
+
+The Atom feed contains full article content, tags, author, and date.
+
+Read `docs/import/shopify.md` for CDN URL patterns and store-specific issues.
+
+#### Weebly
+
+```sh
+curl -s "SITE_URL/blog/feed/"
+```
+
+The RSS feed may contain excerpts only. For full content, use WebFetch on each
+post URL. Discover pages from the sitemap:
+```sh
+curl -s SITE_URL/sitemap.xml
+```
+
+Read `docs/import/weebly.md` for content extraction details.
+
+#### Tumblr
+
+If the owner provides an API key:
+```sh
+curl -s "https://api.tumblr.com/v2/blog/BLOG_IDENTIFIER/posts?api_key=API_KEY&limit=20&offset=0"
+```
+
+Paginate with `offset` incremented by 20.
+
+Without an API key, use the RSS feed:
+```sh
+curl -s "SITE_URL/rss"
+```
+
+Tumblr has multiple post types (text, photo, quote, link, chat, audio, video).
+Import text and photo posts as blog posts. Ask the owner about other types.
+
+Read `docs/import/tumblr.md` for post type mapping and image CDN details.
 
 #### Unknown platform
 

@@ -11,6 +11,13 @@ These platforms serve content from their own infrastructure. The import skill fe
 - [WordPress](wordpress.md) — REST API extraction (best), WXR XML export, or RSS feed
 - [Squarespace](squarespace.md) — WXR XML export (best), RSS feed, or page scraping
 - [Wix](wix.md) — Page scraping via WebFetch (only option — Wix has no content API)
+- [Ghost](ghost.md) — Content API (best), RSS feed, or JSON export
+- [Medium](medium.md) — RSS feed (best), data export, or page scraping
+- [Substack](substack.md) — RSS feed with full content
+- [Blogger](blogger.md) — Atom feed (best), XML backup, or Blogger API
+- [Shopify](shopify.md) — Atom feed for blog content (store products not imported)
+- [Weebly](weebly.md) — RSS feed and WebFetch (limited export capabilities)
+- [Tumblr](tumblr.md) — API v2 (best), RSS feed, or data export
 
 ## Static site generators
 
