@@ -1,7 +1,8 @@
 ---
 name: fix
 description: "Diagnose and fix common problems"
-user-invokable: true
+argument-hint: "[describe the problem]"
+allowed-tools: ["Bash(npm run *)", "Bash(npx astro check)", "Bash(lsof *)", "Bash(dscacheutil *)", "Write", "Read", "Glob"]
 ---
 
 Something isn't working. Diagnose and fix it.

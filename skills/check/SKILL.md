@@ -1,7 +1,7 @@
 ---
 name: check
 description: "Full health audit: build, privacy, security, accessibility"
-user-invokable: true
+allowed-tools: ["Bash(npx astro check)", "Bash(npm run build)", "Bash(npx pa11y *)", "Bash(grep *)", "Bash(find dist/ *)", "Bash(npm audit *)", "Read", "Glob"]
 ---
 
 Run a full health check on the site. The checklists below are for you (the agent) — **do not show raw checklist items, technical terms, or jargon to the owner.** Translate every finding into plain English. See the Results section at the bottom for how to present findings.

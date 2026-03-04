@@ -1,7 +1,7 @@
 ---
 name: update
 description: "Update dependencies and resolve security issues"
-user-invokable: true
+allowed-tools: ["Bash(npm outdated)", "Bash(npm audit *)", "Bash(npm install *)", "Bash(npx astro check)", "Bash(npm run build)", "Bash(git add *)", "Bash(git commit *)", "Write", "Read"]
 disable-model-invocation: true
 ---
 

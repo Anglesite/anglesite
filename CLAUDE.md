@@ -12,8 +12,10 @@ Anglesite is a Claude Code plugin that scaffolds and manages websites.
 │   ├── design-interview/SKILL.md  Visual identity intake
 │   ├── check/SKILL.md             Health audit
 │   └── ...                        fix, domain, new-page, update
-├── settings.json                  Plugin permissions
+├── settings.json                  Plugin settings (empty — permissions via allowed-tools)
+├── hooks/hooks.json               PreToolUse hook for deploy safety scans
 ├── scripts/scaffold.sh            Copies template/ to user's project
+├── scripts/pre-deploy-check.sh    Blocks deploy if security scans fail
 ├── bin/average-tokens.ts          Token cost calculator
 └── template/                      Files scaffolded to user's project
     ├── src/                       Astro source (pages, layouts, styles)
@@ -40,7 +42,7 @@ Two levels of CLAUDE.md:
 
 - **Template files** go in `template/` — they're copied to the user's project during `/anglesite:start`
 - **Skills** go in `skills/` — they reference user project files (relative) and plugin files (`${CLAUDE_PLUGIN_ROOT}`)
-- **Plugin permissions** are in `settings.json` at the plugin root
+- **Tool permissions** are in each skill's `allowed-tools` frontmatter (not `settings.json`)
 - **Cross-skill references** use `${CLAUDE_PLUGIN_ROOT}/skills/skill-name/SKILL.md`
 - **The end user is non-technical.** Skills are their primary interface. Changes should not require CLI knowledge.
 - **Privacy and security are non-negotiable.** The deploy skill scans for PII, exposed tokens, third-party scripts, and Keystatic admin routes.

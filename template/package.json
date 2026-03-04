@@ -1,7 +1,7 @@
 {
   "name": "@dwk/anglesite",
   "type": "module",
-  "version": "0.9.11",
+  "version": "0.9.12",
   "private": true,
   "scripts": {
     "dev": "astro dev",

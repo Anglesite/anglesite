@@ -1,7 +1,7 @@
 ---
 name: deploy
 description: "Build, security scan, and deploy to Cloudflare Pages"
-user-invokable: true
+allowed-tools: ["Bash(npm run build)", "Bash(npx wrangler *)", "Bash(grep *)", "Bash(find dist/ *)", "Bash(open *)", "Bash(git add *)", "Bash(git commit *)", "Write", "Read"]
 disable-model-invocation: true
 ---
 

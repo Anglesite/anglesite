@@ -1,7 +1,8 @@
 ---
 name: new-page
 description: "Create a new page with SEO and accessibility"
-user-invokable: true
+argument-hint: "[page name or purpose]"
+allowed-tools: ["Write", "Read", "Glob"]
 ---
 
 Create a new page on the site.
