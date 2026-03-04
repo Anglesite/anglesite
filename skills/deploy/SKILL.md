@@ -7,6 +7,14 @@ disable-model-invocation: true
 
 Build, scan, and deploy the site to Cloudflare Pages. On first deploy, this also handles Cloudflare account creation and domain setup.
 
+## Architecture decisions
+
+- [ADR-0003 Cloudflare Pages](docs/decisions/0003-cloudflare-pages-hosting.md) — why Cloudflare (free CDN, Wrangler CLI, at-cost domains)
+- [ADR-0007 Pre-deploy scans](docs/decisions/0007-mandatory-pre-deploy-scans.md) — why every deploy is gated by PII, token, script, and Keystatic scans with no override
+- [ADR-0008 No third-party JS](docs/decisions/0008-no-third-party-javascript.md) — why only Cloudflare Analytics is allowed
+- [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — why the Cloudflare account belongs to the owner
+- [ADR-0012 Verify first](docs/decisions/0012-verify-before-presenting.md) — why build must succeed before scans and deploy
+
 Before every tool call or command that will trigger a permission prompt, tell the owner what you're about to do and why in plain English. They should never see a permission dialog without context.
 
 ## Step 0 — First deploy: Cloudflare account

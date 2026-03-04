@@ -7,6 +7,11 @@ allowed-tools: ["Bash(npm run *)", "Bash(npx astro check)", "Bash(lsof *)", "Bas
 
 Something isn't working. Diagnose and fix it.
 
+## Architecture decisions
+
+- [ADR-0010 Local HTTPS](docs/decisions/0010-local-https-development.md) — why local HTTPS is used and how mkcert/hostname/port forwarding fit together
+- [ADR-0012 Verify first](docs/decisions/0012-verify-before-presenting.md) — build to establish baseline before diagnosing
+
 ## Step 1 — Check prerequisites
 
 Before anything else, run the prereq checker and check the project path:

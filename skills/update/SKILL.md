@@ -7,6 +7,10 @@ disable-model-invocation: true
 
 Update dependencies and resolve security issues.
 
+## Architecture decisions
+
+- [ADR-0001 Astro](docs/decisions/0001-astro-static-site-generator.md) — Astro is the core framework; major version bumps may change config format
+
 1. Run `npm outdated` to check for available updates
 2. Run `npm audit` to check for known vulnerabilities
 3. For each update:

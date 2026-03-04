@@ -7,6 +7,12 @@ allowed-tools: ["Write", "Read", "Glob"]
 
 Create a new page on the site.
 
+## Architecture decisions
+
+- [ADR-0001 Astro](docs/decisions/0001-astro-static-site-generator.md) — pages are `.astro` files with zero client JS by default
+- [ADR-0004 Vanilla CSS](docs/decisions/0004-vanilla-css-custom-properties.md) — styling uses CSS custom properties from `global.css`
+- [ADR-0005 System fonts](docs/decisions/0005-system-fonts.md) — no external font loading
+
 1. Ask what the page is for and what content it should have
 2. Create the `.astro` file in `src/pages/`
 3. Use `BaseLayout` with proper title, description, and OG tags

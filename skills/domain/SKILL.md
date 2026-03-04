@@ -8,6 +8,11 @@ disable-model-invocation: true
 
 Manage DNS records for the owner's domain on Cloudflare. All DNS changes are made directly via the Cloudflare API — never ask the owner to add, remove, or modify DNS records themselves. Never open the Cloudflare dashboard for DNS operations.
 
+## Architecture decisions
+
+- [ADR-0003 Cloudflare Pages](docs/decisions/0003-cloudflare-pages-hosting.md) — why DNS is managed through Cloudflare (API access, at-cost registration)
+- [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — why the domain is in the owner's account
+
 Before making any change, tell the owner what you're about to do and why in plain English. After each change, confirm what was done.
 
 ## Prerequisites

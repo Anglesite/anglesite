@@ -7,6 +7,17 @@ disable-model-invocation: true
 
 Welcome a new site owner. This is the first command they'll run — it combines discovery, project scaffolding, design, and tool installation into one guided session.
 
+## Architecture decisions
+
+These decisions shape how the site is built. Read when you need to explain *why* to the owner:
+
+- [ADR-0001 Astro](docs/decisions/0001-astro-static-site-generator.md) — why the site uses Astro (zero client JS, static output)
+- [ADR-0002 Keystatic](docs/decisions/0002-keystatic-local-cms.md) — why content is local `.mdx` files, not a hosted CMS
+- [ADR-0003 Cloudflare Pages](docs/decisions/0003-cloudflare-pages-hosting.md) — why hosting is on Cloudflare (free, CLI deploy, at-cost domains)
+- [ADR-0009 Industry tools](docs/decisions/0009-industry-tools-over-custom-code.md) — why existing tools are integrated, not replaced
+- [ADR-0010 Local HTTPS](docs/decisions/0010-local-https-development.md) — why the dev environment uses HTTPS with a custom hostname
+- [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — why the owner controls all code, content, domain, and hosting
+
 ## How to communicate
 
 Keep each step conversational. Celebrate progress. If something fails, read `~/.anglesite/logs/setup.log` and explain plainly.

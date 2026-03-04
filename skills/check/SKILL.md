@@ -6,6 +6,17 @@ allowed-tools: ["Bash(npx astro check)", "Bash(npm run build)", "Bash(npx pa11y 
 
 Run a full health check on the site. The checklists below are for you (the agent) — **do not show raw checklist items, technical terms, or jargon to the owner.** Translate every finding into plain English. See the Results section at the bottom for how to present findings.
 
+## Architecture decisions
+
+These explain *why* each check category matters:
+
+- [ADR-0004 Vanilla CSS](docs/decisions/0004-vanilla-css-custom-properties.md) — contrast verification against CSS custom properties
+- [ADR-0005 System fonts](docs/decisions/0005-system-fonts.md) — flag external font CDN links as violations
+- [ADR-0006 IndieWeb POSSE](docs/decisions/0006-indieweb-posse.md) — why h-card, h-entry, h-feed, and `rel="me"` are checked
+- [ADR-0007 Pre-deploy scans](docs/decisions/0007-mandatory-pre-deploy-scans.md) — why PII, token, and script scans are mandatory
+- [ADR-0008 No third-party JS](docs/decisions/0008-no-third-party-javascript.md) — why third-party scripts are flagged
+- [ADR-0012 Verify first](docs/decisions/0012-verify-before-presenting.md) — build baseline before checking other categories
+
 Before every tool call or command that will trigger a permission prompt, tell the owner what you're about to do and why in plain English. They should never see a permission dialog without context.
 
 ## Build checks
