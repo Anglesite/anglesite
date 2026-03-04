@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.13] — 2026-03-04
+
+### Added
+- Wix import skill (`/anglesite:import`) — imports blog posts, images, and static pages from Wix sites with redirect mappings for SEO preservation
+- 12 Architectural Decision Records documenting default technical choices (Astro, Keystatic, Cloudflare, vanilla CSS, system fonts, IndieWeb, pre-deploy scans, no third-party JS, industry tools, local HTTPS, owner ownership, verify-before-presenting)
+- "Verify your own work" section in the webmaster guide (build at session start, after changes, before deploy)
+
+### Changed
+- All skills now link to relevant ADRs in an "Architecture decisions" section
+- ADRs framed as owner-changeable defaults, not fixed rules
+- Terminology updated from "small business owner" to inclusive language (individuals, artists, nonprofits, government offices)
+
 ## [0.9.0] — 2026-03-03
 
 First pre-release as a Claude Code plugin.
