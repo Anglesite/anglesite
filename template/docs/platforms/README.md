@@ -13,6 +13,7 @@ Each SMB file recommends tools specific to that business type. These files cover
 | [cal-com.md](cal-com.md) | Business books appointments or consultations |
 | [buttondown.md](buttondown.md) | Business wants a mailing list (default recommendation) |
 | [mailchimp.md](mailchimp.md) | Business already uses Mailchimp or needs 100–500 subscriber free tier |
+| [ghost-newsletter.md](ghost-newsletter.md) | Migrating from Ghost/Substack with existing subscribers, or wants paid subscriptions or self-hosted email |
 | [yelp.md](yelp.md) | Consumer-facing local business, especially services and food |
 | [tripadvisor.md](tripadvisor.md) | Hospitality, tours, attractions, restaurants in tourist areas |
 | [honeybook.md](honeybook.md) | Client-based business with proposals, contracts, and invoicing |

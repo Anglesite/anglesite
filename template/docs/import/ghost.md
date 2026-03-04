@@ -94,6 +94,43 @@ Ghost's default URL pattern is `/{slug}/`:
 
 Ghost supports custom routing via `routes.yaml`, so check the actual `url` field from the API response rather than assuming a pattern.
 
+## Newsletter subscriber migration
+
+Ghost is a newsletter platform as well as a blog. When importing from Ghost, the owner likely has email subscribers they want to keep.
+
+### Exporting subscribers from Ghost
+
+**Via Ghost Admin UI (easiest):** Ghost Admin → Members → Export. This downloads a CSV with all subscriber emails, names, subscription dates, and membership tiers.
+
+**Via Admin API (programmatic):**
+
+```sh
+curl -s "GHOST_URL/ghost/api/admin/members/?limit=100&page=1" \
+  -H "Authorization: Bearer JWT_TOKEN"
+```
+
+The Admin API requires a JWT token generated from the Admin API key (different from the Content API key). Each member object contains:
+- `email` — subscriber email address
+- `name` — subscriber name
+- `created_at` — subscription date
+- `status` — "free", "paid", or "comped"
+- `subscribed` — boolean (opted in to emails)
+- `labels` — array of label objects
+
+Paginate with `&page=2`, `&page=3`, etc.
+
+### Migration paths
+
+**Ghost → Ghost (keep using Ghost as newsletter backend):** No subscriber migration needed. The owner keeps their Ghost instance running for email delivery. See `docs/platforms/ghost-newsletter.md` for how to connect Ghost as the newsletter backend for the Anglesite site.
+
+**Ghost → Buttondown:** Export the members CSV from Ghost Admin. Import it into Buttondown at buttondown.email → Subscribers → Import. Buttondown accepts standard CSV with email and name columns.
+
+**Ghost → Mailchimp:** Export the members CSV from Ghost Admin. Import into Mailchimp via Audience → Add contacts → Import contacts → CSV file.
+
+### When to offer this
+
+During the import, after content has been imported, check if the Ghost site has newsletter features enabled. If the Content API shows posts with `email_only` visibility or the owner mentions a newsletter, ask about subscriber migration. See the import skill's newsletter step for the conversation flow.
+
 ## Common issues
 
 - **API key required**: The Content API needs a key. If the owner can't provide one, fall back to the RSS feed at `/rss/`.

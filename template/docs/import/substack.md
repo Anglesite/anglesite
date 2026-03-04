@@ -96,6 +96,37 @@ Substack post URLs follow a consistent pattern:
 
 The `/p/` prefix is consistent across all Substack publications.
 
+## Newsletter subscriber migration
+
+Substack is primarily a newsletter platform. The owner almost certainly has email subscribers they want to keep when migrating away.
+
+### Exporting subscribers from Substack
+
+The owner exports from Dashboard → Settings → Exports. This downloads a ZIP file containing:
+
+- **Subscriber CSV** — email addresses with subscription date, status (active/paused/cancelled), and type (free/paid)
+- **Post content** — may include post CSVs (but the RSS feed is better for content extraction)
+
+The subscriber CSV columns:
+- `email` — subscriber email address
+- `created_at` — subscription date
+- `active_subscription` — whether currently subscribed
+- `type` — "free" or "paid"
+- `expiry` — paid subscription expiration date (if applicable)
+- `plan_id` — Stripe plan ID (paid subscribers only)
+
+### Migration paths
+
+**Substack → Ghost:** Ghost has a built-in Substack importer. In Ghost Admin → Settings → Advanced → Import/Export → Import, select "Substack" and upload the ZIP export. Ghost imports both content and subscribers automatically. This is the fastest path if the owner wants Ghost as their newsletter backend. See `docs/platforms/ghost-newsletter.md`.
+
+**Substack → Buttondown:** Buttondown has a dedicated Substack import feature at buttondown.email → Settings → Importing. Upload the subscriber CSV. Buttondown handles the mapping automatically.
+
+**Substack → Mailchimp:** Import the subscriber CSV into Mailchimp via Audience → Add contacts → Import contacts → CSV file. Map the `email` column to Mailchimp's email field.
+
+### When to offer this
+
+Always offer newsletter migration when importing from Substack — every Substack publication has subscribers. Ask the owner about their subscriber list after content import is complete. See the import skill's newsletter step for the conversation flow.
+
 ## Common issues
 
 - **No tags or categories**: Substack does not have a tagging system. Imported posts will have empty tags. Suggest the owner add tags after import.
