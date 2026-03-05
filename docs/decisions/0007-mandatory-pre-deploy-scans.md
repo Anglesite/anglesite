@@ -10,7 +10,7 @@ decision-makers: [Anglesite maintainers]
 
 ## Context and Problem Statement
 
-The Webmaster agent has direct access to deploy a website to production via Wrangler CLI. A single mistake — an email address left in HTML, an API key in source, a tracking script added during development — could expose the owner's private data or compromise their site's security. The deployment pipeline needs a hard gate that prevents these mistakes from reaching production, regardless of whether the agent or the owner requests the deploy.
+The Webmaster agent deploys the website to production by pushing to `main` (Cloudflare Pages Git integration auto-deploys). A single mistake — an email address left in HTML, an API key in source, a tracking script added during development — could expose the owner's private data or compromise their site's security. The deployment pipeline needs a hard gate that prevents these mistakes from reaching production, regardless of whether the agent or the owner requests the deploy.
 
 ## Decision Drivers
 
@@ -45,7 +45,7 @@ Chosen option: "Mandatory pre-deploy scan script (hard gate)", because it runs f
 
 ### Confirmation
 
-The `scripts/pre-deploy-check.sh` script runs before `npx wrangler pages deploy`. The `/anglesite:deploy` skill invokes these checks as a mandatory step. A PreToolUse hook in `hooks/hooks.json` provides an additional enforcement layer.
+The `scripts/pre-deploy-check.ts` script runs before every deploy. The `/anglesite:deploy` skill invokes these checks as a mandatory step (Step 2). On Cloudflare's build system, the build command `npm run build && npm run predeploy` ensures scans also run remotely — belt and suspenders.
 
 ## Pros and Cons of the Options
 
@@ -75,7 +75,7 @@ Four checks, all required:
 
 * Good, because industry-standard approach for automated checks
 * Good, because checks run in a clean environment
-* Bad, because requires a GitHub repository — Anglesite deploys via Wrangler CLI without Git integration
+* Neutral, because Anglesite already uses GitHub for backup — CI checks could be added later
 * Bad, because adds complexity and a GitHub dependency for non-technical owners
 * Bad, because the owner cannot easily understand or troubleshoot CI failures
 

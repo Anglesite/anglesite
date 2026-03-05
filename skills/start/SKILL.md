@@ -1,7 +1,7 @@
 ---
 name: start
 description: "First-time setup: discovery, design, tools, preview"
-allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Write, Read, Glob
+allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Bash(gh *), Bash(git remote *), Bash(git push *), Bash(git branch *), Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -206,7 +206,69 @@ Tell the owner: "I'm saving a snapshot of your website so you can always get bac
 
 Run `git add -A` then `git commit -m "Setup: SITE_NAME website"` (replace SITE_NAME with the actual name from `.site-config`). Do not ask the owner to run these — just do it.
 
-## Step 5 — Preview
+## Step 5 — Back up to GitHub
+
+Tell the owner: "Now let's back up your website to the cloud so your work is always safe, even if something happens to your computer."
+
+### GitHub account
+
+Ask: "Do you have a GitHub account, or should we create one?"
+
+If they need one, tell them to open `https://github.com/signup` in their browser. Walk them through: pick a username, enter email, set password. Wait for them to confirm they're signed in.
+
+### Authenticate
+
+Tell the owner: "I need to connect your computer to GitHub. Your browser will open asking you to authorize the connection — just click **Authorize**."
+
+```sh
+gh auth login --web --git-protocol https
+```
+
+Wait for authentication to succeed. If it fails, run `gh auth status` and try again.
+
+### Create the repository
+
+Derive a repo name from `SITE_NAME` in `.site-config` — slugify it (lowercase, hyphens, no special characters). Create a private repo and push:
+
+```sh
+gh repo create REPO_NAME --private --source . --remote origin --push
+```
+
+This creates the private GitHub repository, adds it as the `origin` remote, and pushes the `draft` branch. The `--private` flag ensures the website source is not publicly visible.
+
+Now create the `main` branch (used for production deploys) and push it:
+
+```sh
+git branch main
+```
+
+```sh
+git push origin main
+```
+
+Stay on `draft` — all day-to-day work happens there. The `main` branch is only updated during `/anglesite:deploy`.
+
+Save `GITHUB_REPO=OWNER/REPO_NAME` to `.site-config` using the **Write tool** (update the existing file). Get the owner/repo value by running:
+
+```sh
+gh repo view --json nameWithOwner --jq .nameWithOwner
+```
+
+### Create issue labels
+
+Set up labels for bug tracking:
+
+```sh
+gh label create bug --description "Something is broken" --color d73a4a
+gh label create accessibility --description "WCAG or usability issue" --color 0075ca
+gh label create security --description "Security or privacy concern" --color e4e669
+gh label create content --description "Content error or missing content" --color 0e8a16
+gh label create build --description "Build or deploy failure" --color fbca04
+```
+
+Tell the owner: "Your website is backed up to GitHub! Every time we make changes, they'll be saved there automatically. If anything ever happens to your computer, your website is safe."
+
+## Step 6 — Preview
 
 Tell the owner: "Let's see your website! Click the **Preview** button in the toolbar above — it will start your site and show it right here in the app."
 
@@ -216,13 +278,13 @@ Once they see it: "That's your website running securely on your computer — see
 
 If they want to open it in a regular browser: "You can also visit https://DEV_HOSTNAME in Safari or Chrome." (Replace `DEV_HOSTNAME` with the actual value from `.site-config`.)
 
-## Step 6 — Iterate
+## Step 7 — Iterate
 
 Ask: "What do you think? Want to change anything?"
 
 If they want changes, make them now. If they want to redo the whole design later, they can run `/anglesite:design-interview`.
 
-## Step 7 — What this costs
+## Step 8 — What this costs
 
 Be upfront about costs: "Before we go further, here's what running your website costs:"
 
@@ -230,17 +292,17 @@ Be upfront about costs: "Before we go further, here's what running your website 
 - **Domain name** — ~$10–15/year if you buy one (or free with the .pages.dev address)
 - **Everything else** — Free. You own the code, the domain, and all your data.
 
-## Step 8 — What you learned
+## Step 9 — What you learned
 
 Summarize what the owner now knows:
 
 - Their website is running on their computer (the preview)
 - They can write and edit blog posts using Keystatic (the visual editor in the preview)
 - Changes go live with `/anglesite:deploy`
-- Their files are backed up in version history (so they can undo changes)
+- Their website is backed up to GitHub automatically (every deploy pushes a copy)
 - They own everything — code, domain name, content. No lock-in.
 
-## Step 9 — Next steps
+## Step 10 — Next steps
 
 Tell the owner what they can do now:
 

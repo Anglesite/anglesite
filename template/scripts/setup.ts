@@ -37,6 +37,8 @@ import {
   localBinDir,
   mkcertBin as mkcertBinPath,
   mkcertDownloadUrl,
+  ghCliBin as ghCliBinPath,
+  ghCliDownloadUrl,
   needsXcodeTools,
   hasPfctl,
   notifyCommand,
@@ -316,6 +318,87 @@ async function installMkcert(): Promise<void> {
   log("mkcert installed.");
 }
 
+/** Install the GitHub CLI (`gh`) if missing. */
+async function installGhCli(): Promise<void> {
+  if (await commandExists("gh")) {
+    log("GitHub CLI already installed.");
+    return;
+  }
+
+  const ghPath = ghCliBinPath();
+  if (existsSync(ghPath)) {
+    log("GitHub CLI already installed.");
+    return;
+  }
+
+  log("Installing GitHub CLI (for backup and issue tracking)…");
+
+  if (DRY_RUN) {
+    log("[dry-run] would download GitHub CLI binary");
+    return;
+  }
+
+  if (isWindows) {
+    consola.warn("On Windows, install the GitHub CLI: winget install GitHub.cli");
+    skipped.push("GitHub CLI (install manually: winget install GitHub.cli)");
+    return;
+  }
+
+  // Fetch latest version tag from the GitHub API
+  let version: string;
+  try {
+    const res = await fetch("https://api.github.com/repos/cli/cli/releases/latest");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as { tag_name: string };
+    version = data.tag_name.replace(/^v/, "");
+  } catch {
+    consola.warn("Could not determine latest GitHub CLI version — skipping.");
+    skipped.push("GitHub CLI (version check failed)");
+    return;
+  }
+
+  const cpuArch = arch();
+  const url = ghCliDownloadUrl(version, cpuArch);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    consola.warn("Failed to download GitHub CLI — skipping.");
+    skipped.push("GitHub CLI download");
+    return;
+  }
+
+  const binDir = localBinDir();
+  mkdirSync(binDir, { recursive: true });
+
+  // Download tarball and extract the `gh` binary
+  const tarball = resolve(LOG_DIR, "gh.tar.gz");
+  const buffer = Buffer.from(await response.arrayBuffer());
+  writeFileSync(tarball, buffer);
+
+  const extractDir = resolve(LOG_DIR, "gh-extract");
+  mkdirSync(extractDir, { recursive: true });
+  await run(`tar -xzf ${tarball} -C ${extractDir}`);
+
+  // The tarball extracts to gh_VERSION_OS_ARCH/bin/gh
+  const os = isMacos ? "macOS" : "linux";
+  const archName = cpuArch === "arm64" ? "arm64" : "amd64";
+  const extractedBin = resolve(extractDir, `gh_${version}_${os}_${archName}`, "bin", "gh");
+
+  if (existsSync(extractedBin)) {
+    const dest = resolve(binDir, "gh");
+    writeFileSync(dest, readFileSync(extractedBin));
+    chmodSync(dest, 0o755);
+    log("GitHub CLI installed.");
+  } else {
+    consola.warn("Could not find gh binary in downloaded archive — skipping.");
+    skipped.push("GitHub CLI (extraction failed)");
+  }
+
+  // Clean up temp files
+  writeFileSync(tarball, "");
+  await run(`rm -rf ${extractDir}`).catch(() => {});
+}
+
 /** Trust the local CA in the system certificate store. */
 async function trustLocalCA(): Promise<void> {
   const mkcertPath = mkcertBinPath();
@@ -502,7 +585,7 @@ async function initGit(): Promise<void> {
   }
 
   log("Initializing git…");
-  await run("git init", { cwd: PROJECT_DIR });
+  await run("git init -b draft", { cwd: PROJECT_DIR });
   await run("git add -A", { cwd: PROJECT_DIR });
   await run('git commit -m "Initial setup"', { cwd: PROJECT_DIR });
   log("Git initialized.");
@@ -561,6 +644,7 @@ async function main(): Promise<void> {
   await ensureShellProfile();
   await installDependencies();
   await installMkcert();
+  await installGhCli();
   await trustLocalCA();
   await generateCert();
   await configureSystemHttps();

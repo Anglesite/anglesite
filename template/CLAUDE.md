@@ -21,6 +21,12 @@ For everything else — adding a page, changing the design, adding animations, u
 
 To write and edit blog posts, they navigate to `https://DEV_HOSTNAME/keystatic` in the preview panel (while the dev server is running). Read `DEV_HOSTNAME` from `.site-config`.
 
+## Reference docs
+
+| Topic | File |
+|---|---|
+| GitHub backup and bugs | `docs/github.md` |
+
 ## Shell commands
 
 **Never chain commands** with `&&`, `||`, or `;`. Chained commands bypass the pre-approved permission rules and trigger a "Do you want to proceed?" prompt that confuses the owner. One command per invocation.

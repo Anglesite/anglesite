@@ -2,7 +2,7 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(dscacheutil *), Bash(getent *), Bash(nslookup *), Write, Read, Glob
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(dscacheutil *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob
 ---
 
 Run a full health check on the site — and fix what you find. If the owner described a specific problem, diagnose that first; otherwise run the full audit below. The checklists are for you (the agent) — **do not show raw checklist items, technical terms, or jargon to the owner.** Translate every finding into plain English. See the Results section at the bottom for how to present findings.
@@ -144,6 +144,17 @@ Never show the owner: CSS selectors, HTML tag names, HTTP headers, schema.org te
 If any must-fix issues are found, explain and offer to fix them. If everything passes, keep it short: "Your site looks good — it builds correctly, works on phones, is secure, and is easy for search engines to find. No issues."
 
 After the check, tell the owner: "This is the same kind of checkup a good web developer would do regularly. Your site should get one of these at least once a month — just type `/anglesite:check` anytime."
+
+## File bugs for persistent issues
+
+After the audit, if any must-fix issues were found that couldn't be resolved in the current session, file a GitHub issue for each one. Read `GITHUB_REPO` from `.site-config`. If not set, skip this step.
+
+Follow the bug filing workflow in `AGENTS.md`. Use the appropriate label:
+- Accessibility violations → `accessibility`
+- Security findings → `security`
+- Build failures → `build`
+- Content issues → `content`
+- Everything else → `bug`
 
 ## Troubleshooting
 

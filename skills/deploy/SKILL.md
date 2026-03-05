@@ -1,37 +1,36 @@
 ---
 name: deploy
 description: "Build, security scan, and deploy to Cloudflare Pages"
-allowed-tools: Bash(npm run build), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(open *), Bash(git add *), Bash(git commit *), Write, Read
+allowed-tools: Bash(npm run build), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(open *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Write, Read
 disable-model-invocation: true
 ---
 
-Build, scan, and deploy the site to Cloudflare Pages. On first deploy, this also handles Cloudflare account creation and domain setup.
+Build, scan, and deploy the site to Cloudflare Pages. On first deploy, this also handles Cloudflare account creation, Git integration setup, and domain configuration.
+
+Cloudflare Pages is connected to the GitHub repository. Pushing to `main` triggers a production deploy. Pushing to `draft` (or any other branch) creates a preview deploy.
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — why Cloudflare (free CDN, Wrangler CLI, at-cost domains)
+- [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — why Cloudflare (free CDN, Git integration, at-cost domains)
 - [ADR-0007 Pre-deploy scans](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0007-mandatory-pre-deploy-scans.md) — why every deploy is gated by PII, token, script, and Keystatic scans with no override
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — why only Cloudflare Analytics is allowed
 - [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — why the Cloudflare account belongs to the owner
 - [ADR-0012 Verify first](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0012-verify-before-presenting.md) — why build must succeed before scans and deploy
+- [ADR-0013 GitHub backup](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0013-github-backup.md) — why GitHub is required for backup and issue tracking
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
 
 ## Step 0 — First deploy: Cloudflare account
 
-If Wrangler has never been authorized (first time running `/anglesite:deploy`), the owner needs a Cloudflare account first.
+If this is the first time running `/anglesite:deploy`, the owner needs a Cloudflare account.
 
 Tell them: "To put your website on the internet, we need a free Cloudflare account. It's where your site will live — fast and free."
 
 Ask: "Do you already have a Cloudflare account, or should we create one?"
 
-If they need one, tell them you're opening the sign-up page:
-
-Open the sign-up page in their browser: `https://dash.cloudflare.com/sign-up`
+If they need one, tell them to open the sign-up page in their browser: `https://dash.cloudflare.com/sign-up`
 
 Walk them through: click "Sign in with Apple", approve, done. Wait for confirmation before continuing.
-
-Then tell them: "The first time we publish, your browser will open asking you to authorize the connection between your computer and Cloudflare — just click Authorize."
 
 Skip this step entirely on subsequent deploys.
 
@@ -65,7 +64,7 @@ Multiple emails are comma-separated: `PII_EMAIL_ALLOW=info@example.com,hello@exa
 
 Then re-run `npm run predeploy` to confirm it passes.
 
-## Step 2.5 — Staging preview (first deploy only)
+## Step 2.5 — Preview (first deploy only)
 
 If this is the first deploy, offer a choice:
 
@@ -73,63 +72,73 @@ Tell the owner: "Your site is ready to go online. Would you like to:"
 - **Preview first** — "Put it on a private link so you can check it before anyone else sees it"
 - **Go live** — "Publish it right away"
 
-If they choose **preview first**, continue below. If they choose **go live**, skip to Step 3.
-
-Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their site name), then add `CF_PROJECT_NAME=project-name` to `.site-config` using the **Write tool** (update the existing file).
-
-Create the project (first deploy only — this is required before any deploy):
+If they choose **preview first**, push the `draft` branch to GitHub:
 
 ```sh
-npx wrangler pages project create CF_PROJECT_NAME --production-branch main
+git add -A
 ```
-
-If this fails with "A project with this name already exists", that's fine — continue.
-
-Deploy to a preview branch:
 
 ```sh
-npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --branch preview --commit-dirty=true
+git commit -m "Preview: YYYY-MM-DD HH:MM"
 ```
 
-This creates a preview URL like `preview.CF_PROJECT_NAME.pages.dev`. Open it:
+```sh
+git push origin draft
+```
 
-Open the preview in their browser: `https://preview.CF_PROJECT_NAME.pages.dev`
+Tell the owner: "Once we connect Cloudflare in the next step, your preview will be at a link like `draft.YOUR-PROJECT.pages.dev`. Let's set that up now."
 
-Tell the owner: "This is a preview — only people with this link can see it. Take a look and let me know if everything looks right. When you're ready, I'll make it live for everyone."
-
-Wait for approval, then continue to Step 3 for the production deploy.
+If they choose **go live**, continue to Step 3.
 
 On subsequent deploys, skip this step.
 
-## Step 3 — Deploy
-
-Tell the owner: "Everything looks clean. I'm uploading your site to Cloudflare now."
+## Step 3 — First deploy: Connect Cloudflare to GitHub
 
 Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their site name), then add `CF_PROJECT_NAME=project-name` to `.site-config` using the **Write tool** (update the existing file).
 
-On first deploy, create the project (skip if already done in Step 2.5):
+Tell the owner: "Now let's connect Cloudflare to your GitHub so your site deploys automatically whenever we publish changes."
+
+Guide them through the Cloudflare dashboard:
+
+1. Open in their browser: `https://dash.cloudflare.com/?to=/:account/pages/new/provider/github`
+
+2. "Click **Connect to Git**. If GitHub asks you to authorize the Cloudflare app, click **Authorize**."
+
+3. "Select your GitHub account, then find and select the repository for your website." (The repo name matches what's in `.site-config` as `GITHUB_REPO`.)
+
+4. "Now we need to set the build settings:"
+   - Framework preset: **Astro**
+   - Build command: `npm run build && npm run predeploy`
+   - Build output directory: `dist`
+   - Production branch: `main`
+
+5. "Click **Save and Deploy**. Cloudflare will build your site from GitHub — this takes about a minute."
+
+Wait for the build to complete. If it succeeds, the site is live at `CF_PROJECT_NAME.pages.dev`.
+
+If the owner chose "preview first" in Step 2.5, they can now see the preview at `draft.CF_PROJECT_NAME.pages.dev`. Wait for approval, then merge to `main` and push to trigger the production deploy:
 
 ```sh
-npx wrangler pages project create CF_PROJECT_NAME --production-branch main
+git checkout main
 ```
-
-If this fails with "A project with this name already exists", that's fine — continue.
-
-Deploy:
 
 ```sh
-npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --commit-dirty=true
+git merge draft --no-edit
 ```
 
-(Replace `CF_PROJECT_NAME` with the actual value from `.site-config`.)
+```sh
+git push origin main
+```
 
-If this is the first deploy, open the live site and celebrate:
+```sh
+git checkout draft
+```
 
-Open the live site in their browser: `https://CF_PROJECT_NAME.pages.dev`
+If the owner chose "go live", the initial deploy already built from `main` — production is live.
 
-Tell the owner: "Your website is live! Anyone can visit it at that address."
+Tell the owner: "Your website is live! Anyone can visit it at `CF_PROJECT_NAME.pages.dev`."
 
-On subsequent deploys, skip to Step 7 (commit).
+On subsequent deploys, skip to Step 7.
 
 ## Step 4 — First deploy: Domain setup
 
@@ -199,7 +208,7 @@ If `DEV_HOSTNAME` in `.site-config` doesn't already end with the chosen domain, 
 npm run ai-setup
 ```
 
-The setup script detects the hostname change, generates a new certificate, and updates `/etc/hosts`.
+The setup script detects the hostname change, generates a new certificate, and updates the hosts file.
 
 ## Step 5 — First deploy: Connect custom domain to Pages
 
@@ -226,14 +235,34 @@ Update the site configuration (astro.config.ts reads `SITE_DOMAIN` from `.site-c
 - `public/robots.txt`: add `Sitemap: https://SITE_DOMAIN/sitemap-index.xml`
 - `docs/cloudflare.md`: note the domain and DNS setup
 
-Rebuild and redeploy with the correct URLs:
+Rebuild and push to deploy with the correct URLs:
 
 ```sh
 npm run build
 ```
 
 ```sh
-npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --commit-dirty=true
+git add -A
+```
+
+```sh
+git commit -m "Add custom domain: SITE_DOMAIN"
+```
+
+```sh
+git checkout main
+```
+
+```sh
+git merge draft --no-edit
+```
+
+```sh
+git push origin main
+```
+
+```sh
+git checkout draft
 ```
 
 Tell the owner: "Your website is now live at your custom domain! SSL is handled automatically."
@@ -250,8 +279,46 @@ Explain what they'll see: page views, visitor count, where visitors come from (G
 
 Remind them of the goals they shared during `/anglesite:start`: "You said you wanted [goal]. Once you've been live for a few weeks, check analytics to see if visitors are finding the pages that matter — like your [menu/services/portfolio] page."
 
-## Step 7 — Save a snapshot
+## Step 7 — Deploy
 
-Run `git add -A` then `git commit -m "Publish: YYYY-MM-DD HH:MM"` (use the current date and time). Do not ask the owner to run these — just do it.
+Commit all changes on `draft`:
 
-Tell the owner: "Your changes are saved and live! They'll appear on the site in about a minute."
+```sh
+git add -A
+```
+
+```sh
+git commit -m "Publish: YYYY-MM-DD HH:MM"
+```
+
+Push `draft` to GitHub (backup + preview):
+
+```sh
+git push origin draft
+```
+
+Merge to `main` and push (triggers production deploy via Cloudflare Git integration):
+
+```sh
+git checkout main
+```
+
+```sh
+git merge draft --no-edit
+```
+
+```sh
+git push origin main
+```
+
+Return to working branch:
+
+```sh
+git checkout draft
+```
+
+If the merge fails, there are changes on `main` that `draft` doesn't have. Run `git checkout draft` then `git merge main` to sync, resolve any conflicts, then retry the deploy.
+
+If the push fails (e.g., auth expired), tell the owner: "I couldn't publish to GitHub — let's fix the connection." Run `gh auth login --web` to re-authenticate, then retry.
+
+Tell the owner: "Your changes are live! They'll appear on the site in about a minute."

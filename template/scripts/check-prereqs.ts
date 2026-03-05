@@ -90,6 +90,31 @@ async function main(): Promise<void> {
     console.log("node_modules=missing");
   }
 
+  // --- GitHub ---
+
+  // GitHub CLI
+  await check("gh", "gh");
+
+  // GitHub auth status
+  const ghAuth = await firstLine("gh auth status");
+  if (ghAuth !== null) {
+    console.log("gh_auth=authenticated");
+  } else {
+    console.log("gh_auth=not authenticated");
+  }
+
+  // Git remote
+  const gitRemote = await firstLine("git remote get-url origin");
+  if (gitRemote) {
+    console.log(`git_remote=${gitRemote}`);
+  } else {
+    console.log("git_remote=none");
+  }
+
+  // Git branch
+  const branch = await firstLine("git branch --show-current");
+  console.log(`git_branch=${branch ?? "unknown"}`);
+
   // --- HTTPS ---
 
   // mkcert

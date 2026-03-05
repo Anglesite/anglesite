@@ -22,3 +22,4 @@ ADRs follow the [MADR](https://adr.github.io/madr/) format.
 - [ADR-0010](0010-local-https-development.md) — Use local HTTPS that mirrors production
 - [ADR-0011](0011-owner-controls-everything.md) — The website owner controls all code, content, domain, and hosting
 - [ADR-0012](0012-verify-before-presenting.md) — Verify changes work before presenting them to the owner
+- [ADR-0013](0013-github-backup.md) — Use GitHub for offsite backup and issue tracking

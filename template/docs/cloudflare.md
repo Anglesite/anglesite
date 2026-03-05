@@ -3,8 +3,11 @@
 ## Pages project
 
 - Project name: stored in `.site-config` as `CF_PROJECT_NAME` (set during first `/anglesite:deploy`)
-- Deploy command: `npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME`
-- First deploy triggers OAuth in browser (Sign in with Apple)
+- Connected to GitHub via Cloudflare Pages Git integration (dashboard setup)
+- Production branch: `main` — push triggers auto-deploy
+- Preview branches: any non-`main` branch creates a preview at `branch.CF_PROJECT_NAME.pages.dev`
+- Build command: `npm run build && npm run predeploy`
+- Build output: `dist`
 
 ## Custom domain
 
@@ -16,14 +19,14 @@ Configured during `/anglesite:deploy` after the first publish. Stored in `.site-
 
 **Transfer an existing domain** — Move a domain from another registrar to Cloudflare. Requires: domain unlocked at current registrar, authorization/EPP code. Transfers extend registration by 1 year. Usually completes within hours, can take up to 5 days.
 
-**Point an existing domain** — Keep the domain at its current registrar but use Cloudflare's nameservers for DNS. The webmaster adds the domain via the Cloudflare API and tells the owner which nameservers to set at their current registrar. Propagation usually takes minutes, can take up to 48 hours.
+**Point an existing domain** — Keep the domain at its current registrar but use Cloudflare's nameservers for DNS. Add the domain via the Cloudflare dashboard and update nameservers at the current registrar. Propagation usually takes minutes, can take up to 48 hours.
 
 ### DNS management
 
-All DNS records are managed by the webmaster via the Cloudflare API (`npx wrangler auth token` + REST API). The owner is never asked to add, remove, or modify DNS records directly. The webmaster explains what will be done and why before each change, and confirms what was done after.
+DNS records are managed via the Cloudflare dashboard or `/anglesite:domain`. The owner is never asked to add, remove, or modify DNS records directly. The webmaster explains what will be done and why before each change, and confirms what was done after.
 
 Typical configuration after domain is on Cloudflare:
-- CNAME `www` → `project-name.pages.dev` (auto-created when custom domain is added to Pages project via API)
+- CNAME `www` → `project-name.pages.dev` (auto-created when custom domain is added to Pages project)
 - SSL certificate: provisioned automatically (free)
 - Email records (MX, SPF, DKIM, DMARC) added via `/anglesite:domain`
 - Verification records (Bluesky, Google) added via `/anglesite:domain`
@@ -40,13 +43,11 @@ The Cloudflare MCP is provided by the Claude.ai built-in integration (claude.ai 
 
 ## Staging previews
 
-Wrangler supports branch deploys. Deploy to a non-production branch to get a preview URL:
+Cloudflare Pages Git integration creates preview deploys for any branch that isn't `main`. The `draft` branch automatically gets a preview at:
 
-```sh
-npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --branch preview
 ```
-
-This creates `preview.CF_PROJECT_NAME.pages.dev`. The preview is not indexed by search engines and is separate from the production deploy.
+draft.CF_PROJECT_NAME.pages.dev
+```
 
 Use previews for:
 - First-time review before going live
@@ -66,19 +67,25 @@ If a deploy breaks something:
 This instantly reverts the live site. The broken code is still in git — you'll need to fix it and redeploy.
 
 **Rollback via git:**
-If the issue is in a recent commit, use git revert to undo it, then rebuild and redeploy:
+If the issue is in a recent commit, use git revert on `main`, then push to trigger a new deploy:
+
+```sh
+git checkout main
+```
 
 ```sh
 git revert HEAD
 ```
 
 ```sh
-npm run build
+git push origin main
 ```
 
 ```sh
-npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME
+git checkout draft
 ```
+
+Also cherry-pick or revert on `draft` so the fix is reflected in the working branch.
 
 **When to use which:**
 - **Dashboard rollback** — Immediate fix, site is down or broken, need it fixed in seconds
@@ -95,9 +102,10 @@ Defined in `public/_headers`. Applied to all routes:
 
 ## Troubleshooting
 
-- **Deploy fails:** Check `~/.anglesite/logs/deploy.log`. Common: Wrangler auth expired → `npx wrangler login`
+- **Deploy fails:** Check the Cloudflare Pages build log in the dashboard. Common: build command error, missing dependency.
 - **Site not updating:** Cloudflare cache. Wait 1–2 minutes or purge cache in dashboard.
 - **DNS not resolving:** Propagation can take up to 48 hours (usually minutes). Check nameserver configuration.
 - **Domain transfer stuck:** Check email for transfer confirmation from previous registrar. Some registrars require manual approval.
 - **SSL not working:** Cloudflare provisions SSL automatically. If it shows "pending", wait 15 minutes. Check that the domain's DNS is proxied (orange cloud icon in Cloudflare DNS settings).
 - **CSP errors in console:** A script or style is loading from an unapproved domain. Check `_headers`.
+- **Push rejected:** Run `git pull --rebase origin main` (or `draft`) then retry push.

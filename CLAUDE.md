@@ -80,7 +80,8 @@ Three levels of agent instructions:
 | Claude Code Plugin | Marketplace distribution, versioning, namespace isolation |
 | Astro (not Next/Nuxt) | Zero client JS by default, best for static content sites |
 | Keystatic (not headless CMS) | Local `.mdx` files, no external API dependency |
-| Cloudflare Pages (not Vercel/Netlify) | Free, fast, direct Wrangler deploy without Git integration |
+| Cloudflare Pages (not Vercel/Netlify) | Free, fast, Git integration auto-deploys from `main` |
+| GitHub (not GitLab) | `gh` CLI browser OAuth is simplest for non-technical users; private repos free |
 | Vanilla CSS | No build-time framework overhead, custom properties for theming |
 | Industry tools first | Recommend purpose-built solutions (Square, Shopify, Clio, etc.) over generic databases |
 

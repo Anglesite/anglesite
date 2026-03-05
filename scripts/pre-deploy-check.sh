@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse hook: block deploys that fail security scans.
-# Reads tool input JSON from stdin. If the command contains
-# "wrangler pages deploy", runs 4 mandatory checks against dist/.
+# Reads tool input JSON from stdin. If the command pushes to main
+# (production deploy), runs 4 mandatory checks against dist/.
 # Returns JSON with permissionDecision "deny" to block, or exits 0 to allow.
 
 set -euo pipefail
@@ -9,13 +9,18 @@ set -euo pipefail
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 
-# Pass through anything that isn't a wrangler deploy
-if [[ "$COMMAND" != *"wrangler pages deploy"* ]]; then
+# Pass through anything that isn't a push to main
+if [[ "$COMMAND" != *"git push"*"main"* ]]; then
   exit 0
 fi
 
 DIST="dist"
 REASONS=()
+
+# Only run checks if dist/ exists (build has been run)
+if [[ ! -d "$DIST" ]]; then
+  exit 0
+fi
 
 # Read PII_EMAIL_ALLOW from .site-config (comma-separated list of allowed emails)
 PII_ALLOW=""

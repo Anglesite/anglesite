@@ -8,8 +8,9 @@ The owner owns everything. There is no platform lock-in, no proprietary code, no
 
 | Asset | Where it lives | How to transfer |
 |---|---|---|
-| Website code and content | Local project folder (and cloud backup if configured) | Copy the folder |
-| Git history | `.git/` directory inside the project folder | Included when copying the folder |
+| Website code and content | Local project folder and GitHub (private repo) | Copy the folder or clone from GitHub |
+| Git history | `.git/` directory and GitHub | Included when copying the folder or cloning |
+| GitHub repository | Owner's GitHub account | Add the developer as a collaborator, or transfer the repo |
 | Domain name | Cloudflare Registrar (or owner's registrar) | Domain transfer or nameserver change |
 | Cloudflare Pages project | Owner's Cloudflare account | Add the new person as a Cloudflare member, or redeploy from their own account |
 | DNS records | Cloudflare DNS | Export/recreate in new DNS provider |
@@ -30,7 +31,7 @@ The most common scenario — the owner wants someone else to manage the site.
 
 1. **The website folder** — The entire project directory. This contains everything needed to build, run, and deploy the site. Copy it via AirDrop, USB drive, or zip and email.
 2. **Cloudflare access** — Add the developer as a member on the Cloudflare account with appropriate permissions (not Super Administrator). Go to: Cloudflare dashboard → Manage Account → Members → Invite.
-3. **Git access** — If the project is on GitLab (or GitHub), add the developer as a member. If it's local-only, the folder copy is the repository.
+3. **GitHub access** — Add the developer as a collaborator on the GitHub repository (Settings → Collaborators → Add people). They can clone it directly.
 4. **Domain registrar access** — If the domain is on Cloudflare, the Cloudflare member invitation covers it. If it's on a separate registrar, add the developer as an authorized contact.
 5. **`.site-config` contents** — This file contains project name, domain, email, and API keys (if any). It's in the website folder already.
 
@@ -40,7 +41,7 @@ The new developer needs to understand:
 
 - **How to run locally:** `npm install && npm run ai-setup && npm run dev` — runs with HTTPS at the hostname configured in `.site-config`. The setup script installs mkcert, generates a locally-trusted certificate, updates the hosts file, and configures port forwarding (443 → 4321). Works on macOS, Linux, and Windows. See `docs/local-https.md`.
 - **How to build:** `npm run build`
-- **How to deploy:** `npx wrangler pages deploy dist/ --project-name PROJECT_NAME`
+- **How to deploy:** merge `draft` into `main` and `git push origin main` (Cloudflare auto-deploys via Git integration)
 - **How to edit content:** Keystatic at `https://DEV_HOSTNAME/keystatic` while the dev server is running (read `DEV_HOSTNAME` from `.site-config`)
 - **Where the docs are:** `docs/` contains all architecture and reference documentation
 - **Where the commands are:** Commands are provided by the Anglesite plugin (skills like `/anglesite:start`, `/anglesite:deploy`, etc.)
@@ -153,8 +154,9 @@ If the owner is closing but maintains a social media presence:
 
 Regardless of handoff scenario, the owner should always have:
 
-1. **A copy of the project folder** — On their computer (and cloud backup if the folder is in iCloud Drive or another synced location)
-2. **Access credentials written down** — Cloudflare login, domain registrar, 2FA recovery codes (see `docs/security.md` → Recovery plan)
-3. **A recent successful build** — Run `npm run build` before any handoff to verify the site builds correctly
+1. **GitHub repository** — The website is automatically backed up to a private GitHub repo on every deploy. The owner can access it at `github.com/OWNER/REPO` (check `GITHUB_REPO` in `.site-config`).
+2. **A copy of the project folder** — On their computer (GitHub serves as the second copy)
+3. **Access credentials written down** — Cloudflare login, GitHub login, domain registrar, 2FA recovery codes (see `docs/security.md` → Recovery plan)
+4. **A recent successful build** — Run `npm run build` before any handoff to verify the site builds correctly
 
-The project folder is the complete source of truth. If the owner has that folder, they can recreate everything.
+The project folder is the complete source of truth. If the owner has that folder (or can clone from GitHub), they can recreate everything.

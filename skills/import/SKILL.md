@@ -1,8 +1,8 @@
 ---
 name: import
-description: "Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd)"
-argument-hint: "[website URL]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(node *)", "Bash(npx playwright *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Write", "Read", "Glob", "Edit"]
+description: "Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project"
+argument-hint: "[website URL or local path]"
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -786,6 +786,14 @@ git commit -m "Import content from PLATFORM (N posts, N pages)"
 ```
 
 Replace PLATFORM and N with actual values.
+
+Read `GITHUB_REPO` from `.site-config`. If set, push to GitHub:
+
+```sh
+git push origin draft
+```
+
+If the push fails, log the issue but don't block the import.
 
 ## Step 9 — Offer to deploy
 

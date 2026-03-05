@@ -1,20 +1,55 @@
 # Deploy Workflow
 
-Build, scan, and deploy the site to Cloudflare Pages.
+Build, scan, and deploy the site to Cloudflare Pages via Git integration.
 
 ## Prerequisites
 
 - Cloudflare account (free at https://dash.cloudflare.com/sign-up)
-- Wrangler authenticated (`npx wrangler login`)
+- Cloudflare Pages project connected to GitHub (set up during first `/anglesite:deploy`)
 - `CF_PROJECT_NAME` set in `.site-config`
+- `GITHUB_REPO` set in `.site-config`
+
+## How it works
+
+Cloudflare Pages is connected to the GitHub repository via Git integration. Pushing to `main` triggers a production deploy. Pushing to `draft` (or any other branch) creates a preview deploy.
 
 ## Quick deploy
 
 ```sh
-npm run deploy
+npm run build
 ```
 
-This runs build, security scans, and `wrangler pages deploy` in sequence. If scans fail, deploy is blocked.
+```sh
+npm run predeploy
+```
+
+```sh
+git add -A
+```
+
+```sh
+git commit -m "Publish: YYYY-MM-DD HH:MM"
+```
+
+```sh
+git push origin draft
+```
+
+```sh
+git checkout main
+```
+
+```sh
+git merge draft --no-edit
+```
+
+```sh
+git push origin main
+```
+
+```sh
+git checkout draft
+```
 
 ## Step-by-step
 
@@ -51,21 +86,55 @@ Multiple emails are comma-separated: `PII_EMAIL_ALLOW=info@example.com,hello@exa
 
 ### 3. First-time setup
 
-If this is the first deploy, create the Cloudflare Pages project:
+If this is the first deploy, connect Cloudflare Pages to GitHub via the dashboard:
 
-```sh
-npx wrangler pages project create PROJECT_NAME --production-branch main
-```
+1. Open: `https://dash.cloudflare.com/?to=/:account/pages/new/provider/github`
+2. Authorize the Cloudflare GitHub app
+3. Select the repository
+4. Build settings:
+   - Framework preset: **Astro**
+   - Build command: `npm run build && npm run predeploy`
+   - Build output directory: `dist`
+   - Production branch: `main`
+5. Click **Save and Deploy**
 
-Save `CF_PROJECT_NAME=PROJECT_NAME` to `.site-config`.
+Save `CF_PROJECT_NAME` to `.site-config`.
 
 ### 4. Deploy
 
+Commit changes and push `draft` to GitHub (backup + preview):
+
 ```sh
-npx wrangler pages deploy dist/ --project-name PROJECT_NAME --commit-dirty=true
+git add -A
 ```
 
-Replace `PROJECT_NAME` with the value from `.site-config`.
+```sh
+git commit -m "Publish: YYYY-MM-DD HH:MM"
+```
+
+```sh
+git push origin draft
+```
+
+Merge to `main` and push (triggers production deploy):
+
+```sh
+git checkout main
+```
+
+```sh
+git merge draft --no-edit
+```
+
+```sh
+git push origin main
+```
+
+Return to working branch:
+
+```sh
+git checkout draft
+```
 
 ### 5. Custom domain (first deploy)
 
@@ -83,8 +152,22 @@ Save `SITE_DOMAIN` to `.site-config`.
 
 ### 6. After deploy
 
-- Commit changes: `git add -A && git commit -m "Publish: YYYY-MM-DD"`
 - Check analytics: https://dash.cloudflare.com → Web Analytics
+- Preview deploys available at `draft.CF_PROJECT_NAME.pages.dev`
+
+## Merge conflicts
+
+If `git merge draft` fails on `main`, there are changes on `main` that `draft` doesn't have:
+
+```sh
+git checkout draft
+```
+
+```sh
+git merge main
+```
+
+Resolve any conflicts, commit, then retry the deploy.
 
 ## Security rules
 
