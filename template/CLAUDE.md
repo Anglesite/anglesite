@@ -47,6 +47,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Redo the visual design | `/anglesite:design-interview` |
 | Publish or go live | `/anglesite:deploy` |
 | Check the site for problems | `/anglesite:check` |
+| Add animations to the site | `/anglesite:animate` |
 | Fix something that's broken | `/anglesite:fix` |
 | Update dependencies | `/anglesite:update` |
 | Add a new page | `/anglesite:new-page` |
