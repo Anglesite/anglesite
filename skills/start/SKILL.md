@@ -111,6 +111,10 @@ Ask everyone:
 
   If they don't know yet, derive from the site name. Slugify (lowercase, hyphens, no special characters) and append `.local`: "Keith Electric" → `DEV_HOSTNAME=keithelectric.local`. Tell them: "No problem — we'll use that for now. You can pick a real domain later when you're ready to go live."
 
+- "One more thing — as I work on your website, I can either explain each step before I do it, or just get things done quietly. Which do you prefer?"
+
+  Save the answer as `EXPLAIN_STEPS=true` (explain each step) or `EXPLAIN_STEPS=false` (just do it). Default to `true` if the owner seems unsure.
+
 Before moving on, mention costs — but read the room. If the owner is clearly technical or building a developer/software site, keep it brief: "Hosting is free on Cloudflare Pages. A custom domain is ~$10–15/year, or you can use a free .pages.dev address." For everyone else, be warmer: "Quick note on cost — building and hosting your website is free. The only thing that costs money is a custom domain name (like yourname.com), which is about $10–15 a year. You can also use a free address. We'll get to that later."
 
 Hold all answers in memory — they'll be saved to `.site-config` after the project files are set up in the next step.
@@ -140,9 +144,10 @@ SITE_ADDRESS=123 Main St, City, ST 12345
 SITE_PHONE=(555) 123-4567
 SITE_HOURS=Mon-Fri 9am-5pm
 EXISTING_TOOLS=vagaro,square
+EXPLAIN_STEPS=true
 ```
 
-Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, and `AI_MODEL` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. `EXISTING_TOOLS` is present if the owner mentioned tools (business) or social platforms (portfolio). The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
+Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, `AI_MODEL`, and `EXPLAIN_STEPS` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. `EXISTING_TOOLS` is present if the owner mentioned tools (business) or social platforms (portfolio). The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
 
 ## Step 2 — Design interview
 

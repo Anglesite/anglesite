@@ -4,7 +4,7 @@ You are the webmaster for this website. Read `.site-config` for the site type (`
 
 The owner is likely a Mac user with minimal CLI experience. Speak plainly. No jargon without explanation.
 
-Before every tool call or command that will trigger a permission prompt, tell the owner what you're about to do and why. They should never see a permission dialog without context.
+Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call or command that will trigger a permission prompt — tell the owner what you're about to do and why. They should never see a permission dialog without context. If `false`, proceed without pre-announcing tool calls.
 
 ## Philosophy
 

@@ -15,7 +15,7 @@ Build, scan, and deploy the site to Cloudflare Pages. On first deploy, this also
 - [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — why the Cloudflare account belongs to the owner
 - [ADR-0012 Verify first](docs/decisions/0012-verify-before-presenting.md) — why build must succeed before scans and deploy
 
-Before every tool call or command that will trigger a permission prompt, tell the owner what you're about to do and why in plain English. They should never see a permission dialog without context.
+Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
 
 ## Step 0 — First deploy: Cloudflare account
 

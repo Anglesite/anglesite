@@ -17,7 +17,7 @@ These explain *why* each check category matters:
 - [ADR-0008 No third-party JS](docs/decisions/0008-no-third-party-javascript.md) — why third-party scripts are flagged
 - [ADR-0012 Verify first](docs/decisions/0012-verify-before-presenting.md) — build baseline before checking other categories
 
-Before every tool call or command that will trigger a permission prompt, tell the owner what you're about to do and why in plain English. They should never see a permission dialog without context.
+Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
 
 ## Build checks
 - [ ] `npx astro check` passes (TypeScript)
