@@ -111,7 +111,12 @@ open https://pagespeed.web.dev/
 Have the owner paste their site URL. Explain the scores: green (90+) is great, orange (50-89) needs work, red (<50) is urgent.
 
 ## Social preview
-- [ ] OG image exists and is approximately 1200x630 pixels
+- [ ] `og:title`, `og:description`, and `og:image` present on every page in `dist/`
+- [ ] `twitter:card` meta tag present (value: `summary_large_image` if og:image exists, `summary` otherwise)
+- [ ] OG image file exists at the path referenced by `og:image` and is approximately 1200x630 pixels
+- [ ] `apple-touch-icon.png` exists in `public/` (180x180) — if missing, run `npm run ai-images` to generate it
+- [ ] `og-image.png` exists in `public/` — if missing, run `npm run ai-images` to generate it
+- [ ] `manifest.webmanifest` icon paths reference files that actually exist in `public/`
 - [ ] Test by pasting the site URL into a group chat or social media draft — the preview card should show the site title, description, and image
 - [ ] Each page has its own `og:title` and `og:description` (not all the same)
 

@@ -41,6 +41,11 @@ if find "$DIST/" -path '*keystatic*' -type f 2>/dev/null | grep -q .; then
   REASONS+=("Keystatic admin routes found in build output")
 fi
 
+# 5. OG image warning — non-blocking, stderr only
+if ! grep -rq 'og:image' "$DIST/" --include='*.html' 2>/dev/null; then
+  echo "Warning: No og:image meta tag found in built HTML. Social media shares won't show a preview image. Run 'npm run ai-images' to generate one." >&2
+fi
+
 if [[ ${#REASONS[@]} -gt 0 ]]; then
   REASON=$(printf '%s; ' "${REASONS[@]}")
   jq -n --arg reason "Deploy blocked: ${REASON%. }" '{

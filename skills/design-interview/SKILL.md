@@ -45,8 +45,8 @@ Ask one topic at a time. Listen, reflect back what you heard, then move on. Afte
 2. Update CSS custom properties in `src/styles/global.css` (colors, fonts, spacing)
 3. Verify color contrast meets WCAG AA (4.5:1 for body text, 3:1 for large text)
 4. Update the favicon (`public/favicon.svg`) to match the identity
-5. Create an apple-touch-icon: generate a 180x180 PNG version of the favicon and save to `public/apple-touch-icon.png`
-6. Update `public/manifest.webmanifest` with the site name and brand colors (`theme_color` from `--color-primary`, `background_color` from `--color-bg`)
+5. Update `public/manifest.webmanifest` with the site name and brand colors (`theme_color` from `--color-primary`, `background_color` from `--color-bg`)
+6. Run `npm run ai-images` to regenerate `apple-touch-icon.png` and `og-image.png` from the updated favicon and brand colors
 7. Build a styled home page that reflects the brand and site type
 8. Add `rel="me"` links to social profiles in the site footer or about page
 9. Ensure the `h-card` in the site header has the site name, URL, and location if relevant
