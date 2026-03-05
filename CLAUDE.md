@@ -1,6 +1,6 @@
 # Anglesite — Development Context
 
-Anglesite is a Claude Code plugin that scaffolds and manages websites.
+Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages websites.
 
 ## Plugin structure
 
@@ -19,12 +19,16 @@ Anglesite is a Claude Code plugin that scaffolds and manages websites.
 ├── hooks/hooks.json               PreToolUse hook for deploy safety scans
 ├── scripts/scaffold.sh            Copies template/ to user's project
 ├── scripts/pre-deploy-check.sh    Blocks deploy if security scans fail
+├── bin/init.js                    CLI entry point (npx anglesite init)
 ├── bin/average-tokens.ts          Token cost calculator
+├── bin/build-instructions.ts      Agent instruction validator
+├── package.json                   npm package manifest
 └── template/                      Files scaffolded to user's project
     ├── src/                       Astro source (pages, layouts, styles)
     ├── public/                    Static assets
     ├── scripts/                   setup.ts, check-prereqs.ts, cleanup.ts
     ├── docs/                      Reference documentation (80+ files)
+    │   └── workflows/             Portable workflow guides (any agent)
     ├── AGENTS.md                  Universal webmaster instructions (any agent)
     ├── CLAUDE.md                  Claude Code-specific additions (@imports AGENTS.md)
     ├── GEMINI.md                  Gemini CLI pointer (@imports AGENTS.md)
@@ -40,10 +44,16 @@ Three levels of agent instructions:
 
 ## How it works
 
+**Claude Code plugin** (richest experience):
 1. User installs the plugin from the marketplace (or `claude --plugin-dir .`)
 2. `/anglesite:start` runs `scripts/scaffold.sh` to copy `template/` to the user's project
 3. Start skill proceeds with discovery interview, design, and tool installation
-4. All other skills (`/anglesite:deploy`, `/anglesite:check`, etc.) execute in the user's working directory — relative paths to `docs/`, `scripts/` work because they were scaffolded
+4. All other skills (`/anglesite:deploy`, `/anglesite:check`, etc.) execute in the user's working directory
+
+**npm package** (any agent):
+1. `npx anglesite init my-site` copies `template/` to a new directory
+2. `npm install && npm run dev` to start developing
+3. Any AI agent reads `AGENTS.md` for project context and `docs/workflows/` for step-by-step guides
 
 ## Editing guidelines
 
@@ -69,8 +79,15 @@ Three levels of agent instructions:
 ## Testing changes
 
 ```sh
+# Via scaffold script (plugin development)
 mkdir /tmp/test-site
 zsh scripts/scaffold.sh /tmp/test-site
+cd /tmp/test-site
+npm install
+npm run dev
+
+# Via npm CLI (end-user experience)
+node bin/init.js init /tmp/test-site
 cd /tmp/test-site
 npm install
 npm run dev

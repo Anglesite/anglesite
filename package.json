@@ -1,0 +1,24 @@
+{
+  "name": "anglesite",
+  "version": "0.10.0",
+  "type": "module",
+  "description": "AI webmaster that scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Pages.",
+  "bin": {
+    "anglesite": "./bin/init.js"
+  },
+  "files": [
+    "bin/init.js",
+    "template/"
+  ],
+  "keywords": ["website", "small-business", "astro", "cloudflare", "webmaster", "ai", "agents"],
+  "author": "David W. Keith",
+  "license": "ISC",
+  "homepage": "https://anglesite.dwk.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Anglesite/anglesite"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

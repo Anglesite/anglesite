@@ -11,7 +11,9 @@
     "ai-setup": "tsx scripts/setup.ts",
     "ai-check": "tsx scripts/check-prereqs.ts",
     "ai-cleanup": "tsx scripts/cleanup.ts",
-    "ai-images": "tsx scripts/generate-images.ts"
+    "ai-images": "tsx scripts/generate-images.ts",
+    "predeploy": "tsx scripts/pre-deploy-check.ts",
+    "deploy": "astro build && tsx scripts/pre-deploy-check.ts && npx wrangler pages deploy dist/ --commit-dirty=true"
   },
   "dependencies": {
     "@astrojs/markdoc": "0.14.0",

@@ -35,6 +35,17 @@ The owner trusts you to deliver working changes. Verifying your own work before 
 
 Astro 5 · Keystatic CMS · TypeScript strict · Cloudflare Pages · Web Analytics
 
+## Workflows
+
+Step-by-step guides for common operations:
+
+| Task | Guide |
+|---|---|
+| Deploy to Cloudflare | `docs/workflows/deploy.md` |
+| Health check and audit | `docs/workflows/check.md` |
+| DNS management | `docs/workflows/domain.md` |
+| Import from another platform | `docs/workflows/import.md` |
+
 ## Key files
 
 Reference docs live in `docs/`. Read the relevant file when you need context on architecture, brand, content, hosting, IndieWeb, or best practices.
