@@ -38,7 +38,7 @@ The most common scenario — the owner wants someone else to manage the site.
 
 The new developer needs to understand:
 
-- **How to run locally:** `npm install && npm run ai-setup && npm run dev` — runs with HTTPS at the hostname configured in `.site-config`. The setup script installs mkcert, generates a locally-trusted certificate, adds the hostname to `/etc/hosts`, and configures port forwarding (443 → 4321). See `docs/local-https.md`.
+- **How to run locally:** `npm install && npm run ai-setup && npm run dev` — runs with HTTPS at the hostname configured in `.site-config`. The setup script installs mkcert, generates a locally-trusted certificate, updates the hosts file, and configures port forwarding (443 → 4321). Works on macOS, Linux, and Windows. See `docs/local-https.md`.
 - **How to build:** `npm run build`
 - **How to deploy:** `npx wrangler pages deploy dist/ --project-name PROJECT_NAME`
 - **How to edit content:** Keystatic at `https://DEV_HOSTNAME/keystatic` while the dev server is running (read `DEV_HOSTNAME` from `.site-config`)

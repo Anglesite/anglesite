@@ -29,9 +29,7 @@ Read `CF_API_TOKEN` from `.site-config`. If not set, the owner needs to create o
 
 Tell the owner: "To manage your domain's DNS records, I need a Cloudflare API token. I'll walk you through creating one — it takes about 30 seconds."
 
-```sh
-open "https://dash.cloudflare.com/profile/api-tokens"
-```
+Open the API tokens page in their browser: `https://dash.cloudflare.com/profile/api-tokens`
 
 Walk them through:
 1. Click **Create Token**

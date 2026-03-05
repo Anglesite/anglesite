@@ -157,13 +157,26 @@ Run the design interview. Read and follow the full instructions in `${CLAUDE_PLU
 
 Your design is saved. Before running setup, present the wizard summary so the owner knows exactly what's coming:
 
-"Your website design is ready! Now I need to install the tools to run it on your computer and set up a secure local preview. Here's what will happen — I'll walk you through each step:
+"Your website design is ready! Now I need to install the tools to run it on your computer and set up a secure local preview."
 
-1. **macOS developer tools** — If this is your first time, macOS will pop up a window asking to install developer tools. Click **Install** and wait about a minute.
-2. **Mac password** — Your Mac password is needed to set up secure local preview. Type your password — nothing will appear as you type. Press Enter.
-3. **Keychain trust** — A system dialog asks to trust a local security certificate so your browser shows a padlock. Click **Allow** (or enter your password again).
-
+On **macOS**, tell the owner what to expect:
+"Here's what will happen — I'll walk you through each step:
+1. **Developer tools** — If this is your first time, macOS will pop up a window asking to install developer tools. Click **Install** and wait about a minute.
+2. **Password** — Your Mac password is needed to set up secure local preview. Type your password — nothing will appear as you type. Press Enter.
+3. **Certificate trust** — A system dialog asks to trust a local security certificate so your browser shows a padlock. Click **Allow** (or enter your password again).
 That's it — three things, and I'll tell you when each one is coming. Ready?"
+
+On **Linux**, tell the owner:
+"Here's what will happen:
+1. **Password** — Your password is needed to set up secure local preview.
+2. **Certificate trust** — I'll install a local certificate so your browser shows a padlock.
+That's it — I'll walk you through each step. Ready?"
+
+On **Windows**, tell the owner:
+"Here's what will happen:
+1. **Certificate trust** — A Windows dialog may ask to trust a security certificate. Click **Yes**.
+2. Some steps may need Administrator access — I'll let you know.
+Ready?"
 
 First install project dependencies (needed to run the setup script):
 

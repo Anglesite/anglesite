@@ -8,13 +8,13 @@ The dev server runs with HTTPS using locally-trusted certificates. The browser s
 
 | Component | Role |
 |---|---|
-| **mkcert** | Generates certificates trusted by macOS Keychain. Binary at `~/.local/bin/mkcert`. |
+| **mkcert** | Generates certificates trusted by the system certificate store. Binary at `~/.local/bin/mkcert`. |
 | **.certs/** | Cert + key files. Gitignored. Machine-specific. |
-| **/etc/hosts** | Maps `DEV_HOSTNAME` to 127.0.0.1. |
-| **pfctl** | Forwards port 443 → 4321 on loopback. Persists via `/etc/pf.conf` anchor. |
+| **hosts file** | Maps `DEV_HOSTNAME` to 127.0.0.1. Location: `/etc/hosts` (macOS/Linux) or `C:\Windows\System32\drivers\etc\hosts` (Windows). |
+| **Port forwarding** | Forwards port 443 → 4321 on loopback. macOS: pfctl via `/etc/pf.conf` anchor. Linux: iptables (manual). Windows: netsh (manual). |
 | **Vite server.https** | Astro reads certs from `.certs/` via Vite pass-through in `astro.config.ts`. |
 
-Astro listens on port 4321 with TLS. pfctl makes port 443 reach it. The cert covers `DEV_HOSTNAME`, `localhost`, and `127.0.0.1`.
+Astro listens on port 4321 with TLS. Port forwarding makes port 443 reach it. The cert covers `DEV_HOSTNAME`, `localhost`, and `127.0.0.1`.
 
 ## DEV_HOSTNAME in .site-config
 
@@ -29,35 +29,39 @@ Updated during `/anglesite:deploy` when a real domain is chosen: `keithelectric.
 
 ## Certificate lifecycle
 
-- Generated during `setup.sh` based on `DEV_HOSTNAME`
+- Generated during `npm run ai-setup` based on `DEV_HOSTNAME`
 - Covers: `DEV_HOSTNAME`, `localhost`, `127.0.0.1`
 - mkcert certs last ~2 years (825 days)
-- Regenerated automatically if hostname changes (`setup.sh` checks `.certs/.hostname`)
-- `check-prereqs.sh` checks expiry with `openssl x509 -checkend`
+- Regenerated automatically if hostname changes (setup checks `.certs/.hostname`)
+- `check-prereqs.ts` checks expiry with `openssl x509 -checkend`
 
 ## The .local TLD
 
-macOS uses `.local` for mDNS (Bonjour). Having the entry in `/etc/hosts` takes priority over mDNS resolution. There may be a brief delay on first resolution if mDNS fires before `/etc/hosts` is checked. This is acceptable for a dev environment.
+macOS uses `.local` for mDNS (Bonjour). Having the entry in the hosts file takes priority over mDNS resolution. There may be a brief delay on first resolution if mDNS fires before the hosts file is checked. This is acceptable for a dev environment.
+
+On Linux and Windows, `.local` may also be used by mDNS/Avahi, but the hosts file entry takes precedence.
 
 ## Port forwarding
 
-pfctl rules live in `/etc/pf.anchors/com.anglesite` and are referenced from `/etc/pf.conf`. macOS loads these at boot via the system `com.apple.pfctl` LaunchDaemon, so they persist across reboots.
+**macOS:** pfctl rules live in `/etc/pf.anchors/com.anglesite` and are referenced from `/etc/pf.conf`. macOS loads these at boot via the system `com.apple.pfctl` LaunchDaemon, so they persist across reboots. If rules are lost (macOS update, manual pf.conf edit), `npm run ai-setup` re-applies them.
 
-If rules are lost (macOS update, manual pf.conf edit), `setup.sh` re-applies them.
+**Linux:** Port forwarding requires manual iptables or socat configuration. The setup script logs the commands needed. Rules do not persist by default — add them to your init system if needed.
+
+**Windows:** Port forwarding requires `netsh` commands run as Administrator. The setup script logs the commands needed. Rules persist until manually removed.
 
 ## New machine setup
 
-When the project is moved to a new machine (handoff, new laptop), run `npm run ai-setup`. It installs mkcert, trusts the CA, generates new certs, adds `/etc/hosts`, and configures pfctl. Certificates are machine-specific and never committed to git.
+When the project is moved to a new machine (handoff, new laptop), run `npm run ai-setup`. It installs mkcert, trusts the CA, generates new certs, updates the hosts file, and configures port forwarding (auto on macOS, manual instructions on Linux/Windows). Certificates are machine-specific and never committed to git.
 
 ## Cleanup
 
 To remove all system modifications without deleting the project:
 
 ```sh
-zsh scripts/cleanup.sh
+npm run ai-cleanup
 ```
 
-This removes the `/etc/hosts` entry and pfctl anchor. To also remove the CA from Keychain:
+This removes the hosts file entry and port forwarding rules (macOS). To also remove the local certificate authority:
 
 ```sh
 ~/.local/bin/mkcert -uninstall

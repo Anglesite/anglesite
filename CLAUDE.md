@@ -26,7 +26,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 └── template/                      Files scaffolded to user's project
     ├── src/                       Astro source (pages, layouts, styles)
     ├── public/                    Static assets
-    ├── scripts/                   setup.ts, check-prereqs.ts, cleanup.ts
+    ├── scripts/                   setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
     ├── docs/                      Reference documentation (80+ files)
     │   └── workflows/             Portable workflow guides (any agent)
     ├── AGENTS.md                  Universal webmaster instructions (any agent)
@@ -62,6 +62,7 @@ Three levels of agent instructions:
 - **Tool permissions** are in each skill's `allowed-tools` frontmatter (not `settings.json`)
 - **Cross-skill references** use `${CLAUDE_PLUGIN_ROOT}/skills/skill-name/SKILL.md`
 - **The end user is non-technical.** Skills are their primary interface. Changes should not require CLI knowledge.
+- **Cross-platform.** Template scripts detect macOS/Linux/Windows via `scripts/platform.ts`. Never use platform-specific commands (`sips`, `pfctl`, `dscacheutil`, `osascript`, `open`, `sed -i ""`) without a cross-platform alternative or guard.
 - **Privacy and security are non-negotiable.** The deploy skill scans for PII, exposed tokens, third-party scripts, and Keystatic admin routes.
 - **Documentation must stay in sync.** The `template/docs/` directory is the source of truth. Update docs when you change behavior.
 

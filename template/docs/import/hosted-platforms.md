@@ -114,7 +114,7 @@ Every image must be downloaded to `public/images/blog/` regardless of whether th
 For every downloaded image:
 
 1. **Check file size**: `wc -c < path`
-2. **If over 500KB**, convert and resize: `sips -s format webp -Z 1200 input --out output.webp`
+2. **If over 500KB**, convert and resize: `npx sharp-cli -i input -o output.webp --width 1200`
 3. **Verify conversion succeeded**: Check the output file exists and has content
 4. **If conversion fails or input is under 500KB**, keep the original format
 

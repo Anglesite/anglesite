@@ -2,7 +2,7 @@
 name: import
 description: "Import content from an existing website (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project"
 argument-hint: "[website URL or local path]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(sips *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -650,7 +650,7 @@ Tell the owner (once, not per-post):
 **Local SSG import:** Copy images from the source project to `public/images/blog/`.
 The platform doc's "Image handling" section specifies where images are stored
 (e.g., `static/img/` for Docusaurus, `source/images/` for Hexo, `content/` for
-Hugo page bundles). Use `cp` to copy files, then convert with `sips` if over
+Hugo page bundles). Use `cp` to copy files, then convert with `sharp-cli` if over
 500KB. Update image references in the converted Markdown to use local paths.
 
 **Hero/featured images (remote import):**
@@ -674,10 +674,10 @@ Check file size:
 wc -c < public/images/blog/SLUG-hero.jpg
 ```
 
-If over 500,000 bytes, convert and resize using the macOS built-in `sips` tool:
+If over 500,000 bytes, convert and resize using `sharp-cli` (cross-platform):
 
 ```sh
-sips -s format webp -Z 1200 public/images/blog/SLUG-hero.jpg --out public/images/blog/SLUG-hero.webp
+npx sharp-cli -i public/images/blog/SLUG-hero.jpg -o public/images/blog/SLUG-hero.webp --width 1200
 ```
 
 Verify the conversion:
@@ -891,7 +891,7 @@ Download each image:
 curl -L -s -o "public/images/gallery/PAGE-SLUG-NN.jpg" "IMAGE_URL"
 ```
 
-Check file size and convert with `sips` if over 500KB (same as Step 2c).
+Check file size and convert with `sharp-cli` if over 500KB (same as Step 2c).
 
 Create a gallery `.astro` page in `src/pages/` with:
 - The page title and meta description
@@ -1092,7 +1092,7 @@ Continue with Steps 3–5 for pages, galleries, and redirects only.
 
 ### Images still too large after conversion
 
-If `sips` output is still over 500KB, do not block the import. After the import,
+If the converted image is still over 500KB, do not block the import. After the import,
 advise the owner:
 > "Some images are still large after optimization. You can resize them in
 > Preview or replace them with smaller versions."

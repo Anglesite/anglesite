@@ -239,7 +239,7 @@ SSG images are local files. Use `cp` to copy them to `public/images/blog/`:
 cp source/images/photo.jpg public/images/blog/post-slug-hero.jpg
 ```
 
-Then optimize with `sips` if over 500KB (same pipeline as hosted imports).
+Then optimize with `sharp-cli` if over 500KB (same pipeline as hosted imports).
 
 ### Fixing image references
 

@@ -100,9 +100,9 @@ npm run ai-check
 ```
 
 ### Common issues
-- **Dev server port conflict**: `lsof -i :4321` or `lsof -i :443`
+- **Dev server port conflict**: `lsof -i :4321` (macOS/Linux) or `netstat -ano | findstr :4321` (Windows)
 - **HTTPS certificate error**: `npm run ai-setup`
-- **Hostname not resolving**: `dscacheutil -q host -a name HOSTNAME`
+- **Hostname not resolving**: `dscacheutil -q host -a name HOSTNAME` (macOS), `getent hosts HOSTNAME` (Linux), `nslookup HOSTNAME` (Windows)
 - **Node not in PATH**: `npm run ai-setup`
 
 ### Diagnose

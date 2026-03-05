@@ -5,6 +5,8 @@
  * certificates, configures port forwarding, and runs `npm install`.
  * Idempotent — safe to rerun. Logs to `~/.anglesite/logs/setup.log`.
  *
+ * Cross-platform: works on macOS, Linux, and Windows.
+ *
  * Usage: `npm run ai-setup` or `npx tsx scripts/setup.ts [--dry-run]`
  *
  * @module
@@ -23,6 +25,23 @@ import { fileURLToPath } from "node:url";
 import { arch } from "node:os";
 import { execa, execaCommand } from "execa";
 import consola from "consola";
+import {
+  platform,
+  isMacos,
+  isLinux,
+  isWindows,
+  HOME,
+  HOSTS_FILE,
+  shellProfile,
+  fnmDir,
+  localBinDir,
+  mkcertBin as mkcertBinPath,
+  mkcertDownloadUrl,
+  needsXcodeTools,
+  hasPfctl,
+  notifyCommand,
+  fnmShellInit,
+} from "./platform.js";
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -38,7 +57,7 @@ const PROJECT_DIR = resolve(SCRIPT_DIR, "..");
 const CONFIG_FILE = resolve(PROJECT_DIR, ".site-config");
 
 /** Log directory under the user's home folder. */
-const LOG_DIR = resolve(process.env.HOME ?? "~", ".anglesite/logs");
+const LOG_DIR = resolve(HOME, ".anglesite/logs");
 
 /** Log file path. */
 const LOG_FILE = resolve(LOG_DIR, "setup.log");
@@ -101,26 +120,14 @@ async function run(cmd: string, opts: Record<string, unknown> = {}) {
 }
 
 /**
- * Run a command with sudo. Prompts the user for their password.
- *
- * @param args - Arguments to pass after `sudo`
- */
-async function sudo(...args: string[]) {
-  if (DRY_RUN) {
-    log(`[dry-run] would run: sudo ${args.join(" ")}`);
-    return;
-  }
-  await execa("sudo", args, { stdio: "inherit" });
-}
-
-/**
  * Check if a command exists in PATH.
  *
  * @param cmd - Command name
  */
 async function commandExists(cmd: string): Promise<boolean> {
   try {
-    await execaCommand(`command -v ${cmd}`, { shell: true });
+    const which = isWindows ? "where" : "command -v";
+    await execaCommand(`${which} ${cmd}`, { shell: true });
     return true;
   } catch {
     return false;
@@ -140,8 +147,24 @@ function sleep(ms: number): Promise<void> {
 // Setup steps
 // ---------------------------------------------------------------------------
 
-/** Install Xcode Command Line Tools if missing. */
+/** Install Xcode Command Line Tools if missing (macOS only). */
 async function installXcodeTools(): Promise<void> {
+  if (!needsXcodeTools) {
+    // On Linux/Windows, check for git separately
+    if (await commandExists("git")) {
+      log("Git already installed.");
+    } else {
+      log("Git is not installed.");
+      if (isLinux) {
+        consola.warn("Install Git with your package manager (e.g. sudo apt install git).");
+      } else if (isWindows) {
+        consola.warn("Install Git from https://git-scm.com/download/win");
+      }
+      skipped.push("git (not installed — install manually)");
+    }
+    return;
+  }
+
   try {
     await execaCommand("xcode-select -p");
     log("Xcode tools already installed.");
@@ -170,7 +193,8 @@ async function installXcodeTools(): Promise<void> {
 
 /** Install fnm (Fast Node Manager) if missing. */
 async function installFnm(): Promise<void> {
-  const fnmBin = resolve(process.env.HOME ?? "~", ".local/share/fnm/fnm");
+  const fnmBinName = isWindows ? "fnm.exe" : "fnm";
+  const fnmBin = resolve(fnmDir(), fnmBinName);
   if ((await commandExists("fnm")) || existsSync(fnmBin)) {
     log("fnm already installed.");
     return;
@@ -180,6 +204,13 @@ async function installFnm(): Promise<void> {
 
   if (DRY_RUN) {
     log("[dry-run] would download and run fnm installer");
+    return;
+  }
+
+  if (isWindows) {
+    consola.warn("On Windows, install fnm manually: https://github.com/Schniz/fnm#installation");
+    consola.warn("Or run: winget install Schniz.fnm");
+    skipped.push("fnm install (manual install needed on Windows)");
     return;
   }
 
@@ -202,9 +233,10 @@ async function installFnm(): Promise<void> {
 
 /** Ensure fnm is in PATH for this session. */
 function addFnmToPath(): void {
-  const fnmDir = resolve(process.env.HOME ?? "~", ".local/share/fnm");
-  if (!process.env.PATH?.includes(fnmDir)) {
-    process.env.PATH = `${fnmDir}:${process.env.PATH}`;
+  const dir = fnmDir();
+  if (!process.env.PATH?.includes(dir)) {
+    const sep = isWindows ? ";" : ":";
+    process.env.PATH = `${dir}${sep}${process.env.PATH}`;
   }
 }
 
@@ -226,10 +258,20 @@ async function installNode(): Promise<void> {
   log(`Node.js ${stdout.trim()} ready.`);
 }
 
-/** Add fnm initialization to `~/.zshrc` if not already present. */
+/** Add fnm initialization to the user's shell profile if not already present. */
 async function ensureShellProfile(): Promise<void> {
-  const zshrc = resolve(process.env.HOME ?? "~", ".zshrc");
-  const content = existsSync(zshrc) ? readFileSync(zshrc, "utf-8") : "";
+  const profile = shellProfile();
+
+  if (!profile) {
+    if (isWindows) {
+      log("On Windows, add fnm to your PowerShell profile manually.");
+      log('Run: fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression');
+      skipped.push("shell profile (manual setup needed on Windows)");
+    }
+    return;
+  }
+
+  const content = existsSync(profile) ? readFileSync(profile, "utf-8") : "";
 
   if (content.includes("fnm env")) {
     return;
@@ -238,20 +280,11 @@ async function ensureShellProfile(): Promise<void> {
   log("Adding fnm to shell profile…");
 
   if (DRY_RUN) {
-    log("[dry-run] would append fnm init to ~/.zshrc");
+    log(`[dry-run] would append fnm init to ${profile}`);
     return;
   }
 
-  appendFileSync(
-    zshrc,
-    [
-      "",
-      "# fnm (Node.js manager)",
-      'export PATH="$HOME/.local/share/fnm:$PATH"',
-      'eval "$(fnm env --shell zsh)"',
-      "",
-    ].join("\n"),
-  );
+  appendFileSync(profile, fnmShellInit().join("\n"));
 }
 
 /** Run `npm install` in the project directory. */
@@ -263,9 +296,9 @@ async function installDependencies(): Promise<void> {
 
 /** Install mkcert binary if missing. */
 async function installMkcert(): Promise<void> {
-  const mkcertBin = resolve(process.env.HOME ?? "~", ".local/bin/mkcert");
+  const mkcertPath = mkcertBinPath();
 
-  if (existsSync(mkcertBin)) {
+  if (existsSync(mkcertPath)) {
     log("mkcert already installed.");
     return;
   }
@@ -277,12 +310,11 @@ async function installMkcert(): Promise<void> {
     return;
   }
 
-  const binDir = resolve(process.env.HOME ?? "~", ".local/bin");
+  const binDir = localBinDir();
   mkdirSync(binDir, { recursive: true });
 
   const cpuArch = arch();
-  const mkcertArch = cpuArch === "arm64" ? "arm64" : "amd64";
-  const url = `https://dl.filippo.io/mkcert/latest?for=darwin/${mkcertArch}`;
+  const url = mkcertDownloadUrl(cpuArch);
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -292,17 +324,21 @@ async function installMkcert(): Promise<void> {
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  writeFileSync(mkcertBin, buffer);
-  chmodSync(mkcertBin, 0o755);
+  writeFileSync(mkcertPath, buffer);
+  if (!isWindows) {
+    chmodSync(mkcertPath, 0o755);
+  }
   log("mkcert installed.");
 }
 
-/** Trust the local CA in macOS Keychain (one-time prompt). */
+/** Trust the local CA in the system certificate store. */
 async function trustLocalCA(): Promise<void> {
-  const mkcertBin = resolve(process.env.HOME ?? "~", ".local/bin/mkcert");
-  process.env.PATH = `${resolve(process.env.HOME ?? "~", ".local/bin")}:${process.env.PATH}`;
+  const mkcertPath = mkcertBinPath();
+  const binDir = localBinDir();
+  const sep = isWindows ? ";" : ":";
+  process.env.PATH = `${binDir}${sep}${process.env.PATH}`;
 
-  if (!existsSync(mkcertBin)) {
+  if (!existsSync(mkcertPath)) {
     if (DRY_RUN) {
       log("[dry-run] would trust local CA");
       return;
@@ -312,16 +348,23 @@ async function trustLocalCA(): Promise<void> {
     return;
   }
 
-  const { stdout: caRoot } = await execa(mkcertBin, ["-CAROOT"]);
+  const { stdout: caRoot } = await execa(mkcertPath, ["-CAROOT"]);
   if (existsSync(resolve(caRoot.trim(), "rootCA.pem"))) {
     log("Local CA already trusted.");
     return;
   }
 
   log("Trusting the local certificate authority…");
-  log("A macOS Keychain dialog will appear — enter your password or click Allow.");
+  if (isMacos) {
+    log("A macOS Keychain dialog will appear — enter your password or click Allow.");
+  } else if (isWindows) {
+    log("A Windows security dialog may appear — click Yes to trust the certificate.");
+  } else {
+    log("You may be prompted for your password to trust the certificate.");
+  }
+
   try {
-    await run(`${mkcertBin} -install`);
+    await run(`${mkcertPath} -install`);
     log("Local CA trusted.");
   } catch {
     log("Could not trust the local CA (this may require running manually).");
@@ -331,9 +374,9 @@ async function trustLocalCA(): Promise<void> {
 
 /** Generate local HTTPS certificate for the dev hostname. */
 async function generateCert(): Promise<void> {
-  const mkcertBin = resolve(process.env.HOME ?? "~", ".local/bin/mkcert");
+  const mkcertPath = mkcertBinPath();
 
-  if (DRY_RUN && !existsSync(mkcertBin)) {
+  if (DRY_RUN && !existsSync(mkcertPath)) {
     log("[dry-run] would generate HTTPS certificate");
     return;
   }
@@ -357,7 +400,7 @@ async function generateCert(): Promise<void> {
 
   log(`Generating HTTPS certificate for ${devHostname}…`);
   await run(
-    `${mkcertBin} -cert-file ${certFile} -key-file ${keyFile} ${devHostname} localhost 127.0.0.1`,
+    `${mkcertPath} -cert-file ${certFile} -key-file ${keyFile} ${devHostname} localhost 127.0.0.1`,
   );
   if (!DRY_RUN) {
     writeFileSync(hostnameFile, devHostname);
@@ -366,99 +409,103 @@ async function generateCert(): Promise<void> {
 }
 
 /**
- * Configure system-level HTTPS: `/etc/hosts` entry and pfctl port forwarding.
- * Requires sudo when changes are needed.
+ * Configure system-level HTTPS: hosts file entry and port forwarding.
+ * Platform-specific: pfctl on macOS, manual instructions on Linux/Windows.
  */
 async function configureSystemHttps(): Promise<void> {
   const devHostname = readConfig("DEV_HOSTNAME") ?? "localhost";
-  const pfctlAnchor = "com.anglesite";
-  const pfctlFile = `/etc/pf.anchors/${pfctlAnchor}`;
 
-  let needsSudo = false;
-
+  // --- Hosts file entry ---
   if (devHostname !== "localhost") {
     try {
-      const hosts = readFileSync("/etc/hosts", "utf-8");
-      if (!hosts.includes(devHostname)) needsSudo = true;
-    } catch {
-      needsSudo = true;
-    }
-  }
-
-  if (!existsSync(pfctlFile)) needsSudo = true;
-
-  if (needsSudo) {
-    log("Some setup steps need your Mac password (admin access).");
-    log("Type your password below — nothing will appear as you type. Press Enter.");
-    if (!DRY_RUN) {
-      try {
-        await execa("sudo", ["-v"], { stdio: "inherit" });
-      } catch {
-        consola.warn("Could not get admin access — skipping hosts and port forwarding.");
-        skipped.push("/etc/hosts entry", "port forwarding (443 → 4321)");
-        return;
-      }
-    }
-  }
-
-  // /etc/hosts entry
-  if (devHostname !== "localhost") {
-    try {
-      const hosts = readFileSync("/etc/hosts", "utf-8");
+      const hosts = readFileSync(HOSTS_FILE, "utf-8");
       if (!hosts.includes(devHostname)) {
         log(`Adding ${devHostname} to hosts file…`);
-        await sudo("tee", "-a", "/etc/hosts");
-        // Use a more direct approach with echo pipe
-        if (!DRY_RUN) {
-          await execa("sudo", ["bash", "-c", `echo "127.0.0.1 ${devHostname}" >> /etc/hosts`], {
-            stdio: "inherit",
-          });
+
+        if (isWindows) {
+          log(`On Windows, run as Administrator and add to ${HOSTS_FILE}:`);
+          log(`127.0.0.1 ${devHostname}`);
+          skipped.push(`hosts file entry (add manually to ${HOSTS_FILE})`);
+        } else {
+          // macOS / Linux: use sudo
+          log("Your password is needed to update the hosts file (admin access).");
+          log("Type your password below — nothing will appear as you type. Press Enter.");
+          if (!DRY_RUN) {
+            try {
+              await execa("sudo", ["-v"], { stdio: "inherit" });
+              await execa("sudo", ["bash", "-c", `echo "127.0.0.1 ${devHostname}" >> ${HOSTS_FILE}`], {
+                stdio: "inherit",
+              });
+              log("Hosts file updated.");
+            } catch {
+              consola.warn("Could not update hosts file — skipping.");
+              skipped.push("hosts file entry");
+            }
+          }
         }
-        log("Hosts file updated.");
       } else {
         log(`${devHostname} already in hosts file.`);
       }
     } catch {
-      log(`Could not check /etc/hosts.`);
+      log(`Could not read ${HOSTS_FILE}.`);
+      if (isWindows) {
+        skipped.push(`hosts file (run as Administrator to access ${HOSTS_FILE})`);
+      }
     }
   }
 
-  // pfctl port forwarding: 443 → 4321
-  const pfctlRule =
-    "rdr pass on lo0 inet proto tcp from any to 127.0.0.1 port 443 -> 127.0.0.1 port 4321";
+  // --- Port forwarding (443 → 4321) ---
+  if (hasPfctl) {
+    // macOS: use pfctl
+    const pfctlAnchor = "com.anglesite";
+    const pfctlFile = `/etc/pf.anchors/${pfctlAnchor}`;
+    const pfctlRule =
+      "rdr pass on lo0 inet proto tcp from any to 127.0.0.1 port 443 -> 127.0.0.1 port 4321";
 
-  if (!existsSync(pfctlFile)) {
-    log("Setting up port forwarding (443 → 4321)…");
+    if (!existsSync(pfctlFile)) {
+      log("Setting up port forwarding (443 → 4321)…");
 
-    if (!DRY_RUN) {
-      // Backup pf.conf
-      await execa("sudo", ["cp", "/etc/pf.conf", "/etc/pf.conf.anglesite-backup"]).catch(
-        () => {},
-      );
+      if (!DRY_RUN) {
+        // Backup pf.conf
+        await execa("sudo", ["cp", "/etc/pf.conf", "/etc/pf.conf.anglesite-backup"]).catch(
+          () => {},
+        );
 
-      // Write anchor file
-      await execa("sudo", ["bash", "-c", `echo '${pfctlRule}' > ${pfctlFile}`]);
+        // Write anchor file
+        await execa("sudo", ["bash", "-c", `echo '${pfctlRule}' > ${pfctlFile}`]);
 
-      // Add anchor references to pf.conf if not present
-      const pfConf = readFileSync("/etc/pf.conf", "utf-8");
-      if (!pfConf.includes(pfctlAnchor)) {
-        await execa("sudo", [
-          "bash",
-          "-c",
-          `echo 'rdr-anchor "${pfctlAnchor}"' >> /etc/pf.conf && echo 'load anchor "${pfctlAnchor}" from "${pfctlFile}"' >> /etc/pf.conf`,
-        ]);
+        // Add anchor references to pf.conf if not present
+        const pfConf = readFileSync("/etc/pf.conf", "utf-8");
+        if (!pfConf.includes(pfctlAnchor)) {
+          await execa("sudo", [
+            "bash",
+            "-c",
+            `echo 'rdr-anchor "${pfctlAnchor}"' >> /etc/pf.conf && echo 'load anchor "${pfctlAnchor}" from "${pfctlFile}"' >> /etc/pf.conf`,
+          ]);
+        }
+
+        await execa("sudo", ["pfctl", "-ef", "/etc/pf.conf"]).catch(() => {});
       }
 
-      await execa("sudo", ["pfctl", "-ef", "/etc/pf.conf"]).catch(() => {});
+      log("Port forwarding configured.");
+    } else {
+      // Ensure rules are loaded (may have been lost after reboot)
+      if (!DRY_RUN) {
+        await execa("sudo", ["pfctl", "-ef", "/etc/pf.conf"]).catch(() => {});
+      }
+      log("Port forwarding already configured.");
     }
-
-    log("Port forwarding configured.");
   } else {
-    // Ensure rules are loaded (may have been lost after reboot)
-    if (!DRY_RUN) {
-      await execa("sudo", ["pfctl", "-ef", "/etc/pf.conf"]).catch(() => {});
+    // Linux / Windows: provide instructions
+    log("Port forwarding (443 → 4321) is not auto-configured on this platform.");
+    if (isLinux) {
+      log("To forward port 443 → 4321, run:");
+      log("  sudo iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 4321");
+    } else if (isWindows) {
+      log("To forward port 443 → 4321, run as Administrator:");
+      log("  netsh interface portproxy add v4tov4 listenport=443 connectport=4321 connectaddress=127.0.0.1");
     }
-    log("Port forwarding already configured.");
+    skipped.push("port forwarding (manual setup — see log for instructions)");
   }
 }
 
@@ -500,13 +547,13 @@ function saveProjectDir(): void {
   log("Project directory saved to .site-config");
 }
 
-/** Show a macOS notification. */
+/** Show a desktop notification (best-effort, cross-platform). */
 async function notify(title: string, message: string): Promise<void> {
   if (DRY_RUN) return;
-  await execa("osascript", [
-    "-e",
-    `display notification "${message}" with title "${title}"`,
-  ]).catch(() => {});
+  const cmd = notifyCommand(title, message);
+  if (cmd) {
+    await execa(cmd.cmd, cmd.args).catch(() => {});
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -519,8 +566,9 @@ async function main(): Promise<void> {
   writeFileSync(LOG_FILE, ""); // reset log
 
   if (DRY_RUN) consola.warn("Dry-run mode — no changes will be made.");
-  consola.start("Starting site setup…");
+  consola.start(`Starting site setup on ${platform}…`);
   log(`Project directory: ${PROJECT_DIR}`);
+  log(`Platform: ${platform} (${process.platform}/${arch()})`);
 
   await installXcodeTools();
   await installFnm();
@@ -537,7 +585,7 @@ async function main(): Promise<void> {
   if (skipped.length > 0) {
     consola.warn(`Setup finished with ${skipped.length} skipped step(s):`);
     for (const s of skipped) consola.warn(`  • ${s}`);
-    consola.info("Run `npm run ai-setup` again to retry, or use `/anglesite:fix` for help.");
+    consola.info("Run `npm run ai-setup` again to retry, or use `/anglesite:check` for help.");
     await notify("Setup Finished", `${skipped.length} step(s) need attention.`);
   } else {
     consola.success("Setup complete!");

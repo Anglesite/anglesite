@@ -2,7 +2,7 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(dscacheutil *), Write, Read, Glob
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(dscacheutil *), Bash(getent *), Bash(nslookup *), Write, Read, Glob
 ---
 
 Run a full health check on the site — and fix what you find. If the owner described a specific problem, diagnose that first; otherwise run the full audit below. The checklists are for you (the agent) — **do not show raw checklist items, technical terms, or jargon to the owner.** Translate every finding into plain English. See the Results section at the bottom for how to present findings.
@@ -105,9 +105,7 @@ Check that the site works on small screens. Start the dev server if not already 
 
 For a thorough performance audit, tell the owner: "Let's check how fast your site loads. I'll open Google's free speed test tool." Then open:
 
-```sh
-open https://pagespeed.web.dev/
-```
+Open the PageSpeed tool in their browser: `https://pagespeed.web.dev/`
 
 Have the owner paste their site URL. Explain the scores: green (90+) is great, orange (50-89) needs work, red (<50) is urgent.
 
@@ -161,15 +159,19 @@ Then read `.site-config` to verify it has `SITE_NAME` and `DEV_HOSTNAME`. If eit
 
 ### Common tool issues
 - **Wrangler auth expired:** Run `npx wrangler login` to re-authenticate.
-- **Dev server port conflict:** Run `lsof -i :4321` to find what's using port 4321, or `lsof -i :443` for port 443.
+- **Dev server port conflict:** Run `lsof -i :4321` (macOS/Linux) or `netstat -ano | findstr :4321` (Windows) to find what's using port 4321.
 - **fnm/Node not in PATH:** Run `npm run ai-setup` to fix shell profile.
 
 ### HTTPS / local preview issues
 - **Certificate error in browser:** The local CA may not be trusted. Run `npm run ai-setup` to reinstall it.
-- **"This site can't be reached":** Check hostname resolution — run `dscacheutil -q host -a name HOSTNAME` (replace HOSTNAME with the value from `.site-config`). If it doesn't resolve to 127.0.0.1, run `npm run ai-setup`.
-- **Port 443 not forwarding:** Run `npm run ai-check` and look for `https_portforward`. If missing, run `npm run ai-setup`.
+- **"This site can't be reached":** Check hostname resolution:
+  - macOS: `dscacheutil -q host -a name HOSTNAME`
+  - Linux: `getent hosts HOSTNAME`
+  - Windows: `nslookup HOSTNAME`
+  Replace HOSTNAME with the value from `.site-config`. If it doesn't resolve to 127.0.0.1, run `npm run ai-setup`.
+- **Port 443 not forwarding:** Run `npm run ai-check` and look for `https_portforward`. If missing, run `npm run ai-setup` (macOS auto-configures; Linux/Windows require manual setup — see setup log).
 - **Certificate hostname mismatch:** Domain changed since cert was generated. Run `npm run ai-setup` to regenerate.
-- **HTTPS works at :4321 but not :443:** pfctl rules not loaded. Run `npm run ai-setup` to reload them.
+- **HTTPS works at :4321 but not :443:** Port forwarding rules not loaded. On macOS, run `npm run ai-setup` to reload pfctl. On Linux/Windows, check the setup log for manual instructions.
 
 ### Step 2 — Diagnose
 

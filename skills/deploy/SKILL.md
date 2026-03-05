@@ -27,9 +27,7 @@ Ask: "Do you already have a Cloudflare account, or should we create one?"
 
 If they need one, tell them you're opening the sign-up page:
 
-```sh
-open https://dash.cloudflare.com/sign-up
-```
+Open the sign-up page in their browser: `https://dash.cloudflare.com/sign-up`
 
 Walk them through: click "Sign in with Apple", approve, done. Wait for confirmation before continuing.
 
@@ -104,9 +102,7 @@ npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --branch preview 
 
 This creates a preview URL like `preview.CF_PROJECT_NAME.pages.dev`. Open it:
 
-```sh
-open https://preview.CF_PROJECT_NAME.pages.dev
-```
+Open the preview in their browser: `https://preview.CF_PROJECT_NAME.pages.dev`
 
 Tell the owner: "This is a preview — only people with this link can see it. Take a look and let me know if everything looks right. When you're ready, I'll make it live for everyone."
 
@@ -138,9 +134,7 @@ npx wrangler pages deploy dist/ --project-name CF_PROJECT_NAME --commit-dirty=tr
 
 If this is the first deploy, open the live site and celebrate:
 
-```sh
-open https://CF_PROJECT_NAME.pages.dev
-```
+Open the live site in their browser: `https://CF_PROJECT_NAME.pages.dev`
 
 Tell the owner: "Your website is live! Anyone can visit it at that address."
 
@@ -158,9 +152,7 @@ If they want a custom domain, first determine the right path. Ask: "Do you alrea
 
 Tell the owner: "Let's search for a domain name. Cloudflare sells domains at cost — no markup, no surprise renewals."
 
-```sh
-open https://dash.cloudflare.com/?to=/:account/domains/register
-```
+Open the Cloudflare domain registration page: `https://dash.cloudflare.com/?to=/:account/domains/register`
 
 Walk them through:
 1. Search for their desired domain name
@@ -175,9 +167,7 @@ Tell the owner: "We can move your domain to Cloudflare so everything is in one p
 Walk them through:
 1. At their current registrar: unlock the domain and get the transfer authorization code (sometimes called EPP code or auth code)
 2. Open the Cloudflare transfer page:
-   ```sh
-   open https://dash.cloudflare.com/?to=/:account/domains/transfer
-   ```
+   Open the Cloudflare transfer page: `https://dash.cloudflare.com/?to=/:account/domains/transfer`
 3. Enter the domain and auth code
 4. Confirm transfer and pay (extends registration by 1 year)
 5. Approve the transfer confirmation email from the current registrar
@@ -188,9 +178,7 @@ Tell the owner: "Transfers can take up to 5 days, but usually finish within a fe
 
 Tell the owner: "We can point your domain at Cloudflare without moving it. Your domain stays where it is, but Cloudflare will handle the DNS."
 
-```sh
-open https://dash.cloudflare.com/?to=/:account/domains
-```
+Open the Cloudflare domains page: `https://dash.cloudflare.com/?to=/:account/domains`
 
 Walk them through:
 1. Click "Add a domain" (or "Add a site")
@@ -214,7 +202,7 @@ Save the domain to `.site-config` using the Write tool (update the existing file
 If `DEV_HOSTNAME` in `.site-config` doesn't already end with the chosen domain, update it:
 
 1. Update `DEV_HOSTNAME=SITE_DOMAIN.local` in `.site-config` using the Write tool (e.g., `DEV_HOSTNAME=keithelectric.com.local`)
-2. Tell the owner: "I need to update your local preview to use your new domain name. The setup script will generate a new certificate — you may need to enter your Mac password again."
+2. Tell the owner: "I need to update your local preview to use your new domain name. The setup script will generate a new certificate — you may need to enter your password again."
 
 ```sh
 npm run ai-setup
@@ -228,9 +216,7 @@ Once the domain is on Cloudflare (purchased, transferred, or pointed), connect i
 
 Tell the owner: "I'm opening the Cloudflare dashboard so we can connect your domain to your website."
 
-```sh
-open https://dash.cloudflare.com/?to=/:account/pages/view/CF_PROJECT_NAME/domains
-```
+Open the Pages domains page: `https://dash.cloudflare.com/?to=/:account/pages/view/CF_PROJECT_NAME/domains`
 
 (Replace `CF_PROJECT_NAME` with the actual value from `.site-config`.)
 
@@ -267,9 +253,7 @@ Tell the owner: "Try pasting your website URL into a text message or social medi
 
 Tell the owner: "Cloudflare automatically tracks how many people visit your site — no cookies, completely private. You can check anytime."
 
-```sh
-open https://dash.cloudflare.com/?to=/:account/web-analytics
-```
+Open the analytics dashboard: `https://dash.cloudflare.com/?to=/:account/web-analytics`
 
 Explain what they'll see: page views, visitor count, where visitors come from (Google, social media, direct links), and which pages get the most traffic. Suggest checking monthly.
 

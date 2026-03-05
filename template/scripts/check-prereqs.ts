@@ -4,6 +4,8 @@
  * Reports tool status as `key=value` pairs on stdout. Read-only,
  * safe to run anytime. Skills parse the output to decide next steps.
  *
+ * Cross-platform: works on macOS, Linux, and Windows.
+ *
  * Usage: `npm run ai-check` or `npx tsx scripts/check-prereqs.ts`
  *
  * @module
@@ -14,6 +16,13 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execaCommand } from "execa";
 import consola from "consola";
+import {
+  platform,
+  HOSTS_FILE,
+  hasPfctl,
+  mkcertBin as mkcertBinPath,
+  needsXcodeTools,
+} from "./platform.js";
 
 /** Directory this script lives in (`scripts/`). */
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -69,14 +78,18 @@ async function check(label: string, cmd: string): Promise<void> {
 
 /** Entry point — runs all prerequisite checks. */
 async function main(): Promise<void> {
-  consola.start("Checking prerequisites…");
+  consola.start(`Checking prerequisites (${platform})…`);
 
-  // Xcode Command Line Tools
-  const xcodeResult = await firstLine("xcode-select -p");
-  if (xcodeResult) {
-    console.log(`xcode_clt=installed ${xcodeResult}`);
+  // Xcode Command Line Tools (macOS only)
+  if (needsXcodeTools) {
+    const xcodeResult = await firstLine("xcode-select -p");
+    if (xcodeResult) {
+      console.log(`xcode_clt=installed ${xcodeResult}`);
+    } else {
+      console.log("xcode_clt=missing");
+    }
   } else {
-    console.log("xcode_clt=missing");
+    console.log("xcode_clt=n/a (not needed on this platform)");
   }
 
   // Core tools
@@ -95,9 +108,9 @@ async function main(): Promise<void> {
   // --- HTTPS ---
 
   // mkcert
-  const mkcertBin = resolve(process.env.HOME ?? "~", ".local/bin/mkcert");
-  if (existsSync(mkcertBin)) {
-    const ver = await firstLine(`${mkcertBin} --version`);
+  const mkcertPath = mkcertBinPath();
+  if (existsSync(mkcertPath)) {
+    const ver = await firstLine(`${mkcertPath} --version`);
     console.log(`mkcert=installed ${ver ?? ""}`);
   } else {
     console.log("mkcert=missing");
@@ -124,28 +137,33 @@ async function main(): Promise<void> {
     console.log("https_cert=missing");
   }
 
-  // /etc/hosts entry
+  // Hosts file entry
   const devHostname = readConfig("DEV_HOSTNAME") ?? "localhost";
   if (devHostname !== "localhost") {
     try {
-      const hosts = readFileSync("/etc/hosts", "utf-8");
+      const hosts = readFileSync(HOSTS_FILE, "utf-8");
       if (hosts.includes(devHostname)) {
         console.log(`https_hosts=ok (${devHostname})`);
       } else {
         console.log(
-          `https_hosts=missing (${devHostname} not in /etc/hosts)`,
+          `https_hosts=missing (${devHostname} not in ${HOSTS_FILE})`,
         );
       }
     } catch {
-      console.log(`https_hosts=missing (cannot read /etc/hosts)`);
+      console.log(`https_hosts=missing (cannot read ${HOSTS_FILE})`);
     }
   }
 
-  // pfctl port forwarding
-  if (existsSync("/etc/pf.anchors/com.anglesite")) {
-    console.log("https_portforward=configured");
+  // Port forwarding
+  if (hasPfctl) {
+    // macOS: check pfctl anchor
+    if (existsSync("/etc/pf.anchors/com.anglesite")) {
+      console.log("https_portforward=configured");
+    } else {
+      console.log("https_portforward=missing");
+    }
   } else {
-    console.log("https_portforward=missing");
+    console.log("https_portforward=n/a (manual setup on this platform)");
   }
 
   consola.success("Prerequisite check complete.");
