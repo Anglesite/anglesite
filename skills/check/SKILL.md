@@ -1,10 +1,11 @@
 ---
 name: check
-description: "Full health audit: build, privacy, security, accessibility"
-allowed-tools: Bash(npx astro check), Bash(npm run build), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Read, Glob
+description: "Health audit and troubleshooting"
+argument-hint: "[optional: describe the problem]"
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(dscacheutil *), Write, Read, Glob
 ---
 
-Run a full health check on the site. The checklists below are for you (the agent) — **do not show raw checklist items, technical terms, or jargon to the owner.** Translate every finding into plain English. See the Results section at the bottom for how to present findings.
+Run a full health check on the site — and fix what you find. If the owner described a specific problem, diagnose that first; otherwise run the full audit below. The checklists are for you (the agent) — **do not show raw checklist items, technical terms, or jargon to the owner.** Translate every finding into plain English. See the Results section at the bottom for how to present findings.
 
 ## Architecture decisions
 
@@ -145,3 +146,40 @@ Never show the owner: CSS selectors, HTML tag names, HTTP headers, schema.org te
 If any must-fix issues are found, explain and offer to fix them. If everything passes, keep it short: "Your site looks good — it builds correctly, works on phones, is secure, and is easy for search engines to find. No issues."
 
 After the check, tell the owner: "This is the same kind of checkup a good web developer would do regularly. Your site should get one of these at least once a month — just type `/anglesite:check` anytime."
+
+## Troubleshooting
+
+If the owner reported a specific problem (or you found one during the audit), diagnose and fix it.
+
+### Step 1 — Check prerequisites
+
+```sh
+npm run ai-check
+```
+
+Then read `.site-config` to verify it has `SITE_NAME` and `DEV_HOSTNAME`. If either is missing, suggest running `/anglesite:start` first.
+
+### Common tool issues
+- **Wrangler auth expired:** Run `npx wrangler login` to re-authenticate.
+- **Dev server port conflict:** Run `lsof -i :4321` to find what's using port 4321, or `lsof -i :443` for port 443.
+- **fnm/Node not in PATH:** Run `npm run ai-setup` to fix shell profile.
+
+### HTTPS / local preview issues
+- **Certificate error in browser:** The local CA may not be trusted. Run `npm run ai-setup` to reinstall it.
+- **"This site can't be reached":** Check hostname resolution — run `dscacheutil -q host -a name HOSTNAME` (replace HOSTNAME with the value from `.site-config`). If it doesn't resolve to 127.0.0.1, run `npm run ai-setup`.
+- **Port 443 not forwarding:** Run `npm run ai-check` and look for `https_portforward`. If missing, run `npm run ai-setup`.
+- **Certificate hostname mismatch:** Domain changed since cert was generated. Run `npm run ai-setup` to regenerate.
+- **HTTPS works at :4321 but not :443:** pfctl rules not loaded. Run `npm run ai-setup` to reload them.
+
+### Step 2 — Diagnose
+
+1. Ask the owner to describe what's wrong (or what error they saw)
+2. Check log files: `~/.anglesite/logs/build.log`, `deploy.log`, `check.log`, `dev.log`
+3. Run `npx astro check` and `npm run build` to reproduce
+
+### Step 3 — Fix it
+
+1. Explain what went wrong in plain language
+2. Fix it
+3. Verify by running checks again
+4. Ask if they want to publish the fix

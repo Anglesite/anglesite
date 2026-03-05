@@ -6,13 +6,15 @@ Anglesite is a Claude Code plugin that scaffolds and manages websites.
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest
-├── skills/                        User-invocable skills (9)
+├── skills/                        Skills (8 total, 5 user-facing)
 │   ├── start/SKILL.md             First-time setup + scaffolding
 │   ├── deploy/SKILL.md            Build, scan, deploy
-│   ├── design-interview/SKILL.md  Visual identity intake
-│   ├── check/SKILL.md             Health audit
-│   ├── animate/SKILL.md           CSS animations + scroll effects
-│   └── ...                        fix, domain, new-page, update
+│   ├── check/SKILL.md             Health audit + troubleshooting
+│   ├── domain/SKILL.md            DNS management
+│   ├── import/SKILL.md            Platform migration
+│   ├── design-interview/SKILL.md  Visual identity (model-only)
+│   ├── animate/SKILL.md           CSS animations (model-only)
+│   └── new-page/SKILL.md          Page creation (model-only)
 ├── settings.json                  Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json               PreToolUse hook for deploy safety scans
 ├── scripts/scaffold.sh            Copies template/ to user's project

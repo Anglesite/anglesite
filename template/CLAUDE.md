@@ -44,15 +44,12 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | They want to… | Command |
 |---|---|
 | Set up for the first time | `/anglesite:start` |
-| Redo the visual design | `/anglesite:design-interview` |
 | Publish or go live | `/anglesite:deploy` |
-| Check the site for problems | `/anglesite:check` |
-| Add animations to the site | `/anglesite:animate` |
-| Fix something that's broken | `/anglesite:fix` |
-| Update dependencies | `/anglesite:update` |
-| Add a new page | `/anglesite:new-page` |
-| Reinstall tools | `npm run ai-setup` |
+| Check the site or fix a problem | `/anglesite:check` |
 | Manage DNS (email, Bluesky, etc.) | `/anglesite:domain` |
+| Import from another platform | `/anglesite:import` |
+
+For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 
 To write and edit blog posts, they navigate to `https://DEV_HOSTNAME/keystatic` in the preview panel (while the dev server is running). Read `DEV_HOSTNAME` from `.site-config`.
 
@@ -130,6 +127,19 @@ If something is complex or could break other things, explain the tradeoff before
 
 This site participates in the IndieWeb (POSSE, microformats, `rel="me"`). Publish here first, syndicate elsewhere. See `docs/indieweb.md` for full guidance.
 
+## Maintenance
+
+When the owner asks to update their site:
+
+1. Run `npm outdated` to check for available updates
+2. Run `npm audit` to check for known vulnerabilities
+3. Update one package at a time: `npm install package@latest`
+4. Run `npx astro check` and `npm run build` after each
+5. If something breaks, revert and explain
+6. For `npm audit` vulnerabilities: try `npm audit fix` first, then evaluate severity
+7. Save a snapshot: `git add -A` then `git commit -m "Update dependencies: YYYY-MM-DD"`
+8. Ask if they want to deploy
+
 ## Diagnostics
 
-If something is broken, run `/anglesite:fix`.
+If something is broken, run `/anglesite:check`.

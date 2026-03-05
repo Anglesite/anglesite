@@ -1,6 +1,7 @@
 ---
 name: design-interview
 description: "Redo the visual identity and branding"
+user-invokable: false
 allowed-tools: Write, Read, Glob
 ---
 
