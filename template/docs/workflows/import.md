@@ -20,6 +20,16 @@ Import blog posts, pages, and images from an existing website or static site gen
 8. **Build must pass** — fix every build error before presenting results
 9. **Warn about CDN expiry** — for platforms where image URLs expire, warn before cancelling the old account
 
+## Getting started
+
+The import workflow does not require `/anglesite:start` to have been run first. It adapts to the working directory:
+
+- **Existing Anglesite project** — imports directly into the existing site
+- **Existing SSG project** (Hugo, Jekyll, Gatsby, etc.) — offers to convert the project to Anglesite, then imports the content in place
+- **Empty directory** — asks for a website URL, scaffolds a new Anglesite project, then imports from that URL
+
+For the SSG and empty directory cases, the workflow scaffolds the project and asks for the owner's name and site name before importing.
+
 ## How it works
 
 1. Detect the platform from the URL or directory structure

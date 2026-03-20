@@ -2,7 +2,7 @@
 name: import
 description: "Import content from an existing website (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project"
 argument-hint: "[website URL or local path]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -50,15 +50,118 @@ These apply to every import regardless of platform:
 Before every tool call or command that will trigger a permission prompt, explain
 what you're about to do and why. The owner is non-technical.
 
-## Step 0 — Prerequisites
+## Step 0 — Assess the working directory
 
-Read `src/content/config.ts` to confirm the project has been scaffolded. If the
-file does not exist, stop and tell the owner:
+Check the current working directory to determine what state we're in.
 
-> "It looks like the site hasn't been set up yet. Run `/anglesite:start` first
-> to create the project, then come back to import your content."
+### 0a — Is this already an Anglesite project?
 
-Read `.site-config` to load `SITE_NAME` and `OWNER_NAME`.
+Use Glob to check for `src/content/config.ts`.
+
+If it exists, this project has already been scaffolded. Read `.site-config` to
+load `SITE_NAME` and `OWNER_NAME`. Skip to **0d**.
+
+### 0b — Is this an existing SSG project?
+
+If `src/content/config.ts` does not exist, check for other static site
+generators. Use Glob to check for these config files in the working directory:
+
+| Config file(s) | Platform |
+| --- | --- |
+| `hugo.toml`, `hugo.yaml`, `hugo.json`, or `config.toml` (with `[params]`) | Hugo |
+| `_config.yml` AND (`Gemfile` with `jekyll` OR `_posts/` directory) | Jekyll |
+| `next.config.js`, `next.config.mjs`, or `next.config.ts` | Next.js |
+| `gatsby-config.js` or `gatsby-config.ts` | Gatsby |
+| `nuxt.config.js`, `nuxt.config.ts`, or `nuxt.config.mjs` | Nuxt |
+| `docusaurus.config.js` or `docusaurus.config.ts` | Docusaurus |
+| `.vuepress/config.js` or `.vuepress/config.ts` (in `docs/` or root) | VuePress |
+| `mkdocs.yml` | MkDocs |
+| `.eleventy.js`, `eleventy.config.js`, `eleventy.config.mjs`, or `eleventy.config.cjs` | Eleventy |
+| `_config.yml` AND `package.json` containing `"hexo"` | Hexo |
+| `astro.config.mjs`, `astro.config.ts`, or `astro.config.js` (without Anglesite/Keystatic) | Non-Anglesite Astro |
+
+If an SSG is detected, tell the owner:
+
+> "I see you have a [Platform] project here. I can convert this to an Anglesite
+> site — that means moving your content into Astro with Keystatic CMS, so you
+> get a visual editor and easy publishing to Cloudflare Pages.
+>
+> Your existing files won't be deleted — I'll read your content and create new
+> files alongside them. Would you like to go ahead?"
+
+Wait for confirmation. If they decline, stop.
+
+If they confirm, store the detected platform as PLATFORM, set
+SOURCE_DIR to the current working directory, and set IMPORT_MODE = "local".
+Then run the scaffold to set up Anglesite in the current directory:
+
+```sh
+zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh --yes .
+```
+
+Ask the essentials (these are normally gathered by `/anglesite:start`):
+
+1. "What's your name?"
+2. "What should we call the site?"
+
+Save to `.site-config` using the **Write tool**:
+
+```
+SITE_TYPE=blog
+OWNER_NAME=Name
+SITE_NAME=Site Name
+DEV_HOSTNAME=sitename.local
+AI_MODEL=Claude Opus 4.6
+EXPLAIN_STEPS=true
+```
+
+```sh
+npm install
+```
+
+Skip to **Step 1** — the platform is already detected and SOURCE_DIR is set.
+
+### 0c — Is the directory empty?
+
+If no SSG config is found, check if the directory is empty (or contains only
+dotfiles like `.git`).
+
+If essentially empty, tell the owner:
+
+> "This is a fresh directory — perfect for a new site! What website would you
+> like to import content from? Give me the URL (like https://example.com)."
+
+Wait for the URL. Then scaffold the project:
+
+```sh
+zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh --yes .
+```
+
+Ask the essentials:
+
+1. "What's your name?"
+2. "What should we call the new site?"
+
+Save to `.site-config` (same format as 0b above).
+
+```sh
+npm install
+```
+
+Store the URL as SITE_URL, set IMPORT_MODE = "remote", and continue to **0d**.
+
+If the directory is not empty but has no recognized SSG, tell the owner:
+
+> "This directory has files in it but I don't recognize the project type. To
+> import from a website, I'd recommend starting in an empty directory so nothing
+> gets mixed up. Or, if this is a static site project, tell me which generator
+> it uses and where the content files are."
+
+Wait for guidance before proceeding.
+
+### 0d — Determine the import source
+
+If IMPORT_MODE is already set (from 0b or 0c), skip this step.
 
 Ask the owner for their website URL or project path if they didn't provide one
 as an argument.
