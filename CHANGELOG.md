@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] — 2026-03-20
+
+### Added
+- `/import` now works standalone without requiring `/start` first
+- Detects existing SSG projects (Hugo, Jekyll, Gatsby, etc.) and offers in-place conversion to Anglesite
+- Empty directories prompt for a URL, scaffold automatically, then import
+- Non-Anglesite Astro projects detected as a conversion candidate
+
+### Changed
+- Import skill Step 0 rewritten as directory assessment with four sub-steps (0a–0d)
+- Import workflow doc updated with "Getting started" section explaining standalone behavior
+- Import skill `allowed-tools` expanded to include `npm install` and `zsh` for scaffolding
+
 ## [0.11.1] — 2026-03-20
 
 ### Fixed
