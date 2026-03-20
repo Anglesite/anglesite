@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0] — 2026-03-20
+
+### Added
+- New `/anglesite:convert` skill for converting local SSG projects (Hugo, Jekyll, Eleventy, etc.) to Anglesite/Astro
+- Portable `docs/workflows/convert.md` for non-Claude-Code agents
+
+### Changed
+- `/anglesite:import` now accepts website URLs only (WordPress, Squarespace, Wix, etc.) — local SSG paths moved to `/convert`
+- Import skill directs users to `/convert` when an SSG project is detected in the working directory
+- Plugin structure updated to 9 skills (6 user-facing)
+
 ## [0.12.2] — 2026-03-20
 
 ### Fixed
