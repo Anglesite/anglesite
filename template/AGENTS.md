@@ -78,12 +78,12 @@ If you changed it, document it. Same session. No exceptions.
 - Never echo, log, or display tokens in terminal output shown to the owner
 
 ### Every deploy is gated
-- Deploy includes mandatory privacy and security scan before deploying
-- PII scan of `dist/` for leaked customer data
-- Token scan for exposed secrets
-- Third-party script check (only Cloudflare Analytics allowed)
-- Keystatic admin not in production build
-- Failed check blocks deployment. No exceptions, even if the owner asks.
+
+- `npm run deploy` chains build → security scan → wrangler deploy. The scan runs automatically — no manual steps needed.
+- `npm run predeploy` runs the scan standalone. Use this to check before deploying.
+- Scans: PII (emails, phone numbers), API tokens, third-party scripts, Keystatic admin routes, OG images (warn only)
+- If the site intentionally publishes a contact email (e.g., `mailto:` link), add it to `.site-config`: `PII_EMAIL_ALLOW=me@example.com`
+- Failed check exits with code 1 and blocks deployment. No exceptions, even if the owner asks.
 
 ### Third-party code
 - Site loads zero third-party JavaScript. Cloudflare auto-injects Web Analytics beacon.

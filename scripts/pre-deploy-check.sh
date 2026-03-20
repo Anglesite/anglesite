@@ -17,8 +17,27 @@ fi
 DIST="dist"
 REASONS=()
 
+# Read PII_EMAIL_ALLOW from .site-config (comma-separated list of allowed emails)
+PII_ALLOW=""
+if [[ -f ".site-config" ]]; then
+  PII_ALLOW=$(grep '^PII_EMAIL_ALLOW=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+fi
+
 # 1. PII scan — email addresses and phone numbers in built HTML
-if grep -r '@' "$DIST/" --include='*.html' 2>/dev/null | grep -v 'charset' | grep -v 'viewport' | grep -v '@astro' | grep -q .; then
+EMAIL_HITS=$(grep -rE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' "$DIST/" --include='*.html' 2>/dev/null \
+  | grep -v 'charset' | grep -v 'viewport' | grep -v '@astro' \
+  | grep -v '@import' | grep -v '@keyframes' | grep -v '@media' | grep -v '@font-face' \
+  | grep -v 'mailto:' || true)
+
+# Filter out allowlisted emails
+if [[ -n "$EMAIL_HITS" && -n "$PII_ALLOW" ]]; then
+  IFS=',' read -ra ALLOWED <<< "$PII_ALLOW"
+  for addr in "${ALLOWED[@]}"; do
+    EMAIL_HITS=$(echo "$EMAIL_HITS" | grep -vF "$addr" || true)
+  done
+fi
+
+if [[ -n "$EMAIL_HITS" ]]; then
   REASONS+=("Possible email address found in built HTML")
 fi
 

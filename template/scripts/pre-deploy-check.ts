@@ -13,14 +13,38 @@
  */
 
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
-import { join, extname } from "node:path";
+import { join, extname, resolve } from "node:path";
 
 const DIST = "dist";
+const CONFIG_FILE = resolve(process.cwd(), ".site-config");
 
 if (!existsSync(DIST)) {
   console.error("dist/ not found — run `npm run build` first.");
   process.exit(1);
 }
+
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+
+/**
+ * Read a value from `.site-config` (KEY=value, one per line).
+ */
+function readConfig(key: string): string | undefined {
+  if (!existsSync(CONFIG_FILE)) return undefined;
+  const content = readFileSync(CONFIG_FILE, "utf-8");
+  const match = content.match(new RegExp(`^${key}=(.+)$`, "m"));
+  return match?.[1]?.trim();
+}
+
+/**
+ * Emails the site owner has explicitly approved for publication.
+ * Set in .site-config as: PII_EMAIL_ALLOW=me@example.com,info@example.com
+ */
+const emailAllowlist: string[] = (readConfig("PII_EMAIL_ALLOW") ?? "")
+  .split(",")
+  .map(e => e.trim().toLowerCase())
+  .filter(Boolean);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -69,7 +93,16 @@ const emailExcludes = ["charset", "viewport", "@astro", "@import", "@keyframes",
 for (const file of htmlFiles) {
   const content = readFileSync(file, "utf-8");
   const matches = content.match(emailPattern) || [];
-  const real = matches.filter(m => !emailExcludes.some(ex => m.includes(ex) || content.includes(ex + m)));
+  const real = matches.filter(m => {
+    // Skip CSS at-rules and meta tags
+    if (emailExcludes.some(ex => m.includes(ex))) return false;
+    // Skip emails in mailto: links (intentionally published)
+    const idx = content.indexOf(m);
+    if (idx >= 7 && content.slice(idx - 7, idx).includes("mailto:")) return false;
+    // Skip emails on the allowlist
+    if (emailAllowlist.includes(m.toLowerCase())) return false;
+    return true;
+  });
   if (real.length > 0) {
     failures.push(`PII: possible email address in ${file}: ${real.join(", ")}`);
   }
@@ -133,6 +166,10 @@ if (!hasOgImage) {
 // ---------------------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------------------
+
+if (emailAllowlist.length > 0) {
+  console.log(`PII allowlist: ${emailAllowlist.join(", ")}`);
+}
 
 if (warnings.length > 0) {
   for (const w of warnings) {

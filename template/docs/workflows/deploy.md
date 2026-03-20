@@ -41,6 +41,14 @@ Checks for:
 
 Exit code 1 blocks deploy. Fix all issues before proceeding.
 
+If the site intentionally publishes a contact email (e.g., a `mailto:` link in the footer), add it to `.site-config` so it doesn't trigger the PII scan:
+
+```ini
+PII_EMAIL_ALLOW=me@example.com
+```
+
+Multiple emails are comma-separated: `PII_EMAIL_ALLOW=info@example.com,hello@example.com`
+
 ### 3. First-time setup
 
 If this is the first deploy, create the Cloudflare Pages project:

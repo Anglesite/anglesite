@@ -47,32 +47,23 @@ If the build fails, explain what went wrong in plain language and fix it before 
 
 ## Step 2 — Mandatory privacy and security scan
 
-Run ALL of these checks. A failure in any check blocks deployment. No exceptions.
+Run the automated security scan:
 
-### PII scan
 ```sh
-grep -rn '@' dist/ --include='*.html' | grep -v 'charset' | grep -v 'viewport' | grep -v '@astro'
-grep -rnE '\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}' dist/ --include='*.html'
+npm run predeploy
 ```
-If either returns results, STOP. Customer data has leaked into the built site.
 
-### Token scan
-```sh
-grep -rnE '(pat[A-Za-z0-9]{14,}|sk-[A-Za-z0-9]{20,})' dist/ src/ public/
-```
-If this returns results, STOP. An API token is exposed.
+This checks PII (emails, phone numbers), API tokens, third-party scripts, Keystatic admin routes, and OG images. If any blocking check fails, it exits with code 1 and prints what went wrong. Fix the issues before proceeding.
 
-### Third-party scripts
-```sh
-grep -rn '<script[^>]*src=' dist/ --include='*.html' | grep -v 'cloudflareinsights' | grep -v '_astro'
-```
-If this returns results, STOP. Unauthorized external JavaScript.
+If the site intentionally publishes a contact email (e.g., a `mailto:` link in the footer), tell the owner you'll add it to the allowlist so it doesn't block future deploys. Add to `.site-config`:
 
-### Keystatic not in build
-```sh
-find dist/ -path '*keystatic*' -type f
 ```
-If this returns results, STOP. Admin routes leaked into production.
+PII_EMAIL_ALLOW=me@example.com
+```
+
+Multiple emails are comma-separated: `PII_EMAIL_ALLOW=info@example.com,hello@example.com`
+
+Then re-run `npm run predeploy` to confirm it passes.
 
 ## Step 2.5 — Staging preview (first deploy only)
 
