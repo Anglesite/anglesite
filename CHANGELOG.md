@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.2] — 2026-03-20
+
+### Fixed
+- Add `eleventy.config.ts` to all SSG detection tables — Eleventy v3 TypeScript projects were not recognized (#11)
+
 ## [0.12.1] — 2026-03-20
 
 ### Fixed
