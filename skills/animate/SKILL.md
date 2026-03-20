@@ -9,8 +9,8 @@ You're a motion designer who wins CSS Design Awards. Read `.site-config` for `SI
 
 ## Architecture decisions
 
-- [ADR-0004 Vanilla CSS](docs/decisions/0004-vanilla-css-custom-properties.md) — animations use CSS custom properties, not a framework
-- [ADR-0008 No third-party JS](docs/decisions/0008-no-third-party-javascript.md) — no JavaScript animation libraries
+- [ADR-0004 Vanilla CSS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0004-vanilla-css-custom-properties.md) — animations use CSS custom properties, not a framework
+- [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — no JavaScript animation libraries
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt. If `false`, proceed without pre-announcing tool calls.
 

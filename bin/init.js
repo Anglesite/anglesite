@@ -18,7 +18,9 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TEMPLATE = join(__dirname, "..", "template");
+const PACKAGE_ROOT = join(__dirname, "..");
+const TEMPLATE = join(PACKAGE_ROOT, "template");
+const REFERENCE_DOCS = join(PACKAGE_ROOT, "docs");
 
 // ---------------------------------------------------------------------------
 // Parse args
@@ -92,6 +94,13 @@ function copyDir(src, dst) {
 }
 
 copyDir(TEMPLATE, dest);
+
+// Copy reference docs (smb/, import/, platforms/, decisions/) into docs/.
+// These live at the package root, not in template/, but npm users need them
+// in their project since they don't have the Claude Code plugin path.
+if (existsSync(REFERENCE_DOCS)) {
+  copyDir(REFERENCE_DOCS, join(dest, "docs"));
+}
 
 // ---------------------------------------------------------------------------
 // Done

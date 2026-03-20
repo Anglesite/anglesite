@@ -8,7 +8,8 @@
   },
   "files": [
     "bin/init.js",
-    "template/"
+    "template/",
+    "docs/"
   ],
   "keywords": ["website", "small-business", "astro", "cloudflare", "webmaster", "ai", "agents"],
   "author": "David W. Keith",

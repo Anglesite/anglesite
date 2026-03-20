@@ -18,11 +18,11 @@ etc.) in the current directory, use `/anglesite:convert` instead.
 
 ## Shared guidance
 
-Before reading the platform-specific doc, read `docs/import/hosted-platforms.md`
+Before reading the platform-specific doc, read `${CLAUDE_PLUGIN_ROOT}/docs/import/hosted-platforms.md`
 for HTML-to-Markdown conversion rules, image CDN handling, pagination patterns,
 missing field fallbacks, and redirect best practices.
 
-The platform-specific docs (`docs/import/PLATFORM.md`) cover only what's unique
+The platform-specific docs (`${CLAUDE_PLUGIN_ROOT}/docs/import/PLATFORM.md`) cover only what's unique
 to that platform — detection signals, API/feed endpoints, platform-specific HTML
 elements, and CDN URL patterns. The shared docs cover everything common.
 
@@ -42,11 +42,11 @@ These apply to every import regardless of platform:
 
 ## Architecture decisions
 
-- [ADR-0002 Keystatic CMS](docs/decisions/0002-keystatic-local-cms.md) — content lands as `.mdoc` files in `src/content/posts/`, the same format Keystatic edits
-- [ADR-0006 IndieWeb POSSE](docs/decisions/0006-indieweb-posse.md) — imported posts get `syndication` URLs pointing back to their originals so the provenance trail is preserved
-- [ADR-0008 No third-party JS](docs/decisions/0008-no-third-party-javascript.md) — tracking scripts, embedded iframes, and widget code must be stripped during import
-- [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — imported content must not depend on the old platform to display correctly
-- [ADR-0012 Verify first](docs/decisions/0012-verify-before-presenting.md) — build must pass after import before presenting results to the owner
+- [ADR-0002 Keystatic CMS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0002-keystatic-local-cms.md) — content lands as `.mdoc` files in `src/content/posts/`, the same format Keystatic edits
+- [ADR-0006 IndieWeb POSSE](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0006-indieweb-posse.md) — imported posts get `syndication` URLs pointing back to their originals so the provenance trail is preserved
+- [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — tracking scripts, embedded iframes, and widget code must be stripped during import
+- [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — imported content must not depend on the old platform to display correctly
+- [ADR-0012 Verify first](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0012-verify-before-presenting.md) — build must pass after import before presenting results to the owner
 
 Before every tool call or command that will trigger a permission prompt, explain
 what you're about to do and why. The owner is non-technical.
@@ -143,7 +143,7 @@ is detected, tell the owner:
 > your Ghost admin panel (Integrations → Custom Integration), I can pull
 > everything directly. Otherwise I can use the RSS feed."
 
-Read `docs/import/ghost.md` for platform-specific extraction details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/ghost.md` for platform-specific extraction details.
 
 **Blogger** — check for the Atom feed:
 
@@ -156,7 +156,7 @@ If detected, tell the owner:
 > "Your site is on Blogger. Blogger has great export options — I can read
 > everything directly from its feed."
 
-Read `docs/import/blogger.md` for platform-specific extraction details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/blogger.md` for platform-specific extraction details.
 
 **Other hosted platforms** — if none of the above matched, use WebFetch on the homepage:
 
@@ -173,22 +173,22 @@ Use WebFetch on SITE_URL with this prompt:
 > 'writefreely' or 'write.as' for WriteFreely.
 > Report which platform you detect, or 'unknown' if you can't tell."
 
-For each detected platform, read the corresponding doc from `docs/import/`:
+For each detected platform, read the corresponding doc from `${CLAUDE_PLUGIN_ROOT}/docs/import/`:
 
 | Platform | Detection signals | Doc reference |
 | --- | --- | --- |
-| Squarespace | `squarespace` in scripts/meta, `squarespace-cdn.com` | `docs/import/squarespace.md` |
-| Wix | `wix` or `Thunderbolt` in source, `wixstatic.com` | `docs/import/wix.md` |
-| Shopify | `cdn.shopify.com`, `/collections/`, `/products/` | `docs/import/shopify.md` |
-| Medium | `miro.medium.com`, `.medium.com` domain | `docs/import/medium.md` |
-| Substack | `substackcdn.com`, `.substack.com` domain | `docs/import/substack.md` |
-| Weebly | `cdnjs.weebly.com`, "Powered by Weebly" | `docs/import/weebly.md` |
-| Tumblr | `media.tumblr.com`, `.tumblr.com` domain | `docs/import/tumblr.md` |
-| Webflow | `data-wf-site`, `assets.website-files.com` | `docs/import/webflow.md` |
-| GoDaddy | `img1.wsimg.com`, `secureservercdn.net` | `docs/import/godaddy.md` |
-| Carrd | `static.carrd.co`, `.carrd.co` domain | `docs/import/carrd.md` |
-| Micro.blog | `micro.blog`, micropub endpoint | `docs/import/microblog.md` |
-| WriteFreely | `writefreely` generator, `.write.as` domain | `docs/import/writefreely.md` |
+| Squarespace | `squarespace` in scripts/meta, `squarespace-cdn.com` | `${CLAUDE_PLUGIN_ROOT}/docs/import/squarespace.md` |
+| Wix | `wix` or `Thunderbolt` in source, `wixstatic.com` | `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` |
+| Shopify | `cdn.shopify.com`, `/collections/`, `/products/` | `${CLAUDE_PLUGIN_ROOT}/docs/import/shopify.md` |
+| Medium | `miro.medium.com`, `.medium.com` domain | `${CLAUDE_PLUGIN_ROOT}/docs/import/medium.md` |
+| Substack | `substackcdn.com`, `.substack.com` domain | `${CLAUDE_PLUGIN_ROOT}/docs/import/substack.md` |
+| Weebly | `cdnjs.weebly.com`, "Powered by Weebly" | `${CLAUDE_PLUGIN_ROOT}/docs/import/weebly.md` |
+| Tumblr | `media.tumblr.com`, `.tumblr.com` domain | `${CLAUDE_PLUGIN_ROOT}/docs/import/tumblr.md` |
+| Webflow | `data-wf-site`, `assets.website-files.com` | `${CLAUDE_PLUGIN_ROOT}/docs/import/webflow.md` |
+| GoDaddy | `img1.wsimg.com`, `secureservercdn.net` | `${CLAUDE_PLUGIN_ROOT}/docs/import/godaddy.md` |
+| Carrd | `static.carrd.co`, `.carrd.co` domain | `${CLAUDE_PLUGIN_ROOT}/docs/import/carrd.md` |
+| Micro.blog | `micro.blog`, micropub endpoint | `${CLAUDE_PLUGIN_ROOT}/docs/import/microblog.md` |
+| WriteFreely | `writefreely` generator, `.write.as` domain | `${CLAUDE_PLUGIN_ROOT}/docs/import/writefreely.md` |
 
 Tell the owner what platform was detected and read the platform doc for
 extraction instructions. For unknown platforms, tell the owner:
@@ -320,7 +320,7 @@ If no API key, fall back to the RSS feed:
 curl -s SITE_URL/rss/
 ```
 
-Read `docs/import/ghost.md` for full field mapping and content conversion details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/ghost.md` for full field mapping and content conversion details.
 
 #### Medium
 
@@ -334,7 +334,7 @@ The RSS feed contains full HTML content in `<content:encoded>`, plus title,
 date, tags (as `<category>` elements), and post URL. The feed typically returns
 only the 10–20 most recent posts. For older posts, use WebFetch on each URL.
 
-Read `docs/import/medium.md` for image CDN handling and URL patterns.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/medium.md` for image CDN handling and URL patterns.
 
 #### Substack
 
@@ -346,7 +346,7 @@ The RSS feed contains full HTML content for public posts. Each `<item>` includes
 title, content, date, author, and enclosure (cover image). Paywalled posts have
 truncated content.
 
-Read `docs/import/substack.md` for content conversion details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/substack.md` for content conversion details.
 
 #### Blogger
 
@@ -362,7 +362,7 @@ Differentiate posts from pages by `<category>` term:
 - Pages: `kind#page`
 - Comments: `kind#comment` (skip)
 
-Read `docs/import/blogger.md` for XML structure and image handling.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/blogger.md` for XML structure and image handling.
 
 #### Shopify
 
@@ -378,7 +378,7 @@ curl -s SITE_URL/sitemap.xml
 
 The Atom feed contains full article content, tags, author, and date.
 
-Read `docs/import/shopify.md` for CDN URL patterns and store-specific issues.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/shopify.md` for CDN URL patterns and store-specific issues.
 
 #### Weebly
 
@@ -392,7 +392,7 @@ post URL. Discover pages from the sitemap:
 curl -s SITE_URL/sitemap.xml
 ```
 
-Read `docs/import/weebly.md` for content extraction details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/weebly.md` for content extraction details.
 
 #### Tumblr
 
@@ -411,7 +411,7 @@ curl -s "SITE_URL/rss"
 Tumblr has multiple post types (text, photo, quote, link, chat, audio, video).
 Import text and photo posts as blog posts. Ask the owner about other types.
 
-Read `docs/import/tumblr.md` for post type mapping and image CDN details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/tumblr.md` for post type mapping and image CDN details.
 
 #### Webflow
 
@@ -433,7 +433,7 @@ curl -s -H "Authorization: Bearer API_TOKEN" "https://api.webflow.com/v2/sites"
 Then list collections and fetch items via the API. Without API access, use
 WebFetch on each page URL discovered from the sitemap.
 
-Read `docs/import/webflow.md` for CMS field mapping and content extraction details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/webflow.md` for CMS field mapping and content extraction details.
 
 #### GoDaddy Website Builder
 
@@ -446,7 +446,7 @@ If no sitemap, WebFetch the homepage to extract navigation links. For each page,
 use WebFetch with the standard extraction prompt. GoDaddy sites are typically
 small (5–15 pages).
 
-Read `docs/import/godaddy.md` for detection signals and content extraction details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/godaddy.md` for detection signals and content extraction details.
 
 #### Carrd
 
@@ -457,7 +457,7 @@ links and WebFetch each page.
 Carrd imports produce **pages** (not blog posts) since Carrd sites don't have
 blogs.
 
-Read `docs/import/carrd.md` for content structuring details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/carrd.md` for content structuring details.
 
 #### Micro.blog
 
@@ -472,7 +472,7 @@ Tell the owner:
 > "If you can export your data from micro.blog (Account → Export), I'll get
 > the most complete copy including all your images."
 
-Read `docs/import/microblog.md` for untitled post handling and image details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/microblog.md` for untitled post handling and image details.
 
 #### WriteFreely / Write.as
 
@@ -489,7 +489,7 @@ For Write.as:
 curl -s "https://write.as/api/collections/USERNAME/posts"
 ```
 
-Read `docs/import/writefreely.md` for API details and untitled post handling.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/writefreely.md` for API details and untitled post handling.
 
 #### Unknown platform
 
@@ -728,7 +728,7 @@ Wait for the owner's answer.
 
 ### If they choose Ghost
 
-Read `docs/platforms/ghost-newsletter.md` for setup details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/platforms/ghost-newsletter.md` for setup details.
 
 **Ghost → Ghost (same instance):** The subscribers are already in Ghost. Tell
 the owner:
@@ -736,7 +736,7 @@ the owner:
 > set up a signup form on the website that connects to your Ghost instance."
 
 Ask for the Ghost Admin API URL and key. Add a newsletter signup form to the
-website footer (see `docs/platforms/ghost-newsletter.md` → Website integration).
+website footer (see `${CLAUDE_PLUGIN_ROOT}/docs/platforms/ghost-newsletter.md` → Website integration).
 Update the CSP `form-action` in `public/_headers`.
 
 **Substack → Ghost:** Tell the owner:
@@ -749,7 +749,7 @@ Walk them through the process. Then set up the signup form as above.
 
 ### If they choose Buttondown
 
-Read `docs/platforms/buttondown.md` for setup details.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/platforms/buttondown.md` for setup details.
 
 **Ghost → Buttondown:** Tell the owner:
 > "I need your subscriber list from Ghost. In Ghost Admin, go to Members and
@@ -824,7 +824,7 @@ For **gallery pages**, add them to GALLERY_PAGES for processing in Step 4.
 
 For **app-powered pages**, do NOT create a stub. Add to APP_PAGES for reporting
 in Step 7. Do not try to replicate platform app functionality — booking, store,
-and event features have industry-appropriate alternatives in `docs/platforms/`.
+and event features have industry-appropriate alternatives in `${CLAUDE_PLUGIN_ROOT}/docs/platforms/`.
 
 ## Step 4 — Handle galleries and portfolios
 
@@ -984,8 +984,8 @@ Give the owner a plain-English summary:
 List FAILED_POSTS and FAILED_IMAGES so the owner knows what needs attention.
 
 For each APP_PAGES entry, suggest a replacement:
-- Booking/scheduling → "Cal.com or Calendly integrate well. See `docs/platforms/`."
-- Store/e-commerce → "Square or Shopify work great. See `docs/platforms/`."
+- Booking/scheduling → "Cal.com or Calendly integrate well. See `${CLAUDE_PLUGIN_ROOT}/docs/platforms/`."
+- Store/e-commerce → "Square or Shopify work great. See `${CLAUDE_PLUGIN_ROOT}/docs/platforms/`."
 - Events → "I can build a custom events page for you."
 - Contact form → "I can add a simple email link, or we can set up a form service."
 - Forum/members → "This would need a separate platform — let's discuss options."
@@ -1013,14 +1013,14 @@ If they say yes, run `/anglesite:deploy`.
 
 ## Platform reference docs
 
-Platform-specific import guides are in `docs/import/`. Each doc covers:
+Platform-specific import guides are in `${CLAUDE_PLUGIN_ROOT}/docs/import/`. Each doc covers:
 - How to detect the platform
 - API/feed endpoints and authentication
 - HTML structure and CDN URL patterns
 - Content conversion notes
 - Common issues and gotchas
 
-See `docs/import/README.md` for the full index.
+See `${CLAUDE_PLUGIN_ROOT}/docs/import/README.md` for the full index.
 
 ## Keep docs in sync
 

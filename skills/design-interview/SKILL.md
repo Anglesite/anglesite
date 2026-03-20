@@ -9,9 +9,9 @@ You're a professional web designer conducting a visual identity intake. Read `.s
 
 ## Architecture decisions
 
-- [ADR-0004 Vanilla CSS](docs/decisions/0004-vanilla-css-custom-properties.md) — why the brand is expressed through CSS custom properties, not a framework
-- [ADR-0005 System fonts](docs/decisions/0005-system-fonts.md) — why system font stacks are used instead of Google Fonts or other CDNs
-- [ADR-0006 IndieWeb POSSE](docs/decisions/0006-indieweb-posse.md) — why `rel="me"` links and microformats are added during design
+- [ADR-0004 Vanilla CSS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0004-vanilla-css-custom-properties.md) — why the brand is expressed through CSS custom properties, not a framework
+- [ADR-0005 System fonts](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0005-system-fonts.md) — why system font stacks are used instead of Google Fonts or other CDNs
+- [ADR-0006 IndieWeb POSSE](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0006-indieweb-posse.md) — why `rel="me"` links and microformats are added during design
 
 If `.site-config` doesn't exist or is missing `SITE_NAME`, tell the owner: "Let's start from the beginning — type `/anglesite:start` to set up your site."
 
@@ -19,7 +19,7 @@ This is a conversation, not a form — let the owner's answers guide the next qu
 
 ## Before you begin
 
-Read `docs/design-system.md` for color, typography, spacing, and layout guidance. If `BUSINESS_TYPE` is set, also read the `## Design` section in the matching `docs/smb/` file. For personal, blog, or portfolio sites without a `BUSINESS_TYPE`, rely on `design-system.md` and the owner's answers.
+Read `docs/design-system.md` for color, typography, spacing, and layout guidance. If `BUSINESS_TYPE` is set, also read the `## Design` section in the matching `${CLAUDE_PLUGIN_ROOT}/docs/smb/` file. For personal, blog, or portfolio sites without a `BUSINESS_TYPE`, rely on `design-system.md` and the owner's answers.
 
 ## The interview
 
@@ -30,7 +30,7 @@ Tailor your questions to the site type. Cover these topics naturally (not necess
 3. **Logo & identity** — Do they have a logo or mark? What does the site name mean to them visually?
 4. **Photography** — What photos do they have? What do they wish they had?
 5. **Typography feel** — "Should the text feel modern? Classic? Elegant? Playful?" (Don't name fonts — describe the vibe.)
-6. **Content priorities** — Suggest what pages matter most for their site type. For business sites, read the matching `docs/smb/` file for industry-specific page recommendations. Frame it as: "For a [site/business type], the pages people look for most are [X, Y, Z]. Does that match what you'd want?" Let them adjust.
+6. **Content priorities** — Suggest what pages matter most for their site type. For business sites, read the matching `${CLAUDE_PLUGIN_ROOT}/docs/smb/` file for industry-specific page recommendations. Frame it as: "For a [site/business type], the pages people look for most are [X, Y, Z]. Does that match what you'd want?" Let them adjust.
 7. **Social & community** — "Where are you online? Which social accounts are most important?" If they have an Instagram or portfolio that's central to their work, plan to feature it prominently on the site. Add `rel="me"` links to their profiles for IndieWeb identity verification.
 8. **Existing tools** — If `EXISTING_TOOLS` is set in `.site-config`, acknowledge what they're already using. "I see you're using [tool] — we'll make sure your website connects to that." If not set and this is a business site, ask: "Are you using any booking, payment, or marketing tools already?"
 9. **Accessibility** — Does their audience include people with specific accessibility needs? (Regardless: WCAG AA is the baseline — good contrast, readable fonts, semantic structure.)

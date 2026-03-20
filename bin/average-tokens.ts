@@ -107,9 +107,9 @@ function measure(): Measurements {
   const startMd = bytes("skills/start/SKILL.md");
 
   // Step 1: business type discovery
-  const smbReadme = bytes("template/docs/smb/README.md");
+  const smbReadme = bytes("docs/smb/README.md");
 
-  const smbDir = join(PLUGIN_ROOT, "template/docs/smb");
+  const smbDir = join(PLUGIN_ROOT, "docs/smb");
   const smbTypeFiles = readdirSync(smbDir)
     .filter((f) => f.endsWith(".md") && !SMB_CROSS_CUTTING.has(f));
   const smbSizes = smbTypeFiles.map((f) => statSync(join(smbDir, f)).size);
@@ -128,7 +128,7 @@ function measure(): Measurements {
       { label: "start/SKILL.md", path: "skills/start/SKILL.md", bytes: startMd, tokens: tokens(startMd) },
     ],
     step1: [
-      { label: "smb/README.md", path: "template/docs/smb/README.md", bytes: smbReadme, tokens: tokens(smbReadme) },
+      { label: "smb/README.md", path: "docs/smb/README.md", bytes: smbReadme, tokens: tokens(smbReadme) },
     ],
     step2: [
       { label: "design-interview/SKILL.md", path: "skills/design-interview/SKILL.md", bytes: designInterview, tokens: tokens(designInterview) },

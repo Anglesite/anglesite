@@ -24,12 +24,16 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 ├── bin/average-tokens.ts          Token cost calculator
 ├── bin/build-instructions.ts      Agent instruction validator
 ├── package.json                   npm package manifest
+├── docs/                          Reference docs (read by skills via ${CLAUDE_PLUGIN_ROOT})
+│   ├── smb/                       Business type guides (70 files)
+│   ├── import/                    Platform migration guides (28 files)
+│   ├── platforms/                 Tool integration guides (13 files)
+│   └── decisions/                 ADRs — default technical choices (13 files)
 └── template/                      Files scaffolded to user's project
     ├── src/                       Astro source (pages, layouts, styles)
     ├── public/                    Static assets
     ├── scripts/                   setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
-    ├── docs/                      Reference documentation (80+ files)
-    │   └── workflows/             Portable workflow guides (any agent)
+    ├── docs/                      Site-specific docs (~15 files) + workflows/
     ├── AGENTS.md                  Universal webmaster instructions (any agent)
     ├── CLAUDE.md                  Claude Code-specific additions (@imports AGENTS.md)
     ├── GEMINI.md                  Gemini CLI pointer (@imports AGENTS.md)
@@ -52,7 +56,7 @@ Three levels of agent instructions:
 4. All other skills (`/anglesite:deploy`, `/anglesite:check`, etc.) execute in the user's working directory
 
 **npm package** (any agent):
-1. `npx anglesite init my-site` copies `template/` to a new directory
+1. `npx anglesite init my-site` copies `template/` + `docs/` to a new directory
 2. `npm install && npm run dev` to start developing
 3. Any AI agent reads `AGENTS.md` for project context and `docs/workflows/` for step-by-step guides
 
@@ -65,7 +69,9 @@ Three levels of agent instructions:
 - **The end user is non-technical.** Skills are their primary interface. Changes should not require CLI knowledge.
 - **Cross-platform.** Template scripts detect macOS/Linux/Windows via `scripts/platform.ts`. Never use platform-specific commands (`sips`, `pfctl`, `dscacheutil`, `osascript`, `open`, `sed -i ""`) without a cross-platform alternative or guard.
 - **Privacy and security are non-negotiable.** The deploy skill scans for PII, exposed tokens, third-party scripts, and Keystatic admin routes.
-- **Documentation must stay in sync.** The `template/docs/` directory is the source of truth. Update docs when you change behavior.
+- **Reference docs** go in `docs/` at the plugin root — skills read them via `${CLAUDE_PLUGIN_ROOT}/docs/`. The npm init script copies them to the user's project for non-plugin agents.
+- **Site-specific docs** go in `template/docs/` — these are scaffolded to the user's project and updated per-site.
+- **Documentation must stay in sync.** Update docs when you change behavior.
 
 ## Key decisions
 

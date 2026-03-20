@@ -9,11 +9,11 @@ Build, scan, and deploy the site to Cloudflare Pages. On first deploy, this also
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Pages](docs/decisions/0003-cloudflare-pages-hosting.md) — why Cloudflare (free CDN, Wrangler CLI, at-cost domains)
-- [ADR-0007 Pre-deploy scans](docs/decisions/0007-mandatory-pre-deploy-scans.md) — why every deploy is gated by PII, token, script, and Keystatic scans with no override
-- [ADR-0008 No third-party JS](docs/decisions/0008-no-third-party-javascript.md) — why only Cloudflare Analytics is allowed
-- [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — why the Cloudflare account belongs to the owner
-- [ADR-0012 Verify first](docs/decisions/0012-verify-before-presenting.md) — why build must succeed before scans and deploy
+- [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — why Cloudflare (free CDN, Wrangler CLI, at-cost domains)
+- [ADR-0007 Pre-deploy scans](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0007-mandatory-pre-deploy-scans.md) — why every deploy is gated by PII, token, script, and Keystatic scans with no override
+- [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — why only Cloudflare Analytics is allowed
+- [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — why the Cloudflare account belongs to the owner
+- [ADR-0012 Verify first](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0012-verify-before-presenting.md) — why build must succeed before scans and deploy
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
 

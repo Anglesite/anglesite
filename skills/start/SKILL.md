@@ -11,12 +11,12 @@ Welcome a new site owner. This is the first command they'll run — it combines 
 
 These decisions shape how the site is built. Read when you need to explain *why* to the owner:
 
-- [ADR-0001 Astro](docs/decisions/0001-astro-static-site-generator.md) — why the site uses Astro (zero client JS, static output)
-- [ADR-0002 Keystatic](docs/decisions/0002-keystatic-local-cms.md) — why content is local `.mdx` files, not a hosted CMS
-- [ADR-0003 Cloudflare Pages](docs/decisions/0003-cloudflare-pages-hosting.md) — why hosting is on Cloudflare (free, CLI deploy, at-cost domains)
-- [ADR-0009 Industry tools](docs/decisions/0009-industry-tools-over-custom-code.md) — why existing tools are integrated, not replaced
-- [ADR-0010 Local HTTPS](docs/decisions/0010-local-https-development.md) — why the dev environment uses HTTPS with a custom hostname
-- [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — why the owner controls all code, content, domain, and hosting
+- [ADR-0001 Astro](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0001-astro-static-site-generator.md) — why the site uses Astro (zero client JS, static output)
+- [ADR-0002 Keystatic](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0002-keystatic-local-cms.md) — why content is local `.mdx` files, not a hosted CMS
+- [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — why hosting is on Cloudflare (free, CLI deploy, at-cost domains)
+- [ADR-0009 Industry tools](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0009-industry-tools-over-custom-code.md) — why existing tools are integrated, not replaced
+- [ADR-0010 Local HTTPS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0010-local-https-development.md) — why the dev environment uses HTTPS with a custom hostname
+- [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — why the owner controls all code, content, domain, and hosting
 
 ## How to communicate
 
@@ -48,7 +48,7 @@ Then branch based on site type:
 3. "What's the name of your business?"
 4. "Tell me about your business in a sentence or two — what do you do?"
 
-   Let them describe it in their own words. Then match their description to one or more files in `${CLAUDE_PLUGIN_ROOT}/template/docs/smb/`. Check the "Business types" table in `${CLAUDE_PLUGIN_ROOT}/template/docs/smb/README.md` for all types — you only need the table for type matching, not the cross-cutting references or other sections.
+   Let them describe it in their own words. Then match their description to one or more files in `${CLAUDE_PLUGIN_ROOT}/docs/smb/`. Check the "Business types" table in `${CLAUDE_PLUGIN_ROOT}/docs/smb/README.md` for all types — you only need the table for type matching, not the cross-cutting references or other sections.
 
    Examples of how to map natural descriptions:
 
@@ -65,9 +65,9 @@ Then branch based on site type:
    - "I have 20 acres and want to start something" → start with `pre-launch.md`, discuss options, then assign type(s)
    - "I'm a roadside attraction — giant ball of twine" → `hospitality` or `museum` depending on the experience
 
-   If the description spans multiple types, ask which activity is the primary one. Save all types comma-separated, primary first. See `${CLAUDE_PLUGIN_ROOT}/template/docs/smb/multi-mode.md` for how to merge guidance.
+   If the description spans multiple types, ask which activity is the primary one. Save all types comma-separated, primary first. See `${CLAUDE_PLUGIN_ROOT}/docs/smb/multi-mode.md` for how to merge guidance.
 
-   If the owner is still forming their business — no name yet, no customers, just an idea — that's fine. Read `${CLAUDE_PLUGIN_ROOT}/template/docs/smb/pre-launch.md` for how to adjust the session. Build a simple site with what they have now and share relevant startup resources at the end.
+   If the owner is still forming their business — no name yet, no customers, just an idea — that's fine. Read `${CLAUDE_PLUGIN_ROOT}/docs/smb/pre-launch.md` for how to adjust the session. Build a simple site with what they have now and share relevant startup resources at the end.
 
 5. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
 6. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
@@ -98,7 +98,7 @@ Then branch based on site type:
 ### Organization sites (`SITE_TYPE=organization`)
 
 3. "What's the name of your organization?"
-4. "What does your organization do?" — mission, community, cause. Match to `${CLAUDE_PLUGIN_ROOT}/template/docs/smb/` if applicable (e.g., `nonprofit`, `house-of-worship`, `youth-org`, `food-bank`). Save as `BUSINESS_TYPE`.
+4. "What does your organization do?" — mission, community, cause. Match to `${CLAUDE_PLUGIN_ROOT}/docs/smb/` if applicable (e.g., `nonprofit`, `house-of-worship`, `youth-org`, `food-bank`). Save as `BUSINESS_TYPE`.
 5. "What should the website help people do?" — donate, volunteer, find events, learn about your mission, contact you.
 
 ### All site types — wrap up

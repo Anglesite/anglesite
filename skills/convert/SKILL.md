@@ -14,11 +14,11 @@ alongside them.
 
 ## Shared guidance
 
-Before reading the platform-specific doc, read `docs/import/ssg-migrations.md`
+Before reading the platform-specific doc, read `${CLAUDE_PLUGIN_ROOT}/docs/import/ssg-migrations.md`
 for template syntax stripping, frontmatter mapping conventions, image file
 handling, and config-driven content discovery.
 
-The platform-specific docs (`docs/import/PLATFORM.md`) cover only what's unique
+The platform-specific docs (`${CLAUDE_PLUGIN_ROOT}/docs/import/PLATFORM.md`) cover only what's unique
 to that platform — config structure, content directories, template syntax
 families, and URL patterns.
 
@@ -33,10 +33,10 @@ families, and URL patterns.
 
 ## Architecture decisions
 
-- [ADR-0002 Keystatic CMS](docs/decisions/0002-keystatic-local-cms.md) — content lands as `.mdoc` files in `src/content/posts/`
-- [ADR-0008 No third-party JS](docs/decisions/0008-no-third-party-javascript.md) — embedded widgets and component tags must be stripped
-- [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — converted content must be fully self-contained
-- [ADR-0012 Verify first](docs/decisions/0012-verify-before-presenting.md) — build must pass after conversion before presenting results
+- [ADR-0002 Keystatic CMS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0002-keystatic-local-cms.md) — content lands as `.mdoc` files in `src/content/posts/`
+- [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — embedded widgets and component tags must be stripped
+- [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — converted content must be fully self-contained
+- [ADR-0012 Verify first](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0012-verify-before-presenting.md) — build must pass after conversion before presenting results
 
 Before every tool call or command that will trigger a permission prompt, explain
 what you're about to do and why. The owner is non-technical.
@@ -129,8 +129,8 @@ Tell the owner:
 > "I'm reading through your [Platform] project to catalog all the content.
 > This takes about a minute."
 
-Read the platform doc (`docs/import/PLATFORM.md`) and the shared SSG guidance
-(`docs/import/ssg-migrations.md`) to learn:
+Read the platform doc (`${CLAUDE_PLUGIN_ROOT}/docs/import/PLATFORM.md`) and the shared SSG guidance
+(`${CLAUDE_PLUGIN_ROOT}/docs/import/ssg-migrations.md`) to learn:
 - Where content files live (directory structure)
 - Frontmatter field mapping to Anglesite fields
 - Platform-specific syntax to strip or convert
@@ -139,16 +139,16 @@ Read the platform doc (`docs/import/PLATFORM.md`) and the shared SSG guidance
 
 | Platform | Doc reference |
 | --- | --- |
-| Hugo | `docs/import/hugo.md` |
-| Jekyll | `docs/import/jekyll.md` |
-| Next.js | `docs/import/nextjs.md` |
-| Gatsby | `docs/import/gatsby.md` |
-| Nuxt | `docs/import/nuxt.md` |
-| Docusaurus | `docs/import/docusaurus.md` |
-| VuePress | `docs/import/vuepress.md` |
-| MkDocs | `docs/import/mkdocs.md` |
-| Eleventy | `docs/import/eleventy.md` |
-| Hexo | `docs/import/hexo.md` |
+| Hugo | `${CLAUDE_PLUGIN_ROOT}/docs/import/hugo.md` |
+| Jekyll | `${CLAUDE_PLUGIN_ROOT}/docs/import/jekyll.md` |
+| Next.js | `${CLAUDE_PLUGIN_ROOT}/docs/import/nextjs.md` |
+| Gatsby | `${CLAUDE_PLUGIN_ROOT}/docs/import/gatsby.md` |
+| Nuxt | `${CLAUDE_PLUGIN_ROOT}/docs/import/nuxt.md` |
+| Docusaurus | `${CLAUDE_PLUGIN_ROOT}/docs/import/docusaurus.md` |
+| VuePress | `${CLAUDE_PLUGIN_ROOT}/docs/import/vuepress.md` |
+| MkDocs | `${CLAUDE_PLUGIN_ROOT}/docs/import/mkdocs.md` |
+| Eleventy | `${CLAUDE_PLUGIN_ROOT}/docs/import/eleventy.md` |
+| Hexo | `${CLAUDE_PLUGIN_ROOT}/docs/import/hexo.md` |
 
 Use Glob to find all `.md` and `.mdx` files in the content directories specified
 by the platform doc. Read each file to extract frontmatter and body content.
@@ -197,7 +197,7 @@ For each post in BLOG_POSTS:
 2. Convert the body content to clean Markdown:
    - Strip platform-specific template syntax (shortcodes, Liquid tags, Vue
      components, Nunjucks tags, admonitions) as documented in the platform doc's
-     "Content conversion" section and `docs/import/ssg-migrations.md`
+     "Content conversion" section and `${CLAUDE_PLUGIN_ROOT}/docs/import/ssg-migrations.md`
    - Convert admonitions (`:::`, `!!!`, custom containers) to blockquotes
    - Strip MDX/JSX imports and component tags
    - Remove template expressions (`{{ }}`, `{% %}`, `{{< >}}`)

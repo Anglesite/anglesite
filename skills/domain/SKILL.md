@@ -10,8 +10,8 @@ Manage DNS records for the owner's domain on Cloudflare. All DNS changes are mad
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Pages](docs/decisions/0003-cloudflare-pages-hosting.md) — why DNS is managed through Cloudflare (API access, at-cost registration)
-- [ADR-0011 Owner ownership](docs/decisions/0011-owner-controls-everything.md) — why the domain is in the owner's account
+- [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — why DNS is managed through Cloudflare (API access, at-cost registration)
+- [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — why the domain is in the owner's account
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, tell the owner what you're about to do and why in plain English before making any change, and confirm what was done after. If `false`, proceed without pre-announcing changes (still confirm after).
 

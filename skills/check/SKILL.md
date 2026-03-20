@@ -11,12 +11,12 @@ Run a full health check on the site — and fix what you find. If the owner desc
 
 These explain *why* each check category matters:
 
-- [ADR-0004 Vanilla CSS](docs/decisions/0004-vanilla-css-custom-properties.md) — contrast verification against CSS custom properties
-- [ADR-0005 System fonts](docs/decisions/0005-system-fonts.md) — flag external font CDN links as violations
-- [ADR-0006 IndieWeb POSSE](docs/decisions/0006-indieweb-posse.md) — why h-card, h-entry, h-feed, and `rel="me"` are checked
-- [ADR-0007 Pre-deploy scans](docs/decisions/0007-mandatory-pre-deploy-scans.md) — why PII, token, and script scans are mandatory
-- [ADR-0008 No third-party JS](docs/decisions/0008-no-third-party-javascript.md) — why third-party scripts are flagged
-- [ADR-0012 Verify first](docs/decisions/0012-verify-before-presenting.md) — build baseline before checking other categories
+- [ADR-0004 Vanilla CSS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0004-vanilla-css-custom-properties.md) — contrast verification against CSS custom properties
+- [ADR-0005 System fonts](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0005-system-fonts.md) — flag external font CDN links as violations
+- [ADR-0006 IndieWeb POSSE](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0006-indieweb-posse.md) — why h-card, h-entry, h-feed, and `rel="me"` are checked
+- [ADR-0007 Pre-deploy scans](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0007-mandatory-pre-deploy-scans.md) — why PII, token, and script scans are mandatory
+- [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — why third-party scripts are flagged
+- [ADR-0012 Verify first](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0012-verify-before-presenting.md) — build baseline before checking other categories
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
 
