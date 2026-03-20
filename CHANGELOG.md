@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.1] — 2026-03-20
+
+### Fixed
+- Pre-deploy PII scan no longer blocks deploys for intentional `mailto:` links (#9)
+- Email scan uses real email regex instead of bare `@` — eliminates false positives from Mastodon URLs, CSS at-rules, and social media handles
+- Added `PII_EMAIL_ALLOW` allowlist in `.site-config` for emails the owner intentionally publishes
+
+### Changed
+- Deploy skill uses `npm run predeploy` instead of manual grep commands — all agents get the same enforcement (#8)
+- AGENTS.md and deploy workflow docs reference `npm run deploy` pipeline
+- README install instructions corrected to use `claude plugin marketplace add` + `claude plugin install`
+
 ## [0.9.14] — 2026-03-04
 
 ### Added
