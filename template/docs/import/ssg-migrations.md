@@ -30,7 +30,7 @@ Never assume where content lives. Every SSG allows custom directory configuratio
 | Docusaurus | `docusaurus.config.js` | `blog/` and `docs/` (configurable in presets) |
 | VuePress | `.vuepress/config.js` | Parent of `.vuepress/` directory (usually `docs/`) |
 | MkDocs | `mkdocs.yml` | `docs_dir` (default: `docs/`) |
-| Eleventy | `eleventy.config.js` | `dir.input` (default: `.`) |
+| Eleventy | `eleventy.config.{js,ts,mjs,cjs}` | `dir.input` (default: `.`) |
 | Hexo | `_config.yml` | `source_dir` (default: `source/`) → `_posts/` |
 
 After reading the config, use Glob to find `.md` and `.mdx` files in the content directories.

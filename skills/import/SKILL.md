@@ -76,7 +76,7 @@ generators. Use Glob to check for these config files in the working directory:
 | `docusaurus.config.js` or `docusaurus.config.ts` | Docusaurus |
 | `.vuepress/config.js` or `.vuepress/config.ts` (in `docs/` or root) | VuePress |
 | `mkdocs.yml` | MkDocs |
-| `.eleventy.js`, `eleventy.config.js`, `eleventy.config.mjs`, or `eleventy.config.cjs` | Eleventy |
+| `.eleventy.js`, `eleventy.config.js`, `eleventy.config.ts`, `eleventy.config.mjs`, or `eleventy.config.cjs` | Eleventy |
 | `_config.yml` AND `package.json` containing `"hexo"` | Hexo |
 | `astro.config.mjs`, `astro.config.ts`, or `astro.config.js` (without Anglesite/Keystatic) | Non-Anglesite Astro |
 
@@ -274,7 +274,7 @@ Store the detected platform as PLATFORM.
 | `docusaurus.config.js` or `docusaurus.config.ts` | Docusaurus | `docs/import/docusaurus.md` |
 | `.vuepress/config.js` or `.vuepress/config.ts` (in `docs/` or root) | VuePress | `docs/import/vuepress.md` |
 | `mkdocs.yml` | MkDocs | `docs/import/mkdocs.md` |
-| `.eleventy.js`, `eleventy.config.js`, `eleventy.config.mjs`, or `eleventy.config.cjs` | Eleventy | `docs/import/eleventy.md` |
+| `.eleventy.js`, `eleventy.config.js`, `eleventy.config.ts`, `eleventy.config.mjs`, or `eleventy.config.cjs` | Eleventy | `docs/import/eleventy.md` |
 | `_config.yml` AND `package.json` containing `"hexo"` | Hexo | `docs/import/hexo.md` |
 
 Use Glob to check for these files in SOURCE_DIR. The first match wins. Store the

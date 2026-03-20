@@ -6,7 +6,7 @@ See [ssg-migrations.md](ssg-migrations.md) for shared SSG migration guidance inc
 
 ## How it detects this platform
 
-Config file: `.eleventy.js`, `eleventy.config.js`, `eleventy.config.mjs`, or `eleventy.config.cjs` in the project root.
+Config file: `.eleventy.js`, `eleventy.config.js`, `eleventy.config.ts`, `eleventy.config.mjs`, or `eleventy.config.cjs` in the project root.
 
 ## Where content lives
 
