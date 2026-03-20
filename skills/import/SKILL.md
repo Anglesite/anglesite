@@ -1,29 +1,30 @@
 ---
 name: import
-description: "Import content from an existing website (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project"
-argument-hint: "[website URL or local path]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
+description: "Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd)"
+argument-hint: "[website URL]"
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
-Import blog posts, pages, and images from an existing website or static site
-generator project. Accepts a live URL (WordPress, Squarespace, Wix, Webflow,
-GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr,
-Micro.blog, WriteFreely, Carrd) or a local
-directory path (Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress,
-MkDocs, Eleventy, Hexo). Detects the platform automatically and uses the best
-extraction method. Migrates content into the site's Markdoc collection, downloads
-or copies images, and generates redirect mappings so existing links and search
-rankings are preserved.
+Import blog posts, pages, and images from a live website URL. Supports
+WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack,
+Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, and Carrd. Detects
+the platform automatically and uses the best extraction method. Migrates content
+into the site's Markdoc collection, downloads images, and generates redirect
+mappings so existing links and search rankings are preserved.
 
-## Shared guidance docs
+To convert an existing static site generator project (Hugo, Jekyll, Eleventy,
+etc.) in the current directory, use `/anglesite:convert` instead.
 
-Before reading the platform-specific doc, read the appropriate shared guidance:
+## Shared guidance
 
-- **Hosted platforms** (WordPress, Squarespace, Wix, etc.): Read `docs/import/hosted-platforms.md` for HTML-to-Markdown conversion rules, image CDN handling, pagination patterns, missing field fallbacks, and redirect best practices.
-- **SSG migrations** (Hugo, Jekyll, Eleventy, etc.): Read `docs/import/ssg-migrations.md` for template syntax stripping, frontmatter mapping conventions, image file handling, and config-driven content discovery.
+Before reading the platform-specific doc, read `docs/import/hosted-platforms.md`
+for HTML-to-Markdown conversion rules, image CDN handling, pagination patterns,
+missing field fallbacks, and redirect best practices.
 
-The platform-specific docs (`docs/import/PLATFORM.md`) cover only what's unique to that platform — detection signals, API/feed endpoints, platform-specific HTML elements, and CDN URL patterns. The shared docs cover everything common.
+The platform-specific docs (`docs/import/PLATFORM.md`) cover only what's unique
+to that platform — detection signals, API/feed endpoints, platform-specific HTML
+elements, and CDN URL patterns. The shared docs cover everything common.
 
 ## Import principles
 
@@ -50,59 +51,38 @@ These apply to every import regardless of platform:
 Before every tool call or command that will trigger a permission prompt, explain
 what you're about to do and why. The owner is non-technical.
 
-## Step 0 — Assess the working directory
-
-Check the current working directory to determine what state we're in.
+## Step 0 — Check the project
 
 ### 0a — Is this already an Anglesite project?
 
 Use Glob to check for `src/content/config.ts`.
 
 If it exists, this project has already been scaffolded. Read `.site-config` to
-load `SITE_NAME` and `OWNER_NAME`. Skip to **0d**.
+load `SITE_NAME` and `OWNER_NAME`. Skip to **0b**.
 
-### 0b — Is this an existing SSG project?
+### 0b — Scaffold if needed
 
-If `src/content/config.ts` does not exist, check for other static site
-generators. Use Glob to check for these config files in the working directory:
+If `src/content/config.ts` does not exist, check the working directory:
 
-| Config file(s) | Platform |
-| --- | --- |
-| `hugo.toml`, `hugo.yaml`, `hugo.json`, or `config.toml` (with `[params]`) | Hugo |
-| `_config.yml` AND (`Gemfile` with `jekyll` OR `_posts/` directory) | Jekyll |
-| `next.config.js`, `next.config.mjs`, or `next.config.ts` | Next.js |
-| `gatsby-config.js` or `gatsby-config.ts` | Gatsby |
-| `nuxt.config.js`, `nuxt.config.ts`, or `nuxt.config.mjs` | Nuxt |
-| `docusaurus.config.js` or `docusaurus.config.ts` | Docusaurus |
-| `.vuepress/config.js` or `.vuepress/config.ts` (in `docs/` or root) | VuePress |
-| `mkdocs.yml` | MkDocs |
-| `.eleventy.js`, `eleventy.config.js`, `eleventy.config.ts`, `eleventy.config.mjs`, or `eleventy.config.cjs` | Eleventy |
-| `_config.yml` AND `package.json` containing `"hexo"` | Hexo |
-| `astro.config.mjs`, `astro.config.ts`, or `astro.config.js` (without Anglesite/Keystatic) | Non-Anglesite Astro |
+**If it contains an SSG project** (Hugo, Jekyll, Eleventy, etc. config files),
+tell the owner:
 
-If an SSG is detected, tell the owner:
+> "It looks like you have a [Platform] project here. To convert it to Anglesite,
+> use `/anglesite:convert` instead. `/anglesite:import` is for importing from a
+> website URL."
 
-> "I see you have a [Platform] project here. I can convert this to an Anglesite
-> site — that means moving your content into Astro with Keystatic CMS, so you
-> get a visual editor and easy publishing to Cloudflare Pages.
->
-> Your existing files won't be deleted — I'll read your content and create new
-> files alongside them. Would you like to go ahead?"
+Stop.
 
-Wait for confirmation. If they decline, stop.
-
-If they confirm, store the detected platform as PLATFORM, set
-SOURCE_DIR to the current working directory, and set IMPORT_MODE = "local".
-Then run the scaffold to set up Anglesite in the current directory:
+**If the directory is essentially empty** (only dotfiles like `.git`), scaffold:
 
 ```sh
 zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh --yes .
 ```
 
-Ask the essentials (these are normally gathered by `/anglesite:start`):
+Ask the essentials:
 
 1. "What's your name?"
-2. "What should we call the site?"
+2. "What should we call the new site?"
 
 Save to `.site-config` using the **Write tool**:
 
@@ -119,60 +99,19 @@ EXPLAIN_STEPS=true
 npm install
 ```
 
-Skip to **Step 1** — the platform is already detected and SOURCE_DIR is set.
-
-### 0c — Is the directory empty?
-
-If no SSG config is found, check if the directory is empty (or contains only
-dotfiles like `.git`).
-
-If essentially empty, tell the owner:
-
-> "This is a fresh directory — perfect for a new site! What website would you
-> like to import content from? Give me the URL (like https://example.com)."
-
-Wait for the URL. Then scaffold the project:
-
-```sh
-zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh --yes .
-```
-
-Ask the essentials:
-
-1. "What's your name?"
-2. "What should we call the new site?"
-
-Save to `.site-config` (same format as 0b above).
-
-```sh
-npm install
-```
-
-Store the URL as SITE_URL, set IMPORT_MODE = "remote", and continue to **0d**.
-
-If the directory is not empty but has no recognized SSG, tell the owner:
+**If the directory has files but no recognized SSG**, tell the owner:
 
 > "This directory has files in it but I don't recognize the project type. To
-> import from a website, I'd recommend starting in an empty directory so nothing
-> gets mixed up. Or, if this is a static site project, tell me which generator
-> it uses and where the content files are."
+> import from a website, I'd recommend starting in an empty directory. Or use
+> `/anglesite:convert` if this is a static site project."
 
-Wait for guidance before proceeding.
+Wait for guidance.
 
-### 0d — Determine the import source
+### 0c — Get the URL
 
-If IMPORT_MODE is already set (from 0b or 0c), skip this step.
+Ask the owner for their website URL if they didn't provide one as an argument.
 
-Ask the owner for their website URL or project path if they didn't provide one
-as an argument.
-
-Determine whether the input is a **URL** or a **local path**:
-- If it starts with `http://`, `https://`, or `www.`: it's a URL → normalize
-  (strip trailing slashes, ensure `https://`), store as SITE_URL, set
-  IMPORT_MODE = "remote"
-- If it's a filesystem path (starts with `/`, `./`, `~`, or contains no dots
-  before any slashes): it's a local directory → resolve to absolute path, verify
-  it exists, store as SOURCE_DIR, set IMPORT_MODE = "local"
+Normalize: strip trailing slashes, ensure `https://`. Store as SITE_URL.
 
 ## Step 1 — Detect platform and discover content
 
@@ -181,10 +120,6 @@ Tell the owner:
 > figure out the best way to import it. This takes about a minute."
 
 ### 1a — Detect the platform
-
-If IMPORT_MODE is "local", skip to **Local SSG detection** below.
-
-If IMPORT_MODE is "remote", probe the site to determine the hosted platform:
 
 **WordPress** — check for the REST API:
 
@@ -262,55 +197,7 @@ extraction instructions. For unknown platforms, tell the owner:
 
 Store the detected platform as PLATFORM.
 
-**Local SSG detection** — check SOURCE_DIR for config files in this order:
-
-| Config file(s) | Platform | Doc reference |
-| --- | --- | --- |
-| `hugo.toml`, `hugo.yaml`, `hugo.json`, or `config.toml` (with `[params]`) | Hugo | `docs/import/hugo.md` |
-| `_config.yml` AND (`Gemfile` with `jekyll` OR `_posts/` directory) | Jekyll | `docs/import/jekyll.md` |
-| `next.config.js`, `next.config.mjs`, or `next.config.ts` | Next.js | `docs/import/nextjs.md` |
-| `gatsby-config.js` or `gatsby-config.ts` | Gatsby | `docs/import/gatsby.md` |
-| `nuxt.config.js`, `nuxt.config.ts`, or `nuxt.config.mjs` | Nuxt | `docs/import/nuxt.md` |
-| `docusaurus.config.js` or `docusaurus.config.ts` | Docusaurus | `docs/import/docusaurus.md` |
-| `.vuepress/config.js` or `.vuepress/config.ts` (in `docs/` or root) | VuePress | `docs/import/vuepress.md` |
-| `mkdocs.yml` | MkDocs | `docs/import/mkdocs.md` |
-| `.eleventy.js`, `eleventy.config.js`, `eleventy.config.ts`, `eleventy.config.mjs`, or `eleventy.config.cjs` | Eleventy | `docs/import/eleventy.md` |
-| `_config.yml` AND `package.json` containing `"hexo"` | Hexo | `docs/import/hexo.md` |
-
-Use Glob to check for these files in SOURCE_DIR. The first match wins. Store the
-detected platform as PLATFORM and read the corresponding doc file for
-platform-specific instructions.
-
-Tell the owner:
-> "I found a [Platform] project. Let me read through it and figure out what
-> content to import."
-
-Read the platform doc (`docs/import/PLATFORM.md`) to learn:
-- Where content files live (directory structure)
-- Frontmatter field mapping to Anglesite fields
-- Platform-specific syntax to strip or convert
-- Image file locations
-- URL patterns for redirect generation
-
-If no SSG is detected, tell the owner:
-> "I don't recognize the project structure. Can you tell me where the content
-> files are? I'm looking for Markdown or MDX files with your blog posts."
-
 ### 1b — Platform-specific content discovery
-
-#### Local SSG import
-
-If IMPORT_MODE is "local", use the platform doc to find content files:
-
-1. Use Glob to find all `.md` and `.mdx` files in the content directories
-   specified by the platform doc
-2. Read each file to extract frontmatter and body content
-3. Build BLOG_POSTS from files in blog/post directories
-4. Build STATIC_PAGES from files in page/doc directories
-
-Skip to **1c — Check for existing content** after building the lists.
-
-#### Remote platform discovery
 
 #### WordPress
 
@@ -671,27 +558,6 @@ Process each post in BLOG_POSTS that is not in SKIPPED_SLUGS.
 
 ### 2a — Extract the full post content
 
-**Local SSG import:** The content is already in the source files read during
-Step 1b. For each file:
-
-1. Parse the YAML frontmatter using the field mapping from the platform doc
-2. Convert the body content to clean Markdown:
-   - Strip platform-specific template syntax (shortcodes, Liquid tags, Vue
-     components, Nunjucks tags, admonitions) as documented in the platform doc's
-     "Content conversion" section
-   - Convert admonitions (`:::`, `!!!`, custom containers) to blockquotes
-   - Strip MDX/JSX imports and component tags
-   - Remove template expressions (`{{ }}`, `{% %}`, `{{< >}}`)
-   - Keep standard Markdown (headings, lists, links, images, code blocks)
-3. Map frontmatter fields per the platform doc's mapping table
-4. If `description` is missing, generate from the first paragraph
-5. If `publishDate` is missing, use the file's git commit date or modification
-   date as fallback
-
-Skip to **2c** for image handling (local variant).
-
-**Remote platform extraction:**
-
 The extraction method depends on the platform:
 
 **WordPress:** The content is already in the REST API response from Step 1b.
@@ -750,13 +616,7 @@ Tell the owner (once, not per-post):
 > "I'm downloading images from your website and converting them to a
 > web-friendly format."
 
-**Local SSG import:** Copy images from the source project to `public/images/blog/`.
-The platform doc's "Image handling" section specifies where images are stored
-(e.g., `static/img/` for Docusaurus, `source/images/` for Hexo, `content/` for
-Hugo page bundles). Use `cp` to copy files, then convert with `sharp-cli` if over
-500KB. Update image references in the converted Markdown to use local paths.
-
-**Hero/featured images (remote import):**
+**Hero/featured images:**
 
 The image URL source depends on the platform:
 - WordPress: `source_url` from the media API response
@@ -1008,18 +868,6 @@ Create a gallery `.astro` page in `src/pages/` with:
 Read the existing `public/_redirects` file. Append new rules — do not overwrite
 existing entries.
 
-### Local SSG redirects
-
-For SSG imports, the platform doc's "URL patterns for redirects" section
-describes the old URL structure. Generate redirects based on the source file
-paths and any `permalink` or `aliases` frontmatter. Common patterns:
-- Hugo `aliases` field → one redirect per alias
-- Jekyll date-prefixed filenames → `/YYYY/MM/DD/slug/` → `/blog/slug`
-- Hexo permalink config in `_config.yml` → computed old URLs
-- Docusaurus → `/docs/path` and `/blog/slug`
-
-### Blog post redirects (remote import)
-
 The redirect pattern depends on the platform's URL structure:
 
 **WordPress:** WordPress has multiple permalink structures. Use the actual URLs
@@ -1166,12 +1014,10 @@ If they say yes, run `/anglesite:deploy`.
 ## Platform reference docs
 
 Platform-specific import guides are in `docs/import/`. Each doc covers:
-- How to detect the platform (config files)
-- Where content files live (directory structure)
-- Frontmatter field mapping to Anglesite fields
-- Content syntax to strip or convert
-- Image file locations and handling
-- URL patterns for redirect generation
+- How to detect the platform
+- API/feed endpoints and authentication
+- HTML structure and CDN URL patterns
+- Content conversion notes
 - Common issues and gotchas
 
 See `docs/import/README.md` for the full index.

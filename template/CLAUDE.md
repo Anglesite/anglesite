@@ -14,7 +14,8 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Publish or go live | `/anglesite:deploy` |
 | Check the site or fix a problem | `/anglesite:check` |
 | Manage DNS (email, Bluesky, etc.) | `/anglesite:domain` |
-| Import from another platform | `/anglesite:import` |
+| Import from a website URL | `/anglesite:import` |
+| Convert an SSG project to Anglesite | `/anglesite:convert` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 

@@ -6,12 +6,13 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest
-├── skills/                        Skills (8 total, 5 user-facing)
+├── skills/                        Skills (9 total, 6 user-facing)
 │   ├── start/SKILL.md             First-time setup + scaffolding
 │   ├── deploy/SKILL.md            Build, scan, deploy
 │   ├── check/SKILL.md             Health audit + troubleshooting
 │   ├── domain/SKILL.md            DNS management
-│   ├── import/SKILL.md            Platform migration
+│   ├── import/SKILL.md            Import from website URL
+│   ├── convert/SKILL.md           Convert SSG project to Anglesite
 │   ├── design-interview/SKILL.md  Visual identity (model-only)
 │   ├── animate/SKILL.md           CSS animations (model-only)
 │   └── new-page/SKILL.md          Page creation (model-only)

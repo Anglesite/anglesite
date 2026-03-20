@@ -58,6 +58,8 @@ The start command scaffolds your project, learns about your business, designs th
 | `/anglesite:update` | Update dependencies safely |
 | `/anglesite:new-page` | Create a new page with SEO and accessibility |
 | `/anglesite:domain` | Manage DNS records (email, Bluesky verification, etc.) |
+| `/anglesite:import` | Import content from a website URL |
+| `/anglesite:convert` | Convert an SSG project (Hugo, Jekyll, etc.) to Anglesite |
 
 ## Who this is for
 

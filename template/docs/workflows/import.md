@@ -1,12 +1,13 @@
 # Content Import Workflow
 
-Import blog posts, pages, and images from an existing website or static site generator project.
+Import blog posts, pages, and images from an existing website URL.
+
+To convert an existing static site generator project (Hugo, Jekyll, Eleventy,
+etc.) in the current directory, see [convert.md](convert.md) instead.
 
 ## Supported platforms
 
-**Hosted**: WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd
-
-**Static site generators**: Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress, MkDocs, Eleventy, Hexo
+WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd
 
 ## Import principles
 
@@ -22,24 +23,21 @@ Import blog posts, pages, and images from an existing website or static site gen
 
 ## Getting started
 
-The import workflow does not require `/anglesite:start` to have been run first. It adapts to the working directory:
+The import workflow does not require setup to have been run first. It adapts to the working directory:
 
 - **Existing Anglesite project** — imports directly into the existing site
-- **Existing SSG project** (Hugo, Jekyll, Gatsby, etc.) — offers to convert the project to Anglesite, then imports the content in place
-- **Empty directory** — asks for a website URL, scaffolds a new Anglesite project, then imports from that URL
+- **Empty directory** — asks for a website URL, scaffolds a new Anglesite project, then imports
 
-For the SSG and empty directory cases, the workflow scaffolds the project and asks for the owner's name and site name before importing.
+If the directory contains an SSG project, the workflow directs you to use the [convert workflow](convert.md) instead.
 
 ## How it works
 
-1. Detect the platform from the URL or directory structure
-2. Read the shared guidance doc:
-   - Hosted platforms: `docs/import/hosted-platforms.md`
-   - SSG migrations: `docs/import/ssg-migrations.md`
+1. Detect the platform from the website URL
+2. Read the shared guidance doc: `docs/import/hosted-platforms.md`
 3. Read the platform-specific doc: `docs/import/PLATFORM.md`
-4. Extract content (RSS feed, API, HTML scraping, or file copy)
+4. Extract content (RSS feed, API, or HTML scraping)
 5. Convert to Markdoc (`.mdoc`) files in `src/content/posts/`
-6. Download images to `public/images/imported/`
+6. Download images to `public/images/blog/`
 7. Generate redirect mappings from old URLs
 8. Run `npm run build` to verify
 9. Present results
