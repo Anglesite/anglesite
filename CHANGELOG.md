@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.1] — 2026-03-20
+
+### Fixed
+- Remove redundant `hooks` field from `plugin.json` that caused "duplicate hooks file" error on plugin load (#10)
+- Create GitHub Releases for all tagged versions so the plugin installer can discover them (#10)
+
 ## [0.12.0] — 2026-03-20
 
 ### Added
