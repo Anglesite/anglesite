@@ -4,17 +4,45 @@ An AI webmaster for small business websites — a [Claude Code plugin](https://d
 
 ## Install
 
+### Claude Code (CLI)
+
+```sh
+# Add the marketplace (one-time)
+claude plugin marketplace add Anglesite/anglesite
+
+# Install the plugin
+claude plugin install anglesite
+
+# Start a new project
+mkdir my-site && cd my-site
+claude
+```
+
+Then type `/anglesite:start` to begin.
+
+### Claude Desktop (GUI)
+
 1. Install [Claude Desktop](https://claude.ai/download) (free, requires an Anthropic account)
-2. Install the Anglesite plugin for Claude:
-   - Open the "Code" tab
-   - Press the "+" button
-   - Select: "Plugins" > "Add Plugin"
-   - Select "Personal" tab
-   - Press the "+" button
-   - Select "Add Marketplace from GitHub"
-   - Type "Anglesite/anglesite" as the URL and press "Sync" button.
+2. Install the Anglesite plugin:
+   - Open the **Code** tab
+   - Press the **+** button > **Plugins** > **Add Plugin**
+   - Select the **Personal** tab, press **+**
+   - Select **Add Marketplace from GitHub**
+   - Enter `Anglesite/anglesite` and press **Sync**
 3. Create a new folder for your site and open it in the **Code** tab
 4. Type `/anglesite:start`
+
+### npm (any AI agent)
+
+```sh
+npx anglesite init my-site
+cd my-site
+npm install && npm run dev
+```
+
+The scaffolded project includes `AGENTS.md` (works with Codex, Cursor, Copilot, and 20+ other tools), `CLAUDE.md` (Claude Code), and `GEMINI.md` (Gemini CLI).
+
+---
 
 The start command scaffolds your project, learns about your business, designs the site with you, and installs the tools to preview it. When you're ready to go live, `/anglesite:deploy` handles hosting, domains, and publishing.
 
