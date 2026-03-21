@@ -58,7 +58,7 @@ what you're about to do and why. The owner is non-technical.
 Use Glob to check for `src/content/config.ts`.
 
 If it exists, this project has already been scaffolded. Read `.site-config` to
-load `SITE_NAME` and `OWNER_NAME`. Skip to **0b**.
+load `SITE_NAME` and `OWNER_NAME`. Skip to **0c**.
 
 ### 0b — Scaffold if needed
 
