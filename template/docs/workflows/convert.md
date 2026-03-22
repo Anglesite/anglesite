@@ -45,5 +45,5 @@ publishDate: "2024-01-15"
 - Check that template syntax was fully stripped
 - Verify the build passes: `npm run build`
 - Preview locally: `npm run dev`
-- Deploy when ready: `npm run deploy`
+- Deploy when ready: `/anglesite:deploy` (or merge `draft` → `main` and push)
 - Once satisfied, remove old SSG config and source files

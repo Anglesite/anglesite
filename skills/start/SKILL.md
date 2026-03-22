@@ -210,6 +210,14 @@ Run `git add -A` then `git commit -m "Setup: SITE_NAME website"` (replace SITE_N
 
 Tell the owner: "Now let's back up your website to the cloud so your work is always safe, even if something happens to your computer."
 
+First, verify that the GitHub CLI is available:
+
+```sh
+gh --version
+```
+
+If `gh` is not found, run `npm run ai-setup` to install it. If setup fails (e.g., on Windows where manual install is needed), tell the owner: "I need the GitHub CLI installed first. On Windows, run `winget install GitHub.cli` in a terminal, then let me know when it's done." Wait for confirmation before continuing.
+
 ### GitHub account
 
 Ask: "Do you have a GitHub account, or should we create one?"

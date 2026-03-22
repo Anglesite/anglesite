@@ -43,7 +43,7 @@ The site uses vanilla CSS with custom properties defined in `src/styles/global.c
 
 ## Deployment
 
-The site deploys to Cloudflare Pages via [Wrangler](https://developers.cloudflare.com/workers/wrangler/). DNS records are managed through the Cloudflare API.
+The site deploys to Cloudflare Pages via Git integration — push to `main` triggers a production deploy. DNS records are managed through the Cloudflare dashboard or `/anglesite:domain`.
 
 ## More information
 

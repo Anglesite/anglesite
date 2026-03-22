@@ -19,6 +19,7 @@ import {
   mkdirSync,
   appendFileSync,
   chmodSync,
+  rmSync,
 } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -395,8 +396,8 @@ async function installGhCli(): Promise<void> {
   }
 
   // Clean up temp files
-  writeFileSync(tarball, "");
-  await run(`rm -rf ${extractDir}`).catch(() => {});
+  try { rmSync(tarball, { force: true }); } catch {}
+  try { rmSync(extractDir, { recursive: true, force: true }); } catch {}
 }
 
 /** Trust the local CA in the system certificate store. */

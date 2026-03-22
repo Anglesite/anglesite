@@ -10,7 +10,8 @@ INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 
 # Pass through anything that isn't a push to main
-if [[ "$COMMAND" != *"git push"*"main"* ]]; then
+# Match "git push ... main" but not branches that merely contain "main" (e.g. "fix-main-bug")
+if ! echo "$COMMAND" | grep -qE 'git push\b.*\bmain\b'; then
   exit 0
 fi
 

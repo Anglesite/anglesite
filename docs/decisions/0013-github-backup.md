@@ -1,6 +1,6 @@
 ---
 status: accepted
-date: 2025-01-01
+date: 2026-03-22
 decision-makers: [Anglesite maintainers]
 ---
 

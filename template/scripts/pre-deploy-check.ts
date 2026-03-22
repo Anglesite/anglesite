@@ -9,7 +9,7 @@
  * 5. OG image presence (warn only)
  *
  * Usage: tsx scripts/pre-deploy-check.ts
- * Also runs automatically via `npm run deploy`.
+ * Also runs on Cloudflare's build system via the build command.
  */
 
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
