@@ -76,7 +76,10 @@ in Step 2.
 curl -s SITE_URL/sitemap.xml
 ```
 
-Parse the sitemap index to find child sitemaps. Fetch each:
+Parse the sitemap index to find **all** child sitemaps — don't hardcode names.
+Common ones include `blog-posts-sitemap.xml`, `pages-sitemap.xml`,
+`blog-categories-sitemap.xml`, and `store-products-sitemap.xml`. Fetch each
+child sitemap listed in the index:
 
 ```sh
 curl -s SITE_URL/blog-posts-sitemap.xml
@@ -93,6 +96,10 @@ From the pages sitemap, extract each page's `<loc>` URL and path. Filter out Wix
 system pages — skip URLs containing `/blank`, `/_api`, `/apps/`, `/#`, `?`, or
 `/_partials`.
 
+**Cross-reference with navigation:** Wix dynamic pages may be missing from the
+sitemap entirely (known Wix bug). Use WebFetch on the homepage to extract all
+navigation links and add any URLs not already in STATIC_PAGES.
+
 Then fetch the RSS feed for blog metadata:
 
 ```sh
@@ -101,11 +108,21 @@ curl -s SITE_URL/blog-feed.xml
 
 For each `<item>`, extract `<title>`, `<pubDate>`, `<description>` (excerpt),
 `<enclosure url="...">` (hero image), and `<dc:creator>`. Match items to
-BLOG_POSTS by `<link>` URL. The RSS feed contains only excerpts — full content
-requires WebFetch in Step 2.
+BLOG_POSTS by `<link>` URL.
 
-**Important:** Wix RSS feeds contain only blog posts, never static pages. All
-pages discovered from the sitemap will need WebFetch extraction in Step 3.
+**RSS limitations:**
+- Contains only excerpts — full content requires WebFetch in Step 2
+- Returns only the **last 2–3 weeks** of posts — the sitemap is authoritative
+  for the complete list
+- Wix may disable full-text RSS if called too frequently — if the feed returns
+  empty or links-only, skip it and rely on sitemap + WebFetch
+- Never contains static pages — those always need WebFetch in Step 3
+
+**Metadata extraction:** When WebFetching each post, also extract the meta
+description, `og:image`, and any JSON-LD structured data (`BlogPosting`
+schema) — these provide more accurate dates, descriptions, and author names
+than the RSS feed. See `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` for the
+extended WebFetch prompt.
 
 ## Ghost
 
