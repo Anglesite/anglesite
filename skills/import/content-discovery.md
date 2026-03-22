@@ -118,6 +118,13 @@ BLOG_POSTS by `<link>` URL.
   empty or links-only, skip it and rely on sitemap + WebFetch
 - Never contains static pages — those always need WebFetch in Step 3
 
+**Blog REST API (20+ posts):** If the blog has more than 20 posts, ask the
+owner if they have a Wix API key. The Blog REST API at
+`https://www.wixapis.com/blog/v3/posts?fieldsToInclude=CONTENT` returns full
+post content with pagination — much faster than WebFetch for large blogs. See
+`${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` for details. Don't ask for an API
+key if the blog has 20 or fewer posts (RSS + WebFetch is sufficient).
+
 **Metadata extraction:** When WebFetching each post, also extract the meta
 description, `og:image`, and any JSON-LD structured data (`BlogPosting`
 schema) — these provide more accurate dates, descriptions, and author names

@@ -54,7 +54,26 @@ The RSS feed does NOT contain full post content — only excerpts. It also has n
   proceed with WebFetch extraction — don't retry the feed repeatedly.
 - The feed never contains static pages — those always require WebFetch.
 
-### WebFetch for full content (only option)
+### Wix Blog REST API (if owner has API access)
+
+If the owner has a Wix API key (from the Wix Developers dashboard), the Blog
+REST API can extract all posts with pagination — bypassing the 20-post RSS limit:
+
+```sh
+curl -s -H "Authorization: API_KEY" \
+  "https://www.wixapis.com/blog/v3/posts?fieldsToInclude=CONTENT&paging.limit=100"
+```
+
+**Critical:** You must include `fieldsToInclude=CONTENT` — without it, the API
+returns only metadata (title, slug, dates) and a `contentId` placeholder instead
+of actual post content. Paginate with `paging.offset`.
+
+This is faster and more reliable than WebFetch for blog posts, but it requires
+the owner to create an API key. Don't ask for it unless the site has more than
+20 blog posts (where RSS falls short). The API does **not** cover static pages —
+those still require WebFetch.
+
+### WebFetch for full content (fallback for posts, only option for pages)
 
 Each blog post and static page must be individually fetched via WebFetch. Because Wix pages are JavaScript-rendered (Wix Thunderbolt / React), simple `curl` or HTML parsing won't work — the rendered HTML contains an empty `<div id="SITE_CONTAINER"></div>` until JavaScript executes. The AI-powered WebFetch processes the rendered page and extracts structured content.
 
