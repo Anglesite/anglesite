@@ -46,9 +46,9 @@ Wix publishes an RSS feed at `/blog-feed.xml` containing:
 The RSS feed does NOT contain full post content — only excerpts. It also has no categories or tags.
 
 **Limitations to know:**
-- The feed typically returns only the **last 2–3 weeks** of posts, not the full
-  archive. The blog posts sitemap is the authoritative source for the complete
-  post list.
+- The feed is **hard-limited to 20 posts** (confirmed by Wix support). For
+  blogs with larger archives, the blog posts sitemap is the authoritative
+  source for the complete post list.
 - Wix may **disable full-text RSS** if the feed is called too frequently,
   reverting to links only. If the feed returns no `<description>` content,
   proceed with WebFetch extraction — don't retry the feed repeatedly.
@@ -93,14 +93,18 @@ Wix images are served from `static.wixstatic.com` with transform parameters embe
 https://static.wixstatic.com/media/ASSET_ID~mv2.jpg/v1/fill/w_980,h_551,al_c,q_85,usm_0.66_1.00_0.01/file.webp
 ```
 
-The transform parameters (`/v1/fill/...`) control:
-- `w_` / `h_` — width and height
+The transform parameters (`/v1/{operation}/...`) control:
+- `fill` — scale + crop to exact dimensions (may clip edges)
+- `fit` — scale to fit within dimensions (preserves aspect ratio)
+- `crop` — crop by pixel coordinates (`x`, `y`, `w`, `h`)
+- `w_` / `h_` — width and height in pixels
 - `al_c` — alignment (center)
 - `q_85` — JPEG quality (0–100)
 - `usm_` — unsharp mask (sharpening)
-- `fill` — resize mode (also `fit`, `crop`)
 
-Wix may also auto-convert to WebP in the URL, even if the original is JPEG.
+Wix may auto-convert to WebP in the URL, even if the original is JPEG. You can
+also force a format by changing the output filename extension (`.webp`, `.png`,
+`.jpg`) in the URL path.
 
 **To download a web-optimized image**, strip everything from `/v1/` onward and
 append `?w=1200`:
@@ -146,5 +150,6 @@ Wix blog posts always use `/post/slug`:
 - **Wix app pages**: Pages powered by Wix Booking, Stores, or Events contain no static content — they're generated at runtime. Flag these for replacement with industry tools.
 - **Rate limiting**: Wix may throttle rapid requests. If WebFetch fails on multiple consecutive pages, pause briefly between requests.
 - **Dynamic pages missing from sitemap**: Pages powered by Wix collections/databases may not appear in the sitemap at all. Always cross-reference with homepage navigation links.
+- **Canonical tag conflict**: If the owner changed a page's default canonical tag in Wix SEO settings, that page disappears from the sitemap entirely. This can cause pages to be missed during discovery.
 - **RSS feed may degrade**: Wix has been known to disable full-text RSS or revert to links-only if the feed is called too frequently. Don't retry the feed — fall back to WebFetch.
 - **Higher SEO risk than other migrations**: Wix URL structures differ significantly from most platforms (`/post/slug` for blog, flat paths for pages). Comprehensive redirect mapping is critical. Expect a 10–20% traffic dip in the first 4–6 weeks even with perfect redirects — warn the owner about this.

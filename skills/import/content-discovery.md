@@ -112,8 +112,8 @@ BLOG_POSTS by `<link>` URL.
 
 **RSS limitations:**
 - Contains only excerpts — full content requires WebFetch in Step 2
-- Returns only the **last 2–3 weeks** of posts — the sitemap is authoritative
-  for the complete list
+- **Hard-limited to 20 posts** — the sitemap is authoritative for the complete
+  list
 - Wix may disable full-text RSS if called too frequently — if the feed returns
   empty or links-only, skip it and rely on sitemap + WebFetch
 - Never contains static pages — those always need WebFetch in Step 3
