@@ -199,315 +199,9 @@ Store the detected platform as PLATFORM.
 
 ### 1b — Platform-specific content discovery
 
-#### WordPress
-
-Fetch posts, pages, categories, and tags via the REST API:
-
-```sh
-curl -s "SITE_URL/wp-json/wp/v2/posts?per_page=100&page=1"
-```
-
-```sh
-curl -s "SITE_URL/wp-json/wp/v2/pages?per_page=100&page=1"
-```
-
-```sh
-curl -s "SITE_URL/wp-json/wp/v2/categories?per_page=100"
-```
-
-```sh
-curl -s "SITE_URL/wp-json/wp/v2/tags?per_page=100"
-```
-
-Paginate posts and pages: if the response contains 100 items, fetch `&page=2`,
-`&page=3`, etc. until the response is empty or returns a 400 error.
-
-Each post JSON object contains: `title.rendered`, `content.rendered`, `date`,
-`slug`, `excerpt.rendered`, `featured_media` (media ID), `categories` (ID array),
-`tags` (ID array), `link` (the original URL).
-
-Build BLOG_POSTS from the posts response and STATIC_PAGES from the pages response.
-Build lookup maps for category IDs → names and tag IDs → names.
-
-#### Squarespace
-
-Ask the owner:
-> "Squarespace lets you export your content as an XML file, which gives me the
-> most complete version of your posts and pages. Would you like to do that?
->
-> Go to your Squarespace dashboard → Settings → Import & Export → Export.
-> Download the XML file and tell me where you saved it."
-
-**If they provide a WXR file:** Read it with the Read tool. Parse the XML
-`<item>` elements. Each item has:
-- `<title>` → title
-- `<content:encoded>` → full HTML content
-- `<wp:post_date>` → publish date
-- `<wp:post_type>` → "post" or "page"
-- `<wp:post_name>` → slug
-- `<category domain="post_tag">` → tags
-- `<category domain="category">` → categories
-
-Build BLOG_POSTS from items where `<wp:post_type>` is "post" and STATIC_PAGES
-from items where it is "page".
-
-**If they decline or can't export:** Fall back to RSS + sitemap + WebFetch.
-
-```sh
-curl -s "SITE_URL/blog?format=rss"
-```
-
-```sh
-curl -s SITE_URL/sitemap.xml
-```
-
-The RSS feed contains the 20 most recent blog posts with full content. The
-sitemap lists all pages. Posts not in the RSS feed will be fetched via WebFetch
-in Step 2.
-
-#### Wix
-
-```sh
-curl -s SITE_URL/sitemap.xml
-```
-
-Parse the sitemap index to find child sitemaps. Fetch each:
-
-```sh
-curl -s SITE_URL/blog-posts-sitemap.xml
-```
-
-```sh
-curl -s SITE_URL/pages-sitemap.xml
-```
-
-From the blog posts sitemap, extract each post's `<loc>` URL, slug (path segment
-after `/post/`), and `<lastmod>` date.
-
-From the pages sitemap, extract each page's `<loc>` URL and path. Filter out Wix
-system pages — skip URLs containing `/blank`, `/_api`, `/apps/`, `/#`, `?`, or
-`/_partials`.
-
-Then fetch the RSS feed for blog metadata:
-
-```sh
-curl -s SITE_URL/blog-feed.xml
-```
-
-For each `<item>`, extract `<title>`, `<pubDate>`, `<description>` (excerpt),
-`<enclosure url="...">` (hero image), and `<dc:creator>`. Match items to
-BLOG_POSTS by `<link>` URL. The RSS feed contains only excerpts — full content
-requires WebFetch in Step 2.
-
-#### Ghost
-
-If the owner provides a Content API key, use the API:
-
-```sh
-curl -s "SITE_URL/ghost/api/content/posts/?key=API_KEY&limit=100&include=tags,authors&formats=plaintext"
-```
-
-Paginate with `&page=2`, etc. Each post contains `title`, `html`, `slug`,
-`published_at`, `feature_image`, `tags[]`, and `url`.
-
-For pages:
-```sh
-curl -s "SITE_URL/ghost/api/content/pages/?key=API_KEY&limit=100&include=tags"
-```
-
-If no API key, fall back to the RSS feed:
-```sh
-curl -s SITE_URL/rss/
-```
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/ghost.md` for full field mapping and content conversion details.
-
-#### Medium
-
-```sh
-curl -s "SITE_URL/feed"
-```
-
-For standard Medium profiles: `https://medium.com/feed/@USERNAME`
-
-The RSS feed contains full HTML content in `<content:encoded>`, plus title,
-date, tags (as `<category>` elements), and post URL. The feed typically returns
-only the 10–20 most recent posts. For older posts, use WebFetch on each URL.
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/medium.md` for image CDN handling and URL patterns.
-
-#### Substack
-
-```sh
-curl -s "SITE_URL/feed"
-```
-
-The RSS feed contains full HTML content for public posts. Each `<item>` includes
-title, content, date, author, and enclosure (cover image). Paywalled posts have
-truncated content.
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/substack.md` for content conversion details.
-
-#### Blogger
-
-```sh
-curl -s "SITE_URL/feeds/posts/default?max-results=500"
-```
-
-The Atom feed contains full post content, labels, dates, and author info.
-Paginate with `start-index` if over 500 posts.
-
-Differentiate posts from pages by `<category>` term:
-- Posts: `kind#post`
-- Pages: `kind#page`
-- Comments: `kind#comment` (skip)
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/blogger.md` for XML structure and image handling.
-
-#### Shopify
-
-```sh
-curl -s "SITE_URL/blogs/news.atom"
-```
-
-The default blog handle is `news`. Try other handles (`blog`, `journal`) if 404.
-Check the sitemap for blog URLs:
-```sh
-curl -s SITE_URL/sitemap.xml
-```
-
-The Atom feed contains full article content, tags, author, and date.
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/shopify.md` for CDN URL patterns and store-specific issues.
-
-#### Weebly
-
-```sh
-curl -s "SITE_URL/blog/feed/"
-```
-
-The RSS feed may contain excerpts only. For full content, use WebFetch on each
-post URL. Discover pages from the sitemap:
-```sh
-curl -s SITE_URL/sitemap.xml
-```
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/weebly.md` for content extraction details.
-
-#### Tumblr
-
-If the owner provides an API key:
-```sh
-curl -s "https://api.tumblr.com/v2/blog/BLOG_IDENTIFIER/posts?api_key=API_KEY&limit=20&offset=0"
-```
-
-Paginate with `offset` incremented by 20.
-
-Without an API key, use the RSS feed:
-```sh
-curl -s "SITE_URL/rss"
-```
-
-Tumblr has multiple post types (text, photo, quote, link, chat, audio, video).
-Import text and photo posts as blog posts. Ask the owner about other types.
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/tumblr.md` for post type mapping and image CDN details.
-
-#### Webflow
-
-Check for an RSS feed first:
-```sh
-curl -s "SITE_URL/blog/rss.xml"
-```
-
-If no RSS feed, discover content via the sitemap:
-```sh
-curl -s SITE_URL/sitemap.xml
-```
-
-If the owner has an API token (from Site Settings → Integrations → API Access):
-```sh
-curl -s -H "Authorization: Bearer API_TOKEN" "https://api.webflow.com/v2/sites"
-```
-
-Then list collections and fetch items via the API. Without API access, use
-WebFetch on each page URL discovered from the sitemap.
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/webflow.md` for CMS field mapping and content extraction details.
-
-#### GoDaddy Website Builder
-
-GoDaddy has no API and usually no RSS feed. Discover pages from the sitemap:
-```sh
-curl -s SITE_URL/sitemap.xml
-```
-
-If no sitemap, WebFetch the homepage to extract navigation links. For each page,
-use WebFetch with the standard extraction prompt. GoDaddy sites are typically
-small (5–15 pages).
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/godaddy.md` for detection signals and content extraction details.
-
-#### Carrd
-
-Carrd sites are single-page. Use WebFetch on SITE_URL to extract all content
-in one call. For Carrd Pro multi-page sites, check for internal navigation
-links and WebFetch each page.
-
-Carrd imports produce **pages** (not blog posts) since Carrd sites don't have
-blogs.
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/carrd.md` for content structuring details.
-
-#### Micro.blog
-
-```sh
-curl -s "SITE_URL/feed.json"
-```
-
-Micro.blog uses JSON Feed as its primary format. The feed contains full HTML
-content, tags, and dates. Paginate by following the `next_url` field.
-
-Tell the owner:
-> "If you can export your data from micro.blog (Account → Export), I'll get
-> the most complete copy including all your images."
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/microblog.md` for untitled post handling and image details.
-
-#### WriteFreely / Write.as
-
-```sh
-curl -s "SITE_URL/api/collections/USERNAME/posts"
-```
-
-The WriteFreely API returns content in **Markdown** (not HTML), making this one
-of the cleanest import sources. No content conversion is needed beyond
-frontmatter mapping.
-
-For Write.as:
-```sh
-curl -s "https://write.as/api/collections/USERNAME/posts"
-```
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/writefreely.md` for API details and untitled post handling.
-
-#### Unknown platform
-
-```sh
-curl -s SITE_URL/sitemap.xml
-```
-
-```sh
-curl -s SITE_URL/feed
-```
-
-```sh
-curl -s SITE_URL/rss.xml
-```
-
-Use whatever sitemap or feed is found. If no sitemap exists, WebFetch the
-homepage to identify the main navigation links, then build STATIC_PAGES from
-those. Build BLOG_POSTS from any RSS/feed items found.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/import/content-discovery.md` and follow the
+instructions for the detected PLATFORM. Build BLOG_POSTS and STATIC_PAGES from
+the results.
 
 ### 1c — Check for existing content
 
@@ -530,8 +224,8 @@ Tell the owner what was found. Example:
 > **Blog posts:** 23 posts (July 2024 – February 2026)
 > **Pages:** 6 pages (About, FAQ, Services, Contact, Gallery, Get Involved)
 >
-> I'll import all the blog posts and create placeholder pages for the static
-> pages. The import will take about 5–10 minutes for a blog this size."
+> I'll import all the blog posts and extract the content from each page.
+> The import will take about 5–10 minutes for a blog this size."
 
 If BLOG_POSTS is empty, tell the owner — skip to Step 3 for pages only, or
 Step 4 if image galleries were detected.
@@ -709,88 +403,35 @@ After every 5 posts, tell the owner:
 
 ## Step 2.5 — Newsletter subscriber migration
 
-If PLATFORM is `ghost` or `substack`, offer newsletter migration after content
-import is complete.
-
-Tell the owner:
-> "Your [Platform] site also has a newsletter with email subscribers. Would you
-> like to set up a newsletter on your new site?"
-
-Present the options:
-> - **Use Ghost for newsletters** — I'll help you connect a Ghost instance so
->   you can send blog posts as emails to your subscribers. Recommended if you
->   already have a Ghost instance or want paid subscriptions.
-> - **Use Buttondown** — A simple, privacy-focused newsletter service. Free for
->   up to 100 subscribers. I'll help you export and import your subscriber list.
-> - **Skip for now** — You can set up a newsletter later.
-
-Wait for the owner's answer.
-
-### If they choose Ghost
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/platforms/ghost-newsletter.md` for setup details.
-
-**Ghost → Ghost (same instance):** The subscribers are already in Ghost. Tell
-the owner:
-> "Your subscribers are already in Ghost, so there's nothing to migrate. I'll
-> set up a signup form on the website that connects to your Ghost instance."
-
-Ask for the Ghost Admin API URL and key. Add a newsletter signup form to the
-website footer (see `${CLAUDE_PLUGIN_ROOT}/docs/platforms/ghost-newsletter.md` → Website integration).
-Update the CSP `form-action` in `public/_headers`.
-
-**Substack → Ghost:** Tell the owner:
-> "Ghost can import your Substack subscribers directly. In Ghost Admin, go to
-> Settings → Advanced → Import/Export → Import, select 'Substack', and upload
-> the ZIP file you exported from Substack (Dashboard → Settings → Exports).
-> Ghost will import your subscribers automatically."
-
-Walk them through the process. Then set up the signup form as above.
-
-### If they choose Buttondown
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/platforms/buttondown.md` for setup details.
-
-**Ghost → Buttondown:** Tell the owner:
-> "I need your subscriber list from Ghost. In Ghost Admin, go to Members and
-> click Export. Save the CSV file and tell me where it is."
-
-Help them import the CSV into Buttondown (buttondown.email → Subscribers →
-Import).
-
-**Substack → Buttondown:** Tell the owner:
-> "Buttondown can import from Substack directly. Go to buttondown.email →
-> Settings → Importing and follow the Substack import flow. Or export your
-> subscribers from Substack (Dashboard → Settings → Exports) and import the
-> CSV manually."
-
-Add the Buttondown signup form to the website footer. Update the CSP
-`form-action` to allow `buttondown.email`.
-
-### Store the newsletter choice
-
-After setup, add the newsletter platform to `.site-config`:
-
-```
-NEWSLETTER_PLATFORM=ghost
-NEWSLETTER_API_URL=https://newsletter.example.com
-```
-
-Or:
-
-```
-NEWSLETTER_PLATFORM=buttondown
-```
-
-Tell the owner:
-> "Your newsletter is set up! When you publish a blog post and want to send it
-> as an email, just let me know and I'll send it to your subscribers."
-
-See `docs/newsletter-sending.md` for the sending workflow.
+If PLATFORM is `ghost` or `substack`, read
+`${CLAUDE_PLUGIN_ROOT}/skills/import/newsletter-migration.md` and follow the
+instructions to offer newsletter migration.
 
 ## Step 3 — Handle static pages
 
 If the owner chose "Everything" in Step 1, process STATIC_PAGES.
+
+### 3a — Extract homepage branding
+
+Before processing individual pages, extract site-wide branding from the homepage.
+Use WebFetch on SITE_URL with this prompt:
+
+> "Look at this website's homepage and extract:
+> 1. The site name or business name (from the logo, header, or `<title>` tag)
+> 2. The tagline or slogan (if visible)
+> 3. A description of the logo (if there's an image logo, describe it and provide its URL)
+> 4. The primary brand colors used (header background, accent buttons, link colors — give hex codes if possible)
+> 5. The main navigation links: for each link, give the visible text and the URL it points to
+> 6. The full text content of the homepage converted to clean Markdown"
+
+Store the navigation links as NAV_LINKS. Update `.site-config` with the
+site name if it differs from the scaffolded default. Note the brand colors for
+later use in theming.
+
+### 3b — Extract content from every page
+
+**Every page in STATIC_PAGES must have its content extracted.** Do not create
+empty stubs or placeholder pages. Use the best available source:
 
 **WordPress:** Page content is already available from the REST API (`content.rendered`).
 Convert HTML to Markdown as in Step 2b.
@@ -799,15 +440,23 @@ Convert HTML to Markdown as in Step 2b.
 Note that Squarespace only exports text blocks — complex layouts (galleries,
 forms, product grids) are not included in the export.
 
-**All platforms (including fallback):** For pages without pre-fetched content,
-use WebFetch with this prompt:
+**All other platforms and any page without pre-fetched content:** WebFetch is
+mandatory. This includes Wix, Weebly, GoDaddy, Carrd, Webflow without API,
+Squarespace without export, and any platform where RSS was the primary blog
+extraction source (RSS never contains static pages).
+
+Use WebFetch on each page URL with this prompt:
 > "Look at this page and tell me:
 > 1. The page title
 > 2. Whether the page uses a platform feature that can't be statically exported
 >    (booking/scheduling, e-commerce/store, event calendar, forum, member area,
 >    contact form, image gallery with 10+ images). If so, name the feature.
 > 3. A 1–3 sentence summary of the page's purpose and content
-> 4. The full text content converted to clean Markdown (if it's a content page)"
+> 4. The full text content converted to clean Markdown (if it's a content page).
+>    Include all headings, paragraphs, lists, images (with src URLs), and links.
+>    Remove navigation, headers, footers, sidebars, and platform chrome."
+
+### 3c — Categorize and create pages
 
 Categorize each page:
 - **App-powered**: uses booking, store, events, forum, members, or similar
@@ -815,16 +464,47 @@ Categorize each page:
 - **Gallery**: primarily an image gallery or portfolio (10+ images)
 - **Content page**: regular text/image content
 
-For **content pages**, create a `.astro` file in `src/pages/` with the page title,
-meta description, `BaseLayout` wrapper, and the converted content. If the content
-couldn't be fully extracted, add a `<!-- TODO: Review content from: PAGE_URL -->`
-comment.
+For **content pages**, create a `.astro` file in `src/pages/` with:
+- The page title in a `<title>` tag and `<h1>`
+- A meta description derived from the page summary
+- `BaseLayout` wrapper
+- The full converted content from WebFetch or the API
+
+If WebFetch returned an error or empty content for a specific page, retry once.
+If it still fails, create the page with a `<!-- TODO: Review content from:
+PAGE_URL -->` comment and add to FAILED_PAGES. Do not leave content pages empty
+when WebFetch can extract them.
 
 For **gallery pages**, add them to GALLERY_PAGES for processing in Step 4.
 
 For **app-powered pages**, do NOT create a stub. Add to APP_PAGES for reporting
 in Step 7. Do not try to replicate platform app functionality — booking, store,
 and event features have industry-appropriate alternatives in `${CLAUDE_PLUGIN_ROOT}/docs/platforms/`.
+
+### 3d — Create the homepage
+
+If the homepage content was extracted in Step 3a, create or update `src/pages/index.astro`
+with the actual homepage content instead of the default scaffolded placeholder.
+Use `BaseLayout`, include the site name as a heading, and convert the extracted
+content to Astro-compatible HTML.
+
+Download any hero images or logos found on the homepage to `public/images/` using
+the same optimization pipeline as Step 2c.
+
+### 3e — Generate navigation
+
+Build the site navigation from NAV_LINKS (extracted in Step 3a). For each link:
+- If the URL points to an imported page, use the local path (e.g., `/about`)
+- If the URL points to an app-powered page, keep it but mark with a comment
+- If the URL is external, keep the full URL
+
+Update the navigation component in the site layout. Look for the nav element in
+`src/layouts/BaseLayout.astro` or the equivalent layout file and replace the
+default navigation links with the imported ones.
+
+If NAV_LINKS is empty (WebFetch couldn't extract navigation), build navigation
+from the STATIC_PAGES list — create a link for each content page that was
+successfully imported.
 
 ## Step 4 — Handle galleries and portfolios
 
@@ -964,7 +644,9 @@ Give the owner a plain-English summary:
 > **Blog posts:** 21 of 23 imported successfully
 > **Images:** 19 downloaded and optimized
 > **Redirects:** 27 redirect rules added
-> **Pages created:** 4 (About, FAQ, Services, Contact)
+> **Pages imported:** 4 with full content (About, FAQ, Services, Contact)
+> **Homepage:** Updated with your actual content and branding
+> **Navigation:** Set up with links to all your pages
 >
 > **A couple of things to know:**
 > - 2 posts couldn't be fetched (listed below). You can add them manually
@@ -981,7 +663,7 @@ Give the owner a plain-English summary:
 > just let me know what you'd like adjusted and I'll make design tweaks
 > until it looks right."
 
-List FAILED_POSTS and FAILED_IMAGES so the owner knows what needs attention.
+List FAILED_POSTS, FAILED_PAGES, and FAILED_IMAGES so the owner knows what needs attention.
 
 For each APP_PAGES entry, suggest a replacement:
 - Booking/scheduling → "Cal.com or Calendly integrate well. See `${CLAUDE_PLUGIN_ROOT}/docs/platforms/`."
