@@ -152,6 +152,12 @@ function extractImages(html) {
   return images;
 }
 
+/** Convert <img> elements in a block to Markdown image syntax. Returns [] if no images. */
+function blockImages(blockHtml) {
+  const imgs = extractImages(blockHtml);
+  return imgs.map((img) => `![${img.alt}](${img.src})`);
+}
+
 // Nav items and footer boilerplate to filter from static pages.
 const NAV_WORDS = new Set([
   'home', 'blog', 'about', 'contact', 'more', 'menu', 'search',
@@ -187,12 +193,20 @@ export function extractPost(html) {
   // Extract images from the region
   const images = extractImages(region);
 
-  // Process each rcv-block individually to detect headings vs paragraphs
+  // Process each rcv-block individually to detect headings, images, or paragraphs
   const blocks = [];
   const blockRe = /data-hook="rcv-block[^"]*"[^>]*>([\s\S]*?)(?=data-hook="rcv-block|$)/g;
   let bm;
   while ((bm = blockRe.exec(region)) !== null) {
     const blockHtml = bm[1];
+
+    // Check for inline images first
+    const imgMarkdown = blockImages(blockHtml);
+    if (imgMarkdown.length > 0) {
+      blocks.push(...imgMarkdown);
+      continue;
+    }
+
     const fragments = blockFragments(blockHtml).filter((t) => !isEmpty(t));
     if (fragments.length === 0) continue;
 
@@ -286,11 +300,24 @@ export function extractPage(html) {
   const blocks = [];
   const seen = new Set();
 
-  // Split by top-level divs that contain spans or Markdown links
-  const divRe = /<div[^>]*>([\s\S]*?)<\/div>(?=\s*<div|$)/g;
+  // Split by top-level divs that contain spans, images, or Markdown links
+  const divRe = /<div[^>]*>([\s\S]*?)<\/div>(?=\s*<\/?div|$)/g;
   let dm;
   while ((dm = divRe.exec(cleaned)) !== null) {
     const divHtml = dm[0];
+
+    // Check for inline images first
+    const imgMarkdown = blockImages(divHtml);
+    if (imgMarkdown.length > 0) {
+      for (const md of imgMarkdown) {
+        if (!seen.has(md)) {
+          seen.add(md);
+          blocks.push(md);
+        }
+      }
+      continue;
+    }
+
     let fragments;
     if (divHtml.includes('](')) {
       // Div contains Markdown links (from linkifyHtml pre-pass).
