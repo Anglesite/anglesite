@@ -1,5 +1,4 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, expect } from 'vitest';
 
 import {
   rgbToHex,
@@ -13,97 +12,97 @@ import {
 
 describe('rgbToHex', () => {
   it('converts standard RGB values', () => {
-    assert.equal(rgbToHex(255, 0, 0), '#ff0000');
-    assert.equal(rgbToHex(0, 128, 0), '#008000');
-    assert.equal(rgbToHex(0, 0, 255), '#0000ff');
+    expect(rgbToHex(255, 0, 0)).toBe('#ff0000');
+    expect(rgbToHex(0, 128, 0)).toBe('#008000');
+    expect(rgbToHex(0, 0, 255)).toBe('#0000ff');
   });
 
   it('converts white and black', () => {
-    assert.equal(rgbToHex(255, 255, 255), '#ffffff');
-    assert.equal(rgbToHex(0, 0, 0), '#000000');
+    expect(rgbToHex(255, 255, 255)).toBe('#ffffff');
+    expect(rgbToHex(0, 0, 0)).toBe('#000000');
   });
 
   it('pads single-digit hex values with zero', () => {
-    assert.equal(rgbToHex(1, 2, 3), '#010203');
+    expect(rgbToHex(1, 2, 3)).toBe('#010203');
   });
 
   it('parses rgb() string format', () => {
-    assert.equal(rgbToHex('rgb(17, 109, 255)'), '#116dff');
-    assert.equal(rgbToHex('rgb(243, 243, 243)'), '#f3f3f3');
+    expect(rgbToHex('rgb(17, 109, 255)')).toBe('#116dff');
+    expect(rgbToHex('rgb(243, 243, 243)')).toBe('#f3f3f3');
   });
 });
 
 describe('luminance', () => {
   it('returns 1 for white', () => {
-    assert.ok(Math.abs(luminance('#ffffff') - 1) < 0.001);
+    expect(Math.abs(luminance('#ffffff') - 1)).toBeLessThan(0.001);
   });
 
   it('returns 0 for black', () => {
-    assert.ok(Math.abs(luminance('#000000') - 0) < 0.001);
+    expect(Math.abs(luminance('#000000') - 0)).toBeLessThan(0.001);
   });
 
   it('returns intermediate values for grays', () => {
     const mid = luminance('#808080');
-    assert.ok(mid > 0.2 && mid < 0.3);
+    expect(mid).toBeGreaterThan(0.2);
+    expect(mid).toBeLessThan(0.3);
   });
 });
 
 describe('saturation', () => {
   it('returns 0 for pure grays', () => {
-    assert.equal(saturation('#808080'), 0);
-    assert.equal(saturation('#f3f3f3'), 0);
-    assert.equal(saturation('#000000'), 0);
-    assert.equal(saturation('#ffffff'), 0);
+    expect(saturation('#808080')).toBe(0);
+    expect(saturation('#f3f3f3')).toBe(0);
+    expect(saturation('#000000')).toBe(0);
+    expect(saturation('#ffffff')).toBe(0);
   });
 
   it('returns high saturation for pure colors', () => {
-    assert.ok(saturation('#ff0000') > 0.9);
-    assert.ok(saturation('#0000ff') > 0.9);
-    assert.ok(saturation('#00ff00') > 0.9);
+    expect(saturation('#ff0000')).toBeGreaterThan(0.9);
+    expect(saturation('#0000ff')).toBeGreaterThan(0.9);
+    expect(saturation('#00ff00')).toBeGreaterThan(0.9);
   });
 
   it('returns moderate saturation for muted colors', () => {
-    const s = saturation('#116dff'); // bright blue
-    assert.ok(s > 0.5);
+    expect(saturation('#116dff')).toBeGreaterThan(0.5);
   });
 });
 
 describe('isGray', () => {
   it('classifies grays with saturation < 0.15', () => {
-    assert.ok(isGray('#808080'));
-    assert.ok(isGray('#f3f3f3'));
-    assert.ok(isGray('#4a4a4a'));
-    assert.ok(isGray('#6b6b6b'));
+    expect(isGray('#808080')).toBe(true);
+    expect(isGray('#f3f3f3')).toBe(true);
+    expect(isGray('#4a4a4a')).toBe(true);
+    expect(isGray('#6b6b6b')).toBe(true);
   });
 
   it('rejects saturated colors', () => {
-    assert.ok(!isGray('#116dff'));
-    assert.ok(!isGray('#ff0000'));
-    assert.ok(!isGray('#156600'));
+    expect(isGray('#116dff')).toBe(false);
+    expect(isGray('#ff0000')).toBe(false);
+    expect(isGray('#156600')).toBe(false);
   });
 });
 
 describe('isBrowserDefault', () => {
   it('identifies default link blue', () => {
-    assert.ok(isBrowserDefault('#0000ee'));
+    expect(isBrowserDefault('#0000ee')).toBe(true);
   });
 
   it('identifies default visited purple', () => {
-    assert.ok(isBrowserDefault('#551a8b'));
+    expect(isBrowserDefault('#551a8b')).toBe(true);
   });
 
   it('identifies pure black as default', () => {
-    assert.ok(isBrowserDefault('#000000'));
+    expect(isBrowserDefault('#000000')).toBe(true);
   });
 
   it('identifies pure white as default', () => {
-    assert.ok(isBrowserDefault('#ffffff'));
+    expect(isBrowserDefault('#ffffff')).toBe(true);
   });
 
   it('rejects brand colors', () => {
-    assert.ok(!isBrowserDefault('#116dff'));
-    assert.ok(!isBrowserDefault('#156600'));
-    assert.ok(!isBrowserDefault('#d97706'));
+    expect(isBrowserDefault('#116dff')).toBe(false);
+    expect(isBrowserDefault('#156600')).toBe(false);
+    expect(isBrowserDefault('#d97706')).toBe(false);
   });
 });
 
@@ -115,21 +114,21 @@ describe('topColors', () => {
       '#f3f3f3',
     ];
     const result = topColors(samples, 3);
-    assert.equal(result[0], '#116dff');
-    assert.equal(result[1], '#4a4a4a');
-    assert.equal(result[2], '#f3f3f3');
+    expect(result[0]).toBe('#116dff');
+    expect(result[1]).toBe('#4a4a4a');
+    expect(result[2]).toBe('#f3f3f3');
   });
 
   it('limits to requested count', () => {
     const samples = ['#aaa', '#bbb', '#ccc', '#ddd'];
-    assert.equal(topColors(samples, 2).length, 2);
+    expect(topColors(samples, 2)).toHaveLength(2);
   });
 
   it('filters out browser defaults', () => {
     const samples = ['#0000ee', '#0000ee', '#0000ee', '#116dff'];
     const result = topColors(samples, 5);
-    assert.ok(!result.includes('#0000ee'));
-    assert.ok(result.includes('#116dff'));
+    expect(result).not.toContain('#0000ee');
+    expect(result).toContain('#116dff');
   });
 });
 
@@ -147,10 +146,10 @@ describe('classifyTokens', () => {
 
     const tokens = classifyTokens(colorSamples, fontSamples);
 
-    assert.equal(tokens['--color-bg'], '#f3f3f3');
-    assert.equal(tokens['--color-text'], '#4a4a4a');
-    assert.equal(tokens['--font-heading'], '"Open Sans"');
-    assert.equal(tokens['--font-body'], '"Open Sans"');
+    expect(tokens['--color-bg']).toBe('#f3f3f3');
+    expect(tokens['--color-text']).toBe('#4a4a4a');
+    expect(tokens['--font-heading']).toBe('"Open Sans"');
+    expect(tokens['--font-body']).toBe('"Open Sans"');
   });
 
   it('picks the most frequent brand color as primary', () => {
@@ -163,7 +162,7 @@ describe('classifyTokens', () => {
 
     const tokens = classifyTokens(colorSamples, fontSamples);
 
-    assert.equal(tokens['--color-primary'], '#116dff');
+    expect(tokens['--color-primary']).toBe('#116dff');
   });
 
   it('picks the second brand color as accent', () => {
@@ -176,7 +175,7 @@ describe('classifyTokens', () => {
 
     const tokens = classifyTokens(colorSamples, fontSamples);
 
-    assert.equal(tokens['--color-accent'], '#156600');
+    expect(tokens['--color-accent']).toBe('#156600');
   });
 
   it('picks a gray different from text as muted', () => {
@@ -189,10 +188,9 @@ describe('classifyTokens', () => {
 
     const tokens = classifyTokens(colorSamples, fontSamples);
 
-    // text is #6b6b6b (most frequent gray in text), muted should be different
-    assert.equal(tokens['--color-text'], '#6b6b6b');
-    assert.notEqual(tokens['--color-muted'], tokens['--color-text']);
-    assert.ok(isGray(tokens['--color-muted']));
+    expect(tokens['--color-text']).toBe('#6b6b6b');
+    expect(tokens['--color-muted']).not.toBe(tokens['--color-text']);
+    expect(isGray(tokens['--color-muted'])).toBe(true);
   });
 
   it('quotes font families with spaces', () => {
@@ -204,8 +202,8 @@ describe('classifyTokens', () => {
 
     const tokens = classifyTokens(colorSamples, fontSamples);
 
-    assert.equal(tokens['--font-heading'], '"Playfair Display"');
-    assert.equal(tokens['--font-body'], '"Source Sans Pro"');
+    expect(tokens['--font-heading']).toBe('"Playfair Display"');
+    expect(tokens['--font-body']).toBe('"Source Sans Pro"');
   });
 
   it('does not quote single-word font names', () => {
@@ -214,13 +212,11 @@ describe('classifyTokens', () => {
 
     const tokens = classifyTokens(colorSamples, fontSamples);
 
-    assert.equal(tokens['--font-heading'], 'Georgia');
-    assert.equal(tokens['--font-body'], 'Arial');
+    expect(tokens['--font-heading']).toBe('Georgia');
+    expect(tokens['--font-body']).toBe('Arial');
   });
 
   it('picks the lightest bg color, not a brand-colored section header', () => {
-    // Simulates shilohballard.com: #0f5ac0 header bg appears frequently,
-    // but #f3f3f3 is the actual page content background
     const colorSamples = {
       bg: ['#0f5ac0', '#0f5ac0', '#0f5ac0', '#f3f3f3', '#f3f3f3'],
       text: ['#4a4a4a'],
@@ -230,7 +226,7 @@ describe('classifyTokens', () => {
 
     const tokens = classifyTokens(colorSamples, fontSamples);
 
-    assert.equal(tokens['--color-bg'], '#f3f3f3');
+    expect(tokens['--color-bg']).toBe('#f3f3f3');
   });
 
   it('returns null for missing categories', () => {
@@ -239,9 +235,9 @@ describe('classifyTokens', () => {
       { heading: [], body: [] },
     );
 
-    assert.equal(tokens['--color-bg'], null);
-    assert.equal(tokens['--color-text'], null);
-    assert.equal(tokens['--color-primary'], null);
-    assert.equal(tokens['--font-heading'], null);
+    expect(tokens['--color-bg']).toBeNull();
+    expect(tokens['--color-text']).toBeNull();
+    expect(tokens['--color-primary']).toBeNull();
+    expect(tokens['--font-heading']).toBeNull();
   });
 });

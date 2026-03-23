@@ -1,5 +1,4 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -14,23 +13,18 @@ const src = readFileSync(
 
 describe('wix-playwright.js wait strategy', () => {
   it('does not use networkidle (Wix Thunderbolt never quiesces)', () => {
-    assert.ok(
-      !src.includes("'networkidle'") && !src.includes('"networkidle"'),
-      'networkidle causes timeouts on Wix — use domcontentloaded instead',
-    );
+    expect(
+      src.includes("'networkidle'") || src.includes('"networkidle"'),
+    ).toBe(false);
   });
 
   it('uses domcontentloaded for page.goto', () => {
-    assert.ok(
+    expect(
       src.includes("'domcontentloaded'") || src.includes('"domcontentloaded"'),
-      'page.goto should use domcontentloaded wait strategy',
-    );
+    ).toBe(true);
   });
 
   it('waits for #SITE_CONTAINER as the real readiness check', () => {
-    assert.ok(
-      src.includes('#SITE_CONTAINER'),
-      'Should wait for Wix Thunderbolt container element',
-    );
+    expect(src).toContain('#SITE_CONTAINER');
   });
 });

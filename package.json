@@ -13,7 +13,9 @@
     "scripts/import/"
   ],
   "scripts": {
-    "test": "node --test 'test/**/*.test.js'"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": ["website", "small-business", "astro", "cloudflare", "webmaster", "ai", "agents"],
   "author": "David W. Keith",
@@ -22,11 +24,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Anglesite/anglesite"
-  },
-  "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "vitest": "^3.1.1"

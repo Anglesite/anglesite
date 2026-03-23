@@ -1,5 +1,4 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -19,69 +18,53 @@ describe('extractPost', () => {
 
   it('extracts the post body text between post-description and post-footer', () => {
     const result = extractPost(html);
-    assert.ok(result.body.includes('It started with a single reusable bag'));
-    assert.ok(result.body.includes('start small, be patient'));
+    expect(result.body).toContain('It started with a single reusable bag');
+    expect(result.body).toContain('start small, be patient');
   });
 
   it('filters out empty spans and \\xa0 fragments', () => {
     const result = extractPost(html);
-    assert.ok(!result.body.includes('\u00a0'));
-    // No lines that are just whitespace between paragraphs
-    const lines = result.body.split('\n').filter((l) => l.trim() === '');
-    // Empty lines are fine as paragraph separators, but no \xa0 content
+    expect(result.body).not.toContain('\u00a0');
     for (const line of result.body.split('\n')) {
-      assert.ok(line.trim() !== '\u00a0', 'Should not contain \\xa0-only lines');
+      expect(line.trim()).not.toBe('\u00a0');
     }
   });
 
   it('extracts headings as markdown headings', () => {
     const result = extractPost(html);
-    assert.ok(result.body.includes('## The First Steps'));
-    assert.ok(result.body.includes('## What Actually Worked'));
-    assert.ok(result.body.includes('## One Year Later'));
+    expect(result.body).toContain('## The First Steps');
+    expect(result.body).toContain('## What Actually Worked');
+    expect(result.body).toContain('## One Year Later');
   });
 
   it('extracts inline image URLs', () => {
     const result = extractPost(html);
-    assert.ok(result.images.length > 0);
-    assert.ok(result.images.some((img) => img.src.includes('7986bd_abc123~mv2.png')));
-    assert.ok(result.images.some((img) => img.alt === 'Our backyard compost bin'));
+    expect(result.images.length).toBeGreaterThan(0);
+    expect(result.images.some((img) => img.src.includes('7986bd_abc123~mv2.png'))).toBe(true);
+    expect(result.images.some((img) => img.alt === 'Our backyard compost bin')).toBe(true);
   });
 
   it('does not include post-footer content in the body', () => {
     const result = extractPost(html);
-    assert.ok(!result.body.includes('Recent Posts'));
-    assert.ok(!result.body.includes('See All'));
+    expect(result.body).not.toContain('Recent Posts');
+    expect(result.body).not.toContain('See All');
   });
 
   it('does not include post-header content in the body', () => {
     const result = extractPost(html);
-    // The title should be in the title field, not duplicated in body
-    assert.ok(!result.body.startsWith('My Journey'));
+    expect(result.body.startsWith('My Journey')).toBe(false);
   });
 
   it('converts hyperlinks to markdown links', () => {
     const result = extractPost(html);
-    assert.ok(
-      result.body.includes('[Going Zero Waste](https://www.goingzerowaste.com/)'),
-      'Should convert <a><span>text</span></a> to [text](url)',
-    );
-    assert.ok(
-      result.body.includes('[here](https://example.com/guide)'),
-      'Should convert short linked text too',
-    );
+    expect(result.body).toContain('[Going Zero Waste](https://www.goingzerowaste.com/)');
+    expect(result.body).toContain('[here](https://example.com/guide)');
   });
 
   it('preserves surrounding text around links', () => {
     const result = extractPost(html);
-    assert.ok(
-      result.body.includes('visit [Going Zero Waste]'),
-      'Text before link should be preserved',
-    );
-    assert.ok(
-      result.body.includes('guide [here]'),
-      'Text before short link should be preserved',
-    );
+    expect(result.body).toContain('visit [Going Zero Waste]');
+    expect(result.body).toContain('guide [here]');
   });
 });
 
@@ -90,44 +73,42 @@ describe('extractPage', () => {
 
   it('extracts the main page content', () => {
     const result = extractPage(html);
-    assert.ok(result.body.includes("I'm Shiloh Ballard"));
-    assert.ok(result.body.includes('sustainable lifestyle'));
+    expect(result.body).toContain("I'm Shiloh Ballard");
+    expect(result.body).toContain('sustainable lifestyle');
   });
 
   it('filters out navigation items', () => {
     const result = extractPage(html);
-    // Nav items should not appear as standalone content lines
     const lines = result.body.split('\n').map((l) => l.trim());
-    assert.ok(!lines.includes('Home'));
-    assert.ok(!lines.includes('Blog'));
-    assert.ok(!lines.includes('More'));
+    expect(lines).not.toContain('Home');
+    expect(lines).not.toContain('Blog');
+    expect(lines).not.toContain('More');
   });
 
   it('filters out footer boilerplate', () => {
     const result = extractPage(html);
-    assert.ok(!result.body.includes('Paid for by'));
-    assert.ok(!result.body.includes('All rights reserved'));
+    expect(result.body).not.toContain('Paid for by');
+    expect(result.body).not.toContain('All rights reserved');
   });
 
   it('deduplicates repeated text', () => {
-    // Wix often renders the same string multiple times in nested spans
     const dupeHtml = fixture('wix-static-page.html');
     const result = extractPage(dupeHtml);
     const lines = result.body.split('\n').map((l) => l.trim()).filter(Boolean);
     const uniqueLines = [...new Set(lines)];
-    assert.equal(lines.length, uniqueLines.length, 'No duplicate lines');
+    expect(lines.length).toBe(uniqueLines.length);
   });
 
   it('extracts headings as markdown', () => {
     const result = extractPage(html);
-    assert.ok(result.body.includes('## Our Mission'));
-    assert.ok(result.body.includes('## Get in Touch'));
+    expect(result.body).toContain('## Our Mission');
+    expect(result.body).toContain('## Get in Touch');
   });
 
   it('extracts inline images', () => {
     const result = extractPage(html);
-    assert.ok(result.images.length > 0);
-    assert.ok(result.images.some((img) => img.src.includes('profile123~mv2.jpg')));
+    expect(result.images.length).toBeGreaterThan(0);
+    expect(result.images.some((img) => img.src.includes('profile123~mv2.jpg'))).toBe(true);
   });
 });
 
@@ -136,67 +117,62 @@ describe('extractMetadata', () => {
 
   it('extracts BlogPosting JSON-LD fields', () => {
     const meta = extractMetadata(html);
-    assert.equal(meta.title, 'My Journey to Sustainable Living');
-    assert.equal(meta.date, '2025-08-15');
-    assert.equal(meta.author, 'Shiloh Ballard');
-    assert.ok(meta.description.includes('zero-waste home'));
+    expect(meta.title).toBe('My Journey to Sustainable Living');
+    expect(meta.date).toBe('2025-08-15');
+    expect(meta.author).toBe('Shiloh Ballard');
+    expect(meta.description).toContain('zero-waste home');
   });
 
   it('extracts the hero image URL from JSON-LD', () => {
     const meta = extractMetadata(html);
-    assert.ok(meta.image.includes('7986bd_f56edc6b839c4e3cb8caa6b922bb612a~mv2.jpg'));
+    expect(meta.image).toContain('7986bd_f56edc6b839c4e3cb8caa6b922bb612a~mv2.jpg');
   });
 
   it('falls back to og: tags when no JSON-LD is present', () => {
     const noLdHtml = fixture('wix-static-page.html');
     const meta = extractMetadata(noLdHtml);
-    assert.equal(meta.title, 'About Us');
-    assert.ok(meta.description.includes('Shiloh Ballard'));
+    expect(meta.title).toBe('About Us');
+    expect(meta.description).toContain('Shiloh Ballard');
   });
 
   it('returns null fields when no metadata is found', () => {
     const meta = extractMetadata('<html><body>nothing</body></html>');
-    assert.equal(meta.title, null);
-    assert.equal(meta.date, null);
-    assert.equal(meta.author, null);
+    expect(meta.title).toBeNull();
+    expect(meta.date).toBeNull();
+    expect(meta.author).toBeNull();
   });
 });
 
 describe('normalizeImageUrl', () => {
   it('strips /v1/fill/... transform parameters', () => {
     const url = 'https://static.wixstatic.com/media/7986bd_f56edc6b~mv2.jpg/v1/fill/w_980,h_551,al_c,q_85,usm_0.66_1.00_0.01/file.webp';
-    const result = normalizeImageUrl(url);
-    assert.equal(result, 'https://static.wixstatic.com/media/7986bd_f56edc6b~mv2.jpg?w=1200');
+    expect(normalizeImageUrl(url)).toBe('https://static.wixstatic.com/media/7986bd_f56edc6b~mv2.jpg?w=1200');
   });
 
   it('strips /v1/fit/... transform parameters', () => {
     const url = 'https://static.wixstatic.com/media/abc123~mv2.png/v1/fit/w_500,h_300/image.png';
-    const result = normalizeImageUrl(url);
-    assert.equal(result, 'https://static.wixstatic.com/media/abc123~mv2.png?w=1200');
+    expect(normalizeImageUrl(url)).toBe('https://static.wixstatic.com/media/abc123~mv2.png?w=1200');
   });
 
   it('handles URLs without /v1/ transforms', () => {
     const url = 'https://static.wixstatic.com/media/abc123~mv2.png';
-    const result = normalizeImageUrl(url);
-    assert.equal(result, 'https://static.wixstatic.com/media/abc123~mv2.png?w=1200');
+    expect(normalizeImageUrl(url)).toBe('https://static.wixstatic.com/media/abc123~mv2.png?w=1200');
   });
 
   it('handles URLs that already have query params', () => {
     const url = 'https://static.wixstatic.com/media/abc123~mv2.png?token=xyz';
-    const result = normalizeImageUrl(url);
-    assert.equal(result, 'https://static.wixstatic.com/media/abc123~mv2.png?w=1200');
+    expect(normalizeImageUrl(url)).toBe('https://static.wixstatic.com/media/abc123~mv2.png?w=1200');
   });
 
   it('detects the original file extension', () => {
     const jpgUrl = 'https://static.wixstatic.com/media/abc~mv2.jpg/v1/fill/w_100/file.webp';
-    assert.ok(normalizeImageUrl(jpgUrl).includes('abc~mv2.jpg'));
+    expect(normalizeImageUrl(jpgUrl)).toContain('abc~mv2.jpg');
 
     const pngUrl = 'https://static.wixstatic.com/media/def~mv2.png/v1/fill/w_100/file.webp';
-    assert.ok(normalizeImageUrl(pngUrl).includes('def~mv2.png'));
+    expect(normalizeImageUrl(pngUrl)).toContain('def~mv2.png');
   });
 
   it('passes through non-Wix URLs unchanged', () => {
-    const url = 'https://example.com/image.jpg';
-    assert.equal(normalizeImageUrl(url), 'https://example.com/image.jpg');
+    expect(normalizeImageUrl('https://example.com/image.jpg')).toBe('https://example.com/image.jpg');
   });
 });
