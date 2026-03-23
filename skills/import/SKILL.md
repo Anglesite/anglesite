@@ -2,7 +2,7 @@
 name: import
 description: "Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd)"
 argument-hint: "[website URL]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(node *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(node *)", "Bash(npx playwright *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -272,11 +272,20 @@ Use `<content:encoded>` (full HTML).
 or `<content:encoded>` field. For posts NOT in the RSS feed (older than the 20
 most recent), use WebFetch on the post URL with the extraction prompt below.
 
-**Wix:** Use the bundled extraction scripts instead of WebFetch. Wix SSRs
-content into nested `<span>` tags that WebFetch cannot parse, but `curl` +
-the extraction scripts handle reliably.
+**Wix:** Use Playwright if available, otherwise fall back to curl + regex.
+WebFetch does not work on Wix pages.
 
-For each post:
+**With Playwright** (preferred — also extracts design tokens):
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "POST_URL"
+```
+
+Returns `{tokens, content}` where `content` has `{body, images, title, navLinks}`.
+On the **first page** (homepage), save the `tokens` object — it contains
+`--color-primary`, `--color-bg`, `--font-heading`, etc. that seed `global.css`.
+
+**Without Playwright** (fallback — content only):
 
 ```sh
 curl -sL "POST_URL" > /tmp/wix-post.html
@@ -285,12 +294,20 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js meta /tmp/wix-post.
 ```
 
 The `post` command returns `{body, images}` — Markdown-formatted body with `##`
-headings and a list of inline image URLs. The `meta` command returns
-`{title, date, description, author, image}` from JSON-LD and OG tags.
+headings. The `meta` command returns `{title, date, description, author, image}`.
 
-If extraction returns empty content, fall back to WebFetch as a last resort,
-then add the post to FAILED_POSTS if that also fails. Do not stop the import
-for individual failures.
+**Playwright availability check:** Before starting the Wix import, check if
+Playwright is installed. If not, offer to install it:
+> "I can extract your site's colors and fonts automatically too, but I need
+> to install a browser tool first (~150 MB). Want me to install it?"
+
+If yes: `npx playwright install chromium`
+
+If they decline or Playwright fails, continue with curl + regex (content only,
+no design tokens — the owner can use `/anglesite:design-interview` later).
+
+If extraction returns empty content from either method, add the post to
+FAILED_POSTS and continue. Do not stop the import for individual failures.
 
 **Unknown platforms:** Use WebFetch on each post URL with this prompt:
 
@@ -460,16 +477,22 @@ Convert HTML to Markdown as in Step 2b.
 Note that Squarespace only exports text blocks — complex layouts (galleries,
 forms, product grids) are not included in the export.
 
-**Wix:** Use the bundled extraction scripts (same as Step 2a):
+**Wix:** Use the same extraction method chosen in Step 2a (Playwright or
+curl + regex). With Playwright:
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "PAGE_URL" --content-only
+```
+
+Without Playwright:
 
 ```sh
 curl -sL "PAGE_URL" > /tmp/wix-page.html
 node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js page /tmp/wix-page.html
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js meta /tmp/wix-page.html
 ```
 
-The `page` command strips navigation, footer boilerplate, and duplicates
-automatically. If it returns empty content, fall back to WebFetch.
+Both methods strip navigation and footer boilerplate automatically.
+If extraction returns empty content, fall back to WebFetch as a last resort.
 
 **All other platforms and any page without pre-fetched content:** WebFetch is
 mandatory. This includes Weebly, GoDaddy, Carrd, Webflow without API,
@@ -639,6 +662,29 @@ Add trailing-slash redirects as needed:
 ```
 
 Write the updated `_redirects` file, preserving all existing rules and comments.
+
+## Step 5.5 — Apply design tokens (Playwright only)
+
+If Playwright was used and design tokens were extracted from the homepage in
+Step 2a, apply them to `src/styles/global.css`:
+
+1. Read the current `global.css`
+2. For each non-null token from the Playwright output, replace the corresponding
+   CSS custom property value:
+   - `--color-primary`, `--color-accent`, `--color-bg`, `--color-text`, `--color-muted`
+   - `--font-heading`, `--font-body`
+3. Write the updated file
+
+Tell the owner:
+> "I extracted your site's brand colors and fonts from the original design:
+>
+> **Colors:** primary [hex], accent [hex], background [hex]
+> **Fonts:** headings in [font], body text in [font]
+>
+> These have been applied to your new site's stylesheet."
+
+If Playwright was not used (curl + regex fallback), skip this step. The owner
+can set up colors and fonts later via `/anglesite:design-interview`.
 
 ## Step 6 — Build and verify
 

@@ -97,8 +97,10 @@ system pages — skip URLs containing `/blank`, `/_api`, `/apps/`, `/#`, `?`, or
 `/_partials`.
 
 **Cross-reference with navigation:** Wix dynamic pages may be missing from the
-sitemap entirely (known Wix bug). Use WebFetch on the homepage to extract all
-navigation links and add any URLs not already in STATIC_PAGES.
+sitemap entirely (known Wix bug). If Playwright is available, extract navigation
+links from the homepage (the `navLinks` array in the Playwright output captures
+all JS-rendered nav including sub-menus). Otherwise use WebFetch on the homepage.
+Add any URLs not already in STATIC_PAGES.
 
 Then fetch the RSS feed for blog metadata:
 
@@ -111,12 +113,12 @@ For each `<item>`, extract `<title>`, `<pubDate>`, `<description>` (excerpt),
 BLOG_POSTS by `<link>` URL.
 
 **RSS limitations:**
-- Contains only excerpts — full content requires WebFetch in Step 2
+- Contains only excerpts — full content requires Playwright or curl+regex in Step 2
 - **Hard-limited to 20 posts** — the sitemap is authoritative for the complete
   list
 - Wix may disable full-text RSS if called too frequently — if the feed returns
-  empty or links-only, skip it and rely on sitemap + WebFetch
-- Never contains static pages — those always need WebFetch in Step 3
+  empty or links-only, skip it and rely on sitemap + extraction scripts
+- Never contains static pages — those always need extraction in Step 3
 
 **Blog REST API (20+ posts):** If the blog has more than 20 posts, ask the
 owner if they have a Wix API key. The Blog REST API at

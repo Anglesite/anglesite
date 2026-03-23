@@ -1,6 +1,6 @@
 # Importing from Wix
 
-Wix has the most restrictive content export of any major platform. There is no content API, no full export feature, and pages are JavaScript-rendered (Wix Thunderbolt). However, Wix SSRs content into deeply nested `<span>` tags that `curl` can retrieve. The import skill uses a combination of sitemaps, RSS metadata, and bundled extraction scripts (`scripts/import/wix/wix-extract.js`) that parse the SSR'd HTML.
+Wix has the most restrictive content export of any major platform. There is no content API, no full export feature, and pages are JavaScript-rendered (Wix Thunderbolt). The import skill uses a combination of sitemaps, RSS metadata, and two extraction backends: **Playwright** (preferred — extracts content + design tokens in one pass) and **curl + regex** (fallback — content only).
 
 See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Wix.
 
@@ -73,13 +73,69 @@ the owner to create an API key. Don't ask for it unless the site has more than
 20 blog posts (where RSS falls short). The API does **not** cover static pages —
 those still require WebFetch.
 
-### Bundled extraction scripts (primary method for posts and pages)
+### Playwright extraction (preferred — content + styling)
 
-Wix Thunderbolt server-side renders content into deeply nested `<span>` tags
-inside `data-hook="rcv-block*"` elements. Although the top-level HTML appears
-to be an empty `<div id="SITE_CONTAINER">`, `curl -sL` retrieves the SSR'd
-content that WebFetch's AI summarizer cannot parse. The bundled extraction
-scripts handle this reliably.
+When Playwright is available, a single browser session extracts both content
+and computed CSS styles from the rendered page. This is the preferred method
+because it:
+- Gets complete content via TreeWalker on the rendered DOM (not regex)
+- Extracts computed colors, fonts, and spacing via `getComputedStyle()`
+- Captures all JS-rendered navigation links (including dynamic sub-navs)
+- Handles Wix accordions and FAQ content that curl+regex misses
+
+**Location:** `${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js`
+
+**Workflow:**
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "PAGE_URL"
+```
+
+The script outputs JSON with both `tokens` and `content`:
+
+```json
+{
+  "tokens": {
+    "--color-bg": "#f3f3f3",
+    "--color-text": "#4a4a4a",
+    "--color-primary": "#116dff",
+    "--color-accent": "#156600",
+    "--color-muted": "#6b6b6b",
+    "--font-heading": "\"Open Sans\"",
+    "--font-body": "\"Open Sans\""
+  },
+  "content": {
+    "body": "Markdown-formatted content...",
+    "images": [{"src": "...", "alt": "..."}],
+    "title": "Page Title",
+    "navLinks": [{"text": "About", "href": "https://..."}]
+  }
+}
+```
+
+Use `--content-only` to skip style extraction, or `--styles-only` to skip
+content. Extract styles from the **homepage only** — they apply site-wide.
+
+**Dependency:** Playwright requires a browser binary (~150 MB on first install).
+Offer to install it:
+> "I can extract your site's colors and fonts automatically, but I need to
+> install a browser tool first (~150 MB). Want me to?"
+
+If they say yes: `npx playwright install chromium`
+
+**Color classification logic:** The script samples `getComputedStyle()` from
+visible elements and classifies colors by saturation:
+- Saturation < 0.15 → gray (text/muted candidates)
+- Saturation ≥ 0.15 → brand (primary/accent candidates)
+- Browser defaults (`#0000ee`, `#551a8b`, `#000000`, `#ffffff`) are excluded
+
+The extracted tokens map directly to `src/styles/global.css` custom properties.
+
+### curl + regex extraction (fallback — content only)
+
+When Playwright is not available, fall back to `curl` + the regex-based
+extraction scripts. These parse Wix's SSR'd HTML — content is buried in
+deeply nested `<span>` tags inside `data-hook="rcv-block*"` elements.
 
 **Location:** `${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js`
 
