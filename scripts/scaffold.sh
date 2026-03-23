@@ -94,6 +94,22 @@ done
 # Execute rsync
 rsync "${RSYNC_OPTS[@]}" "$TEMPLATE/" "$DEST/"
 
+## Ensure required .gitignore entries exist
+# When scaffolding into an existing project (e.g. SSG conversion), rsync
+# --ignore-existing preserves the old .gitignore. Append any Astro build
+# artifact entries that are missing so they don't get committed.
+if ! $DRY_RUN; then
+  GITIGNORE="$DEST/.gitignore"
+  if [[ -f "$GITIGNORE" ]]; then
+    REQUIRED_ENTRIES=(dist .astro .wrangler .certs)
+    for entry in "${REQUIRED_ENTRIES[@]}"; do
+      if ! grep -qE "^${entry}/?$" "$GITIGNORE"; then
+        printf '\n%s' "$entry" >> "$GITIGNORE"
+      fi
+    done
+  fi
+fi
+
 if $DRY_RUN; then
   echo "Dry-run complete. No files were changed."
 else
