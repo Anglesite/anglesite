@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0] — 2026-03-23
+
+### Added
+- Wix tag extraction from post footers: category links, data-hook tags, and plain text fallback (#27)
+- Accordion/FAQ expansion before Playwright content extraction (#28)
+- Opaque Wix slug renaming (e.g., `general-5` → `endorsements`) with automatic redirects (#29)
+- Homepage update step in convert skill for blog site types (#30)
+- Inline body images inserted as Markdown `![alt](src)` in extracted content
+- 214 tests across 12 test files
+
+### Fixed
+- Playwright timeout on Wix: use `domcontentloaded` instead of `networkidle` (#21)
+- Hyperlinks in Wix post bodies preserved as Markdown links (#22)
+- Hyperlinks in Wix static pages extracted correctly (#23)
+- Split-word text across adjacent Wix elements rejoined (#25)
+- Superscript ordinals (27th, 1st) merged instead of split (#26)
+- Background color extraction picks lightest color, not brand-colored headers
+- BaseLayout header reads SITE_NAME from .site-config instead of hardcoding "My Website" (#31)
+
+### Changed
+- Tests migrated from node:test to Vitest
+- vitest.config.ts includes both `tests/` and `test/` directories
+
 ## [0.14.1] — 2026-03-23
 
 ### Fixed
