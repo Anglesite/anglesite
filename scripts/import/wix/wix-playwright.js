@@ -197,7 +197,7 @@ export const extractContentSrc = function () {
  * @returns {Promise<{tokens: Object, content: Object}>}
  */
 export async function extractWixPage(page, url, options = {}) {
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
   // Wait for Wix Thunderbolt to render
   await page.waitForSelector('#SITE_CONTAINER', { timeout: 10000 }).catch(() => {});
