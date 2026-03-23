@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.2] — 2026-03-23
+
+### Fixed
+- Sync plugin manifest version so marketplace picks up the latest release
+
 ## [0.13.0] — 2026-03-20
 
 ### Added
