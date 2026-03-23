@@ -422,6 +422,62 @@ export function normalizeImageUrl(url) {
 }
 
 // ---------------------------------------------------------------------------
+// Slug renaming — detect opaque Wix auto-generated slugs and derive better ones
+// ---------------------------------------------------------------------------
+
+const OPAQUE_SLUG_RE = /^(general|page|blank)-\d+$/;
+
+/**
+ * Detect whether a Wix page slug is an opaque auto-generated placeholder.
+ * Matches patterns like general-5, page-1, blank-3, or any slug shorter than
+ * 4 characters (too short to be meaningful).
+ */
+export function isOpaqueWixSlug(slug) {
+  if (!slug) return true;
+  if (OPAQUE_SLUG_RE.test(slug)) return true;
+  if (slug.length < 4) return true;
+  return false;
+}
+
+/**
+ * Convert a page title to a URL-safe slug.
+ * Strips pipe/dash/em-dash separated site name suffixes first
+ * (e.g., "Endorsements | Shiloh Ballard" → "endorsements").
+ */
+export function slugifyTitle(title) {
+  if (!title) return '';
+  // Strip site name suffixes: "Title | Site Name", "Title — Site", "Title - Site"
+  let cleaned = title.split(/\s*[|—]\s*/)[0].trim();
+  // Also handle " - " (space-dash-space) as separator, but not bare hyphens in words
+  cleaned = cleaned.split(/\s+-\s+/)[0].trim();
+  return cleaned
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
+ * Given a Wix URL slug and the page title, decide whether to rename the slug.
+ * Returns { slug, redirect } where redirect is a Cloudflare _redirects line
+ * or null if no rename is needed.
+ */
+export function resolvePageSlug(wixSlug, pageTitle) {
+  if (!isOpaqueWixSlug(wixSlug)) {
+    return { slug: wixSlug, redirect: null };
+  }
+  const derived = slugifyTitle(pageTitle);
+  if (!derived) {
+    return { slug: wixSlug, redirect: null };
+  }
+  return {
+    slug: derived,
+    redirect: `/${wixSlug} /${derived} 301`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // CLI entry point
 // ---------------------------------------------------------------------------
 

@@ -10,6 +10,9 @@ import {
   normalizeImageUrl,
   joinSplitWords,
   mergeOrdinals,
+  isOpaqueWixSlug,
+  slugifyTitle,
+  resolvePageSlug,
 } from '../scripts/import/wix/wix-extract.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -268,5 +271,116 @@ describe('mergeOrdinals', () => {
   it('handles multiple ordinals in one string', () => {
     expect(mergeOrdinals('from the 1 st to the 15 th'))
       .toBe('from the 1st to the 15th');
+  });
+});
+
+describe('isOpaqueWixSlug', () => {
+  it('detects general-N pattern', () => {
+    expect(isOpaqueWixSlug('general-5')).toBe(true);
+    expect(isOpaqueWixSlug('general-12')).toBe(true);
+  });
+
+  it('detects page-N pattern', () => {
+    expect(isOpaqueWixSlug('page-1')).toBe(true);
+    expect(isOpaqueWixSlug('page-99')).toBe(true);
+  });
+
+  it('detects blank-N pattern', () => {
+    expect(isOpaqueWixSlug('blank-3')).toBe(true);
+  });
+
+  it('does not flag meaningful slugs', () => {
+    expect(isOpaqueWixSlug('endorsements')).toBe(false);
+    expect(isOpaqueWixSlug('about-us')).toBe(false);
+    expect(isOpaqueWixSlug('contact')).toBe(false);
+    expect(isOpaqueWixSlug('our-mission')).toBe(false);
+  });
+
+  it('detects very short slugs (< 4 chars) as opaque', () => {
+    expect(isOpaqueWixSlug('x')).toBe(true);
+    expect(isOpaqueWixSlug('ab')).toBe(true);
+    expect(isOpaqueWixSlug('abc')).toBe(true);
+  });
+
+  it('does not flag 4+ char meaningful slugs', () => {
+    expect(isOpaqueWixSlug('blog')).toBe(false);
+    expect(isOpaqueWixSlug('faq')).toBe(true); // 3 chars, opaque
+    expect(isOpaqueWixSlug('faqs')).toBe(false); // 4 chars, fine
+  });
+});
+
+describe('slugifyTitle', () => {
+  it('converts a simple title to a slug', () => {
+    expect(slugifyTitle('Endorsements')).toBe('endorsements');
+  });
+
+  it('replaces spaces with hyphens', () => {
+    expect(slugifyTitle('About Us')).toBe('about-us');
+  });
+
+  it('removes special characters', () => {
+    expect(slugifyTitle('Our Mission & Vision!')).toBe('our-mission-vision');
+  });
+
+  it('collapses multiple hyphens', () => {
+    expect(slugifyTitle('Get -- In Touch')).toBe('get-in-touch');
+  });
+
+  it('trims leading and trailing hyphens', () => {
+    expect(slugifyTitle('  Hello World  ')).toBe('hello-world');
+  });
+
+  it('handles titles with numbers', () => {
+    expect(slugifyTitle('Top 10 Tips')).toBe('top-10-tips');
+  });
+
+  it('strips pipe-separated site name suffixes', () => {
+    expect(slugifyTitle('Endorsements | Shiloh Ballard')).toBe('endorsements');
+    expect(slugifyTitle('About Us — My Site')).toBe('about-us');
+    expect(slugifyTitle('Contact - Company Name')).toBe('contact');
+  });
+});
+
+describe('resolvePageSlug', () => {
+  it('renames opaque slug to title-derived slug with redirect', () => {
+    const result = resolvePageSlug('general-5', 'Endorsements');
+    expect(result.slug).toBe('endorsements');
+    expect(result.redirect).toBe('/general-5 /endorsements 301');
+  });
+
+  it('keeps meaningful slugs unchanged with no redirect', () => {
+    const result = resolvePageSlug('endorsements', 'Endorsements');
+    expect(result.slug).toBe('endorsements');
+    expect(result.redirect).toBeNull();
+  });
+
+  it('keeps meaningful slugs that differ from title', () => {
+    const result = resolvePageSlug('about-us', 'About Our Company');
+    expect(result.slug).toBe('about-us');
+    expect(result.redirect).toBeNull();
+  });
+
+  it('renames page-N slugs', () => {
+    const result = resolvePageSlug('page-3', 'Contact Us');
+    expect(result.slug).toBe('contact-us');
+    expect(result.redirect).toBe('/page-3 /contact-us 301');
+  });
+
+  it('renames blank-N slugs', () => {
+    const result = resolvePageSlug('blank-1', 'Our Services');
+    expect(result.slug).toBe('our-services');
+    expect(result.redirect).toBe('/blank-1 /our-services 301');
+  });
+
+  it('falls back to original slug if title is empty', () => {
+    const result = resolvePageSlug('general-5', '');
+    expect(result.slug).toBe('general-5');
+    expect(result.redirect).toBeNull();
+  });
+
+  it('strips site name from og:title before slugifying', () => {
+    const result = resolvePageSlug('general-5', 'Endorsements | Shiloh Ballard');
+    expect(result.slug).toBe('endorsements');
+    expect(result.redirect).toBe('/general-5 /endorsements 301');
   });
 });
