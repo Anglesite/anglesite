@@ -17,7 +17,7 @@ These platforms serve content from their own infrastructure. The import skill fe
 
 - [WordPress](wordpress.md) — REST API extraction (best), WXR XML export, or RSS feed
 - [Squarespace](squarespace.md) — WXR XML export (best), RSS feed, or page scraping
-- [Wix](wix.md) — Page scraping via WebFetch (only option — Wix has no content API)
+- [Wix](wix.md) — Bundled extraction scripts parse SSR'd HTML via `curl` (Wix has no content API)
 - [Ghost](ghost.md) — Content API (best), RSS feed, or JSON export
 - [Medium](medium.md) — RSS feed (best), data export, or page scraping
 - [Substack](substack.md) — RSS feed with full content

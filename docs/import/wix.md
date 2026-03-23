@@ -1,6 +1,6 @@
 # Importing from Wix
 
-Wix has the most restrictive content export of any major platform. There is no content API, no full export feature, and pages are JavaScript-rendered (Wix Thunderbolt), making standard HTML scraping unreliable. The import skill uses a combination of sitemaps, RSS metadata, and WebFetch page-by-page extraction.
+Wix has the most restrictive content export of any major platform. There is no content API, no full export feature, and pages are JavaScript-rendered (Wix Thunderbolt). However, Wix SSRs content into deeply nested `<span>` tags that `curl` can retrieve. The import skill uses a combination of sitemaps, RSS metadata, and bundled extraction scripts (`scripts/import/wix/wix-extract.js`) that parse the SSR'd HTML.
 
 See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Wix.
 
@@ -73,33 +73,64 @@ the owner to create an API key. Don't ask for it unless the site has more than
 20 blog posts (where RSS falls short). The API does **not** cover static pages —
 those still require WebFetch.
 
-### WebFetch for full content (fallback for posts, only option for pages)
+### Bundled extraction scripts (primary method for posts and pages)
 
-Each blog post and static page must be individually fetched via WebFetch. Because Wix pages are JavaScript-rendered (Wix Thunderbolt / React), simple `curl` or HTML parsing won't work — the rendered HTML contains an empty `<div id="SITE_CONTAINER"></div>` until JavaScript executes. The AI-powered WebFetch processes the rendered page and extracts structured content.
+Wix Thunderbolt server-side renders content into deeply nested `<span>` tags
+inside `data-hook="rcv-block*"` elements. Although the top-level HTML appears
+to be an empty `<div id="SITE_CONTAINER">`, `curl -sL` retrieves the SSR'd
+content that WebFetch's AI summarizer cannot parse. The bundled extraction
+scripts handle this reliably.
 
-### Extracting metadata from WebFetch
+**Location:** `${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js`
 
-When WebFetching each page, also extract:
-- **Meta description** (`<meta name="description">`): Wix generates per-page
-  meta descriptions. Use this as the Anglesite `description` field — it's
-  typically better than generating one from content.
-- **OG tags** (`og:title`, `og:description`, `og:image`): Wix sets these via
-  its Social Share settings. The `og:image` can serve as a fallback hero image
-  if the RSS `<enclosure>` is missing.
-- **Structured data (JSON-LD)**: Wix generates schema.org markup for blog posts
-  (`BlogPosting`), local business pages, and products. Extract `datePublished`,
-  `author.name`, `description`, and `image` from the JSON-LD — these are often
-  more accurate than RSS fields.
+**Workflow for each post or page:**
 
-Include these in the WebFetch prompt for blog posts:
-> "Also extract from the page metadata:
-> 6. The meta description (from the meta tag, not generated)
-> 7. The og:image URL (if different from inline images)
-> 8. Any JSON-LD structured data — especially datePublished and author name"
+```sh
+curl -sL "PAGE_URL" > /tmp/page.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js post /tmp/page.html
+```
+
+The script outputs JSON to stdout:
+
+```json
+{
+  "body": "Markdown-formatted post body with ## headings...",
+  "images": [{"src": "https://static.wixstatic.com/media/...", "alt": "..."}]
+}
+```
+
+**Available subcommands:**
+
+| Command | Input | Output |
+| --- | --- | --- |
+| `post <file>` | Downloaded blog post HTML | `{body, images}` — body text between `data-hook="post-description"` and `data-hook="post-footer"`, with headings converted to `##` |
+| `page <file>` | Downloaded static page HTML | `{body, images}` — full page text with nav, footer, and duplicates removed |
+| `meta <file>` | Any downloaded HTML | `{title, date, description, author, image}` — from JSON-LD (`BlogPosting`) with OG tag fallback |
+| `image <url>` | Wix CDN URL string | Normalized URL with transforms stripped and `?w=1200` appended |
+
+**How the post extractor works:**
+- Isolates the region between `data-hook="post-description"` and `data-hook="post-footer"` — these are stable Wix conventions
+- Extracts text from nested `<span>` tags within `data-hook="rcv-block*"` elements
+- Detects headings by font-size (24px+) and font-weight (bold)
+- Filters out empty spans, `\xa0` placeholders, and sub-3-char fragments
+- Extracts inline `<img>` elements with src and alt attributes
+
+**How the page extractor works:**
+- Strips `<script>`, `<style>`, `<nav>`, and `<footer>` blocks
+- Extracts span text from remaining `<div>` elements
+- Filters navigation items (Home, Blog, About, Contact, More) and footer boilerplate (copyright, "Paid for by...")
+- Deduplicates text (Wix often renders the same string multiple times in nested spans)
+
+### WebFetch (fallback only)
+
+WebFetch should only be used as a fallback when the extraction scripts return
+empty content (e.g., if Wix changes their HTML structure). In practice, WebFetch
+returns nothing useful for most Wix pages because the AI summarizer sees only
+minified JS and an empty `SITE_CONTAINER` div.
 
 ## Content conversion
 
-WebFetch returns clean Markdown, so minimal conversion is needed. Watch for:
+The extraction scripts return Markdown-ready text with `##` headings. Watch for:
 - Wix embed blocks (videos, maps, social feeds) — note for manual review
 - Wix lightbox image links (`?lightbox=true` parameters) — strip the parameter
 - Wix app content (Booking, Stores, Events) — cannot be imported, flag for replacement
@@ -162,13 +193,13 @@ Wix blog posts always use `/post/slug`:
 
 ## Common issues
 
-- **Full content not available in any feed**: Unlike WordPress and Squarespace, Wix provides no way to get full post content without visiting each page. This makes imports slower (one WebFetch per post).
+- **Full content not available in any feed**: Unlike WordPress and Squarespace, Wix provides no way to get full post content without visiting each page. Use the bundled extraction scripts with `curl` — they are faster and more reliable than WebFetch for Wix.
 - **No categories or tags in RSS**: The RSS feed has no `<category>` elements. Tags must be extracted by WebFetch from the rendered post page.
 - **Image transform parameters**: Failing to strip `/v1/fill/...` from Wix image URLs may result in cropped, sharpened, or low-quality downloads. Also watch for Wix auto-converting to WebP in the URL path.
 - **Multilingual content**: Some Wix sites have content in multiple languages (separate sitemaps like `/es_es-sitemap.xml`). Import the primary language first.
 - **Wix app pages**: Pages powered by Wix Booking, Stores, or Events contain no static content — they're generated at runtime. Flag these for replacement with industry tools.
-- **Rate limiting**: Wix may throttle rapid requests. If WebFetch fails on multiple consecutive pages, pause briefly between requests.
+- **Rate limiting**: Wix may throttle rapid `curl` requests. If downloads fail on multiple consecutive pages, pause briefly between requests.
 - **Dynamic pages missing from sitemap**: Pages powered by Wix collections/databases may not appear in the sitemap at all. Always cross-reference with homepage navigation links.
 - **Canonical tag conflict**: If the owner changed a page's default canonical tag in Wix SEO settings, that page disappears from the sitemap entirely. This can cause pages to be missed during discovery.
-- **RSS feed may degrade**: Wix has been known to disable full-text RSS or revert to links-only if the feed is called too frequently. Don't retry the feed — fall back to WebFetch.
+- **RSS feed may degrade**: Wix has been known to disable full-text RSS or revert to links-only if the feed is called too frequently. Don't retry the feed — fall back to the extraction scripts.
 - **Higher SEO risk than other migrations**: Wix URL structures differ significantly from most platforms (`/post/slug` for blog, flat paths for pages). Comprehensive redirect mapping is critical. Expect a 10–20% traffic dip in the first 4–6 weeks even with perfect redirects — warn the owner about this.
