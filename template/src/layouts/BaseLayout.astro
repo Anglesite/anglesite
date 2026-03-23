@@ -23,6 +23,8 @@ const configContent = existsSync(configPath)
   : "";
 const aiModel =
   configContent.match(/^AI_MODEL=(.+)$/m)?.[1]?.trim() ?? "Claude";
+const siteName =
+  configContent.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "My Website";
 const generator = `Anglesite ${version} (${aiModel}, ${Astro.generator})`;
 ---
 
@@ -71,7 +73,7 @@ const generator = `Anglesite ${version} (${aiModel}, ${Astro.generator})`;
     <a href="#main" class="skip-link">Skip to content</a>
 
     <header class="h-card">
-      <a href="/" class="p-name u-url">My Website</a>
+      <a href="/" class="p-name u-url">{siteName}</a>
     </header>
 
     <main id="main">
