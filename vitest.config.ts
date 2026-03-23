@@ -15,7 +15,7 @@ export default defineConfig({
     tsconfigRaw: "{}",
   },
   test: {
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.test.ts", "test/**/*.test.js"],
     environment: "node",
   },
 });

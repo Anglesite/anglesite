@@ -39,9 +39,31 @@ describe('extractPost', () => {
 
   it('extracts inline image URLs', () => {
     const result = extractPost(html);
-    expect(result.images.length).toBeGreaterThan(0);
+    expect(result.images.length).toBeGreaterThanOrEqual(2);
     expect(result.images.some((img) => img.src.includes('7986bd_abc123~mv2.png'))).toBe(true);
     expect(result.images.some((img) => img.alt === 'Our backyard compost bin')).toBe(true);
+    expect(result.images.some((img) => img.src.includes('7986bd_def456~mv2.jpg'))).toBe(true);
+    expect(result.images.some((img) => img.alt === 'Monthly waste reduction chart')).toBe(true);
+  });
+
+  it('inserts inline images into body as markdown at the correct position', () => {
+    const result = extractPost(html);
+    // Images should appear as ![alt](src) in the body
+    expect(result.body).toContain('![Our backyard compost bin]');
+    expect(result.body).toContain('![Monthly waste reduction chart]');
+  });
+
+  it('places inline images between surrounding text blocks', () => {
+    const result = extractPost(html);
+    const lines = result.body.split('\n\n');
+    // The compost bin image should appear after the cloth rags paragraph
+    const ragIndex = lines.findIndex((l) => l.includes('cloth rags'));
+    const compostImgIndex = lines.findIndex((l) => l.includes('![Our backyard compost bin]'));
+    expect(compostImgIndex).toBeGreaterThan(ragIndex);
+    // The chart image should appear before "One Year Later"
+    const chartImgIndex = lines.findIndex((l) => l.includes('![Monthly waste reduction chart]'));
+    const oneYearIndex = lines.findIndex((l) => l.includes('One Year Later'));
+    expect(chartImgIndex).toBeLessThan(oneYearIndex);
   });
 
   it('does not include post-footer content in the body', () => {
@@ -109,6 +131,11 @@ describe('extractPage', () => {
     const result = extractPage(html);
     expect(result.images.length).toBeGreaterThan(0);
     expect(result.images.some((img) => img.src.includes('profile123~mv2.jpg'))).toBe(true);
+  });
+
+  it('inserts inline images into body as markdown', () => {
+    const result = extractPage(html);
+    expect(result.body).toContain('![Shiloh Ballard portrait]');
   });
 });
 
