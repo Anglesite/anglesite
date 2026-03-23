@@ -2,7 +2,7 @@
 name: import
 description: "Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd)"
 argument-hint: "[website URL]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(node *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -272,7 +272,27 @@ Use `<content:encoded>` (full HTML).
 or `<content:encoded>` field. For posts NOT in the RSS feed (older than the 20
 most recent), use WebFetch on the post URL with the extraction prompt below.
 
-**Wix / Unknown:** Use WebFetch on each post URL with this prompt:
+**Wix:** Use the bundled extraction scripts instead of WebFetch. Wix SSRs
+content into nested `<span>` tags that WebFetch cannot parse, but `curl` +
+the extraction scripts handle reliably.
+
+For each post:
+
+```sh
+curl -sL "POST_URL" > /tmp/wix-post.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js post /tmp/wix-post.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js meta /tmp/wix-post.html
+```
+
+The `post` command returns `{body, images}` — Markdown-formatted body with `##`
+headings and a list of inline image URLs. The `meta` command returns
+`{title, date, description, author, image}` from JSON-LD and OG tags.
+
+If extraction returns empty content, fall back to WebFetch as a last resort,
+then add the post to FAILED_POSTS if that also fails. Do not stop the import
+for individual failures.
+
+**Unknown platforms:** Use WebFetch on each post URL with this prompt:
 
 > "Extract the full blog post content from this page. Return:
 > 1. The post title (from the main heading, not browser title)
@@ -440,8 +460,19 @@ Convert HTML to Markdown as in Step 2b.
 Note that Squarespace only exports text blocks — complex layouts (galleries,
 forms, product grids) are not included in the export.
 
+**Wix:** Use the bundled extraction scripts (same as Step 2a):
+
+```sh
+curl -sL "PAGE_URL" > /tmp/wix-page.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js page /tmp/wix-page.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js meta /tmp/wix-page.html
+```
+
+The `page` command strips navigation, footer boilerplate, and duplicates
+automatically. If it returns empty content, fall back to WebFetch.
+
 **All other platforms and any page without pre-fetched content:** WebFetch is
-mandatory. This includes Wix, Weebly, GoDaddy, Carrd, Webflow without API,
+mandatory. This includes Weebly, GoDaddy, Carrd, Webflow without API,
 Squarespace without export, and any platform where RSS was the primary blog
 extraction source (RSS never contains static pages).
 

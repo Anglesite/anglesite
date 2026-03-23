@@ -125,11 +125,16 @@ post content with pagination — much faster than WebFetch for large blogs. See
 `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` for details. Don't ask for an API
 key if the blog has 20 or fewer posts (RSS + WebFetch is sufficient).
 
-**Metadata extraction:** When WebFetching each post, also extract the meta
-description, `og:image`, and any JSON-LD structured data (`BlogPosting`
-schema) — these provide more accurate dates, descriptions, and author names
-than the RSS feed. See `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` for the
-extended WebFetch prompt.
+**Metadata extraction:** When extracting each post, use the bundled extraction
+script to get structured metadata (JSON-LD and OG tags):
+
+```sh
+curl -sL "POST_URL" > /tmp/wix-post.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js meta /tmp/wix-post.html
+```
+
+This returns `{title, date, description, author, image}` — more accurate than
+RSS fields. See `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` for full details.
 
 ## Ghost
 
