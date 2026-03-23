@@ -12,6 +12,9 @@
     "docs/",
     "scripts/import/"
   ],
+  "scripts": {
+    "test": "node --test 'test/**/*.test.js'"
+  },
   "keywords": ["website", "small-business", "astro", "cloudflare", "webmaster", "ai", "agents"],
   "author": "David W. Keith",
   "license": "ISC",

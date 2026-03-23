@@ -8,3 +8,5 @@ template/.wrangler/
 template/.certs/
 template/.env
 template/.env.*
+node_modules/*
+package-lock.json
