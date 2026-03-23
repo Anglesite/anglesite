@@ -87,7 +87,7 @@ function blockFragments(blockHtml) {
   if (fragments.some((f) => f.includes(']('))) {
     // We have links — use the tag-stripped approach for correct ordering
     const fullText = linkified.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    return fullText ? [joinSplitWords(fullText)] : [];
+    return fullText ? [mergeOrdinals(joinSplitWords(fullText))] : [];
   }
 
   return fragments;
@@ -108,6 +108,18 @@ export function joinSplitWords(text) {
   // e.g., "R [edevelopment" → "R[edevelopment"
   // Does NOT match "R [Evolution" (uppercase = new word) or "more [here]" (lowercase before space)
   return text.replace(/([A-Z]) (\[[a-z])/g, '$1$2');
+}
+
+/**
+ * Merge ordinal suffixes that Wix splits into separate elements.
+ * Wix renders "27th" as "<span>27</span><sup>th</sup>" or similar,
+ * producing "27 th" after extraction. This rejoins them.
+ */
+export function mergeOrdinals(text) {
+  if (!text) return text;
+  return text
+    .replace(/\b(\d+)\s+(st|nd|rd|th)\b/g, '$1$2')
+    .replace(/(\d(?:st|nd|rd|th))\s+,/g, '$1,');
 }
 
 /** True if text is empty, whitespace-only, or just \xa0 */
@@ -212,10 +224,54 @@ export function extractPost(html) {
     blocks.push(...allFragments);
   }
 
+  // Extract tags from the post-footer region
+  const tags = extractTags(html, footerStart);
+
   return {
-    body: blocks.join('\n\n'),
+    body: mergeOrdinals(blocks.join('\n\n')),
     images,
+    tags,
   };
+}
+
+/**
+ * Extract tags from the post-footer region. Wix renders tags as:
+ * - <a href="/blog/categories/TAG" data-hook="tag"><span>TAG</span></a>
+ * - <a href="/hashtags/TAG">TAG</a>
+ * - Plain text "Tagged: tag1, tag2, tag3"
+ */
+function extractTags(html, footerStart) {
+  if (footerStart === -1) return [];
+
+  const footerRegion = html.slice(footerStart, footerStart + 5000);
+  const tags = [];
+
+  // Pattern 1: category/hashtag links
+  const linkRe = /<a[^>]*href=["'][^"']*(?:categories|hashtags)\/([^"'/?]+)["'][^>]*>/gi;
+  let m;
+  while ((m = linkRe.exec(footerRegion)) !== null) {
+    tags.push(decodeURIComponent(m[1]).trim());
+  }
+
+  // Pattern 2: data-hook="tag" elements
+  if (tags.length === 0) {
+    const tagHookRe = /data-hook=["']tag["'][^>]*>(?:<[^>]*>)*([^<]+)/gi;
+    while ((m = tagHookRe.exec(footerRegion)) !== null) {
+      const text = m[1].trim();
+      if (text) tags.push(text);
+    }
+  }
+
+  // Pattern 3: "Tagged: tag1, tag2, tag3" plain text
+  if (tags.length === 0) {
+    const taggedRe = /Tagged:\s*([^<]+)/i;
+    const taggedMatch = footerRegion.match(taggedRe);
+    if (taggedMatch) {
+      tags.push(...taggedMatch[1].split(',').map((t) => t.trim()).filter(Boolean));
+    }
+  }
+
+  return [...new Set(tags)]; // deduplicate
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +347,7 @@ export function extractPage(html) {
   }
 
   return {
-    body: blocks.join('\n\n'),
+    body: mergeOrdinals(blocks.join('\n\n')),
     images,
   };
 }
