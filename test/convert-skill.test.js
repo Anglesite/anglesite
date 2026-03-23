@@ -61,6 +61,20 @@ describe('convert skill URL structure (#33)', () => {
   });
 });
 
+describe('convert skill Anglesite detection (#35)', () => {
+  it('checks for both Astro 5 content config paths in step 0a', () => {
+    // Astro 5 moved content config from src/content/config.ts to src/content.config.ts
+    // Detection must handle both paths so projects using either are recognized
+    expect(skill).toContain('src/content.config.ts');
+    expect(skill).toContain('src/content/config.ts');
+  });
+
+  it('checks both paths in the troubleshooting section too', () => {
+    const troubleshootingSection = skill.match(/build fails.*?(?=## Step 6)/s)?.[0] ?? '';
+    expect(troubleshootingSection).toContain('src/content/config.ts');
+  });
+});
+
 describe('ssg-migrations redirect guidance (#33)', () => {
   it('does not hardcode /blog/ as the only redirect target', () => {
     // The redirect examples should use a placeholder or show both patterns
