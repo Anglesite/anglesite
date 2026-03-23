@@ -67,8 +67,8 @@ Hexo uses Nunjucks-style tags embedded in Markdown:
 - `{% link text url [title] %}` → `[text](url)`
 - `{% youtube video_id %}` → note for manual review
 - `{% jsfiddle id %}` → note for manual review
-- `{% post_link slug [title] %}` → `[title](/blog/slug)`
-- `{% post_path slug %}` → `/blog/slug`
+- `{% post_link slug [title] %}` → `[title](/POST_URL_PREFIX/slug)` (read prefix from `.site-config`)
+- `{% post_path slug %}` → `/POST_URL_PREFIX/slug` (read prefix from `.site-config`)
 
 **Excerpt separator:** Hexo uses `<!-- more -->` to split excerpt from full content. Remove this marker during import — Anglesite uses the `description` frontmatter field instead.
 

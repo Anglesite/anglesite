@@ -74,7 +74,7 @@ Next.js routing is file-system based:
 - Pages Router: `pages/blog/[slug].js` → `/blog/slug`
 - App Router: `app/blog/[slug]/page.js` → `/blog/slug`
 
-Most Next.js blogs use `/blog/slug`, which matches Anglesite's default. Check `next.config.js` for any `redirects()` or `rewrites()` that may indicate non-standard URL patterns.
+Many Next.js blogs use `/blog/slug`, but others use `/{slug}` or custom patterns. Check `next.config.js` for `redirects()`, `rewrites()`, or custom routing that may indicate the actual URL structure. The target URL should use `POST_URL_PREFIX` from `.site-config`.
 
 ## Common issues
 

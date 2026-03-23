@@ -115,7 +115,7 @@ Copy from `static/img/` and co-located directories to `public/images/blog/`. Con
 - Blog: `/blog/slug` or `/blog/YYYY/MM/DD/slug`
 - Docs: `/docs/path/to/doc`
 
-Blog URLs usually match Anglesite's `/blog/slug` pattern.
+Docusaurus blogs typically use `/blog/slug`. The target URL should use `POST_URL_PREFIX` from `.site-config` — skip redirects if the source and target patterns match.
 
 ## Common issues
 
