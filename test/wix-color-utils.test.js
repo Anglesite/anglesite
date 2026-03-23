@@ -218,6 +218,21 @@ describe('classifyTokens', () => {
     assert.equal(tokens['--font-body'], 'Arial');
   });
 
+  it('picks the lightest bg color, not a brand-colored section header', () => {
+    // Simulates shilohballard.com: #0f5ac0 header bg appears frequently,
+    // but #f3f3f3 is the actual page content background
+    const colorSamples = {
+      bg: ['#0f5ac0', '#0f5ac0', '#0f5ac0', '#f3f3f3', '#f3f3f3'],
+      text: ['#4a4a4a'],
+      heading: ['#4a4a4a'],
+    };
+    const fontSamples = { heading: ['Arial'], body: ['Arial'] };
+
+    const tokens = classifyTokens(colorSamples, fontSamples);
+
+    assert.equal(tokens['--color-bg'], '#f3f3f3');
+  });
+
   it('returns null for missing categories', () => {
     const tokens = classifyTokens(
       { bg: [], text: [], heading: [] },

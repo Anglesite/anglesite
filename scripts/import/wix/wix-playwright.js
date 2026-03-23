@@ -30,8 +30,11 @@ export const extractStylesSrc = function () {
     body: [],
   };
 
-  // Sample background from body and main containers
-  const bgEls = [
+  // Sample background colors. Wix nests backgrounds in deep containers,
+  // so check explicit candidates AND walk ancestors of the content area.
+  const isOpaque = (bg) => bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
+
+  const bgCandidates = [
     document.body,
     document.querySelector('#SITE_CONTAINER'),
     document.querySelector('#PAGES_CONTAINER'),
@@ -39,11 +42,28 @@ export const extractStylesSrc = function () {
     document.querySelector('main'),
   ].filter(Boolean);
 
-  for (const el of bgEls) {
+  // Also sample all section-level wrappers (Wix uses deeply nested divs
+  // with background colors for page sections)
+  for (const el of document.querySelectorAll('section, [data-mesh-id], [data-testid]')) {
+    if (el.offsetHeight > 100) bgCandidates.push(el);
+  }
+
+  // Walk ancestors of the first content area to find the nearest opaque bg
+  const contentRoot = document.querySelector('[data-hook="post-description"]')
+    || document.querySelector('#PAGES_CONTAINER')
+    || document.querySelector('main');
+  if (contentRoot) {
+    let ancestor = contentRoot.parentElement;
+    while (ancestor && ancestor !== document.documentElement) {
+      bgCandidates.push(ancestor);
+      ancestor = ancestor.parentElement;
+    }
+  }
+
+  for (const el of bgCandidates) {
     const style = getComputedStyle(el);
-    const bg = style.backgroundColor;
-    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
-      samples.bg.push(bg);
+    if (isOpaque(style.backgroundColor)) {
+      samples.bg.push(style.backgroundColor);
     }
   }
 

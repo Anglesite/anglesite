@@ -114,9 +114,15 @@ export function classifyTokens(colorSamples, fontSamples) {
     '--font-body': null,
   };
 
-  // Background: most frequent bg sample
-  const bgTop = topColors(colorSamples.bg, 1);
-  tokens['--color-bg'] = bgTop[0] || null;
+  // Background: lightest non-default bg sample (page backgrounds are nearly
+  // always light; brand-colored header sections should not win here)
+  const bgCandidates = colorSamples.bg
+    .map((c) => c.toLowerCase())
+    .filter((c) => !isBrowserDefault(c));
+  if (bgCandidates.length > 0) {
+    tokens['--color-bg'] = [...new Set(bgCandidates)]
+      .sort((a, b) => luminance(b) - luminance(a))[0];
+  }
 
   // Text: most frequent gray from text samples
   const textGrays = colorSamples.text.filter((c) => isGray(c) && !isBrowserDefault(c));
