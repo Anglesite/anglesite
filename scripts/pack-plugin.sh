@@ -26,6 +26,7 @@ zip -r "$OUTDIR/$ZIPNAME" \
   hooks/ \
   scripts/scaffold.sh \
   scripts/pre-deploy-check.sh \
+  scripts/import/ \
   settings.json \
   docs/ \
   template/ \

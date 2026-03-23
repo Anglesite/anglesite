@@ -35,12 +35,16 @@ jobs:
       - name: Pack plugin zip
         run: bash scripts/pack-plugin.sh
 
-      - name: Create GitHub release
+      - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF_NAME}"
           ZIP="dist/anglesite-${TAG}.zip"
-          gh release create "$TAG" "$ZIP" \
-            --title "Anglesite $TAG" \
-            --generate-notes
+          if gh release view "$TAG" &>/dev/null; then
+            gh release upload "$TAG" "$ZIP" --clobber
+          else
+            gh release create "$TAG" "$ZIP" \
+              --title "Anglesite $TAG" \
+              --generate-notes
+          fi
