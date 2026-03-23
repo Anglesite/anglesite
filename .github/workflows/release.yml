@@ -1,0 +1,46 @@
+name: Release plugin
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify versions match
+        run: |
+          PLUGIN_VERSION="$(node -p "require('./.claude-plugin/plugin.json').version")"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$PLUGIN_VERSION" != "$TAG_VERSION" ]]; then
+            echo "::error::plugin.json version ($PLUGIN_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          if [[ "$PKG_VERSION" != "$TAG_VERSION" ]]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+
+      - name: Pack plugin zip
+        run: bash scripts/pack-plugin.sh
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          ZIP="dist/anglesite-${TAG}.zip"
+          gh release create "$TAG" "$ZIP" \
+            --title "Anglesite $TAG" \
+            --generate-notes
