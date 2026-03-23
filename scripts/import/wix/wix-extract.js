@@ -87,7 +87,7 @@ function blockFragments(blockHtml) {
   if (fragments.some((f) => f.includes(']('))) {
     // We have links — use the tag-stripped approach for correct ordering
     const fullText = linkified.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    return fullText ? [joinSplitWords(fullText)] : [];
+    return fullText ? [mergeOrdinals(joinSplitWords(fullText))] : [];
   }
 
   return fragments;
@@ -108,6 +108,18 @@ export function joinSplitWords(text) {
   // e.g., "R [edevelopment" → "R[edevelopment"
   // Does NOT match "R [Evolution" (uppercase = new word) or "more [here]" (lowercase before space)
   return text.replace(/([A-Z]) (\[[a-z])/g, '$1$2');
+}
+
+/**
+ * Merge ordinal suffixes that Wix splits into separate elements.
+ * Wix renders "27th" as "<span>27</span><sup>th</sup>" or similar,
+ * producing "27 th" after extraction. This rejoins them.
+ */
+export function mergeOrdinals(text) {
+  if (!text) return text;
+  return text
+    .replace(/\b(\d+)\s+(st|nd|rd|th)\b/g, '$1$2')
+    .replace(/(\d(?:st|nd|rd|th))\s+,/g, '$1,');
 }
 
 /** True if text is empty, whitespace-only, or just \xa0 */
@@ -199,7 +211,7 @@ export function extractPost(html) {
   }
 
   return {
-    body: blocks.join('\n\n'),
+    body: mergeOrdinals(blocks.join('\n\n')),
     images,
   };
 }
@@ -264,7 +276,7 @@ export function extractPage(html) {
   }
 
   return {
-    body: blocks.join('\n\n'),
+    body: mergeOrdinals(blocks.join('\n\n')),
     images,
   };
 }

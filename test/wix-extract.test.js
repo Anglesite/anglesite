@@ -9,6 +9,7 @@ import {
   extractMetadata,
   normalizeImageUrl,
   joinSplitWords,
+  mergeOrdinals,
 } from '../scripts/import/wix/wix-extract.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -210,5 +211,24 @@ describe('joinSplitWords', () => {
   it('handles empty and single-word strings', () => {
     expect(joinSplitWords('')).toBe('');
     expect(joinSplitWords('hello')).toBe('hello');
+  });
+});
+
+describe('mergeOrdinals', () => {
+  it('merges split ordinal suffixes after numbers', () => {
+    expect(mergeOrdinals('January 27 th , 2026')).toBe('January 27th, 2026');
+    expect(mergeOrdinals('the 1 st time')).toBe('the 1st time');
+    expect(mergeOrdinals('on the 2 nd floor')).toBe('on the 2nd floor');
+    expect(mergeOrdinals('the 3 rd option')).toBe('the 3rd option');
+  });
+
+  it('does not merge ordinal-like words that are not after numbers', () => {
+    expect(mergeOrdinals('with the group')).toBe('with the group');
+    expect(mergeOrdinals('north wind')).toBe('north wind');
+  });
+
+  it('handles multiple ordinals in one string', () => {
+    expect(mergeOrdinals('from the 1 st to the 15 th'))
+      .toBe('from the 1st to the 15th');
   });
 });
