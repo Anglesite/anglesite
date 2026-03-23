@@ -52,7 +52,7 @@ Jekyll content is Markdown with Liquid template tags:
 - `{% highlight lang %}...{% endhighlight %}` → standard code fences
 - `{% include file.html %}` → remove (include content is layout-specific)
 - `{% link path/to/page.md %}` → resolve to the page URL
-- `{% post_url YYYY-MM-DD-slug %}` → resolve to `/blog/slug`
+- `{% post_url YYYY-MM-DD-slug %}` → resolve to `/POST_URL_PREFIX/slug` (read prefix from `.site-config`)
 - `{{ site.baseurl }}` → remove (Anglesite handles base URLs)
 - `{{ page.title }}` → replace with the actual title value
 - `{% if %}...{% endif %}` → remove conditional blocks (keep the content if simple)

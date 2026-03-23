@@ -148,11 +148,11 @@ This is the core challenge of SSG imports. Each SSG allows platform-specific syn
 | `{{</* youtube ID */>}}` | Comment: `<!-- YouTube: https://youtube.com/watch?v=ID -->` |
 | `{{</* tweet ID */>}}` | Comment: `<!-- Tweet embed: ID -->` |
 | `{{</* highlight lang */>}}...{{</* /highlight */>}}` | Standard fenced code block |
-| `{{</* ref "page.md" */>}}` | Resolve to `/blog/slug` |
+| `{{</* ref "page.md" */>}}` | Resolve to `/POST_URL_PREFIX/slug` (or `/slug` if empty) |
 | `{% highlight lang %}...{% endhighlight %}` | Standard fenced code block |
 | `{% include "file" %}` | Remove (include content is layout-specific) |
 | `{% link path/to/page.md %}` | Resolve to page URL |
-| `{% post_url YYYY-MM-DD-slug %}` | Resolve to `/blog/slug` |
+| `{% post_url YYYY-MM-DD-slug %}` | Resolve to `/POST_URL_PREFIX/slug` (or `/slug` if empty) |
 | `{{ site.baseurl }}` | Remove |
 | `{{ page.title }}` | Replace with actual title value |
 | `{% if %}...{% endif %}` | Remove conditionals, keep content if simple |
@@ -274,25 +274,33 @@ Every SSG has configurable URL patterns. The config file determines how source f
 
 ### Common SSG URL patterns and their redirects
 
+The target URL depends on the `POST_URL_PREFIX` value in `.site-config`. When
+`POST_URL_PREFIX=blog`, posts live at `/blog/{slug}`. When `POST_URL_PREFIX=`
+(empty), posts live at `/{slug}`.
+
+**Skip redirects when the source and target URL patterns are the same.** For
+example, if an Eleventy site uses `/{slug}/` and the owner kept that structure,
+no redirects are needed for blog posts.
+
+When the URL structure does change, generate redirect rules:
+
 ```
-# Jekyll date-based (default)
-/category/2024/03/15/my-post/ /blog/my-post 301
+# Jekyll date-based (default) → POST_URL_PREFIX/slug
+/category/2024/03/15/my-post/ /POST_URL_PREFIX/my-post 301
 
-# Hugo with aliases
-/old-url/ /blog/new-slug 301          # from aliases frontmatter
+# Hugo with aliases → POST_URL_PREFIX/slug
+/old-url/ /POST_URL_PREFIX/new-slug 301       # from aliases frontmatter
 
-# Docusaurus docs
+# Docusaurus docs → pages
 /docs/getting-started /getting-started 301    # if docs become pages
 
-# Hexo
-/2024/03/15/my-post/ /blog/my-post 301        # from permalink config
-
-# Eleventy
-/posts/my-post/ /blog/my-post 301
-
-# Gatsby
-/blog/my-post/ /blog/my-post 200              # same path = rewrite
+# Hexo → POST_URL_PREFIX/slug
+/2024/03/15/my-post/ /POST_URL_PREFIX/my-post 301    # from permalink config
 ```
+
+Replace `POST_URL_PREFIX` with the actual value from `.site-config`. If
+`POST_URL_PREFIX` is empty, the target is just `/my-post` (no leading path
+segment).
 
 ### Per-post overrides
 

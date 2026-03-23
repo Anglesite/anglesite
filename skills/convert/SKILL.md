@@ -117,7 +117,11 @@ SITE_NAME=Site Name
 DEV_HOSTNAME=sitename.local
 AI_MODEL=Claude Opus 4.6
 EXPLAIN_STEPS=true
+POST_URL_PREFIX=blog
 ```
+
+Note: `POST_URL_PREFIX` defaults to `blog` here. It will be updated after the
+URL structure question in Step 1 if the owner chooses to keep root-level URLs.
 
 ```sh
 npm install
@@ -177,6 +181,34 @@ Ask:
 > - **Blog posts only** — skip static pages
 
 Wait for their answer before continuing.
+
+### Choose the URL structure
+
+Detect the source site's blog post URL pattern from the SSG config and content
+files. For example, Eleventy with `permalink: /{{ page.fileSlug }}/` means posts
+live at `/{slug}/`, while Jekyll's default is `/YYYY/MM/DD/{slug}/`.
+
+Tell the owner what you found and ask what URL structure they want:
+
+> "Your [Platform] site currently serves posts at `/{slug}/` (e.g.,
+> `/copper-charlie/`). For the converted site, would you like to:"
+>
+> - **Keep `/{slug}/`** — posts stay at the same URLs, no redirects needed
+> - **Use `/blog/{slug}/`** — posts move under `/blog/`, old URLs redirect
+>   automatically
+
+If you can't detect the source pattern, default to offering both options.
+
+Wait for their answer. Store the choice as `POST_URL_PREFIX` in `.site-config`:
+
+- If they chose `/{slug}/`, set `POST_URL_PREFIX=` (empty — root-level posts)
+- If they chose `/blog/{slug}/`, set `POST_URL_PREFIX=blog` (the default)
+
+This value determines:
+- Where `[slug].astro` is placed: `src/pages/POST_URL_PREFIX/[slug].astro`
+  (or `src/pages/[slug].astro` if empty)
+- The `href` prefix in homepage and listing templates
+- Whether redirects are needed for blog post URLs
 
 ## Step 2 — Convert blog posts
 
@@ -291,16 +323,26 @@ with a responsive CSS grid layout.
 
 ## Step 4 — Generate redirect mappings
 
-Read the existing `public/_redirects` file. Append new rules — do not overwrite
-existing entries.
+Read `POST_URL_PREFIX` from `.site-config` to determine the target URL pattern.
+
+**Skip redirects when source and target URL patterns match.** For example, if the
+source Eleventy site serves posts at `/{slug}/` and the owner chose to keep
+`/{slug}/`, no blog post redirects are needed — the URLs are identical. Still
+generate redirects for `aliases` or `permalink` overrides that differ from the
+default pattern.
+
+If redirects are needed (the URL structure changed), read the existing
+`public/_redirects` file. Append new rules — do not overwrite existing entries.
 
 The platform doc's "URL patterns for redirects" section describes the old URL
 structure. Generate redirects based on the source file paths and any `permalink`
-or `aliases` frontmatter. Common patterns:
+or `aliases` frontmatter. Use `POST_URL_PREFIX` to compute the target URL
+(e.g., `/POST_URL_PREFIX/slug` or `/slug` if the prefix is empty). Common
+patterns:
 - Hugo `aliases` field → one redirect per alias
-- Jekyll date-prefixed filenames → `/YYYY/MM/DD/slug/` → `/blog/slug`
+- Jekyll date-prefixed filenames → `/YYYY/MM/DD/slug/` → `/POST_URL_PREFIX/slug`
 - Hexo permalink config in `_config.yml` → computed old URLs
-- Docusaurus → `/docs/path` and `/blog/slug`
+- Docusaurus → `/docs/path` and `/POST_URL_PREFIX/slug`
 
 Write the updated `_redirects` file, preserving all existing rules and comments.
 
@@ -312,8 +354,10 @@ content appropriate for the site type.
 Read `SITE_TYPE` from `.site-config`.
 
 **If `SITE_TYPE=blog`:** Replace `src/pages/index.astro` with a blog listing
-homepage that shows recent posts. Use the **Edit tool** to replace the entire
-file content with:
+homepage that shows recent posts. Read `POST_URL_PREFIX` from `.site-config`
+to determine the correct link prefix.
+
+Use the **Edit tool** to replace the entire file content with:
 
 ```astro
 ---
@@ -334,7 +378,7 @@ const posts = allPosts.sort(
     {
       posts.map((post) => (
         <li class="h-entry">
-          <a href={`/blog/${post.id}/`} class="u-url">
+          <a href={`/POST_URL_PREFIX/${post.id}/`} class="u-url">
             <h2 class="p-name">{post.data.title}</h2>
           </a>
           <time
@@ -354,6 +398,10 @@ const posts = allPosts.sort(
   </ul>
 </BaseLayout>
 ```
+
+Replace `POST_URL_PREFIX` with the value from `.site-config`:
+- If `POST_URL_PREFIX=blog`, the href becomes `` `/blog/${post.id}/` ``
+- If `POST_URL_PREFIX=` (empty), the href becomes `` `/${post.id}/` ``
 
 Replace `SITE_NAME` with the value from `.site-config` and `SITE_DESCRIPTION`
 with a brief description of the site.
