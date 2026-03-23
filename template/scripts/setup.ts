@@ -42,6 +42,7 @@ import {
   notifyCommand,
   fnmShellInit,
 } from "./platform.js";
+import { readConfig } from "./config.js";
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -52,9 +53,6 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
 /** Project root (one level up from `scripts/`). */
 const PROJECT_DIR = resolve(SCRIPT_DIR, "..");
-
-/** Path to `.site-config` in the project root. */
-const CONFIG_FILE = resolve(PROJECT_DIR, ".site-config");
 
 /** Log directory under the user's home folder. */
 const LOG_DIR = resolve(HOME, ".anglesite/logs");
@@ -75,19 +73,6 @@ const skipped: string[] = [];
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Read a value from `.site-config` (KEY=value, one per line).
- *
- * @param key - Config key to look up
- * @returns The trimmed value, or `undefined` if missing
- */
-function readConfig(key: string): string | undefined {
-  if (!existsSync(CONFIG_FILE)) return undefined;
-  const content = readFileSync(CONFIG_FILE, "utf-8");
-  const match = content.match(new RegExp(`^${key}=(.+)$`, "m"));
-  return match?.[1]?.trim();
-}
 
 /**
  * Append a timestamped message to the log file and display it.

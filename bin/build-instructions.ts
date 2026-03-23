@@ -22,19 +22,19 @@ const ROOT = join(__dirname, "..");
 // Constants
 // ---------------------------------------------------------------------------
 
-const CODEX_MAX_BYTES = 32_768;
-const WARN_SKILL_BYTES = 8_192;
+export const CODEX_MAX_BYTES = 32_768;
+export const WARN_SKILL_BYTES = 8_192;
 
 // Approximate: 1 token ≈ 4 bytes for English text
-function tokens(bytes: number): number {
+export function tokens(bytes: number): number {
   return Math.ceil(bytes / 4);
 }
 
-function fmt(n: number): string {
+export function fmt(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-function fmtKB(bytes: number): string {
+export function fmtKB(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)}KB`;
 }
 
@@ -42,7 +42,7 @@ function fmtKB(bytes: number): string {
 // Measure files
 // ---------------------------------------------------------------------------
 
-interface FileInfo {
+export interface FileInfo {
   path: string;
   label: string;
   bytes: number;
@@ -65,12 +65,12 @@ function measureFile(relativePath: string, label?: string): FileInfo | null {
 // Validation checks
 // ---------------------------------------------------------------------------
 
-interface Issue {
+export interface Issue {
   level: "error" | "warn";
   message: string;
 }
 
-function validateCodexLimit(agentsMd: FileInfo | null): Issue[] {
+export function validateCodexLimit(agentsMd: FileInfo | null): Issue[] {
   if (!agentsMd) return [];
   if (agentsMd.bytes > CODEX_MAX_BYTES) {
     return [{
@@ -87,7 +87,7 @@ function validateCodexLimit(agentsMd: FileInfo | null): Issue[] {
   return [];
 }
 
-function validateImports(content: string, dir: string, label: string): Issue[] {
+export function validateImports(content: string, dir: string, label: string): Issue[] {
   const issues: Issue[] = [];
   const importPattern = /^@(\S+)/gm;
   let match;
@@ -104,7 +104,7 @@ function validateImports(content: string, dir: string, label: string): Issue[] {
   return issues;
 }
 
-function validateNoDuplication(agentsContent: string, claudeContent: string): Issue[] {
+export function validateNoDuplication(agentsContent: string, claudeContent: string): Issue[] {
   const issues: Issue[] = [];
 
   // Extract non-trivial lines (>30 chars, not headers/tables/blank)
@@ -256,4 +256,7 @@ function main() {
   }
 }
 
-main();
+const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
+if (isMain) {
+  main();
+}

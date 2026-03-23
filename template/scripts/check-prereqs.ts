@@ -23,28 +23,13 @@ import {
   mkcertBin as mkcertBinPath,
   needsXcodeTools,
 } from "./platform.js";
+import { readConfig } from "./config.js";
 
 /** Directory this script lives in (`scripts/`). */
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
 /** Project root (one level up from `scripts/`). */
 const PROJECT_DIR = resolve(SCRIPT_DIR, "..");
-
-/** Path to `.site-config` in the project root. */
-const CONFIG_FILE = resolve(PROJECT_DIR, ".site-config");
-
-/**
- * Read a value from `.site-config` (KEY=value, one per line).
- *
- * @param key - Config key to look up
- * @returns The trimmed value, or `undefined` if missing
- */
-function readConfig(key: string): string | undefined {
-  if (!existsSync(CONFIG_FILE)) return undefined;
-  const content = readFileSync(CONFIG_FILE, "utf-8");
-  const match = content.match(new RegExp(`^${key}=(.+)$`, "m"));
-  return match?.[1]?.trim();
-}
 
 /**
  * Run a command and return its first line of stdout, or `null` on failure.

@@ -13,23 +13,14 @@
 import sharp from "sharp";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { readConfig } from "./config.js";
 
-function readSiteConfig(key: string): string | undefined {
-  try {
-    const config = readFileSync(".site-config", "utf8");
-    const match = config.match(new RegExp(`^${key}=(.+)$`, "m"));
-    return match?.[1]?.trim();
-  } catch {
-    return undefined;
-  }
-}
-
-function readCssVar(css: string, name: string): string | undefined {
+export function readCssVar(css: string, name: string): string | undefined {
   const match = css.match(new RegExp(`${name}:\\s*([^;]+);`));
   return match?.[1]?.trim();
 }
 
-function escapeXml(str: string): string {
+export function escapeXml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -44,7 +35,7 @@ async function main() {
   const css = existsSync(cssPath) ? readFileSync(cssPath, "utf8") : "";
   const primaryColor = readCssVar(css, "--color-primary") || "#2563eb";
   const bgColor = readCssVar(css, "--color-bg") || "#ffffff";
-  const siteName = readSiteConfig("SITE_NAME") || "My Website";
+  const siteName = readConfig("SITE_NAME") || "My Website";
 
   // --- Apple Touch Icon (180x180) ---
   const faviconPath = resolve(publicDir, "favicon.svg");
@@ -76,7 +67,10 @@ async function main() {
   console.log("Generated og-image.png (1200x630)");
 }
 
-main().catch((err) => {
-  console.error("Image generation failed:", err.message);
-  process.exit(1);
-});
+// Only run when executed directly
+if (process.argv[1]?.endsWith("generate-images.ts")) {
+  main().catch((err) => {
+    console.error("Image generation failed:", err.message);
+    process.exit(1);
+  });
+}

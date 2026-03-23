@@ -17,14 +17,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Tunable constants
 // ---------------------------------------------------------------------------
 
-const SESSION = {
+export const SESSION = {
   turns: 30,
   systemPromptTokens: 2000,
   avgNewContentPerTurn: 850,
   outputTokens: 25_000,
 };
 
-const PRICING: Record<string, { label: string; input: number; output: number; cached: number }> = {
+export const PRICING: Record<string, { label: string; input: number; output: number; cached: number }> = {
   opus:   { label: "Opus",   input: 15,  output: 75, cached: 1.875 },
   sonnet: { label: "Sonnet", input: 3,   output: 15, cached: 0.375 },
 };
@@ -51,21 +51,21 @@ function bytes(relativePath: string): number {
   return statSync(join(PLUGIN_ROOT, relativePath)).size;
 }
 
-function tokens(byteCount: number): number {
+export function tokens(byteCount: number): number {
   return Math.ceil(byteCount / 4);
 }
 
-function fmt(n: number): string {
+export function fmt(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-function fmtK(n: number): string {
+export function fmtK(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
   return fmt(n);
 }
 
-function fmtDollars(n: number): string {
+export function fmtDollars(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
@@ -73,14 +73,14 @@ function fmtDollars(n: number): string {
 // Measure
 // ---------------------------------------------------------------------------
 
-interface FileMeasurement {
+export interface FileMeasurement {
   label: string;
   path: string;
   bytes: number;
   tokens: number;
 }
 
-interface SmbStats {
+export interface SmbStats {
   count: number;
   totalBytes: number;
   avgBytes: number;
@@ -89,7 +89,7 @@ interface SmbStats {
   maxBytes: number;
 }
 
-interface Measurements {
+export interface Measurements {
   alwaysLoaded: FileMeasurement[];
   command: FileMeasurement[];
   step1: FileMeasurement[];
@@ -149,7 +149,7 @@ function measure(): Measurements {
 // Model
 // ---------------------------------------------------------------------------
 
-interface SessionCost {
+export interface SessionCost {
   label: string;
   cachedInput: number;
   uncachedInput: number;
@@ -158,7 +158,7 @@ interface SessionCost {
   cost: number;
 }
 
-function model(m: Measurements): { contextPerTurn: number; costs: SessionCost[] } {
+export function model(m: Measurements): { contextPerTurn: number; costs: SessionCost[] } {
   const alwaysTokens = SESSION.systemPromptTokens
     + m.alwaysLoaded.reduce((s, f) => s + f.tokens, 0);
 
@@ -347,4 +347,7 @@ function main() {
   console.log("\nREADME.md updated.");
 }
 
-main();
+// Only run when executed directly
+if (process.argv[1]?.endsWith("average-tokens.ts")) {
+  main();
+}
