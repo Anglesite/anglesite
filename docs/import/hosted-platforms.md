@@ -9,8 +9,8 @@ Every hosted platform import follows the same preference order. Use the best ava
 1. **Structured API** (WordPress REST, Ghost Content API, Webflow CMS API, Tumblr API, WriteFreely API, Micro.blog API) — Returns JSON with typed fields. Cleanest extraction, easiest to paginate, best metadata. Always prefer when available.
 2. **Structured export file** (WordPress WXR XML, Squarespace WXR, Ghost JSON export, Substack ZIP, Blogger XML backup, Micro.blog ZIP) — Complete snapshot of the site's content. Requires owner action to generate but captures everything including drafts.
 3. **RSS/Atom/JSON Feed** (available on most platforms) — Contains full or partial HTML content. Usually limited to recent posts (10–100). Good fallback when no API access.
-4. **Playwright browser extraction** (Wix) — Launches a headless browser to extract both content and computed CSS styles (colors, fonts, spacing) in one pass. Preferred for Wix because it handles JS-rendered content and also captures design tokens. Requires `npx playwright install chromium` (~150 MB). See `scripts/import/wix/wix-playwright.js`.
-5. **Bundled regex extraction scripts** (Wix fallback) — For when Playwright is not available. Parses Wix's SSR'd HTML with `curl` + regex. Content only, no styling. See `scripts/import/wix/wix-extract.js`.
+4. **Playwright browser extraction** (Wix) — Launches a headless browser to extract both content and computed CSS styles (colors, fonts, spacing) in one pass. Playwright is a required dependency. See `scripts/import/wix/wix-playwright.js`.
+5. **Bundled regex extraction scripts** (Wix per-page fallback) — If Playwright fails on a specific page, falls back to parsing Wix's SSR'd HTML with `curl` + regex. Content only, no styling. See `scripts/import/wix/wix-extract.js`.
 6. **WebFetch page-by-page** (always available as last resort) — Reads the rendered page and extracts content. Slowest, lowest fidelity, but works everywhere. Required for GoDaddy and Carrd.
 
 ### When to ask the owner for help

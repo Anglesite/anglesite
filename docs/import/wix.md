@@ -116,12 +116,9 @@ The script outputs JSON with both `tokens` and `content`:
 Use `--content-only` to skip style extraction, or `--styles-only` to skip
 content. Extract styles from the **homepage only** — they apply site-wide.
 
-**Dependency:** Playwright requires a browser binary (~150 MB on first install).
-Offer to install it:
-> "I can extract your site's colors and fonts automatically, but I need to
-> install a browser tool first (~150 MB). Want me to?"
-
-If they say yes: `npx playwright install chromium`
+**Browser setup:** Playwright is a required dependency. After `npm install`,
+run `npx playwright install chromium` to download the browser binary (~150 MB,
+one-time). The import skill handles this automatically.
 
 **Color classification logic:** The script samples `getComputedStyle()` from
 visible elements and classifies colors by saturation:
@@ -131,11 +128,12 @@ visible elements and classifies colors by saturation:
 
 The extracted tokens map directly to `src/styles/global.css` custom properties.
 
-### curl + regex extraction (fallback — content only)
+### curl + regex extraction (per-page fallback — content only)
 
-When Playwright is not available, fall back to `curl` + the regex-based
-extraction scripts. These parse Wix's SSR'd HTML — content is buried in
-deeply nested `<span>` tags inside `data-hook="rcv-block*"` elements.
+If Playwright fails on a specific page (timeout, browser crash), fall back to
+`curl` + the regex-based extraction scripts for that page. These parse Wix's
+SSR'd HTML — content is buried in deeply nested `<span>` tags inside
+`data-hook="rcv-block*"` elements.
 
 **Location:** `${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js`
 

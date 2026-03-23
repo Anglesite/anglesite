@@ -272,10 +272,16 @@ Use `<content:encoded>` (full HTML).
 or `<content:encoded>` field. For posts NOT in the RSS feed (older than the 20
 most recent), use WebFetch on the post URL with the extraction prompt below.
 
-**Wix:** Use Playwright if available, otherwise fall back to curl + regex.
-WebFetch does not work on Wix pages.
+**Wix:** Use Playwright to extract content and design tokens. WebFetch does
+not work on Wix pages.
 
-**With Playwright** (preferred — also extracts design tokens):
+Before the first extraction, ensure the Chromium browser is installed:
+
+```sh
+npx playwright install chromium
+```
+
+For each post:
 
 ```sh
 node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "POST_URL"
@@ -284,27 +290,16 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "POST_URL"
 Returns `{tokens, content}` where `content` has `{body, images, title, navLinks}`.
 On the **first page** (homepage), save the `tokens` object — it contains
 `--color-primary`, `--color-bg`, `--font-heading`, etc. that seed `global.css`.
+For subsequent pages, use `--content-only` to skip redundant style extraction.
 
-**Without Playwright** (fallback — content only):
+If Playwright fails on a specific page (timeout, crash), fall back to curl +
+regex for that page only:
 
 ```sh
 curl -sL "POST_URL" > /tmp/wix-post.html
 node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js post /tmp/wix-post.html
 node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js meta /tmp/wix-post.html
 ```
-
-The `post` command returns `{body, images}` — Markdown-formatted body with `##`
-headings. The `meta` command returns `{title, date, description, author, image}`.
-
-**Playwright availability check:** Before starting the Wix import, check if
-Playwright is installed. If not, offer to install it:
-> "I can extract your site's colors and fonts automatically too, but I need
-> to install a browser tool first (~150 MB). Want me to install it?"
-
-If yes: `npx playwright install chromium`
-
-If they decline or Playwright fails, continue with curl + regex (content only,
-no design tokens — the owner can use `/anglesite:design-interview` later).
 
 If extraction returns empty content from either method, add the post to
 FAILED_POSTS and continue. Do not stop the import for individual failures.
@@ -477,14 +472,14 @@ Convert HTML to Markdown as in Step 2b.
 Note that Squarespace only exports text blocks — complex layouts (galleries,
 forms, product grids) are not included in the export.
 
-**Wix:** Use the same extraction method chosen in Step 2a (Playwright or
-curl + regex). With Playwright:
+**Wix:** Use Playwright (styles were already extracted from the homepage in
+Step 2a, so use `--content-only` here):
 
 ```sh
 node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "PAGE_URL" --content-only
 ```
 
-Without Playwright:
+If Playwright fails on a specific page, fall back to curl + regex for that page:
 
 ```sh
 curl -sL "PAGE_URL" > /tmp/wix-page.html
@@ -492,7 +487,6 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js page /tmp/wix-page.
 ```
 
 Both methods strip navigation and footer boilerplate automatically.
-If extraction returns empty content, fall back to WebFetch as a last resort.
 
 **All other platforms and any page without pre-fetched content:** WebFetch is
 mandatory. This includes Weebly, GoDaddy, Carrd, Webflow without API,
@@ -683,8 +677,8 @@ Tell the owner:
 >
 > These have been applied to your new site's stylesheet."
 
-If Playwright was not used (curl + regex fallback), skip this step. The owner
-can set up colors and fonts later via `/anglesite:design-interview`.
+If Playwright failed on the homepage and no tokens were captured, skip this
+step. The owner can set up colors and fonts later via `/anglesite:design-interview`.
 
 ## Step 6 — Build and verify
 

@@ -9,9 +9,8 @@
 // Usage (CLI):
 //   node wix-playwright.js <url> [--content-only] [--styles-only]
 //
-// Requires: npx playwright install chromium
-//
-// Falls back to curl + wix-extract.js if Playwright is not available.
+// Playwright is a required dependency — run `npx playwright install chromium`
+// after `npm install` to download the browser binary.
 
 import { rgbToHex, classifyTokens } from './color-utils.js';
 
@@ -228,19 +227,6 @@ export async function extractWixPage(page, url, options = {}) {
   return { tokens, content };
 }
 
-/**
- * Check if Playwright is available.
- * @returns {Promise<boolean>}
- */
-export async function isPlaywrightAvailable() {
-  try {
-    await import('playwright');
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // CLI entry point
 // ---------------------------------------------------------------------------
@@ -257,17 +243,8 @@ async function main() {
     return;
   }
 
-  let playwright;
-  try {
-    playwright = await import('playwright');
-  } catch {
-    console.error('Playwright is not installed. Install it with: npx playwright install chromium');
-    console.error('Falling back to curl + regex extraction is recommended.');
-    process.exitCode = 1;
-    return;
-  }
-
-  const browser = await playwright.chromium.launch({ headless: true });
+  const { chromium } = await import('playwright');
+  const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
 
   try {

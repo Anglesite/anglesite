@@ -9,7 +9,8 @@
   "files": [
     "bin/init.js",
     "template/",
-    "docs/"
+    "docs/",
+    "scripts/import/"
   ],
   "keywords": ["website", "small-business", "astro", "cloudflare", "webmaster", "ai", "agents"],
   "author": "David W. Keith",
@@ -21,5 +22,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0"
   }
 }
