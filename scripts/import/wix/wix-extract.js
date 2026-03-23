@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Extract all text from <span> tags in an HTML string (non-greedy). */
+/** Extract all text from <span> tags, converting <a>-wrapped spans to Markdown links. */
 function spanTexts(html) {
   const spans = [];
   const re = /<span[^>]*>(.*?)<\/span>/gs;
@@ -31,6 +31,61 @@ function spanTexts(html) {
     spans.push(text);
   }
   return spans;
+}
+
+/**
+ * Convert <a href="URL">...<span>text</span>...</a> to inline Markdown links.
+ * Handles all Wix nesting: <a><u><span>text</span></u></a> and
+ * <span><a><u><span>text</span></u></a></span>.
+ * Must be called before spanTexts() so links are preserved as text.
+ */
+function linkifyHtml(html) {
+  return html.replace(
+    /<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    (_, href, inner) => {
+      const texts = spanTexts(inner).filter((t) => !isEmpty(t));
+      return texts.length > 0 ? `[${texts.join(' ')}](${href})` : '';
+    },
+  );
+}
+
+/**
+ * Extract text from a block, preserving hyperlinks as Markdown.
+ * Linkifies first, then extracts text from the innermost content layer
+ * (the span that wraps mixed text and Markdown link fragments).
+ */
+function blockFragments(blockHtml) {
+  const linkified = linkifyHtml(blockHtml);
+
+  // After linkification, Markdown links sit between </span> and <span> tags.
+  // Find the innermost span that contains actual content (text or links)
+  // and extract everything from it, stripping only HTML tags (not link syntax).
+  const fragments = [];
+  // Match the innermost spans (those whose content has no child <span>)
+  const re = /<span[^>]*>((?:(?!<span).)*?)<\/span>/gs;
+  let m;
+  while ((m = re.exec(linkified)) !== null) {
+    const text = m[1].replace(/<[^>]*>/g, '').trim();
+    if (text) fragments.push(text);
+  }
+
+  // Also capture Markdown links that landed outside of spans
+  const outsideRe = /<\/span>((?:\[[^\]]+\]\([^)]+\))+)<span/g;
+  let om;
+  while ((om = outsideRe.exec(linkified)) !== null) {
+    const linkText = om[1].trim();
+    if (linkText) fragments.push(linkText);
+  }
+
+  // Reassemble in document order by extracting from the full linkified string
+  // Strip all HTML tags, preserving Markdown link syntax
+  if (fragments.some((f) => f.includes(']('))) {
+    // We have links — use the tag-stripped approach for correct ordering
+    const fullText = linkified.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return fullText ? [fullText] : [];
+  }
+
+  return fragments;
 }
 
 /** True if text is empty, whitespace-only, or just \xa0 */
@@ -104,10 +159,10 @@ export function extractPost(html) {
   let bm;
   while ((bm = blockRe.exec(region)) !== null) {
     const blockHtml = bm[1];
-    const texts = spanTexts(blockHtml).filter((t) => !isEmpty(t));
-    if (texts.length === 0) continue;
+    const fragments = blockFragments(blockHtml).filter((t) => !isEmpty(t));
+    if (fragments.length === 0) continue;
 
-    const combined = texts.join(' ');
+    const combined = fragments.join(' ');
     if (isHeading(blockHtml)) {
       blocks.push(`## ${combined}`);
     } else {
@@ -117,8 +172,8 @@ export function extractPost(html) {
 
   // If no rcv-blocks found, fall back to extracting all spans from the region
   if (blocks.length === 0) {
-    const allTexts = spanTexts(region).filter((t) => !isEmpty(t));
-    blocks.push(...allTexts);
+    const allFragments = blockFragments(region).filter((t) => !isEmpty(t));
+    blocks.push(...allFragments);
   }
 
   return {
@@ -154,10 +209,10 @@ export function extractPage(html) {
   let dm;
   while ((dm = divRe.exec(cleaned)) !== null) {
     const divHtml = dm[0];
-    const texts = spanTexts(divHtml).filter((t) => !isEmpty(t));
-    if (texts.length === 0) continue;
+    const fragments = blockFragments(divHtml).filter((t) => !isEmpty(t));
+    if (fragments.length === 0) continue;
 
-    const combined = texts.join(' ');
+    const combined = fragments.join(' ');
 
     // Skip nav items and footer boilerplate
     if (isNavItem(combined)) continue;

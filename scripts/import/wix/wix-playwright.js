@@ -168,7 +168,13 @@ export const extractContentSrc = function () {
       continue;
     }
 
-    currentBlock.push(text);
+    // Check if this text is inside a hyperlink
+    const link = node.parentElement?.closest('a[href]');
+    if (link) {
+      currentBlock.push(`[${text}](${link.href})`);
+    } else {
+      currentBlock.push(text);
+    }
   }
   if (currentBlock.length > 0) {
     blocks.push(currentBlock.join(' '));

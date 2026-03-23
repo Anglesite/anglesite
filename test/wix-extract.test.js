@@ -59,6 +59,30 @@ describe('extractPost', () => {
     // The title should be in the title field, not duplicated in body
     assert.ok(!result.body.startsWith('My Journey'));
   });
+
+  it('converts hyperlinks to markdown links', () => {
+    const result = extractPost(html);
+    assert.ok(
+      result.body.includes('[Going Zero Waste](https://www.goingzerowaste.com/)'),
+      'Should convert <a><span>text</span></a> to [text](url)',
+    );
+    assert.ok(
+      result.body.includes('[here](https://example.com/guide)'),
+      'Should convert short linked text too',
+    );
+  });
+
+  it('preserves surrounding text around links', () => {
+    const result = extractPost(html);
+    assert.ok(
+      result.body.includes('visit [Going Zero Waste]'),
+      'Text before link should be preserved',
+    );
+    assert.ok(
+      result.body.includes('guide [here]'),
+      'Text before short link should be preserved',
+    );
+  });
 });
 
 describe('extractPage', () => {
