@@ -43,7 +43,12 @@ function linkifyHtml(html) {
   return html.replace(
     /<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
     (_, href, inner) => {
-      const texts = spanTexts(inner).filter((t) => !isEmpty(t));
+      let texts = spanTexts(inner).filter((t) => !isEmpty(t));
+      // Fallback: some Wix links have text directly in <a> with no <span>
+      if (texts.length === 0) {
+        const plain = inner.replace(/<[^>]*>/g, '').trim();
+        if (plain) texts = [plain];
+      }
       return texts.length > 0 ? `[${texts.join(' ')}](${href})` : '';
     },
   );
@@ -200,16 +205,28 @@ export function extractPage(html) {
   // Extract images before stripping tags
   const images = extractImages(cleaned);
 
+  // Linkify the entire cleaned HTML before splitting into blocks,
+  // so links that span across nested div boundaries are preserved.
+  cleaned = linkifyHtml(cleaned);
+
   // Process blocks with heading detection
   const blocks = [];
   const seen = new Set();
 
-  // Split by top-level divs that contain spans
+  // Split by top-level divs that contain spans or Markdown links
   const divRe = /<div[^>]*>([\s\S]*?)<\/div>(?=\s*<div|$)/g;
   let dm;
   while ((dm = divRe.exec(cleaned)) !== null) {
     const divHtml = dm[0];
-    const fragments = blockFragments(divHtml).filter((t) => !isEmpty(t));
+    let fragments;
+    if (divHtml.includes('](')) {
+      // Div contains Markdown links (from linkifyHtml pre-pass).
+      // Use tag-stripping to preserve links that sit outside <span> tags.
+      const text = divHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      fragments = text ? [text] : [];
+    } else {
+      fragments = spanTexts(divHtml).filter((t) => !isEmpty(t));
+    }
     if (fragments.length === 0) continue;
 
     const combined = fragments.join(' ');

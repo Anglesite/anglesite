@@ -110,6 +110,16 @@ describe('extractPage', () => {
     expect(result.images.length).toBeGreaterThan(0);
     expect(result.images.some((img) => img.src.includes('profile123~mv2.jpg'))).toBe(true);
   });
+
+  it('converts hyperlinks to markdown links', () => {
+    const result = extractPage(html);
+    expect(result.body).toContain('[The Local Paper](https://example.com/article)');
+  });
+
+  it('extracts links even when text is directly in <a> with no inner span', () => {
+    const result = extractPage(html);
+    expect(result.body).toContain('[Link without inner span](https://example.com/no-span-link)');
+  });
 });
 
 describe('extractMetadata', () => {
