@@ -28,3 +28,18 @@ describe('wix-playwright.js wait strategy', () => {
     expect(src).toContain('#SITE_CONTAINER');
   });
 });
+
+describe('wix-playwright.js accordion expansion', () => {
+  it('expands aria-expanded="false" elements before extraction', () => {
+    expect(src).toContain('aria-expanded="false"');
+    expect(src).toContain('expandAccordions');
+  });
+
+  it('handles Wix FAQ data-hook elements', () => {
+    expect(src).toContain('data-hook="faq-question"');
+  });
+
+  it('handles HTML details elements', () => {
+    expect(src).toContain('details:not([open])');
+  });
+});

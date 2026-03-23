@@ -237,6 +237,42 @@ export const extractContentSrc = function () {
 // ---------------------------------------------------------------------------
 
 /**
+ * Expand all accordion/FAQ items on the page so collapsed content is visible.
+ * Wix FAQ widgets and accordions use aria-expanded="false" on trigger elements.
+ * Clicking them reveals the panel content for extraction.
+ */
+async function expandAccordions(page) {
+  const expanded = await page.evaluate(() => {
+    let count = 0;
+    // Pattern 1: aria-expanded triggers (Wix FAQ widget, generic accordions)
+    const triggers = document.querySelectorAll(
+      '[aria-expanded="false"]:not([role="menuitem"])',
+    );
+    for (const el of triggers) {
+      el.click();
+      count++;
+    }
+    // Pattern 2: <details> elements (rare on Wix but possible)
+    for (const details of document.querySelectorAll('details:not([open])')) {
+      details.open = true;
+      count++;
+    }
+    // Pattern 3: Wix-specific data-hook FAQ items
+    for (const el of document.querySelectorAll('[data-hook="faq-question"]')) {
+      if (el.getAttribute('aria-expanded') !== 'true') {
+        el.click();
+        count++;
+      }
+    }
+    return count;
+  });
+  // Wait for animations to complete if anything was expanded
+  if (expanded > 0) {
+    await page.waitForTimeout(500);
+  }
+}
+
+/**
  * Extract content and styles from a Wix page using Playwright.
  *
  * @param {import('playwright').Page} page - An open Playwright page
@@ -251,6 +287,10 @@ export async function extractWixPage(page, url, options = {}) {
   await page.waitForSelector('#SITE_CONTAINER', { timeout: 10000 }).catch(() => {});
   // Extra wait for dynamic content
   await page.waitForTimeout(2000);
+
+  // Expand all accordion/FAQ items so collapsed content becomes visible.
+  // Wix uses aria-expanded="false" on triggers and hides panel content.
+  await expandAccordions(page);
 
   let tokens = null;
   let content = null;
