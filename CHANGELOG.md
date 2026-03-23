@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.0] — 2026-03-23
+
+### Added
+- Playwright-based Wix extraction: content + computed CSS design tokens (colors, fonts) in one browser session
+- Color utilities (`color-utils.js`): rgbToHex, luminance, saturation, isGray, topColors, classifyTokens
+- Bundled curl+regex Wix extraction scripts as per-page fallback
+- New Step 5.5 in import skill: auto-apply extracted design tokens to `global.css`
+- Playwright added as a required dependency
+- 49 tests for Wix extraction and color classification
+
+### Changed
+- Wix import no longer uses WebFetch (which returned empty content for all Wix pages)
+- Extraction method hierarchy updated: Playwright → curl+regex → WebFetch (last resort)
+
 ## [0.13.2] — 2026-03-23
 
 ### Fixed
