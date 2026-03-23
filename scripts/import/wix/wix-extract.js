@@ -210,10 +210,54 @@ export function extractPost(html) {
     blocks.push(...allFragments);
   }
 
+  // Extract tags from the post-footer region
+  const tags = extractTags(html, footerStart);
+
   return {
     body: mergeOrdinals(blocks.join('\n\n')),
     images,
+    tags,
   };
+}
+
+/**
+ * Extract tags from the post-footer region. Wix renders tags as:
+ * - <a href="/blog/categories/TAG" data-hook="tag"><span>TAG</span></a>
+ * - <a href="/hashtags/TAG">TAG</a>
+ * - Plain text "Tagged: tag1, tag2, tag3"
+ */
+function extractTags(html, footerStart) {
+  if (footerStart === -1) return [];
+
+  const footerRegion = html.slice(footerStart, footerStart + 5000);
+  const tags = [];
+
+  // Pattern 1: category/hashtag links
+  const linkRe = /<a[^>]*href=["'][^"']*(?:categories|hashtags)\/([^"'/?]+)["'][^>]*>/gi;
+  let m;
+  while ((m = linkRe.exec(footerRegion)) !== null) {
+    tags.push(decodeURIComponent(m[1]).trim());
+  }
+
+  // Pattern 2: data-hook="tag" elements
+  if (tags.length === 0) {
+    const tagHookRe = /data-hook=["']tag["'][^>]*>(?:<[^>]*>)*([^<]+)/gi;
+    while ((m = tagHookRe.exec(footerRegion)) !== null) {
+      const text = m[1].trim();
+      if (text) tags.push(text);
+    }
+  }
+
+  // Pattern 3: "Tagged: tag1, tag2, tag3" plain text
+  if (tags.length === 0) {
+    const taggedRe = /Tagged:\s*([^<]+)/i;
+    const taggedMatch = footerRegion.match(taggedRe);
+    if (taggedMatch) {
+      tags.push(...taggedMatch[1].split(',').map((t) => t.trim()).filter(Boolean));
+    }
+  }
+
+  return [...new Set(tags)]; // deduplicate
 }
 
 // ---------------------------------------------------------------------------

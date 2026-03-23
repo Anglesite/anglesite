@@ -103,7 +103,7 @@ export const extractStylesSrc = function () {
 
 /** Extract text content from the rendered page via TreeWalker. */
 export const extractContentSrc = function () {
-  const result = { body: '', images: [], title: '', navLinks: [] };
+  const result = { body: '', images: [], title: '', navLinks: [], tags: [] };
 
   // Try blog post region first
   const postDesc = document.querySelector('[data-hook="post-description"]');
@@ -204,6 +204,28 @@ export const extractContentSrc = function () {
     const href = a.href;
     if (text && href) {
       result.navLinks.push({ text, href });
+    }
+  }
+
+  // Extract tags from the post footer
+  if (postFooter) {
+    // Pattern 1: category/hashtag links
+    const tagLinks = postFooter.querySelectorAll(
+      'a[href*="categories/"], a[href*="hashtags/"], [data-hook="tag"]',
+    );
+    for (const el of tagLinks) {
+      const text = el.textContent?.trim();
+      if (text) result.tags.push(text);
+    }
+    // Pattern 2: "Tagged: tag1, tag2" plain text
+    if (result.tags.length === 0) {
+      const footerText = postFooter.textContent || '';
+      const taggedMatch = footerText.match(/Tagged:\s*(.+)/i);
+      if (taggedMatch) {
+        result.tags.push(
+          ...taggedMatch[1].split(',').map((t) => t.trim()).filter(Boolean),
+        );
+      }
     }
   }
 

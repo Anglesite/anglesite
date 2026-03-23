@@ -68,6 +68,17 @@ describe('extractPost', () => {
     expect(result.body).toContain('visit [Going Zero Waste]');
     expect(result.body).toContain('guide [here]');
   });
+
+  it('extracts tags from post-footer category links', () => {
+    const result = extractPost(html);
+    expect(result.tags).toEqual(['sustainability', 'zero-waste', 'lifestyle']);
+  });
+
+  it('returns empty tags array when no tags are present', () => {
+    const noTagsHtml = html.replace(/<div class="tags-row">[\s\S]*?<\/div>/, '');
+    const result = extractPost(noTagsHtml);
+    expect(result.tags).toEqual([]);
+  });
 });
 
 describe('extractPage', () => {
