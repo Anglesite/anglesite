@@ -31,7 +31,7 @@
   "engines": {
     "node": ">=20"
   },
-  "dependencies": {
+  "optionalDependencies": {
     "playwright": "^1.52.0"
   }
 }

@@ -275,11 +275,26 @@ most recent), use WebFetch on the post URL with the extraction prompt below.
 **Wix:** Use Playwright to extract content and design tokens. WebFetch does
 not work on Wix pages.
 
-Before the first extraction, ensure the Chromium browser is installed:
+Before the first extraction, check if Playwright is installed and offer to
+install it if not:
 
 ```sh
+npm ls playwright
+```
+
+If not installed, tell the owner:
+> "I can extract your site's colors and fonts automatically, but I need to
+> install a browser tool first (~150 MB). Want me to install it?"
+
+If yes:
+
+```sh
+npm install playwright
 npx playwright install chromium
 ```
+
+If they decline, skip to the curl + regex fallback below (content only, no
+design tokens).
 
 For each post:
 

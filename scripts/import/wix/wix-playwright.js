@@ -9,8 +9,9 @@
 // Usage (CLI):
 //   node wix-playwright.js <url> [--content-only] [--styles-only]
 //
-// Playwright is a required dependency — run `npx playwright install chromium`
-// after `npm install` to download the browser binary.
+// Playwright is an optional dependency. Install it with:
+//   npm install playwright && npx playwright install chromium
+// Falls back to curl + wix-extract.js if Playwright is not available.
 
 import { rgbToHex, classifyTokens } from './color-utils.js';
 
@@ -331,8 +332,16 @@ async function main() {
     return;
   }
 
-  const { chromium } = await import('playwright');
-  const browser = await chromium.launch({ headless: true });
+  let playwright;
+  try {
+    playwright = await import('playwright');
+  } catch {
+    console.error('Playwright is not installed. Install it with: npm install playwright && npx playwright install chromium');
+    console.error('Use curl + wix-extract.js as a fallback for content extraction.');
+    process.exitCode = 1;
+    return;
+  }
+  const browser = await playwright.chromium.launch({ headless: true });
   const page = await browser.newPage();
 
   try {
