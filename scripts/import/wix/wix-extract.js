@@ -87,10 +87,27 @@ function blockFragments(blockHtml) {
   if (fragments.some((f) => f.includes(']('))) {
     // We have links — use the tag-stripped approach for correct ordering
     const fullText = linkified.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    return fullText ? [fullText] : [];
+    return fullText ? [joinSplitWords(fullText)] : [];
   }
 
   return fragments;
+}
+
+/**
+ * Join text fragments that Wix split mid-word across adjacent elements.
+ * Wix Thunderbolt sometimes breaks a word at an arbitrary character boundary
+ * across adjacent <span> or <a> elements (e.g., "R [edevelopment Agencies]").
+ *
+ * Heuristic: merge when an uppercase letter is followed by ` [lowercase`
+ * (a Markdown link starting with a lowercase letter), which indicates the
+ * link text is a word continuation, not a new sentence.
+ */
+export function joinSplitWords(text) {
+  if (!text) return text;
+  // Pattern: uppercase letter + space + [ + lowercase (Markdown link continuation)
+  // e.g., "R [edevelopment" → "R[edevelopment"
+  // Does NOT match "R [Evolution" (uppercase = new word) or "more [here]" (lowercase before space)
+  return text.replace(/([A-Z]) (\[[a-z])/g, '$1$2');
 }
 
 /** True if text is empty, whitespace-only, or just \xa0 */
@@ -223,7 +240,7 @@ export function extractPage(html) {
       // Div contains Markdown links (from linkifyHtml pre-pass).
       // Use tag-stripping to preserve links that sit outside <span> tags.
       const text = divHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-      fragments = text ? [text] : [];
+      fragments = text ? [joinSplitWords(text)] : [];
     } else {
       fragments = spanTexts(divHtml).filter((t) => !isEmpty(t));
     }

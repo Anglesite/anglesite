@@ -8,6 +8,7 @@ import {
   extractPage,
   extractMetadata,
   normalizeImageUrl,
+  joinSplitWords,
 } from '../scripts/import/wix/wix-extract.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -184,5 +185,30 @@ describe('normalizeImageUrl', () => {
 
   it('passes through non-Wix URLs unchanged', () => {
     expect(normalizeImageUrl('https://example.com/image.jpg')).toBe('https://example.com/image.jpg');
+  });
+});
+
+describe('joinSplitWords', () => {
+  it('merges when lowercase precedes uppercase at a mid-word split', () => {
+    // "of R" → "of" ends naturally, but "R" is preceded by space+lowercase "f"
+    // The actual Wix pattern: "...tion of R [edevelopment..."
+    // "R" is mid-word because the continuation starts lowercase
+    expect(joinSplitWords('Dissolution of R [edevelopment Agencies](url)'))
+      .toBe('Dissolution of R[edevelopment Agencies](url)');
+  });
+
+  it('does not merge when text ends at a word boundary with lowercase', () => {
+    expect(joinSplitWords('Read more [here](url)'))
+      .toBe('Read more [here](url)');
+  });
+
+  it('does not merge when next word starts with uppercase', () => {
+    expect(joinSplitWords('Chapter R [Evolution](url)'))
+      .toBe('Chapter R [Evolution](url)');
+  });
+
+  it('handles empty and single-word strings', () => {
+    expect(joinSplitWords('')).toBe('');
+    expect(joinSplitWords('hello')).toBe('hello');
   });
 });
