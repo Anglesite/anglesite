@@ -8,6 +8,7 @@ import {
   extractPage,
   extractMetadata,
   normalizeImageUrl,
+  joinSplitWords,
 } from '../scripts/import/wix/wix-extract.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -133,6 +134,16 @@ describe('extractPage', () => {
     expect(result.images.some((img) => img.src.includes('profile123~mv2.jpg'))).toBe(true);
   });
 
+  it('converts hyperlinks to markdown links', () => {
+    const result = extractPage(html);
+    expect(result.body).toContain('[The Local Paper](https://example.com/article)');
+  });
+
+  it('extracts links even when text is directly in <a> with no inner span', () => {
+    const result = extractPage(html);
+    expect(result.body).toContain('[Link without inner span](https://example.com/no-span-link)');
+  });
+
   it('inserts inline images into body as markdown', () => {
     const result = extractPage(html);
     expect(result.body).toContain('![Shiloh Ballard portrait]');
@@ -201,5 +212,30 @@ describe('normalizeImageUrl', () => {
 
   it('passes through non-Wix URLs unchanged', () => {
     expect(normalizeImageUrl('https://example.com/image.jpg')).toBe('https://example.com/image.jpg');
+  });
+});
+
+describe('joinSplitWords', () => {
+  it('merges when lowercase precedes uppercase at a mid-word split', () => {
+    // "of R" → "of" ends naturally, but "R" is preceded by space+lowercase "f"
+    // The actual Wix pattern: "...tion of R [edevelopment..."
+    // "R" is mid-word because the continuation starts lowercase
+    expect(joinSplitWords('Dissolution of R [edevelopment Agencies](url)'))
+      .toBe('Dissolution of R[edevelopment Agencies](url)');
+  });
+
+  it('does not merge when text ends at a word boundary with lowercase', () => {
+    expect(joinSplitWords('Read more [here](url)'))
+      .toBe('Read more [here](url)');
+  });
+
+  it('does not merge when next word starts with uppercase', () => {
+    expect(joinSplitWords('Chapter R [Evolution](url)'))
+      .toBe('Chapter R [Evolution](url)');
+  });
+
+  it('handles empty and single-word strings', () => {
+    expect(joinSplitWords('')).toBe('');
+    expect(joinSplitWords('hello')).toBe('hello');
   });
 });

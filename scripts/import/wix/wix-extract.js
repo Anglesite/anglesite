@@ -43,7 +43,12 @@ function linkifyHtml(html) {
   return html.replace(
     /<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
     (_, href, inner) => {
-      const texts = spanTexts(inner).filter((t) => !isEmpty(t));
+      let texts = spanTexts(inner).filter((t) => !isEmpty(t));
+      // Fallback: some Wix links have text directly in <a> with no <span>
+      if (texts.length === 0) {
+        const plain = inner.replace(/<[^>]*>/g, '').trim();
+        if (plain) texts = [plain];
+      }
       return texts.length > 0 ? `[${texts.join(' ')}](${href})` : '';
     },
   );
@@ -82,10 +87,27 @@ function blockFragments(blockHtml) {
   if (fragments.some((f) => f.includes(']('))) {
     // We have links — use the tag-stripped approach for correct ordering
     const fullText = linkified.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    return fullText ? [fullText] : [];
+    return fullText ? [joinSplitWords(fullText)] : [];
   }
 
   return fragments;
+}
+
+/**
+ * Join text fragments that Wix split mid-word across adjacent elements.
+ * Wix Thunderbolt sometimes breaks a word at an arbitrary character boundary
+ * across adjacent <span> or <a> elements (e.g., "R [edevelopment Agencies]").
+ *
+ * Heuristic: merge when an uppercase letter is followed by ` [lowercase`
+ * (a Markdown link starting with a lowercase letter), which indicates the
+ * link text is a word continuation, not a new sentence.
+ */
+export function joinSplitWords(text) {
+  if (!text) return text;
+  // Pattern: uppercase letter + space + [ + lowercase (Markdown link continuation)
+  // e.g., "R [edevelopment" → "R[edevelopment"
+  // Does NOT match "R [Evolution" (uppercase = new word) or "more [here]" (lowercase before space)
+  return text.replace(/([A-Z]) (\[[a-z])/g, '$1$2');
 }
 
 /** True if text is empty, whitespace-only, or just \xa0 */
@@ -214,11 +236,15 @@ export function extractPage(html) {
   // Extract images before stripping tags
   const images = extractImages(cleaned);
 
+  // Linkify the entire cleaned HTML before splitting into blocks,
+  // so links that span across nested div boundaries are preserved.
+  cleaned = linkifyHtml(cleaned);
+
   // Process blocks with heading detection
   const blocks = [];
   const seen = new Set();
 
-  // Split by top-level divs that contain spans or images
+  // Split by top-level divs that contain spans, images, or Markdown links
   const divRe = /<div[^>]*>([\s\S]*?)<\/div>(?=\s*<\/?div|$)/g;
   let dm;
   while ((dm = divRe.exec(cleaned)) !== null) {
@@ -236,7 +262,15 @@ export function extractPage(html) {
       continue;
     }
 
-    const fragments = blockFragments(divHtml).filter((t) => !isEmpty(t));
+    let fragments;
+    if (divHtml.includes('](')) {
+      // Div contains Markdown links (from linkifyHtml pre-pass).
+      // Use tag-stripping to preserve links that sit outside <span> tags.
+      const text = divHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      fragments = text ? [joinSplitWords(text)] : [];
+    } else {
+      fragments = spanTexts(divHtml).filter((t) => !isEmpty(t));
+    }
     if (fragments.length === 0) continue;
 
     const combined = fragments.join(' ');
