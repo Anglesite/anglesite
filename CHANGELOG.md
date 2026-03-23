@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.1] — 2026-03-23
+
+### Fixed
+- Release workflow now uploads zip to existing releases instead of failing
+- Plugin zip now includes `scripts/import/` extraction scripts
+
 ## [0.14.0] — 2026-03-23
 
 ### Added
