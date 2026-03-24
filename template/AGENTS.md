@@ -43,6 +43,7 @@ Step-by-step guides for common operations:
 |---|---|
 | Deploy to Cloudflare | `docs/workflows/deploy.md` |
 | Health check and audit | `docs/workflows/check.md` |
+| Update dependencies and templates | `docs/workflows/update.md` |
 | DNS management | `docs/workflows/domain.md` |
 | Import from a website URL | `docs/workflows/import.md` |
 | Convert an SSG project | `docs/workflows/convert.md` |

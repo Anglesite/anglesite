@@ -13,6 +13,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Set up for the first time | `/anglesite:start` |
 | Publish or go live | `/anglesite:deploy` |
 | Check the site or fix a problem | `/anglesite:check` |
+| Update dependencies and templates | `/anglesite:update` |
 | Manage DNS (email, Bluesky, etc.) | `/anglesite:domain` |
 | Import from a website URL | `/anglesite:import` |
 | Convert an SSG project to Anglesite | `/anglesite:convert` |
