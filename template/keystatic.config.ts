@@ -4,7 +4,7 @@
  *
  * Blog posts are stored as Markdoc files in `src/content/posts/`.
  * The schema here must stay in sync with the Zod schema in
- * `src/content/config.ts`; both validate the same frontmatter fields.
+ * `src/content.config.ts`; both validate the same frontmatter fields.
  *
  * Tags are customized per business during `/anglesite:design-interview`.
  *

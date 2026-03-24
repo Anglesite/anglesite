@@ -19,7 +19,7 @@ Posts live in `src/content/posts/` as `.mdx` files. The owner creates them via K
 ### Schema sync
 
 The blog schema is defined in two places that must stay in sync:
-- `src/content/config.ts` — Astro uses this for type checking
+- `src/content.config.ts` — Astro uses this for type checking
 - `keystatic.config.ts` — Keystatic uses this for the editor UI
 
 If you add or change a field, update both files.

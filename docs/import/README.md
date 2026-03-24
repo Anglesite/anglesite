@@ -51,11 +51,11 @@ These are local file migrations. The owner has a project directory with source f
 1. The skill detects the platform (from a URL or from config files in a local directory)
 2. It reads the matching guide from `docs/import/`
 3. It follows the guide's frontmatter mapping and content conversion rules
-4. All content lands as `.mdoc` files in `src/content/posts/` with the schema defined in `src/content/config.ts`
+4. All content lands as `.mdoc` files in `src/content/posts/` with the schema defined in `src/content.config.ts`
 
 ## Frontmatter target schema
 
-Every imported post must produce this frontmatter (from `src/content/config.ts`):
+Every imported post must produce this frontmatter (from `src/content.config.ts`):
 
 ```yaml
 title: "Post Title"              # required, string

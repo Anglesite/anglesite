@@ -45,7 +45,7 @@ what you're about to do and why. The owner is non-technical.
 
 ### 0a — Already an Anglesite project?
 
-Use Glob to check for `src/content/config.ts`.
+Use Glob to check for `src/content.config.ts`.
 
 If it exists AND the current directory also has an SSG config file (see table
 below), treat it as a conversion that was already scaffolded — read `.site-config`
@@ -419,7 +419,7 @@ npm run build
 ```
 
 If the build fails, diagnose and fix. Common causes:
-- Frontmatter doesn't match schema: check `src/content/config.ts` for expected fields
+- Frontmatter doesn't match schema: check `src/content.config.ts` for expected fields
 - Invalid `publishDate` format: must be YYYY-MM-DD string
 - Missing required `description`: add a placeholder and note for review
 - Image path typo: verify file exists in `public/images/`
