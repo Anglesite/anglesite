@@ -1,51 +1,74 @@
 # Anglesite — Development Context
 
-Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages websites.
+Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages websites for small businesses. It generates Astro + Keystatic sites deployed to Cloudflare Pages.
+
+**Version:** 0.16.1 · **License:** ISC · **Node:** >=20 · **Module system:** ESM
 
 ## Plugin structure
 
 ```
-├── .claude-plugin/plugin.json    Plugin manifest
-├── skills/                        Skills (9 total, 6 user-facing)
-│   ├── start/SKILL.md             First-time setup + scaffolding
-│   ├── deploy/SKILL.md            Build, scan, deploy
-│   ├── check/SKILL.md             Health audit + troubleshooting
-│   ├── domain/SKILL.md            DNS management
-│   ├── import/SKILL.md            Import from website URL
-│   ├── convert/SKILL.md           Convert SSG project to Anglesite
-│   ├── design-interview/SKILL.md  Visual identity (model-only)
-│   ├── animate/SKILL.md           CSS animations (model-only)
-│   └── new-page/SKILL.md          Page creation (model-only)
-├── settings.json                  Plugin settings (empty — permissions via allowed-tools)
-├── hooks/hooks.json               PreToolUse hook for deploy safety scans
-├── scripts/scaffold.sh            Copies template/ to user's project
-├── scripts/pre-deploy-check.sh    Blocks deploy if security scans fail
-├── bin/init.js                    CLI entry point (npx anglesite init)
-├── bin/average-tokens.ts          Token cost calculator
-├── bin/build-instructions.ts      Agent instruction validator
-├── package.json                   npm package manifest
-├── docs/                          Reference docs (read by skills via ${CLAUDE_PLUGIN_ROOT})
-│   ├── smb/                       Business type guides (70 files)
-│   ├── import/                    Platform migration guides (28 files)
-│   ├── platforms/                 Tool integration guides (13 files)
-│   └── decisions/                 ADRs — default technical choices (13 files)
-└── template/                      Files scaffolded to user's project
-    ├── src/                       Astro source (pages, layouts, styles)
-    ├── public/                    Static assets
-    ├── scripts/                   setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
-    ├── docs/                      Site-specific docs (~15 files) + workflows/
-    ├── AGENTS.md                  Universal webmaster instructions (any agent)
-    ├── CLAUDE.md                  Claude Code-specific additions (@imports AGENTS.md)
-    ├── GEMINI.md                  Gemini CLI pointer (@imports AGENTS.md)
-    └── ...                        Config (package.json, astro.config.ts, etc.)
+├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
+├── marketplace.json              Marketplace distribution config
+├── skills/                       Skills (9 total: 6 user-facing, 3 model-only)
+│   ├── start/SKILL.md            First-time setup + scaffolding
+│   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
+│   ├── check/SKILL.md            Health audit + troubleshooting
+│   ├── domain/SKILL.md           DNS management (email, Bluesky, verification)
+│   ├── import/SKILL.md           Import from website URL
+│   ├── convert/SKILL.md          Convert existing SSG project to Anglesite
+│   ├── design-interview/SKILL.md Visual identity (model-only)
+│   ├── animate/SKILL.md          CSS animations (model-only)
+│   ├── new-page/SKILL.md         Page creation (model-only)
+│   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
+├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
+├── hooks/hooks.json              PreToolUse hook for deploy safety scans
+├── scripts/
+│   ├── scaffold.sh               Copies template/ to user's project (zsh, rsync)
+│   ├── pre-deploy-check.sh       Blocks deploy if security scans fail
+│   ├── pack-plugin.sh            Builds distributable plugin ZIP
+│   └── import/                   Wix-specific extraction scripts
+│       ├── wix-playwright.js     Browser-based content + CSS token extraction
+│       ├── wix-extract.js        Curl+regex fallback for Wix HTML parsing
+│       └── color-utils.js        RGB/hex conversion, luminance, color classification
+├── bin/
+│   ├── init.js                   CLI entry point (npx anglesite init)
+│   ├── average-tokens.ts         Token cost calculator for start skill
+│   ├── build-instructions.ts     Agent instruction file validator
+│   └── release.ts                Semantic version bumper (updates all manifests)
+├── package.json                  npm package manifest
+├── vitest.config.ts              Test configuration
+├── docs/                         Reference docs (read by skills via ${CLAUDE_PLUGIN_ROOT})
+│   ├── smb/                      Business type guides (70 files, 50+ verticals)
+│   ├── import/                   Platform migration guides (28 files)
+│   ├── platforms/                Tool integration guides (13 files)
+│   └── decisions/                ADRs — architecture decision records (14 files)
+├── template/                     Files scaffolded to user's project
+│   ├── src/                      Astro source (pages, layouts, styles)
+│   ├── public/                   Static assets
+│   ├── scripts/                  setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
+│   ├── docs/                     Site-specific docs (~17 files) + workflows/
+│   ├── AGENTS.md                 Universal webmaster instructions (any agent)
+│   ├── CLAUDE.md                 Claude Code-specific additions (@imports AGENTS.md)
+│   ├── GEMINI.md                 Gemini CLI pointer (@imports AGENTS.md)
+│   ├── package.json              Site dependencies (Astro, Keystatic)
+│   ├── astro.config.ts           Astro + Keystatic integration config
+│   ├── keystatic.config.ts       CMS schema and collection definitions
+│   └── .gitignore                Build artifacts exclusions
+├── test/                         JavaScript tests + fixtures
+│   └── fixtures/                 Sample HTML for Wix extraction tests
+└── tests/                        TypeScript tests
 ```
 
-Three levels of agent instructions:
+## Agent instruction hierarchy
 
-- **This file** (root `CLAUDE.md`): For the developer building and maintaining the plugin.
-- **`template/AGENTS.md`**: Universal webmaster instructions — read by Codex, Cursor, Copilot, and 20+ other tools.
-- **`template/CLAUDE.md`**: Claude Code-specific additions — `@imports` AGENTS.md and adds slash commands, EXPLAIN_STEPS, shell rules.
-- **`template/GEMINI.md`**: One-line pointer — `@AGENTS.md`. Gemini CLI reads this natively.
+Three levels of agent instructions exist — do not confuse them:
+
+| File | Audience | Purpose |
+|---|---|---|
+| **This file** (root `CLAUDE.md`) | Plugin developers | Building and maintaining the plugin itself |
+| `template/AGENTS.md` | All AI agents | Universal webmaster instructions (Codex, Cursor, Copilot, etc.) |
+| `template/CLAUDE.md` | Claude Code users | `@imports` AGENTS.md, adds slash commands and shell rules |
+| `template/GEMINI.md` | Gemini CLI users | One-line `@AGENTS.md` pointer |
 
 ## How it works
 
@@ -59,6 +82,27 @@ Three levels of agent instructions:
 1. `npx anglesite init my-site` copies `template/` + `docs/` to a new directory
 2. `npm install && npm run dev` to start developing
 3. Any AI agent reads `AGENTS.md` for project context and `docs/workflows/` for step-by-step guides
+
+## Skills reference
+
+**User-facing** (invoked via `/anglesite:<name>`, have `disable-model-invocation: true`):
+
+| Skill | Purpose |
+|---|---|
+| `start` | First-time setup: scaffolding, discovery interview, design, tool installation, preview |
+| `deploy` | Build, 4-point security scan, deploy to Cloudflare Pages |
+| `check` | Health audit, troubleshooting, diagnostics |
+| `domain` | DNS record management (email, Bluesky, domain verification) |
+| `import` | Import content from external website URL |
+| `convert` | Convert existing SSG project (Hugo, Jekyll, Next.js, etc.) to Anglesite |
+
+**Model-only** (called programmatically by other skills, `user-invokable: false`):
+
+| Skill | Purpose |
+|---|---|
+| `design-interview` | Visual identity and branding questionnaire |
+| `animate` | CSS animations (hover, scroll reveals, transitions) |
+| `new-page` | Create new page with SEO and accessibility |
 
 ## Editing guidelines
 
@@ -85,7 +129,43 @@ Three levels of agent instructions:
 | Vanilla CSS | No build-time framework overhead, custom properties for theming |
 | Industry tools first | Recommend purpose-built solutions (Square, Shopify, Clio, etc.) over generic databases |
 
-## Testing changes
+Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0014).
+
+## Testing
+
+**Framework:** Vitest 3.1.1
+
+```sh
+npm test              # Run all tests
+npm run test:watch    # Watch mode
+npm run test:coverage # Coverage report
+```
+
+**Test layout:**
+- `tests/` — TypeScript tests (token calc, instruction validation, config, image gen, init, platform detection, pre-deploy checks)
+- `test/` — JavaScript tests (BaseLayout, convert skill, scaffold .gitignore, Wix extraction + color utils)
+- `test/fixtures/` — Sample HTML for Wix extraction tests
+
+**Config:** `vitest.config.ts` includes both directories, aliases `./config.js` and `./platform.js` to template sources for import resolution.
+
+## Version management
+
+Versions must stay in sync across four files:
+- `package.json`
+- `.claude-plugin/plugin.json`
+- `marketplace.json`
+- `template/package.json`
+
+Use `bin/release.ts` to bump all at once. It creates a git tag (`v*`) which triggers the CI release workflow.
+
+## CI/CD
+
+**`.github/workflows/release.yml`** — Triggered on `v*` tags:
+1. Verifies version consistency across all manifests
+2. Runs `scripts/pack-plugin.sh` to build plugin ZIP
+3. Creates GitHub Release with ZIP artifact
+
+## Testing changes manually
 
 ```sh
 # Via scaffold script (plugin development)
@@ -101,3 +181,11 @@ cd /tmp/test-site
 npm install
 npm run dev
 ```
+
+## Security hooks
+
+The `hooks/hooks.json` defines a PreToolUse hook that runs `scripts/pre-deploy-check.sh` before any Bash tool use. It enforces four mandatory scans before deploying to `main`:
+1. **PII scan** — emails, phone numbers (configurable allowlist via `PII_EMAIL_ALLOW` in `.site-config`)
+2. **Token scan** — exposed API keys and secrets
+3. **Third-party script scan** — blocks unauthorized external JS
+4. **Keystatic admin route scan** — ensures CMS admin is not publicly exposed
