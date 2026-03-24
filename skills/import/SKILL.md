@@ -268,9 +268,12 @@ and tag names using the ID maps built in Step 1b.
 **Squarespace (WXR export):** The content is already in the XML from Step 1b.
 Use `<content:encoded>` (full HTML).
 
-**Squarespace (RSS fallback):** For posts in the RSS feed, use the `<description>`
-or `<content:encoded>` field. For posts NOT in the RSS feed (older than the 20
-most recent), use WebFetch on the post URL with the extraction prompt below.
+**Squarespace (RSS fallback):** The RSS feed URL is `COLLECTION_URL?format=rss`
+where COLLECTION_URL is the blog collection path discovered in Step 1b (not
+always `/blog` — may be `/news`, `/journal`, or any custom path). For posts in
+the RSS feed, use the `<description>` or `<content:encoded>` field. For posts
+NOT in the RSS feed (older than the most recent 10–20), use WebFetch on the
+post URL with the extraction prompt below.
 
 **Wix:** Use Playwright to extract content and design tokens. WebFetch does
 not work on Wix pages.
@@ -361,7 +364,7 @@ Tell the owner (once, not per-post):
 
 The image URL source depends on the platform:
 - WordPress: `source_url` from the media API response
-- Squarespace: image URLs in the content, typically from `images.squarespace-cdn.com`
+- Squarespace: image URLs in the content, typically from `images.squarespace-cdn.com`. Strip `?format=NNNw` if NNN < 1200 (gallery thumbnails are tiny); replace with `?format=2500w` or remove the param
 - Wix: `<enclosure>` URL from the RSS feed, typically from `static.wixstatic.com`
 
 For Wix images, strip transform parameters: remove everything from `/v1/` onward
@@ -646,14 +649,24 @@ Common patterns:
 Generate a redirect for each post using the actual old URL path.
 
 **Squarespace:**
+
+Squarespace blog URLs depend on the collection name and permalink format. The
+collection may not be `/blog` — it could be `/news`, `/journal`, etc. Some sites
+use date-based URLs like `/news/YYYY/M/slug`. Use the actual URLs from the RSS
+feed or WXR export.
+
 ```
+# Same path (collection is already /blog)
 /blog/slug /blog/slug 200
+
+# Different collection name
+/news/slug /blog/slug 301
+
+# Date-based URLs
+/news/2026/3/slug /blog/slug 301
 ```
 
-If old and new paths match, use `200` (passthrough). If they differ:
-```
-/old-path /blog/slug 301
-```
+If old and new paths match, use `200` (passthrough). If they differ, use `301`.
 
 **Wix:**
 ```
