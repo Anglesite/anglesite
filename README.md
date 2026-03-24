@@ -1,6 +1,6 @@
 # Anglesite
 
-An AI webmaster for small business websites — a [Claude Code plugin](https://docs.anthropic.com/en/docs/claude-code) that scaffolds, designs, and deploys Astro sites on Cloudflare Pages.
+An AI webmaster for independent websites — a [Claude Code plugin](https://docs.anthropic.com/en/docs/claude-code) that scaffolds, designs, and deploys Astro sites on Cloudflare Pages.
 
 ## Install
 
