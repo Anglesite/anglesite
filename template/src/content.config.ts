@@ -34,5 +34,117 @@ const posts = defineCollection({
   }),
 });
 
+/** Services or menu items stored in `src/content/services/`. */
+const services = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Service name (also used as the URL slug source in Keystatic). */
+    name: z.string(),
+    /** Short description for listings and search engines. */
+    description: z.string(),
+    /** Price or price range (free-text, e.g. "$50", "$25–$75", "Free"). */
+    price: z.string().optional(),
+    /** Path relative to `public/` (e.g. `/images/services/photo.webp`). */
+    image: z.string().optional(),
+    /** Alt text for the service image. */
+    imageAlt: z.string().optional(),
+    /** Display order (lower numbers appear first). */
+    order: z.number().default(0),
+  }),
+});
+
+/** Team or staff members stored in `src/content/team/`. */
+const team = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Person's name. */
+    name: z.string(),
+    /** Job title or role. */
+    role: z.string().optional(),
+    /** Short biography for listings. */
+    bio: z.string().optional(),
+    /** Path relative to `public/` (e.g. `/images/team/photo.webp`). */
+    photo: z.string().optional(),
+    /** Alt text for the team photo. */
+    photoAlt: z.string().optional(),
+    /** Display order (lower numbers appear first). */
+    order: z.number().default(0),
+  }),
+});
+
+/** Customer testimonials stored in `src/content/testimonials/`. */
+const testimonials = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Name of the person giving the testimonial. */
+    author: z.string(),
+    /** The testimonial quote (short version for listings). */
+    quote: z.string(),
+    /** Author's business name or role for attribution. */
+    attribution: z.string().optional(),
+    /** Date the testimonial was given. */
+    date: z.string().transform((str) => new Date(str)).optional(),
+    /** Star rating (1–5). */
+    rating: z.number().min(1).max(5).optional(),
+  }),
+});
+
+/** Gallery images stored in `src/content/gallery/`. */
+const gallery = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Path relative to `public/` (e.g. `/images/gallery/photo.webp`). */
+    image: z.string(),
+    /** Alt text describing the image (required for accessibility). */
+    alt: z.string(),
+    /** Optional caption shown below the image. */
+    caption: z.string().optional(),
+    /** Category for filtering (e.g. "Interior", "Food", "Events"). */
+    category: z.string().optional(),
+    /** Display order (lower numbers appear first). */
+    order: z.number().default(0),
+  }),
+});
+
+/** Events stored in `src/content/events/`. */
+const events = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Event title. */
+    title: z.string(),
+    /** Event date as ISO string. */
+    date: z.string().transform((str) => new Date(str)),
+    /** Start time (e.g. "7:00 PM"). */
+    time: z.string().optional(),
+    /** End time (e.g. "9:00 PM"). */
+    endTime: z.string().optional(),
+    /** Location name or address. */
+    location: z.string().optional(),
+    /** Short description for listings and search engines. */
+    description: z.string(),
+    /** Whether the event repeats (e.g. "weekly", "monthly"). */
+    recurring: z.string().optional(),
+    /** Path relative to `public/` (e.g. `/images/events/photo.webp`). */
+    image: z.string().optional(),
+    /** Alt text for the event image. */
+    imageAlt: z.string().optional(),
+  }),
+});
+
+/** FAQ entries stored in `src/content/faq/`. */
+const faq = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** The question. */
+    question: z.string(),
+    /** The answer (short version for listings; full answer in the content body). */
+    answer: z.string(),
+    /** Category for grouping related questions. */
+    category: z.string().optional(),
+    /** Display order (lower numbers appear first). */
+    order: z.number().default(0),
+  }),
+});
+
 /** All content collections exported for Astro's build pipeline. */
-export const collections = { posts };
+export const collections = { posts, services, team, testimonials, gallery, events, faq };
