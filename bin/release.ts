@@ -1,5 +1,7 @@
 /**
- * Bump version across all manifests, commit, tag, and cut a GitHub release.
+ * Bump version across all manifests, commit, tag, and push.
+ * The tag push triggers .github/workflows/release.yml, which builds
+ * the plugin zip and creates the GitHub release.
  *
  * Usage:
  *   npx tsx bin/release.ts 0.16.0
@@ -99,11 +101,7 @@ run(`git commit -m "chore: release ${tag}"`);
 run(`git tag ${tag}`);
 console.log(`\nCommitted and tagged ${tag}`);
 
-// Push commit + tag
+// Push commit + tag — CI creates the release
 run("git push");
 run("git push --tags");
-console.log("Pushed to origin");
-
-// Cut GitHub release with auto-generated notes
-run(`gh release create ${tag} --generate-notes --title "${tag}"`);
-console.log(`\nRelease created: ${run(`gh release view ${tag} --json url -q .url`)}`);
+console.log("Pushed to origin — CI will create the release");
