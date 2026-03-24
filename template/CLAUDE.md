@@ -26,6 +26,7 @@ To write and edit blog posts, they navigate to `https://DEV_HOSTNAME/keystatic` 
 | Topic | File |
 |---|---|
 | GitHub backup and bugs | `docs/github.md` |
+| Bug filing workflow | `docs/bug-filing.md` |
 
 ## Shell commands
 

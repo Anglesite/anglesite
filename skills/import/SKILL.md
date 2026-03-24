@@ -340,19 +340,9 @@ and continue. Do not stop the import for individual failures.
 
 ### 2b — Convert HTML to Markdown
 
-For WordPress and Squarespace content that arrives as rendered HTML, convert it
-to clean Markdown:
-- `<h2>` → `##`, `<h3>` → `###`, etc.
-- `<p>` → paragraph with blank line separation
-- `<a href="...">text</a>` → `[text](url)`
-- `<img src="..." alt="...">` → `![alt](src)` (download image in step 2c)
-- `<ul>/<li>` → `- item`
-- `<ol>/<li>` → `1. item`
-- `<blockquote>` → `> text`
-- `<strong>` → `**text**`, `<em>` → `*text*`
-- Strip all other HTML tags (`<div>`, `<span>`, `<figure>`, `<section>`, etc.)
-- Strip inline styles, class attributes, and data attributes
-- Strip empty paragraphs and excessive whitespace
+For WordPress and Squarespace content that arrives as rendered HTML, follow the
+HTML-to-Markdown conversion rules in
+`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`.
 
 ### 2c — Download and optimize images
 
@@ -360,96 +350,30 @@ Tell the owner (once, not per-post):
 > "I'm downloading images from your website and converting them to a
 > web-friendly format."
 
-**Hero/featured images:**
+Follow the image optimization procedures in
+`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`, using `curl -L -s`
+to download instead of `cp`.
 
-The image URL source depends on the platform:
-- WordPress: `source_url` from the media API response
-- Squarespace: image URLs in the content, typically from `images.squarespace-cdn.com`. Strip `?format=NNNw` if NNN < 1200 (gallery thumbnails are tiny); replace with `?format=2500w` or remove the param
-- Wix: `<enclosure>` URL from the RSS feed, typically from `static.wixstatic.com`
-
-For Wix images, strip transform parameters: remove everything from `/v1/` onward
-or any query string, then append `?w=1200`. For WordPress and Squarespace, use
-the URL as-is.
-
-```sh
-curl -L -s -o "public/images/blog/SLUG-hero.jpg" "IMAGE_URL"
-```
-
-Check file size:
-
-```sh
-wc -c < public/images/blog/SLUG-hero.jpg
-```
-
-If over 500,000 bytes, convert and resize using `sharp-cli` (cross-platform):
-
-```sh
-npx sharp-cli -i public/images/blog/SLUG-hero.jpg -o public/images/blog/SLUG-hero.webp --width 1200
-```
-
-Verify the conversion:
-
-```sh
-ls public/images/blog/SLUG-hero.webp
-```
-
-If `.webp` exists, set frontmatter `image` to `/images/blog/SLUG-hero.webp`.
-If conversion failed or the original was under 500KB, keep the original file.
+**Platform-specific image URL handling:**
+- WordPress: `source_url` from the media API response — use as-is
+- Squarespace: `images.squarespace-cdn.com` URLs — strip `?format=NNNw` if NNN < 1200; replace with `?format=2500w` or remove the param
+- Wix: `static.wixstatic.com` URLs — strip transform parameters from `/v1/` onward, append `?w=1200`
 
 If the download fails, add to FAILED_IMAGES and omit `image` from frontmatter.
 
-**Inline images:** For images embedded in the post body, download using the same
-approach with a `SLUG-body-N.webp` naming pattern and replace the inline image
+**Inline images:** Download with `SLUG-body-N.webp` naming and replace inline
 URLs with local paths.
 
 ### 2d — Assemble frontmatter and write the .mdoc file
 
-Assemble frontmatter fields:
-- `title`: from API/export/WebFetch
-- `description`: from excerpt or WebFetch summary
-- `publishDate`: in YYYY-MM-DD format
-- `image`: local path after download, or omit
-- `imageAlt`: derive from post title (e.g., "Hero image for [title]")
-- `tags`: from categories/tags data, or `[]`
-- `draft`: `false`
+Follow the `.mdoc` writing procedure in
+`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`. Use `-imported`
+suffix for slug conflicts. Additionally, set:
 - `syndication`: `["ORIGINAL_POST_URL"]` — the URL on the old platform, preserving provenance per ADR-0006
-
-Sanitize the slug before using as filename: lowercase, replace spaces with
-hyphens, remove characters other than `[a-z0-9-]`, trim leading/trailing
-hyphens. If the slug conflicts with an existing file, append `-imported`.
-
-Write to `src/content/posts/SLUG.mdoc`:
-
-```
----
-title: "The Post Title"
-description: "A one or two sentence summary of the post."
-publishDate: "2024-03-15"
-image: "/images/blog/my-post-hero.webp"
-imageAlt: "Hero image for The Post Title"
-tags: []
-draft: false
-syndication: ["https://www.oldsite.com/blog/the-post-slug"]
----
-
-The full post body content in clean Markdown goes here.
-
-## Subheadings use ## syntax
-
-- Lists work as expected
-
-Links look like [this](https://example.com).
-```
-
-Rules for the body content:
-- No HTML tags — convert everything to Markdown equivalents
-- No MDX component syntax — plain Markdown is sufficient for imported content
-- No platform-specific shortcodes or embeds
 
 ### 2e — Progress updates
 
-After every 5 posts, tell the owner:
-> "Imported 10 of 23 posts so far — about halfway done."
+After every 5 posts, tell the owner progress (see shared procedures).
 
 ## Step 2.5 — Newsletter subscriber migration
 
@@ -727,22 +651,10 @@ step. The owner can set up colors and fonts later via `/anglesite:design-intervi
 
 ## Step 6 — Build and verify
 
-Tell the owner:
-> "I'm checking that everything imported correctly."
+Follow the build-and-verify procedure in
+`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`.
 
-```sh
-npm run build
-```
-
-If the build fails, diagnose and fix. Common causes:
-- Frontmatter doesn't match schema: check `src/content.config.ts` for expected fields
-- Invalid `publishDate` format: must be YYYY-MM-DD string
-- Missing required `description`: add a placeholder and note for review
-- Image path typo: verify file exists in `public/images/`
-
-Fix all build errors before presenting results (ADR-0012).
-
-After a clean build, check for remaining external image dependencies:
+After a clean build, also check for remaining external image dependencies:
 
 ```sh
 grep -rE "wixstatic\.com|squarespace-cdn\.com|wp-content/uploads" dist/ --include="*.html"
@@ -837,6 +749,9 @@ imported and the date. Example:
 
 ## Edge cases
 
+See `${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md` for shared edge
+cases (large images, multilingual content, slug conflicts).
+
 ### No blog on the site
 
 If BLOG_POSTS is empty after discovery:
@@ -845,32 +760,11 @@ If BLOG_POSTS is empty after discovery:
 
 Continue with Steps 3–5 for pages, galleries, and redirects only.
 
-### Images still too large after conversion
-
-If the converted image is still over 500KB, do not block the import. After the import,
-advise the owner:
-> "Some images are still large after optimization. You can resize them in
-> Preview or replace them with smaller versions."
-
-### Multilingual content
-
-If the sitemap or API contains content in multiple languages:
-> "Your site has content in multiple languages. I'll import the primary language
-> for now. Setting up multiple languages requires additional planning."
-
-Import only primary-language content.
-
 ### Platform app pages
 
 Booking, store, event, forum, and member pages cannot be meaningfully imported —
 the content depends on the platform's runtime infrastructure. Redirect to home
 (302) and present replacement options in Step 7.
-
-### Slug conflicts
-
-Before writing each `.mdoc` file, sanitize the slug (lowercase, hyphens only,
-`[a-z0-9-]`). If it conflicts with an existing file, append `-imported` and log
-the conflict.
 
 ### WordPress REST API is disabled
 
