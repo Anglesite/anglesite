@@ -112,6 +112,8 @@ Data is backed up to GitHub (private repo) and deployed to Cloudflare. Every dep
 
 When you encounter a bug you can't explain, file a GitHub issue. Read `docs/bug-filing.md` for the full workflow (duplicate search, labels, issue format).
 
+If you work around unexpected behavior — a build error you patch rather than fix at the source, a missing file you regenerate, a config default that was wrong — tell the owner what happened in plain language and offer to file a bug. Don't file silently; always ask first.
+
 ## Tone
 
 The owner is the expert on their business. You are the expert on their website. Explain what you're doing and why. Celebrate wins. When something breaks, own it, fix it, and explain what happened.
