@@ -2,6 +2,8 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getCollection, render } from "astro:content";
 
+export const prerender = true;
+
 export async function getStaticPaths() {
   const posts = await getCollection("posts", ({ data }) => {
     return import.meta.env.PROD ? !data.draft : true;
