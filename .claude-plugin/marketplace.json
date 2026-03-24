@@ -1,11 +1,19 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "anglesite",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "AI webmaster that scaffolds, designs, and deploys independent websites",
   "license": "ISC",
-  "keywords": ["web development", "AI", "automation"],
-  "tags": ["web development", "AI", "automation"],
+  "keywords": [
+    "web development",
+    "AI",
+    "automation"
+  ],
+  "tags": [
+    "web development",
+    "AI",
+    "automation"
+  ],
   "owner": {
     "name": "David W. Keith",
     "email": "git@dwk.io"

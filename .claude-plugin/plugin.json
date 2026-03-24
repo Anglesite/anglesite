@@ -1,6 +1,6 @@
 {
   "name": "anglesite",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "AI webmaster that scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Pages.",
   "author": {
     "name": "David W. Keith"
@@ -8,5 +8,11 @@
   "license": "ISC",
   "homepage": "https://anglesite.dwk.io",
   "repository": "https://github.com/Anglesite/anglesite",
-  "keywords": ["website", "small-business", "astro", "cloudflare", "webmaster"]
+  "keywords": [
+    "website",
+    "small-business",
+    "astro",
+    "cloudflare",
+    "webmaster"
+  ]
 }
