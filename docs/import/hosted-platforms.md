@@ -138,7 +138,7 @@ Different platforms use different CDN URL schemes. Strip platform-specific trans
 | --- | --- | --- |
 | Wix | `static.wixstatic.com` | Strip `/v1/fill/...` parameters, append `?w=1200` |
 | Medium | `miro.medium.com` | Strip `/resize:fit:NNNN/` from path |
-| Squarespace | `images.squarespace-cdn.com` | Use as-is (no transforms in URL) |
+| Squarespace | `images.squarespace-cdn.com` | Strip `?format=NNNw` if NNN < 1200 (gallery thumbnails); replace with `?format=2500w` or remove param |
 | WordPress | `site.com/wp-content/uploads/` | Use as-is |
 | Substack | `substackcdn.com` | Use as-is (width params OK at default) |
 | Shopify | `cdn.shopify.com` | Use as-is |

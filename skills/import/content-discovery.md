@@ -58,17 +58,29 @@ from items where it is "page".
 
 **If they decline or can't export:** Fall back to RSS + sitemap + WebFetch.
 
-```sh
-curl -s "SITE_URL/blog?format=rss"
-```
+First, discover the blog collection URL. Squarespace blogs are not always at
+`/blog` — they can be `/news`, `/journal`, `/posts`, or any custom path.
 
 ```sh
 curl -s SITE_URL/sitemap.xml
 ```
 
-The RSS feed contains the 20 most recent blog posts with full content. The
-sitemap lists all pages. Posts not in the RSS feed will be fetched via WebFetch
-in Step 2.
+Look for blog post URLs in the sitemap to identify the collection path prefix
+(e.g., `/news/2026/3/slug` means the collection is at `/news`). Also check the
+homepage navigation links for the blog link.
+
+Then fetch the RSS feed using the discovered collection URL:
+
+```sh
+curl -s "SITE_URL/COLLECTION_PATH?format=rss"
+```
+
+If the collection path is unknown, try common names: `/blog?format=rss`,
+`/news?format=rss`, `/journal?format=rss`. A 404 means that path isn't the blog.
+
+The RSS feed contains up to 20 recent blog posts with full content (some sites
+return as few as 10). The sitemap lists all pages. Posts not in the RSS feed
+will be fetched via WebFetch in Step 2.
 
 ## Wix
 
