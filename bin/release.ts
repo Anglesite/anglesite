@@ -20,7 +20,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_FILES = [
   "package.json",
   ".claude-plugin/plugin.json",
-  ".claude-plugin/marketplace.json",
+  "marketplace.json",
   "template/package.json",
 ];
 
