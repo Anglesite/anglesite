@@ -149,7 +149,7 @@ After the check, tell the owner: "This is the same kind of checkup a good web de
 
 After the audit, if any must-fix issues were found that couldn't be resolved in the current session, file a GitHub issue for each one. Read `GITHUB_REPO` from `.site-config`. If not set, skip this step.
 
-Follow the bug filing workflow in `AGENTS.md`. Use the appropriate label:
+Follow the bug filing workflow in `docs/bug-filing.md`. Use the appropriate label:
 - Accessibility violations → `accessibility`
 - Security findings → `security`
 - Build failures → `build`

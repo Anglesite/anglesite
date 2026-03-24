@@ -127,6 +127,87 @@ export function validateNoDuplication(agentsContent: string, claudeContent: stri
 }
 
 // ---------------------------------------------------------------------------
+// Runtime doc-read analysis — scans skill files for doc references
+// ---------------------------------------------------------------------------
+
+interface SkillDocReads {
+  skill: string;
+  skillBytes: number;
+  referencedDocs: FileInfo[];
+  totalBytes: number;
+  totalTokens: number;
+}
+
+/**
+ * Scan a skill file for `${CLAUDE_PLUGIN_ROOT}/...` references and
+ * measure the total bytes that skill will load at runtime.
+ */
+function analyzeSkillReads(skillName: string): SkillDocReads {
+  const skillPath = join(ROOT, `skills/${skillName}/SKILL.md`);
+  const skillBytes = statSync(skillPath).size;
+  const content = readFileSync(skillPath, "utf-8");
+
+  // Match ${CLAUDE_PLUGIN_ROOT}/path/to/file.md references
+  const refPattern = /\$\{CLAUDE_PLUGIN_ROOT\}\/([\w/.-]+\.md)/g;
+  const seen = new Set<string>();
+  const docs: FileInfo[] = [];
+  let match;
+
+  while ((match = refPattern.exec(content)) !== null) {
+    const relPath = match[1];
+    if (seen.has(relPath)) continue;
+    seen.add(relPath);
+
+    const fullPath = join(ROOT, relPath);
+    if (existsSync(fullPath)) {
+      const bytes = statSync(fullPath).size;
+      docs.push({ path: relPath, label: relPath, bytes, tokens: tokens(bytes) });
+    }
+  }
+
+  // Also check for sub-file references within the skill directory
+  const skillDir = join(ROOT, `skills/${skillName}`);
+  const subFiles = readdirSync(skillDir).filter(
+    f => f.endsWith(".md") && f !== "SKILL.md"
+  );
+  for (const sub of subFiles) {
+    const subPath = `skills/${skillName}/${sub}`;
+    if (seen.has(subPath)) continue;
+    seen.add(subPath);
+
+    // Check if the sub-file is referenced from SKILL.md
+    if (content.includes(sub)) {
+      const bytes = statSync(join(ROOT, subPath)).size;
+      docs.push({ path: subPath, label: sub, bytes, tokens: tokens(bytes) });
+    }
+  }
+
+  // Check for shared skill references
+  const sharedPattern = /\$\{CLAUDE_PLUGIN_ROOT\}\/(skills\/shared\/[\w/.-]+\.md)/g;
+  while ((match = sharedPattern.exec(content)) !== null) {
+    const relPath = match[1];
+    if (seen.has(relPath)) continue;
+    seen.add(relPath);
+
+    const fullPath = join(ROOT, relPath);
+    if (existsSync(fullPath)) {
+      const bytes = statSync(fullPath).size;
+      docs.push({ path: relPath, label: relPath, bytes, tokens: tokens(bytes) });
+    }
+  }
+
+  const totalBytes = skillBytes + docs.reduce((s, d) => s + d.bytes, 0);
+
+  return {
+    skill: skillName,
+    skillBytes,
+    referencedDocs: docs,
+    totalBytes,
+    totalTokens: tokens(totalBytes),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -183,6 +264,19 @@ function main() {
   const totalSkillTokens = skills.reduce((s, f) => s + f.tokens, 0);
   console.log(`  ${"─".repeat(24)} ${"─".repeat(8)}  ${"─".repeat(6)}`);
   console.log(`  ${"Total".padEnd(24)} ${fmtKB(totalSkillBytes).padStart(8)}  ${fmt(totalSkillTokens).padStart(6)} tokens`);
+
+  // --- Runtime doc-read analysis ---
+  console.log("\nRuntime doc reads (SKILL.md + referenced docs):");
+  const skillReads: SkillDocReads[] = [];
+  for (const name of skillDirs) {
+    const reads = analyzeSkillReads(name);
+    skillReads.push(reads);
+    const docCount = reads.referencedDocs.length;
+    const docsLabel = docCount === 0 ? "no refs" : `${docCount} docs`;
+    console.log(
+      `  ${name.padEnd(24)} ${fmtKB(reads.totalBytes).padStart(8)}  ${fmt(reads.totalTokens).padStart(6)} tokens  (${docsLabel})`
+    );
+  }
 
   // --- Template docs ---
   const docsDir = join(ROOT, "template/docs");

@@ -227,90 +227,22 @@ mkdir -p public/images/blog
 
 For each post in BLOG_POSTS:
 
-### 2a — Convert content
+Read `${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md` for the full
+content conversion, image optimization, and `.mdoc` writing procedures.
+
+For each post in BLOG_POSTS:
 
 1. Parse the frontmatter using the field mapping from the platform doc
-2. Convert the body content to clean Markdown:
-   - Strip platform-specific template syntax (shortcodes, Liquid tags, Vue
-     components, Nunjucks tags, admonitions) as documented in the platform doc's
-     "Content conversion" section and `${CLAUDE_PLUGIN_ROOT}/docs/import/ssg-migrations.md`
-   - Convert admonitions (`:::`, `!!!`, custom containers) to blockquotes
-   - Strip MDX/JSX imports and component tags
-   - Remove template expressions (`{{ }}`, `{% %}`, `{{< >}}`)
-   - Keep standard Markdown (headings, lists, links, images, code blocks)
-3. Map frontmatter fields per the platform doc's mapping table
-4. If `description` is missing, generate from the first paragraph
-5. If `publishDate` is missing, use the file's git commit date or modification
-   date as fallback
-
-### 2b — Copy and optimize images
-
-Tell the owner (once, not per-post):
-> "I'm copying images from your project and optimizing them for the web."
-
-The platform doc's "Image handling" section specifies where images are stored
-(e.g., `static/img/` for Docusaurus, `source/images/` for Hexo, `content/` for
-Hugo page bundles).
-
-```sh
-cp SOURCE_IMAGE "public/images/blog/SLUG-hero.ext"
-```
-
-Check file size:
-
-```sh
-wc -c < public/images/blog/SLUG-hero.ext
-```
-
-If over 500,000 bytes, convert and resize using `sharp-cli` (cross-platform):
-
-```sh
-npx sharp-cli -i public/images/blog/SLUG-hero.ext -o public/images/blog/SLUG-hero.webp --width 1200
-```
-
-Update image references in the converted Markdown to use local paths.
-
-### 2c — Write the .mdoc file
-
-Assemble frontmatter fields:
-- `title`: from source frontmatter
-- `description`: from excerpt or generated from first paragraph
-- `publishDate`: in YYYY-MM-DD format
-- `image`: local path after copy, or omit
-- `imageAlt`: derive from post title (e.g., "Hero image for [title]")
-- `tags`: from categories/tags data, or `[]`
-- `draft`: `false`
-- `syndication`: `["ORIGINAL_URL"]` if the old site had a known public URL
-
-Sanitize the slug: lowercase, replace spaces with hyphens, remove characters
-other than `[a-z0-9-]`, trim leading/trailing hyphens. If the slug conflicts
-with an existing file, append `-converted`.
-
-Write to `src/content/posts/SLUG.mdoc`:
-
-```
----
-title: "The Post Title"
-description: "A one or two sentence summary of the post."
-publishDate: "2024-03-15"
-image: "/images/blog/my-post-hero.webp"
-imageAlt: "Hero image for The Post Title"
-tags: []
-draft: false
----
-
-The full post body content in clean Markdown goes here.
-```
-
-Rules for the body content:
-- No HTML tags — convert everything to Markdown equivalents
-- No MDX component syntax — plain Markdown only
-- No platform-specific shortcodes or embeds
-
-### 2d — Progress updates
-
-After every 5 posts, tell the owner:
-> "Converted 10 of 23 posts so far — about halfway done."
+2. Convert body content following the shared conversion procedures — also apply
+   the platform doc's "Content conversion" section and
+   `${CLAUDE_PLUGIN_ROOT}/docs/import/ssg-migrations.md` for platform-specific
+   template syntax stripping
+3. Copy and optimize images per the shared procedures. The platform doc's
+   "Image handling" section specifies where images are stored (e.g.,
+   `static/img/` for Docusaurus, `source/images/` for Hexo, `content/` for
+   Hugo page bundles)
+4. Write the `.mdoc` file per the shared procedures. Use `-converted` suffix
+   for slug conflicts
 
 ## Step 3 — Handle static pages
 
@@ -415,20 +347,9 @@ owner will customize the homepage during the design phase.
 
 ## Step 5 — Build and verify
 
-Tell the owner:
-> "I'm checking that everything converted correctly."
-
-```sh
-npm run build
-```
-
-If the build fails, diagnose and fix. Common causes:
-- Frontmatter doesn't match schema: check `src/content.config.ts` for expected fields
-- Invalid `publishDate` format: must be YYYY-MM-DD string
-- Missing required `description`: add a placeholder and note for review
-- Image path typo: verify file exists in `public/images/`
-
-Fix all build errors before presenting results (ADR-0012).
+Follow the build-and-verify procedure in
+`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`. Fix all build
+errors before presenting results (ADR-0012).
 
 ## Step 6 — Present the results
 
@@ -481,6 +402,9 @@ converted and the date. Example:
 
 ## Edge cases
 
+See `${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md` for shared edge
+cases (large images, multilingual content, slug conflicts, mixed formats).
+
 ### No blog posts in the project
 
 If BLOG_POSTS is empty after discovery:
@@ -488,32 +412,6 @@ If BLOG_POSTS is empty after discovery:
 > pages and set up redirects."
 
 Continue with Steps 3-4 for pages and redirects only.
-
-### Images still too large after conversion
-
-If the converted image is still over 500KB, do not block the conversion. Advise:
-> "Some images are still large after optimization. You can resize them or
-> replace them with smaller versions."
-
-### Multilingual content
-
-If the project has content in multiple languages:
-> "Your project has content in multiple languages. I'll convert the primary
-> language for now. Setting up multiple languages requires additional planning."
-
-Convert only primary-language content.
-
-### Slug conflicts
-
-Before writing each `.mdoc` file, sanitize the slug (lowercase, hyphens only,
-`[a-z0-9-]`). If it conflicts with an existing file, append `-converted` and
-log the conflict.
-
-### Mixed content formats
-
-Some SSG projects use multiple content formats (`.md`, `.mdx`, `.rst`, `.html`).
-Convert `.md` and `.mdx` files. For `.rst` and `.html`, inform the owner they
-need manual review.
 
 ### Monorepos and nested projects
 
