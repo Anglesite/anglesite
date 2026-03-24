@@ -58,7 +58,7 @@ If you changed it, document it. Same session. No exceptions.
 | What changed | Update |
 |---|---|
 | Page added, navigation changed | `docs/architecture.md` |
-| Blog frontmatter or content schema | `docs/content-guide.md` and `src/content/config.ts` |
+| Blog frontmatter or content schema | `docs/content-guide.md` and `src/content.config.ts` |
 | Deploy, DNS, or hosting config | `docs/cloudflare.md` |
 | Colors, fonts, or branding | `docs/brand.md` |
 | Service URLs or site config | `.site-config` |

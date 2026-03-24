@@ -14,7 +14,7 @@
 
 ## Content collections
 
-Blog posts in `src/content/posts/`. Schema defined in both `src/content/config.ts` (Astro) and `keystatic.config.ts` (editor). Keep them in sync.
+Blog posts in `src/content/posts/`. Schema defined in both `src/content.config.ts` (Astro) and `keystatic.config.ts` (editor). Keep them in sync.
 
 ## Styling
 

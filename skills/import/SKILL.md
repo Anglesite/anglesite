@@ -55,14 +55,14 @@ what you're about to do and why. The owner is non-technical.
 
 ### 0a — Is this already an Anglesite project?
 
-Use Glob to check for `src/content/config.ts`.
+Use Glob to check for `src/content.config.ts`.
 
 If it exists, this project has already been scaffolded. Read `.site-config` to
 load `SITE_NAME` and `OWNER_NAME`. Skip to **0c**.
 
 ### 0b — Scaffold if needed
 
-If `src/content/config.ts` does not exist, check the working directory:
+If `src/content.config.ts` does not exist, check the working directory:
 
 **If it contains an SSG project** (Hugo, Jekyll, Eleventy, etc. config files),
 tell the owner:
@@ -722,7 +722,7 @@ npm run build
 ```
 
 If the build fails, diagnose and fix. Common causes:
-- Frontmatter doesn't match schema: check `src/content/config.ts` for expected fields
+- Frontmatter doesn't match schema: check `src/content.config.ts` for expected fields
 - Invalid `publishDate` format: must be YYYY-MM-DD string
 - Missing required `description`: add a placeholder and note for review
 - Image path typo: verify file exists in `public/images/`
