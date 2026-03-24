@@ -22,7 +22,7 @@
     {
       "name": "anglesite",
       "description": "Scaffolds, designs, and deploys independent websites",
-      "source": "./",
+      "source": "./.claude-plugin",
       "category": "development"
     }
   ]
