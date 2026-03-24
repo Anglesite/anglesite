@@ -10,7 +10,10 @@
     {
       "name": "anglesite",
       "description": "Scaffolds, designs, and deploys independent websites",
-      "source": "./",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/anglesite/anglesite.git"
+      },
       "category": "development",
       "keywords": ["web development", "AI", "automation"],
       "tags": ["web development", "AI", "automation"]
