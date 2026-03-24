@@ -210,6 +210,10 @@ This value determines:
 - The `href` prefix in homepage and listing templates
 - Whether redirects are needed for blog post URLs
 
+If `POST_URL_PREFIX` is empty and you move `[slug].astro` out of `src/pages/blog/`,
+ensure the new file still includes `export const prerender = true;` in its frontmatter.
+This is required for `getStaticPaths()` to work in dev mode (hybrid output).
+
 ## Step 2 — Convert blog posts
 
 Tell the owner:
