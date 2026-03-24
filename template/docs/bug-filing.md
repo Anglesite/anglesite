@@ -4,19 +4,46 @@ When you encounter a bug — a build failure you can't explain, a dependency iss
 
 Read `GITHUB_REPO` from `.site-config`. If not set, skip bug filing (GitHub backup wasn't configured).
 
-## Before filing
+## Duplicate detection
 
-Search for duplicates:
+Before creating a new issue, search thoroughly. Duplicates fragment context and make bugs harder to track.
 
-```sh
-gh issue list --repo GITHUB_REPO --search "SEARCH_KEYWORDS" --state open --limit 10
-```
+### Search strategy
 
-Use 2–4 keywords from the error message or problem description. If a matching issue exists, add a comment with the new occurrence instead of creating a duplicate:
+Run at least two searches with different keyword angles:
 
 ```sh
-gh issue comment ISSUE_NUMBER --repo GITHUB_REPO --body "Encountered again on YYYY-MM-DD: BRIEF_DESCRIPTION"
+gh issue list --repo GITHUB_REPO --search "ERROR_MESSAGE_KEYWORDS" --state open --limit 10
+gh issue list --repo GITHUB_REPO --search "COMPONENT_OR_AREA_KEYWORDS" --state open --limit 10
 ```
+
+1. **Error text** — 2–4 keywords from the error message itself (e.g., `"astro build EPERM"`)
+2. **Area or component** — The part of the system affected (e.g., `"keystatic image upload"`, `"cloudflare deploy"`)
+
+If neither finds a match, also check closed issues — the same bug may have resurfaced:
+
+```sh
+gh issue list --repo GITHUB_REPO --search "KEYWORDS" --state closed --limit 5
+```
+
+If a closed issue matches, reopen it rather than filing a new one.
+
+### When a duplicate exists
+
+Add a comment that enriches the issue with whatever you learned this time. Include any of these that are new:
+
+```sh
+gh issue comment ISSUE_NUMBER --repo GITHUB_REPO --body "COMMENT_BODY"
+```
+
+The comment should include whichever of these apply:
+- **Date and frequency** — "Encountered again on YYYY-MM-DD" (helps establish a pattern)
+- **New reproduction context** — Different skill, page, or action that triggered the same bug
+- **Narrower root cause** — If you learned more about why it happens (e.g., "only occurs when the post has no hero image")
+- **Workaround found** — What you did to get past it, so the next session doesn't start from scratch
+- **Environment details** — OS, Node version, or package version if different from the original report
+
+Don't repeat information already in the issue. Read the existing body and comments first.
 
 ## Filing a new issue
 
