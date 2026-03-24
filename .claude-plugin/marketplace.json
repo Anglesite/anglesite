@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "anglesite",
-  "version": "0.16.0",
+  "version": "0.16.1",
   "description": "AI webmaster that scaffolds, designs, and deploys independent websites",
   "license": "ISC",
   "keywords": [

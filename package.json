@@ -1,6 +1,6 @@
 {
   "name": "anglesite",
-  "version": "0.16.0",
+  "version": "0.16.1",
   "type": "module",
   "description": "AI webmaster that scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Pages.",
   "bin": {
