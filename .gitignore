@@ -1,13 +1,13 @@
-.DS_Store
-dist/
-site/
-template/node_modules/
-template/dist/
-template/.astro/
-template/.wrangler/
-template/.certs/
-template/.env
-template/.env.*
-node_modules/*
+# OS
+**/.DS_Store
+
+# Dependencies
+node_modules/
 package-lock.json
+
+# Build output
+dist/
+
+# Claude Code local state
+.claude/settings.local.json
 .claude/worktrees/
