@@ -10,7 +10,7 @@
     {
       "name": "anglesite",
       "description": "Scaffolds, designs, and deploys independent websites",
-      "source": ".",
+      "source": "./",
       "category": "development",
       "keywords": ["web development", "AI", "automation"],
       "tags": ["web development", "AI", "automation"]
