@@ -57,6 +57,7 @@ Step-by-step guides for common operations:
 | Email newsletter | `docs/workflows/newsletter.md` |
 | Visual themes | See `scripts/themes.ts` for 8 pre-built palettes |
 | QR codes and campaign tracking | `docs/workflows/qr.md` |
+| Customer testimonials | `docs/workflows/testimonials.md` |
 
 ## Key files
 

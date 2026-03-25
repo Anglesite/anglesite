@@ -9,7 +9,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (20 total: 11 user-facing, 9 model-only)
+├── skills/                       Skills (21 total: 11 user-facing, 10 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -30,6 +30,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 │   ├── business-info/SKILL.md    Hours, location, LocalBusiness JSON-LD (model-only)
 │   ├── themes/SKILL.md           Visual theme picker with tldraw (model-only)
 │   ├── qr/SKILL.md              QR codes + UTM tracking (model-only)
+│   ├── testimonials/SKILL.md    Review collection + display (model-only)
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
@@ -127,6 +128,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `business-info` | Hours, address, phone, LocalBusiness JSON-LD |
 | `themes` | Pre-built visual theme picker with tldraw swatches |
 | `qr` | QR codes, shortlinks, UTM campaign URLs |
+| `testimonials` | Customer review collection, moderation, display |
 
 ## Editing guidelines
 

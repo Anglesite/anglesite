@@ -1,0 +1,48 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+const configPath = resolve(process.cwd(), ".site-config");
+const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
+const workerUrl = config.match(/^REVIEW_WORKER_URL=(.+)$/m)?.[1]?.trim() ?? "";
+const turnstileSiteKey = config.match(/^TURNSTILE_SITE_KEY=(.+)$/m)?.[1]?.trim() ?? "";
+const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "us";
+---
+
+<BaseLayout title="Leave a Review" description={`Share your experience with ${siteName}.`}>
+  <h1>Leave a Review</h1>
+  <p>We'd love to hear about your experience.</p>
+
+  <form method="POST" action={workerUrl} class="review-form">
+    <div class="form-field">
+      <label for="name">Your name</label>
+      <input type="text" id="name" name="name" required autocomplete="name" />
+    </div>
+
+    <div class="form-field">
+      <label for="rating">Rating</label>
+      <select id="rating" name="rating" required>
+        <option value="">Choose a rating</option>
+        <option value="5">★★★★★ Excellent</option>
+        <option value="4">★★★★☆ Great</option>
+        <option value="3">★★★☆☆ Good</option>
+        <option value="2">★★☆☆☆ Fair</option>
+        <option value="1">★☆☆☆☆ Poor</option>
+      </select>
+    </div>
+
+    <div class="form-field">
+      <label for="text">Your review</label>
+      <textarea id="text" name="text" rows="5" required></textarea>
+    </div>
+
+    <div class="cf-turnstile" data-sitekey={turnstileSiteKey}></div>
+
+    <button type="submit">Submit review</button>
+  </form>
+
+  {turnstileSiteKey && (
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  )}
+</BaseLayout>
