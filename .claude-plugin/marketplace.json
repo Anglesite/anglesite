@@ -11,8 +11,8 @@
       "name": "anglesite",
       "description": "Scaffolds, designs, and deploys independent websites",
       "source": {
-        "source": "url",
-        "url": "https://github.com/anglesite/anglesite.git"
+        "source": "github",
+        "repo": "Anglesite/anglesite"
       },
       "category": "development",
       "homepage": "https://github.com/Anglesite/anglesite"
