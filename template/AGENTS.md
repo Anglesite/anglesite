@@ -49,6 +49,7 @@ Step-by-step guides for common operations:
 | Convert an SSG project | `docs/workflows/convert.md` |
 | Set up a contact form | `docs/workflows/contact.md` |
 | Back up to GitHub | `docs/workflows/backup.md` |
+| Social media syndication | `docs/workflows/syndicate.md` |
 
 ## Key files
 
