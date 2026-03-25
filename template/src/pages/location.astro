@@ -1,0 +1,58 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+const configPath = resolve(process.cwd(), ".site-config");
+const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
+
+const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "Our Business";
+const address = config.match(/^SITE_ADDRESS=(.+)$/m)?.[1]?.trim() ?? "";
+const phone = config.match(/^SITE_PHONE=(.+)$/m)?.[1]?.trim() ?? "";
+const hours = config.match(/^SITE_HOURS=(.+)$/m)?.[1]?.trim() ?? "";
+const osmEmbedUrl = config.match(/^OSM_EMBED_URL=(.+)$/m)?.[1]?.trim() ?? "";
+---
+
+<BaseLayout title="Location & Hours" description={`Find ${siteName} — address, hours, and directions.`}>
+  <h1>Location & Hours</h1>
+
+  {address && (
+    <section>
+      <h2>Address</h2>
+      <p itemscope itemtype="https://schema.org/PostalAddress">
+        <span itemprop="streetAddress">{address}</span>
+      </p>
+    </section>
+  )}
+
+  {phone && (
+    <section>
+      <h2>Phone</h2>
+      <p><a href={`tel:${phone.replace(/[^\d+]/g, "")}`} itemprop="telephone">{phone}</a></p>
+    </section>
+  )}
+
+  {hours && (
+    <section>
+      <h2>Hours</h2>
+      <p class="hours">{hours}</p>
+    </section>
+  )}
+
+  {osmEmbedUrl && (
+    <section>
+      <h2>Map</h2>
+      <iframe
+        title={`Map showing ${siteName} location`}
+        width="100%"
+        height="400"
+        style="border: 0; border-radius: var(--radius-md);"
+        loading="lazy"
+        src={osmEmbedUrl}>
+      </iframe>
+      <p class="map-link">
+        <a href={osmEmbedUrl.replace("/export/embed.html", "/")}>View larger map</a>
+      </p>
+    </section>
+  )}
+</BaseLayout>

@@ -53,6 +53,7 @@ Step-by-step guides for common operations:
 | Site analytics | `docs/workflows/stats.md` |
 | Seasonal content ideas | `docs/workflows/seasonal.md` |
 | Image optimization | `docs/workflows/optimize-images.md` |
+| Business hours and location | `docs/workflows/business-info.md` |
 
 ## Key files
 
