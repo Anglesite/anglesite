@@ -50,6 +50,7 @@ Step-by-step guides for common operations:
 | Set up a contact form | `docs/workflows/contact.md` |
 | Back up to GitHub | `docs/workflows/backup.md` |
 | Social media syndication | `docs/workflows/syndicate.md` |
+| Site analytics | `docs/workflows/stats.md` |
 
 ## Key files
 
