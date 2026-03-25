@@ -12,6 +12,7 @@
     "ai-check": "tsx scripts/check-prereqs.ts",
     "ai-cleanup": "tsx scripts/cleanup.ts",
     "ai-images": "tsx scripts/generate-images.ts",
+    "ai-optimize": "tsx scripts/optimize-images.ts",
     "predeploy": "tsx scripts/pre-deploy-check.ts"
   },
   "dependencies": {
