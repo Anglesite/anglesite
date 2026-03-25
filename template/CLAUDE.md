@@ -20,6 +20,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Set up a contact form | `/anglesite:contact` |
 | Save work to GitHub | `/anglesite:backup` |
 | See site analytics | `/anglesite:stats` |
+| Set up email newsletter | `/anglesite:newsletter` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 

@@ -29,6 +29,8 @@ const posts = defineCollection({
     tags: z.array(z.string()).default([]),
     /** When true, the post is excluded from the production build and RSS feed. */
     draft: z.boolean().default(false),
+    /** When true, send this post to newsletter subscribers on deploy. */
+    sendNewsletter: z.boolean().default(false),
     /** URLs where this post was cross-posted (rendered as `u-syndication` links). */
     syndication: z.array(z.string().url()).default([]),
   }),
