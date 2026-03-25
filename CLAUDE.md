@@ -9,7 +9,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (11 total: 8 user-facing, 3 model-only)
+├── skills/                       Skills (12 total: 9 user-facing, 3 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -18,6 +18,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 │   ├── import/SKILL.md           Import from website URL
 │   ├── convert/SKILL.md          Convert existing SSG project to Anglesite
 │   ├── contact/SKILL.md          Contact form (Workers + Turnstile)
+│   ├── backup/SKILL.md           Back up changes to GitHub
 │   ├── design-interview/SKILL.md Visual identity (model-only)
 │   ├── animate/SKILL.md          CSS animations (model-only)
 │   ├── new-page/SKILL.md         Page creation (model-only)
@@ -101,6 +102,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `import` | Import content from external website URL |
 | `convert` | Convert existing SSG project (Hugo, Jekyll, Next.js, etc.) to Anglesite |
 | `contact` | Contact form via Cloudflare Workers + Turnstile |
+| `backup` | Back up site changes to GitHub with descriptive summary |
 
 **Model-only** (called programmatically by other skills, `user-invokable: false`):
 

@@ -48,6 +48,7 @@ Step-by-step guides for common operations:
 | Import from a website URL | `docs/workflows/import.md` |
 | Convert an SSG project | `docs/workflows/convert.md` |
 | Set up a contact form | `docs/workflows/contact.md` |
+| Back up to GitHub | `docs/workflows/backup.md` |
 
 ## Key files
 

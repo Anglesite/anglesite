@@ -18,6 +18,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Import from a website URL | `/anglesite:import` |
 | Convert an SSG project to Anglesite | `/anglesite:convert` |
 | Set up a contact form | `/anglesite:contact` |
+| Save work to GitHub | `/anglesite:backup` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 
