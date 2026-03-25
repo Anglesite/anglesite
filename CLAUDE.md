@@ -9,7 +9,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (10 total: 7 user-facing, 3 model-only)
+├── skills/                       Skills (11 total: 8 user-facing, 3 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -17,6 +17,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 │   ├── domain/SKILL.md           DNS management (email, Bluesky, verification)
 │   ├── import/SKILL.md           Import from website URL
 │   ├── convert/SKILL.md          Convert existing SSG project to Anglesite
+│   ├── contact/SKILL.md          Contact form (Workers + Turnstile)
 │   ├── design-interview/SKILL.md Visual identity (model-only)
 │   ├── animate/SKILL.md          CSS animations (model-only)
 │   ├── new-page/SKILL.md         Page creation (model-only)
@@ -55,6 +56,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 │   ├── package.json              Site dependencies (Astro, Keystatic)
 │   ├── astro.config.ts           Astro + Keystatic integration config
 │   ├── keystatic.config.ts       CMS schema and collection definitions
+│   ├── worker/                   Cloudflare Worker source (contact form)
 │   └── .gitignore                Build artifacts exclusions
 ├── test/                         JavaScript tests + fixtures
 │   └── fixtures/                 Sample HTML for Wix extraction tests
@@ -98,6 +100,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `domain` | DNS record management (email, Bluesky, domain verification) |
 | `import` | Import content from external website URL |
 | `convert` | Convert existing SSG project (Hugo, Jekyll, Next.js, etc.) to Anglesite |
+| `contact` | Contact form via Cloudflare Workers + Turnstile |
 
 **Model-only** (called programmatically by other skills, `user-invokable: false`):
 

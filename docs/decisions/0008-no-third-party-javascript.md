@@ -29,7 +29,12 @@ Third-party JavaScript (analytics, social embeds, chat widgets, ad networks) is 
 
 ## Decision Outcome
 
-Chosen option: "No third-party JavaScript", with a single exception: Cloudflare Web Analytics, which is auto-injected by Cloudflare Pages, uses no cookies, collects no personal data, and requires zero setup. All other external scripts are blocked by default, enforced by the Content Security Policy and pre-deploy scans.
+Chosen option: "No third-party JavaScript", with two Cloudflare-vendor exceptions:
+
+1. **Cloudflare Web Analytics** — auto-injected by Cloudflare Pages, uses no cookies, collects no personal data, requires zero setup.
+2. **Cloudflare Turnstile** — privacy-respecting CAPTCHA alternative used by the contact form (`/anglesite:contact`). Same vendor as the hosting platform, no cookies, no tracking. Only loaded on the `/contact` page.
+
+All other external scripts are blocked by default, enforced by the Content Security Policy and pre-deploy scans.
 
 ### Consequences
 
@@ -44,7 +49,7 @@ Chosen option: "No third-party JavaScript", with a single exception: Cloudflare 
 
 ### Confirmation
 
-The pre-deploy scan greps `dist/` for `<script src=` tags and blocks any that don't match `cloudflareinsights` or `_astro`. The Content Security Policy in `public/_headers` restricts `script-src` to `'self'` and `static.cloudflareinsights.com`. The `/anglesite:check` skill verifies both.
+The pre-deploy scan greps `dist/` for `<script src=` tags and blocks any that don't match `cloudflareinsights`, `_astro`, or `challenges.cloudflare.com`. The Content Security Policy in `public/_headers` restricts `script-src` to `'self'`, `static.cloudflareinsights.com`, and `https://challenges.cloudflare.com`. The `/anglesite:check` skill verifies both.
 
 ## Pros and Cons of the Options
 

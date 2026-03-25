@@ -130,6 +130,11 @@ describe("scanScripts", () => {
     expect(scanScripts(html)).toEqual([]);
   });
 
+  it("allows Cloudflare Turnstile scripts", () => {
+    const html = '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>';
+    expect(scanScripts(html)).toEqual([]);
+  });
+
   it("returns empty array for content with no scripts", () => {
     expect(scanScripts("<p>No scripts here</p>")).toEqual([]);
   });

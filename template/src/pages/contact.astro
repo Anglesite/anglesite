@@ -1,0 +1,41 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+const configPath = resolve(process.cwd(), ".site-config");
+const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
+const workerUrl = config.match(/^CONTACT_WORKER_URL=(.+)$/m)?.[1]?.trim() ?? "";
+const turnstileSiteKey = config.match(/^TURNSTILE_SITE_KEY=(.+)$/m)?.[1]?.trim() ?? "";
+const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "us";
+---
+
+<BaseLayout title="Contact" description={`Get in touch with ${siteName}.`}>
+  <h1>Contact</h1>
+  <p>Send us a message and we'll get back to you.</p>
+
+  <form method="POST" action={workerUrl} class="contact-form">
+    <div class="form-field">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" required autocomplete="name" />
+    </div>
+
+    <div class="form-field">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required autocomplete="email" />
+    </div>
+
+    <div class="form-field">
+      <label for="message">Message</label>
+      <textarea id="message" name="message" rows="6" required></textarea>
+    </div>
+
+    <div class="cf-turnstile" data-sitekey={turnstileSiteKey}></div>
+
+    <button type="submit">Send message</button>
+  </form>
+
+  {turnstileSiteKey && (
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  )}
+</BaseLayout>

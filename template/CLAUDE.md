@@ -17,6 +17,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Manage DNS (email, Bluesky, etc.) | `/anglesite:domain` |
 | Import from a website URL | `/anglesite:import` |
 | Convert an SSG project to Anglesite | `/anglesite:convert` |
+| Set up a contact form | `/anglesite:contact` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 

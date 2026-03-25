@@ -1,0 +1,9 @@
+# Contact form worker — deployed via /anglesite:contact
+# Secrets are set via: npx wrangler secret put <NAME>
+#   TURNSTILE_SECRET_KEY
+#   CONTACT_EMAIL
+#   SITE_DOMAIN
+
+name = "contact-form"
+main = "contact-worker.js"
+compatibility_date = "2024-01-01"
