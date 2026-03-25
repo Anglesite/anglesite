@@ -9,7 +9,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (14 total: 10 user-facing, 4 model-only)
+├── skills/                       Skills (15 total: 10 user-facing, 5 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -24,6 +24,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 │   ├── animate/SKILL.md          CSS animations (model-only)
 │   ├── new-page/SKILL.md         Page creation (model-only)
 │   ├── syndicate/SKILL.md        Social media post generation (model-only)
+│   ├── seasonal/SKILL.md         Seasonal content suggestions (model-only)
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
@@ -115,6 +116,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `animate` | CSS animations (hover, scroll reveals, transitions) |
 | `new-page` | Create new page with SEO and accessibility |
 | `syndicate` | Generate social media posts from blog post (POSSE) |
+| `seasonal` | Surface seasonal content suggestions by business type |
 
 ## Editing guidelines
 

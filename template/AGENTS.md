@@ -51,6 +51,7 @@ Step-by-step guides for common operations:
 | Back up to GitHub | `docs/workflows/backup.md` |
 | Social media syndication | `docs/workflows/syndicate.md` |
 | Site analytics | `docs/workflows/stats.md` |
+| Seasonal content ideas | `docs/workflows/seasonal.md` |
 
 ## Key files
 
