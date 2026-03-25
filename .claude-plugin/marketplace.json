@@ -1,7 +1,8 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "anglesite",
-  "description": "AI webmaster that scaffolds, designs, and deploys independent websites",
+  "metadata": {
+    "description": "AI webmaster that scaffolds, designs, and deploys independent websites"
+  },
   "owner": {
     "name": "David W. Keith",
     "email": "git@dwk.io"
