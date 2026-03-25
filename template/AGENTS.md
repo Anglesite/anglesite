@@ -55,6 +55,7 @@ Step-by-step guides for common operations:
 | Image optimization | `docs/workflows/optimize-images.md` |
 | Business hours and location | `docs/workflows/business-info.md` |
 | Email newsletter | `docs/workflows/newsletter.md` |
+| Visual themes | See `scripts/themes.ts` for 8 pre-built palettes |
 
 ## Key files
 

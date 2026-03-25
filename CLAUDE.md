@@ -9,7 +9,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (18 total: 11 user-facing, 7 model-only)
+├── skills/                       Skills (19 total: 11 user-facing, 8 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -28,6 +28,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 │   ├── seasonal/SKILL.md         Seasonal content suggestions (model-only)
 │   ├── optimize-images/SKILL.md  Image optimization pipeline (model-only)
 │   ├── business-info/SKILL.md    Hours, location, LocalBusiness JSON-LD (model-only)
+│   ├── themes/SKILL.md           Visual theme picker with tldraw (model-only)
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
@@ -123,6 +124,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `seasonal` | Surface seasonal content suggestions by business type |
 | `optimize-images` | Resize, convert to WebP, strip EXIF, generate srcset |
 | `business-info` | Hours, address, phone, LocalBusiness JSON-LD |
+| `themes` | Pre-built visual theme picker with tldraw swatches |
 
 ## Editing guidelines
 
