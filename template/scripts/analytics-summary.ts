@@ -5,12 +5,20 @@
  * summaries for the site owner. Used by /anglesite:stats.
  */
 
+export interface CampaignData {
+  source: string;
+  medium: string;
+  campaign: string;
+  visits: number;
+}
+
 export interface AnalyticsData {
   visitors: { current: number; previous?: number };
   topPages: { path: string; views: number }[];
   referrers: { source: string; visits: number }[];
   devices: { type: string; visits: number }[];
   dailyCounts: { day: string; visits: number }[];
+  campaigns?: CampaignData[];
 }
 
 const DAY_BEFORE: Record<string, string> = {
@@ -116,6 +124,39 @@ export function formatBusiestDay(
 }
 
 /**
+ * UTM campaign breakdown with plain-language descriptions.
+ */
+export function formatCampaigns(campaigns: CampaignData[]): string {
+  if (campaigns.length === 0) return "No campaign data available.";
+
+  const sorted = [...campaigns].sort((a, b) => b.visits - a.visits);
+  const lines = sorted.map((c) => {
+    const desc = describeCampaignSource(c);
+    return `- ${desc}: ${c.visits} visit${c.visits !== 1 ? "s" : ""}`;
+  });
+  return "Campaigns:\n" + lines.join("\n");
+}
+
+function describeCampaignSource(c: CampaignData): string {
+  if (c.medium === "print" && c.source === "qr") {
+    return `QR code "${c.campaign}"`;
+  }
+  if (c.medium === "email") {
+    return `Email "${c.campaign}" via ${c.source}`;
+  }
+  if (c.medium === "paid-social") {
+    return `${c.source} ad "${c.campaign}"`;
+  }
+  if (c.medium === "cpc") {
+    return `${c.source} search ad "${c.campaign}"`;
+  }
+  if (c.medium === "organic-social") {
+    return `${c.source} post "${c.campaign}"`;
+  }
+  return `${c.source} / ${c.medium} "${c.campaign}"`;
+}
+
+/**
  * Complete plain-language analytics report.
  */
 export function formatFullReport(data: AnalyticsData): string {
@@ -126,5 +167,10 @@ export function formatFullReport(data: AnalyticsData): string {
     formatDevices(data.devices),
     formatBusiestDay(data.dailyCounts),
   ];
+
+  if (data.campaigns && data.campaigns.length > 0) {
+    sections.push(formatCampaigns(data.campaigns));
+  }
+
   return sections.join("\n\n");
 }

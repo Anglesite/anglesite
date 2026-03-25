@@ -75,6 +75,7 @@ From the API response, extract:
 3. **Referral sources** — group by `refererHost`, rename common ones (e.g., "google.com" → "Google Search", empty → "Direct")
 4. **Device breakdown** — group by `device` type, calculate percentages
 5. **Busiest day** — group by `date`, map to day names, find the highest
+6. **Campaign breakdown** — group by UTM parameters (`clientRequestPath` query string contains `utm_source`, `utm_medium`, `utm_campaign`). Extract these from pages with UTM params in the URL. Use `formatCampaigns()` from `scripts/analytics-summary.ts`.
 
 Present the summary in plain language. Example output:
 
@@ -93,6 +94,11 @@ Present the summary in plain language. Example output:
 > **Devices:** mobile: 67%, desktop: 33%.
 >
 > **Busiest day:** Tuesday with 30 visits. Consider posting new content on Monday to catch the wave.
+>
+> **Campaigns:**
+> - QR code "table-tent": 23 visits
+> - facebook ad "march-promo": 45 visits
+> - Email "weekly-update" via newsletter: 12 visits
 
 ## Step 3 — Actionable suggestions
 

@@ -5,6 +5,7 @@ import {
   formatReferrers,
   formatDevices,
   formatBusiestDay,
+  formatCampaigns,
   formatFullReport,
   type AnalyticsData,
 } from "../template/scripts/analytics-summary.js";
@@ -166,6 +167,50 @@ describe("formatBusiestDay", () => {
 // formatFullReport
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// formatCampaigns
+// ---------------------------------------------------------------------------
+
+describe("formatCampaigns", () => {
+  it("lists campaigns with visit counts", () => {
+    const campaigns = [
+      { source: "qr", medium: "print", campaign: "table-tent", visits: 23 },
+      { source: "facebook", medium: "paid-social", campaign: "march-promo", visits: 45 },
+    ];
+    const result = formatCampaigns(campaigns);
+    expect(result).toContain("table-tent");
+    expect(result).toContain("march-promo");
+    expect(result).toContain("23");
+    expect(result).toContain("45");
+  });
+
+  it("includes plain-language descriptions", () => {
+    const campaigns = [
+      { source: "qr", medium: "print", campaign: "menu-card", visits: 10 },
+    ];
+    const result = formatCampaigns(campaigns);
+    expect(result.toLowerCase()).toContain("qr");
+  });
+
+  it("returns a message for empty data", () => {
+    const result = formatCampaigns([]);
+    expect(result.toLowerCase()).toContain("no campaign");
+  });
+
+  it("sorts by visit count descending", () => {
+    const campaigns = [
+      { source: "a", medium: "email", campaign: "low", visits: 5 },
+      { source: "b", medium: "print", campaign: "high", visits: 50 },
+    ];
+    const result = formatCampaigns(campaigns);
+    expect(result.indexOf("high")).toBeLessThan(result.indexOf("low"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatFullReport
+// ---------------------------------------------------------------------------
+
 describe("formatFullReport", () => {
   const data: AnalyticsData = {
     visitors: { current: 142, previous: 115 },
@@ -195,6 +240,17 @@ describe("formatFullReport", () => {
     expect(result).toContain("Google Search");
     expect(result).toContain("mobile");
     expect(result).toContain("Tuesday");
+  });
+
+  it("includes campaign section when present", () => {
+    const withCampaigns: AnalyticsData = {
+      ...data,
+      campaigns: [
+        { source: "qr", medium: "print", campaign: "flyer", visits: 15 },
+      ],
+    };
+    const result = formatFullReport(withCampaigns);
+    expect(result).toContain("flyer");
   });
 
   it("returns non-empty output", () => {
