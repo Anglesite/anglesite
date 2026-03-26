@@ -223,8 +223,9 @@ Tell the owner what was found. Example:
 > **Blog posts:** 23 posts (July 2024 – February 2026)
 > **Pages:** 6 pages (About, FAQ, Services, Contact, Gallery, Get Involved)
 >
-> I'll import all the blog posts and extract the content from each page.
-> The import will take about 5–10 minutes for a blog this size."
+> I'll import all the blog posts, extract the content from each page, and
+> set up redirects so your search rankings carry over. The import will take
+> about 5–10 minutes for a blog this size."
 
 If BLOG_POSTS is empty, tell the owner — skip to Step 3 for pages only, or
 Step 4 if image galleries were detected.
