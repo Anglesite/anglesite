@@ -61,6 +61,80 @@ describe('convert skill URL structure (#33)', () => {
   });
 });
 
+describe('convert skill branding extraction (#63)', () => {
+  it('includes a step to extract visual identity from the source site', () => {
+    // The skill must read CSS, layout templates, and data files
+    expect(skill).toMatch(/extract visual identity|visual identity/i);
+  });
+
+  it('reads source CSS files for colors and fonts', () => {
+    // Step 1.5a: find and read CSS files to extract design tokens
+    expect(skill).toContain('--color-primary');
+    expect(skill).toContain('font-family');
+    expect(skill).toContain('global.css');
+  });
+
+  it('reads layout templates for header and footer structure', () => {
+    // Step 1.5b: extract header (logo, nav) and footer (social, copyright)
+    expect(skill).toMatch(/header.*structure|header structure/i);
+    expect(skill).toMatch(/footer.*structure|footer structure/i);
+    expect(skill).toContain('logo');
+    expect(skill).toContain('navigation');
+  });
+
+  it('reads data and config files for site metadata', () => {
+    // Step 1.5c: read data files for site title, social links, etc.
+    expect(skill).toMatch(/data.*config.*files|config.*files/i);
+    expect(skill).toContain('social');
+  });
+
+  it('copies static assets like logos and favicons', () => {
+    // Step 1.5d: copy logo, favicon, avatar to public/
+    expect(skill).toContain('logo');
+    expect(skill).toContain('favicon');
+  });
+
+  it('applies extracted design to global.css', () => {
+    // Step 1.5e: update CSS custom properties with source values
+    expect(skill).toContain('--color-bg');
+    expect(skill).toContain('--color-text');
+    expect(skill).toContain('--max-width');
+  });
+
+  it('updates BaseLayout.astro with header and footer from source', () => {
+    // Step 1.5e: update layout with logo, nav, social links
+    expect(skill).toContain('BaseLayout.astro');
+    expect(skill).toMatch(/header.*logo|logo.*header/is);
+    expect(skill).toContain('social-links');
+  });
+
+  it('handles dark mode if present in source', () => {
+    // Dark mode support should be carried over
+    expect(skill).toContain('prefers-color-scheme: dark');
+  });
+
+  it('self-hosts external fonts per ADR-0008', () => {
+    // External fonts must be downloaded, not linked
+    expect(skill).toContain('ADR-0008');
+    expect(skill).toMatch(/@font-face/);
+  });
+
+  it('has a fallback when no design files are found', () => {
+    // Graceful degradation to scaffold defaults
+    expect(skill).toMatch(/fallback|couldn.*find.*design/i);
+  });
+
+  it('covers CSS locations for all supported platforms', () => {
+    // The CSS discovery table should include paths for each SSG
+    const step15 = skill.match(/Step 1\.5.*?(?=## Step 2)/s)?.[0] ?? '';
+    expect(step15).toContain('Hugo');
+    expect(step15).toContain('Jekyll');
+    expect(step15).toContain('Eleventy');
+    expect(step15).toContain('Next.js');
+    expect(step15).toContain('Gatsby');
+  });
+});
+
 describe('ssg-migrations redirect guidance (#33)', () => {
   it('does not hardcode /blog/ as the only redirect target', () => {
     // The redirect examples should use a placeholder or show both patterns
