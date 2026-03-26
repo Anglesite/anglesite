@@ -3,15 +3,6 @@
   "version": "0.16.4",
   "type": "module",
   "description": "AI webmaster that scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Pages.",
-  "bin": {
-    "anglesite": "./bin/init.js"
-  },
-  "files": [
-    "bin/init.js",
-    "template/",
-    "docs/",
-    "scripts/import/"
-  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",

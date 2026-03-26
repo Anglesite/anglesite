@@ -1,6 +1,6 @@
 # Anglesite — Development Context
 
-Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages websites for small businesses. It generates Astro + Keystatic sites deployed to Cloudflare Pages.
+Anglesite is a Claude plugin that scaffolds and manages websites for small businesses. It works with Claude Cowork (non-technical site owners, GUI) and Claude Code (developers, CLI). It generates Astro + Keystatic sites deployed to Cloudflare Pages.
 
 **Version:** 0.16.1 · **License:** ISC · **Node:** >=20 · **Module system:** ESM
 
@@ -45,11 +45,10 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 │       ├── wix-extract.js        Curl+regex fallback for Wix HTML parsing
 │       └── color-utils.js        RGB/hex conversion, luminance, color classification
 ├── bin/
-│   ├── init.js                   CLI entry point (npx anglesite init)
 │   ├── average-tokens.ts         Token cost calculator for start skill
 │   ├── build-instructions.ts     Agent instruction file validator
 │   └── release.ts                Semantic version bumper (updates all manifests)
-├── package.json                  npm package manifest
+├── package.json                  Dev dependencies and test scripts
 ├── vitest.config.ts              Test configuration
 ├── docs/                         Reference docs (read by skills via ${CLAUDE_PLUGIN_ROOT})
 │   ├── smb/                      Business type guides (70 files, 50+ verticals)
@@ -81,22 +80,16 @@ Three levels of agent instructions exist — do not confuse them:
 | File | Audience | Purpose |
 |---|---|---|
 | **This file** (root `CLAUDE.md`) | Plugin developers | Building and maintaining the plugin itself |
-| `template/AGENTS.md` | All AI agents | Universal webmaster instructions (Codex, Cursor, Copilot, etc.) |
+| `template/AGENTS.md` | All AI agents | Universal webmaster instructions (also usable by Codex, Cursor, etc.) |
 | `template/CLAUDE.md` | Claude Code users | `@imports` AGENTS.md, adds slash commands and shell rules |
 | `template/GEMINI.md` | Gemini CLI users | One-line `@AGENTS.md` pointer |
 
 ## How it works
 
-**Claude Code plugin** (richest experience):
-1. User installs the plugin from the marketplace (or `claude --plugin-dir .`)
+1. User installs the plugin from the marketplace (or `claude --plugin-dir .` for development)
 2. `/anglesite:start` runs `scripts/scaffold.sh` to copy `template/` to the user's project
 3. Start skill proceeds with discovery interview, design, and tool installation
 4. All other skills (`/anglesite:deploy`, `/anglesite:check`, etc.) execute in the user's working directory
-
-**npm package** (any agent):
-1. `npx anglesite init my-site` copies `template/` + `docs/` to a new directory
-2. `npm install && npm run dev` to start developing
-3. Any AI agent reads `AGENTS.md` for project context and `docs/workflows/` for step-by-step guides
 
 ## Skills reference
 
@@ -141,7 +134,7 @@ Three levels of agent instructions exist — do not confuse them:
 - **The end user is non-technical.** Skills are their primary interface. Changes should not require CLI knowledge.
 - **Cross-platform.** Template scripts detect macOS/Linux/Windows via `scripts/platform.ts`. Never use platform-specific commands (`sips`, `pfctl`, `dscacheutil`, `osascript`, `open`, `sed -i ""`) without a cross-platform alternative or guard.
 - **Privacy and security are non-negotiable.** The deploy skill scans for PII, exposed tokens, third-party scripts, and Keystatic admin routes.
-- **Reference docs** go in `docs/` at the plugin root — skills read them via `${CLAUDE_PLUGIN_ROOT}/docs/`. The npm init script copies them to the user's project for non-plugin agents.
+- **Reference docs** go in `docs/` at the plugin root — skills read them via `${CLAUDE_PLUGIN_ROOT}/docs/`.
 - **Site-specific docs** go in `template/docs/` — these are scaffolded to the user's project and updated per-site.
 - **Documentation must stay in sync.** Update docs when you change behavior.
 
@@ -170,7 +163,7 @@ npm run test:coverage # Coverage report
 ```
 
 **Test layout:**
-- `tests/` — TypeScript tests (token calc, instruction validation, config, image gen, init, platform detection, pre-deploy checks)
+- `tests/` — TypeScript tests (token calc, instruction validation, config, image gen, platform detection, pre-deploy checks)
 - `test/` — JavaScript tests (BaseLayout, convert skill, scaffold .gitignore, Wix extraction + color utils)
 - `test/fixtures/` — Sample HTML for Wix extraction tests
 
@@ -178,10 +171,9 @@ npm run test:coverage # Coverage report
 
 ## Version management
 
-Versions must stay in sync across four files:
+Versions must stay in sync across three files:
 - `package.json`
 - `.claude-plugin/plugin.json`
-- `marketplace.json`
 - `template/package.json`
 
 Use `bin/release.ts` to bump all at once. It creates a git tag (`v*`) which triggers the CI release workflow.
@@ -196,15 +188,8 @@ Use `bin/release.ts` to bump all at once. It creates a git tag (`v*`) which trig
 ## Testing changes manually
 
 ```sh
-# Via scaffold script (plugin development)
 mkdir /tmp/test-site
 zsh scripts/scaffold.sh /tmp/test-site
-cd /tmp/test-site
-npm install
-npm run dev
-
-# Via npm CLI (end-user experience)
-node bin/init.js init /tmp/test-site
 cd /tmp/test-site
 npm install
 npm run dev

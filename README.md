@@ -1,10 +1,25 @@
 # Anglesite
 
-An AI webmaster for independent websites — a [Claude Code plugin](https://docs.anthropic.com/en/docs/claude-code) that scaffolds, designs, and deploys Astro sites on Cloudflare Pages.
+An AI webmaster for independent websites — a [Claude plugin](https://docs.anthropic.com/en/docs/claude-code/plugins) that scaffolds, designs, and deploys Astro sites on Cloudflare Pages.
+
+Anglesite works with [Claude Cowork](https://support.claude.com/en/articles/13345190-get-started-with-cowork) (for non-technical site owners) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (for developers). Both use the same plugin — the experience adapts to the environment.
 
 ## Install
 
-### Claude Code (CLI)
+### Claude Cowork (recommended for site owners)
+
+1. Open [Claude](https://claude.ai) and start a Cowork session
+2. Open the **Code** tab
+3. Press **+** > **Plugins** > **Add Plugin**
+4. Select the **Personal** tab, press **+**
+5. Select **Add Marketplace from GitHub**
+6. Enter `Anglesite/anglesite` and press **Sync**
+7. Create a new folder for your site and open it in the **Code** tab
+8. Type `/anglesite:start`
+
+No terminal, no installs, no prerequisites. Claude handles everything.
+
+### Claude Code (for developers)
 
 ```sh
 # Add the marketplace (one-time)
@@ -20,28 +35,6 @@ claude
 
 Then type `/anglesite:start` to begin.
 
-### Claude Desktop (GUI)
-
-1. Install [Claude Desktop](https://claude.ai/download) (free, requires an Anthropic account)
-2. Install the Anglesite plugin:
-   - Open the **Code** tab
-   - Press the **+** button > **Plugins** > **Add Plugin**
-   - Select the **Personal** tab, press **+**
-   - Select **Add Marketplace from GitHub**
-   - Enter `Anglesite/anglesite` and press **Sync**
-3. Create a new folder for your site and open it in the **Code** tab
-4. Type `/anglesite:start`
-
-### npm (any AI agent)
-
-```sh
-npx anglesite init my-site
-cd my-site
-npm install && npm run dev
-```
-
-The scaffolded project includes `AGENTS.md` (works with Codex, Cursor, Copilot, and 20+ other tools), `CLAUDE.md` (Claude Code), and `GEMINI.md` (Gemini CLI).
-
 ---
 
 The start command scaffolds your project, learns about your business, designs the site with you, and installs the tools to preview it. When you're ready to go live, `/anglesite:deploy` handles hosting, domains, and publishing.
@@ -52,18 +45,19 @@ The start command scaffolds your project, learns about your business, designs th
 |---|---|
 | `/anglesite:start` | First-time setup: discovery, design, tools, preview |
 | `/anglesite:deploy` | Build, security scan, deploy, domain setup |
-| `/anglesite:design-interview` | Redo the visual identity (can run anytime after start) |
 | `/anglesite:check` | Health audit (build, privacy, security, accessibility) |
-| `/anglesite:fix` | Diagnose and fix common problems |
 | `/anglesite:update` | Update dependencies safely |
-| `/anglesite:new-page` | Create a new page with SEO and accessibility |
 | `/anglesite:domain` | Manage DNS records (email, Bluesky verification, etc.) |
 | `/anglesite:import` | Import content from a website URL |
 | `/anglesite:convert` | Convert an SSG project (Hugo, Jekyll, etc.) to Anglesite |
+| `/anglesite:contact` | Set up a contact form |
+| `/anglesite:backup` | Save work to GitHub |
+| `/anglesite:stats` | Plain-language site analytics |
+| `/anglesite:newsletter` | Set up an email newsletter |
 
 ## Who this is for
 
-Small businesses — farms, restaurants, legal firms, retailers, makers, artists, content creators, service providers — who want a fast, private, professional website without learning to code. The site owner interacts through Claude Desktop; no terminal required after initial setup.
+Small businesses — farms, restaurants, legal firms, retailers, makers, artists, content creators, service providers — who want a fast, private, professional website without learning to code.
 
 ## Philosophy
 
