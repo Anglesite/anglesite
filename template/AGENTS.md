@@ -61,6 +61,25 @@ Step-by-step guides for common operations:
 | Multi-language (i18n) | `docs/workflows/i18n.md` |
 | Review reputation coaching | `docs/workflows/reputation.md` |
 
+## Visual communication
+
+When discussing the site with the owner, **show don't tell**. Use tldraw (or equivalent visual tools) to draw diagrams instead of describing things in text. Visual communication is faster and more accessible for non-technical owners.
+
+**When to draw:**
+- **Design proposals** — show color palettes, page layouts, navigation structure as visual cards/trees
+- **Analytics** — show bar charts of page views, traffic sources, campaign performance
+- **Progress tracking** — show visual checklists during setup and deployment
+- **Site structure** — show sitemap trees when proposing new pages or reorganizing
+- **Tool comparisons** — show side-by-side comparison tables when recommending services
+- **Timelines** — show project milestones, content calendars, seasonal planning
+
+**When NOT to draw:**
+- Simple yes/no questions
+- Single-step instructions
+- When the owner has asked to skip visuals
+
+Helper functions for common patterns are in `scripts/tldraw-helpers.ts`: `progressChecklist()`, `barChart()`, `comparisonTable()`, `sitemapTree()`, `timeline()`.
+
 ## Key files
 
 Reference docs live in `docs/`. Read the relevant file when you need context on architecture, brand, content, hosting, IndieWeb, or best practices.
