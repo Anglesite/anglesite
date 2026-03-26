@@ -121,7 +121,11 @@ Have the owner paste their site URL. Explain the scores: green (90+) is great, o
 
 ## Reputation
 
-If `BUSINESS_TYPE` is set in `.site-config`, invoke the reputation skill for review coaching and competitive awareness:
+If `BUSINESS_TYPE` is set in `.site-config`, invoke the reputation skill for review coaching and competitive awareness.
+
+Read `REVIEW_PLATFORMS` from `.site-config` if available. When invoking the reputation skill, note that this is a non-interactive check context so it should present tips, not questions.
+
+If `REVIEW_PLATFORMS` is set, include the platform names in the nudge: "Reminder: check your [Google, Yelp] reviews — responding within a few days helps your reputation." If not set, use the generic nudge.
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/reputation/SKILL.md` and follow it. Include the output as a "Reputation" section in the health report. Keep it brief — 1-3 action items max. If `BUSINESS_TYPE` is not set, skip this section.
 
