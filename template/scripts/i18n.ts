@@ -87,6 +87,19 @@ export function languageDisplayName(code: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// HTML escaping
+// ---------------------------------------------------------------------------
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// ---------------------------------------------------------------------------
 // SEO — hreflang tags
 // ---------------------------------------------------------------------------
 
@@ -104,8 +117,9 @@ export function generateHreflangTags(
 
   for (const locale of locales) {
     const path = localizedPath(currentPath, locale, defaultLocale);
-    const href = `${siteUrl}${path}`;
-    tags.push(`<link rel="alternate" hreflang="${locale}" href="${href}" />`);
+    const href = escapeHtml(`${siteUrl}${path}`);
+    const safeLang = escapeHtml(locale);
+    tags.push(`<link rel="alternate" hreflang="${safeLang}" href="${href}" />`);
 
     if (locale === defaultLocale) {
       tags.push(`<link rel="alternate" hreflang="x-default" href="${href}" />`);
@@ -129,14 +143,15 @@ export function generateLanguageSwitcherHtml(
   defaultLocale: string,
 ): string {
   const links = locales.map((locale) => {
-    const path = localizedPath(currentPath, locale, defaultLocale);
-    const name = languageDisplayName(locale);
+    const path = escapeHtml(localizedPath(currentPath, locale, defaultLocale));
+    const name = escapeHtml(languageDisplayName(locale));
+    const safeLang = escapeHtml(locale);
     const isCurrent = locale === currentLocale;
 
     if (isCurrent) {
-      return `<a href="${path}" aria-current="page" lang="${locale}">${name}</a>`;
+      return `<a href="${path}" aria-current="page" lang="${safeLang}">${name}</a>`;
     }
-    return `<a href="${path}" lang="${locale}">${name}</a>`;
+    return `<a href="${path}" lang="${safeLang}">${name}</a>`;
   });
 
   return `<nav aria-label="Language" class="language-switcher">\n  ${links.join("\n  ")}\n</nav>`;

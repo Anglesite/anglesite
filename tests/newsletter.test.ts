@@ -94,6 +94,12 @@ describe("generateSubscribeFormHtml", () => {
     const html = generateSubscribeFormHtml("buttondown", "https://example.com");
     expect(html).toMatch(/for=["']email["']/);
   });
+
+  it("escapes HTML in actionUrl to prevent injection", () => {
+    const html = generateSubscribeFormHtml("buttondown", 'https://evil.com" onsubmit="alert(1)');
+    expect(html).not.toContain('onsubmit="alert(1)"');
+    expect(html).toContain("&quot;");
+  });
 });
 
 // ---------------------------------------------------------------------------

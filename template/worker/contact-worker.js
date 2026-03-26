@@ -62,7 +62,12 @@ function validateInput(name, email, message) {
   return errors;
 }
 
+function sanitizeName(name) {
+  return String(name).replace(/[\r\n\0]/g, "").trim();
+}
+
 async function sendEmail(env, name, email, message) {
+  const safeName = sanitizeName(name);
   const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -72,10 +77,10 @@ async function sendEmail(env, name, email, message) {
       ],
       from: {
         email: `contact@${env.SITE_DOMAIN}`,
-        name: `${name} via contact form`,
+        name: `${safeName} via contact form`,
       },
-      reply_to: { email, name },
-      subject: `Contact form: ${name}`,
+      reply_to: { email, name: safeName },
+      subject: `Contact form: ${safeName}`,
       content: [
         {
           type: "text/plain",
@@ -114,23 +119,33 @@ export default {
     const contentType = request.headers.get("Content-Type") || "";
     let name, email, message, turnstileToken;
 
-    if (contentType.includes("application/x-www-form-urlencoded")) {
-      const formData = await request.formData();
-      name = formData.get("name");
-      email = formData.get("email");
-      message = formData.get("message");
-      turnstileToken = formData.get("cf-turnstile-response");
-    } else if (contentType.includes("application/json")) {
-      const body = await request.json();
-      name = body.name;
-      email = body.email;
-      message = body.message;
-      turnstileToken = body["cf-turnstile-response"];
-    } else {
-      return new Response("Unsupported content type", {
-        status: 415,
-        headers: corsHeaders(origin),
-      });
+    try {
+      if (contentType.includes("application/x-www-form-urlencoded")) {
+        const formData = await request.formData();
+        name = formData.get("name");
+        email = formData.get("email");
+        message = formData.get("message");
+        turnstileToken = formData.get("cf-turnstile-response");
+      } else if (contentType.includes("application/json")) {
+        const body = await request.json();
+        name = body.name;
+        email = body.email;
+        message = body.message;
+        turnstileToken = body["cf-turnstile-response"];
+      } else {
+        return new Response("Unsupported content type", {
+          status: 415,
+          headers: corsHeaders(origin),
+        });
+      }
+    } catch {
+      return new Response(
+        JSON.stringify({ errors: ["Invalid request body."] }),
+        {
+          status: 400,
+          headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Validate input

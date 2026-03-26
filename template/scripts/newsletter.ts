@@ -38,13 +38,26 @@ export function formatPostForEmail(
 }
 
 /**
+ * Escape HTML special characters to prevent injection.
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
  * Generate HTML for a newsletter subscribe form.
  */
 export function generateSubscribeFormHtml(
   provider: string,
   actionUrl: string,
 ): string {
-  return `<form method="POST" action="${actionUrl}" class="subscribe-form">
+  const safeUrl = escapeHtml(actionUrl);
+  return `<form method="POST" action="${safeUrl}" class="subscribe-form">
   <div class="form-field">
     <label for="email">Email address</label>
     <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com" />
