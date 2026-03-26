@@ -65,3 +65,7 @@ Use `PerformingArtsTheater` or `MusicGroup` or `DanceGroup` with:
 - **Contacts:** Name, Email, Phone, Type (Patron/Performer/Volunteer/Donor/Sponsor), Notes, Created Date
 - **Productions:** Title, Season, Director, Dates, Venue, Ticket URL, Status (Upcoming/Running/Closed), Notes
 - **Volunteers:** Contact (linked), Role (Usher/Set Build/Costumes/Crew/Board), Availability, Notes
+
+## Domain
+
+**.org** is the default for community theaters and arts organizations — it signals nonprofit mission and is trusted by patrons and donors. Available on Cloudflare.

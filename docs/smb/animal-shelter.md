@@ -73,3 +73,7 @@ Use `NGO` with:
 - **Contacts:** Name, Email, Phone, Type (Adopter/Foster/Volunteer/Donor), Status, Notes, Created Date
 - **Animals:** Name, Species, Breed, Age, Sex, Status (Available/Adopted/Foster/Hold), Photo URL, Intake Date, Notes
 - **Applications:** Contact (linked), Animal (linked), Type (Adoption/Foster), Date, Status (Pending/Approved/Denied), Notes
+
+## Domain
+
+**.org** is the natural choice for animal shelters and rescues — it signals nonprofit mission and is widely trusted by donors and adopters. Available on Cloudflare.

@@ -110,9 +110,19 @@ Ask everyone:
 
 - "What web address would you like? For example, yourname.com."
 
-  If they know, save it and derive the local hostname: `DEV_HOSTNAME=example.com.local`.
+  If they're unsure, help them think it through. Read `${CLAUDE_PLUGIN_ROOT}/docs/domain-guide.md` for evidence-based TLD guidance — the right domain depends on who they are. For co-ops, suggest .coop. For nonprofits, suggest .org. For environmental orgs, mention .eco. For general businesses, .com is the safe default. See the quick reference table in the domain guide.
+
+  If they know what they want, save it and derive the local hostname: `DEV_HOSTNAME=example.com.local`.
 
   If they don't know yet, derive from the site name. Slugify (lowercase, hyphens, no special characters) and append `.local`: "Keith Electric" → `DEV_HOSTNAME=keithelectric.local`. Tell them: "No problem — we'll use that for now. You can pick a real domain later when you're ready to go live."
+
+- "Are you on Bluesky, or interested in joining? It's a social network where your domain becomes your handle — so people see @yourdomain.com instead of a platform username. It's free and aligned with the idea that you should own your online identity."
+
+  If yes and they have an account: save `BLUESKY_HANDLE=@current-handle` to `.site-config`. They can verify their domain as their handle later with `/anglesite:domain bluesky`.
+
+  If yes and they want to sign up: point them to `https://bsky.app` and note it for the domain setup step.
+
+  If not interested, that's fine — don't push.
 
 - "One more thing — as I work on your website, I can either explain each step before I do it, or just get things done quietly. Which do you prefer?"
 

@@ -79,3 +79,7 @@ Use `Church` (or `Mosque`, `Synagogue`, `HinduTemple`, `BuddhistTemple`) with:
 - **Members:** Name, Email, Phone, Family, Membership Date, Groups, Status, Notes
 - **Events:** Name, Date, Type (Service/Class/Social/Outreach), Location, Notes
 - **Volunteers:** Name (linked to Members), Ministry, Role, Availability
+
+## Domain
+
+**.org** is the standard for houses of worship — it signals community mission and is trusted by congregants and visitors. Available on Cloudflare. .church exists but has low recognition and no advantage over .org.

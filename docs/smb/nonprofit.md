@@ -58,3 +58,11 @@ See `docs/smb/reviews.md` for general review management guidance.
 - **CiviCRM** (open source, nonprofit-backed) — Full CRM with donor management, memberships, events. civicrm.org
 - **Open Collective** (open source) — Transparent fundraising and expenses. Good for community groups. opencollective.com
 - Avoid payment platforms that take large percentages. Nonprofits need every dollar.
+
+## Domain
+
+**.org** is the default for nonprofits — widely recognized and trusted for mission-driven organizations. Available on Cloudflare.
+
+For environmental nonprofits, consider **.eco** — it requires a sustainability pledge and signals environmental credibility. For cooperatives (food co-ops, cooperative businesses), consider **.coop** — restricted to verified cooperatives. Neither is available on Cloudflare; register externally and point nameservers to Cloudflare.
+
+Avoid .ngo/.ong (expensive, low recognition outside international development circles). Never use .xyz, .biz, or .info — donor trust and email deliverability suffer.

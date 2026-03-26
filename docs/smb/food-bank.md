@@ -71,3 +71,7 @@ Use `NGO` with:
 - **Contacts:** Name, Email, Phone, Type (Donor/Volunteer/Partner Agency/Corporate), Notes, Created Date
 - **Volunteers:** Contact (linked), Availability, Skills, Status, Hours Logged, Notes
 - **Food Drives:** Name, Organizer (linked), Date, Pounds Collected, Notes
+
+## Domain
+
+**.org** is the default for food banks and pantries — donors and volunteers expect it. Available on Cloudflare. If the food bank is part of a cooperative network, **.coop** is worth considering.

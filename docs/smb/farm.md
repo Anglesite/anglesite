@@ -83,3 +83,7 @@ Use `LocalBusiness` with `additionalType` of `https://schema.org/Farm` (or just 
 - **Members:** Name, Email, Phone, Share Size, Pickup Location, Season, Status (Active/Waitlist/Past), Payment Status, Notes
 - **Products:** Name, Category (Vegetable/Fruit/Herb/Flower/Value-Added/Forest/Maple), Season, Status (Available/Coming Soon/Done), Notes
 - **Markets:** Name, Day, Location, Hours, Season, Notes
+
+## Domain
+
+If the farm is a cooperative (CSA co-op, farmer-owned cooperative), recommend **.coop** — see credit-union.md for registration details. For all other farms, **.com** is the safe default — customers searching for local farms expect straightforward domains. .farm exists but has low recognition and no trust advantage.

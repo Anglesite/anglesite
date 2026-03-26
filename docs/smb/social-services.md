@@ -77,3 +77,7 @@ Note: Case management data should NOT be in Airtable — use a proper case manag
 - **Contacts:** Name, Email, Phone, Type (Donor/Volunteer/Partner Agency/Funder), Notes, Created Date
 - **Volunteers:** Contact (linked), Role, Availability, Background Check Date, Training Date, Status, Notes
 - **Campaigns:** Name, Goal Amount, Raised Amount, Start Date, End Date, Notes
+
+## Domain
+
+**.org** is the standard for social service organizations — it signals mission-driven work and is trusted by clients, donors, and partner agencies. Available on Cloudflare.

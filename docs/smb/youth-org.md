@@ -77,3 +77,7 @@ Use `SportsOrganization` or `NGO` with:
 - **Families:** Parent Name, Email, Phone, Children (text or linked), Emergency Contact, Notes, Created Date
 - **Participants:** Name, Age, Family (linked), Program, Season, Status, Medical Notes
 - **Volunteers:** Name, Family (linked), Role (Coach/Assistant/Board/Other), Background Check Date, Status
+
+## Domain
+
+**.org** is the natural choice for youth organizations — parents and volunteers trust it for community organizations. Available on Cloudflare.

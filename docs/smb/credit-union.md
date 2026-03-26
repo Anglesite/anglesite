@@ -81,3 +81,11 @@ Credit union member data is in the core banking system — never duplicate it ex
 
 - **Community:** Event Name, Date, Type (Sponsorship/Scholarship/Volunteer/Workshop), Partner, Notes
 - **Financial Education:** Workshop Name, Date, Instructor, Attendees, Topic, Notes
+
+## Domain
+
+Credit unions are cooperatives. If the owner doesn't already have a domain, recommend **.coop** first — it's restricted to verified cooperatives, governed by the International Cooperative Alliance, and signals member-ownership in every URL, email address, and Bluesky handle. Not available on Cloudflare; register through a .coop-accredited registrar (Name.com, Gandi, or identity.coop), then point nameservers to Cloudflare.
+
+If .coop isn't practical (already established on .com, board resistance), .com is the safe fallback. Consider registering both and redirecting .com to .coop if the cooperative identity matters to the membership.
+
+Avoid .bank and .credit — these are restricted TLDs with complex verification that rarely makes sense for community credit unions.

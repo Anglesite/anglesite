@@ -50,6 +50,14 @@ CF_ZONE_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=SITE_DOMAI
 
 Replace `SITE_DOMAIN` with the root domain (no `www.`). If the zone ID comes back null, the token may be invalid or the domain not yet active on Cloudflare.
 
+## Proactive: Bluesky handle verification
+
+Before asking what the owner needs, check `.site-config` for `BLUESKY_HANDLE`. If the owner is on Bluesky but still using a `.bsky.social` handle, proactively offer: "I noticed you're on Bluesky — want me to set up your domain as your Bluesky handle? People would see @SITE_DOMAIN instead of your current handle. It takes about a minute."
+
+If `BLUESKY_HANDLE` is not set, and this is the first time running `/anglesite:domain`, ask: "By the way — are you on Bluesky? It's a social network where your domain becomes your handle, so people see @yourdomain.com. If you have an account, I can set that up in about a minute."
+
+Read `${CLAUDE_PLUGIN_ROOT}/docs/domain-guide.md` for context on why domain-as-identity matters across the open web.
+
 ## What do you need?
 
 Ask: "What do you need to set up on your domain?" Common requests:
@@ -100,6 +108,7 @@ To verify a custom domain as their Bluesky handle:
      --data '{"type":"TXT","name":"_atproto","content":"did=did:plc:VALUE","ttl":1,"proxied":false}'
    ```
 5. Confirm: "Done — I added the verification record. Go back to Bluesky and click 'Verify DNS Record'. Once verified, your Bluesky handle will be your domain name — people will see @yourdomain.com instead of @user.bsky.social."
+6. After verification succeeds, save `BLUESKY_HANDLE=@SITE_DOMAIN` to `.site-config` using the **Write tool**.
 
 ### Google site verification
 

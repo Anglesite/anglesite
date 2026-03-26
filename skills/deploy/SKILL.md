@@ -150,13 +150,15 @@ If they want a custom domain, first determine the right path. Ask: "Do you alrea
 
 ### Option A — Buy a new domain
 
+Before searching, read `${CLAUDE_PLUGIN_ROOT}/docs/domain-guide.md` and check the owner's `BUSINESS_TYPE` in `.site-config`. The right TLD depends on who they are — co-ops should consider .coop, nonprofits should consider .org, environmental orgs should consider .eco. Some mission-aligned TLDs aren't available on Cloudflare; if the best TLD for this owner requires an external registrar, help them register there first and then point nameservers to Cloudflare (Option C below). See the domain guide for the full recommendation table.
+
 Tell the owner: "Let's search for a domain name. Cloudflare sells domains at cost — no markup, no surprise renewals."
 
 Open the Cloudflare domain registration page: `https://dash.cloudflare.com/?to=/:account/domains/register`
 
 Walk them through:
 1. Search for their desired domain name
-2. Pick a TLD (.com, .org, .net, etc.) — explain price differences
+2. Pick a TLD — recommend based on the domain guide and their business type, not just price
 3. Complete purchase (requires payment method on Cloudflare account)
 4. Wait for registration to complete (usually instant)
 
