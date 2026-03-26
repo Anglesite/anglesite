@@ -121,22 +121,25 @@ export function filterByDateRange(
   currentDate: Date,
   weeksAhead: number,
 ): SeasonalEvent[] {
-  const windowEnd = new Date(currentDate);
+  const today = new Date(currentDate);
+  today.setHours(0, 0, 0, 0);
+
+  const windowEnd = new Date(today);
   windowEnd.setDate(windowEnd.getDate() + weeksAhead * 7);
 
-  const currentYear = currentDate.getFullYear();
+  const currentYear = today.getFullYear();
 
   return events.filter((e) => {
     if (e.day) {
       // Specific date — check if within window
       const eventDate = new Date(currentYear, e.month - 1, e.day);
-      return eventDate >= currentDate && eventDate <= windowEnd;
+      return eventDate >= today && eventDate <= windowEnd;
     }
 
     // Month-level event — include if any part of the month overlaps the window
     const monthStart = new Date(currentYear, e.month - 1, 1);
     const monthEnd = new Date(currentYear, e.month, 0); // last day of month
-    return monthEnd >= currentDate && monthStart <= windowEnd;
+    return monthEnd >= today && monthStart <= windowEnd;
   });
 }
 
@@ -194,16 +197,15 @@ export function formatSuggestions(
     return `No upcoming seasonal content hooks for a ${businessType} business in the next few weeks.`;
   }
 
+  const today = new Date(currentDate);
+  today.setHours(0, 0, 0, 0);
+
   const lines = events.map((e) => {
     let timing = "";
     if (e.day) {
-      const eventDate = new Date(
-        currentDate.getFullYear(),
-        e.month - 1,
-        e.day,
-      );
+      const eventDate = new Date(today.getFullYear(), e.month - 1, e.day);
       const daysAway = Math.round(
-        (eventDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24),
+        (eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
       );
       if (daysAway > 0) {
         timing = ` (${daysAway} day${daysAway !== 1 ? "s" : ""} away)`;

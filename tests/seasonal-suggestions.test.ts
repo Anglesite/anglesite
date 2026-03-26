@@ -160,6 +160,28 @@ describe("filterByDateRange", () => {
     expect(names).toContain("Resolution season");
   });
 
+  it("includes same-day events when currentDate has a non-zero time", () => {
+    // Mar 20 at 14:30 — "First day of spring" is Mar 20, should still match
+    const result = filterByDateRange(
+      events,
+      new Date(2026, 2, 20, 14, 30, 0),
+      3,
+    );
+    const names = result.map((e) => e.name);
+    expect(names).toContain("First day of spring");
+  });
+
+  it("includes month-level events when currentDate has a non-zero time", () => {
+    // Jan 31 at 23:59 — January month-level events should still match
+    const result = filterByDateRange(
+      events,
+      new Date(2026, 0, 31, 23, 59, 59),
+      1,
+    );
+    const names = result.map((e) => e.name);
+    expect(names).toContain("Winter weather");
+  });
+
   it("includes month-level events for next month within window", () => {
     // Jan 20 with 3 weeks = covers into Feb
     const result = filterByDateRange(events, new Date(2026, 0, 20), 3);
@@ -220,6 +242,24 @@ describe("formatSuggestions", () => {
   it("returns empty message when no suggestions", () => {
     const result = formatSuggestions([], "plumber", new Date(2026, 0, 25));
     expect(result.toLowerCase()).toContain("no upcoming");
+  });
+
+  it("shows 'today' for same-day events when currentDate has a time component", () => {
+    const events: SeasonalEvent[] = [
+      {
+        name: "First day of spring",
+        month: 3,
+        day: 20,
+        types: ["all"],
+        description: "Spring content.",
+      },
+    ];
+    const result = formatSuggestions(
+      events,
+      "florist",
+      new Date(2026, 2, 20, 14, 30, 0),
+    );
+    expect(result).toContain("(today)");
   });
 
   it("includes days-away count for dated events", () => {
