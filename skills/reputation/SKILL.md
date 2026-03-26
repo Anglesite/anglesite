@@ -31,6 +31,8 @@ Read `.site-config` for:
 - `BUSINESS_TYPE` — determines which review platforms and competitive factors matter
 - `SITE_NAME` — for personalized suggestions
 - `SITE_URL` — to check if Google Business Profile link exists on the site
+- `REVIEW_PLATFORMS` — comma-separated platform slugs (google, yelp, fresha, etc.)
+- `GOOGLE_REVIEW_URL` — direct link to Google review form (if available)
 
 If `BUSINESS_TYPE` is not set, skip this skill entirely. Generic review advice is not useful without business context.
 
@@ -43,13 +45,37 @@ Read competitive positioning guidance from `${CLAUDE_PLUGIN_ROOT}/docs/smb/compe
 
 ## Step 2 — Review monitoring coaching
 
-Ask the owner (if this is an interactive session, not a scheduled check):
+Read `REVIEW_PLATFORMS` from `.site-config` if available.
+
+### If `REVIEW_PLATFORMS` is set (structured walk-through)
+
+Walk through each platform in order. For each:
+
+1. Direct the owner to open their review page:
+   - **Google:** Use `GOOGLE_REVIEW_URL` from `.site-config` if available. Otherwise: "Open Google Maps and search for your business name, then click Reviews."
+   - **Yelp:** "Open yelp.com and search for your business name, then click the Reviews tab."
+   - **Booking platform** (Fresha, Vagaro, Booksy, etc.): "Open [platform] and check your reviews dashboard."
+   - **Other platforms:** Direct the owner to the review section of that platform.
+
+2. Ask: "Any new reviews on [platform] since last time?"
+   - If yes: "Read me the review (or paste it) and I'll help you draft a response." → proceed to Step 3.
+   - If no: "Great — you're caught up on [platform]." → move to next platform.
+
+3. After all platforms: proceed to Step 4 (getting more reviews).
+
+### If `REVIEW_PLATFORMS` is not set but `BUSINESS_TYPE` is (generic coaching)
+
+Fall back to general questions:
 
 1. **"Have you checked your Google reviews recently?"** — Most owners forget. A gentle nudge is the most valuable thing this skill does.
 2. **"Any new reviews since we last talked?"** — If yes, offer to help draft a response (Step 3).
 3. **"Are you getting reviews from customers?"** — If not, suggest a simple ask strategy (Step 4).
 
-If this is a non-interactive context (e.g., part of `/anglesite:check`), skip the questions and present the coaching tips directly.
+Also ask: "Which platforms do your customers use for reviews? I can save that so next time we go through them one by one." If the owner answers, save to `.site-config` as `REVIEW_PLATFORMS`.
+
+### Non-interactive context (e.g., part of `/anglesite:check`)
+
+Skip the questions. Present 1-3 platform-specific coaching tips based on `REVIEW_PLATFORMS` (or generic tips if not set). Example: "Reminder: check your Google and Yelp reviews this week. Responding within a few days shows customers you care."
 
 ## Step 3 — Review response drafting
 
@@ -90,6 +116,7 @@ If the owner has few reviews, suggest these low-effort strategies:
 3. **Add a review link to the website** — a simple "Leave us a review" link in the footer or contact page. Check if this already exists.
 4. **Follow up** — for service businesses, a thank-you email a day after service with a review link converts well.
 5. **Never incentivize** — offering discounts for reviews violates Google's policies and erodes trust.
+6. **QR code** — Invoke the `qr` skill to generate a QR code for the Google review link. The owner can print it on receipts, table tents, or business cards. (The `qr` skill is model-only — invoke it directly, do not present it as a slash command to the owner.)
 
 Check if the site already has a Google review link by scanning `src/` for review-related URLs or text. If not, suggest adding one.
 
