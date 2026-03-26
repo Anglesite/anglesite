@@ -57,6 +57,31 @@ describe("formatPostForEmail", () => {
     expect(result).toContain("https://example.com/images/blog/food.webp");
   });
 
+  it("converts dot-slash relative image paths to absolute URLs", () => {
+    const body = "See ![photo](./images/blog/food.webp) for details.";
+    const result = formatPostForEmail(
+      "Title",
+      "Desc",
+      body,
+      "https://example.com",
+      "slug",
+    );
+    expect(result).toContain("https://example.com/images/blog/food.webp");
+    expect(result).not.toContain("./images");
+  });
+
+  it("preserves already-absolute image URLs", () => {
+    const body = "See ![photo](https://cdn.example.com/photo.webp) here.";
+    const result = formatPostForEmail(
+      "Title",
+      "Desc",
+      body,
+      "https://example.com",
+      "slug",
+    );
+    expect(result).toContain("https://cdn.example.com/photo.webp");
+  });
+
   it("returns non-empty output", () => {
     const result = formatPostForEmail("T", "D", "B", "https://x.com", "s");
     expect(result.length).toBeGreaterThan(0);

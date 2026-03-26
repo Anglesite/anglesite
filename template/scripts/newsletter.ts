@@ -18,9 +18,9 @@ export function formatPostForEmail(
 ): string {
   const postUrl = `${siteUrl}/blog/${slug}`;
 
-  // Convert relative image paths to absolute
+  // Convert relative image paths to absolute (skips http/https URLs)
   const absoluteBody = body.replace(
-    /!\[([^\]]*)\]\(\/([^)]+)\)/g,
+    /!\[([^\]]*)\]\((?:\.\/|\/)([^)]+)\)/g,
     `![$1](${siteUrl}/$2)`,
   );
 
