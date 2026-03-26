@@ -2,7 +2,7 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(dscacheutil *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(dscacheutil *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
 ---
 
 Run a full health check on the site — and fix what you find. If the owner described a specific problem, diagnose that first; otherwise run the full audit below. The checklists are for you (the agent) — **do not show raw checklist items, technical terms, or jargon to the owner.** Translate every finding into plain English. See the Results section at the bottom for how to present findings.
@@ -150,6 +150,8 @@ Examples of how to translate findings:
 | EXIF GPS data in images | "Some of your photos have location information embedded in them. I'll strip that out so visitors can't see where the photos were taken." |
 
 Never show the owner: CSS selectors, HTML tag names, HTTP headers, schema.org terms, WCAG levels, npm package names, or code snippets. If you need to explain *why* something matters, use an analogy or a concrete consequence ("visitors on phones will have to scroll sideways").
+
+**Visual summary:** After the audit, use tldraw to draw a visual scorecard using `progressChecklist()` from `scripts/tldraw-helpers.ts`. Show each check category as a checklist item (green check for passing, grey box for issues found). The owner sees at a glance what's working and what needs attention.
 
 If any must-fix issues are found, explain and offer to fix them. If everything passes, keep it short: "Your site looks good — it builds correctly, works on phones, is secure, and is easy for search engines to find. No issues."
 

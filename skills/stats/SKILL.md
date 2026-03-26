@@ -1,7 +1,7 @@
 ---
 name: stats
 description: "Show site analytics in plain language"
-allowed-tools: Bash(curl *), Bash(grep *), Bash(git log *), Read, Glob
+allowed-tools: Bash(curl *), Bash(grep *), Bash(git log *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -99,6 +99,16 @@ Present the summary in plain language. Example output:
 > - QR code "table-tent": 23 visits
 > - facebook ad "march-promo": 45 visits
 > - Email "weekly-update" via newsletter: 12 visits
+
+## Visual presentation
+
+After collecting the data, **draw the results** using tldraw before presenting text:
+
+- Use `barChart()` from `scripts/tldraw-helpers.ts` to show top pages as a horizontal bar chart
+- If campaign data exists, draw a second bar chart for campaign performance
+- The owner sees their numbers as a visual dashboard, not a wall of text
+
+Show the visual first, then follow up with the plain-language summary and actionable suggestions.
 
 ## Step 3 — Actionable suggestions
 

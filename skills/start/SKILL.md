@@ -1,7 +1,7 @@
 ---
 name: start
 description: "First-time setup: discovery, design, tools, preview"
-allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Bash(gh *), Bash(git remote *), Bash(git push *), Bash(git branch *), Write, Read, Glob
+allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Bash(gh *), Bash(git remote *), Bash(git push *), Bash(git branch *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -279,6 +279,19 @@ gh label create build --description "Build or deploy failure" --color fbca04
 ```
 
 Tell the owner: "Your website is backed up to GitHub! Every time we make changes, they'll be saved there automatically. If anything ever happens to your computer, your website is safe."
+
+## Visual progress
+
+Throughout the setup process, use tldraw to show the owner a visual progress checklist using `progressChecklist()` from `scripts/tldraw-helpers.ts`. Update it as each step completes:
+
+- Scaffolding
+- Discovery interview
+- Design interview
+- Tool installation
+- GitHub backup
+- Preview
+
+This gives the owner a clear sense of where they are and what's left. Draw it once early and update it after major milestones.
 
 ## Step 6 — Preview
 
