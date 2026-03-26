@@ -72,6 +72,9 @@ Then branch based on site type:
 5. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
 6. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
 7. "Are you already using any tools or apps for your business?" — anything counts: Etsy, Square, Venmo, Instagram for sales, a booking app, a spreadsheet. If they already have tools, don't replace them — integrate with the website. Recognize informal tools (Venmo, PayPal, Cash App, Zelle) as valid starting points — suggest professional invoicing (Square, Stripe) when they're ready, not as an immediate replacement.
+
+7b. **Business and organization sites only:** "Where do your customers leave reviews? Google, Yelp, your booking platform?" — Save as `REVIEW_PLATFORMS=google,yelp,fresha` (comma-separated slugs) in `.site-config`. If they mention Google Business Profile and `GOOGLE_REVIEW_URL` is not already set, ask for their business name to construct the direct review link: `https://search.google.com/local/writereview?placeid=PLACE_ID`. Find the Place ID via [Google's Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) and save as `GOOGLE_REVIEW_URL` in `.site-config`. Skip this question for personal, blog, and portfolio site types.
+
 8. If the business has a physical location, ask:
    - "What's your business address?" (for maps and local search)
    - "What's your business phone number?" (for the website and local search)
