@@ -113,11 +113,15 @@ export function generateHreflangTags(
   defaultLocale: string,
   siteUrl: string,
 ): string {
+  let baseUrl = siteUrl;
+  if (!/^https?:\/\//.test(baseUrl)) baseUrl = `https://${baseUrl}`;
+  baseUrl = baseUrl.replace(/\/+$/, "");
+
   const tags: string[] = [];
 
   for (const locale of locales) {
     const path = localizedPath(currentPath, locale, defaultLocale);
-    const href = escapeHtml(`${siteUrl}${path}`);
+    const href = escapeHtml(`${baseUrl}${path}`);
     const safeLang = escapeHtml(locale);
     tags.push(`<link rel="alternate" hreflang="${safeLang}" href="${href}" />`);
 

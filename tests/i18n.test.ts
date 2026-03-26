@@ -87,6 +87,17 @@ describe("generateHreflangTags", () => {
     const tags = generateHreflangTags("/", ["en", "es"], "en", "https://example.com");
     expect(tags).toContain('rel="alternate"');
   });
+
+  it("strips trailing slash from siteUrl to avoid double slashes", () => {
+    const tags = generateHreflangTags("/blog/post", ["en", "es"], "en", "https://example.com/");
+    expect(tags).toContain("https://example.com/blog/post");
+    expect(tags).not.toContain("https://example.com//");
+  });
+
+  it("prepends https:// when siteUrl has no protocol", () => {
+    const tags = generateHreflangTags("/blog/post", ["en"], "en", "example.com");
+    expect(tags).toContain("https://example.com/blog/post");
+  });
 });
 
 // ---------------------------------------------------------------------------
