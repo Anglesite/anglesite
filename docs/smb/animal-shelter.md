@@ -34,6 +34,14 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **SignUpGenius** (free tier) — Volunteer scheduling.
 - **GiveButter** (free, tips-based) — Fundraising with peer-to-peer support.
 
+## Review platforms
+
+- **Google Business Profile** — People searching for a shelter to adopt from, surrender a pet, or volunteer will often start with a Google search. Reviews here frequently describe the adoption experience and staff compassion. Keep the profile accurate with current hours and respond to all reviews.
+- **Petfinder / Adopt-a-Pet** — These platforms function as both listing directories and review surfaces. Adopters leave feedback on their experience. A well-maintained profile with updated animal listings signals an active, well-run shelter.
+- **Yelp** — Used in some markets for animal shelters and rescues. Reviews often describe the adoption process, shelter conditions, and how staff treated both animals and adopters.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Animal photos and updates**: Animals should be photographed in good light, looking their best. Poor shelter photos reduce adoption rates. This is the most impactful website optimization.

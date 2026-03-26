@@ -42,6 +42,14 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **Deaccessioning**: If the museum sells collection items, this is controversial. Not a website concern, but be aware.
 - **Repatriation (NAGPRA)**: For history/anthropology museums with indigenous collections. Not directly a website concern, but transparency pages should acknowledge this if applicable.
 
+## Review platforms
+
+- **Google Business Profile** — "Museums near me" and "[type] museum [city]" are common visitor searches. Reviews often describe the visitor experience: accessibility, staff knowledge, exhibit quality, and value. Keep the profile updated with current exhibitions and special event hours.
+- **TripAdvisor** — A dominant platform for cultural attractions, especially museums. TripAdvisor is heavily used by tourists and out-of-town visitors planning itineraries. For science centers, children's museums, and history museums, TripAdvisor reviews are widely read and directly influence attendance decisions.
+- **Yelp** — Used in many markets for local museum discovery. Particularly relevant for smaller museums, galleries, and botanical gardens.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Exhibition previews and reviews, "object of the month" deep dives, curator Q&As, artist interviews, behind-the-scenes of exhibition installation, education program recaps, conservation and restoration stories, collection acquisition announcements, community event recaps, seasonal programming highlights, "what's on this weekend" roundups.
