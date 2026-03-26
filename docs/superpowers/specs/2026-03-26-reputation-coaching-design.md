@@ -1,87 +1,95 @@
-# Reputation coaching skill — design spec
+# Reputation coaching enhancements — design spec
 
 **Issue:** [#61 — Add competitor awareness and review monitoring skill](https://github.com/Anglesite/anglesite/issues/61)
-**Scope:** V1 — guide-based coaching for third-party review management (no OAuth, no API integrations)
+**Scope:** V1 — enhance existing reputation skill with multi-platform coaching and better onboarding
 **Date:** 2026-03-26
 
 ## Problem
 
-Online reputation management is critical for local businesses, but owners don't know when to check reviews, how to respond well, or which platforms matter for their business type. The existing `docs/smb/reviews.md` has comprehensive guidance, but it's passive reference material — the owner has to seek it out. Meanwhile, unanswered reviews pile up and hurt reputation.
+The `skills/reputation/SKILL.md` skill already exists and provides review coaching, response drafting, and competitive context. However, it has two gaps:
 
-## Solution
+1. **Platform awareness** — The skill assumes Google is the only review platform. It doesn't know which platforms the owner uses (Yelp, booking platforms, industry-specific sites) and can't coach per-platform.
+2. **Onboarding** — The `/anglesite:start` skill doesn't collect review platform information, so the reputation skill lacks context about where the owner's reviews live.
 
-A model-only skill (`reputation`) that coaches owners through their third-party reviews in a structured conversation, paired with integration into `start` (collect platform profiles) and `check` (periodic nudge).
+The `docs/smb/reviews.md` reference doc already has comprehensive platform-by-vertical guidance (lines 19-40), but this knowledge isn't connected to the skill or the vertical docs where the Webmaster looks for business-specific advice.
 
-The Webmaster is a writing coach, not an integration. No API calls, no OAuth, no scraping, no storing review content. The owner reads their own reviews and posts their own responses. The Webmaster helps them do it well.
+## Existing state
 
-## Components
+**`skills/reputation/SKILL.md`** — Already has:
+- Review coaching flow (Steps 2-4)
+- Response drafting with tone-by-vertical templates (Step 3)
+- Review solicitation coaching (Step 4)
+- Competitive context with `COMPETITORS` in `.site-config` (Step 5)
+- Action item summary (Step 6)
+- Integration with check, testimonials, seasonal, and business-info skills
+- Privacy rule: never store review content locally
+- Guard: skips if `BUSINESS_TYPE` is not set
 
-### 1. `.site-config` integration during `/anglesite:start`
+**`skills/check/SKILL.md`** — Already has a "Reputation" section (line 122-126) that invokes the reputation skill when `BUSINESS_TYPE` is set.
 
-During Step 4 (content discovery), after the design interview, add these questions:
+**`docs/smb/reviews.md`** — Comprehensive reference covering platforms by vertical, solicitation strategies, response templates, and monitoring cadence. Already directs the start and design-interview skills to ask about review platforms.
 
-- "Do you have a Google Business Profile?" — If yes, find their Place ID and store `GOOGLE_PLACE_ID` and `GOOGLE_REVIEW_URL=https://search.google.com/local/writereview?placeid=...` in `.site-config`.
-- "Where else do your customers leave reviews?" — Store as `REVIEW_PLATFORMS=google,yelp,fresha` (comma-separated slugs) in `.site-config`.
-- "How often do you check your reviews?" — Informs nudge tone (encouragement vs. reminder).
+## Changes
 
-This wires up guidance already in `docs/smb/reviews.md` (lines 40-41) that says to ask during start but wasn't connected to the skill.
+### 1. Add `REVIEW_PLATFORMS` to `.site-config` during `/anglesite:start`
 
-### 2. Check-in nudge in `/anglesite:check`
+**Where:** In `/anglesite:start` Step 0, question 7 ("Are you already using any tools or apps for your business?") in the `SITE_TYPE=business` branch. Add to this existing question flow. **Only for business and organization site types** — personal, blog, and portfolio sites don't have review platforms.
 
-After automated diagnostics complete, if `REVIEW_PLATFORMS` is set in `.site-config`, the Webmaster adds one question:
+- "Where do your customers leave reviews? Google, Yelp, your booking platform?" — Store as `REVIEW_PLATFORMS=google,yelp,fresha` (comma-separated slugs) in `.site-config`.
+- If they mention Google Business Profile and `GOOGLE_REVIEW_URL` isn't already set, construct the direct review link (`https://search.google.com/local/writereview?placeid=PLACE_ID`) and store it. Don't store `GOOGLE_PLACE_ID` separately — it's embedded in the URL and a redundant key adds confusion.
 
-> "Quick question — have you checked your [Google/Yelp/etc.] reviews recently? If there are any you haven't responded to, I can help you draft responses."
+This connects the guidance in `docs/smb/reviews.md` (line 41: "ask: Where have your customers left reviews?") to the actual start flow.
 
-Rules:
-- One question, not a diagnostic step. Doesn't block the check workflow.
-- If `REVIEW_PLATFORMS` is not set, don't mention reviews — no nagging about setup they haven't opted into.
-- Point the owner to the reputation skill for the full walk-through.
+### 2. Enhance the reputation skill with per-platform walk-through
 
-### 3. The `reputation` skill
+**File:** `skills/reputation/SKILL.md`
+**Nature:** Modify existing Step 2 (review monitoring coaching), not replace the skill.
 
-**Location:** `skills/reputation/SKILL.md`
-**Type:** Model-only (`user-invokable: false`)
-**Invoked when:** Owner asks about reviews, responds to the check nudge, or says "help me with my reviews."
+Current Step 2 asks three generic questions. Replace with a structured per-platform flow:
 
-**Flow:**
+**If `REVIEW_PLATFORMS` is set in `.site-config`:**
+- Walk through each platform in order
+- For each: direct the owner to open their review page (provide `GOOGLE_REVIEW_URL` if available for Google)
+- "Any new reviews on [platform] since last time?"
+- If yes: proceed to existing Step 3 (response drafting) for each review
+- If no: "You're caught up on [platform]."
 
-1. **Read context** — Pull `REVIEW_PLATFORMS`, `GOOGLE_REVIEW_URL`, `BUSINESS_TYPE` from `.site-config`. Read the matching `docs/smb/<type>.md` for platform-specific guidance and `docs/smb/reviews.md` for universal guidance.
+**If `REVIEW_PLATFORMS` is not set but `BUSINESS_TYPE` is:**
+- Fall back to current behavior (generic "Have you checked your Google reviews?")
+- Additionally ask which platforms they use and offer to save to `.site-config` for next time
 
-2. **Platform-by-platform walk-through** — For each platform in `REVIEW_PLATFORMS`:
-   - Direct the owner to open their review page (provide the URL if known, e.g., `GOOGLE_REVIEW_URL`).
-   - "Any new reviews since last time?"
-   - If yes: "Read me the review (or paste it) and I'll help you draft a response."
-   - If no: "Great — you're caught up on [platform]."
+This preserves the existing guard (`BUSINESS_TYPE` required) and adds `REVIEW_PLATFORMS` as an enhancement, not a replacement.
 
-3. **Response drafting** — When the owner shares a review:
-   - **Positive reviews:** Draft a short, genuine, specific response. Reference something from the review. Avoid generic templates repeated verbatim.
-   - **Negative reviews:** Draft a professional, empathetic response that acknowledges the problem and takes the conversation offline. Follow the template pattern in `reviews.md`.
-   - **Fake/malicious reviews:** Coach the owner through the reporting process for that platform. Draft a calm, factual public response.
-   - Match the business's tone — casual for cafes, professional for legal. Read tone guidance from the vertical's `docs/smb/<type>.md`.
+Also add to Step 4 (getting more reviews): when suggesting a QR code for the review link, invoke the `qr` skill directly (it's model-only, not user-invokable — don't present it as `/anglesite:qr`).
 
-4. **Solicitation coaching** — After the review walk-through, if the owner has few reviews relative to their business age:
-   - Suggest adding a "Leave us a review" link to the contact page (with direct URL to Google review form).
-   - Offer to generate a QR code for the review link via `/anglesite:qr`.
-   - Suggest printed review cards, follow-up email language, or in-person scripts from `reviews.md`.
+### 3. Refine the check nudge
 
-5. **Wrap up** — Summarize: how many reviews were addressed, on which platforms, and any site changes made. Suggest when to check again.
+**File:** `skills/check/SKILL.md`
+**Nature:** Modify existing "Reputation" section (lines 122-126).
 
-**What it does not do:**
-- No API calls to any review platform
-- No OAuth or authentication to any external service
-- No scraping or crawling review sites
-- No storing review content in the project or git
-- Never posts responses on behalf of the owner — only drafts them
-- No automated monitoring or alerting
+Current behavior: invokes the full reputation skill when `BUSINESS_TYPE` is set.
 
-### 4. Updates to `docs/smb/<type>.md` files
+Change to: the check skill still invokes the reputation skill (same `Read ... and follow it` pattern), but passes context that this is a check-in. The reputation skill handles the lighter touch internally — its Step 2 already distinguishes interactive vs. non-interactive contexts. The change in the check skill is to pass `REVIEW_PLATFORMS` context so the reputation skill can name specific platforms:
 
-Each vertical doc gets a standardized `## Review platforms` section listing:
-- Which platforms matter most for that business type
-- Why each platform matters (discovery vs. booking vs. reputation)
-- What to watch for on each platform (e.g., Yelp's aggressive filter, booking platform reviews appearing at moment of purchase)
+- If `REVIEW_PLATFORMS` is set: the check skill's Reputation section notes the specific platforms before invoking the reputation skill, so it can say "Have you checked your Google and Yelp reviews recently?" instead of generic "Google reviews"
+- If only `BUSINESS_TYPE` is set: current behavior (invoke reputation skill with generic context)
+- Keep it to 1-3 action items max (already specified in the reputation skill's Step 6)
 
-Content is redistributed from the existing table in `docs/smb/reviews.md` (lines 19-40) but expanded with vertical-specific context. The canonical reference remains `reviews.md` — vertical docs point to it for the full picture.
+### 4. Add `## Review platforms` sections to `docs/smb/<type>.md` files
+
+Each vertical doc gets a standardized section listing which platforms matter and why. Content sourced from the existing table in `docs/smb/reviews.md` (lines 19-40) but expanded with vertical-specific context.
+
+**For verticals that already mention reviews** (e.g., `salon.md` line 39 mentions reviews on Google, Yelp, and booking platforms): consolidate existing review mentions into the new `## Review platforms` section. Don't duplicate — move and expand.
+
+**For verticals that don't mention reviews yet:** Add the section based on the `reviews.md` platform table and the vertical's characteristics.
+
+**Structure per vertical:**
+
+```markdown
+## Review platforms
+
+- **[Platform]** — [Why it matters for this vertical]. [What to watch for.]
+```
 
 Example for salon:
 
@@ -92,17 +100,28 @@ Example for salon:
 - **Yelp** — Heavily used for beauty services, especially urban areas. Yelp's filter is aggressive — don't panic if reviews disappear; filtered reviews are still visible to users who click through.
 - **Booking platform** (Fresha, Vagaro, Booksy) — Reviews here appear at the moment of booking. A provider with 50 reviews converts better than one with 5.
 - **Instagram** — Not traditional reviews, but DM testimonials and comment praise are social proof. Ask permission to screenshot and feature them.
+
+See `docs/smb/reviews.md` for full review management guidance.
 ```
+
+### 5. Add workflow doc for non-plugin agents
+
+**File:** `template/docs/workflows/reputation.md`
+
+A step-by-step guide for agents that don't have access to the plugin skill system. Covers:
+- Which platforms to check (read from `.site-config` or ask the owner)
+- How to coach the owner through reviewing and responding
+- Response drafting guidelines (reference `docs/smb/reviews.md`)
+- When to suggest this workflow (quarterly, after seasonal peaks)
 
 ## Files changed
 
 | File | Change |
 |---|---|
-| `skills/reputation/SKILL.md` | New model-only skill |
-| `skills/start/SKILL.md` | Add review platform questions to Step 4 |
-| `skills/check/SKILL.md` | Add review nudge after diagnostics |
-| `docs/smb/<type>.md` (all verticals) | Add `## Review platforms` section |
-| `CLAUDE.md` | Add `reputation` to model-only skills table |
+| `skills/reputation/SKILL.md` | Add per-platform walk-through to Step 2; reference `REVIEW_PLATFORMS` config key |
+| `skills/start/SKILL.md` | Add review platform question to tool/service discovery |
+| `skills/check/SKILL.md` | Refine Reputation section to name specific platforms when known |
+| `docs/smb/<type>.md` (all verticals) | Add or consolidate `## Review platforms` section |
 | `template/docs/workflows/reputation.md` | New workflow doc for non-plugin agents |
 
 ## Files not changed
@@ -110,8 +129,8 @@ Example for salon:
 | File | Why |
 |---|---|
 | `docs/smb/reviews.md` | Already comprehensive — remains canonical reference |
-| `skills/testimonials/SKILL.md` | First-party review collection is separate from third-party coaching |
-| `template/worker/review-worker.js` | No backend changes needed |
+| `skills/testimonials/SKILL.md` | First-party review collection stays separate |
+| `CLAUDE.md` | `reputation` skill already listed in model-only skills table |
 
 ## Out of scope (future versions)
 
