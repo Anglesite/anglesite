@@ -44,6 +44,14 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **Nondiscrimination**: Display a nondiscrimination policy. Many funders (HUD, FEMA, etc.) require this.
 - **Language access**: If serving a multilingual community, key pages (especially "get help" and "crisis resources") should be available in the primary languages of the community served.
 
+## Review platforms
+
+Review platforms are not a primary concern for social service organizations — clients seeking help don't browse Yelp stars, and many clients are in crisis and value confidentiality over public visibility.
+
+If the organization has a Google Business Profile (common for organizations with a physical office), keep the hours and contact information accurate. Some volunteers, donors, and partner agencies use Google to find the organization. Respond to any questions or reviews professionally to build community trust.
+
+See `docs/smb/reviews.md` for general review management guidance.
+
 ## Content ideas
 
 Impact stories (anonymized or with explicit consent — never pressure clients), program milestone announcements ("we housed 50 families this year"), volunteer spotlights, donor recognition, awareness month features (Hunger and Homelessness Awareness Week, DV Awareness Month), policy and advocacy updates, community resource roundups, staff spotlights, fundraiser announcements and recaps.

@@ -35,6 +35,15 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **YouTube** or **Facebook Live** — For livestreaming services. Link from the website.
 - Most congregations already have a management tool. Integrate rather than replace.
 
+## Review platforms
+
+Traditional review platforms are an awkward fit for congregations — faith communities aren't restaurants. However, a few platforms matter for discovery.
+
+- **Google Business Profile** — The single most useful platform. People searching for "churches near me," "mosque in [city]," or "[denomination] [city]" will find the listing. Reviews here are often left by visitors after a first-visit experience. Keep the listing accurate with current service times — this is the #1 reason people search.
+- **Facebook** — Congregation members and the broader community often recommend their house of worship on Facebook. The page's recommendations section (formerly ratings) is visible to anyone looking at the page.
+
+See `docs/smb/reviews.md` for general review management guidance.
+
 ## Compliance
 
 - **Tax-exempt status**: Churches are automatically tax-exempt under IRC 501(c)(3) without filing for recognition. Still display this status for donor confidence.

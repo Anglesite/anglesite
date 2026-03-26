@@ -34,6 +34,17 @@ Covers: wedding photographers, portrait photographers, commercial photographers,
 - **Cal.com** (open source, free tier) — For booking consultations or mini-sessions.
 - **Ko-fi** (free, no fees) — For selling prints, presets, or digital products.
 
+## Review platforms
+
+- **Google Business Profile** — The baseline for any photography business. People searching "wedding photographer [city]" or "portrait photographer near me" check Google first. A photographer with 40+ reviews and a 4.9 rating gets booked more frequently than an equally talented one with 5 reviews. Respond to every review — future clients are reading.
+- **The Knot / WeddingWire** (if weddings are a primary service) — Wedding photographers live on these platforms. Couples shortlist photographers based on The Knot and WeddingWire reviews before ever visiting a website. Paying for a listing is an investment in this business model; even the free profiles allow reviews. Getting 20+ reviews on The Knot is more impactful for wedding bookings than almost any other marketing.
+- **Facebook** — Clients who love a photographer often tag them in wedding recap posts or write recommendations on the business page. A photographer with active engagement and visible client appreciation on Facebook signals a trusted, personable vendor.
+- **Yelp** — Used for portrait and commercial photographers in some markets, less so for weddings. Worth monitoring and maintaining a profile if the business appears there.
+
+After delivering a gallery, include a personal note: "It was such a pleasure photographing your [wedding/family/team]. If you have a moment, a Google review helps me find more clients like you — here's a direct link." Personalized, timed right (when the client is still in the glow of their photos), this request lands well.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Model releases**: If featuring clients or subjects on the website (especially children), have a model release. Mention this during the design interview when discussing gallery photos.

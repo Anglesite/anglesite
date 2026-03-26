@@ -39,6 +39,18 @@ Every nonprofit website needs these regardless of sub-type:
 - **Photography style:** Impact photography — real people, real community, real work. Avoid stock photos. 4:3 for general use, 16:9 for hero banners. Warm and authentic treatment.
 - **Key component:** Impact stat cards — a large number with a brief description (e.g., "1,200 meals served this month"). These build donor confidence and make the mission tangible.
 
+## Review platforms
+
+Review platforms matter less for general nonprofits than for for-profit businesses, but Google Business Profile is worth claiming for any nonprofit with a physical location.
+
+- **Google Business Profile** — Donors, volunteers, and people seeking services may find the organization via Google. Reviews here sometimes reflect volunteer or donor experiences. Keep the profile accurate (especially hours) and respond to any reviews.
+- **Charity Navigator / GuideStar (Candid)** — These nonprofit-specific platforms rate organizations on financial health and transparency. A strong Charity Navigator rating builds donor confidence far more than Yelp stars. Make sure the nonprofit's financials are current on both platforms.
+- **GreatNonprofits** — A review platform specifically for nonprofits where volunteers, donors, and clients can leave testimonials. Often integrated with Charity Navigator.
+
+For nonprofit sub-types, see the specific vertical file for more targeted guidance.
+
+See `docs/smb/reviews.md` for general review management guidance.
+
 ## Shared tools
 
 - **Donorbox** (free up to $1000/mo) — Embeddable donation forms. donorbox.org

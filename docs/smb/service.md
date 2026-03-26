@@ -35,6 +35,18 @@ Covers: consultants, coaches (business, life, executive), freelancers, virtual a
 - **Dubsado** (~$20/mo, proprietary) — Similar to HoneyBook. Workflows, forms, contracts, invoicing. dubsado.com
 - **Wave** (free, proprietary) — Invoicing and accounting. Good for solo service providers who don't need a full practice management tool. waveapps.com
 
+## Review platforms
+
+- **Google Business Profile** — The baseline for all service businesses. When a referral checks out a consultant or coach, Google is the first stop. A service business with 15+ reviews and a strong rating looks legitimate and established. Reviews that describe specific outcomes ("helped me increase revenue by 40%," "completely transformed how I run my calendar") convert better than generic praise. Respond to every review.
+- **Yelp** — Relevant for some service categories (event planners, bookkeepers, coaches) in urban markets. Claim the profile if the business appears there.
+- **LinkedIn** (recommendations, not traditional reviews) — For B2B service businesses — consultants, coaches, fractional CFOs — LinkedIn recommendations are often more credible than Google reviews. Encourage clients to write a recommendation on LinkedIn. These feed directly into the profile that business clients will check.
+- **Clutch.co** (for agencies and B2B services) — A review platform specifically for agencies, software companies, and B2B service providers. If the business serves other businesses, Clutch is worth claiming and building reviews on.
+- **Facebook** — For consumer-facing service businesses (event planners, life coaches, virtual assistants), a Facebook business page with visible recommendations provides social proof for clients who found the business through social referrals.
+
+Testimonials displayed on the website (case studies, client quotes) are often more persuasive than platform reviews for high-ticket service businesses — a detailed case study outweighs 50 one-sentence Google reviews for a six-month consulting engagement. Both matter; they serve different audiences at different points in the decision process.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Contracts**: Always use a written agreement. Scope of work, payment terms, cancellation policy, intellectual property ownership. Templates from SCORE or SBA are a starting point.

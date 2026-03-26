@@ -46,6 +46,14 @@ Covers: funeral homes, mortuaries, cremation services, memorial chapels, cemeter
 - **Green burial**: If offered, note certifications (Green Burial Council) and explain what it means.
 - **Pre-need trusting/insurance**: Pre-planned funeral funds are regulated by state. Explain how funds are held.
 
+## Review platforms
+
+- **Google Business Profile** — Many families search for funeral homes in their area immediately after a loss. Reviews on Google are read carefully and carry enormous weight — families are making a high-stakes, emotional decision in a short time. Compassionate, professional responses to all reviews (positive and negative) signal the home's character.
+- **Yelp** — Families in some markets use Yelp to compare funeral homes. Reviews tend to focus on staff compassion, communication, and the facility. Worth claiming and maintaining.
+- **Funeral Home Review sites** (FuneralWise, Funeralocity) — Industry-specific directories where families compare homes by price transparency, services, and ratings. Claim and update listings on these platforms.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Grief resources, "what to do when someone dies" guides, pre-planning benefits, veteran honor stories (with family permission), community memorial events (Memorial Day, Day of the Dead), staff spotlights, historical obituary archives, funeral tradition explainers, green burial information, estate planning basics, holiday grief support.

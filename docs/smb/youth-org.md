@@ -35,6 +35,13 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **GiveButter** (free, tips-based) — Fundraising for equipment, scholarships, facility needs.
 - For summer camps: **CampMinder** or **UltraCamp** — Camp-specific registration and management.
 
+## Review platforms
+
+- **Google Business Profile** — Parents searching for youth sports leagues, after-school programs, or scouting groups use Google Maps. Reviews here focus on safety, communication, and whether children thrived in the program — the trust signals that matter most to parents.
+- **Facebook** — Many youth organizations have active Facebook communities where parent recommendations are especially common. Monitor and respond to recommendations on the Facebook page.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Child safety**: This is the #1 compliance concern. Display:

@@ -1,7 +1,7 @@
 ---
 name: convert
 description: "Convert an existing static site generator project (Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress, MkDocs, Eleventy, Hexo) to Anglesite/Astro"
-allowed-tools: ["Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(cp *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(cp *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(find */layouts *)", "Bash(find */templates *)", "Bash(find */_includes *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -163,6 +163,33 @@ Build STATIC_PAGES from files in page/doc directories.
 If no SSG is detected (user provided manual guidance), use the directories they
 specified.
 
+### Discover pagination-based pages
+
+Many SSGs use template files with pagination to dynamically generate pages from
+collection metadata (tags, categories, authors, date archives). These are not
+Markdown content files — they're template files that produce multiple pages at
+build time. Glob for them separately:
+
+| Platform | What to look for |
+| --- | --- |
+| Eleventy | `.webc`, `.njk`, `.liquid`, `.11ty.js` files with `pagination:` in frontmatter |
+| Hugo | `_index.md` in taxonomy dirs (`tags/`, `categories/`), `layouts/taxonomy/`, `layouts/_default/taxonomy.html`, `layouts/_default/term.html` |
+| Jekyll | Files using `site.tags`, `site.categories`, or `paginator` in Liquid templates |
+| Gatsby | `gatsby-node.js` calls to `createPages` that iterate over tags/categories |
+| Next.js | `[tag].tsx`, `[category].tsx`, or other dynamic route files under `pages/tags/`, `pages/categories/` |
+| Hexo | `_config.yml` tag/category settings + theme `layout/tag.ejs`, `layout/category.ejs` |
+| Docusaurus | Tag pages are auto-generated — check `blog/tags/` config in `docusaurus.config.js` |
+
+For each platform, use Glob to search for these patterns. Read any found files
+to determine what collection data they paginate over (tags, categories, authors,
+years, etc.).
+
+Build PAGINATION_PAGES from the discovered templates. Each entry should note:
+- **Type**: `tags`, `categories`, `authors`, `date-archive`, or `custom`
+- **Source file**: path to the template file
+- **Index page**: whether the source had a listing page (e.g., `/tags/` index)
+- **Item pages**: whether it generates per-item pages (e.g., `/tags/{tag}/`)
+
 ### Present the inventory
 
 Tell the owner what was found. Example:
@@ -171,14 +198,19 @@ Tell the owner what was found. Example:
 >
 > **Blog posts:** 23 posts (July 2024 – February 2026)
 > **Pages:** 6 pages (About, FAQ, Services, Contact, Gallery, Docs)
+> **Dynamic pages:** Tag pages (8 tags), category pages (4 categories)
 >
-> I'll convert all the blog posts and create pages for the static content.
-> This will take about 5–10 minutes for a project this size."
+> I'll convert all the blog posts, create pages for the static content,
+> and generate tag and category pages. This will take about 5–10 minutes
+> for a project this size."
+
+Include PAGINATION_PAGES in the inventory if any were found. List the type
+and count (e.g., "8 tags" or "3 author pages").
 
 Ask:
 > "Would you like to convert all of it, or just the blog posts?"
-> - **Everything** — posts + pages + redirects (recommended)
-> - **Blog posts only** — skip static pages
+> - **Everything** — posts + pages + dynamic pages + redirects (recommended)
+> - **Blog posts only** — skip static pages and dynamic pages
 
 Wait for their answer before continuing.
 
@@ -476,6 +508,152 @@ Create a `.astro` file in `src/pages/` with the page title, meta description,
 For pages that are primarily image galleries (10+ images), create a gallery page
 with a responsive CSS grid layout.
 
+## Step 3.5 — Generate dynamic route pages
+
+If PAGINATION_PAGES is non-empty and the owner chose "Everything", generate
+Astro dynamic route pages for each discovered pagination type.
+
+### Tag pages
+
+If the source site had tag pages, create two files:
+
+**`src/pages/tags/index.astro`** — lists all tags with post counts:
+
+```astro
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+export const prerender = true;
+
+const allPosts = await getCollection("posts", ({ data }) => {
+  return import.meta.env.PROD ? !data.draft : true;
+});
+
+const tags = [...new Set(allPosts.flatMap((post) => post.data.tags ?? []))].sort();
+const tagCounts = Object.fromEntries(
+  tags.map((tag) => [
+    tag,
+    allPosts.filter((post) => post.data.tags?.includes(tag)).length,
+  ]),
+);
+---
+
+<BaseLayout title="Tags" description="Browse posts by tag">
+  <h1>Tags</h1>
+  <ul class="tag-list">
+    {
+      tags.map((tag) => (
+        <li>
+          <a href={`/tags/${tag}/`}>
+            {tag} ({tagCounts[tag]})
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+```
+
+**`src/pages/tags/[tag].astro`** — lists posts for a single tag:
+
+```astro
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const allPosts = await getCollection("posts", ({ data }) => {
+    return import.meta.env.PROD ? !data.draft : true;
+  });
+
+  const tags = [...new Set(allPosts.flatMap((post) => post.data.tags ?? []))];
+
+  return tags.map((tag) => ({
+    params: { tag },
+    props: {
+      posts: allPosts
+        .filter((post) => post.data.tags?.includes(tag))
+        .sort(
+          (a, b) =>
+            b.data.publishDate.getTime() - a.data.publishDate.getTime(),
+        ),
+    },
+  }));
+}
+
+const { tag } = Astro.params;
+const { posts } = Astro.props;
+---
+
+<BaseLayout title={`Posts tagged "${tag}"`} description={`All posts tagged "${tag}"`}>
+  <h1>Posts tagged &ldquo;{tag}&rdquo;</h1>
+  <ul class="post-list">
+    {
+      posts.map((post) => (
+        <li class="h-entry">
+          <a href={`/POST_URL_PREFIX/${post.id}/`} class="u-url">
+            <h2 class="p-name">{post.data.title}</h2>
+          </a>
+          <time
+            class="dt-published"
+            datetime={post.data.publishDate.toISOString()}
+          >
+            {post.data.publishDate.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </time>
+          <p class="p-summary">{post.data.description}</p>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+```
+
+Replace `POST_URL_PREFIX` in the href with the value from `.site-config`
+(same logic as Step 4.5).
+
+### Category pages
+
+If the source site had category pages, create the same structure under
+`src/pages/categories/`:
+- `src/pages/categories/index.astro` — lists all categories
+- `src/pages/categories/[category].astro` — lists posts per category
+
+Use the same pattern as tag pages but filter on `post.data.categories`
+instead of `post.data.tags`. If the Keystatic content schema doesn't have
+a `categories` field, check whether the source used categories and add the
+field to `keystatic.config.ts` and `src/content.config.ts` if needed.
+
+### Author pages
+
+If the source site had author pages and posts have an `author` field,
+create `src/pages/authors/[author].astro` using the same pattern.
+
+### Date archive pages
+
+If the source site had year or month archive pages (e.g., `/2025/` or
+`/2025/01/`), create:
+- `src/pages/archive/[year].astro` — lists posts for a year
+- Optionally `src/pages/archive/[year]/[month].astro` — lists posts for a month
+
+### Custom pagination pages
+
+For any other pagination types discovered, create equivalent Astro dynamic
+routes following the same pattern: `export const prerender = true`,
+`getStaticPaths()` that returns all possible values, and a listing template.
+
+### Redirects for pagination pages
+
+If the source site served tag pages at a different path than `/tags/{tag}/`
+(e.g., Hugo's default `/tags/{tag}/` vs. a custom taxonomy path), add
+redirect rules in Step 4.
+
 ## Step 4 — Generate redirect mappings
 
 Read `POST_URL_PREFIX` from `.site-config` to determine the target URL pattern.
@@ -582,9 +760,12 @@ Give the owner a plain-English summary:
 > **Images:** 19 copied and optimized
 > **Redirects:** 27 redirect rules added
 > **Pages created:** 4 (About, FAQ, Services, Contact)
+> **Dynamic pages:** Tag pages (8 tags), category pages (4 categories)
 >
 > The design should look close to your original site. If anything looks off
 > or you'd like to tweak colors, fonts, or layout, just let me know."
+
+Include dynamic pages in the summary only if PAGINATION_PAGES was non-empty.
 
 If any posts failed to convert, list them so the owner knows what needs attention.
 

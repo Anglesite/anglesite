@@ -42,6 +42,16 @@ Covers: bands, solo artists, singer-songwriters, DJs, cover bands, tribute acts,
 - **Mailchimp** (free up to 500 contacts) or **Buttondown** (~$9/mo, indie) — For mailing list management. Buttondown is simpler and respects privacy.
 - **SoundCloud** (free tier) — Good for demos, unreleased tracks, DJ mixes, and discovery. Less relevant for finished releases than Bandcamp/streaming. soundcloud.com
 
+## Review platforms
+
+Traditional review platforms aren't the primary reputation channel for musicians — audiences don't leave Yelp reviews for bands. Reputation is built through music platforms, live performance, and the artist's own website.
+
+- **Spotify / Apple Music / Bandcamp** — Follower counts, save rates, and playlist adds are the de facto social proof signals for streaming listeners. Bandcamp specifically allows fans to leave comments on purchases, which function as public testimonials.
+- **Google Business Profile** — Relevant for musicians with a physical presence: a recording studio, a rehearsal space open for booking, or regular residencies at a venue. If there's no physical location, skip it.
+- **Venue-adjacent reviews** — Fans often leave reviews on the venues where a band plays, specifically mentioning the performance. Monitor venue Google and Yelp listings — a mentioned performance in a positive venue review is worthwhile to screenshot and share.
+
+See `docs/smb/reviews.md` for general review management guidance.
+
 ## Compliance
 
 - **Performance rights organizations (PROs)**: If the artist writes original music, they should register with a PRO — **ASCAP**, **BMI**, or **SESAC** in the US. PROs collect royalties when songs are played on radio, in venues, on TV, or streamed. The website should note the artist's PRO affiliation if relevant to licensing.

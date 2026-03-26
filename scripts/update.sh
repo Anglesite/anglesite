@@ -18,6 +18,7 @@ if [ -z "${ZSH_VERSION-}" ]; then exec /bin/zsh "$0" "$@"; fi
 set -euo pipefail
 
 SITE_DIR="${1:-.}"
+SITE_DIR="${SITE_DIR:A}"
 PLUGIN_ROOT="${ANGLESITE_PLUGIN_ROOT:-${0:A:h:h}}"
 TEMPLATE="${PLUGIN_ROOT}/template"
 

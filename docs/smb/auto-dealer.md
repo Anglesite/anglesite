@@ -33,6 +33,18 @@ Covers: used car dealerships, independent auto dealers, specialty/classic car de
 - **Square** (free POS, proprietary) — For smaller operations, down payments, accessories.
 - For very small dealers (10–20 cars), the website is primarily a credibility tool. Most actual inventory browsing happens on listing platforms.
 
+## Review platforms
+
+- **Google Business Profile** — The first place car buyers check when researching a dealership. A dealer with dozens of recent positive reviews (and professional responses to the negatives) builds trust before the customer ever walks on the lot. Used car buyers especially rely on Google to gauge dealer reputation.
+- **Yelp** — Active for dealerships in most markets. Some buyers specifically search Yelp for used car dealers because they perceive its reviews as less filtered than Google. Keep the profile claimed and respond to reviews.
+- **DealerRater** — An automotive-specific review platform used heavily by car buyers. Claim the profile. Customers who had a good experience can be directed here, and some dealers see significant referral traffic from DealerRater listings.
+- **CarGurus** and **Cars.com** — These listing platforms also host dealer reviews. Buyers research dealers on the same platform where they found the inventory listing — reviews here influence the decision to contact you.
+- **Facebook** — Used car communities are active on Facebook Marketplace and Facebook Groups. Dealer pages with reviews are checked. A business page with positive reviews and active posts builds trust with local buyers.
+
+After each successful sale or service visit, ask the customer directly: "If you had a good experience, a Google or DealerRater review really helps us compete with the big lots." Hand them a card with direct links.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **State dealer licensing**: All states require dealer licenses. Display your license number.

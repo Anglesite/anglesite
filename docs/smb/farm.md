@@ -39,6 +39,14 @@ Covers: small farms, CSA (community-supported agriculture) programs, market gard
 - **Mailchimp** (free up to 500 contacts) or **Buttondown** (~$9/mo, indie) — For weekly "what's in the box" or "what's at market" emails. Buttondown is indie-run and respects privacy.
 - Many small farms manage CSA with just a spreadsheet and email. If that's working and the operation is small (<30 members), don't overcomplicate it.
 
+## Review platforms
+
+- **Google Business Profile** — Useful for farms with a farm stand, u-pick operation, or physical location. Customers searching "farms near me," "u-pick strawberries," or "Christmas trees [town]" will find you here. Seasonal hour accuracy is especially important — nothing frustrates a family more than driving to find the stand closed.
+- **LocalHarvest** (localharvest.org) — A farm-specific directory where CSA-seekers actively search for local producers. A well-maintained listing here reaches the exact audience most likely to sign up for a share.
+- **Word of mouth and email** — For many small farms, especially CSAs, the most important reviews happen in the farmer's market community, neighborhood groups, and email forwards. Encourage happy members to tell friends and post in local neighborhood groups.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Organic certification**: Only use the word "organic" if USDA certified. Display the certification and certifier name. Farms grossing under $5,000/year are exempt from certification but must still follow organic practices to use the term.

@@ -2,7 +2,7 @@
 name: design-interview
 description: "Redo the visual identity and branding"
 user-invokable: false
-allowed-tools: Write, Read, Glob
+allowed-tools: mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
 ---
 
 You're a professional web designer conducting a visual identity intake. Read `.site-config` for `SITE_TYPE`, `SITE_NAME`, `BUSINESS_TYPE`, `OWNER_NAME`, and `EXISTING_TOOLS`.
@@ -39,6 +39,17 @@ Tailor your questions to the site type. Cover these topics naturally (not necess
 Ask one topic at a time. Listen, reflect back what you heard, then move on. After each answer, briefly describe what you're thinking design-wise so the owner feels like they're designing *with* you, not filling out a form.
 
 **"Design it for me" escape hatch:** If the owner says something like "you pick," "I trust you," "just make it look good," or otherwise defers on multiple topics, don't keep asking one-by-one. Instead, design the whole identity yourself based on what you already know — site type, business type, any preferences they *did* share — and present the complete design in one shot: colors, typography feel, page structure, and vibe. Ask: "Here's what I'd do — does this feel right?" Let them approve, tweak, or start over.
+
+## Visual communication
+
+Use tldraw to show the owner what you're proposing throughout the interview:
+
+- **Theme selection** — invoke the `themes` skill to render color swatch cards as a visual grid (see `skills/themes/SKILL.md`)
+- **Page structure** — use `sitemapTree()` from `scripts/tldraw-helpers.ts` to show the proposed site navigation as a tree diagram
+- **Tool comparisons** — if recommending SaaS tools, use `comparisonTable()` to show options side by side
+- **Design summary** — after the interview, show a visual card with the chosen colors (rectangles), font names, and page list before applying
+
+The owner should see their design before it goes live. Visual previews build confidence and reduce revision cycles.
 
 ## After the interview
 

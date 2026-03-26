@@ -38,6 +38,16 @@ Covers: automatic car washes (tunnel and in-bay), self-serve car washes, hand wa
 - **Google Business Profile** — Essential. People search "car wash near me" and "auto detailing [town]." Keep hours current, especially holiday hours.
 - **Yelp** — Active for car washes and detailing in most markets.
 
+## Review platforms
+
+- **Google Business Profile** — Essential. "Car wash near me" and "auto detailing [town]" are high-volume searches that resolve through Google Maps. Keep hours current (especially holiday hours and weather-related closures), upload photos of finished results, and respond to all reviews. A car wash with 100+ reviews and a 4.7+ rating captures significantly more drive-by and search traffic than one with sparse reviews.
+- **Yelp** — Active for car washes and detailing shops. Used frequently when someone is deciding between a few options nearby. A well-maintained Yelp listing with before/after photos and owner responses to reviews is worth the effort.
+- **Facebook** — Detailing before/after photos shared on Facebook generate organic referrals. A business page with customer photos (with permission), positive reviews, and active engagement builds trust in the local community. Customers who tag you in their "look at my clean car!" posts are free advertising.
+
+For membership-based washes, a steady stream of reviews matters: a prospective member is committing to a monthly charge, so reputation signals carry more weight than for a one-time wash purchase. Prompt members at the 30-day mark, when they're most satisfied with their decision.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Environmental regulations**: Car washes must manage wastewater. In most jurisdictions, wash water cannot flow into storm drains — it must go to a sanitary sewer or be captured and treated. Many states require a wastewater discharge permit. Note environmentally responsible practices on the website: "We reclaim and recycle our water" or "Our wastewater goes to the sanitary sewer, not storm drains."

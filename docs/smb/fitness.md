@@ -35,6 +35,17 @@ Covers: gyms, yoga studios, Pilates, martial arts schools, dance studios, CrossF
 - **Square** (free POS, proprietary) — Good for drop-in payments and retail (merchandise, water, etc.).
 - Many studios already use MindBody or ClassPass. If it's working, integrate with it rather than replacing it.
 
+## Review platforms
+
+- **Google Business Profile** — The primary channel. People search "yoga studio near me" or "CrossFit [neighborhood]" and decide based on star ratings, photo quality, and responses. A studio with 50+ reviews looks established and safe to try. Respond to all reviews, including negative ones — showing you care about feedback builds trust with prospective members.
+- **Yelp** — Active for fitness and wellness businesses. Used especially when someone is comparing multiple studios in an area. A complete Yelp profile with photos of the space and real member reviews is worth maintaining.
+- **ClassPass** — If the studio offers drop-in classes through ClassPass, the in-app reviews are the primary signal for new ClassPass members trying the studio for the first time. A high ClassPass rating drives bookings.
+- **Facebook** — Fitness communities are active on Facebook. A business page with visible reviews, event posts, and community interaction signals an active, engaged studio. Many members will leave a recommendation on Facebook if asked.
+
+After a member's first month or a milestone class (e.g., "you've completed 10 classes!"), ask: "We'd love a Google review if you've been enjoying your time here." Members who feel part of the community are the most willing to write substantive, persuasive reviews.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Waivers**: Most fitness businesses require liability waivers. Link to a digital waiver form (many scheduling tools include this). Don't collect health information on the website itself.
