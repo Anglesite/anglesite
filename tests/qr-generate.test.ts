@@ -242,6 +242,20 @@ describe("parseUtmParams", () => {
     expect(params.medium).toBe("");
     expect(params.campaign).toBe("");
   });
+
+  it("returns empty params for malformed URL instead of throwing", () => {
+    const params = parseUtmParams("not a url");
+    expect(params.source).toBe("");
+    expect(params.medium).toBe("");
+    expect(params.campaign).toBe("");
+  });
+
+  it("returns empty params for empty string", () => {
+    const params = parseUtmParams("");
+    expect(params.source).toBe("");
+    expect(params.medium).toBe("");
+    expect(params.campaign).toBe("");
+  });
 });
 
 // ---------------------------------------------------------------------------

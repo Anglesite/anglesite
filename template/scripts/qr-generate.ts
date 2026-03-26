@@ -184,7 +184,12 @@ export function buildRedirectLine(
  * Extract UTM parameters from a URL string.
  */
 export function parseUtmParams(url: string): UtmParams {
-  const parsed = new URL(url);
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { source: "", medium: "", campaign: "" };
+  }
   return {
     source: parsed.searchParams.get("utm_source") || "",
     medium: parsed.searchParams.get("utm_medium") || "",
