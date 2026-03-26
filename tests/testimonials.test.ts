@@ -200,6 +200,14 @@ describe("review worker", () => {
     const code = readFileSync(workerPath, "utf-8");
     expect(code).toContain("SITE_DOMAIN");
   });
+
+  it("handles Turnstile network failures with try-catch", () => {
+    const code = readFileSync(workerPath, "utf-8");
+    const fnMatch = code.match(/async function verifyTurnstile[\s\S]*?^}/m);
+    expect(fnMatch).not.toBeNull();
+    expect(fnMatch![0]).toContain("try");
+    expect(fnMatch![0]).toContain("catch");
+  });
 });
 
 // ---------------------------------------------------------------------------

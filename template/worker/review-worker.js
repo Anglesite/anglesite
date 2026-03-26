@@ -45,16 +45,21 @@ function corsHeaders(origin, siteDomain) {
 }
 
 async function verifyTurnstile(token, secret, ip) {
-  const response = await fetch(
-    "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ secret, response: token, remoteip: ip }),
-    },
-  );
-  const result = await response.json();
-  return result.success === true;
+  try {
+    const response = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ secret, response: token, remoteip: ip }),
+      },
+    );
+    const result = await response.json();
+    return result.success === true;
+  } catch (err) {
+    console.error("Turnstile verification failed:", err);
+    return false;
+  }
 }
 
 function validateInput(name, rating, text) {
