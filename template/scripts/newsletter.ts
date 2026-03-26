@@ -8,6 +8,13 @@
 /**
  * Format a blog post for email newsletter delivery.
  * Converts relative image paths to absolute URLs and adds a read-more link.
+ *
+ * @param title - The blog post title
+ * @param description - Short summary of the post
+ * @param body - Markdown body content with possible relative image paths
+ * @param siteUrl - Absolute site URL (no trailing slash) for resolving paths
+ * @param slug - URL slug for the blog post
+ * @returns Formatted Markdown string ready for email delivery
  */
 export function formatPostForEmail(
   title: string,
@@ -51,6 +58,10 @@ function escapeHtml(str: string): string {
 
 /**
  * Generate HTML for a newsletter subscribe form.
+ *
+ * @param provider - Newsletter service name (e.g., "buttondown", "mailchimp")
+ * @param actionUrl - Form submission endpoint URL
+ * @returns HTML string containing the subscribe form
  */
 export function generateSubscribeFormHtml(
   provider: string,
@@ -68,6 +79,10 @@ export function generateSubscribeFormHtml(
 
 /**
  * Format subscriber count for plain-language reporting.
+ *
+ * @param count - Current subscriber count
+ * @param previousCount - Previous subscriber count for comparison (omit to skip delta)
+ * @returns Human-readable subscriber summary with optional change indicator
  */
 export function formatSubscriberReport(
   count: number,

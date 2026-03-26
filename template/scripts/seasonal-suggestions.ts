@@ -50,6 +50,8 @@ const MONTH_ABBREVS: Record<string, number> = {
 
 /**
  * Parse a seasonal calendar markdown file into structured events.
+ * @param markdown - Raw markdown content from a quarterly calendar file
+ * @returns Parsed events with name, month, optional day, types, and description
  */
 export function parseSeasonalCalendar(markdown: string): SeasonalEvent[] {
   const events: SeasonalEvent[] = [];
@@ -93,6 +95,9 @@ export function parseSeasonalCalendar(markdown: string): SeasonalEvent[] {
 /**
  * Filter events by business type. Includes "all" type events.
  * businessType can be comma-separated for multi-mode businesses.
+ * @param events - Full list of seasonal events to filter
+ * @param businessType - Comma-separated business types (e.g. "restaurant,retail")
+ * @returns Events matching any of the given business types, plus universal events
  */
 export function filterByBusinessType(
   events: SeasonalEvent[],
@@ -115,6 +120,10 @@ export function filterByBusinessType(
  * For events with a specific day: checks if the date falls within the window.
  * For events without a day (month-level): includes if any part of that month
  * overlaps with the window.
+ * @param events - Events to filter by date proximity
+ * @param currentDate - Reference date (from system `date` command, not Date.now())
+ * @param weeksAhead - Number of weeks into the future to include
+ * @returns Events falling within the date window
  */
 export function filterByDateRange(
   events: SeasonalEvent[],
@@ -146,6 +155,8 @@ export function filterByDateRange(
 /**
  * Determine which quarter files to read based on the current date.
  * Includes next quarter if within the last 2 weeks of the current quarter.
+ * @param currentDate - Reference date (from system `date` command, not Date.now())
+ * @returns Filenames to read (e.g. ["q1.md"] or ["q1.md", "q2.md"] near boundaries)
  */
 export function currentQuarterFiles(currentDate: Date): string[] {
   const month = currentDate.getMonth(); // 0-indexed
@@ -187,6 +198,10 @@ export function currentQuarterFiles(currentDate: Date): string[] {
 
 /**
  * Format events into plain-language suggestions.
+ * @param events - Filtered events to format for display
+ * @param businessType - Business type label used in the output heading
+ * @param currentDate - Reference date for calculating "days away" labels
+ * @returns Markdown-formatted suggestion list, or a "no results" message
  */
 export function formatSuggestions(
   events: SeasonalEvent[],

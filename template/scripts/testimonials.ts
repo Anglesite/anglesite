@@ -15,6 +15,10 @@ export interface Testimonial {
 
 /**
  * Generate Review JSON-LD for a single testimonial.
+ * @param testimonial - The testimonial to convert to JSON-LD.
+ * @param businessName - Name of the reviewed business.
+ * @param businessUrl - URL of the reviewed business.
+ * @returns A schema.org Review object.
  */
 export function generateReviewJsonLd(
   testimonial: Testimonial,
@@ -54,6 +58,10 @@ export function generateReviewJsonLd(
 /**
  * Generate AggregateRating JSON-LD from all testimonials.
  * Returns null if no testimonials have ratings.
+ * @param testimonials - Array of all testimonials.
+ * @param businessName - Name of the business.
+ * @param businessUrl - URL of the business.
+ * @returns A schema.org AggregateRating object, or null if none have ratings.
  */
 export function generateAggregateRatingJsonLd(
   testimonials: Testimonial[],
@@ -83,6 +91,9 @@ export function generateAggregateRatingJsonLd(
 
 /**
  * Format testimonial summary for plain-language reporting.
+ * @param count - Total number of reviews.
+ * @param avgRating - Average rating across all reviews.
+ * @returns A human-readable summary string.
  */
 export function formatTestimonialSummary(
   count: number,

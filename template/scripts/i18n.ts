@@ -44,6 +44,9 @@ export interface AstroI18nConfig {
 /**
  * Generate Astro i18n configuration object.
  * Uses prefix-other-locales strategy — default locale has no prefix.
+ * @param defaultLocale - BCP 47 language code for the primary locale (e.g. "en").
+ * @param locales - All supported locale codes including the default.
+ * @returns Astro-compatible i18n configuration object.
  */
 export function generateAstroI18nConfig(
   defaultLocale: string,
@@ -65,6 +68,10 @@ export function generateAstroI18nConfig(
 /**
  * Generate a localized path.
  * Default locale gets no prefix; others get /<locale>/path.
+ * @param path - The base path to localize (e.g. "/about").
+ * @param locale - Target locale code.
+ * @param defaultLocale - The site's default locale code.
+ * @returns The path with a locale prefix, or unchanged for the default locale.
  */
 export function localizedPath(
   path: string,
@@ -81,6 +88,8 @@ export function localizedPath(
 
 /**
  * Get the display name for a language code.
+ * @param code - BCP 47 language code (e.g. "es").
+ * @returns Native-language display name, or the code itself if unknown.
  */
 export function languageDisplayName(code: string): string {
   return SUPPORTED_LANGUAGES[code] || code;
@@ -106,6 +115,11 @@ function escapeHtml(str: string): string {
 /**
  * Generate hreflang link tags for all locales.
  * Includes x-default pointing to the default locale's URL.
+ * @param currentPath - The current page path (e.g. "/about").
+ * @param locales - All supported locale codes.
+ * @param defaultLocale - The site's default locale code.
+ * @param siteUrl - The site's base URL (with or without protocol).
+ * @returns Newline-separated HTML `<link rel="alternate">` tags.
  */
 export function generateHreflangTags(
   currentPath: string,
@@ -139,6 +153,11 @@ export function generateHreflangTags(
 
 /**
  * Generate accessible language switcher HTML.
+ * @param currentPath - The current page path (e.g. "/about").
+ * @param locales - All supported locale codes.
+ * @param currentLocale - The locale of the current page.
+ * @param defaultLocale - The site's default locale code.
+ * @returns An HTML `<nav>` element containing localized links with `aria-current` on the active locale.
  */
 export function generateLanguageSwitcherHtml(
   currentPath: string,

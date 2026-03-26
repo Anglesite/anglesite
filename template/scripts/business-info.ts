@@ -134,6 +134,9 @@ function parseTo24h(timeStr: string): string | null {
 /**
  * Parse hours string like "Mon-Fri 9am-5pm, Sun Closed"
  * into structured DayHours array.
+ *
+ * @param hoursString - Comma-separated day/time segments (e.g. "Mon-Fri 9am-5pm, Sat 10am-3pm")
+ * @returns Parsed array of day/open/close objects in 24h format
  */
 export function parseHours(hoursString: string): DayHours[] {
   if (!hoursString.trim()) return [];
@@ -179,6 +182,9 @@ export function parseHours(hoursString: string): DayHours[] {
 /**
  * Parse an address string into components.
  * Expects: "Street, City, ST ZIP" or "Street, City, ST"
+ *
+ * @param addressString - Comma-delimited address (e.g. "123 Main St, Springfield, IL 62704")
+ * @returns Parsed address with street, and optional city, state, and zip
  */
 export function parseAddress(addressString: string): ParsedAddress {
   const parts = addressString.split(",").map((s) => s.trim());
@@ -217,6 +223,9 @@ export function parseAddress(addressString: string): ParsedAddress {
 
 /**
  * Map Anglesite business type to schema.org @type.
+ *
+ * @param businessType - Anglesite business type slug (e.g. "restaurant", "hair-salon")
+ * @returns Schema.org type string, falling back to "LocalBusiness" if unmapped
  */
 export function businessTypeToSchemaType(businessType: string): string {
   if (!businessType) return "LocalBusiness";
@@ -230,6 +239,9 @@ export function businessTypeToSchemaType(businessType: string): string {
 
 /**
  * Generate a LocalBusiness JSON-LD object from business info.
+ *
+ * @param info - Business details including name, type, address, phone, hours, and URL
+ * @returns Schema.org LocalBusiness structured data ready for a script[type="application/ld+json"] tag
  */
 export function generateLocalBusinessJsonLd(
   info: BusinessInfo,
@@ -286,6 +298,9 @@ function to12h(time24: string): string {
 
 /**
  * Format hours for human display, grouping consecutive days with same hours.
+ *
+ * @param hours - Array of DayHours objects (typically from parseHours)
+ * @returns Multi-line string with grouped day ranges and 12h times, or a fallback message if empty
  */
 export function formatHoursForDisplay(hours: DayHours[]): string {
   if (hours.length === 0) return "Hours not available.";

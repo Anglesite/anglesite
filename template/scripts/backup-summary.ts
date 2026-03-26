@@ -24,6 +24,8 @@ export interface ParsedStatus {
 
 /**
  * Parse `git status --porcelain` lines into categorized changes.
+ * @param lines - Raw lines from `git status --porcelain` output.
+ * @returns Categorized counts and file lists for added, modified, and deleted changes.
  */
 export function parseStatus(lines: string[]): ParsedStatus {
   const result: ParsedStatus = {
@@ -122,6 +124,8 @@ export function parseStatus(lines: string[]): ParsedStatus {
 
 /**
  * Generate a descriptive git commit message from parsed status.
+ * @param status - Parsed status object from {@link parseStatus}.
+ * @returns A human-readable commit message summarizing the changes.
  */
 export function commitMessage(status: ParsedStatus): string {
   const parts: string[] = [];
@@ -180,6 +184,8 @@ export function commitMessage(status: ParsedStatus): string {
 
 /**
  * Generate a plain-language summary for the site owner.
+ * @param status - Parsed status object from {@link parseStatus}.
+ * @returns A sentence describing what was backed up, suitable for display to the owner.
  */
 export function userSummary(status: ParsedStatus): string {
   const parts: string[] = [];

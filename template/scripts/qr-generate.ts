@@ -66,6 +66,9 @@ export const VALID_MEDIUMS = [
  * - Remove special characters (keep alphanumeric, dashes, underscores)
  * - Collapse multiple dashes
  * - Trim leading/trailing dashes
+ *
+ * @param value - Raw UTM parameter value to sanitize
+ * @returns Cleaned, lowercase, dash-separated string safe for UTM use
  */
 export function sanitizeUtmValue(value: string): string {
   return value
@@ -84,6 +87,9 @@ export function sanitizeUtmValue(value: string): string {
 /**
  * Validate UTM params against best practices.
  * Returns an array of warning/error strings (empty = valid).
+ *
+ * @param params - UTM parameters to validate
+ * @returns Array of warning/error messages; empty if all params are valid
  */
 export function validateUtmParams(params: UtmParams): string[] {
   const errors: string[] = [];
@@ -124,6 +130,10 @@ export function validateUtmParams(params: UtmParams): string[] {
 
 /**
  * Append UTM parameters to a URL. Auto-sanitizes all values.
+ *
+ * @param baseUrl - Absolute URL to append UTM query parameters to
+ * @param params - UTM parameters (source, medium, campaign, and optional term/content)
+ * @returns Full URL string with sanitized UTM query parameters
  */
 export function buildUtmUrl(baseUrl: string, params: UtmParams): string {
   const url = new URL(baseUrl);
@@ -144,6 +154,10 @@ export function buildUtmUrl(baseUrl: string, params: UtmParams): string {
 
 /**
  * Build a QR-specific URL with print UTM params.
+ *
+ * @param baseUrl - Absolute URL the QR code should point to
+ * @param label - Optional campaign label for the QR code (defaults to "website")
+ * @returns URL string with source=qr, medium=print, and the given campaign label
  */
 export function buildQrUrl(baseUrl: string, label?: string): string {
   return buildUtmUrl(baseUrl, {
@@ -170,6 +184,11 @@ function sanitizePath(path: string): string {
 /**
  * Generate a Cloudflare Pages _redirects line.
  * Format: /slug /target?utm_params 301
+ *
+ * @param slug - Short path (e.g., "/go/spring") that visitors will be redirected from
+ * @param targetPath - Destination path on the site to redirect to
+ * @param utmParams - Optional UTM parameters appended as query string to the target
+ * @returns A single _redirects line with a 301 status code
  */
 export function buildRedirectLine(
   slug: string,
@@ -200,6 +219,9 @@ export function buildRedirectLine(
 
 /**
  * Extract UTM parameters from a URL string.
+ *
+ * @param url - Absolute URL potentially containing UTM query parameters
+ * @returns Parsed UTM parameters; fields are empty strings if missing or URL is invalid
  */
 export function parseUtmParams(url: string): UtmParams {
   let parsed: URL;
@@ -219,6 +241,9 @@ export function parseUtmParams(url: string): UtmParams {
 
 /**
  * Generate a plain-language description of a UTM source.
+ *
+ * @param params - UTM parameters to describe
+ * @returns Human-readable sentence describing the traffic source
  */
 export function describeUtmSource(params: UtmParams): string {
   const source = params.source;
@@ -258,6 +283,9 @@ export function describeUtmSource(params: UtmParams): string {
 
 /**
  * Format a summary of generated QR codes.
+ *
+ * @param entries - Array of QR code entries with file path, URL, and label
+ * @returns Multi-line report listing each generated QR code, or a "none" message
  */
 export function formatQrReport(entries: QrEntry[]): string {
   if (entries.length === 0) {

@@ -53,6 +53,8 @@ export const DEFAULT_MAX_WIDTH = 1920;
 
 /**
  * Recursively find image files in a directory.
+ * @param dir - Absolute or relative path to the directory to search.
+ * @returns Array of absolute file paths for supported image types.
  */
 export function getImageFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
@@ -75,6 +77,8 @@ export function getImageFiles(dir: string): string[] {
 /**
  * Determine whether an image file should be optimized.
  * Skips SVGs, already-optimized formats, and generated files.
+ * @param filePath - Path to the image file to evaluate.
+ * @returns `true` if the file is a supported format that should be optimized.
  */
 export function shouldOptimize(filePath: string): boolean {
   const ext = extname(filePath).toLowerCase();
@@ -87,6 +91,8 @@ export function shouldOptimize(filePath: string): boolean {
 
 /**
  * Format optimization results as a plain-language report.
+ * @param results - Array of per-file optimization outcomes.
+ * @returns Human-readable summary with total savings and variant count.
  */
 export function formatReport(results: OptimizeResult[]): string {
   if (results.length === 0) {

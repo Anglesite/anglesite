@@ -33,6 +33,10 @@ const DAY_BEFORE: Record<string, string> = {
 
 /**
  * "142 visitors this week (up 23% from last week)"
+ *
+ * @param current - Visitor count for the current week.
+ * @param previous - Visitor count for the previous week (omit to skip comparison).
+ * @returns Sentence summarizing visitors with optional week-over-week change.
  */
 export function formatVisitorSummary(
   current: number,
@@ -58,6 +62,9 @@ export function formatVisitorSummary(
 
 /**
  * Ranked list of top 5 pages by views.
+ *
+ * @param pages - Array of page paths with their view counts.
+ * @returns Numbered list of the top 5 pages, or a fallback message if empty.
  */
 export function formatTopPages(
   pages: { path: string; views: number }[],
@@ -73,6 +80,9 @@ export function formatTopPages(
 
 /**
  * Where visitors come from.
+ *
+ * @param referrers - Array of traffic sources with visit counts.
+ * @returns Bulleted list of referrers sorted by visits.
  */
 export function formatReferrers(
   referrers: { source: string; visits: number }[],
@@ -89,6 +99,9 @@ export function formatReferrers(
 
 /**
  * Device type breakdown as percentages.
+ *
+ * @param devices - Array of device types with visit counts.
+ * @returns Comma-separated device percentages, or a fallback message if empty.
  */
 export function formatDevices(
   devices: { type: string; visits: number }[],
@@ -107,6 +120,9 @@ export function formatDevices(
 
 /**
  * Busiest day of the week with posting suggestion.
+ *
+ * @param dailyCounts - Array of day names with visit counts.
+ * @returns Sentence naming the busiest day and suggesting when to post.
  */
 export function formatBusiestDay(
   dailyCounts: { day: string; visits: number }[],
@@ -125,6 +141,9 @@ export function formatBusiestDay(
 
 /**
  * UTM campaign breakdown with plain-language descriptions.
+ *
+ * @param campaigns - Array of campaign data with source, medium, name, and visits.
+ * @returns Bulleted list of campaigns sorted by visits.
  */
 export function formatCampaigns(campaigns: CampaignData[]): string {
   if (campaigns.length === 0) return "No campaign data available.";
@@ -158,6 +177,9 @@ function describeCampaignSource(c: CampaignData): string {
 
 /**
  * Complete plain-language analytics report.
+ *
+ * @param data - Full analytics dataset (visitors, pages, referrers, devices, daily counts, campaigns).
+ * @returns Multi-section report combining all formatted summaries.
  */
 export function formatFullReport(data: AnalyticsData): string {
   const sections = [
