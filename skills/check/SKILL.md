@@ -119,6 +119,12 @@ Have the owner paste their site URL. Explain the scores: green (90+) is great, o
 - [ ] Test by pasting the site URL into a group chat or social media draft — the preview card should show the site title, description, and image
 - [ ] Each page has its own `og:title` and `og:description` (not all the same)
 
+## Reputation
+
+If `BUSINESS_TYPE` is set in `.site-config`, invoke the reputation skill for review coaching and competitive awareness:
+
+Read `${CLAUDE_PLUGIN_ROOT}/skills/reputation/SKILL.md` and follow it. Include the output as a "Reputation" section in the health report. Keep it brief — 1-3 action items max. If `BUSINESS_TYPE` is not set, skip this section.
+
 ## Results
 
 **The owner is not technical.** Do not report raw checklist items. Translate every finding into one plain-English sentence that answers: what's wrong, why it matters, and what happens next. Group by severity using these everyday labels:
