@@ -189,6 +189,17 @@ describe("review worker", () => {
     const code = readFileSync(workerPath, "utf-8");
     expect(code).toContain("mailchannels");
   });
+
+  it("does not fall back to wildcard CORS origin", () => {
+    const code = readFileSync(workerPath, "utf-8");
+    expect(code).not.toContain('origin || "*"');
+    expect(code).not.toContain("origin || '*'");
+  });
+
+  it("validates origin against SITE_DOMAIN", () => {
+    const code = readFileSync(workerPath, "utf-8");
+    expect(code).toContain("SITE_DOMAIN");
+  });
 });
 
 // ---------------------------------------------------------------------------

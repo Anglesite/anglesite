@@ -28,9 +28,16 @@ function isRateLimited(ip) {
   return false;
 }
 
-function corsHeaders(origin) {
+function isAllowedOrigin(origin, siteDomain) {
+  if (!origin || !siteDomain) return false;
+  const allowed = `https://${siteDomain}`;
+  return origin === allowed || origin === `https://www.${siteDomain}`;
+}
+
+function corsHeaders(origin, siteDomain) {
+  if (!isAllowedOrigin(origin, siteDomain)) return {};
   return {
-    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
@@ -91,13 +98,13 @@ export default {
     const origin = request.headers.get("Origin");
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      return new Response(null, { status: 204, headers: corsHeaders(origin, env.SITE_DOMAIN) });
     }
 
     if (request.method !== "POST") {
       return new Response("Method not allowed", {
         status: 405,
-        headers: corsHeaders(origin),
+        headers: corsHeaders(origin, env.SITE_DOMAIN),
       });
     }
 
@@ -106,7 +113,7 @@ export default {
     if (isRateLimited(ip)) {
       return new Response("Too many requests. Please wait a moment.", {
         status: 429,
-        headers: corsHeaders(origin),
+        headers: corsHeaders(origin, env.SITE_DOMAIN),
       });
     }
 
@@ -123,7 +130,7 @@ export default {
       } else {
         return new Response("Unsupported content type", {
           status: 415,
-          headers: corsHeaders(origin),
+          headers: corsHeaders(origin, env.SITE_DOMAIN),
         });
       }
     } catch {
@@ -131,7 +138,7 @@ export default {
         JSON.stringify({ errors: ["Invalid request body."] }),
         {
           status: 400,
-          headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+          headers: { ...corsHeaders(origin, env.SITE_DOMAIN), "Content-Type": "application/json" },
         },
       );
     }
@@ -141,7 +148,7 @@ export default {
         JSON.stringify({ errors: ["A valid email address is required."] }),
         {
           status: 400,
-          headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+          headers: { ...corsHeaders(origin, env.SITE_DOMAIN), "Content-Type": "application/json" },
         },
       );
     }
@@ -168,13 +175,13 @@ export default {
       }
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
-        headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+        headers: { ...corsHeaders(origin, env.SITE_DOMAIN), "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ errors: result.errors }), {
       status: 400,
-      headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+      headers: { ...corsHeaders(origin, env.SITE_DOMAIN), "Content-Type": "application/json" },
     });
   },
 };

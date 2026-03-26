@@ -97,4 +97,15 @@ describe("contact worker", () => {
     // No KV, D1, or R2 bindings — forward and discard
     expect(code).not.toMatch(/\.put\(|\.insert\(|KV_NAMESPACE|D1_DATABASE|R2_BUCKET/i);
   });
+
+  it("does not fall back to wildcard CORS origin", () => {
+    const code = readFileSync(workerPath, "utf-8");
+    expect(code).not.toContain('origin || "*"');
+    expect(code).not.toContain("origin || '*'");
+  });
+
+  it("validates origin against SITE_DOMAIN", () => {
+    const code = readFileSync(workerPath, "utf-8");
+    expect(code).toContain("SITE_DOMAIN");
+  });
 });

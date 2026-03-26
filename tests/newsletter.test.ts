@@ -168,6 +168,17 @@ describe("subscribe worker", () => {
     expect(code).toContain("env.");
     expect(code).not.toMatch(/Token [A-Za-z0-9]{20,}/);
   });
+
+  it("does not fall back to wildcard CORS origin", () => {
+    const code = readFileSync(workerPath, "utf-8");
+    expect(code).not.toContain('origin || "*"');
+    expect(code).not.toContain("origin || '*'");
+  });
+
+  it("validates origin against SITE_DOMAIN", () => {
+    const code = readFileSync(workerPath, "utf-8");
+    expect(code).toContain("SITE_DOMAIN");
+  });
 });
 
 // ---------------------------------------------------------------------------
