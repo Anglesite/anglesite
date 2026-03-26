@@ -33,6 +33,17 @@ Covers: law firms, solo attorneys, immigration consultants, notaries, mediators.
 - **Cal.com** (open source, free tier) — For scheduling consultations. Self-hostable alternative to Calendly.
 - **LawPay** (proprietary, ~$20/mo + processing) — Trust-account compliant payment processing for attorneys. Required in many jurisdictions when accepting client payments online.
 
+## Review platforms
+
+- **Google Business Profile** — The starting point for anyone searching for an attorney by specialty or city. Solo attorneys and small firms compete with larger practices through Google reviews. A firm with 50+ reviews and a 4.8 rating ranks higher in local search and gets more calls than one with 5 reviews.
+- **Avvo** — An attorney-specific directory that many clients check before calling. Claim the profile, complete the bio, and encourage past clients to leave Avvo reviews. Avvo has its own rating system (based on profile completeness and peer endorsements) separate from client reviews.
+- **Yelp** — Used for attorneys in some markets, particularly family law, immigration, and general practice. Less dominant than for consumer businesses, but worth maintaining a presence.
+- **Martindale-Hubbell** — Peer-reviewed ratings (AV, BV) and client reviews. More relevant for higher-ticket practice areas and business clients. Long-established credibility signal.
+
+**Important:** Every state regulates attorney advertising, including testimonials and reviews. Some states prohibit certain types of endorsements or require disclaimers. Check the state bar's advertising rules before prominently featuring client reviews on the website. Always get written consent from clients before displaying their names or quotes.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **State bar advertising rules**: Every state regulates attorney advertising. Common requirements: disclaimers ("This is an advertisement"), no guarantees of outcomes, no misleading specialization claims. Check the state bar's rules before publishing.

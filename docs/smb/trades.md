@@ -35,6 +35,18 @@ Covers: general contractors, plumbers, electricians, HVAC, roofers, painters, la
 - **Square Invoices** (free, 2.9% + 30¢ on card payments) — Simple invoicing if they don't need full job management.
 - **Monica CRM** (open source, free) — If they just need to track clients and jobs.
 
+## Review platforms
+
+- **Google Business Profile** — The primary review channel for trades. Customers search "plumber near me" or "electrician [town]" and choose based on stars and responses. Getting to 20+ reviews significantly improves conversion from search. Respond to every review, including negative ones — a professional response to a bad review demonstrates how you handle problems.
+- **Nextdoor** — Very active for home services. Neighbors ask for recommendations, and a business recommended by a neighbor has built-in trust. Claim the Nextdoor Business Page and ask happy customers to recommend you there.
+- **Angi (formerly Angie's List)** — Still checked by homeowners researching contractors. Paid leads are optional; the profile with reviews is free to maintain.
+- **HomeAdvisor** — Similar audience to Angi. If the business gets leads from either platform, keep the profile and reviews current.
+- **Better Business Bureau** — Less used by younger customers but still checked. An accredited, A-rated BBB profile is a trust signal for high-ticket work.
+
+After a successful job, text the customer a direct Google review link. "Glad everything looks good — if you have a minute, a Google review helps us find more neighbors to help." One message, once, no pressure.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Licensing display**: Most jurisdictions require contractors to display their license number on advertising, including websites. Add to the footer on every page.

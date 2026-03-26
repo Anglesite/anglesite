@@ -34,6 +34,20 @@ Covers: chiropractors, dentists, therapists (physical, occupational, mental heal
 - **SimplePractice** (~$29/mo, proprietary) — Popular with therapists and counselors. Includes telehealth, billing, client portal.
 - For patient forms: link to their existing EHR/portal. Don't build patient intake into the website.
 
+## Review platforms
+
+- **Google Business Profile** — The primary channel. Patients search "dentist near me" or "chiropractor [city]" and choose largely on star rating and number of reviews. A practice with 100+ reviews and a 4.7 average gets significantly more new patient calls than one with 10. Respond to all reviews professionally — even brief "Thank you, we look forward to seeing you again" responses show the practice is attentive.
+- **Healthgrades** — Heavily used for physicians, dentists, and specialists. Patients check Healthgrades specifically when researching providers. Claim the profile and encourage patients to leave reviews here.
+- **Zocdoc** — If the practice accepts Zocdoc bookings, patients leave reviews through the platform after appointments. These are verified patient reviews and carry weight. Keep the profile complete.
+- **Yelp** — Relevant for dentists, chiropractors, and alternative health practices. Less used for physicians in most markets but worth monitoring.
+- **Psychology Today** (mental health only) — The dominant directory for therapists and counselors. Reviews aren't the focus here but profile completeness matters enormously.
+
+For practices that use patient communication platforms (Solutionreach, Weave, etc.), set up automated post-visit review requests. These integrations make consistent review generation essentially automatic.
+
+**Note:** Some jurisdictions restrict healthcare testimonials. Review state licensing board rules before prominently featuring reviews. See the Compliance section below.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **HIPAA (US)**: The website itself isn't a HIPAA concern — it's public information. But do NOT collect patient health information through website forms. Contact forms should only collect name, phone, and reason for visit (not symptoms or diagnoses). Link to a HIPAA-compliant patient portal for intake forms.

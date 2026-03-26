@@ -36,6 +36,18 @@ Covers: bed & breakfasts, boutique hotels, small independent hotels, vacation re
 - **Cal.com** (open source, free tier) — For scheduling tours, tastings, or activity bookings.
 - **Square** (free POS, proprietary) — For on-site purchases, gift shop, or event deposits.
 
+## Review platforms
+
+- **Google Business Profile** — Essential for local visibility. Many guests check Google first, especially for B&Bs and boutique hotels they found through local search. Respond to every review — prospective guests read the responses as much as the reviews themselves.
+- **TripAdvisor** — The dominant travel review platform for hospitality. B&Bs and small hotels live or die on TripAdvisor reputation. Getting a Certificate of Excellence (based on review volume and rating) is worth actively pursuing. Respond professionally to all reviews, including critical ones.
+- **Booking.com** — If the property lists on Booking.com, guests leave reviews through the platform after checkout. Booking.com reviews are verified (only guests who booked through the platform can review). These carry significant weight for travelers.
+- **Airbnb / VRBO** — For vacation rentals and short-term rental properties, platform reviews are the primary trust signal. Guest ratings directly affect search ranking within the platform. Respond to every review promptly.
+- **Expedia / Hotels.com** — Relevant for properties listed on these OTA platforms. Maintaining reviews across all listing platforms you're on is important — a guest might find you on one platform but check reviews on another.
+
+Ask guests at checkout: "We'd love it if you had a moment to leave us a review on TripAdvisor or Google — it helps other travelers find us." Include a thank-you card with QR codes for both.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Occupancy tax / tourism tax**: Many jurisdictions require hospitality businesses to collect and remit occupancy or lodging taxes. Note if the pricing includes or excludes taxes.

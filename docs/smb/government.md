@@ -53,6 +53,14 @@ For special districts, focus on the district's specific function:
 - **FOIA/state equivalent**: Link to the public records request process and name the records custodian.
 - **Posted document formats**: Avoid posting scanned image PDFs — they're not accessible. Use text-based PDFs or HTML. If scanning is unavoidable, OCR the document.
 
+## Review platforms
+
+Review platforms are not relevant for municipal government — residents don't "rate" their town government. Focus on transparency, accessibility, and community engagement instead.
+
+That said, if the municipality has a Google Business Profile (some towns do, especially for town halls, libraries, or parks), monitor it for accuracy and respond to any questions posted there. Residents sometimes use it to report concerns or ask questions.
+
+See `docs/smb/reviews.md` for general review management context.
+
 ## Content ideas
 
 Meeting summaries in plain language (not just posting raw minutes), road and infrastructure project updates, seasonal reminders (leaf pickup, snow plowing, water conservation), community event announcements, new ordinance explainers, budget breakdowns in simple terms, "meet your officials" profiles, public hearing notices, park and recreation program announcements, emergency preparedness tips, water quality reports with plain-language summaries.

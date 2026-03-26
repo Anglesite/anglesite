@@ -35,6 +35,13 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - For orchestras/choral: concert program management may be handled in-house. Focus the website on the season schedule and tickets.
 - **GiveButter** (free, tips-based) — For fundraising campaigns and galas.
 
+## Review platforms
+
+- **Google Business Profile** — "Community theater [city]" and "theater near me" searches often land on Google. Keep the profile updated with the current season's showtimes — potential ticket buyers will check here before visiting the website.
+- **Facebook** — Community theater audiences are often older and highly engaged on Facebook. The Facebook page functions as both a discovery tool and a place where patrons leave recommendations. Monitor and respond to recommendations.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Licensing and royalties**: If performing copyrighted works (musicals, plays), licensing is handled by the company (MTI, Samuel French/Concord, etc.), not the website. But do NOT publish full scripts, lyrics, or copyrighted music on the website.

@@ -37,6 +37,17 @@ Covers: daycare centers, preschools, in-home daycare, after-school programs, Mon
 - **Cal.com** (open source, free tier) — Tour scheduling.
 - For small in-home daycares, a simple website + phone may be all that's needed. Don't overcomplicate.
 
+## Review platforms
+
+- **Google Business Profile** — Primary discovery channel for parents searching "daycare near me" or "preschool [neighborhood]." A childcare center with 40+ reviews and a 4.8+ rating is significantly more likely to get a tour request than one with no reviews. Parents reading reviews look for specifics: "They know my daughter's name, they tell me about her day, they handle meltdowns with patience." Respond to every review to show the center is attentive.
+- **Yelp** — Parents in many markets use Yelp specifically when researching childcare. A strong Yelp profile with recent reviews is worth maintaining. Some parents trust Yelp's filter model because they believe it catches fake reviews.
+- **Winnie** — A childcare-specific platform that parents use to find, compare, and review daycares and preschools. Claim the profile at winnie.com. Winnie lets parents browse by neighborhood, age, curriculum, and schedule — a complete profile with reviews drives qualified inquiries.
+- **Facebook** — Parent communities are intensely active on Facebook. A positive mention in a neighborhood parenting group is worth more than any advertising. A business page with visible reviews and photos of the facility reinforces word-of-mouth. Ask happy parents to post a recommendation.
+
+Never ask parents to review before enrollment or in exchange for anything — this creates pressure and violates platform terms. After a positive interaction (first month went well, a parent thanks you at pickup), a simple ask: "We'd love it if you have time to leave us a Google or Winnie review — it helps other families find us."
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **State licensing**: Every state regulates childcare. Display your license number, licensed capacity, and age range. Link to your state's childcare licensing agency. License must be current and posted at the facility — mention this on the website.

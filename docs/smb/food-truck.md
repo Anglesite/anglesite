@@ -38,6 +38,17 @@ The key difference from a fixed-location restaurant: **customers need to know wh
 - **HoneyBook** or **Dubsado** (~$19–$35/mo) — For managing event/catering bookings, contracts, invoices. Only if they do enough events to justify the cost. Otherwise Square invoicing works.
 - **Roaming Hunger** — Food truck marketplace for event booking. Charges a commission but brings leads. roaminghunger.com
 
+## Review platforms
+
+- **Google Business Profile** — Critical even for mobile businesses. Customers who had a great experience will search the truck by name to find it again — and to leave a review. A food truck with 50+ Google reviews and a 4.7+ rating shows up in "food trucks near me" and builds credibility for event booking clients who are deciding whether to hire you. Keep the profile updated with photos and respond to reviews.
+- **Yelp** — Active for food trucks in most urban markets. Yelp users specifically seek out local and independent food options, making it a natural audience for trucks. Claim the listing, keep it current with the schedule, and respond to reviews.
+- **TripAdvisor** (for trucks in tourist areas) — If the truck regularly operates in a tourist area, farmers market, or has a consistent spot, TripAdvisor is worth maintaining. Travelers actively look for interesting local food options.
+- **Instagram** — While not a traditional review platform, food truck customers share their meals and tag the truck. These tagged posts function as public endorsements. Feature customer posts on your own account (with permission). A high volume of tagged posts signals a beloved truck to potential customers.
+
+The best time to ask for a review is at the window while the customer is happy with their food: "If you loved it, a Google review helps us book more events." A sticker on your takeout bag or container with a QR code to the review page works with no additional friction.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Mobile food vendor permit**: Required in most jurisdictions. Different from a restaurant health permit — covers the vehicle, not a building. Display the permit number if required. Some cities require separate permits for each location.

@@ -35,6 +35,16 @@ Covers: independent insurance agents, captive agents (State Farm, Allstate, Farm
 - **Map listings** — Critical for local insurance agents. Claim the business on Google Business Profile, Apple Business Connect, and OpenStreetMap. Most clients find agents through local search. See `docs/webmaster.md` → Map listings.
 - Most agencies have a carrier-provided or vendor website. Independent agents may want something better — that's the Anglesite opportunity.
 
+## Review platforms
+
+- **Google Business Profile** — The primary channel for local insurance agents. "Insurance agent near me" or "State Farm agent [city]" goes to Google. Clients researching an agent before their policy review or after getting a referral will check Google. Reviews that mention responsiveness and help at claim time ("when our basement flooded, they were there immediately") are the most persuasive.
+- **Yelp** — Used for insurance agencies in some markets, particularly for independent agents. Claim the listing and respond to reviews. Yelp is more relevant in urban markets.
+- **Facebook** — Insurance clients often stay with an agent for years and refer friends and family. A Facebook business page where satisfied clients can leave recommendations and share their experience is a natural fit for a referral-based business. Ask long-term clients to leave a Facebook recommendation.
+
+**Note:** State insurance department advertising regulations may restrict certain kinds of testimonials (no guarantees of outcomes, no misleading claims). Review your state's advertising rules before featuring specific client quotes or outcome claims. In general, reviews describing service quality and responsiveness are safe; reviews that sound like they promise savings or specific outcomes need more care.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **State licensing**: Insurance agents and agencies must be licensed in every state where they sell. Display license numbers. Individual agent licenses are public record.

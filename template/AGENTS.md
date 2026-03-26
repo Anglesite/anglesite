@@ -59,6 +59,7 @@ Step-by-step guides for common operations:
 | QR codes and campaign tracking | `docs/workflows/qr.md` |
 | Customer testimonials | `docs/workflows/testimonials.md` |
 | Multi-language (i18n) | `docs/workflows/i18n.md` |
+| Review reputation coaching | `docs/workflows/reputation.md` |
 
 ## Key files
 

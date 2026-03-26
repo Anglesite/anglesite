@@ -49,6 +49,13 @@ Covers: independent pharmacies, compounding pharmacies, specialty pharmacies, ap
 - **FDA and FTC**: The pharmacy cannot make health claims about products or services beyond what's FDA-approved. "Our compound cures [condition]" is not allowed. "Our compounding pharmacy prepares custom medications as prescribed by your doctor" is fine.
 - **Accessibility**: Pharmacy websites must be accessible. Many pharmacy customers are elderly and may use screen readers, have low vision, or have difficulty with small text. See `docs/accessibility.md`.
 
+## Review platforms
+
+- **Google Business Profile** — "Pharmacy near me" and "compounding pharmacy [city]" are common searches. Reviews here directly drive new patient acquisition. Reviews often mention staff knowledge, wait times, and whether the pharmacist called back — the differentiators from chain pharmacies. Respond to every review to reinforce the personal-service message.
+- **Yelp** — Used in some markets for pharmacy discovery, especially for specialty pharmacies and those with strong retail or compounding reputations.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Flu season vaccine reminders, medication safety tips ("how to store medications properly"), drug disposal events and permanent disposal locations, seasonal health topics (allergies, sun protection, cold and flu, holiday stress), new service announcements, pharmacist spotlights, compounding FAQs, Medicare Part D enrollment reminders (Oct 15–Dec 7), community health screening events, travel health tips, pet medication awareness, medication synchronization benefits explained, "ask your pharmacist" Q&A posts, partnership announcements with local doctors and clinics.

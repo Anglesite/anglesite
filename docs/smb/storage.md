@@ -44,6 +44,13 @@ Covers: self-storage units, climate-controlled storage, vehicle/boat/RV storage,
 - **Privacy**: Access logs contain personally identifiable information. Gate access systems must be secure.
 - **Vehicle/RV/boat storage**: If offering outdoor or covered vehicle storage, check local ordinances and note any size or height restrictions.
 
+## Review platforms
+
+- **Google Business Profile** — "Storage units near me" is a high-volume local search. Reviews here influence whether a customer chooses this facility over the next one. Reviews often focus on security, cleanliness, access hours, and staff helpfulness. Respond to all reviews — prospective customers read those responses before deciding.
+- **Yelp** — Used in some markets for storage facility discovery. Reviews tend to describe the rental process, gate access reliability, and whether the facility feels safe.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Packing and organization tips, "what size storage unit do I need?" guides, moving checklists, seasonal storage tips (holiday decorations, winter gear), business storage use cases, climate control explainers, security feature spotlights, local moving guides, decluttering advice, "how to prepare items for long-term storage."

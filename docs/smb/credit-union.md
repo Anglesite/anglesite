@@ -49,6 +49,15 @@ Covers: credit unions, community development financial institutions (CDFIs), len
 - **NMLS**: If listing loan officers, include NMLS numbers where required.
 - **Field of membership**: Clearly state who is eligible to join. This is a regulatory requirement.
 
+## Review platforms
+
+- **Google Business Profile** — Members and prospective members search for branch locations, hours, and services on Google. Reviews here often reflect the member experience (loan process, staff helpfulness, wait times). Respond to all reviews — especially negative ones — to demonstrate member-first values.
+- **Yelp** — Less dominant for financial institutions than Google, but some markets have active Yelp communities that include banks and credit unions. Worth claiming and monitoring.
+
+Credit unions are not heavily rated on financial comparison sites (like Bankrate or NerdWallet) at the branch level, but the institution may appear in "best credit unions in [state]" editorial lists — ensure the website is current so those links look credible when people click through.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Rate change announcements, financial literacy tips (budgeting, credit building, home buying), community event sponsorships and recaps, member spotlights (with consent), new product or service announcements, scholarship recipient features, fraud and scam alerts, holiday closures, annual meeting announcements, "why credit unions are different" explainers, youth savings program updates, partnership announcements with local organizations.
