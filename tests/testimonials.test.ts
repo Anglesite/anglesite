@@ -99,6 +99,17 @@ describe("generateAggregateRatingJsonLd", () => {
     expect(ld["@type"]).toBe("LocalBusiness");
   });
 
+  it("preserves decimal precision in average", () => {
+    const uneven: Testimonial[] = [
+      { author: "A", quote: "Great", rating: 5 },
+      { author: "B", quote: "Good", rating: 5 },
+      { author: "C", quote: "OK", rating: 4 },
+    ];
+    const ld = generateAggregateRatingJsonLd(uneven, "Biz", "https://biz.com");
+    const agg = ld!.aggregateRating as Record<string, unknown>;
+    expect(agg.ratingValue).toBe(4.7);
+  });
+
   it("excludes reviews without ratings from average", () => {
     const mixed: Testimonial[] = [
       { author: "A", quote: "Great", rating: 5 },
