@@ -92,9 +92,10 @@ export function validateUtmParams(params: UtmParams): string[] {
   if (!params.medium) errors.push("utm_medium is required (e.g., email, paid-social, print).");
   if (!params.campaign) errors.push("utm_campaign is required (e.g., spring-sale-2026).");
 
-  if (params.medium && !VALID_MEDIUMS.includes(params.medium as any)) {
+  const mediums: readonly string[] = VALID_MEDIUMS;
+  if (params.medium && !mediums.includes(params.medium)) {
     const sanitized = sanitizeUtmValue(params.medium);
-    if (!VALID_MEDIUMS.includes(sanitized as any)) {
+    if (!mediums.includes(sanitized)) {
       errors.push(
         `utm_medium "${params.medium}" is not a standard channel type. ` +
         `Use one of: ${VALID_MEDIUMS.join(", ")}. ` +

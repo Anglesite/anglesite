@@ -40,7 +40,7 @@ export function formatVisitorSummary(
 ): string {
   const label = `${current} visitor${current !== 1 ? "s" : ""} this week`;
 
-  if (previous === undefined || previous === null) {
+  if (previous === undefined) {
     return label + ".";
   }
 

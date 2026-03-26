@@ -80,7 +80,7 @@ export function parseStatus(lines: string[]): ParsedStatus {
       } else if (isModified) {
         result.modified.pages.push(name);
       } else if (isDeleted) {
-        result.deleted.push(file.split("/").pop()!);
+        result.deleted.push(file.split("/").pop() ?? file);
       }
       continue;
     }

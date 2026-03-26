@@ -203,9 +203,8 @@ async function main() {
 
   const results: OptimizeResult[] = [];
   for (const file of files) {
-    const dir = join(imagesDir);
     try {
-      const result = await optimizeImage(file, dir);
+      const result = await optimizeImage(file, imagesDir);
       results.push(result);
       console.log(`  ✓ ${result.file}`);
     } catch (err: any) {

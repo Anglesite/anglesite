@@ -60,9 +60,7 @@ export function generateAggregateRatingJsonLd(
   businessName: string,
   businessUrl: string,
 ): Record<string, unknown> | null {
-  const rated = testimonials.filter(
-    (t) => t.rating !== undefined && t.rating !== null,
-  );
+  const rated = testimonials.filter((t) => t.rating !== undefined);
 
   if (rated.length === 0) return null;
 

@@ -75,7 +75,7 @@ export function formatSubscriberReport(
 ): string {
   const label = `${count} subscriber${count !== 1 ? "s" : ""}`;
 
-  if (previousCount === undefined || previousCount === null) {
+  if (previousCount === undefined) {
     return `Newsletter: ${label}.`;
   }
 
