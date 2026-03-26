@@ -99,9 +99,7 @@ export interface Measurements {
 
 function measure(): Measurements {
   // Always-loaded context (every turn)
-  // CLAUDE.md @imports AGENTS.md, so both are loaded
-  const agentsMd = bytes("template/AGENTS.md");
-  const claudeMd = bytes("template/CLAUDE.md") + agentsMd;
+  const claudeMd = bytes("template/CLAUDE.md");
 
   // Skill context (in history from turn 1)
   const startMd = bytes("skills/start/SKILL.md");
@@ -118,11 +116,11 @@ function measure(): Measurements {
 
   // Step 2: design interview
   const designInterview = bytes("skills/design-interview/SKILL.md");
-  const designSystem = bytes("template/docs/design-system.md");
+  const designSystem = bytes("docs/design-system.md");
 
   return {
     alwaysLoaded: [
-      { label: "AGENTS.md + CLAUDE.md", path: "template/CLAUDE.md", bytes: claudeMd, tokens: tokens(claudeMd) },
+      { label: "CLAUDE.md", path: "template/CLAUDE.md", bytes: claudeMd, tokens: tokens(claudeMd) },
     ],
     command: [
       { label: "start/SKILL.md", path: "skills/start/SKILL.md", bytes: startMd, tokens: tokens(startMd) },
@@ -132,7 +130,7 @@ function measure(): Measurements {
     ],
     step2: [
       { label: "design-interview/SKILL.md", path: "skills/design-interview/SKILL.md", bytes: designInterview, tokens: tokens(designInterview) },
-      { label: "design-system.md", path: "template/docs/design-system.md", bytes: designSystem, tokens: tokens(designSystem) },
+      { label: "design-system.md", path: "docs/design-system.md", bytes: designSystem, tokens: tokens(designSystem) },
     ],
     smb: {
       count: smbSizes.length,

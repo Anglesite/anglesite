@@ -12,7 +12,7 @@
   --font-heading: system-ui, -apple-system, sans-serif;
   --font-body: system-ui, -apple-system, sans-serif;
 
-  /* Type scale — 1.25 ratio (major third). See docs/design-system.md */
+  /* Type scale — 1.25 ratio (major third) */
   --font-size-sm: 0.8rem;
   --font-size-base: 1rem;
   --font-size-lg: 1.25rem;

@@ -19,7 +19,7 @@ This is a conversation, not a form — let the owner's answers guide the next qu
 
 ## Before you begin
 
-Read `docs/design-system.md` for color, typography, spacing, and layout guidance. If `BUSINESS_TYPE` is set, also read the `## Design` section in the matching `${CLAUDE_PLUGIN_ROOT}/docs/smb/` file. For personal, blog, or portfolio sites without a `BUSINESS_TYPE`, rely on `design-system.md` and the owner's answers.
+Read `${CLAUDE_PLUGIN_ROOT}/docs/design-system.md` for color, typography, spacing, and layout guidance. If `BUSINESS_TYPE` is set, also read the `## Design` section in the matching `${CLAUDE_PLUGIN_ROOT}/docs/smb/` file. For personal, blog, or portfolio sites without a `BUSINESS_TYPE`, rely on `design-system.md` and the owner's answers.
 
 ## The interview
 

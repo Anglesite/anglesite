@@ -55,7 +55,7 @@ This is the careful part. For each modified file, determine whether the differen
 
 1. **User customization** — The owner (or their agent) changed this file on purpose. Examples: `src/styles/global.css` (brand colors), `src/layouts/BaseLayout.astro` (custom layout), `src/pages/*.astro` (custom pages), content files in `src/content/`.
 
-2. **Outdated template code** — The file hasn't been touched by the owner but differs because the template was improved. Examples: `scripts/setup.ts`, `scripts/check-prereqs.ts`, `docs/workflows/*.md`.
+2. **Outdated template code** — The file hasn't been touched by the owner but differs because the template was improved. Examples: `scripts/setup.ts`, `scripts/check-prereqs.ts`.
 
 3. **Both** — The template improved AND the owner customized the file.
 
@@ -76,7 +76,7 @@ To tell the difference:
 | `src/pages/*.astro` | **Never overwrite.** These are the owner's pages. Only update if the page is completely unmodified from the template. |
 | `src/content/**` | **Never overwrite.** This is the owner's content. |
 | `scripts/*.ts` | **Safe to update** unless the owner has customized them (rare). Replace with template version. |
-| `docs/**` | **Safe to update.** These are reference docs. Replace with template version. But preserve `docs/brand.md`, `docs/architecture.md`, and any other site-specific docs. |
+| `docs/**` | **Preserve site-specific docs** (`docs/brand.md`, `docs/architecture.md`, `docs/cloudflare.md`). Most reference docs now live in the plugin, not the user's project. |
 | `package.json` | **Merge dependencies.** Don't replace the whole file — update `dependencies` and `devDependencies` versions to match the template. Preserve any packages the owner added. |
 | `astro.config.ts` | **Merge carefully.** The owner may have added integrations. Update template portions, preserve additions. |
 | `keystatic.config.ts` | **Merge carefully.** The owner may have added or modified content collections. Update template portions, preserve additions. |

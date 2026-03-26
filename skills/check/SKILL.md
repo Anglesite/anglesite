@@ -77,7 +77,7 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] `robots.txt` blocks `/keystatic/`
 - [ ] No `.env` files in `dist/` or `public/`
 - [ ] `npm audit` — check for known vulnerabilities
-- [ ] Images in `public/images/` checked for EXIF GPS data (see `docs/security.md`)
+- [ ] Images in `public/images/` checked for EXIF GPS data (see `${CLAUDE_PLUGIN_ROOT}/docs/security.md`)
 
 ## Content and SEO
 - [ ] Every page has a unique `<title>` and `<meta name="description">`
@@ -88,7 +88,7 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] Blog posts have valid frontmatter (title, description, publishDate)
 - [ ] Business name, address, and contact info are easy to find (not buried)
 
-## IndieWeb (see `docs/indieweb.md`)
+## IndieWeb (see `${CLAUDE_PLUGIN_ROOT}/docs/indieweb.md`)
 - [ ] `h-card` in site header with `p-name` and `u-url`
 - [ ] `h-entry` on blog posts with `p-name`, `dt-published`, `e-content`
 - [ ] Blog listing page wrapped in `h-feed`
@@ -149,7 +149,7 @@ After the check, tell the owner: "This is the same kind of checkup a good web de
 
 After the audit, if any must-fix issues were found that couldn't be resolved in the current session, file a GitHub issue for each one. Read `GITHUB_REPO` from `.site-config`. If not set, skip this step.
 
-Follow the bug filing workflow in `docs/bug-filing.md`. Use the appropriate label:
+Follow the bug filing workflow in `${CLAUDE_PLUGIN_ROOT}/docs/bug-filing.md`. Use the appropriate label:
 - Accessibility violations → `accessibility`
 - Security findings → `security`
 - Build failures → `build`

@@ -77,4 +77,4 @@ Tell the owner:
 > "Your newsletter is set up! When you publish a blog post and want to send it
 > as an email, just let me know and I'll send it to your subscribers."
 
-See `docs/newsletter-sending.md` for the sending workflow.
+See `${CLAUDE_PLUGIN_ROOT}/docs/newsletter-sending.md` for the sending workflow.

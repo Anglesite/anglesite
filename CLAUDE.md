@@ -54,15 +54,19 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── smb/                      Business type guides (70 files, 50+ verticals)
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (13 files)
-│   └── decisions/                ADRs — architecture decision records (14 files)
+│   ├── decisions/                ADRs — architecture decision records (14 files)
+│   ├── design-system.md          Color, typography, spacing, layout guidance
+│   ├── security.md               Security and privacy practices
+│   ├── accessibility.md          WCAG AA guidelines
+│   ├── indieweb.md               IndieWeb participation guidance
+│   ├── seo.md                    SEO and discoverability
+│   └── ... (16 reference docs total)
 ├── template/                     Files scaffolded to user's project
 │   ├── src/                      Astro source (pages, layouts, styles)
 │   ├── public/                   Static assets
 │   ├── scripts/                  setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
-│   ├── docs/                     Site-specific docs (~17 files) + workflows/
-│   ├── AGENTS.md                 Universal webmaster instructions (any agent)
-│   ├── CLAUDE.md                 Claude Code-specific additions (@imports AGENTS.md)
-│   ├── GEMINI.md                 Gemini CLI pointer (@imports AGENTS.md)
+│   ├── docs/                     Site-specific docs (architecture, cloudflare, brand)
+│   ├── CLAUDE.md                 Webmaster instructions for Claude
 │   ├── package.json              Site dependencies (Astro, Keystatic)
 │   ├── astro.config.ts           Astro + Keystatic integration config
 │   ├── keystatic.config.ts       CMS schema and collection definitions
@@ -75,14 +79,12 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ## Agent instruction hierarchy
 
-Three levels of agent instructions exist — do not confuse them:
+Two levels of agent instructions exist — do not confuse them:
 
 | File | Audience | Purpose |
 |---|---|---|
 | **This file** (root `CLAUDE.md`) | Plugin developers | Building and maintaining the plugin itself |
-| `template/AGENTS.md` | All AI agents | Universal webmaster instructions (also usable by Codex, Cursor, etc.) |
-| `template/CLAUDE.md` | Claude Code users | `@imports` AGENTS.md, adds slash commands and shell rules |
-| `template/GEMINI.md` | Gemini CLI users | One-line `@AGENTS.md` pointer |
+| `template/CLAUDE.md` | Site owners | Webmaster instructions, commands, philosophy, rules |
 
 ## How it works
 
@@ -132,7 +134,7 @@ Three levels of agent instructions exist — do not confuse them:
 - **Tool permissions** are in each skill's `allowed-tools` frontmatter (not `settings.json`)
 - **Cross-skill references** use `${CLAUDE_PLUGIN_ROOT}/skills/skill-name/SKILL.md`
 - **The end user is non-technical.** Skills are their primary interface. Changes should not require CLI knowledge.
-- **Cross-platform.** Template scripts detect macOS/Linux/Windows via `scripts/platform.ts`. Never use platform-specific commands (`sips`, `pfctl`, `dscacheutil`, `osascript`, `open`, `sed -i ""`) without a cross-platform alternative or guard.
+- **Cross-platform.** Cowork runs Linux; Claude Code runs on macOS, Linux, and Windows. Template scripts detect the platform via `scripts/platform.ts`. Never use platform-specific commands (`sips`, `pfctl`, `dscacheutil`, `osascript`, `open`, `sed -i ""`) without a cross-platform alternative or guard.
 - **Privacy and security are non-negotiable.** The deploy skill scans for PII, exposed tokens, third-party scripts, and Keystatic admin routes.
 - **Reference docs** go in `docs/` at the plugin root — skills read them via `${CLAUDE_PLUGIN_ROOT}/docs/`.
 - **Site-specific docs** go in `template/docs/` — these are scaffolded to the user's project and updated per-site.

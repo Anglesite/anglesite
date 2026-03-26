@@ -13,7 +13,7 @@ Connect the site to a newsletter service (Buttondown recommended, Mailchimp supp
 - [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — the owner controls the newsletter account and subscriber list
 
 Read the existing newsletter platform guide: `${CLAUDE_PLUGIN_ROOT}/docs/platforms/buttondown.md`
-Read the newsletter sending guide: `docs/newsletter-sending.md`
+Read the newsletter sending guide: `${CLAUDE_PLUGIN_ROOT}/docs/newsletter-sending.md`
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that triggers a permission prompt. If `false`, proceed without pre-announcing.
 
