@@ -203,6 +203,23 @@ describe("buildRedirectLine", () => {
     expect(line).toContain("301");
   });
 
+  it("sanitizes slug with spaces into URL-safe format", () => {
+    const line = buildRedirectLine("my slug", "/");
+    const slug = line.split(" ")[0];
+    expect(slug).not.toContain(" ");
+    expect(slug).toBe("/my-slug");
+  });
+
+  it("ensures slug starts with /", () => {
+    const line = buildRedirectLine("promo", "/");
+    expect(line).toMatch(/^\/promo /);
+  });
+
+  it("ensures targetPath starts with /", () => {
+    const line = buildRedirectLine("/go", "services");
+    expect(line).toContain("/go /services");
+  });
+
   it("sanitizes UTM values in redirect", () => {
     const line = buildRedirectLine("/promo", "/", {
       source: "Radio Ad",

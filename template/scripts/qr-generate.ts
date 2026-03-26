@@ -153,6 +153,20 @@ export function buildQrUrl(baseUrl: string, label?: string): string {
 }
 
 /**
+ * Sanitize a path for use in Cloudflare _redirects.
+ * Ensures it starts with /, replaces spaces with dashes,
+ * and removes non-URL-safe characters.
+ */
+function sanitizePath(path: string): string {
+  let clean = path
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9/_.-]/g, "");
+  if (!clean.startsWith("/")) clean = `/${clean}`;
+  return clean;
+}
+
+/**
  * Generate a Cloudflare Pages _redirects line.
  * Format: /slug /target?utm_params 301
  */
@@ -161,8 +175,11 @@ export function buildRedirectLine(
   targetPath: string,
   utmParams?: UtmParams,
 ): string {
+  const safeSlug = sanitizePath(slug);
+  const safeTarget = sanitizePath(targetPath);
+
   if (!utmParams) {
-    return `${slug} ${targetPath} 301`;
+    return `${safeSlug} ${safeTarget} 301`;
   }
 
   // Build query string from UTM params
@@ -173,7 +190,7 @@ export function buildRedirectLine(
   if (utmParams.term) qs.set("utm_term", sanitizeUtmValue(utmParams.term));
   if (utmParams.content) qs.set("utm_content", sanitizeUtmValue(utmParams.content));
 
-  return `${slug} ${targetPath}?${qs.toString()} 301`;
+  return `${safeSlug} ${safeTarget}?${qs.toString()} 301`;
 }
 
 // ---------------------------------------------------------------------------
