@@ -10,6 +10,24 @@
  *   SITE_DOMAIN         — For CORS origin validation
  */
 
+const RATE_LIMIT_SECONDS = 30;
+const recentSubmissions = new Map();
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const last = recentSubmissions.get(ip);
+  if (last && now - last < RATE_LIMIT_SECONDS * 1000) {
+    return true;
+  }
+  recentSubmissions.set(ip, now);
+  for (const [key, time] of recentSubmissions) {
+    if (now - time > RATE_LIMIT_SECONDS * 2000) {
+      recentSubmissions.delete(key);
+    }
+  }
+  return false;
+}
+
 function corsHeaders(origin) {
   return {
     "Access-Control-Allow-Origin": origin || "*",
@@ -32,10 +50,9 @@ async function subscribeButtondown(email, apiKey) {
   );
 
   if (response.status === 201) return { ok: true };
-  if (response.status === 409) return { ok: false, error: "Already subscribed." };
+  if (response.status === 409) return { ok: false, errors: ["Already subscribed."] };
 
-  const body = await response.text();
-  return { ok: false, error: `Subscribe failed: ${response.status}` };
+  return { ok: false, errors: ["Subscribe failed. Please try again later."] };
 }
 
 async function subscribeMailchimp(email, apiKey, listId) {
@@ -58,11 +75,15 @@ async function subscribeMailchimp(email, apiKey, listId) {
 
   if (response.ok) return { ok: true };
   if (response.status === 400) {
-    const body = await response.json();
-    if (body.title === "Member Exists") return { ok: false, error: "Already subscribed." };
+    try {
+      const body = await response.json();
+      if (body.title === "Member Exists") return { ok: false, errors: ["Already subscribed."] };
+    } catch {
+      // Ignore JSON parse errors from Mailchimp
+    }
   }
 
-  return { ok: false, error: `Subscribe failed: ${response.status}` };
+  return { ok: false, errors: ["Subscribe failed. Please try again later."] };
 }
 
 export default {
@@ -80,25 +101,44 @@ export default {
       });
     }
 
-    const contentType = request.headers.get("Content-Type") || "";
-    let email;
+    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
 
-    if (contentType.includes("application/x-www-form-urlencoded")) {
-      const formData = await request.formData();
-      email = formData.get("email");
-    } else if (contentType.includes("application/json")) {
-      const body = await request.json();
-      email = body.email;
-    } else {
-      return new Response("Unsupported content type", {
-        status: 415,
+    if (isRateLimited(ip)) {
+      return new Response("Too many requests. Please wait a moment.", {
+        status: 429,
         headers: corsHeaders(origin),
       });
     }
 
+    const contentType = request.headers.get("Content-Type") || "";
+    let email;
+
+    try {
+      if (contentType.includes("application/x-www-form-urlencoded")) {
+        const formData = await request.formData();
+        email = formData.get("email");
+      } else if (contentType.includes("application/json")) {
+        const body = await request.json();
+        email = body.email;
+      } else {
+        return new Response("Unsupported content type", {
+          status: 415,
+          headers: corsHeaders(origin),
+        });
+      }
+    } catch {
+      return new Response(
+        JSON.stringify({ errors: ["Invalid request body."] }),
+        {
+          status: 400,
+          headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+        },
+      );
+    }
+
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return new Response(
-        JSON.stringify({ error: "A valid email address is required." }),
+        JSON.stringify({ errors: ["A valid email address is required."] }),
         {
           status: 400,
           headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
@@ -118,7 +158,7 @@ export default {
         env.MAILCHIMP_LIST_ID,
       );
     } else {
-      result = { ok: false, error: `Unknown platform: ${platform}` };
+      result = { ok: false, errors: ["Newsletter service not configured."] };
     }
 
     if (result.ok) {
@@ -132,7 +172,7 @@ export default {
       });
     }
 
-    return new Response(JSON.stringify({ error: result.error }), {
+    return new Response(JSON.stringify({ errors: result.errors }), {
       status: 400,
       headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
     });

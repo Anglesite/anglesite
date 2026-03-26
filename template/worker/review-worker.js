@@ -66,7 +66,12 @@ function validateInput(name, rating, text) {
   return errors;
 }
 
+function sanitizeName(name) {
+  return String(name).replace(/[\r\n\0]/g, "").trim();
+}
+
 async function emailReview(env, name, rating, text) {
+  const safeName = sanitizeName(name);
   const stars = "★".repeat(rating) + "☆".repeat(5 - rating);
   const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
     method: "POST",
@@ -79,7 +84,7 @@ async function emailReview(env, name, rating, text) {
         email: `reviews@${env.SITE_DOMAIN}`,
         name: "Review submission",
       },
-      subject: `New review: ${stars} from ${name}`,
+      subject: `New review: ${stars} from ${safeName}`,
       content: [
         {
           type: "text/plain",
@@ -128,23 +133,33 @@ export default {
     const contentType = request.headers.get("Content-Type") || "";
     let name, rating, text, turnstileToken;
 
-    if (contentType.includes("application/x-www-form-urlencoded")) {
-      const formData = await request.formData();
-      name = formData.get("name");
-      rating = Number(formData.get("rating"));
-      text = formData.get("text");
-      turnstileToken = formData.get("cf-turnstile-response");
-    } else if (contentType.includes("application/json")) {
-      const body = await request.json();
-      name = body.name;
-      rating = Number(body.rating);
-      text = body.text;
-      turnstileToken = body["cf-turnstile-response"];
-    } else {
-      return new Response("Unsupported content type", {
-        status: 415,
-        headers: corsHeaders(origin),
-      });
+    try {
+      if (contentType.includes("application/x-www-form-urlencoded")) {
+        const formData = await request.formData();
+        name = formData.get("name");
+        rating = Number(formData.get("rating"));
+        text = formData.get("text");
+        turnstileToken = formData.get("cf-turnstile-response");
+      } else if (contentType.includes("application/json")) {
+        const body = await request.json();
+        name = body.name;
+        rating = Number(body.rating);
+        text = body.text;
+        turnstileToken = body["cf-turnstile-response"];
+      } else {
+        return new Response("Unsupported content type", {
+          status: 415,
+          headers: corsHeaders(origin),
+        });
+      }
+    } catch {
+      return new Response(
+        JSON.stringify({ errors: ["Invalid request body."] }),
+        {
+          status: 400,
+          headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+        },
+      );
     }
 
     const errors = validateInput(name, rating, text);
