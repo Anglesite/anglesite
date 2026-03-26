@@ -33,6 +33,7 @@ Anglesite is a Claude Code plugin (and npm package) that scaffolds and manages w
 │   ├── reputation/SKILL.md     Review monitoring + competitive coaching (model-only)
 │   ├── testimonials/SKILL.md    Review collection + display (model-only)
 │   ├── i18n/SKILL.md            Multi-language support (model-only)
+│   ├── print/SKILL.md           Print materials generation (model-only)
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
@@ -133,6 +134,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `reputation` | Review monitoring coaching and competitive awareness |
 | `testimonials` | Customer review collection, moderation, display |
 | `i18n` | Multi-language support with hreflang and language switcher |
+| `print` | Print-ready materials (business cards, flyers, door hangers, social cards) |
 
 ## Editing guidelines
 
