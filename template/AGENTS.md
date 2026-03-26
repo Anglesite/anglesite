@@ -58,6 +58,7 @@ Step-by-step guides for common operations:
 | Visual themes | See `scripts/themes.ts` for 8 pre-built palettes |
 | QR codes and campaign tracking | `docs/workflows/qr.md` |
 | Customer testimonials | `docs/workflows/testimonials.md` |
+| Multi-language (i18n) | `docs/workflows/i18n.md` |
 
 ## Key files
 
