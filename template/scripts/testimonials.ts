@@ -67,7 +67,7 @@ export function generateAggregateRatingJsonLd(
   if (rated.length === 0) return null;
 
   const sum = rated.reduce((acc, t) => acc + t.rating!, 0);
-  const avg = Math.round(sum / rated.length);
+  const avg = Math.round((sum / rated.length) * 10) / 10;
 
   return {
     "@context": "https://schema.org",
