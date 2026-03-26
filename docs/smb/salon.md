@@ -36,7 +36,16 @@ Covers: hair salons, barbershops, nail salons, spas, aestheticians, lash/brow st
 - **Vagaro** (~$25/mo, proprietary) — Booking, payments, marketing. Popular with salons and spas. vagaro.com
 - If they already use Booksy, GlossGenius, or Boulevard — keep it. Link from the website.
 - **Instagram** is the primary portfolio for most beauty professionals — often more important than the website gallery. Embed or link the feed prominently on the home page and gallery. Keep `rel="me"` for verification. During `/anglesite:start`, ask for the Instagram handle early and feature it in the site design.
-- **Reviews** — Clients choose beauty providers based on reviews. Encourage and link to reviews on Google, Yelp, and the booking platform (Booksy, Fresha, etc.). Add a "Reviews" section to the home page or a dedicated page with a link to leave a review.
+## Review platforms
+
+- **Google Business Profile** — Primary discovery channel. Most clients search "salon near me" and pick based on stars and photos. Respond to every review — clients notice whether a salon engages.
+- **Yelp** — Heavily used for beauty services, especially in urban areas. Yelp's filter is aggressive — don't panic if reviews disappear. Filtered reviews are still visible to users who click through.
+- **Booking platform** (Fresha, Vagaro, Booksy) — Reviews here appear at the moment of booking decision. A provider with 50 reviews converts better than one with 5. Ask clients to review after each visit.
+- **Instagram** — Not traditional reviews, but DM testimonials and comment praise are social proof. Ask permission to screenshot and feature them on the website or in Stories.
+
+Add a "Leave us a review" link on the contact page and a short reviews section on the home page. Ask clients at checkout.
+
+See `docs/smb/reviews.md` for full review management guidance.
 
 ## Compliance
 

@@ -34,6 +34,17 @@ Covers: restaurants, cafés, coffee shops, bakeries, catering, delis, ice cream 
 - For reservations: consider whether the owner actually needs reservation software, or if a phone number and email work fine. Most small restaurants don't need Resy or OpenTable.
 - **Map listings** — Essential for "restaurants near me" searches. Claim the business on Google Business Profile, Apple Business Connect, and OpenStreetMap. Post menu updates and photos regularly. See `docs/webmaster.md` → Map listings.
 
+## Review platforms
+
+- **Google Business Profile** — The dominant discovery channel. "Restaurants near me" searches resolve almost entirely through Google. Keep the profile complete with photos, menu link, and current hours. Respond to reviews within a day or two — it's visible to every future customer who reads that review.
+- **Yelp** — Heavily used for restaurants in most urban markets. Some cities (San Francisco, NYC, Chicago) have denser Yelp cultures than others. Claim the listing, keep it current, and respond to reviews. Yelp's filter may hide some genuine reviews — it's a feature, not a bug on your end.
+- **TripAdvisor** — Relevant if the business is in a tourist area or destination city. Even in non-tourist markets, some customers check TripAdvisor. Worth claiming.
+- **OpenTable / Resy** — If using either for reservations, guests leave reviews directly on the platform. These matter because they appear right where people are booking.
+
+Encourage reviews by placing a small card at the table or printing a QR code on the receipt. "We're a local business — a Google review means a lot." Don't ask for a specific rating.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Health department permits**: Required for commercial kitchens. Display permit number if required by jurisdiction. Link to latest inspection report if publicly available (builds trust).

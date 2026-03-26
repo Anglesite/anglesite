@@ -39,6 +39,16 @@ Covers: marinas, boat dealers (new and used), boat repair and service, charter f
 - **FishBrain** (free to list) — Fishing app where anglers share catches and spots. Charter captains can build a profile. fishbrain.com
 - **Google Business Profile** — Essential. Boaters search "marina near [lake/bay]" and "boat rental [area]." Claim and keep hours/photos current.
 
+## Review platforms
+
+- **Google Business Profile** — Essential. Boaters search "marina near [lake/bay]" and "boat rental [area]" through Google Maps. A marina with 50+ reviews and a strong rating looks like a reliable place to leave your boat or spend a day on the water. Keep photos current (aerial shots of the marina layout, facility photos, launch ramp), respond to reviews, and post seasonal updates (spring opening, fall closing, fuel price updates).
+- **Yelp** — Used for marinas and boat rentals in some markets, particularly for casual customers rather than seasonal slip holders. Worth claiming and monitoring.
+- **Facebook** — Boating communities are active on Facebook. A marina's Facebook page with fishing reports, event posts, and community engagement is often where regulars interact. Reviews and recommendations on Facebook carry weight for local boaters who trust their community network. Post regularly during season.
+
+For charter fishing operations specifically, reviews on Google and TripAdvisor (see [tour-guide.md](tour-guide.md)) matter significantly. Anglers share trip reports online and direct recommendations to fishing forums and Facebook groups — those community endorsements drive charter bookings as much as formal review platforms.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **USCG regulations**: Charter boats carrying passengers for hire must comply with US Coast Guard regulations. The captain needs an Operator of Uninspected Passenger Vessels (OUPV/"Six-Pack") license for up to 6 passengers, or a Master license for larger vessels. Display the license number on the website.

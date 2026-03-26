@@ -37,6 +37,17 @@ Covers: private tutors, music teachers, driving schools, test prep, language sch
 - **Monica CRM** (open source, free) — Track students and parents.
 - For driving schools: look into **ScheduleOnce** or similar for multi-instructor, multi-vehicle scheduling.
 
+## Review platforms
+
+- **Google Business Profile** — The primary channel for parents searching "tutor near me" or "music lessons [city]." Reviews that describe specific results ("my daughter went from a C to an A in math," "my son finally enjoys piano") are enormously persuasive. Respond to every review — parents see that the educator is engaged and communicative.
+- **Yelp** — Used for tutors and enrichment centers in some markets. Claim the profile if it exists and keep it updated.
+- **Care.com** (if applicable) — For in-home tutors and some after-school programs, parents search Care.com as part of their vetting. Reviews there carry weight because the platform requires background check verification.
+- **Facebook** — Parent communities are active on Facebook and word-of-mouth referrals dominate this category. A business page where parents can leave recommendations, and where the educator shares tips and achievements (with permission), builds a visible reputation.
+
+For tutors and private instructors, the best time to ask for a review is after a noticeable achievement — a test score improvement, a competition result, a grade turnaround. The parent is already pleased; a brief email with a direct Google review link is almost always welcomed.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Background checks**: Mention if instructors have passed background checks. Parents expect this. Not always legally required, but it builds trust.

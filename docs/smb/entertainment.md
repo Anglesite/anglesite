@@ -40,6 +40,17 @@ Covers: bowling alleys, escape rooms, mini golf, arcades, go-kart tracks, trampo
 - **Yelp** — Active for entertainment venues in many markets. Claim the listing.
 - **TripAdvisor** — If the venue attracts tourists (especially escape rooms, unique attractions). Claim and manage the listing.
 
+## Review platforms
+
+- **Google Business Profile** — Primary discovery channel for "things to do near me" and "[activity] near me" searches. Families planning an outing check Google first. A venue with 200+ reviews and a 4.5+ rating looks like a sure bet for an afternoon out. Photos of real people having fun in the space are as important as the reviews themselves. Respond to all reviews, including complaints about wait times or equipment — it shows you take experience quality seriously.
+- **Yelp** — Active for entertainment venues in most markets. Families and groups comparison-shopping will check both Google and Yelp. A strong Yelp presence with event-specific categories (birthday party reviews, group visit reviews) builds credibility for the party booking side of the business.
+- **TripAdvisor** — Worth maintaining if the venue attracts tourists or if it's a distinctive enough attraction that out-of-town visitors might seek it out (escape rooms, unusual entertainment, attractions in tourist areas). A TripAdvisor listing gives the venue another discovery channel beyond local search.
+- **Facebook** — Party photos and event recaps shared on Facebook generate organic referrals. Families share photos from birthdays, kids tag friends. A business page with visible engagement, event posts, and reviews turns customers into advocates. Ask party organizers to tag the venue in their post-party photos.
+
+Post-birthday-party is the highest-leverage moment: the organizer was just a hero to a dozen kids, and they're happy. A follow-up message: "We hope [child's name] had an amazing birthday! If you have a minute to leave us a Google review, it helps other parents find us for their celebrations." Simple, personal, well-timed.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Amusement ride safety**: If the venue has mechanical rides, inflatables, or trampolines, state amusement ride regulations may apply. Many states require annual inspections, incident reporting, and operator training. Check with the state's amusement ride safety office.
