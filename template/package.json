@@ -22,10 +22,13 @@
     "@astrojs/rss": "^4.0.0",
     "@astrojs/sitemap": "3.3.1",
     "@keystatic/astro": "5.0.6",
-    "@keystatic/core": "0.5.47",
-    "astro": "5.16.0",
+    "@keystatic/core": "0.5.49",
+    "astro": "5.18.1",
     "react": "18.3.1",
     "react-dom": "18.3.1"
+  },
+  "overrides": {
+    "brace-expansion": "^5.0.5"
   },
   "devDependencies": {
     "@types/node": "22.13.10",
@@ -34,6 +37,6 @@
     "qrcode": "^1.5.0",
     "sharp": "^0.33.0",
     "tsx": "^4.19.0",
-    "wrangler": "4.14.0"
+    "wrangler": "^4.77.0"
   }
 }
