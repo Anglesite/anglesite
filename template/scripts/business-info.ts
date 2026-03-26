@@ -112,18 +112,23 @@ function expandDayRange(rangeStr: string): string[] {
   return days;
 }
 
-function parseTo24h(timeStr: string): string {
+function parseTo24h(timeStr: string): string | null {
   const match = timeStr.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
-  if (!match) return timeStr;
+  if (!match) return null;
 
   let hours = parseInt(match[1], 10);
-  const minutes = match[2] || "00";
+  const minutes = parseInt(match[2] || "0", 10);
   const period = (match[3] || "").toLowerCase();
+
+  // With am/pm, valid input hours are 1–12
+  if (period && (hours < 1 || hours > 12)) return null;
 
   if (period === "pm" && hours < 12) hours += 12;
   if (period === "am" && hours === 12) hours = 0;
 
-  return `${hours.toString().padStart(2, "0")}:${minutes}`;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
 }
 
 /**
@@ -156,11 +161,10 @@ export function parseHours(hoursString: string): DayHours[] {
     for (const day of days) {
       for (const range of timeRanges) {
         const [openStr, closeStr] = range.split("-").map((s) => s.trim());
-        result.push({
-          day,
-          open: parseTo24h(openStr),
-          close: parseTo24h(closeStr),
-        });
+        const open = parseTo24h(openStr);
+        const close = parseTo24h(closeStr);
+        if (open === null || close === null) continue;
+        result.push({ day, open, close });
       }
     }
   }

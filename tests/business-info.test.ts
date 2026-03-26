@@ -61,6 +61,27 @@ describe("parseHours", () => {
     expect(result.length).toBe(5);
     expect(result[0].day).toBe("Monday");
   });
+
+  it("rejects invalid hour values like 13pm (would produce 25:00)", () => {
+    const result = parseHours("Mon 13pm-5pm");
+    expect(result.length).toBe(0);
+  });
+
+  it("rejects out-of-range 24h input like 25:30", () => {
+    const result = parseHours("Mon 25:30-5pm");
+    expect(result.length).toBe(0);
+  });
+
+  it("rejects invalid minutes like 9:61am", () => {
+    const result = parseHours("Mon 9:61am-5pm");
+    expect(result.length).toBe(0);
+  });
+
+  it("keeps valid entries and skips invalid ones in mixed input", () => {
+    const result = parseHours("Mon 9am-5pm, Tue 13pm-5pm");
+    expect(result.length).toBe(1);
+    expect(result[0].day).toBe("Monday");
+  });
 });
 
 // ---------------------------------------------------------------------------
