@@ -51,16 +51,23 @@ These apply to every import regardless of platform:
 Before every tool call or command that will trigger a permission prompt, explain
 what you're about to do and why. The owner is non-technical.
 
-## Step 0 — Check the project
+## Step 0 — Get the URL and check the project
 
-### 0a — Is this already an Anglesite project?
+### 0a — Get the URL
+
+Ask the owner for their website URL if they didn't provide one as an argument.
+The URL is the primary input — ask for it first before anything else.
+
+Normalize: strip trailing slashes, ensure `https://`. Store as SITE_URL.
+
+### 0b — Is this already an Anglesite project?
 
 Use Glob to check for `src/content.config.ts`.
 
 If it exists, this project has already been scaffolded. Read `.site-config` to
-load `SITE_NAME` and `OWNER_NAME`. Skip to **0c**.
+load `SITE_NAME` and `OWNER_NAME`. Skip to Step 1.
 
-### 0b — Scaffold if needed
+### 0c — Scaffold if needed
 
 If `src/content.config.ts` does not exist, check the working directory:
 
@@ -79,18 +86,16 @@ Stop.
 zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh --yes .
 ```
 
-Ask the essentials:
-
-1. "What's your name?"
-2. "What should we call the new site?"
+Ask: "What's your name?" (The site name will be detected from the homepage in
+Step 3a, so no need to ask for it now.)
 
 Save to `.site-config` using the **Write tool**:
 
 ```
 SITE_TYPE=blog
 OWNER_NAME=Name
-SITE_NAME=Site Name
-DEV_HOSTNAME=sitename.local
+SITE_NAME=My Site
+DEV_HOSTNAME=mysite.local
 AI_MODEL=Claude Opus 4.6
 EXPLAIN_STEPS=true
 ```
@@ -106,12 +111,6 @@ npm install
 > `/anglesite:convert` if this is a static site project."
 
 Wait for guidance.
-
-### 0c — Get the URL
-
-Ask the owner for their website URL if they didn't provide one as an argument.
-
-Normalize: strip trailing slashes, ensure `https://`. Store as SITE_URL.
 
 ## Step 1 — Detect platform and discover content
 
@@ -230,12 +229,10 @@ Tell the owner what was found. Example:
 If BLOG_POSTS is empty, tell the owner — skip to Step 3 for pages only, or
 Step 4 if image galleries were detected.
 
-Ask:
-> "Would you like to import all of it, or just the blog posts?"
-> - **Everything** — import posts + page stubs + redirects (recommended)
-> - **Blog posts only** — skip static pages
-
-Wait for their answer before continuing.
+Import everything by default — posts, pages, images, and redirects. Do not
+prompt the owner to choose a scope. The whole point of `/anglesite:import` is
+to import the entire website. If the owner wants to remove something afterward,
+they can delete it.
 
 ## Step 2 — Import blog posts
 
@@ -383,7 +380,7 @@ instructions to offer newsletter migration.
 
 ## Step 3 — Handle static pages
 
-If the owner chose "Everything" in Step 1, process STATIC_PAGES.
+Process STATIC_PAGES.
 
 ### 3a — Extract homepage branding
 
