@@ -30,7 +30,6 @@ zip -r "$OUTDIR/$ZIPNAME" \
   settings.json \
   docs/ \
   template/ \
-  bin/init.js \
   LICENSE \
   README.md \
   -x "docs/.DS_Store" "template/node_modules/*" "**/.DS_Store"
