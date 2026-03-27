@@ -301,6 +301,30 @@ footer {
   outline-offset: 2px;
 }
 
+/* Buy button */
+.buy-button {
+  display: inline-block;
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.buy-button:hover {
+  opacity: 0.9;
+  color: #fff;
+}
+
+.buy-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* Print */
 @media print {
   .skip-link,
