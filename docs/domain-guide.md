@@ -65,6 +65,40 @@ Technically a ccTLD (British Indian Ocean Territory) but functions as a de facto
 
 **Recommend when:** The owner is a developer tool, API, or startup targeting technical audiences.
 
+## Country-code TLDs (ccTLDs)
+
+Country-code TLDs signal geographic focus. When the business serves a specific country or region, a ccTLD can outperform .com for local trust and search visibility.
+
+**How Google treats ccTLDs:** Google uses ccTLDs as a strong geo-targeting signal. A `.co.uk` site gets a ranking boost for UK searches without any Search Console geo-targeting configuration. This is a real, measurable advantage for businesses that serve a single country.
+
+### .us
+
+Restricted to US citizens, residents, and organizations. Underused compared to .com but carries clear geographic intent. Available on Cloudflare.
+
+**Recommend when:** The business is US-focused and the ideal .com is taken or expensive. Particularly strong for local government, civic organizations, and businesses where "American" is part of the value proposition. Less useful for businesses that may expand internationally.
+
+**Caveat:** .us domains have no WHOIS privacy — ICANN policy requires accurate public contact info. Warn the owner about this before registering.
+
+### .co.uk
+
+The default business TLD in the United Kingdom. British consumers trust .co.uk as much as or more than .com for domestic businesses. Managed by Nominet. Available on Cloudflare.
+
+**Recommend when:** The business operates in the UK and primarily serves British customers. A `.co.uk` signals "we're a proper British business" in a way that .com doesn't.
+
+### Other notable ccTLDs
+
+| ccTLD   | Country          | Notes                                                                 |
+|---------|------------------|-----------------------------------------------------------------------|
+| .ca     | Canada           | Restricted to Canadian presence; strong local trust                   |
+| .com.au | Australia        | Requires ABN; very high trust for Australian businesses               |
+| .de     | Germany          | Largest ccTLD by registration volume; strong domestic preference      |
+| .fr     | France           | Requires EU presence; French consumers expect it for local businesses |
+| .eu     | European Union   | Available to EU residents and organizations; pan-European scope       |
+| .nz     | New Zealand      | Open registration; commonly used for NZ businesses                    |
+| .in     | India            | Open registration; growing domestic preference                        |
+
+**General rule:** If the business serves one country and doesn't plan to go international, the local ccTLD is often the better choice over .com. If they serve multiple countries or plan to expand, .com gives more flexibility. When in doubt, register both and redirect.
+
 ## TLDs to avoid
 
 Steer the owner away from these regardless of price:
