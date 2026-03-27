@@ -171,6 +171,16 @@ The scaffolded template includes a default `anglesite.config.json` with all seve
 
 Run the design interview. Read and follow the full instructions in `${CLAUDE_PLUGIN_ROOT}/skills/design-interview/SKILL.md` — it covers the interview questions, applying the design, structured data, and docs sync. All design edits are file changes that don't require tools to be installed yet.
 
+## Step 2b — Photography guidance
+
+Before collecting content, help the owner know what photos they'll need. Frame it as:
+
+> "Before we fill in your pages, let's make sure you have the photos you'll need. Your phone camera is all you need — I'll show you exactly what to shoot."
+
+Read and follow the photography guidance instructions in `${CLAUDE_PLUGIN_ROOT}/skills/photography/SKILL.md`. It generates a prioritized shot list based on the site type and delivers practical phone tips.
+
+If the owner wants to skip this ("I already have photos" / "I'll figure it out later"), that's fine — move on. The photography skill is also available on demand via `/anglesite:photography`.
+
 ## Step 3 — Install tools
 
 Your design is saved. Before running setup, present the wizard summary so the owner knows exactly what's coming:

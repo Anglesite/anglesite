@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Google's Photography Fundamentals",
+    "description": "Composition, light, phone-specific technique",
+    "url": "https://learndigitalphotography.com",
+    "type": "guide"
+  },
+  {
+    "name": "iPhone Photography School",
+    "description": "iOS-specific, very practical",
+    "url": "https://iphonephotographyschool.com",
+    "type": "guide"
+  },
+  {
+    "name": "Canva's Product Photography Guide",
+    "description": "Flatlay and product-specific",
+    "url": "https://www.canva.com/learn/product-photography",
+    "type": "guide"
+  },
+  {
+    "name": "Snapseed",
+    "description": "Best free mobile editor, cross-platform",
+    "url": "https://snapseed.online",
+    "type": "app"
+  },
+  {
+    "name": "Adobe Lightroom Mobile (free tier)",
+    "description": "More powerful editing, presets",
+    "url": "https://lightroom.adobe.com",
+    "type": "app"
+  }
+]

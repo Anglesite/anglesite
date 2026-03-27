@@ -62,6 +62,7 @@ Step-by-step guides for common operations:
 | Review reputation coaching | `docs/workflows/reputation.md` |
 | A/B testing and optimization | `docs/workflows/experiment.md` |
 | Appointment booking | `docs/workflows/booking.md` |
+| Photography shot list | See `/anglesite:photography` skill |
 
 ## Visual communication
 

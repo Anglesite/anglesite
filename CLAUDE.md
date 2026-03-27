@@ -37,6 +37,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── buy-button/SKILL.md     Stripe Payment Link buy button (model-only)
 │   ├── booking/SKILL.md        Appointment scheduling embed (user-facing)
 │   ├── experiment/SKILL.md      A/B testing + funnel optimization (model-only)
+│   ├── photography/SKILL.md    Shot list generator + phone photography tips
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
@@ -115,6 +116,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `newsletter` | Email newsletter setup (Buttondown/Mailchimp) + subscribe form |
 | `add-store` | Ecommerce intake: routes to Stripe, Polar, or coming-soon paths |
 | `booking` | Embed appointment scheduling (Cal.com or Calendly) |
+| `photography` | Site-type-specific shot list generator and phone photography tips |
 
 **Model-only** (called programmatically by other skills, `user-invokable: false`):
 
