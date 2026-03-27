@@ -6,6 +6,8 @@ import {
   createResolveMessage,
   createAnnotationsResponse,
   createAnnotationResponse,
+  createResolvedNotification,
+  createErrorMessage,
   parseMessage,
 } from "../server/messages.mjs";
 
@@ -26,6 +28,10 @@ describe("MESSAGE_TYPES", () => {
     expect(MESSAGE_TYPES.ANNOTATION_RESPONSE).toBe(
       "anglesite:annotation-response",
     );
+    expect(MESSAGE_TYPES.ANNOTATION_RESOLVED).toBe(
+      "anglesite:annotation-resolved",
+    );
+    expect(MESSAGE_TYPES.ERROR).toBe("anglesite:error");
   });
 });
 
@@ -96,6 +102,26 @@ describe("createAnnotationResponse", () => {
   });
 });
 
+describe("createResolvedNotification", () => {
+  it("builds a resolved notification with annotation id", () => {
+    const msg = createResolvedNotification("abc-123");
+    expect(msg).toEqual({
+      type: MESSAGE_TYPES.ANNOTATION_RESOLVED,
+      id: "abc-123",
+    });
+  });
+});
+
+describe("createErrorMessage", () => {
+  it("builds an error message with a reason string", () => {
+    const msg = createErrorMessage("MCP server unreachable");
+    expect(msg).toEqual({
+      type: MESSAGE_TYPES.ERROR,
+      message: "MCP server unreachable",
+    });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // parseMessage
 // ---------------------------------------------------------------------------
@@ -126,11 +152,111 @@ describe("parseMessage", () => {
     expect(parseMessage({ path: "/" })).toBeNull();
   });
 
-  it("parses all known message types", () => {
-    for (const type of Object.values(MESSAGE_TYPES)) {
-      const msg = parseMessage({ type });
-      expect(msg).not.toBeNull();
-      expect(msg!.type).toBe(type);
-    }
+  // Per-type payload validation
+
+  it("rejects add-annotation missing path", () => {
+    expect(
+      parseMessage({
+        type: MESSAGE_TYPES.ADD_ANNOTATION,
+        selector: "h1",
+        text: "Note",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects add-annotation missing selector", () => {
+    expect(
+      parseMessage({
+        type: MESSAGE_TYPES.ADD_ANNOTATION,
+        path: "/",
+        text: "Note",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects add-annotation missing text", () => {
+    expect(
+      parseMessage({
+        type: MESSAGE_TYPES.ADD_ANNOTATION,
+        path: "/",
+        selector: "h1",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects resolve-annotation missing id", () => {
+    expect(
+      parseMessage({ type: MESSAGE_TYPES.RESOLVE_ANNOTATION }),
+    ).toBeNull();
+  });
+
+  it("accepts list-annotations without optional path", () => {
+    const msg = parseMessage({ type: MESSAGE_TYPES.LIST_ANNOTATIONS });
+    expect(msg).not.toBeNull();
+  });
+
+  it("accepts list-annotations with path", () => {
+    const msg = parseMessage({
+      type: MESSAGE_TYPES.LIST_ANNOTATIONS,
+      path: "/about",
+    });
+    expect(msg).not.toBeNull();
+    expect(msg!.path).toBe("/about");
+  });
+
+  it("rejects annotations-response missing annotations array", () => {
+    expect(
+      parseMessage({ type: MESSAGE_TYPES.ANNOTATIONS_RESPONSE }),
+    ).toBeNull();
+  });
+
+  it("rejects annotations-response with non-array annotations", () => {
+    expect(
+      parseMessage({
+        type: MESSAGE_TYPES.ANNOTATIONS_RESPONSE,
+        annotations: "not-array",
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts valid annotations-response", () => {
+    const msg = parseMessage({
+      type: MESSAGE_TYPES.ANNOTATIONS_RESPONSE,
+      annotations: [],
+    });
+    expect(msg).not.toBeNull();
+  });
+
+  it("rejects annotation-response missing annotation", () => {
+    expect(
+      parseMessage({ type: MESSAGE_TYPES.ANNOTATION_RESPONSE }),
+    ).toBeNull();
+  });
+
+  it("rejects annotation-resolved missing id", () => {
+    expect(
+      parseMessage({ type: MESSAGE_TYPES.ANNOTATION_RESOLVED }),
+    ).toBeNull();
+  });
+
+  it("accepts valid annotation-resolved", () => {
+    const msg = parseMessage({
+      type: MESSAGE_TYPES.ANNOTATION_RESOLVED,
+      id: "abc",
+    });
+    expect(msg).not.toBeNull();
+  });
+
+  it("rejects error message missing message field", () => {
+    expect(parseMessage({ type: MESSAGE_TYPES.ERROR })).toBeNull();
+  });
+
+  it("accepts valid error message", () => {
+    const msg = parseMessage({
+      type: MESSAGE_TYPES.ERROR,
+      message: "Server unreachable",
+    });
+    expect(msg).not.toBeNull();
+    expect(msg!.message).toBe("Server unreachable");
   });
 });
