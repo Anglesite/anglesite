@@ -169,7 +169,7 @@ The scaffolded template includes a default `anglesite.config.json` with all seve
 
 ## Step 2 — Design interview
 
-Run the design interview. Read and follow the full instructions in `${CLAUDE_PLUGIN_ROOT}/skills/design-interview/SKILL.md` — it covers the interview questions, applying the design, structured data, and docs sync. All design edits are file changes that don't require tools to be installed yet.
+Run the guided design interview. Read and follow the full instructions in `${CLAUDE_PLUGIN_ROOT}/skills/design-interview/SKILL.md` — it conducts a 4-stage conversational design discovery (Intent → Mood → Brand anchoring → Axis confirmation) and generates four artifacts: `src/design/design.json`, `src/design/tokens.css`, `src/design/DESIGN.md`, and an updated layout import. It also covers structured data and docs sync. All design edits are file changes that don't require tools to be installed yet.
 
 ## Step 2b — Photography guidance
 

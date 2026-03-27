@@ -6,6 +6,40 @@ Practical design reference for the webmaster agent. Read during `/anglesite:desi
 
 Read this file before applying design choices. The core system (colors, typography, spacing, layout) applies to every site. For business-type-specific direction (visual mood, layout emphasis, photography style), read the `## Design` section in the matching `docs/smb/` file.
 
+## Design axes
+
+The design system is driven by five axes (0–1 floats) defined in `src/design/design.json`. All design generation functions live in `scripts/design.ts`.
+
+| Axis | Low (0) | High (1) | Controls |
+|------|---------|----------|----------|
+| Temperature | Cool | Warm | Color hues, surface warmth |
+| Weight | Airy | Dense | Spacing scale, shadow depth, dark mode |
+| Register | Playful | Authoritative | Font pairing, border-radius, accent strategy |
+| Time | Classic | Contemporary | Serif vs sans-serif, shape roundness |
+| Voice | Subtle | Bold | Saturation, shadow intensity, accent type |
+
+Default axes for each business type are in `scripts/design.ts` → `axesFromBusinessType()`.
+
+### Generated artifacts
+
+The design interview generates four files in `src/design/`:
+
+| File | Purpose | Generator |
+|------|---------|-----------|
+| `design.json` | Machine-readable config (axes, palette, typography, spacing, shape) | `createDesignConfig()` |
+| `tokens.css` | CSS custom properties consumed by all components | `designToTokensCss()` |
+| `DESIGN.md` | Human-readable rationale explaining every decision | `generateDesignRationale()` |
+
+The base layout imports `tokens.css` so changes take effect immediately.
+
+### Incremental updates
+
+To adjust the design without re-running the full interview:
+
+1. Read `src/design/design.json`
+2. Apply deltas with `adjustAxes(axes, { temperature: +0.15 })`
+3. Regenerate with `createDesignConfig()`, `designToTokensCss()`, `generateDesignRationale()`
+
 ## Color system
 
 ### Mapping owner words to palettes
