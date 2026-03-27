@@ -20,6 +20,12 @@ Each SMB file recommends tools specific to that business type. These files cover
 | [honeybook.md](honeybook.md) | Client-based business with proposals, contracts, and invoicing |
 | [ko-fi.md](ko-fi.md) | Creators accepting tips, selling digital products, or offering memberships |
 | [the-knot.md](the-knot.md) | Wedding-adjacent businesses |
+| [stripe.md](stripe.md) | Business sells a service, accepts donations, or takes one-off payments via Payment Links |
+| [polar.md](polar.md) | Digital product sales — downloads, templates, courses, memberships (default for digital) |
+| [lemon-squeezy.md](lemon-squeezy.md) | Digital product sales — alternative to Polar, owner-preference driven |
+| [snipcart.md](snipcart.md) | Small physical product catalog (under ~10 items), no dashboard needed |
+| [shopify-buy-button.md](shopify-buy-button.md) | Full physical product catalog with inventory management dashboard |
+| [paddle.md](paddle.md) | Software licensing, SaaS subscriptions, metered billing |
 
 ## Cross-platform tips
 
