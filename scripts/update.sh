@@ -50,13 +50,21 @@ echo "# to=$PLUGIN_VERSION"
 # Excludes — same as scaffold.sh
 EXCLUDES="node_modules|dist|\.astro|\.wrangler|\.certs|\.DS_Store|\.site-config"
 
-# Walk template directory and compare
+# Walk template directory and compare (prune heavy dirs so find stays fast)
 cd "$TEMPLATE"
-find . -type f | while IFS= read -r file; do
+find . \
+  -name node_modules -prune -o \
+  -name dist -prune -o \
+  -name .astro -prune -o \
+  -name .wrangler -prune -o \
+  -name .certs -prune -o \
+  -name .DS_Store -prune -o \
+  -name .site-config -prune -o \
+  -type f -print | while IFS= read -r file; do
   # Strip leading ./
   rel="${file#./}"
 
-  # Check excludes
+  # Secondary exclude check (catches patterns not handled by -prune)
   if echo "$rel" | grep -qE "(^|/)($EXCLUDES)(/|$)"; then
     continue
   fi
