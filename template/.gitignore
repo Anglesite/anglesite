@@ -23,3 +23,6 @@ Thumbs.db
 
 # local HTTPS certs
 .certs
+
+# annotation feedback (runtime data)
+annotations.json

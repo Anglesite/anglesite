@@ -52,6 +52,11 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │       ├── wix-playwright.js     Browser-based content + CSS token extraction
 │       ├── wix-extract.js        Curl+regex fallback for Wix HTML parsing
 │       └── color-utils.js        RGB/hex conversion, luminance, color classification
+├── server/                       MCP annotation server + shared modules (Node.js, ESM)
+│   ├── annotations.mjs           Annotation store (CRUD + persistence)
+│   ├── selector.mjs              CSS selector generation from element metadata
+│   ├── messages.mjs              WebSocket message schema (overlay ↔ server)
+│   └── index.mjs                 MCP stdio server entry point
 ├── bin/
 │   ├── average-tokens.ts         Token cost calculator for start skill
 │   ├── build-instructions.ts     Agent instruction file validator
@@ -64,7 +69,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── platforms/                Tool integration guides (13 files)
 │   └── decisions/                ADRs — architecture decision records (15 files)
 ├── template/                     Files scaffolded to user's project
-│   ├── src/                      Astro source (pages, layouts, styles)
+│   ├── src/                      Astro source (pages, layouts, styles, integrations, toolbar)
 │   ├── public/                   Static assets
 │   ├── scripts/                  setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
 │   ├── docs/                     Site-specific docs (~17 files) + workflows/
@@ -75,6 +80,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── astro.config.ts           Astro + Keystatic integration config
 │   ├── keystatic.config.ts       CMS schema and collection definitions
 │   ├── worker/                   Cloudflare Worker source (contact form)
+│   ├── .mcp.json                 MCP server config (annotation tools)
 │   └── .gitignore                Build artifacts exclusions
 ├── test/                         JavaScript tests + fixtures
 │   └── fixtures/                 Sample HTML for Wix extraction tests

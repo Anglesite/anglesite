@@ -14,6 +14,7 @@ import react from "@astrojs/react";
 import markdoc from "@astrojs/markdoc";
 import keystatic from "@keystatic/astro";
 import sitemap from "@astrojs/sitemap";
+import anglesiteToolbar from "./src/integrations/anglesite-toolbar";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -64,12 +65,12 @@ const siteUrl = siteDomain
 
 export default defineConfig({
   site: siteUrl,
-  devToolbar: { enabled: false },
+  devToolbar: { enabled: isDev },
   output: isDev ? "server" : "static",
   integrations: [
     react(),
     markdoc(),
-    ...(isDev ? [keystatic()] : []),
+    ...(isDev ? [keystatic(), anglesiteToolbar()] : []),
     sitemap(),
   ],
   vite: isDev
