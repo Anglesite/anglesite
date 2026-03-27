@@ -52,29 +52,6 @@ describe("PolarCheckout component", () => {
 });
 
 // ---------------------------------------------------------------------------
-// buy-button skill includes Polar path
-// ---------------------------------------------------------------------------
-
-describe("buy-button skill", () => {
-  const skillPath = resolve(import.meta.dirname!, "..", "skills", "buy-button", "SKILL.md");
-
-  it("mentions Polar as an option for digital goods", () => {
-    const content = readFileSync(skillPath, "utf-8");
-    expect(content).toContain("Polar");
-  });
-
-  it("mentions PolarCheckout component", () => {
-    const content = readFileSync(skillPath, "utf-8");
-    expect(content).toContain("PolarCheckout");
-  });
-
-  it("distinguishes digital goods from physical products", () => {
-    const content = readFileSync(skillPath, "utf-8");
-    expect(content.toLowerCase()).toContain("digital");
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Pre-deploy scan allows cdn.polar.sh
 // ---------------------------------------------------------------------------
 

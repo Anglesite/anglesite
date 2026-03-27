@@ -9,7 +9,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (25 total: 11 user-facing, 14 model-only)
+├── skills/                       Skills (26 total: 12 user-facing, 14 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -112,6 +112,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `backup` | Back up site changes to GitHub with descriptive summary |
 | `stats` | Plain-language site analytics from Cloudflare |
 | `newsletter` | Email newsletter setup (Buttondown/Mailchimp) + subscribe form |
+| `add-store` | Ecommerce intake: routes to Stripe, Polar, or coming-soon paths |
 
 **Model-only** (called programmatically by other skills, `user-invokable: false`):
 
