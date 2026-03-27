@@ -61,7 +61,7 @@ Based on the answers, route to the correct solution:
 | Digital downloads | Any | — | **Polar** | Ready |
 | Physical goods | Few | No | **Snipcart** | Ready |
 | Physical goods | Catalog | Yes | **Shopify Buy Button** | Ready |
-| Software / SaaS | Any | — | **Paddle** | Coming soon (#119) |
+| Software / SaaS | Any | — | **Paddle** | Ready |
 
 ### Ready paths — hand off to buy-button skill
 
@@ -83,18 +83,11 @@ For **Shopify Buy Button** route (physical goods, full catalog, dashboard), save
 
 Write `ECOMMERCE_PROVIDER=shopify` to `.site-config`, then read `${CLAUDE_PLUGIN_ROOT}/skills/shopify-buy-button/SKILL.md` and execute it.
 
-### Coming soon paths — explain and offer Stripe fallback
+### Paddle path — hand off to paddle skill
 
-For **Paddle** route, the integration isn't available yet. Respond warmly and offer a workaround:
+For **Paddle** route (software, plugins, SaaS, subscriptions), save the provider and invoke the paddle skill:
 
-**Paddle (software/SaaS):**
-
-> "For software licensing and subscriptions, you'll want Paddle — it handles license keys, subscription billing, and international tax as a Merchant of Record. That integration is coming soon to Anglesite.
->
-> In the meantime, I can set up a Stripe Payment Link for one-time purchases, or if you're selling downloadable software, Polar handles file delivery and license keys today. Which sounds better?"
-
-If they choose Stripe, write `ECOMMERCE_PROVIDER=stripe` to `.site-config` and follow buy-button Path A.
-If they choose Polar, write `ECOMMERCE_PROVIDER=polar` to `.site-config` and follow buy-button Path B.
+Write `ECOMMERCE_PROVIDER=paddle` to `.site-config`, then read `${CLAUDE_PLUGIN_ROOT}/skills/paddle/SKILL.md` and execute it.
 
 ## Config persistence
 

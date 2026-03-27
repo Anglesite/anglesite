@@ -72,6 +72,7 @@ if [[ -f ".site-config" ]]; then
     polar)    SCRIPT_GREP="$SCRIPT_GREP | grep -v 'cdn.polar.sh'" ;;
     snipcart) SCRIPT_GREP="$SCRIPT_GREP | grep -v 'cdn.snipcart.com'" ;;
     shopify)  SCRIPT_GREP="$SCRIPT_GREP | grep -v 'cdn.shopify.com' | grep -v 'sdks.shopifycdn.com'" ;;
+    paddle)   SCRIPT_GREP="$SCRIPT_GREP | grep -v 'cdn.paddle.com' | grep -v 'sandbox-cdn.paddle.com'" ;;
   esac
   case "$BOOKING" in
     cal)      SCRIPT_GREP="$SCRIPT_GREP | grep -v 'app.cal.com'" ;;

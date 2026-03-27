@@ -10,6 +10,7 @@
 
 import { buildSnipcartCSP } from "./snipcart.js";
 import { buildShopifyCSP } from "./shopify-buy-button.js";
+import { buildPaddleCSP } from "./paddle.js";
 import { buildBookingCSP, type BookingProvider } from "./booking.js";
 import { readConfigFromString } from "./config.js";
 
@@ -19,7 +20,7 @@ import { readConfigFromString } from "./config.js";
 
 /** Parsed provider configuration from .site-config */
 export interface SiteProviders {
-  ecommerce?: "stripe" | "polar" | "snipcart" | "shopify";
+  ecommerce?: "stripe" | "polar" | "snipcart" | "shopify" | "paddle";
   booking?: BookingProvider;
   turnstile: boolean;
 }
@@ -108,6 +109,8 @@ export function buildCSP(providers: SiteProviders): string {
     providerCSPs.push(buildShopifyCSP());
   } else if (providers.ecommerce === "polar") {
     providerCSPs.push(buildPolarCSP());
+  } else if (providers.ecommerce === "paddle") {
+    providerCSPs.push(buildPaddleCSP());
   }
   // stripe = external redirect, no CSP needed
 
@@ -168,6 +171,8 @@ export function buildAllowedScripts(providers: SiteProviders): string[] {
     scripts.push("cdn.shopify.com", "sdks.shopifycdn.com");
   } else if (providers.ecommerce === "polar") {
     scripts.push("cdn.polar.sh");
+  } else if (providers.ecommerce === "paddle") {
+    scripts.push("cdn.paddle.com", "sandbox-cdn.paddle.com");
   }
 
   if (providers.booking === "cal") {
