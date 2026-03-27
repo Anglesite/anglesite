@@ -60,6 +60,7 @@ Step-by-step guides for common operations:
 | Customer testimonials | `docs/workflows/testimonials.md` |
 | Multi-language (i18n) | `docs/workflows/i18n.md` |
 | Review reputation coaching | `docs/workflows/reputation.md` |
+| A/B testing and optimization | `docs/workflows/experiment.md` |
 
 ## Visual communication
 

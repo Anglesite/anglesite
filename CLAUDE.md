@@ -9,7 +9,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (24 total: 11 user-facing, 13 model-only)
+├── skills/                       Skills (25 total: 11 user-facing, 14 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -35,6 +35,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── i18n/SKILL.md            Multi-language support (model-only)
 │   ├── print/SKILL.md           Print materials generation (model-only)
 │   ├── buy-button/SKILL.md     Stripe Payment Link buy button (model-only)
+│   ├── experiment/SKILL.md      A/B testing + funnel optimization (model-only)
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
@@ -57,7 +58,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── smb/                      Business type guides (70 files, 50+ verticals)
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (13 files)
-│   └── decisions/                ADRs — architecture decision records (14 files)
+│   └── decisions/                ADRs — architecture decision records (15 files)
 ├── template/                     Files scaffolded to user's project
 │   ├── src/                      Astro source (pages, layouts, styles)
 │   ├── public/                   Static assets
@@ -130,6 +131,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `i18n` | Multi-language support with hreflang and language switcher |
 | `print` | Print-ready materials (business cards, flyers, door hangers, social cards) |
 | `buy-button` | Stripe Payment Link buy button for single product/service sales |
+| `experiment` | A/B testing: propose, run, analyze, and promote winning variants |
 
 ## Editing guidelines
 
@@ -155,6 +157,7 @@ Three levels of agent instructions exist — do not confuse them:
 | GitHub (not GitLab) | `gh` CLI browser OAuth is simplest for non-technical users; private repos free |
 | Vanilla CSS | No build-time framework overhead, custom properties for theming |
 | Industry tools first | Recommend purpose-built solutions (Square, Shopify, Clio, etc.) over generic databases |
+| Edge A/B testing (not client-side) | Build-time variants + Pages Function assignment = zero flicker, static-site compatible |
 
 Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0014).
 
