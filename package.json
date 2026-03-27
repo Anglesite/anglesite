@@ -26,6 +26,8 @@
   },
   "devDependencies": {
     "html-validate": "^10.11.2",
+    "robots-parser": "^3.0.1",
+    "schema-dts": "^2.0.0",
     "vitest": "^3.1.1"
   },
   "engines": {

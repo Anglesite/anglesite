@@ -3,3 +3,8 @@ Allow: /
 Disallow: /keystatic/
 
 # Sitemap URL added by /deploy when domain is known
+
+# AI crawlers: Cloudflare blocks AI bots by default at the CDN level.
+# To allow AI search engines (ChatGPT, Perplexity, Claude) to cite your site,
+# configure bot access in Cloudflare dashboard > Security > Bot Management.
+# robots.txt rules below only apply if Cloudflare allows the bot through.

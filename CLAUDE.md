@@ -9,7 +9,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (29 total: 13 user-facing, 16 model-only)
+├── skills/                       Skills (30 total: 14 user-facing, 16 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -38,6 +38,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── snipcart/SKILL.md       Snipcart ecommerce for physical goods (model-only)
 │   ├── shopify-buy-button/SKILL.md  Shopify Buy Button for full catalogs (model-only)
 │   ├── booking/SKILL.md        Appointment scheduling embed (user-facing)
+│   ├── seo/SKILL.md            SEO audit, Schema.org, sitemap, LLM/GEO (user-facing)
 │   ├── experiment/SKILL.md      A/B testing + funnel optimization (model-only)
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
@@ -124,6 +125,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `newsletter` | Email newsletter setup (Buttondown/Mailchimp) + subscribe form |
 | `add-store` | Ecommerce intake: routes to Stripe, Polar, or coming-soon paths |
 | `booking` | Embed appointment scheduling (Cal.com or Calendly) |
+| `seo` | SEO audit, metadata editing, Schema.org, sitemap, LLM/GEO optimization |
 | `photography` | Site-type-specific shot list generator and phone photography tips |
 
 **Model-only** (called programmatically by other skills, `user-invokable: false`):

@@ -22,6 +22,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | See site analytics | `/anglesite:stats` |
 | Set up email newsletter | `/anglesite:newsletter` |
 | Embed appointment booking | `/anglesite:booking` |
+| Audit SEO and fix issues | `/anglesite:seo` |
 | Get a photography shot list | `/anglesite:photography` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.

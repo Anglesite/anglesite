@@ -64,6 +64,21 @@ Multiple emails are comma-separated: `PII_EMAIL_ALLOW=info@example.com,hello@exa
 
 Then re-run `npm run predeploy` to confirm it passes.
 
+## Step 2a — SEO audit (non-blocking)
+
+Run the SEO audit from `scripts/seo.ts` against the built output in `dist/`. This uses the same functions as `/anglesite:seo`:
+
+1. Crawl all HTML files in `dist/` and run `auditPage()` on each
+2. Run `auditSite()` for duplicate title/description detection
+3. Run `validateSitemap()` against the sitemap XML
+4. Run `auditRobotsTxt()` on `dist/robots.txt`
+
+**Critical issues** (missing titles, missing descriptions) pause the deploy. Present them to the owner with one-shot fix options. After fixes, rebuild and re-scan.
+
+**Warnings and Nice-to-haves** are non-blocking. Log them to `seo-report.md` in the project root and briefly mention to the owner: "I found a few SEO improvements you can make later — they're saved in seo-report.md."
+
+If the owner passes `--skip-seo`, skip this step and log a timestamped note to `seo-report.md`: `SEO audit skipped on YYYY-MM-DD HH:MM`.
+
 ## Step 2.5 — Preview (first deploy only)
 
 If this is the first deploy, offer a choice:
