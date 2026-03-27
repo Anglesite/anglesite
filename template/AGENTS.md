@@ -61,6 +61,7 @@ Step-by-step guides for common operations:
 | Multi-language (i18n) | `docs/workflows/i18n.md` |
 | Review reputation coaching | `docs/workflows/reputation.md` |
 | A/B testing and optimization | `docs/workflows/experiment.md` |
+| Appointment booking | `docs/workflows/booking.md` |
 
 ## Visual communication
 
