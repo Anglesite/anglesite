@@ -33,7 +33,7 @@
     "vitest": "^3.1.1"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "optionalDependencies": {
     "playwright": "^1.52.0"
