@@ -22,10 +22,10 @@ Set during `/anglesite:start`. Format depends on what the owner knows:
 
 | Owner knows their domain | `DEV_HOSTNAME` |
 |---|---|
-| Yes (`keithelectric.com`) | `keithelectric.com.local` |
-| No (business name: "Keith Electric") | `keithelectric.local` |
+| Yes (`pairadocs.farm`) | `pairadocs.farm.local` |
+| No (business name: "Pairadocs Farm") | `pairadocs-farm.local` |
 
-Updated during `/anglesite:deploy` when a real domain is chosen: `keithelectric.com.local`.
+Updated during `/anglesite:deploy` when a real domain is chosen: `pairadocs.farm.local`.
 
 ## Certificate lifecycle
 

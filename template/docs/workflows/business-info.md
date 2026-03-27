@@ -14,7 +14,7 @@ Stored in `.site-config`:
 
 | Key | Example |
 |---|---|
-| `SITE_ADDRESS` | `123 Main St, Springfield, IL 62704` |
+| `SITE_ADDRESS` | `128 Pullets Dr, Central, SC 29630` |
 | `SITE_PHONE` | `(555) 123-4567` |
 | `SITE_HOURS` | `Mon-Fri 9am-5pm, Sat 10am-3pm, Sun Closed` |
 | `OSM_EMBED_URL` | OpenStreetMap embed URL for the map |

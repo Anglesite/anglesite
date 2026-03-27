@@ -93,12 +93,12 @@ Example with location:
 
 ```html
 <header class="h-card">
-  <a href="/" class="p-name u-url">Joe's Pizza</a>
+  <a href="/" class="p-name u-url">Pairadocs Farm</a>
   <address>
-    <span class="p-street-address">123 Main St</span>,
-    <span class="p-locality">Springfield</span>,
-    <span class="p-region">IL</span>
-    <span class="p-postal-code">62701</span>
+    <span class="p-street-address">128 Pullets Dr</span>,
+    <span class="p-locality">Central</span>,
+    <span class="p-region">SC</span>
+    <span class="p-postal-code">29630</span>
   </address>
   <a href="tel:+15551234567" class="p-tel">(555) 123-4567</a>
 </header>

@@ -16,7 +16,7 @@ Ask: "Have you claimed your business on Google?" If not, walk them through:
 
 Every field matters for search ranking. Don't skip any:
 
-- **Business name** — Exact legal name. Don't add keywords ("Best Pizza Springfield" — just "Joe's Pizza").
+- **Business name** — Exact legal name. Don't add keywords ("Best CSA Central" — just "Pairadocs Farm").
 - **Category** — Primary category is the most important. Add secondary categories for other services. Be specific: "Italian restaurant" beats "restaurant."
 - **Address** — Exact match to the website's address (NAP consistency — see `docs/webmaster.md`).
 - **Service area** — For businesses that go to customers (trades, cleaning, mobile detailing). List specific cities or ZIP codes.

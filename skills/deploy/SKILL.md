@@ -203,7 +203,7 @@ Save the domain to `.site-config` using the Write tool (update the existing file
 
 If `DEV_HOSTNAME` in `.site-config` doesn't already end with the chosen domain, update it:
 
-1. Update `DEV_HOSTNAME=SITE_DOMAIN.local` in `.site-config` using the Write tool (e.g., `DEV_HOSTNAME=keithelectric.com.local`)
+1. Update `DEV_HOSTNAME=SITE_DOMAIN.local` in `.site-config` using the Write tool (e.g., `DEV_HOSTNAME=pairadocs.farm.local`)
 2. Tell the owner: "I need to update your local preview to use your new domain name. The setup script will generate a new certificate — you may need to enter your password again."
 
 ```sh

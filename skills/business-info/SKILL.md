@@ -21,7 +21,7 @@ Collect business hours, address, and phone number, then generate LocalBusiness s
 
 If not already in `.site-config`, ask the owner for:
 
-1. **Address** — street, city, state, zip (store as `SITE_ADDRESS=123 Main St, City, ST 12345`)
+1. **Address** — street, city, state, zip (store as `SITE_ADDRESS=128 Pullets Dr, Central, SC 29630`)
 2. **Phone** — primary contact number (store as `SITE_PHONE=(555) 123-4567`)
 3. **Hours** — opening hours (store as `SITE_HOURS=Mon-Fri 9am-5pm, Sat 10am-3pm, Sun Closed`)
 

@@ -15,7 +15,7 @@ The development environment must be reliable enough for the Webmaster agent to p
 ## Decision Drivers
 
 * Dev environment should match production as closely as possible (HTTPS, same-origin behavior, security headers)
-* The owner sees a real preview at a memorable hostname (e.g., `keithelectric.com.local`), not `localhost:4321`
+* The owner sees a real preview at a memorable hostname (e.g., `pairadocs.farm.local`), not `localhost:4321`
 * Service Workers and secure cookies require HTTPS even in development
 * Content Security Policy and other security headers should be testable locally
 * The setup must be fully automated — the owner should not configure certificates or hostnames manually
@@ -32,7 +32,7 @@ Chosen option: "Local HTTPS with mkcert and custom hostname", because it provide
 
 ### Consequences
 
-* Good, because the owner sees their site at `https://keithelectric.com.local` — recognizable and professional
+* Good, because the owner sees their site at `https://pairadocs.farm.local` — recognizable and professional
 * Good, because HTTPS behavior (mixed content warnings, secure cookies, CSP) is testable before deploy
 * Good, because the setup is fully automated by `scripts/setup.ts`
 * Good, because mkcert creates locally-trusted certificates — no browser security warnings

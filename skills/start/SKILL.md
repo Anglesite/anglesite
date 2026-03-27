@@ -114,7 +114,7 @@ Ask everyone:
 
   If they know what they want, save it and derive the local hostname: `DEV_HOSTNAME=example.com.local`.
 
-  If they don't know yet, derive from the site name. Slugify (lowercase, hyphens, no special characters) and append `.local`: "Keith Electric" → `DEV_HOSTNAME=keithelectric.local`. Tell them: "No problem — we'll use that for now. You can pick a real domain later when you're ready to go live."
+  If they don't know yet, derive from the site name. Slugify (lowercase, hyphens, no special characters) and append `.local`: "Pairadocs Farm" → `DEV_HOSTNAME=pairadocs-farm.local`. Tell them: "No problem — we'll use that for now. You can pick a real domain later when you're ready to go live."
 
 - "Are you on Bluesky, or interested in joining? It's a social network where your domain becomes your handle — so people see @yourdomain.com instead of a platform username. It's free and aligned with the idea that you should own your online identity."
 
@@ -153,7 +153,7 @@ SITE_NAME=Business Name
 BUSINESS_TYPE=restaurant
 DEV_HOSTNAME=businessname.com.local
 AI_MODEL=Claude Opus 4.6
-SITE_ADDRESS=123 Main St, City, ST 12345
+SITE_ADDRESS=128 Pullets Dr, Central, SC 29630
 SITE_PHONE=(555) 123-4567
 SITE_HOURS=Mon-Fri 9am-5pm
 EXISTING_TOOLS=vagaro,square
