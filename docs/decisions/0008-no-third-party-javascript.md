@@ -29,11 +29,12 @@ Third-party JavaScript (analytics, social embeds, chat widgets, ad networks) is 
 
 ## Decision Outcome
 
-Chosen option: "No third-party JavaScript", with three exceptions:
+Chosen option: "No third-party JavaScript", with four exceptions:
 
 1. **Cloudflare Web Analytics** — auto-injected by Cloudflare Pages, uses no cookies, collects no personal data, requires zero setup.
 2. **Cloudflare Turnstile** — privacy-respecting CAPTCHA alternative used by the contact form (`/anglesite:contact`). Same vendor as the hosting platform, no cookies, no tracking. Only loaded on the `/contact` page.
 3. **Polar checkout overlay** (`cdn.polar.sh`) — open-source, indie-web-aligned checkout overlay for digital product sales. Acts as Merchant of Record (handles global VAT/sales tax). Only loaded on pages with a `PolarCheckout` component. No cookies or visitor tracking beyond the checkout transaction.
+4. **Snipcart** (`cdn.snipcart.com`) — shopping cart for small physical product catalogs. No monthly fee (2% per transaction + Stripe fees). Only loaded on pages with product components and the Snipcart container. No visitor tracking beyond the checkout transaction.
 
 All other external scripts are blocked by default, enforced by the Content Security Policy and pre-deploy scans.
 
@@ -50,7 +51,7 @@ All other external scripts are blocked by default, enforced by the Content Secur
 
 ### Confirmation
 
-The pre-deploy scan greps `dist/` for `<script src=` tags and blocks any that don't match `cloudflareinsights`, `_astro`, `challenges.cloudflare.com`, or `cdn.polar.sh`. The Content Security Policy in `public/_headers` restricts `script-src` to `'self'`, `static.cloudflareinsights.com`, `https://challenges.cloudflare.com`, and `https://cdn.polar.sh`. The `/anglesite:check` skill verifies both.
+The pre-deploy scan greps `dist/` for `<script src=` tags and blocks any that don't match `cloudflareinsights`, `_astro`, `challenges.cloudflare.com`, `cdn.polar.sh`, or `cdn.snipcart.com`. The Content Security Policy in `public/_headers` restricts `script-src` to `'self'`, `static.cloudflareinsights.com`, `https://challenges.cloudflare.com`, `https://cdn.polar.sh`, and `https://cdn.snipcart.com`. The `/anglesite:check` skill verifies both.
 
 ## Pros and Cons of the Options
 

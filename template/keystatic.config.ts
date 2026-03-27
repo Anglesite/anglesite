@@ -206,6 +206,39 @@ export default config({
         content: fields.markdoc({ label: "Details" }),
       },
     }),
+    products: collection({
+      label: "Products",
+      slugField: "name",
+      path: "src/content/products/*",
+      format: { contentField: "content" },
+      schema: {
+        name: fields.slug({ name: { label: "Product Name" } }),
+        description: fields.text({
+          label: "Description",
+          description: "Short description for product listings",
+        }),
+        price: fields.integer({
+          label: "Price (cents)",
+          description: "Price in cents (e.g., 4500 = $45.00)",
+          validation: { isRequired: true, min: 0 },
+        }),
+        image: fields.text({
+          label: "Image",
+          description: "Path relative to public/ (e.g., /images/products/photo.webp)",
+        }),
+        imageAlt: fields.text({ label: "Image Alt Text" }),
+        weight: fields.integer({
+          label: "Weight (grams)",
+          description: "Product weight for shipping calculation",
+        }),
+        order: fields.integer({
+          label: "Display Order",
+          description: "Lower numbers appear first",
+          defaultValue: 0,
+        }),
+        content: fields.markdoc({ label: "Full Description" }),
+      },
+    }),
     faq: collection({
       label: "FAQ",
       slugField: "question",

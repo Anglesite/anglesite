@@ -59,7 +59,7 @@ Based on the answers, route to the correct solution:
 |---|---|---|---|---|
 | Service / single offering | Few | — | **Stripe Payment Links** | Ready |
 | Digital downloads | Any | — | **Polar** | Ready |
-| Physical goods | Few | No | **Snipcart** | Coming soon (#117) |
+| Physical goods | Few | No | **Snipcart** | Ready |
 | Physical goods | Catalog | Yes | **Shopify Buy Button** | Coming soon (#118) |
 | Software / SaaS | Any | — | **Paddle** | Coming soon (#119) |
 
@@ -71,17 +71,15 @@ For **Stripe** and **Polar** routes, save the provider to `.site-config` and inv
 
 - **Digital downloads**: Write `ECOMMERCE_PROVIDER=polar` to `.site-config`, then follow the buy-button skill's **Path B** (Polar checkout overlay). Read `${CLAUDE_PLUGIN_ROOT}/skills/buy-button/SKILL.md` and execute Path B.
 
+### Snipcart path — hand off to snipcart skill
+
+For **Snipcart** route (physical goods, few products, no dashboard), save the provider and invoke the snipcart skill:
+
+Write `ECOMMERCE_PROVIDER=snipcart` to `.site-config`, then read `${CLAUDE_PLUGIN_ROOT}/skills/snipcart/SKILL.md` and execute it.
+
 ### Coming soon paths — explain and offer Stripe fallback
 
-For **Snipcart**, **Shopify Buy Button**, and **Paddle** routes, the integration isn't available yet. Respond warmly and offer a workaround:
-
-**Snipcart (physical goods, small catalog):**
-
-> "For a small product catalog, you'll want Snipcart — it adds a full shopping cart to your site with no monthly fees. That integration is coming soon to Anglesite.
->
-> In the meantime, I can set up a Stripe Payment Link for each product — customers click a button, check out on Stripe, and you get paid. Want me to set that up?"
-
-If they accept, write `ECOMMERCE_PROVIDER=stripe` to `.site-config` and follow buy-button Path A.
+For **Shopify Buy Button** and **Paddle** routes, the integration isn't available yet. Respond warmly and offer a workaround:
 
 **Shopify Buy Button (physical goods, full catalog, dashboard):**
 

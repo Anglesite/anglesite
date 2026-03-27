@@ -148,5 +148,26 @@ const faq = defineCollection({
   }),
 });
 
+/** Products for Snipcart ecommerce stored in `src/content/products/`. */
+const products = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Product name (also used as the URL slug source in Keystatic). */
+    name: z.string(),
+    /** Short description for listings and search engines. */
+    description: z.string(),
+    /** Price in cents (e.g., 4500 = $45.00). */
+    price: z.number(),
+    /** Path relative to `public/` (e.g. `/images/products/photo.webp`). */
+    image: z.string().optional(),
+    /** Alt text for the product image. */
+    imageAlt: z.string().optional(),
+    /** Weight in grams (for shipping calculation). */
+    weight: z.number().optional(),
+    /** Display order (lower numbers appear first). */
+    order: z.number().default(0),
+  }),
+});
+
 /** All content collections exported for Astro's build pipeline. */
-export const collections = { posts, services, team, testimonials, gallery, events, faq };
+export const collections = { posts, services, team, testimonials, gallery, events, faq, products };
