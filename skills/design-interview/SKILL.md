@@ -38,6 +38,8 @@ Tailor your questions to the site type. Cover these topics naturally (not necess
 
 Ask one topic at a time. Listen, reflect back what you heard, then move on. After each answer, briefly describe what you're thinking design-wise so the owner feels like they're designing *with* you, not filling out a form.
 
+**Design education prompts:** Read `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 3 ("Design Phase"). Surface `MOBILE_FIRST` early in the interview (once, proactively). Surface `WHITESPACE` if the owner asks to "fill in" empty space. Surface `COMPETITOR_COPY` if they ask to replicate another site exactly. Check `.site-config` for `EDUCATION_<KEY>=shown` before each — only surface once. Write the flags after.
+
 **"Design it for me" escape hatch:** If the owner says something like "you pick," "I trust you," "just make it look good," or otherwise defers on multiple topics, don't keep asking one-by-one. Instead, design the whole identity yourself based on what you already know — site type, business type, any preferences they *did* share — and present the complete design in one shot: colors, typography feel, page structure, and vibe. Ask: "Here's what I'd do — does this feel right?" Let them approve, tweak, or start over.
 
 ## Visual communication

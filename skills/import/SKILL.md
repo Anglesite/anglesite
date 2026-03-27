@@ -51,6 +51,10 @@ These apply to every import regardless of platform:
 Before every tool call or command that will trigger a permission prompt, explain
 what you're about to do and why. The owner is non-technical.
 
+## Pre-migration education
+
+Before starting the import, surface the migration education prompts from `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 7 ("Migration Flow"). Check `.site-config` for each `EDUCATION_<KEY>=shown` flag before surfacing. Share `THEME_OWNERSHIP`, `PRUNING`, and `PLATFORM_DESIGN` — frame as "a few things worth knowing before we start." Tailor the `THEME_OWNERSHIP` and `PLATFORM_DESIGN` copy to the detected platform name (e.g., "WordPress," "Squarespace"). Write the flags to `.site-config` after.
+
 ## Step 0 — Get the URL and check the project
 
 ### 0a — Get the URL

@@ -41,6 +41,8 @@ Ask:
 
    If unclear, ask a follow-up. Don't offer a multiple-choice list — let their words guide you.
 
+Before branching, surface the first-run education prompts. Read `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 1 ("First Run / Site Type Selection") and share the `LAUNCH_NOT_FINISH` and `THREE_PAGES` topics — one brief aside, not a lecture. Then write both `EDUCATION_LAUNCH_NOT_FINISH=shown` and `EDUCATION_THREE_PAGES=shown` to `.site-config` after scaffolding (Step 1), alongside all other config values.
+
 Then branch based on site type:
 
 ### Business sites (`SITE_TYPE=business`)
@@ -318,6 +320,8 @@ If they want to open it in a regular browser: "You can also visit https://DEV_HO
 Ask: "What do you think? Want to change anything?"
 
 If they want changes, make them now. If they want to redo the whole design later, they can run `/anglesite:design-interview`.
+
+**Content education prompts:** During iteration, watch for the content misconceptions in `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 4 ("Content Phase"). If the owner says "I'll write the copy later," surface `COPY_LATER`. If the homepage scope keeps expanding, surface `HOMEPAGE_OVERLOAD`. If they ask for pages "for SEO," surface `PAGE_COUNT_SEO`. Check `.site-config` for the `EDUCATION_<KEY>=shown` flag before each — only surface once.
 
 ## Step 8 — What this costs
 

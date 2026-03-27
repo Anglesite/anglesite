@@ -72,6 +72,8 @@ Tell the owner: "Your site is ready to go online. Would you like to:"
 - **Preview first** — "Put it on a private link so you can check it before anyone else sees it"
 - **Go live** — "Publish it right away"
 
+Before proceeding with either choice, run through the pre-publish education checklist from `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 5 ("Pre-Publish Checklist"). For each item (`PREPUB_PURPOSE` through `PREPUB_GAPS`), check `.site-config` for the `EDUCATION_<KEY>=shown` flag — only surface items the owner hasn't seen. Present them as a quick check-in, not a gate: "Before we go live, a few quick things worth checking..." Write the flags to `.site-config` after surfacing.
+
 If they choose **preview first**, push the `draft` branch to GitHub:
 
 ```sh
@@ -146,7 +148,9 @@ Ask: "Do you want a custom domain for your website — like www.yourbusiness.com
 
 If they want to skip, that's fine. They can add a domain later by running `/anglesite:deploy` and asking about it.
 
-If they want a custom domain, first determine the right path. Ask: "Do you already own a domain, or do you need to buy one?"
+If they want a custom domain, surface the domain education prompts from `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 2 ("Domain Setup"). Check `.site-config` for each `EDUCATION_<KEY>=shown` flag. Share `DOMAIN_VS_WEBSITE`, `DOMAIN_RENEWAL`, `EMAIL_NOT_AUTOMATIC`, and `TLD_AND_SEO` as a natural aside before diving into options — this is the richest single moment for education. Write the flags to `.site-config` after.
+
+Then determine the right path. Ask: "Do you already own a domain, or do you need to buy one?"
 
 ### Option A — Buy a new domain
 
@@ -280,6 +284,10 @@ Open the analytics dashboard: `https://dash.cloudflare.com/?to=/:account/web-ana
 Explain what they'll see: page views, visitor count, where visitors come from (Google, social media, direct links), and which pages get the most traffic. Suggest checking monthly.
 
 Remind them of the goals they shared during `/anglesite:start`: "You said you wanted [goal]. Once you've been live for a few weeks, check analytics to see if visitors are finding the pages that matter — like your [menu/services/portfolio] page."
+
+### Post-publish education
+
+After the first successful deploy, surface the post-publish education from `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 6 ("Post-Publish Success Message"). Check `.site-config` for each `EDUCATION_<KEY>=shown` flag before surfacing. Share `SEO_TIMELINE`, `INDEXING_DELAY`, and `DISTRIBUTION` — the owner is most receptive right after launch, and these set realistic expectations. Write the flags to `.site-config` after.
 
 ## Step 7 — Deploy
 

@@ -159,6 +159,22 @@ When the owner asks for a change:
 
 If something is complex or could break other things, explain the tradeoff before proceeding. Never make the owner feel like they're imposing — changes are what websites are for.
 
+## Client education
+
+The owner may express common misconceptions during any conversation. When you hear these phrases, surface the matching clarification — but only once per topic. Check `.site-config` for `EDUCATION_<KEY>=shown` before responding, and write the flag after.
+
+| Phrase heard | Underlying misconception | How to respond |
+|---|---|---|
+| "I want to be #1 on Google" | SEO is instant or purchased | Explain the 3-6 month organic timeline; describe what Anglesite handles at launch (sitemap, meta tags, semantic HTML, OG images) |
+| "Just a quick change" | Scope is always small | Acknowledge, then surface any downstream effects before executing |
+| "My nephew said..." / "Someone told me..." | Conflicting advice from non-experts | Validate the curiosity, then clarify with specifics |
+| "I want it to look exactly like [X]" | Design copying is fine | Note IP considerations and the value of distinct branding (`EDUCATION_COMPETITOR_COPY`) |
+| "I'll add the content later" | Content is easy/fast | Reframe content as the hardest part; offer to help now (`EDUCATION_COPY_LATER`) |
+| "I need more pages for SEO" | More pages = better ranking | Depth over breadth; thin pages hurt rankings (`EDUCATION_PAGE_COUNT_SEO`) |
+| "Why isn't my site on Google yet?" | Indexing is instant | Explain indexing timeline (days to weeks); suggest direct sharing (`EDUCATION_INDEXING_DELAY`) |
+
+The first two phrases ("just a quick change" and "my nephew said...") are behavioral patterns — respond in context each time, no flag needed.
+
 ## IndieWeb
 
 This site participates in the IndieWeb (POSSE, microformats, `rel="me"`). Publish here first, syndicate elsewhere. See `docs/indieweb.md` for full guidance.

@@ -58,6 +58,10 @@ If `BLUESKY_HANDLE` is not set, and this is the first time running `/anglesite:d
 
 Read `${CLAUDE_PLUGIN_ROOT}/docs/domain-guide.md` for context on why domain-as-identity matters across the open web.
 
+## Domain education
+
+If this is the first time running `/anglesite:domain`, surface the domain education prompts from `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 2 ("Domain Setup"). Check `.site-config` for each `EDUCATION_<KEY>=shown` flag before surfacing. Share `DOMAIN_VS_WEBSITE`, `DOMAIN_RENEWAL`, `EMAIL_NOT_AUTOMATIC`, and `TLD_AND_SEO` as a brief aside — the owner may have already heard these during `/anglesite:deploy`, so the flags prevent repetition. Write any new flags to `.site-config` after.
+
 ## What do you need?
 
 Ask: "What do you need to set up on your domain?" Common requests:
