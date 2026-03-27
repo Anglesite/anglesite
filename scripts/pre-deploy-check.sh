@@ -57,7 +57,7 @@ if grep -rE '(pat[A-Za-z0-9]{14,}|sk-[A-Za-z0-9]{20,})' "$DIST/" src/ public/ 2>
 fi
 
 # 3. Third-party scripts — unauthorized external JS
-if grep -r '<script[^>]*src=' "$DIST/" --include='*.html' 2>/dev/null | grep -v 'cloudflareinsights' | grep -v '_astro' | grep -v 'challenges.cloudflare.com' | grep -q .; then
+if grep -r '<script[^>]*src=' "$DIST/" --include='*.html' 2>/dev/null | grep -v 'cloudflareinsights' | grep -v '_astro' | grep -v 'challenges.cloudflare.com' | grep -v 'cdn.polar.sh' | grep -q .; then
   REASONS+=("Unauthorized third-party script tag found")
 fi
 
