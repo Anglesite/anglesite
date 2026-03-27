@@ -1,0 +1,30 @@
+name: Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: Verify skill registry is up to date
+        run: |
+          npm run registry
+          if ! git diff --quiet docs/dev/skill-registry.md; then
+            echo "::error::docs/dev/skill-registry.md is stale — run 'npm run registry' and commit the result"
+            git diff docs/dev/skill-registry.md
+            exit 1
+          fi
+
+      - run: npm test
