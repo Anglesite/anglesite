@@ -9,7 +9,17 @@ import { dirname } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCAFFOLD_SCRIPT = join(__dirname, '..', 'scripts', 'scaffold.sh');
 
-describe('scaffold.sh .gitignore merging', () => {
+// These tests require zsh (scaffold.sh uses zsh arrays). Skip on systems without it.
+const hasZsh = (() => {
+  try {
+    execFileSync('/bin/zsh', ['--version'], { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+describe.skipIf(!hasZsh)('scaffold.sh .gitignore merging', () => {
   let tmpDir;
 
   beforeEach(() => {

@@ -17,6 +17,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPDATE_SCRIPT = join(__dirname, "..", "scripts", "update.sh");
 const PLUGIN_ROOT = join(__dirname, "..");
 
+// These tests require zsh (scripts use zsh arrays). Skip on systems without it.
+const hasZsh = (() => {
+  try {
+    execFileSync("/bin/zsh", ["--version"], { stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
 // ---------------------------------------------------------------------------
 // Helper: run update.sh and return parsed output
 // ---------------------------------------------------------------------------
@@ -46,7 +56,7 @@ function parseOutput(output: string): Record<string, string[]> {
 // update.sh — file categorization
 // ---------------------------------------------------------------------------
 
-describe("update.sh file categorization", () => {
+describe.skipIf(!hasZsh)("update.sh file categorization", () => {
   let tmpDir: string;
   let siteDir: string;
 
@@ -120,7 +130,7 @@ describe("update.sh file categorization", () => {
 // update.sh — version header
 // ---------------------------------------------------------------------------
 
-describe("update.sh version output", () => {
+describe.skipIf(!hasZsh)("update.sh version output", () => {
   let tmpDir: string;
   let siteDir: string;
 
@@ -159,7 +169,7 @@ describe("update.sh version output", () => {
 // scaffold.sh — ANGLESITE_VERSION stamping
 // ---------------------------------------------------------------------------
 
-describe("scaffold.sh ANGLESITE_VERSION stamping", () => {
+describe.skipIf(!hasZsh)("scaffold.sh ANGLESITE_VERSION stamping", () => {
   let tmpDir: string;
   const SCAFFOLD_SCRIPT = join(__dirname, "..", "scripts", "scaffold.sh");
 
