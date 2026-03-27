@@ -85,6 +85,42 @@ Helper functions for common patterns are in `scripts/tldraw-helpers.ts`: `progre
 
 Reference docs live in `docs/`. Read the relevant file when you need context on architecture, brand, content, hosting, IndieWeb, or best practices.
 
+## Smart tool launching
+
+At the start of each session, read `anglesite.config.json` to learn what Keystatic collections and singletons exist. Use this to decide whether to show the site preview, open the Keystatic editor, or stay in chat.
+
+### Launch site preview
+
+- You complete a structural change (new page, layout edit, design tweak, component update)
+- The owner asks to see the site ("show me what it looks like", "preview that")
+- A build completes successfully after a file change
+
+Frame the handoff: "Here's how that looks — let me know if you want to adjust anything."
+
+### Launch Keystatic
+
+- The owner expresses content intent: writing a post, updating hours, adding a team member, uploading a photo
+- The request maps to a collection or singleton listed in `anglesite.config.json`
+- You have drafted content that the owner should review before publishing
+
+Frame the handoff:
+
+- New content: "I've opened the editor. Your draft is ready in [Collection] — review it and hit Publish when you're happy."
+- Existing content: "I've opened your [Singleton] settings. Update what you need and save — it'll go live automatically."
+
+### Stay in chat
+
+- The change is a simple one-off ("change the hero headline to X") — edit the file directly
+- The owner is still in the planning or design phase with no concrete changes yet
+- The request is informational ("how do I add a contact form?")
+
+### Content routing
+
+When the owner mentions content, check `anglesite.config.json` to decide:
+- If it maps to a known collection or singleton → open Keystatic to that content type
+- If the content type doesn't exist in the schema yet → add it to `keystatic.config.ts` and `src/content.config.ts`, regenerate `anglesite.config.json`, then open Keystatic
+- If ambiguous → ask the owner whether they want to write it themselves (open Keystatic) or have you draft it (stay in chat, then hand off to Keystatic for review)
+
 ## Keep docs in sync
 
 If you changed it, document it. Same session. No exceptions.
@@ -92,7 +128,7 @@ If you changed it, document it. Same session. No exceptions.
 | What changed | Update |
 |---|---|
 | Page added, navigation changed | `docs/architecture.md` |
-| Blog frontmatter or content schema | `docs/content-guide.md` and `src/content.config.ts` |
+| Blog frontmatter or content schema | `docs/content-guide.md`, `src/content.config.ts`, and `anglesite.config.json` |
 | Deploy, DNS, or hosting config | `docs/cloudflare.md` |
 | Colors, fonts, or branding | `docs/brand.md` |
 | Service URLs or site config | `.site-config` |
