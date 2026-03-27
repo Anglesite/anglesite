@@ -1,0 +1,10 @@
+---
+interface Props {
+  href: string;
+  label?: string;
+}
+const { href, label = "Buy Now" } = Astro.props;
+---
+<a href={href} class="buy-button" target="_blank" rel="noopener">
+  {label}
+</a>

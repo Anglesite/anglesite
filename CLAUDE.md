@@ -9,7 +9,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (23 total: 11 user-facing, 12 model-only)
+├── skills/                       Skills (24 total: 11 user-facing, 13 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -34,6 +34,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── testimonials/SKILL.md    Review collection + display (model-only)
 │   ├── i18n/SKILL.md            Multi-language support (model-only)
 │   ├── print/SKILL.md           Print materials generation (model-only)
+│   ├── buy-button/SKILL.md     Stripe Payment Link buy button (model-only)
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
@@ -128,6 +129,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `testimonials` | Customer review collection, moderation, display |
 | `i18n` | Multi-language support with hreflang and language switcher |
 | `print` | Print-ready materials (business cards, flyers, door hangers, social cards) |
+| `buy-button` | Stripe Payment Link buy button for single product/service sales |
 
 ## Editing guidelines
 
