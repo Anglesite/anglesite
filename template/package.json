@@ -27,9 +27,7 @@
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
-  "overrides": {
-    "brace-expansion": "^5.0.5"
-  },
+  "overrides": {},
   "devDependencies": {
     "@astrojs/check": "^0.9.0",
     "@types/node": "22.13.10",

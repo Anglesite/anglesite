@@ -8,6 +8,8 @@
  */
 
 import { defineToolbarApp } from "astro/toolbar";
+import { pickerTheme as t } from "./picker-theme.js";
+import { computePopoverPosition } from "./picker-position.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -140,29 +142,29 @@ export default defineToolbarApp({
     const style = document.createElement("style");
     style.textContent = `
       .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-      .header h2 { margin: 0; font-size: 14px; font-weight: 600; color: white; }
-      .note-count { font-size: 12px; color: rgba(255,255,255,0.6); }
+      .header h2 { margin: 0; font-size: 14px; font-weight: 600; color: ${t.text}; font-family: ${t.fontFamily}; }
+      .note-count { font-size: 12px; color: ${t.textMuted}; }
       .pick-btn {
-        padding: 6px 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);
-        background: transparent; color: white; cursor: pointer; font-size: 12px;
-        transition: all 0.15s;
+        padding: 6px 14px; border-radius: ${t.radiusSmall}; border: 1px solid ${t.border};
+        background: ${t.surface}; color: ${t.text}; cursor: pointer; font-size: 12px;
+        font-family: ${t.fontFamily}; transition: all 0.15s;
       }
-      .pick-btn:hover { background: rgba(255,255,255,0.1); }
-      .pick-btn.active { background: #7c3aed; border-color: #7c3aed; }
+      .pick-btn:hover { background: ${t.accentMuted}; border-color: ${t.accent}; }
+      .pick-btn.active { background: ${t.accent}; border-color: ${t.accent}; color: ${t.surface}; }
       .notes-list { max-height: 300px; overflow-y: auto; }
       .note-item {
-        padding: 8px 10px; border-radius: 6px; margin-bottom: 6px;
-        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+        padding: 8px 10px; border-radius: ${t.radiusSmall}; margin-bottom: 6px;
+        background: ${t.surface}; border: 1px solid ${t.border};
         display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
       }
-      .note-text { font-size: 12px; color: rgba(255,255,255,0.85); flex: 1; }
-      .note-meta { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+      .note-text { font-size: 12px; color: ${t.text}; flex: 1; font-family: ${t.fontFamily}; }
+      .note-meta { font-size: 10px; color: ${t.textFaint}; margin-top: 2px; }
       .resolve-btn {
-        background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.4);
+        background: none; border: none; cursor: pointer; color: ${t.textFaint};
         font-size: 14px; padding: 2px 4px; border-radius: 4px; flex-shrink: 0;
       }
-      .resolve-btn:hover { color: #22c55e; background: rgba(34,197,94,0.1); }
-      .empty { text-align: center; padding: 20px; color: rgba(255,255,255,0.4); font-size: 12px; }
+      .resolve-btn:hover { color: ${t.success}; background: ${t.successMuted}; }
+      .empty { text-align: center; padding: 20px; color: ${t.textMuted}; font-size: 12px; font-family: ${t.fontFamily}; }
     `;
     win.appendChild(style);
 
@@ -192,8 +194,8 @@ export default defineToolbarApp({
       const el = document.createElement("div");
       el.style.cssText = `
         position: fixed; pointer-events: none; z-index: 999999;
-        border: 2px solid #7c3aed; background: rgba(124, 58, 237, 0.1);
-        border-radius: 3px; transition: all 0.1s ease;
+        border: 1.5px solid ${t.highlightBorder}; background: ${t.highlightBackground};
+        border-radius: ${t.radiusSmall}; transition: all 0.1s ease;
       `;
       el.id = "anglesite-picker-highlight";
       document.body.appendChild(el);
@@ -222,21 +224,28 @@ export default defineToolbarApp({
       document.getElementById("anglesite-note-input")?.remove();
 
       const rect = el.getBoundingClientRect();
+      const popoverWidth = 280;
+      const popoverHeight = 160;
+      const pos = computePopoverPosition(
+        { top: rect.top, left: rect.left, bottom: rect.bottom, right: rect.right, width: rect.width, height: rect.height },
+        { width: window.innerWidth, height: window.innerHeight },
+        popoverWidth,
+        popoverHeight,
+      );
       const popover = h("div", {
         id: "anglesite-note-input",
         style: `
           position: fixed; z-index: 1000000;
-          top: ${Math.min(rect.bottom + 8, window.innerHeight - 140)}px;
-          left: ${Math.min(rect.left, window.innerWidth - 280)}px;
-          width: 260px; padding: 10px; border-radius: 8px;
-          background: #1e1e2e; border: 1px solid rgba(124, 58, 237, 0.5);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-          font-family: system-ui, -apple-system, sans-serif;
+          top: ${pos.top}px; left: ${pos.left}px;
+          width: ${popoverWidth}px; padding: 12px; border-radius: ${t.radius};
+          background: ${t.surface}; border: 1px solid ${t.border};
+          box-shadow: ${t.shadow};
+          font-family: ${t.fontFamily};
         `,
       });
 
       const selectorLabel = h("div", {
-        style: "font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px;",
+        style: `font-size: 11px; color: ${t.textFaint}; margin-bottom: 6px;`,
         textContent: selector.length > 40 ? selector.slice(0, 37) + "..." : selector,
       });
 
@@ -245,22 +254,24 @@ export default defineToolbarApp({
       textarea.rows = 3;
       textarea.placeholder = "What should be changed here?";
       textarea.style.cssText = `
-        width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px;
-        border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05);
-        color: white; font-size: 13px; resize: none; font-family: inherit; outline: none;
+        width: 100%; box-sizing: border-box; padding: 8px; border-radius: ${t.radiusSmall};
+        border: 1px solid ${t.border}; background: ${t.surfaceMuted};
+        color: ${t.text}; font-size: 13px; resize: none; font-family: inherit; outline: none;
       `;
 
       const btnRow = h("div", {
-        style: "display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end;",
+        style: "display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end;",
       });
       const cancelBtn = h("button", {
-        style: `padding: 4px 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2);
-                background: transparent; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 12px;`,
+        style: `padding: 5px 14px; border-radius: ${t.radiusSmall}; border: 1px solid ${t.border};
+                background: transparent; color: ${t.textMuted}; cursor: pointer; font-size: 12px;
+                font-family: ${t.fontFamily};`,
         textContent: "Cancel",
       });
       const saveBtn = h("button", {
-        style: `padding: 4px 12px; border-radius: 4px; border: none;
-                background: #7c3aed; color: white; cursor: pointer; font-size: 12px;`,
+        style: `padding: 5px 14px; border-radius: ${t.radiusSmall}; border: none;
+                background: ${t.accent}; color: ${t.surface}; cursor: pointer; font-size: 12px;
+                font-family: ${t.fontFamily};`,
         textContent: "Save Note",
       });
       btnRow.appendChild(cancelBtn);
@@ -315,11 +326,12 @@ export default defineToolbarApp({
           style: `
             position: fixed; z-index: 999998;
             top: ${rect.top - 4}px; left: ${rect.right + 4}px;
-            background: #7c3aed; color: white; font-size: 10px;
-            padding: 3px 7px; border-radius: 4px; cursor: default;
-            font-family: system-ui, -apple-system, sans-serif;
+            background: ${t.surface}; color: ${t.text}; font-size: 10px;
+            padding: 3px 8px; border-radius: ${t.radiusSmall}; cursor: default;
+            border: 1px solid ${t.border};
+            font-family: ${t.fontFamily};
             max-width: 180px; white-space: nowrap; overflow: hidden;
-            text-overflow: ellipsis; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            text-overflow: ellipsis; box-shadow: ${t.shadow};
             pointer-events: auto;
           `,
           textContent: `\u{1F4CC} ${annotation.text}`,
@@ -415,11 +427,24 @@ export default defineToolbarApp({
       e.preventDefault();
       e.stopPropagation();
 
-      const info = getElementInfo(hoveredElement);
+      const target = hoveredElement;
+      const info = getElementInfo(target);
       const selector = buildSelector(info);
 
       deactivatePicker();
-      showNoteInput(hoveredElement, selector);
+      showNoteInput(target, selector);
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        deactivatePicker();
+      }
+    }
+
+    function preventNavigation(e: Event) {
+      e.preventDefault();
+      e.stopPropagation();
     }
 
     function activatePicker() {
@@ -429,6 +454,9 @@ export default defineToolbarApp({
       highlightOverlay = createHighlightOverlay();
       document.addEventListener("mousemove", onMouseMove, true);
       document.addEventListener("click", onMouseClick, true);
+      document.addEventListener("keydown", onKeyDown, true);
+      document.addEventListener("mousedown", preventNavigation, true);
+      document.addEventListener("touchstart", preventNavigation, true);
       document.body.style.cursor = "crosshair";
     }
 
@@ -438,6 +466,9 @@ export default defineToolbarApp({
       pickBtn.textContent = "Pick Element";
       document.removeEventListener("mousemove", onMouseMove, true);
       document.removeEventListener("click", onMouseClick, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("mousedown", preventNavigation, true);
+      document.removeEventListener("touchstart", preventNavigation, true);
       document.body.style.cursor = "";
       hideHighlight();
       highlightOverlay?.remove();
