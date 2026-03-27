@@ -25,7 +25,7 @@ export const emailExcludes = ["charset", "viewport", "@astro", "@import", "@keyf
 export const phonePattern = /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
 export const tokenPattern = /(?:pat[A-Za-z0-9]{14,}|sk-[A-Za-z0-9]{20,})/;
 export const scriptSrcPattern = /<script[^>]*src=/gi;
-export const allowedScripts = ["cloudflareinsights", "_astro", "challenges.cloudflare.com", "cdn.polar.sh", "cdn.snipcart.com"];
+export const allowedScripts = ["cloudflareinsights", "_astro", "challenges.cloudflare.com", "cdn.polar.sh", "cdn.snipcart.com", "cdn.shopify.com", "sdks.shopifycdn.com"];
 
 // ---------------------------------------------------------------------------
 // Helpers

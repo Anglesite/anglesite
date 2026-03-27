@@ -1,0 +1,85 @@
+---
+interface Props {
+  /** The shop's myshopify.com domain (e.g., "my-store.myshopify.com") */
+  domain: string;
+  /** Storefront API access token (public, safe for client-side) */
+  storefrontAccessToken: string;
+  /** Shopify product ID from the embed snippet */
+  productId: string;
+  /** Button label */
+  buttonLabel?: string;
+}
+
+const {
+  domain,
+  storefrontAccessToken,
+  productId,
+  buttonLabel = "Buy Now",
+} = Astro.props;
+
+const componentId = `shopify-product-${productId}`;
+---
+
+<div id={componentId} class="shopify-buy-button"></div>
+
+<script is:inline define:vars={{ domain, storefrontAccessToken, productId, componentId, buttonLabel }}>
+(function () {
+  var scriptURL = 'https://sdks.shopifycdn.com/buy-button/latest/buy-button-storefront.min.js';
+
+  function loadScript() {
+    var script = document.createElement('script');
+    script.async = true;
+    script.src = scriptURL;
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(script);
+    script.onload = ShopifyBuyInit;
+  }
+
+  function ShopifyBuyInit() {
+    var client = ShopifyBuy.buildClient({
+      domain: domain,
+      storefrontAccessToken: storefrontAccessToken,
+    });
+
+    ShopifyBuy.UI.onReady(client).then(function (ui) {
+      ui.createComponent('product', {
+        id: productId,
+        node: document.getElementById(componentId),
+        moneyFormat: '%24%7B%7Bamount%7D%7D',
+        options: {
+          product: {
+            buttonDestination: 'checkout',
+            contents: {
+              img: true,
+              title: true,
+              price: true,
+              description: false,
+            },
+            text: {
+              button: buttonLabel,
+            },
+          },
+          cart: {
+            popup: true,
+          },
+        },
+      });
+    });
+  }
+
+  if (window.ShopifyBuy) {
+    if (window.ShopifyBuy.UI) {
+      ShopifyBuyInit();
+    } else {
+      loadScript();
+    }
+  } else {
+    loadScript();
+  }
+})();
+</script>
+
+<style>
+  .shopify-buy-button {
+    min-height: 3rem;
+  }
+</style>

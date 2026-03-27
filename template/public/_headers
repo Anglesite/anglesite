@@ -3,7 +3,7 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' static.cloudflareinsights.com https://challenges.cloudflare.com https://cdn.polar.sh https://cdn.snipcart.com; style-src 'self' 'unsafe-inline' https://cdn.snipcart.com; img-src 'self' data:; font-src 'self'; connect-src 'self' cloudflareinsights.com https://api.polar.sh https://app.snipcart.com; frame-src https://challenges.cloudflare.com https://buy.polar.sh https://app.snipcart.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' static.cloudflareinsights.com https://challenges.cloudflare.com https://cdn.polar.sh https://cdn.snipcart.com https://cdn.shopify.com https://sdks.shopifycdn.com; style-src 'self' 'unsafe-inline' https://cdn.snipcart.com https://cdn.shopify.com; img-src 'self' data: https://cdn.shopify.com; font-src 'self'; connect-src 'self' cloudflareinsights.com https://api.polar.sh https://app.snipcart.com https://*.myshopify.com https://monorail-edge.shopifysvc.com; frame-src https://challenges.cloudflare.com https://buy.polar.sh https://app.snipcart.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
   Cache-Control: public, max-age=0, must-revalidate
 
 /_astro/*

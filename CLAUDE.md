@@ -9,7 +9,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (28 total: 13 user-facing, 15 model-only)
+├── skills/                       Skills (29 total: 13 user-facing, 16 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -36,6 +36,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── print/SKILL.md           Print materials generation (model-only)
 │   ├── buy-button/SKILL.md     Stripe Payment Link buy button (model-only)
 │   ├── snipcart/SKILL.md       Snipcart ecommerce for physical goods (model-only)
+│   ├── shopify-buy-button/SKILL.md  Shopify Buy Button for full catalogs (model-only)
 │   ├── booking/SKILL.md        Appointment scheduling embed (user-facing)
 │   ├── experiment/SKILL.md      A/B testing + funnel optimization (model-only)
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
@@ -138,6 +139,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `print` | Print-ready materials (business cards, flyers, door hangers, social cards) |
 | `buy-button` | Stripe Payment Link buy button for single product/service sales |
 | `snipcart` | Snipcart ecommerce for small physical product catalogs |
+| `shopify-buy-button` | Shopify Buy Button for full catalog physical goods |
 | `experiment` | A/B testing: propose, run, analyze, and promote winning variants |
 
 ## Editing guidelines

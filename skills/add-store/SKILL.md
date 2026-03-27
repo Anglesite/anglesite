@@ -60,7 +60,7 @@ Based on the answers, route to the correct solution:
 | Service / single offering | Few | — | **Stripe Payment Links** | Ready |
 | Digital downloads | Any | — | **Polar** | Ready |
 | Physical goods | Few | No | **Snipcart** | Ready |
-| Physical goods | Catalog | Yes | **Shopify Buy Button** | Coming soon (#118) |
+| Physical goods | Catalog | Yes | **Shopify Buy Button** | Ready |
 | Software / SaaS | Any | — | **Paddle** | Coming soon (#119) |
 
 ### Ready paths — hand off to buy-button skill
@@ -77,17 +77,15 @@ For **Snipcart** route (physical goods, few products, no dashboard), save the pr
 
 Write `ECOMMERCE_PROVIDER=snipcart` to `.site-config`, then read `${CLAUDE_PLUGIN_ROOT}/skills/snipcart/SKILL.md` and execute it.
 
+### Shopify Buy Button path — hand off to shopify-buy-button skill
+
+For **Shopify Buy Button** route (physical goods, full catalog, dashboard), save the provider and invoke the shopify-buy-button skill:
+
+Write `ECOMMERCE_PROVIDER=shopify` to `.site-config`, then read `${CLAUDE_PLUGIN_ROOT}/skills/shopify-buy-button/SKILL.md` and execute it.
+
 ### Coming soon paths — explain and offer Stripe fallback
 
-For **Shopify Buy Button** and **Paddle** routes, the integration isn't available yet. Respond warmly and offer a workaround:
-
-**Shopify Buy Button (physical goods, full catalog, dashboard):**
-
-> "For a full product catalog with inventory management, you'll want Shopify's Buy Button — it gives you a proper admin dashboard for orders and shipping, starting at $5/month. That integration is coming soon to Anglesite.
->
-> In the meantime, I can set up a Stripe Payment Link for your most popular products — it won't have a dashboard, but it gets you selling right away. Want me to do that?"
-
-If they accept, write `ECOMMERCE_PROVIDER=stripe` to `.site-config` and follow buy-button Path A.
+For **Paddle** route, the integration isn't available yet. Respond warmly and offer a workaround:
 
 **Paddle (software/SaaS):**
 
