@@ -68,6 +68,7 @@ describe("parseProviders", () => {
     expect(parseProviders("ECOMMERCE_PROVIDER=shopify").ecommerce).toBe("shopify");
     expect(parseProviders("ECOMMERCE_PROVIDER=polar").ecommerce).toBe("polar");
     expect(parseProviders("ECOMMERCE_PROVIDER=stripe").ecommerce).toBe("stripe");
+    expect(parseProviders("ECOMMERCE_PROVIDER=lemonsqueezy").ecommerce).toBe("lemonsqueezy");
   });
 
   it("parses BOOKING_PROVIDER", () => {
@@ -130,6 +131,7 @@ describe("buildCSP", () => {
     expect(csp).not.toContain("challenges.cloudflare.com");
     expect(csp).not.toContain("app.cal.com");
     expect(csp).not.toContain("calendly.com");
+    expect(csp).not.toContain("assets.lemonsqueezy.com");
   });
 });
 
@@ -161,6 +163,15 @@ describe("buildCSP with providers", () => {
     expect(csp).toContain("cdn.polar.sh");
     expect(csp).toContain("api.polar.sh");
     expect(csp).toContain("buy.polar.sh");
+    expect(csp).not.toContain("cdn.snipcart.com");
+  });
+
+  it("adds Lemon Squeezy domains when ecommerce=lemonsqueezy", () => {
+    const csp = buildCSP({ ecommerce: "lemonsqueezy", turnstile: false });
+    expect(csp).toContain("assets.lemonsqueezy.com");
+    expect(csp).toContain("api.lemonsqueezy.com");
+    expect(csp).toContain("*.lemonsqueezy.com");
+    expect(csp).not.toContain("cdn.polar.sh");
     expect(csp).not.toContain("cdn.snipcart.com");
   });
 
@@ -244,6 +255,11 @@ describe("buildAllowedScripts", () => {
   it("includes Polar script when ecommerce=polar", () => {
     const scripts = buildAllowedScripts({ ecommerce: "polar", turnstile: false });
     expect(scripts).toContain("cdn.polar.sh");
+  });
+
+  it("includes Lemon Squeezy script when ecommerce=lemonsqueezy", () => {
+    const scripts = buildAllowedScripts({ ecommerce: "lemonsqueezy", turnstile: false });
+    expect(scripts).toContain("assets.lemonsqueezy.com");
   });
 
   it("includes no extra scripts for ecommerce=stripe", () => {

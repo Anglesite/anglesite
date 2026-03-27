@@ -37,6 +37,7 @@ Chosen option: "No third-party JavaScript", with six exceptions:
 4. **Snipcart** (`cdn.snipcart.com`) — shopping cart for small physical product catalogs. No monthly fee (2% per transaction + Stripe fees). Only loaded on pages with product components and the Snipcart container. No visitor tracking beyond the checkout transaction.
 5. **Shopify Buy Button** (`cdn.shopify.com`, `sdks.shopifycdn.com`) — embeddable product cards and checkout for full product catalogs managed in Shopify's admin dashboard. Starting at $5/month. Only loaded on pages with a `ShopifyBuyButton` component.
 6. **Paddle** (`cdn.paddle.com`, `sandbox-cdn.paddle.com`) — checkout overlay for software licensing, SaaS subscriptions, and metered billing. Acts as Merchant of Record (handles global tax compliance). Only loaded on pages with a `PaddleCheckout` component. No visitor tracking beyond the checkout transaction.
+7. **Lemon Squeezy** (`assets.lemonsqueezy.com`) — checkout overlay for digital product sales (downloads, courses, memberships). Acts as Merchant of Record (handles global VAT/sales tax). Alternative to Polar — owner preference determines which is used. Only loaded on pages with a `LemonSqueezyCheckout` component. No visitor tracking beyond the checkout transaction.
 
 All other external scripts are blocked by default, enforced by the Content Security Policy and pre-deploy scans.
 

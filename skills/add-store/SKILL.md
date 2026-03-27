@@ -58,7 +58,7 @@ Based on the answers, route to the correct solution:
 | What | How many | Dashboard | Solution | Status |
 |---|---|---|---|---|
 | Service / single offering | Few | — | **Stripe Payment Links** | Ready |
-| Digital downloads | Any | — | **Polar** | Ready |
+| Digital downloads | Any | — | **Polar** or **Lemon Squeezy** | Ready |
 | Physical goods | Few | No | **Snipcart** | Ready |
 | Physical goods | Catalog | Yes | **Shopify Buy Button** | Ready |
 | Software / SaaS | Any | — | **Paddle** | Ready |
@@ -69,7 +69,12 @@ For **Stripe** and **Polar** routes, save the provider to `.site-config` and inv
 
 - **Service / single offering**: Write `ECOMMERCE_PROVIDER=stripe` to `.site-config`, then follow the buy-button skill's **Path A** (Stripe Payment Links). Read `${CLAUDE_PLUGIN_ROOT}/skills/buy-button/SKILL.md` and execute Path A.
 
-- **Digital downloads**: Write `ECOMMERCE_PROVIDER=polar` to `.site-config`, then follow the buy-button skill's **Path B** (Polar checkout overlay). Read `${CLAUDE_PLUGIN_ROOT}/skills/buy-button/SKILL.md` and execute Path B.
+- **Digital downloads**: Ask the owner which platform they prefer:
+
+  > "For digital products, I recommend either **Polar** or **Lemon Squeezy** — both handle payment processing, file delivery, and international sales tax automatically. Polar charges 4% + processing fees. Lemon Squeezy charges 5% + 50¢ per transaction. Do you have a preference, or should I go with Polar?"
+
+  - If the owner chooses **Polar** (or has no preference): Write `ECOMMERCE_PROVIDER=polar` to `.site-config`, then follow the buy-button skill's **Path B** (Polar checkout overlay). Read `${CLAUDE_PLUGIN_ROOT}/skills/buy-button/SKILL.md` and execute Path B.
+  - If the owner chooses **Lemon Squeezy**: Write `ECOMMERCE_PROVIDER=lemonsqueezy` to `.site-config`, then read `${CLAUDE_PLUGIN_ROOT}/skills/lemon-squeezy/SKILL.md` and execute it.
 
 ### Snipcart path — hand off to snipcart skill
 
@@ -94,7 +99,7 @@ Write `ECOMMERCE_PROVIDER=paddle` to `.site-config`, then read `${CLAUDE_PLUGIN_
 After routing, ensure `.site-config` has:
 
 ```
-ECOMMERCE_PROVIDER=stripe|polar|snipcart|shopify|paddle
+ECOMMERCE_PROVIDER=stripe|polar|lemonsqueezy|snipcart|shopify|paddle
 ```
 
 Write the value that matches the solution the owner chose (or accepted as a fallback). This lets other skills know ecommerce is configured and which provider is in use.
