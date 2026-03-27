@@ -41,6 +41,13 @@ npx pa11y dist/index.html
 ```
 Either tool checks for WCAG 2.1 AA violations: missing alt text, low contrast, missing form labels, broken ARIA, heading order, etc.
 
+### Programmatic validation
+
+Use the accessibility utilities in `scripts/` for automated checks beyond pa11y:
+
+- **Color contrast** — `scripts/contrast.ts`: read CSS custom properties from `src/styles/global.css` and verify `meetsWcagAA(textColor, bgColor)` for all text/background pairs
+- **Content quality** — `scripts/a11y-validate.ts`: run `validateHeadingHierarchy()`, `validateLinkText()`, and `validateImageAlt()` against the built HTML output
+
 ### Manual checks (inspect the built HTML)
 - [ ] Every page has exactly one `<h1>`, and headings don't skip levels
 - [ ] Color contrast meets 4.5:1 for body text and 3:1 for large text — verify the CSS custom properties in `src/styles/global.css`
@@ -49,6 +56,7 @@ Either tool checks for WCAG 2.1 AA violations: missing alt text, low contrast, m
 - [ ] Skip-to-content link present in the layout
 - [ ] Form inputs have associated `<label>` elements
 - [ ] `lang` attribute set on `<html>` element
+- [ ] `/accessibility` statement page exists and is linked from the footer
 
 If any accessibility check fails, explain what the issue is, who it affects, and how to fix it.
 

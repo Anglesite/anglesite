@@ -26,9 +26,38 @@ These are built into the site template. Don't undo them:
 - Color contrast meeting WCAG AA (4.5:1 for body text, 3:1 for large text)
 - `lang` attribute on `<html>`
 - Viewport meta tag (no `user-scalable=no` — never prevent zooming)
-- Focus styles on interactive elements
+- Focus styles on interactive elements (`:focus-visible` with 2px outline)
 - Form labels associated with inputs
 - No images of text
+- Links underlined by default (not relying on color alone)
+- `prefers-reduced-motion` media query that disables animations
+- Accessibility statement page at `/accessibility`
+
+## Programmatic validation utilities
+
+Two scripts in `scripts/` provide automated accessibility checks that skills can call:
+
+### `scripts/contrast.ts` — WCAG contrast ratio validation
+
+- `hexToRgb(hex)` — parse hex color to RGB
+- `relativeLuminance(rgb)` — WCAG 2.2 luminance calculation
+- `contrastRatio(hex1, hex2)` — contrast ratio between two colors
+- `meetsWcagAA(fg, bg)` — does the pair meet 4.5:1 for normal text?
+- `meetsWcagAALarge(fg, bg)` — does the pair meet 3:1 for large text?
+- `suggestReadable(fg, bg)` — suggest a nearby color that meets AA
+
+Use during `/anglesite:design-interview` to validate the owner's brand colors and during `/anglesite:check` to verify the site's color palette.
+
+### `scripts/a11y-validate.ts` — content accessibility validation
+
+Powered by [html-validate](https://html-validate.org/) for structural WCAG checks, with heuristic checks for issues it doesn't cover:
+
+- `validateHeadingHierarchy(html)` — skipped levels, multiple h1s (via html-validate `heading-level` rule)
+- `validateLinkText(html)` — empty links (via html-validate `wcag/h30`) + generic text like "click here", "read more"
+- `validateImageAlt(html)` — missing alt (via html-validate `wcag/h37`) + placeholder text like "image", "photo"
+- `validateHtml(html)` — runs all checks, returns issues sorted by severity
+
+Each function returns an array of `A11yIssue` objects with `rule`, `message`, and `severity` fields. Use before writing content to disk or during `/anglesite:check`.
 
 ## What breaks when the owner adds content
 
@@ -122,7 +151,7 @@ After any design change or new page:
 1. **Keyboard navigation** — Tab through the entire page. Can you reach every link, button, and form input? Is the focus order logical? Can you tell where you are (focus indicator visible)?
 2. **Screen reader spot check** — On macOS, turn on VoiceOver (Cmd+F5) and navigate the page. Do headings make sense? Are images described? Are links clear? Does the form work?
 3. **Zoom test** — Zoom to 200% in the browser. Does the layout still work? Is any text cut off or overlapping?
-4. **Motion sensitivity** — Are there animations? Do they respect `prefers-reduced-motion`? The scaffold's CSS should include `@media (prefers-reduced-motion: reduce)` to disable non-essential animations.
+4. **Motion sensitivity** — Are there animations? Do they respect `prefers-reduced-motion`? The scaffold's CSS includes `@media (prefers-reduced-motion: reduce)` which sets all animation and transition durations to near-zero.
 
 ### What to tell the owner
 

@@ -24,7 +24,7 @@ Before creating the page, use tldraw to show the owner where it fits in the site
 4. Follow the standards checklist:
    - Semantic HTML (headings, sections, nav)
    - Responsive (works on phone, tablet, desktop)
-   - Accessible (alt text, skip links, color contrast)
+   - Accessible — validate with `scripts/a11y-validate.ts`: single h1, no skipped heading levels, descriptive link text, meaningful alt text on all images, color contrast meeting WCAG AA (verify with `scripts/contrast.ts`)
    - Performance (optimized images, no unnecessary JS)
    - SEO (title, meta description, OG tags)
    - Matches the brand from `docs/brand.md` and follows `docs/design-system.md`

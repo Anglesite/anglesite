@@ -1,0 +1,86 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+const configPath = resolve(process.cwd(), ".site-config");
+const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
+const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "This website";
+const contactEmail = config.match(/^PII_EMAIL_ALLOW=(.+)$/m)?.[1]?.trim().split(",")[0] ?? "";
+---
+
+<BaseLayout
+  title="Accessibility"
+  description={`Accessibility statement for ${siteName}. We are committed to making this website accessible to everyone.`}
+>
+  <h1>Accessibility</h1>
+
+  <h2>Our commitment</h2>
+  <p>
+    {siteName} is committed to making this website accessible to everyone,
+    including people with disabilities. We aim to meet or exceed the
+    <strong>Web Content Accessibility Guidelines (WCAG) 2.2 AA</strong> standard.
+  </p>
+
+  <h2>What we do</h2>
+  <p>This website is built with accessibility in mind from the ground up:</p>
+  <ul>
+    <li>Semantic HTML for screen readers and assistive technology</li>
+    <li>Keyboard navigation for all interactive elements</li>
+    <li>Color contrast that meets WCAG AA requirements</li>
+    <li>Alt text on all meaningful images</li>
+    <li>Clear heading structure on every page</li>
+    <li>No reliance on color alone to convey information</li>
+    <li>Reduced motion support for people sensitive to animation</li>
+    <li>Readable font sizes that scale with browser settings</li>
+  </ul>
+
+  <h2>Automated auditing</h2>
+  <p>
+    We run automated accessibility audits on every update using industry-standard
+    tools. These audits check for common issues including missing alt text,
+    low contrast, broken ARIA attributes, and heading order problems.
+  </p>
+  <p>
+    <em>Last accessibility review: updated with each site deployment.</em>
+  </p>
+
+  <h2>Known limitations</h2>
+  <p>
+    While we strive for full accessibility, some limitations may exist:
+  </p>
+  <ul>
+    <li>Third-party embedded content (maps, videos) may have accessibility gaps outside our control</li>
+    <li>Older PDF documents may not be fully tagged for screen readers</li>
+    <li>User-submitted content may not always meet our accessibility standards before review</li>
+  </ul>
+  <p>
+    We actively work to identify and fix accessibility issues as they arise.
+  </p>
+
+  <h2>Report an issue</h2>
+  <p>
+    If you encounter any accessibility barriers on this website, please let us know.
+    We take every report seriously and will work to resolve issues promptly.
+  </p>
+  {contactEmail ? (
+    <p>
+      Email us at <a href={`mailto:${contactEmail}`}>{contactEmail}</a> with
+      a description of the issue, including the page URL and what you were
+      trying to do.
+    </p>
+  ) : (
+    <p>
+      Please use our <a href="/contact">contact form</a> to report any
+      accessibility issues, including the page URL and what you were trying to do.
+    </p>
+  )}
+
+  <h2>Standards</h2>
+  <p>
+    This website targets conformance with
+    <a href="https://www.w3.org/TR/WCAG22/">WCAG 2.2</a> Level AA.
+    WCAG is the internationally recognized standard for web accessibility,
+    published by the World Wide Web Consortium (W3C).
+  </p>
+</BaseLayout>
