@@ -56,8 +56,30 @@ if grep -rE '(pat[A-Za-z0-9]{14,}|sk-[A-Za-z0-9]{20,})' "$DIST/" src/ public/ 2>
   REASONS+=("API token pattern found in source or build output")
 fi
 
-# 3. Third-party scripts — unauthorized external JS
-if grep -r '<script[^>]*src=' "$DIST/" --include='*.html' 2>/dev/null | grep -v 'cloudflareinsights' | grep -v '_astro' | grep -v 'challenges.cloudflare.com' | grep -v 'cdn.polar.sh' | grep -q .; then
+# 3. Third-party scripts — unauthorized external JS (allowlist driven by .site-config)
+SCRIPT_GREP="grep -r '<script[^>]*src=' $DIST/ --include='*.html' 2>/dev/null | grep -v 'cloudflareinsights' | grep -v '_astro'"
+
+# Add provider-specific exclusions based on .site-config
+if [[ -f ".site-config" ]]; then
+  ECOMMERCE=$(grep '^ECOMMERCE_PROVIDER=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+  BOOKING=$(grep '^BOOKING_PROVIDER=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+  TURNSTILE=$(grep '^TURNSTILE_SITE_KEY=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+
+  if [[ -n "$TURNSTILE" ]]; then
+    SCRIPT_GREP="$SCRIPT_GREP | grep -v 'challenges.cloudflare.com'"
+  fi
+  case "$ECOMMERCE" in
+    polar)    SCRIPT_GREP="$SCRIPT_GREP | grep -v 'cdn.polar.sh'" ;;
+    snipcart) SCRIPT_GREP="$SCRIPT_GREP | grep -v 'cdn.snipcart.com'" ;;
+    shopify)  SCRIPT_GREP="$SCRIPT_GREP | grep -v 'cdn.shopify.com' | grep -v 'sdks.shopifycdn.com'" ;;
+  esac
+  case "$BOOKING" in
+    cal)      SCRIPT_GREP="$SCRIPT_GREP | grep -v 'app.cal.com'" ;;
+    calendly) SCRIPT_GREP="$SCRIPT_GREP | grep -v 'assets.calendly.com'" ;;
+  esac
+fi
+
+if eval "$SCRIPT_GREP" | grep -q .; then
   REASONS+=("Unauthorized third-party script tag found")
 fi
 

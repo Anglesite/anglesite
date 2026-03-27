@@ -159,61 +159,68 @@ describe("ShopifyBuyButton component", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Pre-deploy scan allows cdn.shopify.com and sdks.shopifycdn.com
+// Pre-deploy scan allows cdn.shopify.com and sdks.shopifycdn.com when configured
 // ---------------------------------------------------------------------------
 
 describe("pre-deploy scan allows Shopify scripts", () => {
-  it("includes cdn.shopify.com in allowedScripts", async () => {
-    const { allowedScripts } = await import(
-      "../template/scripts/pre-deploy-check.js"
-    );
-    expect(allowedScripts).toContain("cdn.shopify.com");
+  it("includes cdn.shopify.com in allowedScripts when configured", async () => {
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    expect(buildAllowedScripts({ ecommerce: "shopify", turnstile: false })).toContain("cdn.shopify.com");
   });
 
-  it("includes sdks.shopifycdn.com in allowedScripts", async () => {
-    const { allowedScripts } = await import(
-      "../template/scripts/pre-deploy-check.js"
-    );
-    expect(allowedScripts).toContain("sdks.shopifycdn.com");
+  it("includes sdks.shopifycdn.com in allowedScripts when configured", async () => {
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    expect(buildAllowedScripts({ ecommerce: "shopify", turnstile: false })).toContain("sdks.shopifycdn.com");
   });
 
-  it("does not flag Shopify Buy Button SDK script", async () => {
-    const { scanScripts } = await import(
-      "../template/scripts/pre-deploy-check.js"
-    );
+  it("does not include Shopify domains when not configured", async () => {
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    const scripts = buildAllowedScripts({ turnstile: false });
+    expect(scripts).not.toContain("cdn.shopify.com");
+    expect(scripts).not.toContain("sdks.shopifycdn.com");
+  });
+
+  it("does not flag Shopify Buy Button SDK script when configured", async () => {
+    const { scanScripts } = await import("../template/scripts/pre-deploy-check.js");
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    const allowed = buildAllowedScripts({ ecommerce: "shopify", turnstile: false });
     const html =
       '<script src="https://sdks.shopifycdn.com/buy-button/latest/buy-button-storefront.min.js"></script>';
-    expect(scanScripts(html)).toEqual([]);
+    expect(scanScripts(html, allowed)).toEqual([]);
   });
 
-  it("does not flag cdn.shopify.com script", async () => {
-    const { scanScripts } = await import(
-      "../template/scripts/pre-deploy-check.js"
-    );
+  it("does not flag cdn.shopify.com script when configured", async () => {
+    const { scanScripts } = await import("../template/scripts/pre-deploy-check.js");
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    const allowed = buildAllowedScripts({ ecommerce: "shopify", turnstile: false });
     const html =
       '<script src="https://cdn.shopify.com/shopifycloud/buy-button/assets/buy-button-storefront.min.js"></script>';
-    expect(scanScripts(html)).toEqual([]);
+    expect(scanScripts(html, allowed)).toEqual([]);
   });
 });
 
 // ---------------------------------------------------------------------------
-// CSP headers
+// CSP headers (config-driven via csp.ts)
 // ---------------------------------------------------------------------------
 
-describe("CSP headers allow Shopify", () => {
-  it("includes cdn.shopify.com in script-src", () => {
-    const headers = readFileSync(
-      resolve(templateDir, "public/_headers"),
-      "utf-8",
-    );
+describe("CSP headers allow Shopify when configured", () => {
+  it("includes cdn.shopify.com in script-src when ECOMMERCE_PROVIDER=shopify", async () => {
+    const { generateHeadersContent } = await import("../template/scripts/csp.js");
+    const headers = generateHeadersContent({ ecommerce: "shopify", turnstile: false });
     expect(headers).toContain("cdn.shopify.com");
   });
 
-  it("includes sdks.shopifycdn.com in script-src", () => {
+  it("includes sdks.shopifycdn.com in script-src when ECOMMERCE_PROVIDER=shopify", async () => {
+    const { generateHeadersContent } = await import("../template/scripts/csp.js");
+    const headers = generateHeadersContent({ ecommerce: "shopify", turnstile: false });
+    expect(headers).toContain("sdks.shopifycdn.com");
+  });
+
+  it("does not include Shopify domains in template _headers (minimal CSP)", () => {
     const headers = readFileSync(
       resolve(templateDir, "public/_headers"),
       "utf-8",
     );
-    expect(headers).toContain("sdks.shopifycdn.com");
+    expect(headers).not.toContain("cdn.shopify.com");
   });
 });

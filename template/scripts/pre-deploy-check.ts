@@ -15,6 +15,7 @@
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, extname, resolve } from "node:path";
 import { readConfig } from "./config.js";
+import { parseProviders, buildAllowedScripts } from "./csp.js";
 
 // ---------------------------------------------------------------------------
 // Exported patterns and constants
@@ -25,6 +26,22 @@ export const emailExcludes = ["charset", "viewport", "@astro", "@import", "@keyf
 export const phonePattern = /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
 export const tokenPattern = /(?:pat[A-Za-z0-9]{14,}|sk-[A-Za-z0-9]{20,})/;
 export const scriptSrcPattern = /<script[^>]*src=/gi;
+
+/**
+ * Allowed third-party script domains for the pre-deploy scan.
+ * Built dynamically from .site-config — only permits scripts for
+ * providers the site actually uses.
+ */
+export function getAllowedScripts(configPath?: string): string[] {
+  const configContent = (() => {
+    const path = configPath ?? resolve(process.cwd(), ".site-config");
+    if (!existsSync(path)) return "";
+    return readFileSync(path, "utf-8");
+  })();
+  return buildAllowedScripts(parseProviders(configContent));
+}
+
+/** @deprecated Use getAllowedScripts() for config-driven allowlist */
 export const allowedScripts = ["cloudflareinsights", "_astro", "challenges.cloudflare.com", "cdn.polar.sh", "cdn.snipcart.com", "cdn.shopify.com", "sdks.shopifycdn.com"];
 
 // ---------------------------------------------------------------------------
@@ -87,14 +104,15 @@ export function scanTokens(content: string): boolean {
   return tokenPattern.test(content);
 }
 
-export function scanScripts(content: string): string[] {
+export function scanScripts(content: string, scriptAllowlist?: string[]): string[] {
+  const allowed = scriptAllowlist ?? allowedScripts;
   scriptSrcPattern.lastIndex = 0;
   const results: string[] = [];
   const matches = content.match(scriptSrcPattern) || [];
   for (const match of matches) {
     const lineIdx = content.indexOf(match);
     const line = content.slice(lineIdx, content.indexOf(">", lineIdx) + 1);
-    if (!allowedScripts.some(allowed => line.includes(allowed))) {
+    if (!allowed.some(a => line.includes(a))) {
       results.push(line);
     }
   }
@@ -160,10 +178,11 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
     }
   }
 
-  // 3. Third-party scripts
+  // 3. Third-party scripts (allowlist driven by .site-config)
+  const configAllowlist = getAllowedScripts();
   for (const file of htmlFiles) {
     const content = readFileSync(file, "utf-8");
-    const unauthorized = scanScripts(content);
+    const unauthorized = scanScripts(content, configAllowlist);
     for (const script of unauthorized) {
       failures.push(`SCRIPT: unauthorized third-party script in ${file}`);
     }

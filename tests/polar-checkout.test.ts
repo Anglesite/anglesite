@@ -52,18 +52,34 @@ describe("PolarCheckout component", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Pre-deploy scan allows cdn.polar.sh
+// Pre-deploy scan allows cdn.polar.sh when Polar is configured
 // ---------------------------------------------------------------------------
 
 describe("pre-deploy scan allows Polar scripts", () => {
-  it("includes cdn.polar.sh in allowedScripts", async () => {
-    const { allowedScripts } = await import("../template/scripts/pre-deploy-check.js");
-    expect(allowedScripts).toContain("cdn.polar.sh");
+  it("includes cdn.polar.sh in allowedScripts when ECOMMERCE_PROVIDER=polar", async () => {
+    const { buildAllowedScripts, parseProviders } = await import("../template/scripts/csp.js");
+    const providers = parseProviders("ECOMMERCE_PROVIDER=polar");
+    expect(buildAllowedScripts(providers)).toContain("cdn.polar.sh");
   });
 
-  it("does not flag Polar checkout script", async () => {
+  it("does not include cdn.polar.sh when no ecommerce provider set", async () => {
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    expect(buildAllowedScripts({ turnstile: false })).not.toContain("cdn.polar.sh");
+  });
+
+  it("does not flag Polar checkout script when Polar is configured", async () => {
     const { scanScripts } = await import("../template/scripts/pre-deploy-check.js");
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    const allowed = buildAllowedScripts({ ecommerce: "polar", turnstile: false });
     const html = '<script src="https://cdn.polar.sh/embed/buy-button.js" defer data-auto-init></script>';
-    expect(scanScripts(html)).toEqual([]);
+    expect(scanScripts(html, allowed)).toEqual([]);
+  });
+
+  it("flags Polar checkout script when Polar is NOT configured", async () => {
+    const { scanScripts } = await import("../template/scripts/pre-deploy-check.js");
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    const allowed = buildAllowedScripts({ turnstile: false });
+    const html = '<script src="https://cdn.polar.sh/embed/buy-button.js" defer data-auto-init></script>';
+    expect(scanScripts(html, allowed).length).toBe(1);
   });
 });

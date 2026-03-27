@@ -192,24 +192,27 @@ describe("SnipcartProduct component", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Pre-deploy scan allows cdn.snipcart.com
+// Pre-deploy scan allows cdn.snipcart.com when Snipcart is configured
 // ---------------------------------------------------------------------------
 
 describe("pre-deploy scan allows Snipcart scripts", () => {
-  it("includes cdn.snipcart.com in allowedScripts", async () => {
-    const { allowedScripts } = await import(
-      "../template/scripts/pre-deploy-check.js"
-    );
-    expect(allowedScripts).toContain("cdn.snipcart.com");
+  it("includes cdn.snipcart.com in allowedScripts when configured", async () => {
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    expect(buildAllowedScripts({ ecommerce: "snipcart", turnstile: false })).toContain("cdn.snipcart.com");
   });
 
-  it("does not flag Snipcart script tag", async () => {
-    const { scanScripts } = await import(
-      "../template/scripts/pre-deploy-check.js"
-    );
+  it("does not include cdn.snipcart.com when not configured", async () => {
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    expect(buildAllowedScripts({ turnstile: false })).not.toContain("cdn.snipcart.com");
+  });
+
+  it("does not flag Snipcart script tag when configured", async () => {
+    const { scanScripts } = await import("../template/scripts/pre-deploy-check.js");
+    const { buildAllowedScripts } = await import("../template/scripts/csp.js");
+    const allowed = buildAllowedScripts({ ecommerce: "snipcart", turnstile: false });
     const html =
       '<script src="https://cdn.snipcart.com/themes/v3.7.1/default/snipcart.js"></script>';
-    expect(scanScripts(html)).toEqual([]);
+    expect(scanScripts(html, allowed)).toEqual([]);
   });
 });
 
@@ -244,23 +247,27 @@ describe("products content collection", () => {
 });
 
 // ---------------------------------------------------------------------------
-// CSP headers
+// CSP headers (config-driven via csp.ts)
 // ---------------------------------------------------------------------------
 
-describe("CSP headers allow Snipcart", () => {
-  it("includes cdn.snipcart.com in script-src", () => {
-    const headers = readFileSync(
-      resolve(templateDir, "public/_headers"),
-      "utf-8",
-    );
+describe("CSP headers allow Snipcart when configured", () => {
+  it("includes cdn.snipcart.com in script-src when ECOMMERCE_PROVIDER=snipcart", async () => {
+    const { generateHeadersContent } = await import("../template/scripts/csp.js");
+    const headers = generateHeadersContent({ ecommerce: "snipcart", turnstile: false });
     expect(headers).toContain("cdn.snipcart.com");
   });
 
-  it("includes app.snipcart.com in connect-src", () => {
+  it("includes app.snipcart.com in connect-src when ECOMMERCE_PROVIDER=snipcart", async () => {
+    const { generateHeadersContent } = await import("../template/scripts/csp.js");
+    const headers = generateHeadersContent({ ecommerce: "snipcart", turnstile: false });
+    expect(headers).toContain("app.snipcart.com");
+  });
+
+  it("does not include Snipcart domains in template _headers (minimal CSP)", () => {
     const headers = readFileSync(
       resolve(templateDir, "public/_headers"),
       "utf-8",
     );
-    expect(headers).toContain("app.snipcart.com");
+    expect(headers).not.toContain("cdn.snipcart.com");
   });
 });
