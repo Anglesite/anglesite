@@ -137,6 +137,21 @@ If `REVIEW_PLATFORMS` is set, include the platform names in the nudge: "Reminder
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/reputation/SKILL.md` and follow it. Include the output as a "Reputation" section in the health report. Keep it brief — 1-3 action items max. If `BUSINESS_TYPE` is not set, skip this section.
 
+## Ecommerce scaling
+
+If `ECOMMERCE_PROVIDER` is set in `.site-config`, assess whether the store has outgrown its current platform. This check uses `scripts/ecommerce-upgrade.ts`.
+
+1. **Count products** — count `.mdoc` files in `src/content/products/` (if the directory exists)
+2. **Check revenue** — if `ECOMMERCE_WEBHOOK_URL` is set in `.site-config`, query Analytics Engine using `buildRevenueQuery(30)` from `scripts/ecommerce-revenue.ts` to get 30-day revenue and order count
+3. **Assess** — call `assessUpgrade()` with the provider, product count, and revenue data (if available)
+4. **Report** — if an upgrade is recommended, include it in the health report using `formatUpgradeMessage()`. Frame it as "Worth looking into" (not "Must fix").
+
+Example finding for the owner:
+
+> "Your store has 14 products and is bringing in about $12,000/month — great work! At this size, you might benefit from switching to Shopify, which gives you a dashboard for inventory and orders. Snipcart charges about $240/month in fees at your volume; Shopify would be about $387/month but includes tools that save you time. No rush — just something to think about as you grow."
+
+If no ecommerce provider is configured, skip this section entirely. Do not suggest adding ecommerce during a health check.
+
 ## Results
 
 **The owner is not technical.** Do not report raw checklist items. Translate every finding into one plain-English sentence that answers: what's wrong, why it matters, and what happens next. Group by severity using these everyday labels:

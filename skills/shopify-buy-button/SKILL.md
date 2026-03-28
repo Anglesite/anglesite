@@ -155,3 +155,11 @@ When the owner wants to add another product:
 ## Scaling guidance
 
 Shopify Buy Button works well for any catalog size. If the owner outgrows the Starter plan and wants a full Shopify storefront with a custom theme, they can upgrade their plan — the Buy Button continues to work alongside or can be replaced with a full Shopify store link.
+
+## Revenue tracking
+
+After setup, the `/anglesite:add-store` skill deploys the ecommerce webhook worker for revenue tracking. If this skill was invoked directly (not via add-store), set up the Shopify webhook:
+
+1. Deploy: `npx wrangler deploy --config worker/wrangler-ecommerce.toml`
+2. Set secret: `npx wrangler secret put SHOPIFY_WEBHOOK_SECRET --config worker/wrangler-ecommerce.toml`
+3. Register webhook in Shopify admin → Settings → Notifications → Webhooks → `orders/paid` → URL: `https://ecommerce-webhooks.<subdomain>.workers.dev/webhook/shopify`

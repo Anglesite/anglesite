@@ -228,4 +228,19 @@ When the owner asks to add a product, create a new `.mdoc` file in `src/content/
 
 ## Scaling guidance
 
-If the owner's catalog grows beyond ~10 products or they hit ~$15K/month volume, suggest migrating to Shopify Buy Button (#118) for a full inventory management dashboard.
+When reviewing the store or adding products, assess whether the owner may benefit from upgrading to Shopify Buy Button. Use the upgrade assessment logic in `scripts/ecommerce-upgrade.ts`:
+
+1. **Count products** — count `.mdoc` files in `src/content/products/`
+2. **Check revenue** — if the ecommerce webhook worker is deployed, query Analytics Engine using `buildRevenueQuery()` from `scripts/ecommerce-revenue.ts` to get actual monthly revenue
+3. **Assess** — call `assessUpgrade({ provider: "snipcart", productCount, monthlyRevenueCents, monthlyOrderCount })` with the data gathered
+4. **Present** — if an upgrade is recommended, use `formatUpgradeMessage()` to tell the owner in plain English. If revenue data is available, include the cost comparison.
+
+Upgrade thresholds (from `UPGRADE_THRESHOLDS`):
+- **10+ products** — the catalog has outgrown Snipcart's simple model. Shopify gives them inventory management, order tracking, and a dashboard.
+- **~$15K+/month revenue** — at this volume, Shopify's dashboard and fulfillment tools justify the $39/month fee.
+
+If the owner is not ready to switch, acknowledge that and move on. Never pressure — just surface the information.
+
+> Example message when recommending an upgrade:
+>
+> "Your store has grown to [N] products — nice! At this size, Shopify gives you a dashboard to manage orders, track inventory, and handle shipping. Snipcart charges 2% per sale with no monthly fee; Shopify charges $39/month plus 2.9% + 30¢ per sale. At your current volume of ~$[X]/month, that works out to [comparison]. Want me to help you migrate?"

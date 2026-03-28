@@ -133,3 +133,11 @@ If the owner is selling simple digital downloads (files, templates, presets) wit
 - Metered or usage-based billing
 - License key management for software
 - Complex pricing (tiers, add-ons, per-seat)
+
+## Revenue tracking
+
+After setup, the `/anglesite:add-store` skill deploys the ecommerce webhook worker for revenue tracking. If this skill was invoked directly (not via add-store), set up the Paddle webhook:
+
+1. Deploy: `npx wrangler deploy --config worker/wrangler-ecommerce.toml`
+2. Set secret: `npx wrangler secret put PADDLE_WEBHOOK_SECRET --config worker/wrangler-ecommerce.toml`
+3. Register webhook in Paddle dashboard → Developer Tools → Notifications → `transaction.completed` → URL: `https://ecommerce-webhooks.<subdomain>.workers.dev/webhook/paddle`

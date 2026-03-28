@@ -160,3 +160,4 @@ Run `npm run build` to confirm the site builds cleanly with the new component.
 - The Polar checkout overlay loads a single script from `cdn.polar.sh` — approved in ADR-0008 and the pre-deploy allowlist
 - Polar acts as Merchant of Record, handling global VAT and sales tax — critical for owners selling internationally
 - If the owner later needs a full catalog or cart, suggest upgrading to Snipcart or Shopify Buy Button (see issue #96)
+- After setup, the `/anglesite:add-store` skill deploys the ecommerce webhook worker for revenue tracking. If this skill was invoked directly (not via add-store), remind the agent to set up the webhook for the chosen provider (Stripe or Polar) — see `worker/wrangler-ecommerce.toml` for details.

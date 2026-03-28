@@ -16,7 +16,21 @@ Read `.site-config` and verify:
 
 If missing, tell the owner: "Before adding a store, your site needs to be deployed at least once. Run `/anglesite:deploy` to get set up, then come back here."
 
-If `ECOMMERCE_PROVIDER` is already set in `.site-config`, the owner has already configured ecommerce. Ask: "You already have [provider] set up. Do you want to add another product, change providers, or do you need help with something else?"
+If `ECOMMERCE_PROVIDER` is already set in `.site-config`, check for upgrade opportunities before proceeding:
+
+1. If the provider is `snipcart`, count `.mdoc` files in `src/content/products/`. If there are 10 or more, tell the owner:
+
+   > "You have [N] products in your store now. Shopify gives you a dashboard to manage orders, track inventory, and handle shipping — which makes a real difference at this catalog size. Want me to help you migrate to Shopify, or would you prefer to keep using Snipcart?"
+
+   If they want to migrate, write `ECOMMERCE_PROVIDER=shopify` to `.site-config` and hand off to `${CLAUDE_PLUGIN_ROOT}/skills/shopify-buy-button/SKILL.md`.
+
+2. If the provider is `stripe`, count product-related content files. If there are 3 or more, tell the owner:
+
+   > "With [N] products, your customers might want a shopping cart so they can buy multiple items at once. I can set that up with Snipcart — no monthly fee, just 2% per sale. Interested?"
+
+   If they want a cart, route to Snipcart or Shopify based on the standard routing table below.
+
+3. Otherwise, ask: "You already have [provider] set up. Do you want to add another product, change providers, or do you need help with something else?"
 
 ## Step 1 — What are you selling?
 
@@ -93,6 +107,46 @@ Write `ECOMMERCE_PROVIDER=shopify` to `.site-config`, then read `${CLAUDE_PLUGIN
 For **Paddle** route (software, plugins, SaaS, subscriptions), save the provider and invoke the paddle skill:
 
 Write `ECOMMERCE_PROVIDER=paddle` to `.site-config`, then read `${CLAUDE_PLUGIN_ROOT}/skills/paddle/SKILL.md` and execute it.
+
+## Webhook setup — revenue tracking
+
+After the ecommerce sub-skill completes, set up the webhook worker so the site can track revenue for upgrade path assessment. This uses the worker at `worker/ecommerce-webhook-worker.js`.
+
+1. **Deploy the webhook worker** (if not already deployed):
+
+   ```sh
+   npx wrangler deploy --config worker/wrangler-ecommerce.toml
+   ```
+
+2. **Set the webhook secret** for the chosen provider. Only set the secret for the provider in use:
+
+   | Provider | Secret command |
+   |---|---|
+   | Snipcart | `npx wrangler secret put SNIPCART_SECRET_KEY --config worker/wrangler-ecommerce.toml` |
+   | Stripe | `npx wrangler secret put STRIPE_WEBHOOK_SECRET --config worker/wrangler-ecommerce.toml` |
+   | Shopify | `npx wrangler secret put SHOPIFY_WEBHOOK_SECRET --config worker/wrangler-ecommerce.toml` |
+   | Polar | `npx wrangler secret put POLAR_WEBHOOK_SECRET --config worker/wrangler-ecommerce.toml` |
+   | Lemon Squeezy | `npx wrangler secret put LS_WEBHOOK_SECRET --config worker/wrangler-ecommerce.toml` |
+   | Paddle | `npx wrangler secret put PADDLE_WEBHOOK_SECRET --config worker/wrangler-ecommerce.toml` |
+
+3. **Register the webhook URL** with the provider. The URL is `https://ecommerce-webhooks.<CF_ACCOUNT_SUBDOMAIN>.workers.dev/webhook/<provider>`. Guide the owner to their platform's webhook settings:
+
+   | Provider | Where to register |
+   |---|---|
+   | Snipcart | https://app.snipcart.com/dashboard/webhooks |
+   | Stripe | https://dashboard.stripe.com/webhooks |
+   | Shopify | Shopify admin → Settings → Notifications → Webhooks |
+   | Polar | https://polar.sh/settings/webhooks |
+   | Lemon Squeezy | https://app.lemonsqueezy.com/settings/webhooks |
+   | Paddle | https://vendors.paddle.com/notifications |
+
+4. **Save the webhook URL** to `.site-config`:
+
+   ```
+   ECOMMERCE_WEBHOOK_URL=https://ecommerce-webhooks.<subdomain>.workers.dev
+   ```
+
+Tell the owner: "I've set up revenue tracking for your store. This lets me give you accurate cost comparisons if your business grows and a different platform would save you money."
 
 ## Config persistence
 

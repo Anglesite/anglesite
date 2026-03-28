@@ -80,3 +80,4 @@ Run `npm run build` to confirm the site builds cleanly with the new component.
 - Lemon Squeezy acts as Merchant of Record, handling global VAT and sales tax — critical for owners selling internationally
 - Lemon Squeezy is now part of Stripe but operates as a separate product with its own dashboard and pricing
 - If the owner later needs a full catalog or cart, suggest upgrading to Snipcart or Shopify Buy Button
+- After setup, the `/anglesite:add-store` skill deploys the ecommerce webhook worker for revenue tracking. If this skill was invoked directly (not via add-store), remind the agent to set up the Lemon Squeezy webhook — see `worker/wrangler-ecommerce.toml` for details.
