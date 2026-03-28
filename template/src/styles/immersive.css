@@ -1,0 +1,189 @@
+/*
+ * Immersive styles — full-viewport creative experiments.
+ * Used by ImmersiveLayout.astro for web-artist experiment pages
+ * and any page needing a full-screen canvas experience.
+ */
+
+/* Reset for immersive mode */
+:root[data-theme='dark'] {
+  --color-bg: #000;
+  --color-text: #e0e0e0;
+  --color-muted: #888;
+  --color-surface: #111;
+  --color-border: #222;
+  --font-body: ui-monospace, 'Cascadia Code', 'Source Code Pro', 'Fira Code', monospace;
+  --font-heading: ui-monospace, 'Cascadia Code', 'Source Code Pro', 'Fira Code', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+/* Canvas container fills viewport */
+#canvas-container {
+  width: 100vw;
+  height: 100dvh;
+  position: relative;
+  overflow: hidden;
+}
+
+#canvas-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Info overlay */
+.immersive-overlay {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.immersive-overlay--visible {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.immersive-overlay__title {
+  font-size: 1.25rem;
+  font-weight: 400;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.immersive-overlay__description {
+  font-size: 0.875rem;
+  color: var(--color-muted);
+  margin-bottom: 0.75rem;
+  max-width: 40rem;
+  line-height: 1.5;
+}
+
+.immersive-overlay__back {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.immersive-overlay__back:hover,
+.immersive-overlay__back:focus-visible {
+  color: var(--color-text);
+}
+
+/* Info toggle button */
+.immersive-toggle {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-muted);
+  z-index: 20;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.immersive-toggle:hover,
+.immersive-toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--color-text);
+}
+
+.immersive-toggle:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+/* Noscript fallback */
+.immersive-noscript {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+.immersive-noscript h1 {
+  font-size: 1.5rem;
+  font-weight: 400;
+  margin-bottom: 1rem;
+}
+
+.immersive-noscript p {
+  font-size: 0.875rem;
+  color: var(--color-muted);
+  margin-bottom: 1rem;
+  max-width: 30rem;
+  line-height: 1.5;
+}
+
+.immersive-noscript img {
+  max-width: 100%;
+  max-height: 50vh;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+
+.immersive-noscript a {
+  color: var(--color-muted);
+  text-decoration: none;
+}
+
+.immersive-noscript a:hover {
+  color: var(--color-text);
+}
+
+/* Reduced motion: show static fallback */
+@media (prefers-reduced-motion: reduce) {
+  #canvas-container canvas {
+    display: none;
+  }
+
+  .immersive-overlay {
+    transform: translateY(0);
+    pointer-events: auto;
+    position: static;
+    background: var(--color-bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .immersive-toggle {
+    display: none;
+  }
+}

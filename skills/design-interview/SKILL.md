@@ -23,6 +23,16 @@ This is a conversation, not a form — let the owner's answers guide the next qu
 
 Read `docs/design-system.md` for color, typography, spacing, and layout guidance. If `BUSINESS_TYPE` is set, also read the `## Design` section in the matching `${CLAUDE_PLUGIN_ROOT}/docs/smb/` file. For personal, blog, or portfolio sites without a `BUSINESS_TYPE`, rely on `design-system.md` and the owner's answers.
 
+### Web artist sites
+
+If `BUSINESS_TYPE` includes `web-artist`, adjust the interview:
+
+- **Default to dark theme** — `--color-bg: #000`, `--color-text: #e0e0e0`, monospace font stack. The work provides all the color.
+- **Skip conventional branding questions** — web artists don't need a business-card-style brand. Focus on: portfolio name, color mood (dark/light/custom), typography preference (mono/sans/serif), accent color.
+- **Suggest the Studio theme** from the themes skill as the default.
+- **Layout emphasis** — full-viewport experiments, minimal chrome, lab/gallery as the core page.
+- **After the interview**, invoke the `creative-canvas` skill (`${CLAUDE_PLUGIN_ROOT}/skills/creative-canvas/SKILL.md`) for full immersive setup: `ImmersiveLayout`, lab gallery, and library installation.
+
 Check if `src/design/design.json` already exists. If it does, read it and offer targeted regeneration: "I see you already have a design system. Would you like to update specific parts (colors, typography, spacing) or start fresh?"
 
 ## The design axes

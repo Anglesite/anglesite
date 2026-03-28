@@ -19,8 +19,11 @@ Before creating the page, use tldraw to show the owner where it fits in the site
 - [ADR-0005 System fonts](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0005-system-fonts.md) — no external font loading
 
 1. Ask what the page is for and what content it should have
+
+   **Experiment pages:** If the owner wants an interactive experiment, creative coding piece, or visual effect page, delegate to the `creative-canvas` skill (`${CLAUDE_PLUGIN_ROOT}/skills/creative-canvas/SKILL.md`). It handles library installation, layout selection (`ImmersiveLayout` for full-viewport experiments), canvas setup, and accessibility requirements. This applies to any business type — not just web artists.
+
 2. Create the `.astro` file in `src/pages/`
-3. Use `BaseLayout` with proper title, description, and OG tags
+3. Use `BaseLayout` with proper title, description, and OG tags (or `ImmersiveLayout` for experiment pages)
 4. Follow the standards checklist:
    - Semantic HTML (headings, sections, nav)
    - Responsive (works on phone, tablet, desktop)

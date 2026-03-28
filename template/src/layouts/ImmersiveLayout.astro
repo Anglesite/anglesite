@@ -1,0 +1,98 @@
+---
+/**
+ * ImmersiveLayout — full-viewport layout for creative experiments.
+ * No header/footer chrome. Dark background. Canvas fills the viewport.
+ * Used by web-artist experiment pages and any page needing a full-screen canvas.
+ */
+interface Props {
+  title: string;
+  description: string;
+  image?: string;
+  labUrl?: string;
+  siteName?: string;
+}
+
+const { title, description, image, labUrl = '/lab', siteName } = Astro.props;
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
+const ogImage = image ? new URL(image, Astro.site).href : undefined;
+const displayName = siteName || title;
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}{siteName ? ` — ${siteName}` : ''}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <style>
+      @import '../styles/immersive.css';
+    </style>
+  </head>
+  <body>
+    <main id="canvas-container">
+      <slot />
+    </main>
+
+    <!-- Info overlay — toggled by click/tap -->
+    <div class="immersive-overlay" id="immersive-overlay" aria-hidden="true">
+      <h1 class="immersive-overlay__title">{title}</h1>
+      <p class="immersive-overlay__description">{description}</p>
+      <a href={labUrl} class="immersive-overlay__back">&larr; Back to lab</a>
+    </div>
+
+    <button
+      class="immersive-toggle"
+      id="immersive-toggle"
+      type="button"
+      aria-label="Toggle experiment info"
+      aria-expanded="false"
+      aria-controls="immersive-overlay"
+    >
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
+        <text x="10" y="14" text-anchor="middle" fill="currentColor" font-size="12" font-family="monospace">i</text>
+      </svg>
+    </button>
+
+    <noscript>
+      <div class="immersive-noscript">
+        <h1>{title}</h1>
+        <p>{description}</p>
+        {ogImage && <img src={image} alt={description} />}
+        <p>This experiment requires JavaScript to run.</p>
+        <a href={labUrl}>&larr; Back to lab</a>
+      </div>
+    </noscript>
+
+    <script>
+      const toggle = document.getElementById('immersive-toggle');
+      const overlay = document.getElementById('immersive-overlay');
+      if (toggle && overlay) {
+        toggle.addEventListener('click', () => {
+          const expanded = toggle.getAttribute('aria-expanded') === 'true';
+          toggle.setAttribute('aria-expanded', String(!expanded));
+          overlay.classList.toggle('immersive-overlay--visible');
+          overlay.setAttribute('aria-hidden', String(expanded));
+        });
+      }
+    </script>
+  </body>
+</html>

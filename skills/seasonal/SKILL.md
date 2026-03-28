@@ -60,6 +60,18 @@ From the calendar entries, select events that:
 
 Present 3–5 suggestions maximum. More than that feels overwhelming.
 
+### Visual effect suggestions
+
+For seasonal moments that could benefit from a visual effect, suggest invoking the `creative-canvas` skill (`${CLAUDE_PLUGIN_ROOT}/skills/creative-canvas/SKILL.md`). These work for any business type:
+
+- **Winter holidays** (Dec) — falling snow effect on homepage
+- **Autumn** (Sep–Nov) — falling leaves
+- **New Year** (Dec 31–Jan 1) — fireworks or confetti
+- **Celebrations** (any) — confetti burst on form submission or booking confirmation
+- **Valentine's Day** (Feb 14) — floating hearts
+
+Frame these as optional embellishments: "Want to add a little holiday magic to your homepage? I can add falling snow that disappears after the season." Always note that effects respect `prefers-reduced-motion` and won't slow down the site.
+
 Format each suggestion conversationally:
 
 > "**Valentine's Day** is in 20 days — florists often see great engagement from posts about arrangement previews and order deadlines. Want to create one?"

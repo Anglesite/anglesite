@@ -105,6 +105,18 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] RSS feed at `/rss.xml` with `<link rel="alternate">` discovery in `<head>`
 - [ ] Event pages use `h-event` markup if the business hosts events
 
+## Canvas and interactive content accessibility
+
+If the site has `<canvas>` elements (creative effects, experiments, visualizations), verify:
+
+- [ ] Every `<canvas>` has either `aria-label` (if it conveys content) or `aria-hidden="true"` (if purely decorative)
+- [ ] Pages with required JavaScript have a `<noscript>` fallback (description + static image for experiment pages)
+- [ ] `prefers-reduced-motion` is respected — animations stop or simplify when reduced motion is preferred
+- [ ] No content flashes more than 3 times per second (WCAG 2.3.1)
+- [ ] Interactive experiments document keyboard controls (if applicable)
+
+These checks apply to any page with `<canvas>`, not just web-artist sites — a bakery with a snow effect needs the same accessibility treatment.
+
 ## Performance
 - [ ] Images are in modern formats (.webp preferred) and optimized (<500KB)
 - [ ] No render-blocking resources in `<head>` beyond essential CSS

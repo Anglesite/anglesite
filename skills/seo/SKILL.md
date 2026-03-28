@@ -102,6 +102,8 @@ For `.astro` pages without frontmatter, update the `title` and `description` pro
 
 Read `BUSINESS_TYPE` from `.site-config`. Use `inferPageSchemaType()` from `scripts/seo.ts` to determine the correct Schema type. Generate JSON-LD using `generatePageJsonLd()` and inject it via the `jsonLd` prop on `<BaseLayout>`.
 
+For interactive experiment pages (canvas-based, WebGL, generative art), use `CreativeWork` or `VisualArtwork` Schema with `interactivityType: "active"`, `encodingFormat: "text/html"`, and `artMedium` matching the library used (e.g., "JavaScript", "WebGL", "p5.js"). For the lab/experiments index page, use `CollectionPage` with `hasPart` linking to individual experiments.
+
 For pages with FAQ patterns (details/summary or dt/dd), call `detectFaqSections(html)` and generate `FAQPage` Schema.
 
 For blog posts, generate `BlogPosting` with `datePublished`, `author`, and `image` from frontmatter.

@@ -23,6 +23,30 @@ Read `BUSINESS_TYPE` from `.site-config`. Map it to a recommended theme using `t
 | Childcare, pet services, dance, youth | Playful |
 | Salon, photography, jewelry, theater | Elegant |
 | Nonprofit, worship, social services | Community |
+| Web artist, creative coder, generative art | Studio |
+
+### Studio theme values
+
+The Studio theme is a dark-mode theme for creative coders and web artists:
+
+```css
+:root {
+  /* Colors — Studio theme */
+  --color-primary: #e0e0e0;
+  --color-accent: #00ff88;
+  --color-bg: #000000;
+  --color-text: #e0e0e0;
+  --color-muted: #888888;
+  --color-surface: #111111;
+  --color-border: #222222;
+
+  /* Fonts — Studio theme */
+  --font-heading: ui-monospace, 'Cascadia Code', 'Source Code Pro', 'Fira Code', monospace;
+  --font-body: ui-monospace, 'Cascadia Code', 'Source Code Pro', 'Fira Code', monospace;
+}
+```
+
+The accent color (`#00ff88`) is a high-contrast green that works well on dark backgrounds. The owner can customize it to match their creative palette. Any saturated hue works — the key is high contrast against black.
 
 ## Step 2 — Show theme cards with tldraw
 
@@ -51,7 +75,7 @@ Use `mcp__claude_ai_tldraw__create_shapes` to render all 8 themes as a visual gr
 Arrange themes in a 4×2 grid. Each card is approximately 360px wide × 280px tall with 40px gaps.
 
 ```
-Row 1: Classic    Fresh     Warm      Bold
+Row 1: Classic    Fresh     Warm      Bold      Studio
 Row 2: Earthy     Playful   Elegant   Community
 ```
 
