@@ -1,0 +1,43 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+const configPath = resolve(process.cwd(), ".site-config");
+const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
+const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "this site";
+---
+
+<BaseLayout title="Search" description={`Search ${siteName} for pages, posts, and more.`}>
+  <h1>Search</h1>
+  <div id="search" data-pagefind-ignore></div>
+
+  <noscript>
+    <p>Search requires JavaScript. You can browse the site using the navigation above, or try searching on <a href={`https://www.google.com/search?q=site:${Astro.site?.hostname ?? ''}`}>Google</a>.</p>
+  </noscript>
+
+  <style>
+    #search {
+      margin-block: var(--space-lg);
+    }
+
+    /* Theme Pagefind's default UI to match site colors */
+    :root {
+      --pagefind-ui-scale: 1;
+      --pagefind-ui-primary: var(--color-primary);
+      --pagefind-ui-text: var(--color-text);
+      --pagefind-ui-background: var(--color-bg);
+      --pagefind-ui-border: var(--color-border);
+      --pagefind-ui-tag: var(--color-surface);
+      --pagefind-ui-border-width: 1px;
+      --pagefind-ui-border-radius: var(--radius-md);
+      --pagefind-ui-font: var(--font-body);
+    }
+  </style>
+
+  <script>
+    import { PagefindUI } from "astro-pagefind/components";
+    // @ts-ignore — Pagefind UI mounts to the target element
+    new PagefindUI({ element: "#search", showSubResults: true });
+  </script>
+</BaseLayout>
