@@ -164,55 +164,94 @@ These solutions build a search index at build time and run queries entirely in t
 
 These solutions require an external service to handle search queries.
 
-#### 7. Algolia
+#### 7. Google Programmable Search Engine
+
+| Attribute | Detail |
+|---|---|
+| **How it works** | Embeds Google search scoped to your site. Google crawls and indexes your site; queries run against Google's infrastructure. Results displayed via embedded widget or JSON API. |
+| **Bundle size** | ~15-20 KB embed script (loaded from Google's CDN). |
+| **Pricing** | Free with ads (Standard Search Element). Ad-free: $5 per 1,000 queries via Custom Search JSON API (first 100 queries/day free). |
+| **Astro support** | None — generic embed script, works on any site. |
+
+**Pros:**
+- Leverages Google's world-class search quality and crawling
+- No index to build or maintain — Google does it automatically
+- Handles typos, synonyms, and natural language queries
+- Free tier available (with ads)
+- Familiar search experience for visitors
+- Works with any size site — scales effortlessly to thousands of pages
+
+**Cons:**
+- **Third-party JavaScript** — violates ADR-0008 (loads Google's embed script)
+- **External service dependency** — violates ADR-0011 (Google controls the search infrastructure)
+- Free version shows Google ads in search results
+- Ad-free version requires Google Cloud project and API key management
+- Limited styling control — results look like Google, not your site
+- Google must crawl your site first — new content may not be searchable immediately
+- Privacy: Google tracks search queries and may use data for ad targeting
+
+#### 8. Algolia
 
 | Attribute | Detail |
 |---|---|
 | **How it works** | Hosted search API. Records pushed to Algolia's cloud, queries hit their API. |
 | **Bundle size** | InstantSearch.js ~40 KB + API client ~10 KB. |
-| **Pricing** | Free tier: 10,000 searches/month + 10,000 records. Paid plans from $1/1,000 searches. |
+| **Pricing** | **Build (free):** 10,000 searches/month, 1M records. **Grow (pay-as-you-go):** ~$0.50-1.00 per 1,000 searches, minimum ~$500-1,000/month on annual contracts. **Grow Plus:** adds AI features at $0.75 per 1,000 searches. **Premium/Elevate:** enterprise, from ~$50,000/year. |
 
 **Pros:**
 - Best-in-class hosted search experience
 - Typo tolerance, faceting, analytics, A/B testing
 - Extensive documentation and SDKs
+- AI-powered search features (query categorization, synonyms)
 
 **Cons:**
 - **Third-party JavaScript** — violates ADR-0008
 - **External service dependency** — violates ADR-0011 (owner doesn't control the search infrastructure)
+- **Expensive at scale** — 100K monthly searches would cost ~$45/month in overages alone; Grow tier minimums start at $500-1,000/month
 - Requires API key management
-- Free tier limits may not be sufficient for popular sites
 - Heavy client-side bundle (~50 KB)
-- Overkill for 5-50 page sites
+- Overkill and overpriced for small business sites
 
-#### 8. Meilisearch (Cloud)
+#### 9. Meilisearch (Cloud)
 
 | Attribute | Detail |
 |---|---|
 | **How it works** | Open-source search engine. Self-hosted or Meilisearch Cloud. |
-| **Pricing** | Self-hosted: free. Cloud: free tier (10,000 documents, 10,000 searches/month), paid from $30/month. |
+| **Pricing** | Self-hosted: free. Cloud **Build:** $30/month (50,000 searches, 100,000 documents). **Pro:** $300/month (250,000 searches, priority support). Also offers resource-based pricing for predictable costs. |
 
 **Pros:**
-- Open source (MIT)
+- Open source (MIT) — can self-host for full control
 - Excellent search quality with typo tolerance
-- Can self-host for full control
+- Transparent pricing, no surprise overages on resource-based plans
+- Good developer experience
 
 **Cons:**
 - Self-hosting requires a server (not compatible with static Cloudflare Pages)
 - Cloud version is a third-party dependency
+- $30/month minimum is significant for a small business site
 - Requires API key management
-- Excessive for small static sites
+- Excessive infrastructure for sites with <100 pages
 
-#### 9. Typesense (Cloud)
+#### 10. Typesense (Cloud)
 
 | Attribute | Detail |
 |---|---|
-| **How it works** | Open-source search engine. Self-hosted or Typesense Cloud. |
-| **Pricing** | Self-hosted: free. Cloud: starts at ~$30/month. |
+| **How it works** | Open-source search engine. Self-hosted or Typesense Cloud. Keeps indices in RAM for maximum performance. |
+| **Pricing** | Self-hosted: free. Cloud: starts ~$7-40/month depending on configuration. No per-query charges — pay for dedicated cluster resources (CPU, RAM). |
 
-**Pros/Cons:** Similar to Meilisearch — excellent search quality, but requires infrastructure that doesn't align with static-site, zero-dependency architecture.
+**Pros:**
+- Open source — can self-host for full control
+- No per-query or per-record charges — fixed cost regardless of traffic
+- Excellent search quality with typo tolerance
+- Cheaper than Algolia at scale (users report 75% cost reduction)
 
-#### 10. Cloudflare Workers + D1
+**Cons:**
+- Cloud starts at $7-40/month — ongoing cost for small sites
+- Requires choosing infrastructure configuration (CPU, RAM) — technical decision
+- Self-hosting requires a server
+- Third-party dependency for cloud version
+
+#### 11. Cloudflare Workers + D1
 
 | Attribute | Detail |
 |---|---|
@@ -274,10 +313,26 @@ A new `search` skill would:
 - Bad, because no typo tolerance / fuzzy matching (visitors must spell terms correctly)
 - Bad, because search is not available until the page's JS loads (no server-side fallback)
 
+### For Content-Heavy Sites (100+ Pages)
+
+Some Anglesite sites — particularly those with extensive blogs, resource libraries, or large service catalogs — may outgrow Pagefind's client-side approach. For these sites, an API-based option could be offered as a **paid upgrade path**:
+
+| Scenario | Recommended Upgrade | Why |
+|---|---|---|
+| 100-500 pages, need typo tolerance | **Orama** (self-hosted, ~45 KB) | Still client-side, no API cost, official Astro plugin. In-memory index is manageable at this scale. |
+| 500+ pages, heavy blog/resource site | **Typesense Cloud** (~$7-40/month) | Fixed cost regardless of traffic. No per-query charges. Open source fallback if cloud shuts down. |
+| Site already uses Google Workspace | **Google Programmable Search** (free with ads) | Zero cost, leverages existing Google crawling, familiar UX. Trade-off: ads and privacy. |
+
+**Not recommended for Anglesite users:**
+- **Algolia** — Pricing is hostile to small businesses ($500-1,000/month minimums on Grow). Only suitable for large commercial sites.
+- **Meilisearch Cloud** — $30/month minimum is hard to justify when Pagefind is free and Typesense offers better value.
+
+The search skill should detect site size and suggest an upgrade when Pagefind's index exceeds a reasonable threshold (e.g., >500 KB compressed index, indicating 200+ substantial pages).
+
 ### Future Considerations
 
-- **Orama** could be offered as an alternative if owners need fuzzy matching or faceted search, at the cost of a larger bundle (~45 KB). This would be a configuration option, not the default.
 - **Cloudflare Workers + D1** could be explored later for sites that grow beyond static search needs (e.g., searching product catalogs with 500+ items), but this should only be built if Pagefind proves insufficient for real users.
+- **Cloudflare Vectorize** could enable semantic/AI search in the future, keeping everything within the Cloudflare ecosystem.
 
 ## Comparison Summary
 
@@ -288,15 +343,23 @@ A new `search` skill would:
 | Lunr.js | ~8 KB | Yes | None | Yes | Medium | Legacy projects |
 | MiniSearch | ~7 KB | Yes | None | Yes | Medium | Lightweight client apps |
 | FlexSearch | ~6-22 KB | Yes | None | Yes | Medium | Performance-critical apps |
-| Orama | ~45 KB | Yes/Cloud | Official plugin | Partial | Low-Medium | Feature-rich search needs |
-| Algolia | ~50 KB | No | Community | Partial | High | Large commercial sites |
-| Meilisearch | ~15 KB client | Self/Cloud | None | Partial | High | Server-rendered apps |
-| Typesense | ~15 KB client | Self/Cloud | None | Partial | High | Server-rendered apps |
+| Orama | ~45 KB | Yes/Cloud | Official plugin | Partial | Low-Medium | Feature-rich search (100-500 pages) |
+| Google PSE | ~15-20 KB | No | None | With ads | Low | Sites already using Google Workspace |
+| Algolia | ~50 KB | No | Community | Partial | High | Large commercial sites (expensive) |
+| Meilisearch | ~15 KB client | Self/Cloud | None | From $30/mo | High | Server-rendered apps |
+| Typesense | ~15 KB client | Self/Cloud | None | From ~$7/mo | Medium | Content-heavy sites (500+ pages) |
 | CF Workers+D1 | Custom | Yes | None | Yes | Very high | Custom search APIs |
 
 ## More Information
 
+**Client-side:**
 - [Pagefind documentation](https://pagefind.app)
 - [astro-pagefind integration](https://github.com/shishkin/astro-pagefind)
 - [Astro search recipes](https://docs.astro.build/en/recipes/search/)
 - [Orama Astro plugin](https://docs.orama.com/open-source/plugins/plugin-astro)
+
+**API-based:**
+- [Google Programmable Search Engine](https://programmablesearchengine.google.com/about/)
+- [Algolia pricing](https://www.algolia.com/pricing)
+- [Meilisearch pricing](https://www.meilisearch.com/pricing)
+- [Typesense Cloud pricing](https://cloud.typesense.org/pricing)
