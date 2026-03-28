@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 
-// Mock sharp — it's a template devDependency, not available at the plugin root
+// Mock template devDependencies not available at the plugin root
 vi.mock("sharp", () => ({ default: vi.fn() }));
+vi.mock("satori", () => ({ default: vi.fn() }));
+vi.mock("@resvg/resvg-js", () => ({
+  Resvg: vi.fn().mockImplementation(() => ({
+    render: vi.fn().mockReturnValue({ asPng: () => new Uint8Array() }),
+  })),
+}));
 
 import { readCssVar, escapeXml } from "../template/scripts/generate-images.js";
 

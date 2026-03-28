@@ -9,7 +9,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (31 total: 14 user-facing, 17 model-only)
+├── skills/                       Skills (32 total: 14 user-facing, 18 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -27,6 +27,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── syndicate/SKILL.md        Social media post generation (model-only)
 │   ├── seasonal/SKILL.md         Seasonal content suggestions (model-only)
 │   ├── optimize-images/SKILL.md  Image optimization pipeline (model-only)
+│   ├── og-images/SKILL.md       Satori-based OG image generation (model-only)
 │   ├── business-info/SKILL.md    Hours, location, LocalBusiness JSON-LD (model-only)
 │   ├── themes/SKILL.md           Visual theme picker with tldraw (model-only)
 │   ├── qr/SKILL.md              QR codes + UTM tracking (model-only)
@@ -139,6 +140,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `syndicate` | Generate social media posts from blog post (POSSE) |
 | `seasonal` | Surface seasonal content suggestions by business type |
 | `optimize-images` | Resize, convert to WebP, strip EXIF, generate srcset |
+| `og-images` | Satori-based OG image generation for social sharing previews |
 | `business-info` | Hours, address, phone, LocalBusiness JSON-LD |
 | `themes` | Pre-built visual theme picker with tldraw swatches |
 | `qr` | QR codes, shortlinks, UTM campaign URLs |
