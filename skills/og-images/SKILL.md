@@ -31,8 +31,9 @@ Both use Satori to render HTML/CSS layouts to SVG, then rasterize to PNG via res
 BaseLayout auto-resolves `og:image` in this priority order:
 
 1. **Custom image** — page passes an `image` prop (e.g., blog post with a hero photo)
-2. **Per-page generated** — `/images/og/<slug>.png` from `npm run ai-og`
-3. **Site-wide default** — `/og-image.png` from `npm run ai-images` (fallback)
+2. **Experiment screenshot** — for pages using `ImmersiveLayout`, a manually provided screenshot in `public/images/experiments/<slug>.png` (see below)
+3. **Per-page generated** — `/images/og/<slug>.png` from `npm run ai-og`
+4. **Site-wide default** — `/og-image.png` from `npm run ai-images` (fallback)
 
 Every page always emits an `og:image` meta tag — no page is left without a social preview.
 
@@ -101,3 +102,4 @@ If any of these change, regenerate by running both commands.
 | **deploy** | Run `npm run ai-og` before build to catch any missing images |
 | **seo** | Run `npm run ai-og` when audit flags missing `og:image` |
 | **syndicate** | Per-page OG images double as social card previews |
+| **creative-canvas** | Experiment pages use owner-provided screenshots as OG images. Remind the owner to capture a screenshot of each experiment and save it to `public/images/experiments/<slug>.png`. If no screenshot is provided, the Satori text card is used as fallback. |

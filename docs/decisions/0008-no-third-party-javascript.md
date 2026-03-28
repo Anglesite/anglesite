@@ -41,6 +41,10 @@ Chosen option: "No third-party JavaScript", with six exceptions:
 
 All other external scripts are blocked by default, enforced by the Content Security Policy and pre-deploy scans.
 
+### Creative coding libraries (not third-party)
+
+npm-installed creative coding libraries (p5.js, Three.js, GSAP, Tone.js, D3.js, and others) are **not** third-party scripts. They are bundled by Astro's build process and served as first-party JavaScript from the same origin. The CSP `script-src 'self'` policy covers them without modification. These libraries are used by the `creative-canvas` skill to add interactive visual effects to any site — from a web artist's generative art portfolio to a bakery's holiday snow effect. No CSP allowlist entry or pre-deploy scan exception is needed.
+
 ### Consequences
 
 * Good, because visitors are not tracked, fingerprinted, or profiled

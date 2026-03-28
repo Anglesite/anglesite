@@ -75,6 +75,16 @@ Generate content for each platform the owner uses. Ask which platforms they're a
 - Must fit in 300 characters
 - Slightly more room than X — can add a brief description if it fits
 
+### Reddit (r/internetisbeautiful and similar)
+
+If `BUSINESS_TYPE` includes `web-artist` and the post is about an interactive experiment:
+
+- **Title format**: Descriptive — what the experience IS, not who made it. "An interactive particle flow that responds to your mouse" not "Check out my new project."
+- **Subreddit**: r/internetisbeautiful (creative web experiences), r/generative (generative art), r/creativecoding (creative coding community)
+- **Link**: Direct link to the experiment page (e.g., `https://SITE_DOMAIN/lab/<slug>`), not the blog post
+- **Self-promotion rules**: Reddit requires ~10% self-promotion ratio. Note this to the owner: "Reddit communities prefer you participate regularly, not just post your own work. Share other people's work too."
+- **No marketing language**: No "we built" or "our team created." Use "I made" or describe the experience in third person.
+
 ## Step 3 — Present to the owner
 
 Present each platform's content in a clear, copy-paste-friendly format:

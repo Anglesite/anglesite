@@ -43,6 +43,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── seo/SKILL.md            SEO audit, Schema.org, sitemap, LLM/GEO (user-facing)
 │   ├── search/SKILL.md          On-site search via Pagefind (user-facing)
 │   ├── experiment/SKILL.md      A/B testing + funnel optimization (model-only)
+│   ├── creative-canvas/SKILL.md Interactive visual effects + creative coding (model-only)
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
@@ -74,6 +75,9 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   └── decisions/                ADRs — architecture decision records (16 files)
 ├── template/                     Files scaffolded to user's project
 │   ├── src/                      Astro source (pages, layouts, styles, integrations, toolbar)
+│   │   ├── layouts/ImmersiveLayout.astro  Full-viewport layout for creative experiments
+│   │   ├── pages/lab/index.astro          Experiment gallery page
+│   │   └── styles/immersive.css           Dark/immersive styles for creative work
 │   ├── public/                   Static assets
 │   ├── scripts/                  setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
 │   ├── docs/                     Site-specific docs (~17 files) + workflows/
@@ -138,6 +142,7 @@ Three levels of agent instructions exist — do not confuse them:
 |---|---|
 | `design-interview` | Visual identity and branding questionnaire |
 | `animate` | CSS animations (hover, scroll reveals, transitions) |
+| `creative-canvas` | Interactive visual effects and creative coding (p5.js, Three.js, GSAP, Tone.js, D3.js) |
 | `new-page` | Create new page with SEO and accessibility |
 | `syndicate` | Generate social media posts from blog post (POSSE) |
 | `seasonal` | Surface seasonal content suggestions by business type |

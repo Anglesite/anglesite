@@ -98,7 +98,10 @@ Then branch based on site type:
 
 3. "What's the name of your portfolio?" — their name, studio name, or brand.
 4. "What kind of work will you showcase?" — photography, design, illustration, writing, code, music, etc.
-5. "Where else do you share your work?" — Instagram, Behance, Dribbble, GitHub, SoundCloud. These become featured links on the site.
+
+   If their work is interactive or code-based (creative coding, generative art, web experiments, data visualization, WebGL, shaders), add `web-artist` to `BUSINESS_TYPE`. This enables the `creative-canvas` skill for full immersive setup — `ImmersiveLayout`, experiment gallery at `/lab`, and curated creative coding library support (p5.js, Three.js, GSAP, Tone.js, D3.js). Read `${CLAUDE_PLUGIN_ROOT}/docs/smb/web-artist.md` for design and structure guidance.
+
+5. "Where else do you share your work?" — Instagram, Behance, Dribbble, GitHub, SoundCloud, OpenProcessing, Shadertoy. These become featured links on the site.
 
 ### Organization sites (`SITE_TYPE=organization`)
 
