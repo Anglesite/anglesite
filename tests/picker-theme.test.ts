@@ -76,5 +76,37 @@ describe("pickerTheme", () => {
     it("does not use dark DevTools background (#1e1e2e)", () => {
       expect(pickerTheme.surface).not.toBe("#1e1e2e");
     });
+
+    it("does not use post-it yellow for badge", () => {
+      expect(pickerTheme.badgeSurface).not.toMatch(/^#ff(ff00|e[0-9a-f]{3})$/i);
+    });
+  });
+
+  describe("badge tokens", () => {
+    it("has badge surface and border colors", () => {
+      expect(pickerTheme.badgeSurface).toBeDefined();
+      expect(pickerTheme.badgeBorder).toBeDefined();
+    });
+
+    it("has badge dimensions", () => {
+      expect(pickerTheme.badgeHeight).toBeDefined();
+      expect(pickerTheme.badgePadding).toBeDefined();
+    });
+
+    it("has transition duration", () => {
+      expect(pickerTheme.transitionDuration).toBeDefined();
+      expect(pickerTheme.transitionDuration).toMatch(/^\d+(\.\d+)?s$/);
+    });
+
+    it("has inactive opacity", () => {
+      expect(pickerTheme.inactiveOpacity).toBeDefined();
+      expect(parseFloat(pickerTheme.inactiveOpacity)).toBeLessThan(1);
+      expect(parseFloat(pickerTheme.inactiveOpacity)).toBeGreaterThan(0);
+    });
+
+    it("has fade-out duration for resolved notes", () => {
+      expect(pickerTheme.fadeOutDuration).toBeDefined();
+      expect(pickerTheme.fadeOutDuration).toMatch(/^\d+(\.\d+)?s$/);
+    });
   });
 });

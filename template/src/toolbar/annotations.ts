@@ -10,6 +10,7 @@
 import { defineToolbarApp } from "astro/toolbar";
 import { pickerTheme as t } from "./picker-theme.js";
 import { computePopoverPosition } from "./picker-position.js";
+import { StickyNoteManager } from "./sticky-notes.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -131,7 +132,11 @@ export default defineToolbarApp({
     let pickerActive = false;
     let hoveredElement: Element | null = null;
     let highlightOverlay: HTMLElement | null = null;
-    const stickyNotes = new Map<string, HTMLElement>();
+
+    // Sticky note badge manager (replaces old Map-based sticky notes)
+    const stickyManager = new StickyNoteManager((id) => {
+      server.send("anglesite:resolve-annotation", { id });
+    });
 
     // -----------------------------------------------------------------------
     // Main UI — window with controls (built via DOM API)
@@ -305,42 +310,8 @@ export default defineToolbarApp({
     }
 
     // -----------------------------------------------------------------------
-    // Sticky notes rendered on the page
+    // Sticky notes rendered on the page (delegated to StickyNoteManager)
     // -----------------------------------------------------------------------
-
-    function renderStickyNotes(annotations: Annotation[]) {
-      for (const [, el] of stickyNotes) el.remove();
-      stickyNotes.clear();
-
-      for (const annotation of annotations) {
-        if (annotation.path !== window.location.pathname) continue;
-
-        const target = document.querySelector(annotation.selector);
-        if (!target) continue;
-
-        const rect = target.getBoundingClientRect();
-        const badge = h("div", {
-          class: "anglesite-sticky",
-          "data-annotation-id": annotation.id,
-          title: annotation.text,
-          style: `
-            position: fixed; z-index: 999998;
-            top: ${rect.top - 4}px; left: ${rect.right + 4}px;
-            background: ${t.surface}; color: ${t.text}; font-size: 10px;
-            padding: 3px 8px; border-radius: ${t.radiusSmall}; cursor: default;
-            border: 1px solid ${t.border};
-            font-family: ${t.fontFamily};
-            max-width: 180px; white-space: nowrap; overflow: hidden;
-            text-overflow: ellipsis; box-shadow: ${t.shadow};
-            pointer-events: auto;
-          `,
-          textContent: `\u{1F4CC} ${annotation.text}`,
-        });
-
-        document.body.appendChild(badge);
-        stickyNotes.set(annotation.id, badge);
-      }
-    }
 
     // -----------------------------------------------------------------------
     // Notes list in the panel
@@ -406,7 +377,8 @@ export default defineToolbarApp({
         el.id === "anglesite-picker-highlight" ||
         el.id === "anglesite-note-input" ||
         el.closest("#anglesite-note-input") !== null ||
-        el.classList.contains("anglesite-sticky")
+        el.classList.contains("anglesite-sticky-badge") ||
+        el.classList.contains("anglesite-sticky-card")
       );
     }
 
@@ -489,7 +461,7 @@ export default defineToolbarApp({
       "anglesite:annotations-response",
       ({ annotations }) => {
         renderNotesList(annotations);
-        renderStickyNotes(annotations);
+        stickyManager.render(annotations);
       },
     );
 
@@ -507,11 +479,11 @@ export default defineToolbarApp({
 
     app.onToggled(({ state }) => {
       if (state) {
+        stickyManager.setActive(true);
         server.send("anglesite:list-annotations", {});
       } else {
         deactivatePicker();
-        for (const [, el] of stickyNotes) el.remove();
-        stickyNotes.clear();
+        stickyManager.setActive(false);
       }
     });
 

@@ -33,4 +33,13 @@ export const pickerTheme = Object.freeze({
   radiusSmall: "6px",
   shadow: "0 4px 16px rgba(61, 53, 41, 0.12)",
   fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+
+  // Badge tokens — sticky note pills and expanded cards
+  badgeSurface: "#f5f0e8",
+  badgeBorder: "#ddd5c8",
+  badgeHeight: "24px",
+  badgePadding: "3px 10px",
+  transitionDuration: "0.2s",
+  inactiveOpacity: "0.4",
+  fadeOutDuration: "0.35s",
 });
