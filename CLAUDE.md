@@ -9,7 +9,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (32 total: 14 user-facing, 18 model-only)
+├── skills/                       Skills (33 total: 15 user-facing, 18 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -41,6 +41,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── shopify-buy-button/SKILL.md  Shopify Buy Button for full catalogs (model-only)
 │   ├── booking/SKILL.md        Appointment scheduling embed (user-facing)
 │   ├── seo/SKILL.md            SEO audit, Schema.org, sitemap, LLM/GEO (user-facing)
+│   ├── search/SKILL.md          On-site search via Pagefind (user-facing)
 │   ├── experiment/SKILL.md      A/B testing + funnel optimization (model-only)
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
@@ -70,7 +71,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── smb/                      Business type guides (70 files, 50+ verticals)
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (13 files)
-│   └── decisions/                ADRs — architecture decision records (15 files)
+│   └── decisions/                ADRs — architecture decision records (16 files)
 ├── template/                     Files scaffolded to user's project
 │   ├── src/                      Astro source (pages, layouts, styles, integrations, toolbar)
 │   ├── public/                   Static assets
@@ -128,6 +129,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `add-store` | Ecommerce intake: routes to Stripe, Polar, or coming-soon paths |
 | `booking` | Embed appointment scheduling (Cal.com or Calendly) |
 | `seo` | SEO audit, metadata editing, Schema.org, sitemap, LLM/GEO optimization |
+| `search` | On-site search via Pagefind (build-time index, ~6 KB JS) |
 | `photography` | Site-type-specific shot list generator and phone photography tips |
 
 **Model-only** (called programmatically by other skills, `user-invokable: false`):
@@ -179,8 +181,9 @@ Three levels of agent instructions exist — do not confuse them:
 | Vanilla CSS | No build-time framework overhead, custom properties for theming |
 | Industry tools first | Recommend purpose-built solutions (Square, Shopify, Clio, etc.) over generic databases |
 | Edge A/B testing (not client-side) | Build-time variants + Pages Function assignment = zero flicker, static-site compatible |
+| Pagefind (not Algolia/Orama) | Build-time index, ~6 KB JS, no external service, first-class Astro integration |
 
-Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0014).
+Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0015).
 
 ## Testing
 

@@ -23,3 +23,5 @@ ADRs follow the [MADR](https://adr.github.io/madr/) format.
 - [ADR-0011](0011-owner-controls-everything.md) — The website owner controls all code, content, domain, and hosting
 - [ADR-0012](0012-verify-before-presenting.md) — Verify changes work before presenting them to the owner
 - [ADR-0013](0013-github-backup.md) — Use GitHub for offsite backup and issue tracking
+- [ADR-0014](0014-edge-ab-testing.md) — Edge A/B testing over client-side
+- [ADR-0015](0015-site-search.md) — Use Pagefind for on-site search

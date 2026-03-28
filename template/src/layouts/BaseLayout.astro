@@ -83,15 +83,15 @@ const generator = `Anglesite ${version} (${aiModel}, ${Astro.generator})`;
   <body>
     <a href="#main" class="skip-link">Skip to content</a>
 
-    <header class="h-card">
+    <header class="h-card" data-pagefind-ignore>
       <a href="/" class="p-name u-url">{siteName}</a>
     </header>
 
-    <main id="main">
+    <main id="main" data-pagefind-body>
       <slot />
     </main>
 
-    <footer>
+    <footer data-pagefind-ignore>
       <p>&copy; {new Date().getFullYear()}</p>
     </footer>
   </body>
