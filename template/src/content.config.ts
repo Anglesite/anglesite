@@ -133,6 +133,69 @@ const events = defineCollection({
   }),
 });
 
+/** Menus stored in `src/content/menus/` (e.g. "Lunch", "Dinner", "Drinks"). */
+const menus = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Menu name (e.g. "Lunch", "Dinner", "Drinks"). */
+    name: z.string(),
+    /** When this menu is available (e.g. "Available weekdays 11am–3pm"). */
+    description: z.string().optional(),
+    /** Display order (lower numbers appear first). */
+    order: z.number().default(0),
+  }),
+});
+
+/** Menu sections stored in `src/content/menuSections/` (e.g. "Appetizers", "Entrees"). */
+const menuSections = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Section name (e.g. "Appetizers", "Entrees", "Desserts"). */
+    name: z.string(),
+    /** Slug of the parent menu this section belongs to. */
+    menu: z.string().optional(),
+    /** Optional section description. */
+    description: z.string().optional(),
+    /** Display order (lower numbers appear first). */
+    order: z.number().default(0),
+  }),
+});
+
+/** Menu items stored in `src/content/menuItems/`. */
+const menuItems = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Item name. */
+    name: z.string(),
+    /** Slug of the parent section this item belongs to. */
+    section: z.string().optional(),
+    /** Dish description. */
+    description: z.string().optional(),
+    /** Price or range (free-text, e.g. "$12", "$12–$16", "Market Price"). */
+    price: z.string().optional(),
+    /** Path relative to `public/` (e.g. `/images/menu/photo.webp`). */
+    image: z.string().optional(),
+    /** Alt text for the item image — required if `image` is set. */
+    imageAlt: z.string().optional(),
+    /** Standardized dietary tags. */
+    dietary: z.array(z.string()).default([]),
+    /** Restaurant-specific tags (spice levels, house specialties, etc.). */
+    customTags: z
+      .array(
+        z.object({
+          label: z.string(),
+          icon: z.string().optional(),
+          color: z.string().optional(),
+        }),
+      )
+      .default([]),
+    /** Whether this item is currently available (false hides seasonal/sold-out items). */
+    available: z.boolean().default(true),
+    /** Display order (lower numbers appear first). */
+    order: z.number().default(0),
+  }),
+});
+
 /** FAQ entries stored in `src/content/faq/`. */
 const faq = defineCollection({
   type: "content",
@@ -170,4 +233,4 @@ const products = defineCollection({
 });
 
 /** All content collections exported for Astro's build pipeline. */
-export const collections = { posts, services, team, testimonials, gallery, events, faq, products };
+export const collections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products };
