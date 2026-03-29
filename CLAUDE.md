@@ -9,7 +9,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (33 total: 15 user-facing, 18 model-only)
+├── skills/                       Skills (34 total: 15 user-facing, 19 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -42,6 +42,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── booking/SKILL.md        Appointment scheduling embed (user-facing)
 │   ├── seo/SKILL.md            SEO audit, Schema.org, sitemap, LLM/GEO (user-facing)
 │   ├── search/SKILL.md          On-site search via Pagefind (user-facing)
+│   ├── copy-edit/SKILL.md       Website copy audit + brand voice coaching (model-only)
 │   ├── experiment/SKILL.md      A/B testing + funnel optimization (model-only)
 │   ├── creative-canvas/SKILL.md Interactive visual effects + creative coding (model-only)
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
@@ -159,6 +160,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `lemon-squeezy` | Lemon Squeezy checkout overlay for digital product sales (alternative to Polar) |
 | `snipcart` | Snipcart ecommerce for small physical product catalogs |
 | `shopify-buy-button` | Shopify Buy Button for full catalog physical goods |
+| `copy-edit` | Audit and coach website copy for clarity, tone, and brand voice |
 | `experiment` | A/B testing: propose, run, analyze, and promote winning variants |
 
 ## Editing guidelines

@@ -79,6 +79,14 @@ Run the SEO audit from `scripts/seo.ts` against the built output in `dist/`. Thi
 
 If the owner passes `--skip-seo`, skip this step and log a timestamped note to `seo-report.md`: `SEO audit skipped on YYYY-MM-DD HH:MM`.
 
+## Step 2b — Copy quality scan (non-blocking)
+
+Read `${CLAUDE_PLUGIN_ROOT}/skills/copy-edit/SKILL.md` and follow it in non-interactive deploy context. This scans all content pages for clarity, tone consistency, and missing CTAs.
+
+**No issues block the deploy.** Write findings to `copy-edit-report.md` in the project root and briefly mention to the owner: "I found a few copy improvements you can make later — they're saved in copy-edit-report.md."
+
+If the owner passes `--skip-copy`, skip this step.
+
 ## Step 2.5 — Preview (first deploy only)
 
 If this is the first deploy, offer a choice:
