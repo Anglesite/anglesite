@@ -8,6 +8,9 @@
       "gallery",
       "events",
       "products",
+      "menus",
+      "menuSections",
+      "menuItems",
       "faq"
     ],
     "singletons": []

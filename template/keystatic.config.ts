@@ -239,6 +239,122 @@ export default config({
         content: fields.markdoc({ label: "Full Description" }),
       },
     }),
+    menus: collection({
+      label: "Menus",
+      slugField: "name",
+      path: "src/content/menus/*",
+      format: { contentField: "content" },
+      schema: {
+        name: fields.slug({ name: { label: "Menu Name" } }),
+        description: fields.text({
+          label: "Description",
+          description: "When this menu is available (e.g., Available weekdays 11am–3pm)",
+        }),
+        order: fields.integer({
+          label: "Display Order",
+          description: "Lower numbers appear first",
+          defaultValue: 0,
+        }),
+        content: fields.markdoc({ label: "Introduction" }),
+      },
+    }),
+    menuSections: collection({
+      label: "Menu Sections",
+      slugField: "name",
+      path: "src/content/menuSections/*",
+      format: { contentField: "content" },
+      schema: {
+        name: fields.slug({ name: { label: "Section Name" } }),
+        menu: fields.relationship({
+          label: "Menu",
+          description: "Which menu this section belongs to",
+          collection: "menus",
+        }),
+        description: fields.text({
+          label: "Description",
+          description: "Optional section description",
+        }),
+        order: fields.integer({
+          label: "Display Order",
+          description: "Lower numbers appear first",
+          defaultValue: 0,
+        }),
+        content: fields.markdoc({ label: "Section Notes" }),
+      },
+    }),
+    menuItems: collection({
+      label: "Menu Items",
+      slugField: "name",
+      path: "src/content/menuItems/*",
+      format: { contentField: "content" },
+      schema: {
+        name: fields.slug({ name: { label: "Item Name" } }),
+        section: fields.relationship({
+          label: "Section",
+          description: "Which menu section this item belongs to",
+          collection: "menuSections",
+        }),
+        description: fields.text({
+          label: "Description",
+          description: "Dish description",
+        }),
+        price: fields.text({
+          label: "Price",
+          description: "Price or range (e.g., $12, $12–$16, Market Price)",
+        }),
+        image: fields.text({
+          label: "Image",
+          description: "Path relative to public/ (e.g., /images/menu/photo.webp)",
+        }),
+        imageAlt: fields.text({
+          label: "Image Alt Text",
+          description: "Required if image is set",
+        }),
+        dietary: fields.multiselect({
+          label: "Dietary Tags",
+          options: [
+            { label: "Vegetarian", value: "vegetarian" },
+            { label: "Vegan", value: "vegan" },
+            { label: "Gluten-Free", value: "gluten-free" },
+            { label: "Dairy-Free", value: "dairy-free" },
+            { label: "Nut-Free", value: "nut-free" },
+            { label: "Halal", value: "halal" },
+            { label: "Kosher", value: "kosher" },
+            { label: "Spicy", value: "spicy" },
+            { label: "Raw", value: "raw" },
+          ],
+        }),
+        customTags: fields.array(
+          fields.object({
+            label: fields.text({ label: "Label" }),
+            icon: fields.text({
+              label: "Icon",
+              description: "Emoji or symbol (optional)",
+            }),
+            color: fields.text({
+              label: "Color",
+              description: "CSS color value (optional)",
+            }),
+          }),
+          {
+            label: "Custom Tags",
+            description: "Restaurant-specific tags (e.g., spice levels, house specialties)",
+            itemLabel: (props) => props.fields.label.value || "New tag",
+          },
+        ),
+        available: fields.checkbox({
+          label: "Available",
+          description: "Uncheck to hide seasonal or sold-out items without deleting",
+          defaultValue: true,
+        }),
+        order: fields.integer({
+          label: "Display Order",
+          description: "Lower numbers appear first",
+          defaultValue: 0,
+        }),
+        content: fields.markdoc({ label: "Details" }),
+      },
+    }),
     faq: collection({
       label: "FAQ",
       slugField: "question",
