@@ -139,7 +139,7 @@ Don't share passwords. If someone else manages the site:
 
 ## Incident response
 
-What to do when things go wrong. Reference during `/anglesite:fix` or when the owner reports a problem.
+What to do when things go wrong. Reference during `/anglesite:check` or when the owner reports a problem.
 
 ### "My site looks wrong or shows something I didn't write"
 

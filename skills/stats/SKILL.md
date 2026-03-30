@@ -75,7 +75,7 @@ From the API response, extract:
 3. **Referral sources** — group by `refererHost`, rename common ones (e.g., "google.com" → "Google Search", empty → "Direct")
 4. **Device breakdown** — group by `device` type, calculate percentages
 5. **Busiest day** — group by `date`, map to day names, find the highest
-6. **Campaign breakdown** — group by UTM parameters (`clientRequestPath` query string contains `utm_source`, `utm_medium`, `utm_campaign`). Extract these from pages with UTM params in the URL. Use `formatCampaigns()` from `scripts/analytics-summary.ts`.
+6. **Campaign breakdown** — group by UTM parameters (`clientRequestPath` query string contains `utm_source`, `utm_medium`, `utm_campaign`). Extract these from pages with UTM params in the URL. Group by `utm_source`/`utm_campaign`, label each entry as "{source} "{campaign}"", and sort by visit count descending.
 
 Present the summary in plain language. Example output:
 
@@ -104,7 +104,7 @@ Present the summary in plain language. Example output:
 
 After collecting the data, **draw the results** using tldraw before presenting text:
 
-- Use `barChart()` from `scripts/tldraw-helpers.ts` to show top pages as a horizontal bar chart
+- Use `create_shapes` to draw top pages as a horizontal bar chart (rectangles proportional to visit counts, labeled with page path and count)
 - If campaign data exists, draw a second bar chart for campaign performance
 - The owner sees their numbers as a visual dashboard, not a wall of text
 
