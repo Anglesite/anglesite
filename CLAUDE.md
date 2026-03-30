@@ -9,7 +9,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── marketplace.json              Marketplace distribution config
-├── skills/                       Skills (34 total: 15 user-facing, 19 model-only)
+├── skills/                       Skills (39 total: 14 user-facing, 22 model-only, 3 both)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -39,6 +39,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── lemon-squeezy/SKILL.md  Lemon Squeezy checkout for digital goods (model-only)
 │   ├── snipcart/SKILL.md       Snipcart ecommerce for physical goods (model-only)
 │   ├── shopify-buy-button/SKILL.md  Shopify Buy Button for full catalogs (model-only)
+│   ├── social-media/SKILL.md    Social media strategy + content calendars (model-only)
 │   ├── booking/SKILL.md        Appointment scheduling embed (user-facing)
 │   ├── seo/SKILL.md            SEO audit, Schema.org, sitemap, LLM/GEO (user-facing)
 │   ├── search/SKILL.md          On-site search via Pagefind (user-facing)
@@ -161,6 +162,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `snipcart` | Snipcart ecommerce for small physical product catalogs |
 | `shopify-buy-button` | Shopify Buy Button for full catalog physical goods |
 | `copy-edit` | Audit and coach website copy for clarity, tone, and brand voice |
+| `social-media` | Proactive social media strategy, content calendars, and profile optimization |
 | `experiment` | A/B testing: propose, run, analyze, and promote winning variants |
 
 ## Editing guidelines
