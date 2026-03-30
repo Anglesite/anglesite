@@ -2,7 +2,7 @@
 
 ## Blog posts
 
-Posts live in `src/content/posts/` as `.mdx` files. The owner creates them via Keystatic at `/keystatic/collection/posts`.
+Posts live in `src/content/posts/` as `.mdoc` files. The owner creates them via Keystatic at `/keystatic/collection/posts`.
 
 ### Required frontmatter
 - `title` — Post title

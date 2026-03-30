@@ -59,7 +59,7 @@ Save the answers to `docs/brand-voice.md`. This profile is shared with the `synd
 
 ## Step 2 — Sweep all content
 
-Use `Glob` to find all `.mdx` and `.md` content files in `src/content/` and `src/pages/`. Also check `.astro` page files for inline text content (hero headlines, CTAs, about sections).
+Use `Glob` to find all `.mdoc` and `.md` content files in `src/content/` and `src/pages/`. Also check `.astro` page files for inline text content (hero headlines, CTAs, about sections).
 
 Read each file and evaluate against the audit checklist below. Track findings per page.
 
