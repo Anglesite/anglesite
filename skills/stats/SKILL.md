@@ -16,7 +16,7 @@ Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before e
 
 ## Step 0 — Check prerequisites
 
-Read `.site-config` for `CF_API_TOKEN` and `CF_ZONE_ID`.
+Read `.env` for `CF_API_TOKEN` and `CF_ZONE_ID`.
 
 If `CF_API_TOKEN` is missing, guide the owner through creating one:
 
@@ -29,12 +29,12 @@ If `CF_API_TOKEN` is missing, guide the owner through creating one:
 7. Click "Continue to summary" → "Create Token"
 8. Copy the token and share it
 
-Save to `.site-config` as `CF_API_TOKEN=token-value` using the Write tool.
+Save to `.env` as `CF_API_TOKEN=token-value` using the Write tool (update or create the file). **Never save API tokens to `.site-config`** — that file is committed to git. `.env` is gitignored and stays local.
 
 If `CF_ZONE_ID` is missing, fetch it:
 
 ```sh
-CF_API_TOKEN=$(grep CF_API_TOKEN .site-config | cut -d= -f2)
+CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
 ```
 
 ```sh
@@ -42,15 +42,15 @@ curl -s "https://api.cloudflare.com/client/v4/zones?name=$(grep SITE_DOMAIN .sit
   -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[0].id'
 ```
 
-Save to `.site-config` as `CF_ZONE_ID=zone-id`.
+Save to `.env` as `CF_ZONE_ID=zone-id`.
 
 ## Step 1 — Fetch analytics data
 
 Query the Cloudflare GraphQL Analytics API for the last 7 days and the 7 days before that (for comparison).
 
 ```sh
-CF_API_TOKEN=$(grep CF_API_TOKEN .site-config | cut -d= -f2)
-CF_ZONE_ID=$(grep CF_ZONE_ID .site-config | cut -d= -f2)
+CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
+CF_ZONE_ID=$(grep CF_ZONE_ID .env | cut -d= -f2)
 ```
 
 Current week (replace DATE_START and DATE_END with actual ISO dates):

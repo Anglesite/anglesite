@@ -25,7 +25,7 @@ Read `CF_PROJECT_NAME` from `.site-config` to identify the Cloudflare project.
 
 All DNS operations use the Cloudflare API with a scoped API token.
 
-Read `CF_API_TOKEN` from `.site-config`. If not set, the owner needs to create one (one-time setup):
+Read `CF_API_TOKEN` from `.env`. If not set, the owner needs to create one (one-time setup):
 
 Tell the owner: "To manage your domain's DNS records, I need a Cloudflare API token. I'll walk you through creating one — it takes about 30 seconds."
 
@@ -38,12 +38,12 @@ Walk them through:
 4. Click **Continue to summary** → **Create Token**
 5. Copy the token value shown
 
-Save the token to `.site-config` using the **Write tool** (update the existing file, adding `CF_API_TOKEN=the-token-value`).
+Save the token to `.env` using the **Write tool** (update or create the file, adding `CF_API_TOKEN=the-token-value`). **Never save API tokens to `.site-config`** — that file is committed to git. `.env` is gitignored and stays local.
 
 Then get the zone ID:
 
 ```sh
-CF_API_TOKEN=$(grep CF_API_TOKEN .site-config | cut -d= -f2)
+CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
 CF_ZONE_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=SITE_DOMAIN" \
   -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[0].id')
 ```
