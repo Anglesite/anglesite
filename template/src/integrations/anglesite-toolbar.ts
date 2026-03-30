@@ -9,23 +9,47 @@
  */
 
 import type { AstroIntegration } from "astro";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { randomBytes } from "node:crypto";
+
+const ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
+
+function nanoid(size = 8): string {
+  const bytes = randomBytes(size);
+  let id = "";
+  for (let i = 0; i < size; i++) {
+    id += ALPHABET[bytes[i] & 63];
+  }
+  return id;
+}
+
+const MAX_UNRESOLVED = 50;
 
 interface Annotation {
   id: string;
   path: string;
   selector: string;
+  sourceFile?: string;
   text: string;
   resolved: boolean;
   createdAt: string;
+  resolvedAt?: string;
 }
 
 const FILENAME = "annotations.json";
+const SCHEMA_VERSION = 1;
 
 function loadAnnotations(root: string): Annotation[] {
   try {
-    return JSON.parse(readFileSync(resolve(root, FILENAME), "utf-8"));
+    const parsed = JSON.parse(
+      readFileSync(resolve(root, FILENAME), "utf-8"),
+    );
+    // Support both versioned wrapper and legacy bare-array format
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.annotations)) return parsed.annotations;
+    return [];
   } catch {
     return [];
   }
@@ -34,7 +58,7 @@ function loadAnnotations(root: string): Annotation[] {
 function saveAnnotations(root: string, annotations: Annotation[]): void {
   writeFileSync(
     resolve(root, FILENAME),
-    JSON.stringify(annotations, null, 2) + "\n",
+    JSON.stringify({ version: SCHEMA_VERSION, annotations }, null, 2) + "\n",
   );
 }
 
@@ -76,8 +100,17 @@ export default function anglesiteToolbar(): AstroIntegration {
           "anglesite:add-annotation",
           ({ path, selector, text }) => {
             const annotations = loadAnnotations(root);
+            const unresolvedCount = annotations.filter(
+              (a) => !a.resolved,
+            ).length;
+            if (unresolvedCount >= MAX_UNRESOLVED) {
+              toolbar.send("anglesite:error", {
+                message: `Annotation limit reached (${MAX_UNRESOLVED}). Resolve existing annotations before adding new ones.`,
+              });
+              return;
+            }
             const annotation: Annotation = {
-              id: crypto.randomUUID(),
+              id: nanoid(),
               path,
               selector,
               text,
@@ -98,6 +131,7 @@ export default function anglesiteToolbar(): AstroIntegration {
             const annotation = annotations.find((a) => a.id === id);
             if (annotation) {
               annotation.resolved = true;
+              annotation.resolvedAt = new Date().toISOString();
               saveAnnotations(root, annotations);
               toolbar.send("anglesite:annotation-response", { annotation });
             }

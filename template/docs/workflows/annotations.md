@@ -26,10 +26,12 @@ If there are no unresolved annotations, proceed normally. Don't mention annotati
 
 Each annotation includes:
 
-- `id` — unique identifier (for resolving)
+- `id` — unique 8-character identifier (for resolving)
 - `path` — the page it's on (e.g., `/about`)
 - `selector` — CSS selector of the target element (e.g., `main > h1`)
+- `sourceFile` — (optional) resolved source file path (e.g., `src/pages/about.astro`)
 - `text` — the feedback note (e.g., "Make this heading larger and bolder")
+- `resolvedAt` — ISO timestamp set when the annotation is resolved
 
 Interpret each annotation as a spatially-grounded instruction:
 
