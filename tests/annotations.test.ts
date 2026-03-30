@@ -30,7 +30,26 @@ describe("loadAnnotations", () => {
     expect(result).toEqual([]);
   });
 
-  it("returns parsed annotations from existing file", () => {
+  it("returns parsed annotations from versioned file", () => {
+    const annotations = [
+      {
+        id: "abc123",
+        path: "/about",
+        selector: "h1.hero",
+        text: "Fix line-height",
+        resolved: false,
+        createdAt: "2026-03-27T00:00:00.000Z",
+      },
+    ];
+    writeFileSync(
+      join(tmpDir, "annotations.json"),
+      JSON.stringify({ version: 1, annotations }, null, 2),
+    );
+    const result = loadAnnotations(tmpDir);
+    expect(result).toEqual(annotations);
+  });
+
+  it("handles legacy bare-array format", () => {
     const annotations = [
       {
         id: "abc123",
@@ -71,7 +90,7 @@ describe("saveAnnotations", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("writes annotations to annotations.json with pretty formatting", () => {
+  it("writes versioned wrapper to annotations.json with pretty formatting", () => {
     const annotations = [
       {
         id: "abc123",
@@ -84,7 +103,8 @@ describe("saveAnnotations", () => {
     ];
     saveAnnotations(tmpDir, annotations);
     const raw = readFileSync(join(tmpDir, "annotations.json"), "utf-8");
-    expect(raw).toBe(JSON.stringify(annotations, null, 2) + "\n");
+    const parsed = JSON.parse(raw);
+    expect(parsed).toEqual({ version: 1, annotations });
   });
 
   it("overwrites existing file", () => {
@@ -103,7 +123,7 @@ describe("saveAnnotations", () => {
     const result = JSON.parse(
       readFileSync(join(tmpDir, "annotations.json"), "utf-8"),
     );
-    expect(result).toEqual(annotations);
+    expect(result).toEqual({ version: 1, annotations });
   });
 });
 
@@ -160,6 +180,50 @@ describe("addAnnotation", () => {
     const a = addAnnotation(tmpDir, { path: "/", selector: "h1", text: "A" });
     const b = addAnnotation(tmpDir, { path: "/", selector: "h2", text: "B" });
     expect(a.id).not.toBe(b.id);
+  });
+
+  it("includes sourceFile when provided", () => {
+    const result = addAnnotation(tmpDir, {
+      path: "/about",
+      selector: "h1",
+      text: "Fix this",
+      sourceFile: "src/pages/about.astro",
+    });
+    expect(result.sourceFile).toBe("src/pages/about.astro");
+  });
+
+  it("omits sourceFile when not provided", () => {
+    const result = addAnnotation(tmpDir, {
+      path: "/about",
+      selector: "h1",
+      text: "Fix this",
+    });
+    expect(result.sourceFile).toBeUndefined();
+  });
+
+  it("generates 8-character URL-safe ids", () => {
+    const a = addAnnotation(tmpDir, { path: "/", selector: "h1", text: "A" });
+    expect(a.id).toHaveLength(8);
+    expect(a.id).toMatch(/^[A-Za-z0-9_-]{8}$/);
+  });
+
+  it("throws when unresolved annotation count reaches 50", () => {
+    for (let i = 0; i < 50; i++) {
+      addAnnotation(tmpDir, { path: "/", selector: `h${i}`, text: `Note ${i}` });
+    }
+    expect(() =>
+      addAnnotation(tmpDir, { path: "/", selector: "h50", text: "One too many" }),
+    ).toThrow(/limit.*50/i);
+  });
+
+  it("allows adding after resolving when at cap", () => {
+    for (let i = 0; i < 50; i++) {
+      addAnnotation(tmpDir, { path: "/", selector: `h${i}`, text: `Note ${i}` });
+    }
+    const all = loadAnnotations(tmpDir);
+    resolveAnnotation(tmpDir, all[0].id);
+    const result = addAnnotation(tmpDir, { path: "/", selector: "p", text: "After resolve" });
+    expect(result.text).toBe("After resolve");
   });
 });
 
@@ -253,6 +317,20 @@ describe("resolveAnnotation", () => {
     expect(() => resolveAnnotation(tmpDir, "nonexistent")).toThrow(
       /not found/i,
     );
+  });
+
+  it("sets resolvedAt timestamp when resolving", () => {
+    const annotation = addAnnotation(tmpDir, {
+      path: "/",
+      selector: "h1",
+      text: "Fix this",
+    });
+    const before = new Date().toISOString();
+    const result = resolveAnnotation(tmpDir, annotation.id);
+    const after = new Date().toISOString();
+    expect(result.resolvedAt).toBeTypeOf("string");
+    expect(result.resolvedAt! >= before).toBe(true);
+    expect(result.resolvedAt! <= after).toBe(true);
   });
 
   it("does not modify other annotations", () => {

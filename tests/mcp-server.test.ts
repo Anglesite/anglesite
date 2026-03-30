@@ -191,11 +191,12 @@ describe("MCP annotation server", () => {
       expect(annotation.text).toBe("Fix line-height");
       expect(annotation.resolved).toBe(false);
 
-      // Verify persisted to disk
+      // Verify persisted to disk in versioned format
       const stored = JSON.parse(
         readFileSync(join(tmpDir, "annotations.json"), "utf-8"),
       );
-      expect(stored).toHaveLength(1);
+      expect(stored.version).toBe(1);
+      expect(stored.annotations).toHaveLength(1);
     } finally {
       proc.kill();
     }
