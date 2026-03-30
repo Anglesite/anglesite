@@ -232,5 +232,26 @@ const products = defineCollection({
   }),
 });
 
+/** Creative experiments stored in `src/content/experiments/`. */
+const experiments = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Experiment title. */
+    title: z.string(),
+    /** Short description for the gallery listing. */
+    description: z.string(),
+    /** Date the experiment was created. */
+    date: z.string().transform((str) => new Date(str)),
+    /** Tags for categorization (e.g., "p5.js", "Three.js", "audio"). */
+    tags: z.array(z.string()).default([]),
+    /** Library or framework used. */
+    library: z.string().optional(),
+    /** Thumbnail image path relative to `public/`. */
+    thumbnail: z.string().optional(),
+    /** When true, excluded from the gallery. */
+    draft: z.boolean().default(false),
+  }),
+});
+
 /** All content collections exported for Astro's build pipeline. */
-export const collections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products };
+export const collections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products, experiments };

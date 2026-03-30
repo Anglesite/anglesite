@@ -355,6 +355,44 @@ export default config({
         content: fields.markdoc({ label: "Details" }),
       },
     }),
+    experiments: collection({
+      label: "Experiments",
+      slugField: "title",
+      path: "src/content/experiments/*",
+      format: { contentField: "content" },
+      schema: {
+        title: fields.slug({ name: { label: "Title" } }),
+        description: fields.text({
+          label: "Description",
+          description: "Short description for the gallery",
+        }),
+        date: fields.date({
+          label: "Date",
+          validation: { isRequired: true },
+        }),
+        tags: fields.multiselect({
+          label: "Tags",
+          options: [
+            { label: "p5.js", value: "p5" },
+            { label: "Three.js", value: "three" },
+            { label: "GSAP", value: "gsap" },
+            { label: "Audio", value: "audio" },
+            { label: "D3", value: "d3" },
+          ],
+        }),
+        library: fields.text({ label: "Library" }),
+        thumbnail: fields.text({
+          label: "Thumbnail",
+          description: "Path relative to public/ (e.g., /images/experiments/thumb.webp)",
+        }),
+        draft: fields.checkbox({
+          label: "Draft",
+          description: "Hide from the gallery",
+          defaultValue: false,
+        }),
+        content: fields.markdoc({ label: "Content" }),
+      },
+    }),
     faq: collection({
       label: "FAQ",
       slugField: "question",
