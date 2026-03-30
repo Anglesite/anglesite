@@ -12,6 +12,8 @@
 import { pickerTheme as t } from "./picker-theme.js";
 import { computeBadgePosition, computeCardPosition } from "./sticky-position.js";
 import { groupAnnotationsBySelector, type AnnotationGroup } from "./sticky-group.js";
+import { isElementVisible } from "./sticky-visibility.js";
+import { badgeAriaLabel, badgeLabelText } from "./sticky-labels.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -186,9 +188,7 @@ export class StickyNoteManager {
       class: "anglesite-sticky-badge",
       role: "button",
       tabindex: "0",
-      "aria-label": group.count === 1
-        ? `Annotation: ${group.annotations[0].text.slice(0, 60)}`
-        : `${group.count} annotations on this element`,
+      "aria-label": badgeAriaLabel(group.count, group.annotations),
       "aria-expanded": "false",
     });
 
@@ -214,7 +214,7 @@ export class StickyNoteManager {
 
     // Label
     const label = h("span", {
-      textContent: group.count === 1 ? "1" : String(group.count),
+      textContent: badgeLabelText(group.count),
     });
     label.style.cssText = `font-weight: 600; color: ${t.text};`;
     badge.appendChild(label);
@@ -264,14 +264,9 @@ export class StickyNoteManager {
   private updateBadgeLabel(state: BadgeState): void {
     const label = state.badgeEl.querySelector("span:last-child");
     if (label) {
-      label.textContent = state.group.count === 1 ? "1" : String(state.group.count);
+      label.textContent = badgeLabelText(state.group.count);
     }
-    state.badgeEl.setAttribute(
-      "aria-label",
-      state.group.count === 1
-        ? `Annotation: ${state.group.annotations[0].text.slice(0, 60)}`
-        : `${state.group.count} annotations on this element`,
-    );
+    state.badgeEl.setAttribute("aria-label", badgeAriaLabel(state.group.count, state.group.annotations));
   }
 
   // -------------------------------------------------------------------------
@@ -410,9 +405,10 @@ export class StickyNoteManager {
     state.badgeEl.style.left = `${pos.left}px`;
 
     // Hide badge if target is completely off-screen
-    const isVisible = rect.bottom > 0 && rect.top < viewport.height &&
-                      rect.right > 0 && rect.left < viewport.width;
-    state.badgeEl.style.display = isVisible ? "inline-flex" : "none";
+    state.badgeEl.style.display = isElementVisible(
+      { top: rect.top, left: rect.left, bottom: rect.bottom, right: rect.right },
+      viewport,
+    ) ? "inline-flex" : "none";
   }
 
   private positionAllBadges = (): void => {
