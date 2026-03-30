@@ -24,6 +24,34 @@ The blog schema is defined in two places that must stay in sync:
 
 If you add or change a field, update both files.
 
+## Menus
+
+Restaurant menus use three linked collections in `src/content/`:
+
+- **Menus** (`menus/`) — Top-level menus like "Lunch", "Dinner", or "Drinks". Each has a name, optional description (e.g. "Available weekdays 11am–3pm"), and display order.
+- **Menu Sections** (`menuSections/`) — Groups within a menu like "Appetizers", "Entrees", "Desserts". Each section references its parent menu.
+- **Menu Items** (`menuItems/`) — Individual dishes. Each item references its parent section and includes name, description, price, dietary tags, and availability.
+
+### Editing menus in Keystatic
+
+After initial menu creation (via PDF import or conversation), the owner can edit items, prices, and descriptions directly in Keystatic:
+
+1. Open Keystatic at `/keystatic`
+2. Navigate to **Menu Items** to update prices, descriptions, or availability
+3. Navigate to **Menu Sections** to rename or reorder sections
+4. Navigate to **Menus** to add or rename top-level menus
+
+### Menu fields
+
+- **Price** — Free text. Supports "$12", "$12–$16", "Market Price", or empty for items without a price.
+- **Dietary tags** — Standardized tags (vegetarian, vegan, gluten-free, etc.). Always confirm dietary labels with the owner before publishing — allergen info is a liability concern.
+- **Custom tags** — Restaurant-specific labels like spice levels or house specialties, each with an optional icon and color.
+- **Available** — Uncheck to hide seasonal or sold-out items without deleting them.
+
+### Menu images
+
+Store menu item photos in `public/images/menu/`. Optimize before adding: aim for <500KB per image, use `.webp` format. Always include alt text.
+
 ## Images
 
 - Store in `public/images/blog/` (blog) or `public/images/pages/` (site pages)

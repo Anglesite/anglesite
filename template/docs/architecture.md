@@ -16,6 +16,8 @@
 
 Blog posts in `src/content/posts/`. Schema defined in both `src/content.config.ts` (Astro) and `keystatic.config.ts` (editor). Keep them in sync.
 
+Menu data uses three linked collections: `menus` (e.g. Lunch, Dinner), `menuSections` (e.g. Appetizers, Entrees), and `menuItems` (individual dishes). Sections reference a menu, items reference a section. This supports multi-menu restaurants with independent item management. Content lives in `src/content/menus/`, `src/content/menuSections/`, and `src/content/menuItems/`.
+
 ## Styling
 
 CSS custom properties in `src/styles/global.css`. Design foundations in `docs/design-system.md` (color, typography, spacing, layout patterns). Owner-specific choices set during `/anglesite:design-interview` and documented in `docs/brand.md`:

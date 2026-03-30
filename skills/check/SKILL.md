@@ -102,6 +102,30 @@ If `BUSINESS_TYPE` is set in `.site-config`, invoke the copy-edit skill for cont
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/copy-edit/SKILL.md` and follow it. Note that this is a non-interactive check context — present 1-5 findings as a brief section, no questions. Include the output as a "Copy quality" section in the health report. If `BUSINESS_TYPE` is not set, still run the audit using generic best practices.
 
+## Legal compliance
+
+Check that the site has the legal pages appropriate for its features and business type. Read `BUSINESS_TYPE` and `ECOMMERCE_PROVIDER` from `.site-config`. Refer to `${CLAUDE_PLUGIN_ROOT}/docs/smb/legal-checklist.md` for the full checklist and `${CLAUDE_PLUGIN_ROOT}/docs/smb/legal-templates.md` for free template sources.
+
+- [ ] Privacy policy page exists at `/privacy/` and is linked from the footer
+- [ ] Copyright notice in the footer with the current year
+- [ ] Accessibility statement exists at `/accessibility/` (or as a section on another page) and is linked from the footer
+- [ ] If ecommerce is configured (`ECOMMERCE_PROVIDER` set): terms of service exists at `/terms/`
+- [ ] If ecommerce is configured: return/refund policy exists at `/returns/` or `/refund-policy/`
+- [ ] If physical goods ecommerce (snipcart, shopify-buy-button): shipping policy exists
+- [ ] If `BUSINESS_TYPE` is a licensed profession (legal, healthcare, accounting, insurance, fitness, contractor, real-estate): professional disclaimer present in footer or on a dedicated page
+- [ ] If booking is configured: cancellation policy is visible on the booking page
+- [ ] Newsletter signup forms include a clear description of what subscribers will receive
+
+Report legal compliance findings as **"Worth fixing soon"** severity, not deploy blockers. Frame findings as helpful next steps:
+
+| Missing item | What to tell the owner |
+|---|---|
+| No privacy policy | "Your site collects contact info through the form, so it needs a privacy policy page. I can draft one for you — it's straightforward since your site doesn't track visitors." |
+| No terms of service (with ecommerce) | "Since you're selling through your website, you'll want a terms of service page. I can create one as a starting point." |
+| No return policy (with ecommerce) | "Customers will want to know your return policy before buying. I'll add a page for that." |
+| Missing professional disclaimer | "Most [profession] websites include a disclaimer. I'll add a brief one to your footer." |
+| Missing copyright notice | "I'll add a copyright line to your footer — it's a small thing that signals ownership." |
+
 ## IndieWeb (see `docs/indieweb.md`)
 - [ ] `h-card` in site header with `p-name` and `u-url`
 - [ ] `h-entry` on blog posts with `p-name`, `dt-published`, `e-content`

@@ -25,7 +25,8 @@ When recommending tools, always ask what the owner already uses first. Present o
 
 Before showing the owner a preview or deploying, confirm the site works. Don't present broken pages.
 
-- **Start of session** — Run `npm run build` to establish a baseline. If the build is already broken, fix it before making new changes.
+- **Start of session** — Run `npm run build` to establish a baseline. If the build is already broken, fix it before making new changes. Then call `list_annotations()` to check for unresolved feedback notes — address them before starting new work.
+- **Before editing a page** — Call `list_annotations(path)` for that page so you can address open notes in the same pass.
 - **After changes** — Run `npm run build` (and `npx astro check` for TypeScript changes) to verify your work compiles before telling the owner it's ready.
 - **Before deploy** — The mandatory pre-deploy scans catch security issues, but a successful build is the minimum bar. Never deploy a site that doesn't build cleanly.
 
@@ -65,6 +66,7 @@ Step-by-step guides for common operations:
 | Appointment booking | `docs/workflows/booking.md` |
 | SEO audit and optimization | See `/anglesite:seo` skill |
 | Photography shot list | See `/anglesite:photography` skill |
+| Feedback annotations | `docs/workflows/annotations.md` |
 
 ## Visual communication
 
