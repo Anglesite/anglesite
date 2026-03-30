@@ -14,7 +14,7 @@ These ship with every Anglesite site. No setup needed:
 |---|---|---|
 | `h-card` | Site header (`BaseLayout.astro`) | Machine-readable identity: business name + URL |
 | `h-entry` | Blog posts (`[slug].astro`) | Machine-readable posts: title, date, content, photo, tags |
-| `h-feed` | Blog listing (`/blog/index.astro`) | Machine-readable feed of posts |
+| `h-feed` | Blog listing (`/blog/index.astro`) | Machine-readable feed of posts (TODO: add to blog listing page) |
 | `u-syndication` | Blog posts | Links back to copies on social media |
 | RSS feed | `/rss.xml` | Feed readers and podcast apps |
 | Feed discovery | `<link rel="alternate">` in `<head>` | Feed readers auto-discover the RSS feed |

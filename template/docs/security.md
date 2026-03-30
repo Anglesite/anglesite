@@ -10,7 +10,7 @@ Applied when building a contact form during `/anglesite:start` or `/anglesite:de
 
 ### Spam protection
 
-- **Honeypot field** — add to every form by default. An invisible field (hidden via CSS, not `type="hidden"`) that bots fill out but real users don't see. If the field has a value on submission, reject it silently. Zero friction, no third-party dependency, effective against most bots.
+- **Honeypot field** — should be added to forms as an additional spam defense layer. An invisible field (hidden via CSS, not `type="hidden"`) that bots fill out but real users don't see. If the field has a value on submission, reject it silently. Zero friction, no third-party dependency, effective against most bots. Not yet included in the scaffold — add when building a contact form.
 - **Cloudflare Turnstile** — add only if honeypot alone isn't enough (high-traffic sites, persistent targeted spam). Free, privacy-respecting CAPTCHA alternative. Requires a CSP update: add `challenges.cloudflare.com` to `script-src` in `public/_headers`. Get site key from the Cloudflare dashboard → Turnstile.
 
 ### Email obfuscation

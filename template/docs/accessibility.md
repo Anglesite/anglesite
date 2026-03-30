@@ -50,7 +50,7 @@ Use during `/anglesite:design-interview` to validate the owner's brand colors an
 
 ### `scripts/a11y-validate.ts` — content accessibility validation
 
-Powered by [html-validate](https://html-validate.org/) for structural WCAG checks, with heuristic checks for issues it doesn't cover:
+Requires [html-validate](https://html-validate.org/) for structural WCAG checks (`npm install -D html-validate`). Not included by default. When installed, provides heuristic checks for issues linters don't cover:
 
 - `validateHeadingHierarchy(html)` — skipped levels, multiple h1s (via html-validate `heading-level` rule)
 - `validateLinkText(html)` — empty links (via html-validate `wcag/h30`) + generic text like "click here", "read more"
@@ -141,7 +141,7 @@ PDFs are often inaccessible — no heading structure, no alt text, images of tex
 
 ### What `/anglesite:check` does automatically
 
-- `pa11y` scans for WCAG 2.1 AA violations (contrast, alt text, ARIA, headings, labels)
+- Install pa11y (`npm install -D pa11y`) for automated WCAG 2.1 AA scanning (contrast, alt text, ARIA, headings, labels). It is not included by default.
 - Manual checklist in `/anglesite:check` covers heading hierarchy, skip link, keyboard navigation, images of text, lang attribute
 
 ### What the agent should test manually
