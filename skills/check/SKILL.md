@@ -96,6 +96,12 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] Blog posts have valid frontmatter (title, description, publishDate)
 - [ ] Business name, address, and contact info are easy to find (not buried)
 
+## Copy quality
+
+If `BUSINESS_TYPE` is set in `.site-config`, invoke the copy-edit skill for content quality coaching.
+
+Read `${CLAUDE_PLUGIN_ROOT}/skills/copy-edit/SKILL.md` and follow it. Note that this is a non-interactive check context — present 1-5 findings as a brief section, no questions. Include the output as a "Copy quality" section in the health report. If `BUSINESS_TYPE` is not set, still run the audit using generic best practices.
+
 ## Legal compliance
 
 Check that the site has the legal pages appropriate for its features and business type. Read `BUSINESS_TYPE` and `ECOMMERCE_PROVIDER` from `.site-config`. Refer to `${CLAUDE_PLUGIN_ROOT}/docs/smb/legal-checklist.md` for the full checklist and `${CLAUDE_PLUGIN_ROOT}/docs/smb/legal-templates.md` for free template sources.
