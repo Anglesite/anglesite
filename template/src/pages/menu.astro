@@ -1,0 +1,221 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+const allMenus = await getCollection("menus");
+const allSections = await getCollection("menuSections");
+const allItems = await getCollection("menuItems");
+
+// Sort by order field
+const menus = [...allMenus].sort((a, b) => a.data.order - b.data.order);
+const sections = [...allSections].sort((a, b) => a.data.order - b.data.order);
+
+// Filter to available items only
+const items = allItems
+  .filter((i) => i.data.available)
+  .sort((a, b) => a.data.order - b.data.order);
+
+// Build grouped structure: menu → sections → items
+type GroupedMenu = {
+  menu: (typeof menus)[number];
+  sections: {
+    section: (typeof sections)[number];
+    items: (typeof items)[number][];
+  }[];
+};
+
+const grouped: GroupedMenu[] = menus.map((menu) => {
+  const menuSections = sections.filter((s) => s.data.menu === menu.id);
+  return {
+    menu,
+    sections: menuSections.map((section) => ({
+      section,
+      items: items.filter((i) => i.data.section === section.id),
+    })),
+  };
+});
+
+// Collect all section anchors for jump navigation
+const allAnchors = grouped.flatMap((g) =>
+  g.sections.map((s) => ({
+    id: s.section.id,
+    name: s.section.data.name,
+  })),
+);
+
+// Schema.org JSON-LD
+const menuJsonLd = (() => {
+  if (menus.length === 0) return null;
+
+  const menuObjects = menus.map((m) => {
+    const mSections = sections
+      .filter((s) => s.data.menu === m.id)
+      .map((s) => {
+        const sItems = items
+          .filter((i) => i.data.section === s.id)
+          .map((i) => {
+            const item: Record<string, unknown> = {
+              "@type": "MenuItem",
+              name: i.data.name,
+            };
+            if (i.data.description) item.description = i.data.description;
+            if (i.data.price) {
+              item.offers = { "@type": "Offer", price: i.data.price };
+            }
+            if (i.data.image && Astro.site) {
+              item.image = new URL(i.data.image, Astro.site).toString();
+            }
+            const dietMap: Record<string, string> = {
+              vegetarian: "https://schema.org/VegetarianDiet",
+              vegan: "https://schema.org/VeganDiet",
+              "gluten-free": "https://schema.org/GlutenFreeDiet",
+              "dairy-free": "https://schema.org/DairyFree",
+              halal: "https://schema.org/HalalDiet",
+              kosher: "https://schema.org/KosherDiet",
+            };
+            const diets = i.data.dietary
+              .map((d) => dietMap[d.toLowerCase()])
+              .filter(Boolean);
+            if (diets.length > 0) item.suitableForDiet = diets;
+            return item;
+          });
+        const sec: Record<string, unknown> = {
+          "@type": "MenuSection",
+          name: s.data.name,
+        };
+        if (s.data.description) sec.description = s.data.description;
+        if (sItems.length > 0) sec.hasMenuItem = sItems;
+        return sec;
+      });
+
+    const obj: Record<string, unknown> = {
+      "@type": "Menu",
+      name: m.data.name,
+    };
+    if (m.data.description) obj.description = m.data.description;
+    if (mSections.length > 0) obj.hasMenuSection = mSections;
+    return obj;
+  });
+
+  if (menuObjects.length === 1) {
+    return { "@context": "https://schema.org", ...menuObjects[0] };
+  }
+  return { "@context": "https://schema.org", "@graph": menuObjects };
+})();
+
+// Dietary label mapping for aria-labels
+const dietaryLabels: Record<string, string> = {
+  vegetarian: "Vegetarian",
+  vegan: "Vegan",
+  "gluten-free": "Gluten-free",
+  "dairy-free": "Dairy-free",
+  "nut-free": "Nut-free",
+  halal: "Halal",
+  kosher: "Kosher",
+  spicy: "Spicy",
+  raw: "Raw",
+};
+---
+
+<BaseLayout
+  title="Menu"
+  description="Browse our full menu."
+  jsonLd={menuJsonLd}
+>
+  <style>
+    @import "../styles/menu.css";
+  </style>
+
+  <div class="menu-header">
+    <h1>Menu</h1>
+  </div>
+
+  {menus.length === 0 && <p>Our menu is coming soon.</p>}
+
+  {/* Menu selector when multiple menus exist */}
+  {menus.length > 1 && (
+    <nav class="menu-selector" aria-label="Menu selection">
+      {menus.map((m) => (
+        <a href={`/menu/${m.id}`}>{m.data.name}</a>
+      ))}
+    </nav>
+  )}
+
+  {/* Jump navigation for sections */}
+  {allAnchors.length > 1 && (
+    <nav class="menu-nav" aria-label="Menu sections">
+      {allAnchors.map((anchor) => (
+        <a href={`#${anchor.id}`}>{anchor.name}</a>
+      ))}
+    </nav>
+  )}
+
+  {grouped.map(({ menu, sections: menuSections }) => (
+    <div>
+      {/* Show menu name as h2 only when multiple menus */}
+      {menus.length > 1 && (
+        <h2 class="menu-section-heading">{menu.data.name}</h2>
+      )}
+      {menu.data.description && (
+        <p class="menu-section-description">{menu.data.description}</p>
+      )}
+
+      {menuSections.map(({ section, items: sectionItems }) => (
+        <section class="menu-section" id={section.id} aria-labelledby={`heading-${section.id}`}>
+          <h2 id={`heading-${section.id}`} class="menu-section-heading">
+            {section.data.name}
+          </h2>
+          {section.data.description && (
+            <p class="menu-section-description">{section.data.description}</p>
+          )}
+
+          <div class="menu-items">
+            {sectionItems.map((item) => (
+              <article class="menu-item">
+                {item.data.image && (
+                  <img
+                    src={item.data.image}
+                    alt={item.data.imageAlt || `Photo of ${item.data.name}`}
+                    class="menu-item-image"
+                    loading="lazy"
+                    width="400"
+                    height="300"
+                  />
+                )}
+                <h3 class="menu-item-name">{item.data.name}</h3>
+                {item.data.price && (
+                  <span class="menu-item-price">{item.data.price}</span>
+                )}
+                {item.data.description && (
+                  <p class="menu-item-description">{item.data.description}</p>
+                )}
+                {(item.data.dietary.length > 0 || item.data.customTags.length > 0) && (
+                  <div class="dietary-tags">
+                    {item.data.dietary.map((tag) => (
+                      <span
+                        class="dietary-badge"
+                        data-diet={tag}
+                        aria-label={dietaryLabels[tag] || tag}
+                      >
+                        {dietaryLabels[tag] || tag}
+                      </span>
+                    ))}
+                    {item.data.customTags.map((tag) => (
+                      <span
+                        class="custom-tag"
+                        style={tag.color ? `border-color: ${tag.color}; color: ${tag.color}` : undefined}
+                      >
+                        {tag.icon && <span aria-hidden="true">{tag.icon}</span>}
+                        {tag.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  ))}
+</BaseLayout>
