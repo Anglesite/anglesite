@@ -334,7 +334,7 @@ If they want to open it in a regular browser: "You can also visit https://DEV_HO
 
 Ask: "What do you think? Want to change anything?"
 
-If they want changes, make them now. If they want to redo the whole design later, they can run `/anglesite:design-interview`.
+If they want changes, make them now. If they want to redo the whole design later, they can just ask you to redo the visual identity — say something like "I want to change the design" or "let's start the design over."
 
 **Content education prompts:** During iteration, watch for the content misconceptions in `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 4 ("Content Phase"). If the owner says "I'll write the copy later," surface `COPY_LATER`. If the homepage scope keeps expanding, surface `HOMEPAGE_OVERLOAD`. If they ask for pages "for SEO," surface `PAGE_COUNT_SEO`. Check `.site-config` for the `EDUCATION_<KEY>=shown` flag before each — only surface once.
 
