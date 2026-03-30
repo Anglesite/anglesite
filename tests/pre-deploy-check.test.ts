@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import {
   scanEmails,
@@ -10,6 +10,20 @@ import {
   walkHtml,
   walkAll,
 } from "../template/scripts/pre-deploy-check.js";
+
+// ---------------------------------------------------------------------------
+// Shell script safety
+// ---------------------------------------------------------------------------
+
+describe("pre-deploy-check.sh safety", () => {
+  it("does not use eval for script grep", () => {
+    const src = readFileSync(
+      resolve(__dirname, "../scripts/pre-deploy-check.sh"),
+      "utf-8",
+    );
+    expect(src).not.toContain("eval ");
+  });
+});
 
 // ---------------------------------------------------------------------------
 // scanEmails
