@@ -55,6 +55,11 @@ export default config({
           description: "Drafts are not published to the live site",
           defaultValue: false,
         }),
+        sendNewsletter: fields.checkbox({
+          label: "Send to Newsletter",
+          description: "When checked, sends this post to newsletter subscribers on deploy",
+          defaultValue: false,
+        }),
         syndication: fields.array(fields.url({ label: "URL" }), {
           label: "Syndication Links",
           description: "URLs where this post was shared (added after posting to social media)",

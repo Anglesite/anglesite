@@ -50,7 +50,7 @@ The accent color (`#00ff88`) is a high-contrast green that works well on dark ba
 
 ## Step 2 — Show theme cards with tldraw
 
-Use `mcp__claude_ai_tldraw__create_shapes` to render all 8 themes as a visual grid. Each theme is a card with:
+Use `mcp__claude_ai_tldraw__create_shapes` to render all 9 themes as a visual grid. Each theme is a card with:
 
 1. A large rectangle as the card background (use a tldraw color that approximates the theme's background)
 2. A smaller rectangle showing the primary color (use the closest tldraw color match)
@@ -69,10 +69,11 @@ Use `mcp__claude_ai_tldraw__create_shapes` to render all 8 themes as a visual gr
 | Playful | violet | red |
 | Elegant | grey | red |
 | Community | green | orange |
+| Studio | grey | green |
 
 ### Layout
 
-Arrange themes in a 4×2 grid. Each card is approximately 360px wide × 280px tall with 40px gaps.
+Arrange themes in a 5+4 grid (5 on top, 4 on bottom). Each card is approximately 360px wide × 280px tall with 40px gaps.
 
 ```
 Row 1: Classic    Fresh     Warm      Bold      Studio
@@ -90,7 +91,7 @@ Card structure (per theme):
 
 Mark the suggested theme with a star shape or a thicker border.
 
-After rendering, tell the owner: "Here are 8 visual themes to choose from. I'd suggest **[suggested theme]** for your type of business, but pick whichever feels right. You can always customize colors later."
+After rendering, tell the owner: "Here are 9 visual themes to choose from. I'd suggest **[suggested theme]** for your type of business, but pick whichever feels right. You can always customize colors later."
 
 ## Step 3 — Apply the chosen theme
 
