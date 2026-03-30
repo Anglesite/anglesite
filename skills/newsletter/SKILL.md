@@ -1,7 +1,7 @@
 ---
 name: newsletter
 description: "Set up email newsletter with Buttondown, subscribe form, and auto-syndication"
-allowed-tools: Bash(npm run build), Bash(npx wrangler *), Bash(curl *), Bash(grep *), Write, Read, Glob
+allowed-tools: Bash(npm run build), Bash(npx wrangler *), Bash(curl *), Bash(grep *), Write, Read, Edit, Glob
 disable-model-invocation: true
 ---
 

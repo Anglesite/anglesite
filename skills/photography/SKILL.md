@@ -1,7 +1,8 @@
 ---
 name: photography
 description: "Generate a prioritized, site-type-specific shot list with phone photography tips"
-allowed-tools: Bash(cat *), Read, Glob, Write
+allowed-tools: Read, Glob, Write
+disable-model-invocation: true
 ---
 
 Generate a custom photography shot list based on the site type, plus practical phone photography tips. Helps owners know exactly what photos to take before filling in site content.

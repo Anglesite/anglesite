@@ -2,7 +2,7 @@
 name: copy-edit
 description: "Audit and coach website copy for clarity, tone, and brand voice"
 user-invokable: false
-allowed-tools: Read, Glob
+allowed-tools: Write, Read, Edit, Glob
 ---
 
 Audit website copy quality across all pages and provide guidance-first coaching. Called during `/anglesite:check`, `/anglesite:deploy`, after `/anglesite:new-page`, or when the owner asks about their writing. Not invoked directly by the owner.

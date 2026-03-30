@@ -1,7 +1,7 @@
 ---
 name: stats
 description: "Show site analytics in plain language"
-allowed-tools: Bash(curl *), Bash(grep *), Bash(git log *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Read, Glob
+allowed-tools: Bash(curl *), Bash(grep *), Bash(git log *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
 disable-model-invocation: true
 ---
 

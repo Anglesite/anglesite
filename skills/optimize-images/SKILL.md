@@ -2,7 +2,7 @@
 name: optimize-images
 description: "Optimize images: resize, convert to WebP, strip EXIF, generate srcset variants"
 user-invokable: false
-allowed-tools: Bash(npm run ai-optimize), Read, Glob
+allowed-tools: Bash(npm run ai-optimize), Write, Read, Edit, Glob
 ---
 
 Optimize images in `public/images/` for web performance and privacy. Called automatically when images are added during design, page creation, or content editing — not invoked directly by the owner.

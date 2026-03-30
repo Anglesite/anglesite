@@ -1,7 +1,8 @@
 ---
 name: experiment
 description: "Propose, run, and analyze A/B tests to improve conversions"
-user-invocable: false
+user-invokable: false
+allowed-tools: Bash(npm run build), Bash(npx wrangler *), Write, Read, Edit, Glob
 ---
 
 Manage the full lifecycle of an A/B experiment: propose a hypothesis, generate variant copy, configure the test, monitor results, and promote the winner.
