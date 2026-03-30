@@ -127,6 +127,69 @@ export function validateNoDuplication(agentsContent: string, claudeContent: stri
 }
 
 // ---------------------------------------------------------------------------
+// Validate bare docs/ references in skills
+// ---------------------------------------------------------------------------
+
+/**
+ * Docs that are created dynamically at runtime (not scaffolded from template/).
+ * These are exempt from existence checks but still counted for token measurement.
+ */
+const DYNAMIC_DOCS = ["brand.md", "brand-voice.md", "social-calendar.md"];
+
+/**
+ * Scan all skills for bare `docs/X.md` references (not prefixed with
+ * ${CLAUDE_PLUGIN_ROOT}) and verify the referenced files exist in
+ * `template/docs/`. These bare paths resolve in the user's CWD at runtime,
+ * so they must be scaffolded from template/ or created dynamically.
+ */
+export function validateSkillDocReferences(
+  root: string = ROOT,
+  dynamicDocs: string[] = DYNAMIC_DOCS,
+): Issue[] {
+  const issues: Issue[] = [];
+  const skillsDir = join(root, "skills");
+  const templateDocsDir = join(root, "template", "docs");
+
+  if (!existsSync(skillsDir)) return issues;
+
+  const skillDirs = readdirSync(skillsDir).filter(d =>
+    existsSync(join(skillsDir, d, "SKILL.md"))
+  );
+
+  // Match bare docs/X.md references that are NOT preceded by ${CLAUDE_PLUGIN_ROOT}/
+  // Matches: `docs/foo.md`, "docs/foo.md", docs/foo.md (standalone)
+  // Skips: ${CLAUDE_PLUGIN_ROOT}/docs/foo.md
+  const bareDocPattern = /(?<!\$\{CLAUDE_PLUGIN_ROOT\}\/)docs\/([\w/.-]+\.md)/g;
+
+  for (const name of skillDirs) {
+    const skillPath = join(skillsDir, name, "SKILL.md");
+    const content = readFileSync(skillPath, "utf-8");
+    const seen = new Set<string>();
+    let match;
+
+    while ((match = bareDocPattern.exec(content)) !== null) {
+      const docFile = match[1];
+      if (seen.has(docFile)) continue;
+      seen.add(docFile);
+
+      // Skip dynamically-created docs
+      if (dynamicDocs.includes(docFile)) continue;
+
+      // Check if the file exists in template/docs/
+      const templatePath = join(templateDocsDir, docFile);
+      if (!existsSync(templatePath)) {
+        issues.push({
+          level: "error",
+          message: `${name}/SKILL.md references docs/${docFile} but it does not exist in template/docs/`,
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
+// ---------------------------------------------------------------------------
 // Runtime doc-read analysis — scans skill files for doc references
 // ---------------------------------------------------------------------------
 
@@ -319,6 +382,9 @@ function main() {
     const geminiContent = readFileSync(geminiPath, "utf-8");
     issues.push(...validateImports(geminiContent, templateDir, "GEMINI.md"));
   }
+
+  // Validate bare docs/ references in skills
+  issues.push(...validateSkillDocReferences());
 
   // --- Summary ---
   console.log("\n────────────────────────────────────");
