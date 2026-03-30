@@ -16,7 +16,7 @@ const keystatic = readFileSync(
   'utf-8',
 );
 
-const COLLECTIONS = ['posts', 'services', 'team', 'testimonials', 'gallery', 'events', 'menus', 'menuSections', 'menuItems', 'faq'];
+const COLLECTIONS = ['posts', 'services', 'team', 'testimonials', 'gallery', 'events', 'menus', 'menuSections', 'menuItems', 'faq', 'products'];
 
 describe('content collections', () => {
   it('exports all collections from content.config.ts', () => {
@@ -70,6 +70,7 @@ describe('collection schema fields', () => {
     menuSections: ['name', 'menu', 'description', 'order'],
     menuItems: ['name', 'section', 'description', 'price', 'dietary', 'available', 'order'],
     faq: ['question', 'answer', 'category', 'order'],
+    products: ['name', 'description', 'price', 'image', 'weight', 'order'],
   };
 
   for (const [collection, fields] of Object.entries(fieldChecks)) {
