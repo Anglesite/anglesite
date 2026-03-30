@@ -54,6 +54,11 @@ The start command scaffolds your project, learns about your business, designs th
 | `/anglesite:backup` | Save work to GitHub |
 | `/anglesite:stats` | Plain-language site analytics |
 | `/anglesite:newsletter` | Set up an email newsletter |
+| `/anglesite:add-store` | Add ecommerce to your site |
+| `/anglesite:booking` | Embed appointment scheduling |
+| `/anglesite:seo` | SEO audit, metadata, Schema.org, sitemap |
+| `/anglesite:search` | Add on-site search via Pagefind |
+| `/anglesite:photography` | Site-specific photo shot list with tips |
 
 ## Who this is for
 

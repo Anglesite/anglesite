@@ -2,13 +2,13 @@
 
 Anglesite is a Claude plugin that scaffolds and manages websites for small businesses. It works with Claude Cowork (non-technical site owners, GUI) and Claude Code (developers, CLI). It generates Astro + Keystatic sites deployed to Cloudflare Pages.
 
-**Version:** 0.16.1 · **License:** ISC · **Node:** >=22 · **Module system:** ESM
+**Version:** 0.16.4 · **License:** ISC · **Node:** >=22 · **Module system:** ESM
 
 ## Plugin structure
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── skills/                       Skills (34 total: 15 user-facing, 19 model-only)
+├── skills/                       Skills (38 total: 16 user-facing, 22 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -20,6 +20,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── backup/SKILL.md           Back up changes to GitHub
 │   ├── stats/SKILL.md            Plain-language site analytics
 │   ├── newsletter/SKILL.md       Email newsletter setup + subscribe form
+│   ├── add-store/SKILL.md        Ecommerce intake (user-facing)
 │   ├── design-interview/SKILL.md Visual identity (model-only)
 │   ├── animate/SKILL.md          CSS animations (model-only)
 │   ├── new-page/SKILL.md         Page creation (model-only)
@@ -38,6 +39,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── lemon-squeezy/SKILL.md  Lemon Squeezy checkout for digital goods (model-only)
 │   ├── snipcart/SKILL.md       Snipcart ecommerce for physical goods (model-only)
 │   ├── shopify-buy-button/SKILL.md  Shopify Buy Button for full catalogs (model-only)
+│   ├── paddle/SKILL.md         Paddle checkout for SaaS/software licensing (model-only)
 │   ├── booking/SKILL.md        Appointment scheduling embed (user-facing)
 │   ├── seo/SKILL.md            SEO audit, Schema.org, sitemap, LLM/GEO (user-facing)
 │   ├── search/SKILL.md          On-site search via Pagefind (user-facing)
@@ -54,9 +56,10 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── pre-deploy-check.sh       Blocks deploy if security scans fail
 │   ├── pack-plugin.sh            Builds distributable plugin ZIP
 │   └── import/                   Wix-specific extraction scripts
-│       ├── wix-playwright.js     Browser-based content + CSS token extraction
-│       ├── wix-extract.js        Curl+regex fallback for Wix HTML parsing
-│       └── color-utils.js        RGB/hex conversion, luminance, color classification
+│       └── wix/
+│           ├── wix-playwright.js Browser-based content + CSS token extraction
+│           ├── wix-extract.js    Curl+regex fallback for Wix HTML parsing
+│           └── color-utils.js    RGB/hex conversion, luminance, color classification
 ├── server/                       MCP annotation server + shared modules (Node.js, ESM)
 │   ├── annotations.mjs           Annotation store (CRUD + persistence)
 │   ├── selector.mjs              CSS selector generation from element metadata
@@ -69,9 +72,9 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ├── package.json                  Dev dependencies and test scripts
 ├── vitest.config.ts              Test configuration
 ├── docs/                         Reference docs (read by skills via ${CLAUDE_PLUGIN_ROOT})
-│   ├── smb/                      Business type guides (70 files, 50+ verticals)
+│   ├── smb/                      Business type guides (66 files, 50+ verticals)
 │   ├── import/                   Platform migration guides (28 files)
-│   ├── platforms/                Tool integration guides (13 files)
+│   ├── platforms/                Tool integration guides (19 files)
 │   └── decisions/                ADRs — architecture decision records (16 files)
 ├── template/                     Files scaffolded to user's project
 │   ├── src/                      Astro source (pages, layouts, styles, integrations, toolbar)
@@ -159,6 +162,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `lemon-squeezy` | Lemon Squeezy checkout overlay for digital product sales (alternative to Polar) |
 | `snipcart` | Snipcart ecommerce for small physical product catalogs |
 | `shopify-buy-button` | Shopify Buy Button for full catalog physical goods |
+| `paddle` | Paddle checkout for software licensing, SaaS subscriptions, or metered billing |
 | `copy-edit` | Audit and coach website copy for clarity, tone, and brand voice |
 | `experiment` | A/B testing: propose, run, analyze, and promote winning variants |
 
