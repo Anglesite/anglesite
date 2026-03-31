@@ -18,4 +18,8 @@ describe("template/package.json", () => {
   it("has a check script that runs astro check", () => {
     expect(templatePkg.scripts.check).toBe("astro check");
   });
+
+  it("has html-validate in devDependencies (required by a11y-validate.ts)", () => {
+    expect(templatePkg.devDependencies).toHaveProperty("html-validate");
+  });
 });
