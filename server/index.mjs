@@ -21,9 +21,18 @@ server.tool(
     path: z.string().describe("Page path, e.g. /about"),
     selector: z.string().describe("CSS selector of the target element"),
     text: z.string().describe("The feedback note text"),
+    sourceFile: z
+      .string()
+      .optional()
+      .describe("Source file path, e.g. src/pages/about.astro"),
   },
-  ({ path, selector, text }) => {
-    const annotation = addAnnotation(projectRoot, { path, selector, text });
+  ({ path, selector, text, sourceFile }) => {
+    const annotation = addAnnotation(projectRoot, {
+      path,
+      selector,
+      text,
+      sourceFile,
+    });
     return { content: [{ type: "text", text: JSON.stringify(annotation) }] };
   },
 );

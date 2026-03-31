@@ -6,8 +6,6 @@ decision-makers: [Anglesite maintainers]
 
 # Add on-site search for content discovery
 
-> **This is a proposed decision.** It evaluates options for adding search functionality to Anglesite sites so visitors can find content without relying solely on navigation or external search engines.
-
 ## Context and Problem Statement
 
 As Anglesite sites grow beyond a handful of pages — especially sites with blogs, service catalogs, FAQs, or resource libraries — visitors need a way to find specific content quickly. Currently, sites rely entirely on navigation menus and external search engines. An on-site search feature would improve content discovery, particularly for sites with 10+ pages.

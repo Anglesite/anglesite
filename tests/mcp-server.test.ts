@@ -25,16 +25,29 @@ function startServer(projectRoot: string) {
   return proc;
 }
 
+interface ProcessState {
+  pending: Array<{
+    resolve: (resp: JsonRpcResponse) => void;
+    reject: (err: Error) => void;
+  }>;
+  buffer: string;
+  stderr: string;
+  exited: boolean;
+}
+
 /** Shared readline-style response queue per process. */
-const responseQueues = new WeakMap<
-  ReturnType<typeof spawn>,
-  { pending: Array<(resp: JsonRpcResponse) => void>; buffer: string }
->();
+const responseQueues = new WeakMap<ReturnType<typeof spawn>, ProcessState>();
 
 function getQueue(proc: ReturnType<typeof spawn>) {
   if (!responseQueues.has(proc)) {
-    const state = { pending: [] as Array<(resp: JsonRpcResponse) => void>, buffer: "" };
+    const state: ProcessState = {
+      pending: [],
+      buffer: "",
+      stderr: "",
+      exited: false,
+    };
     responseQueues.set(proc, state);
+
     proc.stdout!.on("data", (chunk: Buffer) => {
       state.buffer += chunk.toString();
       const lines = state.buffer.split("\n");
@@ -44,11 +57,28 @@ function getQueue(proc: ReturnType<typeof spawn>) {
         try {
           const parsed = JSON.parse(line);
           if (parsed.id !== undefined && state.pending.length > 0) {
-            state.pending.shift()!(parsed);
+            state.pending.shift()!.resolve(parsed);
           }
         } catch {
           // ignore non-JSON lines
         }
+      }
+    });
+
+    proc.stderr!.on("data", (chunk: Buffer) => {
+      state.stderr += chunk.toString();
+    });
+
+    proc.on("exit", (code) => {
+      state.exited = true;
+      if (code !== 0 && state.pending.length > 0) {
+        const err = new Error(
+          `MCP server exited with code ${code}.\nstderr: ${state.stderr || "(empty)"}`,
+        );
+        for (const p of state.pending) {
+          p.reject(err);
+        }
+        state.pending.length = 0;
       }
     });
   }
@@ -68,8 +98,16 @@ function sendMessage(
   message: object,
 ): Promise<JsonRpcResponse> {
   const queue = getQueue(proc);
-  return new Promise((resolve) => {
-    queue.pending.push(resolve);
+  return new Promise((resolve, reject) => {
+    if (queue.exited) {
+      reject(
+        new Error(
+          `MCP server already exited.\nstderr: ${queue.stderr || "(empty)"}`,
+        ),
+      );
+      return;
+    }
+    queue.pending.push({ resolve, reject });
     proc.stdin!.write(JSON.stringify(message) + "\n");
   });
 }
@@ -191,11 +229,12 @@ describe("MCP annotation server", () => {
       expect(annotation.text).toBe("Fix line-height");
       expect(annotation.resolved).toBe(false);
 
-      // Verify persisted to disk
+      // Verify persisted to disk in versioned format
       const stored = JSON.parse(
         readFileSync(join(tmpDir, "annotations.json"), "utf-8"),
       );
-      expect(stored).toHaveLength(1);
+      expect(stored.version).toBe(1);
+      expect(stored.annotations).toHaveLength(1);
     } finally {
       proc.kill();
     }

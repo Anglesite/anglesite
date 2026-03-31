@@ -9,6 +9,8 @@ import {
   validateCodexLimit,
   validateImports,
   validateNoDuplication,
+  validateSkillDocReferences,
+  validateSkillWorkerReferences,
   CODEX_MAX_BYTES,
   WARN_SKILL_BYTES,
 } from "../bin/build-instructions.js";
@@ -146,6 +148,168 @@ describe("validateNoDuplication", () => {
     const agentsContent = [line1, line2, line3].join("\n");
     const claudeContent = [line1, line2, line3].join("\n");
     const issues = validateNoDuplication(agentsContent, claudeContent);
+    expect(issues).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateSkillDocReferences
+// ---------------------------------------------------------------------------
+
+describe("validateSkillDocReferences", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "anglesite-doc-ref-test-"));
+    // Create skills/ and template/docs/ directories
+    mkdirSync(join(tmpDir, "skills", "test-skill"), { recursive: true });
+    mkdirSync(join(tmpDir, "template", "docs"), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns error for bare docs/ references to files missing from template/docs/", () => {
+    writeFileSync(
+      join(tmpDir, "skills", "test-skill", "SKILL.md"),
+      "Read `docs/nonexistent.md` for context."
+    );
+    const issues = validateSkillDocReferences(tmpDir);
+    expect(issues.length).toBeGreaterThan(0);
+    expect(issues[0].level).toBe("error");
+    expect(issues[0].message).toContain("nonexistent.md");
+    expect(issues[0].message).toContain("test-skill");
+  });
+
+  it("returns no error when referenced doc exists in template/docs/", () => {
+    writeFileSync(
+      join(tmpDir, "template", "docs", "architecture.md"),
+      "# Architecture"
+    );
+    writeFileSync(
+      join(tmpDir, "skills", "test-skill", "SKILL.md"),
+      "Update `docs/architecture.md` with the new page."
+    );
+    const issues = validateSkillDocReferences(tmpDir);
+    expect(issues).toEqual([]);
+  });
+
+  it("skips known dynamically-created docs", () => {
+    writeFileSync(
+      join(tmpDir, "skills", "test-skill", "SKILL.md"),
+      "Read `docs/brand.md` for brand identity."
+    );
+    const issues = validateSkillDocReferences(tmpDir, ["brand.md"]);
+    expect(issues).toEqual([]);
+  });
+
+  it("finds references across multiple skills", () => {
+    mkdirSync(join(tmpDir, "skills", "skill-a"), { recursive: true });
+    mkdirSync(join(tmpDir, "skills", "skill-b"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "skills", "skill-a", "SKILL.md"),
+      "Read `docs/missing-a.md` for context."
+    );
+    writeFileSync(
+      join(tmpDir, "skills", "skill-b", "SKILL.md"),
+      "Update `docs/missing-b.md` with results."
+    );
+    const issues = validateSkillDocReferences(tmpDir);
+    expect(issues).toHaveLength(2);
+    expect(issues.map(i => i.message).join(" ")).toContain("missing-a.md");
+    expect(issues.map(i => i.message).join(" ")).toContain("missing-b.md");
+  });
+
+  it("deduplicates the same doc referenced in the same skill", () => {
+    writeFileSync(
+      join(tmpDir, "skills", "test-skill", "SKILL.md"),
+      "Read `docs/missing.md` first.\nThen update `docs/missing.md`."
+    );
+    const issues = validateSkillDocReferences(tmpDir);
+    expect(issues).toHaveLength(1);
+  });
+
+  it("ignores docs/ references that use ${CLAUDE_PLUGIN_ROOT} prefix", () => {
+    writeFileSync(
+      join(tmpDir, "skills", "test-skill", "SKILL.md"),
+      "Read `${CLAUDE_PLUGIN_ROOT}/docs/decisions/0001-example.md` for context."
+    );
+    const issues = validateSkillDocReferences(tmpDir);
+    expect(issues).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateSkillWorkerReferences
+// ---------------------------------------------------------------------------
+
+describe("validateSkillWorkerReferences", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "anglesite-worker-ref-test-"));
+    mkdirSync(join(tmpDir, "skills", "test-skill"), { recursive: true });
+    mkdirSync(join(tmpDir, "template", "worker"), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns error for worker/ references to files missing from template/worker/", () => {
+    writeFileSync(
+      join(tmpDir, "skills", "test-skill", "SKILL.md"),
+      "npx wrangler deploy --config worker/missing-wrangler.toml"
+    );
+    const issues = validateSkillWorkerReferences(tmpDir);
+    expect(issues.length).toBeGreaterThan(0);
+    expect(issues[0].level).toBe("error");
+    expect(issues[0].message).toContain("missing-wrangler.toml");
+    expect(issues[0].message).toContain("test-skill");
+  });
+
+  it("returns no error when referenced worker file exists", () => {
+    writeFileSync(
+      join(tmpDir, "template", "worker", "wrangler.toml"),
+      'name = "contact-form"'
+    );
+    writeFileSync(
+      join(tmpDir, "skills", "test-skill", "SKILL.md"),
+      "npx wrangler deploy --config worker/wrangler.toml"
+    );
+    const issues = validateSkillWorkerReferences(tmpDir);
+    expect(issues).toEqual([]);
+  });
+
+  it("deduplicates the same worker file referenced multiple times in one skill", () => {
+    writeFileSync(
+      join(tmpDir, "skills", "test-skill", "SKILL.md"),
+      "Deploy: worker/missing.toml\nSecret: worker/missing.toml"
+    );
+    const issues = validateSkillWorkerReferences(tmpDir);
+    expect(issues).toHaveLength(1);
+  });
+
+  it("finds references across multiple skills", () => {
+    mkdirSync(join(tmpDir, "skills", "skill-a"), { recursive: true });
+    mkdirSync(join(tmpDir, "skills", "skill-b"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "skills", "skill-a", "SKILL.md"),
+      "worker/missing-a.toml"
+    );
+    writeFileSync(
+      join(tmpDir, "skills", "skill-b", "SKILL.md"),
+      "worker/missing-b.toml"
+    );
+    const issues = validateSkillWorkerReferences(tmpDir);
+    expect(issues).toHaveLength(2);
+    expect(issues.map(i => i.message).join(" ")).toContain("missing-a.toml");
+    expect(issues.map(i => i.message).join(" ")).toContain("missing-b.toml");
+  });
+
+  it("validates against real project skills and template/worker/", () => {
+    const issues = validateSkillWorkerReferences();
     expect(issues).toEqual([]);
   });
 });

@@ -1,0 +1,331 @@
+/* Menu page styles — mobile-first, responsive, print-friendly.
+ *
+ * Custom properties prefixed --menu- can be overridden by
+ * design tokens extracted from the original PDF menu.
+ */
+
+/* Design tokens — defaults that design-interview can override */
+:root {
+  --menu-font-heading: var(--font-heading);
+  --menu-font-body: var(--font-body);
+  --menu-color-price: var(--color-text);
+  --menu-color-section-bg: var(--color-surface);
+  --menu-color-divider: var(--color-border);
+  --menu-item-gap: var(--space-md);
+  --menu-columns: 1;
+}
+
+/* Section navigation — jump links for long menus */
+.menu-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  margin-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--menu-color-divider);
+  position: sticky;
+  top: 0;
+  background: var(--color-bg);
+  z-index: 10;
+}
+
+.menu-nav a {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-family: var(--menu-font-body);
+  text-decoration: none;
+  color: var(--color-text);
+  background: var(--color-surface);
+  white-space: nowrap;
+}
+
+.menu-nav a:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.menu-nav a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Menu header (name + description) */
+.menu-header {
+  margin-bottom: var(--space-lg);
+}
+
+.menu-header h1,
+.menu-header h2 {
+  font-family: var(--menu-font-heading);
+}
+
+.menu-header p {
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+/* Section */
+.menu-section {
+  margin-bottom: var(--space-xl);
+}
+
+.menu-section-heading {
+  font-family: var(--menu-font-heading);
+  font-size: var(--font-size-2xl);
+  padding-bottom: var(--space-sm);
+  border-bottom: 2px solid var(--menu-color-divider);
+  margin-bottom: var(--space-md);
+}
+
+.menu-section-description {
+  color: var(--color-muted);
+  font-style: italic;
+  margin-bottom: var(--space-md);
+}
+
+/* Items grid */
+.menu-items {
+  display: grid;
+  grid-template-columns: repeat(var(--menu-columns), 1fr);
+  gap: var(--menu-item-gap);
+}
+
+/* Individual item card */
+.menu-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-xs) var(--space-md);
+  padding: var(--space-md);
+  background: var(--menu-color-section-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.menu-item-name {
+  font-family: var(--menu-font-heading);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin: 0;
+}
+
+.menu-item-price {
+  font-family: var(--menu-font-body);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--menu-color-price);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.menu-item-description {
+  grid-column: 1 / -1;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Item image */
+.menu-item-image {
+  grid-column: 1 / -1;
+  border-radius: var(--radius-sm);
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  width: 100%;
+}
+
+/* Dietary badges */
+.dietary-tags {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.dietary-badge {
+  display: inline-block;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+}
+
+.dietary-badge[data-diet="vegetarian"] {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+.dietary-badge[data-diet="vegan"] {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #14532d;
+}
+
+.dietary-badge[data-diet="gluten-free"] {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #78350f;
+}
+
+.dietary-badge[data-diet="dairy-free"] {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e3a5f;
+}
+
+.dietary-badge[data-diet="nut-free"] {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.dietary-badge[data-diet="halal"] {
+  background: #f0fdf4;
+  border-color: #4ade80;
+  color: #166534;
+}
+
+.dietary-badge[data-diet="kosher"] {
+  background: #eef2ff;
+  border-color: #818cf8;
+  color: #3730a3;
+}
+
+.dietary-badge[data-diet="spicy"] {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.dietary-badge[data-diet="raw"] {
+  background: #f0fdfa;
+  border-color: #5eead4;
+  color: #115e59;
+}
+
+.dietary-badge[data-diet="contains-alcohol"] {
+  background: #fdf4ff;
+  border-color: #c084fc;
+  color: #6b21a8;
+}
+
+/* Dietary icon within badge */
+.dietary-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  margin-right: 0.25em;
+}
+
+/* Custom tags */
+.custom-tag {
+  display: inline-block;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+}
+
+/* Menu selector — when multiple menus exist */
+.menu-selector {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.menu-selector a {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-family: var(--menu-font-heading);
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.menu-selector a:hover,
+.menu-selector a[aria-current="page"] {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+/* Unavailable item overlay (kept in DOM for owners, hidden from visitors) */
+.menu-item[data-available="false"] {
+  display: none;
+}
+
+/* Allergen disclaimer */
+.allergen-disclaimer {
+  margin-top: var(--space-xl);
+  padding: var(--space-md);
+  border-top: 1px solid var(--menu-color-divider);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  text-align: center;
+}
+
+/* ----------------------------------------------------------------
+ * Desktop: two-column grid for items
+ * ---------------------------------------------------------------- */
+@media (min-width: 48rem) {
+  :root {
+    --menu-columns: 2;
+  }
+
+  .menu-section-heading {
+    font-size: var(--font-size-3xl);
+  }
+}
+
+/* ----------------------------------------------------------------
+ * Print styles — clean, paper-friendly menu
+ * ---------------------------------------------------------------- */
+@media print {
+  .menu-nav,
+  .menu-selector {
+    display: none !important;
+  }
+
+  :root {
+    --menu-columns: 2;
+    --menu-color-section-bg: transparent;
+  }
+
+  .menu-item {
+    box-shadow: none;
+    border-bottom: 1px solid #ccc;
+    border-radius: 0;
+    padding: var(--space-sm) 0;
+    break-inside: avoid;
+  }
+
+  .menu-item-image {
+    display: none;
+  }
+
+  .menu-section {
+    break-inside: avoid;
+  }
+
+  .dietary-badge,
+  .custom-tag {
+    border-color: #999;
+    background: transparent;
+    color: #333;
+  }
+}

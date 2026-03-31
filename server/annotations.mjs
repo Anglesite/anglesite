@@ -1,18 +1,37 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
+
+const ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
+
+/** Generate an 8-character nanoid-style ID using node:crypto. */
+function nanoid(size = 8) {
+  const bytes = randomBytes(size);
+  let id = "";
+  for (let i = 0; i < size; i++) {
+    id += ALPHABET[bytes[i] & 63];
+  }
+  return id;
+}
 
 const FILENAME = "annotations.json";
 
 /**
- * @typedef {{ id: string, path: string, selector: string, text: string, resolved: boolean, createdAt: string }} Annotation
+ * @typedef {{ id: string, path: string, selector: string, sourceFile?: string, text: string, resolved: boolean, createdAt: string, resolvedAt?: string }} Annotation
  */
+
+const SCHEMA_VERSION = 1;
 
 /** Load annotations from disk. Returns [] if file is missing or invalid. */
 export function loadAnnotations(projectRoot) {
   try {
     const raw = readFileSync(join(projectRoot, FILENAME), "utf-8");
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Support both versioned wrapper and legacy bare-array format
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.annotations)) return parsed.annotations;
+    return [];
   } catch {
     return [];
   }
@@ -22,17 +41,26 @@ export function loadAnnotations(projectRoot) {
 export function saveAnnotations(projectRoot, annotations) {
   writeFileSync(
     join(projectRoot, FILENAME),
-    JSON.stringify(annotations, null, 2) + "\n",
+    JSON.stringify({ version: SCHEMA_VERSION, annotations }, null, 2) + "\n",
   );
 }
 
 /** Create a new annotation, persist it, and return it. */
-export function addAnnotation(projectRoot, { path, selector, text }) {
+const MAX_UNRESOLVED = 50;
+
+export function addAnnotation(projectRoot, { path, selector, text, sourceFile }) {
   const annotations = loadAnnotations(projectRoot);
+  const unresolvedCount = annotations.filter((a) => !a.resolved).length;
+  if (unresolvedCount >= MAX_UNRESOLVED) {
+    throw new Error(
+      `Annotation limit reached (${MAX_UNRESOLVED}). Resolve existing annotations before adding new ones.`,
+    );
+  }
   const annotation = {
-    id: randomUUID(),
+    id: nanoid(),
     path,
     selector,
+    ...(sourceFile !== undefined && { sourceFile }),
     text,
     resolved: false,
     createdAt: new Date().toISOString(),
@@ -60,6 +88,7 @@ export function resolveAnnotation(projectRoot, id) {
     throw new Error(`Annotation not found: ${id}`);
   }
   annotation.resolved = true;
+  annotation.resolvedAt = new Date().toISOString();
   saveAnnotations(projectRoot, annotations);
   return annotation;
 }

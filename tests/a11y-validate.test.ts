@@ -239,3 +239,22 @@ describe("html-validate integration", () => {
     expect(validateImageAlt(html)).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Dependency scope — html-validate must be declared in template/package.json
+// ---------------------------------------------------------------------------
+
+describe("dependency scope", () => {
+  it("html-validate is declared in template/package.json", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const pkg = JSON.parse(
+      readFileSync(resolve(__dirname, "../template/package.json"), "utf-8"),
+    );
+    const allDeps = {
+      ...pkg.dependencies,
+      ...pkg.devDependencies,
+    };
+    expect(allDeps["html-validate"]).toBeDefined();
+  });
+});

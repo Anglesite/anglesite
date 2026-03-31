@@ -1,0 +1,211 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const menus = await getCollection("menus");
+  return menus.map((menu) => ({
+    params: { slug: menu.id },
+    props: { menu },
+  }));
+}
+
+const { menu } = Astro.props;
+
+const allMenus = await getCollection("menus");
+const allSections = await getCollection("menuSections");
+const allItems = await getCollection("menuItems");
+
+// Sections belonging to this menu, sorted by order
+const sections = allSections
+  .filter((s) => s.data.menu === menu.id)
+  .sort((a, b) => a.data.order - b.data.order);
+
+// Available items sorted by order
+const items = allItems
+  .filter((i) => i.data.available)
+  .sort((a, b) => a.data.order - b.data.order);
+
+// Group items by section
+const groupedSections = sections.map((section) => ({
+  section,
+  items: items.filter((i) => i.data.section === section.id),
+}));
+
+// Section anchors for jump navigation
+const anchors = sections.map((s) => ({ id: s.id, name: s.data.name }));
+
+// Schema.org JSON-LD for this single menu
+const dietMap: Record<string, string> = {
+  vegetarian: "https://schema.org/VegetarianDiet",
+  vegan: "https://schema.org/VeganDiet",
+  "gluten-free": "https://schema.org/GlutenFreeDiet",
+  "dairy-free": "https://schema.org/DairyFree",
+  halal: "https://schema.org/HalalDiet",
+  kosher: "https://schema.org/KosherDiet",
+};
+
+const menuJsonLd = (() => {
+  const mSections = sections.map((s) => {
+    const sItems = items
+      .filter((i) => i.data.section === s.id)
+      .map((i) => {
+        const item: Record<string, unknown> = {
+          "@type": "MenuItem",
+          name: i.data.name,
+        };
+        if (i.data.description) item.description = i.data.description;
+        if (i.data.price) {
+          item.offers = { "@type": "Offer", price: i.data.price };
+        }
+        if (i.data.image && Astro.site) {
+          item.image = new URL(i.data.image, Astro.site).toString();
+        }
+        const diets = i.data.dietary
+          .map((d) => dietMap[d.toLowerCase()])
+          .filter(Boolean);
+        if (diets.length > 0) item.suitableForDiet = diets;
+        return item;
+      });
+    const sec: Record<string, unknown> = {
+      "@type": "MenuSection",
+      name: s.data.name,
+    };
+    if (s.data.description) sec.description = s.data.description;
+    if (sItems.length > 0) sec.hasMenuItem = sItems;
+    return sec;
+  });
+
+  const ld: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Menu",
+    name: menu.data.name,
+  };
+  if (menu.data.description) ld.description = menu.data.description;
+  if (mSections.length > 0) ld.hasMenuSection = mSections;
+  return ld;
+})();
+
+// Dietary label mapping
+const dietaryLabels: Record<string, string> = {
+  vegetarian: "Vegetarian",
+  vegan: "Vegan",
+  "gluten-free": "Gluten-free",
+  "dairy-free": "Dairy-free",
+  "nut-free": "Nut-free",
+  halal: "Halal",
+  kosher: "Kosher",
+  spicy: "Spicy",
+  raw: "Raw",
+  "contains-alcohol": "Contains Alcohol",
+};
+
+// Other menus for navigation
+const otherMenus = [...allMenus]
+  .sort((a, b) => a.data.order - b.data.order);
+---
+
+<BaseLayout
+  title={`${menu.data.name} Menu`}
+  description={menu.data.description || `Browse our ${menu.data.name} menu.`}
+  jsonLd={menuJsonLd}
+>
+  <style>
+    @import "../../styles/menu.css";
+  </style>
+
+  <div class="menu-header">
+    <h1>{menu.data.name}</h1>
+    {menu.data.description && <p>{menu.data.description}</p>}
+  </div>
+
+  {/* Menu selector for switching between menus */}
+  {otherMenus.length > 1 && (
+    <nav class="menu-selector" aria-label="Menu selection">
+      {otherMenus.map((m) => (
+        <a
+          href={`/menu/${m.id}`}
+          aria-current={m.id === menu.id ? "page" : undefined}
+        >
+          {m.data.name}
+        </a>
+      ))}
+    </nav>
+  )}
+
+  {/* Jump navigation for sections */}
+  {anchors.length > 1 && (
+    <nav class="menu-nav" aria-label="Menu sections">
+      {anchors.map((anchor) => (
+        <a href={`#${anchor.id}`}>{anchor.name}</a>
+      ))}
+    </nav>
+  )}
+
+  {groupedSections.map(({ section, items: sectionItems }) => (
+    <section class="menu-section" id={section.id} aria-labelledby={`heading-${section.id}`}>
+      <h2 id={`heading-${section.id}`} class="menu-section-heading">
+        {section.data.name}
+      </h2>
+      {section.data.description && (
+        <p class="menu-section-description">{section.data.description}</p>
+      )}
+
+      <div class="menu-items">
+        {sectionItems.map((item) => (
+          <article class="menu-item">
+            {item.data.image && (
+              <img
+                src={item.data.image}
+                alt={item.data.imageAlt || `Photo of ${item.data.name}`}
+                class="menu-item-image"
+                loading="lazy"
+                width="400"
+                height="300"
+              />
+            )}
+            <h3 class="menu-item-name">{item.data.name}</h3>
+            {item.data.price && (
+              <span class="menu-item-price">{item.data.price}</span>
+            )}
+            {item.data.description && (
+              <p class="menu-item-description">{item.data.description}</p>
+            )}
+            {(item.data.dietary.length > 0 || item.data.customTags.length > 0) && (
+              <div class="dietary-tags">
+                {item.data.dietary.map((tag) => (
+                  <span
+                    class="dietary-badge"
+                    data-diet={tag}
+                    aria-label={dietaryLabels[tag] || tag}
+                  >
+                    <img src={`/images/dietary/${tag}.svg`} alt="" aria-hidden="true" class="dietary-icon" width="16" height="16" />
+                    {dietaryLabels[tag] || tag}
+                  </span>
+                ))}
+                {item.data.customTags.map((tag) => (
+                  <span
+                    class="custom-tag"
+                    style={tag.color ? `border-color: ${tag.color}; color: ${tag.color}` : undefined}
+                  >
+                    {tag.icon && <span aria-hidden="true">{tag.icon}</span>}
+                    {tag.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
+  ))}
+
+  {/* Allergen disclaimer — configurable via MENU_ALLERGEN_DISCLAIMER in .site-config */}
+  <footer class="allergen-disclaimer">
+    <p>Please inform your server of any allergies. Menu items may contain or come into contact with allergens.</p>
+  </footer>
+
+  <p><a href="/menu">← All menus</a></p>
+</BaseLayout>

@@ -8,7 +8,8 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── skills/                       Skills (38 total: 16 user-facing, 22 model-only)
+├── marketplace.json              Marketplace distribution config
+├── skills/                       Skills (40 total: 17 user-facing, 23 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -40,6 +41,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── snipcart/SKILL.md       Snipcart ecommerce for physical goods (model-only)
 │   ├── shopify-buy-button/SKILL.md  Shopify Buy Button for full catalogs (model-only)
 │   ├── paddle/SKILL.md         Paddle checkout for SaaS/software licensing (model-only)
+│   ├── social-media/SKILL.md    Social media strategy + content calendars (model-only)
 │   ├── booking/SKILL.md        Appointment scheduling embed (user-facing)
 │   ├── seo/SKILL.md            SEO audit, Schema.org, sitemap, LLM/GEO (user-facing)
 │   ├── search/SKILL.md          On-site search via Pagefind (user-facing)
@@ -47,6 +49,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── experiment/SKILL.md      A/B testing + funnel optimization (model-only)
 │   ├── creative-canvas/SKILL.md Interactive visual effects + creative coding (model-only)
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
+│   ├── menu/SKILL.md            Restaurant menu import, creation, and management (user-facing)
 │   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
@@ -138,6 +141,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `seo` | SEO audit, metadata editing, Schema.org, sitemap, LLM/GEO optimization |
 | `search` | On-site search via Pagefind (build-time index, ~6 KB JS) |
 | `photography` | Site-type-specific shot list generator and phone photography tips |
+| `menu` | Restaurant menu import (PDF/photo), creation, and editing |
 
 **Model-only** (called programmatically by other skills, `user-invokable: false`):
 
@@ -164,6 +168,7 @@ Three levels of agent instructions exist — do not confuse them:
 | `shopify-buy-button` | Shopify Buy Button for full catalog physical goods |
 | `paddle` | Paddle checkout for software licensing, SaaS subscriptions, or metered billing |
 | `copy-edit` | Audit and coach website copy for clarity, tone, and brand voice |
+| `social-media` | Proactive social media strategy, content calendars, and profile optimization |
 | `experiment` | A/B testing: propose, run, analyze, and promote winning variants |
 
 ## Editing guidelines
