@@ -253,20 +253,6 @@ function analyzeSkillReads(skillName: string): SkillDocReads {
     }
   }
 
-  // Check for shared skill references
-  const sharedPattern = /\$\{CLAUDE_PLUGIN_ROOT\}\/(skills\/shared\/[\w/.-]+\.md)/g;
-  while ((match = sharedPattern.exec(content)) !== null) {
-    const relPath = match[1];
-    if (seen.has(relPath)) continue;
-    seen.add(relPath);
-
-    const fullPath = join(ROOT, relPath);
-    if (existsSync(fullPath)) {
-      const bytes = statSync(fullPath).size;
-      docs.push({ path: relPath, label: relPath, bytes, tokens: tokens(bytes) });
-    }
-  }
-
   const totalBytes = skillBytes + docs.reduce((s, d) => s + d.bytes, 0);
 
   return {

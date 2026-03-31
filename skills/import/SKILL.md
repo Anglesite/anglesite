@@ -344,7 +344,7 @@ and continue. Do not stop the import for individual failures.
 
 For WordPress and Squarespace content that arrives as rendered HTML, follow the
 HTML-to-Markdown conversion rules in
-`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`.
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`.
 
 ### 2c — Download and optimize images
 
@@ -353,7 +353,7 @@ Tell the owner (once, not per-post):
 > web-friendly format."
 
 Follow the image optimization procedures in
-`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`, using `curl -L -s`
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`, using `curl -L -s`
 to download instead of `cp`.
 
 **Platform-specific image URL handling:**
@@ -369,7 +369,7 @@ URLs with local paths.
 ### 2d — Assemble frontmatter and write the .mdoc file
 
 Follow the `.mdoc` writing procedure in
-`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`. Use `-imported`
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`. Use `-imported`
 suffix for slug conflicts. Additionally, set:
 - `syndication`: `["ORIGINAL_POST_URL"]` — the URL on the old platform, preserving provenance per ADR-0006
 
@@ -654,7 +654,7 @@ step. The owner can set up colors and fonts later via `/anglesite:design-intervi
 ## Step 6 — Build and verify
 
 Follow the build-and-verify procedure in
-`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`.
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`.
 
 After a clean build, also check for remaining external image dependencies:
 
@@ -751,7 +751,7 @@ imported and the date. Example:
 
 ## Edge cases
 
-See `${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md` for shared edge
+See `${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md` for shared edge
 cases (large images, multilingual content, slug conflicts).
 
 ### No blog on the site

@@ -476,7 +476,7 @@ Ensure the image directory exists:
 mkdir -p public/images/blog
 ```
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md` for the full
+Read `${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md` for the full
 content conversion, image optimization, and `.mdoc` writing procedures.
 
 For each post in BLOG_POSTS:
@@ -743,7 +743,7 @@ owner will customize the homepage during the design phase.
 ## Step 5 — Build and verify
 
 Follow the build-and-verify procedure in
-`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`. Fix all build
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`. Fix all build
 errors before presenting results (ADR-0012).
 
 ## Step 6 — Present the results
@@ -799,7 +799,7 @@ converted and the date. Example:
 
 ## Edge cases
 
-See `${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md` for shared edge
+See `${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md` for shared edge
 cases (large images, multilingual content, slug conflicts, mixed formats).
 
 ### No blog posts in the project

@@ -49,8 +49,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── experiment/SKILL.md      A/B testing + funnel optimization (model-only)
 │   ├── creative-canvas/SKILL.md Interactive visual effects + creative coding (model-only)
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
-│   ├── menu/SKILL.md            Restaurant menu import, creation, and management (user-facing)
-│   └── shared/content-conversion.md  Shared HTML-to-Markdown guidance
+│   └── menu/SKILL.md            Restaurant menu import, creation, and management (user-facing)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
 ├── scripts/
@@ -78,7 +77,8 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── smb/                      Business type guides (66 files, 50+ verticals)
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (19 files)
-│   └── decisions/                ADRs — architecture decision records (16 files)
+│   ├── decisions/                ADRs — architecture decision records (16 files)
+│   └── content-conversion.md    Shared HTML-to-Markdown guidance (used by import + convert)
 ├── template/                     Files scaffolded to user's project
 │   ├── src/                      Astro source (pages, layouts, styles, integrations, toolbar)
 │   │   ├── layouts/ImmersiveLayout.astro  Full-viewport layout for creative experiments
