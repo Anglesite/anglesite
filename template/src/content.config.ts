@@ -143,6 +143,21 @@ const menus = defineCollection({
     description: z.string().optional(),
     /** Display order (lower numbers appear first). */
     order: z.number().default(0),
+    /** How multiple menus are displayed: scroll (one page), tabs, or separate pages. */
+    layout: z
+      .enum(["scroll", "tabs", "pages"])
+      .optional(),
+    /** Menu type — affects styling and semantic hints. */
+    menuType: z
+      .enum([
+        "standard",
+        "daily-specials",
+        "seasonal",
+        "kids",
+        "catering",
+        "wine-cocktails",
+      ])
+      .default("standard"),
   }),
 });
 

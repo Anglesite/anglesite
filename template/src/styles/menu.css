@@ -280,6 +280,159 @@
 }
 
 /* ----------------------------------------------------------------
+ * Tabbed layout — CSS-only tabs via :target
+ *
+ * Structure:
+ *   .menu-tabs          — tab bar container
+ *   .menu-tabs a        — individual tab links (href="#menu-slug")
+ *   .menu-tab-panel     — content panel (id="menu-slug")
+ *
+ * First panel is visible by default. When any panel is :target,
+ * the first panel hides via :has(:target) on the parent.
+ * ---------------------------------------------------------------- */
+.menu-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  margin-bottom: var(--space-lg);
+  border-bottom: 2px solid var(--menu-color-divider);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.menu-tabs a {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-family: var(--menu-font-heading);
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  text-decoration: none;
+  color: var(--color-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+
+.menu-tabs a:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.menu-tabs a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.menu-tabs a.active,
+.menu-tabs a[aria-selected="true"] {
+  color: var(--color-text);
+  background: var(--color-bg);
+  border-color: var(--menu-color-divider);
+  margin-bottom: -2px;
+  border-bottom: 2px solid var(--color-bg);
+}
+
+/* Tab panels — hidden by default, shown via :target */
+.menu-tab-panel {
+  display: none;
+}
+
+/* Show the first panel by default (no hash in URL) */
+.menu-tab-panel:first-of-type {
+  display: block;
+}
+
+/* When any panel is targeted, show it */
+.menu-tab-panel:target {
+  display: block;
+}
+
+/* Hide the default first panel when another is targeted */
+.menu-tab-panels:has(.menu-tab-panel:target) > .menu-tab-panel:first-of-type:not(:target) {
+  display: none;
+}
+
+/* ----------------------------------------------------------------
+ * Menu index cards — for "pages" layout on /menu
+ * ---------------------------------------------------------------- */
+.menu-index-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.menu-index-card {
+  padding: var(--space-lg);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.menu-index-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.menu-index-card h2 {
+  font-family: var(--menu-font-heading);
+  margin: 0 0 var(--space-sm);
+}
+
+.menu-index-card p {
+  color: var(--color-muted);
+  margin: 0;
+}
+
+/* Cross-links between menus on individual pages */
+.menu-cross-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--menu-color-divider);
+}
+
+.menu-cross-link {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--color-text);
+  font-family: var(--menu-font-heading);
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.menu-cross-link:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ----------------------------------------------------------------
+ * Menu type variants — styling hints for special menus
+ * ---------------------------------------------------------------- */
+.menu-section[data-menu-type="kids"] .menu-item-name {
+  font-size: var(--font-size-xl);
+}
+
+.menu-section[data-menu-type="wine-cocktails"] .menu-item-description {
+  font-style: italic;
+}
+
+.menu-section[data-menu-type="daily-specials"] {
+  border-left: 3px solid var(--color-accent);
+  padding-left: var(--space-md);
+}
+
+/* ----------------------------------------------------------------
  * Desktop: two-column grid for items
  * ---------------------------------------------------------------- */
 @media (min-width: 48rem) {
@@ -290,6 +443,10 @@
   .menu-section-heading {
     font-size: var(--font-size-3xl);
   }
+
+  .menu-index-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* ----------------------------------------------------------------
@@ -297,8 +454,15 @@
  * ---------------------------------------------------------------- */
 @media print {
   .menu-nav,
-  .menu-selector {
-    display: none !important;
+  .menu-selector,
+  .menu-tabs {
+    display: none;
+  }
+
+  .menu-tab-panels .menu-tab-panel,
+  .menu-tab-panel:first-of-type,
+  .menu-tab-panel:target {
+    display: block;
   }
 
   :root {

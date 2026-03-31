@@ -7,9 +7,13 @@ import {
   buildMenuSectionJsonLd,
   generateMenuJsonLd,
   generateMenuPageJsonLd,
+  inferMenuLayout,
+  generateRestaurantMenusJsonLd,
   type MenuItemData,
   type MenuSectionData,
   type MenuData,
+  type MenuLayout,
+  type MenuType,
 } from "../template/scripts/menu.js";
 
 // ---------------------------------------------------------------------------
@@ -672,5 +676,221 @@ describe("menu.css", () => {
   it("styles allergen-disclaimer", () => {
     const css = readFileSync(cssPath, "utf-8");
     expect(css).toContain("allergen-disclaimer");
+  });
+
+  it("styles tab layout", () => {
+    const css = readFileSync(cssPath, "utf-8");
+    expect(css).toContain("menu-tabs");
+  });
+
+  it("styles tab panels", () => {
+    const css = readFileSync(cssPath, "utf-8");
+    expect(css).toContain("menu-tab-panel");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MenuData type — layout and menuType fields
+// ---------------------------------------------------------------------------
+
+describe("MenuData type fields", () => {
+  it("accepts layout field", () => {
+    const menu: MenuData = {
+      name: "Dinner",
+      order: 0,
+      layout: "tabs",
+    };
+    expect(menu.layout).toBe("tabs");
+  });
+
+  it("layout defaults to undefined (inferred at render time)", () => {
+    const menu: MenuData = { name: "Lunch", order: 0 };
+    expect(menu.layout).toBeUndefined();
+  });
+
+  it("accepts all valid layout values", () => {
+    const layouts: MenuLayout[] = ["scroll", "tabs", "pages"];
+    for (const layout of layouts) {
+      const menu: MenuData = { name: "Test", order: 0, layout };
+      expect(menu.layout).toBe(layout);
+    }
+  });
+
+  it("accepts menuType field", () => {
+    const menu: MenuData = {
+      name: "Wine List",
+      order: 0,
+      menuType: "wine-cocktails",
+    };
+    expect(menu.menuType).toBe("wine-cocktails");
+  });
+
+  it("accepts all valid menuType values", () => {
+    const types: MenuType[] = [
+      "standard",
+      "daily-specials",
+      "seasonal",
+      "kids",
+      "catering",
+      "wine-cocktails",
+    ];
+    for (const menuType of types) {
+      const menu: MenuData = { name: "Test", order: 0, menuType };
+      expect(menu.menuType).toBe(menuType);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inferMenuLayout
+// ---------------------------------------------------------------------------
+
+describe("inferMenuLayout", () => {
+  it("returns scroll for a single menu", () => {
+    expect(inferMenuLayout(1)).toBe("scroll");
+  });
+
+  it("returns tabs for 2 menus", () => {
+    expect(inferMenuLayout(2)).toBe("tabs");
+  });
+
+  it("returns tabs for 4 menus", () => {
+    expect(inferMenuLayout(4)).toBe("tabs");
+  });
+
+  it("returns pages for 5 menus", () => {
+    expect(inferMenuLayout(5)).toBe("pages");
+  });
+
+  it("returns pages for large menu counts", () => {
+    expect(inferMenuLayout(10)).toBe("pages");
+  });
+
+  it("returns scroll for 0 menus", () => {
+    expect(inferMenuLayout(0)).toBe("scroll");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateRestaurantMenusJsonLd
+// ---------------------------------------------------------------------------
+
+describe("generateRestaurantMenusJsonLd", () => {
+  const menus = [
+    { id: "lunch", data: { name: "Lunch", order: 0 } as MenuData },
+    { id: "dinner", data: { name: "Dinner", order: 1 } as MenuData },
+  ];
+
+  const sections = [
+    {
+      id: "salads",
+      data: { name: "Salads", menu: "lunch", order: 0 } as MenuSectionData,
+    },
+    {
+      id: "mains",
+      data: { name: "Mains", menu: "dinner", order: 0 } as MenuSectionData,
+    },
+  ];
+
+  const items = [
+    {
+      id: "caesar",
+      data: {
+        name: "Caesar Salad",
+        section: "salads",
+        price: "$10",
+        dietary: ["vegetarian"],
+        customTags: [],
+        available: true,
+        order: 0,
+      } as MenuItemData,
+    },
+  ];
+
+  it("wraps menus in a Restaurant entity", () => {
+    const ld = generateRestaurantMenusJsonLd(
+      "Joe's Diner",
+      menus,
+      sections,
+      items,
+    );
+    expect(ld["@context"]).toBe("https://schema.org");
+    expect(ld["@type"]).toBe("Restaurant");
+    expect(ld.name).toBe("Joe's Diner");
+  });
+
+  it("includes hasMenu as an array of Menu objects", () => {
+    const ld = generateRestaurantMenusJsonLd(
+      "Joe's Diner",
+      menus,
+      sections,
+      items,
+    );
+    const hasMenu = ld.hasMenu as Record<string, unknown>[];
+    expect(hasMenu).toBeInstanceOf(Array);
+    expect(hasMenu).toHaveLength(2);
+    expect(hasMenu[0]["@type"]).toBe("Menu");
+    expect(hasMenu[1]["@type"]).toBe("Menu");
+  });
+
+  it("sorts menus by order", () => {
+    const ld = generateRestaurantMenusJsonLd(
+      "Joe's Diner",
+      menus,
+      sections,
+      items,
+    );
+    const hasMenu = ld.hasMenu as Record<string, unknown>[];
+    expect(hasMenu[0].name).toBe("Lunch");
+    expect(hasMenu[1].name).toBe("Dinner");
+  });
+
+  it("does not include @context on individual menus", () => {
+    const ld = generateRestaurantMenusJsonLd(
+      "Joe's Diner",
+      menus,
+      sections,
+      items,
+    );
+    const hasMenu = ld.hasMenu as Record<string, unknown>[];
+    expect(hasMenu[0]["@context"]).toBeUndefined();
+    expect(hasMenu[1]["@context"]).toBeUndefined();
+  });
+
+  it("nests sections and items under correct menus", () => {
+    const ld = generateRestaurantMenusJsonLd(
+      "Joe's Diner",
+      menus,
+      sections,
+      items,
+    );
+    const hasMenu = ld.hasMenu as Record<string, unknown>[];
+    const lunch = hasMenu[0];
+    const lunchSections = lunch.hasMenuSection as Record<string, unknown>[];
+    expect(lunchSections).toHaveLength(1);
+    expect(lunchSections[0].name).toBe("Salads");
+  });
+
+  it("includes siteUrl for menu item images", () => {
+    const ld = generateRestaurantMenusJsonLd(
+      "Joe's Diner",
+      menus,
+      sections,
+      [
+        {
+          id: "caesar",
+          data: {
+            ...items[0].data,
+            image: "/images/menu/caesar.webp",
+          },
+        },
+      ],
+      "https://example.com",
+    );
+    const hasMenu = ld.hasMenu as Record<string, unknown>[];
+    const lunch = hasMenu[0];
+    const sec = (lunch.hasMenuSection as Record<string, unknown>[])[0];
+    const menuItem = (sec.hasMenuItem as Record<string, unknown>[])[0];
+    expect(menuItem.image).toBe("https://example.com/images/menu/caesar.webp");
   });
 });

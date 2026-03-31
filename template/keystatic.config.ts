@@ -260,6 +260,31 @@ export default config({
           description: "Lower numbers appear first",
           defaultValue: 0,
         }),
+        layout: fields.select({
+          label: "Layout",
+          description:
+            "How menus are displayed: scroll (one long page), tabs (tabbed navigation), or pages (separate page per menu). Leave empty to auto-detect.",
+          options: [
+            { label: "Auto (recommended)", value: "" },
+            { label: "Single scrolling page", value: "scroll" },
+            { label: "Tabbed navigation", value: "tabs" },
+            { label: "Separate pages", value: "pages" },
+          ],
+          defaultValue: "",
+        }),
+        menuType: fields.select({
+          label: "Menu Type",
+          description: "Affects styling and layout hints",
+          options: [
+            { label: "Standard", value: "standard" },
+            { label: "Daily Specials", value: "daily-specials" },
+            { label: "Seasonal", value: "seasonal" },
+            { label: "Kids", value: "kids" },
+            { label: "Catering", value: "catering" },
+            { label: "Wine & Cocktails", value: "wine-cocktails" },
+          ],
+          defaultValue: "standard",
+        }),
         content: fields.markdoc({ label: "Introduction" }),
       },
     }),

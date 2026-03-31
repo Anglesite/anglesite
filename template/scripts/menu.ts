@@ -27,11 +27,35 @@ export interface MenuSectionData {
   order: number;
 }
 
+/** How multiple menus are displayed on the site. */
+export type MenuLayout = "scroll" | "tabs" | "pages";
+
+/**
+ * Menu type — affects styling hints and semantic context.
+ * - `standard` — default restaurant menu
+ * - `daily-specials` — highlighted, potentially auto-dated
+ * - `seasonal` — can be toggled on/off via `available`
+ * - `kids` — simpler layout, larger text
+ * - `catering` — may include package deals, minimum orders
+ * - `wine-cocktails` — organized by varietal/spirit, tasting notes
+ */
+export type MenuType =
+  | "standard"
+  | "daily-specials"
+  | "seasonal"
+  | "kids"
+  | "catering"
+  | "wine-cocktails";
+
 /** Minimal menu shape matching the content collection schema. */
 export interface MenuData {
   name: string;
   description?: string;
   order: number;
+  /** Layout preference — if unset, inferred from menu count. */
+  layout?: MenuLayout;
+  /** Menu type — affects styling and semantic hints. */
+  menuType?: MenuType;
 }
 
 /**
@@ -188,6 +212,49 @@ export function generateMenuPageJsonLd(
   return {
     "@context": "https://schema.org",
     "@graph": menuObjects,
+  };
+}
+
+/**
+ * Infer the best menu layout based on the number of menus.
+ * - 0–1 menus → scroll (everything on one page)
+ * - 2–4 menus → tabs (tabbed navigation on one page)
+ * - 5+ menus → pages (separate page per menu with index)
+ */
+export function inferMenuLayout(menuCount: number): MenuLayout {
+  if (menuCount <= 1) return "scroll";
+  if (menuCount <= 4) return "tabs";
+  return "pages";
+}
+
+/**
+ * Generate Schema.org JSON-LD wrapping menus in a Restaurant entity.
+ * Uses `hasMenu` (array) per https://schema.org/Restaurant.
+ */
+export function generateRestaurantMenusJsonLd(
+  restaurantName: string,
+  menus: { data: MenuData; id: string }[],
+  sections: { data: MenuSectionData; id: string }[],
+  items: { data: MenuItemData; id: string }[],
+  siteUrl?: string,
+): Record<string, unknown> {
+  const sorted = [...menus].sort((a, b) => a.data.order - b.data.order);
+
+  const menuObjects = sorted.map((m) => {
+    const menuSections = sections
+      .filter((s) => s.data.menu === m.id)
+      .map((s) => s.data);
+    const allItems = items.map((i) => i.data);
+    const ld = generateMenuJsonLd(m.data, menuSections, allItems, siteUrl);
+    delete ld["@context"];
+    return ld;
+  });
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    name: restaurantName,
+    hasMenu: menuObjects,
   };
 }
 

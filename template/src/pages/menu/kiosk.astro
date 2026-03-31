@@ -140,7 +140,7 @@ const menuTabs = allMenus
 
     <!-- Menu sections -->
     {sectionGroups.map((group) => (
-      <section class="kiosk-section" id={group.section.id}>
+      <section class="kiosk-section" id={group.section.id} data-menu-type={activeMenu?.data.menuType || "standard"}>
         <div class="kiosk-section__header">
           <h2 class="kiosk-section__title">{group.section.data.name}</h2>
           {group.section.data.description && (
