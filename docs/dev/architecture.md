@@ -40,7 +40,6 @@
 │   ├── docs/                     Site-specific docs (~17 files) + workflows/
 │   ├── AGENTS.md                 Universal webmaster instructions (any agent)
 │   ├── CLAUDE.md                 Claude Code-specific additions (@imports AGENTS.md)
-│   ├── GEMINI.md                 Gemini CLI pointer (@imports AGENTS.md)
 │   ├── package.json              Site dependencies (Astro, Keystatic)
 │   ├── astro.config.ts           Astro + Keystatic integration config
 │   ├── keystatic.config.ts       CMS schema and collection definitions

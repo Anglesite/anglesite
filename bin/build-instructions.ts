@@ -426,13 +426,6 @@ function main() {
     }
   }
 
-  // Validate GEMINI.md imports
-  const geminiPath = join(ROOT, "template/GEMINI.md");
-  if (existsSync(geminiPath)) {
-    const geminiContent = readFileSync(geminiPath, "utf-8");
-    issues.push(...validateImports(geminiContent, templateDir, "GEMINI.md"));
-  }
-
   // Validate bare docs/ references in skills
   issues.push(...validateSkillDocReferences());
 

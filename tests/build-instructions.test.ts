@@ -241,6 +241,30 @@ describe("validateSkillDocReferences", () => {
 });
 
 // ---------------------------------------------------------------------------
+// GEMINI.md removal (issue #152)
+// ---------------------------------------------------------------------------
+
+describe("GEMINI.md removal", () => {
+  it("template/GEMINI.md does not exist", async () => {
+    const { existsSync } = await import("node:fs");
+    const { join, dirname } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    expect(existsSync(join(root, "template/GEMINI.md"))).toBe(false);
+  });
+
+  it("build-instructions.ts does not reference GEMINI", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join, dirname } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const source = readFileSync(join(root, "bin/build-instructions.ts"), "utf-8");
+    expect(source).not.toContain("GEMINI");
+    expect(source).not.toContain("gemini");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // validateSkillWorkerReferences
 // ---------------------------------------------------------------------------
 
