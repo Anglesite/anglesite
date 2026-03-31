@@ -190,6 +190,56 @@ export function validateSkillDocReferences(
 }
 
 // ---------------------------------------------------------------------------
+// validateSkillWorkerReferences — ensures worker/ files referenced by skills
+// exist in template/worker/
+// ---------------------------------------------------------------------------
+
+/**
+ * Scan all skills for bare `worker/` file references and verify the
+ * referenced files exist in `template/worker/`. These bare paths resolve
+ * in the user's CWD at runtime, so they must be scaffolded from template/.
+ */
+export function validateSkillWorkerReferences(
+  root: string = ROOT,
+): Issue[] {
+  const issues: Issue[] = [];
+  const skillsDir = join(root, "skills");
+  const templateWorkerDir = join(root, "template", "worker");
+
+  if (!existsSync(skillsDir)) return issues;
+
+  const skillDirs = readdirSync(skillsDir).filter(d =>
+    existsSync(join(skillsDir, d, "SKILL.md"))
+  );
+
+  // Match bare worker/ file references (not inside ${CLAUDE_PLUGIN_ROOT})
+  const bareWorkerPattern = /(?<!\$\{CLAUDE_PLUGIN_ROOT\}\/)worker\/([\w/.-]+\.\w+)/g;
+
+  for (const name of skillDirs) {
+    const skillPath = join(skillsDir, name, "SKILL.md");
+    const content = readFileSync(skillPath, "utf-8");
+    const seen = new Set<string>();
+    let match;
+
+    while ((match = bareWorkerPattern.exec(content)) !== null) {
+      const workerFile = match[1];
+      if (seen.has(workerFile)) continue;
+      seen.add(workerFile);
+
+      const templatePath = join(templateWorkerDir, workerFile);
+      if (!existsSync(templatePath)) {
+        issues.push({
+          level: "error",
+          message: `${name}/SKILL.md references worker/${workerFile} but it does not exist in template/worker/`,
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
+// ---------------------------------------------------------------------------
 // Runtime doc-read analysis — scans skill files for doc references
 // ---------------------------------------------------------------------------
 
@@ -385,6 +435,9 @@ function main() {
 
   // Validate bare docs/ references in skills
   issues.push(...validateSkillDocReferences());
+
+  // Validate bare worker/ references in skills
+  issues.push(...validateSkillWorkerReferences());
 
   // --- Summary ---
   console.log("\n────────────────────────────────────");
