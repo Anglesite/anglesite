@@ -66,6 +66,7 @@ Step-by-step guides for common operations:
 | Appointment booking | `docs/workflows/booking.md` |
 | SEO audit and optimization | See `/anglesite:seo` skill |
 | Photography shot list | See `/anglesite:photography` skill |
+| Restaurant menu (import, create, edit) | `docs/workflows/menu.md` |
 | Feedback annotations | `docs/workflows/annotations.md` |
 
 ## Visual communication

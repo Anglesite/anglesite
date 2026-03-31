@@ -26,6 +26,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Get a photography shot list | `/anglesite:photography` |
 | Add on-site search | `/anglesite:search` |
 | Add ecommerce | `/anglesite:add-store` |
+| Create or import a restaurant menu | `/anglesite:menu` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 

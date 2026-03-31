@@ -352,6 +352,7 @@ export default config({
             { label: "Kosher", value: "kosher" },
             { label: "Spicy", value: "spicy" },
             { label: "Raw", value: "raw" },
+            { label: "Contains Alcohol", value: "contains-alcohol" },
           ],
         }),
         customTags: fields.array(
