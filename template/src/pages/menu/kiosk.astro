@@ -1,0 +1,278 @@
+---
+/**
+ * Kiosk menu page — headerless, mobile-first menu for QR/NFC table access.
+ *
+ * Reads menus, menuSections, and menuItems content collections.
+ * Groups available items by section, renders with fixed tab navigation.
+ * No JavaScript required for basic browsing — progressive enhancement only.
+ */
+import { getCollection } from "astro:content";
+import KioskLayout from "../../layouts/KioskLayout.astro";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+// Read site config for restaurant name and branding
+const configPath = resolve(process.cwd(), ".site-config");
+const configContent = existsSync(configPath)
+  ? readFileSync(configPath, "utf-8")
+  : "";
+const siteName =
+  configContent.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "Menu";
+
+// Load content collections
+const allMenus = await getCollection("menus");
+const allSections = await getCollection("menuSections");
+const allItems = await getCollection("menuItems");
+
+// Determine which menu to show (support ?menu=slug query param)
+const menuSlug = Astro.url.searchParams.get("menu");
+const activeMenu = menuSlug
+  ? allMenus.find((m) => m.id === menuSlug)
+  : allMenus.sort((a, b) => (a.data.order ?? 0) - (b.data.order ?? 0))[0];
+
+// Filter sections and items for the active menu
+const sections = allSections
+  .filter((s) => !activeMenu || s.data.menu === activeMenu.id || !s.data.menu)
+  .sort((a, b) => (a.data.order ?? 0) - (b.data.order ?? 0));
+
+const availableItems = allItems
+  .filter((item) => item.data.available !== false)
+  .sort((a, b) => (a.data.order ?? 0) - (b.data.order ?? 0));
+
+// Group items by section
+const sectionGroups = sections
+  .map((section) => ({
+    section,
+    items: availableItems.filter((item) => item.data.section === section.id),
+  }))
+  .filter((group) => group.items.length > 0);
+
+// Collect all unique dietary tags for filter bar
+const allDietaryTags = [
+  ...new Set(availableItems.flatMap((item) => item.data.dietary ?? [])),
+].sort();
+
+// Schema.org structured data
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Menu",
+  name: activeMenu?.data.name ?? `${siteName} Menu`,
+  description: activeMenu?.data.description ?? `Menu for ${siteName}`,
+  hasMenuSection: sectionGroups.map((group) => ({
+    "@type": "MenuSection",
+    name: group.section.data.name,
+    hasMenuItem: group.items.map((item) => ({
+      "@type": "MenuItem",
+      name: item.data.name,
+      description: item.data.description ?? "",
+      ...(item.data.price ? { offers: { "@type": "Offer", price: item.data.price } } : {}),
+      ...(item.data.dietary?.length
+        ? { suitableForDiet: item.data.dietary.map((d: string) => `https://schema.org/${d.replace(/\s+/g, "")}Diet`) }
+        : {}),
+    })),
+  })),
+};
+
+// Multiple menus? Show tabs for switching
+const hasMultipleMenus = allMenus.length > 1;
+const menuTabs = allMenus
+  .sort((a, b) => (a.data.order ?? 0) - (b.data.order ?? 0))
+  .map((m) => ({
+    slug: m.id,
+    name: m.data.name,
+    active: m.id === activeMenu?.id,
+  }));
+---
+
+<KioskLayout
+  title={activeMenu?.data.name ?? "Menu"}
+  description={activeMenu?.data.description ?? `${siteName} menu`}
+  siteName={siteName}
+  jsonLd={jsonLd}
+>
+  <!-- Top bar: restaurant name -->
+  <header class="kiosk-topbar" role="banner">
+    <span class="kiosk-topbar__name">{siteName}</span>
+  </header>
+
+  <!-- Section tabs: horizontal scroll nav -->
+  <nav class="kiosk-tabs" role="tablist" aria-label="Menu sections">
+    {hasMultipleMenus && menuTabs.map((tab) => (
+      <a
+        class:list={["kiosk-tabs__tab", { "is-active": tab.active }]}
+        href={`/menu/kiosk?menu=${tab.slug}`}
+        role="tab"
+        aria-selected={tab.active ? "true" : "false"}
+      >
+        {tab.name}
+      </a>
+    ))}
+    {sectionGroups.map((group) => (
+      <a
+        class="kiosk-tabs__tab"
+        href={`#${group.section.id}`}
+        role="tab"
+        aria-selected="false"
+      >
+        {group.section.data.name}
+      </a>
+    ))}
+  </nav>
+
+  <!-- Main content -->
+  <main class="kiosk-content" id="main">
+    <!-- Dietary filter bar (enhanced by JS) -->
+    {allDietaryTags.length > 0 && (
+      <div class="kiosk-filters" role="toolbar" aria-label="Filter by dietary preference">
+        {allDietaryTags.map((tag) => (
+          <button
+            class="kiosk-filter"
+            type="button"
+            role="switch"
+            aria-pressed="false"
+            data-dietary={tag}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+    )}
+
+    <!-- Menu sections -->
+    {sectionGroups.map((group) => (
+      <section class="kiosk-section" id={group.section.id}>
+        <div class="kiosk-section__header">
+          <h2 class="kiosk-section__title">{group.section.data.name}</h2>
+          {group.section.data.description && (
+            <p class="kiosk-section__description">{group.section.data.description}</p>
+          )}
+        </div>
+
+        {group.items.map((item) => (
+          <article
+            class="kiosk-item"
+            data-dietary={JSON.stringify(item.data.dietary ?? [])}
+          >
+            <div class="kiosk-item__info">
+              <h3 class="kiosk-item__name">{item.data.name}</h3>
+              {item.data.description && (
+                <p class="kiosk-item__description">{item.data.description}</p>
+              )}
+              {(item.data.dietary?.length > 0 || item.data.customTags?.length > 0) && (
+                <div class="kiosk-tags">
+                  {item.data.dietary?.map((tag: string) => (
+                    <span class="kiosk-tag">{tag}</span>
+                  ))}
+                  {item.data.customTags?.map((tag: { label: string; icon?: string }) => (
+                    <span class="kiosk-tag">{tag.icon ? `${tag.icon} ` : ""}{tag.label}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+            {item.data.price && (
+              <span class="kiosk-item__price">{item.data.price}</span>
+            )}
+          </article>
+        ))}
+      </section>
+    ))}
+
+    {sectionGroups.length === 0 && (
+      <p>No menu items available right now. Please check back soon.</p>
+    )}
+  </main>
+
+  <!-- Back-to-top FAB -->
+  <button
+    class="kiosk-fab"
+    type="button"
+    aria-label="Back to top"
+    id="kiosk-fab"
+  >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  </button>
+
+  <!-- Progressive enhancement: dietary filters, active tab tracking, FAB visibility -->
+  <script>
+    // Back-to-top FAB
+    const fab = document.getElementById("kiosk-fab");
+    if (fab) {
+      window.addEventListener("scroll", () => {
+        fab.classList.toggle("is-visible", window.scrollY > 300);
+      }, { passive: true });
+      fab.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    }
+
+    // Active section tab tracking via IntersectionObserver
+    const sections = document.querySelectorAll(".kiosk-section");
+    const tabs = document.querySelectorAll('.kiosk-tabs__tab[href^="#"]');
+    if (sections.length > 0 && tabs.length > 0) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              const id = entry.target.id;
+              tabs.forEach((tab) => {
+                const isMatch = tab.getAttribute("href") === `#${id}`;
+                tab.classList.toggle("is-active", isMatch);
+                tab.setAttribute("aria-selected", String(isMatch));
+              });
+            }
+          }
+        },
+        { rootMargin: "-30% 0px -70% 0px" },
+      );
+      sections.forEach((s) => observer.observe(s));
+    }
+
+    // Dietary filter toggles
+    const filters = document.querySelectorAll(".kiosk-filter");
+    const filterBar = document.querySelector(".kiosk-filters");
+    if (filters.length > 0 && filterBar) {
+      filterBar.classList.add("is-active");
+      const activeFilters = new Set<string>();
+
+      filters.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const tag = (btn as HTMLElement).dataset.dietary ?? "";
+          if (activeFilters.has(tag)) {
+            activeFilters.delete(tag);
+            btn.setAttribute("aria-pressed", "false");
+          } else {
+            activeFilters.add(tag);
+            btn.setAttribute("aria-pressed", "true");
+          }
+
+          // Show/hide items based on active filters
+          document.querySelectorAll(".kiosk-item").forEach((item) => {
+            if (activeFilters.size === 0) {
+              (item as HTMLElement).style.display = "";
+              return;
+            }
+            const itemTags: string[] = JSON.parse(
+              (item as HTMLElement).dataset.dietary ?? "[]",
+            );
+            const lowerTags = itemTags.map((t) => t.toLowerCase());
+            const matches = [...activeFilters].every((f) =>
+              lowerTags.includes(f.toLowerCase()),
+            );
+            (item as HTMLElement).style.display = matches ? "" : "none";
+          });
+
+          // Hide empty sections
+          document.querySelectorAll(".kiosk-section").forEach((section) => {
+            const visibleItems = section.querySelectorAll(
+              '.kiosk-item:not([style*="display: none"])',
+            );
+            (section as HTMLElement).style.display =
+              visibleItems.length > 0 ? "" : "none";
+          });
+        });
+      });
+    }
+  </script>
+</KioskLayout>

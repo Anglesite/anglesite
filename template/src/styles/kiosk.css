@@ -1,0 +1,405 @@
+/**
+ * Kiosk mode styles — mobile-first, headerless menu display.
+ *
+ * Designed for QR/NFC table access in restaurants.
+ * Supports light and dark modes. No site header/footer chrome.
+ * Progressive enhancement: basic layout works without JS.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Dark mode tokens (default for kiosk — restaurants are dimly lit)
+ * Light mode available via prefers-color-scheme or data-theme="light"
+ * ------------------------------------------------------------------------- */
+
+:root[data-theme="kiosk"] {
+  --kiosk-bg: #0f0f0f;
+  --kiosk-surface: #1a1a1a;
+  --kiosk-text: #f0f0f0;
+  --kiosk-muted: #999;
+  --kiosk-border: #2a2a2a;
+  --kiosk-nav-bg: rgba(15, 15, 15, 0.95);
+  --kiosk-active: var(--color-primary, #2563eb);
+  --kiosk-price: var(--color-accent, #d97706);
+  --kiosk-tag-bg: #252525;
+  --kiosk-tag-text: #ccc;
+  --kiosk-fab-bg: var(--color-primary, #2563eb);
+  --kiosk-fab-text: #fff;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="kiosk"]:not([data-force-dark]) {
+    --kiosk-bg: #ffffff;
+    --kiosk-surface: #f9fafb;
+    --kiosk-text: #1a1a1a;
+    --kiosk-muted: #6b6b6b;
+    --kiosk-border: #e5e7eb;
+    --kiosk-nav-bg: rgba(255, 255, 255, 0.95);
+    --kiosk-tag-bg: #f0f0f0;
+    --kiosk-tag-text: #444;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Base
+ * ------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 7rem; /* clear fixed nav + top bar */
+}
+
+body {
+  font-family: var(--font-body, system-ui, -apple-system, sans-serif);
+  color: var(--kiosk-text);
+  background-color: var(--kiosk-bg);
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------------------------------------------------------------------------
+ * Top bar — compact restaurant name + optional logo
+ * ------------------------------------------------------------------------- */
+
+.kiosk-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm, 0.5rem);
+  padding: var(--space-sm, 0.5rem) var(--space-md, 1rem);
+  background: var(--kiosk-nav-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--kiosk-border);
+  min-height: 3rem;
+}
+
+.kiosk-topbar__logo {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm, 4px);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.kiosk-topbar__name {
+  font-family: var(--font-heading, system-ui, -apple-system, sans-serif);
+  font-size: var(--font-size-base, 1rem);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------------------------------------------------------------------------
+ * Section tabs — horizontal scroll nav
+ * ------------------------------------------------------------------------- */
+
+.kiosk-tabs {
+  position: fixed;
+  top: 3rem; /* below top bar */
+  left: 0;
+  right: 0;
+  z-index: 99;
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  background: var(--kiosk-nav-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--kiosk-border);
+  padding: 0 var(--space-sm, 0.5rem);
+  gap: var(--space-xs, 0.25rem);
+}
+
+.kiosk-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.kiosk-tabs__tab {
+  flex-shrink: 0;
+  padding: var(--space-sm, 0.5rem) var(--space-md, 1rem);
+  font-size: var(--font-size-sm, 0.8rem);
+  font-weight: 500;
+  color: var(--kiosk-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+  /* Large tap target */
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.kiosk-tabs__tab:hover,
+.kiosk-tabs__tab:focus-visible {
+  color: var(--kiosk-text);
+}
+
+.kiosk-tabs__tab[aria-selected="true"],
+.kiosk-tabs__tab.is-active {
+  color: var(--kiosk-active);
+  border-bottom-color: var(--kiosk-active);
+}
+
+/* ---------------------------------------------------------------------------
+ * Menu content area
+ * ------------------------------------------------------------------------- */
+
+.kiosk-content {
+  padding-top: 6.5rem; /* top bar (3rem) + tabs (~3.5rem) */
+  padding-bottom: 5rem; /* room for FAB */
+  padding-left: var(--space-md, 1rem);
+  padding-right: var(--space-md, 1rem);
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * Section headers — sticky while scrolling
+ * ------------------------------------------------------------------------- */
+
+.kiosk-section {
+  margin-bottom: var(--space-lg, 2rem);
+}
+
+.kiosk-section__header {
+  position: sticky;
+  top: 5.75rem; /* below fixed nav */
+  z-index: 10;
+  background: var(--kiosk-bg);
+  padding: var(--space-md, 1rem) 0 var(--space-sm, 0.5rem);
+  border-bottom: 1px solid var(--kiosk-border);
+  margin-bottom: var(--space-md, 1rem);
+}
+
+.kiosk-section__title {
+  font-family: var(--font-heading, system-ui, -apple-system, sans-serif);
+  font-size: var(--font-size-xl, 1.563rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.kiosk-section__description {
+  font-size: var(--font-size-sm, 0.8rem);
+  color: var(--kiosk-muted);
+  margin-top: var(--space-xs, 0.25rem);
+}
+
+/* ---------------------------------------------------------------------------
+ * Menu items
+ * ------------------------------------------------------------------------- */
+
+.kiosk-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md, 1rem);
+  padding: var(--space-md, 1rem) 0;
+  border-bottom: 1px solid var(--kiosk-border);
+  /* Large touch target */
+  min-height: 3.5rem;
+}
+
+.kiosk-item:last-child {
+  border-bottom: none;
+}
+
+.kiosk-item__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.kiosk-item__name {
+  font-size: var(--font-size-base, 1rem);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.kiosk-item__description {
+  font-size: var(--font-size-sm, 0.8rem);
+  color: var(--kiosk-muted);
+  margin-top: var(--space-xs, 0.25rem);
+  line-height: 1.4;
+}
+
+.kiosk-item__price {
+  font-size: var(--font-size-base, 1rem);
+  font-weight: 600;
+  color: var(--kiosk-price);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Dietary tags
+ * ------------------------------------------------------------------------- */
+
+.kiosk-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs, 0.25rem);
+  margin-top: var(--space-xs, 0.25rem);
+}
+
+.kiosk-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--kiosk-tag-bg);
+  color: var(--kiosk-tag-text);
+  border-radius: var(--radius-sm, 4px);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ---------------------------------------------------------------------------
+ * Dietary filter bar (progressive enhancement — hidden without JS)
+ * ------------------------------------------------------------------------- */
+
+.kiosk-filters {
+  display: none; /* shown by JS */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: var(--space-xs, 0.25rem);
+  padding: var(--space-sm, 0.5rem) 0;
+}
+
+.kiosk-filters.is-active {
+  display: flex;
+}
+
+.kiosk-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.kiosk-filter {
+  flex-shrink: 0;
+  padding: 0.3rem 0.75rem;
+  font-size: var(--font-size-sm, 0.8rem);
+  border: 1px solid var(--kiosk-border);
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--kiosk-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.kiosk-filter:hover,
+.kiosk-filter:focus-visible {
+  border-color: var(--kiosk-active);
+  color: var(--kiosk-text);
+}
+
+.kiosk-filter[aria-pressed="true"] {
+  background: var(--kiosk-active);
+  border-color: var(--kiosk-active);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------------------
+ * Back-to-top FAB
+ * ------------------------------------------------------------------------- */
+
+.kiosk-fab {
+  position: fixed;
+  bottom: var(--space-lg, 2rem);
+  right: var(--space-md, 1rem);
+  z-index: 50;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: none;
+  background: var(--kiosk-fab-bg);
+  color: var(--kiosk-fab-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.kiosk-fab.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.kiosk-fab svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Responsive — slightly larger text on wider screens
+ * ------------------------------------------------------------------------- */
+
+@media (min-width: 640px) {
+  .kiosk-content {
+    padding-left: var(--space-lg, 2rem);
+    padding-right: var(--space-lg, 2rem);
+  }
+
+  .kiosk-item__name {
+    font-size: var(--font-size-lg, 1.25rem);
+  }
+
+  .kiosk-section__title {
+    font-size: var(--font-size-2xl, 1.953rem);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Reduced motion
+ * ------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .kiosk-tabs__tab,
+  .kiosk-filter,
+  .kiosk-fab {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Print — clean menu for printing
+ * ------------------------------------------------------------------------- */
+
+@media print {
+  .kiosk-topbar,
+  .kiosk-tabs,
+  .kiosk-fab,
+  .kiosk-filters {
+    display: none;
+  }
+
+  .kiosk-content {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .kiosk-section__header {
+    position: static;
+  }
+}

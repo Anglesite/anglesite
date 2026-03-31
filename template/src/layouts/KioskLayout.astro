@@ -1,0 +1,82 @@
+---
+/**
+ * KioskLayout — minimal, headerless layout for QR/NFC table-access menus.
+ *
+ * No site header, footer, or global navigation. Includes:
+ * - Meta viewport optimized for mobile
+ * - Theme color for browser chrome
+ * - Favicon and apple-touch-icon
+ * - Open Graph and Twitter Card metadata
+ * - Optional Schema.org structured data
+ * - Kiosk-specific CSS (dark mode default)
+ */
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+interface Props {
+  title: string;
+  description: string;
+  image?: string;
+  themeColor?: string;
+  jsonLd?: Record<string, unknown>;
+  siteName?: string;
+}
+
+const { title, description, image, themeColor, jsonLd, siteName: propSiteName } = Astro.props;
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
+const ogImage = image ? new URL(image, Astro.site).href : undefined;
+
+const configPath = resolve(process.cwd(), ".site-config");
+const configContent = existsSync(configPath)
+  ? readFileSync(configPath, "utf-8")
+  : "";
+const siteName =
+  propSiteName ?? configContent.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "Menu";
+
+const resolvedThemeColor = themeColor ?? "#0f0f0f";
+---
+
+<!doctype html>
+<html lang="en" data-theme="kiosk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title} — {siteName}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <meta name="theme-color" content={resolvedThemeColor} />
+
+    <!-- Prevent search indexing of kiosk page (it's a utility, not a landing page) -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Icons -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    <!-- Schema.org structured data -->
+    {jsonLd && (
+      <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    )}
+
+    <style>
+      @import "../styles/global.css";
+      @import "../styles/kiosk.css";
+    </style>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
