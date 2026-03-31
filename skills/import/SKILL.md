@@ -100,7 +100,7 @@ SITE_TYPE=blog
 OWNER_NAME=Name
 SITE_NAME=My Site
 DEV_HOSTNAME=mysite.local
-AI_MODEL=Claude Opus 4.6
+AI_MODEL=(write your actual model name here)
 EXPLAIN_STEPS=true
 ```
 

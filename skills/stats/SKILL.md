@@ -1,7 +1,7 @@
 ---
 name: stats
 description: "Show site analytics in plain language"
-allowed-tools: Bash(curl *), Bash(grep *), Bash(git log *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Read, Glob
+allowed-tools: Bash(curl *), Bash(grep *), Bash(git log *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -16,7 +16,7 @@ Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before e
 
 ## Step 0 — Check prerequisites
 
-Read `.site-config` for `CF_API_TOKEN` and `CF_ZONE_ID`.
+Read `.env` for `CF_API_TOKEN` and `CF_ZONE_ID`.
 
 If `CF_API_TOKEN` is missing, guide the owner through creating one:
 
@@ -29,12 +29,12 @@ If `CF_API_TOKEN` is missing, guide the owner through creating one:
 7. Click "Continue to summary" → "Create Token"
 8. Copy the token and share it
 
-Save to `.site-config` as `CF_API_TOKEN=token-value` using the Write tool.
+Save to `.env` as `CF_API_TOKEN=token-value` using the Write tool (update or create the file). **Never save API tokens to `.site-config`** — that file is committed to git. `.env` is gitignored and stays local.
 
 If `CF_ZONE_ID` is missing, fetch it:
 
 ```sh
-CF_API_TOKEN=$(grep CF_API_TOKEN .site-config | cut -d= -f2)
+CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
 ```
 
 ```sh
@@ -42,15 +42,15 @@ curl -s "https://api.cloudflare.com/client/v4/zones?name=$(grep SITE_DOMAIN .sit
   -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[0].id'
 ```
 
-Save to `.site-config` as `CF_ZONE_ID=zone-id`.
+Save to `.env` as `CF_ZONE_ID=zone-id`.
 
 ## Step 1 — Fetch analytics data
 
 Query the Cloudflare GraphQL Analytics API for the last 7 days and the 7 days before that (for comparison).
 
 ```sh
-CF_API_TOKEN=$(grep CF_API_TOKEN .site-config | cut -d= -f2)
-CF_ZONE_ID=$(grep CF_ZONE_ID .site-config | cut -d= -f2)
+CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
+CF_ZONE_ID=$(grep CF_ZONE_ID .env | cut -d= -f2)
 ```
 
 Current week (replace DATE_START and DATE_END with actual ISO dates):
@@ -75,7 +75,7 @@ From the API response, extract:
 3. **Referral sources** — group by `refererHost`, rename common ones (e.g., "google.com" → "Google Search", empty → "Direct")
 4. **Device breakdown** — group by `device` type, calculate percentages
 5. **Busiest day** — group by `date`, map to day names, find the highest
-6. **Campaign breakdown** — group by UTM parameters (`clientRequestPath` query string contains `utm_source`, `utm_medium`, `utm_campaign`). Extract these from pages with UTM params in the URL. Use `formatCampaigns()` from `scripts/analytics-summary.ts`.
+6. **Campaign breakdown** — group by UTM parameters (`clientRequestPath` query string contains `utm_source`, `utm_medium`, `utm_campaign`). Extract these from pages with UTM params in the URL. Group by `utm_source`/`utm_campaign`, label each entry as "{source} "{campaign}"", and sort by visit count descending.
 
 Present the summary in plain language. Example output:
 
@@ -104,7 +104,7 @@ Present the summary in plain language. Example output:
 
 After collecting the data, **draw the results** using tldraw before presenting text:
 
-- Use `barChart()` from `scripts/tldraw-helpers.ts` to show top pages as a horizontal bar chart
+- Use `create_shapes` to draw top pages as a horizontal bar chart (rectangles proportional to visit counts, labeled with page path and count)
 - If campaign data exists, draw a second bar chart for campaign performance
 - The owner sees their numbers as a visual dashboard, not a wall of text
 

@@ -1,7 +1,8 @@
 ---
 name: photography
 description: "Generate a prioritized, site-type-specific shot list with phone photography tips"
-allowed-tools: Bash(cat *), Read, Glob, Write
+allowed-tools: Read, Glob, Write
+disable-model-invocation: true
 ---
 
 Generate a custom photography shot list based on the site type, plus practical phone photography tips. Helps owners know exactly what photos to take before filling in site content.
@@ -43,9 +44,9 @@ Filter the shots to those relevant for the owner's business type:
 3. For comma-separated business types (e.g. "restaurant,catering"), include shots matching any listed type
 
 Group the filtered shots by priority tier:
-- 🔴 **Must-have** — the photos that make the biggest difference; shoot these first
-- 🟡 **High value** — strong additions that elevate the site
-- 🟢 **Nice to have** — polish shots when the owner has time
+- **Must-have** — the photos that make the biggest difference; shoot these first
+- **High value** — strong additions that elevate the site
+- **Nice to have** — polish shots when the owner has time
 
 For each shot, include the label, description, and rationale ("Why: ...").
 
@@ -86,10 +87,10 @@ Present the complete guide in the conversation, structured as:
 # Your Shot List
 (prioritized shots by tier)
 
-## 📱 Getting good photos from your phone
+## Getting good photos from your phone
 (five tips)
 
-## 📚 Go deeper
+## Go deeper
 (external resources)
 ```
 
@@ -97,7 +98,7 @@ Then offer to save:
 
 > "Want me to save this as a reference? I can put it in your project so you can check it off as you go."
 
-If the owner says yes, write to `content/PHOTOGRAPHY.md`.
+If the owner says yes, write to `src/content/PHOTOGRAPHY.md`.
 
 ## Step 7 — Offer follow-up
 

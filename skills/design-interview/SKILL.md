@@ -2,7 +2,7 @@
 name: design-interview
 description: "Redo the visual identity and branding"
 user-invokable: false
-allowed-tools: mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
+allowed-tools: Bash(npm run *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Edit, Glob
 ---
 
 You're a professional web designer conducting a guided design interview. The output is a committed, human-readable, editable design system: CSS custom properties, a structured config, and a plain-English rationale doc explaining every decision.
@@ -156,7 +156,7 @@ Ensure `src/layouts/BaseLayout.astro` imports `src/design/tokens.css`. Add this 
 6. Update CSS custom properties in `src/styles/global.css` — replace old color/font/spacing vars with references to the tokens, or remove duplicates
 7. Verify color contrast meets WCAG AA (4.5:1 for body text, 3:1 for large text) — the generation functions handle this, but double-check
 8. Update the favicon (`public/favicon.svg`) to match the identity
-9. Update `public/manifest.webmanifest` with brand colors (`theme_color` from `--color-brand`, `background_color` from `--color-bg`)
+9. Update `public/manifest.webmanifest` with brand colors (`theme_color` from `--color-primary`, `background_color` from `--color-bg`)
 10. Run `npm run ai-images` to regenerate `apple-touch-icon.png` and `og-image.png`
 11. Build a styled home page that reflects the brand and site type
 12. Add `rel="me"` links to social profiles

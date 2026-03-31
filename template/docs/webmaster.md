@@ -9,7 +9,7 @@ Run `/anglesite:check` for the full health check (build, accessibility, privacy,
 - **Write and edit blog posts** — Keystatic at `https://DEV_HOSTNAME/keystatic` while the preview is running (read `DEV_HOSTNAME` from `.site-config`)
 - **Publish changes** — Type `/anglesite:deploy`
 - **Check site health** — Type `/anglesite:check`
-- **Fix problems** — Type `/anglesite:fix` (diagnoses and repairs common issues)
+- **Fix problems** — Type `/anglesite:check` (diagnoses and repairs common issues)
 
 Everything else (new pages, design changes, custom features) the webmaster handles through conversation.
 

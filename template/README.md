@@ -11,7 +11,7 @@ You own everything — code, content, domain, hosting. If you ever want to move 
 │   ├── pages/          Astro pages (.astro)
 │   ├── layouts/        Page layouts
 │   ├── components/     Reusable components
-│   ├── content/        Blog posts and collections (.mdx)
+│   ├── content/        Blog posts and collections (.mdoc)
 │   └── styles/         Global CSS (custom properties for theming)
 ├── public/             Static assets (images, fonts, _headers, robots.txt)
 ├── docs/               Reference documentation
@@ -33,7 +33,7 @@ Astro produces static HTML with zero client JavaScript by default. Pages in `src
 
 ## Content editing
 
-Blog posts and other content live in `src/content/` as `.mdx` files. You can edit them directly or use the Keystatic visual editor at `https://DEV_HOSTNAME/keystatic` while the dev server is running.
+Blog posts and other content live in `src/content/` as `.mdoc` files. You can edit them directly or use the Keystatic visual editor at `https://DEV_HOSTNAME/keystatic` while the dev server is running.
 
 Content schemas are defined in `keystatic.config.ts`. Frontmatter fields (title, description, publishDate, etc.) are validated at build time.
 

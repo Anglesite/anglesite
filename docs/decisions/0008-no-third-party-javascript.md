@@ -23,13 +23,13 @@ Third-party JavaScript (analytics, social embeds, chat widgets, ad networks) is 
 
 ## Considered Options
 
-* No third-party JavaScript (with one exception)
+* No third-party JavaScript (with seven exceptions)
 * Selective third-party scripts with owner approval
 * Standard analytics and social stacks (Google Analytics, social embeds, chat widgets)
 
 ## Decision Outcome
 
-Chosen option: "No third-party JavaScript", with six exceptions:
+Chosen option: "No third-party JavaScript", with seven exceptions:
 
 1. **Cloudflare Web Analytics** — auto-injected by Cloudflare Pages, uses no cookies, collects no personal data, requires zero setup.
 2. **Cloudflare Turnstile** — privacy-respecting CAPTCHA alternative used by the contact form (`/anglesite:contact`). Same vendor as the hosting platform, no cookies, no tracking. Only loaded on the `/contact` page.

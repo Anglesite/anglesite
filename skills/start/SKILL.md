@@ -1,7 +1,7 @@
 ---
 name: start
 description: "First-time setup: discovery, design, tools, preview"
-allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Bash(gh *), Bash(git remote *), Bash(git push *), Bash(git branch *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
+allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Bash(gh *), Bash(git remote *), Bash(git push *), Bash(git branch *), Bash(git add *), Bash(git commit *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -12,7 +12,7 @@ Welcome a new site owner. This is the first command they'll run — it combines 
 These decisions shape how the site is built. Read when you need to explain *why* to the owner:
 
 - [ADR-0001 Astro](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0001-astro-static-site-generator.md) — why the site uses Astro (zero client JS, static output)
-- [ADR-0002 Keystatic](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0002-keystatic-local-cms.md) — why content is local `.mdx` files, not a hosted CMS
+- [ADR-0002 Keystatic](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0002-keystatic-local-cms.md) — why content is local `.mdoc` files, not a hosted CMS
 - [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — why hosting is on Cloudflare (free, CLI deploy, at-cost domains)
 - [ADR-0009 Industry tools](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0009-industry-tools-over-custom-code.md) — why existing tools are integrated, not replaced
 - [ADR-0010 Local HTTPS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0010-local-https-development.md) — why the dev environment uses HTTPS with a custom hostname
@@ -334,7 +334,7 @@ If they want to open it in a regular browser: "You can also visit https://DEV_HO
 
 Ask: "What do you think? Want to change anything?"
 
-If they want changes, make them now. If they want to redo the whole design later, they can run `/anglesite:design-interview`.
+If they want changes, make them now. If they want to redo the whole design later, they can just ask you to redo the visual identity — say something like "I want to change the design" or "let's start the design over."
 
 **Content education prompts:** During iteration, watch for the content misconceptions in `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 4 ("Content Phase"). If the owner says "I'll write the copy later," surface `COPY_LATER`. If the homepage scope keeps expanding, surface `HOMEPAGE_OVERLOAD`. If they ask for pages "for SEO," surface `PAGE_COUNT_SEO`. Check `.site-config` for the `EDUCATION_<KEY>=shown` flag before each — only surface once.
 

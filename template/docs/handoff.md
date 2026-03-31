@@ -18,7 +18,7 @@ The owner owns everything. There is no platform lock-in, no proprietary code, no
 | Cloudflare Analytics | Owner's Cloudflare account | Not transferable (historical data stays with the account) |
 | Google Business Profile | Owner's Google account | Transfer ownership in Google Business Profile settings |
 | Apple Business Connect | Owner's Apple account | Transfer in Apple Business Connect settings |
-| Content in Keystatic | `.mdx` files in `src/content/` | Included in the website folder |
+| Content in Keystatic | `.mdoc` files in `src/content/` | Included in the website folder |
 | Blog images | `public/images/` | Included in the website folder |
 | Site configuration | `.site-config` | Included in the website folder |
 | Airtable data (if used) | Owner's Airtable account | Export to CSV, or transfer Airtable workspace |
@@ -104,7 +104,7 @@ If the owner wants to move to WordPress, Squarespace, or another platform:
 ### What they keep
 
 - **Domain** — Transfer the domain to whatever DNS/registrar the new platform requires
-- **Content** — All blog posts are `.mdx` files in `src/content/posts/`. The content is plain text with simple formatting — easy to copy into any CMS
+- **Content** — All blog posts are `.mdoc` files in `src/content/posts/`. The content is plain text with simple formatting — easy to copy into any CMS
 - **Images** — All in `public/images/`. Copy to the new platform
 - **Structured data** — The JSON-LD can be copied to any platform
 - **Google Business Profile, Apple Maps, social media** — These are independent of the website platform

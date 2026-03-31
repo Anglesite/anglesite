@@ -115,7 +115,7 @@ SITE_TYPE=blog
 OWNER_NAME=Name
 SITE_NAME=Site Name
 DEV_HOSTNAME=sitename.local
-AI_MODEL=Claude Opus 4.6
+AI_MODEL=(write your actual model name here)
 EXPLAIN_STEPS=true
 POST_URL_PREFIX=blog
 ```
@@ -475,8 +475,6 @@ Ensure the image directory exists:
 ```sh
 mkdir -p public/images/blog
 ```
-
-For each post in BLOG_POSTS:
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md` for the full
 content conversion, image optimization, and `.mdoc` writing procedures.

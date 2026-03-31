@@ -107,7 +107,7 @@ Tell the owner:
 
 > "Your checkout is set up! When visitors click the buy button, Paddle opens a secure checkout overlay right on your site — no redirect needed. Paddle handles payment, tax, and delivery.
 >
-> To manage products, subscriptions, and payouts, use your Paddle dashboard at https://vendors.paddle.com.
+> To manage products, subscriptions, and payouts, use your Paddle dashboard at https://dashboard.paddle.com.
 >
 > Want to preview it?"
 

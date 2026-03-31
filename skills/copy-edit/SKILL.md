@@ -2,7 +2,7 @@
 name: copy-edit
 description: "Audit and coach website copy for clarity, tone, and brand voice"
 user-invokable: false
-allowed-tools: Read, Glob
+allowed-tools: Write, Read, Edit, Glob
 ---
 
 Audit website copy quality across all pages and provide guidance-first coaching. Called during `/anglesite:check`, `/anglesite:deploy`, after `/anglesite:new-page`, or when the owner asks about their writing. Not invoked directly by the owner.
@@ -59,7 +59,7 @@ Save the answers to `docs/brand-voice.md`. This profile is shared with the `synd
 
 ## Step 2 — Sweep all content
 
-Use `Glob` to find all `.mdx` and `.md` content files in `src/content/` and `src/pages/`. Also check `.astro` page files for inline text content (hero headlines, CTAs, about sections).
+Use `Glob` to find all `.mdoc` and `.md` content files in `src/content/` and `src/pages/`. Also check `.astro` page files for inline text content (hero headlines, CTAs, about sections).
 
 Read each file and evaluate against the audit checklist below. Track findings per page.
 

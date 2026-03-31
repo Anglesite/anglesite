@@ -23,6 +23,11 @@ function findAstroFiles(dir) {
   return results;
 }
 
+// Pages that intentionally use a specialized layout instead of BaseLayout
+const ALTERNATIVE_LAYOUT_PAGES = new Set([
+  'menu/kiosk.astro', // KioskLayout — headerless mobile menu for QR/NFC table access
+]);
+
 const pageFiles = findAstroFiles(pagesDir).map((full) => ({
   path: full,
   name: relative(pagesDir, full),
@@ -37,7 +42,11 @@ describe('page contracts', () => {
   for (const page of pageFiles) {
     describe(page.name, () => {
       it('imports BaseLayout', () => {
-        expect(page.content).toMatch(/import\s+BaseLayout\s+from/);
+        if (ALTERNATIVE_LAYOUT_PAGES.has(page.name)) {
+          expect(page.content).toMatch(/import\s+\w+Layout\s+from/);
+        } else {
+          expect(page.content).toMatch(/import\s+BaseLayout\s+from/);
+        }
       });
 
       it('passes a title prop to BaseLayout', () => {

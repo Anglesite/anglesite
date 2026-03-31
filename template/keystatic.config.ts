@@ -55,6 +55,11 @@ export default config({
           description: "Drafts are not published to the live site",
           defaultValue: false,
         }),
+        sendNewsletter: fields.checkbox({
+          label: "Send to Newsletter",
+          description: "When checked, sends this post to newsletter subscribers on deploy",
+          defaultValue: false,
+        }),
         syndication: fields.array(fields.url({ label: "URL" }), {
           label: "Syndication Links",
           description: "URLs where this post was shared (added after posting to social media)",
@@ -353,6 +358,44 @@ export default config({
           defaultValue: 0,
         }),
         content: fields.markdoc({ label: "Details" }),
+      },
+    }),
+    experiments: collection({
+      label: "Experiments",
+      slugField: "title",
+      path: "src/content/experiments/*",
+      format: { contentField: "content" },
+      schema: {
+        title: fields.slug({ name: { label: "Title" } }),
+        description: fields.text({
+          label: "Description",
+          description: "Short description for the gallery",
+        }),
+        date: fields.date({
+          label: "Date",
+          validation: { isRequired: true },
+        }),
+        tags: fields.multiselect({
+          label: "Tags",
+          options: [
+            { label: "p5.js", value: "p5" },
+            { label: "Three.js", value: "three" },
+            { label: "GSAP", value: "gsap" },
+            { label: "Audio", value: "audio" },
+            { label: "D3", value: "d3" },
+          ],
+        }),
+        library: fields.text({ label: "Library" }),
+        thumbnail: fields.text({
+          label: "Thumbnail",
+          description: "Path relative to public/ (e.g., /images/experiments/thumb.webp)",
+        }),
+        draft: fields.checkbox({
+          label: "Draft",
+          description: "Hide from the gallery",
+          defaultValue: false,
+        }),
+        content: fields.markdoc({ label: "Content" }),
       },
     }),
     faq: collection({

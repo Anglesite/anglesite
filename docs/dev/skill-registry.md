@@ -4,13 +4,14 @@
 
 ## User-facing
 
-Invoked via `/anglesite:<name>` (15 skills):
+Invoked via `/anglesite:<name>` (17 skills):
 
 | Skill | Purpose |
 |---|---|
 | `add-store` | Add ecommerce to your site — sells physical goods, digital downloads, services, or software |
 | `backup` | Back up site changes to GitHub with a descriptive summary |
 | `booking` | Embed appointment scheduling (Cal.com or Calendly) into the site |
+| `check` | Health audit and troubleshooting |
 | `contact` | Set up a contact form with Cloudflare Workers and Turnstile |
 | `convert` | Convert an existing static site generator project (Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress, MkDocs, Eleventy, Hexo) to Anglesite/Astro |
 | `deploy` | Build, security scan, and deploy to Cloudflare Pages |
@@ -18,6 +19,7 @@ Invoked via `/anglesite:<name>` (15 skills):
 | `import` | Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project |
 | `menu` | Create, import, or edit a restaurant menu from PDF, photo, or scratch |
 | `newsletter` | Set up email newsletter with Buttondown, subscribe form, and auto-syndication |
+| `photography` | Generate a prioritized, site-type-specific shot list with phone photography tips |
 | `search` | Add on-site search so visitors can find content quickly |
 | `seo` | SEO audit, metadata editing, Schema.org, sitemap, and LLM/GEO optimization |
 | `start` | First-time setup: discovery, design, tools, preview |
@@ -26,7 +28,7 @@ Invoked via `/anglesite:<name>` (15 skills):
 
 ## Model-only
 
-Called programmatically by other skills (22 skills):
+Called programmatically by other skills (23 skills):
 
 | Skill | Purpose |
 |---|---|
@@ -36,6 +38,7 @@ Called programmatically by other skills (22 skills):
 | `copy-edit` | Audit and coach website copy for clarity, tone, and brand voice |
 | `creative-canvas` | Add interactive visual effects and creative coding to any page |
 | `design-interview` | Redo the visual identity and branding |
+| `experiment` | Propose, run, and analyze A/B tests to improve conversions |
 | `i18n` | Set up multi-language support with localized routes, hreflang, and language switcher |
 | `lemon-squeezy` | Add a Lemon Squeezy checkout overlay for digital product sales (alternative to Polar) |
 | `new-page` | Create a new page with SEO and accessibility |
@@ -52,14 +55,4 @@ Called programmatically by other skills (22 skills):
 | `syndicate` | Generate social media posts from a blog post for POSSE syndication |
 | `testimonials` | Set up customer review collection, moderation, and display with star ratings |
 | `themes` | Present pre-built visual themes with tldraw color swatch cards |
-
-## Both
-
-Can be invoked by users or called by other skills (3 skills):
-
-| Skill | Purpose |
-|---|---|
-| `check` | Health audit and troubleshooting |
-| `experiment` | Propose, run, and analyze A/B tests to improve conversions |
-| `photography` | Generate a prioritized, site-type-specific shot list with phone photography tips |
 

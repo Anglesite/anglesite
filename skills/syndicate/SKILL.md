@@ -21,7 +21,7 @@ Do not invoke unprompted during routine edits. Offer it naturally: "You just pub
 
 ## Step 1 — Read the blog post
 
-Read the blog post's frontmatter and content from `src/content/posts/<slug>.mdx`. Extract:
+Read the blog post's frontmatter and content from `src/content/posts/<slug>.mdoc`. Extract:
 - `title`
 - `description`
 - `tags`
