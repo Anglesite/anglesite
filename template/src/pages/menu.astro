@@ -114,6 +114,7 @@ const dietaryLabels: Record<string, string> = {
   kosher: "Kosher",
   spicy: "Spicy",
   raw: "Raw",
+  "contains-alcohol": "Contains Alcohol",
 };
 ---
 
@@ -197,6 +198,7 @@ const dietaryLabels: Record<string, string> = {
                         data-diet={tag}
                         aria-label={dietaryLabels[tag] || tag}
                       >
+                        <img src={`/images/dietary/${tag}.svg`} alt="" aria-hidden="true" class="dietary-icon" width="16" height="16" />
                         {dietaryLabels[tag] || tag}
                       </span>
                     ))}
@@ -218,4 +220,11 @@ const dietaryLabels: Record<string, string> = {
       ))}
     </div>
   ))}
+
+  {/* Allergen disclaimer — configurable via MENU_ALLERGEN_DISCLAIMER in .site-config */}
+  {menus.length > 0 && (
+    <footer class="allergen-disclaimer">
+      <p>Please inform your server of any allergies. Menu items may contain or come into contact with allergens.</p>
+    </footer>
+  )}
 </BaseLayout>

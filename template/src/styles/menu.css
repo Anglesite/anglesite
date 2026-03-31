@@ -175,6 +175,57 @@
   color: #78350f;
 }
 
+.dietary-badge[data-diet="dairy-free"] {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e3a5f;
+}
+
+.dietary-badge[data-diet="nut-free"] {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.dietary-badge[data-diet="halal"] {
+  background: #f0fdf4;
+  border-color: #4ade80;
+  color: #166534;
+}
+
+.dietary-badge[data-diet="kosher"] {
+  background: #eef2ff;
+  border-color: #818cf8;
+  color: #3730a3;
+}
+
+.dietary-badge[data-diet="spicy"] {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.dietary-badge[data-diet="raw"] {
+  background: #f0fdfa;
+  border-color: #5eead4;
+  color: #115e59;
+}
+
+.dietary-badge[data-diet="contains-alcohol"] {
+  background: #fdf4ff;
+  border-color: #c084fc;
+  color: #6b21a8;
+}
+
+/* Dietary icon within badge */
+.dietary-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  margin-right: 0.25em;
+}
+
 /* Custom tags */
 .custom-tag {
   display: inline-block;
@@ -216,6 +267,16 @@
 /* Unavailable item overlay (kept in DOM for owners, hidden from visitors) */
 .menu-item[data-available="false"] {
   display: none;
+}
+
+/* Allergen disclaimer */
+.allergen-disclaimer {
+  margin-top: var(--space-xl);
+  padding: var(--space-md);
+  border-top: 1px solid var(--menu-color-divider);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  text-align: center;
 }
 
 /* ----------------------------------------------------------------

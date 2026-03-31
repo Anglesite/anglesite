@@ -47,10 +47,11 @@ describe("mapDietaryTag", () => {
     );
   });
 
-  it("returns undefined for unrecognized tags", () => {
+  it("returns undefined for tags without schema.org mapping", () => {
     expect(mapDietaryTag("spicy")).toBeUndefined();
     expect(mapDietaryTag("raw")).toBeUndefined();
     expect(mapDietaryTag("nut-free")).toBeUndefined();
+    expect(mapDietaryTag("contains-alcohol")).toBeUndefined();
   });
 });
 
@@ -478,6 +479,142 @@ describe("individual menu page template", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// SVG dietary icons
+// ---------------------------------------------------------------------------
+
+describe("dietary SVG icons", () => {
+  const iconsDir = resolve(
+    import.meta.dirname!,
+    "..",
+    "template",
+    "public",
+    "images",
+    "dietary",
+  );
+
+  const expectedIcons = [
+    "vegetarian",
+    "vegan",
+    "gluten-free",
+    "dairy-free",
+    "nut-free",
+    "halal",
+    "kosher",
+    "spicy",
+    "raw",
+    "contains-alcohol",
+  ];
+
+  for (const icon of expectedIcons) {
+    it(`${icon}.svg exists`, () => {
+      expect(existsSync(resolve(iconsDir, `${icon}.svg`))).toBe(true);
+    });
+  }
+
+  for (const icon of expectedIcons) {
+    it(`${icon}.svg uses currentColor for theme inheritance`, () => {
+      const svg = readFileSync(resolve(iconsDir, `${icon}.svg`), "utf-8");
+      expect(svg).toContain("currentColor");
+    });
+  }
+
+  for (const icon of expectedIcons) {
+    it(`${icon}.svg is under 1KB`, () => {
+      const stat = readFileSync(resolve(iconsDir, `${icon}.svg`));
+      expect(stat.byteLength).toBeLessThan(1024);
+    });
+  }
+
+  for (const icon of expectedIcons) {
+    it(`${icon}.svg has aria-label and role="img"`, () => {
+      const svg = readFileSync(resolve(iconsDir, `${icon}.svg`), "utf-8");
+      expect(svg).toContain('role="img"');
+      expect(svg).toContain("aria-label");
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Allergen disclaimer on menu pages
+// ---------------------------------------------------------------------------
+
+describe("allergen disclaimer", () => {
+  const menuPagePath = resolve(
+    import.meta.dirname!,
+    "..",
+    "template",
+    "src",
+    "pages",
+    "menu.astro",
+  );
+  const slugPagePath = resolve(
+    import.meta.dirname!,
+    "..",
+    "template",
+    "src",
+    "pages",
+    "menu",
+    "[slug].astro",
+  );
+
+  it("menu.astro includes allergen disclaimer text", () => {
+    const html = readFileSync(menuPagePath, "utf-8");
+    expect(html).toContain("allergen");
+    expect(html).toContain("inform your server");
+  });
+
+  it("[slug].astro includes allergen disclaimer text", () => {
+    const html = readFileSync(slugPagePath, "utf-8");
+    expect(html).toContain("allergen");
+    expect(html).toContain("inform your server");
+  });
+
+  it("menu.astro disclaimer has the allergen-disclaimer class", () => {
+    const html = readFileSync(menuPagePath, "utf-8");
+    expect(html).toContain("allergen-disclaimer");
+  });
+
+  it("[slug].astro disclaimer has the allergen-disclaimer class", () => {
+    const html = readFileSync(slugPagePath, "utf-8");
+    expect(html).toContain("allergen-disclaimer");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Dietary icon references in menu pages
+// ---------------------------------------------------------------------------
+
+describe("dietary icon rendering in menu pages", () => {
+  const menuPagePath = resolve(
+    import.meta.dirname!,
+    "..",
+    "template",
+    "src",
+    "pages",
+    "menu.astro",
+  );
+  const slugPagePath = resolve(
+    import.meta.dirname!,
+    "..",
+    "template",
+    "src",
+    "pages",
+    "menu",
+    "[slug].astro",
+  );
+
+  it("menu.astro references dietary icon path", () => {
+    const html = readFileSync(menuPagePath, "utf-8");
+    expect(html).toContain("/images/dietary/");
+  });
+
+  it("[slug].astro references dietary icon path", () => {
+    const html = readFileSync(slugPagePath, "utf-8");
+    expect(html).toContain("/images/dietary/");
+  });
+});
+
 describe("menu.css", () => {
   const cssPath = resolve(
     import.meta.dirname!,
@@ -510,5 +647,30 @@ describe("menu.css", () => {
   it("styles dietary badges", () => {
     const css = readFileSync(cssPath, "utf-8");
     expect(css).toContain("dietary");
+  });
+
+  const allDietaryTags = [
+    "vegetarian",
+    "vegan",
+    "gluten-free",
+    "dairy-free",
+    "nut-free",
+    "halal",
+    "kosher",
+    "spicy",
+    "raw",
+    "contains-alcohol",
+  ];
+
+  for (const tag of allDietaryTags) {
+    it(`has color variant for data-diet="${tag}"`, () => {
+      const css = readFileSync(cssPath, "utf-8");
+      expect(css).toContain(`[data-diet="${tag}"]`);
+    });
+  }
+
+  it("styles allergen-disclaimer", () => {
+    const css = readFileSync(cssPath, "utf-8");
+    expect(css).toContain("allergen-disclaimer");
   });
 });

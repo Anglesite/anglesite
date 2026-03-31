@@ -86,6 +86,12 @@ describe('menu accessibility', () => {
       expect(page).toMatch(/class="dietary-badge"[^>]*aria-label=/);
     }
   });
+
+  it('dietary labels include contains-alcohol', () => {
+    for (const page of [menuPage, slugPage]) {
+      expect(page).toContain('"contains-alcohol"');
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
