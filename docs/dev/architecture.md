@@ -38,9 +38,7 @@
 │   ├── public/                   Static assets
 │   ├── scripts/                  setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
 │   ├── docs/                     Site-specific docs (~17 files) + workflows/
-│   ├── AGENTS.md                 Universal webmaster instructions (any agent)
-│   ├── CLAUDE.md                 Claude Code-specific additions (@imports AGENTS.md)
-│   ├── GEMINI.md                 Gemini CLI pointer (@imports AGENTS.md)
+│   ├── CLAUDE.md                 Webmaster guide + Claude Code commands
 │   ├── package.json              Site dependencies (Astro, Keystatic)
 │   ├── astro.config.ts           Astro + Keystatic integration config
 │   ├── keystatic.config.ts       CMS schema and collection definitions

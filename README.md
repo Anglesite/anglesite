@@ -105,7 +105,7 @@ Estimated cost per `/anglesite:start` session (~30 turns):
 | File | Tokens |
 |---|---|
 | System prompt (est.) | 2,000 |
-| AGENTS.md + CLAUDE.md | 1,989 |
+| CLAUDE.md | 1,989 |
 | **Subtotal** | **3,989** |
 
 ### Skill + on-demand reads

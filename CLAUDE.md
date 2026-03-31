@@ -87,9 +87,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── public/                   Static assets
 │   ├── scripts/                  setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
 │   ├── docs/                     Site-specific docs (~17 files) + workflows/
-│   ├── AGENTS.md                 Universal webmaster instructions (any agent)
-│   ├── CLAUDE.md                 Claude Code-specific additions (@imports AGENTS.md)
-│   ├── GEMINI.md                 Gemini CLI pointer (@imports AGENTS.md)
+│   ├── CLAUDE.md                 Webmaster guide + Claude Code commands
 │   ├── package.json              Site dependencies (Astro, Keystatic)
 │   ├── astro.config.ts           Astro + Keystatic integration config
 │   ├── keystatic.config.ts       CMS schema and collection definitions
@@ -103,14 +101,12 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ## Agent instruction hierarchy
 
-Three levels of agent instructions exist — do not confuse them:
+Two levels of agent instructions exist — do not confuse them:
 
 | File | Audience | Purpose |
 |---|---|---|
 | **This file** (root `CLAUDE.md`) | Plugin developers | Building and maintaining the plugin itself |
-| `template/AGENTS.md` | All AI agents | Universal webmaster instructions (also usable by Codex, Cursor, etc.) |
-| `template/CLAUDE.md` | Claude Code users | `@imports` AGENTS.md, adds slash commands and shell rules |
-| `template/GEMINI.md` | Gemini CLI users | One-line `@AGENTS.md` pointer |
+| `template/CLAUDE.md` | Claude Code / Cowork users | Webmaster guide + Claude Code commands |
 
 ## How it works
 

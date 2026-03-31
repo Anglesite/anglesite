@@ -34,7 +34,7 @@ The owner's entire website — code, content, configuration, images — is store
 
 ## Issue tracking
 
-The webmaster agent files GitHub issues when it encounters bugs. See `AGENTS.md` for the filing workflow.
+The webmaster agent files GitHub issues when it encounters bugs. See `CLAUDE.md` for the filing workflow.
 
 ### Labels
 

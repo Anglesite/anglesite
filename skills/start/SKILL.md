@@ -168,7 +168,7 @@ ANGLESITE_VERSION=0.16.3
 
 Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, `AI_MODEL`, and `EXPLAIN_STEPS` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. `EXISTING_TOOLS` is present if the owner mentioned tools (business) or social platforms (portfolio). The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
 
-The scaffolded template includes a default `anglesite.config.json` with all seven collections. If the design interview (Step 2) adds or removes collections or adds singletons, regenerate the manifest by reading `keystatic.config.ts` and updating `anglesite.config.json` to match. This manifest tells the agent what content types exist for smart tool routing — see "Smart tool launching" in `AGENTS.md`.
+The scaffolded template includes a default `anglesite.config.json` with all seven collections. If the design interview (Step 2) adds or removes collections or adds singletons, regenerate the manifest by reading `keystatic.config.ts` and updating `anglesite.config.json` to match. This manifest tells the agent what content types exist for smart tool routing — see "Smart tool launching" in `CLAUDE.md`.
 
 ## Step 2 — Design interview
 

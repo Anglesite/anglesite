@@ -1,9 +1,7 @@
 /**
- * Validates and measures token efficiency of all agent instruction files.
+ * Validates and measures token efficiency of agent instruction files.
  *
  * Checks:
- * - AGENTS.md under Codex 32KB limit
- * - No content duplication between AGENTS.md and CLAUDE.md
  * - Token budget for always-loaded context
  * - Per-skill token measurements
  * - @import references resolve
@@ -22,7 +20,6 @@ const ROOT = join(__dirname, "..");
 // Constants
 // ---------------------------------------------------------------------------
 
-export const CODEX_MAX_BYTES = 32_768;
 export const WARN_SKILL_BYTES = 8_192;
 
 // Approximate: 1 token ≈ 4 bytes for English text
@@ -70,23 +67,6 @@ export interface Issue {
   message: string;
 }
 
-export function validateCodexLimit(agentsMd: FileInfo | null): Issue[] {
-  if (!agentsMd) return [];
-  if (agentsMd.bytes > CODEX_MAX_BYTES) {
-    return [{
-      level: "error",
-      message: `AGENTS.md is ${fmtKB(agentsMd.bytes)} — exceeds Codex 32KB limit (${fmtKB(CODEX_MAX_BYTES)})`,
-    }];
-  }
-  if (agentsMd.bytes > CODEX_MAX_BYTES * 0.8) {
-    return [{
-      level: "warn",
-      message: `AGENTS.md is ${fmtKB(agentsMd.bytes)} — over 80% of Codex 32KB limit`,
-    }];
-  }
-  return [];
-}
-
 export function validateImports(content: string, dir: string, label: string): Issue[] {
   const issues: Issue[] = [];
   const importPattern = /^@(\S+)/gm;
@@ -100,28 +80,6 @@ export function validateImports(content: string, dir: string, label: string): Is
         message: `${label} references @${importPath} but file does not exist`,
       });
     }
-  }
-  return issues;
-}
-
-export function validateNoDuplication(agentsContent: string, claudeContent: string): Issue[] {
-  const issues: Issue[] = [];
-
-  // Extract non-trivial lines (>30 chars, not headers/tables/blank)
-  const agentsLines = agentsContent.split("\n")
-    .filter(l => l.length > 30 && !l.startsWith("#") && !l.startsWith("|") && l.trim() !== "");
-
-  const claudeLines = new Set(
-    claudeContent.split("\n")
-      .filter(l => l.length > 30 && !l.startsWith("#") && !l.startsWith("|") && !l.startsWith("@") && l.trim() !== "")
-  );
-
-  const duplicates = agentsLines.filter(l => claudeLines.has(l));
-  if (duplicates.length > 3) {
-    issues.push({
-      level: "warn",
-      message: `${duplicates.length} lines appear in both AGENTS.md and CLAUDE.md — possible duplication`,
-    });
   }
   return issues;
 }
@@ -329,7 +287,6 @@ function main() {
 
   // Measure always-loaded files
   const templateDir = join(ROOT, "template");
-  const agentsMd = measureFile("template/AGENTS.md", "AGENTS.md");
   const claudeMd = measureFile("template/CLAUDE.md", "CLAUDE.md");
 
   console.log("Agent Instruction Efficiency Report");
@@ -338,7 +295,6 @@ function main() {
   // --- Always-loaded context ---
   console.log("Always-loaded context (every turn):");
   const alwaysLoaded: FileInfo[] = [];
-  if (agentsMd) alwaysLoaded.push(agentsMd);
   if (claudeMd) alwaysLoaded.push(claudeMd);
 
   for (const f of alwaysLoaded) {
@@ -412,25 +368,9 @@ function main() {
   console.log(`\nReference docs: ${docCount} files, ${fmtKB(totalDocBytes)}, ${fmt(tokens(totalDocBytes))} tokens (loaded on demand)`);
 
   // --- Validation ---
-  if (agentsMd) {
-    issues.push(...validateCodexLimit(agentsMd));
-  }
-
   if (claudeMd) {
     const claudeContent = readFileSync(join(ROOT, "template/CLAUDE.md"), "utf-8");
     issues.push(...validateImports(claudeContent, templateDir, "CLAUDE.md"));
-
-    if (agentsMd) {
-      const agentsContent = readFileSync(join(ROOT, "template/AGENTS.md"), "utf-8");
-      issues.push(...validateNoDuplication(agentsContent, claudeContent));
-    }
-  }
-
-  // Validate GEMINI.md imports
-  const geminiPath = join(ROOT, "template/GEMINI.md");
-  if (existsSync(geminiPath)) {
-    const geminiContent = readFileSync(geminiPath, "utf-8");
-    issues.push(...validateImports(geminiContent, templateDir, "GEMINI.md"));
   }
 
   // Validate bare docs/ references in skills
@@ -456,13 +396,7 @@ function main() {
     }
   }
 
-  // Codex budget
-  if (agentsMd) {
-    const pct = Math.round((agentsMd.bytes / CODEX_MAX_BYTES) * 100);
-    console.log(`\nCodex budget: ${pct}% of 32KB limit`);
-  }
-
-  console.log(`Claude context: ~${fmt(totalAlwaysTokens)} tokens always loaded`);
+  console.log(`\nClaude context: ~${fmt(totalAlwaysTokens)} tokens always loaded`);
 
   if (errors.length > 0) {
     process.exit(1);

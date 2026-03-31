@@ -1,6 +1,6 @@
 # First-Time Setup
 
-**Prerequisite:** An AI coding tool — [Claude Desktop](https://claude.ai/download) (recommended), Codex, Gemini CLI, Cursor, Windsurf, or GitHub Copilot.
+**Prerequisite:** [Claude Desktop](https://claude.ai/download) (recommended) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 The user opens the project folder in their AI coding tool and runs the `anglesite:start` command.
 
