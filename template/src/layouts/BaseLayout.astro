@@ -24,7 +24,7 @@ function resolveOgImage(pathname: string, customImage?: string): string {
 const ogImagePath = resolveOgImage(Astro.url.pathname, image);
 const ogImage = new URL(ogImagePath, Astro.site).toString();
 
-// Build generator string: Anglesite 0.9.0 (Claude Opus 4.6, Astro v5.16.0)
+// Build generator string: Anglesite 0.16.4 (Claude Opus 4.6, Astro v5.16.0)
 const { version } = JSON.parse(
   readFileSync(resolve(process.cwd(), "package.json"), "utf-8"),
 );
