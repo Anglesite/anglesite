@@ -2,6 +2,77 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0-beta.1] — 2026-03-31
+
+First beta for the 1.0 release. All 0.16.x blockers resolved — entering QA.
+Bug fixes will be filed against the 1.0 milestone; feature requests against 1.1.
+
+### Added
+- 40 skills (17 user-facing, 23 model-only) covering site lifecycle from scaffolding to analytics
+- MCP annotation server for visual element selection
+- Pre-deploy security hooks (PII, token, third-party script, and admin route scanning)
+- Prerelease version support in `bin/release.ts`
+
+### Fixed
+- Plugin-root docs referenced by 18+ skills (#145)
+- MCP server test timeouts (#146)
+- html-validate dependency scope (#147)
+- Experiment skill frontmatter (#148)
+- Missing worker/ directory (#149)
+- ADR-0015 acceptance (#150)
+- CLAUDE.md version sync (#151)
+- CHANGELOG backfill for 0.16.x releases (#155)
+
+## [0.16.4] — 2026-03-25
+
+### Added
+- `/anglesite:contact` skill — contact form via Cloudflare Workers + Turnstile (#49)
+- `/anglesite:update` skill — one-command site dependency and template updates (#48)
+- Content collections for services, team, testimonials, gallery, events, and FAQ (#47)
+
+### Fixed
+- Marketplace source path and schema compatibility with Claude Desktop app
+- Marketplace `keywords`/`tags` removed, `homepage` added
+
+## [0.16.3] — 2026-03-24
+
+### Fixed
+- Plugin metadata aligned with Claude Code plugin/marketplace conventions
+- Cleaned up `.gitignore` — removed legacy template paths, fixed patterns
+
+## [0.16.2] — 2026-03-24
+
+### Fixed
+- `marketplace.json` moved to repo root and matched official schema (#45)
+- Release script updated for new marketplace.json path
+
+### Changed
+- `CLAUDE.md` rewritten with comprehensive current-state documentation (#46)
+
+## [0.16.1] — 2026-03-23
+
+### Fixed
+- Let CI own GitHub release creation instead of release script
+
+## [0.16.0] — 2026-03-23
+
+### Added
+- `bin/release.ts` — version bumper for all manifests with automatic git tags
+- GitHub backup, branching, and Git integration in deploy skill
+- Squarespace import fixes analogous to Wix extraction improvements
+
+### Fixed
+- `.gitignore` scaffolding appends Astro build artifacts instead of overwriting (#34)
+- Playwright moved to `optionalDependencies` to unblock marketplace install
+- `[slug].astro` missing `prerender = true`, breaking dev mode (#39)
+- Content config path references corrected across codebase (#35)
+- Stale Wrangler references cleaned up in deploy skill
+- `marketplace.json` aligned with official schema to fix plugin install (#40)
+- Plugin manifest version synced with marketplace version
+
+### Changed
+- Plugin instructions optimized — reduced always-loaded tokens by 17%
+
 ## [0.15.0] — 2026-03-23
 
 ### Added
