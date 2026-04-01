@@ -26,9 +26,11 @@
     "url": "https://github.com/Anglesite/anglesite"
   },
   "devDependencies": {
+    "@types/semver": "^7.7.1",
     "html-validate": "^10.11.2",
     "robots-parser": "^3.0.1",
     "schema-dts": "^2.0.0",
+    "semver": "^7.7.4",
     "tsx": "^4.21.0",
     "vitest": "^3.1.1"
   },
