@@ -49,7 +49,7 @@ export function bump(current: string, type: "patch" | "minor" | "major"): string
 }
 
 export function isValidSemver(v: string): boolean {
-  return /^\d+\.\d+\.\d+$/.test(v);
+  return /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/.test(v);
 }
 
 /**
@@ -57,7 +57,7 @@ export function isValidSemver(v: string): boolean {
  */
 export function updateClaudeMdVersion(filePath: string, version: string): void {
   const content = readFileSync(filePath, "utf-8");
-  const pattern = /(\*\*Version:\*\*\s+)[\d.]+/;
+  const pattern = /(\*\*Version:\*\*\s+)[\d.][-\w.]*/;
   if (!pattern.test(content)) {
     throw new Error(`No **Version:** line found in ${filePath}`);
   }

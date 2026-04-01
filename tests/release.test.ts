@@ -35,6 +35,10 @@ describe("isValidSemver", () => {
     expect(isValidSemver("1.2")).toBe(false);
   });
 
+  it("accepts prerelease suffix", () => {
+    expect(isValidSemver("1.0.0-beta.1")).toBe(true);
+  });
+
   it("rejects text", () => {
     expect(isValidSemver("patch")).toBe(false);
   });
@@ -92,7 +96,7 @@ describe("updateClaudeMdVersion", () => {
     const root = join(import.meta.dirname, "..");
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf-8"));
     const claudeMd = readFileSync(join(root, "CLAUDE.md"), "utf-8");
-    const match = claudeMd.match(/\*\*Version:\*\*\s+([\d.]+)/);
+    const match = claudeMd.match(/\*\*Version:\*\*\s+([\d.][-\w.]*)/);
     expect(match, "CLAUDE.md should contain a **Version:** line").not.toBeNull();
     expect(match![1]).toBe(pkg.version);
   });
