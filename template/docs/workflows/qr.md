@@ -9,6 +9,7 @@ SVG QR codes saved to `public/images/qr/` — scalable to any print size.
 Each QR code includes UTM tracking so you can see in `/anglesite:stats` how many people scanned it.
 
 ### Use cases
+
 - Business cards — homepage QR
 - Table tents / menus — page-specific QR
 - Flyers — event or promotion QR
@@ -33,6 +34,7 @@ UTM-tagged URLs for ad agencies, social media campaigns, or email marketing. The
 | `utm_term` | Keyword (optional) | pizza-near-me |
 
 ### Automatic enforcement
+
 - All values lowercased (prevents fragmented data)
 - Spaces → dashes
 - Platform suffixes (.com) stripped
@@ -42,6 +44,7 @@ UTM-tagged URLs for ad agencies, social media campaigns, or email marketing. The
 ## Viewing results
 
 Run `/anglesite:stats` to see campaign performance:
+
 - How many visitors came from each QR code
 - Which shortlinks are getting traffic
 - Ad campaign visit counts

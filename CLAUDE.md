@@ -78,6 +78,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (19 files)
 │   ├── decisions/                ADRs — architecture decision records (16 files)
+│   ├── style-guide.md           HTML, CSS, and TypeScript coding standards for generated sites
 │   └── content-conversion.md    Shared HTML-to-Markdown guidance (used by import + convert)
 ├── template/                     Files scaffolded to user's project
 │   ├── src/                      Astro source (pages, layouts, styles, integrations, toolbar)

@@ -257,7 +257,7 @@ body {
 
 .kiosk-tag {
   display: inline-block;
-  font-size: 0.7rem;
+  font-size: var(--font-size-sm);
   padding: 0.15rem 0.5rem;
   background: var(--kiosk-tag-bg);
   color: var(--kiosk-tag-text);
@@ -331,7 +331,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s;

@@ -6,7 +6,7 @@ You own everything — code, content, domain, hosting. If you ever want to move 
 
 ## Project structure
 
-```
+```text
 ├── src/
 │   ├── pages/          Astro pages (.astro)
 │   ├── layouts/        Page layouts

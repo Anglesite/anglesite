@@ -5,6 +5,7 @@ After the owner has a newsletter platform set up (Buttondown or Mailchimp), the 
 ## When to send
 
 The owner decides which posts become newsletters. Not every blog post needs to be emailed — ask the owner before sending. Common patterns:
+
 - Send every new post as a newsletter
 - Send only certain tagged posts (e.g., posts tagged "newsletter" or "update")
 - Send a weekly digest with links to recent posts
@@ -29,6 +30,7 @@ curl -s -X POST "https://api.buttondown.email/v1/emails" \
 ```
 
 Key parameters:
+
 - `subject` — the email subject line (usually the post title)
 - `body` — Markdown content (Buttondown renders Markdown natively)
 - `status: "about_to_send"` — sends immediately. Use `"draft"` to save without sending.
@@ -56,7 +58,7 @@ When converting a blog post to newsletter format:
 
 After initial newsletter setup, store the platform choice and credentials reference in `.site-config`:
 
-```
+```text
 NEWSLETTER_PLATFORM=buttondown
 ```
 
