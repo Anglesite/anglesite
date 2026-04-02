@@ -81,3 +81,46 @@ Do NOT file issues for:
 - Normal user requests ("make the header blue")
 - Content the owner hasn't written yet
 - Expected behavior (e.g., "build fails because there are no posts")
+
+## Bugs in the Anglesite plugin itself
+
+Some bugs are not in the owner's site — they're in the Anglesite plugin: a skill that gives wrong instructions, a scaffold file that's missing, a template that doesn't build, or a hook that misfires. These should be reported to the plugin repository (`Anglesite/anglesite`), not the owner's site repo.
+
+The `gh` CLI is typically scoped to the owner's site repo and may not have access to create issues on the plugin repo. Instead, open the owner's browser with a pre-filled GitHub issue:
+
+```ts
+import { openCommand } from "./scripts/platform.js";
+
+const title = encodeURIComponent("Bug title here");
+const body = encodeURIComponent(`## What happened\n\nDescription of the problem.\n\n## Steps to reproduce\n\n1. Run \`/anglesite:skill-name\`\n2. ...\n\n## Expected behavior\n\nWhat should have happened.\n\n## Environment\n\n- Anglesite version: (read from package.json)\n- Node: ${process.version}\n- OS: ${process.platform}`);
+const url = `https://github.com/Anglesite/anglesite/issues/new?title=${title}&body=${body}&labels=bug`;
+```
+
+Then run the open command:
+
+```sh
+# macOS:  open "URL"
+# Linux:  xdg-open "URL"
+# Windows: start "URL"
+```
+
+Use `openCommand(url)` from `scripts/platform.ts` to get the right command for the current OS. If the command fails (e.g., headless environment), print the URL so the owner can open it manually.
+
+### When to file against the plugin
+
+File against `Anglesite/anglesite` when:
+- A scaffolded template file is wrong or missing
+- A skill gives incorrect instructions or fails unexpectedly
+- The pre-deploy hook blocks a legitimate deploy
+- A platform detection issue (macOS/Linux/Windows) in template scripts
+
+File against the owner's repo when:
+- The bug is site-specific (content, config, customization)
+- A dependency used by the site (not the plugin) is broken
+- The build fails due to the owner's code changes
+
+### Always ask first
+
+Before opening the browser, tell the owner what you found and ask if they'd like to report it. Explain that the issue is in the tool itself, not their site. Example:
+
+> "I found a bug in Anglesite's deploy skill — it's not checking for X correctly. This affects all Anglesite sites, not just yours. Want me to open a bug report? It'll open GitHub in your browser with the details pre-filled."

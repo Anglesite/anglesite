@@ -234,6 +234,8 @@ Follow the bug filing workflow in `docs/bug-filing.md`. Use the appropriate labe
 - Content issues → `content`
 - Everything else → `bug`
 
+If the issue is in Anglesite itself (not the owner's site), use the plugin bug filing workflow in `docs/bug-filing.md` to open a pre-filled issue in the owner's browser against `Anglesite/anglesite`.
+
 ## Troubleshooting
 
 If the owner reported a specific problem (or you found one during the audit), diagnose and fix it.
