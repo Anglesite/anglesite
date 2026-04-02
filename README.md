@@ -13,9 +13,10 @@ Anglesite works with [Claude Cowork](https://support.claude.com/en/articles/1334
 3. Press **+** > **Plugins** > **Add Plugin**
 4. Select the **Personal** tab, press **+**
 5. Select **Add Marketplace from GitHub**
-6. Enter `Anglesite/anglesite` and press **Sync**
-7. Create a new folder for your site and open it in the **Code** tab
-8. Type `/anglesite:start`
+6. Enter `Anglesite/marketplace` and press **Sync**
+7. Enable the **anglesite** plugin
+8. Create a new folder for your site and open it in the **Code** tab
+9. Type `/anglesite:start`
 
 No terminal, no installs, no prerequisites. Claude handles everything.
 
@@ -23,7 +24,7 @@ No terminal, no installs, no prerequisites. Claude handles everything.
 
 ```sh
 # Add the marketplace (one-time)
-claude plugin marketplace add Anglesite/anglesite
+claude plugin marketplace add Anglesite/marketplace
 
 # Install the plugin
 claude plugin install anglesite
@@ -59,6 +60,7 @@ The start command scaffolds your project, learns about your business, designs th
 | `/anglesite:seo` | SEO audit, metadata, Schema.org, sitemap |
 | `/anglesite:search` | Add on-site search via Pagefind |
 | `/anglesite:photography` | Site-specific photo shot list with tips |
+| `/anglesite:menu` | Restaurant menu import, creation, and editing |
 
 ## Who this is for
 

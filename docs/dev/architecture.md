@@ -2,7 +2,6 @@
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── marketplace.json              Marketplace distribution config
 ├── skills/                       See docs/dev/skill-registry.md (auto-generated)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
