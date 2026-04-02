@@ -1,0 +1,9 @@
+# Serena project config — semantic code navigation for plugin development
+# See https://github.com/oraios/serena
+#
+# Setup:
+#   uvx -p 3.13 --from git+https://github.com/oraios/serena serena project index
+#   Then add the Serena MCP server to your Claude Code config.
+
+language: typescript
+index: true
