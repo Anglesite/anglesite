@@ -20,18 +20,21 @@ The site must be usable by people with disabilities. This is legally required in
 ## Maintenance schedule
 
 **Monthly**
+
 - Run `/anglesite:check` to verify site health
 - Glance at Cloudflare Analytics — are visitors finding the site? (see `docs/measuring-success.md`)
 - Check for new Google reviews and respond (see `docs/smb/reviews.md`)
 - Verify business info is current on website and map listings (see `docs/smb/info-changes.md`)
 
 **Quarterly**
+
 - Run `/anglesite:update` to get security patches and dependency updates
 - Review blog posts — is the content still accurate and relevant?
 - Quick competitor scan — any changes in the local landscape? (see `docs/smb/competitor-awareness.md`)
 - Review analytics trends and check goals (see `docs/measuring-success.md`)
 
 **Annually**
+
 - Renew domain registration (Cloudflare sends email reminders)
 - Consider refreshing the design if the brand has evolved
 - Review all costs — any unused paid tools? (see `docs/cost-of-ownership.md`)
@@ -44,6 +47,7 @@ For businesses with a physical location:
 ### NAP consistency
 
 Key details must be consistent everywhere (website, map listings, social media, directories):
+
 - **N**ame — exact business name
 - **A**ddress — exact street address
 - **P**hone — primary phone number
@@ -65,6 +69,7 @@ Ask the owner: "Have you claimed your business on Google Maps, Apple Maps, and O
 The home page includes JSON-LD structured data (`LocalBusiness` or `Organization` schema) with the business name, address, phone, and hours. This helps search engines understand the business and display rich results.
 
 Update the JSON-LD whenever the business info changes (new phone number, new hours, new address). Validate with:
+
 - **Schema.org Validator** — validator.schema.org (vendor-neutral, checks schema.org compliance)
 - **Google Rich Results Test** — search.google.com/test/rich-results (checks Google-specific rich result eligibility)
 - **Bing Markup Validator** — bing.com/webmasters/markup-validator (checks Bing-specific rendering)

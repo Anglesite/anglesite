@@ -2,13 +2,12 @@
 
 Anglesite is a Claude plugin that scaffolds and manages websites for small businesses. It works with Claude Cowork (non-technical site owners, GUI) and Claude Code (developers, CLI). It generates Astro + Keystatic sites deployed to Cloudflare Pages.
 
-**Version:** 1.0.0-beta.3 · **License:** ISC · **Node:** >=22 · **Module system:** ESM
+**Version:** 1.0.0-beta.4 · **License:** ISC · **Node:** >=22 · **Module system:** ESM
 
 ## Plugin structure
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── marketplace.json              Marketplace distribution config
 ├── skills/                       Skills (40 total: 17 user-facing, 23 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
@@ -78,6 +77,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (19 files)
 │   ├── decisions/                ADRs — architecture decision records (16 files)
+│   ├── style-guide.md           HTML, CSS, and TypeScript coding standards for generated sites
 │   └── content-conversion.md    Shared HTML-to-Markdown guidance (used by import + convert)
 ├── template/                     Files scaffolded to user's project
 │   ├── src/                      Astro source (pages, layouts, styles, integrations, toolbar)
@@ -238,6 +238,22 @@ cd /tmp/test-site
 npm install
 npm run dev
 ```
+
+## Serena (optional, plugin development)
+
+[Serena](https://github.com/oraios/serena) provides semantic, symbol-level code navigation via language servers. It's useful when working on the plugin itself (tracing cross-skill references, finding symbol usages across 40 skills). Not required — all standard tools work without it.
+
+**Setup:**
+
+```sh
+# Index the project (one-time)
+uvx -p 3.13 --from git+https://github.com/oraios/serena serena project index
+
+# Start the MCP server
+uvx -p 3.13 --from git+https://github.com/oraios/serena serena start-mcp-server --project .
+```
+
+Config lives in `.serena/project.yml`. Requires Python 3.13 and [uv](https://docs.astral.sh/uv/).
 
 ## Security hooks
 

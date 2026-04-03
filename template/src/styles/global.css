@@ -107,7 +107,7 @@ header {
 header a {
   text-decoration: none;
   font-family: var(--font-heading);
-  font-size: 1.5rem;
+  font-size: var(--font-size-xl);
   font-weight: 700;
 }
 
@@ -116,7 +116,7 @@ footer {
   padding: var(--space-md) 0;
   border-top: 1px solid #eee;
   color: var(--color-muted);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 /* Blog */
@@ -144,10 +144,10 @@ footer {
 }
 
 .tags li {
-  background: #f0f0f0;
+  background: var(--color-surface);
   padding: var(--space-xs) var(--space-sm);
-  border-radius: 4px;
-  font-size: 0.875rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
 }
 
 .syndication {
@@ -155,7 +155,7 @@ footer {
   padding: 0;
   display: flex;
   gap: var(--space-sm);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   color: var(--color-muted);
 }
 
@@ -343,7 +343,8 @@ footer {
   }
 }
 
-/* Print */
+/* Print — raw values intentional (token system not available in print) */
+/* stylelint-disable scale-unlimited/declaration-strict-value */
 @media print {
   .skip-link,
   header,
@@ -374,3 +375,4 @@ footer {
     margin: 2cm;
   }
 }
+/* stylelint-enable scale-unlimited/declaration-strict-value */

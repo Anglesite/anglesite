@@ -148,7 +148,7 @@
   display: inline-block;
   padding: 2px var(--space-sm);
   border-radius: var(--radius-sm);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -157,6 +157,9 @@
   color: var(--color-muted);
 }
 
+/* stylelint-disable scale-unlimited/declaration-strict-value -- dietary badge colors
+   are semantic accessibility pairs (background + text per diet type) that don't map
+   to the design token system. Each pair is chosen for WCAG AA contrast. */
 .dietary-badge[data-diet="vegetarian"] {
   background: #ecfdf5;
   border-color: #6ee7b7;
@@ -216,6 +219,7 @@
   border-color: #c084fc;
   color: #6b21a8;
 }
+/* stylelint-enable scale-unlimited/declaration-strict-value */
 
 /* Dietary icon within badge */
 .dietary-icon {
@@ -231,7 +235,7 @@
   display: inline-block;
   padding: 2px var(--space-sm);
   border-radius: var(--radius-sm);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -452,6 +456,7 @@
 /* ----------------------------------------------------------------
  * Print styles — clean, paper-friendly menu
  * ---------------------------------------------------------------- */
+/* stylelint-disable scale-unlimited/declaration-strict-value */
 @media print {
   .menu-nav,
   .menu-selector,
@@ -493,3 +498,4 @@
     color: #333;
   }
 }
+/* stylelint-enable scale-unlimited/declaration-strict-value */

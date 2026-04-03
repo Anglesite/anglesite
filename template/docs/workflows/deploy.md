@@ -4,7 +4,7 @@ Build, scan, and deploy the site to Cloudflare Pages via Git integration.
 
 ## Prerequisites
 
-- Cloudflare account (free at https://dash.cloudflare.com/sign-up)
+- Cloudflare account (free at <https://dash.cloudflare.com/sign-up>)
 - Cloudflare Pages project connected to GitHub (set up during first `/anglesite:deploy`)
 - `CF_PROJECT_NAME` set in `.site-config`
 - `GITHUB_REPO` set in `.site-config`
@@ -68,6 +68,7 @@ npm run predeploy
 ```
 
 Checks for:
+
 - PII (emails, phone numbers) in built HTML
 - API tokens in dist/, src/, public/
 - Unauthorized third-party scripts (only Cloudflare Analytics allowed)
@@ -139,11 +140,13 @@ git checkout draft
 ### 5. Custom domain (first deploy)
 
 Options:
-- **Buy at Cloudflare** — at-cost pricing, no markup: https://dash.cloudflare.com → Domains → Register
+
+- **Buy at Cloudflare** — at-cost pricing, no markup: <https://dash.cloudflare.com> → Domains → Register
 - **Transfer to Cloudflare** — unlock at current registrar, get EPP/auth code, transfer via dashboard
 - **Point existing domain** — add domain to Cloudflare, update nameservers at current registrar
 
 After the domain is on Cloudflare, connect it to the Pages project:
+
 1. Dashboard → Pages → your project → Custom domains
 2. Add domain → Activate
 3. Cloudflare auto-provisions SSL
@@ -152,7 +155,7 @@ Save `SITE_DOMAIN` to `.site-config`.
 
 ### 6. After deploy
 
-- Check analytics: https://dash.cloudflare.com → Web Analytics
+- Check analytics: <https://dash.cloudflare.com> → Web Analytics
 - Preview deploys available at `draft.CF_PROJECT_NAME.pages.dev`
 
 ## Merge conflicts

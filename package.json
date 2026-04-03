@@ -1,6 +1,6 @@
 {
   "name": "anglesite",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0-beta.4",
   "type": "module",
   "description": "AI webmaster that scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Pages.",
   "scripts": {
@@ -28,9 +28,12 @@
   "devDependencies": {
     "@types/semver": "^7.7.1",
     "html-validate": "^10.11.2",
+    "markdownlint-cli2": "^0.22.0",
     "robots-parser": "^3.0.1",
     "schema-dts": "^2.0.0",
     "semver": "^7.7.4",
+    "stylelint": "^17.6.0",
+    "stylelint-declaration-strict-value": "^1.11.1",
     "tsx": "^4.21.0",
     "vitest": "^3.1.1"
   },

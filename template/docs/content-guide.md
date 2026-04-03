@@ -5,11 +5,13 @@
 Posts live in `src/content/posts/` as `.mdoc` files. The owner creates them via Keystatic at `/keystatic/collection/posts`.
 
 ### Required frontmatter
+
 - `title` — Post title
 - `description` — For meta tags and listings (1–2 sentences)
 - `publishDate` — YYYY-MM-DD format
 
 ### Optional frontmatter
+
 - `image` — Path relative to public/ (e.g., `/images/blog/photo.webp`)
 - `imageAlt` — Required if image is set
 - `tags` — Array of strings. Default tags: `news`, `update`, `event`. Updated by `/anglesite:design-interview` to match the business.
@@ -19,6 +21,7 @@ Posts live in `src/content/posts/` as `.mdoc` files. The owner creates them via 
 ### Schema sync
 
 The blog schema is defined in two places that must stay in sync:
+
 - `src/content.config.ts` — Astro uses this for type checking
 - `keystatic.config.ts` — Keystatic uses this for the editor UI
 
@@ -64,6 +67,7 @@ Store menu item photos in `public/images/menu/`. Optimize before adding: aim for
 The owner's website is the hub of their online presence. Social media platforms come and go, change their algorithms, or shut down — but the website is theirs. Every piece of content should live on the website first. Social media posts should drive people back to the website, not the other way around.
 
 This means:
+
 - **Publish here first.** The blog post, the announcement, the photo gallery — it goes on the website before anywhere else.
 - **Social media is distribution, not home base.** Facebook, Instagram, Nextdoor, map listings — these are places to share a link and a teaser, not the full content.
 - **Every social post should link back.** When sharing on social media, always include a link to the full content on the website. This drives traffic, builds search ranking, and ensures the owner controls the audience relationship.
@@ -72,6 +76,7 @@ This means:
 ### POSSE workflow
 
 Publish On (own) Site, Syndicate Elsewhere:
+
 1. Write and publish the post on the website
 2. Share on social media with a link back to the website
 3. Copy the social media share URLs
@@ -91,6 +96,7 @@ Every community is different. Some towns live on Nextdoor, others on Facebook gr
 - "Where have you gotten word-of-mouth so far?" (If they're already hearing "I found you on Yelp," lean into that)
 
 Common platforms and when they're strongest:
+
 - **Facebook** — Dominant for local businesses, events, and community groups in many areas. Some communities have active "buy local" or neighborhood groups that are the real discovery channel.
 - **Instagram** — Visual businesses (restaurants, florists, tattoo, photography, makers). Stronger in urban and suburban areas.
 - **Nextdoor** — Hyperlocal. Strong in suburban residential areas for trades, cleaning, pet services, childcare, repair shops.
@@ -123,6 +129,7 @@ Not everything has to be a long blog post. Mix formats:
 A business doesn't need to be a "content creator" to use audio and video. Many small businesses benefit from podcast appearances, video content, or even hosting their own show — not as their product, but as their marketing. This is different from being a creator (see [creator.md](smb/creator.md) for businesses where content IS the product).
 
 **When podcast/video makes sense for a non-creator business:**
+
 - Professional services (accounting, legal, healthcare, insurance) — Expert positioning. A monthly podcast or YouTube series answering common questions builds trust and search presence. "Ask a [profession]" format works.
 - Trades and repair — Process videos (how we fixed this, what we found, why this matters) drive discovery. YouTube is the second-largest search engine — people search "how to fix [thing]" and find the business.
 - Restaurants and food businesses — Recipe videos, cooking process, plating, behind-the-counter. TikTok and Reels are primary discovery. See [restaurant.md](smb/restaurant.md) content ideas.
@@ -131,12 +138,14 @@ A business doesn't need to be a "content creator" to use audio and video. Many s
 - Fitness — Workout clips, form demonstrations, nutrition tips. Drives class bookings.
 
 **How the website supports it:**
+
 - Each video or podcast episode becomes a blog post on the website (embedded player + show notes or description). This is the canonical home — social platforms are distribution.
 - Episode archive page if producing a series. Organized by topic, not just chronologically.
 - RSS feed for podcast distribution (the website can host this; see creator.md for hosting tools).
 - Transcripts improve SEO dramatically — search engines can't watch videos but can read transcripts.
 
 **What to tell the owner during `/anglesite:start`:**
+
 - Ask: "Do you create any video or audio content — even casually?" If yes, plan the site to feature it.
 - If they're interested but haven't started: a smartphone, natural light, and a quiet room is enough. Don't let equipment be a barrier. Start with one short video or appear as a guest on someone else's podcast.
 - If they're already producing content on social but not on their website: that's the #1 quick win. Embed existing content in blog posts. The content already exists — it just needs a permanent home.

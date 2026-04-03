@@ -23,10 +23,12 @@ Ask the owner these questions. Don't show them dashboards — translate the data
 ### 1. Are people finding you?
 
 Check Cloudflare Analytics:
+
 - **Total visitors this month** — Is the number going up, down, or flat compared to last month? Small businesses often see 50–500 monthly visitors. Don't compare to large companies.
 - **Referral sources** — Where are visitors coming from? Google search, Google Maps, social media, direct? This tells the owner which channels are working.
 
 If traffic is near zero after 2–3 months:
+
 - Is the site indexed? Check Google Search Console → Coverage
 - Is the Google Business Profile claimed and complete?
 - Are there any blog posts?
@@ -35,11 +37,13 @@ If traffic is near zero after 2–3 months:
 ### 2. Which pages are people looking at?
 
 Check Cloudflare Analytics → Top pages:
+
 - Are people visiting the pages that matter? (Services, menu, portfolio, contact — not just the home page)
 - Are blog posts getting traffic? Which topics resonate?
 - Is the contact page getting visits? (People who visit the contact page are warm leads)
 
 If important pages aren't getting traffic:
+
 - Check internal linking — can visitors find the page from the home page in 1–2 clicks?
 - Check navigation — is the page in the main menu?
 - Check page titles and descriptions — are they compelling in search results?
@@ -49,12 +53,14 @@ If important pages aren't getting traffic:
 This is the question that actually matters. The website's job is to turn visitors into customers.
 
 Ask the owner directly:
+
 - "Are you getting contact form submissions?" — If the form works and people are filling it out, the site is doing its job.
 - "Are people mentioning the website when they call or visit?" — "I found you online" or "I saw your website" is a direct signal.
 - "Are you getting more calls or emails than before the website?" — The owner knows their baseline better than any analytics tool.
 - "Has anyone booked/ordered/signed up through the website?" — For businesses with online booking or ordering.
 
 If the answer is "I don't know" — that's useful too. Set up a simple tracking habit:
+
 - Ask the owner to note when a new customer says "I found you online"
 - Check contact form submissions monthly (the owner's email inbox)
 - Review booking platform data if applicable
@@ -62,6 +68,7 @@ If the answer is "I don't know" — that's useful too. Set up a simple tracking 
 ### 4. What are people searching for?
 
 Check Google Search Console → Performance:
+
 - **Search queries** — What terms bring people to the site? Are they relevant to the business?
 - **Click-through rate** — Are people clicking when they see the site in results? Low CTR means the title and description need to be more compelling.
 - **Impressions without clicks** — Pages that appear in search but don't get clicked are opportunities to improve titles and descriptions.
@@ -75,6 +82,7 @@ Every 3 months (aligned with the `/anglesite:update` schedule in `docs/webmaster
 ### Traffic trend
 
 Is traffic growing, flat, or declining? For a new site:
+
 - **Months 1–3:** Minimal traffic. Search engines are still discovering the site. This is normal.
 - **Months 3–6:** Gradual increase if content is being added and the Google Business Profile is active.
 - **Months 6–12:** Should see steady organic traffic if the site has useful content and the business is active.
@@ -84,6 +92,7 @@ If traffic is flat after 6 months with regular content, investigate: Is the Goog
 ### Content performance
 
 Which blog posts are getting traffic? This reveals what the audience cares about. Double down on topics that work:
+
 - Write follow-up posts on popular topics
 - Update and expand high-performing posts
 - Stop writing about topics nobody reads (or reconsider the angle)
@@ -91,6 +100,7 @@ Which blog posts are getting traffic? This reveals what the audience cares about
 ### Goal check
 
 During `/anglesite:start`, the owner shared their goals. Revisit them:
+
 - "You said you wanted more phone calls from new customers. Are you getting them?"
 - "You wanted people to find your CSA signup. Is that page getting traffic?"
 - "You wanted to stop answering the same questions. Are people reading your FAQ page?"

@@ -74,6 +74,7 @@ Step-by-step guides for common operations:
 When discussing the site with the owner, **show don't tell**. Use tldraw (or equivalent visual tools) to draw diagrams instead of describing things in text. Visual communication is faster and more accessible for non-technical owners.
 
 **When to draw:**
+
 - **Design proposals** — show color palettes, page layouts, navigation structure as visual cards/trees
 - **Analytics** — show bar charts of page views, traffic sources, campaign performance
 - **Progress tracking** — show visual checklists during setup and deployment
@@ -82,6 +83,7 @@ When discussing the site with the owner, **show don't tell**. Use tldraw (or equ
 - **Timelines** — show project milestones, content calendars, seasonal planning
 
 **When NOT to draw:**
+
 - Simple yes/no questions
 - Single-step instructions
 - When the owner has asked to skip visuals
@@ -124,6 +126,7 @@ Frame the handoff:
 ### Content routing
 
 When the owner mentions content, check `anglesite.config.json` to decide:
+
 - If it maps to a known collection or singleton → open Keystatic to that content type
 - If the content type doesn't exist in the schema yet → add it to `keystatic.config.ts` and `src/content.config.ts`, regenerate `anglesite.config.json`, then open Keystatic
 - If ambiguous → ask the owner whether they want to write it themselves (open Keystatic) or have you draft it (stay in chat, then hand off to Keystatic for review)
@@ -144,11 +147,13 @@ If you changed it, document it. Same session. No exceptions.
 ## Privacy and security
 
 ### Customer data stays off the website
+
 - Never put customer names, emails, phone numbers, or addresses on the website, in git, or in commit messages
 - Exception: customer explicitly asks to be featured (testimonial with name)
 - Website references use approximate numbers ("30+ customers") never exact
 
 ### Secrets management
+
 - API tokens live in env vars, never in project files
 - `.env` and `.env.*` are gitignored. Verify they're never tracked.
 - `.site-config` IS committed — it contains site config (project path, tool choices), not secrets
@@ -164,6 +169,7 @@ If you changed it, document it. Same session. No exceptions.
 - Failed check exits with code 1 and blocks deployment. No exceptions, even if the owner asks.
 
 ### Third-party code
+
 - Site loads zero third-party JavaScript. Cloudflare auto-injects Web Analytics beacon.
 - Never add analytics, tracking, social embeds, or ad scripts without explicit approval
 - Prefer self-hosted alternatives (local fonts over Google Fonts)
@@ -198,6 +204,7 @@ If you work around unexpected behavior — a build error you patch rather than f
 The owner is the expert on their business. You are the expert on their website. Explain what you're doing and why. Celebrate wins. When something breaks, own it, fix it, and explain what happened.
 
 When the owner asks for a change:
+
 1. Acknowledge what they asked for
 2. Explain what you'll do and roughly how long it takes
 3. Do it
