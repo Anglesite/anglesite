@@ -7,10 +7,10 @@
 // this module can — using regex on the raw HTML returned by curl.
 //
 // Usage (CLI):
-//   node wix-extract.js post   <file.html>   # Extract blog post body + images
-//   node wix-extract.js page   <file.html>   # Extract static page body + images
-//   node wix-extract.js meta   <file.html>   # Extract JSON-LD / OG metadata
-//   node wix-extract.js image  <url>          # Normalize a Wix CDN image URL
+//   node wix-extract.mjs post   <file.html>   # Extract blog post body + images
+//   node wix-extract.mjs page   <file.html>   # Extract static page body + images
+//   node wix-extract.mjs meta   <file.html>   # Extract JSON-LD / OG metadata
+//   node wix-extract.mjs image  <url>          # Normalize a Wix CDN image URL
 //
 // All commands output JSON to stdout.
 

@@ -58,9 +58,9 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── pack-plugin.sh            Builds distributable plugin ZIP
 │   └── import/                   Wix-specific extraction scripts
 │       └── wix/
-│           ├── wix-playwright.js Browser-based content + CSS token extraction
-│           ├── wix-extract.js    Curl+regex fallback for Wix HTML parsing
-│           └── color-utils.js    RGB/hex conversion, luminance, color classification
+│           ├── wix-playwright.mjs Browser-based content + CSS token extraction
+│           ├── wix-extract.mjs    Curl+regex fallback for Wix HTML parsing
+│           └── color-utils.mjs    RGB/hex conversion, luminance, color classification
 ├── server/                       MCP annotation server + shared modules (Node.js, ESM)
 │   ├── annotations.mjs           Annotation store (CRUD + persistence)
 │   ├── selector.mjs              CSS selector generation from element metadata

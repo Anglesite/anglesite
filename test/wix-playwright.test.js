@@ -2,19 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { extractContentSrc } from '../scripts/import/wix/wix-playwright.js';
+import { extractContentSrc } from '../scripts/import/wix/wix-playwright.mjs';
 
-import { extractContentSrc } from '../scripts/import/wix/wix-playwright.js';
+import { extractContentSrc } from '../scripts/import/wix/wix-playwright.mjs';
 
 // We can't import extractWixPage directly (requires Playwright runtime),
 // but we can verify the source code uses the correct wait strategy.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = readFileSync(
-  join(__dirname, '..', 'scripts', 'import', 'wix', 'wix-playwright.js'),
+  join(__dirname, '..', 'scripts', 'import', 'wix', 'wix-playwright.mjs'),
   'utf-8',
 );
 
-describe('wix-playwright.js wait strategy', () => {
+describe('wix-playwright.mjs wait strategy', () => {
   it('does not use networkidle (Wix Thunderbolt never quiesces)', () => {
     expect(
       src.includes("'networkidle'") || src.includes('"networkidle"'),
@@ -32,7 +32,7 @@ describe('wix-playwright.js wait strategy', () => {
   });
 });
 
-describe('wix-playwright.js fullPage option', () => {
+describe('wix-playwright.mjs fullPage option', () => {
   it('extractWixPage accepts a fullPage option', () => {
     expect(src).toContain('fullPage');
   });
@@ -62,7 +62,7 @@ describe('wix-playwright.js fullPage option', () => {
   });
 });
 
-describe('wix-playwright.js playwright resolution', () => {
+describe('wix-playwright.mjs playwright resolution', () => {
   it('uses createRequire to resolve playwright from cwd, not script location', () => {
     expect(src).toContain('createRequire');
     expect(src).toContain('process.cwd()');
@@ -76,7 +76,7 @@ describe('wix-playwright.js playwright resolution', () => {
   });
 });
 
-describe('wix-playwright.js accordion expansion', () => {
+describe('wix-playwright.mjs accordion expansion', () => {
   it('expands aria-expanded="false" elements before extraction', () => {
     expect(src).toContain('aria-expanded="false"');
     expect(src).toContain('expandAccordions');
@@ -91,7 +91,7 @@ describe('wix-playwright.js accordion expansion', () => {
   });
 });
 
-describe('wix-playwright.js fullPage option', () => {
+describe('wix-playwright.mjs fullPage option', () => {
   it('extractContentSrc accepts a fullPage option', () => {
     // The function should be callable with an options argument
     expect(typeof extractContentSrc).toBe('function');

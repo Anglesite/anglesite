@@ -7,16 +7,16 @@
 // to Anglesite's global.css custom properties.
 //
 // Usage (CLI):
-//   node wix-playwright.js <url> [--content-only] [--styles-only]
+//   node wix-playwright.mjs <url> [--content-only] [--styles-only]
 //
 // Playwright is an optional dependency. Install it with:
 //   npm install playwright && npx playwright install chromium
-// Falls back to curl + wix-extract.js if Playwright is not available.
+// Falls back to curl + wix-extract.mjs if Playwright is not available.
 
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
-import { rgbToHex, classifyTokens } from './color-utils.js';
+import { rgbToHex, classifyTokens } from './color-utils.mjs';
 
 // ---------------------------------------------------------------------------
 // Browser-context evaluation functions (run inside page.evaluate)

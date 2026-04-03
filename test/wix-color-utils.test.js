@@ -8,7 +8,7 @@ import {
   isBrowserDefault,
   topColors,
   classifyTokens,
-} from '../scripts/import/wix/color-utils.js';
+} from '../scripts/import/wix/color-utils.mjs';
 
 describe('rgbToHex', () => {
   it('converts standard RGB values', () => {

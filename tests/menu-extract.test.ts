@@ -7,7 +7,7 @@ import {
   stitchMenuPages,
   toKeystatic,
   generateMenuCSS,
-} from "../scripts/import/menu-extract.js";
+} from "../scripts/import/menu-extract.mjs";
 
 // ---------------------------------------------------------------------------
 // normalizePrice

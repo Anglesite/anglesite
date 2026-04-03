@@ -83,12 +83,12 @@ because it:
 - Captures all JS-rendered navigation links (including dynamic sub-navs)
 - Handles Wix accordions and FAQ content that curl+regex misses
 
-**Location:** `${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js`
+**Location:** `${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.mjs`
 
 **Workflow:**
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "PAGE_URL"
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.mjs "PAGE_URL"
 ```
 
 The script outputs JSON with both `tokens` and `content`:
@@ -135,13 +135,13 @@ If Playwright fails on a specific page (timeout, browser crash), fall back to
 SSR'd HTML — content is buried in deeply nested `<span>` tags inside
 `data-hook="rcv-block*"` elements.
 
-**Location:** `${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js`
+**Location:** `${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs`
 
 **Workflow for each post or page:**
 
 ```sh
 curl -sL "PAGE_URL" > /tmp/page.html
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js post /tmp/page.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs post /tmp/page.html
 ```
 
 The script outputs JSON to stdout:

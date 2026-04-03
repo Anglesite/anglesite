@@ -144,7 +144,7 @@ script to get structured metadata (JSON-LD and OG tags):
 
 ```sh
 curl -sL "POST_URL" > /tmp/wix-post.html
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js meta /tmp/wix-post.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs meta /tmp/wix-post.html
 ```
 
 This returns `{title, date, description, author, image}` — more accurate than

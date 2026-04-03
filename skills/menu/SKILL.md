@@ -16,7 +16,7 @@ Create, import from PDF/image, or edit an existing restaurant menu. Generates Ke
 ## References
 
 - Restaurant industry guide: `${CLAUDE_PLUGIN_ROOT}/docs/smb/restaurant.md`
-- Menu extraction utilities: `${CLAUDE_PLUGIN_ROOT}/scripts/import/menu-extract.js`
+- Menu extraction utilities: `${CLAUDE_PLUGIN_ROOT}/scripts/import/menu-extract.mjs`
 - Menu JSON-LD generation: `template/scripts/menu.ts`
 - Menu page template: `template/src/pages/menu.astro`
 - Individual menu pages: `template/src/pages/menu/[slug].astro`
@@ -57,7 +57,7 @@ Accept one or more PDF files or images. Read each file using the Read tool (whic
 For each file, extract:
 - **Sections** (e.g., Appetizers, Entrees, Desserts, Drinks)
 - **Items** with name, description, and price
-- **Dietary indicators** (V, VG, GF, DF, etc.) — use the parsing logic from `${CLAUDE_PLUGIN_ROOT}/scripts/import/menu-extract.js` (`parseDietaryIndicators`)
+- **Dietary indicators** (V, VG, GF, DF, etc.) — use the parsing logic from `${CLAUDE_PLUGIN_ROOT}/scripts/import/menu-extract.mjs` (`parseDietaryIndicators`)
 - **Design tokens** (colors, fonts, layout cues) — use `extractDesignTokens` from the same file
 
 For multi-page PDFs, stitch pages together using `stitchMenuPages` logic — sections that continue across page breaks are merged, not duplicated.
@@ -200,11 +200,11 @@ Tell the owner: "You can also edit menu items, prices, and descriptions anytime 
 
 ### 4a. Build the hierarchy
 
-Use the `buildMenuHierarchy` logic from `${CLAUDE_PLUGIN_ROOT}/scripts/import/menu-extract.js` to structure the data into menus → sections → items with slugs and ordering.
+Use the `buildMenuHierarchy` logic from `${CLAUDE_PLUGIN_ROOT}/scripts/import/menu-extract.mjs` to structure the data into menus → sections → items with slugs and ordering.
 
 ### 4b. Generate Keystatic collection files
 
-Use `toKeystatic` from `${CLAUDE_PLUGIN_ROOT}/scripts/import/menu-extract.js` to generate `.mdoc` files:
+Use `toKeystatic` from `${CLAUDE_PLUGIN_ROOT}/scripts/import/menu-extract.mjs` to generate `.mdoc` files:
 
 - `src/content/menus/{slug}.mdoc` — menu metadata (name, description, order)
 - `src/content/menuSections/{slug}.mdoc` — section metadata (name, menu relationship, order)
@@ -214,7 +214,7 @@ Write each file to disk. Create the content directories if they don't exist.
 
 ### 4c. Apply design tokens (import path only)
 
-If the menu was imported with design tokens, use `extractDesignTokens` and `generateMenuCSS` from `${CLAUDE_PLUGIN_ROOT}/scripts/import/menu-extract.js` to generate custom CSS properties. Append them to `src/styles/menu.css` or create a `src/styles/menu-tokens.css` that `menu.css` imports.
+If the menu was imported with design tokens, use `extractDesignTokens` and `generateMenuCSS` from `${CLAUDE_PLUGIN_ROOT}/scripts/import/menu-extract.mjs` to generate custom CSS properties. Append them to `src/styles/menu.css` or create a `src/styles/menu-tokens.css` that `menu.css` imports.
 
 ### 4d. Generate kiosk page (if requested)
 
