@@ -13,6 +13,9 @@
 //   npm install playwright && npx playwright install chromium
 // Falls back to curl + wix-extract.js if Playwright is not available.
 
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
+
 import { rgbToHex, classifyTokens } from './color-utils.js';
 
 // ---------------------------------------------------------------------------
@@ -374,9 +377,15 @@ async function main() {
     return;
   }
 
+  // Resolve playwright from the user's project (cwd), not from the plugin
+  // cache where this script lives. In ESM, bare `import('playwright')` would
+  // resolve relative to *this file's* location, which fails when the script
+  // is installed in ~/.claude/plugins/cache/. createRequire anchored to cwd
+  // finds the project's node_modules instead.
   let playwright;
   try {
-    playwright = await import('playwright');
+    const require = createRequire(join(process.cwd(), 'package.json'));
+    playwright = require('playwright');
   } catch {
     console.error('Playwright is not installed. Install it with: npm install playwright && npx playwright install chromium');
     console.error('Use curl + wix-extract.js as a fallback for content extraction.');

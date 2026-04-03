@@ -60,6 +60,20 @@ describe('wix-playwright.js fullPage option', () => {
   });
 });
 
+describe('wix-playwright.js playwright resolution', () => {
+  it('uses createRequire to resolve playwright from cwd, not script location', () => {
+    expect(src).toContain('createRequire');
+    expect(src).toContain('process.cwd()');
+  });
+
+  it('does not use bare import("playwright") which resolves from script location', () => {
+    // A bare dynamic import would fail when the script runs from the plugin cache
+    // because Node resolves relative to the module file, not cwd.
+    const bareImportPattern = /await\s+import\(\s*['"]playwright['"]\s*\)/;
+    expect(bareImportPattern.test(src)).toBe(false);
+  });
+});
+
 describe('wix-playwright.js accordion expansion', () => {
   it('expands aria-expanded="false" elements before extraction', () => {
     expect(src).toContain('aria-expanded="false"');
