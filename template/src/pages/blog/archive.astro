@@ -28,7 +28,7 @@ const olderPosts = (
     {
       olderPosts.map((post) => (
         <li>
-          <a href={`/blog/${post.id}/`}>
+          <a href={`/blog/${post.id.replace(/\.mdoc$/, "")}/`}>
             <h2>{post.data.title}</h2>
           </a>
           <time datetime={post.data.publishDate.toISOString()}>

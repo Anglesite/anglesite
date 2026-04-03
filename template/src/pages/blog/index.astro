@@ -30,7 +30,7 @@ const hasOlderPosts = allPosts.some(
     {
       recentPosts.map((post) => (
         <li class="h-entry">
-          <a href={`/blog/${post.id}/`} class="u-url">
+          <a href={`/blog/${post.id.replace(/\.mdoc$/, "")}/`} class="u-url">
             <h2 class="p-name">{post.data.title}</h2>
           </a>
           <time
