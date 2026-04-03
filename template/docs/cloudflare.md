@@ -26,6 +26,7 @@ Configured during `/anglesite:deploy` after the first publish. Stored in `.site-
 DNS records are managed via the Cloudflare dashboard or `/anglesite:domain`. The owner is never asked to add, remove, or modify DNS records directly. The webmaster explains what will be done and why before each change, and confirms what was done after.
 
 Typical configuration after domain is on Cloudflare:
+
 - CNAME `www` → `project-name.pages.dev` (auto-created when custom domain is added to Pages project)
 - SSL certificate: provisioned automatically (free)
 - Email records (MX, SPF, DKIM, DMARC) added via `/anglesite:domain`
@@ -45,11 +46,12 @@ The Cloudflare MCP is provided by the Claude.ai built-in integration (claude.ai 
 
 Cloudflare Pages Git integration creates preview deploys for any branch that isn't `main`. The `draft` branch automatically gets a preview at:
 
-```
+```text
 draft.CF_PROJECT_NAME.pages.dev
 ```
 
 Use previews for:
+
 - First-time review before going live
 - Testing major changes before publishing
 - Showing the owner changes before they're public
@@ -59,6 +61,7 @@ Use previews for:
 If a deploy breaks something:
 
 **Quick rollback via Cloudflare dashboard:**
+
 1. Open the Cloudflare dashboard
 2. Go to **Workers & Pages** → your project → **Deployments**
 3. Find the last working deploy
@@ -88,12 +91,14 @@ git checkout draft
 Also cherry-pick or revert on `draft` so the fix is reflected in the working branch.
 
 **When to use which:**
+
 - **Dashboard rollback** — Immediate fix, site is down or broken, need it fixed in seconds
 - **Git revert** — The code change caused the issue, you want a clean history
 
 ## Security headers
 
 Defined in `public/_headers`. Applied to all routes:
+
 - `Content-Security-Policy` — only self + Cloudflare Insights
 - `X-Frame-Options: DENY`
 - `X-Content-Type-Options: nosniff`

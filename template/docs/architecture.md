@@ -21,6 +21,7 @@ Menu data uses three linked collections: `menus` (e.g. Lunch, Dinner), `menuSect
 ## Styling
 
 CSS custom properties in `src/styles/global.css`. Design foundations in `docs/design-system.md` (color, typography, spacing, layout patterns). Owner-specific choices set during `/anglesite:design-interview` and documented in `docs/brand.md`:
+
 - `--color-primary`, `--color-accent`, `--color-bg`, `--color-text`
 - `--font-heading`, `--font-body`
 - `--space-*` for consistent spacing
@@ -32,6 +33,7 @@ System fonts by default (no external font loading). Override in brand.md if the 
 The scaffold ships with a home page and blog. Additional pages are created during `/anglesite:design-interview` based on the business type, or added later via `/anglesite:new-page`.
 
 Common pages by business type:
+
 - **Restaurant:** menu, hours/location, about, reservations, events
 - **Retail:** products, about, location, events
 - **Legal:** practice areas, attorneys, contact, testimonials
@@ -43,6 +45,7 @@ Common pages by business type:
 For other business types (healthcare, real estate, nonprofit, fitness, salon, trades, photography, pet services, hospitality, education), see `docs/smb/` for industry-specific pages, tools, compliance notes, and structured data guidance.
 
 All sites include:
+
 - `/` — Home page (customized during `/anglesite:design-interview`)
 - `/blog/` — Blog listing (last 30 days, link to archive)
 - `/blog/[slug]` — Individual posts

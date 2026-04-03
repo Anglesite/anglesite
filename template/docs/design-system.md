@@ -58,6 +58,7 @@ To adjust the design without re-running the full interview:
 ### Deriving the full palette from primary
 
 Given the owner's `--color-primary`, derive:
+
 - **Accent**: Complementary hue (opposite on the color wheel) or analogous (30° adjacent). Examples below.
 - **Surface**: Primary at 5% opacity over white, or a neutral tint (`#f9fafb` warm, `#f8fafc` cool).
 - **Border**: Primary at 15% opacity over white, or `#e5e7eb` (warm gray) / `#e2e8f0` (cool gray).
@@ -109,7 +110,7 @@ Always verify contrast with a calculator. 4.5:1 minimum for body text, 3:1 for l
 
 ### Type scale (1.25 ratio — "major third")
 
-```
+```text
 --font-size-sm:  0.8rem    /* Small text, captions, metadata */
 --font-size-base: 1rem     /* Body text (16px) */
 --font-size-lg:  1.25rem   /* Lead paragraphs, large body */
@@ -120,6 +121,7 @@ Always verify contrast with a calculator. 4.5:1 minimum for body text, 3:1 for l
 ```
 
 Line heights:
+
 - Body (`1rem`): `line-height: 1.6`
 - Subheadings (`1.25–1.953rem`): `line-height: 1.3`
 - Headings (`2.441–3.052rem`): `line-height: 1.1`
@@ -143,6 +145,7 @@ If the owner wants a specific font that isn't in the system stack, download the 
 ### Vertical rhythm
 
 Sections within a page should use consistent spacing. Pattern:
+
 - Between page sections: `--space-xl` (major break)
 - Between elements within a section: `--space-lg` (clear separation)
 - Between related elements (heading + paragraph): `--space-sm` to `--space-md`
@@ -187,6 +190,7 @@ Best for: home pages, landing pages. A prominent visual or statement followed by
 ```
 
 Hero options:
+
 - **Text-only**: Heading + tagline + CTA on a colored or white background
 - **Text + image**: Side-by-side (image right) or stacked (image above)
 - **Text overlay**: Text on a background image with a dark overlay for contrast (`background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(...)`)

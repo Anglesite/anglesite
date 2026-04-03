@@ -11,6 +11,7 @@ The website source is backed up to a private GitHub repository. This provides of
 ## Setup
 
 Configured during `/anglesite:start` (Step 5). The setup:
+
 1. Installs `gh` CLI (via `npm run ai-setup`)
 2. Authenticates via browser OAuth (`gh auth login --web`)
 3. Creates a private repo (`gh repo create --private`)

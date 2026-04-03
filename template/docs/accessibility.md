@@ -68,12 +68,14 @@ The scaffold starts accessible, but content changes can break it. These are the 
 Every image needs alt text. Keystatic prompts for it, but the owner may skip it or write something unhelpful.
 
 **Good alt text:**
+
 - Describes what's in the image, not what it "is"
 - "A golden retriever puppy sitting on a red blanket" — not "dog" or "image1" or "cute puppy photo"
 - For product photos: "Hand-thrown ceramic mug with blue glaze, 12oz" — specific, useful
 - For decorative images (borders, spacers, background textures): empty alt (`alt=""`) — screen readers skip them
 
 **Bad alt text:**
+
 - `alt="image"` or `alt="photo"` — says nothing
 - `alt="DSC_0234.jpg"` — filename, not description
 - `alt="best plumber in springfield call now"` — keyword stuffing, not a description
@@ -89,7 +91,7 @@ The scaffold's CSS custom properties define colors that meet contrast requiremen
 - Text is placed over images without a background overlay
 - Link colors are too close to body text color (links need to be distinguishable)
 
-**During `/anglesite:design-interview`:** If the owner's brand colors don't meet contrast, explain: "That green looks great, but it's hard to read against a white background — especially for people with low vision. I'll darken it slightly so everyone can read it." Use a contrast checker: https://webaim.org/resources/contrastchecker/
+**During `/anglesite:design-interview`:** If the owner's brand colors don't meet contrast, explain: "That green looks great, but it's hard to read against a white background — especially for people with low vision. I'll darken it slightly so everyone can read it." Use a contrast checker: <https://webaim.org/resources/contrastchecker/>
 
 **Never compromise on contrast.** An inaccessible color scheme excludes customers. There is always a nearby shade that both meets contrast and satisfies the brand.
 
@@ -106,7 +108,7 @@ The scaffold's page templates have correct heading hierarchy. Problems arise whe
 ### Links
 
 - **Link text should describe the destination.** "Read our cancellation policy" — not "click here" or "learn more." Screen reader users navigate by link text; a page full of "click here" links is unusable.
-- **Don't use URLs as link text.** "Visit our Etsy shop" not "https://www.etsy.com/shop/businessname." URLs are unreadable when spoken aloud.
+- **Don't use URLs as link text.** "Visit our Etsy shop" not "<https://www.etsy.com/shop/businessname>." URLs are unreadable when spoken aloud.
 - **Links should be visually distinct.** Underlined or colored differently from body text. Don't rely on color alone — colorblind users can't distinguish color-only links.
 - **External links don't need `target="_blank"`.** Opening new tabs is disorienting, especially for screen reader users. If the owner insists, add `rel="noopener"` (security) and note the tradeoff.
 

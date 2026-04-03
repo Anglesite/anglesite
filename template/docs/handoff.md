@@ -75,6 +75,7 @@ Option B (clean break): New owner creates a new Cloudflare Pages project and dep
 ### Step 3: Other accounts
 
 Transfer ownership of:
+
 - Google Business Profile (Settings → Managers → Transfer primary ownership)
 - Apple Business Connect
 - Social media accounts
@@ -85,6 +86,7 @@ Transfer ownership of:
 ### Step 4: Website folder
 
 Give the new owner:
+
 - The complete project folder
 - Instructions for running it (the README in the folder covers this)
 - Any passwords or API keys stored in `.env` or `.site-config`
@@ -92,6 +94,7 @@ Give the new owner:
 ### Step 5: Update the site
 
 The new owner should update:
+
 - Business name, address, phone (if changed) — see `docs/smb/info-changes.md`
 - About page with new ownership story
 - Privacy policy with new contact info
@@ -147,6 +150,7 @@ If the owner is closing the business and doesn't need the website anymore:
 ### Option C: Redirect to social media
 
 If the owner is closing but maintains a social media presence:
+
 - Set up a redirect from the domain to their social profile
 - This keeps the domain active (no squatters) and directs any remaining traffic
 

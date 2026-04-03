@@ -1,0 +1,13 @@
+{
+  // Line length — project uses long lines for readability in editors
+  "MD013": false,
+
+  // Duplicate headings — same heading text is valid in different sections
+  "MD024": false,
+
+  // Emphasis as heading — bold text used as sub-heading is intentional
+  "MD036": false,
+
+  // Table column style — compact pipes (|---|---|) are project convention
+  "MD060": false
+}

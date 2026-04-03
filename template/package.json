@@ -1,7 +1,7 @@
 {
   "name": "@dwk/anglesite",
   "type": "module",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0-beta.4",
   "private": true,
   "scripts": {
     "dev": "astro dev",
@@ -15,7 +15,9 @@
     "ai-og": "tsx scripts/generate-og-pages.ts",
     "ai-optimize": "tsx scripts/optimize-images.ts",
     "ai-qr": "tsx scripts/qr-generate.ts",
-    "predeploy": "tsx scripts/pre-deploy-check.ts"
+    "predeploy": "tsx scripts/pre-deploy-check.ts",
+    "lint:css": "stylelint 'src/**/*.css'",
+    "lint:md": "markdownlint-cli2 'docs/**/*.md' '*.md'"
   },
   "dependencies": {
     "@astrojs/markdoc": "0.14.0",
@@ -43,6 +45,9 @@
     "sharp": "^0.33.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
+    "markdownlint-cli2": "^0.22.0",
+    "stylelint": "^17.6.0",
+    "stylelint-declaration-strict-value": "^1.11.1",
     "wrangler": "^4.77.0"
   }
 }
