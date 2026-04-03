@@ -239,6 +239,22 @@ npm install
 npm run dev
 ```
 
+## Serena (optional, plugin development)
+
+[Serena](https://github.com/oraios/serena) provides semantic, symbol-level code navigation via language servers. It's useful when working on the plugin itself (tracing cross-skill references, finding symbol usages across 40 skills). Not required — all standard tools work without it.
+
+**Setup:**
+
+```sh
+# Index the project (one-time)
+uvx -p 3.13 --from git+https://github.com/oraios/serena serena project index
+
+# Start the MCP server
+uvx -p 3.13 --from git+https://github.com/oraios/serena serena start-mcp-server --project .
+```
+
+Config lives in `.serena/project.yml`. Requires Python 3.13 and [uv](https://docs.astral.sh/uv/).
+
 ## Security hooks
 
 The `hooks/hooks.json` defines a PreToolUse hook that runs `scripts/pre-deploy-check.sh` before any Bash tool use. It enforces four mandatory scans before deploying to `main`:
