@@ -218,6 +218,37 @@ export const extractContentSrc = function (options) {
     }
   }
 
+  // Full-page mode: extract header images (logo) and footer content
+  if (fullPage) {
+    const headerEl = document.querySelector('[id*="SITE_HEADER"]') || document.querySelector('header');
+    const headerImages = [];
+    let headerLogo = null;
+    if (headerEl) {
+      for (const img of headerEl.querySelectorAll('img')) {
+        if (img.src) {
+          const entry = { src: img.src, alt: img.alt || '' };
+          headerImages.push(entry);
+          // First image in header is typically the logo
+          if (!headerLogo) headerLogo = entry;
+        }
+      }
+    }
+    result.header = { logo: headerLogo, images: headerImages };
+
+    const footerEl = document.querySelector('footer') || document.querySelector('[id*="SITE_FOOTER"]');
+    const footerImages = [];
+    let footerText = '';
+    if (footerEl) {
+      footerText = footerEl.textContent?.trim() || '';
+      for (const img of footerEl.querySelectorAll('img')) {
+        if (img.src) {
+          footerImages.push({ src: img.src, alt: img.alt || '' });
+        }
+      }
+    }
+    result.footer = { text: footerText, images: footerImages };
+  }
+
   // Extract tags from the post footer
   if (postFooter) {
     // Pattern 1: category/hashtag links

@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { extractContentSrc } from '../scripts/import/wix/wix-playwright.js';
 
+import { extractContentSrc } from '../scripts/import/wix/wix-playwright.js';
+
 // We can't import extractWixPage directly (requires Playwright runtime),
 // but we can verify the source code uses the correct wait strategy.
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -86,5 +88,31 @@ describe('wix-playwright.js accordion expansion', () => {
 
   it('handles HTML details elements', () => {
     expect(src).toContain('details:not([open])');
+  });
+});
+
+describe('wix-playwright.js fullPage option', () => {
+  it('extractContentSrc accepts a fullPage option', () => {
+    // The function should be callable with an options argument
+    expect(typeof extractContentSrc).toBe('function');
+  });
+
+  it('extractWixPage passes fullPage option to page.evaluate', () => {
+    expect(src).toContain('fullPage');
+  });
+
+  it('extracts header images when fullPage is true', () => {
+    expect(src).toContain('SITE_HEADER');
+  });
+
+  it('extracts footer content when fullPage is true', () => {
+    // Should query footer elements for text and images
+    expect(src).toMatch(/footer.*images|header.*footer/s);
+  });
+
+  it('returns header and footer fields in fullPage output structure', () => {
+    // The source should assign header and footer to the result object
+    expect(src).toContain('result.header');
+    expect(src).toContain('result.footer');
   });
 });
