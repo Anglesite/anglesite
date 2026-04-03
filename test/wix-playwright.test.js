@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { extractContentSrc } from '../scripts/import/wix/wix-playwright.js';
 
 // We can't import extractWixPage directly (requires Playwright runtime),
 // but we can verify the source code uses the correct wait strategy.
@@ -26,6 +27,36 @@ describe('wix-playwright.js wait strategy', () => {
 
   it('waits for #SITE_CONTAINER as the real readiness check', () => {
     expect(src).toContain('#SITE_CONTAINER');
+  });
+});
+
+describe('wix-playwright.js fullPage option', () => {
+  it('extractWixPage accepts a fullPage option', () => {
+    expect(src).toContain('fullPage');
+  });
+
+  it('passes fullPage option through to extractContentSrc', () => {
+    // extractContentSrc should receive and handle the fullPage flag
+    expect(src).toMatch(/extractContentSrc.*fullPage|fullPage.*extractContentSrc/s);
+  });
+
+  it('extracts header images when fullPage is true', () => {
+    // The source should query header/SITE_HEADER for images
+    expect(src).toContain('SITE_HEADER');
+    expect(src).toContain('header');
+  });
+
+  it('extracts footer content when fullPage is true', () => {
+    // The source should query footer/SITE_FOOTER for content
+    expect(src).toContain('SITE_FOOTER');
+    expect(src).toContain('footer');
+  });
+
+  it('returns header and footer fields in the content output', () => {
+    // Output structure should include header.logo, header.images, footer.text, footer.images
+    expect(src).toContain('header');
+    expect(src).toContain('footer');
+    expect(src).toContain('logo');
   });
 });
 

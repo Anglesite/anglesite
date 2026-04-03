@@ -102,8 +102,15 @@ export const extractStylesSrc = function () {
   return { samples, fonts };
 };
 
-/** Extract text content from the rendered page via TreeWalker. */
-export const extractContentSrc = function () {
+/**
+ * Extract text content from the rendered page via TreeWalker.
+ *
+ * @param {Object} [options]
+ * @param {boolean} [options.fullPage] - When true, also extract header images
+ *   (logos, badges) and footer content. Use for homepage/branding extraction.
+ *   Default body-only mode is correct for blog post extraction.
+ */
+export const extractContentSrc = function (options) {
   const result = { body: '', images: [], title: '', navLinks: [], tags: [] };
 
   // Try blog post region first
@@ -230,6 +237,40 @@ export const extractContentSrc = function () {
     }
   }
 
+  // Full-page mode: extract header images (logo, branding) and footer content.
+  // Used by the import skill's homepage/branding pass (Steps 3a/3b) where
+  // site chrome is needed, unlike the body-only blog post extraction.
+  if (options?.fullPage) {
+    const siteHeader = document.querySelector('#SITE_HEADER, [id*="SITE_HEADER"], header');
+    const headerImages = [];
+    let logo = null;
+
+    if (siteHeader) {
+      for (const img of siteHeader.querySelectorAll('img')) {
+        if (!img.src) continue;
+        const entry = { src: img.src, alt: img.alt || '' };
+        headerImages.push(entry);
+        // First image in header is typically the logo
+        if (!logo) logo = entry;
+      }
+    }
+
+    const siteFooter = document.querySelector('#SITE_FOOTER, [id*="SITE_FOOTER"], footer');
+    const footerImages = [];
+    let footerText = '';
+
+    if (siteFooter) {
+      footerText = siteFooter.textContent?.trim() || '';
+      for (const img of siteFooter.querySelectorAll('img')) {
+        if (!img.src) continue;
+        footerImages.push({ src: img.src, alt: img.alt || '' });
+      }
+    }
+
+    result.header = { logo, images: headerImages };
+    result.footer = { text: footerText, images: footerImages };
+  }
+
   return result;
 };
 
@@ -278,7 +319,7 @@ async function expandAccordions(page) {
  *
  * @param {import('playwright').Page} page - An open Playwright page
  * @param {string} url - The URL to navigate to
- * @param {Object} options - { contentOnly, stylesOnly }
+ * @param {Object} options - { contentOnly, stylesOnly, fullPage }
  * @returns {Promise<{tokens: Object, content: Object}>}
  */
 export async function extractWixPage(page, url, options = {}) {
@@ -310,7 +351,8 @@ export async function extractWixPage(page, url, options = {}) {
   }
 
   if (!options.stylesOnly) {
-    content = await page.evaluate(extractContentSrc);
+    const fullPage = !!options.fullPage;
+    content = await page.evaluate(extractContentSrc, { fullPage });
   }
 
   return { tokens, content };
