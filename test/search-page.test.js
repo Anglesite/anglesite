@@ -35,4 +35,12 @@ describe('search.astro', () => {
     expect(searchPage).toContain('--pagefind-ui-text');
     expect(searchPage).toContain('--pagefind-ui-background');
   });
+
+  it('sets pagefind CSS variables on #search, not :root (Astro scoping)', () => {
+    // :root in a scoped <style> becomes :root[data-astro-cid-xxx] which never
+    // matches because <html> is rendered by BaseLayout without this scope hash.
+    // Variables must be on #search so the widget inherits them via CSS cascade.
+    expect(searchPage).not.toMatch(/:root\s*\{[^}]*--pagefind-ui/s);
+    expect(searchPage).toMatch(/#search\s*\{[^}]*--pagefind-ui/s);
+  });
 });

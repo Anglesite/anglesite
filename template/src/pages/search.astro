@@ -17,12 +17,11 @@ const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "this site";
   </noscript>
 
   <style>
+    /* Theme Pagefind's default UI to match site colors.
+       Variables are set on #search (not :root) so Astro's scoped styles
+       apply correctly — the widget inherits them via CSS cascade. */
     #search {
       margin-block: var(--space-lg);
-    }
-
-    /* Theme Pagefind's default UI to match site colors */
-    :root {
       --pagefind-ui-scale: 1;
       --pagefind-ui-primary: var(--color-primary);
       --pagefind-ui-text: var(--color-text);
