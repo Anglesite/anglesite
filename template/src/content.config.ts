@@ -5,10 +5,16 @@
  * `src/content/`. The Zod schema here must stay in sync with the
  * Keystatic field definitions in `keystatic.config.ts`.
  *
+ * Only collections whose `src/content/<name>/` directory exists are
+ * exported. This avoids glob-loader warnings for collections that
+ * aren't relevant to the site type. Directories are created or removed
+ * by `scripts/prune-collections.mjs` during setup.
+ *
  * @see https://docs.astro.build/en/guides/content-collections/
  * @module
  */
 
+import { existsSync } from "node:fs";
 import { defineCollection, z } from "astro:content";
 
 /** Blog posts stored in `src/content/posts/` as `.mdx` / `.mdoc` files. */
@@ -268,5 +274,15 @@ const experiments = defineCollection({
   }),
 });
 
-/** All content collections exported for Astro's build pipeline. */
-export const collections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products, experiments };
+/**
+ * All content collections exported for Astro's build pipeline.
+ * Only collections with an existing content directory are registered,
+ * preventing glob-loader warnings for unused collection types.
+ */
+const allCollections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products, experiments };
+
+export const collections = Object.fromEntries(
+  Object.entries(allCollections).filter(([name]) =>
+    existsSync(new URL(`./content/${name}`, import.meta.url)),
+  ),
+);

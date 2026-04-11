@@ -6,18 +6,20 @@
  * The schema here must stay in sync with the Zod schema in
  * `src/content.config.ts`; both validate the same frontmatter fields.
  *
- * Collections enabled during `/anglesite:start` depend on the business
- * type. Collections with no content don't generate pages.
+ * Only collections whose `src/content/<name>/` directory exists are
+ * included. This keeps the CMS clean for the site type — a portfolio
+ * site won't see menu or product collections. Directories are created
+ * or removed by `scripts/prune-collections.mjs` during setup.
  *
  * @see https://keystatic.com/docs/configuration
  * @module
  */
 
+import { existsSync } from "node:fs";
 import { config, fields, collection } from "@keystatic/core";
 
-export default config({
-  storage: { kind: "local" },
-  collections: {
+/** All possible CMS collections — filtered to only those with content dirs. */
+const allCollections: Record<string, ReturnType<typeof collection>> = {
     posts: collection({
       label: "Blog Posts",
       slugField: "title",
@@ -448,5 +450,13 @@ export default config({
         content: fields.markdoc({ label: "Full Answer" }),
       },
     }),
-  },
+};
+
+export default config({
+  storage: { kind: "local" },
+  collections: Object.fromEntries(
+    Object.entries(allCollections).filter(([name]) =>
+      existsSync(`src/content/${name}`),
+    ),
+  ) as typeof allCollections,
 });

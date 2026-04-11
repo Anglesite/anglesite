@@ -35,15 +35,38 @@ export function extractKeystatic(source: string): KeystaticSchema {
 
 /**
  * Extract top-level keys from a named block like `collections: { ... }`.
+ *
+ * Also handles the filesystem-filtered pattern where collections are defined
+ * in a separate `const allCollections = { ... }` variable and passed to
+ * `config()` via `Object.fromEntries(...)`.
  */
 function extractBlock(source: string, blockName: string): string[] {
-  // Match the block: `collections: {` or `singletons: {`
-  const blockPattern = new RegExp(`${blockName}\\s*:\\s*\\{`);
-  const blockMatch = blockPattern.exec(source);
-  if (!blockMatch) return [];
+  // Try direct block: `collections: {` or `singletons: {`
+  let keys = extractKeysFromBrace(source, new RegExp(`${blockName}\\s*:\\s*\\{`));
+
+  // If no keys found and looking for collections, check for a top-level
+  // variable (e.g. `const allCollections = {`). This pattern is used when
+  // collections are filtered by directory existence at export time.
+  if (keys.length === 0 && blockName === "collections") {
+    keys = extractKeysFromBrace(
+      source,
+      /const\s+allCollections\s*(?::[^=]*)?\s*=\s*\{/,
+    );
+  }
+
+  return keys;
+}
+
+/**
+ * Find a brace-delimited block via the given pattern, then extract
+ * `key: collection(` / `key: singleton(` names from inside it.
+ */
+function extractKeysFromBrace(source: string, pattern: RegExp): string[] {
+  const match = pattern.exec(source);
+  if (!match) return [];
 
   // Find the matching closing brace by counting depth
-  const start = blockMatch.index + blockMatch[0].length;
+  const start = match.index + match[0].length;
   let depth = 1;
   let end = start;
   for (let i = start; i < source.length && depth > 0; i++) {
@@ -58,9 +81,9 @@ function extractBlock(source: string, blockName: string): string[] {
   // Since nested objects use `fields.xxx` not `collection(`, this matches only top-level keys
   const keyPattern = /(?:"([^"]+)"|'([^']+)'|(\w[\w-]*))\s*:\s*(?:collection|singleton)\s*\(/g;
   const keys: string[] = [];
-  let match;
-  while ((match = keyPattern.exec(blockContent)) !== null) {
-    const key = match[1] ?? match[2] ?? match[3];
+  let m;
+  while ((m = keyPattern.exec(blockContent)) !== null) {
+    const key = m[1] ?? m[2] ?? m[3];
     if (key) keys.push(key);
   }
 

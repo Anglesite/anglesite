@@ -168,7 +168,15 @@ ANGLESITE_VERSION=0.16.3
 
 Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, `AI_MODEL`, and `EXPLAIN_STEPS` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. `EXISTING_TOOLS` is present if the owner mentioned tools (business) or social platforms (portfolio). The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
 
-The scaffolded template includes a default `anglesite.config.json` with all seven collections. If the design interview (Step 2) adds or removes collections or adds singletons, regenerate the manifest by reading `keystatic.config.ts` and updating `anglesite.config.json` to match. This manifest tells the agent what content types exist for smart tool routing — see "Smart tool launching" in `CLAUDE.md`.
+After writing `.site-config`, prune content collections that aren't relevant to the site type. This removes unused content directories, associated pages, and updates `anglesite.config.json`:
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/scripts/prune-collections.mjs .
+```
+
+The prune script reads `SITE_TYPE` and `BUSINESS_TYPE` from `.site-config` and keeps only the collections needed — for example, a portfolio site keeps `posts` and `gallery`; a restaurant business keeps `posts`, `services`, `team`, `testimonials`, `faq`, `events`, `menus`, `menuSections`, and `menuItems`. Both `content.config.ts` and `keystatic.config.ts` auto-detect which collections are active based on directory existence, so the CMS and build stay in sync.
+
+If the design interview (Step 2) adds collections or singletons not already present, create the content directory (e.g. `mkdir -p src/content/experiments`) and regenerate `anglesite.config.json` to match.
 
 ## Step 2 — Design interview
 

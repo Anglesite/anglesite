@@ -16,21 +16,32 @@ const keystatic = readFileSync(
   'utf-8',
 );
 
-const COLLECTIONS = ['posts', 'services', 'team', 'testimonials', 'gallery', 'events', 'menus', 'menuSections', 'menuItems', 'faq', 'products'];
+const COLLECTIONS = ['posts', 'services', 'team', 'testimonials', 'gallery', 'events', 'menus', 'menuSections', 'menuItems', 'faq', 'products', 'experiments'];
 
 describe('content collections', () => {
-  it('exports all collections from content.config.ts', () => {
-    // The export line should include all collection names
-    const exportLine = contentConfig.match(/export const collections = \{([^}]+)\}/)?.[1] ?? '';
+  it('defines all collections in the allCollections object', () => {
+    // The allCollections object should include all collection names
+    const allLine = contentConfig.match(/const allCollections = \{([^}]+)\}/)?.[1] ?? '';
     for (const name of COLLECTIONS) {
-      expect(exportLine).toContain(name);
+      expect(allLine).toContain(name);
     }
+  });
+
+  it('filters collections by existing directories', () => {
+    // The export should use existsSync to conditionally register collections
+    expect(contentConfig).toContain('existsSync');
+    expect(contentConfig).toContain('Object.fromEntries');
   });
 
   it('defines all collections in keystatic.config.ts', () => {
     for (const name of COLLECTIONS) {
       expect(keystatic).toContain(`${name}: collection({`);
     }
+  });
+
+  it('keystatic filters collections by existing directories', () => {
+    expect(keystatic).toContain('existsSync');
+    expect(keystatic).toContain('Object.fromEntries');
   });
 
   it('has matching collection names in both config files', () => {
