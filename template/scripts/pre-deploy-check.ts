@@ -98,11 +98,10 @@ export function scanPhones(content: string, allowlist: string[] = []): string[] 
   phonePattern.lastIndex = 0;
   const matches = content.match(phonePattern) || [];
   if (allowlist.length === 0) return matches;
-  // Normalize to digits-only, using last 10 digits for comparison
-  // (handles 1-800 vs 800 country-code prefix differences)
-  const last10 = (s: string) => s.replace(/\D/g, "").slice(-10);
-  const normalizedAllow = allowlist.map(last10);
-  return matches.filter(m => !normalizedAllow.includes(last10(m)));
+  // Normalize to last 10 digits for comparison (strips country code)
+  const norm = (s: string) => s.replace(/\D/g, "").slice(-10);
+  const allowed = new Set(allowlist.map(norm));
+  return matches.filter(m => !allowed.has(norm(m)));
 }
 
 export function scanTokens(content: string): boolean {
@@ -171,9 +170,9 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
   // 1b. PII scan — phone numbers
   for (const file of htmlFiles) {
     const content = readFileSync(file, "utf-8");
-    const phoneHits = scanPhones(content, phoneAllowlist);
-    if (phoneHits.length > 0) {
-      failures.push(`PII: possible phone number in ${file}: ${phoneHits.join(", ")}`);
+    const phones = scanPhones(content, phoneAllowlist);
+    if (phones.length > 0) {
+      failures.push(`PII: possible phone number in ${file}: ${phones.join(", ")}`);
     }
   }
 

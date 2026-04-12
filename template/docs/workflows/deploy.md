@@ -85,6 +85,14 @@ PII_EMAIL_ALLOW=me@example.com
 
 Multiple emails are comma-separated: `PII_EMAIL_ALLOW=info@example.com,hello@example.com`
 
+Similarly, if the site publishes phone numbers (business line, crisis hotlines), allowlist them:
+
+```ini
+PII_PHONE_ALLOW=555-123-4567,1-800-662-4357
+```
+
+Numbers are matched by digits only, so formatting differences (dashes, dots, parens) don't matter.
+
 ### 3. First-time setup
 
 If this is the first deploy, connect Cloudflare Pages to GitHub via the dashboard:

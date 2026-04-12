@@ -35,8 +35,8 @@ Hours format supports:
 Save all values to `.site-config` using the Write tool.
 
 Add the phone number to the PII allowlist so the pre-deploy scan doesn't flag it:
-- Extract digits from the phone number
-- If `PII_EMAIL_ALLOW` exists, ensure the phone won't be blocked (phone scan looks for patterns, not exact matches — the allowlist is for emails only, but the phone is intentionally published)
+- If `PII_PHONE_ALLOW` exists in `.site-config`, append the phone number (comma-separated)
+- If not, add `PII_PHONE_ALLOW=<phone-number>`
 
 ## Step 2 — Generate LocalBusiness JSON-LD
 

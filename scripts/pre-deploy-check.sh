@@ -23,16 +23,12 @@ if [[ ! -d "$DIST" ]]; then
   exit 0
 fi
 
-# Read PII_EMAIL_ALLOW from .site-config (comma-separated list of allowed emails)
+# Read PII allowlists from .site-config (comma-separated)
 PII_ALLOW=""
-if [[ -f ".site-config" ]]; then
-  PII_ALLOW=$(grep '^PII_EMAIL_ALLOW=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
-fi
-
-# Read PII_PHONE_ALLOW from .site-config (comma-separated list of allowed phone numbers)
 PHONE_ALLOW=""
 if [[ -f ".site-config" ]]; then
-  PHONE_ALLOW=$(grep '^PII_PHONE_ALLOW=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+  PII_ALLOW=$(grep '^PII_EMAIL_ALLOW=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+  PHONE_ALLOW=$(grep '^PII_PHONE_ALLOW=' .site-config 2>/dev/null | cut -d= -f2- || true)
 fi
 
 # 1. PII scan — email addresses and phone numbers in built HTML
@@ -59,7 +55,6 @@ PHONE_HITS=$(grep -rE '\(?\d{3}\)?[-.[[:space:]]]?\d{3}[-.[[:space:]]]?\d{4}' "$
 if [[ -n "$PHONE_HITS" && -n "$PHONE_ALLOW" ]]; then
   IFS=',' read -ra ALLOWED_PHONES <<< "$PHONE_ALLOW"
   for phone in "${ALLOWED_PHONES[@]}"; do
-    # Strip non-digit characters for matching
     digits=$(echo "$phone" | tr -cd '0-9')
     if [[ -n "$digits" ]]; then
       PHONE_HITS=$(echo "$PHONE_HITS" | grep -v "$digits" || true)

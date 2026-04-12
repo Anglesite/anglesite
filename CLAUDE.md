@@ -260,7 +260,7 @@ Config lives in `.serena/project.yml`. Requires Python 3.13 and [uv](https://doc
 ## Security hooks
 
 The `hooks/hooks.json` defines a PreToolUse hook that runs `scripts/pre-deploy-check.sh` before any Bash tool use. It enforces four mandatory scans before deploying to `main`:
-1. **PII scan** — emails, phone numbers (configurable allowlist via `PII_EMAIL_ALLOW` in `.site-config`)
+1. **PII scan** — emails, phone numbers (configurable allowlists via `PII_EMAIL_ALLOW` and `PII_PHONE_ALLOW` in `.site-config`)
 2. **Token scan** — exposed API keys and secrets
 3. **Third-party script scan** — blocks unauthorized external JS
 4. **Keystatic admin route scan** — ensures CMS admin is not publicly exposed

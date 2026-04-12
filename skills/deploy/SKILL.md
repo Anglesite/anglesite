@@ -62,6 +62,14 @@ PII_EMAIL_ALLOW=me@example.com
 
 Multiple emails are comma-separated: `PII_EMAIL_ALLOW=info@example.com,hello@example.com`
 
+Similarly, if the site publishes phone numbers (business line, crisis hotlines), add them:
+
+```
+PII_PHONE_ALLOW=555-123-4567,1-800-662-4357
+```
+
+Numbers are matched by digits, so formatting differences don't matter.
+
 Then re-run `npm run predeploy` to confirm it passes.
 
 ## Step 2a — SEO audit (non-blocking)

@@ -108,6 +108,11 @@ describe("scanPhones", () => {
     const content = "Call 800-662-4357 or 555-123-4567";
     expect(scanPhones(content, ["800-662-4357"])).toEqual(["555-123-4567"]);
   });
+
+  it("handles multiple allowlisted numbers", () => {
+    const content = "Lines: 800-662-4357, 800-273-8255, 555-000-1234";
+    expect(scanPhones(content, ["800-662-4357", "800-273-8255"])).toEqual(["555-000-1234"]);
+  });
 });
 
 // ---------------------------------------------------------------------------
