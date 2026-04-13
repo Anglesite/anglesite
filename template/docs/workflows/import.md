@@ -59,4 +59,4 @@ syndication:
 - Review all imported content for accuracy
 - Check that all images downloaded successfully
 - Verify the build passes: `npm run build`
-- Deploy when ready: `npm run deploy`
+- Deploy when ready: `/anglesite:deploy` (or merge `draft` → `main` and push)

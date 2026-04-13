@@ -1,0 +1,12 @@
+---
+interface Props {
+  href: string;
+  label?: string;
+  theme?: "light" | "dark";
+}
+const { href, label = "Buy Now", theme = "light" } = Astro.props;
+---
+<a href={href} class="buy-button" data-polar-checkout data-polar-checkout-theme={theme}>
+  {label}
+</a>
+<script src="https://cdn.polar.sh/embed/buy-button.js" defer data-auto-init></script>

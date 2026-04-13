@@ -49,6 +49,15 @@ Covers: credit unions, community development financial institutions (CDFIs), len
 - **NMLS**: If listing loan officers, include NMLS numbers where required.
 - **Field of membership**: Clearly state who is eligible to join. This is a regulatory requirement.
 
+## Review platforms
+
+- **Google Business Profile** — Members and prospective members search for branch locations, hours, and services on Google. Reviews here often reflect the member experience (loan process, staff helpfulness, wait times). Respond to all reviews — especially negative ones — to demonstrate member-first values.
+- **Yelp** — Less dominant for financial institutions than Google, but some markets have active Yelp communities that include banks and credit unions. Worth claiming and monitoring.
+
+Credit unions are not heavily rated on financial comparison sites (like Bankrate or NerdWallet) at the branch level, but the institution may appear in "best credit unions in [state]" editorial lists — ensure the website is current so those links look credible when people click through.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Rate change announcements, financial literacy tips (budgeting, credit building, home buying), community event sponsorships and recaps, member spotlights (with consent), new product or service announcements, scholarship recipient features, fraud and scam alerts, holiday closures, annual meeting announcements, "why credit unions are different" explainers, youth savings program updates, partnership announcements with local organizations.
@@ -72,3 +81,11 @@ Credit union member data is in the core banking system — never duplicate it ex
 
 - **Community:** Event Name, Date, Type (Sponsorship/Scholarship/Volunteer/Workshop), Partner, Notes
 - **Financial Education:** Workshop Name, Date, Instructor, Attendees, Topic, Notes
+
+## Domain
+
+Credit unions are cooperatives. If the owner doesn't already have a domain, recommend **.coop** first — it's restricted to verified cooperatives, governed by the International Cooperative Alliance, and signals member-ownership in every URL, email address, and Bluesky handle. Not available on Cloudflare; register through a .coop-accredited registrar (Name.com, Gandi, or identity.coop), then point nameservers to Cloudflare.
+
+If .coop isn't practical (already established on .com, board resistance), .com is the safe fallback. Consider registering both and redirecting .com to .coop if the cooperative identity matters to the membership.
+
+Avoid .bank and .credit — these are restricted TLDs with complex verification that rarely makes sense for community credit unions.

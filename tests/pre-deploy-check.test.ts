@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import {
   scanEmails,
@@ -10,6 +10,20 @@ import {
   walkHtml,
   walkAll,
 } from "../template/scripts/pre-deploy-check.js";
+
+// ---------------------------------------------------------------------------
+// Shell script safety
+// ---------------------------------------------------------------------------
+
+describe("pre-deploy-check.sh safety", () => {
+  it("does not use eval for script grep", () => {
+    const src = readFileSync(
+      resolve(__dirname, "../scripts/pre-deploy-check.sh"),
+      "utf-8",
+    );
+    expect(src).not.toContain("eval ");
+  });
+});
 
 // ---------------------------------------------------------------------------
 // scanEmails
@@ -66,19 +80,33 @@ describe("scanEmails", () => {
 
 describe("scanPhones", () => {
   it("detects (555) 123-4567", () => {
-    expect(scanPhones("Call us at (555) 123-4567")).toBe(true);
+    expect(scanPhones("Call us at (555) 123-4567")).toEqual(["(555) 123-4567"]);
   });
 
   it("detects 555.123.4567", () => {
-    expect(scanPhones("Phone: 555.123.4567")).toBe(true);
+    expect(scanPhones("Phone: 555.123.4567")).toEqual(["555.123.4567"]);
   });
 
   it("detects 555-123-4567", () => {
-    expect(scanPhones("Phone: 555-123-4567")).toBe(true);
+    expect(scanPhones("Phone: 555-123-4567")).toEqual(["555-123-4567"]);
   });
 
-  it("returns false for content without phone numbers", () => {
-    expect(scanPhones("No phone numbers here.")).toBe(false);
+  it("returns empty array for content without phone numbers", () => {
+    expect(scanPhones("No phone numbers here.")).toEqual([]);
+  });
+
+  it("respects allowlist with exact format match", () => {
+    expect(scanPhones("Call 1-800-662-4357 for help", ["1-800-662-4357"])).toEqual([]);
+  });
+
+  it("respects allowlist with different formatting", () => {
+    // Allowlist uses dashes, content uses dots — should still match via digit normalization
+    expect(scanPhones("Call 800.662.4357 for help", ["1-800-662-4357"])).toEqual([]);
+  });
+
+  it("only filters allowlisted numbers, keeps others", () => {
+    const content = "Call 800-662-4357 or 555-123-4567";
+    expect(scanPhones(content, ["800-662-4357"])).toEqual(["555-123-4567"]);
   });
 });
 
@@ -127,6 +155,11 @@ describe("scanScripts", () => {
 
   it("allows cloudflareinsights scripts", () => {
     const html = '<script src="https://static.cloudflareinsights.com/beacon.min.js"></script>';
+    expect(scanScripts(html)).toEqual([]);
+  });
+
+  it("allows Cloudflare Turnstile scripts", () => {
+    const html = '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>';
     expect(scanScripts(html)).toEqual([]);
   });
 

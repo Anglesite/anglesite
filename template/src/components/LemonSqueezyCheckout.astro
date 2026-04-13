@@ -1,0 +1,12 @@
+---
+interface Props {
+  href: string;
+  label?: string;
+  theme?: "light" | "dark";
+}
+const { href, label = "Buy Now", theme = "light" } = Astro.props;
+---
+<a href={href} class="buy-button lemonsqueezy-button" data-lemonsqueezy data-lemonsqueezy-theme={theme}>
+  {label}
+</a>
+<script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>

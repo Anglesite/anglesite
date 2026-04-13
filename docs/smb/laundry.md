@@ -44,6 +44,13 @@ Covers: dry cleaners, laundromats (self-service), wash-and-fold services, laundr
 - **Sales tax**: Laundry services are taxable in some states, exempt in others. Varies by service type (self-service vs. drop-off).
 - **Lost/damaged garments**: Have a clear policy for handling lost or damaged items. Display or link to your terms of service.
 
+## Review platforms
+
+- **Google Business Profile** — "Laundromat near me" and "dry cleaner [neighborhood]" are high-intent local searches. Reviews here frequently mention cleanliness of machines, wait times, and whether staff was helpful for special items. Prompt, professional responses to reviews signal that management is engaged.
+- **Yelp** — Used in many markets for dry cleaners and laundromats. Reviews often compare turnaround time, pricing, and how a shop handles delicate or special items.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Garment care tips, stain removal guides, "what those laundry symbols mean," seasonal wardrobe care (winter coat cleaning, summer whites), eco-friendly cleaning explainers, behind-the-scenes of the cleaning process, alterations tips, wedding dress preservation guide, "what to do before you donate clothes."

@@ -28,7 +28,7 @@ What to include: what data is collected, how it's used, who it's shared with (if
 
 **Ask the owner:** "Your site will have a contact form [and a mailing list signup], so we need a privacy policy page. I'll draft one — it's straightforward since your site doesn't use third-party tracking."
 
-Don't recommend privacy policy generators that inject their own tracking or affiliate links. A simple, honest, plain-language page is better than a 10-page legal template.
+Don't recommend privacy policy generators that inject their own tracking or affiliate links. A simple, honest, plain-language page is better than a 10-page legal template. See [legal-templates.md](legal-templates.md) for vetted free template sources.
 
 ---
 
@@ -58,7 +58,7 @@ Keep it short. The most useful thing is a contact method for people who encounte
 
 **Ask the owner:** Nothing for the basic statement — just add it. During `/anglesite:design-interview` (Step 9, accessibility), ask about audience-specific accessibility needs.
 
-Note: WCAG AA compliance is already enforced by `/anglesite:check` and `/anglesite:deploy`. The statement is about communication, not a substitute for actual accessibility.
+Note: WCAG AA compliance is already enforced by `/anglesite:check` and `/anglesite:deploy`. The statement is about communication, not a substitute for actual accessibility. See [legal-templates.md](legal-templates.md) for the W3C WAI template.
 
 ---
 
@@ -104,7 +104,7 @@ Many owners already have terms from their booking or payment platform (Square, H
 
 **Ask the owner:** "Do you take payments, bookings, or deposits through the website? We'll need a terms of service page." If they already have terms from their platform, use those as a starting point.
 
-Keep it plain language. A clear 1-page terms document is better than a 20-page one nobody reads.
+Keep it plain language. A clear 1-page terms document is better than a 20-page one nobody reads. See [legal-templates.md](legal-templates.md) for free template sources.
 
 ---
 
@@ -147,6 +147,102 @@ This applies to website content (blog posts, reviews), not just social media. A 
 **Where to add:** Inline with each sponsored post or affiliate link. Not buried in a separate page. Example: "This post contains affiliate links — I earn a small commission if you purchase through them, at no extra cost to you."
 
 **Ask the owner:** "Do you use affiliate links or accept sponsored content on your site?" If yes, plan disclosure placement for each post type.
+
+---
+
+### 10. Return/refund policy
+
+**types:** businesses with ecommerce (buy-button, snipcart, shopify-buy-button, lemon-squeezy)
+
+Required by most payment processors and builds buyer trust. Clearly states what happens if a customer wants a return, exchange, or refund. For service businesses using booking, a cancellation policy serves the same purpose.
+
+**Where to add:** Dedicated page (`/returns/` or `/refund-policy/`) linked from the footer and referenced near checkout buttons.
+
+**Ask the owner:** "Since you're selling through your website, we need a return/refund policy. Do you already have one? If not, I'll draft one as a starting point." See [legal-templates.md](legal-templates.md) for free template sources.
+
+---
+
+### 11. Shipping policy
+
+**types:** businesses selling physical goods (snipcart, shopify-buy-button)
+
+Sets delivery expectations: processing time, shipping methods, estimated delivery windows, and who pays for return shipping. Reduces disputes and support requests.
+
+**Where to add:** Dedicated page (`/shipping/`) or a section within the returns/refund page. Link from the footer and from product pages.
+
+**Ask the owner:** "What are your typical shipping times? Do you ship everywhere or just within certain areas?" Draft the policy from their answers.
+
+---
+
+### 12. Age verification notice
+
+**types:** alcohol, cannabis, firearms, tobacco, vape, adult-content businesses
+
+Legal requirement in most jurisdictions for businesses selling age-restricted products or services. The website must include a notice or gate before users can access product content.
+
+**Where to add:** A brief notice on the homepage or a lightweight age gate before product pages. Don't build a complex verification system — a simple "You must be 21+ to purchase" notice with acknowledgment is sufficient for a website. The actual age verification happens at point of sale.
+
+**Ask the owner:** "Your business sells age-restricted products. I'll add a notice that visitors must be of legal age. Does your state require a specific minimum age?"
+
+---
+
+### 13. Professional license display
+
+**types:** contractor, electrician, plumber, cosmetologist, barber, real-estate, insurance
+
+Many state licensing boards require the license number to be displayed on advertising — which includes websites. Even when not legally required, displaying a license number builds credibility.
+
+**Where to add:** Footer (brief) and About page (with issuing authority). Example: "Licensed General Contractor #12345 — California CSLB"
+
+**Ask the owner:** "Do you have a professional license or contractor license number? Many states require it to be displayed on your website."
+
+---
+
+### 14. GDPR data processing disclosure
+
+**types:** all (if the site has any EU visitors and collects data via forms or newsletter)
+
+GDPR requires explicit disclosure of what data is collected, the legal basis for processing, and the right to request deletion. For most Anglesite sites, the privacy policy covers this — but it must specifically mention GDPR rights (access, rectification, erasure, portability) if EU visitors are expected.
+
+**Where to add:** A "For European visitors" section in the privacy policy page. Not a separate page.
+
+**Ask the owner:** "Do you expect visitors from Europe? If so, I'll add a section to your privacy policy about their data rights under GDPR." If unsure, add it anyway — it's free insurance.
+
+---
+
+### 15. CCPA "Do Not Sell" notice
+
+**types:** all (if the site has California visitors and collects any data)
+
+CCPA requires businesses meeting certain thresholds to include a "Do Not Sell My Personal Information" notice. Most Anglesite SMB sites fall below CCPA thresholds ($25M+ revenue, 50K+ consumers' data), but a simple statement in the privacy policy builds trust regardless.
+
+**Where to add:** A sentence in the privacy policy: "We do not sell your personal information." No separate page needed for sites below CCPA thresholds.
+
+**Ask the owner:** Nothing — just include the statement in the privacy policy by default. Anglesite's no-third-party-JS architecture means there's genuinely nothing being sold.
+
+---
+
+### 16. Service cancellation/refund policy
+
+**types:** businesses with appointment booking (booking skill configured)
+
+Reduces no-shows and disputes. States how far in advance a booking can be cancelled, whether deposits are refundable, and what happens for late cancellations.
+
+**Where to add:** Dedicated section on the booking page and referenced in terms of service. Link from the footer if booking is a primary feature.
+
+**Ask the owner:** "What's your cancellation policy? For example, do you require 24-hour notice? Are deposits refundable?" Draft the policy from their answers.
+
+---
+
+### 17. Testimonial and endorsement disclosure
+
+**types:** all businesses displaying testimonials, reviews, or endorsements
+
+The FTC requires disclosure of material connections — paid testimonials, incentivized reviews, or affiliate relationships. Updated 2023 FTC endorsement guides apply to website content, not just social media.
+
+**Where to add:** Inline with each testimonial or review. If all testimonials are genuine unpaid reviews, a brief note is still good practice: "These are reviews from real customers. We did not pay for or incentivize these reviews."
+
+**Ask the owner:** "Did you offer any discount or incentive for these reviews? The FTC requires disclosure if so." This expands on item 9 (FTC disclosure for affiliate/sponsored content) to cover testimonials specifically.
 
 ---
 

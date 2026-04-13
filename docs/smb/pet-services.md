@@ -35,6 +35,17 @@ Covers: dog grooming, pet boarding/kennels, dog walking, pet sitting, dog traini
 - **Cal.com** (open source, free tier) — For booking grooming appointments or training sessions.
 - Many pet businesses manage bookings via phone/text. If that works and the volume is manageable, don't fix what isn't broken.
 
+## Review platforms
+
+- **Google Business Profile** — Pet owners search "dog groomer near me" or "dog boarding [city]" and choose heavily on reviews. Reviews that mention a specific pet's name or a funny story ("they even sent us a photo of Max during his bath") are especially persuasive. Respond to every review personally — pet parents appreciate the warmth.
+- **Yelp** — Active for pet services in most markets. Pet owners use Yelp specifically when searching for grooming and boarding options. Features like photos and check-ins give it depth. Claim the listing and keep it updated with current photos.
+- **Rover** (if applicable) — For dog walkers and pet sitters who use the Rover platform, the in-app review system is the primary credibility signal. A high Rover rating and review count significantly affects booking rates within the platform.
+- **Facebook** — Many pet owners ask for recommendations in neighborhood Facebook Groups. A business page with visible reviews and active posts gives you something to point to when someone mentions your name in a group. Respond to recommendations and tags.
+
+Ask pet parents at pickup: "If [pet's name] had a great time, a Google or Yelp review would mean the world to us!" Including the pet's name in the ask makes it personal and almost always gets a yes.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Vaccination records**: Boarding and daycare facilities typically require proof of vaccination. Note requirements on the policies page (rabies, DHPP, bordetella are common).

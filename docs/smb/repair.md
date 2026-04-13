@@ -39,6 +39,18 @@ Covers: auto repair, auto body/collision, computer/phone/electronics repair, app
 - **Cal.com** (open source, free tier) — Appointment booking for drop-offs or estimates.
 - Many small repair shops run on paper tickets or a simple spreadsheet. If volume is low (<10 jobs/week), that's fine — don't overcomplicate it.
 
+## Review platforms
+
+- **Google Business Profile** — The first place people turn when something breaks. "Phone repair near me" or "appliance repair [town]" goes straight to Google Maps results. Reviews that say "they were honest about whether to repair or replace" and "fast turnaround, kept me updated" are the most persuasive for repair businesses. Respond to every review, including complaints — showing you address problems professionally is as important as the good reviews.
+- **Yelp** — Active for auto repair, phone repair, and electronics repair shops. Some customers specifically use Yelp because they believe its filter catches fake reviews and provides more authentic signal. A strong Yelp presence with recent reviews and owner responses is worth building.
+- **RepairShopr / RepairDesk reviews** (if using these platforms) — If the shop uses job management software with customer portals, some platforms have review prompts built in. Enable them.
+- **Better Business Bureau** — For auto repair specifically, an accredited BBB profile with positive reviews is a meaningful trust signal, especially for first-time customers who are nervous about being overcharged.
+- **Facebook** — Neighborhood groups are where people ask "anyone have a good mechanic?" A business page with visible reviews and quick responses to comments positions the shop to be recommended when those questions come up.
+
+Timing matters: ask for the review when the customer picks up their item and says they're happy — not a week later by email when the moment has passed. A receipt or pickup notice with a direct review link makes it easy.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Right to Repair laws**: Landscape is changing fast. As of 2025, several US states and the EU have enacted repair legislation requiring manufacturers to provide parts, tools, and documentation. If the business advocates for Right to Repair, feature this on the about page — it's a differentiator and a values statement.

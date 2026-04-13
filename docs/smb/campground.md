@@ -38,6 +38,15 @@ Covers: RV parks, campgrounds, glamping sites, tent-only campgrounds, seasonal/l
 - **Square** (free POS, proprietary) — Camp store, firewood sales, on-site purchases.
 - Many small campgrounds still take reservations by phone and manage sites on a paper grid or spreadsheet. If it works and the volume is manageable, that's fine.
 
+## Review platforms
+
+- **Google Business Profile** — Most campers start their search on Google Maps ("campgrounds near [location]"). Keep the profile up to date with seasonal hours, current photos of sites and amenities, and respond to every review. Negative reviews about cleanliness or facilities have outsized impact.
+- **Hipcamp** — A leading platform for discovering independent campgrounds, glamping sites, and unique outdoor experiences. If the park isn't listed, it's missing a major discovery channel for younger and first-time campers.
+- **The Dyrt** — A campground-specific review and discovery platform with a large community of dedicated campers. Reviews here are detailed and read carefully by research-minded campers.
+- **Campendium** — Popular with RV travelers. Reviews focus on hookups, cell signal, Wi-Fi, and practical details. Full-hookup and RV parks especially benefit from being active here.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Health department**: Campgrounds with public facilities (showers, restrooms, pools, water systems) are regulated by state and local health departments. Display your license. Inspections are routine. Water system testing (for campgrounds on well water) is often required.

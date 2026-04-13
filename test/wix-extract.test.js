@@ -13,7 +13,7 @@ import {
   isOpaqueWixSlug,
   slugifyTitle,
   resolvePageSlug,
-} from '../scripts/import/wix/wix-extract.js';
+} from '../scripts/import/wix/wix-extract.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(join(__dirname, 'fixtures', name), 'utf-8');

@@ -1,7 +1,7 @@
 ---
 name: start
 description: "First-time setup: discovery, design, tools, preview"
-allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Write, Read, Glob
+allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Bash(gh *), Bash(git remote *), Bash(git push *), Bash(git branch *), Bash(git add *), Bash(git commit *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -12,7 +12,7 @@ Welcome a new site owner. This is the first command they'll run — it combines 
 These decisions shape how the site is built. Read when you need to explain *why* to the owner:
 
 - [ADR-0001 Astro](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0001-astro-static-site-generator.md) — why the site uses Astro (zero client JS, static output)
-- [ADR-0002 Keystatic](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0002-keystatic-local-cms.md) — why content is local `.mdx` files, not a hosted CMS
+- [ADR-0002 Keystatic](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0002-keystatic-local-cms.md) — why content is local `.mdoc` files, not a hosted CMS
 - [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — why hosting is on Cloudflare (free, CLI deploy, at-cost domains)
 - [ADR-0009 Industry tools](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0009-industry-tools-over-custom-code.md) — why existing tools are integrated, not replaced
 - [ADR-0010 Local HTTPS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0010-local-https-development.md) — why the dev environment uses HTTPS with a custom hostname
@@ -40,6 +40,8 @@ Ask:
    - Organization, nonprofit, club, community → `SITE_TYPE=organization`
 
    If unclear, ask a follow-up. Don't offer a multiple-choice list — let their words guide you.
+
+Before branching, surface the first-run education prompts. Read `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 1 ("First Run / Site Type Selection") and share the `LAUNCH_NOT_FINISH` and `THREE_PAGES` topics — one brief aside, not a lecture. Then write both `EDUCATION_LAUNCH_NOT_FINISH=shown` and `EDUCATION_THREE_PAGES=shown` to `.site-config` after scaffolding (Step 1), alongside all other config values.
 
 Then branch based on site type:
 
@@ -72,6 +74,9 @@ Then branch based on site type:
 5. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
 6. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
 7. "Are you already using any tools or apps for your business?" — anything counts: Etsy, Square, Venmo, Instagram for sales, a booking app, a spreadsheet. If they already have tools, don't replace them — integrate with the website. Recognize informal tools (Venmo, PayPal, Cash App, Zelle) as valid starting points — suggest professional invoicing (Square, Stripe) when they're ready, not as an immediate replacement.
+
+7b. **Business and organization sites only:** "Where do your customers leave reviews? Google, Yelp, your booking platform?" — Save as `REVIEW_PLATFORMS=google,yelp,fresha` (comma-separated slugs) in `.site-config`. If they mention Google Business Profile and `GOOGLE_REVIEW_URL` is not already set, ask for their business name to construct the direct review link: `https://search.google.com/local/writereview?placeid=PLACE_ID`. Find the Place ID via [Google's Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) and save as `GOOGLE_REVIEW_URL` in `.site-config`. Skip this question for personal, blog, and portfolio site types.
+
 8. If the business has a physical location, ask:
    - "What's your business address?" (for maps and local search)
    - "What's your business phone number?" (for the website and local search)
@@ -93,7 +98,10 @@ Then branch based on site type:
 
 3. "What's the name of your portfolio?" — their name, studio name, or brand.
 4. "What kind of work will you showcase?" — photography, design, illustration, writing, code, music, etc.
-5. "Where else do you share your work?" — Instagram, Behance, Dribbble, GitHub, SoundCloud. These become featured links on the site.
+
+   If their work is interactive or code-based (creative coding, generative art, web experiments, data visualization, WebGL, shaders), add `web-artist` to `BUSINESS_TYPE`. This enables the `creative-canvas` skill for full immersive setup — `ImmersiveLayout`, experiment gallery at `/lab`, and curated creative coding library support (p5.js, Three.js, GSAP, Tone.js, D3.js). Read `${CLAUDE_PLUGIN_ROOT}/docs/smb/web-artist.md` for design and structure guidance.
+
+5. "Where else do you share your work?" — Instagram, Behance, Dribbble, GitHub, SoundCloud, OpenProcessing, Shadertoy. These become featured links on the site.
 
 ### Organization sites (`SITE_TYPE=organization`)
 
@@ -107,9 +115,19 @@ Ask everyone:
 
 - "What web address would you like? For example, yourname.com."
 
-  If they know, save it and derive the local hostname: `DEV_HOSTNAME=example.com.local`.
+  If they're unsure, help them think it through. Read `${CLAUDE_PLUGIN_ROOT}/docs/domain-guide.md` for evidence-based TLD guidance — the right domain depends on who they are. For co-ops, suggest .coop. For nonprofits, suggest .org. For environmental orgs, mention .eco. For general businesses, .com is the safe default. See the quick reference table in the domain guide.
 
-  If they don't know yet, derive from the site name. Slugify (lowercase, hyphens, no special characters) and append `.local`: "Keith Electric" → `DEV_HOSTNAME=keithelectric.local`. Tell them: "No problem — we'll use that for now. You can pick a real domain later when you're ready to go live."
+  If they know what they want, save it and derive the local hostname: `DEV_HOSTNAME=example.com.local`.
+
+  If they don't know yet, derive from the site name. Slugify (lowercase, hyphens, no special characters) and append `.local`: "Pairadocs Farm" → `DEV_HOSTNAME=pairadocs-farm.local`. Tell them: "No problem — we'll use that for now. You can pick a real domain later when you're ready to go live."
+
+- "Are you on Bluesky, or interested in joining? It's a social network where your domain becomes your handle — so people see @yourdomain.com instead of a platform username. It's free and aligned with the idea that you should own your online identity."
+
+  If yes and they have an account: save `BLUESKY_HANDLE=@current-handle` to `.site-config`. They can verify their domain as their handle later with `/anglesite:domain bluesky`.
+
+  If yes and they want to sign up: point them to `https://bsky.app` and note it for the domain setup step.
+
+  If not interested, that's fine — don't push.
 
 - "One more thing — as I work on your website, I can either explain each step before I do it, or just get things done quietly. Which do you prefer?"
 
@@ -140,18 +158,39 @@ SITE_NAME=Business Name
 BUSINESS_TYPE=restaurant
 DEV_HOSTNAME=businessname.com.local
 AI_MODEL=Claude Opus 4.6
-SITE_ADDRESS=123 Main St, City, ST 12345
+SITE_ADDRESS=128 Pullets Dr, Central, SC 29630
 SITE_PHONE=(555) 123-4567
 SITE_HOURS=Mon-Fri 9am-5pm
 EXISTING_TOOLS=vagaro,square
 EXPLAIN_STEPS=true
+ANGLESITE_VERSION=0.16.3
 ```
 
 Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, `AI_MODEL`, and `EXPLAIN_STEPS` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. `EXISTING_TOOLS` is present if the owner mentioned tools (business) or social platforms (portfolio). The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
 
+After writing `.site-config`, prune content collections that aren't relevant to the site type. This removes unused content directories, associated pages, and updates `anglesite.config.json`:
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/scripts/prune-collections.mjs .
+```
+
+The prune script reads `SITE_TYPE` and `BUSINESS_TYPE` from `.site-config` and keeps only the collections needed — for example, a portfolio site keeps `posts` and `gallery`; a restaurant business keeps `posts`, `services`, `team`, `testimonials`, `faq`, `events`, `menus`, `menuSections`, and `menuItems`. Both `content.config.ts` and `keystatic.config.ts` auto-detect which collections are active based on directory existence, so the CMS and build stay in sync.
+
+If the design interview (Step 2) adds collections or singletons not already present, create the content directory (e.g. `mkdir -p src/content/experiments`) and regenerate `anglesite.config.json` to match.
+
 ## Step 2 — Design interview
 
-Run the design interview. Read and follow the full instructions in `${CLAUDE_PLUGIN_ROOT}/skills/design-interview/SKILL.md` — it covers the interview questions, applying the design, structured data, and docs sync. All design edits are file changes that don't require tools to be installed yet.
+Run the guided design interview. Read and follow the full instructions in `${CLAUDE_PLUGIN_ROOT}/skills/design-interview/SKILL.md` — it conducts a 4-stage conversational design discovery (Intent → Mood → Brand anchoring → Axis confirmation) and generates four artifacts: `src/design/design.json`, `src/design/tokens.css`, `src/design/DESIGN.md`, and an updated layout import. It also covers structured data and docs sync. All design edits are file changes that don't require tools to be installed yet.
+
+## Step 2b — Photography guidance
+
+Before collecting content, help the owner know what photos they'll need. Frame it as:
+
+> "Before we fill in your pages, let's make sure you have the photos you'll need. Your phone camera is all you need — I'll show you exactly what to shoot."
+
+Read and follow the photography guidance instructions in `${CLAUDE_PLUGIN_ROOT}/skills/photography/SKILL.md`. It generates a prioritized shot list based on the site type and delivers practical phone tips.
+
+If the owner wants to skip this ("I already have photos" / "I'll figure it out later"), that's fine — move on. The photography skill is also available on demand via `/anglesite:photography`.
 
 ## Step 3 — Install tools
 
@@ -206,7 +245,90 @@ Tell the owner: "I'm saving a snapshot of your website so you can always get bac
 
 Run `git add -A` then `git commit -m "Setup: SITE_NAME website"` (replace SITE_NAME with the actual name from `.site-config`). Do not ask the owner to run these — just do it.
 
-## Step 5 — Preview
+## Step 5 — Back up to GitHub
+
+Tell the owner: "Now let's back up your website to the cloud so your work is always safe, even if something happens to your computer."
+
+First, verify that the GitHub CLI is available:
+
+```sh
+gh --version
+```
+
+If `gh` is not found, run `npm run ai-setup` to install it. If setup fails (e.g., on Windows where manual install is needed), tell the owner: "I need the GitHub CLI installed first. On Windows, run `winget install GitHub.cli` in a terminal, then let me know when it's done." Wait for confirmation before continuing.
+
+### GitHub account
+
+Ask: "Do you have a GitHub account, or should we create one?"
+
+If they need one, tell them to open `https://github.com/signup` in their browser. Walk them through: pick a username, enter email, set password. Wait for them to confirm they're signed in.
+
+### Authenticate
+
+Tell the owner: "I need to connect your computer to GitHub. Your browser will open asking you to authorize the connection — just click **Authorize**."
+
+```sh
+gh auth login --web --git-protocol https
+```
+
+Wait for authentication to succeed. If it fails, run `gh auth status` and try again.
+
+### Create the repository
+
+Derive a repo name from `SITE_NAME` in `.site-config` — slugify it (lowercase, hyphens, no special characters). Create a private repo and push:
+
+```sh
+gh repo create REPO_NAME --private --source . --remote origin --push
+```
+
+This creates the private GitHub repository, adds it as the `origin` remote, and pushes the `draft` branch. The `--private` flag ensures the website source is not publicly visible.
+
+Now create the `main` branch (used for production deploys) and push it:
+
+```sh
+git branch main
+```
+
+```sh
+git push origin main
+```
+
+Stay on `draft` — all day-to-day work happens there. The `main` branch is only updated during `/anglesite:deploy`.
+
+Save `GITHUB_REPO=OWNER/REPO_NAME` to `.site-config` using the **Write tool** (update the existing file). Get the owner/repo value by running:
+
+```sh
+gh repo view --json nameWithOwner --jq .nameWithOwner
+```
+
+### Create issue labels
+
+Set up labels for bug tracking:
+
+```sh
+gh label create bug --description "Something is broken" --color d73a4a
+gh label create accessibility --description "WCAG or usability issue" --color 0075ca
+gh label create security --description "Security or privacy concern" --color e4e669
+gh label create content --description "Content error or missing content" --color 0e8a16
+gh label create build --description "Build or deploy failure" --color fbca04
+```
+
+Tell the owner: "Your website is backed up to GitHub! Every time we make changes, they'll be saved there automatically. If anything ever happens to your computer, your website is safe."
+
+## Visual progress
+
+Throughout the setup process, use tldraw to show the owner a visual progress checklist using `progressChecklist()` from `scripts/tldraw-helpers.ts`. Update it as each step completes:
+
+- Scaffolding
+- Discovery interview
+- Design interview
+- Tool installation
+- GitHub backup
+- Preview
+
+This gives the owner a clear sense of where they are and what's left. Draw it once early and update it after major milestones.
+
+## Step 6 — Preview
 
 Tell the owner: "Let's see your website! Click the **Preview** button in the toolbar above — it will start your site and show it right here in the app."
 
@@ -216,13 +338,15 @@ Once they see it: "That's your website running securely on your computer — see
 
 If they want to open it in a regular browser: "You can also visit https://DEV_HOSTNAME in Safari or Chrome." (Replace `DEV_HOSTNAME` with the actual value from `.site-config`.)
 
-## Step 6 — Iterate
+## Step 7 — Iterate
 
 Ask: "What do you think? Want to change anything?"
 
-If they want changes, make them now. If they want to redo the whole design later, they can run `/anglesite:design-interview`.
+If they want changes, make them now. If they want to redo the whole design later, they can just ask you to redo the visual identity — say something like "I want to change the design" or "let's start the design over."
 
-## Step 7 — What this costs
+**Content education prompts:** During iteration, watch for the content misconceptions in `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 4 ("Content Phase"). If the owner says "I'll write the copy later," surface `COPY_LATER`. If the homepage scope keeps expanding, surface `HOMEPAGE_OVERLOAD`. If they ask for pages "for SEO," surface `PAGE_COUNT_SEO`. Check `.site-config` for the `EDUCATION_<KEY>=shown` flag before each — only surface once.
+
+## Step 8 — What this costs
 
 Be upfront about costs: "Before we go further, here's what running your website costs:"
 
@@ -230,17 +354,17 @@ Be upfront about costs: "Before we go further, here's what running your website 
 - **Domain name** — ~$10–15/year if you buy one (or free with the .pages.dev address)
 - **Everything else** — Free. You own the code, the domain, and all your data.
 
-## Step 8 — What you learned
+## Step 9 — What you learned
 
 Summarize what the owner now knows:
 
 - Their website is running on their computer (the preview)
 - They can write and edit blog posts using Keystatic (the visual editor in the preview)
 - Changes go live with `/anglesite:deploy`
-- Their files are backed up in version history (so they can undo changes)
+- Their website is backed up to GitHub automatically (every deploy pushes a copy)
 - They own everything — code, domain name, content. No lock-in.
 
-## Step 9 — Next steps
+## Step 10 — Next steps
 
 Tell the owner what they can do now:
 

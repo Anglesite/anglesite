@@ -46,6 +46,29 @@ describe("readConfigFromString", () => {
       readConfigFromString("PII_EMAIL_ALLOW=a@b.com,c@d.com", "PII_EMAIL_ALLOW"),
     ).toBe("a@b.com,c@d.com");
   });
+
+  it("reads EDUCATION_ flags without colliding with other keys", () => {
+    const content = [
+      "SITE_NAME=My Site",
+      "EDUCATION_LAUNCH_NOT_FINISH=shown",
+      "EDUCATION_SEO_TIMELINE=shown",
+      "EXISTING_TOOLS=square,venmo",
+    ].join("\n");
+
+    expect(readConfigFromString(content, "EDUCATION_LAUNCH_NOT_FINISH")).toBe(
+      "shown",
+    );
+    expect(readConfigFromString(content, "EDUCATION_SEO_TIMELINE")).toBe(
+      "shown",
+    );
+    // Unset education flags return undefined
+    expect(
+      readConfigFromString(content, "EDUCATION_DOMAIN_VS_WEBSITE"),
+    ).toBeUndefined();
+    // Non-education keys unaffected
+    expect(readConfigFromString(content, "SITE_NAME")).toBe("My Site");
+    expect(readConfigFromString(content, "EXISTING_TOOLS")).toBe("square,venmo");
+  });
 });
 
 // ---------------------------------------------------------------------------

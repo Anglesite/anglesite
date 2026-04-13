@@ -1,0 +1,10 @@
+# Review form worker — deployed via /anglesite:testimonials
+# Receives customer review submissions for moderation and display.
+#
+# Secrets are set via: npx wrangler secret put <NAME> --config worker/review-wrangler.toml
+#   CONTACT_EMAIL           — Where to send review notifications
+#   SITE_DOMAIN             — Site domain for CORS validation
+
+name = "review-form"
+main = "review-worker.js"
+compatibility_date = "2024-01-01"

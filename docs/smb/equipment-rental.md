@@ -37,6 +37,17 @@ Covers: tool and equipment rental (construction, landscaping, moving), party and
 - **Yelp** — Active for party rental in many markets.
 - **The Knot / WeddingWire** — If the business does wedding rentals, listing here reaches brides and planners. theknot.com / weddingwire.com
 
+## Review platforms
+
+- **Google Business Profile** — The first stop for "tent rental near me" or "bounce house rental [town]." Reviews for rental businesses are particularly valuable because potential customers are trusting that equipment will show up on time, in good condition, and be set up correctly. Reviews that mention reliability ("delivered and set up perfectly, arrived exactly on time") and condition ("everything was clean and worked great") directly address customer anxieties. Respond to all reviews.
+- **Yelp** — Active for party rental in most markets. Families planning events comparison-shop, and Yelp is a common second check after Google. A strong Yelp presence with event setup photos is worth maintaining.
+- **The Knot / WeddingWire** (if the business does wedding rentals) — Couples researching vendors for weddings use these platforms extensively. A rental company with a profile and reviews on The Knot reaches brides and planners who are actively planning. This is especially relevant for tent and linen rental businesses that serve weddings regularly.
+- **Facebook** — Event photos shared by clients (tents set up in backyards, bounce houses at birthday parties) generate organic referrals. A business page with real setup photos and visible reviews is worth maintaining. Ask clients to tag the rental company in their event photos.
+
+After a successful delivery and event, a follow-up text or email: "Glad the party was a success! If you have a moment, a Google review would help other families find us." Include the direct link. Timing right — within 24 hours of the event — gets the best response rate.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Liability and insurance**: Rental businesses carry significant liability. Inflatable and bounce house rentals require commercial general liability insurance and often specific rider policies. Require signed rental agreements before every rental. Note on the website: "All rentals require a signed rental agreement."

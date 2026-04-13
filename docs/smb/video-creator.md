@@ -58,6 +58,16 @@ Covers: YouTubers, video essayists, educational video creators, streamers (Twitc
 - **VidIQ** (free tier, proprietary) or **TubeBuddy** (free tier, proprietary) — YouTube analytics and SEO tools. Help with titles, tags, thumbnails, best upload times. Use one, not both.
 - **SponsorBlock** data / SocialBlade — Public analytics for understanding channel performance trends. Not tools to install, but useful references.
 
+## Review platforms
+
+Traditional review platforms don't apply to video creators — viewers don't leave Yelp reviews for YouTubers. Reputation is established through platform presence, view counts, and community engagement.
+
+- **YouTube** — The like/dislike ratio, subscriber count, and comment quality are the public trust signals for YouTube-based creators. A comments section that shows engaged, appreciative viewers is itself a form of social proof.
+- **Twitch** — For streamers, follower count, subscription count, and channel reviews (where available) signal community standing.
+- **Google Business Profile** — Only relevant if the creator operates a physical studio available for hire, teaches in-person workshops, or hosts live events with a fixed venue. If there's no physical location, skip it.
+
+See `docs/smb/reviews.md` for general review management guidance.
+
 ## Compliance
 
 - **Copyright and fair use**: Video creators frequently use clips, images, music, and other copyrighted material. Fair use is a legal defense, not a right — it's determined case by case. Guidelines: transformative use is stronger than reproductive use; commentary and criticism have more protection than compilation; using less of the original is better than more. YouTube's Content ID system can claim or block videos regardless of fair use. The website is not subject to Content ID — another reason to host content there.

@@ -1,8 +1,8 @@
 ---
 name: import
-description: "Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd)"
-argument-hint: "[website URL]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(node *)", "Bash(npx playwright *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Write", "Read", "Glob", "Edit"]
+description: "Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project"
+argument-hint: "[website URL or local path]"
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -51,17 +51,28 @@ These apply to every import regardless of platform:
 Before every tool call or command that will trigger a permission prompt, explain
 what you're about to do and why. The owner is non-technical.
 
-## Step 0 — Check the project
+## Pre-migration education
 
-### 0a — Is this already an Anglesite project?
+Before starting the import, surface the migration education prompts from `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 7 ("Migration Flow"). Check `.site-config` for each `EDUCATION_<KEY>=shown` flag before surfacing. Share `THEME_OWNERSHIP`, `PRUNING`, and `PLATFORM_DESIGN` — frame as "a few things worth knowing before we start." Tailor the `THEME_OWNERSHIP` and `PLATFORM_DESIGN` copy to the detected platform name (e.g., "WordPress," "Squarespace"). Write the flags to `.site-config` after.
+
+## Step 0 — Get the URL and check the project
+
+### 0a — Get the URL
+
+Ask the owner for their website URL if they didn't provide one as an argument.
+The URL is the primary input — ask for it first before anything else.
+
+Normalize: strip trailing slashes, ensure `https://`. Store as SITE_URL.
+
+### 0b — Is this already an Anglesite project?
 
 Use Glob to check for `src/content/config.ts` or `src/content.config.ts` (Astro 5
 moved the content config; either path means Anglesite).
 
 If either exists, this project has already been scaffolded. Read `.site-config` to
-load `SITE_NAME` and `OWNER_NAME`. Skip to **0c**.
+load `SITE_NAME` and `OWNER_NAME`. Skip to Step 1.
 
-### 0b — Scaffold if needed
+### 0c — Scaffold if needed
 
 If neither content config file exists, check the working directory:
 
@@ -80,19 +91,17 @@ Stop.
 zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh --yes .
 ```
 
-Ask the essentials:
-
-1. "What's your name?"
-2. "What should we call the new site?"
+Ask: "What's your name?" (The site name will be detected from the homepage in
+Step 3a, so no need to ask for it now.)
 
 Save to `.site-config` using the **Write tool**:
 
 ```
 SITE_TYPE=blog
 OWNER_NAME=Name
-SITE_NAME=Site Name
-DEV_HOSTNAME=sitename.local
-AI_MODEL=Claude Opus 4.6
+SITE_NAME=My Site
+DEV_HOSTNAME=mysite.local
+AI_MODEL=(write your actual model name here)
 EXPLAIN_STEPS=true
 ```
 
@@ -107,12 +116,6 @@ npm install
 > `/anglesite:convert` if this is a static site project."
 
 Wait for guidance.
-
-### 0c — Get the URL
-
-Ask the owner for their website URL if they didn't provide one as an argument.
-
-Normalize: strip trailing slashes, ensure `https://`. Store as SITE_URL.
 
 ## Step 1 — Detect platform and discover content
 
@@ -225,18 +228,17 @@ Tell the owner what was found. Example:
 > **Blog posts:** 23 posts (July 2024 – February 2026)
 > **Pages:** 6 pages (About, FAQ, Services, Contact, Gallery, Get Involved)
 >
-> I'll import all the blog posts and extract the content from each page.
-> The import will take about 5–10 minutes for a blog this size."
+> I'll import all the blog posts, extract the content from each page, and
+> set up redirects so your search rankings carry over. The import will take
+> about 5–10 minutes for a blog this size."
 
 If BLOG_POSTS is empty, tell the owner — skip to Step 3 for pages only, or
 Step 4 if image galleries were detected.
 
-Ask:
-> "Would you like to import all of it, or just the blog posts?"
-> - **Everything** — import posts + page stubs + redirects (recommended)
-> - **Blog posts only** — skip static pages
-
-Wait for their answer before continuing.
+Import everything by default — posts, pages, images, and redirects. Do not
+prompt the owner to choose a scope. The whole point of `/anglesite:import` is
+to import the entire website. If the owner wants to remove something afterward,
+they can delete it.
 
 ## Step 2 — Import blog posts
 
@@ -269,23 +271,41 @@ and tag names using the ID maps built in Step 1b.
 **Squarespace (WXR export):** The content is already in the XML from Step 1b.
 Use `<content:encoded>` (full HTML).
 
-**Squarespace (RSS fallback):** For posts in the RSS feed, use the `<description>`
-or `<content:encoded>` field. For posts NOT in the RSS feed (older than the 20
-most recent), use WebFetch on the post URL with the extraction prompt below.
+**Squarespace (RSS fallback):** The RSS feed URL is `COLLECTION_URL?format=rss`
+where COLLECTION_URL is the blog collection path discovered in Step 1b (not
+always `/blog` — may be `/news`, `/journal`, or any custom path). For posts in
+the RSS feed, use the `<description>` or `<content:encoded>` field. For posts
+NOT in the RSS feed (older than the most recent 10–20), use WebFetch on the
+post URL with the extraction prompt below.
 
 **Wix:** Use Playwright to extract content and design tokens. WebFetch does
 not work on Wix pages.
 
-Before the first extraction, ensure the Chromium browser is installed:
+Before the first extraction, check if Playwright is installed and offer to
+install it if not:
 
 ```sh
+npm ls playwright
+```
+
+If not installed, tell the owner:
+> "I can extract your site's colors and fonts automatically, but I need to
+> install a browser tool first (~150 MB). Want me to install it?"
+
+If yes:
+
+```sh
+npm install playwright
 npx playwright install chromium
 ```
+
+If they decline, skip to the curl + regex fallback below (content only, no
+design tokens).
 
 For each post:
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "POST_URL"
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.mjs "POST_URL"
 ```
 
 Returns `{tokens, content}` where `content` has `{body, images, title, navLinks}`.
@@ -298,8 +318,8 @@ regex for that page only:
 
 ```sh
 curl -sL "POST_URL" > /tmp/wix-post.html
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js post /tmp/wix-post.html
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js meta /tmp/wix-post.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs post /tmp/wix-post.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs meta /tmp/wix-post.html
 ```
 
 If extraction returns empty content from either method, add the post to
@@ -323,19 +343,9 @@ and continue. Do not stop the import for individual failures.
 
 ### 2b — Convert HTML to Markdown
 
-For WordPress and Squarespace content that arrives as rendered HTML, convert it
-to clean Markdown:
-- `<h2>` → `##`, `<h3>` → `###`, etc.
-- `<p>` → paragraph with blank line separation
-- `<a href="...">text</a>` → `[text](url)`
-- `<img src="..." alt="...">` → `![alt](src)` (download image in step 2c)
-- `<ul>/<li>` → `- item`
-- `<ol>/<li>` → `1. item`
-- `<blockquote>` → `> text`
-- `<strong>` → `**text**`, `<em>` → `*text*`
-- Strip all other HTML tags (`<div>`, `<span>`, `<figure>`, `<section>`, etc.)
-- Strip inline styles, class attributes, and data attributes
-- Strip empty paragraphs and excessive whitespace
+For WordPress and Squarespace content that arrives as rendered HTML, follow the
+HTML-to-Markdown conversion rules in
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`.
 
 ### 2c — Download and optimize images
 
@@ -343,96 +353,30 @@ Tell the owner (once, not per-post):
 > "I'm downloading images from your website and converting them to a
 > web-friendly format."
 
-**Hero/featured images:**
+Follow the image optimization procedures in
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`, using `curl -L -s`
+to download instead of `cp`.
 
-The image URL source depends on the platform:
-- WordPress: `source_url` from the media API response
-- Squarespace: image URLs in the content, typically from `images.squarespace-cdn.com`
-- Wix: `<enclosure>` URL from the RSS feed, typically from `static.wixstatic.com`
-
-For Wix images, strip transform parameters: remove everything from `/v1/` onward
-or any query string, then append `?w=1200`. For WordPress and Squarespace, use
-the URL as-is.
-
-```sh
-curl -L -s -o "public/images/blog/SLUG-hero.jpg" "IMAGE_URL"
-```
-
-Check file size:
-
-```sh
-wc -c < public/images/blog/SLUG-hero.jpg
-```
-
-If over 500,000 bytes, convert and resize using `sharp-cli` (cross-platform):
-
-```sh
-npx sharp-cli -i public/images/blog/SLUG-hero.jpg -o public/images/blog/SLUG-hero.webp --width 1200
-```
-
-Verify the conversion:
-
-```sh
-ls public/images/blog/SLUG-hero.webp
-```
-
-If `.webp` exists, set frontmatter `image` to `/images/blog/SLUG-hero.webp`.
-If conversion failed or the original was under 500KB, keep the original file.
+**Platform-specific image URL handling:**
+- WordPress: `source_url` from the media API response — use as-is
+- Squarespace: `images.squarespace-cdn.com` URLs — strip `?format=NNNw` if NNN < 1200; replace with `?format=2500w` or remove the param
+- Wix: `static.wixstatic.com` URLs — strip transform parameters from `/v1/` onward, append `?w=1200`
 
 If the download fails, add to FAILED_IMAGES and omit `image` from frontmatter.
 
-**Inline images:** For images embedded in the post body, download using the same
-approach with a `SLUG-body-N.webp` naming pattern and replace the inline image
+**Inline images:** Download with `SLUG-body-N.webp` naming and replace inline
 URLs with local paths.
 
 ### 2d — Assemble frontmatter and write the .mdoc file
 
-Assemble frontmatter fields:
-- `title`: from API/export/WebFetch
-- `description`: from excerpt or WebFetch summary
-- `publishDate`: in YYYY-MM-DD format
-- `image`: local path after download, or omit
-- `imageAlt`: derive from post title (e.g., "Hero image for [title]")
-- `tags`: from categories/tags data, or `[]`
-- `draft`: `false`
+Follow the `.mdoc` writing procedure in
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`. Use `-imported`
+suffix for slug conflicts. Additionally, set:
 - `syndication`: `["ORIGINAL_POST_URL"]` — the URL on the old platform, preserving provenance per ADR-0006
-
-Sanitize the slug before using as filename: lowercase, replace spaces with
-hyphens, remove characters other than `[a-z0-9-]`, trim leading/trailing
-hyphens. If the slug conflicts with an existing file, append `-imported`.
-
-Write to `src/content/posts/SLUG.mdoc`:
-
-```
----
-title: "The Post Title"
-description: "A one or two sentence summary of the post."
-publishDate: "2024-03-15"
-image: "/images/blog/my-post-hero.webp"
-imageAlt: "Hero image for The Post Title"
-tags: []
-draft: false
-syndication: ["https://www.oldsite.com/blog/the-post-slug"]
----
-
-The full post body content in clean Markdown goes here.
-
-## Subheadings use ## syntax
-
-- Lists work as expected
-
-Links look like [this](https://example.com).
-```
-
-Rules for the body content:
-- No HTML tags — convert everything to Markdown equivalents
-- No MDX component syntax — plain Markdown is sufficient for imported content
-- No platform-specific shortcodes or embeds
 
 ### 2e — Progress updates
 
-After every 5 posts, tell the owner:
-> "Imported 10 of 23 posts so far — about halfway done."
+After every 5 posts, tell the owner progress (see shared procedures).
 
 ## Step 2.5 — Newsletter subscriber migration
 
@@ -442,7 +386,7 @@ instructions to offer newsletter migration.
 
 ## Step 3 — Handle static pages
 
-If the owner chose "Everything" in Step 1, process STATIC_PAGES.
+Process STATIC_PAGES.
 
 ### 3a — Extract homepage branding
 
@@ -477,14 +421,14 @@ forms, product grids) are not included in the export.
 Step 2a, so use `--content-only` here):
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "PAGE_URL" --content-only
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.mjs "PAGE_URL" --content-only
 ```
 
 If Playwright fails on a specific page, fall back to curl + regex for that page:
 
 ```sh
 curl -sL "PAGE_URL" > /tmp/wix-page.html
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js page /tmp/wix-page.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs page /tmp/wix-page.html
 ```
 
 Both methods strip navigation and footer boilerplate automatically.
@@ -515,11 +459,11 @@ Categorize each page:
 
 **Wix slug renaming:** Before creating the file, check whether the Wix URL slug
 is an opaque auto-generated placeholder (e.g., `general-5`, `page-3`, `blank-1`).
-Use the `resolvePageSlug` utility from `wix-extract.js`:
+Use the `resolvePageSlug` utility from `wix-extract.mjs`:
 
 ```sh
 node -e "
-  import { resolvePageSlug } from '${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js';
+  import { resolvePageSlug } from '${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs';
   console.log(JSON.stringify(resolvePageSlug('WIX_SLUG', 'PAGE_TITLE')));
 "
 ```
@@ -632,14 +576,24 @@ Common patterns:
 Generate a redirect for each post using the actual old URL path.
 
 **Squarespace:**
+
+Squarespace blog URLs depend on the collection name and permalink format. The
+collection may not be `/blog` — it could be `/news`, `/journal`, etc. Some sites
+use date-based URLs like `/news/YYYY/M/slug`. Use the actual URLs from the RSS
+feed or WXR export.
+
 ```
+# Same path (collection is already /blog)
 /blog/slug /blog/slug 200
+
+# Different collection name
+/news/slug /blog/slug 301
+
+# Date-based URLs
+/news/2026/3/slug /blog/slug 301
 ```
 
-If old and new paths match, use `200` (passthrough). If they differ:
-```
-/old-path /blog/slug 301
-```
+If old and new paths match, use `200` (passthrough). If they differ, use `301`.
 
 **Wix:**
 ```
@@ -700,22 +654,10 @@ step. The owner can set up colors and fonts later via `/anglesite:design-intervi
 
 ## Step 6 — Build and verify
 
-Tell the owner:
-> "I'm checking that everything imported correctly."
+Follow the build-and-verify procedure in
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`.
 
-```sh
-npm run build
-```
-
-If the build fails, diagnose and fix. Common causes:
-- Frontmatter doesn't match schema: check `src/content/config.ts` for expected fields
-- Invalid `publishDate` format: must be YYYY-MM-DD string
-- Missing required `description`: add a placeholder and note for review
-- Image path typo: verify file exists in `public/images/`
-
-Fix all build errors before presenting results (ADR-0012).
-
-After a clean build, check for remaining external image dependencies:
+After a clean build, also check for remaining external image dependencies:
 
 ```sh
 grep -rE "wixstatic\.com|squarespace-cdn\.com|wp-content/uploads" dist/ --include="*.html"
@@ -773,6 +715,14 @@ git commit -m "Import content from PLATFORM (N posts, N pages)"
 
 Replace PLATFORM and N with actual values.
 
+Read `GITHUB_REPO` from `.site-config`. If set, push to GitHub:
+
+```sh
+git push origin draft
+```
+
+If the push fails, log the issue but don't block the import.
+
 ## Step 9 — Offer to deploy
 
 Ask:
@@ -802,6 +752,9 @@ imported and the date. Example:
 
 ## Edge cases
 
+See `${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md` for shared edge
+cases (large images, multilingual content, slug conflicts).
+
 ### No blog on the site
 
 If BLOG_POSTS is empty after discovery:
@@ -810,32 +763,11 @@ If BLOG_POSTS is empty after discovery:
 
 Continue with Steps 3–5 for pages, galleries, and redirects only.
 
-### Images still too large after conversion
-
-If the converted image is still over 500KB, do not block the import. After the import,
-advise the owner:
-> "Some images are still large after optimization. You can resize them in
-> Preview or replace them with smaller versions."
-
-### Multilingual content
-
-If the sitemap or API contains content in multiple languages:
-> "Your site has content in multiple languages. I'll import the primary language
-> for now. Setting up multiple languages requires additional planning."
-
-Import only primary-language content.
-
 ### Platform app pages
 
 Booking, store, event, forum, and member pages cannot be meaningfully imported —
 the content depends on the platform's runtime infrastructure. Redirect to home
 (302) and present replacement options in Step 7.
-
-### Slug conflicts
-
-Before writing each `.mdoc` file, sanitize the slug (lowercase, hyphens only,
-`[a-z0-9-]`). If it conflicts with an existing file, append `-imported` and log
-the conflict.
 
 ### WordPress REST API is disabled
 

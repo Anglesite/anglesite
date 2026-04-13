@@ -22,4 +22,15 @@ describe('BaseLayout.astro', () => {
     // The header should use a variable, not a string literal
     expect(layout).toMatch(/<a[^>]*class="p-name u-url"[^>]*>\{[^}]*\}/);
   });
+
+  it('always emits og:image meta tag (unconditional)', () => {
+    // og:image should NOT be wrapped in a conditional — it always renders
+    expect(layout).toMatch(/<meta property="og:image" content=\{ogImage\}/);
+    expect(layout).not.toMatch(/\{ogImage &&.*og:image/);
+  });
+
+  it('resolves per-page OG image path from slug', () => {
+    // The resolveOgImage function should reference /images/og/ directory
+    expect(layout).toContain('/images/og/');
+  });
 });

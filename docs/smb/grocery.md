@@ -43,6 +43,13 @@ Covers: independent grocery stores, co-op markets, specialty food shops (cheese,
 - **WIC/SNAP/EBT**: If accepted, mention prominently — it's important for community access.
 - **Co-op membership**: Clearly explain membership vs. non-member pricing if applicable.
 
+## Review platforms
+
+- **Google Business Profile** — "Grocery stores near me" and "natural food store [city]" searches resolve through Google. Reviews here often focus on the shopping experience, selection, staff knowledge, and freshness. Keep the profile updated with current hours and reply to reviews — especially those mentioning specific staff or products.
+- **Yelp** — Yelp is actively used for specialty food shops, co-ops, and ethnic grocers. Detailed reviews about specialty products and sourcing help differentiate from chain grocers.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Weekly specials and seasonal highlights, recipes using products from the shop, local producer spotlights with photos, seasonal eating guides ("what's fresh this month"), cooking tips and techniques, event announcements (tastings, classes), community stories, holiday gift guides, co-op membership benefits and updates, food preservation tips.

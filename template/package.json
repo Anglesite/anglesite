@@ -1,7 +1,7 @@
 {
   "name": "@dwk/anglesite",
   "type": "module",
-  "version": "0.11.0",
+  "version": "1.0.0-beta.4",
   "private": true,
   "scripts": {
     "dev": "astro dev",
@@ -12,8 +12,12 @@
     "ai-check": "tsx scripts/check-prereqs.ts",
     "ai-cleanup": "tsx scripts/cleanup.ts",
     "ai-images": "tsx scripts/generate-images.ts",
+    "ai-og": "tsx scripts/generate-og-pages.ts",
+    "ai-optimize": "tsx scripts/optimize-images.ts",
+    "ai-qr": "tsx scripts/qr-generate.ts",
     "predeploy": "tsx scripts/pre-deploy-check.ts",
-    "deploy": "astro build && tsx scripts/pre-deploy-check.ts && npx wrangler pages deploy dist/ --commit-dirty=true"
+    "lint:css": "stylelint 'src/**/*.css'",
+    "lint:md": "markdownlint-cli2 'docs/**/*.md' '*.md'"
   },
   "dependencies": {
     "@astrojs/markdoc": "0.14.0",
@@ -21,17 +25,29 @@
     "@astrojs/rss": "^4.0.0",
     "@astrojs/sitemap": "3.3.1",
     "@keystatic/astro": "5.0.6",
-    "@keystatic/core": "0.5.47",
-    "astro": "5.16.0",
+    "@keystatic/core": "0.5.49",
+    "astro": "5.18.1",
+    "astro-pagefind": "^1.6.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
+  "overrides": {},
   "devDependencies": {
+    "@astrojs/check": "^0.9.0",
+    "html-validate": "^10.11.2",
     "@types/node": "22.13.10",
     "consola": "^3.4.0",
     "execa": "^9.5.0",
+    "qrcode": "^1.5.0",
+    "@fontsource/inter": "^5.2.0",
+    "@resvg/resvg-js": "^2.6.0",
+    "satori": "^0.12.0",
     "sharp": "^0.33.0",
     "tsx": "^4.19.0",
-    "wrangler": "4.14.0"
+    "typescript": "^5.6.0",
+    "markdownlint-cli2": "^0.22.0",
+    "stylelint": "^17.6.0",
+    "stylelint-declaration-strict-value": "^1.11.1",
+    "wrangler": "^4.77.0"
   }
 }

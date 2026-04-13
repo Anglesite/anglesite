@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse hook: block deploys that fail security scans.
-# Reads tool input JSON from stdin. If the command contains
-# "wrangler pages deploy", runs 4 mandatory checks against dist/.
+# Reads tool input JSON from stdin. If the command pushes to main
+# (production deploy), runs 5 mandatory checks against dist/.
 # Returns JSON with permissionDecision "deny" to block, or exits 0 to allow.
 
 set -euo pipefail
@@ -9,18 +9,30 @@ set -euo pipefail
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 
-# Pass through anything that isn't a wrangler deploy
-if [[ "$COMMAND" != *"wrangler pages deploy"* ]]; then
+# Pass through anything that isn't a push to main
+# Match "git push ... main" but not branches that merely contain "main" (e.g. "fix-main-bug")
+if ! echo "$COMMAND" | grep -qE 'git push\b.*\bmain\b'; then
   exit 0
 fi
 
 DIST="dist"
 REASONS=()
 
+# Only run checks if dist/ exists (build has been run)
+if [[ ! -d "$DIST" ]]; then
+  exit 0
+fi
+
 # Read PII_EMAIL_ALLOW from .site-config (comma-separated list of allowed emails)
 PII_ALLOW=""
 if [[ -f ".site-config" ]]; then
   PII_ALLOW=$(grep '^PII_EMAIL_ALLOW=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+fi
+
+# Read PII_PHONE_ALLOW from .site-config (comma-separated list of allowed phone numbers)
+PHONE_ALLOW=""
+if [[ -f ".site-config" ]]; then
+  PHONE_ALLOW=$(grep '^PII_PHONE_ALLOW=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
 fi
 
 # 1. PII scan — email addresses and phone numbers in built HTML
@@ -41,7 +53,21 @@ if [[ -n "$EMAIL_HITS" ]]; then
   REASONS+=("Possible email address found in built HTML")
 fi
 
-if grep -rE '\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}' "$DIST/" --include='*.html' 2>/dev/null | grep -q .; then
+PHONE_HITS=$(grep -rE '\(?\d{3}\)?[-.[[:space:]]]?\d{3}[-.[[:space:]]]?\d{4}' "$DIST/" --include='*.html' 2>/dev/null || true)
+
+# Filter out allowlisted phone numbers (normalize to digits-only for comparison)
+if [[ -n "$PHONE_HITS" && -n "$PHONE_ALLOW" ]]; then
+  IFS=',' read -ra ALLOWED_PHONES <<< "$PHONE_ALLOW"
+  for phone in "${ALLOWED_PHONES[@]}"; do
+    # Strip non-digit characters for matching
+    digits=$(echo "$phone" | tr -cd '0-9')
+    if [[ -n "$digits" ]]; then
+      PHONE_HITS=$(echo "$PHONE_HITS" | grep -v "$digits" || true)
+    fi
+  done
+fi
+
+if [[ -n "$PHONE_HITS" ]]; then
   REASONS+=("Possible phone number found in built HTML")
 fi
 
@@ -50,10 +76,41 @@ if grep -rE '(pat[A-Za-z0-9]{14,}|sk-[A-Za-z0-9]{20,})' "$DIST/" src/ public/ 2>
   REASONS+=("API token pattern found in source or build output")
 fi
 
-# 3. Third-party scripts — unauthorized external JS
-if grep -r '<script[^>]*src=' "$DIST/" --include='*.html' 2>/dev/null | grep -v 'cloudflareinsights' | grep -v '_astro' | grep -q .; then
-  REASONS+=("Unauthorized third-party script tag found")
-fi
+# 3. Third-party scripts — unauthorized external JS (allowlist driven by .site-config)
+check_third_party_scripts() {
+  local result
+  result=$(grep -r '<script[^>]*src=' "$DIST/" --include='*.html' 2>/dev/null || true)
+
+  # Always exclude Cloudflare analytics and Astro bundles
+  result=$(echo "$result" | grep -v 'cloudflareinsights' | grep -v '_astro' || true)
+
+  # Add provider-specific exclusions based on .site-config
+  if [[ -f ".site-config" ]]; then
+    local ecommerce booking turnstile
+    ecommerce=$(grep '^ECOMMERCE_PROVIDER=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+    booking=$(grep '^BOOKING_PROVIDER=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+    turnstile=$(grep '^TURNSTILE_SITE_KEY=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+
+    if [[ -n "$turnstile" ]]; then
+      result=$(echo "$result" | grep -v 'challenges.cloudflare.com' || true)
+    fi
+    case "$ecommerce" in
+      polar)    result=$(echo "$result" | grep -v 'cdn.polar.sh' || true) ;;
+      snipcart) result=$(echo "$result" | grep -v 'cdn.snipcart.com' || true) ;;
+      shopify)  result=$(echo "$result" | grep -v 'cdn.shopify.com' | grep -v 'sdks.shopifycdn.com' || true) ;;
+      paddle)   result=$(echo "$result" | grep -v 'cdn.paddle.com' | grep -v 'sandbox-cdn.paddle.com' || true) ;;
+    esac
+    case "$booking" in
+      cal)      result=$(echo "$result" | grep -v 'app.cal.com' || true) ;;
+      calendly) result=$(echo "$result" | grep -v 'assets.calendly.com' || true) ;;
+    esac
+  fi
+
+  if [[ -n "$result" ]]; then
+    REASONS+=("Unauthorized third-party script tag found")
+  fi
+}
+check_third_party_scripts
 
 # 4. Keystatic admin routes — should never be in production
 if find "$DIST/" -path '*keystatic*' -type f 2>/dev/null | grep -q .; then

@@ -1,0 +1,60 @@
+---
+interface Props {
+  /** Paddle client-side token (test_... or live_...) */
+  clientToken: string;
+  /** Paddle price ID (pri_...) */
+  priceId: string;
+  /** Button label */
+  label?: string;
+  /** Use sandbox environment (auto-detected from token prefix) */
+  sandbox?: boolean;
+}
+
+const {
+  clientToken,
+  priceId,
+  label = "Buy Now",
+  sandbox = clientToken.startsWith("test_"),
+} = Astro.props;
+---
+
+<button class="buy-button paddle-checkout" data-paddle-price={priceId}>
+  {label}
+</button>
+
+<script is:inline define:vars={{ clientToken, priceId, sandbox }}>
+(function () {
+  if (window.Paddle) {
+    initPaddle();
+    return;
+  }
+
+  var script = document.createElement("script");
+  script.src = sandbox
+    ? "https://sandbox-cdn.paddle.com/paddle/v2/paddle.js"
+    : "https://cdn.paddle.com/paddle/v2/paddle.js";
+  script.async = true;
+  script.onload = initPaddle;
+  document.head.appendChild(script);
+
+  function initPaddle() {
+    if (sandbox) {
+      Paddle.Environment.set("sandbox");
+    }
+    Paddle.Initialize({ token: clientToken });
+
+    document.querySelectorAll('[data-paddle-price="' + priceId + '"]')
+      .forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          Paddle.Checkout.open({ items: [{ priceId: priceId }] });
+        });
+      });
+  }
+})();
+</script>
+
+<style>
+  .paddle-checkout {
+    min-height: 3rem;
+  }
+</style>

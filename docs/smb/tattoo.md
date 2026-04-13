@@ -36,6 +36,14 @@ Covers: tattoo shops, piercing studios, permanent makeup/microblading, body art 
 - **Cal.com** (open source, free tier) — Consultation booking.
 - Many studios manage booking through Instagram DMs or a simple form. If that works, don't overcomplicate it.
 
+## Review platforms
+
+- **Google Business Profile** — "Tattoo shops near me" is a high-volume search. Reviews on Google determine which shops appear in the map pack. Keep the profile current with photos of the shop and portfolio examples — the visual impression matters here as much as the star rating.
+- **Yelp** — Many people use Yelp specifically for tattoo shops before booking. Yelp reviews tend to be detailed and describe the whole experience: cleanliness, artist communication, pain management, aftercare instructions. Claim the listing and respond to feedback.
+- **Instagram** — Not a traditional review platform, but the de facto portfolio and reputation channel for tattoo artists. Followers, comments, and DMs function as public social proof. Keep the Instagram profile linked from the website.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Health department licensing**: Tattoo and piercing studios are regulated by local or state health departments. Display your license. Inspections are routine.

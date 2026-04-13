@@ -1,9 +1,7 @@
 /**
- * Validates and measures token efficiency of all agent instruction files.
+ * Validates and measures token efficiency of agent instruction files.
  *
  * Checks:
- * - AGENTS.md under Codex 32KB limit
- * - No content duplication between AGENTS.md and CLAUDE.md
  * - Token budget for always-loaded context
  * - Per-skill token measurements
  * - @import references resolve
@@ -22,7 +20,6 @@ const ROOT = join(__dirname, "..");
 // Constants
 // ---------------------------------------------------------------------------
 
-export const CODEX_MAX_BYTES = 32_768;
 export const WARN_SKILL_BYTES = 8_192;
 
 // Approximate: 1 token ≈ 4 bytes for English text
@@ -70,23 +67,6 @@ export interface Issue {
   message: string;
 }
 
-export function validateCodexLimit(agentsMd: FileInfo | null): Issue[] {
-  if (!agentsMd) return [];
-  if (agentsMd.bytes > CODEX_MAX_BYTES) {
-    return [{
-      level: "error",
-      message: `AGENTS.md is ${fmtKB(agentsMd.bytes)} — exceeds Codex 32KB limit (${fmtKB(CODEX_MAX_BYTES)})`,
-    }];
-  }
-  if (agentsMd.bytes > CODEX_MAX_BYTES * 0.8) {
-    return [{
-      level: "warn",
-      message: `AGENTS.md is ${fmtKB(agentsMd.bytes)} — over 80% of Codex 32KB limit`,
-    }];
-  }
-  return [];
-}
-
 export function validateImports(content: string, dir: string, label: string): Issue[] {
   const issues: Issue[] = [];
   const importPattern = /^@(\S+)/gm;
@@ -104,26 +84,184 @@ export function validateImports(content: string, dir: string, label: string): Is
   return issues;
 }
 
-export function validateNoDuplication(agentsContent: string, claudeContent: string): Issue[] {
+// ---------------------------------------------------------------------------
+// Validate bare docs/ references in skills
+// ---------------------------------------------------------------------------
+
+/**
+ * Docs that are created dynamically at runtime (not scaffolded from template/).
+ * These are exempt from existence checks but still counted for token measurement.
+ */
+const DYNAMIC_DOCS = ["brand.md", "brand-voice.md", "social-calendar.md"];
+
+/**
+ * Scan all skills for bare `docs/X.md` references (not prefixed with
+ * ${CLAUDE_PLUGIN_ROOT}) and verify the referenced files exist in
+ * `template/docs/`. These bare paths resolve in the user's CWD at runtime,
+ * so they must be scaffolded from template/ or created dynamically.
+ */
+export function validateSkillDocReferences(
+  root: string = ROOT,
+  dynamicDocs: string[] = DYNAMIC_DOCS,
+): Issue[] {
   const issues: Issue[] = [];
+  const skillsDir = join(root, "skills");
+  const templateDocsDir = join(root, "template", "docs");
 
-  // Extract non-trivial lines (>30 chars, not headers/tables/blank)
-  const agentsLines = agentsContent.split("\n")
-    .filter(l => l.length > 30 && !l.startsWith("#") && !l.startsWith("|") && l.trim() !== "");
+  if (!existsSync(skillsDir)) return issues;
 
-  const claudeLines = new Set(
-    claudeContent.split("\n")
-      .filter(l => l.length > 30 && !l.startsWith("#") && !l.startsWith("|") && !l.startsWith("@") && l.trim() !== "")
+  const skillDirs = readdirSync(skillsDir).filter(d =>
+    existsSync(join(skillsDir, d, "SKILL.md"))
   );
 
-  const duplicates = agentsLines.filter(l => claudeLines.has(l));
-  if (duplicates.length > 3) {
-    issues.push({
-      level: "warn",
-      message: `${duplicates.length} lines appear in both AGENTS.md and CLAUDE.md — possible duplication`,
-    });
+  // Match bare docs/X.md references that are NOT preceded by ${CLAUDE_PLUGIN_ROOT}/
+  // Matches: `docs/foo.md`, "docs/foo.md", docs/foo.md (standalone)
+  // Skips: ${CLAUDE_PLUGIN_ROOT}/docs/foo.md
+  const bareDocPattern = /(?<!\$\{CLAUDE_PLUGIN_ROOT\}\/)docs\/([\w/.-]+\.md)/g;
+
+  for (const name of skillDirs) {
+    const skillPath = join(skillsDir, name, "SKILL.md");
+    const content = readFileSync(skillPath, "utf-8");
+    const seen = new Set<string>();
+    let match;
+
+    while ((match = bareDocPattern.exec(content)) !== null) {
+      const docFile = match[1];
+      if (seen.has(docFile)) continue;
+      seen.add(docFile);
+
+      // Skip dynamically-created docs
+      if (dynamicDocs.includes(docFile)) continue;
+
+      // Check if the file exists in template/docs/
+      const templatePath = join(templateDocsDir, docFile);
+      if (!existsSync(templatePath)) {
+        issues.push({
+          level: "error",
+          message: `${name}/SKILL.md references docs/${docFile} but it does not exist in template/docs/`,
+        });
+      }
+    }
   }
+
   return issues;
+}
+
+// ---------------------------------------------------------------------------
+// validateSkillWorkerReferences — ensures worker/ files referenced by skills
+// exist in template/worker/
+// ---------------------------------------------------------------------------
+
+/**
+ * Scan all skills for bare `worker/` file references and verify the
+ * referenced files exist in `template/worker/`. These bare paths resolve
+ * in the user's CWD at runtime, so they must be scaffolded from template/.
+ */
+export function validateSkillWorkerReferences(
+  root: string = ROOT,
+): Issue[] {
+  const issues: Issue[] = [];
+  const skillsDir = join(root, "skills");
+  const templateWorkerDir = join(root, "template", "worker");
+
+  if (!existsSync(skillsDir)) return issues;
+
+  const skillDirs = readdirSync(skillsDir).filter(d =>
+    existsSync(join(skillsDir, d, "SKILL.md"))
+  );
+
+  // Match bare worker/ file references (not inside ${CLAUDE_PLUGIN_ROOT})
+  const bareWorkerPattern = /(?<!\$\{CLAUDE_PLUGIN_ROOT\}\/)worker\/([\w/.-]+\.\w+)/g;
+
+  for (const name of skillDirs) {
+    const skillPath = join(skillsDir, name, "SKILL.md");
+    const content = readFileSync(skillPath, "utf-8");
+    const seen = new Set<string>();
+    let match;
+
+    while ((match = bareWorkerPattern.exec(content)) !== null) {
+      const workerFile = match[1];
+      if (seen.has(workerFile)) continue;
+      seen.add(workerFile);
+
+      const templatePath = join(templateWorkerDir, workerFile);
+      if (!existsSync(templatePath)) {
+        issues.push({
+          level: "error",
+          message: `${name}/SKILL.md references worker/${workerFile} but it does not exist in template/worker/`,
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
+// ---------------------------------------------------------------------------
+// Runtime doc-read analysis — scans skill files for doc references
+// ---------------------------------------------------------------------------
+
+interface SkillDocReads {
+  skill: string;
+  skillBytes: number;
+  referencedDocs: FileInfo[];
+  totalBytes: number;
+  totalTokens: number;
+}
+
+/**
+ * Scan a skill file for `${CLAUDE_PLUGIN_ROOT}/...` references and
+ * measure the total bytes that skill will load at runtime.
+ */
+function analyzeSkillReads(skillName: string): SkillDocReads {
+  const skillPath = join(ROOT, `skills/${skillName}/SKILL.md`);
+  const skillBytes = statSync(skillPath).size;
+  const content = readFileSync(skillPath, "utf-8");
+
+  // Match ${CLAUDE_PLUGIN_ROOT}/path/to/file.md references
+  const refPattern = /\$\{CLAUDE_PLUGIN_ROOT\}\/([\w/.-]+\.md)/g;
+  const seen = new Set<string>();
+  const docs: FileInfo[] = [];
+  let match;
+
+  while ((match = refPattern.exec(content)) !== null) {
+    const relPath = match[1];
+    if (seen.has(relPath)) continue;
+    seen.add(relPath);
+
+    const fullPath = join(ROOT, relPath);
+    if (existsSync(fullPath)) {
+      const bytes = statSync(fullPath).size;
+      docs.push({ path: relPath, label: relPath, bytes, tokens: tokens(bytes) });
+    }
+  }
+
+  // Also check for sub-file references within the skill directory
+  const skillDir = join(ROOT, `skills/${skillName}`);
+  const subFiles = readdirSync(skillDir).filter(
+    f => f.endsWith(".md") && f !== "SKILL.md"
+  );
+  for (const sub of subFiles) {
+    const subPath = `skills/${skillName}/${sub}`;
+    if (seen.has(subPath)) continue;
+    seen.add(subPath);
+
+    // Check if the sub-file is referenced from SKILL.md
+    if (content.includes(sub)) {
+      const bytes = statSync(join(ROOT, subPath)).size;
+      docs.push({ path: subPath, label: sub, bytes, tokens: tokens(bytes) });
+    }
+  }
+
+  const totalBytes = skillBytes + docs.reduce((s, d) => s + d.bytes, 0);
+
+  return {
+    skill: skillName,
+    skillBytes,
+    referencedDocs: docs,
+    totalBytes,
+    totalTokens: tokens(totalBytes),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +273,6 @@ function main() {
 
   // Measure always-loaded files
   const templateDir = join(ROOT, "template");
-  const agentsMd = measureFile("template/AGENTS.md", "AGENTS.md");
   const claudeMd = measureFile("template/CLAUDE.md", "CLAUDE.md");
 
   console.log("Agent Instruction Efficiency Report");
@@ -144,7 +281,6 @@ function main() {
   // --- Always-loaded context ---
   console.log("Always-loaded context (every turn):");
   const alwaysLoaded: FileInfo[] = [];
-  if (agentsMd) alwaysLoaded.push(agentsMd);
   if (claudeMd) alwaysLoaded.push(claudeMd);
 
   for (const f of alwaysLoaded) {
@@ -184,6 +320,19 @@ function main() {
   console.log(`  ${"─".repeat(24)} ${"─".repeat(8)}  ${"─".repeat(6)}`);
   console.log(`  ${"Total".padEnd(24)} ${fmtKB(totalSkillBytes).padStart(8)}  ${fmt(totalSkillTokens).padStart(6)} tokens`);
 
+  // --- Runtime doc-read analysis ---
+  console.log("\nRuntime doc reads (SKILL.md + referenced docs):");
+  const skillReads: SkillDocReads[] = [];
+  for (const name of skillDirs) {
+    const reads = analyzeSkillReads(name);
+    skillReads.push(reads);
+    const docCount = reads.referencedDocs.length;
+    const docsLabel = docCount === 0 ? "no refs" : `${docCount} docs`;
+    console.log(
+      `  ${name.padEnd(24)} ${fmtKB(reads.totalBytes).padStart(8)}  ${fmt(reads.totalTokens).padStart(6)} tokens  (${docsLabel})`
+    );
+  }
+
   // --- Template docs ---
   const docsDir = join(ROOT, "template/docs");
   let totalDocBytes = 0;
@@ -205,26 +354,16 @@ function main() {
   console.log(`\nReference docs: ${docCount} files, ${fmtKB(totalDocBytes)}, ${fmt(tokens(totalDocBytes))} tokens (loaded on demand)`);
 
   // --- Validation ---
-  if (agentsMd) {
-    issues.push(...validateCodexLimit(agentsMd));
-  }
-
   if (claudeMd) {
     const claudeContent = readFileSync(join(ROOT, "template/CLAUDE.md"), "utf-8");
     issues.push(...validateImports(claudeContent, templateDir, "CLAUDE.md"));
-
-    if (agentsMd) {
-      const agentsContent = readFileSync(join(ROOT, "template/AGENTS.md"), "utf-8");
-      issues.push(...validateNoDuplication(agentsContent, claudeContent));
-    }
   }
 
-  // Validate GEMINI.md imports
-  const geminiPath = join(ROOT, "template/GEMINI.md");
-  if (existsSync(geminiPath)) {
-    const geminiContent = readFileSync(geminiPath, "utf-8");
-    issues.push(...validateImports(geminiContent, templateDir, "GEMINI.md"));
-  }
+  // Validate bare docs/ references in skills
+  issues.push(...validateSkillDocReferences());
+
+  // Validate bare worker/ references in skills
+  issues.push(...validateSkillWorkerReferences());
 
   // --- Summary ---
   console.log("\n────────────────────────────────────");
@@ -243,13 +382,7 @@ function main() {
     }
   }
 
-  // Codex budget
-  if (agentsMd) {
-    const pct = Math.round((agentsMd.bytes / CODEX_MAX_BYTES) * 100);
-    console.log(`\nCodex budget: ${pct}% of 32KB limit`);
-  }
-
-  console.log(`Claude context: ~${fmt(totalAlwaysTokens)} tokens always loaded`);
+  console.log(`\nClaude context: ~${fmt(totalAlwaysTokens)} tokens always loaded`);
 
   if (errors.length > 0) {
     process.exit(1);

@@ -31,14 +31,14 @@ Website owners need to create and edit blog posts and page content without using
 
 ## Decision Outcome
 
-Chosen option: "Keystatic (local mode)", because it stores content as local `.mdx` files in git, provides a visual editor at a dev-only route, and its schema integrates directly with Astro's content collections — all without any external service.
+Chosen option: "Keystatic (local mode)", because it stores content as local `.mdoc` files in git, provides a visual editor at a dev-only route, and its schema integrates directly with Astro's content collections — all without any external service.
 
 ### Consequences
 
-* Good, because content lives as `.mdx` files in the project — no export needed, no vendor lock-in
+* Good, because content lives as `.mdoc` files in the project — no export needed, no vendor lock-in
 * Good, because the visual editor at `/keystatic` lets owners write posts without learning Markdown
 * Good, because Keystatic only loads in dev mode — production builds are pure static HTML
-* Good, because schema is defined in `keystatic.config.ts` alongside `src/content/config.ts`, keeping validation in sync
+* Good, because schema is defined in `keystatic.config.ts` alongside `src/content.config.ts`, keeping validation in sync
 * Good, because git tracks all content history — full revision history without a CMS database
 * Bad, because Keystatic requires React as a peer dependency (only loaded in dev mode, not shipped to production)
 * Bad, because the owner must have the dev server running to use the visual editor
@@ -51,7 +51,7 @@ Production builds (`npm run build` with `output: "static"`) must not include any
 
 ### Keystatic (local mode)
 
-* Good, because content is plain `.mdx` files in git — maximum portability
+* Good, because content is plain `.mdoc` files in git — maximum portability
 * Good, because visual editor works at `/keystatic` during development
 * Good, because no external service, API key, or account required
 * Good, because schema defined in code alongside Astro content config

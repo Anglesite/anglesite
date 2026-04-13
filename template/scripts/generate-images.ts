@@ -11,9 +11,10 @@
  */
 
 import sharp from "sharp";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { readConfig } from "./config.js";
+import { renderOgImage } from "./satori-og.js";
 
 export function readCssVar(css: string, name: string): string | undefined {
   const match = css.match(new RegExp(`${name}:\\s*([^;]+);`));
@@ -35,6 +36,7 @@ async function main() {
   const css = existsSync(cssPath) ? readFileSync(cssPath, "utf8") : "";
   const primaryColor = readCssVar(css, "--color-primary") || "#2563eb";
   const bgColor = readCssVar(css, "--color-bg") || "#ffffff";
+  const textColor = readCssVar(css, "--color-text") || "#1a1a1a";
   const siteName = readConfig("SITE_NAME") || "My Website";
 
   // --- Apple Touch Icon (180x180) ---
@@ -54,17 +56,19 @@ async function main() {
     console.warn("No favicon.svg found — skipping apple-touch-icon generation");
   }
 
-  // --- OG Image (1200x630) ---
-  const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
-    <rect width="1200" height="630" fill="${primaryColor}" />
-    <text x="600" y="340" text-anchor="middle" dominant-baseline="central"
-          font-family="system-ui, -apple-system, sans-serif"
-          font-size="72" font-weight="700" fill="${bgColor}">
-      ${escapeXml(siteName)}
-    </text>
-  </svg>`;
-  await sharp(Buffer.from(ogSvg)).png().toFile(resolve(publicDir, "og-image.png"));
-  console.log("Generated og-image.png (1200x630)");
+  // --- OG Image (1200x630) via Satori ---
+  const logoSvg = existsSync(faviconPath)
+    ? readFileSync(faviconPath, "utf8")
+    : "";
+  const png = await renderOgImage({
+    title: siteName,
+    siteName,
+    colors: { primary: primaryColor, bg: bgColor, text: textColor },
+    template: logoSvg ? "text-logo" : "text-only",
+    logoSvg,
+  });
+  writeFileSync(resolve(publicDir, "og-image.png"), png);
+  console.log("Generated og-image.png (1200x630) via Satori");
 }
 
 // Only run when executed directly

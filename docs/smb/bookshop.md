@@ -37,6 +37,14 @@ Don't try to replicate a full online catalog. The website's job is to get people
 - **IndieBound** — American Booksellers Association directory. Help the owner claim or update their listing.
 - **Eventbrite** (free for free events) or **Cal.com** (open source) — For event RSVPs.
 
+## Review platforms
+
+- **Google Business Profile** — "Bookstores near me" and "used bookstore [city]" are common searches. The profile is also where people check holiday hours before a special trip. Keep it current with photos and respond to reviews.
+- **Yelp** — Many indie bookshop regulars use Yelp and leave detailed reviews about the curation, staff, and experience — the qualities that differentiate an indie shop from Amazon. Worth claiming and maintaining.
+- **Bookshop.org** — The indie bookstore's online sales platform also functions as a directory. Customers who buy through a shop's Bookshop.org affiliate page often leave ratings, and the shop's presence on the platform signals community commitment to indie bookselling.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **ISBN and publisher relationships**: Not a website concern, but if the shop wants to sell online, they'll need proper distribution channels. Link to Bookshop.org rather than building a storefront.

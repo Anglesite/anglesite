@@ -2,7 +2,8 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(dscacheutil *), Bash(getent *), Bash(nslookup *), Write, Read, Glob
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
+disable-model-invocation: true
 ---
 
 Run a full health check on the site — and fix what you find. If the owner described a specific problem, diagnose that first; otherwise run the full audit below. The checklists are for you (the agent) — **do not show raw checklist items, technical terms, or jargon to the owner.** Translate every finding into plain English. See the Results section at the bottom for how to present findings.
@@ -41,6 +42,13 @@ npx pa11y dist/index.html
 ```
 Either tool checks for WCAG 2.1 AA violations: missing alt text, low contrast, missing form labels, broken ARIA, heading order, etc.
 
+### Programmatic validation
+
+Use the accessibility utilities in `scripts/` for automated checks beyond pa11y:
+
+- **Color contrast** — `scripts/contrast.ts`: read CSS custom properties from `src/styles/global.css` and verify `meetsWcagAA(textColor, bgColor)` for all text/background pairs
+- **Content quality** — `scripts/a11y-validate.ts`: run `validateHeadingHierarchy()`, `validateLinkText()`, and `validateImageAlt()` against the built HTML output
+
 ### Manual checks (inspect the built HTML)
 - [ ] Every page has exactly one `<h1>`, and headings don't skip levels
 - [ ] Color contrast meets 4.5:1 for body text and 3:1 for large text — verify the CSS custom properties in `src/styles/global.css`
@@ -49,6 +57,7 @@ Either tool checks for WCAG 2.1 AA violations: missing alt text, low contrast, m
 - [ ] Skip-to-content link present in the layout
 - [ ] Form inputs have associated `<label>` elements
 - [ ] `lang` attribute set on `<html>` element
+- [ ] `/accessibility` statement page exists and is linked from the footer
 
 If any accessibility check fails, explain what the issue is, who it affects, and how to fix it.
 
@@ -88,6 +97,36 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] Blog posts have valid frontmatter (title, description, publishDate)
 - [ ] Business name, address, and contact info are easy to find (not buried)
 
+## Copy quality
+
+If `BUSINESS_TYPE` is set in `.site-config`, invoke the copy-edit skill for content quality coaching.
+
+Read `${CLAUDE_PLUGIN_ROOT}/skills/copy-edit/SKILL.md` and follow it. Note that this is a non-interactive check context — present 1-5 findings as a brief section, no questions. Include the output as a "Copy quality" section in the health report. If `BUSINESS_TYPE` is not set, still run the audit using generic best practices.
+
+## Legal compliance
+
+Check that the site has the legal pages appropriate for its features and business type. Read `BUSINESS_TYPE` and `ECOMMERCE_PROVIDER` from `.site-config`. Refer to `${CLAUDE_PLUGIN_ROOT}/docs/smb/legal-checklist.md` for the full checklist and `${CLAUDE_PLUGIN_ROOT}/docs/smb/legal-templates.md` for free template sources.
+
+- [ ] Privacy policy page exists at `/privacy/` and is linked from the footer
+- [ ] Copyright notice in the footer with the current year
+- [ ] Accessibility statement exists at `/accessibility/` (or as a section on another page) and is linked from the footer
+- [ ] If ecommerce is configured (`ECOMMERCE_PROVIDER` set): terms of service exists at `/terms/`
+- [ ] If ecommerce is configured: return/refund policy exists at `/returns/` or `/refund-policy/`
+- [ ] If physical goods ecommerce (snipcart, shopify-buy-button): shipping policy exists
+- [ ] If `BUSINESS_TYPE` is a licensed profession (legal, healthcare, accounting, insurance, fitness, contractor, real-estate): professional disclaimer present in footer or on a dedicated page
+- [ ] If booking is configured: cancellation policy is visible on the booking page
+- [ ] Newsletter signup forms include a clear description of what subscribers will receive
+
+Report legal compliance findings as **"Worth fixing soon"** severity, not deploy blockers. Frame findings as helpful next steps:
+
+| Missing item | What to tell the owner |
+|---|---|
+| No privacy policy | "Your site collects contact info through the form, so it needs a privacy policy page. I can draft one for you — it's straightforward since your site doesn't track visitors." |
+| No terms of service (with ecommerce) | "Since you're selling through your website, you'll want a terms of service page. I can create one as a starting point." |
+| No return policy (with ecommerce) | "Customers will want to know your return policy before buying. I'll add a page for that." |
+| Missing professional disclaimer | "Most [profession] websites include a disclaimer. I'll add a brief one to your footer." |
+| Missing copyright notice | "I'll add a copyright line to your footer — it's a small thing that signals ownership." |
+
 ## IndieWeb (see `docs/indieweb.md`)
 - [ ] `h-card` in site header with `p-name` and `u-url`
 - [ ] `h-entry` on blog posts with `p-name`, `dt-published`, `e-content`
@@ -96,6 +135,18 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] Syndication links render as `u-syndication` with `rel="syndication"`
 - [ ] RSS feed at `/rss.xml` with `<link rel="alternate">` discovery in `<head>`
 - [ ] Event pages use `h-event` markup if the business hosts events
+
+## Canvas and interactive content accessibility
+
+If the site has `<canvas>` elements (creative effects, experiments, visualizations), verify:
+
+- [ ] Every `<canvas>` has either `aria-label` (if it conveys content) or `aria-hidden="true"` (if purely decorative)
+- [ ] Pages with required JavaScript have a `<noscript>` fallback (description + static image for experiment pages)
+- [ ] `prefers-reduced-motion` is respected — animations stop or simplify when reduced motion is preferred
+- [ ] No content flashes more than 3 times per second (WCAG 2.3.1)
+- [ ] Interactive experiments document keyboard controls (if applicable)
+
+These checks apply to any page with `<canvas>`, not just web-artist sites — a bakery with a snow effect needs the same accessibility treatment.
 
 ## Performance
 - [ ] Images are in modern formats (.webp preferred) and optimized (<500KB)
@@ -119,6 +170,31 @@ Have the owner paste their site URL. Explain the scores: green (90+) is great, o
 - [ ] Test by pasting the site URL into a group chat or social media draft — the preview card should show the site title, description, and image
 - [ ] Each page has its own `og:title` and `og:description` (not all the same)
 
+## Reputation
+
+If `BUSINESS_TYPE` is set in `.site-config`, invoke the reputation skill for review coaching and competitive awareness.
+
+Read `REVIEW_PLATFORMS` from `.site-config` if available. When invoking the reputation skill, note that this is a non-interactive check context so it should present tips, not questions.
+
+If `REVIEW_PLATFORMS` is set, include the platform names in the nudge: "Reminder: check your [Google, Yelp] reviews — responding within a few days helps your reputation." If not set, use the generic nudge.
+
+Read `${CLAUDE_PLUGIN_ROOT}/skills/reputation/SKILL.md` and follow it. Include the output as a "Reputation" section in the health report. Keep it brief — 1-3 action items max. If `BUSINESS_TYPE` is not set, skip this section.
+
+## Ecommerce scaling
+
+If `ECOMMERCE_PROVIDER` is set in `.site-config`, assess whether the store has outgrown its current platform. This check uses `scripts/ecommerce-upgrade.ts`.
+
+1. **Count products** — count `.mdoc` files in `src/content/products/` (if the directory exists)
+2. **Check revenue** — if `ECOMMERCE_WEBHOOK_URL` is set in `.site-config`, query Analytics Engine using `buildRevenueQuery(30)` from `scripts/ecommerce-revenue.ts` to get 30-day revenue and order count
+3. **Assess** — call `assessUpgrade()` with the provider, product count, and revenue data (if available)
+4. **Report** — if an upgrade is recommended, include it in the health report using `formatUpgradeMessage()`. Frame it as "Worth looking into" (not "Must fix").
+
+Example finding for the owner:
+
+> "Your store has 14 products and is bringing in about $12,000/month — great work! At this size, you might benefit from switching to Shopify, which gives you a dashboard for inventory and orders. Snipcart charges about $240/month in fees at your volume; Shopify would be about $387/month but includes tools that save you time. No rush — just something to think about as you grow."
+
+If no ecommerce provider is configured, skip this section entirely. Do not suggest adding ecommerce during a health check.
+
 ## Results
 
 **The owner is not technical.** Do not report raw checklist items. Translate every finding into one plain-English sentence that answers: what's wrong, why it matters, and what happens next. Group by severity using these everyday labels:
@@ -141,9 +217,24 @@ Examples of how to translate findings:
 
 Never show the owner: CSS selectors, HTML tag names, HTTP headers, schema.org terms, WCAG levels, npm package names, or code snippets. If you need to explain *why* something matters, use an analogy or a concrete consequence ("visitors on phones will have to scroll sideways").
 
+**Visual summary:** After the audit, use tldraw to draw a visual scorecard using `progressChecklist()` from `scripts/tldraw-helpers.ts`. Show each check category as a checklist item (green check for passing, grey box for issues found). The owner sees at a glance what's working and what needs attention.
+
 If any must-fix issues are found, explain and offer to fix them. If everything passes, keep it short: "Your site looks good — it builds correctly, works on phones, is secure, and is easy for search engines to find. No issues."
 
 After the check, tell the owner: "This is the same kind of checkup a good web developer would do regularly. Your site should get one of these at least once a month — just type `/anglesite:check` anytime."
+
+## File bugs for persistent issues
+
+After the audit, if any must-fix issues were found that couldn't be resolved in the current session, file a GitHub issue for each one. Read `GITHUB_REPO` from `.site-config`. If not set, skip this step.
+
+Follow the bug filing workflow in `docs/bug-filing.md`. Use the appropriate label:
+- Accessibility violations → `accessibility`
+- Security findings → `security`
+- Build failures → `build`
+- Content issues → `content`
+- Everything else → `bug`
+
+If the issue is in Anglesite itself (not the owner's site), use the plugin bug filing workflow in `docs/bug-filing.md` to open a pre-filled issue in the owner's browser against `Anglesite/anglesite`.
 
 ## Troubleshooting
 

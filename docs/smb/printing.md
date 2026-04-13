@@ -45,6 +45,13 @@ Covers: print shops, sign makers, screen printers, embroidery shops, custom appa
 - **OSHA and chemical safety**: Screen printing involves chemicals (inks, solvents, emulsions). OSHA compliance for ventilation, PPE, and chemical storage. Not a website concern, but worth knowing.
 - **Sales tax**: Custom printing may or may not be taxable depending on the state and the type of product. Some states tax finished goods but exempt services. Consult a tax advisor.
 
+## Review platforms
+
+- **Google Business Profile** — "Print shop near me," "sign shop [city]," and "custom t-shirts [town]" are high-intent searches that resolve through Google Maps. Reviews here often describe turnaround time, communication, and print quality — the things that matter most to business customers. Respond to reviews, especially those mentioning specific jobs, to show attentiveness.
+- **Yelp** — Used in some markets for print shops. Reviews tend to describe reliability and quality more than price — the qualities that win repeat business clients.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Project spotlights with photos (with client permission), material comparisons (vinyl vs. coroplast, screen print vs. DTG, matte vs. glossy), file preparation tips, design trends, seasonal product promotions (graduation banners, election yard signs, holiday cards, team uniforms), customer success stories ("how a new sign increased foot traffic"), equipment and process behind-the-scenes, tips for choosing colors and fonts, community event sponsorships, trade show recaps, staff spotlights.

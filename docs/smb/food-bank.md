@@ -40,6 +40,14 @@ See [nonprofit.md](nonprofit.md) for shared nonprofit traits (donate page, trans
 - **Allergen info**: If distributing prepared meals, note common allergens.
 - **Good Samaritan Act**: Food donors are protected from liability. Mention this on the "donate food" page to encourage donations.
 
+## Review platforms
+
+Review platforms are less relevant for food banks — people seeking help don't rely on Yelp stars, and donors are driven by trust and mission alignment rather than review scores.
+
+If the organization has a Google Business Profile (many food banks do, since they have a physical location), keep it accurate — especially hours and holiday closures. Volunteers and donors sometimes find the pantry via Google Maps, and reviews there occasionally reflect donor or volunteer experiences.
+
+See `docs/smb/reviews.md` for general review management guidance.
+
 ## Content ideas
 
 Impact numbers ("this month we served X families"), food drive announcements and results, volunteer spotlights, partner agency features, seasonal needs ("holiday meal program"), recipes using common pantry items, SNAP/benefits enrollment info, community garden updates, donor recognition (with permission), behind-the-scenes of operations.
@@ -63,3 +71,7 @@ Use `NGO` with:
 - **Contacts:** Name, Email, Phone, Type (Donor/Volunteer/Partner Agency/Corporate), Notes, Created Date
 - **Volunteers:** Contact (linked), Availability, Skills, Status, Hours Logged, Notes
 - **Food Drives:** Name, Organizer (linked), Date, Pounds Collected, Notes
+
+## Domain
+
+**.org** is the default for food banks and pantries — donors and volunteers expect it. Available on Cloudflare. If the food bank is part of a cooperative network, **.coop** is worth considering.

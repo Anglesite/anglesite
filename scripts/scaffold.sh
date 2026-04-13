@@ -94,6 +94,47 @@ done
 # Execute rsync
 rsync "${RSYNC_OPTS[@]}" "$TEMPLATE/" "$DEST/"
 
+## Ensure required .gitignore entries exist
+# When scaffolding into an existing project (e.g. SSG conversion), rsync
+# --ignore-existing preserves the old .gitignore. Append any Astro build
+# artifact entries that are missing so they don't get committed.
+if ! $DRY_RUN; then
+  GITIGNORE="$DEST/.gitignore"
+  if [[ -f "$GITIGNORE" ]]; then
+    REQUIRED_ENTRIES=(dist .astro .wrangler .certs)
+    for entry in "${REQUIRED_ENTRIES[@]}"; do
+      if ! grep -qE "^${entry}/?$" "$GITIGNORE"; then
+        printf '\n%s' "$entry" >> "$GITIGNORE"
+      fi
+    done
+  fi
+fi
+
+## Stamp ANGLESITE_VERSION into .site-config
+# This lets the update skill know which template version was scaffolded.
+if ! $DRY_RUN; then
+  SITE_CONFIG="$DEST/.site-config"
+  PLUGIN_VERSION=$(grep -o '"version": "[^"]*"' "$PLUGIN_ROOT/package.json" | head -1 | cut -d'"' -f4)
+  if [[ -f "$SITE_CONFIG" ]]; then
+    if grep -q '^ANGLESITE_VERSION=' "$SITE_CONFIG"; then
+      # Replace existing version line (cross-platform: rewrite via temp file)
+      TMP_CONFIG=$(mktemp)
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" == ANGLESITE_VERSION=* ]]; then
+          printf 'ANGLESITE_VERSION=%s\n' "$PLUGIN_VERSION"
+        else
+          printf '%s\n' "$line"
+        fi
+      done < "$SITE_CONFIG" > "$TMP_CONFIG"
+      mv "$TMP_CONFIG" "$SITE_CONFIG"
+    else
+      printf '\nANGLESITE_VERSION=%s\n' "$PLUGIN_VERSION" >> "$SITE_CONFIG"
+    fi
+  else
+    printf 'ANGLESITE_VERSION=%s\n' "$PLUGIN_VERSION" > "$SITE_CONFIG"
+  fi
+fi
+
 if $DRY_RUN; then
   echo "Dry-run complete. No files were changed."
 else

@@ -1,0 +1,54 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+const testimonials = await getCollection("testimonials");
+
+// Calculate aggregate rating
+const rated = testimonials.filter((t) => t.data.rating);
+const avgRating = rated.length > 0
+  ? Math.round((rated.reduce((sum, t) => sum + t.data.rating!, 0) / rated.length) * 10) / 10
+  : 0;
+
+const aggregateJsonLd = rated.length > 0 ? {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  aggregateRating: {
+    "@type": "AggregateRating",
+    ratingValue: avgRating,
+    bestRating: 5,
+    reviewCount: rated.length,
+  },
+} : null;
+---
+
+<BaseLayout
+  title="Testimonials"
+  description="What our customers say about us."
+  jsonLd={aggregateJsonLd}
+>
+  <h1>Testimonials</h1>
+
+  {testimonials.length === 0 && <p>No testimonials yet.</p>}
+
+  <div class="testimonials-list">
+    {testimonials.map((t) => (
+      <article class="testimonial-card">
+        {t.data.rating && (
+          <div class="star-rating" aria-label={`${t.data.rating} out of 5 stars`}>
+            {Array.from({ length: 5 }, (_, i) => (
+              <span class={i < t.data.rating! ? "star filled" : "star"}>★</span>
+            ))}
+          </div>
+        )}
+        <blockquote>
+          <p>{t.data.quote}</p>
+        </blockquote>
+        <footer>
+          <cite>{t.data.author}</cite>
+          {t.data.attribution && <span class="attribution"> — {t.data.attribution}</span>}
+        </footer>
+      </article>
+    ))}
+  </div>
+</BaseLayout>

@@ -1,7 +1,7 @@
 ---
 name: convert
 description: "Convert an existing static site generator project (Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress, MkDocs, Eleventy, Hexo) to Anglesite/Astro"
-allowed-tools: ["Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(cp *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(cp *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(find */layouts *)", "Bash(find */templates *)", "Bash(find */_includes *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -24,7 +24,7 @@ families, and URL patterns.
 
 ## Conversion principles
 
-1. **Content accuracy over visual fidelity.** The first pass prioritizes getting all content moved correctly. Design tweaks come after.
+1. **Content accuracy and visual identity.** The first pass prioritizes getting all content moved correctly and preserving the source site's branding (colors, fonts, logo, layout structure). Pixel-perfect fidelity isn't the goal, but the converted site should be recognizable as the same brand.
 2. **Copy all images locally.** Images are copied from the source project to `public/images/blog/`. No references to old paths.
 3. **Generate descriptions from content.** If the frontmatter has no excerpt field, use the first 1-2 sentences of the post body.
 4. **Preserve provenance.** Every converted post gets a `syndication` URL if the old site had a known public URL.
@@ -116,7 +116,7 @@ SITE_TYPE=blog
 OWNER_NAME=Name
 SITE_NAME=Site Name
 DEV_HOSTNAME=sitename.local
-AI_MODEL=Claude Opus 4.6
+AI_MODEL=(write your actual model name here)
 EXPLAIN_STEPS=true
 POST_URL_PREFIX=blog
 ```
@@ -164,6 +164,33 @@ Build STATIC_PAGES from files in page/doc directories.
 If no SSG is detected (user provided manual guidance), use the directories they
 specified.
 
+### Discover pagination-based pages
+
+Many SSGs use template files with pagination to dynamically generate pages from
+collection metadata (tags, categories, authors, date archives). These are not
+Markdown content files — they're template files that produce multiple pages at
+build time. Glob for them separately:
+
+| Platform | What to look for |
+| --- | --- |
+| Eleventy | `.webc`, `.njk`, `.liquid`, `.11ty.js` files with `pagination:` in frontmatter |
+| Hugo | `_index.md` in taxonomy dirs (`tags/`, `categories/`), `layouts/taxonomy/`, `layouts/_default/taxonomy.html`, `layouts/_default/term.html` |
+| Jekyll | Files using `site.tags`, `site.categories`, or `paginator` in Liquid templates |
+| Gatsby | `gatsby-node.js` calls to `createPages` that iterate over tags/categories |
+| Next.js | `[tag].tsx`, `[category].tsx`, or other dynamic route files under `pages/tags/`, `pages/categories/` |
+| Hexo | `_config.yml` tag/category settings + theme `layout/tag.ejs`, `layout/category.ejs` |
+| Docusaurus | Tag pages are auto-generated — check `blog/tags/` config in `docusaurus.config.js` |
+
+For each platform, use Glob to search for these patterns. Read any found files
+to determine what collection data they paginate over (tags, categories, authors,
+years, etc.).
+
+Build PAGINATION_PAGES from the discovered templates. Each entry should note:
+- **Type**: `tags`, `categories`, `authors`, `date-archive`, or `custom`
+- **Source file**: path to the template file
+- **Index page**: whether the source had a listing page (e.g., `/tags/` index)
+- **Item pages**: whether it generates per-item pages (e.g., `/tags/{tag}/`)
+
 ### Present the inventory
 
 Tell the owner what was found. Example:
@@ -172,14 +199,19 @@ Tell the owner what was found. Example:
 >
 > **Blog posts:** 23 posts (July 2024 – February 2026)
 > **Pages:** 6 pages (About, FAQ, Services, Contact, Gallery, Docs)
+> **Dynamic pages:** Tag pages (8 tags), category pages (4 categories)
 >
-> I'll convert all the blog posts and create pages for the static content.
-> This will take about 5–10 minutes for a project this size."
+> I'll convert all the blog posts, create pages for the static content,
+> and generate tag and category pages. This will take about 5–10 minutes
+> for a project this size."
+
+Include PAGINATION_PAGES in the inventory if any were found. List the type
+and count (e.g., "8 tags" or "3 author pages").
 
 Ask:
 > "Would you like to convert all of it, or just the blog posts?"
-> - **Everything** — posts + pages + redirects (recommended)
-> - **Blog posts only** — skip static pages
+> - **Everything** — posts + pages + dynamic pages + redirects (recommended)
+> - **Blog posts only** — skip static pages and dynamic pages
 
 Wait for their answer before continuing.
 
@@ -211,6 +243,229 @@ This value determines:
 - The `href` prefix in homepage and listing templates
 - Whether redirects are needed for blog post URLs
 
+If `POST_URL_PREFIX` is empty and you move `[slug].astro` out of `src/pages/blog/`,
+ensure the new file still includes `export const prerender = true;` in its frontmatter.
+This is required for `getStaticPaths()` to work in dev mode (hybrid output).
+
+## Step 1.5 — Extract visual identity
+
+Tell the owner:
+> "Before converting your content, I'm reading your site's design — colors, fonts,
+> logo, and layout — so the converted site keeps your existing look and feel."
+
+The scaffold creates generic defaults (blue `#2563eb`, system fonts, plain text
+header). This step replaces those with values extracted from the source project.
+
+### 1.5a — Find and read source CSS
+
+Use Glob to find CSS files in the source project. Common locations:
+
+| Platform | CSS locations |
+| --- | --- |
+| Hugo | `assets/css/`, `static/css/`, `themes/*/assets/css/` |
+| Jekyll | `_sass/`, `assets/css/`, `css/` |
+| Next.js | `styles/`, `src/styles/`, `app/globals.css` |
+| Gatsby | `src/styles/`, `src/css/` |
+| Nuxt | `assets/css/`, `assets/styles/` |
+| Docusaurus | `src/css/` |
+| VuePress | `.vuepress/styles/` |
+| MkDocs | `docs/stylesheets/` |
+| Eleventy | `src/_includes/css/`, `src/css/`, `css/`, `_includes/css/` |
+| Hexo | `themes/*/source/css/` |
+
+Read all CSS files found. Extract these design tokens:
+
+**Colors** — Look for CSS custom properties (`--color-*`, `--bg-*`, `--text-*`,
+`--link-*`, `--accent-*`), or recurring color values in `color:`, `background:`,
+`background-color:`, `border-color:` properties. Identify:
+- Background color (body/html `background` or `background-color`)
+- Text color (body/html `color`)
+- Link/primary color (`a` color or most prominent accent)
+- Heading color (if different from text)
+- Muted/secondary text color
+- Surface/card background color
+- Border color
+
+**Fonts** — Look for `font-family` on `body`, `html`, headings. Note whether
+fonts are system fonts, self-hosted (look for `@font-face`), or external (Google
+Fonts links — these will be self-hosted per ADR-0008).
+
+**Layout** — Look for `max-width` on the main content container. Note the value
+to apply to `--max-width`.
+
+**Dark mode** — Check for `@media (prefers-color-scheme: dark)` or a
+`.dark`/`[data-theme="dark"]` selector. If present, note the dark palette.
+
+**Accessibility** — Check for `@media (prefers-contrast: more)`,
+`prefers-reduced-motion`, or `color-scheme` meta declarations.
+
+### 1.5b — Read layout templates
+
+Use Glob to find layout/template files. Common locations:
+
+| Platform | Layout locations |
+| --- | --- |
+| Hugo | `layouts/_default/baseof.html`, `layouts/partials/` |
+| Jekyll | `_layouts/default.html`, `_includes/` |
+| Next.js | `src/app/layout.tsx`, `pages/_app.tsx`, `components/Layout.tsx` |
+| Gatsby | `src/components/layout.js`, `src/templates/` |
+| Nuxt | `layouts/default.vue`, `components/` |
+| Docusaurus | `src/theme/Layout/`, `src/components/` |
+| VuePress | `.vuepress/theme/layouts/` |
+| MkDocs | `overrides/` |
+| Eleventy | `src/_includes/`, `_includes/`, `layouts/` |
+| Hexo | `themes/*/layout/` |
+
+Read the main layout file. Extract:
+
+**Header structure:**
+- Logo image path and alt text (e.g., `<img src="/img/logo.svg">`)
+- Site title text or element
+- Navigation links (names and hrefs)
+
+**Footer structure:**
+- Social media links (platform and URL for each)
+- Copyright text or license information
+- Any badges or certifications
+
+**Meta tags:**
+- `color-scheme` meta tag value
+- Any additional meta tags worth preserving
+
+### 1.5c — Read data/config files
+
+Many SSGs store site metadata in data files:
+
+| Platform | Metadata locations |
+| --- | --- |
+| Hugo | `config.toml` (`[params]`), `data/` |
+| Jekyll | `_config.yml`, `_data/` |
+| Next.js | `package.json`, custom config files |
+| Gatsby | `gatsby-config.js` (`siteMetadata`) |
+| Nuxt | `nuxt.config.ts` |
+| Eleventy | `src/_data/`, `_data/` (JSON/JS files) |
+| Hexo | `_config.yml` |
+
+Look for:
+- Site title, description, author name
+- Social media handles/URLs
+- Logo file reference
+- License or copyright text
+
+### 1.5d — Copy static assets
+
+Use Glob to find logo files, favicons, and avatar images in the source project:
+
+```sh
+find . -maxdepth 4 -type f \( -name "logo.*" -o -name "favicon.*" -o -name "avatar.*" -o -name "apple-touch-icon.*" \) -not -path "*/node_modules/*" -not -path "*/_site/*" -not -path "*/dist/*"
+```
+
+Copy found assets to `public/`:
+
+```sh
+cp SOURCE_LOGO public/logo.EXT
+```
+
+If a `favicon.svg` or `favicon.ico` is found, copy it to replace the scaffold default.
+
+### 1.5e — Apply extracted design to Anglesite
+
+**Update `src/styles/global.css`** — Use the Edit tool to replace the `:root`
+CSS custom properties block with the extracted values. Map source colors to
+Anglesite tokens:
+
+| Anglesite token | Source value |
+| --- | --- |
+| `--color-primary` | Link color or main accent |
+| `--color-accent` | Secondary accent (or derive from primary) |
+| `--color-bg` | Body background |
+| `--color-text` | Body text color |
+| `--color-muted` | Secondary/lighter text |
+| `--color-surface` | Card/section background |
+| `--color-border` | Border color |
+| `--font-heading` | Heading font-family |
+| `--font-body` | Body font-family |
+| `--max-width` | Content max-width (convert to rem if in px: divide by 16) |
+
+If the source uses external fonts (Google Fonts), download the font files and
+add `@font-face` declarations at the top of `global.css` with the files in
+`public/fonts/`. Never link to external font services (ADR-0008).
+
+If the source has dark mode support, add a `@media (prefers-color-scheme: dark)`
+block after the `:root` block with the dark palette mapped to the same tokens.
+
+If the source has `prefers-contrast: more` or `prefers-reduced-motion` support,
+add those media queries as well.
+
+If the source has custom blockquote, code, or other element styling that differs
+significantly from the scaffold defaults, add those styles to the appropriate
+sections of `global.css`.
+
+**Update `src/layouts/BaseLayout.astro`** — Use the Edit tool to update:
+
+1. **Header**: If the source has a logo, add an `<img>` tag. If it has
+   navigation, add a `<nav>` element with the extracted links. Structure:
+   ```html
+   <header class="h-card">
+     <a href="/" class="p-name u-url">
+       <img src="/logo.EXT" alt="SITE_NAME logo" width="W" height="H" />
+       SITE_NAME
+     </a>
+     <nav>
+       <a href="/about/">About</a>
+       <a href="/blog/">Blog</a>
+     </nav>
+   </header>
+   ```
+
+2. **Footer**: If the source has social links, add them. If it has a license,
+   include it. Structure:
+   ```html
+   <footer>
+     <nav class="social-links">
+       <a href="URL" rel="me">Platform</a>
+     </nav>
+     <p>&copy; YEAR OWNER_NAME</p>
+   </footer>
+   ```
+
+3. **Meta tags**: If the source had `<meta name="color-scheme" content="dark light">`,
+   add it to the `<head>`.
+
+4. **HTML lang**: If the source used a different `lang` attribute, update it.
+
+**Add header/footer CSS** if needed — add styles for the nav and social links to
+`global.css`:
+
+```css
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+header nav {
+  display: flex;
+  gap: var(--space-md);
+}
+
+header nav a {
+  text-decoration: none;
+  color: var(--color-text);
+}
+
+.social-links {
+  display: flex;
+  gap: var(--space-sm);
+}
+```
+
+**Fallback**: If no CSS or layout files are found (unlikely but possible),
+skip this step and proceed with scaffold defaults. Tell the owner:
+> "I couldn't find design files in your project. The site will use default
+> styling — you can customize colors and fonts anytime by asking me."
+
 ## Step 2 — Convert blog posts
 
 Tell the owner:
@@ -222,92 +477,22 @@ Ensure the image directory exists:
 mkdir -p public/images/blog
 ```
 
+Read `${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md` for the full
+content conversion, image optimization, and `.mdoc` writing procedures.
+
 For each post in BLOG_POSTS:
 
-### 2a — Convert content
-
 1. Parse the frontmatter using the field mapping from the platform doc
-2. Convert the body content to clean Markdown:
-   - Strip platform-specific template syntax (shortcodes, Liquid tags, Vue
-     components, Nunjucks tags, admonitions) as documented in the platform doc's
-     "Content conversion" section and `${CLAUDE_PLUGIN_ROOT}/docs/import/ssg-migrations.md`
-   - Convert admonitions (`:::`, `!!!`, custom containers) to blockquotes
-   - Strip MDX/JSX imports and component tags
-   - Remove template expressions (`{{ }}`, `{% %}`, `{{< >}}`)
-   - Keep standard Markdown (headings, lists, links, images, code blocks)
-3. Map frontmatter fields per the platform doc's mapping table
-4. If `description` is missing, generate from the first paragraph
-5. If `publishDate` is missing, use the file's git commit date or modification
-   date as fallback
-
-### 2b — Copy and optimize images
-
-Tell the owner (once, not per-post):
-> "I'm copying images from your project and optimizing them for the web."
-
-The platform doc's "Image handling" section specifies where images are stored
-(e.g., `static/img/` for Docusaurus, `source/images/` for Hexo, `content/` for
-Hugo page bundles).
-
-```sh
-cp SOURCE_IMAGE "public/images/blog/SLUG-hero.ext"
-```
-
-Check file size:
-
-```sh
-wc -c < public/images/blog/SLUG-hero.ext
-```
-
-If over 500,000 bytes, convert and resize using `sharp-cli` (cross-platform):
-
-```sh
-npx sharp-cli -i public/images/blog/SLUG-hero.ext -o public/images/blog/SLUG-hero.webp --width 1200
-```
-
-Update image references in the converted Markdown to use local paths.
-
-### 2c — Write the .mdoc file
-
-Assemble frontmatter fields:
-- `title`: from source frontmatter
-- `description`: from excerpt or generated from first paragraph
-- `publishDate`: in YYYY-MM-DD format
-- `image`: local path after copy, or omit
-- `imageAlt`: derive from post title (e.g., "Hero image for [title]")
-- `tags`: from categories/tags data, or `[]`
-- `draft`: `false`
-- `syndication`: `["ORIGINAL_URL"]` if the old site had a known public URL
-
-Sanitize the slug: lowercase, replace spaces with hyphens, remove characters
-other than `[a-z0-9-]`, trim leading/trailing hyphens. If the slug conflicts
-with an existing file, append `-converted`.
-
-Write to `src/content/posts/SLUG.mdoc`:
-
-```
----
-title: "The Post Title"
-description: "A one or two sentence summary of the post."
-publishDate: "2024-03-15"
-image: "/images/blog/my-post-hero.webp"
-imageAlt: "Hero image for The Post Title"
-tags: []
-draft: false
----
-
-The full post body content in clean Markdown goes here.
-```
-
-Rules for the body content:
-- No HTML tags — convert everything to Markdown equivalents
-- No MDX component syntax — plain Markdown only
-- No platform-specific shortcodes or embeds
-
-### 2d — Progress updates
-
-After every 5 posts, tell the owner:
-> "Converted 10 of 23 posts so far — about halfway done."
+2. Convert body content following the shared conversion procedures — also apply
+   the platform doc's "Content conversion" section and
+   `${CLAUDE_PLUGIN_ROOT}/docs/import/ssg-migrations.md` for platform-specific
+   template syntax stripping
+3. Copy and optimize images per the shared procedures. The platform doc's
+   "Image handling" section specifies where images are stored (e.g.,
+   `static/img/` for Docusaurus, `source/images/` for Hexo, `content/` for
+   Hugo page bundles)
+4. Write the `.mdoc` file per the shared procedures. Use `-converted` suffix
+   for slug conflicts
 
 ## Step 3 — Handle static pages
 
@@ -321,6 +506,152 @@ Create a `.astro` file in `src/pages/` with the page title, meta description,
 
 For pages that are primarily image galleries (10+ images), create a gallery page
 with a responsive CSS grid layout.
+
+## Step 3.5 — Generate dynamic route pages
+
+If PAGINATION_PAGES is non-empty and the owner chose "Everything", generate
+Astro dynamic route pages for each discovered pagination type.
+
+### Tag pages
+
+If the source site had tag pages, create two files:
+
+**`src/pages/tags/index.astro`** — lists all tags with post counts:
+
+```astro
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+export const prerender = true;
+
+const allPosts = await getCollection("posts", ({ data }) => {
+  return import.meta.env.PROD ? !data.draft : true;
+});
+
+const tags = [...new Set(allPosts.flatMap((post) => post.data.tags ?? []))].sort();
+const tagCounts = Object.fromEntries(
+  tags.map((tag) => [
+    tag,
+    allPosts.filter((post) => post.data.tags?.includes(tag)).length,
+  ]),
+);
+---
+
+<BaseLayout title="Tags" description="Browse posts by tag">
+  <h1>Tags</h1>
+  <ul class="tag-list">
+    {
+      tags.map((tag) => (
+        <li>
+          <a href={`/tags/${tag}/`}>
+            {tag} ({tagCounts[tag]})
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+```
+
+**`src/pages/tags/[tag].astro`** — lists posts for a single tag:
+
+```astro
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const allPosts = await getCollection("posts", ({ data }) => {
+    return import.meta.env.PROD ? !data.draft : true;
+  });
+
+  const tags = [...new Set(allPosts.flatMap((post) => post.data.tags ?? []))];
+
+  return tags.map((tag) => ({
+    params: { tag },
+    props: {
+      posts: allPosts
+        .filter((post) => post.data.tags?.includes(tag))
+        .sort(
+          (a, b) =>
+            b.data.publishDate.getTime() - a.data.publishDate.getTime(),
+        ),
+    },
+  }));
+}
+
+const { tag } = Astro.params;
+const { posts } = Astro.props;
+---
+
+<BaseLayout title={`Posts tagged "${tag}"`} description={`All posts tagged "${tag}"`}>
+  <h1>Posts tagged &ldquo;{tag}&rdquo;</h1>
+  <ul class="post-list">
+    {
+      posts.map((post) => (
+        <li class="h-entry">
+          <a href={`/POST_URL_PREFIX/${post.id}/`} class="u-url">
+            <h2 class="p-name">{post.data.title}</h2>
+          </a>
+          <time
+            class="dt-published"
+            datetime={post.data.publishDate.toISOString()}
+          >
+            {post.data.publishDate.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </time>
+          <p class="p-summary">{post.data.description}</p>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+```
+
+Replace `POST_URL_PREFIX` in the href with the value from `.site-config`
+(same logic as Step 4.5).
+
+### Category pages
+
+If the source site had category pages, create the same structure under
+`src/pages/categories/`:
+- `src/pages/categories/index.astro` — lists all categories
+- `src/pages/categories/[category].astro` — lists posts per category
+
+Use the same pattern as tag pages but filter on `post.data.categories`
+instead of `post.data.tags`. If the Keystatic content schema doesn't have
+a `categories` field, check whether the source used categories and add the
+field to `keystatic.config.ts` and `src/content.config.ts` if needed.
+
+### Author pages
+
+If the source site had author pages and posts have an `author` field,
+create `src/pages/authors/[author].astro` using the same pattern.
+
+### Date archive pages
+
+If the source site had year or month archive pages (e.g., `/2025/` or
+`/2025/01/`), create:
+- `src/pages/archive/[year].astro` — lists posts for a year
+- Optionally `src/pages/archive/[year]/[month].astro` — lists posts for a month
+
+### Custom pagination pages
+
+For any other pagination types discovered, create equivalent Astro dynamic
+routes following the same pattern: `export const prerender = true`,
+`getStaticPaths()` that returns all possible values, and a listing template.
+
+### Redirects for pagination pages
+
+If the source site served tag pages at a different path than `/tags/{tag}/`
+(e.g., Hugo's default `/tags/{tag}/` vs. a custom taxonomy path), add
+redirect rules in Step 4.
 
 ## Step 4 — Generate redirect mappings
 
@@ -412,20 +743,9 @@ owner will customize the homepage during the design phase.
 
 ## Step 5 — Build and verify
 
-Tell the owner:
-> "I'm checking that everything converted correctly."
-
-```sh
-npm run build
-```
-
-If the build fails, diagnose and fix. Common causes:
-- Frontmatter doesn't match schema: check `src/content/config.ts` for expected fields
-- Invalid `publishDate` format: must be YYYY-MM-DD string
-- Missing required `description`: add a placeholder and note for review
-- Image path typo: verify file exists in `public/images/`
-
-Fix all build errors before presenting results (ADR-0012).
+Follow the build-and-verify procedure in
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`. Fix all build
+errors before presenting results (ADR-0012).
 
 ## Step 6 — Present the results
 
@@ -433,16 +753,18 @@ Give the owner a plain-English summary:
 
 > "Your project has been converted! Here's what happened:
 >
+> **Design:** Carried over your colors, fonts, logo, and layout from the
+> original site
 > **Blog posts:** 21 of 23 converted successfully
 > **Images:** 19 copied and optimized
 > **Redirects:** 27 redirect rules added
 > **Pages created:** 4 (About, FAQ, Services, Contact)
+> **Dynamic pages:** Tag pages (8 tags), category pages (4 categories)
 >
-> **One more thing:** This first pass focuses on getting all your content
-> moved over accurately. The formatting and layout might not match your old
-> site exactly — that's normal. Once you've had a chance to look through it,
-> just let me know what you'd like adjusted and I'll make design tweaks
-> until it looks right."
+> The design should look close to your original site. If anything looks off
+> or you'd like to tweak colors, fonts, or layout, just let me know."
+
+Include dynamic pages in the summary only if PAGINATION_PAGES was non-empty.
 
 If any posts failed to convert, list them so the owner knows what needs attention.
 
@@ -478,6 +800,9 @@ converted and the date. Example:
 
 ## Edge cases
 
+See `${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md` for shared edge
+cases (large images, multilingual content, slug conflicts, mixed formats).
+
 ### No blog posts in the project
 
 If BLOG_POSTS is empty after discovery:
@@ -485,32 +810,6 @@ If BLOG_POSTS is empty after discovery:
 > pages and set up redirects."
 
 Continue with Steps 3-4 for pages and redirects only.
-
-### Images still too large after conversion
-
-If the converted image is still over 500KB, do not block the conversion. Advise:
-> "Some images are still large after optimization. You can resize them or
-> replace them with smaller versions."
-
-### Multilingual content
-
-If the project has content in multiple languages:
-> "Your project has content in multiple languages. I'll convert the primary
-> language for now. Setting up multiple languages requires additional planning."
-
-Convert only primary-language content.
-
-### Slug conflicts
-
-Before writing each `.mdoc` file, sanitize the slug (lowercase, hyphens only,
-`[a-z0-9-]`). If it conflicts with an existing file, append `-converted` and
-log the conflict.
-
-### Mixed content formats
-
-Some SSG projects use multiple content formats (`.md`, `.mdx`, `.rst`, `.html`).
-Convert `.md` and `.mdx` files. For `.rst` and `.html`, inform the owner they
-need manual review.
 
 ### Monorepos and nested projects
 

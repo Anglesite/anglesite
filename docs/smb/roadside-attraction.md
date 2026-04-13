@@ -39,6 +39,18 @@ The business model: people stop because it's worth the detour. Discovery is road
 - **Shopify Lite** or **Square Online** — For online gift shop if they sell merchandise.
 - **Social media** — Instagram and TikTok are primary discovery channels. Visitors create content — encourage it with photo spots, hashtags, and signs. The attraction IS the content.
 
+## Review platforms
+
+- **Google Business Profile** — Critical. Travelers searching "things to do near [highway/town]" find roadside attractions primarily through Google Maps. Keep photos current (show the attraction at its best), respond to all reviews, and post updates before peak travel season. A high Google rating and review count is the single biggest factor in whether a road tripper adds the stop to their route.
+- **TripAdvisor** — The dominant review platform for tourist attractions. Families and road trippers cross-check Google with TripAdvisor. A TripAdvisor Certificate of Excellence signals legitimacy. Respond to reviews, especially critical ones — a measured, friendly response to a mixed review demonstrates character. Claim the listing and upload photos.
+- **Atlas Obscura** — Not a traditional review platform, but comments and saves on Atlas Obscura entries function as social proof for the "weird and wonderful" crowd. A well-maintained Atlas Obscura entry with many saves signals the attraction is worth the detour for road trip enthusiasts and travel bloggers.
+- **Roadtrippers** — User reviews and saves on Roadtrippers influence road trip planning decisions. The app is used heavily by the demographic that visits roadside attractions — submit and keep the listing current.
+- **Yelp** — Relevant in some markets. Worth monitoring and responding, but less dominant for attractions than for food and services.
+
+Feature the best visitor quotes prominently on the home page and the Reviews page — "is it worth the stop?" is the exact question reviews answer for a potential visitor sitting in a car 20 miles away deciding whether to turn off.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Liability and insurance**: Visitors on the property need general liability coverage. If there are physical activities (climbing, mazes, rides), additional coverage and safety inspections apply. Consult an insurance agent specializing in attractions or tourism.

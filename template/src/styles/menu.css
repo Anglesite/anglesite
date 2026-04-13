@@ -1,0 +1,501 @@
+/* Menu page styles — mobile-first, responsive, print-friendly.
+ *
+ * Custom properties prefixed --menu- can be overridden by
+ * design tokens extracted from the original PDF menu.
+ */
+
+/* Design tokens — defaults that design-interview can override */
+:root {
+  --menu-font-heading: var(--font-heading);
+  --menu-font-body: var(--font-body);
+  --menu-color-price: var(--color-text);
+  --menu-color-section-bg: var(--color-surface);
+  --menu-color-divider: var(--color-border);
+  --menu-item-gap: var(--space-md);
+  --menu-columns: 1;
+}
+
+/* Section navigation — jump links for long menus */
+.menu-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  margin-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--menu-color-divider);
+  position: sticky;
+  top: 0;
+  background: var(--color-bg);
+  z-index: 10;
+}
+
+.menu-nav a {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-family: var(--menu-font-body);
+  text-decoration: none;
+  color: var(--color-text);
+  background: var(--color-surface);
+  white-space: nowrap;
+}
+
+.menu-nav a:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.menu-nav a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Menu header (name + description) */
+.menu-header {
+  margin-bottom: var(--space-lg);
+}
+
+.menu-header h1,
+.menu-header h2 {
+  font-family: var(--menu-font-heading);
+}
+
+.menu-header p {
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+/* Section */
+.menu-section {
+  margin-bottom: var(--space-xl);
+}
+
+.menu-section-heading {
+  font-family: var(--menu-font-heading);
+  font-size: var(--font-size-2xl);
+  padding-bottom: var(--space-sm);
+  border-bottom: 2px solid var(--menu-color-divider);
+  margin-bottom: var(--space-md);
+}
+
+.menu-section-description {
+  color: var(--color-muted);
+  font-style: italic;
+  margin-bottom: var(--space-md);
+}
+
+/* Items grid */
+.menu-items {
+  display: grid;
+  grid-template-columns: repeat(var(--menu-columns), 1fr);
+  gap: var(--menu-item-gap);
+}
+
+/* Individual item card */
+.menu-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-xs) var(--space-md);
+  padding: var(--space-md);
+  background: var(--menu-color-section-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.menu-item-name {
+  font-family: var(--menu-font-heading);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin: 0;
+}
+
+.menu-item-price {
+  font-family: var(--menu-font-body);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--menu-color-price);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.menu-item-description {
+  grid-column: 1 / -1;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Item image */
+.menu-item-image {
+  grid-column: 1 / -1;
+  border-radius: var(--radius-sm);
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  width: 100%;
+}
+
+/* Dietary badges */
+.dietary-tags {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.dietary-badge {
+  display: inline-block;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+}
+
+/* stylelint-disable scale-unlimited/declaration-strict-value -- dietary badge colors
+   are semantic accessibility pairs (background + text per diet type) that don't map
+   to the design token system. Each pair is chosen for WCAG AA contrast. */
+.dietary-badge[data-diet="vegetarian"] {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+.dietary-badge[data-diet="vegan"] {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #14532d;
+}
+
+.dietary-badge[data-diet="gluten-free"] {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #78350f;
+}
+
+.dietary-badge[data-diet="dairy-free"] {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e3a5f;
+}
+
+.dietary-badge[data-diet="nut-free"] {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.dietary-badge[data-diet="halal"] {
+  background: #f0fdf4;
+  border-color: #4ade80;
+  color: #166534;
+}
+
+.dietary-badge[data-diet="kosher"] {
+  background: #eef2ff;
+  border-color: #818cf8;
+  color: #3730a3;
+}
+
+.dietary-badge[data-diet="spicy"] {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.dietary-badge[data-diet="raw"] {
+  background: #f0fdfa;
+  border-color: #5eead4;
+  color: #115e59;
+}
+
+.dietary-badge[data-diet="contains-alcohol"] {
+  background: #fdf4ff;
+  border-color: #c084fc;
+  color: #6b21a8;
+}
+/* stylelint-enable scale-unlimited/declaration-strict-value */
+
+/* Dietary icon within badge */
+.dietary-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  margin-right: 0.25em;
+}
+
+/* Custom tags */
+.custom-tag {
+  display: inline-block;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+}
+
+/* Menu selector — when multiple menus exist */
+.menu-selector {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.menu-selector a {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-family: var(--menu-font-heading);
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.menu-selector a:hover,
+.menu-selector a[aria-current="page"] {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+/* Unavailable item overlay (kept in DOM for owners, hidden from visitors) */
+.menu-item[data-available="false"] {
+  display: none;
+}
+
+/* Allergen disclaimer */
+.allergen-disclaimer {
+  margin-top: var(--space-xl);
+  padding: var(--space-md);
+  border-top: 1px solid var(--menu-color-divider);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  text-align: center;
+}
+
+/* ----------------------------------------------------------------
+ * Tabbed layout — CSS-only tabs via :target
+ *
+ * Structure:
+ *   .menu-tabs          — tab bar container
+ *   .menu-tabs a        — individual tab links (href="#menu-slug")
+ *   .menu-tab-panel     — content panel (id="menu-slug")
+ *
+ * First panel is visible by default. When any panel is :target,
+ * the first panel hides via :has(:target) on the parent.
+ * ---------------------------------------------------------------- */
+.menu-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  margin-bottom: var(--space-lg);
+  border-bottom: 2px solid var(--menu-color-divider);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.menu-tabs a {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-family: var(--menu-font-heading);
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  text-decoration: none;
+  color: var(--color-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+
+.menu-tabs a:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.menu-tabs a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.menu-tabs a.active,
+.menu-tabs a[aria-selected="true"] {
+  color: var(--color-text);
+  background: var(--color-bg);
+  border-color: var(--menu-color-divider);
+  margin-bottom: -2px;
+  border-bottom: 2px solid var(--color-bg);
+}
+
+/* Tab panels — hidden by default, shown via :target */
+.menu-tab-panel {
+  display: none;
+}
+
+/* Show the first panel by default (no hash in URL) */
+.menu-tab-panel:first-of-type {
+  display: block;
+}
+
+/* When any panel is targeted, show it */
+.menu-tab-panel:target {
+  display: block;
+}
+
+/* Hide the default first panel when another is targeted */
+.menu-tab-panels:has(.menu-tab-panel:target) > .menu-tab-panel:first-of-type:not(:target) {
+  display: none;
+}
+
+/* ----------------------------------------------------------------
+ * Menu index cards — for "pages" layout on /menu
+ * ---------------------------------------------------------------- */
+.menu-index-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.menu-index-card {
+  padding: var(--space-lg);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.menu-index-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.menu-index-card h2 {
+  font-family: var(--menu-font-heading);
+  margin: 0 0 var(--space-sm);
+}
+
+.menu-index-card p {
+  color: var(--color-muted);
+  margin: 0;
+}
+
+/* Cross-links between menus on individual pages */
+.menu-cross-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--menu-color-divider);
+}
+
+.menu-cross-link {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--color-text);
+  font-family: var(--menu-font-heading);
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.menu-cross-link:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ----------------------------------------------------------------
+ * Menu type variants — styling hints for special menus
+ * ---------------------------------------------------------------- */
+.menu-section[data-menu-type="kids"] .menu-item-name {
+  font-size: var(--font-size-xl);
+}
+
+.menu-section[data-menu-type="wine-cocktails"] .menu-item-description {
+  font-style: italic;
+}
+
+.menu-section[data-menu-type="daily-specials"] {
+  border-left: 3px solid var(--color-accent);
+  padding-left: var(--space-md);
+}
+
+/* ----------------------------------------------------------------
+ * Desktop: two-column grid for items
+ * ---------------------------------------------------------------- */
+@media (min-width: 48rem) {
+  :root {
+    --menu-columns: 2;
+  }
+
+  .menu-section-heading {
+    font-size: var(--font-size-3xl);
+  }
+
+  .menu-index-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ----------------------------------------------------------------
+ * Print styles — clean, paper-friendly menu
+ * ---------------------------------------------------------------- */
+/* stylelint-disable scale-unlimited/declaration-strict-value */
+@media print {
+  .menu-nav,
+  .menu-selector,
+  .menu-tabs {
+    display: none;
+  }
+
+  .menu-tab-panels .menu-tab-panel,
+  .menu-tab-panel:first-of-type,
+  .menu-tab-panel:target {
+    display: block;
+  }
+
+  :root {
+    --menu-columns: 2;
+    --menu-color-section-bg: transparent;
+  }
+
+  .menu-item {
+    box-shadow: none;
+    border-bottom: 1px solid #ccc;
+    border-radius: 0;
+    padding: var(--space-sm) 0;
+    break-inside: avoid;
+  }
+
+  .menu-item-image {
+    display: none;
+  }
+
+  .menu-section {
+    break-inside: avoid;
+  }
+
+  .dietary-badge,
+  .custom-tag {
+    border-color: #999;
+    background: transparent;
+    color: #333;
+  }
+}
+/* stylelint-enable scale-unlimited/declaration-strict-value */

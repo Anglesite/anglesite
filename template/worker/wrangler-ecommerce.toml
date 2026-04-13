@@ -1,0 +1,19 @@
+# Ecommerce webhook worker — deployed via /anglesite:add-store
+# Receives order webhooks from ecommerce platforms and logs revenue
+# to Analytics Engine for upgrade path assessment.
+#
+# Secrets are set via: npx wrangler secret put <NAME> --config worker/wrangler-ecommerce.toml
+#   SNIPCART_SECRET_KEY     — Snipcart secret API key
+#   STRIPE_WEBHOOK_SECRET   — Stripe webhook signing secret (whsec_...)
+#   SHOPIFY_WEBHOOK_SECRET  — Shopify app secret
+#   POLAR_WEBHOOK_SECRET    — Polar webhook secret (base64-encoded)
+#   LS_WEBHOOK_SECRET       — Lemon Squeezy signing secret
+#   PADDLE_WEBHOOK_SECRET   — Paddle webhook secret (pdl_ntfset_...)
+
+name = "ecommerce-webhooks"
+main = "ecommerce-webhook-worker.js"
+compatibility_date = "2024-01-01"
+
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "anglesite_events"

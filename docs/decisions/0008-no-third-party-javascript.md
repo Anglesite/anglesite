@@ -23,13 +23,27 @@ Third-party JavaScript (analytics, social embeds, chat widgets, ad networks) is 
 
 ## Considered Options
 
-* No third-party JavaScript (with one exception)
+* No third-party JavaScript (with seven exceptions)
 * Selective third-party scripts with owner approval
 * Standard analytics and social stacks (Google Analytics, social embeds, chat widgets)
 
 ## Decision Outcome
 
-Chosen option: "No third-party JavaScript", with a single exception: Cloudflare Web Analytics, which is auto-injected by Cloudflare Pages, uses no cookies, collects no personal data, and requires zero setup. All other external scripts are blocked by default, enforced by the Content Security Policy and pre-deploy scans.
+Chosen option: "No third-party JavaScript", with seven exceptions:
+
+1. **Cloudflare Web Analytics** — auto-injected by Cloudflare Pages, uses no cookies, collects no personal data, requires zero setup.
+2. **Cloudflare Turnstile** — privacy-respecting CAPTCHA alternative used by the contact form (`/anglesite:contact`). Same vendor as the hosting platform, no cookies, no tracking. Only loaded on the `/contact` page.
+3. **Polar checkout overlay** (`cdn.polar.sh`) — open-source, indie-web-aligned checkout overlay for digital product sales. Acts as Merchant of Record (handles global VAT/sales tax). Only loaded on pages with a `PolarCheckout` component. No cookies or visitor tracking beyond the checkout transaction.
+4. **Snipcart** (`cdn.snipcart.com`) — shopping cart for small physical product catalogs. No monthly fee (2% per transaction + Stripe fees). Only loaded on pages with product components and the Snipcart container. No visitor tracking beyond the checkout transaction.
+5. **Shopify Buy Button** (`cdn.shopify.com`, `sdks.shopifycdn.com`) — embeddable product cards and checkout for full product catalogs managed in Shopify's admin dashboard. Starting at $5/month. Only loaded on pages with a `ShopifyBuyButton` component.
+6. **Paddle** (`cdn.paddle.com`, `sandbox-cdn.paddle.com`) — checkout overlay for software licensing, SaaS subscriptions, and metered billing. Acts as Merchant of Record (handles global tax compliance). Only loaded on pages with a `PaddleCheckout` component. No visitor tracking beyond the checkout transaction.
+7. **Lemon Squeezy** (`assets.lemonsqueezy.com`) — checkout overlay for digital product sales (downloads, courses, memberships). Acts as Merchant of Record (handles global VAT/sales tax). Alternative to Polar — owner preference determines which is used. Only loaded on pages with a `LemonSqueezyCheckout` component. No visitor tracking beyond the checkout transaction.
+
+All other external scripts are blocked by default, enforced by the Content Security Policy and pre-deploy scans.
+
+### Creative coding libraries (not third-party)
+
+npm-installed creative coding libraries (p5.js, Three.js, GSAP, Tone.js, D3.js, and others) are **not** third-party scripts. They are bundled by Astro's build process and served as first-party JavaScript from the same origin. The CSP `script-src 'self'` policy covers them without modification. These libraries are used by the `creative-canvas` skill to add interactive visual effects to any site — from a web artist's generative art portfolio to a bakery's holiday snow effect. No CSP allowlist entry or pre-deploy scan exception is needed.
 
 ### Consequences
 
@@ -44,7 +58,7 @@ Chosen option: "No third-party JavaScript", with a single exception: Cloudflare 
 
 ### Confirmation
 
-The pre-deploy scan greps `dist/` for `<script src=` tags and blocks any that don't match `cloudflareinsights` or `_astro`. The Content Security Policy in `public/_headers` restricts `script-src` to `'self'` and `static.cloudflareinsights.com`. The `/anglesite:check` skill verifies both.
+The pre-deploy scan and Content Security Policy are now config-driven (see `template/scripts/csp.ts`). Only providers listed in `.site-config` (`ECOMMERCE_PROVIDER`, `BOOKING_PROVIDER`, `TURNSTILE_SITE_KEY`) are permitted — all others are blocked. The `/anglesite:check` skill verifies the CSP matches the configured providers.
 
 ## Pros and Cons of the Options
 

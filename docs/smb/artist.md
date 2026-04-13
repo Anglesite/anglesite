@@ -69,6 +69,13 @@ Not all makers have a fixed price list. Custom work pricing depends on complexit
 
 Pick whichever model matches how the maker already prices their work. The website should make pricing transparent enough that customers self-qualify — they should know if they're in the right budget range before reaching out.
 
+## Review platforms
+
+- **Google Business Profile** — Essential if the artist has a studio, gallery, or regular in-person presence (markets, fairs, open studio events). People searching "potters near me" or "custom jewelry [city]" will find the listing. Keep it updated with upcoming event dates.
+- **Etsy** — For makers who sell on the platform, Etsy reviews are the most influential trust signal. Highlight standout reviews on the website to bring that credibility to the artist's own home base.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Sales tax**: Applies to physical goods sold in most states. Online sales may trigger nexus in multiple states. Market platforms (Etsy, Big Cartel) handle collection in most cases.

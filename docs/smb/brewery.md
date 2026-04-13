@@ -38,6 +38,14 @@ Covers: craft breweries, microbreweries, brewpubs, wineries, vineyards, distille
 - **Square** (free POS, proprietary) — Good for smaller taprooms. Payments, tabs, basic inventory.
 - **Eventbrite** (free for free events, proprietary) — Event ticketing and promotion.
 
+## Review platforms
+
+- **Google Business Profile** — "Breweries near me" and "taprooms in [city]" are common searches. The profile photo, hours, and review response quality strongly influence whether someone chooses this taproom over the next. Update it whenever tap hours or seasonal offerings change.
+- **Yelp** — Well-used for breweries and taprooms, especially in cities. Yelp reviewers tend to describe the atmosphere, beer quality, and food in detail — the qualities that differentiate a craft taproom.
+- **Untappd** — The dominant beer-specific check-in and review platform. Craft beer fans use Untappd to discover new breweries, track beers they've tried, and share ratings. Claim the brewery page on Untappd and keep the beer list current.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Federal licensing (TTB)**: The Alcohol and Tobacco Tax and Trade Bureau (TTB) issues permits for breweries, wineries, and distilleries. Display your permit type (e.g., Brewer's Notice, Basic Permit).

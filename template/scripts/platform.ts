@@ -88,6 +88,24 @@ export function mkcertDownloadUrl(cpuArch: string): string {
   return `https://dl.filippo.io/mkcert/latest?for=${os}/${arch}`;
 }
 
+/** GitHub CLI (`gh`) binary path. */
+export function ghCliBin(): string {
+  const name = isWindows ? "gh.exe" : "gh";
+  return resolve(localBinDir(), name);
+}
+
+/**
+ * GitHub CLI download URL for a given version, platform, and architecture.
+ * Version is the semver string without the "v" prefix (e.g. "2.74.0").
+ * The setup script fetches the latest version from the GitHub API first.
+ */
+export function ghCliDownloadUrl(version: string, cpuArch: string): string {
+  const arch = cpuArch === "arm64" ? "arm64" : "amd64";
+  const os = isWindows ? "windows" : isMacos ? "macOS" : "linux";
+  const ext = isWindows ? "zip" : "tar.gz";
+  return `https://github.com/cli/cli/releases/download/v${version}/gh_${version}_${os}_${arch}.${ext}`;
+}
+
 // ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------

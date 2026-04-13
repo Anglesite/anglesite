@@ -26,9 +26,38 @@ These are built into the site template. Don't undo them:
 - Color contrast meeting WCAG AA (4.5:1 for body text, 3:1 for large text)
 - `lang` attribute on `<html>`
 - Viewport meta tag (no `user-scalable=no` — never prevent zooming)
-- Focus styles on interactive elements
+- Focus styles on interactive elements (`:focus-visible` with 2px outline)
 - Form labels associated with inputs
 - No images of text
+- Links underlined by default (not relying on color alone)
+- `prefers-reduced-motion` media query that disables animations
+- Accessibility statement page at `/accessibility`
+
+## Programmatic validation utilities
+
+Two scripts in `scripts/` provide automated accessibility checks that skills can call:
+
+### `scripts/contrast.ts` — WCAG contrast ratio validation
+
+- `hexToRgb(hex)` — parse hex color to RGB
+- `relativeLuminance(rgb)` — WCAG 2.2 luminance calculation
+- `contrastRatio(hex1, hex2)` — contrast ratio between two colors
+- `meetsWcagAA(fg, bg)` — does the pair meet 4.5:1 for normal text?
+- `meetsWcagAALarge(fg, bg)` — does the pair meet 3:1 for large text?
+- `suggestReadable(fg, bg)` — suggest a nearby color that meets AA
+
+Use during `/anglesite:design-interview` to validate the owner's brand colors and during `/anglesite:check` to verify the site's color palette.
+
+### `scripts/a11y-validate.ts` — content accessibility validation
+
+Requires [html-validate](https://html-validate.org/) for structural WCAG checks (`npm install -D html-validate`). Not included by default. When installed, provides heuristic checks for issues linters don't cover:
+
+- `validateHeadingHierarchy(html)` — skipped levels, multiple h1s (via html-validate `heading-level` rule)
+- `validateLinkText(html)` — empty links (via html-validate `wcag/h30`) + generic text like "click here", "read more"
+- `validateImageAlt(html)` — missing alt (via html-validate `wcag/h37`) + placeholder text like "image", "photo"
+- `validateHtml(html)` — runs all checks, returns issues sorted by severity
+
+Each function returns an array of `A11yIssue` objects with `rule`, `message`, and `severity` fields. Use before writing content to disk or during `/anglesite:check`.
 
 ## What breaks when the owner adds content
 
@@ -39,12 +68,14 @@ The scaffold starts accessible, but content changes can break it. These are the 
 Every image needs alt text. Keystatic prompts for it, but the owner may skip it or write something unhelpful.
 
 **Good alt text:**
+
 - Describes what's in the image, not what it "is"
 - "A golden retriever puppy sitting on a red blanket" — not "dog" or "image1" or "cute puppy photo"
 - For product photos: "Hand-thrown ceramic mug with blue glaze, 12oz" — specific, useful
 - For decorative images (borders, spacers, background textures): empty alt (`alt=""`) — screen readers skip them
 
 **Bad alt text:**
+
 - `alt="image"` or `alt="photo"` — says nothing
 - `alt="DSC_0234.jpg"` — filename, not description
 - `alt="best plumber in springfield call now"` — keyword stuffing, not a description
@@ -60,7 +91,7 @@ The scaffold's CSS custom properties define colors that meet contrast requiremen
 - Text is placed over images without a background overlay
 - Link colors are too close to body text color (links need to be distinguishable)
 
-**During `/anglesite:design-interview`:** If the owner's brand colors don't meet contrast, explain: "That green looks great, but it's hard to read against a white background — especially for people with low vision. I'll darken it slightly so everyone can read it." Use a contrast checker: https://webaim.org/resources/contrastchecker/
+**During `/anglesite:design-interview`:** If the owner's brand colors don't meet contrast, explain: "That green looks great, but it's hard to read against a white background — especially for people with low vision. I'll darken it slightly so everyone can read it." Use a contrast checker: <https://webaim.org/resources/contrastchecker/>
 
 **Never compromise on contrast.** An inaccessible color scheme excludes customers. There is always a nearby shade that both meets contrast and satisfies the brand.
 
@@ -77,7 +108,7 @@ The scaffold's page templates have correct heading hierarchy. Problems arise whe
 ### Links
 
 - **Link text should describe the destination.** "Read our cancellation policy" — not "click here" or "learn more." Screen reader users navigate by link text; a page full of "click here" links is unusable.
-- **Don't use URLs as link text.** "Visit our Etsy shop" not "https://www.etsy.com/shop/businessname." URLs are unreadable when spoken aloud.
+- **Don't use URLs as link text.** "Visit our Etsy shop" not "<https://www.etsy.com/shop/businessname>." URLs are unreadable when spoken aloud.
 - **Links should be visually distinct.** Underlined or colored differently from body text. Don't rely on color alone — colorblind users can't distinguish color-only links.
 - **External links don't need `target="_blank"`.** Opening new tabs is disorienting, especially for screen reader users. If the owner insists, add `rel="noopener"` (security) and note the tradeoff.
 
@@ -112,7 +143,7 @@ PDFs are often inaccessible — no heading structure, no alt text, images of tex
 
 ### What `/anglesite:check` does automatically
 
-- `pa11y` scans for WCAG 2.1 AA violations (contrast, alt text, ARIA, headings, labels)
+- Install pa11y (`npm install -D pa11y`) for automated WCAG 2.1 AA scanning (contrast, alt text, ARIA, headings, labels). It is not included by default.
 - Manual checklist in `/anglesite:check` covers heading hierarchy, skip link, keyboard navigation, images of text, lang attribute
 
 ### What the agent should test manually
@@ -122,7 +153,7 @@ After any design change or new page:
 1. **Keyboard navigation** — Tab through the entire page. Can you reach every link, button, and form input? Is the focus order logical? Can you tell where you are (focus indicator visible)?
 2. **Screen reader spot check** — On macOS, turn on VoiceOver (Cmd+F5) and navigate the page. Do headings make sense? Are images described? Are links clear? Does the form work?
 3. **Zoom test** — Zoom to 200% in the browser. Does the layout still work? Is any text cut off or overlapping?
-4. **Motion sensitivity** — Are there animations? Do they respect `prefers-reduced-motion`? The scaffold's CSS should include `@media (prefers-reduced-motion: reduce)` to disable non-essential animations.
+4. **Motion sensitivity** — Are there animations? Do they respect `prefers-reduced-motion`? The scaffold's CSS includes `@media (prefers-reduced-motion: reduce)` which sets all animation and transition durations to near-zero.
 
 ### What to tell the owner
 

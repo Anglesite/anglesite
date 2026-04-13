@@ -1,0 +1,162 @@
+---
+/**
+ * Lab / Experiments index — gallery of creative experiments.
+ * Lists all experiments from the experiments content collection.
+ * Used by web-artist sites as the primary portfolio page.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const experiments = (await getCollection('experiments'))
+  .filter((e) => !e.data.draft)
+  .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'Lab',
+  description: 'Interactive experiments and creative coding projects.',
+  hasPart: experiments.map((e) => ({
+    '@type': 'CreativeWork',
+    name: e.data.title,
+    url: `/lab/${e.slug}`,
+    dateCreated: e.data.date,
+    interactivityType: 'active',
+  })),
+};
+---
+
+<BaseLayout title="Lab" description="Interactive experiments and creative coding projects." jsonLd={jsonLd}>
+  <section class="lab">
+    <h1>Lab</h1>
+
+    {experiments.length === 0 && (
+      <p class="lab__empty">No experiments yet.</p>
+    )}
+
+    <div class="lab__grid">
+      {experiments.map((experiment) => (
+        <a href={`/lab/${experiment.slug}`} class="lab__card">
+          {experiment.data.thumbnail ? (
+            <img
+              src={experiment.data.thumbnail}
+              alt={experiment.data.description || experiment.data.title}
+              class="lab__thumbnail"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <div class="lab__thumbnail lab__thumbnail--placeholder" aria-hidden="true" />
+          )}
+          <div class="lab__meta">
+            <h2 class="lab__title">{experiment.data.title}</h2>
+            <time class="lab__date" datetime={experiment.data.date}>
+              {new Date(experiment.data.date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+              })}
+            </time>
+          </div>
+          {experiment.data.tags && experiment.data.tags.length > 0 && (
+            <div class="lab__tags">
+              {experiment.data.tags.map((tag: string) => (
+                <span class="lab__tag">{tag}</span>
+              ))}
+            </div>
+          )}
+        </a>
+      ))}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .lab {
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  .lab h1 {
+    font-size: var(--font-size-2xl, 2rem);
+    font-weight: 400;
+    margin-bottom: 2rem;
+  }
+
+  .lab__empty {
+    color: var(--color-muted, #888);
+  }
+
+  .lab__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .lab__card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--color-border, #222);
+    border-radius: var(--border-radius-md, 8px);
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+  }
+
+  .lab__card:hover,
+  .lab__card:focus-visible {
+    border-color: var(--color-muted, #888);
+  }
+
+  .lab__card:focus-visible {
+    outline: 2px solid var(--color-text, #e0e0e0);
+    outline-offset: 2px;
+  }
+
+  .lab__thumbnail {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    display: block;
+    background: var(--color-surface, #111);
+  }
+
+  .lab__thumbnail--placeholder {
+    background: var(--color-surface, #111);
+  }
+
+  .lab__meta {
+    padding: 0.75rem 1rem 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .lab__title {
+    font-size: var(--font-size-base, 1rem);
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .lab__date {
+    font-size: var(--font-size-sm, 0.875rem);
+    color: var(--color-muted, #888);
+    white-space: nowrap;
+  }
+
+  .lab__tags {
+    padding: 0 1rem 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .lab__tag {
+    font-size: 0.75rem;
+    color: var(--color-muted, #888);
+    background: var(--color-surface, #111);
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--border-radius-sm, 4px);
+  }
+</style>

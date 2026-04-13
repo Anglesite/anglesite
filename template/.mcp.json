@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "anglesite-annotations": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/index.mjs"],
+      "env": {
+        "ANGLESITE_PROJECT_ROOT": "${PROJECT_ROOT}"
+      }
+    }
+  }
+}

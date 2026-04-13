@@ -37,6 +37,17 @@ Covers: bloggers, social media influencers, newsletter writers, online educators
 
 For podcast-specific tools, see [podcaster.md](podcaster.md). For video-specific tools, see [video-creator.md](video-creator.md). For musician-specific tools, see [musician.md](musician.md).
 
+## Review platforms
+
+Review platforms in the traditional sense don't apply to most content creators — audiences don't leave Yelp reviews for bloggers. Reputation is built through platform presence, audience engagement, and the creator's own website as a portfolio.
+
+- **Social platforms** — Follower counts, comments, and engagement rates on the creator's primary platforms (Instagram, YouTube, TikTok) function as public social proof for potential brand partners.
+- **Google Business Profile** — Only relevant if the creator operates as a business with a physical presence (e.g., a studio open for brand shoots, workshops, or events). If not, skip.
+
+For creators monetizing through brand deals, the media kit on the website IS the reputation asset — not review platform ratings.
+
+See `docs/smb/reviews.md` for general review management guidance.
+
 ## Compliance
 
 - **FTC endorsement guidelines**: Sponsored content and affiliate links must be disclosed. "#ad" or "sponsored" must be clear and conspicuous — not buried in hashtags. Applies to website content, not just social.

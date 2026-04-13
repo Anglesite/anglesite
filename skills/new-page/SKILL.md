@@ -3,10 +3,14 @@ name: new-page
 description: "Create a new page with SEO and accessibility"
 user-invokable: false
 argument-hint: "[page name or purpose]"
-allowed-tools: Write, Read, Glob
+allowed-tools: mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
 ---
 
 Create a new page on the site.
+
+## Visual planning
+
+Before creating the page, use tldraw to show the owner where it fits in the site structure. Use `sitemapTree()` from `scripts/tldraw-helpers.ts` to draw the current page tree with the proposed new page highlighted. This helps the owner understand navigation impact and approve the placement.
 
 ## Architecture decisions
 
@@ -15,15 +19,19 @@ Create a new page on the site.
 - [ADR-0005 System fonts](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0005-system-fonts.md) — no external font loading
 
 1. Ask what the page is for and what content it should have
+
+   **Experiment pages:** If the owner wants an interactive experiment, creative coding piece, or visual effect page, delegate to the `creative-canvas` skill (`${CLAUDE_PLUGIN_ROOT}/skills/creative-canvas/SKILL.md`). It handles library installation, layout selection (`ImmersiveLayout` for full-viewport experiments), canvas setup, and accessibility requirements. This applies to any business type — not just web artists.
+
 2. Create the `.astro` file in `src/pages/`
-3. Use `BaseLayout` with proper title, description, and OG tags
+3. Use `BaseLayout` with proper title, description, and OG tags (or `ImmersiveLayout` for experiment pages)
 4. Follow the standards checklist:
    - Semantic HTML (headings, sections, nav)
    - Responsive (works on phone, tablet, desktop)
-   - Accessible (alt text, skip links, color contrast)
+   - Accessible — validate with `scripts/a11y-validate.ts`: single h1, no skipped heading levels, descriptive link text, meaningful alt text on all images, color contrast meeting WCAG AA (verify with `scripts/contrast.ts`)
    - Performance (optimized images, no unnecessary JS)
    - SEO (title, meta description, OG tags)
-   - Matches the brand from `docs/brand.md` and follows `docs/design-system.md`
+   - Matches the brand from `docs/brand.md` and follows `docs/design-system.md` and `${CLAUDE_PLUGIN_ROOT}/docs/style-guide.md`
+   - CSS passes `npm run lint:css` (design token enforcement via Stylelint)
 5. Add navigation link if appropriate
 6. Preview on the dev server
 7. Ask if they want to publish

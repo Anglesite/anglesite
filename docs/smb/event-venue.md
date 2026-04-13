@@ -39,6 +39,29 @@ The business model: the property IS the product. Customers rent the space for th
 - **Cal.com** (open source, free tier) — For scheduling venue tours. cal.com
 - **The Knot / WeddingWire** — Wedding marketplace for discovery. Charges for listing but brings leads. The website should be the primary presence; these are supplemental.
 
+## Review platforms
+
+- **Google Business Profile** — Most couples and event planners search Google first. A venue with 100+ reviews and a 4.8+ average shows up in more searches and earns more tour requests. Respond to every review — prospective clients read how the venue handles feedback almost as carefully as they read the reviews themselves.
+- **The Knot** — Couples on The Knot are actively planning weddings, often with a specific budget and date in mind. A complete, review-rich profile on The Knot drives qualified leads. Getting to 25+ reviews makes a significant difference in The Knot's internal ranking.
+- **WeddingWire** — The Knot's sister platform, with substantial audience overlap. A good WeddingWire rating is a trust signal that reinforces the Google profile. If the venue is listed, keep the profile current and encourage newlyweds to leave reviews.
+- **Yelp** — Used for event venues in some markets, particularly for corporate and non-wedding events. A complete Yelp profile with photos and recent reviews is worth maintaining, even if it's not the primary channel.
+- **Wedding Map** (weddingmapper.com) and **Zola** — Emerging wedding planning platforms that include venue reviews. If the business gets inquiries from these platforms, claim and maintain those profiles too.
+
+The best time to ask for a review is 2–4 weeks after the event, when the couple has settled into married life and the memories are fresh but the stress of the day is gone. A personal note from the venue owner or coordinator goes a long way.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
+## Review platforms
+
+- **Google Business Profile** — First stop for couples and event planners searching for venues. A venue with 50+ reviews and a 4.9 average appears trustworthy and established. Respond to every review — couples who are still considering venues will read your responses and draw conclusions about how you treat clients.
+- **The Knot / WeddingWire** — The dominant wedding vendor marketplaces. Couples actively browsing for venues spend significant time on these platforms comparing listings, photos, and reviews. Paid listings give more visibility, but even free profiles allow reviews. Getting 30+ reviews on The Knot is a major trust signal for wedding bookings.
+- **Yelp** — Used for corporate event and party venue searches in some markets. Less dominant than The Knot for weddings but worth maintaining for non-wedding event business.
+- **Facebook** — Couples and event planners often ask for venue recommendations in local Facebook groups. A business page with visible reviews and real event photos gives you something to point to. Ask couples to leave a Facebook recommendation after their event.
+
+The best time to ask for a review is right after the event when emotions are high. A personal note from the venue owner, emailed a week after the event: "We loved hosting your [wedding/event]. If you have a moment to share your experience on Google or The Knot, it would mean so much to our team." Include direct links.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Zoning**: The #1 compliance issue for rural event venues. Agricultural and residential zoning may not permit commercial events. Check with the town/county planning office. Some jurisdictions require a special use permit, conditional use permit, or variance. This can take months — start early.

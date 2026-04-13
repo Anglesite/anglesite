@@ -33,6 +33,13 @@ Covers: gift shops, boutiques, clothing stores, toy stores, antique shops, thrif
 - **Shopify** ($39/mo, proprietary) — Polished but expensive. Only recommend if WooCommerce is too complex and they need a full e-commerce platform.
 - **Big Cartel** (free for 5 products, proprietary) — Lightweight option for shops with a small product line.
 
+## Review platforms
+
+- **Google Business Profile** — "Gift shops near me," "boutiques in [city]," and "antique stores [town]" all resolve through Google Maps. The profile photo, hours accuracy, and review responses are what turn a discovery into a visit.
+- **Yelp** — Browseable by category in most markets. Shoppers use Yelp to compare boutiques and specialty stores before deciding where to spend an afternoon. Detailed reviews about selection, staff, and atmosphere carry weight.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Sales tax collection**: Must collect and remit state/local sales tax. If selling online, nexus rules may require collecting tax in multiple states.

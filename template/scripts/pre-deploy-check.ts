@@ -9,12 +9,13 @@
  * 5. OG image presence (warn only)
  *
  * Usage: tsx scripts/pre-deploy-check.ts
- * Also runs automatically via `npm run deploy`.
+ * Also runs on Cloudflare's build system via the build command.
  */
 
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, extname, resolve } from "node:path";
 import { readConfig } from "./config.js";
+import { parseProviders, buildAllowedScripts } from "./csp.js";
 
 // ---------------------------------------------------------------------------
 // Exported patterns and constants
@@ -25,7 +26,23 @@ export const emailExcludes = ["charset", "viewport", "@astro", "@import", "@keyf
 export const phonePattern = /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
 export const tokenPattern = /(?:pat[A-Za-z0-9]{14,}|sk-[A-Za-z0-9]{20,})/;
 export const scriptSrcPattern = /<script[^>]*src=/gi;
-export const allowedScripts = ["cloudflareinsights", "_astro"];
+
+/**
+ * Allowed third-party script domains for the pre-deploy scan.
+ * Built dynamically from .site-config — only permits scripts for
+ * providers the site actually uses.
+ */
+export function getAllowedScripts(configPath?: string): string[] {
+  const configContent = (() => {
+    const path = configPath ?? resolve(process.cwd(), ".site-config");
+    if (!existsSync(path)) return "";
+    return readFileSync(path, "utf-8");
+  })();
+  return buildAllowedScripts(parseProviders(configContent));
+}
+
+/** @deprecated Use getAllowedScripts() for config-driven allowlist */
+export const allowedScripts = ["cloudflareinsights", "_astro", "challenges.cloudflare.com", "cdn.polar.sh", "cdn.snipcart.com", "cdn.shopify.com", "sdks.shopifycdn.com"];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,24 +94,30 @@ export function scanEmails(content: string, allowlist: string[]): string[] {
   });
 }
 
-export function scanPhones(content: string): boolean {
-  // Reset lastIndex since phonePattern has the global flag
+export function scanPhones(content: string, allowlist: string[] = []): string[] {
   phonePattern.lastIndex = 0;
-  return phonePattern.test(content);
+  const matches = content.match(phonePattern) || [];
+  if (allowlist.length === 0) return matches;
+  // Normalize to digits-only, using last 10 digits for comparison
+  // (handles 1-800 vs 800 country-code prefix differences)
+  const last10 = (s: string) => s.replace(/\D/g, "").slice(-10);
+  const normalizedAllow = allowlist.map(last10);
+  return matches.filter(m => !normalizedAllow.includes(last10(m)));
 }
 
 export function scanTokens(content: string): boolean {
   return tokenPattern.test(content);
 }
 
-export function scanScripts(content: string): string[] {
+export function scanScripts(content: string, scriptAllowlist?: string[]): string[] {
+  const allowed = scriptAllowlist ?? allowedScripts;
   scriptSrcPattern.lastIndex = 0;
   const results: string[] = [];
   const matches = content.match(scriptSrcPattern) || [];
   for (const match of matches) {
     const lineIdx = content.indexOf(match);
     const line = content.slice(lineIdx, content.indexOf(">", lineIdx) + 1);
-    if (!allowedScripts.some(allowed => line.includes(allowed))) {
+    if (!allowed.some(a => line.includes(a))) {
       results.push(line);
     }
   }
@@ -122,6 +145,15 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
     .map(e => e.trim().toLowerCase())
     .filter(Boolean);
 
+  /**
+   * Phone numbers the site owner has explicitly approved for publication.
+   * Set in .site-config as: PII_PHONE_ALLOW=1-800-662-4357,555-123-4567
+   */
+  const phoneAllowlist: string[] = (readConfig("PII_PHONE_ALLOW") ?? "")
+    .split(",")
+    .map(p => p.trim())
+    .filter(Boolean);
+
   const failures: string[] = [];
   const warnings: string[] = [];
 
@@ -139,8 +171,9 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
   // 1b. PII scan — phone numbers
   for (const file of htmlFiles) {
     const content = readFileSync(file, "utf-8");
-    if (scanPhones(content)) {
-      failures.push(`PII: possible phone number in ${file}`);
+    const phoneHits = scanPhones(content, phoneAllowlist);
+    if (phoneHits.length > 0) {
+      failures.push(`PII: possible phone number in ${file}: ${phoneHits.join(", ")}`);
     }
   }
 
@@ -160,10 +193,11 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
     }
   }
 
-  // 3. Third-party scripts
+  // 3. Third-party scripts (allowlist driven by .site-config)
+  const configAllowlist = getAllowedScripts();
   for (const file of htmlFiles) {
     const content = readFileSync(file, "utf-8");
-    const unauthorized = scanScripts(content);
+    const unauthorized = scanScripts(content, configAllowlist);
     for (const script of unauthorized) {
       failures.push(`SCRIPT: unauthorized third-party script in ${file}`);
     }
@@ -183,7 +217,10 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
 
   // Report
   if (emailAllowlist.length > 0) {
-    console.log(`PII allowlist: ${emailAllowlist.join(", ")}`);
+    console.log(`PII email allowlist: ${emailAllowlist.join(", ")}`);
+  }
+  if (phoneAllowlist.length > 0) {
+    console.log(`PII phone allowlist: ${phoneAllowlist.join(", ")}`);
   }
 
   if (warnings.length > 0) {

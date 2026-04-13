@@ -43,6 +43,18 @@ Covers: fishing guides, hunting outfitters, adventure tours (zip lines, rafting,
 - **Square** (free POS, 2.6% per transaction) — For on-site payments, tips, and merchandise.
 - **Mailchimp** (free up to 500 contacts) or **Buttondown** (~$9/mo, indie) — For trip announcements, seasonal updates, and fishing/conditions reports.
 
+## Review platforms
+
+- **Google Business Profile** — The starting point for "fishing guide [lake]," "kayak tour [city]," or "ghost tour [city]" searches. Guides with 50+ reviews and a 4.8+ rating rank higher in local search and get more organic bookings. Reviews that describe the guide specifically ("Jake knew every good hole on the river," "she kept the kids engaged the whole time") convert better than generic five-star ratings. Respond to every review.
+- **TripAdvisor** — The dominant platform for tour discovery among leisure travelers. For tours in tourist markets, TripAdvisor is often where travelers make their final booking decision. Claim the listing, upload photos from real trips, respond to all reviews, and pursue the Certificate of Excellence once you have enough reviews. A high TripAdvisor ranking in the "activities" category for your area drives consistent organic traffic.
+- **Viator** — TripAdvisor's OTA booking marketplace. If using FareHarbor, it can distribute automatically to Viator. Viator reviews feed into the TripAdvisor ecosystem and reach international travelers. Reviews here matter for OTA-sourced bookings.
+- **Yelp** — Relevant for urban tours (food tours, walking tours, city-based experiences) and some outdoor activities. Worth monitoring and maintaining a profile.
+- **GetYourGuide** — An alternative OTA for tour distribution. Reviews on GetYourGuide reach European and international markets where it's strong. If distributing there, keep the listing and reviews managed.
+
+The best time to ask for a review is at trip end, in person: "If you had a great time today, a TripAdvisor or Google review would be incredibly helpful — they're how other people find us." Trip guests who just had a great experience are the most willing to write substantive, enthusiastic reviews. Don't wait until a follow-up email — the moment is now.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Licensing and permits**: Most guide activities require specific licenses or permits:

@@ -1,0 +1,110 @@
+---
+interface Props {
+  /** Unique product identifier (matches content collection slug) */
+  id: string;
+  /** Product display name */
+  name: string;
+  /** Price in cents (e.g., 4500 = $45.00) */
+  price: number;
+  /** Crawlable URL path for Snipcart product validation */
+  url: string;
+  /** Short product description */
+  description: string;
+  /** Image path relative to public/ */
+  image?: string;
+  /** Alt text for the product image */
+  imageAlt?: string;
+  /** Weight in grams (for shipping calculation) */
+  weight?: number;
+  /** Button label */
+  buttonLabel?: string;
+}
+
+const {
+  id,
+  name,
+  price,
+  url,
+  description,
+  image,
+  imageAlt,
+  weight,
+  buttonLabel = "Add to Cart",
+} = Astro.props;
+
+const formattedPrice = (price / 100).toFixed(2);
+---
+
+<div class="product-card">
+  {image && (
+    <img src={image} alt={imageAlt || name} class="product-image" loading="lazy" />
+  )}
+  <h3 class="product-name">{name}</h3>
+  <p class="product-description">{description}</p>
+  <p class="product-price">${formattedPrice}</p>
+  <button
+    class="snipcart-add-item product-button"
+    data-item-id={id}
+    data-item-name={name}
+    data-item-price={formattedPrice}
+    data-item-url={url}
+    data-item-description={description}
+    {...(image ? { "data-item-image": image } : {})}
+    {...(weight !== undefined ? { "data-item-weight": weight } : {})}
+  >
+    {buttonLabel}
+  </button>
+</div>
+
+<style>
+  .product-card {
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  .product-image {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    border-radius: 0.375rem;
+    margin-block-end: 1rem;
+  }
+
+  .product-name {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+  }
+
+  .product-description {
+    color: var(--color-text-muted, #6b7280);
+    margin: 0 0 0.75rem;
+  }
+
+  .product-price {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 1rem;
+  }
+
+  .product-button {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: var(--color-primary, #2563eb);
+    color: #fff;
+    border: none;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .product-button:hover {
+    opacity: 0.9;
+  }
+
+  .product-button:focus-visible {
+    outline: 2px solid var(--color-primary, #2563eb);
+    outline-offset: 2px;
+  }
+</style>

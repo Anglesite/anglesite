@@ -2,7 +2,7 @@
 name: domain
 description: "Manage DNS records: email, Bluesky, verification"
 argument-hint: "[email, bluesky, or service name]"
-allowed-tools: Bash(curl *), Bash(open *), Write, Read
+allowed-tools: Bash(curl *), Write, Read
 disable-model-invocation: true
 ---
 
@@ -25,7 +25,7 @@ Read `CF_PROJECT_NAME` from `.site-config` to identify the Cloudflare project.
 
 All DNS operations use the Cloudflare API with a scoped API token.
 
-Read `CF_API_TOKEN` from `.site-config`. If not set, the owner needs to create one (one-time setup):
+Read `CF_API_TOKEN` from `.env`. If not set, the owner needs to create one (one-time setup):
 
 Tell the owner: "To manage your domain's DNS records, I need a Cloudflare API token. I'll walk you through creating one — it takes about 30 seconds."
 
@@ -38,17 +38,29 @@ Walk them through:
 4. Click **Continue to summary** → **Create Token**
 5. Copy the token value shown
 
-Save the token to `.site-config` using the **Write tool** (update the existing file, adding `CF_API_TOKEN=the-token-value`).
+Save the token to `.env` using the **Write tool** (update or create the file, adding `CF_API_TOKEN=the-token-value`). **Never save API tokens to `.site-config`** — that file is committed to git. `.env` is gitignored and stays local.
 
 Then get the zone ID:
 
 ```sh
-CF_API_TOKEN=$(grep CF_API_TOKEN .site-config | cut -d= -f2)
+CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
 CF_ZONE_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=SITE_DOMAIN" \
   -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[0].id')
 ```
 
 Replace `SITE_DOMAIN` with the root domain (no `www.`). If the zone ID comes back null, the token may be invalid or the domain not yet active on Cloudflare.
+
+## Proactive: Bluesky handle verification
+
+Before asking what the owner needs, check `.site-config` for `BLUESKY_HANDLE`. If the owner is on Bluesky but still using a `.bsky.social` handle, proactively offer: "I noticed you're on Bluesky — want me to set up your domain as your Bluesky handle? People would see @SITE_DOMAIN instead of your current handle. It takes about a minute."
+
+If `BLUESKY_HANDLE` is not set, and this is the first time running `/anglesite:domain`, ask: "By the way — are you on Bluesky? It's a social network where your domain becomes your handle, so people see @yourdomain.com. If you have an account, I can set that up in about a minute."
+
+Read `${CLAUDE_PLUGIN_ROOT}/docs/domain-guide.md` for context on why domain-as-identity matters across the open web.
+
+## Domain education
+
+If this is the first time running `/anglesite:domain`, surface the domain education prompts from `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 2 ("Domain Setup"). Check `.site-config` for each `EDUCATION_<KEY>=shown` flag before surfacing. Share `DOMAIN_VS_WEBSITE`, `DOMAIN_RENEWAL`, `EMAIL_NOT_AUTOMATIC`, and `TLD_AND_SEO` as a brief aside — the owner may have already heard these during `/anglesite:deploy`, so the flags prevent repetition. Write any new flags to `.site-config` after.
 
 ## What do you need?
 
@@ -100,6 +112,7 @@ To verify a custom domain as their Bluesky handle:
      --data '{"type":"TXT","name":"_atproto","content":"did=did:plc:VALUE","ttl":1,"proxied":false}'
    ```
 5. Confirm: "Done — I added the verification record. Go back to Bluesky and click 'Verify DNS Record'. Once verified, your Bluesky handle will be your domain name — people will see @yourdomain.com instead of @user.bsky.social."
+6. After verification succeeds, save `BLUESKY_HANDLE=@SITE_DOMAIN` to `.site-config` using the **Write tool**.
 
 ### Google site verification
 

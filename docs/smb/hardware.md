@@ -41,6 +41,13 @@ Covers: independent hardware stores, lumber yards, garden centers, paint stores,
 - **Contractor licensing**: The store doesn't need a contractor license, but if they recommend contractors, note that recommendations are informational (not endorsements).
 - **ADA**: Note physical accessibility — important for a store with heavy products and wide aisles.
 
+## Review platforms
+
+- **Google Business Profile** — "Hardware store near me" is one of the most common local searches for this category. Reviews here often praise knowledgeable staff — that's the indie hardware store's core differentiator. Encourage staff to mention their name in good-service encounters so reviewers can call them out by name.
+- **Yelp** — Some hardware stores have strong Yelp presences, especially in urban markets. Reviews tend to highlight whether staff actually helped solve the problem, which is the key reason people choose an indie store over a big-box.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Seasonal project guides ("winterize your home," "spring garden prep"), how-to articles for common repairs, product comparisons and recommendations, new product spotlights, staff expertise highlights ("meet our paint expert"), workshop and event announcements, local contractor tips, holiday gift guides for DIYers, community project spotlights.

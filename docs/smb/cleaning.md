@@ -37,6 +37,17 @@ Covers: residential cleaning (housekeeping, maid service), commercial/janitorial
 - **Cal.com** (open source, free tier) — Estimate scheduling.
 - Many cleaning businesses run on a phone, a calendar, and a payment app. If volume is under 10 clients/week, that's fine.
 
+## Review platforms
+
+- **Google Business Profile** — The primary channel. People search "house cleaning service [city]" or "maid service near me" and choose based on reviews. A cleaning service with 40+ reviews and a consistent 4.8–5.0 rating looks trustworthy enough to invite into someone's home. Reviews that mention consistency ("they clean it the same way every time"), trust ("I leave them my key"), and specific cleaners by name are especially persuasive.
+- **Yelp** — Active for cleaning services in most markets. Clients who are comparison-shopping often check both Google and Yelp. Claim the listing, add photos of before/after work, and respond to reviews.
+- **Nextdoor** — Hyperlocal and high-trust. A recommendation on Nextdoor from a neighbor is more persuasive than a generic Google review for cleaning services — it's a neighbor vouching for someone who was inside their home. Claim the Nextdoor Business Page and ask satisfied clients to recommend you on the platform.
+- **HomeAdvisor / Angi** — If the business generates leads from these platforms, keep the review profiles current. Clients who found the service through Angi may leave reviews there that new leads will see.
+
+After each cleaning, send a brief follow-up: "Thanks for having us today! If everything looked great, a quick Google review helps other homeowners find us." Include the direct review link. Services with scheduling software (Jobber, ZenMaid) can automate this follow-up.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Bonding and insurance**: General liability insurance and a surety bond protect the client and the business. Display "Licensed, bonded, and insured" prominently — it's the #1 trust signal.

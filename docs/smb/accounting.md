@@ -35,6 +35,18 @@ Covers: CPA firms, bookkeeping services, tax preparation (seasonal and year-roun
 - **Buttondown** (open source) — Tax deadline reminders, seasonal newsletters.
 - Many small firms run on the professional tax software plus a phone. Don't overcomplicate.
 
+## Review platforms
+
+- **Google Business Profile** — The primary channel for finding local accountants and tax preparers. Clients search "CPA near me" or "tax preparer [city]" and choose based on reviews. Reviews that mention specific situations ("they helped me navigate an audit," "explained everything clearly") are especially persuasive. Respond to every review — it signals professionalism.
+- **Yelp** — Used for accountants and tax preparers in some markets, particularly urban areas. Claim the profile and keep it current. A client who had a good tax season experience is often willing to leave a quick Yelp review if asked.
+- **Google** (again, via search results) — Google sometimes surfaces individual practitioner profiles (not just the business). If the firm has individual CPAs, those profiles should be complete.
+
+The best time to ask for a review is right after a successful tax filing, audit resolution, or first year of bookkeeping. A brief email: "It was great working with you this tax season. If you have a minute, a Google review would help other small businesses find us." Keep it simple. Most clients appreciate the ask.
+
+**Note:** AICPA and state CPA boards have ethics guidance on soliciting testimonials. Reviews from genuinely satisfied clients are generally acceptable; endorsement-style testimonials can require disclosures. Check state board guidance.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Credentials display**: CPA license numbers are state-regulated. Display state(s) of licensure. Enrolled Agents should display EA credentials and PTIN. Non-credentialed preparers must have a PTIN and comply with state registration if required.

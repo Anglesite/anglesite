@@ -1,0 +1,10 @@
+# Newsletter subscribe worker — deployed via /anglesite:newsletter
+# Receives subscribe form submissions and forwards to email provider.
+#
+# Secrets are set via: npx wrangler secret put <NAME> --config worker/subscribe-wrangler.toml
+#   BUTTONDOWN_API_KEY      — Buttondown API key
+#   MAILCHIMP_LIST_ID       — Mailchimp audience/list ID
+
+name = "newsletter-subscribe"
+main = "subscribe-worker.js"
+compatibility_date = "2024-01-01"

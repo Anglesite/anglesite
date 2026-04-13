@@ -42,6 +42,16 @@ Covers: ballet studios, hip-hop dance, ballroom and social dance, contemporary/m
 - **Instagram** — Visual platform ideal for dance. Class clips, recital highlights, student spotlights.
 - **Mailchimp** (free up to 500 contacts) or **Buttondown** (~$9/mo, indie) — For registration reminders, recital info, studio news.
 
+## Review platforms
+
+- **Google Business Profile** — Parents searching "ballet classes near me" or "dance studio [neighborhood]" rely heavily on Google. A studio with 30+ reviews and photos of recitals, classes, and the facility looks established and safe to enroll with. Reviews that mention specific instructors and teaching quality ("Miss Sarah is so patient with the 3-year-olds") are especially persuasive. Respond to all reviews.
+- **Yelp** — Active for dance studios in many markets, particularly for adult classes. Claim the profile, upload photos, and respond to reviews. Some parents specifically check Yelp because they trust its filter.
+- **Facebook** — Dance studio families are highly active on Facebook. Parents share recital photos, tag the studio, and recommend it in local parent groups. A business page with active engagement, class highlights, and visible reviews turns satisfied parents into vocal advocates. Ask parents to leave a Facebook recommendation at the end of recital season — when they're already posting photos and feeling great about the studio.
+
+The annual recital is the best time to build review volume. Right after the performance, when parents and students are still buzzing: "Thank you for a wonderful season — if you have a moment, a Google review helps other families find us." A card at the recital with a QR code to the review form makes it easy in the moment.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Background checks**: Staff and instructors who work with minors should have background checks. Many states require this for businesses working with children. Note on the website: "All instructors undergo background checks." Parents expect this.

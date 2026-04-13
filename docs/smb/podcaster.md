@@ -67,6 +67,16 @@ Every podcast needs a hosting platform that stores the audio files and generates
 - **Memberful** (~$25/mo, proprietary) — Private podcast feeds for paying members. memberful.com
 - **Buttondown** (free tier, indie) — Newsletter for episode announcements and listener engagement. buttondown.email
 
+## Review platforms
+
+Traditional review platforms don't apply to podcasts in the way they do to local businesses. Podcast reputation is built through platform presence, episode quality, and word-of-mouth sharing.
+
+- **Apple Podcasts** — Listener ratings and reviews on Apple Podcasts are the most visible credibility signal in the podcasting ecosystem. A show with many positive reviews ranks better in search and appears more credible to first-time listeners. Ask listeners to rate and review after a strong episode.
+- **Spotify** — Spotify allows listener ratings and shows aggregate scores. As Spotify becomes the primary podcast platform for many audiences, the rating there increasingly matters.
+- **Podcast Index / community** — Podchaser (podchaser.com) is a podcast-specific review platform where enthusiasts leave detailed reviews. Less volume than Apple but respected in the podcasting community.
+
+See `docs/smb/reviews.md` for general review management guidance.
+
 ## Compliance
 
 - **Music and audio licensing**: Background music, sound effects, and intro/outro music must be licensed. Options: royalty-free music libraries (Epidemic Sound, Artlist, Free Music Archive), Creative Commons music (credit required), or original music. Using copyrighted music without a license can get episodes pulled from platforms.

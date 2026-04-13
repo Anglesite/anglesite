@@ -33,6 +33,17 @@ Covers: real estate agents, brokerages, property management companies.
 - For listings: link to the agent's MLS profile or brokerage listing page. Don't try to replicate MLS on the website — the data changes too frequently and requires IDX compliance.
 - **Canva** (free tier) — For social media graphics, just-listed flyers, open house announcements.
 
+## Review platforms
+
+- **Google Business Profile** — Most sellers and buyers search for agents by name or by "real estate agent [city]" before making contact. A strong Google presence with 20+ reviews signals an active agent. Reviews that describe specific outcomes ("helped us sell in 11 days over asking," "found exactly the right house for our family") are the most persuasive.
+- **Zillow** — Buyers and sellers spend significant time on Zillow. Agent profiles on Zillow include client reviews, and clients often check a specific agent's Zillow profile after being referred. Claim and maintain the profile. Encourage past clients to leave Zillow reviews specifically.
+- **Realtor.com** — Similar to Zillow. Many buyers use both platforms. A complete Realtor.com profile with reviews reinforces credibility.
+- **Facebook** — Real estate clients frequently post about their home purchase or sale, tagging their agent. A business page with visible client posts, reviews, and regular neighborhood content builds a local presence. Ask clients to leave a recommendation on Facebook after closing.
+
+The best time to ask for a review is right at closing — emotions are high, gratitude is fresh. "It was such a pleasure working with you. A Google or Zillow review would be incredibly helpful and would only take a minute." Hand them a card with direct links.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Compliance
 
 - **Fair Housing Act (US)**: Website content must not express preference or limitation based on race, color, religion, sex, familial status, national origin, or disability. Avoid language like "perfect for young couples" or "family neighborhood." Use inclusive descriptions.

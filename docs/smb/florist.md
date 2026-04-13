@@ -43,6 +43,14 @@ Covers: flower shops, floral design studios, wedding/event florists, plant shops
 - **Pesticide/chemical**: If selling plants, note any treatment disclosures required in your state.
 - **ADA**: Online ordering must be accessible — form labels, alt text on arrangement photos.
 
+## Review platforms
+
+- **Google Business Profile** — The primary discovery channel for "florist near me," "same-day flower delivery [city]," and "wedding florist [area]." Reviews here are read by people placing time-sensitive orders — keep the profile current and respond to every review. Positive reviews specifically mentioning delivery reliability or sympathy orders are especially valuable.
+- **Yelp** — Used by customers comparing florists, especially for everyday and gift purchases. Yelp reviewers tend to describe the arrangement quality, value, and delivery experience in detail.
+- **The Knot / WeddingWire** — For florists doing wedding work, these platforms are where couples actively search. Reviews from past brides carry significant weight in the wedding market.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
 ## Content ideas
 
 Seasonal arrangement spotlights, flower care tips ("how to make your bouquet last"), behind-the-scenes of event setups, "flower of the month," sourcing stories (local farm partnerships), wedding trend recaps, sympathy etiquette guides, houseplant care, DIY arrangement tutorials, holiday ordering deadlines.
