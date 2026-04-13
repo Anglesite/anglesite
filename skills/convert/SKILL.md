@@ -1,7 +1,7 @@
 ---
 name: convert
 description: "Convert an existing static site generator project (Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress, MkDocs, Eleventy, Hexo) to Anglesite/Astro"
-allowed-tools: ["Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(cp *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(find */layouts *)", "Bash(find */templates *)", "Bash(find */_includes *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(node *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(cp *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(find */layouts *)", "Bash(find */templates *)", "Bash(find */_includes *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -123,6 +123,14 @@ POST_URL_PREFIX=blog
 
 Note: `POST_URL_PREFIX` defaults to `blog` here. It will be updated after the
 URL structure question in Step 1 if the owner chooses to keep root-level URLs.
+
+Prune content collections to match the site type. This creates only the
+directories needed (e.g. `posts` for a blog) and removes any that aren't,
+preventing a wall of Astro glob-loader warnings for empty collections:
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/scripts/prune-collections.mjs .
+```
 
 ```sh
 npm install

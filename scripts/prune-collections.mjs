@@ -1,8 +1,9 @@
 /**
- * Remove content collections that aren't relevant to the site type.
+ * Create needed and remove unused content collections for the site type.
  *
- * Reads SITE_TYPE and BUSINESS_TYPE from .site-config, then deletes
- * content directories, associated pages, and updates anglesite.config.json.
+ * Reads SITE_TYPE and BUSINESS_TYPE from .site-config, creates content
+ * directories for needed collections, deletes directories and associated
+ * pages for unneeded ones, and updates anglesite.config.json.
  *
  * Usage: node scripts/prune-collections.mjs [project-dir]
  *        Defaults to current working directory.
@@ -10,7 +11,7 @@
  * @module
  */
 
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -121,9 +122,11 @@ export function parseSiteConfig(text) {
 // ---------------------------------------------------------------------------
 
 /**
- * Prune unused collections from a scaffolded project.
+ * Create needed and prune unused collections from a scaffolded project.
+ * Creates directories for collections the site type requires, then removes
+ * directories and pages for collections it doesn't.
  * @param {string} projectDir - Absolute path to the project directory
- * @returns {{ kept: string[], removed: string[], removedPages: string[] }}
+ * @returns {{ kept: string[], created: string[], removed: string[], removedPages: string[] }}
  */
 export function pruneCollections(projectDir) {
   const configPath = join(projectDir, ".site-config");
@@ -143,6 +146,16 @@ export function pruneCollections(projectDir) {
 
   const needed = new Set(collectionsForSite(siteType, businessTypes));
   const toRemove = ALL_COLLECTIONS.filter((c) => !needed.has(c));
+
+  // Create directories for needed collections (scaffold may not include them)
+  const created = [];
+  for (const name of needed) {
+    const dir = join(projectDir, "src", "content", name);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+      created.push(name);
+    }
+  }
 
   const removed = [];
   const removedPages = [];
@@ -186,7 +199,7 @@ export function pruneCollections(projectDir) {
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
   }
 
-  return { kept: [...needed].sort(), removed, removedPages };
+  return { kept: [...needed].sort(), created, removed, removedPages };
 }
 
 // ---------------------------------------------------------------------------
@@ -201,15 +214,19 @@ if (isMain) {
   const projectDir = process.argv[2] || process.cwd();
   try {
     const result = pruneCollections(projectDir);
-    if (result.removed.length === 0) {
-      console.log("No collections to prune.");
-    } else {
+    if (result.created.length > 0) {
+      console.log(`Created ${result.created.length} collection(s): ${result.created.join(", ")}`);
+    }
+    if (result.removed.length > 0) {
       console.log(`Pruned ${result.removed.length} collection(s): ${result.removed.join(", ")}`);
       if (result.removedPages.length > 0) {
         console.log(`Removed ${result.removedPages.length} page(s): ${result.removedPages.join(", ")}`);
       }
-      console.log(`Kept: ${result.kept.join(", ")}`);
     }
+    if (result.created.length === 0 && result.removed.length === 0) {
+      console.log("No collections to prune or create.");
+    }
+    console.log(`Kept: ${result.kept.join(", ")}`);
   } catch (err) {
     console.error(err.message);
     process.exit(1);

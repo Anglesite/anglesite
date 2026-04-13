@@ -2,7 +2,7 @@
 name: import
 description: "Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project"
 argument-hint: "[website URL or local path]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(node *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -103,6 +103,14 @@ SITE_NAME=My Site
 DEV_HOSTNAME=mysite.local
 AI_MODEL=(write your actual model name here)
 EXPLAIN_STEPS=true
+```
+
+Prune content collections to match the site type. This creates only the
+directories needed (e.g. `posts` for a blog) and removes any that aren't,
+preventing a wall of Astro glob-loader warnings for empty collections:
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/scripts/prune-collections.mjs .
 ```
 
 ```sh

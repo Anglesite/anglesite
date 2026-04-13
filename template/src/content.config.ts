@@ -7,8 +7,10 @@
  *
  * Only collections whose `src/content/<name>/` directory exists are
  * exported. This avoids glob-loader warnings for collections that
- * aren't relevant to the site type. Directories are created or removed
- * by `scripts/prune-collections.mjs` during setup.
+ * aren't relevant to the site type. Directories for needed collections
+ * are created (and unneeded ones removed) by
+ * `scripts/prune-collections.mjs` during setup — the template does not
+ * ship pre-created content directories.
  *
  * @see https://docs.astro.build/en/guides/content-collections/
  * @module
