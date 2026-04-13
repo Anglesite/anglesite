@@ -94,10 +94,15 @@ export function scanEmails(content: string, allowlist: string[]): string[] {
   });
 }
 
-export function scanPhones(content: string): boolean {
-  // Reset lastIndex since phonePattern has the global flag
+export function scanPhones(content: string, allowlist: string[] = []): string[] {
   phonePattern.lastIndex = 0;
-  return phonePattern.test(content);
+  const matches = content.match(phonePattern) || [];
+  if (allowlist.length === 0) return matches;
+  // Normalize to digits-only, using last 10 digits for comparison
+  // (handles 1-800 vs 800 country-code prefix differences)
+  const last10 = (s: string) => s.replace(/\D/g, "").slice(-10);
+  const normalizedAllow = allowlist.map(last10);
+  return matches.filter(m => !normalizedAllow.includes(last10(m)));
 }
 
 export function scanTokens(content: string): boolean {
@@ -140,6 +145,15 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
     .map(e => e.trim().toLowerCase())
     .filter(Boolean);
 
+  /**
+   * Phone numbers the site owner has explicitly approved for publication.
+   * Set in .site-config as: PII_PHONE_ALLOW=1-800-662-4357,555-123-4567
+   */
+  const phoneAllowlist: string[] = (readConfig("PII_PHONE_ALLOW") ?? "")
+    .split(",")
+    .map(p => p.trim())
+    .filter(Boolean);
+
   const failures: string[] = [];
   const warnings: string[] = [];
 
@@ -157,8 +171,9 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
   // 1b. PII scan — phone numbers
   for (const file of htmlFiles) {
     const content = readFileSync(file, "utf-8");
-    if (scanPhones(content)) {
-      failures.push(`PII: possible phone number in ${file}`);
+    const phoneHits = scanPhones(content, phoneAllowlist);
+    if (phoneHits.length > 0) {
+      failures.push(`PII: possible phone number in ${file}: ${phoneHits.join(", ")}`);
     }
   }
 
@@ -202,7 +217,10 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
 
   // Report
   if (emailAllowlist.length > 0) {
-    console.log(`PII allowlist: ${emailAllowlist.join(", ")}`);
+    console.log(`PII email allowlist: ${emailAllowlist.join(", ")}`);
+  }
+  if (phoneAllowlist.length > 0) {
+    console.log(`PII phone allowlist: ${phoneAllowlist.join(", ")}`);
   }
 
   if (warnings.length > 0) {

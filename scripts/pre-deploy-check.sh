@@ -29,6 +29,12 @@ if [[ -f ".site-config" ]]; then
   PII_ALLOW=$(grep '^PII_EMAIL_ALLOW=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
 fi
 
+# Read PII_PHONE_ALLOW from .site-config (comma-separated list of allowed phone numbers)
+PHONE_ALLOW=""
+if [[ -f ".site-config" ]]; then
+  PHONE_ALLOW=$(grep '^PII_PHONE_ALLOW=' .site-config 2>/dev/null | cut -d= -f2- | tr -d ' ' || true)
+fi
+
 # 1. PII scan — email addresses and phone numbers in built HTML
 EMAIL_HITS=$(grep -rE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' "$DIST/" --include='*.html' 2>/dev/null \
   | grep -v 'charset' | grep -v 'viewport' | grep -v '@astro' \
@@ -47,7 +53,21 @@ if [[ -n "$EMAIL_HITS" ]]; then
   REASONS+=("Possible email address found in built HTML")
 fi
 
-if grep -rE '\(?\d{3}\)?[-.[[:space:]]]?\d{3}[-.[[:space:]]]?\d{4}' "$DIST/" --include='*.html' 2>/dev/null | grep -q .; then
+PHONE_HITS=$(grep -rE '\(?\d{3}\)?[-.[[:space:]]]?\d{3}[-.[[:space:]]]?\d{4}' "$DIST/" --include='*.html' 2>/dev/null || true)
+
+# Filter out allowlisted phone numbers (normalize to digits-only for comparison)
+if [[ -n "$PHONE_HITS" && -n "$PHONE_ALLOW" ]]; then
+  IFS=',' read -ra ALLOWED_PHONES <<< "$PHONE_ALLOW"
+  for phone in "${ALLOWED_PHONES[@]}"; do
+    # Strip non-digit characters for matching
+    digits=$(echo "$phone" | tr -cd '0-9')
+    if [[ -n "$digits" ]]; then
+      PHONE_HITS=$(echo "$PHONE_HITS" | grep -v "$digits" || true)
+    fi
+  done
+fi
+
+if [[ -n "$PHONE_HITS" ]]; then
   REASONS+=("Possible phone number found in built HTML")
 fi
 

@@ -166,6 +166,7 @@ If you changed it, document it. Same session. No exceptions.
 - On Cloudflare's build system, the build command `npm run build && npm run predeploy` ensures scans also run remotely.
 - Scans: PII (emails, phone numbers), API tokens, third-party scripts, Keystatic admin routes, OG images (warn only)
 - If the site intentionally publishes a contact email (e.g., `mailto:` link), add it to `.site-config`: `PII_EMAIL_ALLOW=me@example.com`
+- If the site intentionally publishes a phone number (e.g., business hotline), add it to `.site-config`: `PII_PHONE_ALLOW=1-800-662-4357`
 - Failed check exits with code 1 and blocks deployment. No exceptions, even if the owner asks.
 
 ### Third-party code
