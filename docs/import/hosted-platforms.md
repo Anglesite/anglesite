@@ -130,6 +130,10 @@ Use `.webp` for optimized images. Keep originals only as a fallback.
 | Inline body image (Nth) | `SLUG-body-N.webp` | `my-great-post-body-1.webp` |
 | Gallery image (Nth) | `PAGE-SLUG-NN.webp` | `portfolio-01.webp` |
 
+### Sitemap image extensions
+
+Some platforms (Squarespace, Shopify, Webflow) include `<image:image>` XML extensions in their sitemaps. These are scoped inside each `<url>` block — images listed under one URL belong to that page only. **Never use a flat `grep '<image:loc>'`** to extract image URLs from a sitemap, as this mixes images from every page together. Always extract gallery/page images from the page itself via WebFetch (import skill Step 4).
+
 ### CDN URL normalization
 
 Different platforms use different CDN URL schemes. Strip platform-specific transforms to get the best quality:
