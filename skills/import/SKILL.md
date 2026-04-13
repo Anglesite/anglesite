@@ -66,14 +66,15 @@ Normalize: strip trailing slashes, ensure `https://`. Store as SITE_URL.
 
 ### 0b — Is this already an Anglesite project?
 
-Use Glob to check for `src/content.config.ts`.
+Use Glob to check for `src/content/config.ts` or `src/content.config.ts` (Astro 5
+moved the content config; either path means Anglesite).
 
-If it exists, this project has already been scaffolded. Read `.site-config` to
+If either exists, this project has already been scaffolded. Read `.site-config` to
 load `SITE_NAME` and `OWNER_NAME`. Skip to Step 1.
 
 ### 0c — Scaffold if needed
 
-If `src/content.config.ts` does not exist, check the working directory:
+If neither content config file exists, check the working directory:
 
 **If it contains an SSG project** (Hugo, Jekyll, Eleventy, etc. config files),
 tell the owner:

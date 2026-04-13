@@ -45,13 +45,14 @@ what you're about to do and why. The owner is non-technical.
 
 ### 0a — Already an Anglesite project?
 
-Use Glob to check for `src/content.config.ts`.
+Use Glob to check for `src/content/config.ts` or `src/content.config.ts` (Astro 5
+moved the content config to `src/content.config.ts`; either path means Anglesite).
 
-If it exists AND the current directory also has an SSG config file (see table
+If either exists AND the current directory also has an SSG config file (see table
 below), treat it as a conversion that was already scaffolded — read `.site-config`
 and skip to **Step 1**.
 
-If it exists but there's no SSG project here, tell the owner:
+If either exists but there's no SSG project here, tell the owner:
 
 > "This is already an Anglesite project. If you want to import content from a
 > website, use `/anglesite:import` with the URL instead."
