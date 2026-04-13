@@ -27,10 +27,12 @@ describe('content collections', () => {
     }
   });
 
-  it('filters collections by existing directories', () => {
-    // The export should use existsSync to conditionally register collections
+  it('filters collections by actual content files, not just directory existence', () => {
+    // The export should check for .mdoc/.mdx/.md files, not just existsSync on directory
     expect(contentConfig).toContain('existsSync');
+    expect(contentConfig).toContain('readdirSync');
     expect(contentConfig).toContain('Object.fromEntries');
+    expect(contentConfig).toContain('hasContentFiles');
   });
 
   it('defines all collections in keystatic.config.ts', () => {
