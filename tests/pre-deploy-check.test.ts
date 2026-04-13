@@ -80,19 +80,33 @@ describe("scanEmails", () => {
 
 describe("scanPhones", () => {
   it("detects (555) 123-4567", () => {
-    expect(scanPhones("Call us at (555) 123-4567")).toBe(true);
+    expect(scanPhones("Call us at (555) 123-4567")).toEqual(["(555) 123-4567"]);
   });
 
   it("detects 555.123.4567", () => {
-    expect(scanPhones("Phone: 555.123.4567")).toBe(true);
+    expect(scanPhones("Phone: 555.123.4567")).toEqual(["555.123.4567"]);
   });
 
   it("detects 555-123-4567", () => {
-    expect(scanPhones("Phone: 555-123-4567")).toBe(true);
+    expect(scanPhones("Phone: 555-123-4567")).toEqual(["555-123-4567"]);
   });
 
-  it("returns false for content without phone numbers", () => {
-    expect(scanPhones("No phone numbers here.")).toBe(false);
+  it("returns empty array for content without phone numbers", () => {
+    expect(scanPhones("No phone numbers here.")).toEqual([]);
+  });
+
+  it("respects allowlist with exact format match", () => {
+    expect(scanPhones("Call 1-800-662-4357 for help", ["1-800-662-4357"])).toEqual([]);
+  });
+
+  it("respects allowlist with different formatting", () => {
+    // Allowlist uses dashes, content uses dots — should still match via digit normalization
+    expect(scanPhones("Call 800.662.4357 for help", ["1-800-662-4357"])).toEqual([]);
+  });
+
+  it("only filters allowlisted numbers, keeps others", () => {
+    const content = "Call 800-662-4357 or 555-123-4567";
+    expect(scanPhones(content, ["800-662-4357"])).toEqual(["555-123-4567"]);
   });
 });
 
