@@ -219,6 +219,21 @@ If `.mdoc` files exist, note their slugs and tell the owner:
 
 Build a SKIPPED_SLUGS set from existing filenames.
 
+### 1c.2 — Check for existing pages
+
+```sh
+find src/pages -name "*.astro" -type f
+```
+
+Build a PROTECTED_PAGES set from all existing page paths (relative to
+`src/pages/`, without the `.astro` extension). For example,
+`src/pages/contact.astro` becomes `contact` and
+`src/pages/contact/thanks.astro` becomes `contact/thanks`.
+
+These pages will not be overwritten during import. Initialise an empty
+SKIPPED_PAGES list — pages skipped due to protection will be added here
+for reporting in Step 7.
+
 ### 1d — Present the inventory
 
 Tell the owner what was found. Example:
@@ -471,7 +486,15 @@ node -e "
 If `resolvePageSlug` returns a different slug, use the new slug for the filename
 and page path. Add the returned redirect line to REDIRECT_RULES for Step 5.
 
-For **content pages**, create a `.astro` file in `src/pages/` with:
+For **content pages**, check if the target path (slug) is in PROTECTED_PAGES.
+
+If the page already exists, do NOT overwrite it. Add the page to SKIPPED_PAGES
+with its extracted content (title, summary, and full text) so the owner can
+review what was found. This preserves scaffolded functionality like contact
+forms, review forms, and subscribe forms that would be lost if overwritten
+with static text.
+
+If the page does not exist, create a `.astro` file in `src/pages/` with:
 - The page title in a `<title>` tag and `<h1>`
 - A meta description derived from the page summary
 - `BaseLayout` wrapper
@@ -490,10 +513,13 @@ and event features have industry-appropriate alternatives in `${CLAUDE_PLUGIN_RO
 
 ### 3d — Create the homepage
 
-If the homepage content was extracted in Step 3a, create or update `src/pages/index.astro`
-with the actual homepage content instead of the default scaffolded placeholder.
-Use `BaseLayout`, include the site name as a heading, and convert the extracted
-content to Astro-compatible HTML.
+If `index` is in PROTECTED_PAGES, do NOT overwrite the homepage. Add the
+extracted homepage content to SKIPPED_PAGES so the owner can review it in
+the summary.
+
+If `index` is not in PROTECTED_PAGES, create `src/pages/index.astro` with
+the actual homepage content. Use `BaseLayout`, include the site name as a
+heading, and convert the extracted content to Astro-compatible HTML.
 
 Download any hero images or logos found on the homepage to `public/images/` using
 the same optimization pipeline as Step 2c.
@@ -695,6 +721,13 @@ Give the owner a plain-English summary:
 > until it looks right."
 
 List FAILED_POSTS, FAILED_PAGES, and FAILED_IMAGES so the owner knows what needs attention.
+
+For each SKIPPED_PAGES entry, tell the owner what was found on their old site and
+that the existing page was preserved:
+> "Your **[page name]** page already has [describe existing functionality, e.g.,
+> 'a contact form']. I kept it as-is. Here's what I found on your old site for
+> that page: [extracted content summary]. Let me know if you'd like me to add
+> any of that to the existing page."
 
 For each APP_PAGES entry, suggest a replacement:
 - Booking/scheduling → "Cal.com or Calendly integrate well. See `${CLAUDE_PLUGIN_ROOT}/docs/platforms/`."
