@@ -38,7 +38,8 @@ These apply to every import regardless of platform:
 6. **Strip all third-party embeds.** YouTube, Twitter, Instagram embeds become comments noting what was there. No third-party JavaScript (ADR-0008).
 7. **Don't replicate platform features.** Booking, store, events, forums can't be imported — redirect and recommend purpose-built replacements.
 8. **Build must pass.** Fix every build error before presenting results to the owner (ADR-0012).
-9. **Warn before cancellation.** For platforms where CDN URLs expire, explicitly warn the owner to verify all images are saved before they cancel their old account.
+9. **Preserve scaffolded functionality.** If a scaffolded page already exists (contact form, review form, subscribe form, search), do not overwrite it — save the extracted content for the owner to review. Static text is easy to add back; working forms with backend infrastructure are not.
+10. **Warn before cancellation.** For platforms where CDN URLs expire, explicitly warn the owner to verify all images are saved before they cancel their old account.
 
 ## Architecture decisions
 
