@@ -130,6 +130,7 @@ If no tags are found in either RSS or the page HTML, leave `tags: []`.
 
 ## Common issues
 
+- **Sitemap image extraction is per-page, not global**: Squarespace sitemaps include `<image:image>` extensions inside each `<url>` block. Never use a flat `grep '<image:loc>'` to extract image URLs — this mixes images from all pages (e.g., an About page headshot appears in the gallery). Always extract gallery images from the gallery page itself via WebFetch (import skill Step 4), not from the sitemap.
 - **Gallery pages not in export**: Squarespace galleries contain images but the export only includes text content. Gallery images must be scraped from the live page before cancellation. Gallery thumbnails use `?format=100w` — replace with `?format=2500w` to get full-size images.
 - **Blog collection URL varies**: The blog may not be at `/blog`. Check the sitemap or navigation for the actual collection URL before attempting RSS fetch. A 404 on `/blog?format=rss` usually means the collection has a different name.
 - **Custom CSS lost**: Code injection and custom CSS are not exported. The owner should save these manually if they contain brand-specific overrides.
