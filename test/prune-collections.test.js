@@ -273,4 +273,51 @@ describe("pruneCollections", () => {
     expect(result.kept).toContain("menus");
     expect(result.kept).toContain("products");
   });
+
+  it("creates needed directories when none exist", () => {
+    // Simulate a scaffold with no content directories (no .gitkeep files)
+    tmpDir = mkdtempSync(join(tmpdir(), "anglesite-prune-test-"));
+    writeFileSync(join(tmpDir, ".site-config"), "SITE_TYPE=portfolio\n");
+    mkdirSync(join(tmpDir, "src", "content"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "anglesite.config.json"),
+      JSON.stringify({ keystatic: { collections: [], singletons: [] } }),
+    );
+
+    const result = pruneCollections(tmpDir);
+
+    expect(result.created.sort()).toEqual(["gallery", "posts"]);
+    expect(existsSync(join(tmpDir, "src", "content", "posts"))).toBe(true);
+    expect(existsSync(join(tmpDir, "src", "content", "gallery"))).toBe(true);
+    expect(existsSync(join(tmpDir, "src", "content", "menus"))).toBe(false);
+  });
+
+  it("does not list already-existing dirs in created", () => {
+    scaffold("SITE_TYPE=portfolio\n", ALL);
+    const result = pruneCollections(tmpDir);
+
+    // All dirs already existed from scaffold, so nothing was created
+    expect(result.created).toEqual([]);
+  });
+
+  it("creates missing dirs and removes unneeded in one pass", () => {
+    // Start with only unneeded dirs — like a misconfigured scaffold
+    tmpDir = mkdtempSync(join(tmpdir(), "anglesite-prune-test-"));
+    writeFileSync(join(tmpDir, ".site-config"), "SITE_TYPE=blog\n");
+    mkdirSync(join(tmpDir, "src", "content", "menus"), { recursive: true });
+    mkdirSync(join(tmpDir, "src", "content", "products"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "anglesite.config.json"),
+      JSON.stringify({
+        keystatic: { collections: ["menus", "products"], singletons: [] },
+      }),
+    );
+
+    const result = pruneCollections(tmpDir);
+
+    expect(result.created).toEqual(["posts"]);
+    expect(result.removed.sort()).toEqual(["menus", "products"]);
+    expect(existsSync(join(tmpDir, "src", "content", "posts"))).toBe(true);
+    expect(existsSync(join(tmpDir, "src", "content", "menus"))).toBe(false);
+  });
 });

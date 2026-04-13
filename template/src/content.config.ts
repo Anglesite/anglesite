@@ -8,8 +8,10 @@
  * Only collections whose `src/content/<name>/` directory contains at
  * least one content file (.mdoc, .mdx, .md) are exported. This avoids
  * Astro glob-loader warnings for empty or unused collection directories.
- * Directories are created or removed by `scripts/prune-collections.mjs`
- * during setup; this file-presence check is a second safety net.
+ * Directories for needed collections are created (and unneeded ones
+ * removed) by `scripts/prune-collections.mjs` during setup — the
+ * template does not ship pre-created content directories. The
+ * file-presence check here is a second safety net.
  *
  * @see https://docs.astro.build/en/guides/content-collections/
  * @module
