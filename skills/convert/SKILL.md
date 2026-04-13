@@ -494,6 +494,16 @@ For each post in BLOG_POSTS:
 4. Write the `.mdoc` file per the shared procedures. Use `-converted` suffix
    for slug conflicts
 
+## Step 2.5 — Check for existing pages
+
+```sh
+find src/pages -name "*.astro" -type f
+```
+
+Build a PROTECTED_PAGES set from existing page paths (relative to `src/pages/`,
+without the `.astro` extension). For example, `src/pages/contact.astro` becomes
+`contact`. These pages will not be overwritten during conversion.
+
 ## Step 3 — Handle static pages
 
 If the owner chose "Everything", process STATIC_PAGES.
@@ -501,8 +511,13 @@ If the owner chose "Everything", process STATIC_PAGES.
 For each page, read the source file and convert the content to clean Markdown
 (same template syntax stripping as Step 2a).
 
-Create a `.astro` file in `src/pages/` with the page title, meta description,
-`BaseLayout` wrapper, and the converted content.
+Before writing, check if the target slug is in PROTECTED_PAGES. If the page
+already exists, do NOT overwrite it. Add it to SKIPPED_PAGES with the converted
+content so the owner can review it in the summary. This preserves scaffolded
+functionality like contact forms, review forms, and subscribe forms.
+
+If the page does not exist, create a `.astro` file in `src/pages/` with the
+page title, meta description, `BaseLayout` wrapper, and the converted content.
 
 For pages that are primarily image galleries (10+ images), create a gallery page
 with a responsive CSS grid layout.
@@ -767,6 +782,12 @@ Give the owner a plain-English summary:
 Include dynamic pages in the summary only if PAGINATION_PAGES was non-empty.
 
 If any posts failed to convert, list them so the owner knows what needs attention.
+
+For each SKIPPED_PAGES entry, tell the owner what was found and that the existing
+page was preserved:
+> "Your **[page name]** page already existed, so I kept it as-is. Here's what
+> was in your old project for that page: [converted content summary]. Let me
+> know if you'd like me to add any of that."
 
 ## Step 7 — Save a snapshot
 
