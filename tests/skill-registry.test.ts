@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   parseSkillFrontmatter,
   classifySkill,
   generateRegistry,
   scanSkills,
+  validateSkillFrontmatter,
   type SkillMeta,
 } from "../bin/generate-skill-registry.js";
 
@@ -169,6 +170,117 @@ describe("generateRegistry", () => {
   it("includes auto-generated warning comment", () => {
     const md = generateRegistry(skills);
     expect(md).toContain("Auto-generated");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateSkillFrontmatter
+// ---------------------------------------------------------------------------
+
+describe("validateSkillFrontmatter", () => {
+  it("returns no errors for valid model-only skill", () => {
+    const content = `---
+name: animate
+description: "CSS animations"
+user-invokable: false
+allowed-tools: Write, Read, Glob
+---`;
+    expect(validateSkillFrontmatter(content)).toEqual([]);
+  });
+
+  it("returns no errors for valid user-facing skill", () => {
+    const content = `---
+name: deploy
+description: "Build and deploy"
+disable-model-invocation: true
+allowed-tools: Bash(npm run build), Write, Read
+---`;
+    expect(validateSkillFrontmatter(content)).toEqual([]);
+  });
+
+  it("flags user-invocable as a typo of user-invokable", () => {
+    const content = `---
+name: experiment
+description: "A/B tests"
+user-invocable: false
+allowed-tools: Write, Read
+---`;
+    const errors = validateSkillFrontmatter(content);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toContain("user-invocable");
+    expect(errors[0]).toContain("user-invokable");
+  });
+
+  it("flags missing allowed-tools", () => {
+    const content = `---
+name: experiment
+description: "A/B tests"
+user-invokable: false
+---`;
+    const errors = validateSkillFrontmatter(content);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some((e: string) => e.includes("allowed-tools"))).toBe(true);
+  });
+
+  it("flags unknown frontmatter keys", () => {
+    const content = `---
+name: test
+description: "Test"
+allowed-tools: Read
+user-invokabel: false
+---`;
+    const errors = validateSkillFrontmatter(content);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toContain("user-invokabel");
+  });
+
+  it("accepts argument-hint as a valid key", () => {
+    const content = `---
+name: check
+description: "Health audit"
+argument-hint: "[optional: describe the problem]"
+allowed-tools: Read, Write
+disable-model-invocation: true
+---`;
+    expect(validateSkillFrontmatter(content)).toEqual([]);
+  });
+
+  it("reports multiple errors at once", () => {
+    const content = `---
+name: bad-skill
+description: "Broken"
+user-invocable: false
+---`;
+    const errors = validateSkillFrontmatter(content);
+    // Should flag both the typo and missing allowed-tools
+    expect(errors.length).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Skill frontmatter consistency — all skills on disk pass validation
+// ---------------------------------------------------------------------------
+
+describe("skill frontmatter consistency", () => {
+  const skillsDir = resolve(__dirname, "..", "skills");
+
+  it("all skills have valid frontmatter", () => {
+    const entries = readdirSync(skillsDir, { withFileTypes: true });
+    const errors: string[] = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const skillFile = join(skillsDir, entry.name, "SKILL.md");
+      if (!existsSync(skillFile)) continue;
+
+      const content = readFileSync(skillFile, "utf-8");
+      const issues = validateSkillFrontmatter(content);
+      for (const issue of issues) {
+        errors.push(`${entry.name}: ${issue}`);
+      }
+    }
+
+    expect(errors).toEqual([]);
   });
 });
 

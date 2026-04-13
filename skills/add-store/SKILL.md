@@ -1,7 +1,7 @@
 ---
 name: add-store
 description: "Add ecommerce to your site — sells physical goods, digital downloads, services, or software"
-allowed-tools: Write, Read, Edit, Glob
+allowed-tools: Bash(npx wrangler *), Bash(npm run build), Write, Read, Edit, Glob
 disable-model-invocation: true
 ---
 

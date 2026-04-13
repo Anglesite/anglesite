@@ -25,6 +25,7 @@ The testimonials page includes AggregateRating JSON-LD structured data. This ena
 ## Moderation
 
 Reviews are never auto-published. Every submission is emailed to you first. To approve:
+
 - Add it as a new testimonial in Keystatic
 - Or tell your webmaster: "Add this review" and paste the email content
 

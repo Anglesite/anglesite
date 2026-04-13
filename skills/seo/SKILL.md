@@ -18,7 +18,6 @@ Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before e
 
 ## Reference
 
-- [SEO & Discoverability guide](${CLAUDE_PLUGIN_ROOT}/docs/seo.md) — full SEO philosophy and checklists
 - [SEO audit utilities](${CLAUDE_PLUGIN_ROOT}/template/scripts/seo.ts) — `auditPage`, `auditSite`, `validateSitemap`, `auditRobotsTxt`, `generateLlmsTxt`, `auditChunkability`, `formatSeoReport`, `inferPageSchemaType`, `generatePageJsonLd`, `detectFaqSections`
 
 ## Subcommands

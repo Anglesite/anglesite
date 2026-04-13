@@ -51,7 +51,7 @@ export function normalizePrice(raw) {
 // ---------------------------------------------------------------------------
 
 /** Known dietary abbreviations (uppercase canonical forms). */
-const DIETARY_ABBREVS = new Set(["V", "VG", "GF", "DF", "NF", "SF", "K", "H"]);
+const DIETARY_ABBREVS = new Set(["V", "VG", "GF", "DF", "NF", "SF", "K", "H", "CA"]);
 
 /** Emoji → dietary code mapping. */
 const EMOJI_DIETARY = new Map([
@@ -60,6 +60,8 @@ const EMOJI_DIETARY = new Map([
   ["🌾", "GF"],  // sheaf → gluten-free (crossed grain is rare in Unicode)
   ["🥜", "NF"],  // peanut → contains nuts (inverse, but commonly used)
   ["🔥", "SPICY"],
+  ["🍷", "CA"],  // wine glass → contains alcohol
+  ["🍸", "CA"],  // cocktail glass → contains alcohol
 ]);
 
 const FOOTNOTE_RE = /[*†‡§]+$/;

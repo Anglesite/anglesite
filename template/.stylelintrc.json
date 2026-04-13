@@ -1,0 +1,34 @@
+{
+  "plugins": ["stylelint-declaration-strict-value"],
+  "rules": {
+    "scale-unlimited/declaration-strict-value": [
+      [
+        "color",
+        "background-color",
+        "background",
+        "font-size",
+        "border-radius",
+        "box-shadow"
+      ],
+      {
+        "ignoreValues": [
+          "inherit",
+          "initial",
+          "revert",
+          "unset",
+          "none",
+          "transparent",
+          "currentColor",
+          "auto",
+          "0",
+          "#fff",
+          "#000",
+          "white",
+          "black",
+          "50%"
+        ],
+        "disableFix": true
+      }
+    ]
+  }
+}

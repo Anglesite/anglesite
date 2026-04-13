@@ -99,9 +99,7 @@ export interface Measurements {
 
 function measure(): Measurements {
   // Always-loaded context (every turn)
-  // CLAUDE.md @imports AGENTS.md, so both are loaded
-  const agentsMd = bytes("template/AGENTS.md");
-  const claudeMd = bytes("template/CLAUDE.md") + agentsMd;
+  const claudeMd = bytes("template/CLAUDE.md");
 
   // Skill context (in history from turn 1)
   const startMd = bytes("skills/start/SKILL.md");
@@ -122,7 +120,7 @@ function measure(): Measurements {
 
   return {
     alwaysLoaded: [
-      { label: "AGENTS.md + CLAUDE.md", path: "template/CLAUDE.md", bytes: claudeMd, tokens: tokens(claudeMd) },
+      { label: "CLAUDE.md", path: "template/CLAUDE.md", bytes: claudeMd, tokens: tokens(claudeMd) },
     ],
     command: [
       { label: "start/SKILL.md", path: "skills/start/SKILL.md", bytes: startMd, tokens: tokens(startMd) },

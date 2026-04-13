@@ -99,6 +99,7 @@ const dietaryLabels: Record<string, string> = {
   kosher: "Kosher",
   spicy: "Spicy",
   raw: "Raw",
+  "contains-alcohol": "Contains Alcohol",
 };
 
 // Other menus for navigation
@@ -144,7 +145,7 @@ const otherMenus = [...allMenus]
   )}
 
   {groupedSections.map(({ section, items: sectionItems }) => (
-    <section class="menu-section" id={section.id} aria-labelledby={`heading-${section.id}`}>
+    <section class="menu-section" id={section.id} aria-labelledby={`heading-${section.id}`} data-menu-type={menu.data.menuType || "standard"}>
       <h2 id={`heading-${section.id}`} class="menu-section-heading">
         {section.data.name}
       </h2>
@@ -180,6 +181,7 @@ const otherMenus = [...allMenus]
                     data-diet={tag}
                     aria-label={dietaryLabels[tag] || tag}
                   >
+                    <img src={`/images/dietary/${tag}.svg`} alt="" aria-hidden="true" class="dietary-icon" width="16" height="16" />
                     {dietaryLabels[tag] || tag}
                   </span>
                 ))}
@@ -199,6 +201,24 @@ const otherMenus = [...allMenus]
       </div>
     </section>
   ))}
+
+  {/* Allergen disclaimer — configurable via MENU_ALLERGEN_DISCLAIMER in .site-config */}
+  <footer class="allergen-disclaimer">
+    <p>Please inform your server of any allergies. Menu items may contain or come into contact with allergens.</p>
+  </footer>
+
+  {/* Cross-links to other menus */}
+  {otherMenus.length > 1 && (
+    <nav class="menu-cross-links" aria-label="Other menus">
+      {otherMenus
+        .filter((m) => m.id !== menu.id)
+        .map((m) => (
+          <a href={`/menu/${m.id}`} class="menu-cross-link">
+            {m.data.name} Menu →
+          </a>
+        ))}
+    </nav>
+  )}
 
   <p><a href="/menu">← All menus</a></p>
 </BaseLayout>

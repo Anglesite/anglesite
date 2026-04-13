@@ -1,7 +1,7 @@
 ---
 name: backup
 description: "Back up site changes to GitHub with a descriptive summary"
-allowed-tools: Bash(git status *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git log *), Bash(git diff *), Bash(npx tsx *), Read
+allowed-tools: Bash(git status *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git log *), Bash(git diff *), Bash(git checkout *), Bash(git branch *), Bash(npx tsx *), Read
 disable-model-invocation: true
 ---
 

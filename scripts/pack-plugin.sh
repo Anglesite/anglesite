@@ -25,8 +25,10 @@ zip -r "$OUTDIR/$ZIPNAME" \
   skills/ \
   hooks/ \
   scripts/scaffold.sh \
+  scripts/update.sh \
   scripts/pre-deploy-check.sh \
   scripts/import/ \
+  server/ \
   settings.json \
   docs/ \
   template/ \

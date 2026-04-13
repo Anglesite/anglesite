@@ -2,7 +2,7 @@
 name: print
 description: "Generate print-ready materials (business cards, flyers, door hangers, social cards) from site branding"
 user-invokable: false
-allowed-tools: Write, Read, Glob, Bash(cat *), Bash(npm run ai-qr)
+allowed-tools: Write, Read, Glob, Bash(npm run ai-qr)
 ---
 
 Generate print-ready marketing materials that match the site's visual identity. Produces PDF files for print (business cards, flyers, door hangers) and PNG files for digital (social media cards). Called when the owner asks about print materials, marketing collateral, or physical handouts — not invoked directly.

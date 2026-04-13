@@ -14,7 +14,7 @@ These ship with every Anglesite site. No setup needed:
 |---|---|---|
 | `h-card` | Site header (`BaseLayout.astro`) | Machine-readable identity: business name + URL |
 | `h-entry` | Blog posts (`[slug].astro`) | Machine-readable posts: title, date, content, photo, tags |
-| `h-feed` | Blog listing (`/blog/index.astro`) | Machine-readable feed of posts |
+| `h-feed` | Blog listing (`/blog/index.astro`) | Machine-readable feed of posts (TODO: add to blog listing page) |
 | `u-syndication` | Blog posts | Links back to copies on social media |
 | RSS feed | `/rss.xml` | Feed readers and podcast apps |
 | Feed discovery | `<link rel="alternate">` in `<head>` | Feed readers auto-discover the RSS feed |
@@ -59,6 +59,7 @@ Add `rel="me"` to social links in the site footer or about page:
 ### Two-way verification
 
 For full IndieWeb verification, the social profile should link back to the website:
+
 - **Instagram** — Add website URL to bio
 - **Bluesky** — Use domain as handle (see `/anglesite:domain` → Bluesky verification)
 - **Mastodon** — Add website URL to profile; Mastodon checks `rel="me"` automatically and shows a verified badge
@@ -78,10 +79,12 @@ Microformats are CSS classes that make content machine-readable. Search engines,
 On the site header. Tells machines "this is who owns this site."
 
 Required properties:
+
 - `p-name` — business name
 - `u-url` — site URL
 
 Optional properties to add during `/anglesite:design-interview` if the business has a physical location:
+
 - `p-adr` — address (wrap in an `<address>` element)
 - `p-tel` — phone number
 - `p-locality` — city
@@ -109,6 +112,7 @@ Example with location:
 On each blog post. Tells machines "this is a piece of content."
 
 Properties already in the blog template:
+
 - `p-name` — post title
 - `dt-published` — publish date (ISO 8601 datetime)
 - `e-content` — post body
@@ -132,6 +136,7 @@ On the blog listing page. Wraps the collection of `h-entry` items so machines ca
 For businesses that host events — venues, theaters, farms, fitness studios, breweries, museums, houses of worship. Add `h-event` markup when creating event pages or event listings.
 
 Properties:
+
 - `p-name` — event name
 - `dt-start` — start date/time (ISO 8601)
 - `dt-end` — end date/time (ISO 8601)
@@ -167,6 +172,7 @@ Webmentions let other websites notify yours when they link to your content — l
 ### When to add
 
 This is an optional enhancement. Recommend it when:
+
 - The owner is active in a community that uses webmentions (bloggers, IndieWeb, tech)
 - The owner wants to display cross-site replies on their posts
 - The owner has been running the site for a while and wants deeper integration
@@ -179,9 +185,11 @@ Don't recommend it during `/anglesite:start`. It adds complexity that most SMB o
 
 1. Owner signs in at webmention.io using their domain (requires `rel="me"` links — see above)
 2. Add to `BaseLayout.astro` `<head>`:
+
    ```html
    <link rel="webmention" href="https://webmention.io/DOMAIN/webmention" />
    ```
+
 3. Update CSP in `public/_headers`: add `webmention.io` to `connect-src` if fetching mentions client-side (not needed if only receiving)
 4. Webmentions are collected by webmention.io and can be displayed on posts
 
@@ -196,6 +204,7 @@ Fetch webmentions during `npm run build` and bake them into the HTML. No client-
 ### Sending webmentions
 
 When the owner publishes a post that links to another website, the site can notify that website. This is done at build time or deploy time:
+
 - Use a tool like `webmention.app` or a build script that scans the post for external links and sends webmentions
 - This is advanced and optional — most SMB sites receive more than they send
 
@@ -214,6 +223,7 @@ Only when the owner wants to use IndieWeb services (IndieWeb wiki, Micropub clie
 The simplest approach — delegate authentication to an existing provider:
 
 Add to `BaseLayout.astro` `<head>`:
+
 ```html
 <link rel="authorization_endpoint" href="https://indieauth.com/auth" />
 ```
@@ -221,6 +231,7 @@ Add to `BaseLayout.astro` `<head>`:
 This tells IndieWeb services: "To verify this domain's owner, use indieauth.com." The owner signs in via one of their `rel="me"` linked profiles.
 
 Requirements:
+
 - At least one `rel="me"` link on the site (see above)
 - The linked profile must link back to the website
 
@@ -244,22 +255,26 @@ The owner doesn't need to understand IndieWeb terminology. Here's what matters t
 ## Checklist for the agent
 
 ### During `/anglesite:start` and `/anglesite:design-interview`
+
 - [ ] `h-card` in site header has `p-name` and `u-url`
 - [ ] `h-card` includes location properties if business has a physical address
 - [ ] `rel="me"` links added for each social profile the owner mentions
 - [ ] Social profile URLs use the correct format (see table above)
 
 ### During `/anglesite:deploy`
+
 - [ ] `h-entry` markup on blog posts (p-name, dt-published, e-content)
 - [ ] `h-feed` wrapper on blog listing page
 - [ ] RSS feed at `/rss.xml` with discovery link in `<head>`
 - [ ] Syndication links render as `u-syndication` with `rel="syndication"`
 
 ### When creating event pages
+
 - [ ] `h-event` markup with dt-start, dt-end, p-name, p-location
 - [ ] Corresponding `Event` JSON-LD structured data
 
 ### When owner is ready for advanced features
+
 - [ ] Webmention endpoint configured (webmention.io or self-hosted)
 - [ ] IndieAuth delegation or endpoint configured
 - [ ] Two-way `rel="me"` verification confirmed

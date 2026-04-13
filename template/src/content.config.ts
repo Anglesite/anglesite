@@ -5,10 +5,16 @@
  * `src/content/`. The Zod schema here must stay in sync with the
  * Keystatic field definitions in `keystatic.config.ts`.
  *
+ * Only collections whose `src/content/<name>/` directory exists are
+ * exported. This avoids glob-loader warnings for collections that
+ * aren't relevant to the site type. Directories are created or removed
+ * by `scripts/prune-collections.mjs` during setup.
+ *
  * @see https://docs.astro.build/en/guides/content-collections/
  * @module
  */
 
+import { existsSync } from "node:fs";
 import { defineCollection, z } from "astro:content";
 
 /** Blog posts stored in `src/content/posts/` as `.mdx` / `.mdoc` files. */
@@ -143,6 +149,21 @@ const menus = defineCollection({
     description: z.string().optional(),
     /** Display order (lower numbers appear first). */
     order: z.number().default(0),
+    /** How multiple menus are displayed: scroll (one page), tabs, or separate pages. */
+    layout: z
+      .enum(["scroll", "tabs", "pages"])
+      .optional(),
+    /** Menu type — affects styling and semantic hints. */
+    menuType: z
+      .enum([
+        "standard",
+        "daily-specials",
+        "seasonal",
+        "kids",
+        "catering",
+        "wine-cocktails",
+      ])
+      .default("standard"),
   }),
 });
 
@@ -232,5 +253,36 @@ const products = defineCollection({
   }),
 });
 
-/** All content collections exported for Astro's build pipeline. */
-export const collections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products };
+/** Creative experiments stored in `src/content/experiments/`. */
+const experiments = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Experiment title. */
+    title: z.string(),
+    /** Short description for the gallery listing. */
+    description: z.string(),
+    /** Date the experiment was created. */
+    date: z.string().transform((str) => new Date(str)),
+    /** Tags for categorization (e.g., "p5.js", "Three.js", "audio"). */
+    tags: z.array(z.string()).default([]),
+    /** Library or framework used. */
+    library: z.string().optional(),
+    /** Thumbnail image path relative to `public/`. */
+    thumbnail: z.string().optional(),
+    /** When true, excluded from the gallery. */
+    draft: z.boolean().default(false),
+  }),
+});
+
+/**
+ * All content collections exported for Astro's build pipeline.
+ * Only collections with an existing content directory are registered,
+ * preventing glob-loader warnings for unused collection types.
+ */
+const allCollections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products, experiments };
+
+export const collections = Object.fromEntries(
+  Object.entries(allCollections).filter(([name]) =>
+    existsSync(new URL(`./content/${name}`, import.meta.url)),
+  ),
+);

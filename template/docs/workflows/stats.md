@@ -28,6 +28,7 @@ These values are saved to `.site-config` during first use:
 ## Actionable insights
 
 Beyond raw numbers, the report suggests actions:
+
 - Popular pages that haven't been updated recently
 - Best days to publish new content
 - Tips based on your traffic sources (SEO, social sharing)

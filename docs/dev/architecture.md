@@ -2,7 +2,6 @@
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── marketplace.json              Marketplace distribution config
 ├── skills/                       See docs/dev/skill-registry.md (auto-generated)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
@@ -12,9 +11,9 @@
 │   ├── pre-deploy-check.sh       Blocks deploy if security scans fail
 │   ├── pack-plugin.sh            Builds distributable plugin ZIP
 │   └── import/                   Wix-specific extraction scripts
-│       ├── wix-playwright.js     Browser-based content + CSS token extraction
-│       ├── wix-extract.js        Curl+regex fallback for Wix HTML parsing
-│       └── color-utils.js        RGB/hex conversion, luminance, color classification
+│       ├── wix-playwright.mjs     Browser-based content + CSS token extraction
+│       ├── wix-extract.mjs        Curl+regex fallback for Wix HTML parsing
+│       └── color-utils.mjs        RGB/hex conversion, luminance, color classification
 ├── server/                       MCP annotation server + shared modules (Node.js, ESM)
 │   ├── annotations.mjs           Annotation store (CRUD + persistence)
 │   ├── selector.mjs              CSS selector generation from element metadata
@@ -38,8 +37,7 @@
 │   ├── public/                   Static assets
 │   ├── scripts/                  setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
 │   ├── docs/                     Site-specific docs (~17 files) + workflows/
-│   ├── AGENTS.md                 Universal webmaster instructions (any agent)
-│   ├── CLAUDE.md                 Claude Code-specific additions (@imports AGENTS.md)
+│   ├── CLAUDE.md                 Webmaster guide + Claude Code commands
 │   ├── package.json              Site dependencies (Astro, Keystatic)
 │   ├── astro.config.ts           Astro + Keystatic integration config
 │   ├── keystatic.config.ts       CMS schema and collection definitions

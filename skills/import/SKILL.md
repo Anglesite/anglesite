@@ -100,7 +100,7 @@ SITE_TYPE=blog
 OWNER_NAME=Name
 SITE_NAME=My Site
 DEV_HOSTNAME=mysite.local
-AI_MODEL=Claude Opus 4.6
+AI_MODEL=(write your actual model name here)
 EXPLAIN_STEPS=true
 ```
 
@@ -304,7 +304,7 @@ design tokens).
 For each post:
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "POST_URL"
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.mjs "POST_URL"
 ```
 
 Returns `{tokens, content}` where `content` has `{body, images, title, navLinks}`.
@@ -317,8 +317,8 @@ regex for that page only:
 
 ```sh
 curl -sL "POST_URL" > /tmp/wix-post.html
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js post /tmp/wix-post.html
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js meta /tmp/wix-post.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs post /tmp/wix-post.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs meta /tmp/wix-post.html
 ```
 
 If extraction returns empty content from either method, add the post to
@@ -344,7 +344,7 @@ and continue. Do not stop the import for individual failures.
 
 For WordPress and Squarespace content that arrives as rendered HTML, follow the
 HTML-to-Markdown conversion rules in
-`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`.
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`.
 
 ### 2c — Download and optimize images
 
@@ -353,7 +353,7 @@ Tell the owner (once, not per-post):
 > web-friendly format."
 
 Follow the image optimization procedures in
-`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`, using `curl -L -s`
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`, using `curl -L -s`
 to download instead of `cp`.
 
 **Platform-specific image URL handling:**
@@ -369,7 +369,7 @@ URLs with local paths.
 ### 2d — Assemble frontmatter and write the .mdoc file
 
 Follow the `.mdoc` writing procedure in
-`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`. Use `-imported`
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`. Use `-imported`
 suffix for slug conflicts. Additionally, set:
 - `syndication`: `["ORIGINAL_POST_URL"]` — the URL on the old platform, preserving provenance per ADR-0006
 
@@ -420,14 +420,14 @@ forms, product grids) are not included in the export.
 Step 2a, so use `--content-only` here):
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.js "PAGE_URL" --content-only
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.mjs "PAGE_URL" --content-only
 ```
 
 If Playwright fails on a specific page, fall back to curl + regex for that page:
 
 ```sh
 curl -sL "PAGE_URL" > /tmp/wix-page.html
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js page /tmp/wix-page.html
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs page /tmp/wix-page.html
 ```
 
 Both methods strip navigation and footer boilerplate automatically.
@@ -458,11 +458,11 @@ Categorize each page:
 
 **Wix slug renaming:** Before creating the file, check whether the Wix URL slug
 is an opaque auto-generated placeholder (e.g., `general-5`, `page-3`, `blank-1`).
-Use the `resolvePageSlug` utility from `wix-extract.js`:
+Use the `resolvePageSlug` utility from `wix-extract.mjs`:
 
 ```sh
 node -e "
-  import { resolvePageSlug } from '${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.js';
+  import { resolvePageSlug } from '${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs';
   console.log(JSON.stringify(resolvePageSlug('WIX_SLUG', 'PAGE_TITLE')));
 "
 ```
@@ -654,7 +654,7 @@ step. The owner can set up colors and fonts later via `/anglesite:design-intervi
 ## Step 6 — Build and verify
 
 Follow the build-and-verify procedure in
-`${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md`.
+`${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`.
 
 After a clean build, also check for remaining external image dependencies:
 
@@ -751,7 +751,7 @@ imported and the date. Example:
 
 ## Edge cases
 
-See `${CLAUDE_PLUGIN_ROOT}/skills/shared/content-conversion.md` for shared edge
+See `${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md` for shared edge
 cases (large images, multilingual content, slug conflicts).
 
 ### No blog on the site

@@ -11,6 +11,7 @@ The website source is backed up to a private GitHub repository. This provides of
 ## Setup
 
 Configured during `/anglesite:start` (Step 5). The setup:
+
 1. Installs `gh` CLI (via `npm run ai-setup`)
 2. Authenticates via browser OAuth (`gh auth login --web`)
 3. Creates a private repo (`gh repo create --private`)
@@ -34,7 +35,7 @@ The owner's entire website — code, content, configuration, images — is store
 
 ## Issue tracking
 
-The webmaster agent files GitHub issues when it encounters bugs. See `AGENTS.md` for the filing workflow.
+The webmaster agent files GitHub issues when it encounters bugs. See `CLAUDE.md` for the filing workflow.
 
 ### Labels
 

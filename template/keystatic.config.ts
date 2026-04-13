@@ -6,18 +6,20 @@
  * The schema here must stay in sync with the Zod schema in
  * `src/content.config.ts`; both validate the same frontmatter fields.
  *
- * Collections enabled during `/anglesite:start` depend on the business
- * type. Collections with no content don't generate pages.
+ * Only collections whose `src/content/<name>/` directory exists are
+ * included. This keeps the CMS clean for the site type — a portfolio
+ * site won't see menu or product collections. Directories are created
+ * or removed by `scripts/prune-collections.mjs` during setup.
  *
  * @see https://keystatic.com/docs/configuration
  * @module
  */
 
+import { existsSync } from "node:fs";
 import { config, fields, collection } from "@keystatic/core";
 
-export default config({
-  storage: { kind: "local" },
-  collections: {
+/** All possible CMS collections — filtered to only those with content dirs. */
+const allCollections: Record<string, ReturnType<typeof collection>> = {
     posts: collection({
       label: "Blog Posts",
       slugField: "title",
@@ -53,6 +55,11 @@ export default config({
         draft: fields.checkbox({
           label: "Draft",
           description: "Drafts are not published to the live site",
+          defaultValue: false,
+        }),
+        sendNewsletter: fields.checkbox({
+          label: "Send to Newsletter",
+          description: "When checked, sends this post to newsletter subscribers on deploy",
           defaultValue: false,
         }),
         syndication: fields.array(fields.url({ label: "URL" }), {
@@ -255,6 +262,31 @@ export default config({
           description: "Lower numbers appear first",
           defaultValue: 0,
         }),
+        layout: fields.select({
+          label: "Layout",
+          description:
+            "How menus are displayed: scroll (one long page), tabs (tabbed navigation), or pages (separate page per menu). Leave empty to auto-detect.",
+          options: [
+            { label: "Auto (recommended)", value: "" },
+            { label: "Single scrolling page", value: "scroll" },
+            { label: "Tabbed navigation", value: "tabs" },
+            { label: "Separate pages", value: "pages" },
+          ],
+          defaultValue: "",
+        }),
+        menuType: fields.select({
+          label: "Menu Type",
+          description: "Affects styling and layout hints",
+          options: [
+            { label: "Standard", value: "standard" },
+            { label: "Daily Specials", value: "daily-specials" },
+            { label: "Seasonal", value: "seasonal" },
+            { label: "Kids", value: "kids" },
+            { label: "Catering", value: "catering" },
+            { label: "Wine & Cocktails", value: "wine-cocktails" },
+          ],
+          defaultValue: "standard",
+        }),
         content: fields.markdoc({ label: "Introduction" }),
       },
     }),
@@ -322,6 +354,7 @@ export default config({
             { label: "Kosher", value: "kosher" },
             { label: "Spicy", value: "spicy" },
             { label: "Raw", value: "raw" },
+            { label: "Contains Alcohol", value: "contains-alcohol" },
           ],
         }),
         customTags: fields.array(
@@ -355,6 +388,44 @@ export default config({
         content: fields.markdoc({ label: "Details" }),
       },
     }),
+    experiments: collection({
+      label: "Experiments",
+      slugField: "title",
+      path: "src/content/experiments/*",
+      format: { contentField: "content" },
+      schema: {
+        title: fields.slug({ name: { label: "Title" } }),
+        description: fields.text({
+          label: "Description",
+          description: "Short description for the gallery",
+        }),
+        date: fields.date({
+          label: "Date",
+          validation: { isRequired: true },
+        }),
+        tags: fields.multiselect({
+          label: "Tags",
+          options: [
+            { label: "p5.js", value: "p5" },
+            { label: "Three.js", value: "three" },
+            { label: "GSAP", value: "gsap" },
+            { label: "Audio", value: "audio" },
+            { label: "D3", value: "d3" },
+          ],
+        }),
+        library: fields.text({ label: "Library" }),
+        thumbnail: fields.text({
+          label: "Thumbnail",
+          description: "Path relative to public/ (e.g., /images/experiments/thumb.webp)",
+        }),
+        draft: fields.checkbox({
+          label: "Draft",
+          description: "Hide from the gallery",
+          defaultValue: false,
+        }),
+        content: fields.markdoc({ label: "Content" }),
+      },
+    }),
     faq: collection({
       label: "FAQ",
       slugField: "question",
@@ -379,5 +450,13 @@ export default config({
         content: fields.markdoc({ label: "Full Answer" }),
       },
     }),
-  },
+};
+
+export default config({
+  storage: { kind: "local" },
+  collections: Object.fromEntries(
+    Object.entries(allCollections).filter(([name]) =>
+      existsSync(`src/content/${name}`),
+    ),
+  ) as typeof allCollections,
 });

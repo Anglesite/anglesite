@@ -49,5 +49,5 @@ Anglesite websites are stored locally on the owner's computer. Git provides loca
 
 * [GitHub CLI documentation](https://cli.github.com/manual/)
 * Setup happens during `/anglesite:start` Step 5
-* Bug filing workflow is documented in `AGENTS.md`
+* Bug filing workflow is documented in `CLAUDE.md`
 * Full reference in `docs/github.md`

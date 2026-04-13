@@ -9,8 +9,8 @@ Every hosted platform import follows the same preference order. Use the best ava
 1. **Structured API** (WordPress REST, Ghost Content API, Webflow CMS API, Tumblr API, WriteFreely API, Micro.blog API) — Returns JSON with typed fields. Cleanest extraction, easiest to paginate, best metadata. Always prefer when available.
 2. **Structured export file** (WordPress WXR XML, Squarespace WXR, Ghost JSON export, Substack ZIP, Blogger XML backup, Micro.blog ZIP) — Complete snapshot of the site's content. Requires owner action to generate but captures everything including drafts.
 3. **RSS/Atom/JSON Feed** (available on most platforms) — Contains full or partial HTML content. Usually limited to recent posts (10–100). Good fallback when no API access.
-4. **Playwright browser extraction** (Wix) — Launches a headless browser to extract both content and computed CSS styles (colors, fonts, spacing) in one pass. Playwright is a required dependency. See `scripts/import/wix/wix-playwright.js`.
-5. **Bundled regex extraction scripts** (Wix per-page fallback) — If Playwright fails on a specific page, falls back to parsing Wix's SSR'd HTML with `curl` + regex. Content only, no styling. See `scripts/import/wix/wix-extract.js`.
+4. **Playwright browser extraction** (Wix) — Launches a headless browser to extract both content and computed CSS styles (colors, fonts, spacing) in one pass. Playwright is a required dependency. See `scripts/import/wix/wix-playwright.mjs`.
+5. **Bundled regex extraction scripts** (Wix per-page fallback) — If Playwright fails on a specific page, falls back to parsing Wix's SSR'd HTML with `curl` + regex. Content only, no styling. See `scripts/import/wix/wix-extract.mjs`.
 6. **WebFetch page-by-page** (always available as last resort) — Reads the rendered page and extracts content. Slowest, lowest fidelity, but works everywhere. Required for GoDaddy and Carrd.
 
 ### When to ask the owner for help
@@ -129,6 +129,10 @@ Use `.webp` for optimized images. Keep originals only as a fallback.
 | Hero/featured image | `SLUG-hero.webp` | `my-great-post-hero.webp` |
 | Inline body image (Nth) | `SLUG-body-N.webp` | `my-great-post-body-1.webp` |
 | Gallery image (Nth) | `PAGE-SLUG-NN.webp` | `portfolio-01.webp` |
+
+### Sitemap image extensions
+
+Some platforms (Squarespace, Shopify, Webflow) include `<image:image>` XML extensions in their sitemaps. These are scoped inside each `<url>` block — images listed under one URL belong to that page only. **Never use a flat `grep '<image:loc>'`** to extract image URLs from a sitemap, as this mixes images from every page together. Always extract gallery/page images from the page itself via WebFetch (import skill Step 4).
 
 ### CDN URL normalization
 

@@ -46,6 +46,49 @@ export function parseSkillFrontmatter(content: string): SkillMeta {
 }
 
 // ---------------------------------------------------------------------------
+// validateSkillFrontmatter — catch typos and missing required fields
+// ---------------------------------------------------------------------------
+
+const VALID_FRONTMATTER_KEYS = new Set([
+  "name",
+  "description",
+  "user-invokable",
+  "disable-model-invocation",
+  "allowed-tools",
+  "argument-hint",
+]);
+
+export function validateSkillFrontmatter(content: string): string[] {
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  const fm = fmMatch ? fmMatch[1] : "";
+  if (!fm) return ["no frontmatter block found"];
+
+  const errors: string[] = [];
+
+  // Extract all keys from the frontmatter
+  const keys: string[] = [];
+  for (const line of fm.split("\n")) {
+    const keyMatch = line.match(/^([a-z][\w-]*):\s/);
+    if (keyMatch) keys.push(keyMatch[1]);
+  }
+
+  // Check for unknown keys (catches typos like user-invocable)
+  for (const key of keys) {
+    if (!VALID_FRONTMATTER_KEYS.has(key)) {
+      const suggestion = key === "user-invocable" ? " (did you mean user-invokable?)" : "";
+      errors.push(`unknown frontmatter key "${key}"${suggestion}`);
+    }
+  }
+
+  // Check required fields
+  if (!keys.includes("allowed-tools")) {
+    errors.push("missing required field: allowed-tools");
+  }
+
+  return errors;
+}
+
+// ---------------------------------------------------------------------------
 // classifySkill
 // ---------------------------------------------------------------------------
 

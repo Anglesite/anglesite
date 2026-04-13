@@ -11,7 +11,7 @@ const projectRoot = process.env.ANGLESITE_PROJECT_ROOT || process.cwd();
 
 const server = new McpServer({
   name: "anglesite-annotations",
-  version: "1.0.0",
+  version: "0.16.4",
 });
 
 server.tool(

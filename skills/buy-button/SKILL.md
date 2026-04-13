@@ -2,7 +2,7 @@
 name: buy-button
 description: "Add a buy button to sell a product, service, or digital good (Stripe or Polar)"
 user-invokable: false
-allowed-tools: Write, Read, Edit, Glob
+allowed-tools: Bash(npm run build), Write, Read, Edit, Glob
 ---
 
 Add a buy/payment button to a page. Two paths depending on what the owner is selling:

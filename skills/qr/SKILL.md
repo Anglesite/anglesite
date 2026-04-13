@@ -2,7 +2,7 @@
 name: qr
 description: "Generate QR codes with UTM tracking, shortlink redirects, and campaign-tagged URLs"
 user-invokable: false
-allowed-tools: Bash(npm run ai-qr), Bash(cat *), Write, Read, Glob
+allowed-tools: Bash(npm run ai-qr), Write, Read, Glob
 ---
 
 Generate branded QR codes for print materials and set up UTM-tracked shortlinks. Also generates campaign-tagged URLs for ad agencies or social media. Called when the owner asks about QR codes, print materials, or marketing links — not invoked directly.

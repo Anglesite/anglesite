@@ -27,6 +27,7 @@ npx pa11y dist/index.html
 ```
 
 Manual checks:
+
 - Every page has exactly one `<h1>`, headings don't skip levels
 - Color contrast: 4.5:1 for body text, 3:1 for large text
 - All interactive elements keyboard-reachable
@@ -90,22 +91,25 @@ See `docs/indieweb.md` for full guidance.
 - No render-blocking resources beyond essential CSS
 - Near-zero client JavaScript (Astro default)
 
-For a thorough performance audit: https://pagespeed.web.dev/
+For a thorough performance audit: <https://pagespeed.web.dev/>
 
 ## Troubleshooting
 
 ### Prerequisites
+
 ```sh
 npm run ai-check
 ```
 
 ### Common issues
+
 - **Dev server port conflict**: `lsof -i :4321` (macOS/Linux) or `netstat -ano | findstr :4321` (Windows)
 - **HTTPS certificate error**: `npm run ai-setup`
 - **Hostname not resolving**: `dscacheutil -q host -a name HOSTNAME` (macOS), `getent hosts HOSTNAME` (Linux), `nslookup HOSTNAME` (Windows)
 - **Node not in PATH**: `npm run ai-setup`
 
 ### Diagnose
+
 1. Check logs: `~/.anglesite/logs/build.log`, `deploy.log`, `dev.log`
 2. Run `npx astro check` and `npm run build` to reproduce
 3. Fix, verify, ask if the owner wants to deploy

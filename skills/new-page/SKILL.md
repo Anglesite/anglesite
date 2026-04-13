@@ -30,7 +30,8 @@ Before creating the page, use tldraw to show the owner where it fits in the site
    - Accessible — validate with `scripts/a11y-validate.ts`: single h1, no skipped heading levels, descriptive link text, meaningful alt text on all images, color contrast meeting WCAG AA (verify with `scripts/contrast.ts`)
    - Performance (optimized images, no unnecessary JS)
    - SEO (title, meta description, OG tags)
-   - Matches the brand from `docs/brand.md` and follows `docs/design-system.md`
+   - Matches the brand from `docs/brand.md` and follows `docs/design-system.md` and `${CLAUDE_PLUGIN_ROOT}/docs/style-guide.md`
+   - CSS passes `npm run lint:css` (design token enforcement via Stylelint)
 5. Add navigation link if appropriate
 6. Preview on the dev server
 7. Ask if they want to publish

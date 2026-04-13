@@ -2,7 +2,7 @@
 name: lemon-squeezy
 description: "Add a Lemon Squeezy checkout overlay for digital product sales (alternative to Polar)"
 user-invokable: false
-allowed-tools: Write, Read, Edit, Glob
+allowed-tools: Bash(npm run build), Write, Read, Edit, Glob
 ---
 
 Add a Lemon Squeezy checkout overlay to sell digital products. Lemon Squeezy is a Merchant of Record — it handles payment processing, file delivery, license keys, and global sales tax automatically.

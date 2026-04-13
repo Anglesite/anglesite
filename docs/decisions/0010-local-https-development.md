@@ -43,7 +43,7 @@ Chosen option: "Local HTTPS with mkcert and custom hostname", because it provide
 
 ### Confirmation
 
-The `npm run ai-check` script verifies that mkcert is installed, certificates exist in `.certs/`, the hostname resolves correctly, and the dev server is accessible over HTTPS. The `/anglesite:fix` skill can diagnose and repair common issues (expired certs, stale hostname entries, port conflicts).
+The `npm run ai-check` script verifies that mkcert is installed, certificates exist in `.certs/`, the hostname resolves correctly, and the dev server is accessible over HTTPS. The `/anglesite:check` skill can diagnose and repair common issues (expired certs, stale hostname entries, port conflicts).
 
 ## Pros and Cons of the Options
 

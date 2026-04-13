@@ -7,13 +7,16 @@
 // to Anglesite's global.css custom properties.
 //
 // Usage (CLI):
-//   node wix-playwright.js <url> [--content-only] [--styles-only]
+//   node wix-playwright.mjs <url> [--content-only] [--styles-only]
 //
 // Playwright is an optional dependency. Install it with:
 //   npm install playwright && npx playwright install chromium
-// Falls back to curl + wix-extract.js if Playwright is not available.
+// Falls back to curl + wix-extract.mjs if Playwright is not available.
 
-import { rgbToHex, classifyTokens } from './color-utils.js';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
+
+import { rgbToHex, classifyTokens } from './color-utils.mjs';
 
 // ---------------------------------------------------------------------------
 // Browser-context evaluation functions (run inside page.evaluate)
@@ -102,8 +105,15 @@ export const extractStylesSrc = function () {
   return { samples, fonts };
 };
 
-/** Extract text content from the rendered page via TreeWalker. */
-export const extractContentSrc = function () {
+/**
+ * Extract text content from the rendered page via TreeWalker.
+ *
+ * @param {Object} [options]
+ * @param {boolean} [options.fullPage] - When true, also extract header images
+ *   (logos, badges) and footer content. Use for homepage/branding extraction.
+ *   Default body-only mode is correct for blog post extraction.
+ */
+export const extractContentSrc = function (options) {
   const result = { body: '', images: [], title: '', navLinks: [], tags: [] };
 
   // Try blog post region first
@@ -208,6 +218,37 @@ export const extractContentSrc = function () {
     }
   }
 
+  // Full-page mode: extract header images (logo) and footer content
+  if (fullPage) {
+    const headerEl = document.querySelector('[id*="SITE_HEADER"]') || document.querySelector('header');
+    const headerImages = [];
+    let headerLogo = null;
+    if (headerEl) {
+      for (const img of headerEl.querySelectorAll('img')) {
+        if (img.src) {
+          const entry = { src: img.src, alt: img.alt || '' };
+          headerImages.push(entry);
+          // First image in header is typically the logo
+          if (!headerLogo) headerLogo = entry;
+        }
+      }
+    }
+    result.header = { logo: headerLogo, images: headerImages };
+
+    const footerEl = document.querySelector('footer') || document.querySelector('[id*="SITE_FOOTER"]');
+    const footerImages = [];
+    let footerText = '';
+    if (footerEl) {
+      footerText = footerEl.textContent?.trim() || '';
+      for (const img of footerEl.querySelectorAll('img')) {
+        if (img.src) {
+          footerImages.push({ src: img.src, alt: img.alt || '' });
+        }
+      }
+    }
+    result.footer = { text: footerText, images: footerImages };
+  }
+
   // Extract tags from the post footer
   if (postFooter) {
     // Pattern 1: category/hashtag links
@@ -228,6 +269,40 @@ export const extractContentSrc = function () {
         );
       }
     }
+  }
+
+  // Full-page mode: extract header images (logo, branding) and footer content.
+  // Used by the import skill's homepage/branding pass (Steps 3a/3b) where
+  // site chrome is needed, unlike the body-only blog post extraction.
+  if (options?.fullPage) {
+    const siteHeader = document.querySelector('#SITE_HEADER, [id*="SITE_HEADER"], header');
+    const headerImages = [];
+    let logo = null;
+
+    if (siteHeader) {
+      for (const img of siteHeader.querySelectorAll('img')) {
+        if (!img.src) continue;
+        const entry = { src: img.src, alt: img.alt || '' };
+        headerImages.push(entry);
+        // First image in header is typically the logo
+        if (!logo) logo = entry;
+      }
+    }
+
+    const siteFooter = document.querySelector('#SITE_FOOTER, [id*="SITE_FOOTER"], footer');
+    const footerImages = [];
+    let footerText = '';
+
+    if (siteFooter) {
+      footerText = siteFooter.textContent?.trim() || '';
+      for (const img of siteFooter.querySelectorAll('img')) {
+        if (!img.src) continue;
+        footerImages.push({ src: img.src, alt: img.alt || '' });
+      }
+    }
+
+    result.header = { logo, images: headerImages };
+    result.footer = { text: footerText, images: footerImages };
   }
 
   return result;
@@ -278,7 +353,7 @@ async function expandAccordions(page) {
  *
  * @param {import('playwright').Page} page - An open Playwright page
  * @param {string} url - The URL to navigate to
- * @param {Object} options - { contentOnly, stylesOnly }
+ * @param {Object} options - { contentOnly, stylesOnly, fullPage }
  * @returns {Promise<{tokens: Object, content: Object}>}
  */
 export async function extractWixPage(page, url, options = {}) {
@@ -310,7 +385,8 @@ export async function extractWixPage(page, url, options = {}) {
   }
 
   if (!options.stylesOnly) {
-    content = await page.evaluate(extractContentSrc);
+    const fullPage = !!options.fullPage;
+    content = await page.evaluate(extractContentSrc, { fullPage });
   }
 
   return { tokens, content };
@@ -332,9 +408,15 @@ async function main() {
     return;
   }
 
+  // Resolve playwright from the user's project (cwd), not from the plugin
+  // cache where this script lives. In ESM, bare `import('playwright')` would
+  // resolve relative to *this file's* location, which fails when the script
+  // is installed in ~/.claude/plugins/cache/. createRequire anchored to cwd
+  // finds the project's node_modules instead.
   let playwright;
   try {
-    playwright = await import('playwright');
+    const require = createRequire(join(process.cwd(), 'package.json'));
+    playwright = require('playwright');
   } catch {
     console.error('Playwright is not installed. Install it with: npm install playwright && npx playwright install chromium');
     console.error('Use curl + wix-extract.js as a fallback for content extraction.');

@@ -93,12 +93,11 @@ const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "this site";
   </noscript>
 
   <style>
+    /* Theme Pagefind's default UI to match site colors.
+       Variables are set on #search (not :root) so Astro's scoped styles
+       apply correctly — the widget inherits them via CSS cascade. */
     #search {
       margin-block: var(--space-lg);
-    }
-
-    /* Theme Pagefind's default UI to match site colors */
-    :root {
       --pagefind-ui-scale: 1;
       --pagefind-ui-primary: var(--color-primary);
       --pagefind-ui-text: var(--color-text);
@@ -111,10 +110,14 @@ const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "this site";
     }
   </style>
 
-  <script>
-    import { PagefindUI } from "astro-pagefind/components";
-    // @ts-ignore — Pagefind UI mounts to the target element
-    new PagefindUI({ element: "#search", showSubResults: true });
+  <script is:inline>
+    async function initSearch() {
+      try {
+        const pagefind = await import("/pagefind/pagefind-ui.js");
+        new pagefind.PagefindUI({ element: "#search", showSubResults: true });
+      } catch { /* pagefind not yet indexed — runs after first build */ }
+    }
+    initSearch();
   </script>
 </BaseLayout>
 ```

@@ -3,7 +3,7 @@ name: creative-canvas
 description: "Add interactive visual effects and creative coding to any page"
 user-invokable: false
 argument-hint: "[effect description or library name]"
-allowed-tools: Bash(npm install *), Bash(npm run dev), Write, Read, Glob
+allowed-tools: Bash(npm install *), Bash(npm run dev), Bash(npm run build), Write, Read, Glob
 ---
 
 Add interactive visual effects, generative art, or creative coding experiments to any Anglesite site. Works for all business types — from a bakery wanting holiday snow to a web artist building a full experiment gallery.

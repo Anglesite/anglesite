@@ -57,6 +57,9 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 /** Project root (one level up from `scripts/`). */
 const PROJECT_DIR = resolve(SCRIPT_DIR, "..");
 
+/** Site configuration file (`.site-config` in the project root). */
+const CONFIG_FILE = resolve(PROJECT_DIR, ".site-config");
+
 /** Log directory under the user's home folder. */
 const LOG_DIR = resolve(HOME, ".anglesite/logs");
 

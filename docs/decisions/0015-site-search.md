@@ -1,12 +1,10 @@
 ---
-status: proposed
+status: accepted
 date: 2026-03-28
 decision-makers: [Anglesite maintainers]
 ---
 
 # Add on-site search for content discovery
-
-> **This is a proposed decision.** It evaluates options for adding search functionality to Anglesite sites so visitors can find content without relying solely on navigation or external search engines.
 
 ## Context and Problem Statement
 

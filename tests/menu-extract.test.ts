@@ -7,7 +7,7 @@ import {
   stitchMenuPages,
   toKeystatic,
   generateMenuCSS,
-} from "../scripts/import/menu-extract.js";
+} from "../scripts/import/menu-extract.mjs";
 
 // ---------------------------------------------------------------------------
 // normalizePrice
@@ -130,6 +130,24 @@ describe("parseDietaryIndicators", () => {
     const result = parseDietaryIndicators("Salad 🌿🌾");
     expect(result.dietary).toEqual(["V", "GF"]);
     expect(result.cleanName).toBe("Salad");
+  });
+
+  it("extracts contains-alcohol abbreviation (CA)", () => {
+    const result = parseDietaryIndicators("Tiramisu (CA)");
+    expect(result.dietary).toEqual(["CA"]);
+    expect(result.cleanName).toBe("Tiramisu");
+  });
+
+  it("extracts wine glass emoji as contains-alcohol", () => {
+    const result = parseDietaryIndicators("Red Wine Risotto 🍷");
+    expect(result.dietary).toEqual(["CA"]);
+    expect(result.cleanName).toBe("Red Wine Risotto");
+  });
+
+  it("extracts cocktail glass emoji as contains-alcohol", () => {
+    const result = parseDietaryIndicators("Rum Cake 🍸");
+    expect(result.dietary).toEqual(["CA"]);
+    expect(result.cleanName).toBe("Rum Cake");
   });
 });
 
