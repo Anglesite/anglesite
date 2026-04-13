@@ -38,7 +38,8 @@ These apply to every import regardless of platform:
 6. **Strip all third-party embeds.** YouTube, Twitter, Instagram embeds become comments noting what was there. No third-party JavaScript (ADR-0008).
 7. **Don't replicate platform features.** Booking, store, events, forums can't be imported — redirect and recommend purpose-built replacements.
 8. **Build must pass.** Fix every build error before presenting results to the owner (ADR-0012).
-9. **Warn before cancellation.** For platforms where CDN URLs expire, explicitly warn the owner to verify all images are saved before they cancel their old account.
+9. **Preserve scaffolded functionality.** If a scaffolded page already has interactive features (contact form, review form, subscribe form, search), merge imported content into it rather than replacing it. Static text is easy to add back; working forms with backend infrastructure are not.
+10. **Warn before cancellation.** For platforms where CDN URLs expire, explicitly warn the owner to verify all images are saved before they cancel their old account.
 
 ## Architecture decisions
 
@@ -471,7 +472,29 @@ node -e "
 If `resolvePageSlug` returns a different slug, use the new slug for the filename
 and page path. Add the returned redirect line to REDIRECT_RULES for Step 5.
 
-For **content pages**, create a `.astro` file in `src/pages/` with:
+For **content pages**, first check whether a scaffolded page already exists at
+the target path:
+
+```sh
+ls src/pages/PAGE_SLUG.astro
+```
+
+**If the file exists**, read it and check for interactive features — `<form`,
+`<script`, `cf-turnstile`, `addEventListener`, or Worker URL references. These
+indicate scaffolded functionality (contact forms, review forms, subscribe forms,
+search) that must not be overwritten.
+
+- **If interactive features are found:** merge the imported content into the
+  existing page instead of replacing it. Insert the extracted text (address,
+  phone, hours, description) as static HTML **above** the existing interactive
+  element (e.g., above the `<form>`). Keep the page's existing imports,
+  frontmatter logic, form markup, scripts, and Turnstile integration intact.
+  Update only the `<h1>` text and meta description if the imported content
+  provides better versions.
+- **If no interactive features are found:** the existing page is a plain
+  scaffold placeholder. Replace it with the imported content as described below.
+
+**If no file exists**, create a new `.astro` file in `src/pages/` with:
 - The page title in a `<title>` tag and `<h1>`
 - A meta description derived from the page summary
 - `BaseLayout` wrapper
