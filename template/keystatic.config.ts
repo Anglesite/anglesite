@@ -8,8 +8,10 @@
  *
  * Only collections whose `src/content/<name>/` directory exists are
  * included. This keeps the CMS clean for the site type — a portfolio
- * site won't see menu or product collections. Directories are created
- * or removed by `scripts/prune-collections.mjs` during setup.
+ * site won't see menu or product collections. Directories for needed
+ * collections are created (and unneeded ones removed) by
+ * `scripts/prune-collections.mjs` during setup — the template does not
+ * ship pre-created content directories.
  *
  * @see https://keystatic.com/docs/configuration
  * @module

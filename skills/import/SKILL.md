@@ -2,7 +2,7 @@
 name: import
 description: "Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project"
 argument-hint: "[website URL or local path]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(node *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -38,7 +38,7 @@ These apply to every import regardless of platform:
 6. **Strip all third-party embeds.** YouTube, Twitter, Instagram embeds become comments noting what was there. No third-party JavaScript (ADR-0008).
 7. **Don't replicate platform features.** Booking, store, events, forums can't be imported — redirect and recommend purpose-built replacements.
 8. **Build must pass.** Fix every build error before presenting results to the owner (ADR-0012).
-9. **Preserve scaffolded functionality.** If a scaffolded page already has interactive features (contact form, review form, subscribe form, search), merge imported content into it rather than replacing it. Static text is easy to add back; working forms with backend infrastructure are not.
+9. **Preserve scaffolded functionality.** If a scaffolded page already exists (contact form, review form, subscribe form, search), do not overwrite it — save the extracted content for the owner to review. Static text is easy to add back; working forms with backend infrastructure are not.
 10. **Warn before cancellation.** For platforms where CDN URLs expire, explicitly warn the owner to verify all images are saved before they cancel their old account.
 
 ## Architecture decisions
@@ -104,6 +104,14 @@ SITE_NAME=My Site
 DEV_HOSTNAME=mysite.local
 AI_MODEL=(write your actual model name here)
 EXPLAIN_STEPS=true
+```
+
+Prune content collections to match the site type. This creates only the
+directories needed (e.g. `posts` for a blog) and removes any that aren't,
+preventing a wall of Astro glob-loader warnings for empty collections:
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/scripts/prune-collections.mjs .
 ```
 
 ```sh
@@ -219,6 +227,21 @@ If `.mdoc` files exist, note their slugs and tell the owner:
 > skip them rather than overwrite."
 
 Build a SKIPPED_SLUGS set from existing filenames.
+
+### 1c.2 — Check for existing pages
+
+```sh
+find src/pages -name "*.astro" -type f
+```
+
+Build a PROTECTED_PAGES set from all existing page paths (relative to
+`src/pages/`, without the `.astro` extension). For example,
+`src/pages/contact.astro` becomes `contact` and
+`src/pages/contact/thanks.astro` becomes `contact/thanks`.
+
+These pages will not be overwritten during import. Initialise an empty
+SKIPPED_PAGES list — pages skipped due to protection will be added here
+for reporting in Step 7.
 
 ### 1d — Present the inventory
 
@@ -472,29 +495,15 @@ node -e "
 If `resolvePageSlug` returns a different slug, use the new slug for the filename
 and page path. Add the returned redirect line to REDIRECT_RULES for Step 5.
 
-For **content pages**, first check whether a scaffolded page already exists at
-the target path:
+For **content pages**, check if the target path (slug) is in PROTECTED_PAGES.
 
-```sh
-ls src/pages/PAGE_SLUG.astro
-```
+If the page already exists, do NOT overwrite it. Add the page to SKIPPED_PAGES
+with its extracted content (title, summary, and full text) so the owner can
+review what was found. This preserves scaffolded functionality like contact
+forms, review forms, and subscribe forms that would be lost if overwritten
+with static text.
 
-**If the file exists**, read it and check for interactive features — `<form`,
-`<script`, `cf-turnstile`, `addEventListener`, or Worker URL references. These
-indicate scaffolded functionality (contact forms, review forms, subscribe forms,
-search) that must not be overwritten.
-
-- **If interactive features are found:** merge the imported content into the
-  existing page instead of replacing it. Insert the extracted text (address,
-  phone, hours, description) as static HTML **above** the existing interactive
-  element (e.g., above the `<form>`). Keep the page's existing imports,
-  frontmatter logic, form markup, scripts, and Turnstile integration intact.
-  Update only the `<h1>` text and meta description if the imported content
-  provides better versions.
-- **If no interactive features are found:** the existing page is a plain
-  scaffold placeholder. Replace it with the imported content as described below.
-
-**If no file exists**, create a new `.astro` file in `src/pages/` with:
+If the page does not exist, create a `.astro` file in `src/pages/` with:
 - The page title in a `<title>` tag and `<h1>`
 - A meta description derived from the page summary
 - `BaseLayout` wrapper
@@ -513,10 +522,13 @@ and event features have industry-appropriate alternatives in `${CLAUDE_PLUGIN_RO
 
 ### 3d — Create the homepage
 
-If the homepage content was extracted in Step 3a, create or update `src/pages/index.astro`
-with the actual homepage content instead of the default scaffolded placeholder.
-Use `BaseLayout`, include the site name as a heading, and convert the extracted
-content to Astro-compatible HTML.
+If `index` is in PROTECTED_PAGES, do NOT overwrite the homepage. Add the
+extracted homepage content to SKIPPED_PAGES so the owner can review it in
+the summary.
+
+If `index` is not in PROTECTED_PAGES, create `src/pages/index.astro` with
+the actual homepage content. Use `BaseLayout`, include the site name as a
+heading, and convert the extracted content to Astro-compatible HTML.
 
 Download any hero images or logos found on the homepage to `public/images/` using
 the same optimization pipeline as Step 2c.
@@ -718,6 +730,13 @@ Give the owner a plain-English summary:
 > until it looks right."
 
 List FAILED_POSTS, FAILED_PAGES, and FAILED_IMAGES so the owner knows what needs attention.
+
+For each SKIPPED_PAGES entry, tell the owner what was found on their old site and
+that the existing page was preserved:
+> "Your **[page name]** page already has [describe existing functionality, e.g.,
+> 'a contact form']. I kept it as-is. Here's what I found on your old site for
+> that page: [extracted content summary]. Let me know if you'd like me to add
+> any of that to the existing page."
 
 For each APP_PAGES entry, suggest a replacement:
 - Booking/scheduling → "Cal.com or Calendly integrate well. See `${CLAUDE_PLUGIN_ROOT}/docs/platforms/`."

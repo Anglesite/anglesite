@@ -57,10 +57,13 @@ describe('content collections', () => {
     expect(zodCollections.sort()).toEqual(ksCollections.sort());
   });
 
-  it('has content directories for each collection', () => {
+  it('does not ship pre-created content directories in the template', () => {
+    // Content directories are created by prune-collections.mjs during setup,
+    // not shipped in the template. This prevents glob-loader warnings for
+    // collections that aren't relevant to the site type.
     for (const name of COLLECTIONS) {
-      const dir = join(root, 'template', 'src', 'content', name);
-      expect(existsSync(dir), `Missing directory: src/content/${name}/`).toBe(true);
+      const gitkeep = join(root, 'template', 'src', 'content', name, '.gitkeep');
+      expect(existsSync(gitkeep), `Unexpected .gitkeep in src/content/${name}/`).toBe(false);
     }
   });
 
