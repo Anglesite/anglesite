@@ -32,13 +32,13 @@ describe("parseInlineColors", () => {
     expect(result).toContain("#0000ff");
   });
 
-  it("deduplicates repeated rgb() values", () => {
+  it("preserves duplicate rgb() values for frequency counting by rankColors", () => {
     const result = parseInlineColors([
       "color: rgb(255, 0, 0)",
       "color: rgb(255, 0, 0)",
       "background: rgb(255, 0, 0)",
     ]);
-    expect(result.filter((h) => h === "#ff0000").length).toBe(1);
+    expect(result.filter((h) => h === "#ff0000").length).toBe(3);
   });
 
   it("handles rgba() with full opacity (1) as rgb", () => {

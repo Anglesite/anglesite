@@ -20,13 +20,14 @@ import {
  *
  * - Handles `rgb(R, G, B)` and `rgba(R, G, B, A)`.
  * - For rgba(), ignores colors with opacity < 0.5 (nearly transparent).
- * - Returns deduplicated lowercase hex strings.
+ * - Returns ALL occurrences including duplicates so that rankColors() can
+ *   count frequency correctly.
  *
  * @param {string[]} styles - Array of inline CSS style attribute values.
- * @returns {string[]} Deduplicated hex color strings (e.g. ["#ff0000", "#0080ff"]).
+ * @returns {string[]} Lowercase hex color strings with duplicates preserved (e.g. ["#ff0000", "#ff0000", "#0080ff"]).
  */
 export function parseInlineColors(styles) {
-  const seen = new Set();
+  const result = [];
 
   // Match both rgb(...) and rgba(...) patterns with optional whitespace.
   const RGB_RE = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/g;
@@ -44,11 +45,11 @@ export function parseInlineColors(styles) {
       if (alpha < 0.5) continue;
 
       const hex = rgbToHex(r, g, b);
-      seen.add(hex.toLowerCase());
+      result.push(hex.toLowerCase());
     }
   }
 
-  return [...seen];
+  return result;
 }
 
 // ---------------------------------------------------------------------------
