@@ -45,6 +45,7 @@ function detectEvenlySpacedGroups(elements) {
 
   // Check if gaps are within 20% of average gap
   const avgGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+  if (avgGap === 0) return clusters.length;
   const evenly = gaps.every((g) => Math.abs(g - avgGap) / avgGap <= 0.2);
 
   return evenly ? clusters.length : 0;
