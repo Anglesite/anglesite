@@ -152,9 +152,10 @@ export function parseCanvaFonts(fontFaceRules) {
 
   for (const rule of fontFaceRules) {
     const family = rule.family;
-    if (CANVA_SYSTEM_FONTS.has(family.toLowerCase())) continue;
-    if (seen.has(family)) continue;
-    seen.add(family);
+    const lower = family.toLowerCase();
+    if (CANVA_SYSTEM_FONTS.has(lower)) continue;
+    if (seen.has(lower)) continue;
+    seen.add(lower);
     result.push(family);
   }
 
