@@ -28,6 +28,7 @@ These platforms serve content from their own infrastructure. The import skill fe
 - [Webflow](webflow.md) — CMS API (best), RSS feed, or sitemap + WebFetch
 - [GoDaddy Website Builder](godaddy.md) — Sitemap + WebFetch (no API or export)
 - [Carrd](carrd.md) — WebFetch (single-page sites, no API)
+- [Canva Published Sites](canva-site.md) — Playwright extraction from `*.my.canva.site` (design tokens + layout + content)
 - [Micro.blog](microblog.md) — JSON Feed (best), RSS feed, or data export
 - [WriteFreely / Write.as](writefreely.md) — API with Markdown source (best), RSS feed
 
