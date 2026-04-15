@@ -8,7 +8,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── skills/                       Skills (41 total: 18 user-facing, 23 model-only)
+├── skills/                       Skills (42 total: 18 user-facing, 24 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -22,6 +22,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── newsletter/SKILL.md       Email newsletter setup + subscribe form
 │   ├── add-store/SKILL.md        Ecommerce intake (user-facing)
 │   ├── design-interview/SKILL.md Visual identity (model-only)
+│   ├── email/SKILL.md            Business email setup, Apple-first (model-only)
 │   ├── animate/SKILL.md          CSS animations (model-only)
 │   ├── new-page/SKILL.md         Page creation (model-only)
 │   ├── syndicate/SKILL.md        Social media post generation (model-only)
@@ -146,6 +147,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Skill | Purpose |
 |---|---|
 | `design-interview` | Visual identity and branding questionnaire |
+| `email` | Business email setup: Apple-first provider recommendation, DNS pre-fill |
 | `animate` | CSS animations (hover, scroll reveals, transitions) |
 | `creative-canvas` | Interactive visual effects and creative coding (p5.js, Three.js, GSAP, Tone.js, D3.js) |
 | `new-page` | Create new page with SEO and accessibility |

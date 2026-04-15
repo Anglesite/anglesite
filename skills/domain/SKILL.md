@@ -68,34 +68,11 @@ Ask: "What do you need to set up on your domain?" Common requests:
 
 ### Email
 
-If the owner wants email at their domain (like name@yourbusiness.com), ask which email provider they use or want to use. Common options:
+For email setup (business mailboxes at the owner's domain), invoke the email skill:
 
-- **iCloud Mail** (custom domain) — Requires iCloud+ subscription. Most Mac users already have this.
-- **Fastmail** — Privacy-focused, independent email provider. Paid.
-- **Google Workspace** — If they already use Gmail for business.
-- **Proton Mail** — Privacy-first, encrypted. Free and paid tiers.
-- **Other** — Ask which provider.
+Read and follow `${CLAUDE_PLUGIN_ROOT}/skills/email/SKILL.md`
 
-Each provider publishes the DNS records they need. Look up the provider's requirements, then:
-
-1. Tell the owner what you're adding and why:
-   - **MX records** — "These tell the internet where to deliver your email."
-   - **TXT record (SPF)** — "This prevents scammers from sending fake email from your domain."
-   - **CNAME or TXT records (DKIM)** — "This adds a digital signature so email providers trust your messages."
-   - **TXT record (DMARC)** — "This tells email providers what to do with messages that fail security checks."
-
-2. Add each record via the API. Example for a single record:
-   ```sh
-   curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
-     -X POST -H "Authorization: Bearer $CF_API_TOKEN" \
-     -H "Content-Type: application/json" \
-     --data '{"type":"MX","name":"@","content":"mx1.example.com","priority":10,"ttl":1,"proxied":false}'
-   ```
-   Email records (MX, SPF, DKIM, DMARC) must always use `"proxied": false`.
-
-3. After adding all records, list what you added: "I've set up your email DNS records: [list each one]. DNS changes take a few minutes to kick in — try sending yourself a test email in about 15 minutes."
-
-Add `SITE_EMAIL=name@domain.com` to `.site-config` using the **Write tool** (update the existing file).
+The email skill expects the Cloudflare API context (`CF_API_TOKEN`, `CF_ZONE_ID`) to already be available. Ensure the Cloudflare API access section above has been completed before invoking it.
 
 ### Bluesky verification
 
