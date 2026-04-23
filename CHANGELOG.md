@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] — 2026-04-23
+
+Stable release. All beta blockers resolved, 42 skills, 2018 passing tests.
+
+### Added
+- `/anglesite:design-import` skill — import design tokens and layouts from Canva published sites (#183)
+- `/anglesite:email` skill — business email setup with Apple-first provider recommendations
+- Canva Playwright extraction: colors, fonts, text hierarchy, layout heuristics, design axis inference
+- PII phone number allowlist (`PII_PHONE_ALLOW` in `.site-config`)
+- Content collection pruning by site type — only scaffold collections the site actually needs
+- Serena language server integration for plugin development
+- Style guide and CSS/markdown linting (stylelint + markdownlint)
+- Bug filing workflow for plugin-level issues
+
+### Fixed
+- Import/convert skills now protect existing pages from overwrite (#173)
+- Import skill preserves scaffolded page features instead of overwriting
+- Pagefind CSS variables scoped to `#search` instead of `:root` (#169)
+- Blog post URLs no longer include `.mdoc` extension (#168)
+- Wix Playwright extraction: header logos, footer content, fullPage mode (#166)
+- Playwright resolved from project cwd, not plugin cache (#167)
+- Flat sitemap image extraction warning in import skill (#172)
+- Import scripts renamed from `.js` to `.mjs` for ESM compatibility
+- Empty content collection glob-loader warnings suppressed
+
 ## [1.0.0-beta.1] — 2026-03-31
 
 First beta for the 1.0 release. All 0.16.x blockers resolved — entering QA.
