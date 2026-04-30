@@ -15,6 +15,7 @@
     "ai-og": "tsx scripts/generate-og-pages.ts",
     "ai-optimize": "tsx scripts/optimize-images.ts",
     "ai-qr": "tsx scripts/qr-generate.ts",
+    "ai-linkcheck": "tsx scripts/link-check.ts",
     "predeploy": "tsx scripts/pre-deploy-check.ts",
     "lint:css": "stylelint 'src/**/*.css'",
     "lint:md": "markdownlint-cli2 'docs/**/*.md' '*.md'"

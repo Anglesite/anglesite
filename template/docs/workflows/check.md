@@ -59,13 +59,28 @@ Manual checks:
 - `npm audit` — check for known vulnerabilities
 - Images in `public/images/` checked for EXIF GPS data
 
+## Link health
+
+Run the automated link checker after a successful build:
+
+```sh
+npm run ai-linkcheck
+```
+
+Reports broken internal links and orphaned pages. Add `--external` to also check external URLs (slower).
+
+If a link is intentionally broken or excluded, add it to `.site-config`:
+
+```
+LINK_CHECK_ALLOW=staging.example.com,internal.corp
+```
+
 ## Content and SEO
 
 - Every page has unique `<title>` and `<meta name="description">`
 - Open Graph tags present (`og:title`, `og:description`, `og:image`)
 - Sitemap at `/sitemap-index.xml`
 - `robots.txt` includes sitemap URL
-- No broken internal links
 
 ## IndieWeb
 
