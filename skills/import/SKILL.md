@@ -71,7 +71,8 @@ Use Glob to check for `src/content/config.ts` or `src/content.config.ts` (Astro 
 moved the content config; either path means Anglesite).
 
 If either exists, this project has already been scaffolded. Read `.site-config` to
-load `SITE_NAME` and `OWNER_NAME`. Skip to Step 1.
+load `SITE_NAME` (and `OWNER_NAME` if it's set; don't prompt for it here — import
+doesn't need it). Skip to Step 1.
 
 ### 0c — Scaffold if needed
 
@@ -92,14 +93,12 @@ Stop.
 zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh --yes .
 ```
 
-Ask: "What's your name?" (The site name will be detected from the homepage in
-Step 3a, so no need to ask for it now.)
+No questions yet — the site name will be detected from the homepage in Step 3a, and the owner's name is collected later only if a downstream output needs it (see "On-demand owner name" in `${CLAUDE_PLUGIN_ROOT}/skills/start/SKILL.md`).
 
-Save to `.site-config` using the **Write tool**:
+Save the minimum to `.site-config` using the **Write tool**:
 
 ```
 SITE_TYPE=blog
-OWNER_NAME=Name
 SITE_NAME=My Site
 DEV_HOSTNAME=mysite.local
 AI_MODEL=(write your actual model name here)

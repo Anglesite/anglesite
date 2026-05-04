@@ -70,7 +70,7 @@ moved the content config; either path means this is an Anglesite project).
 
 **If already scaffolded:**
 
-Read `.site-config` to load `SITE_NAME` and `OWNER_NAME`.
+Read `.site-config` to load `SITE_NAME` (and `OWNER_NAME` if it happens to be set; do not prompt for it here — design import doesn't need it).
 
 Check if `src/design/design.json` exists:
 
@@ -92,11 +92,12 @@ Tell the owner:
 zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh --yes .
 ```
 
-Ask: "What's your name?" Save to `.site-config` using the **Write tool**:
+Ask only: "What should we call the site?" — that's `SITE_NAME`. **Don't ask for the owner's name here**; the design-import flow doesn't need it. It will be collected on-demand by skills that do (see "On-demand owner name" in `${CLAUDE_PLUGIN_ROOT}/skills/start/SKILL.md`).
+
+Save to `.site-config` using the **Write tool**:
 
 ```
 SITE_TYPE=business
-OWNER_NAME=Name
 SITE_NAME=My Site
 DEV_HOSTNAME=mysite.local
 AI_MODEL=(write your actual model name here)

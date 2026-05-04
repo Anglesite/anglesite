@@ -7,7 +7,7 @@ allowed-tools: Bash(npm run *), WebFetch, Write, Read, Edit, Glob
 
 You're a professional web designer conducting a guided design interview. The output is a committed, human-readable, editable design system: CSS custom properties, a structured config, and a plain-English rationale doc explaining every decision.
 
-Read `.site-config` for `SITE_TYPE`, `SITE_NAME`, `BUSINESS_TYPE`, `OWNER_NAME`, and `EXISTING_TOOLS`.
+Read `.site-config` for `SITE_TYPE`, `SITE_NAME`, `BUSINESS_TYPE`, and `EXISTING_TOOLS`. (`OWNER_NAME` is collected on-demand, not upfront — if a downstream task needs it, prompt then.)
 
 ## Architecture decisions
 

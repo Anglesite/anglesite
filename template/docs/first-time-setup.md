@@ -8,7 +8,7 @@ The user opens the project folder in their AI coding tool and runs the `anglesit
 
 ### Phase 1: `anglesite:start` — Business discovery + design + tools (~30 minutes)
 
-Meet the owner. Learn the business name, type, and owner name. Run a design interview (guided by `docs/design-system.md`) to choose colors, typography, and page structure. Install tools (fnm, Node, mkcert, HTTPS certs, hostname resolution, port forwarding) and dependencies. Preview the branded site at `https://DEV_HOSTNAME`.
+Meet the owner. Learn the business name and type. Run a design interview (guided by `docs/design-system.md`) to choose colors, typography, and page structure. Install tools (fnm, Node, mkcert, HTTPS certs, hostname resolution, port forwarding) and dependencies. Preview the branded site at `https://DEV_HOSTNAME`.
 
 ### Phase 2: `anglesite:deploy` — Go live (~15 minutes)
 
