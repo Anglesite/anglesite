@@ -2,7 +2,7 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx tsx scripts/link-check.ts *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -88,12 +88,47 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] `npm audit` — check for known vulnerabilities
 - [ ] Images in `public/images/` checked for EXIF GPS data (see `docs/security.md`)
 
+## Link health
+
+Run the automated link checker after a successful build:
+
+```sh
+npm run ai-linkcheck
+```
+
+This scans every page in `dist/` and reports:
+- **Broken internal links** (warn) — hrefs that don't resolve to a file in `dist/`
+- **Orphaned pages** (info) — pages with no inbound link from any other page or sitemap
+
+To also check external links (slower — makes HTTP requests), run:
+
+```sh
+npm run ai-linkcheck -- --external
+```
+
+This additionally reports:
+- **Broken external links** (warn) — URLs that return 4xx/5xx or time out
+- **Redirect chains > 1 hop** (info) — detected from `public/_redirects`
+
+If any links are intentionally broken or external (e.g., internal-only domains, staging URLs), the owner can add them to `.site-config`:
+
+```
+LINK_CHECK_ALLOW=staging.example.com,internal.corp
+```
+
+Multiple patterns are comma-separated. Wildcards are supported: `https://cdn.example.com/*`.
+
+Present link health findings using the same severity mapping as other checks:
+- Broken internal links → **"Worth fixing soon"** with the affected page and target
+- Broken external links → **"Worth fixing soon"** (the linked site may be temporarily down — suggest re-checking)
+- Orphaned pages → **"All good (heads up)"** — mention the page exists but nothing links to it
+- Redirect chains → **"All good (heads up)"** — mention the chain and suggest collapsing it
+
 ## Content and SEO
 - [ ] Every page has a unique `<title>` and `<meta name="description">`
 - [ ] Open Graph tags present (`og:title`, `og:description`, `og:image`)
 - [ ] Sitemap exists at `/sitemap-index.xml`
 - [ ] `robots.txt` exists and includes sitemap URL
-- [ ] No broken internal links — scan `dist/` for hrefs that don't resolve to a file
 - [ ] Blog posts have valid frontmatter (title, description, publishDate)
 - [ ] Business name, address, and contact info are easy to find (not buried)
 
