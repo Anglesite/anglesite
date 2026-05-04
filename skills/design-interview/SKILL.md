@@ -2,7 +2,7 @@
 name: design-interview
 description: "Redo the visual identity and branding"
 user-invokable: false
-allowed-tools: Bash(npm run *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Edit, Glob
+allowed-tools: Bash(npm run *), WebFetch, Write, Read, Edit, Glob
 ---
 
 You're a professional web designer conducting a guided design interview. The output is a committed, human-readable, editable design system: CSS custom properties, a structured config, and a plain-English rationale doc explaining every decision.
@@ -18,6 +18,21 @@ Read `.site-config` for `SITE_TYPE`, `SITE_NAME`, `BUSINESS_TYPE`, `OWNER_NAME`,
 If `.site-config` doesn't exist or is missing `SITE_NAME`, tell the owner: "Let's start from the beginning — type `/anglesite:start` to set up your site."
 
 This is a conversation, not a form — let the owner's answers guide the next question. Think of yourself as a designer sitting across the table from a client, sketchbook in hand.
+
+## Fast path — pre-made design system
+
+Before starting the full interview, offer the fast path:
+
+> There are two ways we can do this:
+>
+> 1. **Pick a pre-made design system** — I'll show you a few from [freedesignmd.com](https://freedesignmd.com) (a free catalog of 121+ curated systems) that fit your business. About 30 seconds to choose, and we're done with design.
+> 2. **Bespoke interview** — A 4-stage conversation about your brand, voice, and audience. We'll build the design together from scratch. Takes 5–10 minutes but the result is uniquely yours.
+>
+> Which would you prefer?
+
+If the owner picks the fast path, delegate to `${CLAUDE_PLUGIN_ROOT}/skills/freedesignmd/SKILL.md` and skip the rest of this skill. When the freedesignmd skill returns, write `docs/brand.md` and continue with the post-interview tasks below (favicon, manifest, JSON-LD, etc.) starting at "Additional post-interview tasks" item 8.
+
+If the owner picks the bespoke interview, continue with "Before you begin" below.
 
 ## Before you begin
 
@@ -98,17 +113,17 @@ Ask one topic at a time. Listen, reflect back what you heard, then move on. Afte
 
 **"Design it for me" escape hatch:** If the owner says something like "you pick," "I trust you," "just make it look good," or otherwise defers on multiple topics, don't keep asking one-by-one. Instead, use `axesFromBusinessType()` defaults, generate the full design, and present it in one shot. Ask: "Here's what I'd do — does this feel right?" Let them approve, tweak, or start over.
 
-## Visual communication
+## Communicating the design back to the owner
 
-Use tldraw to show the owner what you're proposing throughout the interview:
+Show the owner what you're proposing throughout the interview using clear markdown:
 
-- **Axis visualization** — show the five axes as labeled slider bars during Stage 4 confirmation
-- **Color preview** — render the generated palette as color swatch rectangles
-- **Page structure** — use `sitemapTree()` from `scripts/tldraw-helpers.ts` to show proposed navigation
-- **Tool comparisons** — if recommending SaaS tools, use `comparisonTable()` to show options side by side
-- **Design summary** — after confirmation, show a visual card with colors, font names, axis positions, and page list
+- **Axis confirmation** — present the five axes as a markdown table with positions and readings (Stage 4)
+- **Color preview** — list the generated palette as a markdown table with hex values and a one-line role description per color
+- **Page structure** — describe proposed navigation as a nested markdown list
+- **Tool comparisons** — if recommending SaaS tools, present options as a comparison table
+- **Design summary** — after confirmation, write a short summary section with colors, font names, axis positions, and page list
 
-The owner should see their design before it goes live. Visual previews build confidence and reduce revision cycles.
+The owner should see their design before it goes live. Concrete previews (hex values, exact font names, page-by-page list) build confidence and reduce revision cycles.
 
 ## After the interview
 

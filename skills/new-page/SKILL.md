@@ -3,14 +3,24 @@ name: new-page
 description: "Create a new page with SEO and accessibility"
 user-invokable: false
 argument-hint: "[page name or purpose]"
-allowed-tools: mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
+allowed-tools: Write, Read, Glob
 ---
 
 Create a new page on the site.
 
-## Visual planning
+## Planning
 
-Before creating the page, use tldraw to show the owner where it fits in the site structure. Use `sitemapTree()` from `scripts/tldraw-helpers.ts` to draw the current page tree with the proposed new page highlighted. This helps the owner understand navigation impact and approve the placement.
+Before creating the page, show the owner where it fits in the site structure. Glob `src/pages/` for existing pages and present a nested markdown list with the proposed new page highlighted, e.g.:
+
+```
+- /
+  - /about
+  - /services
+  - /contact
+  - /events  ← new page
+```
+
+This helps the owner understand navigation impact and approve the placement.
 
 ## Architecture decisions
 

@@ -1,7 +1,7 @@
 ---
 name: start
 description: "First-time setup: discovery, design, tools, preview"
-allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Bash(gh *), Bash(git remote *), Bash(git push *), Bash(git branch *), Bash(git add *), Bash(git commit *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
+allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Bash(gh *), Bash(git remote *), Bash(git push *), Bash(git branch *), Bash(git add *), Bash(git commit *), WebFetch, Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -178,9 +178,34 @@ The prune script reads `SITE_TYPE` and `BUSINESS_TYPE` from `.site-config` and k
 
 If the design interview (Step 2) adds collections or singletons not already present, create the content directory (e.g. `mkdir -p src/content/experiments`) and regenerate `anglesite.config.json` to match.
 
-## Step 2 — Design interview
+## Step 2 — Design
 
-Run the guided design interview. Read and follow the full instructions in `${CLAUDE_PLUGIN_ROOT}/skills/design-interview/SKILL.md` — it conducts a 4-stage conversational design discovery (Intent → Mood → Brand anchoring → Axis confirmation) and generates four artifacts: `src/design/design.json`, `src/design/tokens.css`, `src/design/DESIGN.md`, and an updated layout import. It also covers structured data and docs sync. All design edits are file changes that don't require tools to be installed yet.
+Offer the owner a choice between three design paths, with the fast path first:
+
+> Now for the look and feel. There are three ways to do this:
+>
+> 1. **Pick a pre-made design system** (fastest — about 30 seconds). I'll show you a few from [freedesignmd.com](https://freedesignmd.com), a free catalog of 121+ curated design systems. You pick one and we're done.
+> 2. **Quick-pick from 9 built-in themes** (fast — one decision). I'd suggest one based on your business type, but you can pick whichever feels right.
+> 3. **Bespoke interview** (5–10 minutes, uniquely yours). A guided conversation about your brand, voice, and audience. We build the design together.
+>
+> Which would you prefer? When in doubt, the pre-made catalog is a great place to start — you can always switch later.
+
+Branch based on the choice:
+
+- **Pre-made catalog** → read and follow `${CLAUDE_PLUGIN_ROOT}/skills/freedesignmd/SKILL.md`. After it returns, continue with the post-design tasks below.
+- **Built-in quick-pick** → read and follow `${CLAUDE_PLUGIN_ROOT}/skills/themes/SKILL.md` and pick the built-in path (Step 3 of that skill). After it returns, continue with the post-design tasks below.
+- **Bespoke interview** → read and follow `${CLAUDE_PLUGIN_ROOT}/skills/design-interview/SKILL.md` — it conducts a 4-stage conversational design discovery (Intent → Mood → Brand anchoring → Axis confirmation) and generates `src/design/design.json`, `src/design/tokens.css`, `src/design/DESIGN.md`, and an updated layout import. It also covers structured data and docs sync.
+
+Post-design tasks (run for any of the three paths):
+
+- Update `public/favicon.svg` to match the identity
+- Update `public/manifest.webmanifest` with brand colors (`theme_color` from `--color-primary`, `background_color` from `--color-bg`)
+- Run `npm run ai-images` to regenerate `apple-touch-icon.png` and `og-image.png`
+- Add JSON-LD structured data to the home page (`LocalBusiness` for physical businesses, `Organization` for online-only, `Person` for personal sites)
+- Build a styled home page that reflects the brand and site type
+- Add `rel="me"` links to social profiles
+
+All design edits are file changes that don't require tools to be installed yet.
 
 ## Step 2b — Photography guidance
 
@@ -315,18 +340,18 @@ gh label create build --description "Build or deploy failure" --color fbca04
 
 Tell the owner: "Your website is backed up to GitHub! Every time we make changes, they'll be saved there automatically. If anything ever happens to your computer, your website is safe."
 
-## Visual progress
+## Progress updates
 
-Throughout the setup process, use tldraw to show the owner a visual progress checklist using `progressChecklist()` from `scripts/tldraw-helpers.ts`. Update it as each step completes:
+Throughout setup, give the owner a clear sense of where they are and what's left. After each major milestone, summarize completed steps and what comes next as a short markdown checklist:
 
-- Scaffolding
-- Discovery interview
-- Design interview
-- Tool installation
-- GitHub backup
-- Preview
+- [x] Scaffolding
+- [x] Discovery interview
+- [ ] Design
+- [ ] Tool installation
+- [ ] GitHub backup
+- [ ] Preview
 
-This gives the owner a clear sense of where they are and what's left. Draw it once early and update it after major milestones.
+Update once early and again after each major milestone. Keep it tight — a 6-line list, not a paragraph.
 
 ## Step 6 — Preview
 
