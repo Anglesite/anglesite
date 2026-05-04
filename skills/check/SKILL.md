@@ -2,7 +2,7 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -217,7 +217,17 @@ Examples of how to translate findings:
 
 Never show the owner: CSS selectors, HTML tag names, HTTP headers, schema.org terms, WCAG levels, npm package names, or code snippets. If you need to explain *why* something matters, use an analogy or a concrete consequence ("visitors on phones will have to scroll sideways").
 
-**Visual summary:** After the audit, use tldraw to draw a visual scorecard using `progressChecklist()` from `scripts/tldraw-helpers.ts`. Show each check category as a checklist item (green check for passing, grey box for issues found). The owner sees at a glance what's working and what needs attention.
+**Summary:** After the audit, present a markdown scorecard so the owner sees at a glance what's working and what needs attention:
+
+```
+- [x] Build
+- [x] Accessibility
+- [ ] SEO  ← 2 issues
+- [x] Security
+- [x] Privacy
+```
+
+Use `[x]` for passing categories and `[ ]` for ones with issues. Add a brief annotation after any failing item.
 
 If any must-fix issues are found, explain and offer to fix them. If everything passes, keep it short: "Your site looks good — it builds correctly, works on phones, is secure, and is easy for search engines to find. No issues."
 

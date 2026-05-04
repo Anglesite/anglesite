@@ -8,7 +8,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── skills/                       Skills (42 total: 18 user-facing, 24 model-only)
+├── skills/                       Skills (43 total: 18 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -30,7 +30,8 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── optimize-images/SKILL.md  Image optimization pipeline (model-only)
 │   ├── og-images/SKILL.md       Satori-based OG image generation (model-only)
 │   ├── business-info/SKILL.md    Hours, location, LocalBusiness JSON-LD (model-only)
-│   ├── themes/SKILL.md           Visual theme picker with tldraw (model-only)
+│   ├── themes/SKILL.md           Visual theme picker — freedesignmd + built-ins (model-only)
+│   ├── freedesignmd/SKILL.md    Apply a design system from freedesignmd.com (model-only)
 │   ├── qr/SKILL.md              QR codes + UTM tracking (model-only)
 │   ├── reputation/SKILL.md     Review monitoring + competitive coaching (model-only)
 │   ├── testimonials/SKILL.md    Review collection + display (model-only)
@@ -156,7 +157,8 @@ Two levels of agent instructions exist — do not confuse them:
 | `optimize-images` | Resize, convert to WebP, strip EXIF, generate srcset |
 | `og-images` | Satori-based OG image generation for social sharing previews |
 | `business-info` | Hours, address, phone, LocalBusiness JSON-LD |
-| `themes` | Pre-built visual theme picker with tldraw swatches |
+| `themes` | Pre-built visual theme picker (freedesignmd catalog + 9 built-in quick-picks) |
+| `freedesignmd` | Browse, fetch, and apply a design system from freedesignmd.com |
 | `qr` | QR codes, shortlinks, UTM campaign URLs |
 | `reputation` | Review monitoring coaching and competitive awareness |
 | `testimonials` | Customer review collection, moderation, display |

@@ -1,7 +1,7 @@
 ---
 name: stats
 description: "Show site analytics in plain language"
-allowed-tools: Bash(curl *), Bash(grep *), Bash(git log *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
+allowed-tools: Bash(curl *), Bash(grep *), Bash(git log *), Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -100,15 +100,15 @@ Present the summary in plain language. Example output:
 > - facebook ad "march-promo": 45 visits
 > - Email "weekly-update" via newsletter: 12 visits
 
-## Visual presentation
+## Presentation
 
-After collecting the data, **draw the results** using tldraw before presenting text:
+After collecting the data, present results as a clean markdown summary:
 
-- Use `create_shapes` to draw top pages as a horizontal bar chart (rectangles proportional to visit counts, labeled with page path and count)
-- If campaign data exists, draw a second bar chart for campaign performance
-- The owner sees their numbers as a visual dashboard, not a wall of text
+- **Top pages** — markdown table with page path and visit count (and optional bar made of `█` characters proportional to visits, e.g. `████████ 240`)
+- **Campaign performance** — second markdown table if campaign data exists
+- **Plain-language summary** — 2–3 sentences explaining what the numbers mean
 
-Show the visual first, then follow up with the plain-language summary and actionable suggestions.
+Lead with the table, follow with the summary and actionable suggestions.
 
 ## Step 3 — Actionable suggestions
 
