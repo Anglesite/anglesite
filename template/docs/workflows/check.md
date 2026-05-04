@@ -44,6 +44,25 @@ Manual checks:
 - Form inputs have `<label>` elements
 - `lang` attribute on `<html>`
 
+## Agent readability (a14y)
+
+Audits how well AI agents can read the site (search agents, browsing agents, content-mapping agents). 38 checks across discoverability, parsing, and comprehension via [a14y.dev](https://a14y.dev) (open-source, Apache-2.0).
+
+Start the dev server first, then run:
+
+```sh
+npm run ai-a14y
+```
+
+By default it audits `https://DEV_HOSTNAME`. Override with `--url`. Add `--fail-under 80` (or set `A14Y_FAIL_UNDER=80` in `.site-config`) to enforce a score threshold for CI. Add `--warn-only` (or `A14Y_WARN_ONLY=true`) to never fail the process while remediating.
+
+Install on demand: `npm install --save-dev a14y`.
+
+**Deploy gate.** `AGENTIC_CRAWLERS` in `.site-config` decides whether a14y also gates `/anglesite:deploy`:
+
+- `AGENTIC_CRAWLERS=allow` (default) — a14y runs as a deploy gate; below-threshold scores block publishing.
+- `AGENTIC_CRAWLERS=block` — owner has declared agents shouldn't read the site, so gating on agent-readability is incoherent. The check still runs in `/anglesite:check` for reference but never blocks deploy.
+
 ## Mobile and responsive
 
 - Viewport meta tag present

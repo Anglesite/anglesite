@@ -106,14 +106,14 @@ zsh ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh --yes .
 
 Ask the essentials (normally gathered by `/anglesite:start`):
 
-1. "What's your name?"
-2. "What should we call the site?"
+1. "What should we call the site?"
+
+Don't ask for the owner's name here — convert doesn't need it upfront. The footer (Step 7's copyright line) and any About-page work will prompt for it on-demand if `OWNER_NAME` isn't already in `.site-config`. See "On-demand owner name" in `${CLAUDE_PLUGIN_ROOT}/skills/start/SKILL.md`.
 
 Save to `.site-config` using the **Write tool**:
 
 ```
 SITE_TYPE=blog
-OWNER_NAME=Name
 SITE_NAME=Site Name
 DEV_HOSTNAME=sitename.local
 AI_MODEL=(write your actual model name here)
@@ -433,9 +433,16 @@ sections of `global.css`.
      <nav class="social-links">
        <a href="URL" rel="me">Platform</a>
      </nav>
-     <p>&copy; YEAR OWNER_NAME</p>
+     <p>&copy; YEAR HOLDER</p>
    </footer>
    ```
+
+   For `HOLDER`, prefer `OWNER_NAME` from `.site-config` if it's set. If it's
+   not, **this is a legitimate on-demand trigger** — ask the owner once: "What
+   name should appear on the copyright line — your name, or the business
+   name?" Save the answer to `.site-config` as `OWNER_NAME` (or use `SITE_NAME`
+   if they pick the business name and want to skip personal-name collection
+   entirely). See "On-demand owner name" in `${CLAUDE_PLUGIN_ROOT}/skills/start/SKILL.md`.
 
 3. **Meta tags**: If the source had `<meta name="color-scheme" content="dark light">`,
    add it to the `<head>`.

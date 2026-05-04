@@ -24,16 +24,18 @@ Generate print-ready marketing materials that match the site's visual identity. 
 Before generating materials, ensure:
 
 1. **Brand identity exists** — `docs/brand.md` must be populated (run design-interview first if not)
-2. **Business info is set** — `.site-config` must have `SITE_NAME`, `OWNER_NAME` at minimum
+2. **Business info is set** — `.site-config` must have `SITE_NAME` at minimum. Print materials usually want a name on them too — `OWNER_NAME` is collected on-demand here (see Step 1).
 3. **Design system is configured** — `src/styles/global.css` has the CSS custom properties
 
-If any are missing, tell the owner what's needed: "I need your brand colors and business info set up first. Want me to run through the design interview?"
+If brand identity or design system is missing, tell the owner what's needed: "I need your brand colors and business info set up first. Want me to run through the design interview?"
 
 ## Step 1 — Read branding and business context
 
 Read these files to extract the design system and business details:
 
-1. **`.site-config`** — extract: `SITE_NAME`, `OWNER_NAME`, `SITE_DOMAIN`, `SITE_ADDRESS`, `SITE_PHONE`, `SITE_HOURS`, `BUSINESS_TYPE`, `SITE_EMAIL`
+1. **`.site-config`** — extract: `SITE_NAME`, `SITE_DOMAIN`, `SITE_ADDRESS`, `SITE_PHONE`, `SITE_HOURS`, `BUSINESS_TYPE`, `SITE_EMAIL`, and `OWNER_NAME` if present.
+
+   If the material the owner is asking for typically carries a personal name (business card, signed flyer, contact card) and `OWNER_NAME` is missing, ask once — framed by the output: "What name should appear on the business card?" — and save it to `.site-config` with the **Write tool**. For materials that don't need a personal name (generic flyer, social card), skip this prompt. See "On-demand owner name" in `${CLAUDE_PLUGIN_ROOT}/skills/start/SKILL.md`.
 2. **`docs/brand.md`** — extract: brand personality, tone, tagline, any design notes
 3. **`src/styles/global.css`** — extract the `:root` CSS custom properties:
    - `--color-primary`, `--color-accent`, `--color-bg`, `--color-text`

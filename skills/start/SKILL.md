@@ -22,14 +22,27 @@ These decisions shape how the site is built. Read when you need to explain *why*
 
 Keep each step conversational. Celebrate progress. If something fails, read `~/.anglesite/logs/setup.log` and explain plainly.
 
+## On-demand owner name
+
+Anglesite practices PII data minimization: **don't ask for the owner's name during setup.** Names are PII and there's nothing in `start` (or in design, tool install, GitHub backup, or preview) that genuinely needs one. Collect it only when a downstream skill produces an output that requires it — copyright footer, About-page byline, h-card / IndieAuth identity, print materials, handoff documentation.
+
+When such a skill runs, it should:
+
+1. Read `OWNER_NAME` from `.site-config`. If present, use it.
+2. If absent, prompt the owner once, framed by the use case — e.g. "What name should appear on the copyright line?" or "What name should we put on your About page?" — not a generic "What's your name?"
+3. Save the answer to `.site-config` with the **Write tool** so subsequent skills don't ask again.
+
+The same principle extends to other PII (email, phone, address): collect at the moment of use, not speculatively.
+
 ## Step 0 — Meet the owner
 
-Introduce yourself: "Hi! I'm your webmaster. I'll help you build a website. Let's start by getting to know each other."
+Introduce yourself: "Hi! I'm your webmaster. I'll help you build a website. Let's start with what kind of site you need."
+
+Don't ask for the owner's name yet. Names are PII and there's nothing in this step that needs one — ask later if and when a specific output requires it (copyright footer, About page, IndieAuth identity, print materials, handoff doc). See "On-demand owner name" below.
 
 Ask:
 
-1. "What's your name?"
-2. "What kind of website are you looking for?"
+1. "What kind of website are you looking for?"
 
    Let them describe it naturally. Map their answer to a site type:
 
@@ -47,8 +60,8 @@ Then branch based on site type:
 
 ### Business sites (`SITE_TYPE=business`)
 
-3. "What's the name of your business?"
-4. "Tell me about your business in a sentence or two — what do you do?"
+2. "What's the name of your business?"
+3. "Tell me about your business in a sentence or two — what do you do?"
 
    Let them describe it in their own words. Then match their description to one or more files in `${CLAUDE_PLUGIN_ROOT}/docs/smb/`. Check the "Business types" table in `${CLAUDE_PLUGIN_ROOT}/docs/smb/README.md` for all types — you only need the table for type matching, not the cross-cutting references or other sections.
 
@@ -71,13 +84,13 @@ Then branch based on site type:
 
    If the owner is still forming their business — no name yet, no customers, just an idea — that's fine. Read `${CLAUDE_PLUGIN_ROOT}/docs/smb/pre-launch.md` for how to adjust the session. Build a simple site with what they have now and share relevant startup resources at the end.
 
-5. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
-6. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
-7. "Are you already using any tools or apps for your business?" — anything counts: Etsy, Square, Venmo, Instagram for sales, a booking app, a spreadsheet. If they already have tools, don't replace them — integrate with the website. Recognize informal tools (Venmo, PayPal, Cash App, Zelle) as valid starting points — suggest professional invoicing (Square, Stripe) when they're ready, not as an immediate replacement.
+4. "What do you want your website to do for your business?" Listen for concrete goals — get phone calls, book appointments, sell products online, build credibility, share news. These goals shape every design decision.
+5. "How do customers find you today?" — word of mouth, Google, social media, events, referrals. This tells you which pages and content matter most.
+6. "Are you already using any tools or apps for your business?" — anything counts: Etsy, Square, Venmo, Instagram for sales, a booking app, a spreadsheet. If they already have tools, don't replace them — integrate with the website. Recognize informal tools (Venmo, PayPal, Cash App, Zelle) as valid starting points — suggest professional invoicing (Square, Stripe) when they're ready, not as an immediate replacement.
 
-7b. **Business and organization sites only:** "Where do your customers leave reviews? Google, Yelp, your booking platform?" — Save as `REVIEW_PLATFORMS=google,yelp,fresha` (comma-separated slugs) in `.site-config`. If they mention Google Business Profile and `GOOGLE_REVIEW_URL` is not already set, ask for their business name to construct the direct review link: `https://search.google.com/local/writereview?placeid=PLACE_ID`. Find the Place ID via [Google's Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) and save as `GOOGLE_REVIEW_URL` in `.site-config`. Skip this question for personal, blog, and portfolio site types.
+6b. **Business and organization sites only:** "Where do your customers leave reviews? Google, Yelp, your booking platform?" — Save as `REVIEW_PLATFORMS=google,yelp,fresha` (comma-separated slugs) in `.site-config`. If they mention Google Business Profile and `GOOGLE_REVIEW_URL` is not already set, ask for their business name to construct the direct review link: `https://search.google.com/local/writereview?placeid=PLACE_ID`. Find the Place ID via [Google's Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) and save as `GOOGLE_REVIEW_URL` in `.site-config`. Skip this question for personal, blog, and portfolio site types.
 
-8. If the business has a physical location, ask:
+7. If the business has a physical location, ask:
    - "What's your business address?" (for maps and local search)
    - "What's your business phone number?" (for the website and local search)
    - "What are your hours?" (for the website and Google)
@@ -86,28 +99,28 @@ Then branch based on site type:
 
 ### Personal sites (`SITE_TYPE=personal`)
 
-3. "What should we call your site?" — their name, a nickname, or a creative title.
-4. "What do you want on it?" — about page, resume, links to projects, photos, contact info. Listen for what matters to them.
+2. "What should we call your site?" — a nickname, a creative title, or their name if they want it as the title. (Treat this answer as the public site title only; don't use it as `OWNER_NAME` — that's collected later, on-demand, when a flow actually needs the legal/preferred name.)
+3. "What do you want on it?" — about page, resume, links to projects, photos, contact info. Listen for what matters to them.
 
 ### Blog sites (`SITE_TYPE=blog`)
 
-3. "What's the name of your blog?" — or suggest using their name.
-4. "What will you write about?" — topics, audience, tone. This shapes categories and tags.
+2. "What's the name of your blog?" — a title for the blog. (If they suggest using their name, treat it as `SITE_NAME` only — don't double-save it as `OWNER_NAME`.)
+3. "What will you write about?" — topics, audience, tone. This shapes categories and tags.
 
 ### Portfolio sites (`SITE_TYPE=portfolio`)
 
-3. "What's the name of your portfolio?" — their name, studio name, or brand.
-4. "What kind of work will you showcase?" — photography, design, illustration, writing, code, music, etc.
+2. "What's the name of your portfolio?" — studio name, brand, or their name as a title. (Treat as `SITE_NAME` only; `OWNER_NAME` is collected later if needed.)
+3. "What kind of work will you showcase?" — photography, design, illustration, writing, code, music, etc.
 
    If their work is interactive or code-based (creative coding, generative art, web experiments, data visualization, WebGL, shaders), add `web-artist` to `BUSINESS_TYPE`. This enables the `creative-canvas` skill for full immersive setup — `ImmersiveLayout`, experiment gallery at `/lab`, and curated creative coding library support (p5.js, Three.js, GSAP, Tone.js, D3.js). Read `${CLAUDE_PLUGIN_ROOT}/docs/smb/web-artist.md` for design and structure guidance.
 
-5. "Where else do you share your work?" — Instagram, Behance, Dribbble, GitHub, SoundCloud, OpenProcessing, Shadertoy. These become featured links on the site.
+4. "Where else do you share your work?" — Instagram, Behance, Dribbble, GitHub, SoundCloud, OpenProcessing, Shadertoy. These become featured links on the site.
 
 ### Organization sites (`SITE_TYPE=organization`)
 
-3. "What's the name of your organization?"
-4. "What does your organization do?" — mission, community, cause. Match to `${CLAUDE_PLUGIN_ROOT}/docs/smb/` if applicable (e.g., `nonprofit`, `house-of-worship`, `youth-org`, `food-bank`). Save as `BUSINESS_TYPE`.
-5. "What should the website help people do?" — donate, volunteer, find events, learn about your mission, contact you.
+2. "What's the name of your organization?"
+3. "What does your organization do?" — mission, community, cause. Match to `${CLAUDE_PLUGIN_ROOT}/docs/smb/` if applicable (e.g., `nonprofit`, `house-of-worship`, `youth-org`, `food-bank`). Save as `BUSINESS_TYPE`.
+4. "What should the website help people do?" — donate, volunteer, find events, learn about your mission, contact you.
 
 ### All site types — wrap up
 
@@ -153,7 +166,6 @@ Now save all answers from Step 0 to `.site-config` using the **Write tool** — 
 
 ```
 SITE_TYPE=business
-OWNER_NAME=Name
 SITE_NAME=Business Name
 BUSINESS_TYPE=restaurant
 DEV_HOSTNAME=businessname.com.local
@@ -166,7 +178,7 @@ EXPLAIN_STEPS=true
 ANGLESITE_VERSION=0.16.3
 ```
 
-Only include keys that have values. `OWNER_NAME`, `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, `AI_MODEL`, and `EXPLAIN_STEPS` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. `EXISTING_TOOLS` is present if the owner mentioned tools (business) or social platforms (portfolio). The rest depend on the conversation. For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
+Only include keys that have values. `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, `AI_MODEL`, and `EXPLAIN_STEPS` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. `EXISTING_TOOLS` is present if the owner mentioned tools (business) or social platforms (portfolio). The rest — including `OWNER_NAME` — depend on the conversation. **Do not write `OWNER_NAME` here.** It's PII and is only collected later, on-demand, by skills that genuinely need it (see "On-demand owner name" below). For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
 
 After writing `.site-config`, prune content collections that aren't relevant to the site type. This removes unused content directories, associated pages, and updates `anglesite.config.json`:
 
