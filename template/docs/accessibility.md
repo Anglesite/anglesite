@@ -143,8 +143,15 @@ PDFs are often inaccessible — no heading structure, no alt text, images of tex
 
 ### What `/anglesite:check` does automatically
 
-- Install pa11y (`npm install -D pa11y`) for automated WCAG 2.1 AA scanning (contrast, alt text, ARIA, headings, labels). It is not included by default.
-- Manual checklist in `/anglesite:check` covers heading hierarchy, skip link, keyboard navigation, images of text, lang attribute
+- Runs the unified accessibility audit via `npm run ai-a11y` (script: `scripts/a11y-audit.ts`).
+- Heuristic checks always run (heading hierarchy, link text, alt text quality).
+- Optional checkers extend coverage when installed:
+  - `npm install -D pa11y` — full WCAG 2.1 AA scan (contrast, ARIA, labels, landmarks)
+  - `npm install -D @axe-core/playwright playwright` — axe-core with rich remediation context
+- Severity-aware exit codes: `0` clean, `1` errors, `2` warnings only. Pass `--warn-only` (or set `A11Y_WARN_ONLY=true` in `.site-config`) for mid-remediation sites.
+- Manual checklist in `/anglesite:check` covers heading hierarchy, skip link, keyboard navigation, images of text, lang attribute.
+
+The audit can also be wired into the deploy gate by setting `A11Y_GATE=true` in `.site-config`. See ADR-0016 for the full rationale.
 
 ### What the agent should test manually
 

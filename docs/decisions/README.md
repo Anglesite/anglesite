@@ -25,3 +25,4 @@ ADRs follow the [MADR](https://adr.github.io/madr/) format.
 - [ADR-0013](0013-github-backup.md) — Use GitHub for offsite backup and issue tracking
 - [ADR-0014](0014-edge-ab-testing.md) — Edge A/B testing over client-side
 - [ADR-0015](0015-site-search.md) — Use Pagefind for on-site search
+- [ADR-0016](0016-accessibility-audits.md) — Run automated accessibility audits with severity-aware gating

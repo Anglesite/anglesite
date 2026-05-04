@@ -1,7 +1,7 @@
 ---
 name: deploy
 description: "Build, security scan, and deploy to Cloudflare Pages"
-allowed-tools: Bash(npm run build), Bash(npm run ai-linkcheck *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Write, Read
+allowed-tools: Bash(npm run build), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Write, Read
 disable-model-invocation: true
 ---
 
@@ -17,6 +17,7 @@ Cloudflare Pages is connected to the GitHub repository. Pushing to `main` trigge
 - [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — why the Cloudflare account belongs to the owner
 - [ADR-0012 Verify first](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0012-verify-before-presenting.md) — why build must succeed before scans and deploy
 - [ADR-0013 GitHub backup](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0013-github-backup.md) — why GitHub is required for backup and issue tracking
+- [ADR-0016 Accessibility audits](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0016-accessibility-audits.md) — why the deploy gate is opt-in and warn-only-friendly
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
 
@@ -106,6 +107,32 @@ LINK_CHECK_DEPLOY=true
 Orphaned pages and redirect chains are always non-blocking (info-level). Broken external links are non-blocking even when the gate is enabled — external sites may be temporarily down.
 
 If the owner passes `--skip-linkcheck`, skip this step.
+
+## Step 2a¾ — Accessibility audit (opt-in gate)
+
+Read `A11Y_GATE` from `.site-config`. If unset or `false`, skip this step (the full accessibility audit still runs in `/anglesite:check`). If set to `true`, run the unified accessibility audit against the built site:
+
+```sh
+npm run ai-a11y -- --report a11y-report.md
+```
+
+The script exits with severity-aware codes (`1` for WCAG 2.1 AA errors, `2` for warnings, `0` for clean). When the gate is on:
+
+- **Errors (exit 1)** pause the deploy. Present each violation with its suggested fix, offer to apply the fixes, then rebuild and re-run.
+- **Warnings (exit 2)** are mentioned to the owner but do not block: "I found a few accessibility improvements you can make later — they're saved in a11y-report.md."
+
+**Warn-only mode for sites mid-remediation.** If `A11Y_WARN_ONLY=true` is set in `.site-config` (or the owner passes `--warn-only`), the audit always exits `0` regardless of findings, but the report is still written. Use this when a legacy site is being brought up to standard so deploys aren't blocked while the backlog clears.
+
+**This gate is off by default.** Only runs when the owner has opted in via `.site-config`:
+
+```
+A11Y_GATE=true
+A11Y_WARN_ONLY=false
+```
+
+If the owner passes `--skip-a11y`, skip this step.
+
+For the audit to use the full pa11y/axe-core checkers (not just heuristics), the owner needs them installed once: `npm install -D pa11y` or `npm install -D @axe-core/playwright playwright`. Tell them this once when they enable the gate.
 
 ## Step 2b — Copy quality scan (non-blocking)
 
