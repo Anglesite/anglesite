@@ -1,7 +1,7 @@
 ---
 name: deploy
 description: "Build, security scan, and deploy to Cloudflare Pages"
-allowed-tools: Bash(npm run build), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Write, Read
+allowed-tools: Bash(npm run build), Bash(npm run ai-linkcheck *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Write, Read
 disable-model-invocation: true
 ---
 
@@ -86,6 +86,26 @@ Run the SEO audit from `scripts/seo.ts` against the built output in `dist/`. Thi
 **Warnings and Nice-to-haves** are non-blocking. Log them to `seo-report.md` in the project root and briefly mention to the owner: "I found a few SEO improvements you can make later — they're saved in seo-report.md."
 
 If the owner passes `--skip-seo`, skip this step and log a timestamped note to `seo-report.md`: `SEO audit skipped on YYYY-MM-DD HH:MM`.
+
+## Step 2a½ — Link check (opt-in gate)
+
+Read `LINK_CHECK_DEPLOY` from `.site-config`. If set to `true`, run the link checker against the built site:
+
+```sh
+npm run ai-linkcheck
+```
+
+If broken internal links are found, pause the deploy and present them to the owner. Offer to fix or allowlist each one. After fixes, rebuild and re-check.
+
+**This gate is off by default.** Only runs when the owner has opted in via `.site-config`:
+
+```
+LINK_CHECK_DEPLOY=true
+```
+
+Orphaned pages and redirect chains are always non-blocking (info-level). Broken external links are non-blocking even when the gate is enabled — external sites may be temporarily down.
+
+If the owner passes `--skip-linkcheck`, skip this step.
 
 ## Step 2b — Copy quality scan (non-blocking)
 
