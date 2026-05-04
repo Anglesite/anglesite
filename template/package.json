@@ -17,6 +17,7 @@
     "ai-qr": "tsx scripts/qr-generate.ts",
     "ai-linkcheck": "tsx scripts/link-check.ts",
     "ai-a11y": "tsx scripts/a11y-audit.ts",
+    "ai-a14y": "tsx scripts/a14y-audit.ts",
     "predeploy": "tsx scripts/pre-deploy-check.ts",
     "lint:css": "stylelint 'src/**/*.css'",
     "lint:md": "markdownlint-cli2 'docs/**/*.md' '*.md'"

@@ -2,7 +2,7 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx pa11y-ci *), Bash(npx tsx scripts/link-check.ts *), Bash(npx tsx scripts/a11y-audit.ts *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx pa11y-ci *), Bash(npx tsx scripts/link-check.ts *), Bash(npx tsx scripts/a11y-audit.ts *), Bash(npx tsx scripts/a14y-audit.ts *), Bash(npx a14y *), Bash(a14y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -76,6 +76,42 @@ Use the accessibility utilities in `scripts/` for additional checks beyond the a
 - [ ] `/accessibility` statement page exists and is linked from the footer
 
 If any accessibility check fails, explain what the issue is, who it affects, and how to fix it.
+
+## Agent readability (a14y)
+
+Anglesite sites are built and maintained by AI agents — they should also be *readable* by other agents (search agents, browsing agents, content-mapping agents). [a14y.dev](https://a14y.dev) is an open scoring service (Apache-2.0) that runs 38 checks across discoverability, parsing, and comprehension and emits a numeric score plus a per-check pass/fail report.
+
+The audit needs a running HTTP server. Make sure the dev server is up at `https://DEV_HOSTNAME` (or pass an explicit URL with `--url`) before running:
+
+```sh
+npm run ai-a14y
+```
+
+Optional flags (forwarded to the a14y CLI):
+
+- `--url https://...` — audit a specific URL instead of `https://DEV_HOSTNAME`
+- `--fail-under 80` — set the score threshold for CI use
+- `--json` — machine-readable output (a14y emits a versioned scorecard JSON)
+- `--warn-only` — never fail the process, even when the score is below the threshold
+
+Or set the equivalent `.site-config` keys: `A14Y_FAIL_UNDER` and `A14Y_WARN_ONLY=true`.
+
+If a14y isn't installed, the script prints install instructions and exits with code `127`. To install:
+
+```sh
+npm install --save-dev a14y
+```
+
+When the audit returns findings, translate them for the owner: a14y rule IDs (e.g. `llms-txt-missing`, `structured-data-thin`) are technical labels — describe the *user-visible impact* ("AI agents that try to summarize your site won't have a quick reference") and the concrete fix.
+
+### Relationship to the deploy gate
+
+`AGENTIC_CRAWLERS` in `.site-config` controls whether a14y also gates `/anglesite:deploy`:
+
+- **`AGENTIC_CRAWLERS=allow`** (default when unset) — a14y is a deploy gate; below-threshold scores pause publishing.
+- **`AGENTIC_CRAWLERS=block`** — the owner has declared agentic crawlers shouldn't read this site. The check still runs here for reference, but **never blocks deploy** — gating on agent-readability when the policy is to keep agents out would be incoherent.
+
+If the owner is unsure, the default (`allow`) reflects Anglesite's open-by-default stance.
 
 ## Mobile and responsive
 

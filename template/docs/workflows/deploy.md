@@ -93,6 +93,19 @@ PII_PHONE_ALLOW=555-123-4567,1-800-662-4357
 
 Numbers are matched by digits only, so formatting differences (dashes, dots, parens) don't matter.
 
+### 2b. Agent readability gate (a14y)
+
+`/anglesite:deploy` runs an agent-readability audit ([a14y.dev](https://a14y.dev)) when the owner allows agentic crawlers. The behavior is set by `AGENTIC_CRAWLERS` in `.site-config`:
+
+```ini
+AGENTIC_CRAWLERS=allow   # default — a14y is a deploy gate
+AGENTIC_CRAWLERS=block   # owner has blocked agentic crawlers; a14y is informational only
+```
+
+When the gate is on, set the score floor with `A14Y_FAIL_UNDER` (e.g. `80`). While remediating, set `A14Y_WARN_ONLY=true` so the audit reports without blocking. The deploy skill brings up `npm run preview` automatically and tears it down after the audit.
+
+If a14y isn't installed yet, the gate prompts a one-time install: `npm install --save-dev a14y`.
+
 ### 3. First-time setup
 
 If this is the first deploy, connect Cloudflare Pages to GitHub via the dashboard:
