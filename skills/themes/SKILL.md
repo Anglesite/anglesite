@@ -1,19 +1,22 @@
 ---
 name: themes
-description: "Present pre-built visual themes with tldraw color swatch cards"
+description: "Present pre-built visual themes from freedesignmd plus built-in quick-picks, then apply the owner's choice"
 user-invokable: false
-allowed-tools: mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
+allowed-tools: WebFetch, Write, Read, Edit, Glob
 ---
 
-Present pre-built visual themes as color swatch cards using tldraw, then apply the owner's choice. Called by the design-interview skill — not invoked directly.
+Present pre-built visual themes and apply the owner's choice. Called by the design-interview, start, and design-import skills — not invoked directly.
 
-Theme definitions are in `${CLAUDE_PLUGIN_ROOT}/template/scripts/themes.ts`. Read them for exact hex values.
+Two paths:
 
-## Step 1 — Suggest a default theme
+1. **freedesignmd catalog** — 121+ curated `DESIGN.md` files at [freedesignmd.com](https://freedesignmd.com). The primary path. Delegate to `${CLAUDE_PLUGIN_ROOT}/skills/freedesignmd/SKILL.md`.
+2. **Built-in quick-picks** — 9 small presets defined in `${CLAUDE_PLUGIN_ROOT}/template/scripts/themes.ts`. Useful when the owner wants a one-line decision without browsing.
 
-Read `BUSINESS_TYPE` from `.site-config`. Map it to a recommended theme using `themeForBusinessType()`:
+## Step 1 — Suggest a default and offer both paths
 
-| Business types | Suggested theme |
+Read `BUSINESS_TYPE` from `.site-config`. Map it to a recommended built-in theme using `themeForBusinessType()`:
+
+| Business types | Suggested built-in |
 |---|---|
 | Legal, finance, insurance, accounting | Classic |
 | Healthcare, wellness, grocery, pharmacy | Fresh |
@@ -25,79 +28,44 @@ Read `BUSINESS_TYPE` from `.site-config`. Map it to a recommended theme using `t
 | Nonprofit, worship, social services | Community |
 | Web artist, creative coder, generative art | Studio |
 
-### Studio theme values
+Tell the owner:
 
-The Studio theme is a dark-mode theme for creative coders and web artists:
+> You have two ways to pick a look:
+>
+> 1. **Browse the freedesignmd catalog** — 121+ curated design systems with different visual styles (minimal, premium, editorial, glass, dark, etc.). I'll suggest a few that fit your business and you can pick one or browse more at https://freedesignmd.com/systems.
+> 2. **Quick-pick from 9 built-ins** — fast preset choice. I'd suggest **\<suggested built-in\>** for your type of business, but pick whichever feels right.
+>
+> Which would you prefer?
 
-```css
-:root {
-  /* Colors — Studio theme */
-  --color-primary: #e0e0e0;
-  --color-accent: #00ff88;
-  --color-bg: #000000;
-  --color-text: #e0e0e0;
-  --color-muted: #888888;
-  --color-surface: #111111;
-  --color-border: #222222;
+If the owner picks the catalog, follow Step 2 (freedesignmd path). If they pick a built-in, follow Step 3 (built-in path).
 
-  /* Fonts — Studio theme */
-  --font-heading: ui-monospace, 'Cascadia Code', 'Source Code Pro', 'Fira Code', monospace;
-  --font-body: ui-monospace, 'Cascadia Code', 'Source Code Pro', 'Fira Code', monospace;
-}
-```
+## Step 2 — freedesignmd path
 
-The accent color (`#00ff88`) is a high-contrast green that works well on dark backgrounds. The owner can customize it to match their creative palette. Any saturated hue works — the key is high contrast against black.
+Delegate to the freedesignmd skill: read and follow `${CLAUDE_PLUGIN_ROOT}/skills/freedesignmd/SKILL.md`. It handles candidate recommendation, fetching the chosen `DESIGN.md`, translating tokens to CSS custom properties, updating `docs/brand.md`, and verifying the build.
 
-## Step 2 — Show theme cards with tldraw
+When that skill finishes, return to the caller.
 
-Use `mcp__claude_ai_tldraw__create_shapes` to render all 9 themes as a visual grid. Each theme is a card with:
+## Step 3 — Built-in quick-pick path
 
-1. A large rectangle as the card background (use a tldraw color that approximates the theme's background)
-2. A smaller rectangle showing the primary color (use the closest tldraw color match)
-3. A smaller rectangle showing the accent color (use the closest tldraw color match)
-4. Text labels with the theme name, description, hex values, and "Best for" types
+Read `${CLAUDE_PLUGIN_ROOT}/template/scripts/themes.ts` for exact hex values and font stacks of the 9 built-in themes (Classic, Fresh, Warm, Bold, Earthy, Playful, Elegant, Community, Studio).
 
-### Color mapping (theme hex → closest tldraw color)
+Present them as a markdown list with the suggested theme highlighted:
 
-| Theme | Primary tldraw | Accent tldraw |
-|---|---|---|
-| Classic | blue | yellow |
-| Fresh | green | light-blue |
-| Warm | orange | red |
-| Bold | blue | yellow |
-| Earthy | green | orange |
-| Playful | violet | red |
-| Elegant | grey | red |
-| Community | green | orange |
-| Studio | grey | green |
+> Here are the 9 built-in themes. The one I'd recommend for your business is **\<suggested\>**, but pick whichever feels right:
+>
+> - **Classic** — traditional, trustworthy. Navy + gold, serif headings.
+> - **Fresh** — clean, modern, health-conscious. Green + sky blue, sans-serif.
+> - **Warm** — welcoming, cozy. Amber + red, serif headings.
+> - **Bold** — energetic, confident. Blue + amber on dark, sans-serif.
+> - **Earthy** — grounded, hand-made. Olive + terracotta, serif headings.
+> - **Playful** — friendly, approachable. Violet + coral, sans-serif.
+> - **Elegant** — refined, considered. Charcoal + crimson, serif headings.
+> - **Community** — sincere, focused. Forest + amber, sans-serif.
+> - **Studio** — dark mode for creative coders. Mono green on black, monospace.
+>
+> Which one would you like?
 
-### Layout
-
-Arrange themes in a 5+4 grid (5 on top, 4 on bottom). Each card is approximately 360px wide × 280px tall with 40px gaps.
-
-```
-Row 1: Classic    Fresh     Warm      Bold      Studio
-Row 2: Earthy     Playful   Elegant   Community
-```
-
-Card structure (per theme):
-- Card background: rectangle at (col × 400, row × 320), w=360, h=280
-- Primary swatch: rectangle at (x+20, y+60), w=80, h=60, fill="solid", color=primary
-- Accent swatch: rectangle at (x+120, y+60), w=80, h=60, fill="solid", color=accent
-- Theme name: text at (x+180, y+20), size="l", font="sans"
-- Description: text at (x+180, y+50), size="s", font="sans", color="grey"
-- Hex values: text at (x+20, y+140), size="s", font="mono"
-- Best for: text at (x+20, y+180), size="s", font="sans", color="grey", maxWidth=320
-
-Mark the suggested theme with a star shape or a thicker border.
-
-After rendering, tell the owner: "Here are 9 visual themes to choose from. I'd suggest **[suggested theme]** for your type of business, but pick whichever feels right. You can always customize colors later."
-
-## Step 3 — Apply the chosen theme
-
-When the owner picks a theme (by name), read the theme's CSS custom properties and update `src/styles/global.css`:
-
-Replace the `:root` color and font variables with the theme's values. Keep spacing, radius, shadows, and other properties unchanged.
+When the owner picks a name, update `:root` in `src/styles/global.css` with the theme's color and font variables (use the **Edit tool**). Keep spacing, radius, shadows, and other properties unchanged.
 
 Example — if they pick "Warm":
 
@@ -118,12 +86,32 @@ Example — if they pick "Warm":
   ...
 ```
 
-Update `docs/brand.md` with the theme choice and any customizations.
+For the **Studio** theme (web-artist sites), the values are:
+
+```css
+:root {
+  --color-primary: #e0e0e0;
+  --color-accent: #00ff88;
+  --color-bg: #000000;
+  --color-text: #e0e0e0;
+  --color-muted: #888888;
+  --color-surface: #111111;
+  --color-border: #222222;
+  --font-heading: ui-monospace, 'Cascadia Code', 'Source Code Pro', 'Fira Code', monospace;
+  --font-body: ui-monospace, 'Cascadia Code', 'Source Code Pro', 'Fira Code', monospace;
+}
+```
+
+The accent (`#00ff88`) is high-contrast green for dark backgrounds. Any saturated hue works — the key is high contrast against black.
+
+Update `docs/brand.md` with the theme choice. Run `npm run build` to verify.
 
 ## Step 4 — Offer customization
 
-After applying, ask: "Want to adjust any of the colors? For example, I can change the primary color to better match your logo, or swap the accent color."
+After applying (either path), ask:
 
-If they want changes, update individual CSS custom properties. Run `npm run build` to verify after changes.
+> Want to adjust any of the colors? For example, I can change the primary color to better match your logo, or swap the accent color.
 
-If they're happy, continue with the rest of the design interview.
+If they want changes, update individual CSS custom properties and rebuild. If they want to switch styles entirely, repeat from Step 1.
+
+If they're happy, return to the caller.

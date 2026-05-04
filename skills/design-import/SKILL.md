@@ -1,15 +1,15 @@
 ---
 name: design-import
-description: "Import design tokens and page layouts from a Canva published site or Figma file to build your Astro site"
-argument-hint: "[Canva site URL or Figma file URL]"
-allowed-tools: ["Bash(node *)", "Bash(npx sharp-cli *)", "Bash(npx playwright install *)", "Bash(npm install *)", "Bash(npm run dev *)", "Bash(npm run build)", "Bash(mkdir *)", "Bash(curl *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(npm ls *)", "Bash(grep *)", "Write", "Read", "Edit", "Glob"]
+description: "Import design tokens and page layouts from a Canva site, Figma file, or freedesignmd system to build your Astro site"
+argument-hint: "[Canva site URL, Figma file URL, or freedesignmd.com system URL]"
+allowed-tools: ["Bash(node *)", "Bash(npx sharp-cli *)", "Bash(npx playwright install *)", "Bash(npm install *)", "Bash(npm run dev *)", "Bash(npm run build)", "Bash(mkdir *)", "Bash(curl *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(npm ls *)", "Bash(grep *)", "WebFetch", "Write", "Read", "Edit", "Glob"]
 disable-model-invocation: true
 ---
 
 Import design tokens (colors, fonts, spacing) and page layouts from a Canva
-published site to build an Astro site that matches the original design. Extracts
-the visual identity automatically so the owner doesn't have to describe it
-manually.
+published site, Figma file, or [freedesignmd.com](https://freedesignmd.com)
+design system to build an Astro site that matches. Extracts the visual identity
+automatically so the owner doesn't have to describe it manually.
 
 ## Architecture decisions
 
@@ -27,14 +27,18 @@ what you're about to do and why. The owner is non-technical.
 
 If the owner provided a URL as an argument, use it. Otherwise ask:
 
-> "What's the URL of your Canva site or Figma file? It usually looks like
-> `https://something.my.canva.site` for Canva, or a `figma.com` link for Figma."
+> "What's the URL of your design? I can import from a Canva site
+> (`something.my.canva.site`), a Figma file (`figma.com`), or a freedesignmd
+> system (`freedesignmd.com/system/...`)."
 
 Normalize: strip trailing slashes, ensure `https://`. Store as SOURCE_URL.
 
 ### 0b — Detect the source platform
 
 Check the URL to determine the source:
+
+**freedesignmd** — if SOURCE_URL contains `freedesignmd.com/system/` or `freedesignmd.com/pattern/`:
+Set SOURCE to `freedesignmd`. Skip directly to the freedesignmd path in Step 2.
 
 **Canva** — if SOURCE_URL contains `my.canva.site` or `canva.site`:
 Set SOURCE to `canva`. Continue to Step 0c.
@@ -48,12 +52,14 @@ Tell the owner:
 
 Stop and wait for the owner's response.
 
-**Unrecognized** — if the URL doesn't match either pattern:
+**Unrecognized** — if the URL doesn't match any pattern:
 Tell the owner:
 
-> "I don't recognize that link as a Canva site or Figma file. Could you
-> double-check the URL? It should look like `https://something.my.canva.site`
-> for a Canva site, or contain `figma.com/design/` for a Figma file."
+> "I don't recognize that link. Could you double-check the URL? It should be one
+> of:
+> - `https://something.my.canva.site` for a Canva site
+> - `https://figma.com/design/...` for a Figma file
+> - `https://freedesignmd.com/system/...` for a freedesignmd design system"
 
 Wait for a corrected URL.
 
@@ -105,6 +111,8 @@ Set DESIGN_MODE to `replace`.
 
 ## Step 1 — Check Playwright
 
+Skip this step if SOURCE is `freedesignmd` — freedesignmd files are markdown, no browser needed.
+
 Tell the owner:
 > "I need to check if a browser tool is available — it's how I read your Canva
 > site's design."
@@ -133,7 +141,31 @@ If they decline, tell the owner:
 
 Stop and wait.
 
-## Step 2 — Extract design from Canva
+## Step 2 — Extract design
+
+### freedesignmd path
+
+If SOURCE is `freedesignmd`, delegate to the freedesignmd skill: read and
+follow `${CLAUDE_PLUGIN_ROOT}/skills/freedesignmd/SKILL.md`. Pass the slug
+extracted from SOURCE_URL (the segment after `/system/` or `/pattern/`).
+
+That skill handles fetching the DESIGN.md, writing it to `src/design/DESIGN.md`,
+translating tokens to CSS custom properties, updating `docs/brand.md`, and
+verifying the build.
+
+When it returns, present results to the owner:
+
+> "I've imported the **\<system name\>** design system from freedesignmd:
+>
+> - **Tokens:** colors, typography, and spacing applied to `src/styles/global.css`
+> - **DESIGN.md:** saved at `src/design/DESIGN.md` so I can keep new pages consistent
+> - **No images or pages were imported** — freedesignmd is a design system catalog,
+>   not a page builder. If you want pages too, run `/anglesite:design-import`
+>   with a Canva URL, or build pages from scratch."
+
+Skip to Step 8 (Commit). Steps 3–7 are Canva-specific.
+
+### Canva path
 
 Tell the owner:
 > "I'm going to open your Canva site in a browser and extract the design —

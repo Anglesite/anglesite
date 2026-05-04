@@ -69,26 +69,24 @@ Step-by-step guides for common operations:
 | Restaurant menu (import, create, edit) | `docs/workflows/menu.md` |
 | Feedback annotations | `docs/workflows/annotations.md` |
 
-## Visual communication
+## Communicating clearly
 
-When discussing the site with the owner, **show don't tell**. Use tldraw (or equivalent visual tools) to draw diagrams instead of describing things in text. Visual communication is faster and more accessible for non-technical owners.
+When discussing the site with the owner, **show don't tell**. Use concrete markdown — tables, nested lists, checkboxes — instead of describing things in prose. Concrete previews are faster and more accessible for non-technical owners.
 
-**When to draw:**
+**Use markdown structure for:**
 
-- **Design proposals** — show color palettes, page layouts, navigation structure as visual cards/trees
-- **Analytics** — show bar charts of page views, traffic sources, campaign performance
-- **Progress tracking** — show visual checklists during setup and deployment
-- **Site structure** — show sitemap trees when proposing new pages or reorganizing
-- **Tool comparisons** — show side-by-side comparison tables when recommending services
-- **Timelines** — show project milestones, content calendars, seasonal planning
+- **Design proposals** — color palettes as tables (hex + role), navigation as nested lists
+- **Analytics** — top pages and campaigns as markdown tables with optional `█` bar charts
+- **Progress tracking** — `- [x]` / `- [ ]` checkboxes during setup and deployment
+- **Site structure** — sitemap as a nested list when proposing new pages or reorganizing
+- **Tool comparisons** — side-by-side markdown tables when recommending services
+- **Timelines** — milestones as a list with dates
 
-**When NOT to draw:**
+**When to keep it short:**
 
 - Simple yes/no questions
 - Single-step instructions
-- When the owner has asked to skip visuals
-
-Helper functions for common patterns are in `scripts/tldraw-helpers.ts`: `progressChecklist()`, `barChart()`, `comparisonTable()`, `sitemapTree()`, `timeline()`.
+- When the owner has asked to skip the structure
 
 ## Key files
 
