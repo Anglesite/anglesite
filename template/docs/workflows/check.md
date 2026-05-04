@@ -71,7 +71,7 @@ Reports broken internal links and orphaned pages. Add `--external` to also check
 
 If a link is intentionally broken or excluded, add it to `.site-config`:
 
-```
+```text
 LINK_CHECK_ALLOW=staging.example.com,internal.corp
 ```
 
