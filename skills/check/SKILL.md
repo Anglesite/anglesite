@@ -2,7 +2,7 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx tsx scripts/link-check.ts *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx pa11y-ci *), Bash(npx tsx scripts/link-check.ts *), Bash(npx tsx scripts/a11y-audit.ts *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), mcp__claude_ai_tldraw__create_shapes, mcp__claude_ai_tldraw__diagram_drawing_read_me, Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -18,6 +18,7 @@ These explain *why* each check category matters:
 - [ADR-0007 Pre-deploy scans](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0007-mandatory-pre-deploy-scans.md) — why PII, token, and script scans are mandatory
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — why third-party scripts are flagged
 - [ADR-0012 Verify first](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0012-verify-before-presenting.md) — build baseline before checking other categories
+- [ADR-0016 Accessibility audits](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0016-accessibility-audits.md) — why the WCAG audit runs automatically and how the severity-aware exit codes work
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
 
@@ -31,23 +32,38 @@ Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before e
 
 These checks are not optional. Accessibility failures are as serious as security failures.
 
-### Automated checks
-Build the site first, then scan the output. Read `DEV_HOSTNAME` from `.site-config` for the URL (fall back to `localhost` if not set):
+### Automated audit
+
+Build the site first, then run the unified accessibility audit:
+
 ```sh
-npx pa11y-ci --sitemap https://DEV_HOSTNAME/sitemap-index.xml
+npm run ai-a11y -- --report a11y-report.md
 ```
-If `pa11y-ci` is not installed, run:
-```sh
-npx pa11y dist/index.html
-```
-Either tool checks for WCAG 2.1 AA violations: missing alt text, low contrast, missing form labels, broken ARIA, heading order, etc.
+
+This script (`scripts/a11y-audit.ts`) walks every HTML file in `dist/` and produces a per-page WCAG 2.1 AA report with suggested fixes. It runs three checkers and aggregates the results:
+
+1. **Heuristic checks** (always on, no install) — heading hierarchy, link text quality, alt text quality (via `scripts/a11y-validate.ts`).
+2. **pa11y / pa11y-ci** — full WCAG 2.1 AA scan when installed (`npm install -D pa11y` or `pa11y-ci`). Catches contrast, ARIA, label association, and landmark issues the heuristic pass can't see.
+3. **axe-core via Playwright** — modern rule engine when installed (`npm install -D @axe-core/playwright playwright`). Provides rich selector/remediation context.
+
+Any tool that isn't installed is skipped automatically — the audit always runs at least the heuristic pass.
+
+### Severity-aware exit codes (CI use)
+
+The script exits with:
+
+- `0` — no errors and no warnings (or `--warn-only` was passed)
+- `1` — one or more WCAG 2.1 AA violations
+- `2` — warnings only (best-practice issues, no AA violation)
+
+Pass `--warn-only` (or set `A11Y_WARN_ONLY=true` in `.site-config`) to always exit `0` while a site is mid-remediation. Pass `--json` for a machine-readable report.
 
 ### Programmatic validation
 
-Use the accessibility utilities in `scripts/` for automated checks beyond pa11y:
+Use the accessibility utilities in `scripts/` for additional checks beyond the audit script:
 
 - **Color contrast** — `scripts/contrast.ts`: read CSS custom properties from `src/styles/global.css` and verify `meetsWcagAA(textColor, bgColor)` for all text/background pairs
-- **Content quality** — `scripts/a11y-validate.ts`: run `validateHeadingHierarchy()`, `validateLinkText()`, and `validateImageAlt()` against the built HTML output
+- **Content quality** — `scripts/a11y-validate.ts`: run `validateHeadingHierarchy()`, `validateLinkText()`, and `validateImageAlt()` against the built HTML output (the audit script already calls these)
 
 ### Manual checks (inspect the built HTML)
 - [ ] Every page has exactly one `<h1>`, and headings don't skip levels

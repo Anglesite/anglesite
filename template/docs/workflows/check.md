@@ -20,11 +20,19 @@ If either fails, fix it before checking other categories.
 
 ## Accessibility (WCAG AA)
 
-Run automated checks:
+Run the unified accessibility audit:
 
 ```sh
-npx pa11y dist/index.html
+npm run ai-a11y -- --report a11y-report.md
 ```
+
+`scripts/a11y-audit.ts` walks every HTML file in `dist/` and produces a per-page WCAG 2.1 AA report with suggested fixes. It runs three checkers and skips any that aren't installed:
+
+- Heuristic checks (always on) — heading hierarchy, link text, alt text quality
+- pa11y / pa11y-ci (`npm install -D pa11y` or `pa11y-ci`) — full WCAG 2.1 AA scan including contrast, ARIA, label association, and landmarks
+- axe-core via Playwright (`npm install -D @axe-core/playwright playwright`) — modern rule engine with rich remediation context
+
+Severity-aware exit codes for CI: `0` clean, `1` errors, `2` warnings only. Pass `--warn-only` (or set `A11Y_WARN_ONLY=true` in `.site-config`) to always exit `0`.
 
 Manual checks:
 
