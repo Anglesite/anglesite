@@ -1,0 +1,23 @@
+---
+interface Props {
+  href: string;
+  label?: string;
+  variant?: "default" | "primary";
+  provider?: "stripe" | "liberapay" | "github-sponsors";
+}
+const {
+  href,
+  label = "Donate",
+  variant = "default",
+  provider = "stripe",
+} = Astro.props;
+---
+<a
+  href={href}
+  class:list={["donate-button", `donate-button--${variant}`, `donate-button--${provider}`]}
+  target="_blank"
+  rel="noopener"
+  data-donation-provider={provider}
+>
+  {label}
+</a>

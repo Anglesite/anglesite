@@ -272,6 +272,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Get a photography shot list | `/anglesite:photography` |
 | Add on-site search | `/anglesite:search` |
 | Add ecommerce | `/anglesite:add-store` |
+| Accept donations (Stripe, Liberapay, GitHub Sponsors) | `/anglesite:donations` |
 | Create or import a restaurant menu | `/anglesite:menu` |
 | Manage URL redirects (rename, migrate, bulk import) | `/anglesite:redirects` |
 

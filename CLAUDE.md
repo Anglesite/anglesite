@@ -8,7 +8,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── skills/                       Skills (46 total: 21 user-facing, 25 model-only)
+├── skills/                       Skills (47 total: 22 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -53,6 +53,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── creative-canvas/SKILL.md Interactive visual effects + creative coding (model-only)
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
 │   ├── menu/SKILL.md            Restaurant menu import, creation, and management (user-facing)
+│   ├── donations/SKILL.md       Donation button + page (Stripe/Liberapay/GitHub Sponsors) (user-facing)
 │   ├── redirects/SKILL.md       Manage Cloudflare Pages _redirects (user-facing)
 │   └── design-import/SKILL.md    Import design from Canva/Figma (user-facing)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
@@ -146,6 +147,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `search` | On-site search via Pagefind (build-time index, ~6 KB JS) |
 | `photography` | Site-type-specific shot list generator and phone photography tips |
 | `menu` | Restaurant menu import (PDF/photo), creation, and editing |
+| `donations` | Donation button + page (Stripe / Liberapay / GitHub Sponsors), suggested + custom amounts, recurring defaults, optional goal widget, 501(c)(3) tax-receipt template |
 | `redirects` | Manage Cloudflare Pages `_redirects`: add, remove, list, validate, bulk-import (301/302/308) |
 | `design-import` | Import design tokens and page layouts from Canva or Figma |
 
