@@ -53,6 +53,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── creative-canvas/SKILL.md Interactive visual effects + creative coding (model-only)
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
 │   ├── menu/SKILL.md            Restaurant menu import, creation, and management (user-facing)
+│   ├── podcast/SKILL.md         Podcast: episodes, RSS+iTunes, transcripts, audio player (user-facing)
 │   └── design-import/SKILL.md    Import design from Canva/Figma (user-facing)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
@@ -145,6 +146,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `search` | On-site search via Pagefind (build-time index, ~6 KB JS) |
 | `photography` | Site-type-specific shot list generator and phone photography tips |
 | `menu` | Restaurant menu import (PDF/photo), creation, and editing |
+| `podcast` | First-class podcast support — episodes, RSS+iTunes feed, transcripts, audio player, directory submission |
 | `design-import` | Import design tokens and page layouts from Canva or Figma |
 
 **Model-only** (called programmatically by other skills, `user-invocable: false`):

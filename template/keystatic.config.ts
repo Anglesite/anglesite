@@ -390,6 +390,84 @@ const allCollections: Record<string, ReturnType<typeof collection>> = {
         content: fields.markdoc({ label: "Details" }),
       },
     }),
+    episodes: collection({
+      label: "Podcast Episodes",
+      slugField: "title",
+      path: "src/content/episodes/*",
+      format: { contentField: "content" },
+      schema: {
+        title: fields.slug({ name: { label: "Title" } }),
+        description: fields.text({
+          label: "Description",
+          description: "Short summary for listings, RSS, and social sharing",
+          multiline: true,
+        }),
+        publishDate: fields.date({
+          label: "Publish Date",
+          validation: { isRequired: true },
+        }),
+        audioUrl: fields.text({
+          label: "Audio URL",
+          description:
+            "Path under public/ (e.g. /audio/ep-01.mp3) or full URL when hosted on Buzzsprout, Transistor, S3, etc.",
+          validation: { isRequired: true },
+        }),
+        audioType: fields.text({
+          label: "Audio MIME Type",
+          description: "Usually audio/mpeg for MP3",
+          defaultValue: "audio/mpeg",
+        }),
+        audioLength: fields.integer({
+          label: "Audio File Size (bytes)",
+          description:
+            "Required for podcast directories — get this from the host or run `wc -c <file>`",
+        }),
+        duration: fields.text({
+          label: "Duration",
+          description: "HH:MM:SS or MM:SS (e.g., 42:15)",
+        }),
+        episodeNumber: fields.integer({
+          label: "Episode Number",
+          description: "Sequential number within the season",
+        }),
+        season: fields.integer({
+          label: "Season",
+        }),
+        episodeType: fields.select({
+          label: "Episode Type",
+          options: [
+            { label: "Full", value: "full" },
+            { label: "Trailer", value: "trailer" },
+            { label: "Bonus", value: "bonus" },
+          ],
+          defaultValue: "full",
+        }),
+        explicit: fields.checkbox({
+          label: "Explicit",
+          description: "Marks the episode as explicit in podcast directories",
+          defaultValue: false,
+        }),
+        guests: fields.array(fields.text({ label: "Guest" }), {
+          label: "Guests",
+          itemLabel: (props) => props.value || "Guest",
+        }),
+        image: fields.text({
+          label: "Episode Artwork",
+          description: "Path relative to public/ — falls back to show artwork if empty",
+        }),
+        imageAlt: fields.text({ label: "Artwork Alt Text" }),
+        draft: fields.checkbox({
+          label: "Draft",
+          description: "Drafts are excluded from the site and the RSS feed",
+          defaultValue: false,
+        }),
+        content: fields.markdoc({
+          label: "Show Notes & Transcript",
+          description:
+            "Show notes, links, and full transcript. Use timestamp links like [12:34](#t-12-34) to anchor playback positions.",
+        }),
+      },
+    }),
     experiments: collection({
       label: "Experiments",
       slugField: "title",

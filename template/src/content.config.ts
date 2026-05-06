@@ -256,6 +256,44 @@ const products = defineCollection({
   }),
 });
 
+/** Podcast episodes stored in `src/content/episodes/`. */
+const episodes = defineCollection({
+  type: "content",
+  schema: z.object({
+    /** Episode title. */
+    title: z.string(),
+    /** Short description for listings, RSS, and search engines. */
+    description: z.string(),
+    /** Publish date as ISO string. */
+    publishDate: z.string().transform((str) => new Date(str)),
+    /** Path to the audio file relative to `public/` (e.g. `/audio/ep-01.mp3`)
+     *  or an absolute URL when audio is hosted off-site (Buzzsprout, S3). */
+    audioUrl: z.string(),
+    /** Audio MIME type — usually `audio/mpeg` for MP3. */
+    audioType: z.string().default("audio/mpeg"),
+    /** Audio file size in bytes — required by RSS `<enclosure length>`. */
+    audioLength: z.number().optional(),
+    /** Episode duration in `HH:MM:SS` or `MM:SS` form. */
+    duration: z.string().optional(),
+    /** Sequential episode number within its season. */
+    episodeNumber: z.number().optional(),
+    /** Season number. */
+    season: z.number().optional(),
+    /** Episode type — `full` (default), `trailer`, or `bonus`. */
+    episodeType: z.enum(["full", "trailer", "bonus"]).default("full"),
+    /** Whether the episode contains explicit content. */
+    explicit: z.boolean().default(false),
+    /** Guests featured in the episode (free-text names). */
+    guests: z.array(z.string()).default([]),
+    /** Episode artwork relative to `public/` — falls back to show artwork. */
+    image: z.string().optional(),
+    /** Alt text for the episode image. */
+    imageAlt: z.string().optional(),
+    /** When true, excluded from the build and the RSS feed. */
+    draft: z.boolean().default(false),
+  }),
+});
+
 /** Creative experiments stored in `src/content/experiments/`. */
 const experiments = defineCollection({
   type: "content",
@@ -347,7 +385,7 @@ function hasContentFiles(name: string): boolean {
  * Directories are created or removed by `scripts/prune-collections.mjs`
  * during setup; this filter provides a second safety net.
  */
-const allCollections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products, experiments, forms };
+const allCollections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products, experiments, episodes, forms };
 
 export const collections = Object.fromEntries(
   Object.entries(allCollections).filter(([name]) => hasContentFiles(name)),

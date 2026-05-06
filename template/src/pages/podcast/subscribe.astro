@@ -1,0 +1,103 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+export const prerender = true;
+
+/**
+ * Podcast subscribe / listen page.
+ *
+ * Platform URLs are populated by /anglesite:podcast after the show is
+ * accepted into each directory. Until then, the platform link gracefully
+ * falls back to the platform's home page so the page is never broken.
+ */
+const env = import.meta.env as Record<string, string | undefined>;
+const feedUrl = new URL("/podcast/rss.xml", Astro.site).toString();
+
+const platforms: Array<{ name: string; url: string; fallback: string }> = [
+  {
+    name: "Apple Podcasts",
+    url: env.PUBLIC_PODCAST_APPLE_URL || "",
+    fallback: "https://podcasts.apple.com/",
+  },
+  {
+    name: "Spotify",
+    url: env.PUBLIC_PODCAST_SPOTIFY_URL || "",
+    fallback: "https://open.spotify.com/",
+  },
+  {
+    name: "Overcast",
+    url: env.PUBLIC_PODCAST_OVERCAST_URL || "",
+    fallback: "https://overcast.fm/",
+  },
+  {
+    name: "Pocket Casts",
+    url: env.PUBLIC_PODCAST_POCKETCASTS_URL || "",
+    fallback: "https://pocketcasts.com/",
+  },
+  {
+    name: "Podcast Index",
+    url: env.PUBLIC_PODCAST_INDEX_URL || "",
+    fallback: "https://podcastindex.org/",
+  },
+];
+---
+
+<BaseLayout
+  title="Subscribe"
+  description="Listen to the podcast on your favorite app"
+>
+  <h1>Subscribe</h1>
+  <p>
+    Pick your favorite app, or paste the RSS feed into any podcast player.
+  </p>
+
+  <ul class="subscribe-list">
+    {
+      platforms.map((p) => (
+        <li>
+          <a href={p.url || p.fallback} rel={p.url ? "" : "noreferrer"}>
+            {p.name}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+
+  <h2>RSS feed</h2>
+  <p>
+    Paste this URL into any podcast app to subscribe directly:
+  </p>
+  <p>
+    <code class="feed-url">{feedUrl}</code>
+  </p>
+  <p>
+    <a href="/podcast/rss.xml">Open the RSS feed</a>
+  </p>
+</BaseLayout>
+
+<style>
+  .subscribe-list {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: 0.75rem;
+  }
+  .subscribe-list a {
+    display: block;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 0.375rem;
+    text-decoration: none;
+  }
+  .subscribe-list a:hover {
+    background: var(--color-surface, #f5f5f5);
+  }
+  .feed-url {
+    word-break: break-all;
+    background: var(--color-surface, #f5f5f5);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    display: inline-block;
+  }
+</style>
