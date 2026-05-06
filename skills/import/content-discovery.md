@@ -90,6 +90,29 @@ will be fetched via WebFetch in Step 2.
 
 ## Wix
 
+If USE_WIX_MCP=true (set in Step 1a.1), discover blog posts via the Wix MCP
+server's `ExecuteWixAPI` tool first — it returns the complete post list with
+metadata in one call:
+
+```
+ExecuteWixAPI POST https://www.wixapis.com/v3/posts/query
+body: {
+  "fieldsets": ["URL", "CONTENT_TEXT", "SEO", "RICH_CONTENT"],
+  "paging": { "limit": 100 }
+}
+```
+
+Build BLOG_POSTS from the response (each entry includes `title`, `slug`,
+`firstPublishedDate`, `excerpt`, `coverMedia`, `seoData`, and `richContent`).
+Paginate with `paging.cursor` if `pagingMetadata.cursors.next` is returned.
+The `richContent` field is the Ricos document — convert it in Step 2a.
+
+The MCP path covers blog posts only. Static pages still come from the
+sitemap and homepage navigation crawl below.
+
+If USE_WIX_MCP=false (no MCP installed, or owner declined), discover both
+blog posts and pages via the sitemap:
+
 ```sh
 curl -s SITE_URL/sitemap.xml
 ```
@@ -138,12 +161,14 @@ BLOG_POSTS by `<link>` URL.
   empty or links-only, skip it and rely on sitemap + extraction scripts
 - Never contains static pages — those always need extraction in Step 3
 
-**Blog REST API (20+ posts):** If the blog has more than 20 posts, ask the
-owner if they have a Wix API key. The Blog REST API at
+**Blog REST API (20+ posts, USE_WIX_MCP=false):** If the blog has more than
+20 posts and the Wix MCP server isn't installed, ask the owner if they have a
+Wix API key. The Blog REST API at
 `https://www.wixapis.com/blog/v3/posts?fieldsToInclude=CONTENT` returns full
 post content with pagination — much faster than WebFetch for large blogs. See
 `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` for details. Don't ask for an API
-key if the blog has 20 or fewer posts (RSS + WebFetch is sufficient).
+key if the blog has 20 or fewer posts (RSS + WebFetch is sufficient), or if
+USE_WIX_MCP=true (the MCP path already covers this).
 
 **Metadata extraction:** When extracting each post, use the bundled extraction
 script to get structured metadata (JSON-LD and OG tags):
