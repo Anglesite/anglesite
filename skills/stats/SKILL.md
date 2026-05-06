@@ -29,7 +29,7 @@ When presenting numbers, always tell the owner which source they're seeing — t
 
 ## Step 0 — Check prerequisites
 
-Read `.env` for `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_WEB_ANALYTICS_SITE_TAG`, and (optional) `CF_ZONE_ID`.
+Read `.env` for `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_WEB_ANALYTICS_SITE_TAG`, and (optional) `CF_ZONE_ID`. The scaffolded project ships a `.env.example` that lists these keys with comments — copy or create `.env` from it on first run if it doesn't exist yet.
 
 ### Token creation (one-time)
 
@@ -205,6 +205,17 @@ curl -s "https://api.cloudflare.com/client/v4/graphql" \
   --data '{"query":"{ viewer { zones(filter: {zoneTag: \"'$CF_ZONE_ID'\"}) { httpRequestsAdaptiveGroups(filter: {date: \"DATE_TODAY\", edgeResponseContentTypeName: \"html\", edgeResponseStatus_lt: 400}, limit: 100, orderBy: [count_DESC]) { count dimensions { clientRequestPath } } } } }"}'
 ```
 
+### Query C (zone) — country breakdown (most recent day)
+
+Replace `DATE_TODAY` with today's ISO date. Same single-day window as Query B. The country breakdown lets the owner self-diagnose datacenter/bot inflation in the unique-visitor count — small sites often see Hetzner Frankfurt (DE), AWS/Hetzner Dublin (IE), OVH, Vultr Singapore (SG), and Tor (T1) dominate the geography.
+
+```sh
+curl -s "https://api.cloudflare.com/client/v4/graphql" \
+  -H "Authorization: Bearer $CF_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"query":"{ viewer { zones(filter: {zoneTag: \"'$CF_ZONE_ID'\"}) { httpRequestsAdaptiveGroups(filter: {date: \"DATE_TODAY\", edgeResponseContentTypeName: \"html\", edgeResponseStatus_lt: 400}, limit: 25, orderBy: [count_DESC]) { count dimensions { clientCountryName } } } } }"}'
+```
+
 ### Graceful degradation (zone)
 
 Inspect the JSON response for an `errors[]` array before parsing. If any error message contains `authz`, `does not have access`, or `time range wider than`, drop that section from the output and continue with the data you do have. Don't surface the raw error to the owner — note in the summary that the section requires a paid Cloudflare plan (for referrer/device) or a longer history (for the adaptive window).
@@ -228,8 +239,8 @@ If the response returns an `authz` error or the field is rejected, the owner's p
 
 These three numbers measure different things and must not be substituted for one another:
 
-- **Unique visitors** — `uniq.uniques` (zone) or `sum.visits` (RUM, sessions ≈ unique visitors for week-long windows). The number of distinct people.
-- **Page views** — `sum.pageViews` (zone) / `count` (RUM, beacon hits) / `count` from `httpRequestsAdaptiveGroups` *when filtered to HTML responses* (zone Query B). One person can generate many page views.
+- **Unique visitors** — RUM: `sum.visits` (sessions ≈ unique visitors for week-long windows). Zone: `uniq.uniques` from `httpRequests1dGroups`. The zone figure is the number of distinct IP+UA pairs Cloudflare saw — **it includes datacenter ranges (Hetzner, AWS, OVH, Vultr) and bots that did not get blocked at the edge**, so on small personal sites it can overstate human readers by 50–100%. The RUM beacon only fires in real browsers, so it doesn't suffer the same inflation. Always present the zone figure with the caveat in the summary, and lead with page views when both are available.
+- **Page views** — RUM: `count` from `rumPageloadEventsAdaptiveGroups` (beacon hits, real browsers only). Zone: `sum.pageViews` from `httpRequests1dGroups`, or `count` from `httpRequestsAdaptiveGroups` *when filtered to HTML responses* (Query B). One person can generate many page views. The zone figure is less inflated by bots than uniques because most non-rendering scrapers don't request many distinct HTML pages.
 - **Requests** *(zone only)* — raw `count` from `httpRequestsAdaptiveGroups` with no content-type filter. Includes every asset, redirect, bot hit, and error response. Don't surface this as "visitors" or "views"; only mention it explicitly as "requests" when relevant. RUM has no equivalent — the beacon only fires on HTML pageloads.
 
 From the responses, extract:
@@ -238,9 +249,10 @@ From the responses, extract:
 2. **Page views** — RUM: sum `count` from Query A across each 7-day window. Zone: sum `sum.pageViews` from Query A across each 7-day window. Report alongside visitors; don't conflate the two.
 3. **Busiest day** — from Query A, map each `dimensions.date` (ISO date) to its weekday name, take the day with the highest page views in the current week. Label the figure as "page views" (not "visits" or "visitors").
 4. **Top pages** — RUM: from Query B, group by `requestPath`, sum `count`, sort descending, take top 5. Note in the summary that this reflects the last 7 days. Zone: from Query B (HTML-filtered), group by `clientRequestPath`, sum `count`, sort descending, take top 5. Note in the summary that this reflects the most recent 24 hours (free-plan limitation).
-5. **Referral sources** — RUM: from Query C, group by `refererHost`, rename common ones (e.g., `google.com` → "Google Search", empty → "Direct"). Zone *(paid only)*: group by `clientRefererHost`. Skip on zone free plans.
-6. **Device breakdown** — RUM: from Query C, group by `deviceType`. Zone *(paid only)*: group by `userAgentBrowser`. Skip on zone free plans.
-7. **Campaign breakdown** *(zone paid only)* — from the `clientRequestQuery` query above, parse each query string for `utm_source`, `utm_medium`, `utm_campaign`. `clientRequestPath` does not include query strings, so this section is impossible on zone free plans — skip it there. RUM exposes campaign dimensions via the beacon but they are not covered by this skill yet — skip on RUM.
+5. **Country breakdown** *(zone only)* — from zone Query C, take top 8 countries by `count`. Mark the following as `(datacenter-heavy)` so the owner can spot bot inflation: `IE` (Dublin — Hetzner/AWS), `DE` (Frankfurt — Hetzner), `NL` (Amsterdam — OVH/Hetzner), `SG` (Vultr/DigitalOcean), `FI` (Hetzner Helsinki), `T1` or `XX` (Tor exit nodes), and any country whose share looks disproportionate to the site's audience (e.g., `CN` on an English-language local-business site). Use the country code as returned by Cloudflare; map common ones to readable names (`US` → "United States", etc.) when presenting. Skip on RUM — the bot-inflation problem doesn't apply, and the beacon's geo dimensions are not wired here yet.
+6. **Referral sources** — RUM: from Query C, group by `refererHost`, rename common ones (e.g., `google.com` → "Google Search", empty → "Direct"). Zone *(paid only)*: group by `clientRefererHost`. Skip on zone free plans.
+7. **Device breakdown** — RUM: from Query C, group by `deviceType`. Zone *(paid only)*: group by `userAgentBrowser`. Skip on zone free plans.
+8. **Campaign breakdown** *(zone paid only)* — from the `clientRequestQuery` query above, parse each query string for `utm_source`, `utm_medium`, `utm_campaign`. Group by `utm_source`/`utm_campaign`, label each entry as `{source} "{campaign}"`, and sort by page-view count descending. `clientRequestPath` does not include query strings, so this section is impossible on zone free plans — skip it there. RUM exposes campaign dimensions via the beacon but they are not covered by this skill yet — skip on RUM.
 
 Present the summary in plain language. **Always begin with a one-line note that names the data source.** Example output (Web Analytics RUM, free plan):
 
@@ -261,12 +273,21 @@ Example output (zone HTTP analytics, free plan):
 
 > *Source: Cloudflare zone HTTP logs (proxied DNS edge data). Numbers will not match the Web Analytics dashboard.*
 >
-> Your site had **142 unique visitors** and **318 page views** this week (visitors up 23%, page views up 31% from last week).
+> Your site drew **318 page views** this week (up 31% from last week), from **142 unique IPs** (up 23%).
+>
+> *Heads up — on the zone dataset, Cloudflare counts every distinct IP as a "unique visitor", which sweeps in datacenter traffic (Hetzner, AWS, OVH) and bots that don't get blocked at the edge. On small sites the real human-reader count is usually 50–60% of the unique number. Use page views as the more reliable signal and check the country breakdown below — or switch to the Web Analytics beacon, which only counts real browsers.*
 >
 > **Top pages** (last 24 hours, HTML page views):
 > 1. /services — 58 page views
 > 2. / — 45 page views
 > 3. /about — 30 page views
+>
+> **Top countries** (last 24 hours, HTML page views):
+> 1. United States — 1,248
+> 2. Ireland — 358 *(datacenter-heavy)*
+> 3. Germany — 349 *(datacenter-heavy)*
+> 4. China — 190
+> 5. Tor — 124 *(datacenter-heavy)*
 >
 > **Busiest day:** Tuesday with 65 page views. Consider posting new content on Monday to catch the wave.
 >
@@ -278,8 +299,10 @@ After collecting the data, present results as a clean markdown summary:
 
 - **Source line** — italic, single sentence, names the dataset (`Web Analytics beacon` or `zone HTTP logs`). Always first.
 - **Top pages** — markdown table with page path and page-view count (and optional bar made of `█` characters proportional to page views, e.g. `████████ 240`). Header the count column "Page views", not "Visits".
-- **Campaign performance** *(zone paid only)* — second markdown table if `clientRequestQuery` data is available, also in page views. Skip otherwise.
-- **Plain-language summary** — 2–3 sentences explaining what the numbers mean. When you cite a headline figure, say which one (visitors vs page views) — they tell different stories.
+- **Top countries** *(zone only)* — markdown table with country name and page-view count. Append `(datacenter-heavy)` to known datacenter-dominant origins (see Step 3 item 5). Skip on RUM.
+- **Campaign performance** *(zone paid only)* — markdown table if `clientRequestQuery` data is available, also in page views. Skip on zone free plans and on RUM.
+- **Bot/datacenter caveat** *(zone only)* — always include the one-line heads-up about unique-visitor inflation when reporting `uniq.uniques`. Don't skip it on the assumption that the site is large; the owner is rarely in a position to know. The RUM beacon doesn't have this problem, so skip the caveat there.
+- **Plain-language summary** — 2–3 sentences explaining what the numbers mean. When you cite a headline figure, say which one (visitors vs page views) — they tell different stories. Lead with page views when both are available.
 
 Lead with the source line and the table, then the summary and actionable suggestions.
 
@@ -307,5 +330,7 @@ After showing the summary, remind the owner they can see more detail in the Clou
 
 - Web Analytics: `https://dash.cloudflare.com/?to=/:account/web-analytics`
 - Zone analytics (only if you used `zone-http`): `https://dash.cloudflare.com/?to=/:account/:zone/analytics/traffic`
+
+Both URLs are account-scoped (Cloudflare resolves `:account` from the logged-in session) and don't need a project identifier.
 
 Tell them: "The dashboard shows trends over time, geographic data, and more. But for a quick check-in, just run this command anytime."
