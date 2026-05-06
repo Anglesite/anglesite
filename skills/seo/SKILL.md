@@ -18,7 +18,7 @@ Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before e
 
 ## Reference
 
-- [SEO audit utilities](${CLAUDE_PLUGIN_ROOT}/template/scripts/seo.ts) — `auditPage`, `auditSite`, `validateSitemap`, `auditRobotsTxt`, `generateLlmsTxt`, `auditChunkability`, `formatSeoReport`, `inferPageSchemaType`, `generatePageJsonLd`, `detectFaqSections`
+- [SEO audit utilities](${CLAUDE_PLUGIN_ROOT}/template/scripts/seo.ts) — `auditPage`, `auditSite`, `validateSitemap`, `auditRobotsTxt`, `generateRobotsTxt`, `generateLlmsTxt`, `auditChunkability`, `formatSeoReport`, `inferPageSchemaType`, `generatePageJsonLd`, `detectFaqSections`, the `AGENTIC_CRAWLER_BOTS` constant, and the `AgenticCrawlersPolicy` type
 
 ## Subcommands
 
@@ -63,10 +63,11 @@ Crawl all HTML files in `dist/` and run the SEO audit functions from `scripts/se
    - All built pages are listed
    - `<lastmod>` dates are present
 
-5. **robots.txt audit** — Read `dist/robots.txt`, call `auditRobotsTxt(content, siteUrl)` to check:
+5. **robots.txt audit** — Read `dist/robots.txt` and `AGENTIC_CRAWLERS` from `.site-config` (default `allow`), then call `auditRobotsTxt(content, siteUrl, agenticCrawlers)` to check:
    - Sitemap directive present
-   - AI crawlers not blocked
-   - Cloudflare default AI bot blocking warning
+   - **Alignment with `AGENTIC_CRAWLERS`** — under `allow`, warn if any agentic crawler is blocked; under `block`, warn if any centralized agentic crawler is *not* disallowed (the policy and the file have drifted apart)
+   - Cloudflare default AI bot blocking reminder (only under `allow`)
+   - Whether `dist/llms.txt` exists when `AGENTIC_CRAWLERS=block` — if so, flag the inconsistency and offer to delete it (publishing an AI-readable index contradicts the owner's stance)
 
 6. **LLM chunkability** — For content-heavy pages, call `auditChunkability(html, url)` to flag sections with >225 words of unbroken prose.
 
@@ -113,15 +114,35 @@ Verify `@astrojs/sitemap` is in `astro.config.ts` integrations. If pages are exc
 
 ### robots.txt issues
 
-Update `public/robots.txt` to add the Sitemap directive with the correct domain. Do NOT add individual AI crawler rules — the Cloudflare dashboard controls bot access at the CDN level.
+Read `AGENTIC_CRAWLERS` from `.site-config` (default `allow`) and call `generateRobotsTxt({ sitemapUrl, agenticCrawlers, disallowPaths: ["/keystatic/"] })` from `scripts/seo.ts` to render the file, then write the result to `public/robots.txt`. The function is the single source of truth:
+
+- **`allow`** — emits the standard `User-agent: *` / `Allow: /` block plus the Sitemap directive. No individual AI crawler rules; Cloudflare's bot dashboard controls AI access at the CDN level.
+- **`block`** — emits a `User-agent: <bot>` / `Disallow: /` block for every entry in `AGENTIC_CRAWLER_BOTS` *before* the catch-all, so `robots.txt` reflects the owner's stance even if Cloudflare's settings are bypassed.
+
+To add a new agentic crawler, edit the `AGENTIC_CRAWLER_BOTS` array at the top of `template/scripts/seo.ts` — every surface (`generateRobotsTxt`, `auditRobotsTxt`, `/anglesite:check`) reads from that one list.
 
 ## Step 5 — LLM/GEO optimization
 
-If the owner wants AI search visibility:
+This step only runs when the owner allows agentic crawlers. Read `AGENTIC_CRAWLERS` from `.site-config` first:
 
-1. **Generate llms.txt** — Call `generateLlmsTxt()` with the site info and page list. Write to `public/llms.txt`.
+- **`AGENTIC_CRAWLERS=block`** — skip this entire step. Don't generate `llms.txt`. If `public/llms.txt` already exists, delete it so it doesn't get republished, and confirm `robots.txt` blocks the centralized crawlers (regenerate with `generateRobotsTxt({ ..., agenticCrawlers: "block" })` if needed).
+- **`AGENTIC_CRAWLERS=allow`** (default when unset) — proceed with the steps below.
+
+When agentic crawlers are allowed:
+
+1. **Generate llms.txt** — Call `generateLlmsTxt({ ..., agenticCrawlers: "allow" })` from `scripts/seo.ts` with the site info and page list. The function returns `null` when the policy is `block`; under `allow` it returns the markdown index. Write the result to `public/llms.txt`.
 2. **Explain Cloudflare bot settings** — Tell the owner: "Cloudflare blocks AI bots by default. To let AI search engines like ChatGPT and Perplexity cite your site, go to your Cloudflare dashboard → Security → Bot Management and allow the bots you want."
 3. **FAQ generation** — For content-heavy pages, suggest adding FAQ sections. These pair with `FAQPage` Schema.org markup and are high-signal for AI search.
+
+`AGENTIC_CRAWLERS` is the single source of truth across three surfaces:
+
+| Surface | `AGENTIC_CRAWLERS=allow` (default) | `AGENTIC_CRAWLERS=block` |
+|---|---|---|
+| Deploy gate (a14y) | runs as a deploy gate | skipped (informational only in `/anglesite:check`) |
+| `llms.txt` | generated | not generated; existing file is removed |
+| `robots.txt` | no `Disallow` for centralized agentic crawlers | each entry in `AGENTIC_CRAWLER_BOTS` gets its own `Disallow: /` |
+
+When new agentic crawlers need to be tracked, add them to `AGENTIC_CRAWLER_BOTS` in `template/scripts/seo.ts` — every surface above reads from that array.
 
 ## Step 6 — Verify fixes
 

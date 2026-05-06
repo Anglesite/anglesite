@@ -8,9 +8,11 @@ import {
   validateSitemap,
   suggestSitemapConfig,
   auditRobotsTxt,
+  generateRobotsTxt,
   generateLlmsTxt,
   auditChunkability,
   formatSeoReport,
+  AGENTIC_CRAWLER_BOTS,
   type SeoIssue,
   type PageSeoData,
   type PageSchemaInput,
@@ -443,20 +445,89 @@ describe("auditRobotsTxt", () => {
     expect(issues.some((i) => i.code === "robots-no-sitemap")).toBe(true);
   });
 
-  it("warns when AI crawlers are blocked", () => {
+  it("warns when AI crawlers are blocked under AGENTIC_CRAWLERS=allow", () => {
     const content = `User-agent: ClaudeBot\nDisallow: /\n\nUser-agent: *\nAllow: /`;
-    const issues = auditRobotsTxt(content, "https://example.com");
+    const issues = auditRobotsTxt(content, "https://example.com", "allow");
     expect(issues.some((i) => i.code === "robots-ai-blocked")).toBe(true);
     expect(issues.find((i) => i.code === "robots-ai-blocked")!.message).toContain("ClaudeBot");
   });
 
-  it("warns about Cloudflare default AI bot blocking", () => {
-    // When robots.txt doesn't explicitly allow AI bots, warn about Cloudflare's
-    // default behavior of blocking them at the CDN level
+  it("warns about Cloudflare default AI bot blocking under allow", () => {
     const content = `User-agent: *\nAllow: /\nSitemap: https://example.com/sitemap.xml`;
-    const issues = auditRobotsTxt(content, "https://example.com");
+    const issues = auditRobotsTxt(content, "https://example.com", "allow");
     expect(issues.some((i) => i.code === "robots-cloudflare-ai-block")).toBe(true);
     expect(issues.find((i) => i.code === "robots-cloudflare-ai-block")!.severity).toBe("nice-to-have");
+  });
+
+  it("flags missing crawler blocks under AGENTIC_CRAWLERS=block", () => {
+    const content = `User-agent: *\nAllow: /\nSitemap: https://example.com/sitemap.xml`;
+    const issues = auditRobotsTxt(content, "https://example.com", "block");
+    const drift = issues.find((i) => i.code === "robots-ai-not-blocked");
+    expect(drift).toBeDefined();
+    // Every centralized crawler should be reported as missing
+    for (const bot of AGENTIC_CRAWLER_BOTS) {
+      expect(drift!.message).toContain(bot);
+    }
+  });
+
+  it("returns no drift issue when block policy is fully reflected in robots.txt", () => {
+    const blocks = AGENTIC_CRAWLER_BOTS.map(
+      (b) => `User-agent: ${b}\nDisallow: /\n`,
+    ).join("\n");
+    const content = `${blocks}\nUser-agent: *\nAllow: /\nSitemap: https://example.com/sitemap.xml`;
+    const issues = auditRobotsTxt(content, "https://example.com", "block");
+    expect(issues.some((i) => i.code === "robots-ai-not-blocked")).toBe(false);
+    // The Cloudflare reminder is allow-only — block sites don't want AI bots through anyway.
+    expect(issues.some((i) => i.code === "robots-cloudflare-ai-block")).toBe(false);
+  });
+
+  it("does not report Cloudflare reminder when policy is block", () => {
+    const content = `User-agent: *\nAllow: /\nSitemap: https://example.com/sitemap.xml`;
+    const issues = auditRobotsTxt(content, "https://example.com", "block");
+    expect(issues.some((i) => i.code === "robots-cloudflare-ai-block")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateRobotsTxt — render robots.txt for the AGENTIC_CRAWLERS policy
+// ---------------------------------------------------------------------------
+
+describe("generateRobotsTxt", () => {
+  it("emits a permissive file under AGENTIC_CRAWLERS=allow (default)", () => {
+    const txt = generateRobotsTxt({
+      sitemapUrl: "https://example.com/sitemap-index.xml",
+      disallowPaths: ["/keystatic/"],
+    });
+    expect(txt).toContain("User-agent: *");
+    expect(txt).toContain("Allow: /");
+    expect(txt).toContain("Disallow: /keystatic/");
+    expect(txt).toContain("Sitemap: https://example.com/sitemap-index.xml");
+    // No agentic crawler blocks under allow
+    for (const bot of AGENTIC_CRAWLER_BOTS) {
+      expect(txt).not.toContain(`User-agent: ${bot}`);
+    }
+  });
+
+  it("disallows every centralized agentic crawler under block", () => {
+    const txt = generateRobotsTxt({
+      sitemapUrl: "https://example.com/sitemap-index.xml",
+      agenticCrawlers: "block",
+      disallowPaths: ["/keystatic/"],
+    });
+    for (const bot of AGENTIC_CRAWLER_BOTS) {
+      expect(txt).toContain(`User-agent: ${bot}`);
+    }
+    // Each agentic crawler block has its own Disallow: /
+    const disallowSlashCount = (txt.match(/Disallow: \//g) ?? []).length;
+    expect(disallowSlashCount).toBeGreaterThanOrEqual(AGENTIC_CRAWLER_BOTS.length);
+    // Catch-all is still present
+    expect(txt).toContain("User-agent: *");
+    expect(txt).toContain("Allow: /");
+  });
+
+  it("omits the Sitemap line when sitemapUrl is not provided", () => {
+    const txt = generateRobotsTxt({});
+    expect(txt).not.toContain("Sitemap:");
   });
 });
 
@@ -476,11 +547,12 @@ describe("generateLlmsTxt", () => {
       ],
     };
     const txt = generateLlmsTxt(input);
-    expect(txt).toContain("# Joe's Pizza");
-    expect(txt).toContain("joespizza.com");
-    expect(txt).toContain("New York-style pizza");
-    expect(txt).toContain("Menu");
-    expect(txt).toContain("/menu");
+    expect(txt).not.toBeNull();
+    expect(txt!).toContain("# Joe's Pizza");
+    expect(txt!).toContain("joespizza.com");
+    expect(txt!).toContain("New York-style pizza");
+    expect(txt!).toContain("Menu");
+    expect(txt!).toContain("/menu");
   });
 
   it("includes all pages in the output", () => {
@@ -495,9 +567,33 @@ describe("generateLlmsTxt", () => {
       ],
     };
     const txt = generateLlmsTxt(input);
-    expect(txt).toContain("/a");
-    expect(txt).toContain("/b");
-    expect(txt).toContain("/c");
+    expect(txt).not.toBeNull();
+    expect(txt!).toContain("/a");
+    expect(txt!).toContain("/b");
+    expect(txt!).toContain("/c");
+  });
+
+  it("generates the file when AGENTIC_CRAWLERS=allow is explicit", () => {
+    const txt = generateLlmsTxt({
+      siteName: "Test",
+      siteUrl: "https://test.com",
+      description: "A test site",
+      pages: [{ url: "/", title: "Home", description: "Welcome" }],
+      agenticCrawlers: "allow",
+    });
+    expect(txt).not.toBeNull();
+    expect(txt!).toContain("# Test");
+  });
+
+  it("returns null when AGENTIC_CRAWLERS=block (do not publish an AI index)", () => {
+    const txt = generateLlmsTxt({
+      siteName: "Test",
+      siteUrl: "https://test.com",
+      description: "A test site",
+      pages: [{ url: "/", title: "Home", description: "Welcome" }],
+      agenticCrawlers: "block",
+    });
+    expect(txt).toBeNull();
   });
 });
 
