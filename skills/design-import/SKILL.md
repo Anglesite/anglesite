@@ -52,6 +52,18 @@ Tell the owner:
 
 Stop and wait for the owner's response.
 
+**Claude Design / opendesign / open-design** — if SOURCE_URL is a `claude.ai` share link, an opendesign `localhost:8289` URL, or any other AI design-tool mockup URL:
+Tell the owner:
+
+> "Those tools generate HTML mockups, not editable site content. Anglesite
+> can't import them directly, but we can match the look. Two options:
+> 1. Export the design as a PNG or PDF and I'll pull the colors and fonts from
+>    that — say `/anglesite:design-interview` and I'll walk you through it.
+> 2. If it's a hero image or graphic for a page, save it to `public/images/`
+>    and I'll reference it from your site."
+
+Then read `${CLAUDE_PLUGIN_ROOT}/docs/design-tools.md` for the full workflow before responding to follow-ups. Stop and wait.
+
 **Unrecognized** — if the URL doesn't match any pattern:
 Tell the owner:
 

@@ -82,6 +82,7 @@ Start by loading defaults for the business type using `axesFromBusinessType(BUSI
 
 - Do they have an existing logo, colors, or fonts to inherit? If yes, use the brand color as the anchor for palette generation.
 - If starting from scratch, derive the brand color from the axes.
+- **External mockups.** If the owner mentions a deck, one-pager, or visual they made in Claude Design, opendesign, or open-design and wants the site to match, read `${CLAUDE_PLUGIN_ROOT}/docs/design-tools.md` for the safe import path. Pull the colors and type from the export (PNG/PDF) and use them as the anchor here — don't ingest the HTML directly.
 
 ### Stage 4 — Axis confirmation
 
