@@ -164,6 +164,6 @@ form-action 'self' https://contact-form.ACCOUNT.workers.dev https://forms-handle
 
 The Worker re-runs every `required`, `minLength`, `maxLength`, `pattern`, `min`, `max`, and `options` check from the form definition. Never rely on client-side validation alone — a malicious actor will skip the `<form>` and POST directly. The Worker reads the form schema (shipped alongside the Worker) and rejects any submission that fails validation with HTTP 400 and a JSON `{ errors: [...] }` body.
 
-## Notes on submissions inbox (#194)
+## Submissions inbox
 
-When the form-submissions inbox lands (issue #194), `FORMS_WORKER_URL` will be repointed to push submissions into the inbox in addition to (or instead of) email forwarding. This skill writes records the inbox can consume — `formSlug`, `submittedAt`, and a `fields` map. Until then, email is the only delivery channel.
+The forms-handler Worker also persists every verified submission to Workers KV under `submission:<formSlug>:<id>` whenever the `SUBMISSIONS` binding is present. Set up the binding (and a Keystatic inbox view of the submissions) by running `/anglesite:inbox` after this skill completes. The inbox is shared with `/anglesite:contact` — every form on the site feeds the same triage queue, distinguished by `formSlug`.

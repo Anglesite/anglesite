@@ -53,6 +53,7 @@ Step-by-step guides for common operations:
 | Convert an SSG project | `docs/workflows/convert.md` |
 | Set up a contact form | `docs/workflows/contact.md` |
 | Build a custom form (RSVP, lead, survey, callback) | `docs/workflows/forms.md` |
+| Form submissions inbox in Keystatic | `docs/workflows/inbox.md` |
 | Back up to GitHub | `docs/workflows/backup.md` |
 | Social media syndication | `docs/workflows/syndicate.md` |
 | Site analytics | `docs/workflows/stats.md` |
@@ -264,6 +265,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Export the site for self-host or migration | `/anglesite:export` |
 | Set up a contact form | `/anglesite:contact` |
 | Build a custom form (RSVP, lead, survey, callback) | `/anglesite:forms` |
+| Browse and triage submissions in the CMS | `/anglesite:inbox` |
 | Save work to GitHub | `/anglesite:backup` |
 | See site analytics | `/anglesite:stats` |
 | Set up email newsletter | `/anglesite:newsletter` |

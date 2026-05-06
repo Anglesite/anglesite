@@ -19,6 +19,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── export/SKILL.md           Portable export (dist + content + MIGRATING.md)
 │   ├── contact/SKILL.md          Contact form (Workers + Turnstile)
 │   ├── forms/SKILL.md            Custom forms — RSVP, lead, survey, callback (Workers + Turnstile)
+│   ├── inbox/SKILL.md            Form submissions inbox in Keystatic (Workers KV + triage + CSV export)
 │   ├── backup/SKILL.md           Back up changes to GitHub
 │   ├── stats/SKILL.md            Plain-language site analytics
 │   ├── newsletter/SKILL.md       Email newsletter setup + subscribe form
@@ -136,6 +137,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `export` | Portable export of the site (`dist/`, `content/`, `public/`, `MIGRATING.md`) for self-host or migration |
 | `contact` | Contact form via Cloudflare Workers + Turnstile |
 | `forms` | Custom forms (RSVP, lead capture, survey, callback) via Cloudflare Workers + Turnstile |
+| `inbox` | Persisted form submissions inbox in Keystatic (Workers KV, triage, CSV export) |
 | `backup` | Back up site changes to GitHub with descriptive summary |
 | `stats` | Plain-language site analytics from Cloudflare |
 | `newsletter` | Email newsletter setup (Buttondown/Mailchimp) + subscribe form |

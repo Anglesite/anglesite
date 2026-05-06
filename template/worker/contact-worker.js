@@ -1,17 +1,35 @@
 /**
  * Cloudflare Worker — Contact form handler.
  *
- * Validates input, verifies Turnstile, rate-limits by IP,
- * and forwards the message via MailChannels. No data is stored.
+ * Validates input, verifies Turnstile, rate-limits by IP, persists the
+ * submission to Workers KV (the `SUBMISSIONS` binding) so it can be
+ * triaged from the Keystatic inbox, and forwards the message via
+ * MailChannels. KV persistence is best-effort — if the binding is
+ * absent (older deploys) the Worker still emails the owner.
  *
  * Environment variables (set via wrangler secret):
  *   TURNSTILE_SECRET_KEY — Turnstile secret key
  *   CONTACT_EMAIL        — Destination email address
  *   SITE_DOMAIN          — The site domain (used as From address domain)
+ *   INBOX_SECRET         — Optional bearer token guarding GET /inbox
+ *
+ * KV bindings (set in wrangler.toml):
+ *   SUBMISSIONS — namespace for persisted submissions, key prefix
+ *                 `submission:contact:<id>`
  */
 
 const RATE_LIMIT_SECONDS = 60;
 const recentSubmissions = new Map();
+
+const CONTACT_FORM_DEFINITION = {
+  slug: "contact",
+  title: "Contact",
+  fields: [
+    { name: "name", label: "Name", type: "text" },
+    { name: "email", label: "Email", type: "email" },
+    { name: "message", label: "Message", type: "textarea" },
+  ],
+};
 
 function isRateLimited(ip) {
   const now = Date.now();
@@ -104,9 +122,118 @@ async function sendEmail(env, name, email, message) {
   return response.ok;
 }
 
+function newSubmissionId() {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `${ts}-${rand}`;
+}
+
+function buildContactSubmission({ name, email, message, ip }) {
+  return {
+    id: newSubmissionId(),
+    formSlug: CONTACT_FORM_DEFINITION.slug,
+    formTitle: CONTACT_FORM_DEFINITION.title,
+    submittedAt: new Date().toISOString(),
+    status: "new",
+    senderName: String(name || "").trim(),
+    senderEmail: String(email || "").trim(),
+    ip,
+    entries: [
+      { key: "name", label: "Name", type: "text", value: String(name || "") },
+      { key: "email", label: "Email", type: "email", value: String(email || "") },
+      { key: "message", label: "Message", type: "textarea", value: String(message || "") },
+    ],
+  };
+}
+
+async function persistSubmission(env, submission) {
+  if (!env.SUBMISSIONS) return false;
+  const key = `submission:${submission.formSlug}:${submission.id}`;
+  try {
+    await env.SUBMISSIONS.put(key, JSON.stringify(submission), {
+      metadata: {
+        formSlug: submission.formSlug,
+        submittedAt: submission.submittedAt,
+        status: submission.status,
+      },
+    });
+    return true;
+  } catch (err) {
+    console.error("KV persist failed:", err);
+    return false;
+  }
+}
+
+function bearerToken(request) {
+  const header = request.headers.get("Authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
+}
+
+function timingSafeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+async function handleInboxList(request, env) {
+  if (!env.SUBMISSIONS) {
+    return new Response(
+      JSON.stringify({ error: "Inbox not configured (no KV binding)." }),
+      { status: 501, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  const expected = env.INBOX_SECRET;
+  if (!expected) {
+    return new Response(
+      JSON.stringify({ error: "INBOX_SECRET not set on the Worker." }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  if (!timingSafeEqual(bearerToken(request), expected)) {
+    return new Response(JSON.stringify({ error: "Unauthorized." }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const items = [];
+  let cursor;
+  do {
+    const page = await env.SUBMISSIONS.list({
+      prefix: `submission:${CONTACT_FORM_DEFINITION.slug}:`,
+      cursor,
+    });
+    for (const k of page.keys) {
+      const raw = await env.SUBMISSIONS.get(k.name);
+      if (raw) {
+        try {
+          items.push(JSON.parse(raw));
+        } catch {
+          // skip corrupt entry
+        }
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  items.sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1));
+  return new Response(JSON.stringify({ items }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
     const origin = request.headers.get("Origin");
+
+    if (request.method === "GET" && url.pathname === "/inbox") {
+      return handleInboxList(request, env);
+    }
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders(origin, env.SITE_DOMAIN) });
@@ -201,6 +328,10 @@ export default {
       );
     }
 
+    // Persist before sending so MailChannels failure doesn't lose the message.
+    const submission = buildContactSubmission({ name, email, message, ip });
+    await persistSubmission(env, submission);
+
     // Send email
     const sent = await sendEmail(env, name, email, message);
 
@@ -229,4 +360,13 @@ export default {
       headers: { ...corsHeaders(origin, env.SITE_DOMAIN), "Content-Type": "application/json" },
     });
   },
+};
+
+export {
+  buildContactSubmission,
+  newSubmissionId,
+  timingSafeEqual,
+  handleInboxList,
+  persistSubmission,
+  CONTACT_FORM_DEFINITION,
 };

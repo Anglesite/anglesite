@@ -3,7 +3,15 @@
 # Secrets are set via: npx wrangler secret put <NAME>
 #   TURNSTILE_SECRET_KEY
 #   SITE_DOMAIN
+#   INBOX_SECRET   (optional — required to fetch the Keystatic inbox)
 
 name = "forms-handler"
 main = "forms-worker.js"
 compatibility_date = "2024-09-23"
+
+# Workers KV — submissions inbox. The /anglesite:inbox skill creates the
+# namespace and rewrites the id below. Without it the worker still
+# delivers email; KV writes are best-effort.
+# [[kv_namespaces]]
+# binding = "SUBMISSIONS"
+# id = "REPLACE_WITH_KV_NAMESPACE_ID"
