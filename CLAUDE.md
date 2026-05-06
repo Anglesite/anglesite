@@ -8,7 +8,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── skills/                       Skills (44 total: 19 user-facing, 25 model-only)
+├── skills/                       Skills (45 total: 20 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -16,6 +16,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── domain/SKILL.md           DNS management (email, Bluesky, verification)
 │   ├── import/SKILL.md           Import from website URL
 │   ├── convert/SKILL.md          Convert existing SSG project to Anglesite
+│   ├── export/SKILL.md           Portable export (dist + content + MIGRATING.md)
 │   ├── contact/SKILL.md          Contact form (Workers + Turnstile)
 │   ├── forms/SKILL.md            Custom forms — RSVP, lead, survey, callback (Workers + Turnstile)
 │   ├── backup/SKILL.md           Back up changes to GitHub
@@ -132,6 +133,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `domain` | DNS record management (email, Bluesky, domain verification) |
 | `import` | Import content from external website URL |
 | `convert` | Convert existing SSG project (Hugo, Jekyll, Next.js, etc.) to Anglesite |
+| `export` | Portable export of the site (`dist/`, `content/`, `public/`, `MIGRATING.md`) for self-host or migration |
 | `contact` | Contact form via Cloudflare Workers + Turnstile |
 | `forms` | Custom forms (RSVP, lead capture, survey, callback) via Cloudflare Workers + Turnstile |
 | `backup` | Back up site changes to GitHub with descriptive summary |
