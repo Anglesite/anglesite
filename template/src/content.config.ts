@@ -278,6 +278,54 @@ const experiments = defineCollection({
 });
 
 /**
+ * Custom forms (RSVP, lead capture, survey, callback) stored in
+ * `src/content/forms/`. The dynamic `/forms/[slug]` route renders these,
+ * and the `forms-handler` Worker validates submissions against the same
+ * field definitions.
+ */
+const formField = z.object({
+  name: z.string(),
+  label: z.string(),
+  type: z.enum([
+    "text",
+    "email",
+    "tel",
+    "textarea",
+    "number",
+    "select",
+    "radio",
+    "checkbox",
+    "scale",
+    "date",
+    "hidden",
+  ]),
+  required: z.boolean().default(false),
+  placeholder: z.string().optional(),
+  helpText: z.string().optional(),
+  options: z.array(z.string()).default([]),
+  minLength: z.number().optional(),
+  maxLength: z.number().optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  pattern: z.string().optional(),
+  defaultValue: z.string().optional(),
+});
+
+const forms = defineCollection({
+  type: "content",
+  schema: z.object({
+    title: z.string(),
+    slug: z.string(),
+    description: z.string().optional(),
+    destinationEmail: z.string().email(),
+    successMessage: z.string().optional(),
+    redirectUrl: z.string().optional(),
+    rateLimitSeconds: z.number().min(0).max(3600).default(60),
+    fields: z.array(formField).default([]),
+  }),
+});
+
+/**
  * Check whether a content directory has actual content files (.mdoc, .mdx,
  * .md), not just a `.gitkeep` placeholder. This prevents Astro's glob-loader
  * from warning about empty collection directories.
@@ -299,7 +347,7 @@ function hasContentFiles(name: string): boolean {
  * Directories are created or removed by `scripts/prune-collections.mjs`
  * during setup; this filter provides a second safety net.
  */
-const allCollections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products, experiments };
+const allCollections = { posts, services, team, testimonials, gallery, events, menus, menuSections, menuItems, faq, products, experiments, forms };
 
 export const collections = Object.fromEntries(
   Object.entries(allCollections).filter(([name]) => hasContentFiles(name)),

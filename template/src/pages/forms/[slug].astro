@@ -1,0 +1,237 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection, getEntry } from "astro:content";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+export async function getStaticPaths() {
+  const forms = await getCollection("forms").catch(() => []);
+  return forms.map((form) => ({ params: { slug: form.data.slug } }));
+}
+
+const { slug } = Astro.params;
+const entry = await getEntry("forms", slug as string);
+
+if (!entry) {
+  return Astro.redirect("/404");
+}
+
+const form = entry.data;
+const { Content } = await entry.render();
+
+const configPath = resolve(process.cwd(), ".site-config");
+const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
+const workerUrl = config.match(/^FORMS_WORKER_URL=(.+)$/m)?.[1]?.trim() ?? "";
+const turnstileSiteKey = config.match(/^TURNSTILE_SITE_KEY=(.+)$/m)?.[1]?.trim() ?? "";
+
+const action = workerUrl ? `${workerUrl}/${form.slug}` : "";
+const hiddenFieldNames = form.fields
+  .filter((f) => f.type === "hidden")
+  .map((f) => f.name);
+---
+
+<BaseLayout
+  title={form.title}
+  description={form.description ?? `${form.title} form`}
+>
+  <h1>{form.title}</h1>
+  {form.description && <p>{form.description}</p>}
+  <Content />
+
+  <form method="POST" action={action} class="custom-form" data-form-slug={form.slug}>
+    <input type="hidden" name="formSlug" value={form.slug} />
+
+    {form.fields.map((field) => {
+      if (field.type === "hidden") {
+        return (
+          <input
+            type="hidden"
+            name={field.name}
+            value={field.defaultValue ?? ""}
+            data-utm-passthrough={hiddenFieldNames.includes(field.name) ? "true" : null}
+          />
+        );
+      }
+
+      const id = `field-${field.name}`;
+      const help = field.helpText ? <small id={`${id}-help`}>{field.helpText}</small> : null;
+      const describedBy = field.helpText ? `${id}-help` : undefined;
+
+      const common = {
+        id,
+        name: field.name,
+        required: field.required,
+        placeholder: field.placeholder,
+        "aria-describedby": describedBy,
+      } as const;
+
+      if (field.type === "textarea") {
+        return (
+          <div class="form-field">
+            <label for={id}>
+              {field.label}
+              {field.required && <span aria-hidden="true"> *</span>}
+            </label>
+            <textarea
+              {...common}
+              rows={5}
+              maxlength={field.maxLength}
+              minlength={field.minLength}
+            ></textarea>
+            {help}
+          </div>
+        );
+      }
+
+      if (field.type === "select") {
+        return (
+          <div class="form-field">
+            <label for={id}>
+              {field.label}
+              {field.required && <span aria-hidden="true"> *</span>}
+            </label>
+            <select {...common}>
+              <option value="">{field.placeholder ?? "Choose one"}</option>
+              {field.options?.map((opt) => (
+                <option value={opt}>{opt}</option>
+              ))}
+            </select>
+            {help}
+          </div>
+        );
+      }
+
+      if (field.type === "radio") {
+        return (
+          <fieldset class="form-field" aria-describedby={describedBy}>
+            <legend>
+              {field.label}
+              {field.required && <span aria-hidden="true"> *</span>}
+            </legend>
+            {field.options?.map((opt, i) => (
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name={field.name}
+                  value={opt}
+                  required={field.required && i === 0}
+                />
+                <span>{opt}</span>
+              </label>
+            ))}
+            {help}
+          </fieldset>
+        );
+      }
+
+      if (field.type === "checkbox") {
+        return (
+          <fieldset class="form-field" aria-describedby={describedBy}>
+            <legend>{field.label}</legend>
+            {field.options?.map((opt) => (
+              <label class="checkbox-option">
+                <input type="checkbox" name={field.name} value={opt} />
+                <span>{opt}</span>
+              </label>
+            ))}
+            {help}
+          </fieldset>
+        );
+      }
+
+      if (field.type === "scale") {
+        const min = field.min ?? 1;
+        const max = field.max ?? 5;
+        const values = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+        return (
+          <fieldset class="form-field scale" aria-describedby={describedBy}>
+            <legend>
+              {field.label}
+              {field.required && <span aria-hidden="true"> *</span>}
+            </legend>
+            <div class="scale-options">
+              {values.map((v, i) => (
+                <label class="scale-option">
+                  <input
+                    type="radio"
+                    name={field.name}
+                    value={v}
+                    required={field.required && i === 0}
+                  />
+                  <span>{v}</span>
+                </label>
+              ))}
+            </div>
+            {help}
+          </fieldset>
+        );
+      }
+
+      const inputType =
+        field.type === "tel"
+          ? "tel"
+          : field.type === "email"
+            ? "email"
+            : field.type === "number"
+              ? "number"
+              : field.type === "date"
+                ? "date"
+                : "text";
+
+      return (
+        <div class="form-field">
+          <label for={id}>
+            {field.label}
+            {field.required && <span aria-hidden="true"> *</span>}
+          </label>
+          <input
+            {...common}
+            type={inputType}
+            maxlength={field.maxLength}
+            minlength={field.minLength}
+            min={field.min}
+            max={field.max}
+            pattern={field.pattern}
+            autocomplete={
+              field.type === "email"
+                ? "email"
+                : field.type === "tel"
+                  ? "tel"
+                  : field.name === "name"
+                    ? "name"
+                    : undefined
+            }
+          />
+          {help}
+        </div>
+      );
+    })}
+
+    {turnstileSiteKey && (
+      <div class="cf-turnstile" data-sitekey={turnstileSiteKey}></div>
+    )}
+
+    <button type="submit">Submit</button>
+  </form>
+
+  {turnstileSiteKey && (
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  )}
+
+  {hiddenFieldNames.length > 0 && (
+    <script
+      type="module"
+      define:vars={{ hiddenFieldNames }}
+    >
+      {`
+      const params = new URLSearchParams(window.location.search);
+      for (const name of hiddenFieldNames) {
+        const value = params.get(name);
+        if (value == null) continue;
+        const input = document.querySelector(\`input[type="hidden"][name="\${name}"]\`);
+        if (input) input.value = value;
+      }
+    `}
+    </script>
+  )}
+</BaseLayout>
