@@ -261,6 +261,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Manage DNS (email, Bluesky, etc.) | `/anglesite:domain` |
 | Import from a website URL | `/anglesite:import` |
 | Convert an SSG project to Anglesite | `/anglesite:convert` |
+| Export the site for self-host or migration | `/anglesite:export` |
 | Set up a contact form | `/anglesite:contact` |
 | Build a custom form (RSVP, lead, survey, callback) | `/anglesite:forms` |
 | Save work to GitHub | `/anglesite:backup` |
