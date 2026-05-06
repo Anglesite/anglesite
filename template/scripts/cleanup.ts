@@ -15,7 +15,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execa } from "execa";
+import { execa, execaCommand } from "execa";
 import consola from "consola";
 import {
   isMacos,
@@ -25,6 +25,23 @@ import {
   mkcertBin as mkcertBinPath,
 } from "./platform.js";
 import { readConfig } from "./config.js";
+
+/** Whether sudo can be used in this environment (interactive or cached). */
+async function canRunPrivileged(): Promise<boolean> {
+  if (!isWindows && process.getuid?.() === 0) return true;
+  if (isWindows) return true;
+  try {
+    await execaCommand("command -v sudo", { shell: true });
+  } catch {
+    return false;
+  }
+  try {
+    await execa("sudo", ["-n", "true"], { stdio: "pipe" });
+    return true;
+  } catch {
+    return process.stdin.isTTY === true;
+  }
+}
 
 /** Directory this script lives in (`scripts/`). */
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -79,6 +96,20 @@ async function main(): Promise<void> {
   }
 
   // macOS / Linux: use sudo
+  if (!(await canRunPrivileged())) {
+    consola.warn("Cannot remove system modifications: this environment doesn't support sudo.");
+    if (hasHostsEntry) {
+      consola.info(
+        `To remove the hosts entry, edit ${HOSTS_FILE} on a machine with admin access`,
+      );
+      consola.info(`and delete the line containing "${devHostname}".`);
+    }
+    if (hasPfctlRules) {
+      consola.info("To remove pfctl rules, run cleanup on a machine with admin access.");
+    }
+    return;
+  }
+
   consola.warn("Your password is needed for this.");
   await execa("sudo", ["-v"], { stdio: "inherit" });
 

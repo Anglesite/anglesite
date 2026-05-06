@@ -231,28 +231,33 @@ If the owner wants to skip this ("I already have photos" / "I'll figure it out l
 
 ## Step 3 — Install tools
 
-Your design is saved. Before running setup, present the wizard summary so the owner knows exactly what's coming:
+Your design is saved. Before running setup, present the wizard summary so the owner knows exactly what's coming.
 
-"Your website design is ready! Now I need to install the tools to run it on your computer and set up a secure local preview."
+The setup script auto-detects whether the environment supports admin/sudo access. If it doesn't (typical for Claude Cowork, web-based shells, or sandboxed containers), HTTPS preview setup is skipped entirely and the dev server runs on `http://localhost:4321` instead. No password prompts, no certificate trust dialogs — the site still works, just without a padlock locally.
 
-On **macOS**, tell the owner what to expect:
-"Here's what will happen — I'll walk you through each step:
-1. **Developer tools** — If this is your first time, macOS will pop up a window asking to install developer tools. Click **Install** and wait about a minute.
-2. **Password** — Your Mac password is needed to set up secure local preview. Type your password — nothing will appear as you type. Press Enter.
-3. **Certificate trust** — A system dialog asks to trust a local security certificate so your browser shows a padlock. Click **Allow** (or enter your password again).
-That's it — three things, and I'll tell you when each one is coming. Ready?"
+Tailor your wizard summary to the environment:
 
-On **Linux**, tell the owner:
-"Here's what will happen:
-1. **Password** — Your password is needed to set up secure local preview.
-2. **Certificate trust** — I'll install a local certificate so your browser shows a padlock.
-That's it — I'll walk you through each step. Ready?"
+- If the owner is in **Claude Cowork** (or any non-admin environment), tell them:
+  "Your website design is ready! I'll install the tools to run it on your computer. Your preview will run at http://localhost:4321 — fully functional, just without the padlock icon. Ready?"
 
-On **Windows**, tell the owner:
-"Here's what will happen:
-1. **Certificate trust** — A Windows dialog may ask to trust a security certificate. Click **Yes**.
-2. Some steps may need Administrator access — I'll let you know.
-Ready?"
+- On **macOS** (with admin access), tell the owner:
+  "Here's what will happen — I'll walk you through each step:
+  1. **Developer tools** — If this is your first time, macOS will pop up a window asking to install developer tools. Click **Install** and wait about a minute.
+  2. **Password** — Your Mac password is needed to set up secure local preview. Type your password — nothing will appear as you type. Press Enter.
+  3. **Certificate trust** — A system dialog asks to trust a local security certificate so your browser shows a padlock. Click **Allow** (or enter your password again).
+  That's it — three things, and I'll tell you when each one is coming. Ready?"
+
+- On **Linux** (with admin access), tell the owner:
+  "Here's what will happen:
+  1. **Password** — Your password is needed to set up secure local preview.
+  2. **Certificate trust** — I'll install a local certificate so your browser shows a padlock.
+  That's it — I'll walk you through each step. Ready?"
+
+- On **Windows**, tell the owner:
+  "Here's what will happen:
+  1. **Certificate trust** — A Windows dialog may ask to trust a security certificate. Click **Yes**.
+  2. Some steps may need Administrator access — I'll let you know.
+  Ready?"
 
 First install project dependencies (needed to run the setup script):
 
@@ -266,9 +271,12 @@ Then run the setup script:
 npm run ai-setup
 ```
 
-The setup script installs Xcode CLI tools, fnm, Node.js LTS, mkcert, a locally-trusted HTTPS certificate, hostname resolution, port forwarding, npm dependencies, and initializes git. It skips anything already present.
+The setup script installs Xcode CLI tools, fnm, Node.js LTS, npm dependencies, the GitHub CLI, and initializes git. When admin/sudo access is available, it also installs mkcert, generates a locally-trusted HTTPS certificate, and configures hostname resolution and port forwarding. It writes `HTTPS_AVAILABLE=true|false` to `.site-config` and skips anything already present.
 
-If the script succeeds, read `DEV_HOSTNAME` from `.site-config` and tell the owner: "Everything is installed! Your website now runs securely at https://DEV_HOSTNAME — just like a real website, but only visible on your computer."
+After setup finishes, read `HTTPS_AVAILABLE` from `.site-config`:
+
+- If `HTTPS_AVAILABLE=true` (admin access was available), read `DEV_HOSTNAME` and tell the owner: "Everything is installed! Your website now runs securely at https://DEV_HOSTNAME — just like a real website, but only visible on your computer."
+- If `HTTPS_AVAILABLE=false` (no admin access — e.g., Claude Cowork), tell the owner: "Everything is installed! Your website previews at http://localhost:4321. The local padlock isn't available in this environment, but the site is fully functional and the live version on your real domain will be HTTPS once you deploy."
 
 If it fails, read the log:
 

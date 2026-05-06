@@ -273,7 +273,12 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 
-To write and edit blog posts, they navigate to `https://DEV_HOSTNAME/keystatic` in the preview panel (while the dev server is running). Read `DEV_HOSTNAME` from `.site-config`.
+To write and edit blog posts, they navigate to the Keystatic editor in the preview panel (while the dev server is running). The URL depends on `HTTPS_AVAILABLE` in `.site-config`:
+
+- `HTTPS_AVAILABLE=true` → `https://DEV_HOSTNAME/keystatic`
+- `HTTPS_AVAILABLE=false` (e.g., Claude Cowork — no sudo for HTTPS setup) → `http://localhost:4321/keystatic`
+
+If `HTTPS_AVAILABLE` is missing (older sites set up before this flag), assume `true` and use `https://DEV_HOSTNAME`.
 
 ## Reference docs
 

@@ -134,6 +134,39 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * Detect whether this environment can perform privileged operations
+ * (sudo on macOS/Linux, admin on Windows). Returns false in environments
+ * like Claude Cowork where there's no sudo binary or no TTY for a
+ * password prompt — in which case HTTPS preview setup is skipped.
+ */
+async function canRunPrivileged(): Promise<boolean> {
+  // Running as root — no sudo needed
+  if (!isWindows && process.getuid?.() === 0) return true;
+
+  if (isWindows) {
+    // Windows uses GUI dialogs for elevation; we already provide manual
+    // fallbacks for non-elevated runs, so don't gate the whole flow here.
+    return true;
+  }
+
+  // sudo binary present?
+  try {
+    await execaCommand("command -v sudo", { shell: true });
+  } catch {
+    return false;
+  }
+
+  // Cached sudo session or NOPASSWD?
+  try {
+    await execa("sudo", ["-n", "true"], { stdio: "pipe" });
+    return true;
+  } catch {
+    // Password required — only OK if we have a TTY to prompt on
+    return process.stdin.isTTY === true;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Setup steps
 // ---------------------------------------------------------------------------
@@ -595,28 +628,39 @@ async function initGit(): Promise<void> {
   log("Git initialized.");
 }
 
+/** Write or update a single key=value pair in `.site-config`. */
+function setConfigValue(key: string, value: string): void {
+  if (existsSync(CONFIG_FILE)) {
+    const content = readFileSync(CONFIG_FILE, "utf-8");
+    const re = new RegExp(`^${key}=.*$`, "m");
+    if (re.test(content)) {
+      writeFileSync(CONFIG_FILE, content.replace(re, `${key}=${value}`));
+    } else {
+      const sep = content.endsWith("\n") || content === "" ? "" : "\n";
+      appendFileSync(CONFIG_FILE, `${sep}${key}=${value}\n`);
+    }
+  } else {
+    writeFileSync(CONFIG_FILE, `${key}=${value}\n`);
+  }
+}
+
 /** Write PROJECT_DIR to `.site-config`. */
 function saveProjectDir(): void {
   if (DRY_RUN) {
     log("[dry-run] would write PROJECT_DIR to .site-config");
     return;
   }
-
-  if (existsSync(CONFIG_FILE)) {
-    const content = readFileSync(CONFIG_FILE, "utf-8");
-    if (content.includes("PROJECT_DIR=")) {
-      writeFileSync(
-        CONFIG_FILE,
-        content.replace(/^PROJECT_DIR=.*$/m, `PROJECT_DIR=${PROJECT_DIR}`),
-      );
-    } else {
-      appendFileSync(CONFIG_FILE, `\nPROJECT_DIR=${PROJECT_DIR}\n`);
-    }
-  } else {
-    writeFileSync(CONFIG_FILE, `PROJECT_DIR=${PROJECT_DIR}\n`);
-  }
-
+  setConfigValue("PROJECT_DIR", PROJECT_DIR);
   log("Project directory saved to .site-config");
+}
+
+/** Persist whether HTTPS preview is available in this environment. */
+function saveHttpsAvailability(available: boolean): void {
+  if (DRY_RUN) {
+    log(`[dry-run] would write HTTPS_AVAILABLE=${available} to .site-config`);
+    return;
+  }
+  setConfigValue("HTTPS_AVAILABLE", available ? "true" : "false");
 }
 
 /** Show a desktop notification (best-effort, cross-platform). */
@@ -647,11 +691,24 @@ async function main(): Promise<void> {
   await installNode();
   await ensureShellProfile();
   await installDependencies();
-  await installMkcert();
   await installGhCli();
-  await trustLocalCA();
-  await generateCert();
-  await configureSystemHttps();
+
+  const httpsAvailable = await canRunPrivileged();
+  if (httpsAvailable) {
+    await installMkcert();
+    await trustLocalCA();
+    await generateCert();
+    await configureSystemHttps();
+  } else {
+    log("Skipping HTTPS preview setup — this environment doesn't support admin/sudo access.");
+    log("The dev server will run at http://localhost:4321 (no padlock, but fully functional).");
+    log("To enable HTTPS later, run `npm run ai-setup` on a machine where you can grant admin access.");
+    skipped.push(
+      "HTTPS preview (no admin access available — site will preview at http://localhost:4321)",
+    );
+  }
+  saveHttpsAvailability(httpsAvailable);
+
   await initGit();
   saveProjectDir();
 
