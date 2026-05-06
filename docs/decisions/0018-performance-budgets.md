@@ -58,7 +58,7 @@ The `/anglesite:deploy` skill runs the audit warn-only in 1.1 (`PERF_WARN_ONLY=t
 
 ### Confirmation
 
-`scripts/perf-budget.ts` is invoked from `/anglesite:deploy` Step 2a⅞½ and from `npm run ai-perf` directly. Unit tests in `tests/perf-budget.test.ts` cover budget resolution (defaults, overrides, malformed input), asset extraction (script/link tag parsing, query/hash stripping, external URL handling), per-page evaluation (under, at, and over budget), trend file rotation, and exit-code computation.
+`scripts/perf-budget.ts` is invoked from `/anglesite:deploy` Step 2c and from `npm run ai-perf` directly. Unit tests in `tests/perf-budget.test.ts` cover budget resolution (defaults, overrides, malformed input), asset extraction (script/link tag parsing, query/hash stripping, external URL handling), per-page evaluation (under, at, and over budget), trend file rotation, and exit-code computation.
 
 ## Pros and Cons of the Options
 

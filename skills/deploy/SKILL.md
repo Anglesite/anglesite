@@ -177,7 +177,15 @@ If `A14Y_WARN_ONLY=true` is set in `.site-config` (or the owner passes `--warn-o
 
 If the owner passes `--skip-a14y`, skip this step.
 
-## Step 2a⅞½ — Performance budget (warn-only)
+## Step 2b — Copy quality scan (non-blocking)
+
+Read `${CLAUDE_PLUGIN_ROOT}/skills/copy-edit/SKILL.md` and follow it in non-interactive deploy context. This scans all content pages for clarity, tone consistency, and missing CTAs.
+
+**No issues block the deploy.** Write findings to `copy-edit-report.md` in the project root and briefly mention to the owner: "I found a few copy improvements you can make later — they're saved in copy-edit-report.md."
+
+If the owner passes `--skip-copy`, skip this step.
+
+## Step 2c — Performance budget (warn-only)
 
 Run the performance budget audit against the built site:
 
@@ -223,14 +231,6 @@ npm run ai-perf -- --report perf-report.md --trend perf-trend.json --lighthouse 
 Then kill the background preview process.
 
 If the owner passes `--skip-perf`, skip this step entirely.
-
-## Step 2b — Copy quality scan (non-blocking)
-
-Read `${CLAUDE_PLUGIN_ROOT}/skills/copy-edit/SKILL.md` and follow it in non-interactive deploy context. This scans all content pages for clarity, tone consistency, and missing CTAs.
-
-**No issues block the deploy.** Write findings to `copy-edit-report.md` in the project root and briefly mention to the owner: "I found a few copy improvements you can make later — they're saved in copy-edit-report.md."
-
-If the owner passes `--skip-copy`, skip this step.
 
 ## Step 2.5 — Preview (first deploy only)
 
