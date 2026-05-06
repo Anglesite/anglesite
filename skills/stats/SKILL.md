@@ -75,11 +75,13 @@ Split the results: rows with `date >= today - 7` are the current week; the earli
 
 Replace `DATE_TODAY` with today's ISO date. Keep the range to a single day so the query stays inside the free-plan limit.
 
+The filter narrows results to HTML responses so `count` approximates page views per path. Without this filter, `httpRequestsAdaptiveGroups.count` aggregates every HTTP request — assets, bots, redirects, error responses — and can be 5–10× higher than the page-view count on a static site, so it must not be presented as "visits" or "page views".
+
 ```sh
 curl -s "https://api.cloudflare.com/client/v4/graphql" \
   -H "Authorization: Bearer $CF_API_TOKEN" \
   -H "Content-Type: application/json" \
-  --data '{"query":"{ viewer { zones(filter: {zoneTag: \"'$CF_ZONE_ID'\"}) { httpRequestsAdaptiveGroups(filter: {date: \"DATE_TODAY\"}, limit: 100, orderBy: [count_DESC]) { count dimensions { clientRequestPath } } } } }"}'
+  --data '{"query":"{ viewer { zones(filter: {zoneTag: \"'$CF_ZONE_ID'\"}) { httpRequestsAdaptiveGroups(filter: {date: \"DATE_TODAY\", edgeResponseContentTypeName: \"html\", edgeResponseStatus_lt: 400}, limit: 100, orderBy: [count_DESC]) { count dimensions { clientRequestPath } } } } }"}'
 ```
 
 ### Graceful degradation
@@ -92,30 +94,37 @@ Only attempt these if the owner has confirmed a paid Cloudflare plan. Add `clien
 
 ## Step 2 — Parse and summarize
 
+These three numbers measure different things and must not be substituted for one another:
+
+- **Unique visitors** — `uniq.uniques` from `httpRequests1dGroups`. The number of distinct people.
+- **Page views** — `sum.pageViews` from `httpRequests1dGroups`, or `count` from `httpRequestsAdaptiveGroups` *when filtered to HTML responses* (Query B). One person can generate many page views.
+- **Requests** — raw `count` from `httpRequestsAdaptiveGroups` with no content-type filter. Includes every asset, redirect, bot hit, and error response. Don't surface this as "visitors" or "views"; only mention it explicitly as "requests" when relevant.
+
 From the responses, extract:
 
-1. **Total visitors** — from Query A, sum `uniq.uniques` across the 7 most recent days for the current week, and across the 7 days before for the previous week.
-2. **Busiest day** — from Query A, map each `dimensions.date` (ISO date) to its weekday name, take the day with the highest `sum.pageViews` in the current week.
-3. **Top pages** — from Query B, group rows by `clientRequestPath`, sum `count`, sort descending, take top 5. Note in the summary that this reflects the most recent 24 hours (free-plan limitation).
-4. **Campaign breakdown** — from Query B's `clientRequestPath` values, extract URL query strings containing `utm_source`, `utm_medium`, `utm_campaign`. Group by `utm_source`/`utm_campaign`, label each entry as `{source} "{campaign}"`, and sort by visit count descending.
-5. **Referral sources** *(paid plans only)* — group by `clientRefererHost`, rename common ones (e.g., `google.com` → "Google Search", empty → "Direct"). Skip entirely on free plans.
-6. **Device breakdown** *(paid plans only)* — group by `userAgentBrowser` or device class. Skip entirely on free plans.
+1. **Unique visitors** — from Query A, sum `uniq.uniques` across the 7 most recent days for the current week, and across the 7 days before for the previous week.
+2. **Page views** — from Query A, sum `sum.pageViews` across each 7-day window. Report alongside visitors; don't conflate the two.
+3. **Busiest day** — from Query A, map each `dimensions.date` (ISO date) to its weekday name, take the day with the highest `sum.pageViews` in the current week. Label the figure as "page views" (not "visits" or "visitors").
+4. **Top pages** — from Query B (HTML-filtered), group rows by `clientRequestPath`, sum `count`, sort descending, take top 5. Label the figure as "page views". Note in the summary that this reflects the most recent 24 hours (free-plan limitation).
+5. **Campaign breakdown** — from Query B's `clientRequestPath` values, extract URL query strings containing `utm_source`, `utm_medium`, `utm_campaign`. Group by `utm_source`/`utm_campaign`, label each entry as `{source} "{campaign}"`, and sort by page-view count descending.
+6. **Referral sources** *(paid plans only)* — group by `clientRefererHost`, rename common ones (e.g., `google.com` → "Google Search", empty → "Direct"). Skip entirely on free plans.
+7. **Device breakdown** *(paid plans only)* — group by `userAgentBrowser` or device class. Skip entirely on free plans.
 
 Present the summary in plain language. Example output (free plan):
 
-> Your site had **142 visitors** this week (up 23% from last week).
+> Your site had **142 unique visitors** and **318 page views** this week (visitors up 23%, page views up 31% from last week).
 >
-> **Top pages** (last 24 hours):
-> 1. /services — 58 views
-> 2. / — 45 views
-> 3. /about — 30 views
+> **Top pages** (last 24 hours, HTML page views):
+> 1. /services — 58 page views
+> 2. / — 45 page views
+> 3. /about — 30 page views
 >
-> **Busiest day:** Tuesday with 30 visits. Consider posting new content on Monday to catch the wave.
+> **Busiest day:** Tuesday with 65 page views. Consider posting new content on Monday to catch the wave.
 >
 > **Campaigns** (last 24 hours):
-> - QR code "table-tent": 23 visits
-> - facebook ad "march-promo": 45 visits
-> - Email "weekly-update" via newsletter: 12 visits
+> - QR code "table-tent": 23 page views
+> - facebook ad "march-promo": 45 page views
+> - Email "weekly-update" via newsletter: 12 page views
 >
 > *Referrer and device breakdowns require a paid Cloudflare plan.*
 
@@ -123,9 +132,9 @@ Present the summary in plain language. Example output (free plan):
 
 After collecting the data, present results as a clean markdown summary:
 
-- **Top pages** — markdown table with page path and visit count (and optional bar made of `█` characters proportional to visits, e.g. `████████ 240`)
-- **Campaign performance** — second markdown table if campaign data exists
-- **Plain-language summary** — 2–3 sentences explaining what the numbers mean
+- **Top pages** — markdown table with page path and page-view count (and optional bar made of `█` characters proportional to page views, e.g. `████████ 240`). Header the count column "Page views", not "Visits".
+- **Campaign performance** — second markdown table if campaign data exists, also in page views
+- **Plain-language summary** — 2–3 sentences explaining what the numbers mean. When you cite a headline figure, say which one (visitors vs page views) — they tell different stories.
 
 Lead with the table, follow with the summary and actionable suggestions.
 
@@ -141,7 +150,7 @@ git log -1 --format="%ar" -- src/pages/PAGE.astro
 
 If a top page hasn't been updated in more than 30 days, suggest: "Your /services page is your most popular but hasn't been updated in 45 days — worth a refresh?"
 
-2. **Content timing** — Based on the busiest day, suggest when to publish: "Most visitors come on Tuesday — consider publishing new posts on Monday evening."
+2. **Content timing** — Based on the busiest day, suggest when to publish: "Most page views land on Tuesday — consider publishing new posts on Monday evening." Use "page views" here, not "visitors" — the busiest-day figure is `sum.pageViews`, not `uniq.uniques`.
 
 3. **Traffic source tips** — If Google Search is the top referrer, mention SEO. If Direct dominates, suggest sharing the URL on social media.
 
