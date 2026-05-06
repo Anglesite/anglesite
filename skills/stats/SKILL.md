@@ -46,59 +46,78 @@ Save to `.env` as `CF_ZONE_ID=zone-id`.
 
 ## Step 1 — Fetch analytics data
 
-Query the Cloudflare GraphQL Analytics API for the last 7 days and the 7 days before that (for comparison).
+Query the Cloudflare GraphQL Analytics API. Free Cloudflare zones gate several fields and cap the adaptive dataset to a 1-day window, so split the work across two datasets:
+
+- **`httpRequests1dGroups`** — daily roll-ups (page views, requests, unique visitors). Available on free plans, supports multi-day ranges. Use this for the 7-day weekly comparison and busiest-day calculation.
+- **`httpRequestsAdaptiveGroups`** — request-level drilldowns. On free plans this is capped to a 1-day time range, so use it only for the most recent 24 hours to derive top paths and campaigns.
+
+Referrer host (`clientRefererHost`) and device-class fields are **paid-only** on Cloudflare. Don't include them in the default query — if the owner is on a paid plan, see "Paid-plan extras" below.
 
 ```sh
 CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
 CF_ZONE_ID=$(grep CF_ZONE_ID .env | cut -d= -f2)
 ```
 
-Current week (replace DATE_START and DATE_END with actual ISO dates):
+### Query A — weekly comparison (last 14 days, daily roll-ups)
+
+Replace `DATE_START_PREV` with 14 days ago and `DATE_END_CURR` with today (ISO `YYYY-MM-DD`).
 
 ```sh
 curl -s "https://api.cloudflare.com/client/v4/graphql" \
   -H "Authorization: Bearer $CF_API_TOKEN" \
   -H "Content-Type: application/json" \
-  --data '{"query":"{ viewer { zones(filter: {zoneTag: \"'$CF_ZONE_ID'\"}) { httpRequestsAdaptiveGroups(filter: {date_geq: \"DATE_START\", date_leq: \"DATE_END\"}, limit: 100, orderBy: [count_DESC]) { count dimensions { date clientRequestPath refererHost device } } } } }"}'
+  --data '{"query":"{ viewer { zones(filter: {zoneTag: \"'$CF_ZONE_ID'\"}) { httpRequests1dGroups(filter: {date_geq: \"DATE_START_PREV\", date_leq: \"DATE_END_CURR\"}, limit: 14, orderBy: [date_ASC]) { dimensions { date } sum { pageViews requests } uniq { uniques } } } } }"}'
 ```
 
-Previous week (7 days before DATE_START):
+Split the results: rows with `date >= today - 7` are the current week; the earlier 7 are the previous week.
 
-Run the same query with the previous week's date range for comparison.
+### Query B — top paths (most recent day)
+
+Replace `DATE_TODAY` with today's ISO date. Keep the range to a single day so the query stays inside the free-plan limit.
+
+```sh
+curl -s "https://api.cloudflare.com/client/v4/graphql" \
+  -H "Authorization: Bearer $CF_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"query":"{ viewer { zones(filter: {zoneTag: \"'$CF_ZONE_ID'\"}) { httpRequestsAdaptiveGroups(filter: {date: \"DATE_TODAY\"}, limit: 100, orderBy: [count_DESC]) { count dimensions { clientRequestPath } } } } }"}'
+```
+
+### Graceful degradation
+
+Inspect the JSON response for an `errors[]` array before parsing. If any error message contains `authz`, `does not have access`, or `time range wider than`, drop that section from the output and continue with the data you do have. Don't surface the raw error to the owner — note in the summary that the section requires a paid Cloudflare plan (for referrer/device) or a longer history (for the adaptive window).
+
+### Paid-plan extras (optional)
+
+Only attempt these if the owner has confirmed a paid Cloudflare plan. Add `clientRefererHost` and/or `userAgentBrowser` dimensions to Query B. If the response returns an `authz` error, fall back to the default query above.
 
 ## Step 2 — Parse and summarize
 
-From the API response, extract:
+From the responses, extract:
 
-1. **Total visitors** — sum of unique visits for current and previous periods
-2. **Top pages** — group by `clientRequestPath`, sort by count, take top 5
-3. **Referral sources** — group by `refererHost`, rename common ones (e.g., "google.com" → "Google Search", empty → "Direct")
-4. **Device breakdown** — group by `device` type, calculate percentages
-5. **Busiest day** — group by `date`, map to day names, find the highest
-6. **Campaign breakdown** — group by UTM parameters (`clientRequestPath` query string contains `utm_source`, `utm_medium`, `utm_campaign`). Extract these from pages with UTM params in the URL. Group by `utm_source`/`utm_campaign`, label each entry as "{source} "{campaign}"", and sort by visit count descending.
+1. **Total visitors** — from Query A, sum `uniq.uniques` across the 7 most recent days for the current week, and across the 7 days before for the previous week.
+2. **Busiest day** — from Query A, map each `dimensions.date` (ISO date) to its weekday name, take the day with the highest `sum.pageViews` in the current week.
+3. **Top pages** — from Query B, group rows by `clientRequestPath`, sum `count`, sort descending, take top 5. Note in the summary that this reflects the most recent 24 hours (free-plan limitation).
+4. **Campaign breakdown** — from Query B's `clientRequestPath` values, extract URL query strings containing `utm_source`, `utm_medium`, `utm_campaign`. Group by `utm_source`/`utm_campaign`, label each entry as `{source} "{campaign}"`, and sort by visit count descending.
+5. **Referral sources** *(paid plans only)* — group by `clientRefererHost`, rename common ones (e.g., `google.com` → "Google Search", empty → "Direct"). Skip entirely on free plans.
+6. **Device breakdown** *(paid plans only)* — group by `userAgentBrowser` or device class. Skip entirely on free plans.
 
-Present the summary in plain language. Example output:
+Present the summary in plain language. Example output (free plan):
 
 > Your site had **142 visitors** this week (up 23% from last week).
 >
-> **Top pages:**
+> **Top pages** (last 24 hours):
 > 1. /services — 58 views
 > 2. / — 45 views
 > 3. /about — 30 views
 >
-> **Traffic sources:**
-> - Google Search: 80 visits
-> - Direct: 40 visits
-> - Facebook: 20 visits
->
-> **Devices:** mobile: 67%, desktop: 33%.
->
 > **Busiest day:** Tuesday with 30 visits. Consider posting new content on Monday to catch the wave.
 >
-> **Campaigns:**
+> **Campaigns** (last 24 hours):
 > - QR code "table-tent": 23 visits
 > - facebook ad "march-promo": 45 visits
 > - Email "weekly-update" via newsletter: 12 visits
+>
+> *Referrer and device breakdowns require a paid Cloudflare plan.*
 
 ## Presentation
 
