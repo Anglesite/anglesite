@@ -137,7 +137,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `export` | Portable export of the site (`dist/`, `content/`, `public/`, `MIGRATING.md`) for self-host or migration |
 | `contact` | Contact form via Cloudflare Workers + Turnstile |
 | `forms` | Custom forms (RSVP, lead capture, survey, callback) via Cloudflare Workers + Turnstile |
-| `backup` | Back up site changes to GitHub with descriptive summary |
+| `backup` | Back up site changes to GitHub, or restore an earlier snapshot |
 | `stats` | Plain-language site analytics from Cloudflare |
 | `newsletter` | Email newsletter setup (Buttondown/Mailchimp) + subscribe form |
 | `add-store` | Ecommerce intake: routes to Stripe, Polar, or coming-soon paths |
