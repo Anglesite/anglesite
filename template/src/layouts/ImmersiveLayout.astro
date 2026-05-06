@@ -1,4 +1,7 @@
 ---
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
 /**
  * ImmersiveLayout — full-viewport layout for creative experiments.
  * No header/footer chrome. Dark background. Canvas fills the viewport.
@@ -16,6 +19,7 @@ const { title, description, image, labUrl = '/lab', siteName } = Astro.props;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
 const ogImage = image ? new URL(image, Astro.site).href : undefined;
 const displayName = siteName || title;
+const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
 ---
 
 <!doctype html>
@@ -40,7 +44,7 @@ const displayName = siteName || title;
     <meta name="twitter:description" content={description} />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
 
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {hasFavicon && <link rel="icon" href="/favicon.svg" type="image/svg+xml" />}
 
     <style>
       @import '../styles/immersive.css';
