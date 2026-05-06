@@ -2,7 +2,7 @@
 name: shopify-buy-button
 description: "Set up Shopify Buy Button for a full physical product catalog with dashboard"
 allowed-tools: Write, Read, Edit, Glob, Bash(npm run build), Bash(npx astro check)
-user-invokable: false
+user-invocable: false
 ---
 
 Set up Shopify Buy Button for selling physical goods with a full catalog (10+ products) that needs inventory management, order tracking, and shipping configuration. The owner manages products in Shopify's admin dashboard; Claude embeds Buy Buttons on the site.

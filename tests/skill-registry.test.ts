@@ -40,14 +40,14 @@ disable-model-invocation: true
     expect(meta.disableModelInvocation).toBe(true);
   });
 
-  it("extracts user-invokable flag", () => {
+  it("extracts user-invocable flag", () => {
     const content = `---
 name: animate
 description: "CSS animations"
-user-invokable: false
+user-invocable: false
 ---`;
     const meta = parseSkillFrontmatter(content);
-    expect(meta.userInvokable).toBe(false);
+    expect(meta.userInvocable).toBe(false);
   });
 
   it("defaults flags to undefined when absent", () => {
@@ -57,7 +57,7 @@ description: "Health audit"
 ---`;
     const meta = parseSkillFrontmatter(content);
     expect(meta.disableModelInvocation).toBeUndefined();
-    expect(meta.userInvokable).toBeUndefined();
+    expect(meta.userInvocable).toBeUndefined();
   });
 
   it("handles description without quotes", () => {
@@ -81,8 +81,8 @@ describe("classifySkill", () => {
     ).toBe("user-facing");
   });
 
-  it("classifies user-invokable: false as model-only", () => {
-    expect(classifySkill({ userInvokable: false } as SkillMeta)).toBe(
+  it("classifies user-invocable: false as model-only", () => {
+    expect(classifySkill({ userInvocable: false } as SkillMeta)).toBe(
       "model-only",
     );
   });
@@ -111,7 +111,7 @@ describe("generateRegistry", () => {
     {
       name: "animate",
       description: "CSS animations",
-      userInvokable: false,
+      userInvocable: false,
     },
     {
       name: "check",
@@ -182,7 +182,7 @@ describe("validateSkillFrontmatter", () => {
     const content = `---
 name: animate
 description: "CSS animations"
-user-invokable: false
+user-invocable: false
 allowed-tools: Write, Read, Glob
 ---`;
     expect(validateSkillFrontmatter(content)).toEqual([]);
@@ -198,24 +198,24 @@ allowed-tools: Bash(npm run build), Write, Read
     expect(validateSkillFrontmatter(content)).toEqual([]);
   });
 
-  it("flags user-invocable as a typo of user-invokable", () => {
+  it("flags user-invokable as a typo of user-invocable", () => {
     const content = `---
 name: experiment
 description: "A/B tests"
-user-invocable: false
+user-invokable: false
 allowed-tools: Write, Read
 ---`;
     const errors = validateSkillFrontmatter(content);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0]).toContain("user-invocable");
     expect(errors[0]).toContain("user-invokable");
+    expect(errors[0]).toContain("user-invocable");
   });
 
   it("flags missing allowed-tools", () => {
     const content = `---
 name: experiment
 description: "A/B tests"
-user-invokable: false
+user-invocable: false
 ---`;
     const errors = validateSkillFrontmatter(content);
     expect(errors.length).toBeGreaterThan(0);
@@ -249,7 +249,7 @@ disable-model-invocation: true
     const content = `---
 name: bad-skill
 description: "Broken"
-user-invocable: false
+user-invokable: false
 ---`;
     const errors = validateSkillFrontmatter(content);
     // Should flag both the typo and missing allowed-tools

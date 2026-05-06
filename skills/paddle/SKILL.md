@@ -2,7 +2,7 @@
 name: paddle
 description: "Set up Paddle checkout for software licensing, SaaS subscriptions, or metered billing"
 allowed-tools: Write, Read, Edit, Glob, Bash(npm run build), Bash(npx astro check)
-user-invokable: false
+user-invocable: false
 ---
 
 Set up Paddle checkout for selling software, plugins, SaaS subscriptions, or metered-billing products. Paddle acts as Merchant of Record — it handles global tax compliance, subscription management, license keys, and payouts. Claude embeds a checkout overlay on the site using Paddle.js.

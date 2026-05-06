@@ -1,7 +1,7 @@
 ---
 name: copy-edit
 description: "Audit and coach website copy for clarity, tone, and brand voice"
-user-invokable: false
+user-invocable: false
 allowed-tools: Write, Read, Edit, Glob
 ---
 

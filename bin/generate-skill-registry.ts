@@ -15,7 +15,7 @@ export interface SkillMeta {
   name: string;
   description: string;
   disableModelInvocation?: boolean;
-  userInvokable?: boolean;
+  userInvocable?: boolean;
 }
 
 export type SkillClassification = "user-facing" | "model-only" | "both";
@@ -38,8 +38,8 @@ export function parseSkillFrontmatter(content: string): SkillMeta {
     meta.disableModelInvocation = true;
   }
 
-  if (/^user-invokable:\s*false$/m.test(fm)) {
-    meta.userInvokable = false;
+  if (/^user-invocable:\s*false$/m.test(fm)) {
+    meta.userInvocable = false;
   }
 
   return meta;
@@ -52,7 +52,7 @@ export function parseSkillFrontmatter(content: string): SkillMeta {
 const VALID_FRONTMATTER_KEYS = new Set([
   "name",
   "description",
-  "user-invokable",
+  "user-invocable",
   "disable-model-invocation",
   "allowed-tools",
   "argument-hint",
@@ -72,10 +72,10 @@ export function validateSkillFrontmatter(content: string): string[] {
     if (keyMatch) keys.push(keyMatch[1]);
   }
 
-  // Check for unknown keys (catches typos like user-invocable)
+  // Check for unknown keys (catches typos like user-invokable)
   for (const key of keys) {
     if (!VALID_FRONTMATTER_KEYS.has(key)) {
-      const suggestion = key === "user-invocable" ? " (did you mean user-invokable?)" : "";
+      const suggestion = key === "user-invokable" ? " (did you mean user-invocable?)" : "";
       errors.push(`unknown frontmatter key "${key}"${suggestion}`);
     }
   }
@@ -93,7 +93,7 @@ export function validateSkillFrontmatter(content: string): string[] {
 // ---------------------------------------------------------------------------
 
 export function classifySkill(meta: SkillMeta): SkillClassification {
-  if (meta.userInvokable === false) return "model-only";
+  if (meta.userInvocable === false) return "model-only";
   if (meta.disableModelInvocation === true) return "user-facing";
   return "both";
 }

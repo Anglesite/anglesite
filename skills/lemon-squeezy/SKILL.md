@@ -1,7 +1,7 @@
 ---
 name: lemon-squeezy
 description: "Add a Lemon Squeezy checkout overlay for digital product sales (alternative to Polar)"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(npm run build), Write, Read, Edit, Glob
 ---
 

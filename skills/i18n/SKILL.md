@@ -1,7 +1,7 @@
 ---
 name: i18n
 description: "Set up multi-language support with localized routes, hreflang, and language switcher"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(npm run build), Bash(npx astro check), Write, Read, Glob
 ---
 

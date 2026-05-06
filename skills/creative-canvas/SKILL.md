@@ -1,7 +1,7 @@
 ---
 name: creative-canvas
 description: "Add interactive visual effects and creative coding to any page"
-user-invokable: false
+user-invocable: false
 argument-hint: "[effect description or library name]"
 allowed-tools: Bash(npm install *), Bash(npm run dev), Bash(npm run build), Write, Read, Glob
 ---

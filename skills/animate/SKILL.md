@@ -1,7 +1,7 @@
 ---
 name: animate
 description: "Design CSS animations: hover effects, scroll reveals, page transitions"
-user-invokable: false
+user-invocable: false
 allowed-tools: Write, Read, Glob
 ---
 

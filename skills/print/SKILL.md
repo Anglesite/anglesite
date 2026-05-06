@@ -1,7 +1,7 @@
 ---
 name: print
 description: "Generate print-ready materials (business cards, flyers, door hangers, social cards) from site branding"
-user-invokable: false
+user-invocable: false
 allowed-tools: Write, Read, Glob, Bash(npm run ai-qr)
 ---
 

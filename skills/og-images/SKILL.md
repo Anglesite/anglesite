@@ -1,7 +1,7 @@
 ---
 name: og-images
 description: "Generate branded OG images for social sharing: per-page and site-wide, using Satori"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(npm run ai-images), Bash(npm run ai-og), Read, Glob, Write
 ---
 

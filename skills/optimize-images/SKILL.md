@@ -1,7 +1,7 @@
 ---
 name: optimize-images
 description: "Optimize images: resize, convert to WebP, strip EXIF, generate srcset variants"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(npm run ai-optimize), Write, Read, Edit, Glob
 ---
 

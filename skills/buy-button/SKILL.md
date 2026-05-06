@@ -1,7 +1,7 @@
 ---
 name: buy-button
 description: "Add a buy button to sell a product, service, or digital good (Stripe or Polar)"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(npm run build), Write, Read, Edit, Glob
 ---
 

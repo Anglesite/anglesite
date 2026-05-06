@@ -1,7 +1,7 @@
 ---
 name: experiment
 description: "Propose, run, and analyze A/B tests to improve conversions"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(npm run build), Bash(npx wrangler *), Write, Read, Edit, Glob
 ---
 

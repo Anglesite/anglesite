@@ -1,7 +1,7 @@
 ---
 name: seasonal
 description: "Surface seasonal content suggestions based on business type and current date"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(date *), Read, Glob
 ---
 

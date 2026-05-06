@@ -1,7 +1,7 @@
 ---
 name: social-media
 description: "Proactive social media strategy, content calendars, and profile optimization"
-user-invokable: false
+user-invocable: false
 allowed-tools: Write, Read, Glob
 ---
 
