@@ -171,7 +171,7 @@ Ensure `src/layouts/BaseLayout.astro` imports `src/design/tokens.css`. Add this 
 5. Save the interview results to `docs/brand.md` with all answers and design decisions
 6. Update CSS custom properties in `src/styles/global.css` — replace old color/font/spacing vars with references to the tokens, or remove duplicates
 7. Verify color contrast meets WCAG AA (4.5:1 for body text, 3:1 for large text) — the generation functions handle this, but double-check
-8. Update the favicon (`public/favicon.svg`) to match the identity
+8. Create the favicon (`public/favicon.svg`) to match the identity (no placeholder ships in the template — write a brand-aligned SVG so the `<link rel="icon">` tag activates)
 9. Update `public/manifest.webmanifest` with brand colors (`theme_color` from `--color-primary`, `background_color` from `--color-bg`)
 10. Run `npm run ai-images` to regenerate `apple-touch-icon.png` and `og-image.png`
 11. Build a styled home page that reflects the brand and site type

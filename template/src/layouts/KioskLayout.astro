@@ -34,6 +34,8 @@ const siteName =
   propSiteName ?? configContent.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "Menu";
 
 const resolvedThemeColor = themeColor ?? "#0f0f0f";
+
+const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
 ---
 
 <!doctype html>
@@ -50,7 +52,7 @@ const resolvedThemeColor = themeColor ?? "#0f0f0f";
     <meta name="robots" content="noindex, nofollow" />
 
     <!-- Icons -->
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {hasFavicon && <link rel="icon" href="/favicon.svg" type="image/svg+xml" />}
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <!-- Open Graph -->

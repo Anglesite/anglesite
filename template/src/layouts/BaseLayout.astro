@@ -37,6 +37,8 @@ const aiModel =
 const siteName =
   configContent.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "My Website";
 const generator = `Anglesite ${version} (${aiModel}, ${Astro.generator})`;
+
+const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
 ---
 
 <!doctype html>
@@ -48,7 +50,7 @@ const generator = `Anglesite ${version} (${aiModel}, ${Astro.generator})`;
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalURL} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {hasFavicon && <link rel="icon" type="image/svg+xml" href="/favicon.svg" />}
     <link rel="sitemap" href="/sitemap-index.xml" />
 
     <!-- Open Graph -->

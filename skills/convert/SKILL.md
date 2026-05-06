@@ -374,7 +374,7 @@ Copy found assets to `public/`:
 cp SOURCE_LOGO public/logo.EXT
 ```
 
-If a `favicon.svg` or `favicon.ico` is found, copy it to replace the scaffold default.
+If a `favicon.svg` or `favicon.ico` is found, copy it to `public/`. The Anglesite template ships without a default favicon, so this populates the missing icon.
 
 ### 1.5e — Apply extracted design to Anglesite
 

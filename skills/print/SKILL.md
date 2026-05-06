@@ -41,7 +41,7 @@ Read these files to extract the design system and business details:
    - `--color-primary`, `--color-accent`, `--color-bg`, `--color-text`
    - `--font-heading`, `--font-body`
    - `--radius-sm`, `--radius-md`
-4. **`public/favicon.svg`** — the site's logo/icon for placement on materials
+4. **`public/favicon.svg`** — the site's logo/icon for placement on materials (may not exist yet — generate fallbacks from brand colors when missing)
 5. **`public/images/qr/`** — check for existing QR codes to include
 
 If `BUSINESS_TYPE` is set, read `${CLAUDE_PLUGIN_ROOT}/docs/smb/<type>.md` for industry-specific guidance on what materials work best.

@@ -210,7 +210,7 @@ Branch based on the choice:
 
 Post-design tasks (run for any of the three paths):
 
-- Update `public/favicon.svg` to match the identity
+- Create `public/favicon.svg` to match the identity (the template no longer ships a placeholder — write a brand-aligned SVG here so the `<link rel="icon">` tag in `BaseLayout.astro` activates)
 - Update `public/manifest.webmanifest` with brand colors (`theme_color` from `--color-primary`, `background_color` from `--color-bg`)
 - Run `npm run ai-images` to regenerate `apple-touch-icon.png` and `og-image.png`
 - Add JSON-LD structured data to the home page (`LocalBusiness` for physical businesses, `Organization` for online-only, `Person` for personal sites)
