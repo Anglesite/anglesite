@@ -116,6 +116,32 @@ If a14y isn't installed yet, the gate prompts a one-time install: `npm install -
 
 If you flip the policy, regenerate `public/robots.txt` via `generateRobotsTxt({ ..., agenticCrawlers })` from `scripts/seo.ts` and remove `public/llms.txt` if you've switched to `block`. `/anglesite:check` flags drift between the policy and these files.
 
+### 2c. Performance budget (warn-only)
+
+`/anglesite:deploy` runs a per-page performance budget audit on `dist/`. Defaults are 50 KB total JS and 50 KB total CSS per page; LCP and CLS are checked when Lighthouse is installed and `PERF_LCP_CLS=true` is set. All findings are warn-only in 1.1 — they're written to `perf-report.md` and a 30-run trend file (`perf-trend.json`) but never block the deploy.
+
+Override the defaults in `.site-config`:
+
+```ini
+PERF_BUDGET_JS=51200       # bytes — total JS per page
+PERF_BUDGET_CSS=51200      # bytes — total CSS per page
+PERF_BUDGET_LCP_MS=2500    # ms — only checked with --lighthouse
+PERF_BUDGET_CLS=0.1        # only checked with --lighthouse
+```
+
+Per-template overrides match the first path segment. A `creative-canvas` page that intentionally ships a heavy bundle can raise just its own budget:
+
+```ini
+PERF_BUDGET_JS_LAB=512000
+PERF_BUDGET_CSS_LAB=102400
+```
+
+Trends surface in `/anglesite:stats` so the owner can see whether the bundle is creeping up over time. Run the audit ad-hoc:
+
+```sh
+npm run ai-perf -- --report perf-report.md
+```
+
 ### 3. First-time setup
 
 If this is the first deploy, connect Cloudflare Pages to GitHub via the dashboard:
