@@ -273,6 +273,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Add on-site search | `/anglesite:search` |
 | Add ecommerce | `/anglesite:add-store` |
 | Create or import a restaurant menu | `/anglesite:menu` |
+| Manage URL redirects (rename, migrate, bulk import) | `/anglesite:redirects` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 
