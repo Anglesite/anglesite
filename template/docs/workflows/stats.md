@@ -5,10 +5,18 @@ View your website analytics in plain language without visiting the Cloudflare da
 ## What it shows
 
 - **Visitor count** with week-over-week trend (up or down)
-- **Top pages** — which pages get the most traffic
-- **Traffic sources** — where visitors come from (Google, social media, direct)
-- **Device breakdown** — mobile vs desktop percentages
+- **Top pages** — which pages get the most traffic (last 24 hours on free plans)
 - **Busiest day** — when your site gets the most traffic, with posting suggestions
+- **Campaigns** — UTM-tagged links broken down by source/campaign
+
+### Paid-plan extras
+
+These require a paid Cloudflare plan and are skipped automatically on free zones:
+
+- **Traffic sources** — referrer breakdown (Google, social media, direct)
+- **Device breakdown** — mobile vs desktop percentages
+
+Free Cloudflare zones gate referrer and device fields, and cap request-level analytics to a 1-day window. The skill uses daily roll-ups (`httpRequests1dGroups`) for the weekly visitor comparison so the report still works on free plans, and falls back to the most recent 24 hours for path/campaign drilldowns.
 
 ## Prerequisites
 
