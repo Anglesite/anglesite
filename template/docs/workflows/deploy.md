@@ -102,9 +102,19 @@ AGENTIC_CRAWLERS=allow   # default — a14y is a deploy gate
 AGENTIC_CRAWLERS=block   # owner has blocked agentic crawlers; a14y is informational only
 ```
 
+`AGENTIC_CRAWLERS` is the single source of truth for the owner's stance and drives three surfaces:
+
+| Surface | `allow` (default) | `block` |
+|---|---|---|
+| Deploy gate (a14y) | Runs as a gate; below-threshold scores pause publishing | Skipped (informational only in `/anglesite:check`) |
+| `llms.txt` | Generated when the owner asks (`/anglesite:seo` Step 5) | Not generated; existing `public/llms.txt` should be deleted |
+| `robots.txt` | No `Disallow` rules for agentic crawlers | Each entry in `AGENTIC_CRAWLER_BOTS` (`GPTBot`, `ClaudeBot`, `anthropic-ai`, `CCBot`, `Google-Extended`, `PerplexityBot`, `Bytespider`) gets `Disallow: /` |
+
 When the gate is on, set the score floor with `A14Y_FAIL_UNDER` (e.g. `80`). While remediating, set `A14Y_WARN_ONLY=true` so the audit reports without blocking. The deploy skill brings up `npm run preview` automatically and tears it down after the audit.
 
 If a14y isn't installed yet, the gate prompts a one-time install: `npm install --save-dev a14y`.
+
+If you flip the policy, regenerate `public/robots.txt` via `generateRobotsTxt({ ..., agenticCrawlers })` from `scripts/seo.ts` and remove `public/llms.txt` if you've switched to `block`. `/anglesite:check` flags drift between the policy and these files.
 
 ### 3. First-time setup
 

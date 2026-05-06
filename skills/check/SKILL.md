@@ -185,6 +185,16 @@ Present link health findings using the same severity mapping as other checks:
 - [ ] Blog posts have valid frontmatter (title, description, publishDate)
 - [ ] Business name, address, and contact info are easy to find (not buried)
 
+### Agentic-crawler policy alignment
+
+Read `AGENTIC_CRAWLERS` from `.site-config` (default `allow`) and confirm `llms.txt` and `robots.txt` reflect that single source of truth:
+
+- [ ] Run `auditRobotsTxt(content, siteUrl, agenticCrawlers)` from `scripts/seo.ts` against `dist/robots.txt`. Under `allow`, no centralized agentic crawler should be in a `Disallow: /` block; under `block`, every entry in `AGENTIC_CRAWLER_BOTS` should appear with `Disallow: /`. If anything is off, regenerate `public/robots.txt` via `generateRobotsTxt(...)` and rebuild.
+- [ ] If `AGENTIC_CRAWLERS=block`, confirm `dist/llms.txt` does **not** exist (and `public/llms.txt` doesn't either). Publishing an AI-readable index when the owner has blocked agents is incoherent — flag it as "Worth fixing soon" and offer to delete the file.
+- [ ] If `AGENTIC_CRAWLERS=allow` and the site has substantial content, mention that `llms.txt` gives AI agents a quick reference and offer to generate one (see `/anglesite:seo` Step 5).
+
+The list of tracked agentic crawler user-agents (`GPTBot`, `ClaudeBot`, `anthropic-ai`, `CCBot`, `Google-Extended`, `PerplexityBot`, `Bytespider`) lives in `AGENTIC_CRAWLER_BOTS` in `template/scripts/seo.ts`. Add new agents there — every surface above reads from that one list.
+
 ## Copy quality
 
 If `BUSINESS_TYPE` is set in `.site-config`, invoke the copy-edit skill for content quality coaching.

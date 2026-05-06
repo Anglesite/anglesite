@@ -4,8 +4,9 @@
  * - auditPage: check a single HTML page for SEO issues
  * - auditSite: cross-page checks (duplicate titles/descriptions)
  * - validateSitemap: check sitemap completeness against built pages
- * - auditRobotsTxt: check robots.txt for AI crawler blocks
- * - generateLlmsTxt: generate /llms.txt for AI crawlers
+ * - auditRobotsTxt: check robots.txt for alignment with AGENTIC_CRAWLERS policy
+ * - generateRobotsTxt: render robots.txt content for the AGENTIC_CRAWLERS policy
+ * - generateLlmsTxt: generate /llms.txt for AI crawlers (skipped when blocked)
  * - auditChunkability: flag pages with long unbroken prose
  * - formatSeoReport: produce ranked issues table as markdown
  */
@@ -53,11 +54,45 @@ export interface PageSchemaInput {
   faqItems?: FaqItem[];
 }
 
+/**
+ * Owner's stance toward agentic crawlers, mirroring the `AGENTIC_CRAWLERS`
+ * key in `.site-config`. Used as the single source of truth for the deploy
+ * gate (a14y), `llms.txt` generation, and `robots.txt` content/audit.
+ */
+export type AgenticCrawlersPolicy = "allow" | "block";
+
+/**
+ * Centralized list of agentic crawler user-agents Anglesite manages in
+ * `robots.txt` and that drive the `auditRobotsTxt` alignment check. Add new
+ * agents here — `generateRobotsTxt`, `auditRobotsTxt`, and any future surface
+ * that needs to enumerate "agentic crawlers" pull from this single source.
+ */
+export const AGENTIC_CRAWLER_BOTS: readonly string[] = [
+  "GPTBot",
+  "ClaudeBot",
+  "anthropic-ai",
+  "CCBot",
+  "Google-Extended",
+  "PerplexityBot",
+  "Bytespider",
+];
+
 export interface LlmsTxtInput {
   siteName: string;
   siteUrl: string;
   description: string;
   pages: PageSeoData[];
+  /** Owner's agentic-crawler stance. Defaults to `"allow"` when omitted. */
+  agenticCrawlers?: AgenticCrawlersPolicy;
+}
+
+export interface RobotsTxtInput {
+  /** Absolute URL of the sitemap (e.g. `https://example.com/sitemap-index.xml`). Optional. */
+  sitemapUrl?: string;
+  /** Owner's agentic-crawler stance. Defaults to `"allow"` when omitted. */
+  agenticCrawlers?: AgenticCrawlersPolicy;
+  /** Extra paths to disallow under `User-agent: *` (e.g. `["/keystatic/"]`). */
+  disallowPaths?: string[];
 }
 
 export interface SitemapPageConfig {
@@ -439,21 +474,24 @@ export function suggestSitemapConfig(
 }
 
 // ---------------------------------------------------------------------------
-// auditRobotsTxt — check for AI crawler blocks
+// auditRobotsTxt — check robots.txt against the AGENTIC_CRAWLERS policy
 // ---------------------------------------------------------------------------
 
-const AI_CRAWLERS = [
-  "ClaudeBot",
-  "ChatGPT-User",
-  "OAI-SearchBot",
-  "PerplexityBot",
-  "Google-Extended",
-  "GPTBot",
-];
-
+/**
+ * Audit `robots.txt` against the owner's agentic-crawler policy.
+ *
+ * When `agenticCrawlers` is `"allow"` (default), warns if any centralized
+ * agentic crawler is blocked — that drift means the site won't appear in AI
+ * search results despite the owner's stated stance.
+ *
+ * When `agenticCrawlers` is `"block"`, warns if any centralized agentic
+ * crawler is *not* blocked — the owner has declared agents shouldn't read the
+ * site, so `robots.txt` should reflect that.
+ */
 export function auditRobotsTxt(
   content: string,
   siteUrl: string,
+  agenticCrawlers: AgenticCrawlersPolicy = "allow",
 ): SeoIssue[] {
   const issues: SeoIssue[] = [];
 
@@ -467,9 +505,9 @@ export function auditRobotsTxt(
     });
   }
 
-  // Check if any AI crawlers are explicitly blocked
+  // Detect which centralized agentic crawlers are explicitly disallowed.
   const blockedCrawlers: string[] = [];
-  for (const crawler of AI_CRAWLERS) {
+  for (const crawler of AGENTIC_CRAWLER_BOTS) {
     const crawlerBlock = new RegExp(
       `User-agent:\\s*${crawler}[\\s\\S]*?Disallow:\\s*/`,
       "i",
@@ -479,31 +517,97 @@ export function auditRobotsTxt(
     }
   }
 
-  if (blockedCrawlers.length > 0) {
+  if (agenticCrawlers === "allow") {
+    if (blockedCrawlers.length > 0) {
+      issues.push({
+        code: "robots-ai-blocked",
+        severity: "warning",
+        message: `AGENTIC_CRAWLERS=allow but robots.txt blocks: ${blockedCrawlers.join(", ")}. Remove these Disallow rules so AI crawlers can index the site, or set AGENTIC_CRAWLERS=block to align the two.`,
+        page: "robots.txt",
+      });
+    }
+
+    // Cloudflare bot management is orthogonal to robots.txt and applies even
+    // when AGENTIC_CRAWLERS=allow. Keep the reminder so owners know the dashboard
+    // toggle still has to be on.
     issues.push({
-      code: "robots-ai-blocked",
-      severity: "warning",
-      message: `AI crawlers blocked in robots.txt: ${blockedCrawlers.join(", ")}. This prevents your site from appearing in AI search results.`,
+      code: "robots-cloudflare-ai-block",
+      severity: "nice-to-have",
+      message: "Cloudflare blocks AI bots by default. Check Cloudflare dashboard > Security > Bot Management to allow AI crawlers if you want AI search visibility.",
       page: "robots.txt",
     });
+  } else {
+    const missing = AGENTIC_CRAWLER_BOTS.filter(
+      (c) => !blockedCrawlers.includes(c),
+    );
+    if (missing.length > 0) {
+      issues.push({
+        code: "robots-ai-not-blocked",
+        severity: "warning",
+        message: `AGENTIC_CRAWLERS=block but robots.txt doesn't disallow: ${missing.join(", ")}. Regenerate robots.txt with generateRobotsTxt() so it reflects the owner's choice.`,
+        page: "robots.txt",
+      });
+    }
   }
 
-  // Warn about Cloudflare default AI bot blocking (always relevant for Anglesite)
-  issues.push({
-    code: "robots-cloudflare-ai-block",
-    severity: "nice-to-have",
-    message: "Cloudflare blocks AI bots by default. Check Cloudflare dashboard > Security > Bot Management to allow AI crawlers if you want AI search visibility.",
-    page: "robots.txt",
-  });
-
   return issues;
+}
+
+// ---------------------------------------------------------------------------
+// generateRobotsTxt — render robots.txt for the AGENTIC_CRAWLERS policy
+// ---------------------------------------------------------------------------
+
+/**
+ * Render `robots.txt` content reflecting the owner's `AGENTIC_CRAWLERS` policy.
+ *
+ * When `agenticCrawlers` is `"block"`, every user-agent in
+ * `AGENTIC_CRAWLER_BOTS` gets its own `User-agent` / `Disallow: /` block
+ * before the catch-all `User-agent: *` rule.
+ *
+ * The default catch-all is `User-agent: *` + `Allow: /`, plus any
+ * `disallowPaths` (e.g. `/keystatic/`). A `Sitemap:` directive is appended
+ * when `sitemapUrl` is provided.
+ */
+export function generateRobotsTxt(input: RobotsTxtInput): string {
+  const lines: string[] = [];
+
+  if (input.agenticCrawlers === "block") {
+    for (const bot of AGENTIC_CRAWLER_BOTS) {
+      lines.push(`User-agent: ${bot}`);
+      lines.push("Disallow: /");
+      lines.push("");
+    }
+  }
+
+  lines.push("User-agent: *");
+  lines.push("Allow: /");
+  for (const path of input.disallowPaths ?? []) {
+    lines.push(`Disallow: ${path}`);
+  }
+
+  if (input.sitemapUrl) {
+    lines.push("");
+    lines.push(`Sitemap: ${input.sitemapUrl}`);
+  }
+
+  return lines.join("\n") + "\n";
 }
 
 // ---------------------------------------------------------------------------
 // generateLlmsTxt — markdown index for AI crawlers
 // ---------------------------------------------------------------------------
 
-export function generateLlmsTxt(input: LlmsTxtInput): string {
+/**
+ * Generate an `llms.txt` markdown index for AI crawlers.
+ *
+ * Returns `null` when the owner has set `AGENTIC_CRAWLERS=block` — publishing
+ * an AI-readable index of the site would directly contradict that stance.
+ * Callers should treat `null` as "do not write the file" (and remove any
+ * existing `dist/llms.txt` if cleaning up).
+ */
+export function generateLlmsTxt(input: LlmsTxtInput): string | null {
+  if (input.agenticCrawlers === "block") return null;
+
   const lines: string[] = [
     `# ${input.siteName}`,
     "",

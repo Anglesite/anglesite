@@ -63,6 +63,8 @@ Install on demand: `npm install --save-dev a14y`.
 - `AGENTIC_CRAWLERS=allow` (default) — a14y runs as a deploy gate; below-threshold scores block publishing.
 - `AGENTIC_CRAWLERS=block` — owner has declared agents shouldn't read the site, so gating on agent-readability is incoherent. The check still runs in `/anglesite:check` for reference but never blocks deploy.
 
+The same setting also drives `llms.txt` generation and `robots.txt` content. Under `block`, no `llms.txt` is published and `robots.txt` adds `Disallow: /` for every entry in `AGENTIC_CRAWLER_BOTS` (`GPTBot`, `ClaudeBot`, `anthropic-ai`, `CCBot`, `Google-Extended`, `PerplexityBot`, `Bytespider`). `/anglesite:check` flags drift between the policy and the files — e.g. `dist/llms.txt` exists but `AGENTIC_CRAWLERS=block`. To regenerate `robots.txt` after flipping the policy, call `generateRobotsTxt({ ..., agenticCrawlers })` from `scripts/seo.ts` and write the result to `public/robots.txt`. New crawlers go in the `AGENTIC_CRAWLER_BOTS` array.
+
 ## Mobile and responsive
 
 - Viewport meta tag present
