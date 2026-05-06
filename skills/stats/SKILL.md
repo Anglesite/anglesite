@@ -49,9 +49,11 @@ Save to `.env` as `CF_ZONE_ID=zone-id`.
 Query the Cloudflare GraphQL Analytics API. Free Cloudflare zones gate several fields and cap the adaptive dataset to a 1-day window, so split the work across two datasets:
 
 - **`httpRequests1dGroups`** — daily roll-ups (page views, requests, unique visitors). Available on free plans, supports multi-day ranges. Use this for the 7-day weekly comparison and busiest-day calculation.
-- **`httpRequestsAdaptiveGroups`** — request-level drilldowns. On free plans this is capped to a 1-day time range, so use it only for the most recent 24 hours to derive top paths and campaigns.
+- **`httpRequestsAdaptiveGroups`** — request-level drilldowns. On free plans this is capped to a 1-day time range, so use it only for the most recent 24 hours to derive top paths.
 
-Referrer host (`clientRefererHost`) and device-class fields are **paid-only** on Cloudflare. Don't include them in the default query — if the owner is on a paid plan, see "Paid-plan extras" below.
+Referrer host (`clientRefererHost`), URL query string (`clientRequestQuery`), and device-class fields are **paid-only** on Cloudflare. Don't include them in the default query — if the owner is on a paid plan, see "Paid-plan extras" below.
+
+**UTM/campaign breakdown is not available on free plans.** `clientRequestPath` is the path *without* the query string, so UTM parameters can't be extracted from it. The `clientRequestQuery` dimension is paid-only, and the most reliable UTM-level data comes from raw HTTP logs (Enterprise) or from server-side redirect counters. Only attempt campaign breakdown if the owner is on a paid plan — see "Paid-plan extras" below.
 
 ```sh
 CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
@@ -90,7 +92,18 @@ Inspect the JSON response for an `errors[]` array before parsing. If any error m
 
 ### Paid-plan extras (optional)
 
-Only attempt these if the owner has confirmed a paid Cloudflare plan. Add `clientRefererHost` and/or `userAgentBrowser` dimensions to Query B. If the response returns an `authz` error, fall back to the default query above.
+Only attempt these if the owner has confirmed a paid Cloudflare plan. Add `clientRefererHost`, `userAgentBrowser`, and/or `clientRequestQuery` dimensions to Query B. If the response returns an `authz` error, fall back to the default query above.
+
+For campaign breakdown specifically, run a separate query that groups by `clientRequestQuery` and filters to rows where the query string contains `utm_`:
+
+```sh
+curl -s "https://api.cloudflare.com/client/v4/graphql" \
+  -H "Authorization: Bearer $CF_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"query":"{ viewer { zones(filter: {zoneTag: \"'$CF_ZONE_ID'\"}) { httpRequestsAdaptiveGroups(filter: {date: \"DATE_TODAY\", edgeResponseContentTypeName: \"html\", edgeResponseStatus_lt: 400, clientRequestQuery_like: \"%utm_%\"}, limit: 100, orderBy: [count_DESC]) { count dimensions { clientRequestPath clientRequestQuery } } } } }"}'
+```
+
+If the response returns an `authz` error or the field is rejected, the owner's plan tier doesn't expose `clientRequestQuery` — skip the campaign section entirely.
 
 ## Step 2 — Parse and summarize
 
@@ -106,9 +119,9 @@ From the responses, extract:
 2. **Page views** — from Query A, sum `sum.pageViews` across each 7-day window. Report alongside visitors; don't conflate the two.
 3. **Busiest day** — from Query A, map each `dimensions.date` (ISO date) to its weekday name, take the day with the highest `sum.pageViews` in the current week. Label the figure as "page views" (not "visits" or "visitors").
 4. **Top pages** — from Query B (HTML-filtered), group rows by `clientRequestPath`, sum `count`, sort descending, take top 5. Label the figure as "page views". Note in the summary that this reflects the most recent 24 hours (free-plan limitation).
-5. **Campaign breakdown** — from Query B's `clientRequestPath` values, extract URL query strings containing `utm_source`, `utm_medium`, `utm_campaign`. Group by `utm_source`/`utm_campaign`, label each entry as `{source} "{campaign}"`, and sort by page-view count descending.
-6. **Referral sources** *(paid plans only)* — group by `clientRefererHost`, rename common ones (e.g., `google.com` → "Google Search", empty → "Direct"). Skip entirely on free plans.
-7. **Device breakdown** *(paid plans only)* — group by `userAgentBrowser` or device class. Skip entirely on free plans.
+5. **Referral sources** *(paid plans only)* — group by `clientRefererHost`, rename common ones (e.g., `google.com` → "Google Search", empty → "Direct"). Skip entirely on free plans.
+6. **Device breakdown** *(paid plans only)* — group by `userAgentBrowser` or device class. Skip entirely on free plans.
+7. **Campaign breakdown** *(paid plans only)* — from the `clientRequestQuery` query above, parse each query string for `utm_source`, `utm_medium`, `utm_campaign`. Group by `utm_source`/`utm_campaign`, label each entry as `{source} "{campaign}"`, and sort by page-view count descending. `clientRequestPath` does **not** include query strings, so this section is impossible on free plans — skip it there.
 
 Present the summary in plain language. Example output (free plan):
 
@@ -121,19 +134,14 @@ Present the summary in plain language. Example output (free plan):
 >
 > **Busiest day:** Tuesday with 65 page views. Consider posting new content on Monday to catch the wave.
 >
-> **Campaigns** (last 24 hours):
-> - QR code "table-tent": 23 page views
-> - facebook ad "march-promo": 45 page views
-> - Email "weekly-update" via newsletter: 12 page views
->
-> *Referrer and device breakdowns require a paid Cloudflare plan.*
+> *Referrer, device, and campaign (UTM) breakdowns require a paid Cloudflare plan.*
 
 ## Presentation
 
 After collecting the data, present results as a clean markdown summary:
 
 - **Top pages** — markdown table with page path and page-view count (and optional bar made of `█` characters proportional to page views, e.g. `████████ 240`). Header the count column "Page views", not "Visits".
-- **Campaign performance** — second markdown table if campaign data exists, also in page views
+- **Campaign performance** *(paid plans only)* — second markdown table if `clientRequestQuery` data is available, also in page views. Skip on free plans.
 - **Plain-language summary** — 2–3 sentences explaining what the numbers mean. When you cite a headline figure, say which one (visitors vs page views) — they tell different stories.
 
 Lead with the table, follow with the summary and actionable suggestions.
