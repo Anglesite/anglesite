@@ -18,6 +18,7 @@ Cloudflare Pages is connected to the GitHub repository. Pushing to `main` trigge
 - [ADR-0012 Verify first](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0012-verify-before-presenting.md) — why build must succeed before scans and deploy
 - [ADR-0013 GitHub backup](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0013-github-backup.md) — why GitHub is required for backup and issue tracking
 - [ADR-0016 Accessibility audits](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0016-accessibility-audits.md) — why the deploy gate is opt-in and warn-only-friendly
+- [ADR-0017 Agent readability audits](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0017-agent-readability-audits.md) — why the a14y deploy gate is driven by `AGENTIC_CRAWLERS` intent rather than a separate opt-in flag
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
 

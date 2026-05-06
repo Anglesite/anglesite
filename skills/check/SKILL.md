@@ -19,6 +19,7 @@ These explain *why* each check category matters:
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — why third-party scripts are flagged
 - [ADR-0012 Verify first](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0012-verify-before-presenting.md) — build baseline before checking other categories
 - [ADR-0016 Accessibility audits](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0016-accessibility-audits.md) — why the WCAG audit runs automatically and how the severity-aware exit codes work
+- [ADR-0017 Agent readability audits](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0017-agent-readability-audits.md) — why a14y always runs informationally here, even when `AGENTIC_CRAWLERS=block`
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
 
