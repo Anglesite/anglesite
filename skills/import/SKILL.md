@@ -190,7 +190,7 @@ For each detected platform, read the corresponding doc from `${CLAUDE_PLUGIN_ROO
 | Platform | Detection signals | Doc reference |
 | --- | --- | --- |
 | Squarespace | `squarespace` in scripts/meta, `squarespace-cdn.com` | `${CLAUDE_PLUGIN_ROOT}/docs/import/squarespace.md` |
-| Wix | `wix` or `Thunderbolt` in source, `wixstatic.com` | `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` |
+| Wix | `wix` or `Thunderbolt` in source, `wixstatic.com` | `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` (also see Wix MCP path in Step 1a.1) |
 | Shopify | `cdn.shopify.com`, `/collections/`, `/products/` | `${CLAUDE_PLUGIN_ROOT}/docs/import/shopify.md` |
 | Medium | `miro.medium.com`, `.medium.com` domain | `${CLAUDE_PLUGIN_ROOT}/docs/import/medium.md` |
 | Substack | `substackcdn.com`, `.substack.com` domain | `${CLAUDE_PLUGIN_ROOT}/docs/import/substack.md` |
@@ -208,6 +208,39 @@ extraction instructions. For unknown platforms, tell the owner:
 > by reading each page. It just takes a bit longer."
 
 Store the detected platform as PLATFORM.
+
+### 1a.1 — Wix MCP server detection (Wix only)
+
+If PLATFORM is `wix`, check whether the [Wix MCP server](https://dev.wix.com/docs/wix-cli/mcp)
+is installed by looking for tools whose names end in `__ListWixSites` and
+`__ExecuteWixAPI` (the prefix is the MCP server's namespaced ID, which varies
+per install). If both are available, set USE_WIX_MCP=true.
+
+If the tools are not available, surface a one-line install hint:
+
+> "Your Wix site has a much cleaner import path if you enable the Wix MCP
+> server — it gives me direct access to your blog posts and metadata via
+> Wix's API instead of scraping rendered pages. It only works if you're
+> signed in to the Wix account that owns this site. Want to install it
+> before we continue? Otherwise I'll fall through to the slower extraction
+> method."
+
+If the owner installs it, ask them to restart the session so the new tools
+load, then re-run `/anglesite:import`. If they decline (or aren't the site
+owner — the MCP only works for the authenticated Wix account), set
+USE_WIX_MCP=false and continue with Playwright + curl extraction.
+
+When USE_WIX_MCP=true:
+
+1. Call `ListWixSites` to enumerate the owner's Wix sites. If more than one
+   matches (e.g., active site plus an archived copy), present the list and
+   ask which one to import from. Store the chosen site ID as WIX_SITE_ID.
+2. The Wix MCP path covers blog posts and their metadata. **Static pages and
+   design tokens are not exposed via the API** — Playwright (Step 2a / 3b)
+   is still required for those, so don't skip the Playwright install prompt.
+
+Read `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` ("Wix MCP server" section)
+for the full extraction workflow and operational notes.
 
 ### 1b — Platform-specific content discovery
 
@@ -301,8 +334,61 @@ the RSS feed, use the `<description>` or `<content:encoded>` field. For posts
 NOT in the RSS feed (older than the most recent 10–20), use WebFetch on the
 post URL with the extraction prompt below.
 
-**Wix:** Use Playwright to extract content and design tokens. WebFetch does
-not work on Wix pages.
+**Wix (MCP path, USE_WIX_MCP=true):** Use the Wix MCP server's `ExecuteWixAPI`
+tool — the Ricos document converter returns clean output and eliminates
+almost all of the HTML post-processing the Playwright/regex path needs.
+
+1. Query all published posts in one call (paginate with `paging.cursor` if
+   `pagingMetadata.cursors.next` is returned):
+
+   ```
+   ExecuteWixAPI POST https://www.wixapis.com/v3/posts/query
+   body: {
+     "fieldsets": ["URL", "CONTENT_TEXT", "SEO", "RICH_CONTENT"],
+     "paging": { "limit": 100 }
+   }
+   ```
+
+   Each result includes `title`, `slug`, `firstPublishedDate`, `excerpt`,
+   `coverMedia` (with a direct `static.wixstatic.com` URL), `language`,
+   `seoData`, and a `richContent` Ricos document.
+
+2. For each post, convert the Ricos document to **HTML** (not Markdown — the
+   Markdown target strips inline image nodes and only preserves captions).
+   HTML lets the standard image pipeline swap CDN URLs to local paths during
+   conversion:
+
+   ```
+   ExecuteWixAPI POST https://www.wixapis.com/ricos/v1/ricos-document/convert/from-ricos
+   body: {
+     "ricosDocument": <richContent>,
+     "targetFormat": "HTML"
+   }
+   ```
+
+3. **Token budget:** `ExecuteWixAPI` responses are capped at ~6,000 tokens.
+   Convert at most 4 posts per call, and fall back to one post at a time for
+   long posts. If a response is truncated, retry with a smaller batch.
+
+4. Convert the returned HTML to Markdown using the rules in
+   `${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md` (Step 2b). Map fields:
+   - `title` → `title`
+   - `slug` → file slug
+   - `firstPublishedDate` → `publishDate` (truncate to YYYY-MM-DD)
+   - `excerpt` → `description` (or generate from body if empty)
+   - `coverMedia.image.url` → `image` (download in Step 2c)
+   - `seoData.tags` → tag/keyword frontmatter where applicable
+   - `url.url` (or constructed `/post/<slug>`) → `syndication`
+
+5. **Static pages and design tokens still need Playwright** — see Step 3b for
+   pages and Step 5.5 for tokens. The Wix API does not expose editor pages.
+
+If `ExecuteWixAPI` fails on a specific post, fall back to the Playwright path
+below for that post only. Add the post to FAILED_POSTS only if both methods
+fail.
+
+**Wix (USE_WIX_MCP=false):** Use Playwright to extract content and design
+tokens. WebFetch does not work on Wix pages.
 
 Before the first extraction, check if Playwright is installed and offer to
 install it if not:

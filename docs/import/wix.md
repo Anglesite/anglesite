@@ -1,6 +1,8 @@
 # Importing from Wix
 
-Wix has the most restrictive content export of any major platform. There is no content API, no full export feature, and pages are JavaScript-rendered (Wix Thunderbolt). The import skill uses a combination of sitemaps, RSS metadata, and two extraction backends: **Playwright** (preferred — extracts content + design tokens in one pass) and **curl + regex** (fallback — content only).
+Wix has the most restrictive content export of any major platform — but the [Wix MCP server](https://dev.wix.com/docs/wix-cli/mcp) substantially closes the gap for blog content. When the owner is signed into the Wix account that owns the site, the MCP server exposes a posts query and a Ricos→HTML converter that produce noticeably cleaner output than scraping rendered pages.
+
+The import skill prefers the MCP path for blog posts and metadata, and falls back to **Playwright** (extracts content + design tokens in one pass) or **curl + regex** (content only) for everything the MCP doesn't cover. Static pages, design tokens, and JS-rendered widgets always require Playwright — the Wix API does not expose editor pages.
 
 See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown conversion rules, image optimization pipeline, pagination patterns, and missing field fallbacks. This doc covers only what's specific to Wix.
 
@@ -9,6 +11,81 @@ See [hosted-platforms.md](hosted-platforms.md) for standard HTML-to-Markdown con
 The import skill uses WebFetch on the homepage and checks for `wix` or `Thunderbolt` in the page source, or `static.wixstatic.com` in asset URLs.
 
 ## Extraction methods
+
+### Wix MCP server (preferred for blog content)
+
+When the [Wix MCP server](https://dev.wix.com/docs/wix-cli/mcp) is installed
+and the owner is authenticated to the Wix account that owns the site, two
+tools dramatically simplify blog extraction:
+
+- `ListWixSites` — enumerates the owner's Wix sites (active and archived).
+  Useful for confirming which site to import from up front instead of
+  re-running with a different URL.
+- `ExecuteWixAPI` — calls Wix REST endpoints with the owner's auth.
+
+**Detection:** Look for tools matching `*__ListWixSites` and
+`*__ExecuteWixAPI` (the namespace prefix varies per MCP install). The
+`/anglesite:import` skill checks for these in Step 1a.1.
+
+**Owner authentication is required.** The Wix MCP only works when the owner
+is logged into the Wix account being migrated from. It is not usable by
+anyone visiting another person's Wix site.
+
+#### Posts query
+
+One call returns titles, slugs, dates, excerpts, cover image URLs, language,
+SEO data, and the full Ricos document for every published post:
+
+```
+ExecuteWixAPI POST https://www.wixapis.com/v3/posts/query
+body: {
+  "fieldsets": ["URL", "CONTENT_TEXT", "SEO", "RICH_CONTENT"],
+  "paging": { "limit": 100 }
+}
+```
+
+Paginate with `paging.cursor` when `pagingMetadata.cursors.next` is returned.
+This bypasses the 20-post RSS limit and the API's metadata-only default
+that requires `fieldsets` to include `RICH_CONTENT`.
+
+#### Ricos → HTML conversion
+
+Convert each post's `richContent` to HTML (not Markdown — see below):
+
+```
+ExecuteWixAPI POST https://www.wixapis.com/ricos/v1/ricos-document/convert/from-ricos
+body: {
+  "ricosDocument": <richContent>,
+  "targetFormat": "HTML"
+}
+```
+
+The converter handles whitespace, link unwrapping, and heading levels
+correctly — none of the HTML cleanup the Playwright/regex path needs is
+required. From there, the standard HTML-to-Markdown rules in
+[`content-conversion.md`](../content-conversion.md) take over.
+
+**Why HTML, not Markdown:** the converter accepts `targetFormat: "MARKDOWN"`
+too, but Markdown output strips inline image nodes (it only preserves
+captions as bare text). HTML preserves `<img>` tags so the standard image
+pipeline can rewrite `static.wixstatic.com` URLs to local paths during
+conversion.
+
+#### Operational notes
+
+- **Token budget:** `ExecuteWixAPI` responses are capped at ~6,000 tokens.
+  Convert at most 4 posts per call. Fetch one at a time for long posts. If a
+  response is truncated, retry with a smaller batch.
+- **Cover images:** `coverMedia.image.url` returns a direct
+  `static.wixstatic.com` URL — ready for `curl` (apply the standard
+  parameter stripping below).
+- **What it does NOT cover:**
+  - Static (editor) pages — About, FAQ, Get Involved, etc. still require
+    Playwright or curl + regex.
+  - Design tokens (colors, fonts) — extract from the homepage with
+    Playwright.
+  - JS-rendered widgets (FAQ accordions, custom embeds) — neither the MCP
+    nor WebFetch sees these. Playwright is the only option.
 
 ### Sitemap for content discovery
 
@@ -56,6 +133,12 @@ The RSS feed does NOT contain full post content — only excerpts. It also has n
 
 ### Wix Blog REST API (if owner has API access)
 
+Prefer the Wix MCP server path above when available — it uses the same
+underlying API but handles auth automatically and gives you the Ricos
+converter for clean output. Only use the raw API key path below when the
+owner can't or won't install the MCP server but is willing to mint an API
+key.
+
 If the owner has a Wix API key (from the Wix Developers dashboard), the Blog
 REST API can extract all posts with pagination — bypassing the 20-post RSS limit:
 
@@ -73,11 +156,13 @@ the owner to create an API key. Don't ask for it unless the site has more than
 20 blog posts (where RSS falls short). The API does **not** cover static pages —
 those still require WebFetch.
 
-### Playwright extraction (preferred — content + styling)
+### Playwright extraction (when Wix MCP is unavailable, or for static pages and design tokens)
 
 When Playwright is available, a single browser session extracts both content
-and computed CSS styles from the rendered page. This is the preferred method
-because it:
+and computed CSS styles from the rendered page. This is the path the import
+skill uses when the Wix MCP server is not installed, and it remains the
+required path for static (editor) pages and design-token extraction even
+when the MCP is available. It:
 - Gets complete content via TreeWalker on the rendered DOM (not regex)
 - Extracts computed colors, fonts, and spacing via `getComputedStyle()`
 - Captures all JS-rendered navigation links (including dynamic sub-navs)
