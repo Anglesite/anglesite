@@ -1,0 +1,9 @@
+# Forms handler worker — deployed via /anglesite:forms
+# Generalizes the contact-form pattern to arbitrary user-defined forms.
+# Secrets are set via: npx wrangler secret put <NAME>
+#   TURNSTILE_SECRET_KEY
+#   SITE_DOMAIN
+
+name = "forms-handler"
+main = "forms-worker.js"
+compatibility_date = "2024-09-23"

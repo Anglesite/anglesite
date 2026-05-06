@@ -52,6 +52,7 @@ Step-by-step guides for common operations:
 | Import from a website URL | `docs/workflows/import.md` |
 | Convert an SSG project | `docs/workflows/convert.md` |
 | Set up a contact form | `docs/workflows/contact.md` |
+| Build a custom form (RSVP, lead, survey, callback) | `docs/workflows/forms.md` |
 | Back up to GitHub | `docs/workflows/backup.md` |
 | Social media syndication | `docs/workflows/syndicate.md` |
 | Site analytics | `docs/workflows/stats.md` |
@@ -261,6 +262,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Import from a website URL | `/anglesite:import` |
 | Convert an SSG project to Anglesite | `/anglesite:convert` |
 | Set up a contact form | `/anglesite:contact` |
+| Build a custom form (RSVP, lead, survey, callback) | `/anglesite:forms` |
 | Save work to GitHub | `/anglesite:backup` |
 | See site analytics | `/anglesite:stats` |
 | Set up email newsletter | `/anglesite:newsletter` |

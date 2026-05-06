@@ -1,0 +1,35 @@
+{
+  "title": "RSVP",
+  "slug": "rsvp",
+  "description": "Let us know if you're coming!",
+  "successMessage": "Thanks — we've got you down. See you there!",
+  "rateLimitSeconds": 60,
+  "fields": [
+    { "name": "name", "label": "Name", "type": "text", "required": true, "maxLength": 100 },
+    { "name": "email", "label": "Email", "type": "email", "required": true },
+    {
+      "name": "attending",
+      "label": "Are you coming?",
+      "type": "radio",
+      "required": true,
+      "options": ["Yes", "No", "Maybe"]
+    },
+    {
+      "name": "guests",
+      "label": "How many guests?",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 20,
+      "helpText": "Including yourself"
+    },
+    {
+      "name": "dietary",
+      "label": "Dietary notes",
+      "type": "textarea",
+      "required": false,
+      "maxLength": 500,
+      "placeholder": "Allergies, restrictions, anything we should know"
+    }
+  ]
+}

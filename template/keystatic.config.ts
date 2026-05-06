@@ -452,6 +452,119 @@ const allCollections: Record<string, ReturnType<typeof collection>> = {
         content: fields.markdoc({ label: "Full Answer" }),
       },
     }),
+    forms: collection({
+      label: "Forms",
+      slugField: "slug",
+      path: "src/content/forms/*",
+      format: { contentField: "intro" },
+      schema: {
+        title: fields.text({
+          label: "Title",
+          description: "Heading shown above the form",
+          validation: { isRequired: true },
+        }),
+        slug: fields.slug({
+          name: {
+            label: "Slug",
+            description: "URL path — the form renders at /forms/<slug>",
+          },
+        }),
+        description: fields.text({
+          label: "Description",
+          description: "Short blurb shown under the title",
+          multiline: true,
+        }),
+        destinationEmail: fields.text({
+          label: "Destination Email",
+          description: "Where submissions for this form are forwarded",
+          validation: { isRequired: true },
+        }),
+        successMessage: fields.text({
+          label: "Success Message",
+          description:
+            "Shown after submission. Leave empty if you set a Redirect URL.",
+          multiline: true,
+        }),
+        redirectUrl: fields.text({
+          label: "Redirect URL",
+          description:
+            "Send the visitor here after submission (overrides Success Message)",
+        }),
+        rateLimitSeconds: fields.integer({
+          label: "Rate Limit (seconds)",
+          description: "Per-IP cooldown between submissions",
+          defaultValue: 60,
+          validation: { min: 0, max: 3600 },
+        }),
+        fields: fields.array(
+          fields.object({
+            name: fields.text({
+              label: "Name",
+              description: "Form field name (used in submissions, no spaces)",
+              validation: { isRequired: true },
+            }),
+            label: fields.text({
+              label: "Label",
+              description: "Visible label",
+              validation: { isRequired: true },
+            }),
+            type: fields.select({
+              label: "Type",
+              options: [
+                { label: "Text", value: "text" },
+                { label: "Email", value: "email" },
+                { label: "Phone", value: "tel" },
+                { label: "Long text", value: "textarea" },
+                { label: "Number", value: "number" },
+                { label: "Dropdown", value: "select" },
+                { label: "Radio", value: "radio" },
+                { label: "Checkbox", value: "checkbox" },
+                { label: "1–5 scale", value: "scale" },
+                { label: "Date", value: "date" },
+                { label: "Hidden (UTM passthrough)", value: "hidden" },
+              ],
+              defaultValue: "text",
+            }),
+            required: fields.checkbox({
+              label: "Required",
+              defaultValue: false,
+            }),
+            placeholder: fields.text({ label: "Placeholder" }),
+            helpText: fields.text({
+              label: "Help Text",
+              description: "Shown beneath the field",
+            }),
+            options: fields.array(fields.text({ label: "Option" }), {
+              label: "Options",
+              description:
+                "Used by Dropdown, Radio, Checkbox. One per row.",
+              itemLabel: (props) => props.value || "Option",
+            }),
+            minLength: fields.integer({ label: "Min Length" }),
+            maxLength: fields.integer({ label: "Max Length" }),
+            min: fields.integer({ label: "Min (number / scale)" }),
+            max: fields.integer({ label: "Max (number / scale)" }),
+            pattern: fields.text({
+              label: "Pattern",
+              description: "Regex (without delimiters) for text/tel fields",
+            }),
+            defaultValue: fields.text({
+              label: "Default Value",
+              description: "Used as-is for hidden fields (UTM tags read at runtime)",
+            }),
+          }),
+          {
+            label: "Fields",
+            itemLabel: (props) =>
+              `${props.fields.label.value || "(unlabeled)"} — ${props.fields.type.value}`,
+          },
+        ),
+        intro: fields.markdoc({
+          label: "Intro",
+          description: "Optional rich-text intro shown above the form",
+        }),
+      },
+    }),
 };
 
 export default config({

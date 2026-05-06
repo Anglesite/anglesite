@@ -8,7 +8,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── skills/                       Skills (43 total: 18 user-facing, 25 model-only)
+├── skills/                       Skills (44 total: 19 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -17,6 +17,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── import/SKILL.md           Import from website URL
 │   ├── convert/SKILL.md          Convert existing SSG project to Anglesite
 │   ├── contact/SKILL.md          Contact form (Workers + Turnstile)
+│   ├── forms/SKILL.md            Custom forms — RSVP, lead, survey, callback (Workers + Turnstile)
 │   ├── backup/SKILL.md           Back up changes to GitHub
 │   ├── stats/SKILL.md            Plain-language site analytics
 │   ├── newsletter/SKILL.md       Email newsletter setup + subscribe form
@@ -132,6 +133,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `import` | Import content from external website URL |
 | `convert` | Convert existing SSG project (Hugo, Jekyll, Next.js, etc.) to Anglesite |
 | `contact` | Contact form via Cloudflare Workers + Turnstile |
+| `forms` | Custom forms (RSVP, lead capture, survey, callback) via Cloudflare Workers + Turnstile |
 | `backup` | Back up site changes to GitHub with descriptive summary |
 | `stats` | Plain-language site analytics from Cloudflare |
 | `newsletter` | Email newsletter setup (Buttondown/Mailchimp) + subscribe form |

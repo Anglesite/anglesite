@@ -1,0 +1,26 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { getCollection, getEntry } from "astro:content";
+
+export async function getStaticPaths() {
+  const forms = await getCollection("forms").catch(() => []);
+  return forms.map((form) => ({ params: { slug: form.data.slug } }));
+}
+
+const { slug } = Astro.params;
+const entry = await getEntry("forms", slug as string);
+const form = entry?.data;
+const message =
+  form?.successMessage && form.successMessage.length > 0
+    ? form.successMessage
+    : "Thanks — we'll be in touch.";
+---
+
+<BaseLayout
+  title={`${form?.title ?? "Submitted"} — thanks`}
+  description="Your submission has been received."
+>
+  <h1>Thank you</h1>
+  <p>{message}</p>
+  <p><a href="/">Back to home</a></p>
+</BaseLayout>

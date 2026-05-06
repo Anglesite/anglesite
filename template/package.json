@@ -16,6 +16,7 @@
     "ai-optimize": "tsx scripts/optimize-images.ts",
     "ai-qr": "tsx scripts/qr-generate.ts",
     "ai-linkcheck": "tsx scripts/link-check.ts",
+    "ai-forms-build": "tsx scripts/build-forms-catalog.ts",
     "ai-a11y": "tsx scripts/a11y-audit.ts",
     "ai-a14y": "tsx scripts/a14y-audit.ts",
     "predeploy": "tsx scripts/pre-deploy-check.ts",
