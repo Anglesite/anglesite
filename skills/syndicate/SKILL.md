@@ -1,7 +1,7 @@
 ---
 name: syndicate
 description: "Generate social media posts from a blog post for POSSE syndication"
-user-invokable: false
+user-invocable: false
 allowed-tools: Write, Read, Glob
 ---
 

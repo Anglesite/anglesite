@@ -143,7 +143,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `menu` | Restaurant menu import (PDF/photo), creation, and editing |
 | `design-import` | Import design tokens and page layouts from Canva or Figma |
 
-**Model-only** (called programmatically by other skills, `user-invokable: false`):
+**Model-only** (called programmatically by other skills, `user-invocable: false`):
 
 | Skill | Purpose |
 |---|---|

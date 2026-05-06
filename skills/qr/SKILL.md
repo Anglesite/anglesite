@@ -1,7 +1,7 @@
 ---
 name: qr
 description: "Generate QR codes with UTM tracking, shortlink redirects, and campaign-tagged URLs"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(npm run ai-qr), Write, Read, Glob
 ---
 

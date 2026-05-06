@@ -1,7 +1,7 @@
 ---
 name: design-interview
 description: "Redo the visual identity and branding"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(npm run *), WebFetch, Write, Read, Edit, Glob
 ---
 

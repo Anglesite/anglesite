@@ -8,6 +8,8 @@ Anglesite works with [Claude Cowork](https://support.claude.com/en/articles/1334
 
 ### Claude Cowork (recommended for site owners)
 
+Plugins in Cowork require a paid plan (Pro, Max, Team, or Enterprise).
+
 1. Open [Claude](https://claude.ai) and start a Cowork session
 2. Open the **Code** tab
 3. Press **+** > **Plugins** > **Add Plugin**

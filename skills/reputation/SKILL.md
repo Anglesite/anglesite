@@ -1,7 +1,7 @@
 ---
 name: reputation
 description: "Surface review response suggestions and competitive insights based on business type"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(date *), Read, Glob
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: themes
 description: "Present pre-built visual themes from freedesignmd plus built-in quick-picks, then apply the owner's choice"
-user-invokable: false
+user-invocable: false
 allowed-tools: WebFetch, Write, Read, Edit, Glob
 ---
 

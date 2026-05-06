@@ -1,7 +1,7 @@
 ---
 name: business-info
 description: "Collect and display business hours, address, phone, and LocalBusiness JSON-LD"
-user-invokable: false
+user-invocable: false
 allowed-tools: Write, Read, Glob
 ---
 

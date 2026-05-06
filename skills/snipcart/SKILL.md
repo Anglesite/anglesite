@@ -2,7 +2,7 @@
 name: snipcart
 description: "Set up Snipcart ecommerce for a small physical product catalog"
 allowed-tools: Write, Read, Edit, Glob, Bash(npm run build), Bash(npx astro check)
-user-invokable: false
+user-invocable: false
 ---
 
 Set up Snipcart ecommerce for selling physical goods with a small catalog (under ~10 products). Snipcart adds a full shopping cart with no monthly fees (2% per transaction + Stripe fees). Products are managed as content files via Keystatic; Snipcart handles cart, checkout, and payment.

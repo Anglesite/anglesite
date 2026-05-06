@@ -1,7 +1,7 @@
 ---
 name: testimonials
 description: "Set up customer review collection, moderation, and display with star ratings"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(npm run build), Bash(npx wrangler *), Write, Read, Glob
 ---
 

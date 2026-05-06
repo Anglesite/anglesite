@@ -1,7 +1,7 @@
 ---
 name: freedesignmd
 description: "Browse, fetch, and apply a design system from freedesignmd.com to the project"
-user-invokable: false
+user-invocable: false
 allowed-tools: WebFetch, Write, Read, Edit, Glob
 ---
 

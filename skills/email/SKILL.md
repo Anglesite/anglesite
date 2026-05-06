@@ -1,7 +1,7 @@
 ---
 name: email
 description: "Set up business email: Apple-first provider recommendation, DNS pre-fill, tier routing"
-user-invokable: false
+user-invocable: false
 allowed-tools: Bash(curl *), Write, Read
 ---
 
