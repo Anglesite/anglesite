@@ -16,7 +16,7 @@ Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before e
 
 ## Step 0 — Check prerequisites
 
-Read `.env` for `CF_API_TOKEN` and `CF_ZONE_ID`.
+Read `.env` for `CF_API_TOKEN` and `CF_ZONE_ID`. The scaffolded project ships a `.env.example` that lists these keys with comments — copy or create `.env` from it on first run if it doesn't exist yet.
 
 If `CF_API_TOKEN` is missing, guide the owner through creating one:
 
@@ -189,9 +189,8 @@ If a top page hasn't been updated in more than 30 days, suggest: "Your /services
 
 After showing the summary, remind the owner they can see more detail in the Cloudflare dashboard:
 
-"For more detailed charts, visit your analytics dashboard:"
+"For more detailed charts, visit your analytics dashboard: `https://dash.cloudflare.com/?to=/:account/web-analytics`"
 
-Read `CF_PROJECT_NAME` from `.site-config` if available, and provide:
-`https://dash.cloudflare.com/?to=/:account/web-analytics`
+The Web Analytics URL is account-scoped (Cloudflare resolves `:account` from the logged-in session) and doesn't need a project identifier.
 
 Tell them: "The dashboard shows trends over time, geographic data, and more. But for a quick check-in, just run this command anytime."
