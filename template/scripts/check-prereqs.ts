@@ -14,16 +14,34 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execaCommand } from "execa";
+import { execa, execaCommand } from "execa";
 import consola from "consola";
 import {
   platform,
+  isWindows,
   HOSTS_FILE,
   hasPfctl,
   mkcertBin as mkcertBinPath,
   needsXcodeTools,
 } from "./platform.js";
 import { readConfig } from "./config.js";
+
+/** Whether sudo can be used in this environment (interactive or cached). */
+async function canRunPrivileged(): Promise<boolean> {
+  if (!isWindows && process.getuid?.() === 0) return true;
+  if (isWindows) return true;
+  try {
+    await execaCommand("command -v sudo", { shell: true });
+  } catch {
+    return false;
+  }
+  try {
+    await execa("sudo", ["-n", "true"], { stdio: "pipe" });
+    return true;
+  } catch {
+    return process.stdin.isTTY === true;
+  }
+}
 
 /** Directory this script lives in (`scripts/`). */
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -116,6 +134,15 @@ async function main(): Promise<void> {
   console.log(`git_branch=${branch ?? "unknown"}`);
 
   // --- HTTPS ---
+
+  // HTTPS environment availability (sudo / admin access)
+  const httpsConfigured = readConfig("HTTPS_AVAILABLE");
+  const httpsEnv = await canRunPrivileged();
+  if (httpsConfigured === "false" || (httpsConfigured === undefined && !httpsEnv)) {
+    console.log("https=unavailable (no admin/sudo — preview at http://localhost:4321)");
+  } else {
+    console.log("https=available");
+  }
 
   // mkcert
   const mkcertPath = mkcertBinPath();

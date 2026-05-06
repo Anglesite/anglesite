@@ -53,6 +53,12 @@ On Linux and Windows, `.local` may also be used by mDNS/Avahi, but the hosts fil
 
 When the project is moved to a new machine (handoff, new laptop), run `npm run ai-setup`. It installs mkcert, trusts the CA, generates new certs, updates the hosts file, and configures port forwarding (auto on macOS, manual instructions on Linux/Windows). Certificates are machine-specific and never committed to git.
 
+## Environments without admin/sudo
+
+Some environments — Claude Cowork, web-based shells, and minimal containers — don't expose `sudo` or a TTY for password prompts. The setup script auto-detects this (`canRunPrivileged()` in `setup.ts`) and skips HTTPS setup entirely: no mkcert install, no CA trust, no hosts file edit, no port forwarding. The dev server falls back to `http://localhost:4321`, and the script writes `HTTPS_AVAILABLE=false` to `.site-config`. Re-running setup on a machine with admin access enables HTTPS later.
+
+`check-prereqs.ts` reports `https=available` or `https=unavailable (no admin/sudo — preview at http://localhost:4321)` so skills can adapt their messaging.
+
 ## Cleanup
 
 To remove all system modifications without deleting the project:
