@@ -31,7 +31,7 @@ Third-party JavaScript (analytics, social embeds, chat widgets, ad networks) is 
 
 Chosen option: "No third-party JavaScript", with eight exceptions:
 
-1. **Cloudflare Web Analytics** — `static.cloudflareinsights.com/beacon.min.js`, injected by the Anglesite layouts (`BaseLayout.astro`, `KioskLayout.astro`, `ImmersiveLayout.astro`) when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config`. Uses no cookies, collects no personal data. Wired up by `/anglesite:stats` on first run. (Workers Static Assets does not auto-inject the beacon the way the legacy Pages platform did — see ADR-0003.)
+1. **Cloudflare Web Analytics** — `static.cloudflareinsights.com/beacon.min.js`, injected by the Anglesite layouts (`BaseLayout.astro`, `KioskLayout.astro`, `ImmersiveLayout.astro`) when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config`. Uses no cookies, collects no personal data. Wired up by `/anglesite:stats` on first run.
 2. **Cloudflare Turnstile** — privacy-respecting CAPTCHA alternative used by the contact form (`/anglesite:contact`). Same vendor as the hosting platform, no cookies, no tracking. Only loaded on the `/contact` page.
 3. **Polar checkout overlay** (`cdn.polar.sh`) — open-source, indie-web-aligned checkout overlay for digital product sales. Acts as Merchant of Record (handles global VAT/sales tax). Only loaded on pages with a `PolarCheckout` component. No cookies or visitor tracking beyond the checkout transaction.
 4. **Snipcart** (`cdn.snipcart.com`) — shopping cart for small physical product catalogs. No monthly fee (2% per transaction + Stripe fees). Only loaded on pages with product components and the Snipcart container. No visitor tracking beyond the checkout transaction.

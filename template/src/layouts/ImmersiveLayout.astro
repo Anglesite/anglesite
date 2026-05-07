@@ -21,8 +21,9 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
 const displayName = siteName || title;
 const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
 
-// Cloudflare Web Analytics beacon (Workers Static Assets does not auto-inject;
-// /anglesite:stats writes this value once Web Analytics is enabled).
+// Cloudflare Web Analytics beacon. Injected at build time when
+// `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config` — populated by
+// `/anglesite:stats` once Web Analytics is enabled for the site.
 const configPath = resolve(process.cwd(), ".site-config");
 const webAnalyticsToken = existsSync(configPath)
   ? readFileSync(configPath, "utf-8")
