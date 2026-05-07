@@ -1,7 +1,7 @@
 ---
 name: inbox
 description: "Browse, triage, and export form submissions from Keystatic instead of digging through email"
-allowed-tools: Bash(npm run *), Bash(npx wrangler *), Bash(grep *), Write, Read, Glob
+allowed-tools: Bash(npm run *), Bash(npx wrangler *), Bash(grep *), Write, Read, Edit, Glob, mcp__cloudflare__kv_namespace_create, mcp__cloudflare__kv_namespace_get, mcp__cloudflare__kv_namespaces_list, mcp__cloudflare__accounts_list
 disable-model-invocation: true
 ---
 
@@ -29,6 +29,14 @@ If `INBOX_KV_ID` is already set in `.site-config`, the inbox is already configur
 
 Tell the owner: "I'm creating a Cloudflare Workers KV namespace to store your form submissions. It's free up to 100k reads and 1k writes per day, more than enough for a small business."
 
+**Preferred — Cloudflare MCP (no copy-paste):**
+
+1. Call `mcp__cloudflare__accounts_list` if the active account hasn't been resolved yet, then `mcp__cloudflare__set_active_account` with the matching `account_id`.
+2. Call `mcp__cloudflare__kv_namespace_create` with `title: "form_submissions"`. Read the `id` from the response.
+3. Save the `id` to `.site-config` as `INBOX_KV_ID=<id>` using the Write tool.
+
+**Fallback — wrangler CLI** (use only if the Cloudflare MCP server isn't connected):
+
 ```sh
 npx wrangler kv namespace create form_submissions
 ```
@@ -46,7 +54,7 @@ Copy the `id` value. Save it to `.site-config` as `INBOX_KV_ID=abc123def456...` 
 
 ## Step 2 — Wire the binding into each worker
 
-For every deployed worker (`worker/wrangler.toml` for the contact form, `worker/forms-wrangler.toml` for the forms handler), uncomment the `[[kv_namespaces]]` block and replace `REPLACE_WITH_KV_NAMESPACE_ID` with the saved `INBOX_KV_ID`. The binding name must remain `SUBMISSIONS`.
+For every deployed worker (`worker/wrangler.toml` for the contact form, `worker/forms-wrangler.toml` for the forms handler), uncomment the `[[kv_namespaces]]` block and replace `REPLACE_WITH_KV_NAMESPACE_ID` with the saved `INBOX_KV_ID`. The binding name must remain `SUBMISSIONS`. Use the Edit tool — do not Write the whole file.
 
 Example (after edit):
 

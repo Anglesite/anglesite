@@ -1,7 +1,7 @@
 ---
 name: membership
 description: "Gate premium content with newsletter (free) or Stripe (paid) — signed-cookie unlocks at the edge"
-allowed-tools: Bash(npm run build), Bash(npx wrangler *), Bash(npx astro check), Bash(grep *), Bash(node *), Write, Read, Edit, Glob
+allowed-tools: Bash(npm run build), Bash(npx wrangler *), Bash(npx astro check), Bash(grep *), Bash(node *), Write, Read, Edit, Glob, mcp__cloudflare__kv_namespace_create, mcp__cloudflare__kv_namespace_get, mcp__cloudflare__kv_namespaces_list, mcp__cloudflare__accounts_list
 disable-model-invocation: true
 ---
 
@@ -176,13 +176,27 @@ Webhooks are how the Worker knows when a subscription becomes active. The Worker
 
 ### 4e — KV namespace
 
-Create the KV namespace and bind it to the Worker:
+Create the KV namespace and bind it to the Worker.
+
+**Preferred — Cloudflare MCP (no copy-paste):**
+
+1. Call `mcp__cloudflare__accounts_list` / `mcp__cloudflare__set_active_account` if the active account isn't already resolved.
+2. Call `mcp__cloudflare__kv_namespace_create` with `title: "MEMBERSHIPS"`. Read the `id` from the response.
+3. Use Edit to write `id = "<id>"` into the `[[kv_namespaces]]` block in `worker/membership-wrangler.toml` (binding name `MEMBERSHIPS`). Save the value to `.site-config` as `MEMBERSHIP_KV_ID=<id>` for future reference.
+
+**Fallback — wrangler CLI:**
 
 ```sh
 npx wrangler kv namespace create MEMBERSHIPS
 ```
 
-Copy the `id` value from the output and paste it into `worker/membership-wrangler.toml` under `[[kv_namespaces]]`. Re-deploy.
+Copy the `id` value from the output and paste it into `worker/membership-wrangler.toml` under `[[kv_namespaces]]`.
+
+Re-deploy after the binding is wired:
+
+```sh
+npx wrangler deploy --config worker/membership-wrangler.toml
+```
 
 ## Step 5 — Mark pages as `tier: premium`
 
