@@ -74,12 +74,6 @@ export default defineConfig({
     ...(isDev ? [keystatic(), anglesiteToolbar()] : []),
     sitemap(),
   ],
-  vite: isDev
-    ? {
-        server: {
-          https: getHttpsConfig(),
-        },
-      }
-    : {},
+  vite: { server: { https: getHttpsConfig() } },
   adapter: cloudflare(),
 });
