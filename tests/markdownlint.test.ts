@@ -44,6 +44,9 @@ describe("template markdown passes markdownlint", () => {
         "--config",
         configPath,
         "template/**/*.md",
+        // Exclude template/node_modules — present locally after manual smoke-tests
+        // (see "Testing changes manually" in CLAUDE.md), absent in CI.
+        "!template/node_modules/**",
       ],
       {
         cwd: resolve(__dirname, ".."),

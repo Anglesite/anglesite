@@ -120,8 +120,9 @@ if (isDirectRun) {
   run(`git tag ${tag}`);
   console.log(`\nCommitted and tagged ${tag}`);
 
-  // Push commit + tag — CI creates the release
+  // Push commit + tag — CI creates the release.
+  // Push only the new tag (not `--tags`) so stale local tags can't fail the push.
   run("git push");
-  run("git push --tags");
+  run(`git push origin ${tag}`);
   console.log("Pushed to origin — CI will create the release");
 }
