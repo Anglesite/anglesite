@@ -7,7 +7,7 @@
  * JSON payload, base64url(payload).hex(sig).
  *
  * Set up by `/anglesite:membership` — the owner sets the same signing
- * key as a Cloudflare Pages environment variable so the middleware can
+ * key as a Cloudflare Workers environment variable so the middleware can
  * verify cookies without an extra round trip to the Worker.
  */
 

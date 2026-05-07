@@ -1,25 +1,25 @@
 ---
 name: redirects
-description: "Manage Cloudflare Pages _redirects: add, remove, list, validate, and bulk-import redirects (301 / 302 / 308)"
+description: "Manage the _redirects file: add, remove, list, validate, and bulk-import redirects (301 / 302 / 308)"
 argument-hint: "[add | remove | list | validate | import | review]"
 allowed-tools: Read, Write, Edit, Glob, Bash(grep *), Bash(find *), Bash(wc *), Bash(sort *), Bash(awk *), Bash(test *), Bash(ls *), Bash(cat *)
 disable-model-invocation: true
 ---
 
-Manage redirects in `public/_redirects` so old URLs keep working when pages are renamed, content is imported from another platform, or the site's URL structure changes. The owner shouldn't have to hand-edit the file or learn Cloudflare Pages' redirect syntax.
+Manage redirects in `public/_redirects` so old URLs keep working when pages are renamed, content is imported from another platform, or the site's URL structure changes. The owner shouldn't have to hand-edit the file or learn the `_redirects` syntax.
 
 The canonical store is `public/_redirects`. Imports and SSG conversions stage their proposed mappings at `.anglesite/url-map.csv` so the owner can review them before they go live.
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — `_redirects` is Cloudflare Pages' native redirect mechanism (no Worker required, edge-evaluated)
+- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — `_redirects` is read by Cloudflare Workers Static Assets at the edge (no custom Worker code required)
 - [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — redirects are stored as plain text in the owner's repo, not in a third-party service
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain in plain English before editing files. If `false`, proceed without pre-announcing.
 
 ## Redirect file format
 
-Cloudflare Pages reads `public/_redirects`. Each non-empty, non-comment line is one rule:
+Cloudflare Workers Static Assets reads `public/_redirects`. Each non-empty, non-comment line is one rule:
 
 ```
 /from /to [status]
@@ -34,7 +34,7 @@ Cloudflare Pages reads `public/_redirects`. Each non-empty, non-comment line is 
 
 Comments start with `#`. Blank lines are allowed and Anglesite preserves them.
 
-Cloudflare Pages evaluates rules top to bottom and stops at the first match. The hard limits are 2,100 static rules and 100 dynamic (wildcard / placeholder) rules per project — surface a warning to the owner once either category passes 80% of the limit.
+Cloudflare evaluates rules top to bottom and stops at the first match. The hard limits are 2,100 static rules and 100 dynamic (wildcard / placeholder) rules per project — surface a warning to the owner once either category passes 80% of the limit.
 
 ## Step 0 — Locate the file and parse the action
 
@@ -187,7 +187,7 @@ When updating `public/_redirects`:
 1. Preserve every comment and blank line that was in the original.
 2. Append new rules at the end, separated from prior content by one blank line and a `# Added <action> YYYY-MM-DD` comment if more than three rules are added at once.
 3. End the file with a single trailing newline.
-4. Never reorder existing rules — the order is significant in Cloudflare Pages, and changing it can change which rule wins.
+4. Never reorder existing rules — the order is significant in `_redirects`, and changing it can change which rule wins.
 
 ## After any change
 
@@ -199,7 +199,7 @@ If 5+ rules were added, also remind the owner that 301s are cached aggressively 
 
 ### Wildcard and placeholder rules
 
-Cloudflare Pages supports `*` (greedy match) and `:name` (single-segment placeholder) in `from`, with `:splat` and `:name` available in `to`. Examples:
+Cloudflare's `_redirects` supports `*` (greedy match) and `:name` (single-segment placeholder) in `from`, with `:splat` and `:name` available in `to`. Examples:
 
 ```
 /post/*       /blog/:splat   301

@@ -18,7 +18,7 @@ A site that uses only Cloudflare Web Analytics (the default — cookieless) does
 - **Categories.** Necessary (always on) plus any of analytics, embeds, ads.
 - **Gating.** Third-party scripts and iframes use a `data-consent="<category>"` attribute. They don't run until the visitor consents to that category.
 - **Default policy.**
-  - `geo` — first-time visitors in the EU/UK default to deny; everywhere else defaults to allow. Requires the Cloudflare Pages middleware in `functions/_middleware.ts`.
+  - `geo` — first-time visitors in the EU/UK default to deny; everywhere else defaults to allow. Requires the Worker-entry middleware that injects `<meta name="cf-country">`.
   - `strict` — first-time visitors default to deny everywhere. No middleware needed.
 - **Auditable.** Choices are stored in a `consent` cookie shaped `{ v: <version>, c: { analytics: true, ... }, t: <ms> }`. Bump `CONSENT_VERSION` in `.site-config` to invalidate every visitor's cookie and re-prompt them — do this whenever categories or vendors change materially.
 
@@ -39,7 +39,7 @@ These values are saved to `.site-config`:
 | `src/scripts/consent.ts` | Cookie store, geo detection, script/iframe gating |
 | `src/components/ConsentBanner.astro` | Banner UI + preferences modal |
 | `src/pages/privacy.astro` | Privacy policy with the enabled categories |
-| `functions/_middleware.ts` | Cloudflare Pages function — injects `<meta name="cf-country">` (only for `CONSENT_DEFAULT=geo`) |
+| Worker-entry middleware | Injects `<meta name="cf-country">` from `request.cf.country` (only for `CONSENT_DEFAULT=geo`) |
 
 ## Marking third-party loads as gated
 

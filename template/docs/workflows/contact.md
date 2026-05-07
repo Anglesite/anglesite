@@ -4,7 +4,7 @@ Set up a contact form that forwards messages to the site owner's email using Clo
 
 ## Prerequisites
 
-- Site deployed to Cloudflare Pages (`/anglesite:deploy` completed)
+- Site deployed to Cloudflare Workers (`/anglesite:deploy` completed)
 - Custom domain configured (`SITE_DOMAIN` in `.site-config`)
 
 ## What gets created

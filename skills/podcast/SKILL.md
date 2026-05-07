@@ -82,7 +82,7 @@ PUBLIC_PODCAST_LANGUAGE=en-us
 PUBLIC_PODCAST_EXPLICIT=false
 ```
 
-`.env` is gitignored. For Cloudflare Pages, mirror these as Pages environment variables (Project → Settings → Variables and Secrets) so production builds can read them.
+`.env` is gitignored. For Cloudflare Workers, mirror these as Worker environment variables in `wrangler.jsonc` (or via `wrangler secret put` for sensitive values) so production builds can read them.
 
 ## Step 2 — Audio hosting
 

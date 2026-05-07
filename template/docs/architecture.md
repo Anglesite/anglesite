@@ -8,9 +8,9 @@
 
 **TypeScript strict** — Build-time errors instead of runtime failures. Better error messages from Claude Code.
 
-**Cloudflare Pages** — Free hosting with edge CDN. Direct deploy via Wrangler (no GitHub needed).
+**Cloudflare Workers (Static Assets)** — Free hosting with edge CDN. Direct deploy via Wrangler (no GitHub needed).
 
-**Cloudflare Web Analytics** — Free, privacy-first (no cookies). Auto-injected into Pages projects.
+**Cloudflare Web Analytics** — Free, privacy-first (no cookies). Auto-injected into Workers projects.
 
 ## Content collections
 

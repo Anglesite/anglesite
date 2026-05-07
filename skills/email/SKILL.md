@@ -186,4 +186,4 @@ When `EXPLAIN_STEPS` is `true` or not set, use these plain-English explanations:
 - Email records (MX, SPF, DKIM, DMARC) must always use `"proxied": false`
 - Never create duplicate SPF TXT records — merge into existing
 - When switching providers, remove old MX records before adding new ones
-- Never modify the CNAME record for `www` — that points to the Pages project
+- Never modify the CNAME record for `www` — that points to the Workers project

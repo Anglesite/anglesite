@@ -25,7 +25,7 @@ One test at a time. The AI manages the queue.
 
 ## Prerequisites
 
-- Site deployed to Cloudflare Pages
+- Site deployed to Cloudflare Workers
 - Cloudflare API token with KV, Analytics Engine, and D1 access
 - At least some traffic (experiments need visitors to produce results)
 

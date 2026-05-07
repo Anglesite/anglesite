@@ -23,7 +23,7 @@ Configured during `/anglesite:start` (Step 5). The setup:
 - **`draft`** — Default working branch. All changes happen here.
 - **`main`** — Production branch. Only updated by merging `draft` during `/anglesite:deploy`.
 
-Push to `draft` creates a preview deploy at `draft.CF_PROJECT_NAME.pages.dev`. Push to `main` triggers production deploy via Cloudflare Pages Git integration.
+Push to `draft` is an off-site backup to GitHub. Preview deploys are on demand via `npx wrangler versions upload`, which produces a URL like `draft-CF_PROJECT_NAME.workers.dev`. Production deploys happen via `wrangler deploy` (run from `/anglesite:deploy`), not via a Git integration.
 
 Never commit directly to `main`. Always work on `draft` and merge via the deploy workflow.
 

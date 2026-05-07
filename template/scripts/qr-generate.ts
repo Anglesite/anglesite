@@ -182,7 +182,7 @@ function sanitizePath(path: string): string {
 }
 
 /**
- * Generate a Cloudflare Pages _redirects line.
+ * Generate a `_redirects` line.
  * Format: /slug /target?utm_params 301
  *
  * @param slug - Short path (e.g., "/go/spring") that visitors will be redirected from

@@ -237,7 +237,7 @@ and you're done. Make sure the server is configured to:
   (most servers do this automatically)
 
 If you have an `_redirects` file in `public/` (and now in `dist/`), most
-modern static hosts (Netlify, Cloudflare Pages, Render) read it directly. For
+modern static hosts (Netlify, Cloudflare Workers / Pages-style hosts, Render) read it directly. For
 Apache or nginx, you'll need to translate those rules into the server's own
 redirect format.
 

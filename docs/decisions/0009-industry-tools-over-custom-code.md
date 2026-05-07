@@ -65,7 +65,7 @@ During the `/anglesite:start` design interview, the agent asks what tools the ow
 * Bad, because requires a server-side runtime, database, and ongoing maintenance
 * Bad, because creates security obligations (storing customer data, handling payments)
 * Bad, because the Webmaster agent would need to maintain and debug custom application code
-* Bad, because violates the static-site architecture — moves from Cloudflare Pages to a full application host
+* Bad, because violates the static-site architecture — moves from Cloudflare Workers + Static Assets to a full application host
 
 ### Hybrid approach with lightweight custom code
 

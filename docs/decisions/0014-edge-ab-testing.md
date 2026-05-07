@@ -18,11 +18,11 @@ Anglesite needs a testing approach that: works with static sites, produces zero 
 * Static site compatibility — Astro generates static HTML, no server-side rendering in production
 * Privacy by default — no third-party cookies or external analytics services
 * Owner comprehension — results must be interpretable without statistical training
-* Cloudflare-native — leverage existing infrastructure (Pages, KV, Analytics Engine, D1)
+* Cloudflare-native — leverage existing infrastructure (Workers, KV, Analytics Engine, D1)
 
 ## Considered Options
 
-* Build-time variants with edge assignment (Pages Function middleware)
+* Build-time variants with edge assignment (Worker-entry middleware)
 * Client-side JavaScript variant swap
 * Server-side rendering with variant selection
 * Third-party A/B testing service (Optimizely, Google Optimize, VWO)
@@ -34,7 +34,7 @@ Chosen option: "Build-time variants with edge assignment", because it eliminates
 ### Architecture
 
 1. **Build time:** Astro generates all variant HTML files as separate static pages (e.g., `index.html` and `index.variant-a.html`)
-2. **Edge:** A Pages Function middleware intercepts requests, checks for an existing assignment cookie, assigns new visitors via weighted random selection, and serves the correct variant file
+2. **Edge:** A Worker-entry middleware intercepts requests, checks for an existing assignment cookie, assigns new visitors via weighted random selection, and serves the correct variant file
 3. **Tracking:** Impressions are logged to Analytics Engine (non-blocking); conversions are logged from client-side beacon
 4. **Analysis:** Bayesian A/B test (Beta-Binomial model with Monte Carlo simulation) runs on a schedule, producing plain-language summaries
 5. **Storage:** Active config in KV (mutable without rebuild), outcomes in D1 (long-term learning)

@@ -89,7 +89,7 @@ If an SSG is detected, tell the owner:
 
 > "I see you have a [Platform] project here. I can convert this to an Anglesite
 > site — that means moving your content into Astro with Keystatic CMS, so you
-> get a visual editor and easy publishing to Cloudflare Pages.
+> get a visual editor and easy publishing to Cloudflare Workers.
 >
 > Your existing files won't be deleted — I'll read your content and create new
 > files alongside them. Would you like to go ahead?"

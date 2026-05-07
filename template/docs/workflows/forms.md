@@ -4,7 +4,7 @@ Build any number of forms (RSVP, lead capture, survey, callback request, waitlis
 
 ## Prerequisites
 
-- Site deployed to Cloudflare Pages (`/anglesite:deploy` completed)
+- Site deployed to Cloudflare Workers (`/anglesite:deploy` completed)
 - Custom domain configured (`SITE_DOMAIN` in `.site-config`)
 - Turnstile site key (created automatically if you've already used `/anglesite:contact`)
 

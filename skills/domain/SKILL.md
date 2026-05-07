@@ -155,7 +155,7 @@ Update `docs/cloudflare.md` with what was added or removed and why. Example:
 
 ## Safety rules
 
-- **Never change the CNAME record for `www`** — that points to the Pages project
+- **Never change the CNAME record for `www`** — that points to the Workers project
 - **Never change nameservers** via the API
 - **When switching email providers**, remove old MX records before adding new ones
 - **Email records must be DNS only** (`"proxied": false`) — MX, SPF, DKIM, DMARC should never be proxied

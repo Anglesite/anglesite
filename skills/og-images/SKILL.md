@@ -89,7 +89,7 @@ If any of these change, regenerate by running both commands.
 
 - The font is installed via npm (`@fontsource/inter`) and cached in `node_modules`
 - Generated images persist in `public/images/og/` across builds
-- On Cloudflare Pages, `node_modules` is cached between deploys
+- On Cloudflare Workers, `node_modules` is cached between deploys
 - Images are only regenerated when the script runs — not automatically on content change
 
 ## Integration with other skills

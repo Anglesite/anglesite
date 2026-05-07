@@ -14,7 +14,7 @@ Pages marked `tier: premium` in frontmatter are gated at the edge by `functions/
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — gating runs as a Pages Function at the edge, no static HTML reaches an unauthorized visitor
+- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — gating runs as Worker-entry middleware at the edge, no static HTML reaches an unauthorized visitor
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — newsletter unlock is a server-to-server check; Stripe checkout is an external redirect (Payment Link), no client SDK
 - [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — newsletter list and Stripe account are the owner's
 
