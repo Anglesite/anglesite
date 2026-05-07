@@ -8,7 +8,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── skills/                       Skills (51 total: 26 user-facing, 25 model-only)
+├── skills/                       Skills (52 total: 27 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting

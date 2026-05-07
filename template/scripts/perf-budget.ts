@@ -284,30 +284,32 @@ export function evaluatePage(
   metrics: PageMetrics,
   defaults: PerfBudget,
   overrides: { js: Map<string, number>; css: Map<string, number>; lcp: Map<string, number>; cls: Map<string, number> },
+  warnOnly: boolean = false,
 ): BudgetFinding[] {
   const findings: BudgetFinding[] = [];
+  const status: BudgetStatus = warnOnly ? "warn" : "fail";
 
   const jsBudget = budgetForPage(metrics.path, "js", defaults, overrides.js);
   if (metrics.jsBytes > jsBudget) {
-    findings.push({ path: metrics.path, metric: "js", actual: metrics.jsBytes, budget: jsBudget, status: "fail" });
+    findings.push({ path: metrics.path, metric: "js", actual: metrics.jsBytes, budget: jsBudget, status });
   }
 
   const cssBudget = budgetForPage(metrics.path, "css", defaults, overrides.css);
   if (metrics.cssBytes > cssBudget) {
-    findings.push({ path: metrics.path, metric: "css", actual: metrics.cssBytes, budget: cssBudget, status: "fail" });
+    findings.push({ path: metrics.path, metric: "css", actual: metrics.cssBytes, budget: cssBudget, status });
   }
 
   if (metrics.lcpMs !== undefined) {
     const lcpBudget = budgetForPage(metrics.path, "lcp", defaults, overrides.lcp);
     if (metrics.lcpMs > lcpBudget) {
-      findings.push({ path: metrics.path, metric: "lcp", actual: metrics.lcpMs, budget: lcpBudget, status: "fail" });
+      findings.push({ path: metrics.path, metric: "lcp", actual: metrics.lcpMs, budget: lcpBudget, status });
     }
   }
 
   if (metrics.clsScore !== undefined) {
     const clsBudget = budgetForPage(metrics.path, "cls", defaults, overrides.cls);
     if (metrics.clsScore > clsBudget) {
-      findings.push({ path: metrics.path, metric: "cls", actual: metrics.clsScore, budget: clsBudget, status: "fail" });
+      findings.push({ path: metrics.path, metric: "cls", actual: metrics.clsScore, budget: clsBudget, status });
     }
   }
 
@@ -382,6 +384,7 @@ export interface AuditOptions {
   configContent?: string;
   lighthouse?: boolean;
   url?: string;
+  warnOnly?: boolean;
 }
 
 export async function runAudit(options: AuditOptions = {}): Promise<PerfReport> {
@@ -413,7 +416,7 @@ export async function runAudit(options: AuditOptions = {}): Promise<PerfReport> 
 
   const findings: BudgetFinding[] = [];
   for (const page of pages) {
-    findings.push(...evaluatePage(page, defaults, overrides));
+    findings.push(...evaluatePage(page, defaults, overrides, options.warnOnly));
   }
 
   return {
@@ -537,7 +540,7 @@ if (process.argv[1]?.endsWith("perf-budget.ts")) {
     process.exit(1);
   }
 
-  runAudit({ lighthouse, url })
+  runAudit({ lighthouse, url, warnOnly })
     .then((report) => {
       if (reportPath) {
         writeFileSync(reportPath, formatReport(report), "utf-8");

@@ -17,7 +17,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 interface Entry {
   key: string;
@@ -134,7 +134,12 @@ export function filterSubmissions(
     if (opts.status && (s.status ?? "new") !== opts.status) return false;
     if (opts.since) {
       const sinceMs = Date.parse(opts.since);
-      if (!Number.isNaN(sinceMs) && Date.parse(s.submittedAt) < sinceMs) return false;
+      if (Number.isNaN(sinceMs)) {
+        throw new Error(
+          `--since is not a valid ISO date: ${opts.since} (try YYYY-MM-DD).`,
+        );
+      }
+      if (Date.parse(s.submittedAt) < sinceMs) return false;
     }
     return true;
   });
@@ -180,12 +185,27 @@ export function toCsv(items: Submission[]): string {
   return rows.join("\n") + "\n";
 }
 
+export function resolveOutPath(out: string, cwd: string = process.cwd()): string {
+  // Disallow absolute paths and any traversal that escapes the project root.
+  // This is a local CLI but the flag is still user input — treat it as one.
+  if (isAbsolute(out)) {
+    throw new Error(`--out must be a relative path inside the project (got: ${out}).`);
+  }
+  const target = resolve(cwd, out);
+  const rel = relative(cwd, target);
+  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error(`--out must stay inside the project (got: ${out}).`);
+  }
+  return target;
+}
+
 function main(): void {
   const opts = parseArgs(process.argv.slice(2));
   const items = filterSubmissions(readSubmissions(), opts);
   const csv = toCsv(items);
   if (opts.out) {
-    writeFileSync(resolve(process.cwd(), opts.out), csv);
+    const target = resolveOutPath(opts.out);
+    writeFileSync(target, csv);
     console.error(`export-submissions: wrote ${items.length} row(s) to ${opts.out}`);
   } else {
     process.stdout.write(csv);

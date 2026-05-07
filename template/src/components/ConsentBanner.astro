@@ -44,7 +44,13 @@ const versionInt = Number.parseInt(version, 10) || 1;
   data-default={defaultPolicy}
   data-version={String(versionInt)}
 >
-  <div class="consent-banner" role="region" aria-label="Cookie consent" hidden>
+  <div
+    class="consent-banner"
+    role="region"
+    aria-label="Cookie consent"
+    aria-live="polite"
+    hidden
+  >
     <p class="consent-banner__copy">
       We use cookies to keep this site working and, with your permission, to measure
       traffic and load embeds from other sites.
@@ -57,9 +63,13 @@ const versionInt = Number.parseInt(version, 10) || 1;
     </div>
   </div>
 
-  <dialog class="consent-prefs" aria-label="Cookie preferences">
+  <dialog
+    class="consent-prefs"
+    aria-modal="true"
+    aria-labelledby="consent-prefs-title"
+  >
     <form method="dialog" data-consent-form>
-      <h2>Cookie preferences</h2>
+      <h2 id="consent-prefs-title">Cookie preferences</h2>
       <p>Choose which categories you allow. You can change this any time.</p>
       <ul class="consent-prefs__list">
         {categories.map((cat) => {
@@ -207,12 +217,16 @@ const versionInt = Number.parseInt(version, 10) || 1;
       applyConsent(stored.c);
       dispatchConsent(stored.c);
     } else {
-      // Apply provisional defaults so allowed categories load before the visitor
-      // chooses (relevant only under geo policy outside regulated regions).
-      const country = detectCountry();
-      const provisional = defaultChoices(categories, policy, country);
-      applyConsent(provisional);
+      // Default-deny until the visitor chooses. We never pre-load optional
+      // categories (analytics/embeds/ads) before consent, even under geo policy
+      // — the GDPR/PECR safe default applies everywhere. defaultChoices() is
+      // still consulted to *pre-fill* the preferences form so visitors see a
+      // sensible starting point.
       banner.hidden = false;
+      // Move focus to the first action so keyboard users can act on the banner
+      // without having to Tab through page content first.
+      const firstAction = banner.querySelector<HTMLButtonElement>("[data-consent-action]");
+      if (firstAction) firstAction.focus({ preventScroll: true });
     }
 
     function commit(choices: ConsentChoices): void {
@@ -257,6 +271,12 @@ const versionInt = Number.parseInt(version, 10) || 1;
           if (input) input.checked = current[cat] === true;
         }
         prefs.showModal();
+        // Native <dialog> traps focus; nudge the first focusable control so AT
+        // users land somewhere meaningful instead of on the dialog itself.
+        const firstControl = form.querySelector<HTMLElement>(
+          'input:not([disabled]), button:not([disabled])',
+        );
+        if (firstControl) firstControl.focus({ preventScroll: true });
       } else if (action === "save-prefs") commit(readForm());
       else if (action === "close-prefs") prefs.close();
     });

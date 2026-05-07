@@ -289,9 +289,14 @@ function pickValue(values, names, validate) {
 }
 
 function newSubmissionId() {
-  // Sortable timestamp + random suffix, no external deps.
+  // Sortable timestamp + cryptographically-random suffix. Math.random() is
+  // predictable across calls in a single Worker isolate, so use the WebCrypto
+  // RNG to keep submission IDs unguessable.
   const ts = Date.now().toString(36);
-  const rand = Math.random().toString(36).slice(2, 10);
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  let rand = "";
+  for (const b of bytes) rand += b.toString(16).padStart(2, "0");
   return `${ts}-${rand}`;
 }
 

@@ -35,17 +35,61 @@ const COOKIE_NAME = "__anglesite_member";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 const RATE_LIMIT_SECONDS = 30;
+const RATE_LIMIT_MAX_ENTRIES = 10000;
 const recentSubmissions = new Map();
 
 function isRateLimited(ip) {
   const now = Date.now();
   const last = recentSubmissions.get(ip);
   if (last && now - last < RATE_LIMIT_SECONDS * 1000) return true;
-  recentSubmissions.set(ip, now);
   for (const [k, t] of recentSubmissions) {
     if (now - t > RATE_LIMIT_SECONDS * 2000) recentSubmissions.delete(k);
   }
+  // Hard cap: drop oldest insertion if still over the bound. Map iteration
+  // order is insertion order, so the first key is the oldest.
+  while (recentSubmissions.size >= RATE_LIMIT_MAX_ENTRIES) {
+    const oldest = recentSubmissions.keys().next().value;
+    if (oldest === undefined) break;
+    recentSubmissions.delete(oldest);
+  }
+  recentSubmissions.set(ip, now);
   return false;
+}
+
+function assertSigningKey(hexKey) {
+  if (
+    typeof hexKey !== "string" ||
+    hexKey.length < 32 ||
+    hexKey.length % 2 !== 0 ||
+    !/^[0-9a-f]+$/i.test(hexKey)
+  ) {
+    throw new Error(
+      "MEMBERSHIP_SIGNING_KEY must be hex-encoded random bytes (>=16 bytes / 32 hex chars; 32 bytes / 64 hex chars recommended).",
+    );
+  }
+}
+
+function timingSafeEqualHex(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+function isSafeReturnPath(value) {
+  // Allow only same-origin path-only redirects: must start with "/" and not
+  // with "//" or "/\" (which browsers treat as protocol-relative).
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length < 2048 &&
+    value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !value.startsWith("/\\")
+  );
 }
 
 function isAllowedOrigin(origin, siteDomain) {
@@ -105,6 +149,7 @@ function hexToBytes(hex) {
 }
 
 async function importHmacKey(hexKey) {
+  assertSigningKey(hexKey);
   return crypto.subtle.importKey(
     "raw",
     hexToBytes(hexKey),
@@ -272,7 +317,7 @@ async function verifyStripeWebhook(request, env) {
     ),
   );
   const expected = bytesToHex(sig);
-  const valid = parts.v1.some((v) => v === expected);
+  const valid = parts.v1.some((v) => timingSafeEqualHex(v, expected));
   if (!valid) return null;
   try {
     return JSON.parse(body);
@@ -410,8 +455,9 @@ async function handleUnlockPaid(request, env, origin) {
     });
   }
 
-  const returnTo = url.searchParams.get("return") || "/";
-  const redirectTarget = new URL(returnTo, `https://${env.SITE_DOMAIN}`);
+  const requestedReturn = url.searchParams.get("return");
+  const returnPath = isSafeReturnPath(requestedReturn) ? requestedReturn : "/";
+  const redirectTarget = new URL(returnPath, `https://${env.SITE_DOMAIN}`);
 
   return new Response(null, {
     status: 303,

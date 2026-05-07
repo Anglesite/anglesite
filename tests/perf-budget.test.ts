@@ -297,6 +297,20 @@ describe("measurePage and evaluatePage", () => {
     });
     expect(findings.map((f) => f.metric).sort()).toEqual(["cls", "lcp"]);
   });
+
+  it("emits status:warn under warn-only mode", () => {
+    writeFile("_astro/heavy.js", "x".repeat(60000));
+    writeFile("index.html", '<script src="/_astro/heavy.js"></script>');
+    const metrics = measurePage(join(dir, "index.html"), dir);
+    const findings = evaluatePage(metrics, DEFAULT_BUDGET, {
+      js: new Map(),
+      css: new Map(),
+      lcp: new Map(),
+      cls: new Map(),
+    }, true);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].status).toBe("warn");
+  });
 });
 
 // ---------------------------------------------------------------------------

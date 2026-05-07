@@ -233,9 +233,14 @@ If paid tier is enabled, ensure `form-action` already permits `https://buy.strip
 
 ## Step 7 — Build and verify
 
+The edge middleware reads `functions/_premium-routes.json` to know which paths require a member cookie. Regenerate that index from the current `tier: premium` frontmatter, then build:
+
 ```sh
+npm run ai-premium-build
 npm run build
 ```
+
+`ai-premium-build` is safe to re-run any time content changes — it preserves any glob-style entries (e.g. `"/members/*"`) the owner added by hand. **Run it before every deploy that touches premium content**, or the new pages will be publicly readable until the next regeneration.
 
 Spot-check that:
 
