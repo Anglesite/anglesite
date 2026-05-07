@@ -73,6 +73,7 @@ Step-by-step guides for common operations:
 | Photography shot list | See `/anglesite:photography` skill |
 | Restaurant menu (import, create, edit) | `docs/workflows/menu.md` |
 | Feedback annotations | `docs/workflows/annotations.md` |
+| Privacy / cookie consent | `docs/workflows/consent.md` |
 
 ## Communicating clearly
 
@@ -278,6 +279,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Create or import a restaurant menu | `/anglesite:menu` |
 | Manage URL redirects (rename, migrate, bulk import) | `/anglesite:redirects` |
 | Add blog comments (Giscus + GitHub Discussions) | `/anglesite:giscus` |
+| Add a cookie / privacy consent banner | `/anglesite:consent` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 

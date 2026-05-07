@@ -8,7 +8,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── skills/                       Skills (47 total: 22 user-facing, 25 model-only)
+├── skills/                       Skills (50 total: 25 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -57,7 +57,8 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── donations/SKILL.md       Donation button + page (Stripe/Liberapay/GitHub Sponsors) (user-facing)
 │   ├── redirects/SKILL.md       Manage Cloudflare Pages _redirects (user-facing)
 │   ├── design-import/SKILL.md    Import design from Canva/Figma (user-facing)
-│   └── giscus/SKILL.md          Blog comments via Giscus + GitHub Discussions (user-facing)
+│   ├── giscus/SKILL.md          Blog comments via Giscus + GitHub Discussions (user-facing)
+│   └── consent/SKILL.md         Category-based GDPR/CCPA cookie consent banner (user-facing)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
 ├── scripts/
@@ -154,6 +155,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `redirects` | Manage Cloudflare Pages `_redirects`: add, remove, list, validate, bulk-import (301/302/308) |
 | `design-import` | Import design tokens and page layouts from Canva or Figma |
 | `giscus` | Blog comments backed by GitHub Discussions (per-post opt-out via frontmatter) |
+| `consent` | Category-based GDPR/CCPA cookie consent banner; gates third-party scripts/embeds via `data-consent` |
 
 **Model-only** (called programmatically by other skills, `user-invocable: false`):
 
