@@ -83,7 +83,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── smb/                      Business type guides (66 files, 50+ verticals)
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (19 files)
-│   ├── decisions/                ADRs — architecture decision records (16 files)
+│   ├── decisions/                ADRs — architecture decision records (18 files)
 │   ├── style-guide.md           HTML, CSS, and TypeScript coding standards for generated sites
 │   └── content-conversion.md    Shared HTML-to-Markdown guidance (used by import + convert)
 ├── template/                     Files scaffolded to user's project
@@ -209,7 +209,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Edge A/B testing (not client-side) | Build-time variants + Pages Function assignment = zero flicker, static-site compatible |
 | Pagefind (not Algolia/Orama) | Build-time index, ~6 KB JS, no external service, first-class Astro integration |
 
-Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0015).
+Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0018).
 
 ## Testing
 
