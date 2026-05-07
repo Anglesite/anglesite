@@ -15,3 +15,9 @@ compatibility_date = "2024-01-01"
 [observability]
 enabled = true
 head_sampling_rate = 1.0
+
+# Analytics Engine — review submission events. The shared `anglesite_events`
+# dataset is queried by /anglesite:stats. Writes are best-effort.
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "anglesite_events"

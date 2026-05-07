@@ -29,6 +29,19 @@ import formsCatalog from "./forms.json";
 
 const recentSubmissions = new Map();
 
+function recordEvent(env, eventType, formName, outcome) {
+  if (!env || !env.ANALYTICS) return;
+  try {
+    env.ANALYTICS.writeDataPoint({
+      blobs: ["forms", eventType, formName || "", outcome],
+      doubles: [1],
+      indexes: [env.SITE_DOMAIN || ""],
+    });
+  } catch (err) {
+    console.error("Analytics writeDataPoint failed:", err);
+  }
+}
+
 function rateLimitKey(slug, ip) {
   return `${slug}:${ip}`;
 }
@@ -486,6 +499,7 @@ export default {
       ? form.rateLimitSeconds
       : 60;
     if (isRateLimited(formSlug, ip, rateLimit)) {
+      recordEvent(env, "submit", formSlug, "rate_limited");
       return new Response("Too many requests. Please wait a minute.", {
         status: 429,
         headers: corsHeaders(origin, siteDomain),
@@ -499,10 +513,12 @@ export default {
       errors.push(...validateField(field, values[field.name]));
     }
     if (errors.length > 0) {
+      recordEvent(env, "submit", formSlug, "validation_error");
       return jsonError(errors, 400, origin, siteDomain);
     }
 
     if (!turnstileToken) {
+      recordEvent(env, "submit", formSlug, "validation_error");
       return jsonError(
         ["Please complete the verification."],
         400,
@@ -517,6 +533,7 @@ export default {
       ip,
     );
     if (!turnstileValid) {
+      recordEvent(env, "submit", formSlug, "validation_error");
       return jsonError(
         ["Verification failed. Please try again."],
         403,
@@ -533,6 +550,7 @@ export default {
 
     const sent = await sendEmail(env, form, values);
     if (!sent) {
+      recordEvent(env, "submit", formSlug, "upstream_error");
       return jsonError(
         ["Failed to send. Please try again later."],
         500,
@@ -540,6 +558,8 @@ export default {
         siteDomain,
       );
     }
+
+    recordEvent(env, "submit", formSlug, "ok");
 
     if (contentType.includes("application/x-www-form-urlencoded") && origin) {
       const target =

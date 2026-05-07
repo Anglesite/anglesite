@@ -31,3 +31,10 @@ head_sampling_rate = 1.0
 [[kv_namespaces]]
 binding = "MEMBERSHIPS"
 id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Analytics Engine — membership unlock events (free signups, paid unlocks,
+# webhook outcomes, errors). The shared `anglesite_events` dataset is
+# queried by /anglesite:stats. Writes are best-effort.
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "anglesite_events"

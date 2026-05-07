@@ -14,6 +14,19 @@
 const RATE_LIMIT_SECONDS = 300; // 5 minutes between submissions
 const recentSubmissions = new Map();
 
+function recordEvent(env, eventType, formName, outcome) {
+  if (!env || !env.ANALYTICS) return;
+  try {
+    env.ANALYTICS.writeDataPoint({
+      blobs: ["review", eventType, formName || "", outcome],
+      doubles: [1],
+      indexes: [env.SITE_DOMAIN || ""],
+    });
+  } catch (err) {
+    console.error("Analytics writeDataPoint failed:", err);
+  }
+}
+
 function isRateLimited(ip) {
   const now = Date.now();
   const last = recentSubmissions.get(ip);
@@ -136,6 +149,7 @@ export default {
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
 
     if (isRateLimited(ip)) {
+      recordEvent(env, "submit", "review", "rate_limited");
       return new Response("Too many submissions. Please wait a few minutes.", {
         status: 429,
         headers: corsHeaders(origin, env.SITE_DOMAIN),
@@ -176,6 +190,7 @@ export default {
 
     const errors = validateInput(name, rating, text);
     if (errors.length > 0) {
+      recordEvent(env, "submit", "review", "validation_error");
       return new Response(JSON.stringify({ errors }), {
         status: 400,
         headers: { ...corsHeaders(origin, env.SITE_DOMAIN), "Content-Type": "application/json" },
@@ -183,6 +198,7 @@ export default {
     }
 
     if (!turnstileToken) {
+      recordEvent(env, "submit", "review", "validation_error");
       return new Response(
         JSON.stringify({ errors: ["Please complete the verification."] }),
         {
@@ -198,6 +214,7 @@ export default {
       ip,
     );
     if (!turnstileValid) {
+      recordEvent(env, "submit", "review", "validation_error");
       return new Response(
         JSON.stringify({ errors: ["Verification failed. Please try again."] }),
         {
@@ -210,6 +227,7 @@ export default {
     const sent = await emailReview(env, name, rating, text);
 
     if (!sent) {
+      recordEvent(env, "submit", "review", "upstream_error");
       return new Response(
         JSON.stringify({ errors: ["Failed to submit review. Please try again later."] }),
         {
@@ -218,6 +236,8 @@ export default {
         },
       );
     }
+
+    recordEvent(env, "submit", "review", "ok");
 
     if (contentType.includes("application/x-www-form-urlencoded") && origin) {
       return Response.redirect(`${origin}/review/thanks`, 303);
