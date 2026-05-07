@@ -1,0 +1,78 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+const configPath = resolve(process.cwd(), ".site-config");
+const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
+const workerUrl = config.match(/^MEMBERSHIP_WORKER_URL=(.+)$/m)?.[1]?.trim() ?? "";
+const tiers = (config.match(/^MEMBERSHIP_TIERS=(.+)$/m)?.[1]?.trim() ?? "free")
+  .split(",")
+  .map((t) => t.trim())
+  .filter(Boolean);
+const subscribeUrl = config.match(/^SUBSCRIBE_WORKER_URL=(.+)$/m)?.[1]?.trim() ?? "";
+const stripeLink = config.match(/^STRIPE_MEMBERSHIP_LINK=(.+)$/m)?.[1]?.trim() ?? "";
+const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "us";
+
+const returnTo = Astro.url.searchParams.get("return") || "/";
+const showFree = tiers.includes("free");
+const showPaid = tiers.includes("paid") && stripeLink.length > 0;
+---
+
+<BaseLayout title="Unlock" description={`Unlock premium content from ${siteName}.`}>
+  <h1>Unlock</h1>
+  <p>This page is for members. Choose how you'd like to unlock it.</p>
+
+  {showFree && (
+    <section class="unlock-tier">
+      <h2>Free — newsletter subscribers</h2>
+      <p>
+        Already on the {siteName} newsletter? Enter your email and we'll
+        unlock this page on this device. Otherwise, subscribe first and
+        come back.
+      </p>
+
+      <form method="POST" action={`${workerUrl}/unlock/free`} class="contact-form">
+        <input type="hidden" name="return" value={returnTo} />
+        <div class="form-field">
+          <label for="member-email">Email address</label>
+          <input
+            type="email"
+            id="member-email"
+            name="email"
+            required
+            autocomplete="email"
+            placeholder="you@example.com"
+          />
+        </div>
+        <button type="submit">Unlock</button>
+      </form>
+
+      {subscribeUrl && (
+        <p class="unlock-note">
+          Not subscribed yet?
+          <a href="/subscribe">Subscribe to the newsletter</a> first.
+        </p>
+      )}
+    </section>
+  )}
+
+  {showPaid && (
+    <section class="unlock-tier">
+      <h2>Paid — full access</h2>
+      <p>
+        Become a paying member for full access to every premium page.
+        After checkout, you'll be returned to the page you were trying
+        to read.
+      </p>
+
+      <a class="button" href={`${stripeLink}?client_reference_id=${encodeURIComponent(returnTo)}`}>
+        Subscribe with Stripe
+      </a>
+
+      <p class="unlock-note">
+        Already a paid member? <a href={`${workerUrl}/unlock/paid?session_id={CHECKOUT_SESSION_ID}&return=${encodeURIComponent(returnTo)}`}>Restore access</a>.
+      </p>
+    </section>
+  )}
+</BaseLayout>

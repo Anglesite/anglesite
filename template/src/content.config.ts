@@ -44,6 +44,10 @@ const posts = defineCollection({
     comments: z.boolean().default(true),
     /** URLs where this post was cross-posted (rendered as `u-syndication` links). */
     syndication: z.array(z.string().url()).default([]),
+    /** Membership tier required to read this post. `premium` triggers edge gating via /anglesite:membership. */
+    tier: z.enum(["public", "premium"]).default("public"),
+    /** When `tier` is `premium`, number of leading paragraphs to render publicly as a teaser. */
+    publicPreview: z.number().int().min(0).default(2),
   }),
 });
 

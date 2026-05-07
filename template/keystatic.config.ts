@@ -69,6 +69,22 @@ const allCollections: Record<string, ReturnType<typeof collection>> = {
           description: "When unchecked, hides the comments widget on this post (only applies if comments are configured site-wide)",
           defaultValue: true,
         }),
+        tier: fields.select({
+          label: "Membership tier",
+          description:
+            "Public posts are visible to everyone. Premium posts are gated via /anglesite:membership.",
+          options: [
+            { label: "Public", value: "public" },
+            { label: "Premium (members only)", value: "premium" },
+          ],
+          defaultValue: "public",
+        }),
+        publicPreview: fields.integer({
+          label: "Public preview paragraphs",
+          description:
+            "When premium, the first N paragraphs are visible to non-members.",
+          defaultValue: 2,
+        }),
         syndication: fields.array(fields.url({ label: "URL" }), {
           label: "Syndication Links",
           description: "URLs where this post was shared (added after posting to social media)",

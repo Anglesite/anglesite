@@ -1,0 +1,25 @@
+# Membership unlock worker — deployed via /anglesite:membership
+# Issues signed cookies after verifying a newsletter subscription (free
+# tier) or a Stripe checkout session (paid tier). Re-validates cookies
+# on demand and exposes a Stripe Customer Portal redirect.
+#
+# Secrets are set via: npx wrangler secret put <NAME> --config worker/membership-wrangler.toml
+#   MEMBERSHIP_SIGNING_KEY  — 32 random bytes, hex encoded
+#   SITE_DOMAIN             — apex domain (no scheme)
+#   MEMBERSHIP_TIERS        — "free" | "paid" | "free,paid"
+#   NEWSLETTER_API_KEY      — required if free tier enabled
+#   NEWSLETTER_PLATFORM     — "buttondown" | "mailchimp"
+#   MAILCHIMP_LIST_ID       — required for mailchimp
+#   STRIPE_SECRET_KEY       — required if paid tier enabled
+#   STRIPE_WEBHOOK_SECRET   — required if paid tier enabled
+#
+# After creating the KV namespace with `npx wrangler kv namespace create
+# MEMBERSHIPS`, paste the returned id into the kv_namespaces.id below.
+
+name = "anglesite-membership"
+main = "membership-worker.js"
+compatibility_date = "2024-09-23"
+
+[[kv_namespaces]]
+binding = "MEMBERSHIPS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"

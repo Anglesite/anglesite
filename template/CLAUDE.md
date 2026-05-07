@@ -281,6 +281,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Manage URL redirects (rename, migrate, bulk import) | `/anglesite:redirects` |
 | Add blog comments (Giscus + GitHub Discussions) | `/anglesite:giscus` |
 | Add a cookie / privacy consent banner | `/anglesite:consent` |
+| Add a paywall (free or paid members) | `/anglesite:membership` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 

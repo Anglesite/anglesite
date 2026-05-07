@@ -1,14 +1,20 @@
 /**
- * Cloudflare Pages Function — A/B test variant assignment middleware.
+ * Cloudflare Pages Function — request middleware.
  *
- * Intercepts requests for pages under active experiment, assigns a variant
- * at the edge via cookie, and serves the pre-rendered variant HTML.
- * Zero layout flicker — variant selection happens before any HTML reaches
- * the browser.
+ * Two responsibilities, in order:
+ *   1. Membership gate — if the requested path is in the premium route
+ *      manifest, verify the signed `__anglesite_member` cookie before
+ *      allowing the request through. Configured by `/anglesite:membership`.
+ *   2. A/B test variant assignment — assigns a variant via cookie and
+ *      serves the pre-rendered variant HTML. Zero layout flicker.
  *
  * Environment bindings:
- *   EXPERIMENTS (KV)         — Active experiment config
- *   ANALYTICS   (Analytics Engine) — Event stream for impressions
+ *   ASSETS                       — Static assets fetcher (Pages built-in)
+ *   EXPERIMENTS (KV)             — Active experiment config
+ *   ANALYTICS   (Analytics Engine, optional) — Impression event stream
+ *   MEMBERSHIP_SIGNING_KEY (var) — Hex HMAC key matching the membership
+ *                                  Worker. Only required when the premium
+ *                                  route manifest is non-empty.
  *
  * The middleware reads experiment config from KV on each request.
  * Variant assignment is persisted in a first-party cookie (no PII,
@@ -23,11 +29,20 @@ import {
   resolveVariantPath,
 } from "../scripts/experiments";
 import { buildImpressionDataPoint } from "../scripts/ab-analytics";
+import {
+  isPremiumRoute,
+  readCookie,
+  unlockRedirect,
+  verifyMembershipCookie,
+} from "../scripts/membership";
+import premiumRoutes from "./_premium-routes.json";
 
 interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
   EXPERIMENTS: KVNamespace;
   ANALYTICS?: AnalyticsEngineDataset;
+  MEMBERSHIP_SIGNING_KEY?: string;
+  MEMBERSHIP_PREVIEW_TOKEN?: string;
 }
 
 interface PagesContext {
@@ -44,7 +59,31 @@ export async function onRequest(context: PagesContext): Promise<Response> {
   const accept = request.headers.get("Accept") ?? "";
   if (!accept.includes("text/html")) return next();
 
+  // Membership gate — runs before A/B assignment so non-members never
+  // see (or get counted in the impressions for) gated variants.
+  const routes = premiumRoutes as readonly string[];
+  if (isPremiumRoute(url.pathname, routes)) {
+    const previewToken = url.searchParams.get("preview");
+    const allowedPreview =
+      env.MEMBERSHIP_PREVIEW_TOKEN &&
+      previewToken &&
+      previewToken === env.MEMBERSHIP_PREVIEW_TOKEN;
+
+    if (!allowedPreview) {
+      const cookieHeader = request.headers.get("Cookie") ?? "";
+      const cookieValue = readCookie(cookieHeader, "__anglesite_member");
+      const payload = await verifyMembershipCookie(
+        cookieValue,
+        env.MEMBERSHIP_SIGNING_KEY,
+      );
+      if (!payload) {
+        return unlockRedirect(url.pathname, url.search);
+      }
+    }
+  }
+
   // Load active experiments from KV
+  if (!env.EXPERIMENTS) return next();
   const configJson = await env.EXPERIMENTS.get("active-experiments");
   if (!configJson) return next();
 
