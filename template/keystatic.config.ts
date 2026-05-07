@@ -64,6 +64,11 @@ const allCollections: Record<string, ReturnType<typeof collection>> = {
           description: "When checked, sends this post to newsletter subscribers on deploy",
           defaultValue: false,
         }),
+        comments: fields.checkbox({
+          label: "Allow Comments",
+          description: "When unchecked, hides the comments widget on this post (only applies if comments are configured site-wide)",
+          defaultValue: true,
+        }),
         syndication: fields.array(fields.url({ label: "URL" }), {
           label: "Syndication Links",
           description: "URLs where this post was shared (added after posting to social media)",

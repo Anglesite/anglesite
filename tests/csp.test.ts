@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildPolarCSP,
   buildTurnstileCSP,
+  buildGiscusCSP,
   parseProviders,
   buildCSP,
   buildAllowedScripts,
@@ -52,6 +53,22 @@ describe("buildTurnstileCSP", () => {
 });
 
 // ---------------------------------------------------------------------------
+// buildGiscusCSP
+// ---------------------------------------------------------------------------
+
+describe("buildGiscusCSP", () => {
+  it("includes giscus.app in script-src", () => {
+    const csp = buildGiscusCSP();
+    expect(csp["script-src"]).toContain("giscus.app");
+  });
+
+  it("includes giscus.app in frame-src", () => {
+    const csp = buildGiscusCSP();
+    expect(csp["frame-src"]).toContain("giscus.app");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // parseProviders
 // ---------------------------------------------------------------------------
 
@@ -74,6 +91,11 @@ describe("parseProviders", () => {
   it("parses BOOKING_PROVIDER", () => {
     expect(parseProviders("BOOKING_PROVIDER=cal").booking).toBe("cal");
     expect(parseProviders("BOOKING_PROVIDER=calendly").booking).toBe("calendly");
+  });
+
+  it("parses COMMENTS_PROVIDER", () => {
+    expect(parseProviders("COMMENTS_PROVIDER=giscus").comments).toBe("giscus");
+    expect(parseProviders("").comments).toBeUndefined();
   });
 
   it("detects TURNSTILE_SITE_KEY presence", () => {
@@ -132,6 +154,7 @@ describe("buildCSP", () => {
     expect(csp).not.toContain("app.cal.com");
     expect(csp).not.toContain("calendly.com");
     expect(csp).not.toContain("assets.lemonsqueezy.com");
+    expect(csp).not.toContain("giscus.app");
   });
 });
 
@@ -199,6 +222,12 @@ describe("buildCSP with providers", () => {
     expect(csp).toContain("assets.calendly.com");
     expect(csp).toContain("calendly.com");
     expect(csp).not.toContain("app.cal.com");
+  });
+
+  it("adds Giscus domain when comments=giscus", () => {
+    const csp = buildCSP({ comments: "giscus", turnstile: false });
+    expect(csp).toContain("giscus.app");
+    expect(csp).not.toContain("cdn.snipcart.com");
   });
 
   it("combines multiple providers correctly", () => {
@@ -273,6 +302,11 @@ describe("buildAllowedScripts", () => {
 
     const calendly = buildAllowedScripts({ booking: "calendly", turnstile: false });
     expect(calendly).toContain("assets.calendly.com");
+  });
+
+  it("includes Giscus script when comments=giscus", () => {
+    const scripts = buildAllowedScripts({ comments: "giscus", turnstile: false });
+    expect(scripts).toContain("giscus.app");
   });
 
   it("combines all provider scripts", () => {

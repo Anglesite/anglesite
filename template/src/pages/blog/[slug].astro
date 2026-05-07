@@ -1,6 +1,9 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import Comments from "../../components/Comments.astro";
 import { getCollection, render } from "astro:content";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 export const prerender = true;
 
@@ -27,6 +30,28 @@ const articleJsonLd = {
     image: new URL(post.data.image, Astro.site).toString(),
   }),
 };
+
+// Comments are opt-in per site (.site-config) and per post (frontmatter).
+const configPath = resolve(process.cwd(), ".site-config");
+const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
+const read = (key: string) => config.match(new RegExp(`^${key}=(.+)$`, "m"))?.[1]?.trim();
+const commentsProvider = read("COMMENTS_PROVIDER");
+const showComments = commentsProvider === "giscus" && post.data.comments !== false;
+const giscusProps = showComments
+  ? {
+      repo: read("GISCUS_REPO") ?? "",
+      repoId: read("GISCUS_REPO_ID") ?? "",
+      category: read("GISCUS_CATEGORY") ?? "Comments",
+      categoryId: read("GISCUS_CATEGORY_ID") ?? "",
+      mapping: (read("GISCUS_MAPPING") ?? "pathname") as
+        | "pathname"
+        | "url"
+        | "title"
+        | "og:title",
+      theme: read("GISCUS_THEME") ?? "preferred_color_scheme",
+      reactionsOnly: read("GISCUS_REACTIONS_ONLY") === "true",
+    }
+  : null;
 ---
 
 <BaseLayout
@@ -86,4 +111,8 @@ const articleJsonLd = {
       )
     }
   </article>
+
+  {giscusProps && giscusProps.repoId && giscusProps.categoryId && (
+    <Comments {...giscusProps} />
+  )}
 </BaseLayout>

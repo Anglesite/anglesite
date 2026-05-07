@@ -55,7 +55,8 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── menu/SKILL.md            Restaurant menu import, creation, and management (user-facing)
 │   ├── donations/SKILL.md       Donation button + page (Stripe/Liberapay/GitHub Sponsors) (user-facing)
 │   ├── redirects/SKILL.md       Manage Cloudflare Pages _redirects (user-facing)
-│   └── design-import/SKILL.md    Import design from Canva/Figma (user-facing)
+│   ├── design-import/SKILL.md    Import design from Canva/Figma (user-facing)
+│   └── giscus/SKILL.md          Blog comments via Giscus + GitHub Discussions (user-facing)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
 ├── scripts/
@@ -150,6 +151,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `donations` | Donation button + page (Stripe / Liberapay / GitHub Sponsors), suggested + custom amounts, recurring defaults, optional goal widget, 501(c)(3) tax-receipt template |
 | `redirects` | Manage Cloudflare Pages `_redirects`: add, remove, list, validate, bulk-import (301/302/308) |
 | `design-import` | Import design tokens and page layouts from Canva or Figma |
+| `giscus` | Blog comments backed by GitHub Discussions (per-post opt-out via frontmatter) |
 
 **Model-only** (called programmatically by other skills, `user-invocable: false`):
 

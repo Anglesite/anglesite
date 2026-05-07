@@ -20,6 +20,7 @@ Invoked via `/anglesite:<name>` (22 skills):
 | `donations` | Add a donation button or page (Stripe, Liberapay, or GitHub Sponsors) with suggested amounts, recurring defaults, optional goal widget, and 501(c)(3) tax-receipt template |
 | `export` | Produce a portable export of the site (built HTML, content, media, MIGRATING.md) so the owner can self-host or move to any other platform |
 | `forms` | Build custom forms (RSVP, lead capture, survey, callback) with Keystatic-defined fields, Turnstile, and per-form rate limiting |
+| `giscus` | Add blog comments via Giscus (uses GitHub Discussions as the storage backend) |
 | `import` | Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project |
 | `menu` | Create, import, or edit a restaurant menu from PDF, photo, or scratch |
 | `newsletter` | Set up email newsletter with Buttondown, subscribe form, and auto-syndication |

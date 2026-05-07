@@ -275,6 +275,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Accept donations (Stripe, Liberapay, GitHub Sponsors) | `/anglesite:donations` |
 | Create or import a restaurant menu | `/anglesite:menu` |
 | Manage URL redirects (rename, migrate, bulk import) | `/anglesite:redirects` |
+| Add blog comments (Giscus + GitHub Discussions) | `/anglesite:giscus` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 

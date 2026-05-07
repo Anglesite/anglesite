@@ -40,6 +40,8 @@ const posts = defineCollection({
     draft: z.boolean().default(false),
     /** When true, send this post to newsletter subscribers on deploy. */
     sendNewsletter: z.boolean().default(false),
+    /** Set to false to hide the comments widget on this post (no-op if comments aren't configured). */
+    comments: z.boolean().default(true),
     /** URLs where this post was cross-posted (rendered as `u-syndication` links). */
     syndication: z.array(z.string().url()).default([]),
   }),
