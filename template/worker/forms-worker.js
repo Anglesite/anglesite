@@ -6,10 +6,10 @@
  * shipped alongside the Worker as `forms.json`, keyed by slug. Each
  * submission is matched to its form definition; server-side validation
  * mirrors the client-side rules. Verified submissions are persisted to
- * Workers KV (the `SUBMISSIONS` binding) and forwarded to the form's
+ * Cloudflare D1 (the `INBOX_DB` binding) and forwarded to the form's
  * `destinationEmail` via MailChannels. The Keystatic inbox sync script
  * pulls them via the read-only `/inbox` endpoint, gated by a bearer
- * token (`INBOX_SECRET`).
+ * token (`INBOX_SECRET`). See ADR-0019 for the KV → D1 rationale.
  *
  * Submission payloads accept either `application/x-www-form-urlencoded`
  * or `application/json`. The form slug must be supplied either in the
@@ -21,9 +21,8 @@
  *   SITE_DOMAIN          — The site domain (used as From address domain)
  *   INBOX_SECRET         — Optional bearer token guarding GET /inbox
  *
- * KV bindings (set in wrangler.toml):
- *   SUBMISSIONS — namespace for persisted submissions, key prefix
- *                 `submission:<slug>:<id>`
+ * D1 bindings (set in wrangler.toml):
+ *   INBOX_DB — database with the `submissions` table (see worker/schema.sql)
  */
 
 import formsCatalog from "./forms.json";
@@ -301,21 +300,53 @@ function newSubmissionId() {
 }
 
 async function persistSubmission(env, submission) {
-  if (!env.SUBMISSIONS) return false;
-  const key = `submission:${submission.formSlug}:${submission.id}`;
+  if (!env.INBOX_DB) return false;
   try {
-    await env.SUBMISSIONS.put(key, JSON.stringify(submission), {
-      metadata: {
-        formSlug: submission.formSlug,
-        submittedAt: submission.submittedAt,
-        status: submission.status,
-      },
-    });
+    await env.INBOX_DB
+      .prepare(
+        "INSERT INTO submissions (id, form_slug, form_title, submitted_at, submitted_at_ms, status, sender_name, sender_email, ip, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .bind(
+        submission.id,
+        submission.formSlug,
+        submission.formTitle ?? null,
+        submission.submittedAt,
+        Date.parse(submission.submittedAt) || Date.now(),
+        submission.status ?? "new",
+        submission.senderName || null,
+        submission.senderEmail || null,
+        submission.ip || null,
+        JSON.stringify(submission.entries ?? []),
+      )
+      .run();
     return true;
   } catch (err) {
-    console.error("KV persist failed:", err);
+    console.error("D1 persist failed:", err);
     return false;
   }
+}
+
+function rowToSubmission(row) {
+  let entries = [];
+  if (row.payload) {
+    try {
+      const parsed = JSON.parse(row.payload);
+      if (Array.isArray(parsed)) entries = parsed;
+    } catch {
+      // skip corrupt payload
+    }
+  }
+  return {
+    id: row.id,
+    formSlug: row.form_slug,
+    formTitle: row.form_title || row.form_slug,
+    submittedAt: row.submitted_at,
+    status: row.status || "new",
+    senderName: row.sender_name || "",
+    senderEmail: row.sender_email || "",
+    ip: row.ip || "",
+    entries,
+  };
 }
 
 function bearerToken(request) {
@@ -335,9 +366,9 @@ function timingSafeEqual(a, b) {
 }
 
 async function handleInboxList(request, env) {
-  if (!env.SUBMISSIONS) {
+  if (!env.INBOX_DB) {
     return new Response(
-      JSON.stringify({ error: "Inbox not configured (no KV binding)." }),
+      JSON.stringify({ error: "Inbox not configured (no D1 binding)." }),
       { status: 501, headers: { "Content-Type": "application/json" } },
     );
   }
@@ -356,24 +387,32 @@ async function handleInboxList(request, env) {
   }
   const url = new URL(request.url);
   const slug = url.searchParams.get("slug") || "";
-  const prefix = slug ? `submission:${slug}:` : "submission:";
-  const items = [];
-  let cursor;
-  do {
-    const page = await env.SUBMISSIONS.list({ prefix, cursor });
-    for (const k of page.keys) {
-      const raw = await env.SUBMISSIONS.get(k.name);
-      if (raw) {
-        try {
-          items.push(JSON.parse(raw));
-        } catch {
-          // skip corrupt entry
-        }
-      }
-    }
-    cursor = page.list_complete ? undefined : page.cursor;
-  } while (cursor);
-  items.sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1));
+  const status = url.searchParams.get("status") || "";
+  const conditions = [];
+  const binds = [];
+  if (slug) {
+    conditions.push("form_slug = ?");
+    binds.push(slug);
+  }
+  if (status) {
+    conditions.push("status = ?");
+    binds.push(status);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const sql = `SELECT id, form_slug, form_title, submitted_at, submitted_at_ms, status, sender_name, sender_email, ip, payload FROM submissions ${where} ORDER BY submitted_at_ms DESC`;
+  let result;
+  try {
+    result = binds.length
+      ? await env.INBOX_DB.prepare(sql).bind(...binds).all()
+      : await env.INBOX_DB.prepare(sql).all();
+  } catch (err) {
+    console.error("D1 query failed:", err);
+    return new Response(
+      JSON.stringify({ error: "Database query failed." }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  const items = (result.results || []).map(rowToSubmission);
   return new Response(JSON.stringify({ items }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
@@ -527,4 +566,5 @@ export {
   timingSafeEqual,
   handleInboxList,
   persistSubmission,
+  rowToSubmission,
 };

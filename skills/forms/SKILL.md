@@ -166,4 +166,4 @@ The Worker re-runs every `required`, `minLength`, `maxLength`, `pattern`, `min`,
 
 ## Submissions inbox
 
-The forms-handler Worker also persists every verified submission to Workers KV under `submission:<formSlug>:<id>` whenever the `SUBMISSIONS` binding is present. Set up the binding (and a Keystatic inbox view of the submissions) by running `/anglesite:inbox` after this skill completes. The inbox is shared with `/anglesite:contact` — every form on the site feeds the same triage queue, distinguished by `formSlug`.
+The forms-handler Worker also persists every verified submission to Cloudflare D1 (one row per submission in the `submissions` table) whenever the `INBOX_DB` binding is present. Set up the binding (and a Keystatic inbox view of the submissions) by running `/anglesite:inbox` after this skill completes. See [ADR-0019](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0019-d1-inbox.md) for the storage decision. The inbox is shared with `/anglesite:contact` — every form on the site feeds the same triage queue, distinguished by `formSlug`.

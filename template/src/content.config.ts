@@ -374,7 +374,7 @@ const forms = defineCollection({
 });
 
 /**
- * Persisted form submissions, synced from the worker's KV namespace into
+ * Persisted form submissions, synced from the Worker's D1 database into
  * `src/content/submissions/*.mdoc` by `npm run ai-inbox-fetch`. The
  * Keystatic inbox uses these for triage (status: new/archived/spam) and
  * CSV export. Not rendered on the public site — they live in the content
