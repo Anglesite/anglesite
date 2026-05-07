@@ -310,4 +310,16 @@ To check tool status, run `npm run ai-check` — never write ad-hoc version/exis
 
 If something is broken, run `/anglesite:check`.
 
+### Helper-Worker logs (Workers Logs)
+
+Every helper Worker (`contact-form`, `forms-handler`, `newsletter-subscribe`, `anglesite-membership`, `ecommerce-webhooks`, `review-form`) deploys with `[observability]` enabled, so invocation errors are retained for a few days in the Cloudflare dashboard. When the owner reports "the contact form didn't send" or "subscriptions aren't going through," check the logs first — don't guess.
+
+Build the URL by substituting the Cloudflare account ID (read `CLOUDFLARE_ACCOUNT_ID` from `.site-config`) and the deployed worker name:
+
+```
+https://dash.cloudflare.com/<account-id>/workers/services/view/<worker-name>/production/observability/logs
+```
+
+The deployed worker name is the `name = "..."` field in the matching `worker/*-wrangler.toml`. For owners who prefer the CLI, `npx wrangler tail <worker-name>` streams live logs but only captures invocations *while it's running* — the dashboard URL is what surfaces past failures.
+
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call or command that will trigger a permission prompt — tell the owner what you're about to do and why. They should never see a permission dialog without context. If `false`, proceed without pre-announcing tool calls.

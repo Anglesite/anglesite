@@ -517,3 +517,24 @@ If `wrangler deploy` fails with an auth error, run `npx wrangler login` to refre
 If the GitHub push fails (e.g., auth expired), tell the owner: "I couldn't back up to GitHub — let's fix the connection." Run `gh auth login --web` to re-authenticate, then retry.
 
 Tell the owner: "Your changes are live! They'll appear on the site in about a minute."
+
+### Post-deploy summary — where to look if something breaks
+
+Each helper Worker (contact, forms, subscribe, membership, ecommerce, review) ships with `[observability]` enabled, so failed invocations are retained as logs in the Cloudflare dashboard. If a worker was deployed in this run, surface the matching logs URL so the owner has a single click to debug a "the form isn't working" report later.
+
+Read `CLOUDFLARE_ACCOUNT_ID` from `.site-config` and substitute into:
+
+```
+https://dash.cloudflare.com/<account-id>/workers/services/view/<worker-name>/production/observability/logs
+```
+
+For each helper Worker that exists in `worker/` (look up the `name = "..."` field), include one line in the summary:
+
+- contact form → `contact-form`
+- custom forms → `forms-handler`
+- newsletter signup → `newsletter-subscribe`
+- members area → `anglesite-membership`
+- store order tracker → `ecommerce-webhooks`
+- review form → `review-form`
+
+Frame it plainly: "If a [feature] submission ever fails, you can see the error here: <URL>. Logs are kept for a few days." Don't dump all six links if the site only uses one — only list workers actually deployed.

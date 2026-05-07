@@ -9,6 +9,13 @@ name = "contact-form"
 main = "contact-worker.js"
 compatibility_date = "2024-01-01"
 
+# Workers Logs — retain invocation logs so failed submissions can be
+# diagnosed after the fact. Free on the Workers free plan.
+# View at: https://dash.cloudflare.com/?to=/:account/workers/services/view/contact-form/production/observability/logs
+[observability]
+enabled = true
+head_sampling_rate = 1.0
+
 # Cloudflare D1 — submissions inbox (ADR-0019). The /anglesite:inbox skill
 # creates the database and rewrites database_id below. Without it the
 # worker still delivers email; D1 writes are best-effort.
