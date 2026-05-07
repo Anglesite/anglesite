@@ -142,7 +142,14 @@ Update `ANGLESITE_VERSION` in `.site-config` to the current plugin version. Read
 
 Use the **Write tool** to update `.site-config` — read the current contents, replace or add the `ANGLESITE_VERSION` line, and write it back.
 
-In the same edit, update the maintenance log: set `MAINTENANCE_QUARTERLY_LAST` to today's date in `YYYY-MM-DD` format, and also refresh `MAINTENANCE_MONTHLY_LAST` (running `/anglesite:update` exercises the build and dependency checks that the monthly health pass would cover). If today is on or after the existing `MAINTENANCE_ANNUAL_LAST` plus 365 days — or if `MAINTENANCE_ANNUAL_LAST` is missing — also stamp `MAINTENANCE_ANNUAL_LAST` and tell the owner: "It's been a year since your last full review — I'll set the annual stamp now. Take a few minutes to skim `docs/webmaster.md` → 'Annually' and let me know if anything needs attention." See `docs/webmaster.md` → Maintenance schedule for what each stamp covers.
+In the same edit, update the maintenance log: set `MAINTENANCE_QUARTERLY_LAST` to today's date in `YYYY-MM-DD` format, and also refresh `MAINTENANCE_MONTHLY_LAST` (running `/anglesite:update` exercises the build and dependency checks that the monthly health pass would cover). If today is on or after the existing `MAINTENANCE_ANNUAL_LAST` plus 365 days — or if `MAINTENANCE_ANNUAL_LAST` is missing — also stamp `MAINTENANCE_ANNUAL_LAST` and walk the owner through the annual checklist yourself (see `docs/webmaster.md` → "Annually"). The owner should never be asked to read a doc; you read it and surface concrete recommendations:
+
+- **Domain renewal** — read `DOMAIN` from `.site-config`. Tell the owner roughly when the registration expires (Cloudflare emails reminders, but flag it now). If you can check via Cloudflare MCP, do so.
+- **Design refresh** — ask: "It's been a year since the site went up. Has the business changed in any way that should be reflected on the site — new services, new audience, new brand colors?"
+- **Costs** — list the paid tools currently configured in `.site-config` (e.g., `BOOKING_PROVIDER`, `ECOMMERCE_PROVIDER`, `NEWSLETTER_PROVIDER`) and ask: "Are you still using each of these? I can wire down anything you've stopped using."
+- **Map listings** — ask: "Quick check — are your Google, Apple, and OpenStreetMap business listings still claimed and accurate? If anything's changed (hours, address, phone), I can help update them."
+
+Frame it as a short conversation, not homework. See `docs/webmaster.md` → Maintenance schedule for what each stamp covers.
 
 ## Step 6 — Save a snapshot
 
