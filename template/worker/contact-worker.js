@@ -21,6 +21,19 @@
 const RATE_LIMIT_SECONDS = 60;
 const recentSubmissions = new Map();
 
+function recordEvent(env, eventType, formName, outcome) {
+  if (!env || !env.ANALYTICS) return;
+  try {
+    env.ANALYTICS.writeDataPoint({
+      blobs: ["contact", eventType, formName || "", outcome],
+      doubles: [1],
+      indexes: [env.SITE_DOMAIN || ""],
+    });
+  } catch (err) {
+    console.error("Analytics writeDataPoint failed:", err);
+  }
+}
+
 const CONTACT_FORM_DEFINITION = {
   slug: "contact",
   title: "Contact",
@@ -288,6 +301,7 @@ export default {
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
 
     if (isRateLimited(ip)) {
+      recordEvent(env, "submit", "contact", "rate_limited");
       return new Response("Too many requests. Please wait a minute.", {
         status: 429,
         headers: corsHeaders(origin, env.SITE_DOMAIN),
@@ -329,6 +343,7 @@ export default {
     // Validate input
     const errors = validateInput(name, email, message);
     if (errors.length > 0) {
+      recordEvent(env, "submit", "contact", "validation_error");
       return new Response(JSON.stringify({ errors }), {
         status: 400,
         headers: { ...corsHeaders(origin, env.SITE_DOMAIN), "Content-Type": "application/json" },
@@ -337,6 +352,7 @@ export default {
 
     // Verify Turnstile
     if (!turnstileToken) {
+      recordEvent(env, "submit", "contact", "validation_error");
       return new Response(
         JSON.stringify({ errors: ["Please complete the verification."] }),
         {
@@ -355,6 +371,7 @@ export default {
       ip,
     );
     if (!turnstileValid) {
+      recordEvent(env, "submit", "contact", "validation_error");
       return new Response(
         JSON.stringify({ errors: ["Verification failed. Please try again."] }),
         {
@@ -375,6 +392,7 @@ export default {
     const sent = await sendEmail(env, name, email, message);
 
     if (!sent) {
+      recordEvent(env, "submit", "contact", "upstream_error");
       return new Response(
         JSON.stringify({
           errors: ["Failed to send message. Please try again later."],
@@ -388,6 +406,8 @@ export default {
         },
       );
     }
+
+    recordEvent(env, "submit", "contact", "ok");
 
     // For form submissions, redirect to thank you page
     if (contentType.includes("application/x-www-form-urlencoded") && origin) {

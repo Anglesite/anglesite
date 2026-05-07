@@ -9,6 +9,13 @@ name = "forms-handler"
 main = "forms-worker.js"
 compatibility_date = "2024-09-23"
 
+# Workers Logs — retain invocation logs so failed submissions can be
+# diagnosed after the fact. Free on the Workers free plan.
+# View at: https://dash.cloudflare.com/?to=/:account/workers/services/view/forms-handler/production/observability/logs
+[observability]
+enabled = true
+head_sampling_rate = 1.0
+
 # Cloudflare D1 — submissions inbox (ADR-0019). The /anglesite:inbox skill
 # creates the database and rewrites database_id below. Without it the
 # worker still delivers email; D1 writes are best-effort.
@@ -16,3 +23,10 @@ compatibility_date = "2024-09-23"
 # binding = "INBOX_DB"
 # database_name = "form_submissions"
 # database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# Analytics Engine — conversion events (form submits, errors). The shared
+# `anglesite_events` dataset is queried by /anglesite:stats. Writes are
+# best-effort; the worker still functions if the binding is absent.
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "anglesite_events"

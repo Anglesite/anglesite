@@ -173,7 +173,19 @@ For each Worker that is present, call `mcp__cloudflare__workers_get_worker` to r
 1. **Local source mtime vs. deployed `modified_on`** — if the local `.js` file was edited *after* the last deploy, the deployed version is stale. Use `stat` to get the local mtime.
 2. **Deployed source vs. local source** — call `mcp__cloudflare__workers_get_worker_code` and compare against the local `.js` file. Treat them as a match if the strings are byte-identical after trimming trailing whitespace; otherwise flag as drifted.
 
-### Step 4 — Present findings
+### Step 4 — Verify Workers Logs (observability)
+
+For every helper Worker config that exists locally, grep the `.toml` file for an `[observability]` block with `enabled = true`. Workers Logs is what lets the owner diagnose a failed contact form / subscribe / webhook *after the fact* — without it, errors only surface during a live `wrangler tail` and then disappear.
+
+| State | Severity | Plain-language framing |
+|---|---|---|
+| `[observability]` block missing or `enabled = false` | Worth fixing soon | "Your [feature] worker isn't keeping logs, so if a submission fails we can't see why. Add `[observability]` with `enabled = true` to `worker/[file].toml` and redeploy." |
+| `[observability]` enabled locally but deployed Worker predates it | Worth fixing soon | "Logs are enabled in your project, but the live worker was deployed before that change. Re-run `/anglesite:deploy` to apply." |
+| Enabled and deployed | All good | (include in scorecard, no separate bullet) |
+
+Workers Logs is free on the Workers free plan; there's no reason to leave it off.
+
+### Step 5 — Present findings
 
 Report one bullet per expected Worker, using the existing severity vocabulary. Keep it boolean — owners don't need a diff:
 

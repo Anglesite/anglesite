@@ -8,3 +8,16 @@
 name = "review-form"
 main = "review-worker.js"
 compatibility_date = "2024-01-01"
+
+# Workers Logs — retain invocation logs so failed submissions can be
+# diagnosed after the fact. Free on the Workers free plan.
+# View at: https://dash.cloudflare.com/?to=/:account/workers/services/view/review-form/production/observability/logs
+[observability]
+enabled = true
+head_sampling_rate = 1.0
+
+# Analytics Engine — review submission events. The shared `anglesite_events`
+# dataset is queried by /anglesite:stats. Writes are best-effort.
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "anglesite_events"

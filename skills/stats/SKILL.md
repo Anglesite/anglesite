@@ -14,18 +14,42 @@ Fetch Cloudflare analytics data and present it as a plain-language summary. No d
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt. If `false`, proceed without pre-announcing.
 
-## Two data sources, one skill
+## Three data sources, one skill
 
-Cloudflare exposes two unrelated analytics datasets and the skill must pick the right one. Mixing them up gives wrong numbers.
+Cloudflare exposes three unrelated analytics datasets and the skill must pick the right one for each section. Mixing them up gives wrong numbers.
 
 | Source | Dataset | Beacon? | Permission | Filter | Available when |
 |---|---|---|---|---|---|
 | **Web Analytics RUM** | `rumPageloadEventsAdaptiveGroups` | Yes (`static.cloudflareinsights.com/beacon.min.js`, injected by `BaseLayout`/`KioskLayout`/`ImmersiveLayout` when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config`) | **Account → Analytics → Read** | `siteTag` + `accountTag` | After the owner enables Web Analytics for the site and the token is written to `.site-config` (this skill walks them through it on first run) |
 | **Zone HTTP analytics** | `httpRequests1dGroups` / `httpRequestsAdaptiveGroups` | No — derived from edge logs | **Zone → Analytics → Read** | `zoneTag` | Only when the custom domain runs through Cloudflare DNS proxied (orange cloud) |
+| **Anglesite events (Analytics Engine)** | `anglesite_events` | No — written from helper Workers | **Account → Analytics Engine → Read** | `dataset='anglesite_events'`, optionally `index1=<site domain>` | When at least one helper Worker (contact, forms, membership, review, subscribe, ecommerce) is deployed |
 
-Default to Web Analytics RUM once the token is wired up — it's the more accurate dataset and works regardless of DNS setup. The Anglesite layouts emit the beacon `<script>` whenever `CF_WEB_ANALYTICS_TOKEN` is present in `.site-config`. Fall back to zone HTTP only when RUM is unreachable and a proxied zone exists.
+Default to Web Analytics RUM for traffic once the token is wired up — it's the more accurate dataset and works regardless of DNS setup. The Anglesite layouts emit the beacon `<script>` whenever `CF_WEB_ANALYTICS_TOKEN` is present in `.site-config`. Fall back to zone HTTP only when RUM is unreachable and a proxied zone exists. The `anglesite_events` dataset is independent of both — it surfaces *conversions* (form submits, signups, unlocks) and is queried alongside the traffic source.
 
-When presenting numbers, always tell the owner which source they're seeing — the two datasets count different things and the totals will not match.
+When presenting numbers, always tell the owner which source they're seeing — the datasets count different things and the totals will not match.
+
+## The `anglesite_events` dataset
+
+The Anglesite helper Workers write a standard data point on every meaningful event:
+
+```js
+env.ANALYTICS.writeDataPoint({
+  blobs: [workerName, eventType, formName, outcome],
+  doubles: [1],
+  indexes: [siteDomain],
+});
+```
+
+| Field | Purpose | Example values |
+|---|---|---|
+| `blob1` (workerName) | Which helper Worker wrote the event | `contact`, `forms`, `membership`, `review`, `subscribe`, `ecommerce` |
+| `blob2` (eventType) | What kind of event | `submit`, `signup`, `unlock`, `webhook`, `error` |
+| `blob3` (formName) | Form/tier identifier | `contact`, `rsvp`, `lead`, `free`, `paid`, `newsletter`, `review`, or `""` |
+| `blob4` (outcome) | Result of the request | `ok`, `rate_limited`, `validation_error`, `upstream_error` |
+| `double1` | Count for SUM aggregation | `1` |
+| `index1` (siteDomain) | Site that produced the event (multi-site accounts) | `example.com` |
+
+Free Cloudflare accounts include 10M Analytics Engine writes per month and a 30-day retention window, which is more than enough for SMB conversion tracking.
 
 ## Step 0 — Check prerequisites
 
@@ -37,12 +61,13 @@ Also read `.site-config` for `CF_WEB_ANALYTICS_TOKEN`. This is the public beacon
 
 If `CF_API_TOKEN` is missing, guide the owner through creating one:
 
-1. Tell them: "To see your analytics, I need a Cloudflare API token. Let's create one — it takes about a minute. We'll add two permissions so the token works whether your site uses Cloudflare's Web Analytics beacon (the default for Anglesite) or proxied DNS."
+1. Tell them: "To see your analytics, I need a Cloudflare API token. Let's create one — it takes about a minute. We'll add three permissions so the token covers traffic (Web Analytics or proxied DNS) and conversions (form submits, signups)."
 2. Open: `https://dash.cloudflare.com/profile/api-tokens`
 3. Click "Create Token"
 4. Use the "Custom token" template
-5. Add **both** permissions:
+5. Add **all three** permissions:
    - **Account → Analytics → Read** — required for Web Analytics RUM (the default)
+   - **Account → Analytics Engine → Read** — required for the `anglesite_events` conversions dataset
    - **Zone → Analytics → Read** — required only if the site uses proxied DNS on Cloudflare; safe to include either way
 6. Account Resources: Include → (their Cloudflare account)
 7. Zone Resources: Include → All zones from the same account (or the specific zone if known)
@@ -51,7 +76,7 @@ If `CF_API_TOKEN` is missing, guide the owner through creating one:
 
 Save to `.env` as `CF_API_TOKEN=token-value` using the Write tool (update or create the file). **Never save API tokens to `.site-config`** — that file is committed to git. `.env` is gitignored and stays local.
 
-If the owner created an older token with only **Zone → Analytics → Read** (the previous version of this skill recommended that), they may see "Account → Analytics" errors below. Have them either edit the existing token to add the account-level permission, or create a new one.
+If the owner created an older token with only **Zone → Analytics → Read** (the original version of this skill recommended that), they may see "Account → Analytics" errors below. If the token is missing **Account → Analytics Engine → Read**, the conversions section will return an `authz` error — surface a one-line note ("Add Account → Analytics Engine → Read to your token to see conversion numbers") and skip the section. Have them either edit the existing token to add the missing permissions, or create a new one.
 
 ### Account ID
 
@@ -239,6 +264,46 @@ curl -s "https://api.cloudflare.com/client/v4/graphql" \
 
 If the response returns an `authz` error or the field is rejected, the owner's plan tier doesn't expose `clientRequestQuery` — skip the campaign section entirely.
 
+## Step 2C — Fetch conversions from `anglesite_events`
+
+Always run this section in addition to Step 2A or 2B — conversions are an independent signal from traffic. Skip it gracefully if the helper Workers haven't been deployed yet (an empty result set, not an error).
+
+The `anglesite_events` dataset lives in Cloudflare Analytics Engine and is queried via the same GraphQL endpoint used for traffic. The schema is documented at the top of this file under "The `anglesite_events` dataset".
+
+```sh
+CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
+CF_ACCOUNT_ID=$(grep CF_ACCOUNT_ID .env | cut -d= -f2)
+SITE_DOMAIN=$(grep SITE_DOMAIN .site-config | cut -d= -f2)
+```
+
+### Query D (events) — conversions by worker and outcome (last 14 days, daily roll-ups)
+
+Replace `DATE_START_PREV` with 14 days ago (ISO `YYYY-MM-DD`) and `DATE_END_CURR` with today.
+
+```sh
+curl -s "https://api.cloudflare.com/client/v4/graphql" \
+  -H "Authorization: Bearer $CF_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"query":"{ viewer { accounts(filter: {accountTag: \"'$CF_ACCOUNT_ID'\"}) { workersAnalyticsEngineAdaptiveGroups(filter: {datasetId: \"anglesite_events\", index1: \"'$SITE_DOMAIN'\", date_geq: \"DATE_START_PREV\", date_leq: \"DATE_END_CURR\"}, limit: 1000, orderBy: [date_ASC]) { sum { _sample_interval } count dimensions { date blob1 blob2 blob3 blob4 } } } } }"}'
+```
+
+`count` is the number of distinct events in the bucket; `sum._sample_interval` is the count weighted for sampling (use this when extrapolating to a real total). For SMB-scale traffic the two are usually identical.
+
+If the response contains an `authz` or `does not have access` error, the token is missing **Account → Analytics Engine → Read**. Skip the conversions section and surface the one-line remediation note from the token-creation step.
+
+If the response is empty (no rows), the helper Workers either haven't been deployed yet or haven't received any traffic. Skip the section silently — don't surface an empty table.
+
+### Query E (events) — totals by form (last 7 days)
+
+```sh
+curl -s "https://api.cloudflare.com/client/v4/graphql" \
+  -H "Authorization: Bearer $CF_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"query":"{ viewer { accounts(filter: {accountTag: \"'$CF_ACCOUNT_ID'\"}) { workersAnalyticsEngineAdaptiveGroups(filter: {datasetId: \"anglesite_events\", index1: \"'$SITE_DOMAIN'\", date_geq: \"DATE_START_CURR\", date_leq: \"DATE_END_CURR\"}, limit: 200, orderBy: [count_DESC]) { count dimensions { blob1 blob2 blob3 blob4 } } } } }"}'
+```
+
+Replace `DATE_START_CURR` with 7 days ago and `DATE_END_CURR` with today.
+
 ## Step 3 — Parse and summarize
 
 These three numbers measure different things and must not be substituted for one another:
@@ -257,6 +322,14 @@ From the responses, extract:
 6. **Referral sources** — RUM: from Query C, group by `refererHost`, rename common ones (e.g., `google.com` → "Google Search", empty → "Direct"). Zone *(paid only)*: group by `clientRefererHost`. Skip on zone free plans.
 7. **Device breakdown** — RUM: from Query C, group by `deviceType`. Zone *(paid only)*: group by `userAgentBrowser`. Skip on zone free plans.
 8. **Campaign breakdown** *(zone paid only)* — from the `clientRequestQuery` query above, parse each query string for `utm_source`, `utm_medium`, `utm_campaign`. Group by `utm_source`/`utm_campaign`, label each entry as `{source} "{campaign}"`, and sort by page-view count descending. `clientRequestPath` does not include query strings, so this section is impossible on zone free plans — skip it there. RUM exposes campaign dimensions via the beacon but they are not covered by this skill yet — skip on RUM.
+9. **Conversions** *(events dataset)* — from Query D and Query E:
+   - **Total submits this week** — sum `count` from Query D where `blob4 = "ok"`, scoped to the current 7-day window.
+   - **By worker** — group Query E rows by `blob1` (`contact`, `forms`, `membership`, `review`, `subscribe`, `ecommerce`); for each, report total events and the share with `blob4 = "ok"`. This is the signal an SMB owner cares about: "12 contact submits, 8 newsletter signups, 3 paid unlocks."
+   - **By form** — for `blob1 = "forms"`, sub-group by `blob3` (form slug: `rsvp`, `lead`, etc.) so the owner sees per-form volume. Show only forms with at least one submit in the window.
+   - **Error rate** — within each worker, the share of rows where `blob4 != "ok"`. Surface only when error rate exceeds 25% of total events for that worker — most error rows are routine validation noise (rate-limiting, empty fields) and aren't actionable. Frame the alert as "12 of 38 contact submits failed Turnstile this week — worth checking the form is loading the widget."
+   - **Week-over-week** — split Query D rows by date as in the traffic queries (current 7 days vs prior 7 days) and compute the delta on `blob4 = "ok"` events. Phrase as "newsletter signups up from 4 to 11 this week".
+
+   Skip the section silently if Query D returned an empty result (no helper Workers deployed). Surface the token remediation note if the query returned an `authz` error.
 
 Present the summary in plain language. **Always begin with a one-line note that names the data source.** Example output (Web Analytics RUM, free plan):
 
@@ -272,6 +345,17 @@ Present the summary in plain language. **Always begin with a one-line note that 
 > **Busiest day:** Tuesday with 65 page views. Consider posting new content on Monday to catch the wave.
 >
 > **Top referrers:** Google Search (42), Direct (28), bsky.app (12).
+>
+> *Conversions (last 7 days, helper Worker events):*
+>
+> | Worker | Successful events | Notes |
+> |---|---|---|
+> | contact | 12 | up from 7 last week |
+> | subscribe | 8 newsletter signups | up from 4 last week |
+> | forms (rsvp) | 5 | first event this week |
+> | membership | 2 paid unlocks | new |
+>
+> Conversion rate: 27 form events on 318 page views = **8.5%** — healthy for a small business site.
 
 Example output (zone HTTP analytics, free plan):
 
@@ -305,6 +389,7 @@ After collecting the data, present results as a clean markdown summary:
 - **Top pages** — markdown table with page path and page-view count (and optional bar made of `█` characters proportional to page views, e.g. `████████ 240`). Header the count column "Page views", not "Visits".
 - **Top countries** *(zone only)* — markdown table with country name and page-view count. Append `(datacenter-heavy)` to known datacenter-dominant origins (see Step 3 item 5). Skip on RUM.
 - **Campaign performance** *(zone paid only)* — markdown table if `clientRequestQuery` data is available, also in page views. Skip on zone free plans and on RUM.
+- **Conversions** *(events dataset)* — markdown table grouped by worker (and by form slug for `forms`) with a "Successful events" column. Append a one-line conversion-rate sentence (`successful events / page views`) when traffic data is also available. Skip silently when no helper Workers have been deployed; surface the token remediation note when the query returned an `authz` error.
 - **Bot/datacenter caveat** *(zone only)* — always include the one-line heads-up about unique-visitor inflation when reporting `uniq.uniques`. Don't skip it on the assumption that the site is large; the owner is rarely in a position to know. The RUM beacon doesn't have this problem, so skip the caveat there.
 - **Plain-language summary** — 2–3 sentences explaining what the numbers mean. When you cite a headline figure, say which one (visitors vs page views) — they tell different stories. Lead with page views when both are available.
 
