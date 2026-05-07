@@ -8,7 +8,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 
 ```
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
-├── skills/                       Skills (45 total: 20 user-facing, 25 model-only)
+├── skills/                       Skills (47 total: 22 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -19,6 +19,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── export/SKILL.md           Portable export (dist + content + MIGRATING.md)
 │   ├── contact/SKILL.md          Contact form (Workers + Turnstile)
 │   ├── forms/SKILL.md            Custom forms — RSVP, lead, survey, callback (Workers + Turnstile)
+│   ├── inbox/SKILL.md            Form submissions inbox in Keystatic (Workers KV + triage + CSV export)
 │   ├── backup/SKILL.md           Back up changes to GitHub
 │   ├── stats/SKILL.md            Plain-language site analytics
 │   ├── newsletter/SKILL.md       Email newsletter setup + subscribe form
@@ -54,7 +55,10 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
 │   ├── menu/SKILL.md            Restaurant menu import, creation, and management (user-facing)
 │   ├── podcast/SKILL.md         Podcast: episodes, RSS+iTunes, transcripts, audio player (user-facing)
-│   └── design-import/SKILL.md    Import design from Canva/Figma (user-facing)
+│   ├── donations/SKILL.md       Donation button + page (Stripe/Liberapay/GitHub Sponsors) (user-facing)
+│   ├── redirects/SKILL.md       Manage Cloudflare Pages _redirects (user-facing)
+│   ├── design-import/SKILL.md    Import design from Canva/Figma (user-facing)
+│   └── giscus/SKILL.md          Blog comments via Giscus + GitHub Discussions (user-facing)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
 ├── scripts/
@@ -82,7 +86,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── smb/                      Business type guides (66 files, 50+ verticals)
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (19 files)
-│   ├── decisions/                ADRs — architecture decision records (16 files)
+│   ├── decisions/                ADRs — architecture decision records (18 files)
 │   ├── style-guide.md           HTML, CSS, and TypeScript coding standards for generated sites
 │   └── content-conversion.md    Shared HTML-to-Markdown guidance (used by import + convert)
 ├── template/                     Files scaffolded to user's project
@@ -137,7 +141,8 @@ Two levels of agent instructions exist — do not confuse them:
 | `export` | Portable export of the site (`dist/`, `content/`, `public/`, `MIGRATING.md`) for self-host or migration |
 | `contact` | Contact form via Cloudflare Workers + Turnstile |
 | `forms` | Custom forms (RSVP, lead capture, survey, callback) via Cloudflare Workers + Turnstile |
-| `backup` | Back up site changes to GitHub with descriptive summary |
+| `inbox` | Persisted form submissions inbox in Keystatic (Workers KV, triage, CSV export) |
+| `backup` | Back up site changes to GitHub, or restore an earlier snapshot |
 | `stats` | Plain-language site analytics from Cloudflare |
 | `newsletter` | Email newsletter setup (Buttondown/Mailchimp) + subscribe form |
 | `add-store` | Ecommerce intake: routes to Stripe, Polar, or coming-soon paths |
@@ -147,7 +152,10 @@ Two levels of agent instructions exist — do not confuse them:
 | `photography` | Site-type-specific shot list generator and phone photography tips |
 | `menu` | Restaurant menu import (PDF/photo), creation, and editing |
 | `podcast` | First-class podcast support — episodes, RSS+iTunes feed, transcripts, audio player, directory submission |
+| `donations` | Donation button + page (Stripe / Liberapay / GitHub Sponsors), suggested + custom amounts, recurring defaults, optional goal widget, 501(c)(3) tax-receipt template |
+| `redirects` | Manage Cloudflare Pages `_redirects`: add, remove, list, validate, bulk-import (301/302/308) |
 | `design-import` | Import design tokens and page layouts from Canva or Figma |
+| `giscus` | Blog comments backed by GitHub Discussions (per-post opt-out via frontmatter) |
 
 **Model-only** (called programmatically by other skills, `user-invocable: false`):
 
@@ -207,7 +215,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Edge A/B testing (not client-side) | Build-time variants + Pages Function assignment = zero flicker, static-site compatible |
 | Pagefind (not Algolia/Orama) | Build-time index, ~6 KB JS, no external service, first-class Astro integration |
 
-Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0015).
+Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0018).
 
 ## Testing
 

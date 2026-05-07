@@ -41,10 +41,13 @@ Ask the owner in natural conversation (not a numbered list):
 Listen for these categories:
 - **Physical goods** — clothing, art, food, handmade items, merchandise
 - **Digital downloads** — files, templates, presets, ebooks, courses, memberships
-- **Service or single offering** — consulting, design packages, bookings, donations
+- **Service or single offering** — consulting, design packages, bookings
+- **Donations** — tips, charitable giving, sponsorships, fundraising goals
 - **Software, plugin, or subscription** — SaaS, apps, license-based products
 
 If unclear, ask a follow-up. Don't force them into a category — let their words guide you.
+
+If the answer is **donations**, hand off to `${CLAUDE_PLUGIN_ROOT}/skills/donations/SKILL.md` instead of continuing through the routing table — donation copy, recurrence, and 501(c)(3) tax-receipt semantics differ from product sales.
 
 ## Step 2 — How many products?
 
@@ -72,6 +75,7 @@ Based on the answers, route to the correct solution:
 | What | How many | Dashboard | Solution | Status |
 |---|---|---|---|---|
 | Service / single offering | Few | — | **Stripe Payment Links** | Ready |
+| Donations / fundraising | Any | — | **Donations skill** (Stripe / Liberapay / GitHub Sponsors) | Ready |
 | Digital downloads | Any | — | **Polar** or **Lemon Squeezy** | Ready |
 | Physical goods | Few | No | **Snipcart** | Ready |
 | Physical goods | Catalog | Yes | **Shopify Buy Button** | Ready |

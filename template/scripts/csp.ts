@@ -23,6 +23,7 @@ import { readConfigFromString } from "./config.js";
 export interface SiteProviders {
   ecommerce?: "stripe" | "polar" | "snipcart" | "shopify" | "paddle" | "lemonsqueezy";
   booking?: BookingProvider;
+  comments?: "giscus";
   turnstile: boolean;
   /** When set, the podcast skill embeds a privacy-respecting YouTube iframe
    *  on episode pages. `.site-config` key: `PODCAST_VIDEO=youtube`. */
@@ -59,6 +60,14 @@ export function buildTurnstileCSP(): CSPDirectives {
   };
 }
 
+/** CSP directives for Giscus comments (loader script + iframe) */
+export function buildGiscusCSP(): CSPDirectives {
+  return {
+    "script-src": ["giscus.app"],
+    "frame-src": ["giscus.app"],
+  };
+}
+
 /** CSP directives for the podcast YouTube embed (privacy-respecting nocookie). */
 export function buildPodcastYouTubeCSP(): CSPDirectives {
   return {
@@ -78,6 +87,9 @@ export function parseProviders(configContent: string): SiteProviders {
   const booking = readConfigFromString(configContent, "BOOKING_PROVIDER") as
     | BookingProvider
     | undefined;
+  const comments = readConfigFromString(configContent, "COMMENTS_PROVIDER") as
+    | SiteProviders["comments"]
+    | undefined;
   const turnstileKey = readConfigFromString(configContent, "TURNSTILE_SITE_KEY");
   const podcastVideo = readConfigFromString(configContent, "PODCAST_VIDEO") as
     | SiteProviders["podcastVideo"]
@@ -86,6 +98,7 @@ export function parseProviders(configContent: string): SiteProviders {
   return {
     ecommerce,
     booking,
+    comments,
     turnstile: !!turnstileKey,
     podcastVideo,
   };
@@ -139,6 +152,11 @@ export function buildCSP(providers: SiteProviders): string {
   // Turnstile
   if (providers.turnstile) {
     providerCSPs.push(buildTurnstileCSP());
+  }
+
+  // Comments provider
+  if (providers.comments === "giscus") {
+    providerCSPs.push(buildGiscusCSP());
   }
 
   // Podcast video embed
@@ -203,6 +221,10 @@ export function buildAllowedScripts(providers: SiteProviders): string[] {
     scripts.push("app.cal.com");
   } else if (providers.booking === "calendly") {
     scripts.push("assets.calendly.com");
+  }
+
+  if (providers.comments === "giscus") {
+    scripts.push("giscus.app");
   }
 
   return scripts;
