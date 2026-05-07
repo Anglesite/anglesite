@@ -1,0 +1,88 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+export const prerender = true;
+
+const episodes = (
+  await getCollection("episodes", ({ data }) => {
+    return import.meta.env.PROD ? !data.draft : true;
+  })
+).sort(
+  (a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime(),
+);
+
+const podcastJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "PodcastSeries",
+  name: "Podcast",
+  url: new URL("/podcast/", Astro.site).toString(),
+  webFeed: new URL("/podcast/rss.xml", Astro.site).toString(),
+};
+---
+
+<BaseLayout
+  title="Podcast"
+  description="Latest episodes"
+  jsonLd={podcastJsonLd}
+>
+  <h1>Podcast</h1>
+  <p>
+    <a href="/podcast/subscribe/">Subscribe in your favorite app</a> ·
+    <a href="/podcast/rss.xml">RSS feed</a>
+  </p>
+
+  <ol class="episode-list">
+    {
+      episodes.map((episode) => {
+        const slug = episode.id.replace(/\.mdoc$/, "");
+        return (
+          <li class="episode-list__item h-entry">
+            <article>
+              <h2 class="p-name">
+                <a class="u-url" href={`/podcast/${slug}/`}>
+                  {episode.data.title}
+                </a>
+              </h2>
+              <p class="episode-list__meta">
+                <time
+                  class="dt-published"
+                  datetime={episode.data.publishDate.toISOString()}
+                >
+                  {episode.data.publishDate.toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </time>
+                {episode.data.duration && <span> · {episode.data.duration}</span>}
+                {episode.data.season && episode.data.episodeNumber && (
+                  <span>
+                    {" "}· S{episode.data.season}E{episode.data.episodeNumber}
+                  </span>
+                )}
+              </p>
+              <p class="p-summary">{episode.data.description}</p>
+            </article>
+          </li>
+        );
+      })
+    }
+  </ol>
+</BaseLayout>
+
+<style>
+  .episode-list {
+    list-style: none;
+    padding: 0;
+  }
+  .episode-list__item {
+    border-bottom: 1px solid var(--color-border, #ddd);
+    padding: 1.5rem 0;
+  }
+  .episode-list__meta {
+    color: var(--color-muted, #666);
+    font-size: 0.875rem;
+    margin: 0.25rem 0 0.5rem;
+  }
+</style>

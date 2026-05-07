@@ -25,6 +25,9 @@ export interface SiteProviders {
   booking?: BookingProvider;
   comments?: "giscus";
   turnstile: boolean;
+  /** When set, the podcast skill embeds a privacy-respecting YouTube iframe
+   *  on episode pages. `.site-config` key: `PODCAST_VIDEO=youtube`. */
+  podcastVideo?: "youtube";
 }
 
 /** CSP directives as arrays of domains per directive */
@@ -65,6 +68,13 @@ export function buildGiscusCSP(): CSPDirectives {
   };
 }
 
+/** CSP directives for the podcast YouTube embed (privacy-respecting nocookie). */
+export function buildPodcastYouTubeCSP(): CSPDirectives {
+  return {
+    "frame-src": ["www.youtube-nocookie.com"],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Config parser
 // ---------------------------------------------------------------------------
@@ -81,12 +91,16 @@ export function parseProviders(configContent: string): SiteProviders {
     | SiteProviders["comments"]
     | undefined;
   const turnstileKey = readConfigFromString(configContent, "TURNSTILE_SITE_KEY");
+  const podcastVideo = readConfigFromString(configContent, "PODCAST_VIDEO") as
+    | SiteProviders["podcastVideo"]
+    | undefined;
 
   return {
     ecommerce,
     booking,
     comments,
     turnstile: !!turnstileKey,
+    podcastVideo,
   };
 }
 
@@ -143,6 +157,11 @@ export function buildCSP(providers: SiteProviders): string {
   // Comments provider
   if (providers.comments === "giscus") {
     providerCSPs.push(buildGiscusCSP());
+  }
+
+  // Podcast video embed
+  if (providers.podcastVideo === "youtube") {
+    providerCSPs.push(buildPodcastYouTubeCSP());
   }
 
   const extra = mergeDirectives(...providerCSPs);

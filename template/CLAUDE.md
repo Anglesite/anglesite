@@ -277,6 +277,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Add ecommerce | `/anglesite:add-store` |
 | Accept donations (Stripe, Liberapay, GitHub Sponsors) | `/anglesite:donations` |
 | Create or import a restaurant menu | `/anglesite:menu` |
+| Set up a podcast (episodes + RSS feed) | `/anglesite:podcast` |
 | Manage URL redirects (rename, migrate, bulk import) | `/anglesite:redirects` |
 | Add blog comments (Giscus + GitHub Discussions) | `/anglesite:giscus` |
 | Add a cookie / privacy consent banner | `/anglesite:consent` |

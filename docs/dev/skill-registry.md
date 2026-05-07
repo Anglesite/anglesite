@@ -27,6 +27,7 @@ Invoked via `/anglesite:<name>` (25 skills):
 | `menu` | Create, import, or edit a restaurant menu from PDF, photo, or scratch |
 | `newsletter` | Set up email newsletter with Buttondown, subscribe form, and auto-syndication |
 | `photography` | Generate a prioritized, site-type-specific shot list with phone photography tips |
+| `podcast` | Set up a podcast on the site — episodes, RSS feed with iTunes namespace, transcripts, audio player, and platform submission |
 | `redirects` | Manage Cloudflare Pages _redirects: add, remove, list, validate, and bulk-import redirects (301 / 302 / 308) |
 | `search` | Add on-site search so visitors can find content quickly |
 | `seo` | SEO audit, metadata editing, Schema.org, sitemap, and LLM/GEO optimization |
