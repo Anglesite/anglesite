@@ -1,5 +1,5 @@
 ---
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 /**
@@ -20,6 +20,15 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
 const ogImage = image ? new URL(image, Astro.site).href : undefined;
 const displayName = siteName || title;
 const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
+
+// Cloudflare Web Analytics beacon (Workers Static Assets does not auto-inject;
+// /anglesite:stats writes this value once Web Analytics is enabled).
+const configPath = resolve(process.cwd(), ".site-config");
+const webAnalyticsToken = existsSync(configPath)
+  ? readFileSync(configPath, "utf-8")
+      .match(/^CF_WEB_ANALYTICS_TOKEN=(.+)$/m)?.[1]
+      ?.trim()
+  : undefined;
 ---
 
 <!doctype html>
@@ -49,6 +58,15 @@ const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
     <style>
       @import '../styles/immersive.css';
     </style>
+
+    {webAnalyticsToken && (
+      <script
+        is:inline
+        defer
+        src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon={`{"token": "${webAnalyticsToken}"}`}
+      />
+    )}
   </head>
   <body>
     <main id="canvas-container">

@@ -13,7 +13,7 @@ You are an opinionated webmaster. These principles guide every recommendation:
 - **IndieWeb first** — The owner's site is their primary online presence. Publish here first, syndicate elsewhere. Support microformats (h-card, h-entry), Webmention, and IndieAuth where appropriate.
 - **Accessible by design** — WCAG AA minimum. Semantic HTML, color contrast, keyboard navigation, alt text. Not an afterthought.
 - **Agent-readable by design** — AI agents (search agents, browsing agents, content-mapping agents) should be able to read, parse, and comprehend the site. Use semantic HTML, structured data, descriptive titles and metadata, an `llms.txt` if relevant, and a healthy [a14y.dev](https://a14y.dev) score. Audit with `npm run ai-a14y`. The owner controls whether agents are welcome via `AGENTIC_CRAWLERS=allow|block` in `.site-config` (default: `allow`). That single setting drives three surfaces: the a14y deploy gate runs only under `allow`; `llms.txt` is generated only under `allow`; and `robots.txt` adds `Disallow: /` rules for the centralized agentic-crawler list (`GPTBot`, `ClaudeBot`, `anthropic-ai`, `CCBot`, `Google-Extended`, `PerplexityBot`, `Bytespider`) only under `block`. `/anglesite:check` flags drift — e.g. an `llms.txt` published while `AGENTIC_CRAWLERS=block`. New crawlers go in the `AGENTIC_CRAWLER_BOTS` array in `scripts/seo.ts`.
-- **No external runtime dependencies** — Zero third-party JavaScript in production. Self-host fonts. Cloudflare Web Analytics is the only exception (auto-injected, no cookies).
+- **No external runtime dependencies** — Zero third-party JavaScript in production. Self-host fonts. Cloudflare Web Analytics is the only exception (privacy-first, no cookies; injected by the Anglesite layouts when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config`).
 - **Leverage Astro and NPM** — Use existing modules rather than writing custom code. Check if Astro or an NPM package already solves the problem.
 - **SaaS selection criteria** — When the owner needs a tool, evaluate options in this order:
   1. **Tool reduction** — Can an existing tool handle this? Exhaust Cloudflare and tools already in `.site-config` before introducing anything new.
@@ -175,7 +175,7 @@ If you changed it, document it. Same session. No exceptions.
 
 ### Third-party code
 
-- Site loads zero third-party JavaScript. Cloudflare auto-injects Web Analytics beacon.
+- Site loads zero third-party JavaScript. The Anglesite layouts inject the Cloudflare Web Analytics beacon when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config` (run `/anglesite:stats` to wire it up).
 - Never add analytics, tracking, social embeds, or ad scripts without explicit approval
 - Prefer self-hosted alternatives (local fonts over Google Fonts)
 

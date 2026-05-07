@@ -1,6 +1,6 @@
 # Your Website
 
-This site was built with [Astro](https://astro.build) and [Keystatic](https://keystatic.com), scaffolded by the [Anglesite](https://anglesite.dwk.io) plugin for Claude Code. It deploys to [Cloudflare Pages](https://pages.cloudflare.com).
+This site was built with [Astro](https://astro.build) and [Keystatic](https://keystatic.com), scaffolded by the [Anglesite](https://anglesite.dwk.io) plugin for Claude Code. It deploys to [Cloudflare Workers](https://workers.cloudflare.com) using [Static Assets](https://developers.cloudflare.com/workers/static-assets/).
 
 You own everything — code, content, domain, hosting. If you ever want to move on from Anglesite, any [Astro-compatible agency](https://astro.build/agencies/) can pick up where it left off.
 
@@ -43,7 +43,7 @@ The site uses vanilla CSS with custom properties defined in `src/styles/global.c
 
 ## Deployment
 
-The site deploys to Cloudflare Pages via Git integration — push to `main` triggers a production deploy. DNS records are managed through the Cloudflare dashboard or `/anglesite:domain`.
+The site deploys to Cloudflare Workers (Static Assets) via `wrangler deploy`, run by `/anglesite:deploy` from the `main` branch. DNS records are managed through the Cloudflare dashboard or `/anglesite:domain`.
 
 ## More information
 

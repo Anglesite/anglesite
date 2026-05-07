@@ -33,6 +33,12 @@ const configContent = existsSync(configPath)
 const siteName =
   propSiteName ?? configContent.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "Menu";
 
+// Cloudflare Web Analytics beacon (Workers Static Assets does not auto-inject;
+// /anglesite:stats writes this value once Web Analytics is enabled).
+const webAnalyticsToken = configContent
+  .match(/^CF_WEB_ANALYTICS_TOKEN=(.+)$/m)?.[1]
+  ?.trim();
+
 const resolvedThemeColor = themeColor ?? "#0f0f0f";
 
 const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
@@ -77,6 +83,15 @@ const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
       @import "../styles/global.css";
       @import "../styles/kiosk.css";
     </style>
+
+    {webAnalyticsToken && (
+      <script
+        is:inline
+        defer
+        src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon={`{"token": "${webAnalyticsToken}"}`}
+      />
+    )}
   </head>
   <body>
     <slot />

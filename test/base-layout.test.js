@@ -33,4 +33,35 @@ describe('BaseLayout.astro', () => {
     // The resolveOgImage function should reference /images/og/ directory
     expect(layout).toContain('/images/og/');
   });
+
+  it('injects the Cloudflare Web Analytics beacon when CF_WEB_ANALYTICS_TOKEN is set', () => {
+    // Workers Static Assets does not auto-inject the beacon — the layout must do it.
+    expect(layout).toMatch(/CF_WEB_ANALYTICS_TOKEN/);
+    expect(layout).toContain('static.cloudflareinsights.com/beacon.min.js');
+    expect(layout).toContain('data-cf-beacon');
+  });
+});
+
+describe('KioskLayout.astro', () => {
+  const kiosk = readFileSync(
+    join(__dirname, '..', 'template', 'src', 'layouts', 'KioskLayout.astro'),
+    'utf-8',
+  );
+
+  it('injects the Cloudflare Web Analytics beacon when CF_WEB_ANALYTICS_TOKEN is set', () => {
+    expect(kiosk).toMatch(/CF_WEB_ANALYTICS_TOKEN/);
+    expect(kiosk).toContain('static.cloudflareinsights.com/beacon.min.js');
+  });
+});
+
+describe('ImmersiveLayout.astro', () => {
+  const immersive = readFileSync(
+    join(__dirname, '..', 'template', 'src', 'layouts', 'ImmersiveLayout.astro'),
+    'utf-8',
+  );
+
+  it('injects the Cloudflare Web Analytics beacon when CF_WEB_ANALYTICS_TOKEN is set', () => {
+    expect(immersive).toMatch(/CF_WEB_ANALYTICS_TOKEN/);
+    expect(immersive).toContain('static.cloudflareinsights.com/beacon.min.js');
+  });
 });
