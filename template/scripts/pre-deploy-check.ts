@@ -7,6 +7,9 @@
  * 3. Unauthorized third-party scripts
  * 4. Keystatic admin routes in production build
  * 5. OG image presence (warn only)
+ * 6. Maintenance log freshness (warn only) — checks the monthly,
+ *    quarterly, and annual stamps recorded by /anglesite:check and
+ *    /anglesite:update. Never blocks deploy.
  *
  * Usage: tsx scripts/pre-deploy-check.ts
  * Also runs on Cloudflare's build system via the build command.
@@ -124,6 +127,89 @@ export function scanScripts(content: string, scriptAllowlist?: string[]): string
 }
 
 // ---------------------------------------------------------------------------
+// Maintenance log
+// ---------------------------------------------------------------------------
+
+/**
+ * Maintenance categories tracked in `.site-config`.
+ * Each entry pairs the config key with a grace period in days — the scan
+ * warns once the recorded date is older than that many days. Grace periods
+ * include a small buffer over the nominal cadence so a one-week slip does
+ * not nag the owner.
+ */
+export const maintenanceCategories: ReadonlyArray<{
+  key: string;
+  label: string;
+  graceDays: number;
+  command: string;
+}> = [
+  { key: "MAINTENANCE_MONTHLY_LAST",   label: "monthly health check",   graceDays: 35,  command: "/anglesite:check"  },
+  { key: "MAINTENANCE_QUARTERLY_LAST", label: "quarterly update",       graceDays: 100, command: "/anglesite:update" },
+  { key: "MAINTENANCE_ANNUAL_LAST",    label: "annual review",          graceDays: 380, command: "/anglesite:check"  },
+];
+
+/**
+ * Compute days between two ISO calendar dates (YYYY-MM-DD).
+ * Returns null if `iso` cannot be parsed. Uses UTC midnight to avoid
+ * timezone drift turning "today" into a one-day stale warning.
+ */
+export function daysSince(iso: string, now: Date = new Date()): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!match) return null;
+  const [, y, m, d] = match;
+  const then = Date.UTC(Number(y), Number(m) - 1, Number(d));
+  if (Number.isNaN(then)) return null;
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.floor((today - then) / 86_400_000);
+}
+
+export interface MaintenanceWarning {
+  key: string;
+  label: string;
+  command: string;
+  /** Days since the last recorded run, or null if no record exists. */
+  age: number | null;
+  graceDays: number;
+}
+
+/**
+ * Inspect the maintenance log and return a warning for each category that
+ * is overdue or has never been recorded. Pure function — pass the config
+ * value lookup as `read` so callers can stub it in tests.
+ */
+export function scanMaintenance(
+  read: (key: string) => string | undefined,
+  now: Date = new Date(),
+  categories: ReadonlyArray<{ key: string; label: string; graceDays: number; command: string }> = maintenanceCategories,
+): MaintenanceWarning[] {
+  const warnings: MaintenanceWarning[] = [];
+  for (const cat of categories) {
+    const value = read(cat.key);
+    if (!value) {
+      warnings.push({ key: cat.key, label: cat.label, command: cat.command, age: null, graceDays: cat.graceDays });
+      continue;
+    }
+    const age = daysSince(value, now);
+    if (age === null) {
+      warnings.push({ key: cat.key, label: cat.label, command: cat.command, age: null, graceDays: cat.graceDays });
+      continue;
+    }
+    if (age > cat.graceDays) {
+      warnings.push({ key: cat.key, label: cat.label, command: cat.command, age, graceDays: cat.graceDays });
+    }
+  }
+  return warnings;
+}
+
+/** Format a maintenance warning into a single-line, owner-facing message. */
+export function formatMaintenanceWarning(w: MaintenanceWarning): string {
+  if (w.age === null) {
+    return `Maintenance: no record of a ${w.label}. Run \`${w.command}\` to log one.`;
+  }
+  return `Maintenance: ${w.label} last logged ${w.age} days ago (over the ${w.graceDays}-day window). Run \`${w.command}\`.`;
+}
+
+// ---------------------------------------------------------------------------
 // Main script (only runs when executed directly)
 // ---------------------------------------------------------------------------
 
@@ -212,6 +298,11 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
   const hasOgImage = htmlFiles.some(f => readFileSync(f, "utf-8").includes("og:image"));
   if (!hasOgImage) {
     warnings.push("No og:image meta tag found. Social shares won't show a preview image. Run `npm run ai-images` to generate one.");
+  }
+
+  // 6. Maintenance log (warn only)
+  for (const w of scanMaintenance(readConfig)) {
+    warnings.push(formatMaintenanceWarning(w));
   }
 
   // Report

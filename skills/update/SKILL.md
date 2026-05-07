@@ -142,6 +142,8 @@ Update `ANGLESITE_VERSION` in `.site-config` to the current plugin version. Read
 
 Use the **Write tool** to update `.site-config` — read the current contents, replace or add the `ANGLESITE_VERSION` line, and write it back.
 
+In the same edit, update the maintenance log: set `MAINTENANCE_QUARTERLY_LAST` to today's date in `YYYY-MM-DD` format, and also refresh `MAINTENANCE_MONTHLY_LAST` (running `/anglesite:update` exercises the build and dependency checks that the monthly health pass would cover). If today is on or after the existing `MAINTENANCE_ANNUAL_LAST` plus 365 days — or if `MAINTENANCE_ANNUAL_LAST` is missing — also stamp `MAINTENANCE_ANNUAL_LAST` and tell the owner: "It's been a year since your last full review — I'll set the annual stamp now. Take a few minutes to skim `docs/webmaster.md` → 'Annually' and let me know if anything needs attention." See `docs/webmaster.md` → Maintenance schedule for what each stamp covers.
+
 ## Step 6 — Save a snapshot
 
 ```sh
