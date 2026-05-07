@@ -2,7 +2,7 @@
 name: domain
 description: "Manage DNS records: email, Bluesky, verification"
 argument-hint: "[email, bluesky, or service name]"
-allowed-tools: Bash(curl *), Write, Read
+allowed-tools: Bash(curl *), Write, Read, mcp__cloudflare__search_cloudflare_documentation
 disable-model-invocation: true
 ---
 
@@ -14,6 +14,12 @@ Manage DNS records for the owner's domain on Cloudflare. All DNS changes are mad
 - [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — why the domain is in the owner's account
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, tell the owner what you're about to do and why in plain English before making any change, and confirm what was done after. If `false`, proceed without pre-announcing changes (still confirm after).
+
+## Look up current Cloudflare docs first
+
+Before explaining DNS records, verification flows, propagation behavior, or any Cloudflare-specific quirk to the owner, call `mcp__cloudflare__search_cloudflare_documentation` with a query that names what's being set up (e.g., "DMARC record syntax Cloudflare DNS", "Bluesky _atproto TXT verification", "domain verification CAA record", "MX records Cloudflare Email Routing"). Read the matching result before answering — Cloudflare ships changes to defaults and dashboard flows often, and stale advice misroutes the owner. If the search returns nothing useful, say so rather than guessing from training data.
+
+Skip this when the request is mechanical (e.g., the owner pasted the exact records a third party told them to add).
 
 ## Prerequisites
 

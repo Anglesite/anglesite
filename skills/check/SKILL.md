@@ -2,7 +2,7 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx pa11y-ci *), Bash(npx tsx scripts/link-check.ts *), Bash(npx tsx scripts/a11y-audit.ts *), Bash(npx tsx scripts/a14y-audit.ts *), Bash(npx a14y *), Bash(a14y *), Bash(grep *), Bash(find dist/ *), Bash(stat *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__workers_list, mcp__cloudflare__workers_get_worker, mcp__cloudflare__workers_get_worker_code
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx pa11y-ci *), Bash(npx tsx scripts/link-check.ts *), Bash(npx tsx scripts/a11y-audit.ts *), Bash(npx tsx scripts/a14y-audit.ts *), Bash(npx a14y *), Bash(a14y *), Bash(grep *), Bash(find dist/ *), Bash(stat *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__search_cloudflare_documentation, mcp__cloudflare__workers_list, mcp__cloudflare__workers_get_worker, mcp__cloudflare__workers_get_worker_code
 disable-model-invocation: true
 ---
 
@@ -409,6 +409,12 @@ If the issue is in Anglesite itself (not the owner's site), use the plugin bug f
 ## Troubleshooting
 
 If the owner reported a specific problem (or you found one during the audit), diagnose and fix it.
+
+### Step 0 — Look up current Cloudflare docs first
+
+Cloudflare ships features quickly (Workers Static Assets, the Pages → Workers migration, bot management defaults, error code semantics). Before suggesting a fix for any Cloudflare-adjacent issue — DNS propagation, SPF/DKIM/DMARC, Workers limits, custom domain quirks, `wrangler` errors — call `mcp__cloudflare__search_cloudflare_documentation` with a query that names the symptom (e.g., "wrangler deploy 10021 error", "Workers static assets _headers precedence", "DMARC alignment p=quarantine"). Read the matching result before reasoning from training data. If the search returns nothing useful, say so to the owner rather than guessing.
+
+This applies whenever the issue might involve Cloudflare behavior. Skip it for purely local issues (Node version, port conflicts, Astro build errors).
 
 ### Step 1 — Check prerequisites
 

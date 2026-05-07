@@ -1,7 +1,7 @@
 ---
 name: deploy
 description: "Build, security scan, and deploy to Cloudflare Workers"
-allowed-tools: Bash(npm run build), Bash(npm run deploy *), Bash(npm run preview *), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npm run ai-a14y *), Bash(npm run ai-perf *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Bash(kill *), Write, Read, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account
+allowed-tools: Bash(npm run build), Bash(npm run deploy *), Bash(npm run preview *), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npm run ai-a14y *), Bash(npm run ai-perf *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Bash(kill *), Write, Read, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__search_cloudflare_documentation
 disable-model-invocation: true
 ---
 
@@ -22,6 +22,12 @@ The site deploys via Wrangler: `npm run deploy` builds the site (`astro build`) 
 - [ADR-0018 Performance budgets](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0018-performance-budgets.md) — why the perf gate ships warn-only with static asset budgets and an opt-in Lighthouse upgrade path
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
+
+## Interpreting Cloudflare errors
+
+If any `wrangler` command (build, login, versions upload, deploy) returns an error, or if Cloudflare-side behavior surfaces during a deploy step (custom domain not attaching, SSL stuck, account validation mismatch, Workers limit hit), call `mcp__cloudflare__search_cloudflare_documentation` with the error code, error message, or the symptom in plain words (e.g., "wrangler 10021", "Workers script size limit", "custom domain pending SSL"). Read the result before suggesting a fix — Cloudflare's wrangler error catalog and Workers limits change over time, and stale advice wastes the owner's time. If nothing useful comes back, say so to the owner rather than guessing.
+
+This applies anywhere a Cloudflare-side step fails in this skill — not only the auth-error path in Step 7.
 
 ## Step 0 — First deploy: Cloudflare account
 
