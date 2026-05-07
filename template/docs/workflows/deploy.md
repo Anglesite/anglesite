@@ -1,17 +1,26 @@
 # Deploy Workflow
 
-Build, scan, and deploy the site to Cloudflare Pages via Git integration.
+Build, scan, and deploy the site to Cloudflare Workers (Static Assets) via `wrangler deploy`.
 
 ## Prerequisites
 
 - Cloudflare account (free at <https://dash.cloudflare.com/sign-up>)
-- Cloudflare Pages project connected to GitHub (set up during first `/anglesite:deploy`)
-- `CF_PROJECT_NAME` set in `.site-config`
-- `GITHUB_REPO` set in `.site-config`
+- Wrangler authenticated (`npx wrangler login` — one-time)
+- `CF_PROJECT_NAME` set in `.site-config` and matching `name` in `wrangler.jsonc`
+- `CLOUDFLARE_ACCOUNT_ID` set in `.site-config`
+- `GITHUB_REPO` set in `.site-config` (for off-site backup, optional but recommended)
 
 ## How it works
 
-Cloudflare Pages is connected to the GitHub repository via Git integration. Pushing to `main` triggers a production deploy. Pushing to `draft` (or any other branch) creates a preview deploy.
+The site deploys directly from the owner's machine via `wrangler deploy`. There is no Cloudflare Git integration — pushing to GitHub is purely an off-site backup.
+
+- **Production deploy** — `wrangler deploy` (wrapped by `npm run deploy`) publishes the current `dist/` to the live URL.
+- **Preview deploy** — `npx wrangler versions upload` publishes a non-production version with its own preview URL (`https://<hash>-<project>.<account>.workers.dev`).
+
+Branch convention:
+
+- **`draft`** — working branch; `git push origin draft` is the off-site backup.
+- **`main`** — production; merging `draft` → `main` is bookkeeping that mirrors the live deploy.
 
 ## Quick deploy
 
@@ -21,6 +30,10 @@ npm run build
 
 ```sh
 npm run predeploy
+```
+
+```sh
+npm run deploy
 ```
 
 ```sh
@@ -144,23 +157,37 @@ npm run ai-perf -- --report perf-report.md
 
 ### 3. First-time setup
 
-If this is the first deploy, connect Cloudflare Pages to GitHub via the dashboard:
+If this is the first deploy, authenticate Wrangler against the owner's Cloudflare account:
 
-1. Open: `https://dash.cloudflare.com/?to=/:account/pages/new/provider/github`
-2. Authorize the Cloudflare GitHub app
-3. Select the repository
-4. Build settings:
-   - Framework preset: **Astro**
-   - Build command: `npm run build && npm run predeploy`
-   - Build output directory: `dist`
-   - Production branch: `main`
-5. Click **Save and Deploy**
+```sh
+npx wrangler login
+```
 
-Save `CF_PROJECT_NAME` to `.site-config`.
+A browser opens — the owner signs in with their Cloudflare account and approves Wrangler's access. If the environment can't open a browser (e.g., Claude Cowork without a desktop), fall back to an API token from <https://dash.cloudflare.com/profile/api-tokens> (Edit Cloudflare Workers template), saved as `CLOUDFLARE_API_TOKEN` in the shell or `.dev.vars`.
+
+Make sure `CF_PROJECT_NAME` in `.site-config` matches the `name` field in `wrangler.jsonc` — the deploy publishes to that Worker name. The default scaffolded value (`anglesite-site`) must be replaced before the first deploy.
+
+Save `CLOUDFLARE_ACCOUNT_ID` to `.site-config` so subsequent deploys validate against the right account.
 
 ### 4. Deploy
 
-Commit changes and push `draft` to GitHub (backup + preview):
+Build, scan, and publish in one shot:
+
+```sh
+npm run deploy
+```
+
+(`npm run deploy` runs `npm run build && wrangler deploy`.)
+
+To upload a preview version without promoting it to production:
+
+```sh
+npx wrangler versions upload
+```
+
+Wrangler prints a preview URL of the form `https://<hash>-<project>.<account>.workers.dev`.
+
+Then back up to GitHub on `draft` and mirror the deploy onto `main`:
 
 ```sh
 git add -A
@@ -174,8 +201,6 @@ git commit -m "Publish: YYYY-MM-DD HH:MM"
 git push origin draft
 ```
 
-Merge to `main` and push (triggers production deploy):
-
 ```sh
 git checkout main
 ```
@@ -187,8 +212,6 @@ git merge draft --no-edit
 ```sh
 git push origin main
 ```
-
-Return to working branch:
 
 ```sh
 git checkout draft
@@ -202,10 +225,10 @@ Options:
 - **Transfer to Cloudflare** — unlock at current registrar, get EPP/auth code, transfer via dashboard
 - **Point existing domain** — add domain to Cloudflare, update nameservers at current registrar
 
-After the domain is on Cloudflare, connect it to the Pages project:
+After the domain is on Cloudflare, attach it to the Worker:
 
-1. Dashboard → Pages → your project → Custom domains
-2. Add domain → Activate
+1. Dashboard → Workers & Pages → your project → Settings → Triggers → Custom Domains
+2. Add Custom Domain → enter the domain → Add Custom Domain
 3. Cloudflare auto-provisions SSL
 
 Save `SITE_DOMAIN` to `.site-config`.
@@ -213,7 +236,8 @@ Save `SITE_DOMAIN` to `.site-config`.
 ### 6. After deploy
 
 - Check analytics: <https://dash.cloudflare.com> → Web Analytics
-- Preview deploys available at `draft.CF_PROJECT_NAME.pages.dev`
+- Preview versions are at the URL printed by `wrangler versions upload`
+- Production is at `CF_PROJECT_NAME.<account>.workers.dev` (or the custom domain, once attached)
 
 ## Merge conflicts
 

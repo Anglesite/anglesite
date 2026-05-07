@@ -7,7 +7,7 @@ What the website costs to run, now and ongoing. Reference for the webmaster agen
 The owner hears this during initial setup:
 
 - **Building the website:** Free (the owner already has an AI coding tool)
-- **Hosting:** Free (Cloudflare Pages, unlimited bandwidth)
+- **Hosting:** Free (Cloudflare Workers Static Assets, unlimited bandwidth)
 - **SSL/HTTPS:** Free (Cloudflare, automatic)
 - **Analytics:** Free (Cloudflare Web Analytics, cookieless)
 - **Custom domain:** ~$10–15/year (the only required cost)
@@ -82,7 +82,7 @@ These aren't website costs, but owners ask about them:
 
 This is a differentiator worth mentioning during `/anglesite:start`:
 
-- **No monthly hosting fee** — Squarespace charges $16–65/month. Wix charges $17–159/month. Cloudflare Pages is free.
+- **No monthly hosting fee** — Squarespace charges $16–65/month. Wix charges $17–159/month. Cloudflare Workers is free.
 - **No platform fee** — No percentage of sales to a website platform.
 - **No designer/developer retainer** — The owner manages the site themselves with Claude Code.
 - **No SEO subscription** — The site is built with SEO best practices. No monthly SEO service needed.
@@ -97,9 +97,9 @@ As the business grows, the owner may need paid tools. Present these as natural s
 
 - **More than one email address** — Upgrade iCloud+ or switch to Fastmail/Proton paid plan.
 - **Online payments** — Add Square or Stripe. Transaction fees (2.6–2.9%) are the cost.
-- **More storage** — If the site grows to hundreds of images. Cloudflare Pages has generous limits, but very large sites may need image optimization or Cloudflare R2 storage ($0.015/GB/month for storage beyond 10GB free).
+- **More storage** — If the site grows to hundreds of images. Cloudflare Workers Static Assets has generous limits, but very large sites may need image optimization or Cloudflare R2 storage ($0.015/GB/month for storage beyond 10GB free).
 - **Multiple team members** — Cloudflare allows multiple members on a free account. No cost increase.
-- **Higher traffic** — Cloudflare Pages handles traffic spikes gracefully. No cost increase for traffic.
+- **Higher traffic** — Cloudflare Workers handles traffic spikes gracefully. No cost increase for traffic.
 
 ## Annual cost review
 

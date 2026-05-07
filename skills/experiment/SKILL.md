@@ -9,7 +9,7 @@ Manage the full lifecycle of an A/B experiment: propose a hypothesis, generate v
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — hosting platform (Pages Functions for edge assignment)
+- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — hosting platform (Worker-entry middleware for edge assignment)
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — no external A/B testing scripts
 - [ADR-0014 Edge A/B testing](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0014-edge-ab-testing.md) — why build-time variants + edge assignment
 
@@ -20,7 +20,7 @@ Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before e
 Experiments run in three layers:
 
 1. **Build time** — Astro generates variant HTML files alongside the control (e.g., `index.variant-a.html`)
-2. **Edge** — A Cloudflare Pages Function (`functions/_middleware.ts`) intercepts requests, assigns visitors to variants via cookie, and serves the correct file. Zero layout flicker.
+2. **Edge** — Middleware in the Cloudflare Worker entry intercepts requests, assigns visitors to variants via cookie, and serves the correct file. Zero layout flicker.
 3. **Analysis** — Impressions and conversions are logged to Analytics Engine. A Bayesian analysis determines winners without requiring fixed sample sizes.
 
 ### Data layer

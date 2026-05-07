@@ -38,7 +38,7 @@ Chosen option: "Owner controls everything", because the owner holds the Cloudfla
 * Good, because the domain is registered in the owner's Cloudflare account — they hold the keys
 * Good, because content is `.mdoc` files in git — standard Markdoc, readable by any tool
 * Good, because the site is standard Astro/HTML/CSS — any web developer can maintain it
-* Good, because Cloudflare Pages has no lock-in — the static `dist/` output can be hosted anywhere
+* Good, because Cloudflare Workers Static Assets have no lock-in — the static `dist/` output can be hosted anywhere
 * Good, because `docs/handoff.md` provides a complete transfer guide for the next developer
 * Good, because git history preserves every change ever made to the site
 * Bad, because the owner must maintain a Cloudflare account (mitigated by the agent handling operations)
@@ -88,7 +88,7 @@ Ownership spans four independent layers, each controlled by the owner:
 | Layer | Owner controls | Can transfer to |
 | --- | --- | --- |
 | **Domain** | Cloudflare Registrar account | Any registrar (standard transfer process) |
-| **Hosting** | Cloudflare Pages project | Any static host (Vercel, Netlify, any web server) |
+| **Hosting** | Cloudflare Workers project | Any static host (Vercel, Netlify, any web server) |
 | **Code** | Local git repository | Any developer (clone and continue) |
 | **Content** | `.mdoc` files in `src/content/` | Any Markdown-compatible system |
 

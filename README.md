@@ -1,6 +1,6 @@
 # Anglesite
 
-An AI webmaster for independent websites — a [Claude plugin](https://docs.anthropic.com/en/docs/claude-code/plugins) that scaffolds, designs, and deploys Astro sites on Cloudflare Pages.
+An AI webmaster for independent websites — a [Claude plugin](https://docs.anthropic.com/en/docs/claude-code/plugins) that scaffolds, designs, and deploys Astro sites on Cloudflare Workers.
 
 Anglesite works with [Claude Cowork](https://support.claude.com/en/articles/13345190-get-started-with-cowork) (for non-technical site owners) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (for developers). Both use the same plugin — the experience adapts to the environment.
 
@@ -82,7 +82,7 @@ Small businesses — farms, restaurants, legal firms, retailers, makers, artists
 |---|---|
 | Site generator | [Astro 5](https://astro.build) |
 | Content editor | [Keystatic](https://keystatic.com) |
-| Hosting | [Cloudflare Pages](https://pages.cloudflare.com) |
+| Hosting | [Cloudflare Workers](https://workers.cloudflare.com) (Static Assets) |
 | Analytics | Cloudflare Web Analytics |
 | Language | TypeScript (strict) |
 | Styling | Vanilla CSS with custom properties |

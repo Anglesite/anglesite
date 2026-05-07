@@ -20,7 +20,7 @@ Free Cloudflare zones gate referrer and device fields, and cap request-level ana
 
 ## Prerequisites
 
-- Site deployed to Cloudflare Pages
+- Site deployed to Cloudflare Workers
 - Cloudflare API token with Analytics read permission
 - Zone ID for your domain (auto-detected if `SITE_DOMAIN` is set)
 

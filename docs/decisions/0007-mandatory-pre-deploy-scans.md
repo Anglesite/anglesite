@@ -10,7 +10,7 @@ decision-makers: [Anglesite maintainers]
 
 ## Context and Problem Statement
 
-The Webmaster agent deploys the website to production by pushing to `main` (Cloudflare Pages Git integration auto-deploys). A single mistake — an email address left in HTML, an API key in source, a tracking script added during development — could expose the owner's private data or compromise their site's security. The deployment pipeline needs a hard gate that prevents these mistakes from reaching production, regardless of whether the agent or the owner requests the deploy.
+The Webmaster agent deploys the website to production by running `wrangler deploy` against the Cloudflare Workers + Static Assets hosting target (see ADR-0003). A single mistake — an email address left in HTML, an API key in source, a tracking script added during development — could expose the owner's private data or compromise their site's security. The deployment pipeline needs a hard gate that prevents these mistakes from reaching production, regardless of whether the agent or the owner requests the deploy.
 
 ## Decision Drivers
 

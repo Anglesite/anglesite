@@ -78,7 +78,7 @@ curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/RECORD_
 
 ## Safety rules
 
-- Never change the CNAME record for `www` (points to Pages project)
+- Never change the CNAME record for `www` (points to Workers project)
 - Never change nameservers via the API
 - Remove old MX records before adding new ones when switching email providers
 - Email records (MX, SPF, DKIM, DMARC) must never be proxied

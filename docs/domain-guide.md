@@ -6,7 +6,7 @@ This guide is opinionated toward user ownership and the open web, consistent wit
 
 ## Buying a domain
 
-**Cloudflare is the default registrar.** Anglesite sites are hosted on Cloudflare Pages, so buying through Cloudflare keeps everything in one place: hosting, DNS, and domain registration. Cloudflare sells domains at cost — no markup, no surprise renewal increases.
+**Cloudflare is the default registrar.** Anglesite sites are hosted on Cloudflare Workers, so buying through Cloudflare keeps everything in one place: hosting, DNS, and domain registration. Cloudflare sells domains at cost — no markup, no surprise renewal increases.
 
 However, not all TLDs are available through Cloudflare. When the owner's best TLD choice isn't available on Cloudflare (e.g., .coop, .eco), help them buy from a registrar that carries it, then either transfer the domain to Cloudflare or point its nameservers there. The domain skill (`/anglesite:domain`) handles DNS either way.
 

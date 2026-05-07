@@ -264,7 +264,7 @@ git commit -m "Preview: YYYY-MM-DD HH:MM"
 git push origin draft
 ```
 
-Tell the owner: "Once we connect Cloudflare in the next step, your preview will be at a link like `draft.YOUR-PROJECT.pages.dev`. Let's set that up now."
+Tell the owner: "Once we connect Cloudflare in the next step, your preview will be at a link like `draft.YOUR-PROJECT.workers.dev`. Let's set that up now."
 
 If they choose **go live**, continue to Step 3.
 
@@ -327,7 +327,7 @@ On subsequent deploys, skip to Step 7.
 
 ## Step 4 — First deploy: Domain setup
 
-Ask: "Do you want a custom domain for your website — like www.yourbusiness.com — or is the .pages.dev address fine for now?"
+Ask: "Do you want a custom domain for your website — like www.yourbusiness.com — or is the .workers.dev address fine for now?"
 
 If they want to skip, that's fine. They can add a domain later by running `/anglesite:deploy` and asking about it.
 

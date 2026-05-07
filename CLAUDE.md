@@ -217,7 +217,7 @@ Two levels of agent instructions exist — do not confuse them:
 | GitHub (not GitLab) | `gh` CLI browser OAuth is simplest for non-technical users; private repos free |
 | Vanilla CSS | No build-time framework overhead, custom properties for theming |
 | Industry tools first | Recommend purpose-built solutions (Square, Shopify, Clio, etc.) over generic databases |
-| Edge A/B testing (not client-side) | Build-time variants + Pages Function assignment = zero flicker, static-site compatible |
+| Edge A/B testing (not client-side) | Build-time variants + Worker-entry edge assignment = zero flicker, static-site compatible |
 | Pagefind (not Algolia/Orama) | Build-time index, ~6 KB JS, no external service, first-class Astro integration |
 
 Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0018).

@@ -15,7 +15,7 @@ As Anglesite sites grow beyond a handful of pages — especially sites with blog
 Any search solution must respect existing architectural decisions:
 
 - **ADR-0001** — Static site (Astro, no server runtime)
-- **ADR-0003** — Deployed to Cloudflare Pages
+- **ADR-0003** — Deployed to Cloudflare Workers (Static Assets)
 - **ADR-0008** — No third-party JavaScript (self-hosted/first-party JS only)
 - **ADR-0009** — Prefer existing tools over custom code
 - **ADR-0011** — Owner controls everything (no external service lock-in)
@@ -224,7 +224,7 @@ These solutions require an external service to handle search queries.
 - Good developer experience
 
 **Cons:**
-- Self-hosting requires a server (not compatible with static Cloudflare Pages)
+- Self-hosting requires a server (not compatible with static Cloudflare Workers Static Assets)
 - Cloud version is a third-party dependency
 - $30/month minimum is significant for a small business site
 - Requires API key management

@@ -12,7 +12,7 @@ The owner owns everything. There is no platform lock-in, no proprietary code, no
 | Git history | `.git/` directory and GitHub | Included when copying the folder or cloning |
 | GitHub repository | Owner's GitHub account | Add the developer as a collaborator, or transfer the repo |
 | Domain name | Cloudflare Registrar (or owner's registrar) | Domain transfer or nameserver change |
-| Cloudflare Pages project | Owner's Cloudflare account | Add the new person as a Cloudflare member, or redeploy from their own account |
+| Cloudflare Workers project | Owner's Cloudflare account | Add the new person as a Cloudflare member, or redeploy from their own account |
 | DNS records | Cloudflare DNS | Export/recreate in new DNS provider |
 | Email routing | Cloudflare or email provider (iCloud+, Fastmail, etc.) | Reconfigure with new provider |
 | Cloudflare Analytics | Owner's Cloudflare account | Not transferable (historical data stays with the account) |
@@ -66,11 +66,11 @@ The new owner needs their own Cloudflare account. Transfer the domain:
 4. Current owner: approve the transfer confirmation email
 5. Transfer completes (usually hours, can take up to 5 days)
 
-### Step 2: Cloudflare Pages project
+### Step 2: Cloudflare Workers project
 
 Option A (simplest): Add the new owner to the existing Cloudflare account, then remove the old owner.
 
-Option B (clean break): New owner creates a new Cloudflare Pages project and deploys from their own copy of the website folder.
+Option B (clean break): New owner creates a new Cloudflare Workers project and deploys from their own copy of the website folder.
 
 ### Step 3: Other accounts
 
@@ -134,7 +134,7 @@ If the owner is closing the business and doesn't need the website anymore:
 
 ### Option A: Keep it up as an archive
 
-- Leave the site running on Cloudflare Pages (free, no maintenance required)
+- Leave the site running on Cloudflare Workers (free, no maintenance required)
 - Update the home page: "Thank you for [X] years. [Business name] is now closed."
 - Keep the domain active so the URL doesn't go to a squatter
 - Cost: ~$10/year for the domain
@@ -142,7 +142,7 @@ If the owner is closing the business and doesn't need the website anymore:
 ### Option B: Take it down
 
 1. **Cancel the domain auto-renewal** — Let it expire (or actively delete it at the registrar). Warning: the domain will become available for anyone to buy. Domain squatters buy expired business domains and put spam or scam sites on them.
-2. **Delete the Cloudflare Pages project** — Dashboard → Pages → Project → Settings → Delete
+2. **Delete the Cloudflare Workers project** — Dashboard → Workers & Pages → Project → Settings → Delete
 3. **Update Google Business Profile** — Mark the business as "permanently closed"
 4. **Update Apple Business Connect** — Same
 5. **Keep a local backup** — The project folder is a complete archive. The owner can rebuild the site from it at any time.

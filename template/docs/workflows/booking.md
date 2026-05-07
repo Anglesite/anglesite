@@ -12,7 +12,7 @@ Embed a scheduling widget so visitors can book appointments directly from your s
 ## Prerequisites
 
 - An account on Cal.com or Calendly with at least one event type configured
-- Site deployed to Cloudflare Pages (for CSP headers to take effect)
+- Site deployed to Cloudflare Workers (for CSP headers to take effect)
 
 ## Configuration
 

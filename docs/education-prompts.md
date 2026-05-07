@@ -29,7 +29,7 @@ Education flags use the `EDUCATION_` prefix to avoid collisions with other confi
 
 | Key | Topic | Copy direction |
 |-----|-------|----------------|
-| `DOMAIN_VS_WEBSITE` | Domain is not the website | "Quick thing worth knowing: a domain is like a mailing address — it tells people where to find you. The website is the building. You can have an address without a building (parked domain) or a building without a custom address (.pages.dev). We're setting up both." |
+| `DOMAIN_VS_WEBSITE` | Domain is not the website | "Quick thing worth knowing: a domain is like a mailing address — it tells people where to find you. The website is the building. You can have an address without a building (parked domain) or a building without a custom address (.workers.dev). We're setting up both." |
 | `DOMAIN_RENEWAL` | Annual renewal and lapse risk | "Domains renew annually. If a renewal lapses, someone else can register it — that's how sites get hijacked. Cloudflare sends renewal reminders, but it's worth putting it in your calendar too." |
 | `EMAIL_NOT_AUTOMATIC` | Email requires separate DNS setup | "Having a domain doesn't automatically give you email. Email needs its own setup — DNS records that point to a mail provider. We can set that up with `/anglesite:domain` whenever you're ready." |
 | `TLD_AND_SEO` | TLD doesn't directly affect rankings | "There's a common belief that .com is better for search ranking — it's not, directly. Google treats all standard TLDs equally. What .com does have is brand recognition: people assume URLs end in .com. For your situation, [recommend based on domain guide]." |

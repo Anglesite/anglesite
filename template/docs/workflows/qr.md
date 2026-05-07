@@ -17,7 +17,7 @@ Each QR code includes UTM tracking so you can see in `/anglesite:stats` how many
 
 ## Shortlink redirects
 
-Memorable URLs like `example.com/menu` or `example.com/podcast` that redirect to the right page with tracking. Uses Cloudflare Pages `_redirects` (instant, at the edge).
+Memorable URLs like `example.com/menu` or `example.com/podcast` that redirect to the right page with tracking. Uses the `_redirects` file (instant, at the edge — read by Cloudflare Workers Static Assets).
 
 Example: "Visit example.com/podcast" in a podcast ad → redirects to homepage with `utm_source=podcast&utm_medium=audio&utm_campaign=episode-42`.
 
@@ -54,5 +54,5 @@ Run `/anglesite:stats` to see campaign performance:
 | Key | File | Purpose |
 |---|---|---|
 | QR code SVGs | `public/images/qr/` | Print-ready vector files |
-| Shortlinks | `public/_redirects` | Cloudflare Pages redirects |
+| Shortlinks | `public/_redirects` | Edge redirects (Cloudflare Workers Static Assets) |
 | `SITE_DOMAIN` | `.site-config` | Used to build full URLs |
