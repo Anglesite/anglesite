@@ -26,7 +26,6 @@ D1 (SQLite at the edge) is a much better fit:
 * Operations must stay free or near-free for typical SMB submission volume
 * The forms Worker must keep operating in degraded mode (email-only) when the inbox database is absent, to avoid making the inbox a precondition for the contact form
 * The shape must be useful to other skills (`stats`, `experiment`) without each one re-deriving it
-* Existing KV-based inboxes need a non-destructive migration path
 * Staying inside the Cloudflare stack keeps ADR-0011 (owner controls everything) intact — no third-party storage
 
 ## Considered Options
@@ -66,7 +65,6 @@ CREATE INDEX IF NOT EXISTS idx_status_date  ON submissions(status,    submitted_
 1. The `/anglesite:inbox` skill provisions one D1 database (default name `form_submissions`) and applies `worker/schema.sql` once via `npx wrangler d1 execute --file=worker/schema.sql --remote`.
 2. Both the contact-form Worker and the forms-handler Worker bind the same database as `INBOX_DB`. The binding is optional — if it is absent, `persistSubmission` is a silent no-op and the Worker still emails the owner. The inbox is never a precondition for the form working.
 3. The `GET /inbox` endpoint (gated by `INBOX_SECRET`) selects from `submissions` with optional `slug` and `status` query parameters and returns the same JSON shape the local sync script already consumes. The local file format under `src/content/submissions/` is unchanged, so existing Keystatic schema and CSV export logic carry over untouched.
-4. A migration helper (`npm run ai-inbox-migrate`) reads every key from the legacy KV namespace and `INSERT … ON CONFLICT DO NOTHING`s each into D1, producing an idempotent path for existing sites. The KV namespace can be deleted after the helper reports zero new rows.
 
 ### Consequences
 
@@ -74,13 +72,12 @@ CREATE INDEX IF NOT EXISTS idx_status_date  ON submissions(status,    submitted_
 * Good — `/anglesite:stats` and `/anglesite:experiment` can read directly from the same table for submission-derived metrics without each maintaining its own KV index.
 * Good — the JSON `payload` column means form schemas can evolve (new fields, removed fields) without migrating the table.
 * Good — D1 free-tier limits comfortably absorb typical SMB inbox volume; usage stays at $0 in normal operation.
-* Bad — the Worker binding is now a D1 database instead of a KV namespace, so existing inboxes need a one-time migration and a redeploy. The migration helper makes this idempotent but the owner still has to run it.
 * Bad — D1 has stricter per-statement limits than KV (1 MB row max, 100 statements per `batch` call). Form payloads are well under this in practice but a malicious uploader could still try to overflow `payload`; the Worker already trims fields and applies per-field length caps so the practical risk is bounded.
 * Bad — the inbox is now coupled to D1 availability; if a regional D1 incident occurs, the persist call fails and we fall back to email-only delivery. This is the same failure mode KV had, so net resilience is unchanged.
 
 ### Confirmation
 
-`tests/inbox.test.ts` covers the D1 path with an in-memory fake binding: `persistSubmission` writes the expected row shape, `handleInboxList` filters by slug and status, and the CSV exporter still parses the unchanged `.mdoc` output. The migration helper's dry-run mode prints the row count before any writes so an owner can confirm the size before committing.
+`tests/inbox.test.ts` covers the D1 path with an in-memory fake binding: `persistSubmission` writes the expected row shape, `handleInboxList` filters by slug and status, and the CSV exporter still parses the unchanged `.mdoc` output.
 
 ## Pros and Cons of the Options
 
@@ -89,7 +86,6 @@ CREATE INDEX IF NOT EXISTS idx_status_date  ON submissions(status,    submitted_
 * Good, because triage operations map directly to SQL the database is built for.
 * Good, because the schema is small (one table, two indexes) so the cost of evolving it later is bounded.
 * Good, because it stays inside Cloudflare — no new account, no new bill, no new key to rotate.
-* Bad, because existing KV-backed inboxes need a one-time migration step.
 
 ### Workers KV with hand-rolled secondary indexes
 
@@ -112,4 +108,4 @@ CREATE INDEX IF NOT EXISTS idx_status_date  ON submissions(status,    submitted_
 
 ## More Information
 
-The Workers binding is named `INBOX_DB` (not `SUBMISSIONS`) so the rename also serves as the migration signal: any Worker still bound to `SUBMISSIONS` is on the legacy KV path and needs the migration helper. The `INBOX_KV_ID` key in `.site-config` is preserved (renamed to `LEGACY_INBOX_KV_ID` after migration) so the helper can find the source namespace and `/anglesite:check` can warn about un-migrated namespaces.
+The Workers binding is named `INBOX_DB`. Anglesite is pre-1.0, so this is treated as a breaking change for any site already using the older KV-backed inbox: re-run `/anglesite:inbox` after upgrading to provision the D1 database and rebind the Workers.

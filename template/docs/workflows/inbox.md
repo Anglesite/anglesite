@@ -20,7 +20,6 @@ Read every contact and form submission inside Keystatic instead of digging throu
 | `.site-config` key | Purpose |
 |---|---|
 | `INBOX_DB_ID` | The D1 database ID created by `wrangler d1 create` |
-| `LEGACY_INBOX_KV_ID` | Set automatically by `npm run ai-inbox-migrate` after a successful KV → D1 migration. Safe to leave; `/anglesite:check` warns until the namespace is deleted from the Cloudflare dashboard. |
 
 Worker secrets (set via `npx wrangler secret put`):
 
@@ -61,17 +60,6 @@ Filters:
 - `--status=new|archived|spam` — restrict by status
 - `--since=YYYY-MM-DD` — only on or after this date
 - `--out=<path>` — write to a file instead of stdout
-
-## Migrating from a legacy KV inbox
-
-If `.site-config` shows `INBOX_KV_ID` (without `INBOX_DB_ID`), the inbox is on the original Workers KV backend. Run `/anglesite:inbox` again — it will provision the D1 database, then call `npm run ai-inbox-migrate` to copy every existing submission across. The migration is idempotent (`INSERT OR IGNORE`), so re-running after a partial failure is safe.
-
-```sh
-npm run ai-inbox-migrate -- --dry-run   # report row count, write nothing
-npm run ai-inbox-migrate                 # commit
-```
-
-After a successful commit the script renames `INBOX_KV_ID` to `LEGACY_INBOX_KV_ID` in `.site-config`. Delete the KV namespace from the Cloudflare dashboard when you're confident the new inbox is complete.
 
 ## Privacy
 

@@ -26,8 +26,6 @@ If neither worker URL exists, tell the owner: "Set up `/anglesite:contact` or `/
 
 If `INBOX_DB_ID` is already set in `.site-config`, the inbox is already configured — skip to Step 5 (sync) or Step 6 (triage and export).
 
-If `INBOX_KV_ID` is set but `INBOX_DB_ID` is not, this is a legacy KV-based inbox. Tell the owner: "Your inbox is on the older KV backend. I'll provision the new D1 database, copy the existing submissions across, and then you can delete the KV namespace." Then run Steps 1–4 followed by Step 7 (migration).
-
 ## Step 1 — Create the D1 database
 
 Tell the owner: "I'm creating a Cloudflare D1 database to store your form submissions. D1 is a SQL database at the edge — it's free up to 5 GB and 100,000 writes per day, more than a small business will ever need."
@@ -128,25 +126,7 @@ Open Keystatic and route them to the **Form Submissions** collection so they can
 
 Triage actions are just edits to the `status` field — no special tooling. Encourage the owner to bulk-process: archive what's resolved, mark spam as spam.
 
-## Step 7 — Migrate from a legacy KV inbox (only if `INBOX_KV_ID` was set)
-
-If `.site-config` had `INBOX_KV_ID` from an older deploy, run the one-shot migration after Steps 1–5 succeed:
-
-```sh
-npm run ai-inbox-migrate -- --dry-run
-```
-
-The dry run prints how many rows would be copied. Confirm the count looks right — it should match what the owner saw in the old inbox — then commit:
-
-```sh
-npm run ai-inbox-migrate
-```
-
-The script reads every key from the legacy KV namespace and inserts it into D1 with `ON CONFLICT DO NOTHING`, so re-running is harmless. When it reports `0 new rows`, the migration is complete.
-
-After the dust settles, rename the legacy key in `.site-config` (`INBOX_KV_ID` → `LEGACY_INBOX_KV_ID`) and tell the owner they can delete the KV namespace from the Cloudflare dashboard whenever they want — nothing else uses it. `/anglesite:check` will warn until the KV namespace is deleted.
-
-## Step 8 — Export to CSV (optional)
+## Step 7 — Export to CSV (optional)
 
 Lead-capture and survey responses are easier to work with in a spreadsheet. The export script reads the same files Keystatic shows:
 

@@ -423,11 +423,4 @@ describe("inbox skill artifacts", () => {
     expect(sql).toMatch(/idx_form_date/);
     expect(sql).toMatch(/idx_status_date/);
   });
-
-  it("registers the migrate-kv-to-d1 script in package.json", () => {
-    const pkg = JSON.parse(
-      readFileSync(resolve(templateDir, "package.json"), "utf-8"),
-    );
-    expect(pkg.scripts["ai-inbox-migrate"]).toContain("migrate-kv-to-d1.ts");
-  });
 });
