@@ -1,7 +1,7 @@
 /**
  * Tests for the form submissions inbox: the worker logic that persists
- * submissions to KV and serves them via /inbox, plus the local CSV
- * exporter that drives `npm run ai-inbox-export`.
+ * submissions to D1 (ADR-0019) and serves them via /inbox, plus the
+ * local CSV exporter that drives `npm run ai-inbox-export`.
  */
 import { describe, it, expect } from "vitest";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -29,26 +29,99 @@ import {
 } from "../template/scripts/export-submissions.js";
 
 // ---------------------------------------------------------------------------
-// In-memory fake of the Workers KV binding for unit testing.
+// In-memory fake of the Cloudflare D1 binding for unit testing.
+// Implements just enough of the prepared-statement API for our two queries:
+// the INSERT used by `persistSubmission` and the parameterised SELECT used
+// by `handleInboxList`.
 // ---------------------------------------------------------------------------
 
-function fakeKv() {
-  const store = new Map<string, string>();
-  return {
-    store,
-    async put(key: string, value: string) {
-      store.set(key, value);
-    },
-    async get(key: string) {
-      return store.get(key) ?? null;
-    },
-    async list({ prefix = "" }: { prefix?: string; cursor?: string } = {}) {
-      const keys = [...store.keys()]
-        .filter((k) => k.startsWith(prefix))
-        .map((name) => ({ name }));
-      return { keys, list_complete: true };
-    },
-  };
+interface Row {
+  id: string;
+  form_slug: string;
+  form_title: string | null;
+  submitted_at: string;
+  submitted_at_ms: number;
+  status: string;
+  sender_name: string | null;
+  sender_email: string | null;
+  ip: string | null;
+  payload: string;
+}
+
+function fakeD1() {
+  const rows: Row[] = [];
+  function prepare(sql: string) {
+    let binds: unknown[] = [];
+    const stmt = {
+      bind(...values: unknown[]) {
+        binds = values;
+        return stmt;
+      },
+      async run() {
+        if (sql.trim().toUpperCase().startsWith("INSERT")) {
+          const [
+            id,
+            form_slug,
+            form_title,
+            submitted_at,
+            submitted_at_ms,
+            status,
+            sender_name,
+            sender_email,
+            ip,
+            payload,
+          ] = binds as [
+            string,
+            string,
+            string | null,
+            string,
+            number,
+            string,
+            string | null,
+            string | null,
+            string | null,
+            string,
+          ];
+          if (rows.some((r) => r.id === id)) {
+            return { meta: {} };
+          }
+          rows.push({
+            id,
+            form_slug,
+            form_title,
+            submitted_at,
+            submitted_at_ms,
+            status,
+            sender_name,
+            sender_email,
+            ip,
+            payload,
+          });
+        }
+        return { meta: {} };
+      },
+      async all() {
+        let results = [...rows];
+        const whereMatch = sql.match(/WHERE\s+(.+?)\s+ORDER BY/i);
+        if (whereMatch) {
+          const parts = whereMatch[1].split(/\s+AND\s+/i);
+          parts.forEach((part, i) => {
+            const colMatch = part.match(/(\w+)\s*=\s*\?/);
+            if (!colMatch) return;
+            const col = colMatch[1] as keyof Row;
+            const val = binds[i];
+            results = results.filter((r) => r[col] === val);
+          });
+        }
+        if (/ORDER BY submitted_at_ms DESC/i.test(sql)) {
+          results.sort((a, b) => b.submitted_at_ms - a.submitted_at_ms);
+        }
+        return { results };
+      },
+    };
+    return stmt;
+  }
+  return { rows, prepare };
 }
 
 describe("contact-worker inbox helpers", () => {
@@ -73,22 +146,27 @@ describe("contact-worker inbox helpers", () => {
     expect(sub.entries.map((e) => e.key)).toEqual(["name", "email", "message"]);
   });
 
-  it("persistSubmission writes to KV with structured metadata", async () => {
-    const kv = fakeKv();
+  it("persistSubmission writes a row to D1", async () => {
+    const db = fakeD1();
     const sub = buildContactSubmission({
       name: "A",
       email: "a@example.com",
       message: "hi",
       ip: "x",
     });
-    await persistSubmission({ SUBMISSIONS: kv } as never, sub);
-    expect(kv.store.size).toBe(1);
-    const [key, value] = [...kv.store.entries()][0];
-    expect(key).toBe(`submission:contact:${sub.id}`);
-    expect(JSON.parse(value).formSlug).toBe("contact");
+    await persistSubmission({ INBOX_DB: db } as never, sub);
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0].id).toBe(sub.id);
+    expect(db.rows[0].form_slug).toBe("contact");
+    const payload = JSON.parse(db.rows[0].payload);
+    expect(payload.map((e: { key: string }) => e.key)).toEqual([
+      "name",
+      "email",
+      "message",
+    ]);
   });
 
-  it("persistSubmission is a no-op when no SUBMISSIONS binding", async () => {
+  it("persistSubmission is a no-op when no INBOX_DB binding", async () => {
     const sub = buildContactSubmission({
       name: "A",
       email: "a@example.com",
@@ -106,8 +184,8 @@ describe("contact-worker inbox helpers", () => {
   });
 
   it("handleInboxList rejects unauthenticated requests", async () => {
-    const kv = fakeKv();
-    const env = { SUBMISSIONS: kv, INBOX_SECRET: "topsecret" } as never;
+    const db = fakeD1();
+    const env = { INBOX_DB: db, INBOX_SECRET: "topsecret" } as never;
     const res = await handleInboxList(
       new Request("https://example.workers.dev/inbox"),
       env,
@@ -116,24 +194,32 @@ describe("contact-worker inbox helpers", () => {
   });
 
   it("handleInboxList returns submissions sorted newest first", async () => {
-    const kv = fakeKv();
-    await kv.put(
-      "submission:contact:1",
-      JSON.stringify({
-        id: "1",
-        formSlug: "contact",
-        submittedAt: "2026-01-01T00:00:00Z",
-      }),
-    );
-    await kv.put(
-      "submission:contact:2",
-      JSON.stringify({
-        id: "2",
-        formSlug: "contact",
-        submittedAt: "2026-02-01T00:00:00Z",
-      }),
-    );
-    const env = { SUBMISSIONS: kv, INBOX_SECRET: "s" } as never;
+    const db = fakeD1();
+    db.rows.push({
+      id: "1",
+      form_slug: "contact",
+      form_title: "Contact",
+      submitted_at: "2026-01-01T00:00:00Z",
+      submitted_at_ms: Date.parse("2026-01-01T00:00:00Z"),
+      status: "new",
+      sender_name: null,
+      sender_email: null,
+      ip: null,
+      payload: "[]",
+    });
+    db.rows.push({
+      id: "2",
+      form_slug: "contact",
+      form_title: "Contact",
+      submitted_at: "2026-02-01T00:00:00Z",
+      submitted_at_ms: Date.parse("2026-02-01T00:00:00Z"),
+      status: "new",
+      sender_name: null,
+      sender_email: null,
+      ip: null,
+      payload: "[]",
+    });
+    const env = { INBOX_DB: db, INBOX_SECRET: "s" } as never;
     const res = await handleInboxList(
       new Request("https://example.workers.dev/inbox", {
         headers: { Authorization: "Bearer s" },
@@ -146,12 +232,20 @@ describe("contact-worker inbox helpers", () => {
   });
 
   it("handleInboxList signals 503 when no INBOX_SECRET is set", async () => {
-    const kv = fakeKv();
+    const db = fakeD1();
     const res = await handleInboxList(
       new Request("https://example.workers.dev/inbox"),
-      { SUBMISSIONS: kv } as never,
+      { INBOX_DB: db } as never,
     );
     expect(res.status).toBe(503);
+  });
+
+  it("handleInboxList signals 501 when no INBOX_DB binding is present", async () => {
+    const res = await handleInboxList(
+      new Request("https://example.workers.dev/inbox"),
+      { INBOX_SECRET: "s" } as never,
+    );
+    expect(res.status).toBe(501);
   });
 });
 
@@ -305,7 +399,7 @@ describe("inbox skill artifacts", () => {
     expect(pkg.scripts["ai-inbox-export"]).toContain("export-submissions.ts");
   });
 
-  it("documents the KV binding in both wrangler tomls", () => {
+  it("documents the D1 binding in both wrangler tomls", () => {
     const contact = readFileSync(
       resolve(templateDir, "worker/wrangler.toml"),
       "utf-8",
@@ -314,7 +408,19 @@ describe("inbox skill artifacts", () => {
       resolve(templateDir, "worker/forms-wrangler.toml"),
       "utf-8",
     );
-    expect(contact).toContain("SUBMISSIONS");
-    expect(forms).toContain("SUBMISSIONS");
+    expect(contact).toContain("INBOX_DB");
+    expect(contact).toContain("d1_databases");
+    expect(forms).toContain("INBOX_DB");
+    expect(forms).toContain("d1_databases");
+  });
+
+  it("ships the schema.sql with the submissions table", () => {
+    const sql = readFileSync(
+      resolve(templateDir, "worker/schema.sql"),
+      "utf-8",
+    );
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS submissions/);
+    expect(sql).toMatch(/idx_form_date/);
+    expect(sql).toMatch(/idx_status_date/);
   });
 });

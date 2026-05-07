@@ -9,9 +9,10 @@ name = "contact-form"
 main = "contact-worker.js"
 compatibility_date = "2024-01-01"
 
-# Workers KV — submissions inbox. The /anglesite:inbox skill creates the
-# namespace and rewrites the id below. Until that runs the worker still
-# operates (email-only) — KV writes are best-effort.
-# [[kv_namespaces]]
-# binding = "SUBMISSIONS"
-# id = "REPLACE_WITH_KV_NAMESPACE_ID"
+# Cloudflare D1 — submissions inbox (ADR-0019). The /anglesite:inbox skill
+# creates the database and rewrites database_id below. Without it the
+# worker still delivers email; D1 writes are best-effort.
+# [[d1_databases]]
+# binding = "INBOX_DB"
+# database_name = "form_submissions"
+# database_id = "REPLACE_WITH_D1_DATABASE_ID"

@@ -92,15 +92,15 @@ describe("contact worker", () => {
     expect(code).toContain("siteverify");
   });
 
-  it("persists submissions to the SUBMISSIONS KV binding when present", () => {
+  it("persists submissions to the INBOX_DB D1 binding when present", () => {
     const code = readFileSync(workerPath, "utf-8");
-    expect(code).toContain("env.SUBMISSIONS");
-    expect(code).toContain("submission:");
+    expect(code).toContain("env.INBOX_DB");
+    expect(code).toContain("INSERT INTO submissions");
   });
 
-  it("treats KV persistence as best-effort (no throw if binding missing)", () => {
+  it("treats D1 persistence as best-effort (no throw if binding missing)", () => {
     const code = readFileSync(workerPath, "utf-8");
-    expect(code).toContain("if (!env.SUBMISSIONS) return false");
+    expect(code).toContain("if (!env.INBOX_DB) return false");
   });
 
   it("guards the inbox endpoint with INBOX_SECRET and timing-safe compare", () => {
