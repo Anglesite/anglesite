@@ -27,6 +27,7 @@ Each SMB file recommends tools specific to that business type. These files cover
 | [shopify-buy-button.md](shopify-buy-button.md) | Full physical product catalog with inventory management dashboard |
 | [paddle.md](paddle.md) | Software licensing, SaaS subscriptions, metered billing |
 | [foss-reputation.md](foss-reputation.md) | Owner asks about open-source or self-hosted review/feedback tools |
+| [giscus.md](giscus.md) | Owner wants blog comments and is comfortable requiring GitHub login |
 
 ## Cross-platform tips
 

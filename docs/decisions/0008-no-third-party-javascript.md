@@ -29,7 +29,7 @@ Third-party JavaScript (analytics, social embeds, chat widgets, ad networks) is 
 
 ## Decision Outcome
 
-Chosen option: "No third-party JavaScript", with seven exceptions:
+Chosen option: "No third-party JavaScript", with eight exceptions:
 
 1. **Cloudflare Web Analytics** — auto-injected by Cloudflare Pages, uses no cookies, collects no personal data, requires zero setup.
 2. **Cloudflare Turnstile** — privacy-respecting CAPTCHA alternative used by the contact form (`/anglesite:contact`). Same vendor as the hosting platform, no cookies, no tracking. Only loaded on the `/contact` page.
@@ -38,6 +38,7 @@ Chosen option: "No third-party JavaScript", with seven exceptions:
 5. **Shopify Buy Button** (`cdn.shopify.com`, `sdks.shopifycdn.com`) — embeddable product cards and checkout for full product catalogs managed in Shopify's admin dashboard. Starting at $5/month. Only loaded on pages with a `ShopifyBuyButton` component.
 6. **Paddle** (`cdn.paddle.com`, `sandbox-cdn.paddle.com`) — checkout overlay for software licensing, SaaS subscriptions, and metered billing. Acts as Merchant of Record (handles global tax compliance). Only loaded on pages with a `PaddleCheckout` component. No visitor tracking beyond the checkout transaction.
 7. **Lemon Squeezy** (`assets.lemonsqueezy.com`) — checkout overlay for digital product sales (downloads, courses, memberships). Acts as Merchant of Record (handles global VAT/sales tax). Alternative to Polar — owner preference determines which is used. Only loaded on pages with a `LemonSqueezyCheckout` component. No visitor tracking beyond the checkout transaction.
+8. **Giscus** (`giscus.app`) — open-source comments widget that stores threads as GitHub Discussions on a public repo the owner controls. Loader script and iframe both load from `giscus.app`. Only loaded on blog post pages, and only when `COMMENTS_PROVIDER=giscus` is set in `.site-config`. No cookies on the parent site; GitHub identity flow happens inside the iframe. Per-post opt-out via `comments: false` in post frontmatter.
 
 All other external scripts are blocked by default, enforced by the Content Security Policy and pre-deploy scans.
 
@@ -58,7 +59,7 @@ npm-installed creative coding libraries (p5.js, Three.js, GSAP, Tone.js, D3.js, 
 
 ### Confirmation
 
-The pre-deploy scan and Content Security Policy are now config-driven (see `template/scripts/csp.ts`). Only providers listed in `.site-config` (`ECOMMERCE_PROVIDER`, `BOOKING_PROVIDER`, `TURNSTILE_SITE_KEY`) are permitted — all others are blocked. The `/anglesite:check` skill verifies the CSP matches the configured providers.
+The pre-deploy scan and Content Security Policy are now config-driven (see `template/scripts/csp.ts`). Only providers listed in `.site-config` (`ECOMMERCE_PROVIDER`, `BOOKING_PROVIDER`, `COMMENTS_PROVIDER`, `TURNSTILE_SITE_KEY`) are permitted — all others are blocked. The `/anglesite:check` skill verifies the CSP matches the configured providers.
 
 ## Pros and Cons of the Options
 
@@ -102,5 +103,6 @@ Preferred privacy-respecting alternatives to common third-party scripts:
 | Google Fonts CDN | System fonts or self-hosted WOFF2 (see ADR-0005) |
 | Live chat widget | Contact form with Cloudflare Worker backend |
 | YouTube embed | Link to video with a thumbnail image |
+| Disqus or Facebook comments | Giscus (GitHub Discussions) — see exception #8 |
 
 Each alternative eliminates a third-party dependency while preserving the functionality the owner needs.
