@@ -13,6 +13,19 @@
 const RATE_LIMIT_SECONDS = 30;
 const recentSubmissions = new Map();
 
+function recordEvent(env, eventType, formName, outcome) {
+  if (!env || !env.ANALYTICS) return;
+  try {
+    env.ANALYTICS.writeDataPoint({
+      blobs: ["subscribe", eventType, formName || "", outcome],
+      doubles: [1],
+      indexes: [env.SITE_DOMAIN || ""],
+    });
+  } catch (err) {
+    console.error("Analytics writeDataPoint failed:", err);
+  }
+}
+
 function isRateLimited(ip) {
   const now = Date.now();
   const last = recentSubmissions.get(ip);
@@ -111,6 +124,7 @@ export default {
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
 
     if (isRateLimited(ip)) {
+      recordEvent(env, "signup", "newsletter", "rate_limited");
       return new Response("Too many requests. Please wait a moment.", {
         status: 429,
         headers: corsHeaders(origin, env.SITE_DOMAIN),
@@ -144,6 +158,7 @@ export default {
     }
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      recordEvent(env, "signup", "newsletter", "validation_error");
       return new Response(
         JSON.stringify({ errors: ["A valid email address is required."] }),
         {
@@ -169,6 +184,7 @@ export default {
     }
 
     if (result.ok) {
+      recordEvent(env, "signup", "newsletter", "ok");
       // For form submissions, redirect to thank you
       if (contentType.includes("application/x-www-form-urlencoded") && origin) {
         return Response.redirect(`${origin}/subscribe/thanks`, 303);
@@ -179,6 +195,15 @@ export default {
       });
     }
 
+    const alreadySubscribed = (result.errors || []).some((e) =>
+      /already subscribed/i.test(String(e)),
+    );
+    recordEvent(
+      env,
+      "signup",
+      "newsletter",
+      alreadySubscribed ? "validation_error" : "upstream_error",
+    );
     return new Response(JSON.stringify({ errors: result.errors }), {
       status: 400,
       headers: { ...corsHeaders(origin, env.SITE_DOMAIN), "Content-Type": "application/json" },

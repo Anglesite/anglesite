@@ -38,6 +38,19 @@ const RATE_LIMIT_SECONDS = 30;
 const RATE_LIMIT_MAX_ENTRIES = 10000;
 const recentSubmissions = new Map();
 
+function recordEvent(env, eventType, formName, outcome) {
+  if (!env || !env.ANALYTICS) return;
+  try {
+    env.ANALYTICS.writeDataPoint({
+      blobs: ["membership", eventType, formName || "", outcome],
+      doubles: [1],
+      indexes: [env.SITE_DOMAIN || ""],
+    });
+  } catch (err) {
+    console.error("Analytics writeDataPoint failed:", err);
+  }
+}
+
 function isRateLimited(ip) {
   const now = Date.now();
   const last = recentSubmissions.get(ip);
@@ -339,9 +352,11 @@ function jsonError(errors, status, origin, siteDomain) {
 async function handleUnlockFree(request, env, origin) {
   const tiers = tiersAllowed(env);
   if (!tiers.has("free")) {
+    recordEvent(env, "unlock", "free", "validation_error");
     return jsonError(["Free tier is not enabled."], 400, origin, env.SITE_DOMAIN);
   }
   if (!env.NEWSLETTER_API_KEY) {
+    recordEvent(env, "unlock", "free", "upstream_error");
     return jsonError(["Newsletter not configured."], 500, origin, env.SITE_DOMAIN);
   }
 
@@ -356,10 +371,12 @@ async function handleUnlockFree(request, env, origin) {
       email = form.get("email");
     }
   } catch {
+    recordEvent(env, "unlock", "free", "validation_error");
     return jsonError(["Invalid request."], 400, origin, env.SITE_DOMAIN);
   }
 
   if (!email || !EMAIL_RE.test(String(email))) {
+    recordEvent(env, "unlock", "free", "validation_error");
     return jsonError(
       ["A valid email address is required."],
       400,
@@ -382,6 +399,7 @@ async function handleUnlockFree(request, env, origin) {
   }
 
   if (!onList) {
+    recordEvent(env, "unlock", "free", "validation_error");
     return jsonError(
       [
         "Email not found on the subscriber list. Please subscribe first, then return to unlock.",
@@ -405,6 +423,8 @@ async function handleUnlockFree(request, env, origin) {
     });
   }
 
+  recordEvent(env, "unlock", "free", "ok");
+
   return new Response(JSON.stringify({ ok: true, tier: "free" }), {
     status: 200,
     headers: {
@@ -418,9 +438,11 @@ async function handleUnlockFree(request, env, origin) {
 async function handleUnlockPaid(request, env, origin) {
   const tiers = tiersAllowed(env);
   if (!tiers.has("paid")) {
+    recordEvent(env, "unlock", "paid", "validation_error");
     return jsonError(["Paid tier is not enabled."], 400, origin, env.SITE_DOMAIN);
   }
   if (!env.STRIPE_SECRET_KEY) {
+    recordEvent(env, "unlock", "paid", "upstream_error");
     return jsonError(["Stripe not configured."], 500, origin, env.SITE_DOMAIN);
   }
 
@@ -428,11 +450,13 @@ async function handleUnlockPaid(request, env, origin) {
   const sessionId =
     url.searchParams.get("session_id") || url.searchParams.get("checkout_session");
   if (!sessionId) {
+    recordEvent(env, "unlock", "paid", "validation_error");
     return jsonError(["Missing session id."], 400, origin, env.SITE_DOMAIN);
   }
 
   const session = await getStripeCheckoutSession(sessionId, env);
   if (!session || session.payment_status !== "paid" || !session.customer) {
+    recordEvent(env, "unlock", "paid", "upstream_error");
     return jsonError(
       ["Could not verify the payment. Please contact support."],
       402,
@@ -459,6 +483,8 @@ async function handleUnlockPaid(request, env, origin) {
   const returnPath = isSafeReturnPath(requestedReturn) ? requestedReturn : "/";
   const redirectTarget = new URL(returnPath, `https://${env.SITE_DOMAIN}`);
 
+  recordEvent(env, "unlock", "paid", "ok");
+
   return new Response(null, {
     status: 303,
     headers: {
@@ -470,7 +496,11 @@ async function handleUnlockPaid(request, env, origin) {
 
 async function handleStripeWebhook(request, env) {
   const event = await verifyStripeWebhook(request, env);
-  if (!event) return new Response("Invalid signature", { status: 400 });
+  if (!event) {
+    recordEvent(env, "webhook", "stripe", "validation_error");
+    return new Response("Invalid signature", { status: 400 });
+  }
+  recordEvent(env, "webhook", event.type || "stripe", "ok");
 
   const customerId =
     event?.data?.object?.customer ||
@@ -613,6 +643,7 @@ export default {
     if (request.method === "POST") {
       const ip = request.headers.get("CF-Connecting-IP") || "unknown";
       if (isRateLimited(ip)) {
+        recordEvent(env, "unlock", "free", "rate_limited");
         return new Response("Too many requests. Please wait a moment.", {
           status: 429,
           headers: corsHeaders(origin, env.SITE_DOMAIN),

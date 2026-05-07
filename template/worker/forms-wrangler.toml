@@ -16,3 +16,10 @@ compatibility_date = "2024-09-23"
 # binding = "INBOX_DB"
 # database_name = "form_submissions"
 # database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# Analytics Engine — conversion events (form submits, errors). The shared
+# `anglesite_events` dataset is queried by /anglesite:stats. Writes are
+# best-effort; the worker still functions if the binding is absent.
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "anglesite_events"
