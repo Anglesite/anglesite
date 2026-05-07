@@ -27,3 +27,6 @@ Thumbs.db
 
 # annotation feedback (runtime data)
 annotations.json
+
+# Anglesite skill audit trails (local-only)
+.anglesite/

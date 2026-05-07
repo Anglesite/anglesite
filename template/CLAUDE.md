@@ -53,6 +53,7 @@ Step-by-step guides for common operations:
 | Convert an SSG project | `docs/workflows/convert.md` |
 | Set up a contact form | `docs/workflows/contact.md` |
 | Build a custom form (RSVP, lead, survey, callback) | `docs/workflows/forms.md` |
+| Form submissions inbox in Keystatic | `docs/workflows/inbox.md` |
 | Back up to GitHub | `docs/workflows/backup.md` |
 | Social media syndication | `docs/workflows/syndicate.md` |
 | Site analytics | `docs/workflows/stats.md` |
@@ -72,6 +73,7 @@ Step-by-step guides for common operations:
 | Photography shot list | See `/anglesite:photography` skill |
 | Restaurant menu (import, create, edit) | `docs/workflows/menu.md` |
 | Feedback annotations | `docs/workflows/annotations.md` |
+| Privacy / cookie consent | `docs/workflows/consent.md` |
 
 ## Communicating clearly
 
@@ -264,6 +266,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Export the site for self-host or migration | `/anglesite:export` |
 | Set up a contact form | `/anglesite:contact` |
 | Build a custom form (RSVP, lead, survey, callback) | `/anglesite:forms` |
+| Browse and triage submissions in the CMS | `/anglesite:inbox` |
 | Save work to GitHub | `/anglesite:backup` |
 | See site analytics | `/anglesite:stats` |
 | Set up email newsletter | `/anglesite:newsletter` |
@@ -272,7 +275,11 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Get a photography shot list | `/anglesite:photography` |
 | Add on-site search | `/anglesite:search` |
 | Add ecommerce | `/anglesite:add-store` |
+| Accept donations (Stripe, Liberapay, GitHub Sponsors) | `/anglesite:donations` |
 | Create or import a restaurant menu | `/anglesite:menu` |
+| Manage URL redirects (rename, migrate, bulk import) | `/anglesite:redirects` |
+| Add blog comments (Giscus + GitHub Discussions) | `/anglesite:giscus` |
+| Add a cookie / privacy consent banner | `/anglesite:consent` |
 | Add a paywall (free or paid members) | `/anglesite:membership` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.

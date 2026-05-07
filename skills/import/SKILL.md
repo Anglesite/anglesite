@@ -749,6 +749,15 @@ Add trailing-slash redirects as needed:
 
 Write the updated `_redirects` file, preserving all existing rules and comments.
 
+For every rule appended in this step, also append a row to `.anglesite/url-map.csv`
+(create the directory and file if missing) so `/anglesite:redirects review` can
+walk the owner through what was added. The format is `from,to,status,note,source`.
+Use `import:<platform>` for the `source` column (e.g., `import:wordpress`,
+`import:wix`) and a short `note` describing why the rule was added — common
+values are `platform-rename`, `wix-opaque-slug`, `date-permalink-collapse`, and
+`app-page-placeholder` (302s pointing at `/` for booking, store, events, etc.,
+which the owner should revisit once they pick a replacement tool).
+
 ## Step 5.5 — Apply design tokens (Playwright only)
 
 If Playwright was used and design tokens were extracted from the homepage in

@@ -92,10 +92,21 @@ describe("contact worker", () => {
     expect(code).toContain("siteverify");
   });
 
-  it("does not store submissions", () => {
+  it("persists submissions to the SUBMISSIONS KV binding when present", () => {
     const code = readFileSync(workerPath, "utf-8");
-    // No KV, D1, or R2 bindings — forward and discard
-    expect(code).not.toMatch(/\.put\(|\.insert\(|KV_NAMESPACE|D1_DATABASE|R2_BUCKET/i);
+    expect(code).toContain("env.SUBMISSIONS");
+    expect(code).toContain("submission:");
+  });
+
+  it("treats KV persistence as best-effort (no throw if binding missing)", () => {
+    const code = readFileSync(workerPath, "utf-8");
+    expect(code).toContain("if (!env.SUBMISSIONS) return false");
+  });
+
+  it("guards the inbox endpoint with INBOX_SECRET and timing-safe compare", () => {
+    const code = readFileSync(workerPath, "utf-8");
+    expect(code).toContain("INBOX_SECRET");
+    expect(code).toContain("timingSafeEqual");
   });
 
   it("does not fall back to wildcard CORS origin", () => {

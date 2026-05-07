@@ -5,7 +5,7 @@ allowed-tools: Bash(npm run build), Bash(npx wrangler *), Bash(npx astro check),
 disable-model-invocation: true
 ---
 
-Set up a contact form that forwards messages to the owner's email. Uses a Cloudflare Worker backend with Turnstile spam protection. No data is stored — messages are forwarded and discarded.
+Set up a contact form that forwards messages to the owner's email. Uses a Cloudflare Worker backend with Turnstile spam protection. By default no data is stored — messages are forwarded and discarded. To also persist them to a browseable inbox in Keystatic, run `/anglesite:inbox` after this skill completes.
 
 ## Architecture decisions
 
@@ -111,4 +111,4 @@ If the build succeeds, tell the owner: "Your contact form is ready! Here's what 
 
 Tell the owner: "You can try it out on your preview site. Run `/anglesite:deploy` when you're ready to publish it."
 
-Suggest adding a link to the contact page in their site navigation (header or footer).
+Suggest adding a link to the contact page in their site navigation (header or footer). If they want a copy of every submission accessible inside the CMS instead of digging through email, run `/anglesite:inbox` to add a Keystatic inbox view (KV-backed; works for both contact and `/anglesite:forms`).
