@@ -2,7 +2,7 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx pa11y-ci *), Bash(npx tsx scripts/link-check.ts *), Bash(npx tsx scripts/a11y-audit.ts *), Bash(npx tsx scripts/a14y-audit.ts *), Bash(npx a14y *), Bash(a14y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob, mcp__cloudflare__accounts_list
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx pa11y-ci *), Bash(npx tsx scripts/link-check.ts *), Bash(npx tsx scripts/a11y-audit.ts *), Bash(npx tsx scripts/a14y-audit.ts *), Bash(npx a14y *), Bash(a14y *), Bash(grep *), Bash(find dist/ *), Bash(stat *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__workers_list, mcp__cloudflare__workers_get_worker, mcp__cloudflare__workers_get_worker_code
 disable-model-invocation: true
 ---
 
@@ -135,6 +135,58 @@ Read `CLOUDFLARE_ACCOUNT_ID` from `.site-config`. If set, call `mcp__cloudflare_
 - If `CLOUDFLARE_ACCOUNT_ID` is unset (older sites set up before this check), suggest running `/anglesite:deploy` once so the picker can lock the site to a specific account.
 
 This check is informational — never block the audit on it. Owners often switch accounts intentionally during the workday.
+
+## Deployed worker drift
+
+Local checks confirm the source compiles — they can't see what's actually running on Cloudflare. When an owner reports "the contact form isn't sending email" or "subscribers aren't being added," the most common cause is local edits that were never deployed. This section verifies each Cloudflare Worker the site uses against its deployed counterpart.
+
+Run this only if `CLOUDFLARE_ACCOUNT_ID` is set in `.site-config` and the active account matches it (see "Cloudflare account alignment" above). If accounts don't match, skip this section — calling Workers APIs against the wrong account would produce misleading results. If `CLOUDFLARE_ACCOUNT_ID` is unset, skip silently.
+
+### Step 1 — Build the expected-worker list
+
+Walk `worker/` for the wrangler config files that ship with this site. Each maps to a deployed Worker name:
+
+| Local config | Deployed Worker name | Skill |
+|---|---|---|
+| `worker/wrangler.toml` | `contact-form` | contact |
+| `worker/forms-wrangler.toml` | `forms-handler` | forms |
+| `worker/subscribe-wrangler.toml` | `newsletter-subscribe` | newsletter |
+| `worker/membership-wrangler.toml` | `anglesite-membership` | membership |
+| `worker/wrangler-ecommerce.toml` | `ecommerce-webhooks` | add-store |
+| `worker/review-wrangler.toml` | `review-form` | testimonials |
+
+Read the `name = "..."` field from each `.toml` rather than hard-coding — owners may have renamed a Worker. Skip configs that don't exist locally; the owner hasn't enabled that feature.
+
+For each expected Worker, also note the matching local source file (e.g. `worker/contact-worker.js`, `worker/forms-worker.js`). The source file is what `workers_get_worker_code` will be diffed against.
+
+### Step 2 — Verify deployment
+
+Call `mcp__cloudflare__workers_list` once. For each expected Worker, check whether its name is in the returned list:
+
+- **Missing entirely** — flag as "Worth fixing soon": "Your contact form code exists in the project, but it hasn't been published to Cloudflare yet. Run `/anglesite:deploy` to publish it."
+- **Present** — continue to Step 3.
+
+### Step 3 — Check freshness and drift
+
+For each Worker that is present, call `mcp__cloudflare__workers_get_worker` to read deployment metadata (last-modified timestamp, route bindings). Compare:
+
+1. **Local source mtime vs. deployed `modified_on`** — if the local `.js` file was edited *after* the last deploy, the deployed version is stale. Use `stat` to get the local mtime.
+2. **Deployed source vs. local source** — call `mcp__cloudflare__workers_get_worker_code` and compare against the local `.js` file. Treat them as a match if the strings are byte-identical after trimming trailing whitespace; otherwise flag as drifted.
+
+### Step 4 — Present findings
+
+Report one bullet per expected Worker, using the existing severity vocabulary. Keep it boolean — owners don't need a diff:
+
+| State | Severity | Plain-language framing |
+|---|---|---|
+| Worker missing on account | Worth fixing soon | "Your [feature] hasn't been published to Cloudflare yet. Run `/anglesite:deploy` to publish it." |
+| Local newer than deployed | Worth fixing soon | "You changed your [feature] code on [date], but the live version is still from [earlier date]. Re-run `/anglesite:deploy` to publish your changes." |
+| Code differs, mtimes match | Worth fixing soon | "The live version of your [feature] doesn't match what's in your project. Re-run `/anglesite:deploy` to bring them back in sync." |
+| Up to date | All good | (include in scorecard, no separate bullet) |
+
+Map "[feature]" to plain language — `contact-form` → "contact form", `newsletter-subscribe` → "newsletter signup", `forms-handler` → "custom forms", `anglesite-membership` → "members area", `ecommerce-webhooks` → "store order tracker", `review-form` → "review form."
+
+This check is **read-only.** Never call any Workers write tool from here, and never offer to "fix" drift by editing the deployed code — the only safe remediation is `/anglesite:deploy`.
 
 ## Privacy audit
 - [ ] No customer PII in `dist/` (emails, phone numbers, names)
