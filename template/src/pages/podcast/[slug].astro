@@ -22,6 +22,18 @@ const audioSrc = /^https?:\/\//.test(episode.data.audioUrl)
   ? episode.data.audioUrl
   : new URL(episode.data.audioUrl, Astro.site).toString();
 
+function youtubeId(url?: string): string | undefined {
+  if (!url) return undefined;
+  // Matches https://www.youtube.com/watch?v=XXXX, https://youtu.be/XXXX,
+  // and https://www.youtube.com/embed/XXXX. Returns the 11-char video id.
+  const m =
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/.exec(
+      url,
+    );
+  return m ? m[1] : undefined;
+}
+const ytId = youtubeId(episode.data.youtubeUrl);
+
 function isoDuration(d?: string): string | undefined {
   if (!d) return undefined;
   const parts = d.split(":").map((n) => parseInt(n, 10));
@@ -103,6 +115,20 @@ const episodeJsonLd = {
       title={episode.data.title}
     />
 
+    {ytId && (
+      <figure class="episode__video">
+        <iframe
+          class="episode__video-iframe"
+          src={`https://www.youtube-nocookie.com/embed/${ytId}`}
+          title={`Video: ${episode.data.title}`}
+          loading="lazy"
+          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+          referrerpolicy="strict-origin-when-cross-origin"
+        ></iframe>
+      </figure>
+    )}
+
     <p class="episode__subscribe">
       <a href="/podcast/subscribe/">Subscribe</a> ·
       <a href={audioSrc} download>Download audio</a>
@@ -125,6 +151,15 @@ const episodeJsonLd = {
   .episode__subscribe {
     margin: 0.5rem 0 1.5rem;
     font-size: 0.9rem;
+  }
+  .episode__video {
+    margin: 0 0 1.5rem;
+    aspect-ratio: 16 / 9;
+  }
+  .episode__video-iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
   }
   .episode__notes :global(h2),
   .episode__notes :global(h3) {

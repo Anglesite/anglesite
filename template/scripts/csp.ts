@@ -24,6 +24,9 @@ export interface SiteProviders {
   ecommerce?: "stripe" | "polar" | "snipcart" | "shopify" | "paddle" | "lemonsqueezy";
   booking?: BookingProvider;
   turnstile: boolean;
+  /** When set, the podcast skill embeds a privacy-respecting YouTube iframe
+   *  on episode pages. `.site-config` key: `PODCAST_VIDEO=youtube`. */
+  podcastVideo?: "youtube";
 }
 
 /** CSP directives as arrays of domains per directive */
@@ -56,6 +59,13 @@ export function buildTurnstileCSP(): CSPDirectives {
   };
 }
 
+/** CSP directives for the podcast YouTube embed (privacy-respecting nocookie). */
+export function buildPodcastYouTubeCSP(): CSPDirectives {
+  return {
+    "frame-src": ["www.youtube-nocookie.com"],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Config parser
 // ---------------------------------------------------------------------------
@@ -69,11 +79,15 @@ export function parseProviders(configContent: string): SiteProviders {
     | BookingProvider
     | undefined;
   const turnstileKey = readConfigFromString(configContent, "TURNSTILE_SITE_KEY");
+  const podcastVideo = readConfigFromString(configContent, "PODCAST_VIDEO") as
+    | SiteProviders["podcastVideo"]
+    | undefined;
 
   return {
     ecommerce,
     booking,
     turnstile: !!turnstileKey,
+    podcastVideo,
   };
 }
 
@@ -125,6 +139,11 @@ export function buildCSP(providers: SiteProviders): string {
   // Turnstile
   if (providers.turnstile) {
     providerCSPs.push(buildTurnstileCSP());
+  }
+
+  // Podcast video embed
+  if (providers.podcastVideo === "youtube") {
+    providerCSPs.push(buildPodcastYouTubeCSP());
   }
 
   const extra = mergeDirectives(...providerCSPs);

@@ -5,7 +5,7 @@ allowed-tools: Bash(npm run build), Bash(npm run dev), Read, Write, Edit, Glob, 
 disable-model-invocation: true
 ---
 
-Stand up first-class podcast support: a Keystatic `episodes` collection, an RSS 2.0 feed with the iTunes and Podcast Index namespaces, episode pages with an embedded vanilla audio player, transcripts with anchored timestamps, and a submission checklist for the major directories.
+Stand up first-class podcast support: a Keystatic `episodes` collection, an RSS 2.0 feed with the iTunes and Podcast Index namespaces, episode pages with an embedded vanilla audio player, transcripts with anchored timestamps, optional YouTube video embed per episode, and a submission checklist for the major directories.
 
 ## Architecture decisions
 
@@ -127,8 +127,23 @@ Walk the owner through filling in the first episode. Frame the questions plainly
 - **Episode type** — `full`, `trailer`, or `bonus`
 - **Explicit?** — defaults to the show-level setting
 - **Guests** — names only (free-text). Frame as "Who's on this episode?" — guest contact info doesn't go in the episode file.
+- **YouTube URL** — optional. If the owner uploads a video version of the episode to YouTube, paste the watch URL here. The episode page will embed a privacy-respecting `youtube-nocookie` iframe under the audio player. See Step 4b.
 
 Write the file at `src/content/episodes/<slug>.mdoc`. The body of the file is the **show notes and transcript** — this is the SEO-critical part. See Step 5.
+
+### 4b. Video version (optional)
+
+Ask the owner: "Do you also publish video versions of episodes — on YouTube, Spotify, or both? More podcasts are doing this for the discovery boost."
+
+If yes:
+
+1. Set `PODCAST_VIDEO=youtube` in `.site-config`. This adds `www.youtube-nocookie.com` to the site's `frame-src` CSP and updates `public/_headers` on the next build.
+2. Paste the YouTube watch URL into each episode's `youtubeUrl` field. The skill embeds the player on the episode page automatically.
+3. Tell the owner about Spotify's video path: in Spotify for Podcasters, upload the MP4 file to the matching episode after RSS publication. Spotify joins the audio (from RSS) and the video (uploaded directly) on its side. Apple Podcasts supports video via RSS (`<enclosure type="video/mp4">`) but most owners use the YouTube + Spotify direct-upload combo instead — this skill ships the audio-first RSS path.
+
+Trade-offs to surface:
+- YouTube embeds are a third-party iframe. Even on `youtube-nocookie`, viewers' interactions are visible to YouTube. Some owners prefer to leave the YouTube link in the show notes instead of embedding.
+- The audio enclosure in RSS still wins for downloads, offline listening, and most podcast apps. Video is for discovery.
 
 ## Step 5 — Show notes and transcripts
 
@@ -209,7 +224,8 @@ After the first deploy, walk the owner through directory submissions. **Submit o
 - [ ] **Overcast** — Overcast pulls from Apple Podcasts; submitting to Apple is sufficient. Once the show appears in Overcast, save the URL as `PUBLIC_PODCAST_OVERCAST_URL=…`.
 - [ ] **Pocket Casts** — submit at <https://www.pocketcasts.com/submit/>. Save the URL as `PUBLIC_PODCAST_POCKETCASTS_URL=…`.
 - [ ] **Podcast Index** — submit at <https://podcastindex.org/add>. The open directory underpinning Podcasting 2.0 apps. Save the URL as `PUBLIC_PODCAST_INDEX_URL=…`.
-- [ ] **YouTube** (optional) — separate from RSS. The owner uploads the audio (with cover art as a static video, or as a real video recording) directly. YouTube is a major podcast discovery surface.
+- [ ] **YouTube** (optional) — separate from RSS. The owner uploads the audio (with cover art as a static video, or as a real video recording) directly. YouTube is a major podcast discovery surface. Once a video is up, paste the watch URL into the episode's `youtubeUrl` field to embed it on the website.
+- [ ] **Spotify video** (optional) — Spotify for Podcasters lets the owner attach an MP4 to an existing audio episode. Spotify pulls the audio from RSS and the video from this direct upload. Worth the extra step — Spotify pushes video shows in the app.
 
 After saving the platform URLs to `.env`, redeploy so `/podcast/subscribe/` shows direct links instead of the platform homepages.
 

@@ -289,6 +289,10 @@ const episodes = defineCollection({
     image: z.string().optional(),
     /** Alt text for the episode image. */
     imageAlt: z.string().optional(),
+    /** Optional YouTube video URL (full watch URL or short youtu.be link).
+     *  When set, the episode page embeds a privacy-respecting youtube-nocookie
+     *  iframe alongside the audio player. */
+    youtubeUrl: z.string().optional(),
     /** When true, excluded from the build and the RSS feed. */
     draft: z.boolean().default(false),
   }),

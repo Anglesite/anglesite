@@ -456,6 +456,11 @@ const allCollections: Record<string, ReturnType<typeof collection>> = {
           description: "Path relative to public/ — falls back to show artwork if empty",
         }),
         imageAlt: fields.text({ label: "Artwork Alt Text" }),
+        youtubeUrl: fields.text({
+          label: "YouTube URL",
+          description:
+            "Optional. Full watch URL (https://www.youtube.com/watch?v=…) or short link (https://youtu.be/…). Embeds a privacy-respecting video player on the episode page.",
+        }),
         draft: fields.checkbox({
           label: "Draft",
           description: "Drafts are excluded from the site and the RSS feed",
