@@ -1,0 +1,83 @@
+---
+/**
+ * Giscus comments widget — renders blog post comments backed by GitHub
+ * Discussions.
+ *
+ * Generated and configured by /anglesite:giscus. The skill populates the
+ * props from the owner's repository configuration. Storage, moderation,
+ * and spam handling live in GitHub — no additional service is needed.
+ */
+interface Props {
+  /** GitHub repo in `owner/repo` form (must have Discussions enabled) */
+  repo: string;
+  /** Repository ID from the giscus.app generator */
+  repoId: string;
+  /** Discussion category name (e.g., "Comments") */
+  category: string;
+  /** Category ID from the giscus.app generator */
+  categoryId: string;
+  /** How posts map to discussions */
+  mapping?: "pathname" | "url" | "title" | "og:title";
+  /** "0" to hide reactions on the parent discussion, "1" to show */
+  reactionsEnabled?: "0" | "1";
+  /** "specific" reactions-only mode disables the comment box */
+  inputPosition?: "top" | "bottom";
+  /** Theme to match the site — `preferred_color_scheme` follows the visitor's OS */
+  theme?: "light" | "dark" | "preferred_color_scheme" | string;
+  /** BCP-47 language code (e.g., "en", "es") */
+  lang?: string;
+  /** When true, renders only reactions (no comment thread) */
+  reactionsOnly?: boolean;
+}
+
+const {
+  repo,
+  repoId,
+  category,
+  categoryId,
+  mapping = "pathname",
+  reactionsEnabled = "1",
+  inputPosition = "bottom",
+  theme = "preferred_color_scheme",
+  lang = "en",
+  reactionsOnly = false,
+} = Astro.props;
+---
+
+<section class="comments" aria-label="Comments">
+  <h2>Comments</h2>
+  <noscript>
+    <p>Comments require JavaScript. You can join the discussion on
+      <a href={`https://github.com/${repo}/discussions`}>GitHub Discussions</a>.</p>
+  </noscript>
+  <script
+    is:inline
+    src="https://giscus.app/client.js"
+    data-repo={repo}
+    data-repo-id={repoId}
+    data-category={category}
+    data-category-id={categoryId}
+    data-mapping={mapping}
+    data-strict="0"
+    data-reactions-enabled={reactionsEnabled}
+    data-emit-metadata="0"
+    data-input-position={inputPosition}
+    data-theme={theme}
+    data-lang={lang}
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+    {...(reactionsOnly ? { "data-term": "specific" } : {})}
+  ></script>
+</section>
+
+<style>
+  .comments {
+    margin-block-start: var(--space-xl, 2rem);
+    padding-block-start: var(--space-lg, 1.5rem);
+    border-block-start: 1px solid var(--color-border, #ddd);
+  }
+  .comments h2 {
+    margin-block-end: var(--space-md, 1rem);
+  }
+</style>

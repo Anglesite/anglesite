@@ -708,6 +708,18 @@ patterns:
 
 Write the updated `_redirects` file, preserving all existing rules and comments.
 
+For every rule appended in this step, also append a row to `.anglesite/url-map.csv`
+(create the directory and file if missing) so `/anglesite:redirects review`
+has an audit trail. The format is `from,to,status,note,source` — for example:
+
+```
+/old/slug,/blog/slug,301,platform-rename,convert:hugo
+```
+
+Use `convert:<platform>` for the `source` column (substituting the detected SSG)
+and a short `note` describing why the rule was added (`platform-rename`,
+`alias`, `permalink-override`, etc.).
+
 ## Step 4.5 — Update the homepage
 
 The scaffold placeholder in `src/pages/index.astro` must be replaced with

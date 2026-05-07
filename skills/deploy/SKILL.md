@@ -1,7 +1,7 @@
 ---
 name: deploy
 description: "Build, security scan, and deploy to Cloudflare Pages"
-allowed-tools: Bash(npm run build), Bash(npm run preview *), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npm run ai-a14y *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Bash(kill *), Write, Read
+allowed-tools: Bash(npm run build), Bash(npm run preview *), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npm run ai-a14y *), Bash(npm run ai-perf *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Bash(kill *), Write, Read
 disable-model-invocation: true
 ---
 
@@ -19,6 +19,7 @@ Cloudflare Pages is connected to the GitHub repository. Pushing to `main` trigge
 - [ADR-0013 GitHub backup](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0013-github-backup.md) — why GitHub is required for backup and issue tracking
 - [ADR-0016 Accessibility audits](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0016-accessibility-audits.md) — why the deploy gate is opt-in and warn-only-friendly
 - [ADR-0017 Agent readability audits](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0017-agent-readability-audits.md) — why the a14y deploy gate is driven by `AGENTIC_CRAWLERS` intent rather than a separate opt-in flag
+- [ADR-0018 Performance budgets](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0018-performance-budgets.md) — why the perf gate ships warn-only with static asset budgets and an opt-in Lighthouse upgrade path
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt — tell the owner what you're about to do and why in plain English. If `false`, proceed without pre-announcing tool calls.
 
@@ -183,6 +184,53 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/copy-edit/SKILL.md` and follow it in non-inte
 **No issues block the deploy.** Write findings to `copy-edit-report.md` in the project root and briefly mention to the owner: "I found a few copy improvements you can make later — they're saved in copy-edit-report.md."
 
 If the owner passes `--skip-copy`, skip this step.
+
+## Step 2c — Performance budget (warn-only)
+
+Run the performance budget audit against the built site:
+
+```sh
+npm run ai-perf -- --report perf-report.md --trend perf-trend.json --warn-only
+```
+
+This walks `dist/` and computes the JS + CSS weight referenced by each HTML page, comparing against budgets in `.site-config`:
+
+- `PERF_BUDGET_JS` — total JavaScript per page (default `51200` bytes / 50 KB)
+- `PERF_BUDGET_CSS` — total CSS per page (default `51200` bytes / 50 KB)
+- `PERF_BUDGET_LCP_MS` — Largest Contentful Paint target in ms (default `2500`, only checked when Lighthouse runs)
+- `PERF_BUDGET_CLS` — Cumulative Layout Shift target (default `0.1`, only checked when Lighthouse runs)
+
+Per-template overrides match the first path segment. For example, if a `/lab/*` page uses `creative-canvas` and intentionally ships a heavier bundle, raise just that route's budget:
+
+```
+PERF_BUDGET_JS_LAB=512000
+PERF_BUDGET_CSS_LAB=102400
+```
+
+The script writes:
+
+- `perf-report.md` — human-readable per-page table (committed alongside `seo-report.md`, `a11y-report.md`)
+- `perf-trend.json` — rolling history (last 30 runs) used by `/anglesite:stats` to surface regressions
+
+**1.1 ships warn-only.** Findings never block the deploy. Mention the result to the owner in plain language ("All pages within budget" or "Two pages over the JS budget — saved to perf-report.md"), then continue. Once defaults are tuned (1.2), `PERF_WARN_ONLY=false` will let owners opt into a hard gate.
+
+### Optional: LCP and CLS via Lighthouse
+
+If `PERF_LCP_CLS=true` is set in `.site-config`, also run Lighthouse against the preview server. This requires `npm install -D lighthouse` (one-time). Start the preview server, run the audit, then stop the server:
+
+```sh
+npm run preview -- --port 4321 &
+```
+
+Wait a couple of seconds for it to come up, then run the audit:
+
+```sh
+npm run ai-perf -- --report perf-report.md --trend perf-trend.json --lighthouse --url http://localhost:4321 --warn-only
+```
+
+Then kill the background preview process.
+
+If the owner passes `--skip-perf`, skip this step entirely.
 
 ## Step 2.5 — Preview (first deploy only)
 
