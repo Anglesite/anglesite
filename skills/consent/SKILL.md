@@ -9,7 +9,7 @@ Add a category-based privacy / cookie consent banner. Required before the site c
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — geo detection uses `request.cf.country` from a Pages Function
+- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — geo detection uses `request.cf.country` from a Pages Function
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — when sanctioned exceptions are added (booking, ecommerce, ads), this skill gates them properly
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that triggers a permission prompt. If `false`, proceed without pre-announcing.

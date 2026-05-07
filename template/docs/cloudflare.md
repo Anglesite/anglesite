@@ -1,13 +1,13 @@
 # Cloudflare
 
-## Pages project
+## Worker project
 
-- Project name: stored in `.site-config` as `CF_PROJECT_NAME` (set during first `/anglesite:deploy`)
-- Connected to GitHub via Cloudflare Pages Git integration (dashboard setup)
-- Production branch: `main` — push triggers auto-deploy
-- Preview branches: any non-`main` branch creates a preview at `branch.CF_PROJECT_NAME.pages.dev`
-- Build command: `npm run build && npm run predeploy`
-- Build output: `dist`
+- Project name: stored in `.site-config` as `CF_PROJECT_NAME` (set during first `/anglesite:deploy`) and mirrored as the `name` field in `wrangler.jsonc`
+- Deployed via the `@astrojs/cloudflare` adapter as **Cloudflare Workers Static Assets** (Worker entry + `ASSETS` binding)
+- Production deploys: run `npm run deploy` (which runs `astro build && wrangler deploy`)
+- Preview versions: `npx wrangler versions upload` (does not promote to production)
+- Authentication: `npx wrangler login` once per machine, or set `CLOUDFLARE_API_TOKEN` in `.dev.vars` (gitignored)
+- Build output: `dist/` (with `dist/_worker.js/index.js` as the Worker entry)
 
 ## Custom domain
 
@@ -27,14 +27,14 @@ DNS records are managed via the Cloudflare dashboard or `/anglesite:domain`. The
 
 Typical configuration after domain is on Cloudflare:
 
-- CNAME `www` → `project-name.pages.dev` (auto-created when custom domain is added to Pages project)
+- The Worker custom domain attaches a CNAME (or AAAA for an apex) to the Worker automatically when added under **Workers & Pages → your Worker → Domains & Routes → Add Custom Domain**
 - SSL certificate: provisioned automatically (free)
 - Email records (MX, SPF, DKIM, DMARC) added via `/anglesite:domain`
 - Verification records (Bluesky, Google) added via `/anglesite:domain`
 
 ## Web Analytics
 
-Enabled on the Pages project. Cloudflare auto-injects the beacon script. No additional configuration needed. Privacy-first: no cookies, no personal data collected.
+Cloudflare auto-injects the Web Analytics beacon for sites served by a Worker on a Cloudflare-managed domain. No additional configuration needed. Privacy-first: no cookies, no personal data collected.
 
 Dashboard: `https://dash.cloudflare.com/?to=/:account/web-analytics`
 
@@ -44,11 +44,13 @@ The Cloudflare MCP is provided by the Claude.ai built-in integration (claude.ai 
 
 ## Staging previews
 
-Cloudflare Pages Git integration creates preview deploys for any branch that isn't `main`. The `draft` branch automatically gets a preview at:
+Workers don't auto-create per-branch previews. To preview changes before promoting them to production, use `wrangler versions upload` from a feature branch:
 
-```text
-draft.CF_PROJECT_NAME.pages.dev
+```sh
+npx wrangler versions upload
 ```
+
+Wrangler prints a preview URL of the form `https://<hash>-<project>.<account>.workers.dev`. Share that URL for review. When approved, run `npm run deploy` to promote.
 
 Use previews for:
 
@@ -63,21 +65,45 @@ If a deploy breaks something:
 **Quick rollback via Cloudflare dashboard:**
 
 1. Open the Cloudflare dashboard
-2. Go to **Workers & Pages** → your project → **Deployments**
+2. Go to **Workers & Pages** → your Worker → **Deployments** (or **Versions**)
 3. Find the last working deploy
-4. Click **Rollback to this deploy**
+4. Click **Rollback** (or **Promote** that version back to production)
 
 This instantly reverts the live site. The broken code is still in git — you'll need to fix it and redeploy.
 
+**Rollback via Wrangler CLI:**
+
+```sh
+npx wrangler rollback
+```
+
+Wrangler picks the previous deployment by default; pass `--version-id <id>` to roll back to a specific one.
+
 **Rollback via git:**
-If the issue is in a recent commit, use git revert on `main`, then push to trigger a new deploy:
+If the issue is in a recent commit, use git revert on `draft`, redeploy, then mirror to `main` for backup parity:
+
+```sh
+git checkout draft
+```
+
+```sh
+git revert HEAD
+```
+
+```sh
+npm run deploy
+```
+
+```sh
+git push origin draft
+```
 
 ```sh
 git checkout main
 ```
 
 ```sh
-git revert HEAD
+git merge draft --no-edit
 ```
 
 ```sh
@@ -88,16 +114,14 @@ git push origin main
 git checkout draft
 ```
 
-Also cherry-pick or revert on `draft` so the fix is reflected in the working branch.
-
 **When to use which:**
 
-- **Dashboard rollback** — Immediate fix, site is down or broken, need it fixed in seconds
-- **Git revert** — The code change caused the issue, you want a clean history
+- **Dashboard or `wrangler rollback`** — Immediate fix, site is down or broken, need it fixed in seconds
+- **Git revert + `npm run deploy`** — The code change caused the issue, you want a clean history
 
 ## Security headers
 
-Defined in `public/_headers`. Applied to all routes:
+Defined in `public/_headers`. Cloudflare Workers Static Assets honors `_headers` and `_redirects` files in the assets directory. Applied to all routes:
 
 - `Content-Security-Policy` — only self + Cloudflare Insights
 - `X-Frame-Options: DENY`
@@ -107,10 +131,12 @@ Defined in `public/_headers`. Applied to all routes:
 
 ## Troubleshooting
 
-- **Deploy fails:** Check the Cloudflare Pages build log in the dashboard. Common: build command error, missing dependency.
+- **Deploy fails:** Run `npm run build` locally first to surface the error. Common: missing env binding in `wrangler.jsonc`, build error, missing dependency.
+- **`wrangler deploy` says "not authenticated":** Run `npx wrangler login`, or set `CLOUDFLARE_API_TOKEN` in your shell / `.dev.vars`.
 - **Site not updating:** Cloudflare cache. Wait 1–2 minutes or purge cache in dashboard.
 - **DNS not resolving:** Propagation can take up to 48 hours (usually minutes). Check nameserver configuration.
 - **Domain transfer stuck:** Check email for transfer confirmation from previous registrar. Some registrars require manual approval.
 - **SSL not working:** Cloudflare provisions SSL automatically. If it shows "pending", wait 15 minutes. Check that the domain's DNS is proxied (orange cloud icon in Cloudflare DNS settings).
 - **CSP errors in console:** A script or style is loading from an unapproved domain. Check `_headers`.
-- **Push rejected:** Run `git pull --rebase origin main` (or `draft`) then retry push.
+- **`wrangler.jsonc` name mismatch:** The `name` field must match `CF_PROJECT_NAME` in `.site-config`. Update both if you rename the project.
+- **Pages Functions middleware (`functions/_middleware.ts`) doesn't run:** With Workers Static Assets, the `functions/` directory is no longer invoked. Membership gates and A/B test variant assignment must be ported into the Worker entry. See `/anglesite:membership` and `/anglesite:experiment`.

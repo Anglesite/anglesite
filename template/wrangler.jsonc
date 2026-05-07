@@ -1,0 +1,18 @@
+{
+  // Wrangler configuration for Cloudflare Workers Static Assets deployment.
+  // The `name` is rewritten to match `CF_PROJECT_NAME` from `.site-config`
+  // on the first `/anglesite:deploy`. Update `compatibility_date` only after
+  // checking the Workers compatibility-date docs.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "anglesite-site",
+  "compatibility_date": "2026-03-17",
+  "compatibility_flags": ["global_fetch_strictly_public", "nodejs_compat"],
+  "main": "dist/_worker.js/index.js",
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "dist"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

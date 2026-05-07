@@ -21,6 +21,8 @@ Thumbs.db
 
 # wrangler
 .wrangler
+.dev.vars*
+!.dev.vars.example
 
 # local HTTPS certs
 .certs

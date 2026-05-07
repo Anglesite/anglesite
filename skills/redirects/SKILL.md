@@ -12,7 +12,7 @@ The canonical store is `public/_redirects`. Imports and SSG conversions stage th
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — `_redirects` is Cloudflare Pages' native redirect mechanism (no Worker required, edge-evaluated)
+- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — `_redirects` is Cloudflare Pages' native redirect mechanism (no Worker required, edge-evaluated)
 - [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — redirects are stored as plain text in the owner's repo, not in a third-party service
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain in plain English before editing files. If `false`, proceed without pre-announcing.

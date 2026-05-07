@@ -14,6 +14,7 @@ import react from "@astrojs/react";
 import markdoc from "@astrojs/markdoc";
 import keystatic from "@keystatic/astro";
 import sitemap from "@astrojs/sitemap";
+import cloudflare from "@astrojs/cloudflare";
 import anglesiteToolbar from "./src/integrations/anglesite-toolbar";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -80,4 +81,5 @@ export default defineConfig({
         },
       }
     : {},
+  adapter: cloudflare(),
 });

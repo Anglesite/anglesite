@@ -37,7 +37,7 @@ The owner trusts you to deliver working changes. Verifying your own work before 
 
 ## Stack
 
-Astro 5 · Keystatic CMS · TypeScript strict · Cloudflare Pages · Web Analytics
+Astro 5 · Keystatic CMS · TypeScript strict · Cloudflare Workers (Static Assets) · Web Analytics
 
 ## Workflows
 
@@ -187,7 +187,7 @@ The owner owns everything (code, domain, content, hosting). They can switch deve
 
 All day-to-day work happens on the `draft` branch. The `main` branch is production-only — it's updated by merging `draft` during `/anglesite:deploy`.
 
-- Push to `draft` → backup to GitHub + Cloudflare preview deploy at `draft.CF_PROJECT_NAME.pages.dev`
+- Push to `draft` → off-site backup to GitHub. Preview deploys are on demand via `npx wrangler versions upload` (see `/anglesite:deploy`).
 - Push to `main` → Cloudflare production deploy (triggered automatically by Git integration)
 
 Never commit directly to `main`. Always work on `draft` and merge via the deploy workflow.
