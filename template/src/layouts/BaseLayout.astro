@@ -38,6 +38,13 @@ const siteName =
   configContent.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "My Website";
 const generator = `Anglesite ${version} (${aiModel}, ${Astro.generator})`;
 
+// Cloudflare Web Analytics beacon. Injected at build time when
+// `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config` — populated by
+// `/anglesite:stats` once Web Analytics is enabled for the site.
+const webAnalyticsToken = configContent
+  .match(/^CF_WEB_ANALYTICS_TOKEN=(.+)$/m)?.[1]
+  ?.trim();
+
 const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
 ---
 
@@ -81,6 +88,15 @@ const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
     <style is:global>
       @import "../styles/global.css";
     </style>
+
+    {webAnalyticsToken && (
+      <script
+        is:inline
+        defer
+        src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon={`{"token": "${webAnalyticsToken}"}`}
+      />
+    )}
   </head>
   <body>
     <a href="#main" class="skip-link">Skip to content</a>

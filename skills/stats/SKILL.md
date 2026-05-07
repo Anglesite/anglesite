@@ -1,7 +1,7 @@
 ---
 name: stats
 description: "Show site analytics in plain language"
-allowed-tools: Bash(curl *), Bash(grep *), Bash(git log *), Bash(cat perf-trend.json), Write, Read, Glob
+allowed-tools: Bash(curl *), Bash(grep *), Bash(git log *), Bash(cat perf-trend.json), Write, Edit, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -10,7 +10,7 @@ Fetch Cloudflare analytics data and present it as a plain-language summary. No d
 ## Architecture decisions
 
 - [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — why Cloudflare (includes free, cookieless analytics)
-- [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — why only Cloudflare Analytics (auto-injected, privacy-respecting)
+- [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — why only Cloudflare Analytics (privacy-respecting, injected by the Anglesite layouts when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config`)
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt. If `false`, proceed without pre-announcing.
 
@@ -20,11 +20,11 @@ Cloudflare exposes three unrelated analytics datasets and the skill must pick th
 
 | Source | Dataset | Beacon? | Permission | Filter | Available when |
 |---|---|---|---|---|---|
-| **Web Analytics RUM** | `rumPageloadEventsAdaptiveGroups` | Yes (`static.cloudflareinsights.com/beacon.min.js`, auto-injected by Pages) | **Account → Analytics → Read** | `siteTag` + `accountTag` | Always, for any Pages-deployed Anglesite site |
+| **Web Analytics RUM** | `rumPageloadEventsAdaptiveGroups` | Yes (`static.cloudflareinsights.com/beacon.min.js`, injected by `BaseLayout`/`KioskLayout`/`ImmersiveLayout` when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config`) | **Account → Analytics → Read** | `siteTag` + `accountTag` | After the owner enables Web Analytics for the site and the token is written to `.site-config` (this skill walks them through it on first run) |
 | **Zone HTTP analytics** | `httpRequests1dGroups` / `httpRequestsAdaptiveGroups` | No — derived from edge logs | **Zone → Analytics → Read** | `zoneTag` | Only when the custom domain runs through Cloudflare DNS proxied (orange cloud) |
 | **Anglesite events (Analytics Engine)** | `anglesite_events` | No — written from helper Workers | **Account → Analytics Engine → Read** | `dataset='anglesite_events'`, optionally `index1=<site domain>` | When at least one helper Worker (contact, forms, membership, review, subscribe, ecommerce) is deployed |
 
-Default to Web Analytics RUM for traffic. Fall back to zone HTTP only when RUM is unreachable and a proxied zone exists. The `anglesite_events` dataset is independent of both — it surfaces *conversions* (form submits, signups, unlocks) and is queried alongside the traffic source.
+Default to Web Analytics RUM for traffic once the token is wired up — it's the more accurate dataset and works regardless of DNS setup. The Anglesite layouts emit the beacon `<script>` whenever `CF_WEB_ANALYTICS_TOKEN` is present in `.site-config`. Fall back to zone HTTP only when RUM is unreachable and a proxied zone exists. The `anglesite_events` dataset is independent of both — it surfaces *conversions* (form submits, signups, unlocks) and is queried alongside the traffic source.
 
 When presenting numbers, always tell the owner which source they're seeing — the datasets count different things and the totals will not match.
 
@@ -54,6 +54,8 @@ Free Cloudflare accounts include 10M Analytics Engine writes per month and a 30-
 ## Step 0 — Check prerequisites
 
 Read `.env` for `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_WEB_ANALYTICS_SITE_TAG`, and (optional) `CF_ZONE_ID`. The scaffolded project ships a `.env.example` that lists these keys with comments — copy or create `.env` from it on first run if it doesn't exist yet.
+
+Also read `.site-config` for `CF_WEB_ANALYTICS_TOKEN`. This is the public beacon token (the same value as `CF_WEB_ANALYTICS_SITE_TAG`, just stored in the committed config so the layouts can inject the beacon at build time). It is safe to commit — every visitor sees it in the page HTML anyway. If it is missing, the site is currently not reporting any beacon hits and this skill will guide the owner through enabling Web Analytics before falling back to zone HTTP.
 
 ### Token creation (one-time)
 
@@ -95,7 +97,7 @@ Save to `.env` as `CF_ACCOUNT_ID=account-id`.
 
 ### Web Analytics site tag
 
-If `CF_WEB_ANALYTICS_SITE_TAG` is missing, list the account's Web Analytics sites and pick the one whose host matches `SITE_DOMAIN` (or, if no custom domain is set yet, the Pages preview hostname).
+If `CF_WEB_ANALYTICS_SITE_TAG` is missing, list the account's Web Analytics sites and pick the one whose host matches `SITE_DOMAIN` (or, if no custom domain is set yet, the `*.workers.dev` preview hostname).
 
 ```sh
 CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
@@ -108,9 +110,11 @@ curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/rum/site_i
   -H "Authorization: Bearer $CF_API_TOKEN" | jq -r --arg host "$SITE_DOMAIN" '.result[] | select(.host == $host) | .site_tag'
 ```
 
-If the response is empty, the Pages project hasn't enabled Web Analytics yet. Tell the owner: "Cloudflare Web Analytics isn't enabled on your Pages project yet. Open `https://dash.cloudflare.com/?to=/:account/web-analytics`, click 'Add a site', pick the Pages project, and re-run `/anglesite:stats`." Do not proceed with RUM in this case — fall through to zone HTTP if available.
+If the response is empty, Web Analytics isn't enabled for this site yet. Tell the owner: "Cloudflare Web Analytics isn't enabled for your site yet. Open `https://dash.cloudflare.com/?to=/:account/web-analytics`, click 'Add a site', enter your site's hostname (`SITE_DOMAIN` or your `*.workers.dev` preview), and re-run `/anglesite:stats`. The beacon snippet itself is already wired into your Astro layouts — we just need the token." Do not proceed with RUM in this case — fall through to zone HTTP if available.
 
-Save the site tag to `.env` as `CF_WEB_ANALYTICS_SITE_TAG=tag-value`.
+Save the site tag to `.env` as `CF_WEB_ANALYTICS_SITE_TAG=tag-value`, and **also** to `.site-config` as `CF_WEB_ANALYTICS_TOKEN=tag-value`. The layouts (`BaseLayout.astro`, `KioskLayout.astro`, `ImmersiveLayout.astro`) read `CF_WEB_ANALYTICS_TOKEN` at build time and inject `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"…"}'></script>` into the `<head>` — without the token, no real-browser hits reach the RUM dataset. Use the **Edit** or **Write** tool to update `.site-config` — the value is public and safe to commit.
+
+After saving the token, remind the owner: "Your next deploy will start sending real-browser hits to Cloudflare. The numbers below will look thin until traffic builds up — usually a day or two."
 
 ### Zone ID (optional fallback)
 
@@ -131,7 +135,7 @@ Determine which dataset to query. In order of preference:
 
 1. **Web Analytics RUM** — use this if `CF_WEB_ANALYTICS_SITE_TAG` and `CF_ACCOUNT_ID` are both set.
 2. **Zone HTTP analytics** — fall back to this if RUM is unavailable and `CF_ZONE_ID` is set.
-3. **Neither available** — explain to the owner: "I couldn't reach either Cloudflare analytics dataset. Your Pages project either doesn't have Web Analytics enabled yet or the API token is missing the right permission. Run `/anglesite:check` and revisit Step 0 above."
+3. **Neither available** — explain to the owner: "I couldn't reach either Cloudflare analytics dataset. Either Web Analytics isn't enabled for your site yet, the beacon token isn't wired into `.site-config`, or the API token is missing the right permission. Run `/anglesite:check` and revisit Step 0 above."
 
 Set a `STATS_SOURCE` variable in memory (not on disk) — `web-analytics` or `zone-http` — and use it to select the right query and the right summary label below.
 

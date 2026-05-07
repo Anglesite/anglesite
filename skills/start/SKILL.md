@@ -146,7 +146,7 @@ Ask everyone:
 
   Save the answer as `EXPLAIN_STEPS=true` (explain each step) or `EXPLAIN_STEPS=false` (just do it). Default to `true` if the owner seems unsure.
 
-Before moving on, mention costs — but read the room. If the owner is clearly technical or building a developer/software site, keep it brief: "Hosting is free on Cloudflare Pages. A custom domain is ~$10–15/year, or you can use a free .pages.dev address." For everyone else, be warmer: "Quick note on cost — building and hosting your website is free. The only thing that costs money is a custom domain name (like yourname.com), which is about $10–15 a year. You can also use a free address. We'll get to that later."
+Before moving on, mention costs — but read the room. If the owner is clearly technical or building a developer/software site, keep it brief: "Hosting is free on Cloudflare Workers. A custom domain is ~$10–15/year, or you can use a free .workers.dev address." For everyone else, be warmer: "Quick note on cost — building and hosting your website is free. The only thing that costs money is a custom domain name (like yourname.com), which is about $10–15 a year. You can also use a free address. We'll get to that later."
 
 Hold all answers in memory — they'll be saved to `.site-config` after the project files are set up in the next step.
 
@@ -395,8 +395,8 @@ If they want changes, make them now. If they want to redo the whole design later
 
 Be upfront about costs: "Before we go further, here's what running your website costs:"
 
-- **Hosting** — Free (Cloudflare Pages)
-- **Domain name** — ~$10–15/year if you buy one (or free with the .pages.dev address)
+- **Hosting** — Free (Cloudflare Workers)
+- **Domain name** — ~$10–15/year if you buy one (or free with the .workers.dev address)
 - **Everything else** — Free. You own the code, the domain, and all your data.
 
 ## Step 9 — What you learned
