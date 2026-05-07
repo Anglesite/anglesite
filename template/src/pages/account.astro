@@ -1,0 +1,28 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+const configPath = resolve(process.cwd(), ".site-config");
+const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
+const workerUrl = config.match(/^MEMBERSHIP_WORKER_URL=(.+)$/m)?.[1]?.trim() ?? "";
+const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "us";
+---
+
+<BaseLayout title="Your account" description={`Manage your ${siteName} membership.`}>
+  <h1>Your account</h1>
+  <p>
+    Manage your membership: update your payment method, download
+    invoices, or cancel anytime. Billing is handled by Stripe.
+  </p>
+
+  <p>
+    <a class="button" href={`${workerUrl}/portal`} rel="external">
+      Manage billing
+    </a>
+  </p>
+
+  <p>
+    Questions? <a href="/contact">Contact us</a>.
+  </p>
+</BaseLayout>
