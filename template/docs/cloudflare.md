@@ -3,6 +3,7 @@
 ## Worker project
 
 - Project name: stored in `.site-config` as `CF_PROJECT_NAME` (set during first `/anglesite:deploy`) and mirrored as the `name` field in `wrangler.jsonc`
+- Account: stored in `.site-config` as `CLOUDFLARE_ACCOUNT_ID` (set during first `/anglesite:deploy`). Owners with access to multiple accounts (agencies, freelancers, side projects) see a picker on first deploy. Every later deploy validates the active account against this value and aborts on mismatch rather than silently deploying somewhere unexpected.
 - Deployed via the `@astrojs/cloudflare` adapter as **Cloudflare Workers Static Assets** (Worker entry + `ASSETS` binding)
 - Production deploys: run `npm run deploy` (which runs `astro build && wrangler deploy`)
 - Preview versions: `npx wrangler versions upload` (does not promote to production)
@@ -139,4 +140,5 @@ Defined in `public/_headers`. Cloudflare Workers Static Assets honors `_headers`
 - **SSL not working:** Cloudflare provisions SSL automatically. If it shows "pending", wait 15 minutes. Check that the domain's DNS is proxied (orange cloud icon in Cloudflare DNS settings).
 - **CSP errors in console:** A script or style is loading from an unapproved domain. Check `_headers`.
 - **`wrangler.jsonc` name mismatch:** The `name` field must match `CF_PROJECT_NAME` in `.site-config`. Update both if you rename the project.
+- **Deploy aborts with "active Cloudflare account doesn't match":** The active account on this machine differs from `CLOUDFLARE_ACCOUNT_ID` in `.site-config`. `/anglesite:deploy` will offer to switch back automatically. To change the locked account intentionally, edit `CLOUDFLARE_ACCOUNT_ID` in `.site-config`.
 - **Pages Functions middleware (`functions/_middleware.ts`) doesn't run:** With Workers Static Assets, the `functions/` directory is no longer invoked. Membership gates and A/B test variant assignment must be ported into the Worker entry. See `/anglesite:membership` and `/anglesite:experiment`.

@@ -1,7 +1,7 @@
 ---
 name: inbox
 description: "Browse, triage, and export form submissions from Keystatic instead of digging through email"
-allowed-tools: Bash(npm run *), Bash(npx wrangler *), Bash(grep *), Write, Read, Glob, mcp__cloudflare__d1_database_create, mcp__cloudflare__d1_databases_list, mcp__cloudflare__d1_database_get, mcp__cloudflare__d1_database_query
+allowed-tools: Bash(npm run *), Bash(npx wrangler *), Bash(grep *), Write, Read, Edit, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__d1_database_create, mcp__cloudflare__d1_databases_list, mcp__cloudflare__d1_database_get, mcp__cloudflare__d1_database_query
 disable-model-invocation: true
 ---
 
@@ -29,6 +29,14 @@ If `INBOX_DB_ID` is already set in `.site-config`, the inbox is already configur
 ## Step 1 — Create the D1 database
 
 Tell the owner: "I'm creating a Cloudflare D1 database to store your form submissions. D1 is a SQL database at the edge — it's free up to 5 GB and 100,000 writes per day, more than a small business will ever need."
+
+**Preferred — Cloudflare MCP (no copy-paste):**
+
+1. Call `mcp__cloudflare__accounts_list` if the active account hasn't been resolved yet, then `mcp__cloudflare__set_active_account` with the matching `account_id`.
+2. Call `mcp__cloudflare__d1_database_create` with `name: "form_submissions"`. Read the `uuid` (database ID) from the response.
+3. Save the database ID to `.site-config` as `INBOX_DB_ID=<uuid>` using the Write tool.
+
+**Fallback — wrangler CLI** (use only if the Cloudflare MCP server isn't connected):
 
 ```sh
 npx wrangler d1 create form_submissions
@@ -59,7 +67,7 @@ If `worker/schema.sql` is missing on an older site, run `/anglesite:update` firs
 
 ## Step 3 — Wire the binding into each worker
 
-For every deployed worker (`worker/wrangler.toml` for the contact form, `worker/forms-wrangler.toml` for the forms handler), uncomment the `[[d1_databases]]` block and replace `REPLACE_WITH_D1_DATABASE_ID` with the saved `INBOX_DB_ID`. The binding name must remain `INBOX_DB`.
+For every deployed worker (`worker/wrangler.toml` for the contact form, `worker/forms-wrangler.toml` for the forms handler), uncomment the `[[d1_databases]]` block and replace `REPLACE_WITH_D1_DATABASE_ID` with the saved `INBOX_DB_ID`. The binding name must remain `INBOX_DB`. Use the Edit tool — do not Write the whole file.
 
 Example (after edit):
 

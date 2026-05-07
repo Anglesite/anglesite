@@ -1,7 +1,7 @@
 ---
 name: deploy
 description: "Build, security scan, and deploy to Cloudflare Workers"
-allowed-tools: Bash(npm run build), Bash(npm run deploy *), Bash(npm run preview *), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npm run ai-a14y *), Bash(npm run ai-perf *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Bash(kill *), Write, Read
+allowed-tools: Bash(npm run build), Bash(npm run deploy *), Bash(npm run preview *), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npm run ai-a14y *), Bash(npm run ai-perf *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Bash(kill *), Write, Read, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account
 disable-model-invocation: true
 ---
 
@@ -278,6 +278,25 @@ npx wrangler login
 
 If the environment can't open a browser (e.g., Claude Cowork without a desktop), fall back to an API token: tell the owner to open `https://dash.cloudflare.com/profile/api-tokens`, click **Create Token**, choose the **Edit Cloudflare Workers** template, and paste the token. Save it as `CLOUDFLARE_API_TOKEN` in their shell or in a `.dev.vars` file (gitignored). Wrangler will pick it up automatically.
 
+### Pick the right Cloudflare account
+
+Owners who use Cloudflare for both personal and work projects (agencies, freelancers, side projects) often have access to multiple accounts. Don't rely on whatever `wrangler whoami` happens to return — pick the account explicitly so future deploys can't silently land in the wrong place.
+
+Call `mcp__cloudflare__accounts_list` to enumerate the accounts the owner can deploy to.
+
+- **One account** — use it. No need to ask.
+- **Multiple accounts** — present a numbered picker with each account's name and ID, e.g.:
+
+  ```
+  Which Cloudflare account should this site live in?
+  1. Jane Smith (personal) — abc123…
+  2. Smith Studio LLC (business) — def456…
+  ```
+
+  Wait for the owner to choose, then call `mcp__cloudflare__set_active_account` with the chosen account ID.
+
+Save the chosen account ID to `.site-config` using the **Write tool** (update the existing file, adding `CLOUDFLARE_ACCOUNT_ID=<id>`). All subsequent deploys validate against this value.
+
 If the owner chose **preview first** in Step 2.5, upload a preview version (does not promote to production):
 
 ```sh
@@ -434,6 +453,14 @@ Remind them of the goals they shared during `/anglesite:start`: "You said you wa
 After the first successful deploy, surface the post-publish education from `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 6 ("Post-Publish Success Message"). Check `.site-config` for each `EDUCATION_<KEY>=shown` flag before surfacing. Share `SEO_TIMELINE`, `INDEXING_DELAY`, and `DISTRIBUTION` — the owner is most receptive right after launch, and these set realistic expectations. Write the flags to `.site-config` after.
 
 ## Step 7 — Deploy
+
+### Validate the active Cloudflare account
+
+Before running `wrangler deploy`, confirm the active account still matches what was chosen in Step 3. Read `CLOUDFLARE_ACCOUNT_ID` from `.site-config`, then call `mcp__cloudflare__accounts_list` and check which account is currently active.
+
+- **Match** — proceed.
+- **Mismatch** — abort with a clear message. Don't silently re-point the deploy. Tell the owner: "Heads up — your active Cloudflare account is `<active-name>` (`<active-id>`), but this site was set up to deploy to `<configured-name>` (`<configured-id>`). I'll switch the active account back before publishing." Then call `mcp__cloudflare__set_active_account` with the configured ID and continue. If switching fails, stop and surface the error rather than guessing.
+- **`CLOUDFLARE_ACCOUNT_ID` not set** (older sites set up before this check) — call `mcp__cloudflare__accounts_list`. If exactly one account is returned, save it to `.site-config` and continue. If multiple, run the picker from Step 3 once, then continue.
 
 Commit all changes on `draft`:
 

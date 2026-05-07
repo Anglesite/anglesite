@@ -204,6 +204,7 @@ Two levels of agent instructions exist — do not confuse them:
 - **Reference docs** go in `docs/` at the plugin root — skills read them via `${CLAUDE_PLUGIN_ROOT}/docs/`.
 - **Site-specific docs** go in `template/docs/` — these are scaffolded to the user's project and updated per-site.
 - **Documentation must stay in sync.** Update docs when you change behavior.
+- **MCP-first for Cloudflare provisioning.** When a skill provisions Cloudflare resources (KV namespaces, R2 buckets, D1 databases, Hyperdrive configs, Workers), prefer the Cloudflare MCP tools (`mcp__cloudflare__kv_namespace_create`, `mcp__cloudflare__kv_namespace_get`, `mcp__cloudflare__kv_namespaces_list`, etc.) over shelling out to `npx wrangler …`. The MCP path returns the resource id directly, so the skill can write the binding into the relevant `worker/*-wrangler.toml` itself — no copy-paste, no terminal-output parsing, and no human-readable prompt the owner has to interpret. Always document a `wrangler` CLI fallback for offline / no-MCP environments, and add the relevant `mcp__cloudflare__*` tools to the skill's `allowed-tools` frontmatter.
 
 ## Key decisions
 
