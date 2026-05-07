@@ -9,6 +9,10 @@ import {
   scanScripts,
   walkHtml,
   walkAll,
+  daysSince,
+  scanMaintenance,
+  formatMaintenanceWarning,
+  maintenanceCategories,
 } from "../template/scripts/pre-deploy-check.js";
 
 // ---------------------------------------------------------------------------
@@ -243,5 +247,114 @@ describe("walkAll", () => {
 
   it("returns empty array for non-existent directory", () => {
     expect(walkAll(join(tmpDir, "nonexistent"))).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Maintenance log
+// ---------------------------------------------------------------------------
+
+describe("daysSince", () => {
+  it("returns 0 for today", () => {
+    const now = new Date("2026-05-07T12:00:00Z");
+    expect(daysSince("2026-05-07", now)).toBe(0);
+  });
+
+  it("returns positive day count for past dates", () => {
+    const now = new Date("2026-05-07T12:00:00Z");
+    expect(daysSince("2026-04-07", now)).toBe(30);
+  });
+
+  it("returns null for malformed dates", () => {
+    expect(daysSince("yesterday")).toBeNull();
+    expect(daysSince("2026/05/07")).toBeNull();
+    expect(daysSince("")).toBeNull();
+  });
+
+  it("ignores time-of-day and timezone drift", () => {
+    // Stamp written at the end of a day; "now" is early next morning UTC.
+    const now = new Date("2026-05-08T01:00:00Z");
+    expect(daysSince("2026-05-07", now)).toBe(1);
+  });
+});
+
+describe("scanMaintenance", () => {
+  const now = new Date("2026-05-07T12:00:00Z");
+
+  it("warns when a category has never been recorded", () => {
+    const result = scanMaintenance(() => undefined, now);
+    expect(result).toHaveLength(maintenanceCategories.length);
+    expect(result.every(w => w.age === null)).toBe(true);
+  });
+
+  it("does not warn when stamps are within their grace period", () => {
+    const stamps: Record<string, string> = {
+      MAINTENANCE_MONTHLY_LAST: "2026-05-01",   // 6 days ago
+      MAINTENANCE_QUARTERLY_LAST: "2026-03-01", // 67 days ago
+      MAINTENANCE_ANNUAL_LAST: "2025-08-01",    // 279 days ago
+    };
+    const result = scanMaintenance(k => stamps[k], now);
+    expect(result).toEqual([]);
+  });
+
+  it("warns when monthly check is overdue", () => {
+    const stamps: Record<string, string> = {
+      MAINTENANCE_MONTHLY_LAST: "2026-03-01",   // 67 days ago — over 35-day window
+      MAINTENANCE_QUARTERLY_LAST: "2026-03-01",
+      MAINTENANCE_ANNUAL_LAST: "2025-08-01",
+    };
+    const result = scanMaintenance(k => stamps[k], now);
+    expect(result).toHaveLength(1);
+    expect(result[0].key).toBe("MAINTENANCE_MONTHLY_LAST");
+    expect(result[0].age).toBe(67);
+  });
+
+  it("warns when quarterly update is overdue", () => {
+    const stamps: Record<string, string> = {
+      MAINTENANCE_MONTHLY_LAST: "2026-05-01",
+      MAINTENANCE_QUARTERLY_LAST: "2026-01-01", // 126 days ago — over 100-day window
+      MAINTENANCE_ANNUAL_LAST: "2025-08-01",
+    };
+    const result = scanMaintenance(k => stamps[k], now);
+    expect(result).toHaveLength(1);
+    expect(result[0].key).toBe("MAINTENANCE_QUARTERLY_LAST");
+  });
+
+  it("treats malformed stamps as missing", () => {
+    const stamps: Record<string, string> = {
+      MAINTENANCE_MONTHLY_LAST: "garbage",
+      MAINTENANCE_QUARTERLY_LAST: "2026-03-01",
+      MAINTENANCE_ANNUAL_LAST: "2025-08-01",
+    };
+    const result = scanMaintenance(k => stamps[k], now);
+    expect(result).toHaveLength(1);
+    expect(result[0].key).toBe("MAINTENANCE_MONTHLY_LAST");
+    expect(result[0].age).toBeNull();
+  });
+});
+
+describe("formatMaintenanceWarning", () => {
+  it("formats a missing-stamp warning", () => {
+    const msg = formatMaintenanceWarning({
+      key: "MAINTENANCE_MONTHLY_LAST",
+      label: "monthly health check",
+      command: "/anglesite:check",
+      age: null,
+      graceDays: 35,
+    });
+    expect(msg).toContain("no record");
+    expect(msg).toContain("/anglesite:check");
+  });
+
+  it("formats an overdue warning with age and command", () => {
+    const msg = formatMaintenanceWarning({
+      key: "MAINTENANCE_QUARTERLY_LAST",
+      label: "quarterly update",
+      command: "/anglesite:update",
+      age: 120,
+      graceDays: 100,
+    });
+    expect(msg).toContain("120 days");
+    expect(msg).toContain("/anglesite:update");
   });
 });

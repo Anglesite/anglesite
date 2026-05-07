@@ -61,7 +61,9 @@ Run the automated security scan:
 npm run predeploy
 ```
 
-This checks PII (emails, phone numbers), API tokens, third-party scripts, Keystatic admin routes, and OG images. If any blocking check fails, it exits with code 1 and prints what went wrong. Fix the issues before proceeding.
+This checks PII (emails, phone numbers), API tokens, third-party scripts, Keystatic admin routes, OG images, and the maintenance log. If any blocking check fails, it exits with code 1 and prints what went wrong. Fix the issues before proceeding.
+
+The maintenance log is **warn-only** — it never blocks a deploy. The script reads `MAINTENANCE_MONTHLY_LAST`, `MAINTENANCE_QUARTERLY_LAST`, and `MAINTENANCE_ANNUAL_LAST` from `.site-config` and warns once any stamp is older than its grace window (35, 100, or 380 days). If any warning fires, surface it to the owner in plain language after the build — for example: "It's been about three months since your last health check — want me to run `/anglesite:check` before we publish?" — and let them decide whether to pause or continue. See `docs/webmaster.md` → Maintenance schedule.
 
 If the site intentionally publishes a contact email (e.g., a `mailto:` link in the footer), tell the owner you'll add it to the allowlist so it doesn't block future deploys. Add to `.site-config`:
 

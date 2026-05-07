@@ -248,7 +248,8 @@ When the owner asks to update their site:
 5. If something breaks, revert and explain
 6. For `npm audit` vulnerabilities: try `npm audit fix` first, then evaluate severity
 7. Save a snapshot: `git add -A` then `git commit -m "Update dependencies: YYYY-MM-DD"`
-8. Ask if they want to deploy
+8. Stamp the maintenance log: write today's date to `MAINTENANCE_MONTHLY_LAST` and `MAINTENANCE_QUARTERLY_LAST` in `.site-config` (and `MAINTENANCE_ANNUAL_LAST` if it has been a year). The pre-deploy scan reads these stamps and warns when a cadence is overdue. See `docs/webmaster.md` → Maintenance schedule.
+9. Ask if they want to deploy
 
 ## Commands
 

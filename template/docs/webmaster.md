@@ -40,6 +40,18 @@ The site must be usable by people with disabilities. This is legally required in
 - Review all costs — any unused paid tools? (see `docs/cost-of-ownership.md`)
 - Verify map listings are still claimed and accurate
 
+### Maintenance log
+
+The site tracks when each cadence was last performed in `.site-config`:
+
+| Key | Stamped by | Grace window |
+|---|---|---|
+| `MAINTENANCE_MONTHLY_LAST` | `/anglesite:check` (and `/anglesite:update`, since updating exercises the same build + dependency checks) | 35 days |
+| `MAINTENANCE_QUARTERLY_LAST` | `/anglesite:update` | 100 days |
+| `MAINTENANCE_ANNUAL_LAST` | `/anglesite:update` (when it has been a year) | 380 days |
+
+Each stamp is an ISO date (`YYYY-MM-DD`). Every `/anglesite:deploy` runs `npm run predeploy`, which reads these stamps and prints a non-blocking warning when any cadence is overdue. Deploys never fail because of an overdue stamp — the warning is a nudge, not a gate. To clear a warning, run the matching command. To replay a stamp manually (e.g., the owner did the maintenance offline), edit the date in `.site-config`.
+
 ## Local SEO
 
 For businesses with a physical location:

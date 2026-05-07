@@ -393,6 +393,12 @@ If any must-fix issues are found, explain and offer to fix them. If everything p
 
 After the check, tell the owner: "This is the same kind of checkup a good web developer would do regularly. Your site should get one of these at least once a month — just type `/anglesite:check` anytime."
 
+## Stamp the maintenance log
+
+After completing a full health audit (regardless of whether issues were found — running the check is the maintenance event), update `MAINTENANCE_MONTHLY_LAST` in `.site-config` to today's date in `YYYY-MM-DD` format. Use the **Read** tool to load the file, then the **Write** tool to replace or append the line. This is what `/anglesite:deploy`'s pre-deploy scan reads when surfacing overdue-maintenance warnings (see `docs/webmaster.md` → Maintenance schedule).
+
+Don't stamp the log if the audit was aborted early (e.g., the build failed before any checks ran) — only when the owner has actually been through the checkup.
+
 ## File bugs for persistent issues
 
 After the audit, if any must-fix issues were found that couldn't be resolved in the current session, file a GitHub issue for each one. Read `GITHUB_REPO` from `.site-config`. If not set, skip this step.
