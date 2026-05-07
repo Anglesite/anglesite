@@ -3,7 +3,8 @@
  *
  * Reads site identity from `.site-config` (written by `/anglesite:start`).
  * In dev mode, enables Keystatic CMS, local HTTPS via mkcert, and server
- * output. In production, builds static HTML with no client JavaScript.
+ * output (required for Keystatic admin routes). In production, builds
+ * static HTML with no client JavaScript (Astro 5's default `output`).
  *
  * @see https://docs.astro.build/en/reference/configuration-reference/
  * @module
@@ -67,7 +68,7 @@ const siteUrl = siteDomain
 export default defineConfig({
   site: siteUrl,
   devToolbar: { enabled: isDev },
-  output: isDev ? "server" : "static",
+  ...(isDev ? { output: "server" as const } : {}),
   integrations: [
     react(),
     markdoc(),
