@@ -316,7 +316,7 @@ Every helper Worker (`contact-form`, `forms-handler`, `newsletter-subscribe`, `a
 
 Build the URL by substituting the Cloudflare account ID (read `CLOUDFLARE_ACCOUNT_ID` from `.site-config`) and the deployed worker name:
 
-```
+```text
 https://dash.cloudflare.com/<account-id>/workers/services/view/<worker-name>/production/observability/logs
 ```
 
