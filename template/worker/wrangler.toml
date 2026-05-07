@@ -3,7 +3,15 @@
 #   TURNSTILE_SECRET_KEY
 #   CONTACT_EMAIL
 #   SITE_DOMAIN
+#   INBOX_SECRET   (optional — required to fetch the Keystatic inbox)
 
 name = "contact-form"
 main = "contact-worker.js"
 compatibility_date = "2024-01-01"
+
+# Workers KV — submissions inbox. The /anglesite:inbox skill creates the
+# namespace and rewrites the id below. Until that runs the worker still
+# operates (email-only) — KV writes are best-effort.
+# [[kv_namespaces]]
+# binding = "SUBMISSIONS"
+# id = "REPLACE_WITH_KV_NAMESPACE_ID"

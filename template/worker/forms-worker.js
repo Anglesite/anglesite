@@ -5,8 +5,11 @@
  * forms (RSVP, lead capture, survey, callback). The form catalog is
  * shipped alongside the Worker as `forms.json`, keyed by slug. Each
  * submission is matched to its form definition; server-side validation
- * mirrors the client-side rules. Verified submissions are forwarded to
- * the form's `destinationEmail` via MailChannels. No data is stored.
+ * mirrors the client-side rules. Verified submissions are persisted to
+ * Workers KV (the `SUBMISSIONS` binding) and forwarded to the form's
+ * `destinationEmail` via MailChannels. The Keystatic inbox sync script
+ * pulls them via the read-only `/inbox` endpoint, gated by a bearer
+ * token (`INBOX_SECRET`).
  *
  * Submission payloads accept either `application/x-www-form-urlencoded`
  * or `application/json`. The form slug must be supplied either in the
@@ -16,6 +19,11 @@
  * Environment variables (set via wrangler secret):
  *   TURNSTILE_SECRET_KEY — Turnstile secret key
  *   SITE_DOMAIN          — The site domain (used as From address domain)
+ *   INBOX_SECRET         — Optional bearer token guarding GET /inbox
+ *
+ * KV bindings (set in wrangler.toml):
+ *   SUBMISSIONS — namespace for persisted submissions, key prefix
+ *                 `submission:<slug>:<id>`
  */
 
 import formsCatalog from "./forms.json";
@@ -238,11 +246,144 @@ function collectValues(form, source) {
   return values;
 }
 
+/**
+ * Build a submission record persisted to KV. The shape is intentionally
+ * minimal so the Keystatic inbox can consume it directly. Lead identifiers
+ * (`senderName`, `senderEmail`) are derived from common field names so the
+ * collection list view is useful at a glance.
+ */
+function buildSubmission(form, values, ip) {
+  const id = newSubmissionId();
+  const submittedAt = new Date().toISOString();
+  const entries = form.fields
+    .filter((f) => f.type !== "hidden" || (values[f.name] && values[f.name].length > 0))
+    .map((f) => ({
+      key: f.name,
+      label: f.label,
+      type: f.type,
+      value: asString(values[f.name]),
+    }));
+  const senderName = pickValue(values, ["name", "fullName", "first_name", "firstName"]);
+  const senderEmail = pickValue(values, ["email"], EMAIL_RE);
+  return {
+    id,
+    formSlug: form.slug,
+    formTitle: form.title,
+    submittedAt,
+    status: "new",
+    senderName,
+    senderEmail,
+    ip,
+    entries,
+  };
+}
+
+function pickValue(values, names, validate) {
+  for (const name of names) {
+    const v = values[name];
+    if (typeof v === "string" && v.trim() !== "") {
+      if (!validate || validate.test(v.trim())) return v.trim();
+    }
+  }
+  return "";
+}
+
+function newSubmissionId() {
+  // Sortable timestamp + random suffix, no external deps.
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `${ts}-${rand}`;
+}
+
+async function persistSubmission(env, submission) {
+  if (!env.SUBMISSIONS) return false;
+  const key = `submission:${submission.formSlug}:${submission.id}`;
+  try {
+    await env.SUBMISSIONS.put(key, JSON.stringify(submission), {
+      metadata: {
+        formSlug: submission.formSlug,
+        submittedAt: submission.submittedAt,
+        status: submission.status,
+      },
+    });
+    return true;
+  } catch (err) {
+    console.error("KV persist failed:", err);
+    return false;
+  }
+}
+
+function bearerToken(request) {
+  const header = request.headers.get("Authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
+}
+
+function timingSafeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+async function handleInboxList(request, env) {
+  if (!env.SUBMISSIONS) {
+    return new Response(
+      JSON.stringify({ error: "Inbox not configured (no KV binding)." }),
+      { status: 501, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  const expected = env.INBOX_SECRET;
+  if (!expected) {
+    return new Response(
+      JSON.stringify({ error: "INBOX_SECRET not set on the Worker." }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  if (!timingSafeEqual(bearerToken(request), expected)) {
+    return new Response(JSON.stringify({ error: "Unauthorized." }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const url = new URL(request.url);
+  const slug = url.searchParams.get("slug") || "";
+  const prefix = slug ? `submission:${slug}:` : "submission:";
+  const items = [];
+  let cursor;
+  do {
+    const page = await env.SUBMISSIONS.list({ prefix, cursor });
+    for (const k of page.keys) {
+      const raw = await env.SUBMISSIONS.get(k.name);
+      if (raw) {
+        try {
+          items.push(JSON.parse(raw));
+        } catch {
+          // skip corrupt entry
+        }
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  items.sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1));
+  return new Response(JSON.stringify({ items }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin");
     const siteDomain = env.SITE_DOMAIN;
+
+    if (request.method === "GET" && url.pathname === "/inbox") {
+      return handleInboxList(request, env);
+    }
 
     if (request.method === "OPTIONS") {
       return new Response(null, {
@@ -340,6 +481,12 @@ export default {
       );
     }
 
+    // Persist to the inbox before sending email so a MailChannels failure
+    // never costs the owner the submission. The KV binding is optional —
+    // older deploys without it fall back to email-only.
+    const submission = buildSubmission(form, values, ip);
+    await persistSubmission(env, submission);
+
     const sent = await sendEmail(env, form, values);
     if (!sent) {
       return jsonError(
@@ -366,4 +513,13 @@ export default {
       },
     });
   },
+};
+
+export {
+  buildSubmission,
+  newSubmissionId,
+  pickValue,
+  timingSafeEqual,
+  handleInboxList,
+  persistSubmission,
 };
