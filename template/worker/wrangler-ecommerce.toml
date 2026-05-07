@@ -14,6 +14,14 @@ name = "ecommerce-webhooks"
 main = "ecommerce-webhook-worker.js"
 compatibility_date = "2024-01-01"
 
+# Workers Logs — retain invocation logs so failed webhooks (signature
+# mismatch, malformed payloads) can be diagnosed after the fact.
+# Free on the Workers free plan.
+# View at: https://dash.cloudflare.com/?to=/:account/workers/services/view/ecommerce-webhooks/production/observability/logs
+[observability]
+enabled = true
+head_sampling_rate = 1.0
+
 [[analytics_engine_datasets]]
 binding = "ANALYTICS"
 dataset = "anglesite_events"

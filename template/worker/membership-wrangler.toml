@@ -20,6 +20,14 @@ name = "anglesite-membership"
 main = "membership-worker.js"
 compatibility_date = "2024-09-23"
 
+# Workers Logs — retain invocation logs so failed unlocks / cookie
+# verifications can be diagnosed after the fact. Free on the Workers
+# free plan.
+# View at: https://dash.cloudflare.com/?to=/:account/workers/services/view/anglesite-membership/production/observability/logs
+[observability]
+enabled = true
+head_sampling_rate = 1.0
+
 [[kv_namespaces]]
 binding = "MEMBERSHIPS"
 id = "REPLACE_WITH_KV_NAMESPACE_ID"
