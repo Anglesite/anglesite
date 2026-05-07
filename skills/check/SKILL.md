@@ -2,7 +2,7 @@
 name: check
 description: "Health audit and troubleshooting"
 argument-hint: "[optional: describe the problem]"
-allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx pa11y-ci *), Bash(npx tsx scripts/link-check.ts *), Bash(npx tsx scripts/a11y-audit.ts *), Bash(npx tsx scripts/a14y-audit.ts *), Bash(npx a14y *), Bash(a14y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob
+allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx pa11y-ci *), Bash(npx tsx scripts/link-check.ts *), Bash(npx tsx scripts/a11y-audit.ts *), Bash(npx tsx scripts/a14y-audit.ts *), Bash(npx a14y *), Bash(a14y *), Bash(grep *), Bash(find dist/ *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob, mcp__cloudflare__accounts_list
 disable-model-invocation: true
 ---
 
@@ -125,6 +125,16 @@ Check that the site works on small screens. Start the dev server if not already 
 - [ ] Navigation is usable on small screens (hamburger menu, collapsible nav, or simple enough to not need one)
 - [ ] Images use responsive sizing (`max-width: 100%` or `srcset`)
 - [ ] No content hidden on mobile that's visible on desktop (all information should be available)
+
+## Cloudflare account alignment
+
+Read `CLOUDFLARE_ACCOUNT_ID` from `.site-config`. If set, call `mcp__cloudflare__accounts_list` and check which account is currently active.
+
+- If the active account matches the configured one, mark this category as **All good**.
+- If they differ, flag it as **Worth fixing soon** with plain-language framing: "Your computer is currently signed into a different Cloudflare account than the one this site lives in. The next deploy would refuse to publish until you switch back. I can switch the active account for you, or you can run `/anglesite:deploy` and let it sort itself out."
+- If `CLOUDFLARE_ACCOUNT_ID` is unset (older sites set up before this check), suggest running `/anglesite:deploy` once so the picker can lock the site to a specific account.
+
+This check is informational — never block the audit on it. Owners often switch accounts intentionally during the workday.
 
 ## Privacy audit
 - [ ] No customer PII in `dist/` (emails, phone numbers, names)

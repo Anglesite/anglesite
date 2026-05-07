@@ -413,7 +413,7 @@ Summarize what the owner now knows:
 
 Tell the owner what they can do now:
 
-- **`/anglesite:deploy`** — when ready to put the site on the internet (walks through Cloudflare account, domain purchase or transfer, and publishing)
+- **`/anglesite:deploy`** — when ready to put the site on the internet (walks through Cloudflare account, domain purchase or transfer, and publishing). On the first deploy, if the owner has access to more than one Cloudflare account (common for agencies and freelancers), `/anglesite:deploy` shows a picker so the site is locked to the right account — no silent deploys to the wrong place later.
 - **Edit posts** — navigate to `https://DEV_HOSTNAME/keystatic` in the preview panel to write blog posts using the visual editor (replace `DEV_HOSTNAME` with the actual value from `.site-config`)
 - **`/anglesite:domain`** — set up email, verify your Bluesky handle, and other domain settings — available after deploying with a custom domain
 
