@@ -1,7 +1,7 @@
 ---
 name: export
 description: "Produce a portable export of the site (built HTML, content, media, MIGRATING.md) so the owner can self-host or move to any other platform"
-allowed-tools: Bash(npm run build), Bash(mkdir *), Bash(cp *), Bash(rsync *), Bash(zip *), Bash(ls *), Bash(find *), Bash(du *), Bash(grep *), Bash(date *), Bash(git rev-parse *), Read, Write
+allowed-tools: Bash(npm run build), Bash(mkdir *), Bash(cp *), Bash(rsync *), Bash(zip *), Bash(ls *), Bash(find *), Bash(du *), Bash(grep *), Bash(date *), Bash(git rev-parse *), Bash(npx wrangler r2 *), mcp__cloudflare__r2_bucket_create, mcp__cloudflare__r2_bucket_get, mcp__cloudflare__r2_buckets_list, Read, Write
 disable-model-invocation: true
 ---
 

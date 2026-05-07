@@ -1,7 +1,7 @@
 ---
 name: podcast
 description: "Set up a podcast on the site — episodes, RSS feed with iTunes namespace, transcripts, audio player, and platform submission"
-allowed-tools: Bash(npm run build), Bash(npm run dev), Read, Write, Edit, Glob, Grep
+allowed-tools: Bash(npm run build), Bash(npm run dev), Bash(npx wrangler r2 *), Bash(wc -c *), Bash(stat *), mcp__cloudflare__r2_bucket_create, mcp__cloudflare__r2_bucket_get, mcp__cloudflare__r2_buckets_list, mcp__cloudflare__r2_bucket_delete, Read, Write, Edit, Glob, Grep
 disable-model-invocation: true
 ---
 
@@ -86,20 +86,64 @@ PUBLIC_PODCAST_EXPLICIT=false
 
 ## Step 2 — Audio hosting
 
-Tell the owner: "Audio files are large — most podcasters use a dedicated host that serves the files and provides analytics. I'll embed the player on your site, but the audio itself lives on the host."
+Tell the owner: "Audio files are large — they don't belong in the website's git repo or `public/` directory. They live on a host that serves the audio and (usually) reports download analytics. I'll embed the player on your site, but the file itself sits somewhere else."
 
 Read the audio hosting comparison in `${CLAUDE_PLUGIN_ROOT}/docs/smb/podcaster.md` (Tools → Podcast hosting) and present the options:
 
-- **Buzzsprout** (~$12/mo) — beginner-friendly, transcription included, good first host
-- **Transistor** (~$19/mo) — multi-show, better analytics, private podcasts
-- **Captivate** (~$19/mo) — growth-focused features
-- **Libsyn** (~$5/mo) — reliable, oldest in the space
-- **Castopod** (open source, self-hosted) — IndieWeb / ActivityPub option
-- **Self-hosted on Cloudflare R2** — cheapest if the owner is technical and has low downloads. No analytics, manual file size lookup.
+- **Buzzsprout** (~$12/mo) — beginner-friendly, transcription included, basic download analytics. Good first host.
+- **Transistor** (~$19/mo) — multi-show, better analytics, private podcasts.
+- **Captivate** (~$19/mo) — growth-focused features, built-in calls to action.
+- **Libsyn** (~$5/mo) — reliable, oldest in the space.
+- **Castopod** (open source, self-hosted, requires a server) — IndieWeb / ActivityPub option.
+- **Cloudflare R2** (self-hosted, ~$0.015/GB-month storage, **zero egress fees**) — the cheapest option, and Anglesite can provision the bucket and upload episodes for the owner. No download analytics out of the box (Cloudflare reports requests in aggregate). Recommended for owners already on Cloudflare and not relying on host-side analytics for sponsor reporting.
 
-Ask the owner which they want. Save to `.site-config` as `PODCAST_HOST=buzzsprout` (or the chosen platform).
+Ask the owner which they want. Save to `.site-config` as `PODCAST_HOST=r2` (or `buzzsprout`, `transistor`, `captivate`, `libsyn`, `castopod`).
 
-If the owner picks self-hosted on R2, drop audio files in `public/audio/` and warn them about the `public/` directory size — a typical 30-minute MP3 is 30–60 MB. Cloudflare Pages has a 25 MB per-file limit, so anything larger must move to R2 or another host.
+### 2a. If the owner picked R2
+
+Anglesite can provision an R2 bucket with the Cloudflare MCP tools and upload episodes through `wrangler`. The owner does not need to touch the Cloudflare dashboard.
+
+**Cost expectations for the owner** (prices as of writing — re-check before quoting):
+
+- **Storage**: $0.015 per GB-month. A 30-minute MP3 at ~40 MB ≈ $0.0006/month per episode. 100 episodes ≈ $0.06/month in storage.
+- **Class A operations** (writes/uploads): $4.50 per million. One upload per episode is rounding error.
+- **Class B operations** (reads/downloads): $0.36 per million. 100,000 episode downloads ≈ $0.04.
+- **Egress (bandwidth)**: $0 — this is the reason R2 is cheap for podcasts.
+- **Free tier**: 10 GB storage, 1 million Class A, 10 million Class B ops per month. Most starting podcasts stay under this for the first ~250 episodes.
+
+Tell the owner: "For most starting podcasts, R2 is free or under $1/month. The trade-off vs. Buzzsprout is that you don't get per-episode download charts — Cloudflare gives you total request counts, but not the listener-app breakdown sponsors sometimes ask for."
+
+Then provision:
+
+1. **Confirm the user is logged in to Cloudflare** — run `npx wrangler whoami`. If not logged in, prompt them through `npx wrangler login` (browser OAuth).
+
+2. **Pick a bucket name.** Use `<site-slug>-podcast-audio` (e.g., `acmeshow-podcast-audio`). R2 bucket names are globally unique within an account, lowercase, hyphens allowed. Read `SITE_SLUG` from `.site-config`; if missing, derive from `PODCAST_TITLE` (lowercased, hyphenated).
+
+3. **Check whether the bucket already exists** with the Cloudflare MCP tool `mcp__cloudflare__r2_buckets_list`. If a bucket with the chosen name is present, reuse it; otherwise create it with `mcp__cloudflare__r2_bucket_create` (location: `auto` unless the owner has a strong reason to pin a region).
+
+4. **Save the bucket name** to `.site-config` as `PODCAST_R2_BUCKET=<name>`.
+
+5. **Configure public access.** R2 buckets are private by default — podcast apps need the audio at a public URL.
+   - Recommended: a custom subdomain like `audio.<owner-domain>`. Tell the owner: "I'll set up `audio.<your-domain>` to serve audio files. Cloudflare DNS handles this; no extra setup needed beyond confirming the domain." Bucket → R2 → Settings → Custom Domains → Connect Domain. Save as `PODCAST_R2_PUBLIC_BASE=https://audio.<owner-domain>`.
+   - Fallback: enable the `r2.dev` development URL (`https://pub-<hash>.r2.dev`). Faster to set up, but Cloudflare rate-limits it and discourages production use. Save the URL to `.site-config` as `PODCAST_R2_PUBLIC_BASE=…`.
+
+6. **Emit the upload command** for the owner to run per episode. Tell them: "Drop the MP3 anywhere on your machine, then run this for each episode."
+
+   ```sh
+   npx wrangler r2 object put <bucket>/<slug>.mp3 --file=/path/to/episode.mp3 --content-type=audio/mpeg
+   ```
+
+   The episode's audio URL will be `${PODCAST_R2_PUBLIC_BASE}/<slug>.mp3`.
+
+7. **Auto-fill the Keystatic episode entry** in Step 4: when the host is R2 and the owner gives a local file path, run `wc -c <path>` for `lengthBytes`, set `audioUrl` to `${PODCAST_R2_PUBLIC_BASE}/<slug>.mp3`, and (if `wrangler` is configured) run the `wrangler r2 object put` command on their behalf — only after confirming the bucket and the file path with the owner.
+
+8. **Off-ramp.** R2 isn't a podcast host in the Buzzsprout sense. If the owner later wants per-episode analytics or transcription, they can move to a real podcast host without changing their RSS feed URL: re-host the audio elsewhere, update each episode's `audioUrl`, redeploy. Mention this when offering R2 so the owner doesn't feel locked in.
+
+### 2b. If the owner picked any other host
+
+The owner uploads each episode to the host's dashboard and copies the host's MP3 URL into the Keystatic episode entry. Anglesite does not store audio files on R2 or in `public/audio/` in this case.
+
+**Do not drop audio files in `public/audio/` for production.** Cloudflare's static assets bind has a 25 MB per-file limit, but more importantly, large binaries in git slow every clone, push, and deploy. The legacy `public/audio/` path is preserved only as a last-resort fallback for very small files (e.g., a single 5 MB trailer); the deploy skill warns when files there exceed 10 MB.
 
 ## Step 3 — Activate the episodes collection
 
@@ -120,8 +164,11 @@ Walk the owner through filling in the first episode. Frame the questions plainly
 - **Title** — episode title (e.g., "Ep. 1: Welcome to the Show")
 - **Publish date** — today by default
 - **Description** — 1–3 sentences for listings, RSS, and social sharing
-- **Audio** — either the URL from the hosting platform's RSS-ready download link (Buzzsprout calls it the "MP3 URL") or `/audio/ep-01.mp3` if self-hosting
-- **Audio file size** — bytes. If self-hosted, run `wc -c public/audio/ep-01.mp3`. If hosted, the host shows it in the episode dashboard. Apple's directory listing requires this.
+- **Audio** — depends on the host:
+  - **R2**: ask for the local MP3 path. Upload via `npx wrangler r2 object put $PODCAST_R2_BUCKET/<slug>.mp3 --file=<path> --content-type=audio/mpeg` and set `audioUrl = $PODCAST_R2_PUBLIC_BASE/<slug>.mp3`.
+  - **Hosted (Buzzsprout, Transistor, etc.)**: paste the host's RSS-ready MP3 URL (Buzzsprout labels it "MP3 URL"; Transistor calls it the "audio file URL").
+  - **Legacy `public/audio/`**: only for trailers under 10 MB; set `audioUrl = /audio/<slug>.mp3`.
+- **Audio file size** — bytes. Auto-fill when possible: for R2 or `public/audio/` runs, `wc -c <local-path>` before/after upload and write the result to the episode's `lengthBytes`. For hosted platforms, the host shows the size in the episode dashboard. Apple's directory listing requires this.
 - **Duration** — `MM:SS` or `HH:MM:SS`
 - **Episode number, season** — sequential numbering (optional but recommended; Apple uses these for sorting)
 - **Episode type** — `full`, `trailer`, or `bonus`
@@ -250,7 +297,7 @@ After any change, run `npm run build` and verify the RSS feed still validates.
 - **QR codes** (`/anglesite:qr`) — offer a QR code for each episode page (e.g., for a sticker, a flyer at a live show, or a guest's social bio).
 - **Photography** (`/anglesite:photography`) — show artwork and guest portraits matter more for podcasts than most verticals. The photography shot list for podcasters covers this.
 - **SEO** (`/anglesite:seo`) — the podcast pages get the standard SEO pass. The transcript is the biggest single SEO contribution; remind the owner not to skip it.
-- **Backup** (`/anglesite:backup`) — episode `.mdoc` files commit normally. Audio files in `public/audio/` are large; consider whether they belong in git or only in the host. If the owner self-hosts on R2, audio is in the bucket, not in the repo.
+- **Backup** (`/anglesite:backup`) — episode `.mdoc` files commit normally. Audio files do not belong in git: hosted shows have audio at the host, R2-hosted shows have audio in the bucket, and the legacy `public/audio/` fallback should only hold tiny clips. The backup skill skips `public/audio/` files larger than 10 MB.
 - **Stats** (`/anglesite:stats`) — Cloudflare reports website visits to episode pages. Audio download counts come from the podcast host (Buzzsprout, Transistor, etc.) — the website cannot see them.
 
 ## Re-running the command

@@ -39,6 +39,7 @@ Every podcast needs a hosting platform that stores the audio files and generates
 - **Transistor** (~$19/mo, proprietary) — Multiple shows on one account, better analytics, private podcasts for paid content. Good for growing shows. transistor.fm
 - **Captivate** (~$19/mo, proprietary) — Growth-focused features, unlimited team members, built-in calls to action. captivate.fm
 - **Libsyn** (~$5/mo, proprietary) — One of the oldest hosts. Reliable, good for high-volume shows. libsyn.com
+- **Cloudflare R2** ($0.015/GB-month storage, **zero egress**, proprietary but fully open via S3 API) — The cheapest viable host: a 100-episode show typically runs free or under $1/month. `/anglesite:podcast` provisions the bucket, custom subdomain, and per-episode upload command for the owner — no Cloudflare-dashboard work required. Trade-off: no per-episode listener-app analytics (Cloudflare reports only aggregate request counts), so sponsors that want CPM breakdowns may push back. Fine for self-funded or membership-funded shows. cloudflare.com/products/r2
 - **Castopod** (open source, self-hosted) — ActivityPub integration (federated social). The IndieWeb/self-sovereignty option. Requires a server. castopod.org
 - **Anchor/Spotify for Podcasters** (free, proprietary) — Free but Spotify-controlled. Limited portability. Fine for starting out; move to an independent host when the show grows. podcasters.spotify.com
 
