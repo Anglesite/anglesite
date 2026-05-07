@@ -53,7 +53,8 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── creative-canvas/SKILL.md Interactive visual effects + creative coding (model-only)
 │   ├── photography/SKILL.md    Shot list generator + phone photography tips
 │   ├── menu/SKILL.md            Restaurant menu import, creation, and management (user-facing)
-│   └── design-import/SKILL.md    Import design from Canva/Figma (user-facing)
+│   ├── design-import/SKILL.md    Import design from Canva/Figma (user-facing)
+│   └── consent/SKILL.md         Category-based GDPR/CCPA cookie consent banner (user-facing)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
 ├── scripts/
@@ -146,6 +147,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `photography` | Site-type-specific shot list generator and phone photography tips |
 | `menu` | Restaurant menu import (PDF/photo), creation, and editing |
 | `design-import` | Import design tokens and page layouts from Canva or Figma |
+| `consent` | Category-based GDPR/CCPA cookie consent banner; gates third-party scripts/embeds via `data-consent` |
 
 **Model-only** (called programmatically by other skills, `user-invocable: false`):
 
