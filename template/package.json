@@ -22,6 +22,7 @@
     "ai-a11y": "tsx scripts/a11y-audit.ts",
     "ai-a14y": "tsx scripts/a14y-audit.ts",
     "ai-perf": "tsx scripts/perf-budget.ts",
+    "ai-premium-build": "node scripts/build-premium-routes.mjs",
     "predeploy": "tsx scripts/pre-deploy-check.ts",
     "lint:css": "stylelint 'src/**/*.css'",
     "lint:md": "markdownlint-cli2 'docs/**/*.md' '*.md'"
