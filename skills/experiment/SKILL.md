@@ -9,7 +9,7 @@ Manage the full lifecycle of an A/B experiment: propose a hypothesis, generate v
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — hosting platform (Pages Functions for edge assignment)
+- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — hosting platform (Pages Functions for edge assignment)
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — no external A/B testing scripts
 - [ADR-0014 Edge A/B testing](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0014-edge-ab-testing.md) — why build-time variants + edge assignment
 

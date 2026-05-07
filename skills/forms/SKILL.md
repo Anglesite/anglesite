@@ -9,7 +9,7 @@ Build a custom form whose schema is owned by the site owner in Keystatic. Submis
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — Cloudflare hosting and Workers
+- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — Cloudflare hosting and Workers
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — Turnstile is the only accepted third-party script
 - [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — the Worker runs on the owner's Cloudflare account
 

@@ -15,7 +15,7 @@ Invoked via `/anglesite:<name>` (27 skills):
 | `consent` | Add a category-based GDPR/CCPA cookie consent banner that gates third-party loads |
 | `contact` | Set up a contact form with Cloudflare Workers and Turnstile |
 | `convert` | Convert an existing static site generator project (Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress, MkDocs, Eleventy, Hexo) to Anglesite/Astro |
-| `deploy` | Build, security scan, and deploy to Cloudflare Pages |
+| `deploy` | Build, security scan, and deploy to Cloudflare Workers |
 | `design-import` | Import design tokens and page layouts from a Canva site, Figma file, or freedesignmd system to build your Astro site |
 | `domain` | Manage DNS records: email, Bluesky, verification |
 | `donations` | Add a donation button or page (Stripe, Liberapay, or GitHub Sponsors) with suggested amounts, recurring defaults, optional goal widget, and 501(c)(3) tax-receipt template |

@@ -1,6 +1,6 @@
 # Anglesite — Development Context
 
-Anglesite is a Claude plugin that scaffolds and manages websites for small businesses. It works with Claude Cowork (non-technical site owners, GUI) and Claude Code (developers, CLI). It generates Astro + Keystatic sites deployed to Cloudflare Pages.
+Anglesite is a Claude plugin that scaffolds and manages websites for small businesses. It works with Claude Cowork (non-technical site owners, GUI) and Claude Code (developers, CLI). It generates Astro + Keystatic sites deployed to Cloudflare Workers (Static Assets, via the `@astrojs/cloudflare` adapter).
 
 **Version:** 1.0.0-beta.7 · **License:** ISC · **Node:** >=22 · **Module system:** ESM
 
@@ -10,7 +10,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
 ├── skills/                       Skills (52 total: 27 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
-│   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Pages
+│   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Workers
 │   ├── check/SKILL.md            Health audit + troubleshooting
 │   ├── update/SKILL.md           Update dependencies + template files
 │   ├── domain/SKILL.md           DNS management (email, Bluesky, verification)
@@ -56,7 +56,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── menu/SKILL.md            Restaurant menu import, creation, and management (user-facing)
 │   ├── podcast/SKILL.md         Podcast: episodes, RSS+iTunes, transcripts, audio player (user-facing)
 │   ├── donations/SKILL.md       Donation button + page (Stripe/Liberapay/GitHub Sponsors) (user-facing)
-│   ├── redirects/SKILL.md       Manage Cloudflare Pages _redirects (user-facing)
+│   ├── redirects/SKILL.md       Manage Cloudflare _redirects (user-facing)
 │   ├── design-import/SKILL.md    Import design from Canva/Figma (user-facing)
 │   ├── giscus/SKILL.md          Blog comments via Giscus + GitHub Discussions (user-facing)
 │   ├── consent/SKILL.md         Category-based GDPR/CCPA cookie consent banner (user-facing)
@@ -134,7 +134,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Skill | Purpose |
 |---|---|
 | `start` | First-time setup: scaffolding, discovery interview, design, tool installation, preview |
-| `deploy` | Build, 4-point security scan, deploy to Cloudflare Pages |
+| `deploy` | Build, 4-point security scan, deploy to Cloudflare Workers |
 | `check` | Health audit, troubleshooting, diagnostics |
 | `update` | Update dependencies and template files to the latest version |
 | `domain` | DNS record management (email, Bluesky, domain verification) |
@@ -155,7 +155,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `menu` | Restaurant menu import (PDF/photo), creation, and editing |
 | `podcast` | First-class podcast support — episodes, RSS+iTunes feed, transcripts, audio player, directory submission |
 | `donations` | Donation button + page (Stripe / Liberapay / GitHub Sponsors), suggested + custom amounts, recurring defaults, optional goal widget, 501(c)(3) tax-receipt template |
-| `redirects` | Manage Cloudflare Pages `_redirects`: add, remove, list, validate, bulk-import (301/302/308) |
+| `redirects` | Manage Cloudflare `_redirects`: add, remove, list, validate, bulk-import (301/302/308) |
 | `design-import` | Import design tokens and page layouts from Canva or Figma |
 | `giscus` | Blog comments backed by GitHub Discussions (per-post opt-out via frontmatter) |
 | `consent` | Category-based GDPR/CCPA cookie consent banner; gates third-party scripts/embeds via `data-consent` |
@@ -212,7 +212,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Claude Code Plugin | Marketplace distribution, versioning, namespace isolation |
 | Astro (not Next/Nuxt) | Zero client JS by default, best for static content sites |
 | Keystatic (not headless CMS) | Local `.mdoc` files, no external API dependency |
-| Cloudflare Pages (not Vercel/Netlify) | Free, fast, Git integration auto-deploys from `main` |
+| Cloudflare Workers + Static Assets (not Vercel/Netlify) | Free, fast, `wrangler deploy` from CLI; `@astrojs/cloudflare` adapter |
 | GitHub (not GitLab) | `gh` CLI browser OAuth is simplest for non-technical users; private repos free |
 | Vanilla CSS | No build-time framework overhead, custom properties for theming |
 | Industry tools first | Recommend purpose-built solutions (Square, Shopify, Clio, etc.) over generic databases |

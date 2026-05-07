@@ -12,7 +12,7 @@ ADRs follow the [MADR](https://adr.github.io/madr/) format.
 
 - [ADR-0001](0001-astro-static-site-generator.md) — Use Astro as the static site generator
 - [ADR-0002](0002-keystatic-local-cms.md) — Use Keystatic for local content management
-- [ADR-0003](0003-cloudflare-pages-hosting.md) — Use Cloudflare Pages for hosting and deployment
+- [ADR-0003](0003-cloudflare-workers-hosting.md) — Use Cloudflare Workers (Static Assets) for hosting and deployment
 - [ADR-0004](0004-vanilla-css-custom-properties.md) — Use vanilla CSS with custom properties for theming
 - [ADR-0005](0005-system-fonts.md) — Use system font stacks instead of external font CDNs
 - [ADR-0006](0006-indieweb-posse.md) — Follow IndieWeb principles with POSSE workflow

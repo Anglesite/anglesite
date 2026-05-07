@@ -1,17 +1,17 @@
 ---
 name: deploy
-description: "Build, security scan, and deploy to Cloudflare Pages"
-allowed-tools: Bash(npm run build), Bash(npm run preview *), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npm run ai-a14y *), Bash(npm run ai-perf *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Bash(kill *), Write, Read
+description: "Build, security scan, and deploy to Cloudflare Workers"
+allowed-tools: Bash(npm run build), Bash(npm run deploy *), Bash(npm run preview *), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npm run ai-a14y *), Bash(npm run ai-perf *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Bash(kill *), Write, Read
 disable-model-invocation: true
 ---
 
-Build, scan, and deploy the site to Cloudflare Pages. On first deploy, this also handles Cloudflare account creation, Git integration setup, and domain configuration.
+Build, scan, and deploy the site to Cloudflare Workers (Static Assets). On first deploy, this also handles Cloudflare account creation, Wrangler authentication, and domain configuration.
 
-Cloudflare Pages is connected to the GitHub repository. Pushing to `main` triggers a production deploy. Pushing to `draft` (or any other branch) creates a preview deploy.
+The site deploys via Wrangler: `npm run deploy` builds the site (`astro build`) and publishes the resulting Worker + static assets to Cloudflare. The `draft` branch is still pushed to GitHub on every deploy as an off-site backup, but it is no longer the trigger for a preview build — preview deploys use `wrangler versions upload` instead.
 
 ## Architecture decisions
 
-- [ADR-0003 Cloudflare Pages](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-pages-hosting.md) — why Cloudflare (free CDN, Git integration, at-cost domains)
+- [ADR-0003 Cloudflare Workers](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0003-cloudflare-workers-hosting.md) — why Cloudflare Workers Static Assets (free CDN, Wrangler CLI, at-cost domains; supersedes Pages)
 - [ADR-0007 Pre-deploy scans](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0007-mandatory-pre-deploy-scans.md) — why every deploy is gated by PII, token, script, and Keystatic scans with no override
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — why only Cloudflare Analytics is allowed
 - [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — why the Cloudflare account belongs to the owner
@@ -262,51 +262,39 @@ If they choose **go live**, continue to Step 3.
 
 On subsequent deploys, skip this step.
 
-## Step 3 — First deploy: Connect Cloudflare to GitHub
+## Step 3 — First deploy: Authenticate Wrangler and publish
 
 Read `CF_PROJECT_NAME` from `.site-config`. If not set, ask the owner what to name the Cloudflare project (suggest a slugified version of their site name), then add `CF_PROJECT_NAME=project-name` to `.site-config` using the **Write tool** (update the existing file).
 
-Tell the owner: "Now let's connect Cloudflare to your GitHub so your site deploys automatically whenever we publish changes."
+Then sync the project name into `wrangler.jsonc` so Wrangler deploys to the right Worker. Read `wrangler.jsonc`, replace the `"name": "..."` line with the chosen `CF_PROJECT_NAME`, and write the file back. The scaffolded default is `"anglesite-site"` and must be replaced before the first deploy.
 
-Guide them through the Cloudflare dashboard:
+Tell the owner: "Now I'll connect this project to your Cloudflare account. A browser window will open — sign in with the same Cloudflare account you set up in Step 0, then approve Wrangler's access."
 
-1. Open in their browser: `https://dash.cloudflare.com/?to=/:account/pages/new/provider/github`
-
-2. "Click **Connect to Git**. If GitHub asks you to authorize the Cloudflare app, click **Authorize**."
-
-3. "Select your GitHub account, then find and select the repository for your website." (The repo name matches what's in `.site-config` as `GITHUB_REPO`.)
-
-4. "Now we need to set the build settings:"
-   - Framework preset: **Astro**
-   - Build command: `npm run build && npm run predeploy`
-   - Build output directory: `dist`
-   - Production branch: `main`
-
-5. "Click **Save and Deploy**. Cloudflare will build your site from GitHub — this takes about a minute."
-
-Wait for the build to complete. If it succeeds, the site is live at `CF_PROJECT_NAME.pages.dev`.
-
-If the owner chose "preview first" in Step 2.5, they can now see the preview at `draft.CF_PROJECT_NAME.pages.dev`. Wait for approval, then merge to `main` and push to trigger the production deploy:
+Authenticate Wrangler (one-time, opens a browser):
 
 ```sh
-git checkout main
+npx wrangler login
 ```
+
+If the environment can't open a browser (e.g., Claude Cowork without a desktop), fall back to an API token: tell the owner to open `https://dash.cloudflare.com/profile/api-tokens`, click **Create Token**, choose the **Edit Cloudflare Workers** template, and paste the token. Save it as `CLOUDFLARE_API_TOKEN` in their shell or in a `.dev.vars` file (gitignored). Wrangler will pick it up automatically.
+
+If the owner chose **preview first** in Step 2.5, upload a preview version (does not promote to production):
 
 ```sh
-git merge draft --no-edit
+npx wrangler versions upload
 ```
+
+Wrangler prints a preview URL of the form `https://<hash>-<project>.<account>.workers.dev`. Share it with the owner and wait for their approval before continuing.
+
+Once approved (or if they chose **go live**), publish the production version:
 
 ```sh
-git push origin main
+npm run deploy
 ```
 
-```sh
-git checkout draft
-```
+This runs `npm run build && wrangler deploy`. The site is live at `CF_PROJECT_NAME.<account>.workers.dev`.
 
-If the owner chose "go live", the initial deploy already built from `main` — production is live.
-
-Tell the owner: "Your website is live! Anyone can visit it at `CF_PROJECT_NAME.pages.dev`."
+Tell the owner: "Your website is live! Anyone can visit it at `CF_PROJECT_NAME.<your-account>.workers.dev` — and we'll attach your custom domain in the next step."
 
 On subsequent deploys, skip to Step 7.
 
@@ -384,21 +372,21 @@ npm run ai-setup
 
 The setup script detects the hostname change, generates a new certificate, and updates the hosts file.
 
-## Step 5 — First deploy: Connect custom domain to Pages
+## Step 5 — First deploy: Connect custom domain to the Worker
 
-Once the domain is on Cloudflare (purchased, transferred, or pointed), connect it to the Pages project via the Cloudflare dashboard.
+Once the domain is on Cloudflare (purchased, transferred, or pointed), attach it to the Worker via the Cloudflare dashboard.
 
 Tell the owner: "I'm opening the Cloudflare dashboard so we can connect your domain to your website."
 
-Open the Pages domains page: `https://dash.cloudflare.com/?to=/:account/pages/view/CF_PROJECT_NAME/domains`
+Open the Worker's settings → Domains & Routes page: `https://dash.cloudflare.com/?to=/:account/workers/services/view/CF_PROJECT_NAME/production/domains`
 
 (Replace `CF_PROJECT_NAME` with the actual value from `.site-config`.)
 
 Walk them through:
-1. Click "Set up a custom domain"
+1. Click "Add" → "Custom Domain"
 2. Enter their domain (e.g., `www.example.com` or `example.com`)
-3. Click "Activate domain"
-4. Cloudflare auto-creates the CNAME DNS record and provisions a free SSL certificate (usually within minutes)
+3. Click "Add Custom Domain"
+4. Cloudflare auto-creates the CNAME (or AAAA for an apex) and provisions a free SSL certificate (usually within minutes)
 
 Tell the owner: "Done — Cloudflare is connecting your domain and setting up SSL. This usually takes a minute or two."
 
@@ -409,10 +397,10 @@ Update the site configuration (astro.config.ts reads `SITE_DOMAIN` from `.site-c
 - `public/robots.txt`: add `Sitemap: https://SITE_DOMAIN/sitemap-index.xml`
 - `docs/cloudflare.md`: note the domain and DNS setup
 
-Rebuild and push to deploy with the correct URLs:
+Rebuild and redeploy with the correct URLs:
 
 ```sh
-npm run build
+npm run deploy
 ```
 
 ```sh
@@ -424,19 +412,7 @@ git commit -m "Add custom domain: SITE_DOMAIN"
 ```
 
 ```sh
-git checkout main
-```
-
-```sh
-git merge draft --no-edit
-```
-
-```sh
-git push origin main
-```
-
-```sh
-git checkout draft
+git push origin draft
 ```
 
 Tell the owner: "Your website is now live at your custom domain! SSL is handled automatically."
@@ -469,13 +445,21 @@ git add -A
 git commit -m "Publish: YYYY-MM-DD HH:MM"
 ```
 
-Push `draft` to GitHub (backup + preview):
+Push `draft` to GitHub (off-site backup):
 
 ```sh
 git push origin draft
 ```
 
-Merge to `main` and push (triggers production deploy via Cloudflare Git integration):
+Publish to Cloudflare via Wrangler:
+
+```sh
+npm run deploy
+```
+
+This rebuilds the site (`astro build`) and runs `wrangler deploy`, which uploads the Worker and the static assets in `dist/` to Cloudflare. The deploy is atomic — visitors keep seeing the previous version until the new one is fully uploaded.
+
+Then mirror the publish to `main` (kept for off-site backup parity, no longer triggers a build):
 
 ```sh
 git checkout main
@@ -489,14 +473,12 @@ git merge draft --no-edit
 git push origin main
 ```
 
-Return to working branch:
-
 ```sh
 git checkout draft
 ```
 
-If the merge fails, there are changes on `main` that `draft` doesn't have. Run `git checkout draft` then `git merge main` to sync, resolve any conflicts, then retry the deploy.
+If `wrangler deploy` fails with an auth error, run `npx wrangler login` to refresh credentials, then retry.
 
-If the push fails (e.g., auth expired), tell the owner: "I couldn't publish to GitHub — let's fix the connection." Run `gh auth login --web` to re-authenticate, then retry.
+If the GitHub push fails (e.g., auth expired), tell the owner: "I couldn't back up to GitHub — let's fix the connection." Run `gh auth login --web` to re-authenticate, then retry.
 
 Tell the owner: "Your changes are live! They'll appear on the site in about a minute."
