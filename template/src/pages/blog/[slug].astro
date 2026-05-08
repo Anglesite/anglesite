@@ -12,7 +12,7 @@ export async function getStaticPaths() {
     return import.meta.env.PROD ? !data.draft : true;
   });
   return posts.map((post) => ({
-    params: { slug: post.id.replace(/\.mdoc$/, "") },
+    params: { slug: post.id },
     props: { post },
   }));
 }

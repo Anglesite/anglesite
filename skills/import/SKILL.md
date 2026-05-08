@@ -105,14 +105,6 @@ AI_MODEL=(write your actual model name here)
 EXPLAIN_STEPS=true
 ```
 
-Prune content collections to match the site type. This creates only the
-directories needed (e.g. `posts` for a blog) and removes any that aren't,
-preventing a wall of Astro glob-loader warnings for empty collections:
-
-```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/prune-collections.mjs .
-```
-
 ```sh
 npm install
 ```

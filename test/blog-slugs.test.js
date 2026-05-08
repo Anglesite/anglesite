@@ -13,33 +13,14 @@ const blogFiles = [
   'template/src/pages/rss.xml.ts',
 ];
 
-describe('blog slugs strip .mdoc extension', () => {
+describe('blog slugs use Content Layer ids without extension stripping', () => {
   for (const file of blogFiles) {
-    it(`${file} does not use raw post.id for URLs`, () => {
+    it(`${file} does not strip a .mdoc extension that is no longer present`, () => {
+      // Under the Astro 5 Content Layer glob loader, `entry.id` is the
+      // file path without extension. The legacy `.replace(/\.mdoc$/, "")`
+      // dance is a no-op and should be gone.
       const content = readFileSync(join(root, file), 'utf-8');
-
-      // post.id in Astro 5 glob loader includes the .mdoc extension.
-      // Every use of post.id in a URL context must strip it.
-      // Match post.id used in slug params or template literals for hrefs,
-      // but NOT when it's followed by .replace (which strips the extension).
-      const lines = content.split('\n');
-      for (const line of lines) {
-        // Skip lines that strip the extension
-        if (line.includes('.replace(') && line.includes('.mdoc')) continue;
-        // Skip lines that use the slug helper
-        if (line.includes('stripMdoc') || line.includes('toSlug')) continue;
-
-        // Flag raw post.id used in URL-building contexts
-        if (
-          line.includes('slug: post.id') ||
-          (line.includes('`/blog/${post.id}') &&
-            !line.includes('.replace('))
-        ) {
-          expect.fail(
-            `${file} uses raw post.id for URL without stripping .mdoc extension:\n  ${line.trim()}`,
-          );
-        }
-      }
+      expect(content).not.toMatch(/\.replace\(\s*\/\\\.mdoc\$\//);
     });
   }
 });

@@ -124,14 +124,6 @@ POST_URL_PREFIX=blog
 Note: `POST_URL_PREFIX` defaults to `blog` here. It will be updated after the
 URL structure question in Step 1 if the owner chooses to keep root-level URLs.
 
-Prune content collections to match the site type. This creates only the
-directories needed (e.g. `posts` for a blog) and removes any that aren't,
-preventing a wall of Astro glob-loader warnings for empty collections:
-
-```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/prune-collections.mjs .
-```
-
 ```sh
 npm install
 ```

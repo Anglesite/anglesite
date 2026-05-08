@@ -180,15 +180,7 @@ ANGLESITE_VERSION=0.16.3
 
 Only include keys that have values. `SITE_NAME`, `SITE_TYPE`, `DEV_HOSTNAME`, `AI_MODEL`, and `EXPLAIN_STEPS` are always present. For `AI_MODEL`, write the model name and version you are running as (e.g. `Claude Opus 4.6`). `BUSINESS_TYPE` is present for business and organization sites. `EXISTING_TOOLS` is present if the owner mentioned tools (business) or social platforms (portfolio). The rest — including `OWNER_NAME` — depend on the conversation. **Do not write `OWNER_NAME` here.** It's PII and is only collected later, on-demand, by skills that genuinely need it (see "On-demand owner name" below). For multi-mode businesses, comma-separate `BUSINESS_TYPE` (primary first).
 
-After writing `.site-config`, prune content collections that aren't relevant to the site type. This removes unused content directories, associated pages, and updates `anglesite.config.json`:
-
-```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/prune-collections.mjs .
-```
-
-The prune script reads `SITE_TYPE` and `BUSINESS_TYPE` from `.site-config` and keeps only the collections needed — for example, a portfolio site keeps `posts` and `gallery`; a restaurant business keeps `posts`, `services`, `team`, `testimonials`, `faq`, `events`, `menus`, `menuSections`, and `menuItems`. Both `content.config.ts` and `keystatic.config.ts` auto-detect which collections are active based on directory existence, so the CMS and build stay in sync.
-
-If the design interview (Step 2) adds collections or singletons not already present, create the content directory (e.g. `mkdir -p src/content/experiments`) and regenerate `anglesite.config.json` to match.
+All content collections are registered unconditionally in `content.config.ts` and `keystatic.config.ts`. The Astro 5 Content Layer `glob` loader is happy with empty or missing directories, so the template ships no pre-created content folders — Keystatic creates them on demand the first time the owner adds an entry. If the design interview (Step 2) adds collections or singletons not already present, regenerate `anglesite.config.json` to match.
 
 ## Step 2 — Design
 
