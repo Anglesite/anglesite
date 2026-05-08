@@ -72,7 +72,11 @@ export default defineConfig({
     react(),
     markdoc(),
     ...(isDev ? [keystatic(), anglesiteToolbar()] : []),
-    sitemap(),
+    sitemap({
+      serialize(item) {
+        return { ...item, lastmod: new Date().toISOString() };
+      },
+    }),
   ],
   vite: { server: { https: getHttpsConfig() } },
   adapter: cloudflare(),
