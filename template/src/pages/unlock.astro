@@ -19,7 +19,10 @@ const showFree = tiers.includes("free");
 const showPaid = tiers.includes("paid") && stripeLink.length > 0;
 ---
 
-<BaseLayout title="Unlock" description={`Unlock premium content from ${siteName}.`}>
+<BaseLayout
+  title="Unlock — Access Members-Only Content"
+  description={`Unlock premium content from ${siteName} — choose between newsletter access or a paid membership.`}
+>
   <h1>Unlock</h1>
   <p>This page is for members. Choose how you'd like to unlock it.</p>
 

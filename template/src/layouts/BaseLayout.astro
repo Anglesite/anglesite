@@ -12,6 +12,17 @@ interface Props {
 const { title, description, image, jsonLd } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
+// Default JSON-LD: a basic WebPage built from the props the layout already
+// has. Pages that pass their own `jsonLd` (e.g. BlogPosting, Restaurant,
+// CollectionPage) override this — we only fall back when no schema is set.
+const resolvedJsonLd = jsonLd ?? {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: title,
+  description,
+  url: canonicalURL.toString(),
+};
+
 // Auto-resolve OG image: custom image > per-page generated > site-wide default
 function resolveOgImage(pathname: string, customImage?: string): string {
   if (customImage) return customImage;
@@ -81,9 +92,7 @@ const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
     <link rel="manifest" href="/manifest.webmanifest" />
 
     <!-- Structured data -->
-    {jsonLd && (
-      <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-    )}
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(resolvedJsonLd)} />
 
     <style is:global>
       @import "../styles/global.css";

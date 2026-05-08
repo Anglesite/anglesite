@@ -9,7 +9,10 @@ const workerUrl = config.match(/^SUBSCRIBE_WORKER_URL=(.+)$/m)?.[1]?.trim() ?? "
 const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "us";
 ---
 
-<BaseLayout title="Subscribe" description={`Subscribe to updates from ${siteName}.`}>
+<BaseLayout
+  title="Subscribe to Our Newsletter for Updates"
+  description={`Subscribe to updates from ${siteName} delivered straight to your inbox. No spam — unsubscribe anytime.`}
+>
   <h1>Subscribe</h1>
   <p>Get updates from {siteName} delivered to your inbox.</p>
 

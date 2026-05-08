@@ -9,7 +9,10 @@ const workerUrl = config.match(/^MEMBERSHIP_WORKER_URL=(.+)$/m)?.[1]?.trim() ?? 
 const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "us";
 ---
 
-<BaseLayout title="Your account" description={`Manage your ${siteName} membership.`}>
+<BaseLayout
+  title="Your Account — Manage Your Membership"
+  description={`Manage your ${siteName} membership — update your payment method, download invoices, or cancel anytime.`}
+>
   <h1>Your account</h1>
   <p>
     Manage your membership: update your payment method, download

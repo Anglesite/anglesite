@@ -10,7 +10,10 @@ const turnstileSiteKey = config.match(/^TURNSTILE_SITE_KEY=(.+)$/m)?.[1]?.trim()
 const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "us";
 ---
 
-<BaseLayout title="Contact" description={`Get in touch with ${siteName}.`}>
+<BaseLayout
+  title="Contact Us — Send a Message and Get in Touch"
+  description={`Get in touch with ${siteName} — send us a message and we'll get back to you soon.`}
+>
   <h1>Contact</h1>
   <p>Send us a message and we'll get back to you.</p>
 
