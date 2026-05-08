@@ -38,8 +38,10 @@ These checks are not optional. Accessibility failures are as serious as security
 Build the site first, then run the unified accessibility audit:
 
 ```sh
-npm run ai-a11y -- --report a11y-report.md
+npm run ai-a11y
 ```
+
+The report is written to `reports/a11y-report.md` (the `reports/` directory is gitignored — regenerated on demand, never committed).
 
 This script (`scripts/a11y-audit.ts`) walks every HTML file in `dist/` and produces a per-page WCAG 2.1 AA report with suggested fixes. It runs three checkers and aggregates the results:
 

@@ -424,13 +424,13 @@ If a top page hasn't been updated in more than 30 days, suggest: "Your /services
 
 ## Step 4.5 — Performance trends (if available)
 
-If `perf-trend.json` exists in the project root, the deploy skill has been recording performance budget snapshots. Each entry has `generatedAt`, `totalJs`, `totalCss`, `pageCount`, `findingCount`, and (when Lighthouse ran) `worstLcpMs` / `worstCls`.
+If `reports/perf-trend.json` exists, the deploy skill has been recording performance budget snapshots. Each entry has `generatedAt`, `totalJs`, `totalCss`, `pageCount`, `findingCount`, and (when Lighthouse ran) `worstLcpMs` / `worstCls`.
 
 Read the file with `Read`, then surface the trend in plain language. Show the most recent run alongside the run from ~30 days ago (or the oldest available) so the owner can see drift:
 
-> **Performance:** Across {pageCount} pages your site ships {totalJs / 1024 KB} of JavaScript and {totalCss / 1024 KB} of CSS — about the same as last month. {findingCount} pages were over budget on this deploy ({listed in perf-report.md}).
+> **Performance:** Across {pageCount} pages your site ships {totalJs / 1024 KB} of JavaScript and {totalCss / 1024 KB} of CSS — about the same as last month. {findingCount} pages were over budget on this deploy ({listed in reports/perf-report.md}).
 
-If `totalJs` or `totalCss` has grown by more than 25% since the oldest entry, surface that as a heads-up: "Your JavaScript bundle has grown from 32 KB to 71 KB over the last month — worth checking what was added." The deploy skill writes the granular per-page report to `perf-report.md`; point the owner there for specifics.
+If `totalJs` or `totalCss` has grown by more than 25% since the oldest entry, surface that as a heads-up: "Your JavaScript bundle has grown from 32 KB to 71 KB over the last month — worth checking what was added." The deploy skill writes the granular per-page report to `reports/perf-report.md`; point the owner there for specifics.
 
 If the file doesn't exist, skip this section — performance trends only appear after the owner has run `/anglesite:deploy` at least once on a build with the perf budget step active.
 

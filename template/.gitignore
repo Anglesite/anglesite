@@ -32,3 +32,6 @@ annotations.json
 
 # Anglesite skill audit trails (local-only)
 .anglesite/
+
+# Audit / scan reports (regenerated on demand; never committed)
+/reports/

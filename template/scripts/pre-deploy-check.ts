@@ -15,10 +15,12 @@
  * Also runs on Cloudflare's build system via the build command.
  */
 
-import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
-import { join, extname, resolve } from "node:path";
+import { readdirSync, readFileSync, statSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
+import { join, extname, resolve, dirname } from "node:path";
 import { readConfig } from "./config.js";
 import { parseProviders, buildAllowedScripts } from "./csp.js";
+import { runAudit as runSeoAudit } from "./seo-audit.js";
+import { formatSeoReport, type AgenticCrawlersPolicy } from "./seo.js";
 
 // ---------------------------------------------------------------------------
 // Exported patterns and constants
@@ -303,6 +305,33 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
   // 6. Maintenance log (warn only)
   for (const w of scanMaintenance(readConfig)) {
     warnings.push(formatMaintenanceWarning(w));
+  }
+
+  // 7. SEO audit (warn only; critical issues surface as warnings here so they
+  //    don't block deploy — the deploy skill walks the owner through fixes)
+  const skipSeo = process.argv.includes("--skip-seo");
+  if (!skipSeo) {
+    try {
+      const siteDomain = readConfig("SITE_DOMAIN");
+      const siteUrl = siteDomain ? `https://${siteDomain}` : "";
+      const agenticCrawlers =
+        (readConfig("AGENTIC_CRAWLERS") as AgenticCrawlersPolicy | undefined) ?? "allow";
+      const seoReport = runSeoAudit({ distDir: DIST, siteUrl, agenticCrawlers });
+      const seoReportPath = "reports/seo-report.md";
+      mkdirSync(dirname(seoReportPath), { recursive: true });
+      writeFileSync(seoReportPath, formatSeoReport(seoReport.issues), "utf-8");
+      if (seoReport.totals.critical > 0) {
+        warnings.push(
+          `SEO: ${seoReport.totals.critical} critical issue(s) — see ${seoReportPath}. Run \`/anglesite:seo\` to review.`,
+        );
+      } else if (seoReport.totals.warning > 0 || seoReport.totals.niceToHave > 0) {
+        warnings.push(
+          `SEO: ${seoReport.totals.warning} warning(s), ${seoReport.totals.niceToHave} nice-to-have — see ${seoReportPath}.`,
+        );
+      }
+    } catch (err) {
+      warnings.push(`SEO audit failed: ${(err as Error).message}`);
+    }
   }
 
   // Report

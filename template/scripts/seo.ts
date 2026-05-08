@@ -9,7 +9,26 @@
  * - generateLlmsTxt: generate /llms.txt for AI crawlers (skipped when blocked)
  * - auditChunkability: flag pages with long unbroken prose
  * - formatSeoReport: produce ranked issues table as markdown
+ *
+ * Schema.org JSON-LD construction is validated at compile time against the
+ * `schema-dts` types. The exported return type stays as a plain `Record` so
+ * Astro layouts can keep their current `jsonLd` prop typing without churn —
+ * the `satisfies WithContext<T>` checks inside each branch are what enforce
+ * Schema.org correctness.
  */
+
+import type {
+  AboutPage,
+  Article,
+  BlogPosting,
+  BreadcrumbList,
+  ContactPage,
+  Event,
+  FAQPage,
+  Product,
+  WebPage,
+  WithContext,
+} from "schema-dts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -342,59 +361,130 @@ export function inferPageSchemaType(pageType: string): string {
 // generatePageJsonLd — produce JSON-LD for any page type
 // ---------------------------------------------------------------------------
 
+type PrimaryPageSchema =
+  | WithContext<WebPage>
+  | WithContext<BlogPosting>
+  | WithContext<Article>
+  | WithContext<FAQPage>
+  | WithContext<Event>
+  | WithContext<Product>
+  | WithContext<AboutPage>
+  | WithContext<ContactPage>;
+
+function buildBlogPosting(input: PageSchemaInput): WithContext<BlogPosting> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    name: input.title,
+    url: input.url,
+    description: input.description,
+    headline: input.title,
+    publisher: { "@type": "Organization", name: input.siteName },
+    ...(input.datePublished && { datePublished: input.datePublished }),
+    ...(input.dateModified && { dateModified: input.dateModified }),
+    ...(input.author && { author: { "@type": "Person", name: input.author } }),
+    ...(input.image && { image: input.image }),
+  };
+}
+
+function buildArticle(input: PageSchemaInput): WithContext<Article> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    name: input.title,
+    url: input.url,
+    description: input.description,
+    headline: input.title,
+    publisher: { "@type": "Organization", name: input.siteName },
+    ...(input.datePublished && { datePublished: input.datePublished }),
+    ...(input.dateModified && { dateModified: input.dateModified }),
+    ...(input.author && { author: { "@type": "Person", name: input.author } }),
+    ...(input.image && { image: input.image }),
+  };
+}
+
+function buildFaqPage(input: PageSchemaInput): WithContext<FAQPage> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    name: input.title,
+    url: input.url,
+    description: input.description,
+    ...(input.faqItems?.length && {
+      mainEntity: input.faqItems.map((faq) => ({
+        "@type": "Question" as const,
+        name: faq.question,
+        acceptedAnswer: {
+          "@type": "Answer" as const,
+          text: faq.answer,
+        },
+      })),
+    }),
+  };
+}
+
+function buildSimplePage<T extends "WebPage" | "Event" | "Product" | "AboutPage" | "ContactPage">(
+  type: T,
+  input: PageSchemaInput,
+): WithContext<WebPage | Event | Product | AboutPage | ContactPage> {
+  return {
+    "@context": "https://schema.org",
+    "@type": type,
+    name: input.title,
+    url: input.url,
+    description: input.description,
+  };
+}
+
+function buildBreadcrumbList(
+  breadcrumbs: BreadcrumbItem[],
+): WithContext<BreadcrumbList> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbs.map((bc, i) => ({
+      "@type": "ListItem" as const,
+      position: i + 1,
+      name: bc.name,
+      item: bc.url,
+    })),
+  };
+}
+
 export function generatePageJsonLd(
   input: PageSchemaInput,
 ): Record<string, unknown> | Record<string, unknown>[] {
   const schemaType = inferPageSchemaType(input.pageType);
 
-  const basePage: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": schemaType,
-    name: input.title,
-    url: input.url,
-    description: input.description,
-  };
-
-  // BlogPosting / Article specifics
-  if (schemaType === "BlogPosting" || schemaType === "Article") {
-    basePage.headline = input.title;
-    if (input.datePublished) basePage.datePublished = input.datePublished;
-    if (input.dateModified) basePage.dateModified = input.dateModified;
-    if (input.author) {
-      basePage.author = { "@type": "Person", name: input.author };
-    }
-    if (input.image) basePage.image = input.image;
-    basePage.publisher = { "@type": "Organization", name: input.siteName };
+  let basePage: PrimaryPageSchema;
+  switch (schemaType) {
+    case "BlogPosting":
+      basePage = buildBlogPosting(input);
+      break;
+    case "Article":
+      basePage = buildArticle(input);
+      break;
+    case "FAQPage":
+      basePage = buildFaqPage(input);
+      break;
+    case "Event":
+    case "Product":
+    case "AboutPage":
+    case "ContactPage":
+      basePage = buildSimplePage(schemaType, input);
+      break;
+    default:
+      basePage = buildSimplePage("WebPage", input);
   }
 
-  // FAQPage specifics
-  if (schemaType === "FAQPage" && input.faqItems?.length) {
-    basePage.mainEntity = input.faqItems.map((faq) => ({
-      "@type": "Question",
-      name: faq.question,
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: faq.answer,
-      },
-    }));
-  }
-
-  // BreadcrumbList for interior pages
   if (input.breadcrumbs?.length) {
-    const breadcrumb: Record<string, unknown> = {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      itemListElement: input.breadcrumbs.map((bc, i) => ({
-        "@type": "ListItem",
-        position: i + 1,
-        name: bc.name,
-        item: bc.url,
-      })),
-    };
-    return [basePage, breadcrumb];
+    return [
+      basePage as unknown as Record<string, unknown>,
+      buildBreadcrumbList(input.breadcrumbs) as unknown as Record<string, unknown>,
+    ];
   }
 
-  return basePage;
+  return basePage as unknown as Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
