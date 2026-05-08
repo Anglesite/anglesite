@@ -16,21 +16,23 @@
  * Sitemap URLs are normalized before comparison so a built page like
  * `/blog/index.html` matches a sitemap entry of `/blog/`.
  *
- * Writes the formatted report to `seo-report.md` and prints a one-line summary
- * to stderr. Exit codes are severity-aware so the script is usable in CI:
+ * Writes the formatted report to `reports/seo-report.md` (the `reports/`
+ * directory is gitignored — regenerated on demand) and prints a one-line
+ * summary to stderr. Exit codes are severity-aware so the script is usable
+ * in CI:
  *
  *   0  — no critical issues (warnings or nice-to-have are OK, or `--warn-only`)
  *   1  — at least one critical issue
  *
  * Usage:
- *   tsx scripts/seo-audit.ts                       # write seo-report.md, log summary
+ *   tsx scripts/seo-audit.ts                       # write reports/seo-report.md, log summary
  *   tsx scripts/seo-audit.ts --json                # machine-readable report on stdout
  *   tsx scripts/seo-audit.ts --warn-only           # always exit 0 (non-blocking mode)
  *   tsx scripts/seo-audit.ts --report path.md      # write the report to a custom path
  */
 
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { extname, join, relative } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { dirname, extname, join, relative } from "node:path";
 import { readConfig } from "./config.js";
 import {
   auditChunkability,
@@ -245,7 +247,7 @@ if (process.argv[1]?.endsWith("seo-audit.ts")) {
   const args = process.argv.slice(2);
   const wantJson = args.includes("--json");
   const reportIdx = args.indexOf("--report");
-  const reportPath = reportIdx >= 0 ? args[reportIdx + 1] : "seo-report.md";
+  const reportPath = reportIdx >= 0 ? args[reportIdx + 1] : "reports/seo-report.md";
   const warnOnly = args.includes("--warn-only");
 
   if (!existsSync("dist")) {
@@ -261,6 +263,7 @@ if (process.argv[1]?.endsWith("seo-audit.ts")) {
   const report = runAudit({ distDir: "dist", siteUrl, agenticCrawlers });
 
   if (reportPath) {
+    mkdirSync(dirname(reportPath), { recursive: true });
     writeFileSync(reportPath, formatSeoReport(report.issues), "utf-8");
   }
 

@@ -94,9 +94,9 @@ Run the SEO audit from `scripts/seo.ts` against the built output in `dist/`. Thi
 
 **Critical issues** (missing titles, missing descriptions) pause the deploy. Present them to the owner with one-shot fix options. After fixes, rebuild and re-scan.
 
-**Warnings and Nice-to-haves** are non-blocking. Log them to `seo-report.md` in the project root and briefly mention to the owner: "I found a few SEO improvements you can make later — they're saved in seo-report.md."
+**Warnings and Nice-to-haves** are non-blocking. Log them to `reports/seo-report.md` (the `reports/` directory is gitignored — regenerated on demand, never committed) and briefly mention to the owner: "I found a few SEO improvements you can make later — they're saved in reports/seo-report.md."
 
-If the owner passes `--skip-seo`, skip this step and log a timestamped note to `seo-report.md`: `SEO audit skipped on YYYY-MM-DD HH:MM`.
+If the owner passes `--skip-seo`, skip this step and log a timestamped note to `reports/seo-report.md`: `SEO audit skipped on YYYY-MM-DD HH:MM`.
 
 ## Step 2a½ — Link check (opt-in gate)
 
@@ -123,13 +123,13 @@ If the owner passes `--skip-linkcheck`, skip this step.
 Read `A11Y_GATE` from `.site-config`. If unset or `false`, skip this step (the full accessibility audit still runs in `/anglesite:check`). If set to `true`, run the unified accessibility audit against the built site:
 
 ```sh
-npm run ai-a11y -- --report a11y-report.md
+npm run ai-a11y
 ```
 
-The script exits with severity-aware codes (`1` for WCAG 2.1 AA errors, `2` for warnings, `0` for clean). When the gate is on:
+The script writes the report to `reports/a11y-report.md` (the `reports/` directory is gitignored — regenerated on demand) and exits with severity-aware codes (`1` for WCAG 2.1 AA errors, `2` for warnings, `0` for clean). When the gate is on:
 
 - **Errors (exit 1)** pause the deploy. Present each violation with its suggested fix, offer to apply the fixes, then rebuild and re-run.
-- **Warnings (exit 2)** are mentioned to the owner but do not block: "I found a few accessibility improvements you can make later — they're saved in a11y-report.md."
+- **Warnings (exit 2)** are mentioned to the owner but do not block: "I found a few accessibility improvements you can make later — they're saved in reports/a11y-report.md."
 
 **Warn-only mode for sites mid-remediation.** If `A11Y_WARN_ONLY=true` is set in `.site-config` (or the owner passes `--warn-only`), the audit always exits `0` regardless of findings, but the report is still written. Use this when a legacy site is being brought up to standard so deploys aren't blocked while the backlog clears.
 
@@ -189,7 +189,7 @@ If the owner passes `--skip-a14y`, skip this step.
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/copy-edit/SKILL.md` and follow it in non-interactive deploy context. This scans all content pages for clarity, tone consistency, and missing CTAs.
 
-**No issues block the deploy.** Write findings to `copy-edit-report.md` in the project root and briefly mention to the owner: "I found a few copy improvements you can make later — they're saved in copy-edit-report.md."
+**No issues block the deploy.** Write findings to `reports/copy-edit-report.md` (the `reports/` directory is gitignored — regenerated on demand) and briefly mention to the owner: "I found a few copy improvements you can make later — they're saved in reports/copy-edit-report.md."
 
 If the owner passes `--skip-copy`, skip this step.
 
@@ -198,7 +198,7 @@ If the owner passes `--skip-copy`, skip this step.
 Run the performance budget audit against the built site:
 
 ```sh
-npm run ai-perf -- --report perf-report.md --trend perf-trend.json --warn-only
+npm run ai-perf -- --warn-only
 ```
 
 This walks `dist/` and computes the JS + CSS weight referenced by each HTML page, comparing against budgets in `.site-config`:
@@ -215,12 +215,12 @@ PERF_BUDGET_JS_LAB=512000
 PERF_BUDGET_CSS_LAB=102400
 ```
 
-The script writes:
+The script writes both files into the gitignored `reports/` directory (regenerated on demand, never committed):
 
-- `perf-report.md` — human-readable per-page table (committed alongside `seo-report.md`, `a11y-report.md`)
-- `perf-trend.json` — rolling history (last 30 runs) used by `/anglesite:stats` to surface regressions
+- `reports/perf-report.md` — human-readable per-page table (alongside `reports/seo-report.md`, `reports/a11y-report.md`)
+- `reports/perf-trend.json` — rolling history (last 30 runs) used by `/anglesite:stats` to surface regressions
 
-**1.1 ships warn-only.** Findings never block the deploy. Mention the result to the owner in plain language ("All pages within budget" or "Two pages over the JS budget — saved to perf-report.md"), then continue. Once defaults are tuned (1.2), `PERF_WARN_ONLY=false` will let owners opt into a hard gate.
+**1.1 ships warn-only.** Findings never block the deploy. Mention the result to the owner in plain language ("All pages within budget" or "Two pages over the JS budget — saved to reports/perf-report.md"), then continue. Once defaults are tuned (1.2), `PERF_WARN_ONLY=false` will let owners opt into a hard gate.
 
 ### Optional: LCP and CLS via Lighthouse
 
@@ -233,7 +233,7 @@ npm run preview -- --port 4321 &
 Wait a couple of seconds for it to come up, then run the audit:
 
 ```sh
-npm run ai-perf -- --report perf-report.md --trend perf-trend.json --lighthouse --url http://localhost:4321 --warn-only
+npm run ai-perf -- --lighthouse --url http://localhost:4321 --warn-only
 ```
 
 Then kill the background preview process.

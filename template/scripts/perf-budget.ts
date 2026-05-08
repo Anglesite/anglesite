@@ -18,7 +18,7 @@
  * Usage:
  *   tsx scripts/perf-budget.ts                    # static audit, text report
  *   tsx scripts/perf-budget.ts --json             # machine-readable
- *   tsx scripts/perf-budget.ts --report perf-report.md
+ *   tsx scripts/perf-budget.ts --report reports/perf-report.md
  *   tsx scripts/perf-budget.ts --lighthouse --url http://localhost:4321
  *   tsx scripts/perf-budget.ts --warn-only        # never exit non-zero
  *
@@ -28,8 +28,8 @@
  *   2 — Lighthouse not installed but --lighthouse requested
  */
 
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { extname, join, posix, resolve } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, extname, join, posix, resolve } from "node:path";
 import { readConfig } from "./config.js";
 
 // ---------------------------------------------------------------------------
@@ -520,9 +520,9 @@ if (process.argv[1]?.endsWith("perf-budget.ts")) {
   const args = process.argv.slice(2);
   const wantJson = args.includes("--json");
   const reportIdx = args.indexOf("--report");
-  const reportPath = reportIdx >= 0 ? args[reportIdx + 1] : undefined;
+  const reportPath = reportIdx >= 0 ? args[reportIdx + 1] : "reports/perf-report.md";
   const trendIdx = args.indexOf("--trend");
-  const trendPath = trendIdx >= 0 ? args[trendIdx + 1] : "perf-trend.json";
+  const trendPath = trendIdx >= 0 ? args[trendIdx + 1] : "reports/perf-trend.json";
   const lighthouse = args.includes("--lighthouse");
   const urlIdx = args.indexOf("--url");
   const url = urlIdx >= 0 ? args[urlIdx + 1] : undefined;
@@ -543,11 +543,13 @@ if (process.argv[1]?.endsWith("perf-budget.ts")) {
   runAudit({ lighthouse, url, warnOnly })
     .then((report) => {
       if (reportPath) {
+        mkdirSync(dirname(reportPath), { recursive: true });
         writeFileSync(reportPath, formatReport(report), "utf-8");
         console.log(`Wrote performance report to ${reportPath}`);
       }
 
       const history = appendTrend(trendPath, summarizeForTrend(report));
+      mkdirSync(dirname(trendPath), { recursive: true });
       writeFileSync(trendPath, JSON.stringify(history, null, 2), "utf-8");
 
       if (wantJson) {

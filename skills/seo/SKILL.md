@@ -50,7 +50,7 @@ Run the audit script, which walks `dist/` and applies every audit function from 
 npm run ai-seo
 ```
 
-The script writes the formatted report to `seo-report.md`, prints a one-line summary to stderr, and exits 0 unless there are critical issues. Pages with `<meta name="robots" content="noindex">` are skipped. Pass `--warn-only` to always exit 0 (used during the predeploy non-blocking call) or `--json` to get the machine-readable form on stdout.
+The script writes the formatted report to `reports/seo-report.md` (the `reports/` directory is gitignored — regenerated on demand, never committed), prints a one-line summary to stderr, and exits 0 unless there are critical issues. Pages with `<meta name="robots" content="noindex">` are skipped. Pass `--warn-only` to always exit 0 (used during the predeploy non-blocking call) or `--json` to get the machine-readable form on stdout.
 
 The audit covers:
 
@@ -87,7 +87,7 @@ Call `formatSeoReport(allIssues)` to generate the ranked report. Present it to t
 - **Warnings** — "These would improve how your site appears in search results." Explain each.
 - **Nice-to-have** — "Bonus improvements for even better visibility." Brief mention.
 
-Write the full report to `seo-report.md` in the project root.
+Write the full report to `reports/seo-report.md` (the `reports/` directory is gitignored).
 
 ## Step 4 — Fix issues (if owner approves)
 
@@ -164,9 +164,9 @@ Confirm all Critical issues are resolved. Present the updated report.
 
 ## Pre-deploy integration
 
-`scripts/pre-deploy-check.ts` invokes `runAudit` from `scripts/seo-audit.ts` as a non-blocking step on every deploy. It writes `seo-report.md` and surfaces a one-line summary in the predeploy warnings:
+`scripts/pre-deploy-check.ts` invokes `runAudit` from `scripts/seo-audit.ts` as a non-blocking step on every deploy. It writes `reports/seo-report.md` and surfaces a one-line summary in the predeploy warnings:
 
-- **Critical issues** are surfaced as a `WARN:` line pointing at `seo-report.md`. The deploy is not blocked — `/anglesite:deploy` reads the report and walks the owner through fixes.
+- **Critical issues** are surfaced as a `WARN:` line pointing at `reports/seo-report.md`. The deploy is not blocked — `/anglesite:deploy` reads the report and walks the owner through fixes.
 - **Warnings and Nice-to-haves** are summarized in the same line.
 - Pass `--skip-seo` to `npm run predeploy` (or `/anglesite:deploy --skip-seo`) to skip the audit entirely.
 

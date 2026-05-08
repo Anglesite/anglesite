@@ -15,8 +15,8 @@
  * Also runs on Cloudflare's build system via the build command.
  */
 
-import { readdirSync, readFileSync, statSync, existsSync, writeFileSync } from "node:fs";
-import { join, extname, resolve } from "node:path";
+import { readdirSync, readFileSync, statSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
+import { join, extname, resolve, dirname } from "node:path";
 import { readConfig } from "./config.js";
 import { parseProviders, buildAllowedScripts } from "./csp.js";
 import { runAudit as runSeoAudit } from "./seo-audit.js";
@@ -317,14 +317,16 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
       const agenticCrawlers =
         (readConfig("AGENTIC_CRAWLERS") as AgenticCrawlersPolicy | undefined) ?? "allow";
       const seoReport = runSeoAudit({ distDir: DIST, siteUrl, agenticCrawlers });
-      writeFileSync("seo-report.md", formatSeoReport(seoReport.issues), "utf-8");
+      const seoReportPath = "reports/seo-report.md";
+      mkdirSync(dirname(seoReportPath), { recursive: true });
+      writeFileSync(seoReportPath, formatSeoReport(seoReport.issues), "utf-8");
       if (seoReport.totals.critical > 0) {
         warnings.push(
-          `SEO: ${seoReport.totals.critical} critical issue(s) — see seo-report.md. Run \`/anglesite:seo\` to review.`,
+          `SEO: ${seoReport.totals.critical} critical issue(s) — see ${seoReportPath}. Run \`/anglesite:seo\` to review.`,
         );
       } else if (seoReport.totals.warning > 0 || seoReport.totals.niceToHave > 0) {
         warnings.push(
-          `SEO: ${seoReport.totals.warning} warning(s), ${seoReport.totals.niceToHave} nice-to-have — see seo-report.md.`,
+          `SEO: ${seoReport.totals.warning} warning(s), ${seoReport.totals.niceToHave} nice-to-have — see ${seoReportPath}.`,
         );
       }
     } catch (err) {

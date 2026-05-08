@@ -24,11 +24,11 @@
  *   tsx scripts/a11y-audit.ts             # human-readable report
  *   tsx scripts/a11y-audit.ts --json      # machine-readable report
  *   tsx scripts/a11y-audit.ts --warn-only # always exit 0 (mid-remediation)
- *   tsx scripts/a11y-audit.ts --report a11y-report.md  # write markdown
+ *   tsx scripts/a11y-audit.ts --report reports/a11y-report.md  # write markdown (default path)
  */
 
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { extname, join, relative } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { dirname, extname, join, relative } from "node:path";
 import { validateHtml, type A11yIssue } from "./a11y-validate.js";
 import { readConfig } from "./config.js";
 
@@ -500,7 +500,7 @@ if (process.argv[1]?.endsWith("a11y-audit.ts")) {
   const args = process.argv.slice(2);
   const wantJson = args.includes("--json");
   const reportIdx = args.indexOf("--report");
-  const reportPath = reportIdx >= 0 ? args[reportIdx + 1] : undefined;
+  const reportPath = reportIdx >= 0 ? args[reportIdx + 1] : "reports/a11y-report.md";
   const cliWarnOnly = args.includes("--warn-only");
   const configWarnOnly = (readConfig("A11Y_WARN_ONLY") ?? "").toLowerCase() === "true";
   const warnOnly = cliWarnOnly || configWarnOnly;
@@ -513,6 +513,7 @@ if (process.argv[1]?.endsWith("a11y-audit.ts")) {
   runAudit("dist")
     .then((report) => {
       if (reportPath) {
+        mkdirSync(dirname(reportPath), { recursive: true });
         writeFileSync(reportPath, formatReport(report), "utf-8");
         console.log(`Wrote accessibility report to ${reportPath}`);
       }

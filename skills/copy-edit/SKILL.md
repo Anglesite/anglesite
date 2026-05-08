@@ -112,7 +112,7 @@ Example format for the check report:
 
 If no issues are found, say: "Copy quality looks good — clear headlines, consistent tone, and every page has a next step for visitors."
 
-For deploy context, write findings to `copy-edit-report.md` in the project root and mention it briefly: "I found a few copy improvements you can make later — they're saved in copy-edit-report.md."
+For deploy context, write findings to `reports/copy-edit-report.md` (the `reports/` directory is gitignored — regenerated on demand) and mention it briefly: "I found a few copy improvements you can make later — they're saved in reports/copy-edit-report.md."
 
 ### Interactive context (direct invocation or after page creation)
 
@@ -136,7 +136,7 @@ If the owner asks for rewrites, edit content files directly but always show the 
 ## Integration with other skills
 
 - **`/anglesite:check`** — include a "Copy quality" section in the health report (non-interactive)
-- **`/anglesite:deploy`** — non-blocking content scan; write findings to `copy-edit-report.md`
+- **`/anglesite:deploy`** — non-blocking content scan; write findings to `reports/copy-edit-report.md`
 - **`/anglesite:new-page`** — after page creation, review the new page's copy interactively
 - **`/anglesite:syndicate`** — shares `docs/brand-voice.md` for consistent tone across platforms
 
