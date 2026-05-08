@@ -74,6 +74,7 @@ Step-by-step guides for common operations:
 | Restaurant menu (import, create, edit) | `docs/workflows/menu.md` |
 | Feedback annotations | `docs/workflows/annotations.md` |
 | Privacy / cookie consent | `docs/workflows/consent.md` |
+| Ad / analytics tracking pixels (Partytown) | `docs/workflows/tracking.md` |
 
 ## Communicating clearly
 
@@ -283,6 +284,7 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Add blog comments (Giscus + GitHub Discussions) | `/anglesite:giscus` |
 | Add a cookie / privacy consent banner | `/anglesite:consent` |
 | Add a paywall (free or paid members) | `/anglesite:membership` |
+| Install ad pixels (Meta, Google Ads, GA4, LinkedIn, TikTok, Pinterest, X) | `/anglesite:tracking` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 
