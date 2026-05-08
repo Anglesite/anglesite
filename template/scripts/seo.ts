@@ -115,13 +115,18 @@ function getMetaContent(
   attr: string,
   value: string,
 ): string | undefined {
-  // Match both name="x" and property="x" meta tags
+  // Each capture is anchored to the same quote that opened it, so a value
+  // like `What's new` (with a stray apostrophe inside a double-quoted attr)
+  // isn't truncated at the first inner quote.
+  const attrPart = `${attr}=(?:"${value}"|'${value}')`;
+  const contentPart = `content=(?:"([^"]*)"|'([^']*)')`;
   const re = new RegExp(
-    `<meta\\s+[^>]*${attr}=["']${value}["'][^>]*content=["']([^"']*)["'][^>]*/?>|<meta\\s+[^>]*content=["']([^"']*)["'][^>]*${attr}=["']${value}["'][^>]*/?>`,
+    `<meta\\s+[^>]*${attrPart}[^>]*${contentPart}[^>]*/?>|<meta\\s+[^>]*${contentPart}[^>]*${attrPart}[^>]*/?>`,
     "i",
   );
   const m = html.match(re);
-  return m ? (m[1] ?? m[2]) : undefined;
+  if (!m) return undefined;
+  return m[1] ?? m[2] ?? m[3] ?? m[4];
 }
 
 function getLinkHref(
@@ -140,7 +145,24 @@ function getLinkHref(
 // auditPage — single-page SEO checks
 // ---------------------------------------------------------------------------
 
+/**
+ * Detect whether a page opts out of search indexing via `<meta name="robots">`
+ * (or `googlebot`). Pages with `noindex` won't appear in search results, so
+ * the SEO checks aren't actionable for them.
+ */
+function isNoindex(html: string): boolean {
+  const robots = getMetaContent(html, "name", "robots");
+  if (robots && /\bnoindex\b/i.test(robots)) return true;
+  const googlebot = getMetaContent(html, "name", "googlebot");
+  if (googlebot && /\bnoindex\b/i.test(googlebot)) return true;
+  return false;
+}
+
 export function auditPage(html: string, url: string): SeoIssue[] {
+  // Pages explicitly marked noindex (e.g. KioskLayout) won't be indexed by
+  // search engines, so warning about missing meta/og tags isn't actionable.
+  if (isNoindex(html)) return [];
+
   const issues: SeoIssue[] = [];
 
   // Title
@@ -420,15 +442,23 @@ export function validateSitemap(
     sitemapUrls.push(sm[1].trim());
   }
 
-  // Normalize sitemap URLs to paths
+  // Normalize sitemap URLs to paths (strip trailing slash so `/about/` and
+  // `/about` compare equal). We apply the same rule to `builtPages` because
+  // Astro's default `trailingSlash: 'ignore'` produces directory-style URLs.
   const normalizedBase = siteUrl.replace(/\/$/, "");
-  const sitemapPaths = sitemapUrls.map((url) => {
-    const path = url.replace(normalizedBase, "");
-    return path === "" ? "/" : path.replace(/\/$/, "") || "/";
-  });
+  const normalizePath = (p: string): string => {
+    if (p === "" || p === "/") return "/";
+    return p.replace(/\/$/, "") || "/";
+  };
+  const sitemapPaths = sitemapUrls.map((url) =>
+    normalizePath(url.replace(normalizedBase, "")),
+  );
+  const normalizedBuiltPages = builtPages.map(normalizePath);
 
   // Check which built pages are missing from sitemap
-  const missing = builtPages.filter((p) => !sitemapPaths.includes(p));
+  const missing = normalizedBuiltPages.filter(
+    (p) => !sitemapPaths.includes(p),
+  );
   if (missing.length > 0) {
     issues.push({
       code: "sitemap-missing-page",
@@ -635,8 +665,24 @@ export function generateLlmsTxt(input: LlmsTxtInput): string | null {
 export function auditChunkability(html: string, url: string): SeoIssue[] {
   const issues: SeoIssue[] = [];
 
+  // Scope to <main> if present, otherwise <article>, otherwise the full page
+  // with global chrome (header/footer/nav/aside) stripped out — those would
+  // otherwise lump into the trailing chunk after the last heading and falsely
+  // inflate word counts.
+  const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  const articleMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+  const scope = mainMatch
+    ? mainMatch[1]
+    : articleMatch
+    ? articleMatch[1]
+    : html
+        .replace(/<header[\s\S]*?<\/header>/gi, " ")
+        .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+        .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+        .replace(/<aside[\s\S]*?<\/aside>/gi, " ");
+
   // Split content by headings (h1-h6) to get sections
-  const sections = html.split(/<h[1-6][^>]*>/i);
+  const sections = scope.split(/<h[1-6][^>]*>/i);
 
   for (const section of sections) {
     // Strip HTML tags to get raw text

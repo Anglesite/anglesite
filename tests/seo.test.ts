@@ -165,6 +165,38 @@ describe("auditPage", () => {
     expect(issues.length).toBeGreaterThan(0);
     expect(issues.every((i) => i.page === "/broken")).toBe(true);
   });
+
+  it("does not truncate meta description at apostrophes (#280)", () => {
+    const description =
+      "I'm a regular sentence with apostrophes — what's new is fine here.";
+    const html = minimal.replace(
+      /<meta name="description"[^>]*>/,
+      `<meta name="description" content="${description}">`,
+    );
+    const issues = auditPage(html, "/");
+    // Should not flag length issues — the full description is well within range
+    expect(issues.some((i) => i.code === "description-length")).toBe(false);
+  });
+
+  it("returns no issues for noindex pages (#280)", () => {
+    const html = `<!DOCTYPE html>
+<html><head>
+  <meta name="robots" content="noindex">
+  <title>Hi</title>
+</head><body></body></html>`;
+    const issues = auditPage(html, "/kiosk");
+    expect(issues).toEqual([]);
+  });
+
+  it("respects googlebot noindex too (#280)", () => {
+    const html = `<!DOCTYPE html>
+<html><head>
+  <meta name="googlebot" content="noindex,nofollow">
+  <title>Hi</title>
+</head><body></body></html>`;
+    const issues = auditPage(html, "/internal");
+    expect(issues).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -405,6 +437,23 @@ describe("validateSitemap", () => {
     const issues = validateSitemap(xml, ["/"], "https://example.com");
     expect(issues.some((i) => i.code === "sitemap-no-lastmod")).toBe(false);
   });
+
+  it("matches built pages with trailing slashes against sitemap entries (#280)", () => {
+    // Astro's default `trailingSlash: 'ignore'` produces directory-style URLs
+    // like `/about/`, while sitemap entries are typically stripped to `/about`.
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/</loc><lastmod>2025-01-01</lastmod></url>
+  <url><loc>https://example.com/about</loc><lastmod>2025-01-01</lastmod></url>
+  <url><loc>https://example.com/contact</loc><lastmod>2025-01-01</lastmod></url>
+</urlset>`;
+    const issues = validateSitemap(
+      xml,
+      ["/", "/about/", "/contact/"],
+      "https://example.com",
+    );
+    expect(issues.some((i) => i.code === "sitemap-missing-page")).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -623,6 +672,24 @@ describe("auditChunkability", () => {
     const words = Array(100).fill("word").join(" ");
     const html = `<p>${words}</p><h2>Break</h2><p>${words}</p>`;
     const issues = auditChunkability(html, "/");
+    expect(issues).toEqual([]);
+  });
+
+  it("ignores global header/footer/nav when scoring sections (#280)", () => {
+    // The visible article is well-structured (short paragraphs split by
+    // headings), but the page wraps it in a long footer/nav. The trailing
+    // chunk after the last heading shouldn't lump in the chrome.
+    const para = Array(100).fill("word").join(" ");
+    const footerWords = Array(250).fill("foot").join(" ");
+    const html = `
+      <header><nav>${Array(80).fill("nav").join(" ")}</nav></header>
+      <main>
+        <h2>Section A</h2><p>${para}</p>
+        <h2>Section B</h2><p>${para}</p>
+      </main>
+      <footer>${footerWords}</footer>
+    `;
+    const issues = auditChunkability(html, "/long");
     expect(issues).toEqual([]);
   });
 });
