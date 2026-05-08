@@ -24,7 +24,15 @@ interface Props {
 
 const { title, description, image, themeColor, jsonLd, siteName: propSiteName } = Astro.props;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
-const ogImage = image ? new URL(image, Astro.site).href : undefined;
+
+// Mirror BaseLayout's OG resolution: custom image > per-page generated > site-wide default.
+// Per-page images are emitted by `npm run ai-og`; the site-wide fallback by `npm run ai-images`.
+function resolveOgImage(pathname: string, customImage?: string): string {
+  if (customImage) return customImage;
+  const slug = pathname.replace(/^\/+|\/+$/g, "") || "index";
+  return `/images/og/${slug}.png`;
+}
+const ogImage = new URL(resolveOgImage(Astro.url.pathname, image), Astro.site).toString();
 
 const configPath = resolve(process.cwd(), ".site-config");
 const configContent = existsSync(configPath)
@@ -67,13 +75,13 @@ const hasFavicon = existsSync(resolve(process.cwd(), "public/favicon.svg"));
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
-    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta property="og:image" content={ogImage} />
 
     <!-- Twitter Card -->
-    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    {ogImage && <meta name="twitter:image" content={ogImage} />}
+    <meta name="twitter:image" content={ogImage} />
 
     <!-- Schema.org structured data -->
     {jsonLd && (

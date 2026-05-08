@@ -13,7 +13,10 @@ const hours = config.match(/^SITE_HOURS=(.+)$/m)?.[1]?.trim() ?? "";
 const osmEmbedUrl = config.match(/^OSM_EMBED_URL=(.+)$/m)?.[1]?.trim() ?? "";
 ---
 
-<BaseLayout title="Location & Hours" description={`Find ${siteName} — address, hours, and directions.`}>
+<BaseLayout
+  title="Location & Hours — Address, Map, and Directions"
+  description={`Find ${siteName} — address, hours, phone, and directions to visit us in person.`}
+>
   <h1>Location & Hours</h1>
 
   {address && (

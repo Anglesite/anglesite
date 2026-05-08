@@ -11,11 +11,14 @@ const experiments = (await getCollection('experiments'))
   .filter((e) => !e.data.draft)
   .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 
+const pageTitle = 'Lab — Interactive Experiments and Creative Coding';
+const pageDescription = 'Interactive experiments and creative coding projects exploring visuals, sound, and the web.';
+
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: 'Lab',
-  description: 'Interactive experiments and creative coding projects.',
+  name: pageTitle,
+  description: pageDescription,
   hasPart: experiments.map((e) => ({
     '@type': 'CreativeWork',
     name: e.data.title,
@@ -26,7 +29,7 @@ const jsonLd = {
 };
 ---
 
-<BaseLayout title="Lab" description="Interactive experiments and creative coding projects." jsonLd={jsonLd}>
+<BaseLayout title={pageTitle} description={pageDescription} jsonLd={jsonLd}>
   <section class="lab">
     <h1>Lab</h1>
 

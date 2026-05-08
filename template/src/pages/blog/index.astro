@@ -21,7 +21,10 @@ const hasOlderPosts = allPosts.some(
 );
 ---
 
-<BaseLayout title="Blog" description="Latest news and updates.">
+<BaseLayout
+  title="Blog — Latest News, Updates, and Announcements"
+  description="Recent posts from the blog with news, updates, and announcements from us."
+>
   <h1>Blog</h1>
 
   {recentPosts.length === 0 && <p>No recent posts. Check back soon!</p>}

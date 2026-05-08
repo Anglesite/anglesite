@@ -10,7 +10,10 @@ const turnstileSiteKey = config.match(/^TURNSTILE_SITE_KEY=(.+)$/m)?.[1]?.trim()
 const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "us";
 ---
 
-<BaseLayout title="Leave a Review" description={`Share your experience with ${siteName}.`}>
+<BaseLayout
+  title="Leave a Review and Share Your Experience"
+  description={`Share your experience with ${siteName} — your feedback helps us improve and helps others choose with confidence.`}
+>
   <h1>Leave a Review</h1>
   <p>We'd love to hear about your experience.</p>
 
