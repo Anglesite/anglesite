@@ -2,7 +2,7 @@
 name: seo
 description: "SEO audit, metadata editing, Schema.org, sitemap, and LLM/GEO optimization"
 argument-hint: "[page /about | schema | sitemap | og-images]"
-allowed-tools: Bash(npm run build), Bash(npx astro check), Bash(grep *), Bash(find dist/ *), Bash(git log *), Write, Read, Glob
+allowed-tools: Bash(npm run build), Bash(npm run ai-seo*), Bash(npx astro check), Bash(grep *), Bash(find dist/ *), Bash(git log *), Write, Read, Glob
 disable-model-invocation: true
 ---
 
@@ -44,7 +44,15 @@ If the build fails, fix it before proceeding.
 
 ## Step 2 — Full site audit
 
-Crawl all HTML files in `dist/` and run the SEO audit functions from `scripts/seo.ts`:
+Run the audit script, which walks `dist/` and applies every audit function from `scripts/seo.ts`:
+
+```sh
+npm run ai-seo
+```
+
+The script writes the formatted report to `seo-report.md`, prints a one-line summary to stderr, and exits 0 unless there are critical issues. Pages with `<meta name="robots" content="noindex">` are skipped. Pass `--warn-only` to always exit 0 (used during the predeploy non-blocking call) or `--json` to get the machine-readable form on stdout.
+
+The audit covers:
 
 1. **Per-page audit** — For each HTML file, call `auditPage(html, url)` to check:
    - Title present and 30–60 characters
@@ -156,11 +164,11 @@ Confirm all Critical issues are resolved. Present the updated report.
 
 ## Pre-deploy integration
 
-When called from `/anglesite:deploy`, the SEO audit runs as a non-blocking step:
+`scripts/pre-deploy-check.ts` invokes `runAudit` from `scripts/seo-audit.ts` as a non-blocking step on every deploy. It writes `seo-report.md` and surfaces a one-line summary in the predeploy warnings:
 
-- **Critical issues** pause the deploy. Claude presents them with fix options.
-- **Warnings and Nice-to-haves** are logged to `seo-report.md` but don't block.
-- The owner can skip with `/anglesite:deploy --skip-seo`, which logs the skip with a timestamp.
+- **Critical issues** are surfaced as a `WARN:` line pointing at `seo-report.md`. The deploy is not blocked — `/anglesite:deploy` reads the report and walks the owner through fixes.
+- **Warnings and Nice-to-haves** are summarized in the same line.
+- Pass `--skip-seo` to `npm run predeploy` (or `/anglesite:deploy --skip-seo`) to skip the audit entirely.
 
 ## Keep docs in sync
 
