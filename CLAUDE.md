@@ -250,8 +250,6 @@ Versions must stay in sync across three files:
 
 Use `bin/release.ts` to bump all at once. It creates a git tag (`v*`) which triggers the CI release workflow.
 
-`.claude-plugin/marketplace.json` does not carry a plugin version — the marketplace resolves the plugin to the current commit on the default branch, so tagging a release is enough to publish a new version through the marketplace.
-
 ## CI/CD
 
 **`.github/workflows/release.yml`** — Triggered on `v*` tags:
