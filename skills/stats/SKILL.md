@@ -14,6 +14,17 @@ Fetch Cloudflare analytics data and present it as a plain-language summary. No d
 
 Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, explain before every tool call that will trigger a permission prompt. If `false`, proceed without pre-announcing.
 
+## Traffic analytics vs. ad-attribution pixels
+
+This skill answers "how is my site doing?" using **Cloudflare Web Analytics** — the cookieless beacon already wired into the layouts. Web Analytics counts page views, sessions, top pages, referrers, and devices; it does not attribute paid-ad conversions back to specific campaigns.
+
+If the owner asks about ad-platform numbers ("how is my Facebook campaign doing?", "did my Google Ads convert?"), that's a different surface. Direct them to `/anglesite:tracking` to install the right pixel — Meta Pixel, Google Ads, GA4, LinkedIn Insight, TikTok, Pinterest, or X — and to read each campaign's numbers in that platform's own dashboard. The two sources count different things:
+
+- **Cloudflare Web Analytics** — every visitor's pageview, on every page. Privacy-respecting, cookieless, no opt-in needed. Reported here.
+- **Ad-platform pixels** — conversion events tied to ad-spend. Cookie-based, opt-in via the consent banner in regulated regions. Reported in each ad platform.
+
+Don't recommend installing tracking pixels just to see traffic numbers — they make the site heavier and they're unnecessary if the owner only wants visitor counts.
+
 ## Three data sources, one skill
 
 Cloudflare exposes three unrelated analytics datasets and the skill must pick the right one for each section. Mixing them up gives wrong numbers.

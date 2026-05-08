@@ -28,6 +28,29 @@ export interface SiteProviders {
   /** When set, the podcast skill embeds a privacy-respecting YouTube iframe
    *  on episode pages. `.site-config` key: `PODCAST_VIDEO=youtube`. */
   podcastVideo?: "youtube";
+  /** Advertising / analytics pixels installed via `/anglesite:tracking`.
+   *  Each entry corresponds to a `TRACKING_*` key in `.site-config`. The
+   *  pixels run inside Partytown's web worker; the loader domains still
+   *  need to be permitted by the CSP and the pre-deploy script scan. */
+  tracking?: TrackingPixels;
+}
+
+/** Which advertising / analytics pixels are configured. */
+export interface TrackingPixels {
+  /** TRACKING_META_PIXEL_ID — Facebook / Instagram Ads pixel. */
+  meta: boolean;
+  /** TRACKING_GA4_ID — Google Analytics 4. Shares gtag.js with Google Ads. */
+  ga4: boolean;
+  /** TRACKING_GOOGLE_ADS_ID — Google Ads conversion tag. Shares gtag.js with GA4. */
+  googleAds: boolean;
+  /** TRACKING_LINKEDIN_PARTNER_ID — LinkedIn Insight Tag. */
+  linkedin: boolean;
+  /** TRACKING_TIKTOK_PIXEL_ID — TikTok Pixel. */
+  tiktok: boolean;
+  /** TRACKING_PINTEREST_TAG_ID — Pinterest Tag. */
+  pinterest: boolean;
+  /** TRACKING_X_PIXEL_ID — X / Twitter Pixel. */
+  x: boolean;
 }
 
 /** CSP directives as arrays of domains per directive */
@@ -75,6 +98,63 @@ export function buildPodcastYouTubeCSP(): CSPDirectives {
   };
 }
 
+/**
+ * CSP directives for the advertising / analytics pixels installed via
+ * `/anglesite:tracking`. Pixels run inside Partytown's web worker, but the
+ * worker still loads the platform's loader script over the network, so the
+ * CSP and pre-deploy script scan must permit each loader domain. Only the
+ * domains for *configured* platforms are returned — owners who only run
+ * Meta and GA4 don't widen their CSP to LinkedIn or TikTok.
+ */
+export function buildTrackingCSP(pixels: TrackingPixels): CSPDirectives {
+  const scriptSrc: string[] = [];
+  const connectSrc: string[] = [];
+  const imgSrc: string[] = [];
+
+  if (pixels.meta) {
+    scriptSrc.push("connect.facebook.net");
+    connectSrc.push("connect.facebook.net", "www.facebook.com");
+    imgSrc.push("www.facebook.com"); // 1x1 tracking pixel
+  }
+  if (pixels.ga4 || pixels.googleAds) {
+    scriptSrc.push("www.googletagmanager.com");
+    connectSrc.push(
+      "www.google-analytics.com",
+      "analytics.google.com",
+      "stats.g.doubleclick.net",
+    );
+    imgSrc.push(
+      "www.google-analytics.com",
+      "www.googletagmanager.com",
+      "www.google.com",
+    );
+  }
+  if (pixels.linkedin) {
+    scriptSrc.push("snap.licdn.com");
+    connectSrc.push("px.ads.linkedin.com");
+    imgSrc.push("px.ads.linkedin.com");
+  }
+  if (pixels.tiktok) {
+    scriptSrc.push("analytics.tiktok.com");
+    connectSrc.push("analytics.tiktok.com");
+  }
+  if (pixels.pinterest) {
+    scriptSrc.push("s.pinimg.com");
+    imgSrc.push("ct.pinterest.com");
+  }
+  if (pixels.x) {
+    scriptSrc.push("static.ads-twitter.com");
+    connectSrc.push("analytics.twitter.com");
+    imgSrc.push("t.co", "analytics.twitter.com");
+  }
+
+  const directives: CSPDirectives = {};
+  if (scriptSrc.length) directives["script-src"] = scriptSrc;
+  if (connectSrc.length) directives["connect-src"] = connectSrc;
+  if (imgSrc.length) directives["img-src"] = imgSrc;
+  return directives;
+}
+
 // ---------------------------------------------------------------------------
 // Config parser
 // ---------------------------------------------------------------------------
@@ -95,12 +175,31 @@ export function parseProviders(configContent: string): SiteProviders {
     | SiteProviders["podcastVideo"]
     | undefined;
 
+  const tracking: TrackingPixels = {
+    meta: !!readConfigFromString(configContent, "TRACKING_META_PIXEL_ID"),
+    ga4: !!readConfigFromString(configContent, "TRACKING_GA4_ID"),
+    googleAds: !!readConfigFromString(configContent, "TRACKING_GOOGLE_ADS_ID"),
+    linkedin: !!readConfigFromString(configContent, "TRACKING_LINKEDIN_PARTNER_ID"),
+    tiktok: !!readConfigFromString(configContent, "TRACKING_TIKTOK_PIXEL_ID"),
+    pinterest: !!readConfigFromString(configContent, "TRACKING_PINTEREST_TAG_ID"),
+    x: !!readConfigFromString(configContent, "TRACKING_X_PIXEL_ID"),
+  };
+  const anyTracking =
+    tracking.meta ||
+    tracking.ga4 ||
+    tracking.googleAds ||
+    tracking.linkedin ||
+    tracking.tiktok ||
+    tracking.pinterest ||
+    tracking.x;
+
   return {
     ecommerce,
     booking,
     comments,
     turnstile: !!turnstileKey,
     podcastVideo,
+    tracking: anyTracking ? tracking : undefined,
   };
 }
 
@@ -164,6 +263,11 @@ export function buildCSP(providers: SiteProviders): string {
     providerCSPs.push(buildPodcastYouTubeCSP());
   }
 
+  // Advertising / analytics pixels (Partytown-wrapped)
+  if (providers.tracking) {
+    providerCSPs.push(buildTrackingCSP(providers.tracking));
+  }
+
   const extra = mergeDirectives(...providerCSPs);
 
   const scriptSrc = ["'self'", "static.cloudflareinsights.com", ...(extra["script-src"] ?? [])];
@@ -225,6 +329,27 @@ export function buildAllowedScripts(providers: SiteProviders): string[] {
 
   if (providers.comments === "giscus") {
     scripts.push("giscus.app");
+  }
+
+  if (providers.tracking) {
+    if (providers.tracking.meta) {
+      scripts.push("connect.facebook.net");
+    }
+    if (providers.tracking.ga4 || providers.tracking.googleAds) {
+      scripts.push("www.googletagmanager.com");
+    }
+    if (providers.tracking.linkedin) {
+      scripts.push("snap.licdn.com");
+    }
+    if (providers.tracking.tiktok) {
+      scripts.push("analytics.tiktok.com");
+    }
+    if (providers.tracking.pinterest) {
+      scripts.push("s.pinimg.com");
+    }
+    if (providers.tracking.x) {
+      scripts.push("static.ads-twitter.com");
+    }
   }
 
   return scripts;

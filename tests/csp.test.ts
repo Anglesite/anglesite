@@ -3,6 +3,7 @@ import {
   buildPolarCSP,
   buildTurnstileCSP,
   buildGiscusCSP,
+  buildTrackingCSP,
   parseProviders,
   buildCSP,
   buildAllowedScripts,
@@ -320,6 +321,154 @@ describe("buildAllowedScripts", () => {
     expect(scripts).toContain("challenges.cloudflare.com");
     expect(scripts).toContain("cdn.snipcart.com");
     expect(scripts).toContain("app.cal.com");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tracking pixels (Partytown)
+// ---------------------------------------------------------------------------
+
+const noPixels = {
+  meta: false,
+  ga4: false,
+  googleAds: false,
+  linkedin: false,
+  tiktok: false,
+  pinterest: false,
+  x: false,
+};
+
+describe("buildTrackingCSP", () => {
+  it("returns empty directives when no pixels are enabled", () => {
+    const csp = buildTrackingCSP(noPixels);
+    expect(csp["script-src"]).toBeUndefined();
+    expect(csp["connect-src"]).toBeUndefined();
+    expect(csp["img-src"]).toBeUndefined();
+  });
+
+  it("adds Meta domains when meta is enabled", () => {
+    const csp = buildTrackingCSP({ ...noPixels, meta: true });
+    expect(csp["script-src"]).toContain("connect.facebook.net");
+    expect(csp["connect-src"]).toContain("connect.facebook.net");
+    expect(csp["connect-src"]).toContain("www.facebook.com");
+  });
+
+  it("adds googletagmanager once when GA4 and Google Ads are both enabled", () => {
+    const csp = buildTrackingCSP({ ...noPixels, ga4: true, googleAds: true });
+    const scriptSrc = csp["script-src"] ?? [];
+    expect(scriptSrc.filter((d) => d === "www.googletagmanager.com")).toHaveLength(1);
+  });
+
+  it("adds LinkedIn loader and pixel domains when linkedin is enabled", () => {
+    const csp = buildTrackingCSP({ ...noPixels, linkedin: true });
+    expect(csp["script-src"]).toContain("snap.licdn.com");
+    expect(csp["connect-src"]).toContain("px.ads.linkedin.com");
+  });
+
+  it("adds TikTok analytics domain when tiktok is enabled", () => {
+    const csp = buildTrackingCSP({ ...noPixels, tiktok: true });
+    expect(csp["script-src"]).toContain("analytics.tiktok.com");
+  });
+
+  it("adds Pinterest loader when pinterest is enabled", () => {
+    const csp = buildTrackingCSP({ ...noPixels, pinterest: true });
+    expect(csp["script-src"]).toContain("s.pinimg.com");
+  });
+
+  it("adds X loader when x is enabled", () => {
+    const csp = buildTrackingCSP({ ...noPixels, x: true });
+    expect(csp["script-src"]).toContain("static.ads-twitter.com");
+  });
+});
+
+describe("parseProviders — tracking", () => {
+  it("returns undefined tracking when no TRACKING_* keys are set", () => {
+    const p = parseProviders("");
+    expect(p.tracking).toBeUndefined();
+  });
+
+  it("populates tracking when TRACKING_META_PIXEL_ID is set", () => {
+    const p = parseProviders("TRACKING_META_PIXEL_ID=1234567890123456");
+    expect(p.tracking?.meta).toBe(true);
+    expect(p.tracking?.ga4).toBe(false);
+  });
+
+  it("detects multiple TRACKING_* keys at once", () => {
+    const config = [
+      "TRACKING_META_PIXEL_ID=1234567890123456",
+      "TRACKING_GA4_ID=G-ABC1234567",
+      "TRACKING_GOOGLE_ADS_ID=AW-9876543210",
+    ].join("\n");
+    const p = parseProviders(config);
+    expect(p.tracking?.meta).toBe(true);
+    expect(p.tracking?.ga4).toBe(true);
+    expect(p.tracking?.googleAds).toBe(true);
+    expect(p.tracking?.linkedin).toBe(false);
+  });
+});
+
+describe("buildCSP — with tracking pixels", () => {
+  it("adds Meta domains to CSP when meta is enabled", () => {
+    const csp = buildCSP({
+      turnstile: false,
+      tracking: { ...noPixels, meta: true },
+    });
+    expect(csp).toContain("connect.facebook.net");
+  });
+
+  it("adds googletagmanager when GA4 is enabled", () => {
+    const csp = buildCSP({
+      turnstile: false,
+      tracking: { ...noPixels, ga4: true },
+    });
+    expect(csp).toContain("www.googletagmanager.com");
+    expect(csp).toContain("www.google-analytics.com");
+  });
+
+  it("does not include any tracking domains when tracking is undefined", () => {
+    const csp = buildCSP({ turnstile: false });
+    expect(csp).not.toContain("connect.facebook.net");
+    expect(csp).not.toContain("www.googletagmanager.com");
+    expect(csp).not.toContain("snap.licdn.com");
+  });
+});
+
+describe("buildAllowedScripts — with tracking pixels", () => {
+  it("adds Meta loader when meta is enabled", () => {
+    const scripts = buildAllowedScripts({
+      turnstile: false,
+      tracking: { ...noPixels, meta: true },
+    });
+    expect(scripts).toContain("connect.facebook.net");
+  });
+
+  it("adds googletagmanager once when GA4 and Google Ads are both enabled", () => {
+    const scripts = buildAllowedScripts({
+      turnstile: false,
+      tracking: { ...noPixels, ga4: true, googleAds: true },
+    });
+    expect(scripts.filter((s) => s === "www.googletagmanager.com")).toHaveLength(1);
+  });
+
+  it("adds every loader when every pixel is enabled", () => {
+    const scripts = buildAllowedScripts({
+      turnstile: false,
+      tracking: {
+        meta: true,
+        ga4: true,
+        googleAds: true,
+        linkedin: true,
+        tiktok: true,
+        pinterest: true,
+        x: true,
+      },
+    });
+    expect(scripts).toContain("connect.facebook.net");
+    expect(scripts).toContain("www.googletagmanager.com");
+    expect(scripts).toContain("snap.licdn.com");
+    expect(scripts).toContain("analytics.tiktok.com");
+    expect(scripts).toContain("s.pinimg.com");
+    expect(scripts).toContain("static.ads-twitter.com");
   });
 });
 
