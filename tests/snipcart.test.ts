@@ -234,8 +234,8 @@ describe("products content collection", () => {
       resolve(templateDir, "src/content.config.ts"),
       "utf-8",
     );
-    // products is defined in allCollections and conditionally exported
-    expect(src).toMatch(/const allCollections\s*=\s*\{[^}]*products/);
+    expect(src).toMatch(/const\s+products\s*=\s*defineCollection/);
+    expect(src).toMatch(/export\s+const\s+collections\s*=\s*\{[^}]*products/);
   });
 
   it("is defined in keystatic.config.ts", () => {

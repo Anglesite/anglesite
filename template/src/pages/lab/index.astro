@@ -19,7 +19,7 @@ const jsonLd = {
   hasPart: experiments.map((e) => ({
     '@type': 'CreativeWork',
     name: e.data.title,
-    url: `/lab/${e.slug}`,
+    url: `/lab/${e.id}`,
     dateCreated: e.data.date,
     interactivityType: 'active',
   })),
@@ -36,7 +36,7 @@ const jsonLd = {
 
     <div class="lab__grid">
       {experiments.map((experiment) => (
-        <a href={`/lab/${experiment.slug}`} class="lab__card">
+        <a href={`/lab/${experiment.id}`} class="lab__card">
           {experiment.data.thumbnail ? (
             <img
               src={experiment.data.thumbnail}

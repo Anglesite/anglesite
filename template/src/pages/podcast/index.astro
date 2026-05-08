@@ -35,7 +35,7 @@ const podcastJsonLd = {
   <ol class="episode-list">
     {
       episodes.map((episode) => {
-        const slug = episode.id.replace(/\.mdoc$/, "");
+        const slug = episode.id;
         return (
           <li class="episode-list__item h-entry">
             <article>

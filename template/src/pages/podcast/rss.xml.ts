@@ -69,8 +69,7 @@ export async function GET(context: APIContext) {
 
   const items = episodes
     .map((episode) => {
-      const slug = episode.id.replace(/\.mdoc$/, "");
-      const link = new URL(`/podcast/${slug}/`, site).toString();
+      const link = new URL(`/podcast/${episode.id}/`, site).toString();
       const audioSrc = /^https?:\/\//.test(episode.data.audioUrl)
         ? episode.data.audioUrl
         : new URL(episode.data.audioUrl, site).toString();

@@ -291,11 +291,13 @@ const { title, description, image, href } = Astro.props;
 
 ### Content Collections
 
-Content lives in `src/content/` with schemas defined in `src/content.config.ts` using Zod:
+Content lives in `src/content/` with schemas defined in `src/content.config.ts` using Zod and the Astro 5 Content Layer `glob` loader:
 
 ```typescript
+import { glob } from "astro/loaders";
+
 const posts = defineCollection({
-  type: "content",
+  loader: glob({ pattern: "**/*.{mdoc,mdx,md}", base: "./src/content/posts" }),
   schema: z.object({
     title: z.string(),
     description: z.string(),

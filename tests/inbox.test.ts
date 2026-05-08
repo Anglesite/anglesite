@@ -388,7 +388,7 @@ describe("inbox skill artifacts", () => {
       "utf-8",
     );
     expect(text).toMatch(/const\s+submissions\s*=\s*defineCollection/);
-    expect(text).toMatch(/submissions\s*}/);
+    expect(text).toMatch(/submissions[\s,]*}/);
   });
 
   it("wires the npm scripts for fetch and export", () => {

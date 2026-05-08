@@ -19,20 +19,28 @@ const keystatic = readFileSync(
 const COLLECTIONS = ['posts', 'services', 'team', 'testimonials', 'gallery', 'events', 'menus', 'menuSections', 'menuItems', 'faq', 'products', 'experiments'];
 
 describe('content collections', () => {
-  it('defines all collections in the allCollections object', () => {
-    // The allCollections object should include all collection names
-    const allLine = contentConfig.match(/const allCollections = \{([^}]+)\}/)?.[1] ?? '';
+  it('defines all collections with defineCollection', () => {
     for (const name of COLLECTIONS) {
-      expect(allLine).toContain(name);
+      expect(contentConfig).toMatch(
+        new RegExp(`const ${name} = defineCollection\\(`),
+      );
     }
   });
 
-  it('filters collections by actual content files, not just directory existence', () => {
-    // The export should check for .mdoc/.mdx/.md files, not just existsSync on directory
-    expect(contentConfig).toContain('existsSync');
-    expect(contentConfig).toContain('readdirSync');
-    expect(contentConfig).toContain('Object.fromEntries');
-    expect(contentConfig).toContain('hasContentFiles');
+  it('uses the Astro 5 Content Layer glob loader', () => {
+    // Legacy `type: "content"` is gone — every collection uses a glob loader.
+    expect(contentConfig).toContain('from "astro/loaders"');
+    expect(contentConfig).toContain('glob({');
+    expect(contentConfig).not.toMatch(/type:\s*"content"/);
+  });
+
+  it('does not ship pre-created content directories in the template', () => {
+    // The glob loader is happy with empty/missing directories, so the
+    // template ships none — Keystatic creates them on demand.
+    for (const name of COLLECTIONS) {
+      const gitkeep = join(root, 'template', 'src', 'content', name, '.gitkeep');
+      expect(existsSync(gitkeep), `Unexpected .gitkeep in src/content/${name}/`).toBe(false);
+    }
   });
 
   it('defines all collections in keystatic.config.ts', () => {
@@ -41,9 +49,9 @@ describe('content collections', () => {
     }
   });
 
-  it('keystatic filters collections by existing directories', () => {
-    expect(keystatic).toContain('existsSync');
-    expect(keystatic).toContain('Object.fromEntries');
+  it('keystatic registers every collection unconditionally', () => {
+    // No directory-existence filter — collections are always available.
+    expect(keystatic).not.toContain('existsSync');
   });
 
   it('has matching collection names in both config files', () => {
@@ -55,16 +63,6 @@ describe('content collections', () => {
       .map((m) => m[1]);
 
     expect(zodCollections.sort()).toEqual(ksCollections.sort());
-  });
-
-  it('does not ship pre-created content directories in the template', () => {
-    // Content directories are created by prune-collections.mjs during setup,
-    // not shipped in the template. This prevents glob-loader warnings for
-    // collections that aren't relevant to the site type.
-    for (const name of COLLECTIONS) {
-      const gitkeep = join(root, 'template', 'src', 'content', name, '.gitkeep');
-      expect(existsSync(gitkeep), `Unexpected .gitkeep in src/content/${name}/`).toBe(false);
-    }
   });
 
   it('keystatic paths match content directory names', () => {

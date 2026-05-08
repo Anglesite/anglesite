@@ -10,7 +10,7 @@ export async function getStaticPaths() {
     return import.meta.env.PROD ? !data.draft : true;
   });
   return episodes.map((episode) => ({
-    params: { slug: episode.id.replace(/\.mdoc$/, "") },
+    params: { slug: episode.id },
     props: { episode },
   }));
 }
@@ -53,7 +53,7 @@ const episodeJsonLd = {
   name: episode.data.title,
   datePublished: episode.data.publishDate.toISOString(),
   description: episode.data.description,
-  url: new URL(`/podcast/${episode.id.replace(/\.mdoc$/, "")}/`, Astro.site).toString(),
+  url: new URL(`/podcast/${episode.id}/`, Astro.site).toString(),
   ...(isoDuration(episode.data.duration) && {
     duration: isoDuration(episode.data.duration),
   }),
