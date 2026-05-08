@@ -15,7 +15,7 @@ Plugins in Cowork require a paid plan (Pro, Max, Team, or Enterprise).
 3. Press **+** > **Plugins** > **Add Plugin**
 4. Select the **Personal** tab, press **+**
 5. Select **Add Marketplace from GitHub**
-6. Enter `Anglesite/marketplace` and press **Sync**
+6. Enter `Anglesite/anglesite` and press **Sync**
 7. Enable the **anglesite** plugin
 8. Create a new folder for your site and open it in the **Code** tab
 9. Type `/anglesite:start`
@@ -26,7 +26,7 @@ No terminal, no installs, no prerequisites. Claude handles everything.
 
 ```sh
 # Add the marketplace (one-time)
-claude plugin marketplace add Anglesite/marketplace
+claude plugin marketplace add Anglesite/anglesite
 
 # Install the plugin
 claude plugin install anglesite

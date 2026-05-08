@@ -1,0 +1,16 @@
+{
+  "name": "anglesite",
+  "description": "Claude Code plugins by Anglesite",
+  "owner": {
+    "name": "David W. Keith",
+    "email": "git@dwk.io"
+  },
+  "plugins": [
+    {
+      "name": "anglesite",
+      "description": "AI webmaster that scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Workers.",
+      "source": "./",
+      "homepage": "https://github.com/Anglesite/anglesite"
+    }
+  ]
+}

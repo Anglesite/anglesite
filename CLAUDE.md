@@ -7,7 +7,9 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ## Plugin structure
 
 ```
-├── .claude-plugin/plugin.json    Plugin manifest (name, version, metadata)
+├── .claude-plugin/
+│   ├── plugin.json               Plugin manifest (name, version, metadata)
+│   └── marketplace.json          Marketplace catalog — this repo is also its own marketplace
 ├── skills/                       Skills (53 total: 28 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Workers
@@ -123,7 +125,7 @@ Two levels of agent instructions exist — do not confuse them:
 
 ## How it works
 
-1. User installs the plugin from the marketplace (or `claude --plugin-dir .` for development)
+1. User installs the plugin from the `Anglesite/anglesite` marketplace (or `claude --plugin-dir .` for development). The marketplace catalog (`.claude-plugin/marketplace.json`) lives in this same repo alongside the plugin manifest.
 2. `/anglesite:start` runs `scripts/scaffold.sh` to copy `template/` to the user's project
 3. Start skill proceeds with discovery interview, design, and tool installation
 4. All other skills (`/anglesite:deploy`, `/anglesite:check`, etc.) execute in the user's working directory
