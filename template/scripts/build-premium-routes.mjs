@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * Scan src/content/ for entries with `tier: premium` and emit the list
- * of gated routes to functions/_premium-routes.json. The Pages
- * middleware (functions/_middleware.ts) imports this JSON at build
- * time and gates matching routes at the edge.
+ * of gated routes to worker/_premium-routes.json. The site-entry Worker
+ * (worker/site-entry.js) imports this JSON at deploy time and gates
+ * matching routes at the edge.
  *
  * Mapping rules:
  *   src/content/posts/<slug>.mdoc         → /blog/<slug>
@@ -20,7 +20,7 @@ import { resolve, join } from "node:path";
 
 const projectRoot = process.cwd();
 const contentDir = resolve(projectRoot, "src", "content");
-const outFile = resolve(projectRoot, "functions", "_premium-routes.json");
+const outFile = resolve(projectRoot, "worker", "_premium-routes.json");
 
 const COLLECTION_TO_BASE = {
   posts: "/blog",
@@ -103,5 +103,5 @@ const all = Array.from(new Set([...fromContent, ...manual])).sort();
 writeFileSync(outFile, JSON.stringify(all, null, 2) + "\n");
 
 console.log(
-  `[membership] wrote ${all.length} premium route(s) to functions/_premium-routes.json`,
+  `[membership] wrote ${all.length} premium route(s) to worker/_premium-routes.json`,
 );

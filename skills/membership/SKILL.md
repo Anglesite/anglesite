@@ -10,7 +10,7 @@ Add a paywall to the site. Two tiers, both unlock the same `tier: premium` pages
 - **Free tier** — visitor confirms newsletter subscription (Buttondown or Mailchimp). They get a signed cookie, premium content unlocks.
 - **Paid tier** — visitor pays for a Stripe subscription. Stripe Customer Portal handles cancel/upgrade. They get a signed cookie, premium content unlocks.
 
-Pages marked `tier: premium` in frontmatter are gated at the edge by `functions/_middleware.ts`. Public visitors see a teaser (configurable) plus an unlock prompt. Inline `<Premium>` blocks gate sections within otherwise-public pages.
+Pages marked `tier: premium` in frontmatter are gated at the edge by the site Worker entry (`worker/site-entry.js`), which verifies the signed cookie before serving the response. Public visitors see a teaser (configurable) plus an unlock prompt. Inline `<Premium>` blocks gate sections within otherwise-public pages.
 
 ## Architecture decisions
 
@@ -120,6 +120,20 @@ npx wrangler secret put MEMBERSHIP_SIGNING_KEY --config worker/membership-wrangl
 ```
 
 Paste the hex from 4a when prompted.
+
+The site Worker (the one in `wrangler.jsonc`) also needs to verify cookies issued by the membership Worker, so set the **same** signing key on it:
+
+```sh
+npx wrangler secret put MEMBERSHIP_SIGNING_KEY
+```
+
+Paste the same hex value. If the site Worker doesn't have this secret, premium routes will be served publicly — the gate silently no-ops.
+
+If you set `MEMBERSHIP_PREVIEW_TOKEN` in `.site-config` for owner-preview links, mirror that to the site Worker too:
+
+```sh
+npx wrangler secret put MEMBERSHIP_PREVIEW_TOKEN
+```
 
 ```sh
 npx wrangler secret put SITE_DOMAIN --config worker/membership-wrangler.toml
@@ -247,7 +261,7 @@ If paid tier is enabled, ensure `form-action` already permits `https://buy.strip
 
 ## Step 7 — Build and verify
 
-The edge middleware reads `functions/_premium-routes.json` to know which paths require a member cookie. Regenerate that index from the current `tier: premium` frontmatter, then build:
+The site Worker entry reads `worker/_premium-routes.json` to know which paths require a member cookie. Regenerate that index from the current `tier: premium` frontmatter, then build:
 
 ```sh
 npm run ai-premium-build
