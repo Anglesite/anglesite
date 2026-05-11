@@ -13,6 +13,7 @@ import {
   scanMaintenance,
   formatMaintenanceWarning,
   maintenanceCategories,
+  isReservedExampleEmail,
 } from "../template/scripts/pre-deploy-check.js";
 
 // ---------------------------------------------------------------------------
@@ -35,8 +36,24 @@ describe("pre-deploy-check.sh safety", () => {
 
 describe("scanEmails", () => {
   it("finds real emails", () => {
-    const result = scanEmails("Contact us at user@example.com for info.", []);
-    expect(result).toEqual(["user@example.com"]);
+    const result = scanEmails("Contact us at user@mysite.com for info.", []);
+    expect(result).toEqual(["user@mysite.com"]);
+  });
+
+  it("ignores RFC 2606 reserved example.com placeholders", () => {
+    expect(scanEmails("Try you@example.com to subscribe.", [])).toEqual([]);
+  });
+
+  it("ignores RFC 2606 reserved example.net and example.org placeholders", () => {
+    expect(scanEmails("Reach hello@example.net or info@example.org.", [])).toEqual([]);
+  });
+
+  it("ignores reserved .test / .invalid / .localhost TLDs", () => {
+    expect(scanEmails("Test a@foo.test, b@bar.invalid, c@baz.localhost.", [])).toEqual([]);
+  });
+
+  it("still flags real-looking addresses on non-reserved domains", () => {
+    expect(scanEmails("Reach jane@yourbusiness.com today.", [])).toEqual(["jane@yourbusiness.com"]);
   });
 
   it("ignores CSS at-rules: @import", () => {
@@ -75,6 +92,35 @@ describe("scanEmails", () => {
 
   it("returns empty array for content with no emails", () => {
     expect(scanEmails("No email addresses here.", [])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isReservedExampleEmail
+// ---------------------------------------------------------------------------
+
+describe("isReservedExampleEmail", () => {
+  it("recognizes example.com / example.net / example.org", () => {
+    expect(isReservedExampleEmail("a@example.com")).toBe(true);
+    expect(isReservedExampleEmail("b@EXAMPLE.NET")).toBe(true);
+    expect(isReservedExampleEmail("c@example.org")).toBe(true);
+  });
+
+  it("recognizes reserved TLDs (.test, .invalid, .localhost, .example)", () => {
+    expect(isReservedExampleEmail("a@foo.test")).toBe(true);
+    expect(isReservedExampleEmail("a@foo.invalid")).toBe(true);
+    expect(isReservedExampleEmail("a@foo.localhost")).toBe(true);
+    expect(isReservedExampleEmail("a@foo.example")).toBe(true);
+  });
+
+  it("does not flag normal domains", () => {
+    expect(isReservedExampleEmail("a@mysite.com")).toBe(false);
+    expect(isReservedExampleEmail("a@yourbusiness.com")).toBe(false);
+    expect(isReservedExampleEmail("a@example.com.evil.com")).toBe(false);
+  });
+
+  it("returns false for strings without an @", () => {
+    expect(isReservedExampleEmail("not-an-email")).toBe(false);
   });
 });
 

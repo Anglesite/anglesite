@@ -28,6 +28,31 @@ import { formatSeoReport, type AgenticCrawlersPolicy } from "./seo.js";
 
 export const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 export const emailExcludes = ["charset", "viewport", "@astro", "@import", "@keyframes", "@media", "@font-face", "@layer", "@property"];
+
+/**
+ * RFC 2606 reserved second-level domains. Email addresses on these domains are
+ * documentation placeholders by convention and never represent real PII.
+ */
+export const reservedExampleDomains = ["example.com", "example.net", "example.org"];
+
+/**
+ * RFC 2606 / RFC 6761 reserved top-level domains. Any address whose domain
+ * ends in one of these is a placeholder.
+ */
+export const reservedExampleTlds = [".example", ".test", ".invalid", ".localhost"];
+
+/**
+ * True when an email address sits on a reserved documentation domain. Used by
+ * the PII scan to ignore scaffold-shipped placeholders like `you@example.com`
+ * without forcing owners to enumerate them in `PII_EMAIL_ALLOW`.
+ */
+export function isReservedExampleEmail(email: string): boolean {
+  const at = email.lastIndexOf("@");
+  if (at < 0) return false;
+  const domain = email.slice(at + 1).toLowerCase();
+  if (reservedExampleDomains.includes(domain)) return true;
+  return reservedExampleTlds.some(tld => domain.endsWith(tld));
+}
 export const phonePattern = /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
 /**
  * Airtable Personal Access Token: `pat` + 14 alphanumerics + `.` + 32+ alphanumerics.
@@ -101,6 +126,8 @@ export function scanEmails(content: string, allowlist: string[]): string[] {
   return matches.filter(m => {
     // Skip CSS at-rules and meta tags
     if (emailExcludes.some(ex => m.includes(ex))) return false;
+    // Skip RFC 2606 / RFC 6761 reserved documentation domains
+    if (isReservedExampleEmail(m)) return false;
     // Skip emails in mailto: links (intentionally published)
     const idx = content.indexOf(m);
     if (idx >= 7 && content.slice(idx - 7, idx).includes("mailto:")) return false;
