@@ -1,6 +1,6 @@
 {
   "name": "anglesite",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "AI webmaster that scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Workers.",
   "author": {
     "name": "David W. Keith"

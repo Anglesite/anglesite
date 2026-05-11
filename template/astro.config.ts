@@ -143,5 +143,8 @@ export default defineConfig({
     sitemap({ serialize: makeLastmodSerializer() }),
   ],
   vite: { server: { https: getHttpsConfig() } },
-  adapter: cloudflare(),
+  // prerenderEnvironment: "node" keeps the prerender step in Node so the
+  // adapter doesn't spin up a workerd-based preview server that conflicts
+  // with the custom worker entry in worker/site-entry.js.
+  adapter: cloudflare({ prerenderEnvironment: "node" }),
 });
