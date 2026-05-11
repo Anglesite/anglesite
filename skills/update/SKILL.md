@@ -80,6 +80,7 @@ To tell the difference:
 | `package.json` | **Merge dependencies.** Don't replace the whole file — update `dependencies` and `devDependencies` versions to match the template. Preserve any packages the owner added. |
 | `astro.config.ts` | **Merge carefully.** The owner may have added integrations. Update template portions, preserve additions. |
 | `keystatic.config.ts` | **Merge carefully.** The owner may have added or modified content collections. Update template portions, preserve additions. |
+| `worker/*.toml` | **Merge carefully.** The owner has pasted real ids into these (KV namespace ids, D1 `database_id`, account names, `SITE_DOMAIN`, etc.) — never overwrite. Read both versions, preserve every owner-supplied value, and apply only the additive template changes. The current required addition is an `[observability]` block (`enabled = true`, `head_sampling_rate = 1.0`) right after `compatibility_date` — add it if missing. If the file is otherwise identical to the template apart from owner-supplied ids, that's expected; don't flag it. Tell the owner the worker needs a redeploy for changes to take effect. |
 | `.gitignore` | **Append only.** Add new entries from the template without removing existing ones. |
 | Config files (`tsconfig.json`, etc.) | **Safe to update** unless customized. |
 
