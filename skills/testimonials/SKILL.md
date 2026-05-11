@@ -41,6 +41,10 @@ Create `worker/review-wrangler.toml` if needed:
 name = "review-form"
 main = "review-worker.js"
 compatibility_date = "2024-01-01"
+
+[observability]
+enabled = true
+head_sampling_rate = 1.0
 ```
 
 Deploy:

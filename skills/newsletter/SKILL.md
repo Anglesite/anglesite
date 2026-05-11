@@ -88,6 +88,10 @@ Create `worker/subscribe-wrangler.toml` if it doesn't exist:
 name = "newsletter-subscribe"
 main = "subscribe-worker.js"
 compatibility_date = "2024-01-01"
+
+[observability]
+enabled = true
+head_sampling_rate = 1.0
 ```
 
 ## Step 3 — Add the subscribe page
