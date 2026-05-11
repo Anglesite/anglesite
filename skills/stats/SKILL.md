@@ -283,7 +283,7 @@ If the response returns an `authz` error or the field is rejected, the owner's p
 
 Always run this section in addition to Step 2A or 2B — conversions are an independent signal from traffic. Skip it gracefully if the helper Workers haven't been deployed yet (an empty result set, not an error).
 
-The `anglesite_events` dataset lives in Cloudflare Analytics Engine and is queried via the same GraphQL endpoint used for traffic. The schema is documented at the top of this file under "The `anglesite_events` dataset".
+The `anglesite_events` dataset lives in Cloudflare Analytics Engine and is queried via the **Analytics Engine SQL API**, not the GraphQL endpoint that the traffic queries use. Cloudflare's `workersAnalyticsEngineAdaptiveGroups` GraphQL field only covers Cloudflare-owned datasets — custom datasets written from your helper Workers are reachable only over SQL. The schema for `anglesite_events` is documented at the top of this file under "The `anglesite_events` dataset". The SQL surface is ClickHouse-flavored; the raw SQL goes in the POST body and the response is a JSON envelope shaped `{"meta": [...], "data": [...], "rows": N, "rows_before_limit_at_least": N}` when the query ends with `FORMAT JSON`.
 
 ```sh
 CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
@@ -293,31 +293,29 @@ SITE_DOMAIN=$(grep SITE_DOMAIN .site-config | cut -d= -f2)
 
 ### Query D (events) — conversions by worker and outcome (last 14 days, daily roll-ups)
 
-Replace `DATE_START_PREV` with 14 days ago (ISO `YYYY-MM-DD`) and `DATE_END_CURR` with today.
-
 ```sh
-curl -s "https://api.cloudflare.com/client/v4/graphql" \
+curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/analytics_engine/sql" \
   -H "Authorization: Bearer $CF_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data '{"query":"{ viewer { accounts(filter: {accountTag: \"'$CF_ACCOUNT_ID'\"}) { workersAnalyticsEngineAdaptiveGroups(filter: {datasetId: \"anglesite_events\", index1: \"'$SITE_DOMAIN'\", date_geq: \"DATE_START_PREV\", date_leq: \"DATE_END_CURR\"}, limit: 1000, orderBy: [date_ASC]) { sum { _sample_interval } count dimensions { date blob1 blob2 blob3 blob4 } } } } }"}'
+  --data-binary "SELECT blob1 AS worker, blob2 AS event_type, blob3 AS form, blob4 AS outcome, SUM(_sample_interval) AS events, toDate(timestamp) AS day FROM anglesite_events WHERE index1 = '$SITE_DOMAIN' AND timestamp >= now() - INTERVAL '14' DAY GROUP BY day, worker, event_type, form, outcome ORDER BY day ASC FORMAT JSON"
 ```
 
-`count` is the number of distinct events in the bucket; `sum._sample_interval` is the count weighted for sampling (use this when extrapolating to a real total). For SMB-scale traffic the two are usually identical.
-
-If the response contains an `authz` or `does not have access` error, the token is missing **Account → Analytics Engine → Read**. Skip the conversions section and surface the one-line remediation note from the token-creation step.
-
-If the response is empty (no rows), the helper Workers either haven't been deployed yet or haven't received any traffic. Skip the section silently — don't surface an empty table.
+Each row in the response's `.data[]` array has `worker`, `event_type`, `form`, `outcome`, `events`, and `day` fields. `events` is the count weighted for sampling (`SUM(_sample_interval)`) — use it when extrapolating to a real total. For SMB-scale traffic the sampling-weighted count and the raw row count are usually identical.
 
 ### Query E (events) — totals by form (last 7 days)
 
 ```sh
-curl -s "https://api.cloudflare.com/client/v4/graphql" \
+curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/analytics_engine/sql" \
   -H "Authorization: Bearer $CF_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data '{"query":"{ viewer { accounts(filter: {accountTag: \"'$CF_ACCOUNT_ID'\"}) { workersAnalyticsEngineAdaptiveGroups(filter: {datasetId: \"anglesite_events\", index1: \"'$SITE_DOMAIN'\", date_geq: \"DATE_START_CURR\", date_leq: \"DATE_END_CURR\"}, limit: 200, orderBy: [count_DESC]) { count dimensions { blob1 blob2 blob3 blob4 } } } } }"}'
+  --data-binary "SELECT blob1 AS worker, blob2 AS event_type, blob3 AS form, blob4 AS outcome, SUM(_sample_interval) AS events FROM anglesite_events WHERE index1 = '$SITE_DOMAIN' AND timestamp >= now() - INTERVAL '7' DAY GROUP BY worker, event_type, form, outcome ORDER BY events DESC LIMIT 200 FORMAT JSON"
 ```
 
-Replace `DATE_START_CURR` with 7 days ago and `DATE_END_CURR` with today.
+### Graceful degradation (events)
+
+Inspect the response before parsing. The SQL API can fail three different ways and each needs a different message — do not collapse them into a single "permissions error":
+
+- **Auth/permission failure** — the body is the standard Cloudflare error envelope (`{"success": false, "errors": [...]}`) or a plain `Unauthorized` response, and the error text mentions authentication, authorization, "does not have access", or HTTP 401/403. The token is missing **Account → Analytics Engine → Read**. Skip the conversions section and surface the one-line remediation note from the token-creation step: "Add Account → Analytics Engine → Read to your token to see conversion numbers."
+- **Schema/query failure** — the body is a SQL-parser error, references an unknown table or column, or otherwise indicates the query itself is wrong (e.g., `error parsing args`, `unknown arg`, `unknown column`, `Syntax error`, `Table … does not exist`). This means the skill's SQL is out of date, not that the owner's token is broken. Surface a different one-liner: "Cloudflare's Analytics Engine returned an error this skill doesn't recognize. Open an issue at `https://github.com/Anglesite/anglesite/issues` with the error text and we'll fix the query." Do not blame the token in this case.
+- **Empty result** — `.data[]` is an empty array. The helper Workers either haven't been deployed yet or haven't received any traffic. Skip the section silently — don't surface an empty table.
 
 ## Step 3 — Parse and summarize
 
@@ -337,14 +335,14 @@ From the responses, extract:
 6. **Referral sources** — RUM: from Query C, group by `refererHost`, rename common ones (e.g., `google.com` → "Google Search", empty → "Direct"). Zone *(paid only)*: group by `clientRefererHost`. Skip on zone free plans.
 7. **Device breakdown** — RUM: from Query C, group by `deviceType`. Zone *(paid only)*: group by `userAgentBrowser`. Skip on zone free plans.
 8. **Campaign breakdown** *(zone paid only)* — from the `clientRequestQuery` query above, parse each query string for `utm_source`, `utm_medium`, `utm_campaign`. Group by `utm_source`/`utm_campaign`, label each entry as `{source} "{campaign}"`, and sort by page-view count descending. `clientRequestPath` does not include query strings, so this section is impossible on zone free plans — skip it there. RUM exposes campaign dimensions via the beacon but they are not covered by this skill yet — skip on RUM.
-9. **Conversions** *(events dataset)* — from Query D and Query E:
-   - **Total submits this week** — sum `count` from Query D where `blob4 = "ok"`, scoped to the current 7-day window.
-   - **By worker** — group Query E rows by `blob1` (`contact`, `forms`, `membership`, `review`, `subscribe`, `ecommerce`); for each, report total events and the share with `blob4 = "ok"`. This is the signal an SMB owner cares about: "12 contact submits, 8 newsletter signups, 3 paid unlocks."
-   - **By form** — for `blob1 = "forms"`, sub-group by `blob3` (form slug: `rsvp`, `lead`, etc.) so the owner sees per-form volume. Show only forms with at least one submit in the window.
-   - **Error rate** — within each worker, the share of rows where `blob4 != "ok"`. Surface only when error rate exceeds 25% of total events for that worker — most error rows are routine validation noise (rate-limiting, empty fields) and aren't actionable. Frame the alert as "12 of 38 contact submits failed Turnstile this week — worth checking the form is loading the widget."
-   - **Week-over-week** — split Query D rows by date as in the traffic queries (current 7 days vs prior 7 days) and compute the delta on `blob4 = "ok"` events. Phrase as "newsletter signups up from 4 to 11 this week".
+9. **Conversions** *(events dataset)* — from Query D and Query E. The SQL queries alias the raw blob columns to readable names, so parse rows out of `.data[]` using `worker`, `event_type`, `form`, `outcome`, `events`, and `day` — not the raw `blob1`–`blob4`:
+   - **Total submits this week** — sum `events` from Query D where `outcome = "ok"`, scoped to the current 7-day window.
+   - **By worker** — group Query E rows by `worker` (`contact`, `forms`, `membership`, `review`, `subscribe`, `ecommerce`); for each, report total `events` and the share with `outcome = "ok"`. This is the signal an SMB owner cares about: "12 contact submits, 8 newsletter signups, 3 paid unlocks."
+   - **By form** — for `worker = "forms"`, sub-group by `form` (form slug: `rsvp`, `lead`, etc.) so the owner sees per-form volume. Show only forms with at least one submit in the window.
+   - **Error rate** — within each worker, the share of rows where `outcome != "ok"`. Surface only when the error rate exceeds 25% of total events for that worker — most error rows are routine validation noise (rate-limiting, empty fields) and aren't actionable. Frame the alert as "12 of 38 contact submits failed Turnstile this week — worth checking the form is loading the widget."
+   - **Week-over-week** — split Query D rows by `day` as in the traffic queries (current 7 days vs prior 7 days) and compute the delta on `outcome = "ok"` events. Phrase as "newsletter signups up from 4 to 11 this week".
 
-   Skip the section silently if Query D returned an empty result (no helper Workers deployed). Surface the token remediation note if the query returned an `authz` error.
+   Skip the section silently if Query D returned an empty `.data[]` (no helper Workers deployed). Surface the token remediation note for an auth/permission failure, or the "open an issue" note for a schema/query failure — see "Graceful degradation (events)" in Step 2C.
 
 Present the summary in plain language. **Always begin with a one-line note that names the data source.** Example output (Web Analytics RUM, free plan):
 
