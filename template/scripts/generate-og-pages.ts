@@ -85,15 +85,14 @@ async function main() {
     : "";
   const template = logoSvg ? "text-logo" : "text-only";
 
-  // Load font
-  const fontPath = resolve(
-    import.meta.dirname ?? ".",
-    "fonts",
-    "Inter-Regular.woff",
-  );
-  const fontData = existsSync(fontPath)
-    ? readFileSync(fontPath)
-    : undefined;
+  // Optional font override: drop a Satori-compatible font (TTF, OTF, or WOFF —
+  // not WOFF2) at scripts/fonts/Inter-Regular.{ttf,otf,woff} to bypass the
+  // default @fontsource decompression path.
+  const fontsDir = resolve(import.meta.dirname ?? ".", "fonts");
+  const overridePath = ["ttf", "otf", "woff"]
+    .map((ext) => join(fontsDir, `Inter-Regular.${ext}`))
+    .find((p) => existsSync(p));
+  const fontData = overridePath ? readFileSync(overridePath) : undefined;
 
   // Discover pages from content collections
   const pages: PageInfo[] = [];
