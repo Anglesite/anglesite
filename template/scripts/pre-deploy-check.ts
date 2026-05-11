@@ -29,7 +29,18 @@ import { formatSeoReport, type AgenticCrawlersPolicy } from "./seo.js";
 export const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 export const emailExcludes = ["charset", "viewport", "@astro", "@import", "@keyframes", "@media", "@font-face", "@layer", "@property"];
 export const phonePattern = /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
-export const tokenPattern = /(?:pat[A-Za-z0-9]{14,}|sk-[A-Za-z0-9]{20,})/;
+/**
+ * Airtable Personal Access Token: `pat` + 14 alphanumerics + `.` + 32+ alphanumerics.
+ * The literal dot and second segment are mandatory in real PATs and eliminate
+ * false positives against framework identifiers like `pathnameContainsDefaultLocale`.
+ */
+export const airtablePatPattern = /\bpat[A-Za-z0-9]{14}\.[A-Za-z0-9]{32,}\b/;
+
+/** OpenAI secret key: `sk-` + 20+ alphanumerics. */
+export const openaiKeyPattern = /\bsk-[A-Za-z0-9]{20,}\b/;
+
+/** @deprecated Use airtablePatPattern or openaiKeyPattern. Kept for backwards-compatible imports. */
+export const tokenPattern = new RegExp(`${airtablePatPattern.source}|${openaiKeyPattern.source}`);
 export const scriptSrcPattern = /<script[^>]*src=/gi;
 
 /**
@@ -109,9 +120,19 @@ export function scanPhones(content: string, allowlist: string[] = []): string[] 
   return matches.filter(m => !allowed.has(norm(m)));
 }
 
-export function scanTokens(content: string): boolean {
-  return tokenPattern.test(content);
+export type TokenKind = "airtable-pat" | "openai-key";
+
+export function scanTokens(content: string): TokenKind[] {
+  const found: TokenKind[] = [];
+  if (airtablePatPattern.test(content)) found.push("airtable-pat");
+  if (openaiKeyPattern.test(content)) found.push("openai-key");
+  return found;
 }
+
+const tokenLabels: Record<TokenKind, string> = {
+  "airtable-pat": "Airtable Personal Access Token",
+  "openai-key": "OpenAI secret key",
+};
 
 export function scanScripts(content: string, scriptAllowlist?: string[]): string[] {
   const allowed = scriptAllowlist ?? allowedScripts;
@@ -271,8 +292,8 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
     for (const file of walkAll(dir)) {
       try {
         const content = readFileSync(file, "utf-8");
-        if (scanTokens(content)) {
-          failures.push(`TOKEN: API token pattern found in ${file}`);
+        for (const kind of scanTokens(content)) {
+          failures.push(`TOKEN: ${tokenLabels[kind]} found in ${file} — rotate this credential immediately`);
         }
       } catch {
         // Binary file, skip

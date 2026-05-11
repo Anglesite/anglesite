@@ -124,24 +124,44 @@ describe("scanPhones", () => {
 // ---------------------------------------------------------------------------
 
 describe("scanTokens", () => {
-  it("detects pat prefix tokens (14+ alphanumeric chars)", () => {
-    expect(scanTokens("token: patAbcDefGhiJklMn")).toBe(true);
+  it("detects real-shaped Airtable PATs (pat + 14 chars + . + 32+ chars)", () => {
+    // pat + 14 alphanumerics + . + 64 alphanumerics
+    const pat = "pat" + "A".repeat(14) + "." + "B".repeat(64);
+    expect(scanTokens(`token: ${pat}`)).toEqual(["airtable-pat"]);
   });
 
   it("detects sk- prefix tokens (20+ alphanumeric chars)", () => {
-    expect(scanTokens("key: sk-AbcDefGhiJklMnOpQrStUv")).toBe(true);
+    expect(scanTokens("key: sk-AbcDefGhiJklMnOpQrStUv")).toEqual(["openai-key"]);
   });
 
-  it("returns false for short pat string", () => {
-    expect(scanTokens("pat123")).toBe(false);
+  it("ignores 'pat' followed by alphanumerics without the dot+second segment", () => {
+    // Real false positives from Astro SSR adapter
+    expect(scanTokens("pathnameContainsDefaultLocale")).toEqual([]);
+    expect(scanTokens("patibleDescriptorOptions")).toEqual([]);
+    expect(scanTokens("pathFallbackLocale")).toEqual([]);
   });
 
-  it("returns false for short sk- string", () => {
-    expect(scanTokens("sk-abc")).toBe(false);
+  it("ignores 'pat' as a substring of larger identifiers", () => {
+    // Word boundary keeps `compatibleX` and similar from matching
+    expect(scanTokens("compatibleDescriptorXXXXXXXXXX")).toEqual([]);
   });
 
-  it("returns false for normal content", () => {
-    expect(scanTokens("Just some regular text about patterns.")).toBe(false);
+  it("returns empty for short pat string", () => {
+    expect(scanTokens("pat123")).toEqual([]);
+  });
+
+  it("returns empty for short sk- string", () => {
+    expect(scanTokens("sk-abc")).toEqual([]);
+  });
+
+  it("returns empty for normal content", () => {
+    expect(scanTokens("Just some regular text about patterns.")).toEqual([]);
+  });
+
+  it("detects both kinds when both are present", () => {
+    const pat = "pat" + "A".repeat(14) + "." + "B".repeat(64);
+    const sk = "sk-" + "C".repeat(40);
+    expect(scanTokens(`${pat} and ${sk}`).sort()).toEqual(["airtable-pat", "openai-key"]);
   });
 });
 
