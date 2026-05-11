@@ -44,7 +44,7 @@ Chosen option: **Cloudflare Workers Static Assets**, because it is the platform 
 * Good, because hosting is genuinely free with no bandwidth caps for static sites
 * Good, because `wrangler deploy` works from any machine with a Cloudflare API token — no Git-integration dance
 * Good, because domain registration through Cloudflare is at ICANN cost with no markup
-* Good, because Web Analytics is privacy-first (no cookies); the Anglesite layouts inject the beacon when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config` (one-time setup via `/anglesite:stats`)
+* Good, because Web Analytics is privacy-first (no cookies); the Anglesite layouts inject the beacon when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config` (one-time setup during the first `/anglesite:deploy`)
 * Good, because Email Routing provides free email forwarding without an external email service
 * Good, because Workers run on every request — A/B test variant assignment, membership gates, and edge logic do not require a separate Worker project (same `wrangler.jsonc` deploys everything)
 * Good, because the Cloudflare API allows the agent to manage DNS records programmatically

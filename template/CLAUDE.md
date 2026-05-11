@@ -176,7 +176,7 @@ If you changed it, document it. Same session. No exceptions.
 
 ### Third-party code
 
-- Site loads zero third-party JavaScript. The Anglesite layouts inject the Cloudflare Web Analytics beacon when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config` (run `/anglesite:stats` to wire it up).
+- Site loads zero third-party JavaScript. The Anglesite layouts inject the Cloudflare Web Analytics beacon when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config` (wired up automatically by `/anglesite:deploy` on the first deploy).
 - Never add analytics, tracking, social embeds, or ad scripts without explicit approval
 - Prefer self-hosted alternatives (local fonts over Google Fonts)
 
