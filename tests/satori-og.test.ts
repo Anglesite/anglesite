@@ -1,18 +1,52 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted so mock references are available inside vi.mock factories
-const { mockSatori, mockRender, MockResvg } = vi.hoisted(() => {
-  const mockRender = vi.fn();
-  return {
-    mockSatori: vi.fn(),
-    mockRender,
-    MockResvg: vi.fn().mockImplementation(() => ({ render: mockRender })),
-  };
-});
+const { mockSatori, mockRender, MockResvg, mockDecompress, FAKE_FONT_PATH } =
+  vi.hoisted(() => {
+    const mockRender = vi.fn();
+    return {
+      mockSatori: vi.fn(),
+      mockRender,
+      MockResvg: vi.fn().mockImplementation(() => ({ render: mockRender })),
+      mockDecompress: vi.fn(),
+      FAKE_FONT_PATH: "/__mocked__/inter-latin-400-normal.woff2",
+    };
+  });
 
 vi.mock("satori", () => ({ default: mockSatori }));
 vi.mock("@resvg/resvg-js", () => ({ Resvg: MockResvg }));
 vi.mock("sharp", () => ({ default: vi.fn() }));
+vi.mock("wawoff2", () => ({ default: { decompress: mockDecompress } }));
+
+// Intercept the @fontsource/inter require.resolve + readFileSync chain so the
+// loadFont code path runs without needing the npm package installed locally.
+vi.mock("node:module", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:module")>();
+  return {
+    ...actual,
+    createRequire: () => ({
+      resolve: (id: string) => {
+        if (id.includes("inter-latin-400-normal.woff2")) return FAKE_FONT_PATH;
+        throw new Error(`createRequire mock: unhandled id ${id}`);
+      },
+    }),
+  };
+});
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    readFileSync: vi.fn((path: unknown, ...rest: unknown[]) => {
+      if (path === FAKE_FONT_PATH) {
+        // Fake WOFF2 bytes — wawoff2.decompress is mocked, so contents don't matter
+        return Buffer.from([0x77, 0x4f, 0x46, 0x32]);
+      }
+      // @ts-expect-error — pass through to the real implementation
+      return actual.readFileSync(path, ...rest);
+    }),
+  };
+});
 
 import { renderOgImage } from "../template/scripts/satori-og.js";
 import { OG_WIDTH, OG_HEIGHT, type OgColors } from "../template/scripts/og-templates.js";
@@ -25,6 +59,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockSatori.mockResolvedValue(fakeSvg);
   mockRender.mockReturnValue({ asPng: () => new Uint8Array(fakePng) });
+  mockDecompress.mockResolvedValue(new Uint8Array([0x00, 0x01, 0x00, 0x00]));
 });
 
 // ---------------------------------------------------------------------------
@@ -109,5 +144,47 @@ describe("renderOgImage", () => {
     expect(options.fonts).toBeDefined();
     expect(options.fonts.length).toBeGreaterThanOrEqual(1);
     expect(options.fonts[0].name).toBe("Inter");
+  });
+
+  it("decompresses WOFF2 to TTF when no fontData is provided", async () => {
+    // Hand satori the bundled font path — must go through wawoff2 so that the
+    // bytes it sees are TTF, never WOFF2. Regression guard for #305.
+    await renderOgImage({
+      title: "Bundled",
+      siteName: "Site",
+      colors,
+      template: "text-only",
+    });
+
+    expect(mockDecompress).toHaveBeenCalledTimes(1);
+    const [, options] = mockSatori.mock.calls[0];
+    // Decompressed TTF starts with 0x00010000 (TrueType magic)
+    expect(options.fonts[0].data[0]).toBe(0x00);
+    expect(options.fonts[0].data[1]).toBe(0x01);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// loadFont
+// ---------------------------------------------------------------------------
+
+describe("loadFont", () => {
+  it("returns TTF bytes after decompressing the bundled WOFF2", async () => {
+    // Reset so the module-level cache doesn't hide the decompress call when
+    // this test runs after renderOgImage tests that already warmed the cache.
+    vi.resetModules();
+    const fresh = await import("../template/scripts/satori-og.js");
+    const font = await fresh.loadFont();
+    expect(Buffer.isBuffer(font)).toBe(true);
+    expect(mockDecompress).toHaveBeenCalled();
+  });
+
+  it("caches the decompressed font across calls", async () => {
+    vi.resetModules();
+    mockDecompress.mockClear();
+    const fresh = await import("../template/scripts/satori-og.js");
+    await fresh.loadFont();
+    await fresh.loadFont();
+    expect(mockDecompress).toHaveBeenCalledTimes(1);
   });
 });

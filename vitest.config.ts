@@ -15,6 +15,7 @@ export default defineConfig({
       satori: resolve(__dirname, "tests/__stubs__/satori.ts"),
       "@resvg/resvg-js": resolve(__dirname, "tests/__stubs__/resvg.ts"),
       sharp: resolve(__dirname, "tests/__stubs__/sharp.ts"),
+      wawoff2: resolve(__dirname, "tests/__stubs__/wawoff2.ts"),
     },
   },
   esbuild: {

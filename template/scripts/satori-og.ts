@@ -27,20 +27,32 @@ export interface RenderOgOptions {
   colors: OgColors;
   template: "text-only" | "text-logo";
   logoSvg?: string;
-  /** Override font data (useful for testing without a font file on disk). */
+  /**
+   * Override font data (useful for testing without a font file on disk).
+   * Must be TTF, OTF, or WOFF — Satori does not support WOFF2.
+   */
   fontData?: Buffer;
 }
 
-/** Font data — loaded once from @fontsource/inter, cached in memory. */
+/** TTF font data, decompressed from @fontsource/inter's WOFF2 once and cached. */
 let fontCache: Buffer | undefined;
 
-/** Load Inter latin-400 woff2 from the @fontsource/inter npm package. */
-export function loadFont(): Buffer {
+/**
+ * Load Inter latin-400 as TTF for Satori.
+ *
+ * Satori only accepts TTF, OTF, or WOFF — not WOFF2 — so we decompress the
+ * @fontsource/inter WOFF2 file in-process via wawoff2. WOFF2 → TTF is the only
+ * direction this conversion needs to run; the original file stays untouched.
+ */
+export async function loadFont(): Promise<Buffer> {
   if (fontCache) return fontCache;
   const fontPath = _require.resolve(
     "@fontsource/inter/files/inter-latin-400-normal.woff2",
   );
-  fontCache = readFileSync(fontPath);
+  const woff2 = readFileSync(fontPath);
+  const { default: wawoff } = await import("wawoff2");
+  const ttf = await wawoff.decompress(woff2);
+  fontCache = Buffer.from(ttf);
   return fontCache;
 }
 
@@ -57,7 +69,7 @@ export async function renderOgImage(options: RenderOgOptions): Promise<Buffer> {
       : textOnlyTemplate(title, siteName, colors);
 
   // Render to SVG via Satori
-  const font = fontData ?? loadFont();
+  const font = fontData ?? (await loadFont());
   const svg = await satori(element as never, {
     width: OG_WIDTH,
     height: OG_HEIGHT,
