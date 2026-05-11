@@ -83,9 +83,9 @@ If `CF_API_TOKEN` is missing, guide the owner through creating one:
 6. Account Resources: Include → (their Cloudflare account)
 7. Zone Resources: Include → All zones from the same account (or the specific zone if known)
 8. Click "Continue to summary" → "Create Token"
-9. Copy the token and share it
+9. Copy the token, then open `.env` in your editor and add the line `CF_API_TOKEN=<paste-token-here>`. Save the file and tell me when done. **Do not paste the token into chat** — it would end up in the conversation transcript. `.env` is gitignored and stays local.
 
-Save to `.env` as `CF_API_TOKEN=token-value` using the Write tool (update or create the file). **Never save API tokens to `.site-config`** — that file is committed to git. `.env` is gitignored and stays local.
+If `.env` doesn't exist yet, the owner can copy it from `.env.example` first. **Never save API tokens to `.site-config`** — that file is committed to git. Read the file with the Read tool on the next turn to pick up the token; never write the token value yourself.
 
 If the owner created an older token with only **Zone → Analytics → Read** (the original version of this skill recommended that), they may see "Account → Analytics" errors below. If the token is missing **Account → Analytics Engine → Read**, the conversions section will return an `authz` error — surface a one-line note ("Add Account → Analytics Engine → Read to your token to see conversion numbers") and skip the section. Have them either edit the existing token to add the missing permissions, or create a new one.
 
