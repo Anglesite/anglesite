@@ -98,8 +98,8 @@ Estimated cost per `/anglesite:start` session (~30 turns):
 
 | Model | Cached input | New input | Output | Est. cost |
 |---|---|---|---|---|
-| Opus | 469k | 411k | 25k | $8.93 |
-| Sonnet | 469k | 411k | 25k | $1.79 |
+| Opus | 727k | 420k | 25k | $9.54 |
+| Sonnet | 727k | 420k | 25k | $1.91 |
 
 <details>
 <summary>Context budget breakdown</summary>
@@ -109,28 +109,28 @@ Estimated cost per `/anglesite:start` session (~30 turns):
 | File | Tokens |
 |---|---|
 | System prompt (est.) | 2,000 |
-| CLAUDE.md | 1,989 |
-| **Subtotal** | **3,989** |
+| CLAUDE.md | 5,217 |
+| **Subtotal** | **7,217** |
 
 ### Skill + on-demand reads
 
 | File | Tokens | Loaded after |
 |---|---|---|
-| start/SKILL.md | 3,501 | Skill invocation |
+| start/SKILL.md | 6,860 | Skill invocation |
 | smb/README.md | 2,606 | Step 1 |
-| Avg SMB type (1 of 56 files) | 1,618 | Step 1 |
-| design-interview/SKILL.md | 1,564 | Step 2 |
-| design-system.md | 2,905 | Step 2 |
-| **Subtotal** | **12,194** | |
+| Avg SMB type (1 of 58 files) | 1,915 | Step 1 |
+| design-interview/SKILL.md | 3,118 | Step 2 |
+| design-system.md | 3,347 | Step 2 |
+| **Subtotal** | **17,846** | |
 
 ### Session model
 
 | Parameter | Value |
 |---|---|
 | Turns | 30 |
-| Context per turn (after step 2) | 16,183 |
+| Context per turn (after step 2) | 25,063 |
 | New content per turn | ~850 |
-| Total input (all API calls) | 881k |
+| Total input (all API calls) | 1.1M |
 | Total output | 25k |
 
 </details>
