@@ -51,7 +51,7 @@ const generator = `Anglesite ${version} (${aiModel}, ${Astro.generator})`;
 
 // Cloudflare Web Analytics beacon. Injected at build time when
 // `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config` — populated by
-// `/anglesite:stats` once Web Analytics is enabled for the site.
+// `/anglesite:deploy` on the first deploy once Web Analytics is enabled.
 const webAnalyticsToken = configContent
   .match(/^CF_WEB_ANALYTICS_TOKEN=(.+)$/m)?.[1]
   ?.trim();

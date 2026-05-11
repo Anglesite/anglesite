@@ -31,7 +31,7 @@ Cloudflare exposes three unrelated analytics datasets and the skill must pick th
 
 | Source | Dataset | Beacon? | Permission | Filter | Available when |
 |---|---|---|---|---|---|
-| **Web Analytics RUM** | `rumPageloadEventsAdaptiveGroups` | Yes (`static.cloudflareinsights.com/beacon.min.js`, injected by `BaseLayout`/`KioskLayout`/`ImmersiveLayout` when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config`) | **Account → Analytics → Read** | `siteTag` + `accountTag` | After the owner enables Web Analytics for the site and the token is written to `.site-config` (this skill walks them through it on first run) |
+| **Web Analytics RUM** | `rumPageloadEventsAdaptiveGroups` | Yes (`static.cloudflareinsights.com/beacon.min.js`, injected by `BaseLayout`/`KioskLayout`/`ImmersiveLayout` when `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config`) | **Account → Analytics → Read** | `siteTag` + `accountTag` | After Web Analytics is enabled and the token is written to `.site-config`. `/anglesite:deploy` wires this up on the first deploy; this skill has a fallback for sites that were deployed before that step existed |
 | **Zone HTTP analytics** | `httpRequests1dGroups` / `httpRequestsAdaptiveGroups` | No — derived from edge logs | **Zone → Analytics → Read** | `zoneTag` | Only when the custom domain runs through Cloudflare DNS proxied (orange cloud) |
 | **Anglesite events (Analytics Engine)** | `anglesite_events` | No — written from helper Workers | **Account → Analytics Engine → Read** | `dataset='anglesite_events'`, optionally `index1=<site domain>` | When at least one helper Worker (contact, forms, membership, review, subscribe, ecommerce) is deployed |
 
@@ -66,7 +66,9 @@ Free Cloudflare accounts include 10M Analytics Engine writes per month and a 30-
 
 Read `.env` for `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_WEB_ANALYTICS_SITE_TAG`, and (optional) `CF_ZONE_ID`. The scaffolded project ships a `.env.example` that lists these keys with comments — copy or create `.env` from it on first run if it doesn't exist yet.
 
-Also read `.site-config` for `CF_WEB_ANALYTICS_TOKEN`. This is the public beacon token (the same value as `CF_WEB_ANALYTICS_SITE_TAG`, just stored in the committed config so the layouts can inject the beacon at build time). It is safe to commit — every visitor sees it in the page HTML anyway. If it is missing, the site is currently not reporting any beacon hits and this skill will guide the owner through enabling Web Analytics before falling back to zone HTTP.
+Also read `.site-config` for `CF_WEB_ANALYTICS_TOKEN`. This is the public beacon token (the same value as `CF_WEB_ANALYTICS_SITE_TAG`, just stored in the committed config so the layouts can inject the beacon at build time). It is safe to commit — every visitor sees it in the page HTML anyway.
+
+`/anglesite:deploy` wires this up on the first deploy, so on a freshly deployed site the value should already be present. If it is missing — typically on sites deployed before the deploy skill handled this, or if the owner skipped that step — the site is currently not reporting any beacon hits. This skill will walk the owner through enabling Web Analytics below as a fallback, then fall back to zone HTTP if that isn't possible either. If `CF_WEB_ANALYTICS_TOKEN` is in `.site-config` but `CF_WEB_ANALYTICS_SITE_TAG` is missing from `.env`, just copy the value across — they're the same token, split across two files only because `.site-config` is committed and `.env` isn't.
 
 ### Token creation (one-time)
 
@@ -108,7 +110,9 @@ Save to `.env` as `CF_ACCOUNT_ID=account-id`.
 
 ### Web Analytics site tag
 
-If `CF_WEB_ANALYTICS_SITE_TAG` is missing, list the account's Web Analytics sites and pick the one whose host matches `SITE_DOMAIN` (or, if no custom domain is set yet, the `*.workers.dev` preview hostname).
+If `CF_WEB_ANALYTICS_SITE_TAG` is missing from `.env` but `CF_WEB_ANALYTICS_TOKEN` is set in `.site-config`, copy the value over (they're the same token) and move on — no API lookup needed.
+
+Otherwise (both missing), Web Analytics hasn't been wired up yet. The fast path is `/anglesite:deploy`, which wires this up automatically on the first deploy. If the owner would rather wire it up right here without redeploying, list the account's Web Analytics sites and pick the one whose host matches `SITE_DOMAIN` (or, if no custom domain is set yet, the `*.workers.dev` preview hostname).
 
 ```sh
 CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
