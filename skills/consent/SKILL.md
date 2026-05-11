@@ -1,7 +1,7 @@
 ---
 name: consent
 description: "Add a category-based GDPR/CCPA cookie consent banner that gates third-party loads"
-allowed-tools: Bash(npm run build), Bash(cp *), Bash(mkdir *), Bash(grep *), Write, Read, Glob, Edit
+allowed-tools: Bash(npm run build), Bash(grep *), Write, Read, Glob, Edit
 disable-model-invocation: true
 ---
 
@@ -54,7 +54,7 @@ Ask: "How should consent default for first-time visitors?"
 
 | Default | When |
 |---|---|
-| **Geo (recommended)** | Default-deny in EU/UK; default-allow elsewhere. Requires the Worker-entry middleware below. |
+| **Geo (recommended)** | Default-deny in EU/UK; default-allow elsewhere. Requires enabling the `CONSENT_GEO` flag on the site Worker (see Step 4). |
 | **Strict** | Default-deny everywhere. Safest. Lowest measured analytics traffic. |
 
 Save: `CONSENT_DEFAULT=geo` or `CONSENT_DEFAULT=strict`.
@@ -96,11 +96,19 @@ Edit `src/layouts/BaseLayout.astro`:
 
 The banner self-mounts only when consent is configured. Sites that don't run `/anglesite:consent` are unaffected.
 
-## Step 4 — Install the geo middleware (only for `CONSENT_DEFAULT=geo`)
+## Step 4 — Enable geo injection on the site Worker (only for `CONSENT_DEFAULT=geo`)
 
-If the owner chose `geo`, copy `${CLAUDE_PLUGIN_ROOT}/skills/consent/_middleware.ts` to `functions/_middleware.ts` in the user's site. Create the `functions/` directory if missing.
+If the owner chose `geo`, turn on the `CONSENT_GEO` flag on the site Worker (`worker/site-entry.js`). The Worker uses Cloudflare's `HTMLRewriter` to inject `<meta name="cf-country" content="DE">` into every HTML response based on `request.cf.country`. The consent runtime reads this tag and applies EU-default-deny when the country is in the EEA/UK list.
 
-The middleware uses Cloudflare's `HTMLRewriter` to inject `<meta name="cf-country" content="DE">` into every HTML response. The runtime reads this tag and applies EU-default-deny when the country is in the EEA/UK list.
+Edit `wrangler.jsonc` and add (or extend) the `vars` block:
+
+```jsonc
+"vars": {
+  "CONSENT_GEO": "true"
+}
+```
+
+If `vars` already exists, just add the `CONSENT_GEO` key inside it. The setting takes effect on the next deploy.
 
 For `CONSENT_DEFAULT=strict`, skip this step — the runtime defaults to deny without it.
 
@@ -177,7 +185,7 @@ Tell the owner: "Consent banner is set up. Here's what to know:"
 - First visit (or after a version bump): visitors see the banner. Nothing in your selected categories runs until they choose.
 - "Accept all" enables every selected category. "Reject all" leaves only necessary on. "Preferences" opens a per-category toggle.
 - The choice is stored in a `consent` cookie for 6 months, signed with `CONSENT_VERSION=<n>`. Bump that number when categories or vendors change to re-prompt everyone.
-- The Worker-entry middleware detects EU visitors so first-visit defaults match local law (only if you picked the geo policy).
+- The site Worker detects EU visitors (via `CONSENT_GEO=true`) so first-visit defaults match local law (only if you picked the geo policy).
 
 Ask the owner if they'd like to preview it.
 

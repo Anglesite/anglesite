@@ -7,7 +7,7 @@
   "name": "anglesite-site",
   "compatibility_date": "2026-03-17",
   "compatibility_flags": ["global_fetch_strictly_public", "nodejs_compat"],
-  "main": "dist/_worker.js/index.js",
+  "main": "worker/site-entry.js",
   "assets": {
     "binding": "ASSETS",
     "directory": "dist"

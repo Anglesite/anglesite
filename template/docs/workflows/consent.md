@@ -18,8 +18,8 @@ A site that uses only Cloudflare Web Analytics (the default — cookieless) does
 - **Categories.** Necessary (always on) plus any of analytics, embeds, ads.
 - **Gating.** Third-party scripts and iframes use a `data-consent="<category>"` attribute. They don't run until the visitor consents to that category.
 - **Default policy.**
-  - `geo` — first-time visitors in the EU/UK default to deny; everywhere else defaults to allow. Requires the Worker-entry middleware that injects `<meta name="cf-country">`.
-  - `strict` — first-time visitors default to deny everywhere. No middleware needed.
+  - `geo` — first-time visitors in the EU/UK default to deny; everywhere else defaults to allow. Requires setting `CONSENT_GEO=true` on the site Worker (`vars` in `wrangler.jsonc`) so `worker/site-entry.js` injects `<meta name="cf-country">`.
+  - `strict` — first-time visitors default to deny everywhere. No Worker config needed.
 - **Auditable.** Choices are stored in a `consent` cookie shaped `{ v: <version>, c: { analytics: true, ... }, t: <ms> }`. Bump `CONSENT_VERSION` in `.site-config` to invalidate every visitor's cookie and re-prompt them — do this whenever categories or vendors change materially.
 
 ## Configuration
@@ -39,7 +39,7 @@ These values are saved to `.site-config`:
 | `src/scripts/consent.ts` | Cookie store, geo detection, script/iframe gating |
 | `src/components/ConsentBanner.astro` | Banner UI + preferences modal |
 | `src/pages/privacy.astro` | Privacy policy with the enabled categories |
-| Worker-entry middleware | Injects `<meta name="cf-country">` from `request.cf.country` (only for `CONSENT_DEFAULT=geo`) |
+| `worker/site-entry.js` | Injects `<meta name="cf-country">` from `request.cf.country` when `CONSENT_GEO=true` (only for `CONSENT_DEFAULT=geo`) |
 
 ## Marking third-party loads as gated
 
@@ -74,4 +74,4 @@ To remove the banner from a site (e.g. after dropping all third-party loads):
 
 1. Remove `CONSENT_CATEGORIES` from `.site-config`, or set it to `necessary` only.
 2. Remove the `<ConsentBanner>` import and usage from `src/layouts/BaseLayout.astro`.
-3. Optionally delete `functions/_middleware.ts` if no other middleware depends on it.
+3. If `CONSENT_GEO` is set in `wrangler.jsonc` `vars`, remove it (or set it to `"false"`) so the site Worker stops injecting the `cf-country` meta tag.
