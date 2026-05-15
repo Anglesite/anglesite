@@ -6,8 +6,26 @@ export const MESSAGE_TYPES = Object.freeze({
   ANNOTATIONS_RESPONSE: "anglesite:annotations-response",
   ANNOTATION_RESPONSE: "anglesite:annotation-response",
   ANNOTATION_RESOLVED: "anglesite:annotation-resolved",
+  // Edit pipeline (Phase 5). The active MCP surface is the `apply_edit` tool registered in
+  // `server/index.mjs`; these constants mirror that so consumers using `messages.mjs` see a
+  // complete catalog. `EDIT_APPLIED` / `EDIT_FAILED` describe the response payload that the
+  // tool's text content carries (JSON-encoded).
+  APPLY_EDIT: "anglesite:apply-edit",
+  EDIT_APPLIED: "anglesite:edit-applied",
+  EDIT_FAILED: "anglesite:edit-failed",
   ERROR: "anglesite:error",
 });
+
+/** Reasons an apply-edit can refuse. The patcher (#295) emits these as the first non-refusal
+ *  resolver's `reason`; the dispatcher (#297) routes them into `EDIT_FAILED` responses. */
+export const EDIT_FAILED_REASONS = Object.freeze([
+  "no-match",
+  "ambiguous",
+  "dynamic-expression",
+  "patch-conflict",
+  "write-failed",
+  "not-implemented",
+]);
 
 const KNOWN_TYPES = new Set(Object.values(MESSAGE_TYPES));
 
@@ -48,6 +66,19 @@ export function createErrorMessage(message) {
   return { type: MESSAGE_TYPES.ERROR, message };
 }
 
+/** Build an edit-applied response (server → client). `range` is `{start, end}` byte offsets in
+ *  `file`; `commit` is the SHA on the hidden `anglesite/edits` branch (#298). */
+export function createEditAppliedMessage(id, file, range, commit) {
+  return { type: MESSAGE_TYPES.EDIT_APPLIED, id, file, range, commit };
+}
+
+/** Build an edit-failed response (server → client). `reason` must be one of `EDIT_FAILED_REASONS`. */
+export function createEditFailedMessage(id, reason, detail) {
+  const msg = { type: MESSAGE_TYPES.EDIT_FAILED, id, reason };
+  if (detail !== undefined) msg.detail = detail;
+  return msg;
+}
+
 /** Required-field rules per message type. */
 const REQUIRED_FIELDS = Object.freeze({
   [MESSAGE_TYPES.ADD_ANNOTATION]: ["path", "selector", "text"],
@@ -56,6 +87,9 @@ const REQUIRED_FIELDS = Object.freeze({
   [MESSAGE_TYPES.ANNOTATIONS_RESPONSE]: ["annotations"],
   [MESSAGE_TYPES.ANNOTATION_RESPONSE]: ["annotation"],
   [MESSAGE_TYPES.ANNOTATION_RESOLVED]: ["id"],
+  [MESSAGE_TYPES.APPLY_EDIT]: ["id", "path", "selector", "op"],
+  [MESSAGE_TYPES.EDIT_APPLIED]: ["id", "file", "range"],
+  [MESSAGE_TYPES.EDIT_FAILED]: ["id", "reason"],
   [MESSAGE_TYPES.ERROR]: ["message"],
 });
 

@@ -152,7 +152,7 @@ describe("MCP annotation server", () => {
     }
   });
 
-  it("lists three annotation tools", async () => {
+  it("lists the annotation tools plus the apply_edit edit-pipeline tool", async () => {
     const proc = startServer(tmpDir);
     try {
       await sendMessage(proc, {
@@ -180,6 +180,7 @@ describe("MCP annotation server", () => {
       const names = result.tools.map((t) => t.name).sort();
       expect(names).toEqual([
         "add_annotation",
+        "apply_edit",
         "list_annotations",
         "resolve_annotation",
       ]);

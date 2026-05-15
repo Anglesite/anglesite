@@ -6,6 +6,10 @@ import {
   listAnnotations,
   resolveAnnotation,
 } from "./annotations.mjs";
+import {
+  applyEditInputShape,
+  createEditFailedContent,
+} from "./apply-edit-schema.mjs";
 
 const projectRoot = process.env.ANGLESITE_PROJECT_ROOT || process.cwd();
 
@@ -65,6 +69,24 @@ server.tool(
         isError: true,
       };
     }
+  },
+);
+
+// Phase 5 edit pipeline (#294). The schema is settled here; the patcher (#295), dispatcher
+// (#297), and edit-history (#298) land in follow-up PRs. Until then the handler stubs out
+// with `edit-failed: not-implemented`, which is enough for the app to exercise the wire
+// format end-to-end and surface the reply in the Debug pane.
+server.tool(
+  "apply_edit",
+  "Apply an edit to the underlying source for a previewed page element. The selector is the structured ElementInfo payload built by the WKWebView overlay; the server resolves it via selector.mjs and patches the matching source file.",
+  applyEditInputShape,
+  ({ id }) => {
+    return {
+      content: [
+        createEditFailedContent(id, "not-implemented", "Phase 5 patcher (Anglesite/anglesite#295) hasn't landed yet — schema-only stub."),
+      ],
+      isError: true,
+    };
   },
 );
 
