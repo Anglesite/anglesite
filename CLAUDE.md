@@ -80,6 +80,8 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── annotations.mjs           Annotation store (CRUD + persistence)
 │   ├── selector.mjs              CSS selector generation from element metadata
 │   ├── messages.mjs              WebSocket message schema (overlay ↔ server)
+│   ├── apply-edit-schema.mjs     Zod schema for apply_edit MCP tool
+│   ├── patcher.mjs               Source-file resolver (mdoc → Keystatic → .astro)
 │   └── index.mjs                 MCP stdio server entry point
 ├── bin/
 │   ├── average-tokens.ts         Token cost calculator for start skill
