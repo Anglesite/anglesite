@@ -6,10 +6,8 @@ import {
   listAnnotations,
   resolveAnnotation,
 } from "./annotations.mjs";
-import {
-  applyEditInputShape,
-  createEditFailedContent,
-} from "./apply-edit-schema.mjs";
+import { applyEditInputShape } from "./apply-edit-schema.mjs";
+import { applyEdit } from "./apply-edit-dispatcher.mjs";
 
 const projectRoot = process.env.ANGLESITE_PROJECT_ROOT || process.cwd();
 
@@ -72,22 +70,14 @@ server.tool(
   },
 );
 
-// Phase 5 edit pipeline (#294). The schema is settled here; the patcher (#295), dispatcher
-// (#297), and edit-history (#298) land in follow-up PRs. Until then the handler stubs out
-// with `edit-failed: not-implemented`, which is enough for the app to exercise the wire
-// format end-to-end and surface the reply in the Debug pane.
+// Phase 5 edit pipeline. The schema lives in `apply-edit-schema.mjs` (#296); the resolver in
+// `patcher.mjs` (#295); the apply/refusal logic in `apply-edit-dispatcher.mjs` (#297). The
+// commit-to-hidden-branch undo is #298, which will inject an `onApplied` hook here once it lands.
 server.tool(
   "apply_edit",
   "Apply an edit to the underlying source for a previewed page element. The selector is the structured ElementInfo payload built by the WKWebView overlay; the server resolves it via selector.mjs and patches the matching source file.",
   applyEditInputShape,
-  ({ id }) => {
-    return {
-      content: [
-        createEditFailedContent(id, "not-implemented", "Phase 5 patcher (Anglesite/anglesite#295) hasn't landed yet — schema-only stub."),
-      ],
-      isError: true,
-    };
-  },
+  async (input) => applyEdit(projectRoot, input),
 );
 
 const transport = new StdioServerTransport();
