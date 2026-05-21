@@ -8,6 +8,7 @@ import {
 } from "./annotations.mjs";
 import { applyEditInputShape } from "./apply-edit-schema.mjs";
 import { applyEdit } from "./apply-edit-dispatcher.mjs";
+import { recordEdit } from "./edit-history.mjs";
 
 const projectRoot = process.env.ANGLESITE_PROJECT_ROOT || process.cwd();
 
@@ -71,13 +72,20 @@ server.tool(
 );
 
 // Phase 5 edit pipeline. The schema lives in `apply-edit-schema.mjs` (#296); the resolver in
-// `patcher.mjs` (#295); the apply/refusal logic in `apply-edit-dispatcher.mjs` (#297). The
-// commit-to-hidden-branch undo is #298, which will inject an `onApplied` hook here once it lands.
+// `patcher.mjs` (#295); the apply/refusal logic in `apply-edit-dispatcher.mjs` (#297); the
+// hidden-branch history that backs per-edit undo in `edit-history.mjs` (#298). The dispatcher
+// invokes `onApplied` after a successful patch — `recordEdit` commits onto refs/heads/anglesite/edits
+// without touching HEAD/index/working-tree and returns the SHA, which the dispatcher threads
+// back as `commit` on the edit-applied response.
 server.tool(
   "apply_edit",
-  "Apply an edit to the underlying source for a previewed page element. The selector is the structured ElementInfo payload built by the WKWebView overlay; the server resolves it via selector.mjs and patches the matching source file.",
+  "Apply an edit to the underlying source for a previewed page element. The selector is the structured ElementInfo payload built by the WKWebView overlay; the server resolves it via selector.mjs and patches the matching source file. Successful edits are also committed onto the hidden anglesite/edits branch for per-edit undo.",
   applyEditInputShape,
-  async (input) => applyEdit(projectRoot, input),
+  async (input) =>
+    applyEdit(projectRoot, input, {
+      onApplied: ({ file, range }) =>
+        recordEdit(projectRoot, { file, range, message: `anglesite: edit ${file}` }),
+    }),
 );
 
 const transport = new StdioServerTransport();
