@@ -105,6 +105,30 @@ describe("undoEdit", () => {
     expect(result.status).toBe("undone");
   });
 
+  it("refuses with initial-commit when the hidden branch HEAD has no parent", async () => {
+    // Construct a parentless commit on refs/heads/anglesite/edits via git plumbing.
+    // This shape is unreachable through normal recordEdit usage (which always commits
+    // on top of HEAD); we hand-craft it here so the initial-commit path has coverage.
+    const tree = git(["rev-parse", "HEAD^{tree}"]);
+    const orphanCommit = execFileSync("git", ["commit-tree", tree, "-m", "orphan"], {
+      cwd: repo,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Test",
+        GIT_AUTHOR_EMAIL: "test@example.com",
+        GIT_COMMITTER_NAME: "Test",
+        GIT_COMMITTER_EMAIL: "test@example.com",
+      },
+    }).trim();
+    git(["update-ref", "refs/heads/anglesite/edits", orphanCommit]);
+
+    const result = await undoEdit(repo, {});
+    expect(result.status).toBe("refused");
+    expect(result.reason).toBe("initial-commit");
+  });
+
   it("refuses with no-edits-to-undo when projectRoot is not a git repo", async () => {
     const notARepo = mkdtempSync(join(tmpdir(), "not-a-repo-"));
     try {
