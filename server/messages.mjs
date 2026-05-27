@@ -26,6 +26,10 @@ export const EDIT_FAILED_REASONS = Object.freeze([
   "write-failed",
   "not-implemented",
   "image-optimize-failed",
+  "no-edits-to-undo",
+  "head-only-mode",
+  "initial-commit",
+  "working-tree-modified",
 ]);
 
 const KNOWN_TYPES = new Set(Object.values(MESSAGE_TYPES));
