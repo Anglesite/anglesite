@@ -104,7 +104,7 @@ function normalizeText(text) {
 /**
  * Derive the replacement string for a given op + value + matched source text.
  */
-function buildReplacement(op, value, _matchedSource) {
+function buildReplacement(op, value, matchedSource) {
   if (op === "replace-text") {
     return typeof value === "string" ? value : String(value ?? "");
   }
@@ -112,9 +112,55 @@ function buildReplacement(op, value, _matchedSource) {
     return value.value != null ? String(value.value) : "";
   }
   if (op === "replace-image-src" && value && typeof value === "object") {
-    return value.filename || "";
+    // matchedSource is the entire opening <img …> tag. Rewrite its src and
+    // srcset attributes while preserving everything else (alt, width, class,
+    // data-*, etc). Existing src/srcset are replaced; missing srcset is added.
+    return rewriteImgTag(matchedSource, value.src, value.srcset);
   }
   return typeof value === "string" ? value : "";
+}
+
+/**
+ * Rewrite the src and srcset attributes inside an <img …> opening tag.
+ * Preserves all other attributes. If srcset is absent in the source tag,
+ * it's inserted right after src.
+ *
+ * @param {string} tagSource - e.g. '<img src="/foo.jpg" alt="x" />'
+ * @param {string} newSrc
+ * @param {string} newSrcset - empty string means "don't emit srcset"
+ */
+function rewriteImgTag(tagSource, newSrc, newSrcset) {
+  let out = tagSource;
+  if (/\ssrc=("[^"]*"|'[^']*')/i.test(out)) {
+    out = out.replace(/(\ssrc=)("[^"]*"|'[^']*')/i, `$1"${newSrc}"`);
+  } else {
+    out = out.replace(/(\s*\/?>)$/, ` src="${newSrc}"$1`);
+  }
+  if (newSrcset) {
+    if (/\ssrcset=("[^"]*"|'[^']*')/i.test(out)) {
+      out = out.replace(/(\ssrcset=)("[^"]*"|'[^']*')/i, `$1"${newSrcset}"`);
+    } else {
+      out = out.replace(/(\ssrc="[^"]*")/i, `$1 srcset="${newSrcset}"`);
+    }
+  }
+  return out;
+}
+
+/**
+ * Given a src URL needle (e.g. "/images/hero.jpg"), find the full
+ * opening tag that contains it. Returns an array of
+ * {start, end, source} objects — or [] if not found.
+ */
+function findImgTagBySrc(source, srcNeedle) {
+  const tagRe = /<img\b[^>]*\/?>/gi;
+  let m;
+  const matches = [];
+  while ((m = tagRe.exec(source)) !== null) {
+    if (m[0].includes(`src="${srcNeedle}"`) || m[0].includes(`src='${srcNeedle}'`)) {
+      matches.push({ start: m.index, end: m.index + m[0].length, source: m[0] });
+    }
+  }
+  return matches;
 }
 
 /**
@@ -389,6 +435,38 @@ function resolveAstro(projectRoot, edit) {
 
   if (candidates.length === 0) {
     return refuse("no-match", `no .astro file found for path ${pagePath}`);
+  }
+
+  if (op === "replace-image-src") {
+    const currentSrc = selector.textContent;
+    if (!currentSrc) {
+      return refuse("no-match", "no current src to find in .astro files");
+    }
+    const allTagMatches = [];
+    for (const file of candidates) {
+      let source;
+      try {
+        source = readFileSync(file, "utf-8");
+      } catch {
+        continue;
+      }
+      const matches = findImgTagBySrc(source, currentSrc);
+      for (const tag of matches) {
+        allTagMatches.push({ file: relative(projectRoot, file), tag });
+      }
+    }
+    if (allTagMatches.length === 0) {
+      return refuse("no-match", `no <img src="${currentSrc}"> found in .astro files`);
+    }
+    if (allTagMatches.length > 1) {
+      return refuse("ambiguous", `${allTagMatches.length} <img> tags match src="${currentSrc}"`);
+    }
+    const only = allTagMatches[0];
+    return {
+      file: only.file,
+      range: { start: only.tag.start, end: only.tag.end },
+      replacement: buildReplacement(op, value, only.tag.source),
+    };
   }
 
   const textContent = selector.textContent;

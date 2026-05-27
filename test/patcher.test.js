@@ -154,6 +154,57 @@ describe("astro resolver", () => {
     expect(result.file).toBe("src/pages/index.astro");
     expect(result.replacement).toBe("Open every day, 8am to 6pm.");
   });
+
+  describe("replace-image-src", () => {
+    it("rewrites the entire <img> opening tag with new src + srcset", () => {
+      const result = resolve(FIXTURE_ROOT, {
+        path: "/photo/",
+        selector: { tag: "IMG", classes: [], nthChild: 1, textContent: "/images/hero.jpg" },
+        op: "replace-image-src",
+        value: {
+          src: "/images/hero.webp",
+          srcset: "/images/hero-480w.webp 480w, /images/hero-768w.webp 768w, /images/hero-1024w.webp 1024w, /images/hero-1920w.webp 1920w",
+        },
+      });
+      expect(result.refused).toBeUndefined();
+      expect(result.file).toBe("src/pages/photo.astro");
+      expect(result.replacement).toMatch(/^<img/);
+      expect(result.replacement).toContain('src="/images/hero.webp"');
+      expect(result.replacement).toContain('srcset="/images/hero-480w.webp 480w');
+      expect(result.replacement).toContain('alt="Hero"');
+      const src = readFileSync(resolvePath(FIXTURE_ROOT, result.file), "utf-8");
+      const matched = src.slice(result.range.start, result.range.end);
+      expect(matched.startsWith("<img")).toBe(true);
+      expect(matched.endsWith("/>") || matched.endsWith(">")).toBe(true);
+    });
+
+    it("adds srcset when the original <img> had none", () => {
+      const result = resolve(FIXTURE_ROOT, {
+        path: "/photo/",
+        selector: { tag: "IMG", classes: [], nthChild: 2, textContent: "/images/loose.jpg" },
+        op: "replace-image-src",
+        value: {
+          src: "/images/loose.webp",
+          srcset: "/images/loose-480w.webp 480w, /images/loose-768w.webp 768w",
+        },
+      });
+      expect(result.refused).toBeUndefined();
+      expect(result.replacement).toContain('src="/images/loose.webp"');
+      expect(result.replacement).toContain('srcset="/images/loose-480w.webp 480w');
+      expect(result.replacement).toContain('alt="No srcset"');
+    });
+
+    it("refuses with no-match when no <img> with the current src is found", () => {
+      const result = resolve(FIXTURE_ROOT, {
+        path: "/photo/",
+        selector: { tag: "IMG", classes: [], nthChild: 1, textContent: "/images/missing.jpg" },
+        op: "replace-image-src",
+        value: { src: "/images/whatever.webp", srcset: "" },
+      });
+      expect(result.refused).toBe(true);
+      expect(result.reason).toBe("no-match");
+    });
+  });
 });
 
 // ── Cross-resolver priority ───────────────────────────────────────
