@@ -25,6 +25,7 @@ export const EDIT_FAILED_REASONS = Object.freeze([
   "patch-conflict",
   "write-failed",
   "not-implemented",
+  "image-optimize-failed",
 ]);
 
 const KNOWN_TYPES = new Set(Object.values(MESSAGE_TYPES));
