@@ -194,6 +194,12 @@ describe("replace-image-src", () => {
     expect(existsSync(join(projectRoot, "public/images/hero.webp"))).toBe(true);
     expect(existsSync(join(projectRoot, "public/images/hero-480w.webp"))).toBe(true);
     expect(existsSync(join(projectRoot, "public/images/originals/hero.jpg"))).toBe(true);
+
+    // Verify originals/hero.jpg contains the OLD (blue 100x100) bytes, not the
+    // new (orange 2000x1500) bytes. This guards against a regression where
+    // the optimize call's preserveOriginalsDir overwrites the preserved file.
+    const preserved = await sharp(join(projectRoot, "public/images/originals/hero.jpg")).metadata();
+    expect(preserved.width).toBe(100);
   });
 
   it("falls back to dropped filename when target src is external", async () => {

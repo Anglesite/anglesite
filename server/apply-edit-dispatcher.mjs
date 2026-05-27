@@ -139,10 +139,13 @@ async function processImageDrop(projectRoot, edit) {
   writeFileSync(droppedPath, bytes);
 
   // Optimize.
+  // Don't pass preserveOriginalsDir: the sweep above already moved any
+  // pre-existing <stem>.* and <stem>-*w.* files into originalsDir. If we
+  // passed it here, optimizeImage would copyFileSync the freshly-written
+  // (new) bytes over the preserved original, destroying it.
   const optimized = await optimizeImage(droppedPath, {
     outputDir: imagesDir,
     widths: [480, 768, 1024, 1920],
-    preserveOriginalsDir: originalsDir,
   });
 
   const src = `/images/${optimized.primary}`;
