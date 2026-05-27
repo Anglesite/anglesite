@@ -42,13 +42,12 @@ export async function optimizeImage(inputFile, options) {
   for (const width of usableWidths) {
     const file = `${stem}-${width}w.webp`;
     const out = join(outputDir, file);
-    await sharp(inputFile)
+    const info = await sharp(inputFile)
       .rotate()
       .resize({ width, withoutEnlargement: true })
       .webp({ quality: 80 })
       .toFile(out);
-    const stats = await sharp(out).metadata();
-    variants.push({ width, file, bytes: stats.size ?? 0 });
+    variants.push({ width, file, bytes: info.size });
   }
 
   const primaryWidth = usableWidths[usableWidths.length - 1];
