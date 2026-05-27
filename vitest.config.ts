@@ -14,7 +14,8 @@ export default defineConfig({
       // mock registry (keyed by the test file's resolved path) wouldn't match.
       satori: resolve(__dirname, "tests/__stubs__/satori.ts"),
       "@resvg/resvg-js": resolve(__dirname, "tests/__stubs__/resvg.ts"),
-      sharp: resolve(__dirname, "tests/__stubs__/sharp.ts"),
+      // sharp is now a root dependency (required by server/optimize-images.mjs);
+      // tests that need it mocked call vi.mock("sharp") themselves.
       wawoff2: resolve(__dirname, "tests/__stubs__/wawoff2.ts"),
     },
   },

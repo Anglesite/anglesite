@@ -79,9 +79,12 @@ export function createEditFailedContent(id, reason, detail) {
 
 /** Build the MCP `content` entry for an edit-applied response. `range` is `{start, end}` byte
  *  offsets in `file`; `commit` is the SHA the patch was committed to on the hidden
- *  `anglesite/edits` branch (added by #298). */
-export function createEditAppliedContent(id, file, range, commit) {
+ *  `anglesite/edits` branch (added by #298). `result` is optional, op-scoped metadata that the
+ *  overlay can apply directly: e.g. `replace-image-src` returns `{ src, srcset? }` so the
+ *  overlay swaps both attributes on success without re-deriving them from the patch text. */
+export function createEditAppliedContent(id, file, range, commit, result) {
   const body = { type: "anglesite:edit-applied", id, file, range };
   if (commit !== undefined) body.commit = commit;
+  if (result !== undefined) body.result = result;
   return { type: "text", text: JSON.stringify(body) };
 }

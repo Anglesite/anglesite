@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, cpSync, readFileSync, rmSync, chmodSync, statSync } from "node:fs";
+import { mkdtempSync, cpSync, readFileSync, rmSync, chmodSync, statSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
+import { execSync } from "node:child_process";
+import sharp from "sharp";
 import { applyEdit } from "../server/apply-edit-dispatcher.mjs";
 
 const FIXTURE = resolvePath(import.meta.dirname, "fixtures/patcher");
@@ -135,5 +137,120 @@ describe("applyEdit — write-failed surface", () => {
     } finally {
       chmodSync(pagesDir, originalMode);
     }
+  });
+});
+
+describe("replace-image-src", () => {
+  let projectRoot;
+
+  beforeEach(() => {
+    // Set up a tmpdir as a git repo so applyEdit's onApplied (recordEdit) hook can commit.
+    projectRoot = mkdtempSync(join(tmpdir(), "anglesite-img-drop-"));
+    execSync("git init -q -b main", { cwd: projectRoot });
+    execSync("git config user.email test@example.com", { cwd: projectRoot });
+    execSync("git config user.name Test", { cwd: projectRoot });
+  });
+
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it("writes bytes, optimizes, patches <img>, and returns result.src+srcset", async () => {
+    mkdirSync(join(projectRoot, "src/pages"), { recursive: true });
+    mkdirSync(join(projectRoot, "public/images"), { recursive: true });
+    writeFileSync(
+      join(projectRoot, "src/pages/about.astro"),
+      `<img src="/images/hero.jpg" alt="Hero" />`,
+    );
+    await sharp({ create: { width: 100, height: 100, channels: 3, background: { r: 0, g: 0, b: 255 } } })
+      .jpeg()
+      .toFile(join(projectRoot, "public/images/hero.jpg"));
+    execSync("git add .", { cwd: projectRoot });
+    execSync("git commit -q -m fixture", { cwd: projectRoot });
+
+    const dropped = await sharp({ create: { width: 2000, height: 1500, channels: 3, background: { r: 255, g: 128, b: 0 } } })
+      .jpeg()
+      .toBuffer();
+    const dataURL = `data:image/jpeg;base64,${dropped.toString("base64")}`;
+
+    const result = await applyEdit(projectRoot, {
+      id: "e-img-1",
+      path: "/about/",
+      selector: { tag: "IMG", classes: [], nthChild: 1, textContent: "/images/hero.jpg" },
+      op: "replace-image-src",
+      value: { filename: "vacation.jpg", mimeType: "image/jpeg", dataURL },
+    });
+
+    expect(result.isError).toBeUndefined();
+    const reply = JSON.parse(result.content[0].text);
+    expect(reply.type).toBe("anglesite:edit-applied");
+    expect(reply.result.src).toBe("/images/hero.webp");
+    expect(reply.result.srcset).toContain("/images/hero-480w.webp 480w");
+
+    const astro = readFileSync(join(projectRoot, "src/pages/about.astro"), "utf-8");
+    expect(astro).toContain('src="/images/hero.webp"');
+    expect(astro).toContain('srcset="/images/hero-480w.webp');
+
+    expect(existsSync(join(projectRoot, "public/images/hero.webp"))).toBe(true);
+    expect(existsSync(join(projectRoot, "public/images/hero-480w.webp"))).toBe(true);
+    expect(existsSync(join(projectRoot, "public/images/originals/hero.jpg"))).toBe(true);
+
+    // Verify originals/hero.jpg contains the OLD (blue 100x100) bytes, not the
+    // new (orange 2000x1500) bytes. This guards against a regression where
+    // the optimize call's preserveOriginalsDir overwrites the preserved file.
+    const preserved = await sharp(join(projectRoot, "public/images/originals/hero.jpg")).metadata();
+    expect(preserved.width).toBe(100);
+  });
+
+  it("falls back to dropped filename when target src is external", async () => {
+    mkdirSync(join(projectRoot, "src/pages"), { recursive: true });
+    mkdirSync(join(projectRoot, "public/images"), { recursive: true });
+    writeFileSync(
+      join(projectRoot, "src/pages/about.astro"),
+      `<img src="https://cdn.example.com/photo.jpg" alt="External" />`,
+    );
+    execSync("git add .", { cwd: projectRoot });
+    execSync("git commit -q -m fixture", { cwd: projectRoot });
+
+    const dropped = await sharp({ create: { width: 1500, height: 1000, channels: 3, background: { r: 0, g: 200, b: 50 } } })
+      .jpeg()
+      .toBuffer();
+    const dataURL = `data:image/jpeg;base64,${dropped.toString("base64")}`;
+
+    const result = await applyEdit(projectRoot, {
+      id: "e-img-ext",
+      path: "/about/",
+      selector: { tag: "IMG", classes: [], nthChild: 1, textContent: "https://cdn.example.com/photo.jpg" },
+      op: "replace-image-src",
+      value: { filename: "trip-sunset.jpg", mimeType: "image/jpeg", dataURL },
+    });
+
+    expect(result.isError).toBeUndefined();
+    const reply = JSON.parse(result.content[0].text);
+    expect(reply.result.src).toBe("/images/trip-sunset.webp");
+  });
+
+  it("returns image-optimize-failed when the dataURL bytes are corrupt", async () => {
+    mkdirSync(join(projectRoot, "src/pages"), { recursive: true });
+    mkdirSync(join(projectRoot, "public/images"), { recursive: true });
+    writeFileSync(join(projectRoot, "src/pages/about.astro"), `<img src="/images/hero.jpg" />`);
+    execSync("git add .", { cwd: projectRoot });
+    execSync("git commit -q -m fixture", { cwd: projectRoot });
+
+    const result = await applyEdit(projectRoot, {
+      id: "e-img-bad",
+      path: "/about/",
+      selector: { tag: "IMG", classes: [], nthChild: 1, textContent: "/images/hero.jpg" },
+      op: "replace-image-src",
+      value: {
+        filename: "broken.jpg",
+        mimeType: "image/jpeg",
+        dataURL: "data:image/jpeg;base64,bm90LWFuLWltYWdl",
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    const reply = JSON.parse(result.content[0].text);
+    expect(reply.reason).toBe("image-optimize-failed");
   });
 });

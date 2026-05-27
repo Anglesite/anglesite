@@ -25,6 +25,7 @@ export const EDIT_FAILED_REASONS = Object.freeze([
   "patch-conflict",
   "write-failed",
   "not-implemented",
+  "image-optimize-failed",
 ]);
 
 const KNOWN_TYPES = new Set(Object.values(MESSAGE_TYPES));
@@ -67,9 +68,15 @@ export function createErrorMessage(message) {
 }
 
 /** Build an edit-applied response (server → client). `range` is `{start, end}` byte offsets in
- *  `file`; `commit` is the SHA on the hidden `anglesite/edits` branch (#298). */
-export function createEditAppliedMessage(id, file, range, commit) {
-  return { type: MESSAGE_TYPES.EDIT_APPLIED, id, file, range, commit };
+ *  `file`; `commit` is the SHA on the hidden `anglesite/edits` branch (#298). `result` is
+ *  optional, op-scoped metadata that the overlay can apply directly: e.g. `replace-image-src`
+ *  returns `{ src, srcset? }` so the overlay swaps both attributes on success without
+ *  re-deriving them from the patch text. Mirrors `createEditAppliedContent` in
+ *  `apply-edit-schema.mjs` — keep them in lockstep when the wire format changes. */
+export function createEditAppliedMessage(id, file, range, commit, result) {
+  const msg = { type: MESSAGE_TYPES.EDIT_APPLIED, id, file, range, commit };
+  if (result !== undefined) msg.result = result;
+  return msg;
 }
 
 /** Build an edit-failed response (server → client). `reason` must be one of `EDIT_FAILED_REASONS`. */
