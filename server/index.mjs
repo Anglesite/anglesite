@@ -9,6 +9,7 @@ import {
 import { applyEditInputShape } from "./apply-edit-schema.mjs";
 import { applyEdit } from "./apply-edit-dispatcher.mjs";
 import { recordEdit } from "./edit-history.mjs";
+import { undoEdit } from "./undo-edit.mjs";
 
 const projectRoot = process.env.ANGLESITE_PROJECT_ROOT || process.cwd();
 
@@ -86,6 +87,22 @@ server.tool(
       onApplied: ({ file, range }) =>
         recordEdit(projectRoot, { file, range, message: `anglesite: edit ${file}` }),
     }),
+);
+
+server.tool(
+  "undo_edit",
+  "Undo the most-recent commit on the hidden anglesite/edits branch by writing the parent commit's blobs back to disk. HEAD-only in v1: an optional `commit` argument must equal current HEAD (or be omitted). `force: true` skips the working-tree-modification check and overwrites any external changes to the touched files.",
+  {
+    commit: z.string().optional().describe("SHA to undo. Must equal current HEAD of refs/heads/anglesite/edits if provided."),
+    force: z.boolean().optional().describe("Skip the working-tree-modification check and overwrite any external changes. Default false."),
+  },
+  async ({ commit, force }) => {
+    const result = await undoEdit(projectRoot, { commit, force });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result) }],
+      isError: result.status === "refused",
+    };
+  },
 );
 
 const transport = new StdioServerTransport();

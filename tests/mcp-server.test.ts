@@ -183,6 +183,7 @@ describe("MCP annotation server", () => {
         "apply_edit",
         "list_annotations",
         "resolve_annotation",
+        "undo_edit",
       ]);
     } finally {
       proc.kill();
