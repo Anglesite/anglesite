@@ -251,6 +251,143 @@ export function scanMaintenance(
   return warnings;
 }
 
+// ---------------------------------------------------------------------------
+// Structured scan report (used by Anglesite-app to render the blocked sheet)
+// ---------------------------------------------------------------------------
+
+/** A blocker — surfaces in the macOS app as a non-overridable sheet entry. */
+export interface ScanFailure {
+  category: "pii-email" | "pii-phone" | "exposed-token" | "third-party-script" | "keystatic-route";
+  /** Repo-relative path of the file where the issue was found. */
+  file?: string;
+  /** Short, owner-facing description of what was found. */
+  detail: string;
+  /** Action the owner can take to clear the failure. */
+  remediation: string;
+}
+
+/** A non-blocking notice. Surfaced in the sheet but does not gate deploy. */
+export interface ScanWarning {
+  category: "missing-og-image" | "maintenance-overdue" | "seo-critical" | "seo-warning";
+  detail: string;
+  remediation: string;
+}
+
+export interface ScanReport {
+  /** `true` when no failures were found. `false` blocks the deploy. */
+  ok: boolean;
+  failures: ScanFailure[];
+  warnings: ScanWarning[];
+}
+
+/**
+ * Pure scan entry point — used by the macOS app's `PreDeployCheck` actor to get
+ * a structured report it can render. Reads `dist/`, `src/`, `public/`, and
+ * `.site-config` from `siteDir`; performs the same four mandatory checks the
+ * CLI runs (PII, tokens, third-party scripts, Keystatic routes); returns a
+ * `ScanReport` instead of printing.
+ *
+ * Throws on script error (missing `dist/`, unreadable files) — call sites
+ * should catch and surface those distinctly from a clean scan failure.
+ */
+export function runScan(input: { siteDir: string }): ScanReport {
+  const failures: ScanFailure[] = [];
+  const warnings: ScanWarning[] = [];
+
+  const distDir = resolve(input.siteDir, "dist");
+  if (!existsSync(distDir)) {
+    throw new Error(`dist/ not found at ${distDir} — run \`npm run build\` first.`);
+  }
+
+  const configPath = resolve(input.siteDir, ".site-config");
+  const readSiteConfig = (key: string): string | undefined => {
+    if (!existsSync(configPath)) return undefined;
+    const content = readFileSync(configPath, "utf-8");
+    const match = content.match(new RegExp(`^${key}=(.*)$`, "m"));
+    return match?.[1];
+  };
+
+  const emailAllowlist = (readSiteConfig("PII_EMAIL_ALLOW") ?? "")
+    .split(",")
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  const phoneAllowlist = (readSiteConfig("PII_PHONE_ALLOW") ?? "")
+    .split(",")
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  const relativeToSite = (full: string): string => {
+    const prefix = input.siteDir.endsWith("/") ? input.siteDir : input.siteDir + "/";
+    return full.startsWith(prefix) ? full.slice(prefix.length) : full;
+  };
+
+  // 1. PII (emails, phones) in dist/ HTML
+  const htmlFiles = walkHtml(distDir);
+  const scriptAllowlist = getAllowedScripts(configPath);
+  for (const file of htmlFiles) {
+    const content = readFileSync(file, "utf-8");
+    for (const email of scanEmails(content, emailAllowlist)) {
+      failures.push({
+        category: "pii-email",
+        file: relativeToSite(file),
+        detail: `Possible email address: ${email}`,
+        remediation: `Wrap the address in a \`mailto:\` link if it should be published, or add it to PII_EMAIL_ALLOW in .site-config.`,
+      });
+    }
+    for (const phone of scanPhones(content, phoneAllowlist)) {
+      failures.push({
+        category: "pii-phone",
+        file: relativeToSite(file),
+        detail: `Possible phone number: ${phone}`,
+        remediation: `Remove the number from the source, or add it to PII_PHONE_ALLOW in .site-config if it is intentionally published.`,
+      });
+    }
+    // 3. Third-party scripts (allowlist from .site-config providers)
+    for (const scriptTag of scanScripts(content, scriptAllowlist)) {
+      failures.push({
+        category: "third-party-script",
+        file: relativeToSite(file),
+        detail: `Unauthorized third-party script: ${scriptTag}`,
+        remediation: `Remove the script or add the provider to .site-config (ECOMMERCE_PROVIDER, BOOKING_PROVIDER, TURNSTILE_SITE_KEY, etc.) so its CDN is allowlisted.`,
+      });
+    }
+  }
+
+  // 2. Exposed tokens in dist/, src/, public/
+  for (const dir of [distDir, resolve(input.siteDir, "src"), resolve(input.siteDir, "public")]) {
+    if (!existsSync(dir)) continue;
+    for (const file of walkAll(dir)) {
+      let content: string;
+      try {
+        content = readFileSync(file, "utf-8");
+      } catch {
+        continue; // binary file
+      }
+      for (const kind of scanTokens(content)) {
+        failures.push({
+          category: "exposed-token",
+          file: relativeToSite(file),
+          detail: `${tokenLabels[kind]} pattern detected`,
+          remediation: `Rotate this credential immediately and move it to a runtime environment variable.`,
+        });
+      }
+    }
+  }
+
+  // 4. Keystatic admin routes leaking into dist/
+  for (const file of walkAll(distDir).filter(f => f.includes("keystatic"))) {
+    failures.push({
+      category: "keystatic-route",
+      file: relativeToSite(file),
+      detail: `Keystatic admin route in production build: ${relativeToSite(file)}`,
+      remediation: `Set \`output: 'static'\` for Keystatic routes or exclude them from the production build.`,
+    });
+  }
+
+  return { ok: failures.length === 0, failures, warnings };
+}
+
 /** Format a maintenance warning into a single-line, owner-facing message. */
 export function formatMaintenanceWarning(w: MaintenanceWarning): string {
   if (w.age === null) {
@@ -264,6 +401,22 @@ export function formatMaintenanceWarning(w: MaintenanceWarning): string {
 // ---------------------------------------------------------------------------
 
 if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
+  // --json: structured output for the Anglesite-app's PreDeployCheck. Runs the
+  // four mandatory blockers (PII, tokens, third-party scripts, Keystatic) and
+  // emits a single ScanReport JSON document on stdout. Exit 0 = ok, 1 = blocked
+  // or script error (script-error JSON has ok=false with a synthetic failure;
+  // missing dist/ throws inside runScan and surfaces on stderr).
+  if (process.argv.includes("--json")) {
+    try {
+      const report = runScan({ siteDir: process.cwd() });
+      process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+      process.exit(report.ok ? 0 : 1);
+    } catch (err) {
+      console.error((err as Error).message);
+      process.exit(1);
+    }
+  }
+
   const DIST = "dist";
 
   if (!existsSync(DIST)) {
