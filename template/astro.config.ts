@@ -2,8 +2,11 @@
  * Astro configuration for an Anglesite-managed website.
  *
  * Reads site identity from `.site-config` (written by `/anglesite:start`).
- * In dev mode, enables Keystatic CMS, local HTTPS via mkcert, and server
- * output. In production, builds static HTML with no client JavaScript.
+ * In dev mode, enables local HTTPS via mkcert and the Anglesite annotations
+ * toolbar; in both dev and production, builds static HTML with no client
+ * JavaScript. The Cloudflare adapter is wired only for production builds —
+ * its dev-mode behavior conflicts with Astro 6.3.x's SSR routing (see the
+ * `adapter` block below for the full justification).
  *
  * @see https://docs.astro.build/en/reference/configuration-reference/
  * @module
@@ -135,16 +138,41 @@ const siteUrl = siteDomain
 export default defineConfig({
   site: siteUrl,
   devToolbar: { enabled: isDev },
-  output: isDev ? "server" : "static",
+  // Was: `isDev ? "server" : "static"`. The server-mode dev option requires
+  // the Cloudflare adapter to be loaded too, but @astrojs/cloudflare 13.5.0
+  // + Astro 6.3.1 intercepts dev-mode routing through the workerd shim and
+  // 404s every SSR request. Static + hot-reload gives a working preview
+  // without the adapter. Trade-off: Keystatic's `/keystatic` admin UI is
+  // SSR-only and isn't reachable in dev under this config. For owners who
+  // need the Keystatic admin locally, run a separate `astro dev` invocation
+  // with `output: "server"` + `adapter: cloudflare(...)` re-added.
+  output: "static",
   integrations: [
     react(),
     markdoc(),
     ...(isDev ? [keystatic(), anglesiteToolbar()] : []),
     sitemap({ serialize: makeLastmodSerializer() }),
   ],
-  vite: { server: { https: getHttpsConfig() } },
+  vite: {
+    server: { https: getHttpsConfig() },
+    // Exclude Keystatic packages from optimizeDeps so esbuild's pre-bundler
+    // doesn't try to resolve `virtual:keystatic-config` (a virtual module
+    // the Keystatic Astro integration only registers at serve time via a
+    // vite resolveId plugin). Without this, dev startup logs a non-fatal:
+    //   "Could not resolve 'virtual:keystatic-config'" from
+    //   @keystatic/astro/internal/keystatic-api.js
+    // Known issue with @keystatic/astro 5.x on recent Astro + Vite.
+    optimizeDeps: {
+      exclude: ["@keystatic/core", "@keystatic/astro"],
+    },
+  },
   // prerenderEnvironment: "node" keeps the prerender step in Node so the
   // adapter doesn't spin up a workerd-based preview server that conflicts
   // with the custom worker entry in worker/site-entry.js.
-  adapter: cloudflare({ prerenderEnvironment: "node" }),
+  //
+  // Skipped in dev — @astrojs/cloudflare 13.5.0 + Astro 6.3.1 intercepts SSR
+  // routing during `astro dev` and 404s every request. The adapter is only
+  // needed at build/deploy time. Pair this with `output: "static"` in dev
+  // (set above) since `output: "server"` requires an adapter.
+  adapter: isDev ? undefined : cloudflare({ prerenderEnvironment: "node" }),
 });
