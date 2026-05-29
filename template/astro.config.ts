@@ -142,10 +142,10 @@ export default defineConfig({
   // the Cloudflare adapter to be loaded too, but @astrojs/cloudflare 13.5.0
   // + Astro 6.3.1 intercepts dev-mode routing through the workerd shim and
   // 404s every SSR request. Static + hot-reload gives a working preview
-  // without the adapter. Trade-off: Keystatic's `/keystatic` admin UI is
-  // SSR-only and isn't reachable in dev under this config. For owners who
-  // need the Keystatic admin locally, run a separate `astro dev` invocation
-  // with `output: "server"` + `adapter: cloudflare(...)` re-added.
+  // without the adapter. The Keystatic `/keystatic` admin UI still works in
+  // dev: the keystatic() integration (added to `integrations` above only when
+  // isDev) injects its own route that Astro's dev server renders on demand,
+  // independent of this build-time `output` mode.
   output: "static",
   integrations: [
     react(),
@@ -155,16 +155,23 @@ export default defineConfig({
   ],
   vite: {
     server: { https: getHttpsConfig() },
-    // Exclude Keystatic packages from optimizeDeps so esbuild's pre-bundler
-    // doesn't try to resolve `virtual:keystatic-config` (a virtual module
-    // the Keystatic Astro integration only registers at serve time via a
-    // vite resolveId plugin). Without this, dev startup logs a non-fatal:
-    //   "Could not resolve 'virtual:keystatic-config'" from
-    //   @keystatic/astro/internal/keystatic-api.js
-    // Known issue with @keystatic/astro 5.x on recent Astro + Vite.
-    optimizeDeps: {
-      exclude: ["@keystatic/core", "@keystatic/astro"],
-    },
+    // DO NOT add @keystatic/core or @keystatic/astro to optimizeDeps.exclude.
+    //
+    // The /keystatic admin UI is a client-rendered React app whose dependency
+    // tree is largely CommonJS (slate, slate-react, slate-history, is-hotkey,
+    // use-sync-external-store, @markdoc/markdoc, js-yaml, …). Vite must
+    // pre-bundle that tree into ESM, or the browser fails to resolve named
+    // exports and surfaces errors like:
+    //   SyntaxError: Importing binding name 'isKeyHotkey' is not found.
+    //   SyntaxError: Importing binding name 'useSyncExternalStore' is not found.
+    // one at a time, leaving /keystatic a blank white page (seen on
+    // Node 22+/Vite 6). Excluding the Keystatic packages stops Vite from
+    // discovering and pre-bundling that CJS tree, which is exactly what breaks
+    // hydration. The canonical Keystatic + Astro setup needs no optimizeDeps
+    // config at all, so we keep this empty and let Vite's default dependency
+    // discovery do its job. (Excluding them only silenced a cosmetic, non-fatal
+    // "Could not resolve 'virtual:keystatic-config'" scan warning at startup —
+    // not worth a broken CMS.)
   },
   // prerenderEnvironment: "node" keeps the prerender step in Node so the
   // adapter doesn't spin up a workerd-based preview server that conflicts
