@@ -80,7 +80,7 @@ Small businesses — farms, restaurants, legal firms, retailers, makers, artists
 
 | Component | Technology |
 |---|---|
-| Site generator | [Astro 5](https://astro.build) |
+| Site generator | [Astro 6](https://astro.build) |
 | Content editor | [Keystatic](https://keystatic.com) |
 | Hosting | [Cloudflare Workers](https://workers.cloudflare.com) (Static Assets) |
 | Analytics | Cloudflare Web Analytics |

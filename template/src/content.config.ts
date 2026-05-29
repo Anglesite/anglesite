@@ -5,7 +5,7 @@
  * `src/content/`. The Zod schema here must stay in sync with the
  * Keystatic field definitions in `keystatic.config.ts`.
  *
- * Uses the Astro 5 Content Layer API with `glob` loaders. The glob
+ * Uses the Astro Content Layer API with `glob` loaders. The glob
  * loader does not warn for empty or missing collection directories,
  * so every collection is registered unconditionally — Keystatic
  * creates directories on demand the first time the owner adds an

@@ -37,7 +37,7 @@ The owner trusts you to deliver working changes. Verifying your own work before 
 
 ## Stack
 
-Astro 5 · Keystatic CMS · TypeScript strict · Cloudflare Workers (Static Assets) · Web Analytics
+Astro 6 · Keystatic CMS · TypeScript strict · Cloudflare Workers (Static Assets) · Web Analytics
 
 ## Workflows
 

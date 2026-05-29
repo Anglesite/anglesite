@@ -2,7 +2,7 @@
 
 ## Stack decisions
 
-**Astro 5** — Static site generator. Fast builds, zero JS by default, great for content sites.
+**Astro 6** — Static site generator. Fast builds, zero JS by default, great for content sites.
 
 **Keystatic CMS** — Browser-based editor at `/keystatic`. Writes `.mdoc` files directly. No database.
 
