@@ -283,11 +283,13 @@ export interface ScanReport {
 /**
  * Pure scan entry point — used by the macOS app's `PreDeployCheck` actor to get
  * a structured report it can render. Reads `dist/`, `src/`, `public/`, and
- * `.site-config` from `siteDir`; performs the same four mandatory checks the
- * CLI runs (PII, tokens, third-party scripts, Keystatic routes); returns a
- * `ScanReport` instead of printing.
+ * `.site-config` from `siteDir`; performs the same four mandatory blockers the
+ * CLI runs (PII, tokens, third-party scripts, Keystatic routes) plus the
+ * non-blocking warnings (missing OG image, overdue maintenance, SEO audit);
+ * returns a `ScanReport` instead of printing.
  *
- * Throws on script error (missing `dist/`, unreadable files) — call sites
+ * Read-only: unlike the CLI path it does not write a `reports/seo-report.md`
+ * file. Throws on script error (missing `dist/`, unreadable files) — call sites
  * should catch and surface those distinctly from a clean scan failure.
  */
 export function runScan(input: { siteDir: string }): ScanReport {
@@ -325,8 +327,10 @@ export function runScan(input: { siteDir: string }): ScanReport {
   // 1. PII (emails, phones) in dist/ HTML
   const htmlFiles = walkHtml(distDir);
   const scriptAllowlist = getAllowedScripts(configPath);
+  let hasOgImage = false;
   for (const file of htmlFiles) {
     const content = readFileSync(file, "utf-8");
+    if (content.includes("og:image")) hasOgImage = true;
     for (const email of scanEmails(content, emailAllowlist)) {
       failures.push({
         category: "pii-email",
@@ -383,6 +387,54 @@ export function runScan(input: { siteDir: string }): ScanReport {
       detail: `Keystatic admin route in production build: ${relativeToSite(file)}`,
       remediation: `Set \`output: 'static'\` for Keystatic routes or exclude them from the production build.`,
     });
+  }
+
+  // ---- Warnings (non-blocking; surfaced by the app's health badge) ----
+
+  // 5. OG image presence (warn only)
+  if (htmlFiles.length > 0 && !hasOgImage) {
+    warnings.push({
+      category: "missing-og-image",
+      detail: `No og:image meta tag found — social shares won't show a preview image.`,
+      remediation: `Run \`npm run ai-images\` to generate one.`,
+    });
+  }
+
+  // 6. Maintenance log freshness (warn only)
+  for (const w of scanMaintenance(readSiteConfig)) {
+    warnings.push({
+      category: "maintenance-overdue",
+      detail:
+        w.age === null
+          ? `No record of a ${w.label}.`
+          : `${w.label} last logged ${w.age} days ago (over the ${w.graceDays}-day window).`,
+      remediation: `Run \`${w.command}\`.`,
+    });
+  }
+
+  // 7. SEO audit (warn only). Best-effort in scan mode — a failed audit must
+  //    never break the structured report, so errors are swallowed.
+  try {
+    const siteDomain = readSiteConfig("SITE_DOMAIN");
+    const siteUrl = siteDomain ? `https://${siteDomain}` : "";
+    const agenticCrawlers =
+      (readSiteConfig("AGENTIC_CRAWLERS") as AgenticCrawlersPolicy | undefined) ?? "allow";
+    const seoReport = runSeoAudit({ distDir, siteUrl, agenticCrawlers });
+    if (seoReport.totals.critical > 0) {
+      warnings.push({
+        category: "seo-critical",
+        detail: `${seoReport.totals.critical} critical SEO issue(s).`,
+        remediation: `Run \`/anglesite:seo\` to review.`,
+      });
+    } else if (seoReport.totals.warning > 0 || seoReport.totals.niceToHave > 0) {
+      warnings.push({
+        category: "seo-warning",
+        detail: `${seoReport.totals.warning} SEO warning(s), ${seoReport.totals.niceToHave} nice-to-have.`,
+        remediation: `Run \`/anglesite:seo\` to review.`,
+      });
+    }
+  } catch {
+    // SEO audit is best-effort here; never gate the report on it.
   }
 
   return { ok: failures.length === 0, failures, warnings };
