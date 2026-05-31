@@ -32,7 +32,12 @@ Do **not** run this skill for:
 - Form-submit or signup conversions inside Anglesite — those are already counted in the `anglesite_events` dataset surfaced by `/anglesite:stats`
 - Hotjar heatmaps / session recording — Partytown can't safely run it (it needs main-thread DOM access) and its free tier (≈35 sessions/day) is too limited to recommend. Refuse and explain.
 
-**Microsoft Clarity is supported** — see "Supported platforms" below. Unlike Hotjar, it's genuinely free with no traffic caps, so this skill installs it as a first-class **analytics** provider. It's the one tracker that runs on the main thread instead of in Partytown (session recording needs direct DOM access).
+**Microsoft Clarity is supported, but opt-in only** — see "Supported platforms" below. Unlike Hotjar, it's genuinely free with no traffic caps, so when an owner wants heatmaps or session recording this skill installs it as a first-class **analytics** provider. It's the one tracker that runs on the main thread instead of in Partytown (session recording needs direct DOM access).
+
+Two things keep Clarity opt-in rather than default:
+
+- **Cloudflare Web Analytics is already the default** traffic analytics for every Anglesite site (cookieless, on the main thread, no extra account, surfaced by `/anglesite:stats`). Clarity is an *additive* behavioral layer — heatmaps + session replay — not a replacement for it.
+- **Clarity requires a separate Microsoft account** (clarity.microsoft.com) that the owner likely doesn't already have. Don't surface it in the default platform checklist below and don't recommend it speculatively. Configure it **only when the owner explicitly asks** for heatmaps, session recording, or Clarity by name — then walk them through creating the project to get the ID.
 
 ## Cost — the only real downside
 
@@ -73,7 +78,9 @@ Read `.site-config`. If any `TRACKING_*` key is already set, this is an update �
 
 Ask: "Which ad platforms are you actually running campaigns on right now? Don't install pixels speculatively — each one is data your visitors don't need to give away."
 
-Surface the table from "Supported platforms" above with checkboxes. Multi-select is normal: a typical SMB is on Meta + Google Ads, a B2B is on Google Ads + LinkedIn.
+Surface the **ad pixels** from "Supported platforms" above (Meta, Google Ads, GA4, LinkedIn, TikTok, Pinterest, X) with checkboxes. Multi-select is normal: a typical SMB is on Meta + Google Ads, a B2B is on Google Ads + LinkedIn.
+
+**Do not put Microsoft Clarity in this checklist.** Clarity is opt-in analytics that needs its own Microsoft account, and the site already has Cloudflare Web Analytics by default — so only add it when the owner explicitly asks for heatmaps or session recording (or names Clarity). If they do, set `TRACKING_CLARITY_PROJECT_ID` from the prompt below and follow the same install steps; otherwise skip it entirely.
 
 For each chosen platform, ask for the tracking ID. Frame the question by what the owner will see in their ad dashboard:
 

@@ -16,7 +16,7 @@ Do **not** run it for:
 - Form-submit and signup conversions inside Anglesite — those are already counted in the `anglesite_events` dataset surfaced by `/anglesite:stats`.
 - Hotjar heatmaps / session recording — Partytown can't safely run it (it needs main-thread DOM access) and its free tier is too limited to recommend.
 
-**Microsoft Clarity is supported.** It's a free, privacy-friendly heatmap + session-recording tool (auto-masks text and form inputs). Unlike the ad pixels, it runs on the **main thread** — its session recording needs direct DOM access that Partytown's worker can't expose — so it's the one sanctioned exception to the "all tracking goes through Partytown" rule. It's still gated behind `data-consent="analytics"`.
+**Microsoft Clarity is supported, but opt-in only.** It's a free, privacy-friendly heatmap + session-recording tool (auto-masks text and form inputs). It's configured **only when you ask for it** — your site already has Cloudflare Web Analytics by default (cookieless, no extra account), and Clarity needs its own Microsoft account at clarity.microsoft.com. So it's an optional behavioral add-on, never installed speculatively. Unlike the ad pixels, it runs on the **main thread** — its session recording needs direct DOM access that Partytown's worker can't expose — so it's the one sanctioned exception to the "all tracking goes through Partytown" rule. It's still gated behind `data-consent="analytics"`.
 
 ## How it works
 
