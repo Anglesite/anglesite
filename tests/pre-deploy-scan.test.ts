@@ -127,6 +127,53 @@ describe("runScan", () => {
     // No dist/ written
     expect(() => runScan({ siteDir: site })).toThrow(/dist\/ not found/);
   });
+
+  it("emits a missing-og-image warning when no page declares og:image", () => {
+    writeFile("dist/index.html", "<!doctype html><html><head></head><body><h1>Hi</h1></body></html>");
+
+    const report = runScan({ siteDir: site });
+
+    expect(report.ok).toBe(true);
+    expect(report.warnings.some(w => w.category === "missing-og-image")).toBe(true);
+  });
+
+  it("does not warn about og:image when at least one page declares it", () => {
+    writeFile(
+      "dist/index.html",
+      '<!doctype html><html><head><meta property="og:image" content="/og.png"></head><body><h1>Hi</h1></body></html>',
+    );
+
+    const report = runScan({ siteDir: site });
+
+    expect(report.warnings.some(w => w.category === "missing-og-image")).toBe(false);
+  });
+
+  it("emits a maintenance-overdue warning when no maintenance has been logged", () => {
+    writeFile(
+      "dist/index.html",
+      '<!doctype html><html><head><meta property="og:image" content="/og.png"></head><body><h1>Hi</h1></body></html>',
+    );
+
+    const report = runScan({ siteDir: site });
+
+    expect(report.warnings.some(w => w.category === "maintenance-overdue")).toBe(true);
+  });
+
+  it("does not warn about maintenance when the log stamps are current", () => {
+    const today = new Date().toISOString().slice(0, 10);
+    writeFile(
+      "dist/index.html",
+      '<!doctype html><html><head><meta property="og:image" content="/og.png"></head><body><h1>Hi</h1></body></html>',
+    );
+    writeFile(
+      ".site-config",
+      `MAINTENANCE_MONTHLY_LAST=${today}\nMAINTENANCE_QUARTERLY_LAST=${today}\nMAINTENANCE_ANNUAL_LAST=${today}\n`,
+    );
+
+    const report = runScan({ siteDir: site });
+
+    expect(report.warnings.some(w => w.category === "maintenance-overdue")).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
