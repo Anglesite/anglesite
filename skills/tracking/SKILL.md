@@ -1,6 +1,6 @@
 ---
 name: tracking
-description: "Embed Meta Pixel, Google Ads / GA4, LinkedIn, TikTok, Pinterest, or X tracking pixels via @astrojs/partytown so they don't block the main thread"
+description: "Embed Meta Pixel, Google Ads / GA4, LinkedIn, TikTok, Pinterest, or X conversion pixels via @astrojs/partytown (off the main thread), plus Microsoft Clarity analytics (heatmaps + session recording) on the main thread. All gated behind cookie consent."
 allowed-tools: Bash(npm install *), Bash(npm run build), Bash(npx astro check), Bash(grep *), Write, Read, Edit, Glob
 disable-model-invocation: true
 ---
@@ -30,7 +30,9 @@ Do **not** run this skill for:
 
 - Plain traffic analytics — that's `/anglesite:stats` (Cloudflare Web Analytics)
 - Form-submit or signup conversions inside Anglesite — those are already counted in the `anglesite_events` dataset surfaced by `/anglesite:stats`
-- Heatmaps / session recording (Hotjar, Microsoft Clarity) — Partytown can't safely run them; they need DOM access. Refuse and explain.
+- Hotjar heatmaps / session recording — Partytown can't safely run it (it needs main-thread DOM access) and its free tier (≈35 sessions/day) is too limited to recommend. Refuse and explain.
+
+**Microsoft Clarity is supported** — see "Supported platforms" below. Unlike Hotjar, it's genuinely free with no traffic caps, so this skill installs it as a first-class **analytics** provider. It's the one tracker that runs on the main thread instead of in Partytown (session recording needs direct DOM access).
 
 ## Cost — the only real downside
 
@@ -57,8 +59,11 @@ State this plainly to the owner before installing anything:
 | TikTok Pixel | `TRACKING_TIKTOK_PIXEL_ID` | `ttq.track`, `ttq.page`, `ttq.identify` | `analytics.tiktok.com` | `ads` |
 | Pinterest Tag | `TRACKING_PINTEREST_TAG_ID` | `pintrk` | `s.pinimg.com` | `ads` |
 | X / Twitter Pixel | `TRACKING_X_PIXEL_ID` | `twq` | `static.ads-twitter.com` | `ads` |
+| Microsoft Clarity (heatmaps + session recording) | `TRACKING_CLARITY_PROJECT_ID` | — (main thread, **not** Partytown) | `www.clarity.ms` | `analytics` |
 
-Each ID format is platform-specific — Meta uses a 15–16 digit number, GA4 starts with `G-`, Google Ads with `AW-`, LinkedIn with a partner ID number, TikTok with a `C` prefix, Pinterest with a 13-digit number, X with an alphanumeric tag. Don't validate format strictly; the platforms reject bad IDs at fire time and we don't want to block a legitimate format change.
+> **Microsoft Clarity is the one sanctioned main-thread exception.** Unlike the ad pixels above, Clarity is a free, privacy-friendly **analytics** tool (heatmaps + session replay) that auto-masks text and form inputs by default. Its session recording has to observe the live DOM, which Partytown's web worker can't expose — so Clarity **must** load on the main thread. **Do not "fix" this by wrapping it in Partytown**; that would break session replay. It is still gated behind the `analytics` consent category, and its loader domain (`www.clarity.ms`) is still added to the pre-deploy allowlist via `template/scripts/csp.ts`, exactly like every other tracker.
+
+Each ID format is platform-specific — Meta uses a 15–16 digit number, GA4 starts with `G-`, Google Ads with `AW-`, LinkedIn with a partner ID number, TikTok with a `C` prefix, Pinterest with a 13-digit number, X with an alphanumeric tag, and Clarity uses a 10-character lowercase alphanumeric project ID. Don't validate format strictly; the platforms reject bad IDs at fire time and we don't want to block a legitimate format change.
 
 ## Step 0 — Check prerequisites
 
@@ -78,6 +83,7 @@ For each chosen platform, ask for the tracking ID. Frame the question by what th
 - TikTok: "TikTok Ads Manager → Assets → Events → Web. The pixel code starts with `C` followed by alphanumerics."
 - Pinterest: "Pinterest Business → Ads → Conversions. 13-digit numeric ID."
 - X: "X Ads → Tools → Conversion tracking. Alphanumeric pixel code."
+- Microsoft Clarity: "Open clarity.microsoft.com → your project → Settings → Overview. The Project ID is a 10-character code (it's also embedded in the install snippet Clarity gives you)."
 
 Save each one to `.site-config` using the **Write tool** (update the existing file). Multiple keys are fine — owners often run two or three pixels concurrently:
 
@@ -85,6 +91,7 @@ Save each one to `.site-config` using the **Write tool** (update the existing fi
 TRACKING_META_PIXEL_ID=1234567890123456
 TRACKING_GA4_ID=G-ABC1234567
 TRACKING_GOOGLE_ADS_ID=AW-9876543210
+TRACKING_CLARITY_PROJECT_ID=abcde12345
 ```
 
 If the owner only mentions Google Ads (no GA4), set `TRACKING_GOOGLE_ADS_ID` and leave GA4 unset — they share the same loader (`gtag.js`) but represent different conversion goals and are billed separately on the Google side. The skill will detect the shared loader and only emit it once at build time.
@@ -132,6 +139,8 @@ partytown({
 
 Use the **Edit** tool to splice it into the existing `integrations: [...]` array. Don't replace the whole config.
 
+**Do not add a Clarity entry to the `forward` array.** Microsoft Clarity runs on the main thread, not in Partytown, so it has no forwarded global — its inline snippet calls `clarity(...)` directly on the page. The `forward` array is only for Partytown-wrapped pixels.
+
 ## Step 4 — Add the pixel snippets to the layout
 
 The pixels live in `src/components/TrackingPixels.astro` so that `BaseLayout`, `KioskLayout`, and `ImmersiveLayout` can all opt in by importing one component. Create the component (or edit if it exists). The frontmatter reads each `TRACKING_*` key from `.site-config` and a single `consentEnabled` flag, then renders one `<script type="text/partytown">` block per configured pixel.
@@ -154,6 +163,7 @@ const linkedinId  = read("TRACKING_LINKEDIN_PARTNER_ID");
 const tiktokId    = read("TRACKING_TIKTOK_PIXEL_ID");
 const pinterestId = read("TRACKING_PINTEREST_TAG_ID");
 const xId         = read("TRACKING_X_PIXEL_ID");
+const clarityId   = read("TRACKING_CLARITY_PROJECT_ID");
 
 // Both Google Ads and GA4 share gtag.js. Emit the loader once.
 const gtagId = ga4Id ?? googleAdsId;
@@ -165,10 +175,17 @@ const gtagId = ga4Id ?? googleAdsId;
 const consentEnabled = !!read("CONSENT_VERSION");
 const adsType        = consentEnabled ? "text/plain" : "text/partytown";
 const analyticsType  = consentEnabled ? "text/plain" : "text/partytown";
+
+// Microsoft Clarity is the exception: it must run on the MAIN THREAD (its
+// session recording observes the live DOM, which Partytown's worker can't
+// expose). So it promotes to `text/javascript`, not `text/partytown`, and
+// it carries NO `data-partytown-type` hint. It's still gated behind the
+// `analytics` category when consent is enabled.
+const clarityType    = consentEnabled ? "text/plain" : "text/javascript";
 ---
 ```
 
-Then drop in one block per platform from `${CLAUDE_PLUGIN_ROOT}/docs/platforms/tracking-pixels.md`. The reference doc has the inline snippets verbatim (Meta, Google Ads/GA4, LinkedIn, TikTok, Pinterest, X) — copy each block whose ID variable is non-empty. Skip blocks whose key isn't set; the conditional rendering keeps `dist/` clean.
+Then drop in one block per platform from `${CLAUDE_PLUGIN_ROOT}/docs/platforms/tracking-pixels.md`. The reference doc has the inline snippets verbatim (Meta, Google Ads/GA4, LinkedIn, TikTok, Pinterest, X, and Microsoft Clarity) — copy each block whose ID variable is non-empty. Skip blocks whose key isn't set; the conditional rendering keeps `dist/` clean. The Clarity block is the only one that renders with `type={clarityType}` and **no** `data-partytown-type` attribute, because it runs on the main thread.
 
 Import and render the component once in `BaseLayout.astro`, just before `</head>`:
 
@@ -211,7 +228,7 @@ npx astro check
 npm run build
 ```
 
-The pre-deploy script scan reads the `TRACKING_*` keys and adds the corresponding loader domains (`connect.facebook.net`, `www.googletagmanager.com`, `snap.licdn.com`, `analytics.tiktok.com`, `s.pinimg.com`, `static.ads-twitter.com`) to its allowlist via `template/scripts/csp.ts`. If the build succeeds and the scan passes, the install is correct. If the scan fails with "unauthorized third-party script", check that the keys in `.site-config` match the loader actually rendered into the HTML.
+The pre-deploy script scan reads the `TRACKING_*` keys and adds the corresponding loader domains (`connect.facebook.net`, `www.googletagmanager.com`, `snap.licdn.com`, `analytics.tiktok.com`, `s.pinimg.com`, `static.ads-twitter.com`, `www.clarity.ms`) to its allowlist via `template/scripts/csp.ts`. If the build succeeds and the scan passes, the install is correct. If the scan fails with "unauthorized third-party script", check that the keys in `.site-config` match the loader actually rendered into the HTML.
 
 Tell the owner what's now in place:
 
@@ -230,6 +247,7 @@ Each ad platform has its own validator. Surface the relevant URLs and tell the o
 - **TikTok**: TikTok Ads Manager → Events → Web → status panel.
 - **Pinterest**: Pinterest Business → Ads → Conversions → Pixel health.
 - **X**: X Ads → Tools → Conversion tracking → status.
+- **Microsoft Clarity**: clarity.microsoft.com → your project → it flips to "Recording" once it receives the first session (usually within a few minutes). Heatmaps and recordings populate as visitors browse.
 
 Frame it as a one-time check: "Run through these on the live site once — if a platform shows the pixel as 'Active' or 'Receiving events', you're done. If something stays unverified after 24 hours, run `/anglesite:check` and we'll diagnose it."
 
