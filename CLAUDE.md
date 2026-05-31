@@ -63,7 +63,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── giscus/SKILL.md          Blog comments via Giscus + GitHub Discussions (user-facing)
 │   ├── consent/SKILL.md         Category-based GDPR/CCPA cookie consent banner (user-facing)
 │   ├── membership/SKILL.md       Paywall + content gating: free (newsletter) and paid (Stripe) tiers (user-facing)
-│   └── tracking/SKILL.md         Meta Pixel, Google Ads, GA4, LinkedIn, TikTok, Pinterest, X via @astrojs/partytown (user-facing)
+│   └── tracking/SKILL.md         Meta Pixel, Google Ads, GA4, LinkedIn, TikTok, Pinterest, X via @astrojs/partytown + Microsoft Clarity (main thread) (user-facing)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
 ├── scripts/
@@ -165,7 +165,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `giscus` | Blog comments backed by GitHub Discussions (per-post opt-out via frontmatter) |
 | `consent` | Category-based GDPR/CCPA cookie consent banner; gates third-party scripts/embeds via `data-consent` |
 | `membership` | Paywall and content gating: free tier (newsletter) and paid tier (Stripe), edge-gated via signed cookie |
-| `tracking` | Meta Pixel, Google Ads, GA4, LinkedIn Insight, TikTok, Pinterest, X — wrapped in `@astrojs/partytown` so they run in a worker, not on the main thread |
+| `tracking` | Meta Pixel, Google Ads, GA4, LinkedIn Insight, TikTok, Pinterest, X — wrapped in `@astrojs/partytown` so they run in a worker, not on the main thread; plus Microsoft Clarity (heatmaps + session recording), which runs on the main thread because session replay needs DOM access |
 
 **Model-only** (called programmatically by other skills, `user-invocable: false`):
 

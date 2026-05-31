@@ -34,7 +34,7 @@ Invoked via `/anglesite:<name>` (28 skills):
 | `seo` | SEO audit, metadata editing, Schema.org, sitemap, and LLM/GEO optimization |
 | `start` | First-time setup: discovery, design, tools, preview |
 | `stats` | Show site analytics in plain language |
-| `tracking` | Embed Meta Pixel, Google Ads / GA4, LinkedIn, TikTok, Pinterest, or X tracking pixels via @astrojs/partytown so they don't block the main thread |
+| `tracking` | Embed Meta Pixel, Google Ads / GA4, LinkedIn, TikTok, Pinterest, or X conversion pixels via @astrojs/partytown (off the main thread), plus Microsoft Clarity analytics (heatmaps + session recording) on the main thread. All gated behind cookie consent. |
 | `update` | Update site dependencies and template files to the latest version |
 
 ## Model-only
