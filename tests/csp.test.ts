@@ -336,6 +336,7 @@ const noPixels = {
   tiktok: false,
   pinterest: false,
   x: false,
+  clarity: false,
 };
 
 describe("buildTrackingCSP", () => {
@@ -379,6 +380,13 @@ describe("buildTrackingCSP", () => {
     const csp = buildTrackingCSP({ ...noPixels, x: true });
     expect(csp["script-src"]).toContain("static.ads-twitter.com");
   });
+
+  it("adds Clarity loader and telemetry domains when clarity is enabled", () => {
+    const csp = buildTrackingCSP({ ...noPixels, clarity: true });
+    expect(csp["script-src"]).toContain("www.clarity.ms");
+    expect(csp["connect-src"]).toContain("www.clarity.ms");
+    expect(csp["connect-src"]).toContain("c.clarity.ms");
+  });
 });
 
 describe("parseProviders — tracking", () => {
@@ -405,6 +413,12 @@ describe("parseProviders — tracking", () => {
     expect(p.tracking?.googleAds).toBe(true);
     expect(p.tracking?.linkedin).toBe(false);
   });
+
+  it("populates tracking when only TRACKING_CLARITY_PROJECT_ID is set", () => {
+    const p = parseProviders("TRACKING_CLARITY_PROJECT_ID=abcde12345");
+    expect(p.tracking?.clarity).toBe(true);
+    expect(p.tracking?.meta).toBe(false);
+  });
 });
 
 describe("buildCSP — with tracking pixels", () => {
@@ -425,11 +439,20 @@ describe("buildCSP — with tracking pixels", () => {
     expect(csp).toContain("www.google-analytics.com");
   });
 
+  it("adds Clarity domain when clarity is enabled", () => {
+    const csp = buildCSP({
+      turnstile: false,
+      tracking: { ...noPixels, clarity: true },
+    });
+    expect(csp).toContain("www.clarity.ms");
+  });
+
   it("does not include any tracking domains when tracking is undefined", () => {
     const csp = buildCSP({ turnstile: false });
     expect(csp).not.toContain("connect.facebook.net");
     expect(csp).not.toContain("www.googletagmanager.com");
     expect(csp).not.toContain("snap.licdn.com");
+    expect(csp).not.toContain("www.clarity.ms");
   });
 });
 
@@ -461,6 +484,7 @@ describe("buildAllowedScripts — with tracking pixels", () => {
         tiktok: true,
         pinterest: true,
         x: true,
+        clarity: true,
       },
     });
     expect(scripts).toContain("connect.facebook.net");
@@ -469,6 +493,15 @@ describe("buildAllowedScripts — with tracking pixels", () => {
     expect(scripts).toContain("analytics.tiktok.com");
     expect(scripts).toContain("s.pinimg.com");
     expect(scripts).toContain("static.ads-twitter.com");
+    expect(scripts).toContain("www.clarity.ms");
+  });
+
+  it("adds Clarity loader when clarity is enabled", () => {
+    const scripts = buildAllowedScripts({
+      turnstile: false,
+      tracking: { ...noPixels, clarity: true },
+    });
+    expect(scripts).toContain("www.clarity.ms");
   });
 });
 

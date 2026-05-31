@@ -1,8 +1,8 @@
-# Tracking pixel snippets (Partytown-wrapped)
+# Tracking pixel snippets
 
 Reference snippets for `/anglesite:tracking`. Drop these into `src/components/TrackingPixels.astro` — one block per platform — and the layout component will only render the ones whose `TRACKING_*` key is set in `.site-config`.
 
-Each snippet uses `is:inline` so Astro doesn't bundle the script and the `data-partytown-type="text/partytown"` attribute so the consent runtime knows which type to restore when promoting a `text/plain` script after consent.
+Most snippets are **Partytown-wrapped** (the ad pixels): they use `is:inline` so Astro doesn't bundle the script, plus a `data-partytown-type="text/partytown"` attribute so the consent runtime knows which type to restore when promoting a `text/plain` script after consent. The one exception is **Microsoft Clarity**, which runs on the main thread (see its section at the bottom) and therefore carries no `data-partytown-type` hint.
 
 Variables referenced below come from the component frontmatter:
 
@@ -101,6 +101,39 @@ const analyticsType = consentEnabled ? "text/plain" : "text/partytown";
     s.version='1.1',s.queue=[],u=t.createElement(n),u.async=!0,u.src='https://static.ads-twitter.com/uwt.js',
     a=t.getElementsByTagName(n)[0],a.parentNode.insertBefore(u,a))}(window,document,'script');
     twq('config','${xId}');
+  `} />
+)}
+```
+
+## Microsoft Clarity (main thread — **not** Partytown)
+
+Clarity is the one tracker that does **not** go through Partytown. Its session
+recording observes the live DOM, which Partytown's web worker can't expose, so
+it must run on the main thread. That means:
+
+- It uses `type={clarityType}` (`text/javascript` when consent is off, `text/plain`
+  when consent gating is on) — **never** `text/partytown`.
+- It carries **no** `data-partytown-type` attribute. When the consent runtime
+  promotes a `text/plain` script with no hint, it restores `text/javascript`,
+  which is exactly what Clarity needs.
+- It is still gated behind `data-consent="analytics"` like any other analytics
+  tracker, and its loader domain (`www.clarity.ms`) is still allowlisted by
+  `template/scripts/csp.ts`.
+
+`clarityType` comes from the component frontmatter:
+
+```ts
+const clarityType = consentEnabled ? "text/plain" : "text/javascript";
+```
+
+```astro
+{clarityId && (
+  <script type={clarityType} data-consent="analytics" is:inline set:html={`
+    (function(c,l,a,r,i,t,y){
+      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window,document,"clarity","script","${clarityId}");
   `} />
 )}
 ```

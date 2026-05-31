@@ -51,6 +51,11 @@ export interface TrackingPixels {
   pinterest: boolean;
   /** TRACKING_X_PIXEL_ID — X / Twitter Pixel. */
   x: boolean;
+  /** TRACKING_CLARITY_PROJECT_ID — Microsoft Clarity (heatmaps + session
+   *  recording). Unlike the ad pixels above, Clarity runs on the MAIN THREAD,
+   *  not in Partytown — its session recording needs direct DOM access. The
+   *  loader domain still has to be allowlisted by the CSP and pre-deploy scan. */
+  clarity: boolean;
 }
 
 /** CSP directives as arrays of domains per directive */
@@ -147,6 +152,13 @@ export function buildTrackingCSP(pixels: TrackingPixels): CSPDirectives {
     connectSrc.push("analytics.twitter.com");
     imgSrc.push("t.co", "analytics.twitter.com");
   }
+  if (pixels.clarity) {
+    // Microsoft Clarity loads on the main thread (not Partytown), but it still
+    // pulls its tag script and beacons telemetry over the network, so both the
+    // loader and the telemetry endpoint must be permitted.
+    scriptSrc.push("www.clarity.ms");
+    connectSrc.push("www.clarity.ms", "c.clarity.ms");
+  }
 
   const directives: CSPDirectives = {};
   if (scriptSrc.length) directives["script-src"] = scriptSrc;
@@ -183,6 +195,7 @@ export function parseProviders(configContent: string): SiteProviders {
     tiktok: !!readConfigFromString(configContent, "TRACKING_TIKTOK_PIXEL_ID"),
     pinterest: !!readConfigFromString(configContent, "TRACKING_PINTEREST_TAG_ID"),
     x: !!readConfigFromString(configContent, "TRACKING_X_PIXEL_ID"),
+    clarity: !!readConfigFromString(configContent, "TRACKING_CLARITY_PROJECT_ID"),
   };
   const anyTracking =
     tracking.meta ||
@@ -191,7 +204,8 @@ export function parseProviders(configContent: string): SiteProviders {
     tracking.linkedin ||
     tracking.tiktok ||
     tracking.pinterest ||
-    tracking.x;
+    tracking.x ||
+    tracking.clarity;
 
   return {
     ecommerce,
@@ -349,6 +363,9 @@ export function buildAllowedScripts(providers: SiteProviders): string[] {
     }
     if (providers.tracking.x) {
       scripts.push("static.ads-twitter.com");
+    }
+    if (providers.tracking.clarity) {
+      scripts.push("www.clarity.ms");
     }
   }
 

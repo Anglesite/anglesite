@@ -14,13 +14,15 @@ Do **not** run it for:
 
 - Plain traffic analytics — use `/anglesite:stats` instead. Cloudflare Web Analytics is faster, cookieless, and already wired up.
 - Form-submit and signup conversions inside Anglesite — those are already counted in the `anglesite_events` dataset surfaced by `/anglesite:stats`.
-- Heatmaps and session recording (Hotjar, Microsoft Clarity) — they need DOM access and can't safely run in Partytown.
+- Hotjar heatmaps / session recording — Partytown can't safely run it (it needs main-thread DOM access) and its free tier is too limited to recommend.
+
+**Microsoft Clarity is supported.** It's a free, privacy-friendly heatmap + session-recording tool (auto-masks text and form inputs). Unlike the ad pixels, it runs on the **main thread** — its session recording needs direct DOM access that Partytown's worker can't expose — so it's the one sanctioned exception to the "all tracking goes through Partytown" rule. It's still gated behind `data-consent="analytics"`.
 
 ## How it works
 
 - **Partytown integration.** `@astrojs/partytown` ships a small loader that spawns a web worker on first paint. Each pixel is rendered as `<script type="text/partytown">…</script>`; the worker fetches and executes the script off the main thread.
 - **Per-platform IDs.** Each platform has its own `TRACKING_*` key in `.site-config`. Setting any one of them turns the pixel on; removing the key turns it off.
-- **CSP and pre-deploy scan.** `template/scripts/csp.ts` reads each `TRACKING_*` key and adds the matching loader domain (`connect.facebook.net`, `www.googletagmanager.com`, `snap.licdn.com`, `analytics.tiktok.com`, `s.pinimg.com`, `static.ads-twitter.com`) to both the CSP header and the pre-deploy script allowlist. Owners who run only Meta + GA4 don't widen their CSP to LinkedIn or TikTok.
+- **CSP and pre-deploy scan.** `template/scripts/csp.ts` reads each `TRACKING_*` key and adds the matching loader domain (`connect.facebook.net`, `www.googletagmanager.com`, `snap.licdn.com`, `analytics.tiktok.com`, `s.pinimg.com`, `static.ads-twitter.com`, `www.clarity.ms`) to both the CSP header and the pre-deploy script allowlist. Owners who run only Meta + GA4 don't widen their CSP to LinkedIn or TikTok.
 - **Consent gating.** When `CONSENT_VERSION` is set in `.site-config`, every pixel is gated behind `data-consent="ads"` (or `"analytics"` for GA4) and the consent runtime promotes the script to `text/partytown` once the visitor accepts the matching category.
 
 ## Cost — the only real downside
@@ -45,6 +47,7 @@ Don't install pixels speculatively — fewer pixels means a faster site.
 | `TRACKING_TIKTOK_PIXEL_ID` | TikTok Pixel |
 | `TRACKING_PINTEREST_TAG_ID` | Pinterest Tag |
 | `TRACKING_X_PIXEL_ID` | X / Twitter Pixel |
+| `TRACKING_CLARITY_PROJECT_ID` | Microsoft Clarity (heatmaps + session recording, main thread) |
 
 Multiple keys are normal — owners often run two or three pixels concurrently. GA4 and Google Ads share `gtag.js`; the loader is emitted once even when both keys are set.
 
@@ -60,5 +63,6 @@ Each ad platform has its own validator:
 | TikTok | TikTok Ads Manager → Events → Web |
 | Pinterest | Pinterest Business → Ads → Conversions → Pixel health |
 | X | X Ads → Tools → Conversion tracking |
+| Microsoft Clarity | clarity.microsoft.com → your project (flips to "Recording" after the first session) |
 
 Conversion data shows up in each platform's dashboard within 30–60 minutes of the next deploy.
