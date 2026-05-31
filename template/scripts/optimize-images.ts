@@ -100,7 +100,14 @@ function formatBytes(bytes: number): string {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const { optimizeImage } = await import("@dwk/anglesite/server/optimize-images.mjs");
+  // Resolve the sharp pipeline relative to this script rather than via a bare
+  // package specifier. A scaffolded site IS the plugin package (its name is set
+  // in template/package.json), so the package is not present in its own
+  // node_modules/ and a bare import would fail with ERR_MODULE_NOT_FOUND
+  // (issue #320). The optimize core is scaffolded alongside this script at
+  // ../server/.
+  const optimizeModule = new URL("../server/optimize-images.mjs", import.meta.url).href;
+  const { optimizeImage } = await import(optimizeModule);
 
   const cwd = process.cwd();
   const imagesDir = join(cwd, "public/images");
