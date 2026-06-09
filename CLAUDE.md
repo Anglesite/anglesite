@@ -226,7 +226,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Edge A/B testing (not client-side) | Build-time variants + Worker-entry edge assignment = zero flicker, static-site compatible |
 | Pagefind (not Algolia/Orama) | Build-time index, ~6 KB JS, no external service, first-class Astro integration |
 
-Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0018).
+Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0020).
 
 ## Testing
 

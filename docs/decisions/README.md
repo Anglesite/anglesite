@@ -29,3 +29,4 @@ ADRs follow the [MADR](https://adr.github.io/madr/) format.
 - [ADR-0017](0017-agent-readability-audits.md) — Gate deploys on agent readability when the site invites agentic crawlers
 - [ADR-0018](0018-performance-budgets.md) — Per-page performance budgets in `/anglesite:deploy`
 - [ADR-0019](0019-d1-inbox.md) — Cloudflare D1 for the form submissions inbox
+- [ADR-0020](0020-active-indieweb.md) — Run active IndieWeb endpoints (IndieAuth, Webmention, Micropub) on the owner's own domain via `@dwk/*` workers

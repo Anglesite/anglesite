@@ -28,6 +28,7 @@ Each SMB file recommends tools specific to that business type. These files cover
 | [paddle.md](paddle.md) | Software licensing, SaaS subscriptions, metered billing |
 | [foss-reputation.md](foss-reputation.md) | Owner asks about open-source or self-hosted review/feedback tools |
 | [giscus.md](giscus.md) | Owner wants blog comments and is comfortable requiring GitHub login |
+| [dwk-workers.md](dwk-workers.md) | Owner wants self-owned active IndieWeb endpoints (IndieAuth, Webmention, Micropub) on their own domain |
 
 ## Cross-platform tips
 
