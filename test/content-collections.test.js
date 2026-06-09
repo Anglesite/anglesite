@@ -16,7 +16,7 @@ const keystatic = readFileSync(
   'utf-8',
 );
 
-const COLLECTIONS = ['posts', 'services', 'team', 'testimonials', 'gallery', 'events', 'menus', 'menuSections', 'menuItems', 'faq', 'products', 'experiments'];
+const COLLECTIONS = ['posts', 'notes', 'services', 'team', 'testimonials', 'gallery', 'events', 'menus', 'menuSections', 'menuItems', 'faq', 'products', 'experiments'];
 
 describe('content collections', () => {
   it('defines all collections with defineCollection', () => {
@@ -75,6 +75,7 @@ describe('content collections', () => {
 describe('collection schema fields', () => {
   // Verify key fields exist in both configs for each collection
   const fieldChecks = {
+    notes: ['slug', 'publishDate', 'inReplyTo', 'syndication', 'draft'],
     services: ['name', 'description', 'price', 'order'],
     team: ['name', 'role', 'bio', 'photo', 'order'],
     testimonials: ['author', 'quote', 'attribution', 'rating'],

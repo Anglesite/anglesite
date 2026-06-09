@@ -53,6 +53,24 @@ const posts = defineCollection({
   }),
 });
 
+/** IndieWeb notes (short, often titleless posts) stored in `src/content/notes/`. */
+const notes = defineCollection({
+  loader: contentLoader("notes"),
+  schema: z.object({
+    slug: z.string(),
+    publishDate: z.string().transform((str) => new Date(str)),
+    title: z.string().optional(),
+    image: z.string().optional(),
+    imageAlt: z.string().optional(),
+    inReplyTo: z.string().url().optional(),
+    bookmarkOf: z.string().url().optional(),
+    likeOf: z.string().url().optional(),
+    repostOf: z.string().url().optional(),
+    syndication: z.array(z.string().url()).default([]),
+    draft: z.boolean().default(false),
+  }),
+});
+
 /** Services or menu items stored in `src/content/services/`. */
 const services = defineCollection({
   loader: contentLoader("services"),
@@ -418,6 +436,7 @@ const submissions = defineCollection({
 
 export const collections = {
   posts,
+  notes,
   services,
   team,
   testimonials,
