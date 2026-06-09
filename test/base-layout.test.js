@@ -40,6 +40,30 @@ describe('BaseLayout.astro', () => {
     expect(layout).toContain('static.cloudflareinsights.com/beacon.min.js');
     expect(layout).toContain('data-cf-beacon');
   });
+
+  it('gates IndieWeb discovery links on per-endpoint .site-config flags', () => {
+    expect(layout).toMatch(/INDIEWEB_INDIEAUTH/);
+    expect(layout).toMatch(/INDIEWEB_MICROPUB/);
+    expect(layout).toMatch(/INDIEWEB_WEBMENTION/);
+  });
+
+  it('emits all five IndieWeb discovery link rels', () => {
+    expect(layout).toContain('rel="indieauth-metadata"');
+    expect(layout).toContain('rel="authorization_endpoint"');
+    expect(layout).toContain('rel="token_endpoint"');
+    expect(layout).toContain('rel="micropub"');
+    expect(layout).toContain('rel="webmention"');
+  });
+
+  it('uses indieauthPaths variables for IndieAuth hrefs instead of hardcoded strings', () => {
+    expect(layout).toContain('href={indieauthPaths.metadata}');
+    expect(layout).toContain('href={indieauthPaths.authorization}');
+    expect(layout).toContain('href={indieauthPaths.token}');
+  });
+
+  it('tries to import @dwk/indieauth for resolved config', () => {
+    expect(layout).toContain('@dwk/indieauth');
+  });
 });
 
 describe('KioskLayout.astro', () => {
