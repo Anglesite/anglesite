@@ -10,7 +10,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ├── .claude-plugin/
 │   ├── plugin.json               Plugin manifest (name, version, metadata)
 │   └── marketplace.json          Marketplace catalog — this repo is also its own marketplace
-├── skills/                       Skills (53 total: 28 user-facing, 25 model-only)
+├── skills/                       Skills (54 total: 29 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Workers
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -22,6 +22,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── contact/SKILL.md          Contact form (Workers + Turnstile)
 │   ├── forms/SKILL.md            Custom forms — RSVP, lead, survey, callback (Workers + Turnstile)
 │   ├── inbox/SKILL.md            Form submissions inbox in Keystatic (Cloudflare D1 + triage + CSV export)
+│   ├── indieweb/SKILL.md         Self-owned IndieAuth + Webmention + Micropub endpoints (user-facing)
 │   ├── backup/SKILL.md           Back up changes to GitHub
 │   ├── stats/SKILL.md            Plain-language site analytics
 │   ├── newsletter/SKILL.md       Email newsletter setup + subscribe form
@@ -149,6 +150,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `contact` | Contact form via Cloudflare Workers + Turnstile |
 | `forms` | Custom forms (RSVP, lead capture, survey, callback) via Cloudflare Workers + Turnstile |
 | `inbox` | Persisted form submissions inbox in Keystatic (Cloudflare D1, triage, CSV export) |
+| `indieweb` | Self-owned IndieAuth, Webmention, and Micropub endpoints on the owner's domain |
 | `backup` | Back up site changes to GitHub, or restore an earlier snapshot |
 | `stats` | Plain-language site analytics from Cloudflare |
 | `newsletter` | Email newsletter setup (Buttondown/Mailchimp) + subscribe form |
