@@ -1,4 +1,4 @@
-  # Design: Active IndieWeb endpoints via `@dwk/*` workers
+# Design: Active IndieWeb endpoints via `@dwk/*` workers
 
 **Date:** 2026-06-09
 **Status:** Approved (design); pending implementation plan
