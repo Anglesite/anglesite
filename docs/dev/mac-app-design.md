@@ -206,10 +206,10 @@ Bundle size target: under 200 MB including Node, Astro, and a primed `node_modul
 
 ## 13. What this design explicitly does not commit to
 
-- A specific Swift architecture pattern (MVVM vs TCA vs plain SwiftUI). v0 should pick the simplest path that works.
 - A specific Markdoc/Astro AST library. The patcher is a single module; it can be rewritten if the first choice doesn't hold up.
-- Whether the bundled Node is `node` or `bun`. Whichever notarizes cleanly and runs Astro fastest.
 - Cross-platform parity. Linux/Windows ports are welcome from the community; the maintainers commit to keeping the plugin and MCP server portable, but not the app.
+
+> **Previously open, now decided** (see `Anglesite-app/docs/build-plan.md` ▸ "Cross-cutting decisions to lock in early"): Swift architecture is plain SwiftUI + actors (no TCA for v0); the bundled runtime is Node (vendored universal binary).
 
 ## 14. Relationship to existing ADRs
 
