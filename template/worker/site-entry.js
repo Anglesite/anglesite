@@ -23,6 +23,11 @@
  *   ASSETS                       — Static assets fetcher (always present)
  *   EXPERIMENTS (KV, optional)   — Active A/B experiment config
  *   ANALYTICS   (AED, optional)  — Impression event stream
+ *   AUTH_DB     (D1, optional)   — IndieAuth codes + tokens
+ *   MICROPUB_DB (D1, optional)   — Micropub post records + DPoP jti replay
+ *   WEBMENTION_DB (D1, optional) — Verified webmention inbox
+ *   MEDIA       (R2, optional)   — Micropub media-endpoint blob storage
+ *   WEBMENTION_QUEUE (Queue, optional) — Async webmention verification
  *
  * Vars / secrets:
  *   MEMBERSHIP_SIGNING_KEY (optional) — hex HMAC key, set as a wrangler
@@ -33,13 +38,22 @@
  *                                         the gate, for owner preview.
  *   CONSENT_GEO (optional)            — "true" to enable cf-country meta
  *                                       injection.
+ *   INDIEAUTH_SIGNING_KEY (secret, optional) — Token signing material.
+ *   GITHUB_TOKEN (secret, optional)   — Fine-grained PAT for Micropub bridge.
  */
 
 import premiumRoutes from "./_premium-routes.json";
+import { createHandler as createIndieAuth } from "@dwk/indieauth";
+import { createHandler as createMicropub } from "@dwk/micropub";
+import { createHandler as createWebmention } from "@dwk/webmention";
 
 const COOKIE_NAME = "__anglesite_member";
 
-export default {
+const indieauth = createIndieAuth();
+const micropub = createMicropub();
+const webmention = createWebmention();
+
+const worker = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const accept = request.headers.get("Accept") ?? "";
@@ -107,6 +121,15 @@ export default {
       }
     }
 
+    // 4. IndieWeb endpoints — each gated on its D1 binding being present.
+    const p = url.pathname;
+    if (env.AUTH_DB && p.startsWith("/auth"))
+      return indieauth(request, env, ctx);
+    if (env.MICROPUB_DB && (p === "/micropub" || p === "/media"))
+      return micropub(request, env, ctx);
+    if (env.WEBMENTION_DB && p === "/webmention")
+      return webmention(request, env, ctx);
+
     if (!response) {
       response = await env.ASSETS.fetch(request);
     }
@@ -138,7 +161,20 @@ export default {
 
     return response;
   },
+
+  async queue(batch, env, ctx) {
+    if (!env.WEBMENTION_DB) return;
+    await webmention.queue(batch, env, ctx);
+  },
+
+  async scheduled(event, env, ctx) {
+    if (env.WEBMENTION_DB) {
+      await webmention.scheduled(event, env, ctx);
+    }
+  },
 };
+
+export default worker;
 
 class CountryInjector {
   constructor(country) {
