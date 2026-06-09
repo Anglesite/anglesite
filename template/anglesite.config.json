@@ -2,6 +2,7 @@
   "keystatic": {
     "collections": [
       "posts",
+      "notes",
       "services",
       "team",
       "testimonials",

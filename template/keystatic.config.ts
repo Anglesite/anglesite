@@ -84,6 +84,63 @@ const allCollections: Record<string, ReturnType<typeof collection>> = {
         content: fields.markdoc({ label: "Content" }),
       },
     }),
+    notes: collection({
+      label: "Notes",
+      slugField: "slug",
+      path: "src/content/notes/*",
+      format: { contentField: "content" },
+      schema: {
+        slug: fields.slug({
+          name: {
+            label: "ID",
+            description: "Timestamp or short identifier (auto-filled by Micropub)",
+          },
+        }),
+        publishDate: fields.date({
+          label: "Publish Date",
+          validation: { isRequired: true },
+        }),
+        title: fields.text({
+          label: "Title",
+          description: "Optional — notes are often titleless",
+        }),
+        image: fields.text({
+          label: "Image",
+          description: "Path relative to public/ (e.g., /images/notes/photo.webp)",
+        }),
+        imageAlt: fields.text({
+          label: "Image Alt Text",
+          description: "Required if image is set",
+        }),
+        inReplyTo: fields.url({
+          label: "In Reply To",
+          description: "URL of the post this note is replying to",
+        }),
+        bookmarkOf: fields.url({
+          label: "Bookmark Of",
+          description: "URL being bookmarked",
+        }),
+        likeOf: fields.url({
+          label: "Like Of",
+          description: "URL being liked",
+        }),
+        repostOf: fields.url({
+          label: "Repost Of",
+          description: "URL being reposted",
+        }),
+        syndication: fields.array(fields.url({ label: "URL" }), {
+          label: "Syndication Links",
+          description: "URLs where this note was shared",
+          itemLabel: (props) => props.value || "Add URL",
+        }),
+        draft: fields.checkbox({
+          label: "Draft",
+          description: "Drafts are not published to the live site",
+          defaultValue: false,
+        }),
+        content: fields.markdoc({ label: "Content" }),
+      },
+    }),
     services: collection({
       label: "Services",
       slugField: "name",

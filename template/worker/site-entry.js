@@ -50,7 +50,9 @@ import { createHandler as createWebmention } from "@dwk/webmention";
 const COOKIE_NAME = "__anglesite_member";
 
 const indieauth = createIndieAuth();
-const micropub = createMicropub();
+const micropub = createMicropub({
+  generatePostUrl: (slug) => `/notes/${slug}/`,
+});
 const webmention = createWebmention();
 
 const worker = {
