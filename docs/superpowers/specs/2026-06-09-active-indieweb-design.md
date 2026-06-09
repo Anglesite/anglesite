@@ -1,4 +1,4 @@
-# Design: Active IndieWeb endpoints via `@dwk/*` workers
+  # Design: Active IndieWeb endpoints via `@dwk/*` workers
 
 **Date:** 2026-06-09
 **Status:** Approved (design); pending implementation plan
@@ -176,7 +176,7 @@ write `.site-config` (`me`, owner identity, enabled-endpoint flags) → summary.
 - `docs/indieweb.md` — extend with the active-endpoint section.
 
 **Plugin docs:**
-- New ADR `docs/decisions/0019-active-indieweb.md` (+ README entry).
+- New ADR `docs/decisions/0020-active-indieweb.md` (+ README entry). (0019 was already taken by the D1 inbox ADR.)
 - `docs/platforms/dwk-workers.md` — integration guide.
 - Root `CLAUDE.md` — skill table + skill count.
 

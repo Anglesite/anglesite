@@ -165,6 +165,22 @@ Business types that commonly need events: `event-venue`, `community-theater`, `f
 
 ---
 
+## Active IndieWeb — run your own endpoints
+
+Everything above (microformats, `rel="me"`, RSS, POSSE) is **passive** — static HTML that needs no server. The **active** IndieWeb adds live endpoints: IndieAuth (sign in to other services with the domain), Webmention (receive cross-site mentions), and Micropub (publish from third-party clients).
+
+The per-protocol guidance below still includes the easy third-party path (webmention.io, indieauth.com delegation). But when the owner wants to **own** those endpoints — keeping identity, tokens, and data on their own Cloudflare account — `/anglesite:indieweb` deploys the [`@dwk/*`](https://github.com/davidwkeith/workers) endpoint trio into the site's own Worker, rooted at the primary domain. It's the self-owned alternative that fits the "you own everything" stance.
+
+When to reach for it:
+
+- The owner is IndieWeb-aware and wants to run their own endpoints, not delegate them
+- The site is on a **custom domain** (identity must be HTTPS-rooted there — the skill refuses on a bare `*.workers.dev` address)
+- It's an opt-in enhancement — don't offer it during `/anglesite:start`
+
+> The `@dwk/*` packages aren't published to npm yet, so `/anglesite:indieweb` reports "not available yet" until they ship. Plugin maintainers: see `docs/platforms/dwk-workers.md` and ADR-0020 for the integration design.
+
+---
+
 ## Webmentions
 
 Webmentions let other websites notify yours when they link to your content — like @mentions but across the open web. A blogger who links to the owner's post can send a webmention, and it appears on the post.
@@ -193,9 +209,9 @@ Don't recommend it during `/anglesite:start`. It adds complexity that most SMB o
 3. Update CSP in `public/_headers`: add `webmention.io` to `connect-src` if fetching mentions client-side (not needed if only receiving)
 4. Webmentions are collected by webmention.io and can be displayed on posts
 
-**Option 2: Cloudflare Worker (self-hosted)**
+**Option 2: Self-owned endpoint via `/anglesite:indieweb` (recommended for ownership)**
 
-Build a Worker that receives webmention POST requests, validates them, and stores them in KV or D1. More control, no third-party dependency, but more work to build.
+Run the owner's own Webmention endpoint on their domain instead of delegating to webmention.io. `/anglesite:indieweb` deploys `@dwk/webmention` into the site's Worker: it receives mentions, verifies the source link asynchronously, stores them in a D1 inbox, and edge-renders them onto the target page (no client JS). No third-party dependency; the mention data lives only on the owner's Cloudflare account. See the "Active IndieWeb" section above and `docs/platforms/dwk-workers.md`.
 
 **Option 3: Static webmentions (build-time)**
 
@@ -235,9 +251,23 @@ Requirements:
 - At least one `rel="me"` link on the site (see above)
 - The linked profile must link back to the website
 
-### Setup (self-hosted)
+### Setup (self-owned, via `/anglesite:indieweb`)
 
-For owners who want full control, build an authorization endpoint as a Cloudflare Worker. This is advanced and rarely needed for SMB sites.
+For owners who want full control, `/anglesite:indieweb` deploys `@dwk/indieauth` into the site's Worker — the authorization, token, and metadata endpoints on the owner's own domain, with PKCE and DPoP-bound tokens. The domain becomes a real IndieAuth provider, not a delegate. The tokens it issues are what `@dwk/micropub` consumes (see below). See the "Active IndieWeb" section above and `docs/platforms/dwk-workers.md`. Advanced; only for owners who actively use IndieWeb services.
+
+---
+
+## Micropub
+
+Micropub lets the owner publish to their own site from third-party apps (a phone client, a bookmarklet) — short notes, photos, replies — without opening the editor. The site is the canonical home; the client is just an input device.
+
+### When to add
+
+Only when the owner actively wants to post from a Micropub client and has IndieAuth set up (Micropub authorizes via IndieAuth tokens). Niche; most SMB owners use the Keystatic editor instead.
+
+### Setup (self-owned, via `/anglesite:indieweb`)
+
+`/anglesite:indieweb` deploys `@dwk/micropub` into the site's Worker (create/update/delete, plus an R2-backed media endpoint). Because Anglesite is a static site, a created post is bridged into real content: the endpoint stores it, a worker bridge commits it as a `.mdoc` in a `notes` collection, and the GitHub Actions deploy workflow rebuilds the site. The post is queryable instantly and **live on the site after the rebuild (~1–2 min)** — set this expectation with the owner. Note that the endpoint requires DPoP on every request, so only DPoP-capable Micropub clients work. See `docs/platforms/dwk-workers.md`.
 
 ---
 
