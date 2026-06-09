@@ -46,6 +46,7 @@ import premiumRoutes from "./_premium-routes.json";
 import { createHandler as createIndieAuth } from "@dwk/indieauth";
 import { createHandler as createMicropub } from "@dwk/micropub";
 import { createHandler as createWebmention } from "@dwk/webmention";
+import { sync as syncMicropubBridge } from "./indieweb-bridge.js";
 
 const COOKIE_NAME = "__anglesite_member";
 
@@ -165,14 +166,17 @@ const worker = {
   },
 
   async queue(batch, env, ctx) {
-    if (!env.WEBMENTION_DB) return;
-    await webmention.queue(batch, env, ctx);
+    if (env.WEBMENTION_DB) {
+      await webmention.queue(batch, env, ctx);
+    }
+    ctx.waitUntil(syncMicropubBridge(env));
   },
 
   async scheduled(event, env, ctx) {
     if (env.WEBMENTION_DB) {
       await webmention.scheduled(event, env, ctx);
     }
+    ctx.waitUntil(syncMicropubBridge(env));
   },
 };
 
