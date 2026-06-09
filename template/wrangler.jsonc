@@ -14,5 +14,28 @@
   },
   "observability": {
     "enabled": true
+  },
+
+  // IndieWeb bindings — provisioned by /anglesite:indieweb.
+  // Each is optional; site-entry.js gates on binding presence.
+  // Database IDs are written by the skill after D1/R2 creation.
+  "d1_databases": [
+    { "binding": "AUTH_DB",       "database_name": "indieauth",   "database_id": "" },
+    { "binding": "MICROPUB_DB",   "database_name": "micropub",    "database_id": "" },
+    { "binding": "WEBMENTION_DB", "database_name": "webmention",  "database_id": "" }
+  ],
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "" }
+  ],
+  "queues": {
+    "consumers": [
+      { "queue": "webmention-queue", "max_batch_size": 10, "max_retries": 3 }
+    ],
+    "producers": [
+      { "binding": "WEBMENTION_QUEUE", "queue": "webmention-queue" }
+    ]
+  },
+  "triggers": {
+    "crons": ["0 */6 * * *"]
   }
 }
