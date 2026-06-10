@@ -156,8 +156,8 @@ async function main() {
     });
     console.log(`  ${file.replace(cwd + "/", "")} → ${result.primary} (+${result.variants.length} variants)`);
 
-      // Draft alt sequentially: `fm` drives a single on-device model, so
-      // concurrent calls would contend on the same hardware, not speed up.
+    // Draft alt sequentially: `fm` drives a single on-device model, so
+    // concurrent calls would contend on the same hardware, not speed up.
     if (fmReady) {
       const primaryAbs = join(dirname(file), result.primary);
       const key = catalogKeyFor(publicDir, primaryAbs);
