@@ -3,7 +3,8 @@
  *
  * Scans:
  * 1. PII (emails, phone numbers in dist/)
- * 2. API tokens in dist/, src/, public/
+ * 2. API tokens and committed secret bindings in dist/, src/, public/,
+ *    worker/, and the wrangler configs
  * 3. Unauthorized third-party scripts
  * 4. Keystatic admin routes in production build
  * 5. OG image presence (warn only)
@@ -63,6 +64,40 @@ export const airtablePatPattern = /\bpat[A-Za-z0-9]{14}\.[A-Za-z0-9]{32,}\b/;
 
 /** OpenAI secret key: `sk-` + 20+ alphanumerics. */
 export const openaiKeyPattern = /\bsk-[A-Za-z0-9]{20,}\b/;
+
+/**
+ * GitHub tokens: classic prefixes (`ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`)
+ * and fine-grained PATs (`github_pat_`). The Micropub→GitHub bridge set up by
+ * /anglesite:indieweb uses a fine-grained PAT that must live in Cloudflare's
+ * secret store (`wrangler secret put GITHUB_TOKEN`), never in source.
+ */
+export const githubTokenPattern = /\bgh[pousr]_[A-Za-z0-9]{36,}\b|\bgithub_pat_[A-Za-z0-9_]{22,}\b/;
+
+/**
+ * IndieWeb secret bindings committed as literals. `INDIEAUTH_SIGNING_KEY` and
+ * `GITHUB_TOKEN` are wrangler / GitHub secrets — referencing the *name* is
+ * fine (`env.GITHUB_TOKEN`, `${{ secrets.GITHUB_TOKEN }}`, `wrangler secret
+ * put INDIEAUTH_SIGNING_KEY`), but a credential-shaped literal assigned to
+ * either name means the secret was committed. The value class excludes `$`,
+ * `<`, and `.` so env interpolations, doc placeholders, and property accesses
+ * never match.
+ */
+export const committedSecretPattern = /\b(?:INDIEAUTH_SIGNING_KEY|GITHUB_TOKEN)["']?\s*[:=]\s*["']?[A-Za-z0-9+/_-]{16,}/;
+
+/**
+ * IndieWeb endpoints served by the site Worker (`worker/site-entry.js`), set
+ * up by /anglesite:indieweb and keyed by their `.site-config` feature flag.
+ * These are intentional public routes — route-shaped scans (the Keystatic
+ * admin-route scan here, the internal-link check in link-check.ts) must never
+ * flag them. They have no files in dist/: the Worker answers these paths
+ * before falling through to static assets. `/auth` covers everything under it
+ * (e.g. `/auth/token`).
+ */
+export const indiewebWorkerRoutes: Readonly<Record<string, readonly string[]>> = {
+  INDIEWEB_INDIEAUTH: ["/auth", "/.well-known/oauth-authorization-server"],
+  INDIEWEB_MICROPUB: ["/micropub", "/media"],
+  INDIEWEB_WEBMENTION: ["/webmention"],
+};
 
 /** @deprecated Use airtablePatPattern or openaiKeyPattern. Kept for backwards-compatible imports. */
 export const tokenPattern = new RegExp(`${airtablePatPattern.source}|${openaiKeyPattern.source}`);
@@ -147,18 +182,31 @@ export function scanPhones(content: string, allowlist: string[] = []): string[] 
   return matches.filter(m => !allowed.has(norm(m)));
 }
 
-export type TokenKind = "airtable-pat" | "openai-key";
+export type TokenKind = "airtable-pat" | "openai-key" | "github-token" | "committed-secret-binding";
 
 export function scanTokens(content: string): TokenKind[] {
   const found: TokenKind[] = [];
   if (airtablePatPattern.test(content)) found.push("airtable-pat");
   if (openaiKeyPattern.test(content)) found.push("openai-key");
+  if (githubTokenPattern.test(content)) found.push("github-token");
+  if (committedSecretPattern.test(content)) found.push("committed-secret-binding");
   return found;
 }
 
 const tokenLabels: Record<TokenKind, string> = {
   "airtable-pat": "Airtable Personal Access Token",
   "openai-key": "OpenAI secret key",
+  "github-token": "GitHub token",
+  "committed-secret-binding": "Committed secret binding (INDIEAUTH_SIGNING_KEY / GITHUB_TOKEN)",
+};
+
+const tokenRemediations: Record<TokenKind, string> = {
+  "airtable-pat": "Rotate this credential immediately and move it to a runtime environment variable.",
+  "openai-key": "Rotate this credential immediately and move it to a runtime environment variable.",
+  "github-token":
+    "Rotate this token immediately, then store it with `npx wrangler secret put GITHUB_TOKEN` (and `gh secret set` for the Actions workflow).",
+  "committed-secret-binding":
+    "This is a secret binding — rotate the leaked value, then store it with `npx wrangler secret put <NAME>`. It must never appear in source or wrangler config.",
 };
 
 export function scanScripts(content: string, scriptAllowlist?: string[]): string[] {
@@ -358,28 +406,41 @@ export function runScan(input: { siteDir: string }): ScanReport {
     }
   }
 
-  // 2. Exposed tokens in dist/, src/, public/
-  for (const dir of [distDir, resolve(input.siteDir, "src"), resolve(input.siteDir, "public")]) {
-    if (!existsSync(dir)) continue;
-    for (const file of walkAll(dir)) {
-      let content: string;
-      try {
-        content = readFileSync(file, "utf-8");
-      } catch {
-        continue; // binary file
-      }
-      for (const kind of scanTokens(content)) {
-        failures.push({
-          category: "exposed-token",
-          file: relativeToSite(file),
-          detail: `${tokenLabels[kind]} pattern detected`,
-          remediation: `Rotate this credential immediately and move it to a runtime environment variable.`,
-        });
-      }
+  // 2. Exposed tokens in dist/, src/, public/, worker/, and the wrangler
+  //    configs. worker/ and the configs are where the IndieWeb secret
+  //    bindings (INDIEAUTH_SIGNING_KEY, GITHUB_TOKEN) would land if someone
+  //    committed them instead of using `wrangler secret put`.
+  const tokenScanFiles = [
+    distDir,
+    resolve(input.siteDir, "src"),
+    resolve(input.siteDir, "public"),
+    resolve(input.siteDir, "worker"),
+  ].flatMap(dir => walkAll(dir));
+  for (const name of ["wrangler.jsonc", "wrangler.toml"]) {
+    const full = resolve(input.siteDir, name);
+    if (existsSync(full)) tokenScanFiles.push(full);
+  }
+  for (const file of tokenScanFiles) {
+    let content: string;
+    try {
+      content = readFileSync(file, "utf-8");
+    } catch {
+      continue; // binary file
+    }
+    for (const kind of scanTokens(content)) {
+      failures.push({
+        category: "exposed-token",
+        file: relativeToSite(file),
+        detail: `${tokenLabels[kind]} pattern detected`,
+        remediation: tokenRemediations[kind],
+      });
     }
   }
 
-  // 4. Keystatic admin routes leaking into dist/
+  // 4. Keystatic admin routes leaking into dist/. The IndieWeb endpoints
+  //    (/auth, /micropub, /media, /webmention — see indiewebWorkerRoutes) are
+  //    Worker-served, intentionally public, and never appear in dist/; do not
+  //    extend this scan to flag them.
   for (const file of walkAll(distDir).filter(f => f.includes("keystatic"))) {
     failures.push({
       category: "keystatic-route",
@@ -517,19 +578,21 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
     }
   }
 
-  // 2. Token scan — API keys in dist/, src/, public/
-  const scanDirs = [DIST, "src", "public"].filter(existsSync);
+  // 2. Token scan — API keys and committed secret bindings in dist/, src/,
+  //    public/, worker/, and the wrangler configs
+  const tokenScanFiles = [
+    ...[DIST, "src", "public", "worker"].flatMap(dir => walkAll(dir)),
+    ...["wrangler.jsonc", "wrangler.toml"].filter(f => existsSync(f)),
+  ];
 
-  for (const dir of scanDirs) {
-    for (const file of walkAll(dir)) {
-      try {
-        const content = readFileSync(file, "utf-8");
-        for (const kind of scanTokens(content)) {
-          failures.push(`TOKEN: ${tokenLabels[kind]} found in ${file} — rotate this credential immediately`);
-        }
-      } catch {
-        // Binary file, skip
+  for (const file of tokenScanFiles) {
+    try {
+      const content = readFileSync(file, "utf-8");
+      for (const kind of scanTokens(content)) {
+        failures.push(`TOKEN: ${tokenLabels[kind]} found in ${file} — ${tokenRemediations[kind]}`);
       }
+    } catch {
+      // Binary file, skip
     }
   }
 
@@ -543,7 +606,8 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
     }
   }
 
-  // 4. Keystatic admin routes
+  // 4. Keystatic admin routes. IndieWeb worker routes (/auth, /micropub,
+  //    /media, /webmention) are intentional public endpoints — never flag them.
   const keystatic = walkAll(DIST).filter(f => f.includes("keystatic"));
   if (keystatic.length > 0) {
     failures.push(`KEYSTATIC: admin routes found in production build: ${keystatic.join(", ")}`);

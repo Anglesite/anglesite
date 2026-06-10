@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse hook: block deploys that fail security scans.
 # Reads tool input JSON from stdin. If the command pushes to main
-# (production deploy), runs 5 mandatory checks against dist/.
+# (production deploy), runs 6 mandatory checks against dist/ and source.
 # Returns JSON with permissionDecision "deny" to block, or exits 0 to allow.
 
 set -euo pipefail
@@ -66,9 +66,27 @@ if [[ -n "$PHONE_HITS" ]]; then
   REASONS+=("Possible phone number found in built HTML")
 fi
 
-# 2. Token scan — API tokens in dist/, src/, or public/
-if grep -rE '(pat[A-Za-z0-9]{14,}|sk-[A-Za-z0-9]{20,})' "$DIST/" src/ public/ 2>/dev/null | grep -q .; then
+# 2. Token scan — API tokens in dist/, src/, public/, worker/, and the
+# wrangler configs (worker/ and the configs are where the IndieWeb secret
+# bindings would land if committed instead of stored via `wrangler secret put`)
+TOKEN_SCAN_PATHS=("$DIST/")
+[[ -d src ]] && TOKEN_SCAN_PATHS+=(src/)
+[[ -d public ]] && TOKEN_SCAN_PATHS+=(public/)
+[[ -d worker ]] && TOKEN_SCAN_PATHS+=(worker/)
+[[ -f wrangler.jsonc ]] && TOKEN_SCAN_PATHS+=(wrangler.jsonc)
+[[ -f wrangler.toml ]] && TOKEN_SCAN_PATHS+=(wrangler.toml)
+
+# Airtable PATs, OpenAI sk- keys, GitHub classic (gh?_) and fine-grained PATs
+if grep -rE 'pat[A-Za-z0-9]{14}\.[A-Za-z0-9]{32,}|sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,}' "${TOKEN_SCAN_PATHS[@]}" 2>/dev/null | grep -q .; then
   REASONS+=("API token pattern found in source or build output")
+fi
+
+# 2b. IndieWeb secret bindings (INDIEAUTH_SIGNING_KEY, GITHUB_TOKEN) committed
+# as literals. Name-only references never match — env.GITHUB_TOKEN,
+# ${{ secrets.GITHUB_TOKEN }}, and `wrangler secret put INDIEAUTH_SIGNING_KEY`
+# all lack a credential-shaped value after = or :
+if grep -rE '(INDIEAUTH_SIGNING_KEY|GITHUB_TOKEN)["'\'']?[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9+/_-]{16,}' "${TOKEN_SCAN_PATHS[@]}" 2>/dev/null | grep -q .; then
+  REASONS+=("INDIEAUTH_SIGNING_KEY or GITHUB_TOKEN committed in source — rotate it and store it with 'wrangler secret put'")
 fi
 
 # 3. Third-party scripts — unauthorized external JS (allowlist driven by .site-config)
@@ -107,7 +125,10 @@ check_third_party_scripts() {
 }
 check_third_party_scripts
 
-# 4. Keystatic admin routes — should never be in production
+# 4. Keystatic admin routes — should never be in production.
+# Note: the IndieWeb endpoints (/auth, /micropub, /media, /webmention) set up
+# by /anglesite:indieweb are Worker-served and intentionally public — they
+# never appear in dist/ and must not be added to this scan.
 if find "$DIST/" -path '*keystatic*' -type f 2>/dev/null | grep -q .; then
   REASONS+=("Keystatic admin routes found in build output")
 fi

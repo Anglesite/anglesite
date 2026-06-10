@@ -16,6 +16,8 @@ import {
   isAllowlisted,
   checkLinks,
   formatReport,
+  getWorkerRoutes,
+  isWorkerRoute,
 } from "../template/scripts/link-check.js";
 
 // ---------------------------------------------------------------------------
@@ -437,6 +439,82 @@ describe("checkLinks", () => {
 
     const result = await checkLinks(tmpDir);
     expect(result.stats.pagesScanned).toBe(3);
+  });
+
+  it("does not flag IndieWeb worker routes when workerRoutes are passed", async () => {
+    writeFileSync(
+      join(tmpDir, "index.html"),
+      `<html><head>
+        <link rel="indieauth-metadata" href="/.well-known/oauth-authorization-server" />
+        <link rel="authorization_endpoint" href="/auth" />
+        <link rel="token_endpoint" href="/auth/token" />
+        <link rel="micropub" href="/micropub" />
+        <link rel="webmention" href="/webmention" />
+      </head><body>Hi</body></html>`,
+    );
+
+    const workerRoutes = getWorkerRoutes((key) =>
+      ["INDIEWEB_INDIEAUTH", "INDIEWEB_MICROPUB", "INDIEWEB_WEBMENTION"].includes(key)
+        ? "true"
+        : undefined,
+    );
+    const result = await checkLinks(tmpDir, { workerRoutes });
+    expect(result.stats.brokenInternal).toBe(0);
+  });
+
+  it("still flags worker-route paths when IndieWeb is not configured", async () => {
+    writeFileSync(
+      join(tmpDir, "index.html"),
+      '<html><head><link rel="webmention" href="/webmention" /></head><body>Hi</body></html>',
+    );
+
+    const result = await checkLinks(tmpDir, { workerRoutes: [] });
+    expect(result.stats.brokenInternal).toBe(1);
+    expect(result.issues[0].target).toBe("/webmention");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getWorkerRoutes / isWorkerRoute — IndieWeb endpoints (issue #336)
+// ---------------------------------------------------------------------------
+
+describe("getWorkerRoutes", () => {
+  it("returns no routes when no IndieWeb flags are set", () => {
+    expect(getWorkerRoutes(() => undefined)).toEqual([]);
+  });
+
+  it("maps each enabled endpoint flag to its routes", () => {
+    const config: Record<string, string> = {
+      INDIEWEB_INDIEAUTH: "true",
+      INDIEWEB_MICROPUB: "true",
+      INDIEWEB_WEBMENTION: "true",
+    };
+    const routes = getWorkerRoutes((key) => config[key]);
+    expect(routes).toContain("/auth");
+    expect(routes).toContain("/.well-known/oauth-authorization-server");
+    expect(routes).toContain("/micropub");
+    expect(routes).toContain("/media");
+    expect(routes).toContain("/webmention");
+  });
+
+  it("omits routes for disabled endpoints", () => {
+    const routes = getWorkerRoutes((key) =>
+      key === "INDIEWEB_WEBMENTION" ? "true" : undefined,
+    );
+    expect(routes).toEqual(["/webmention"]);
+  });
+});
+
+describe("isWorkerRoute", () => {
+  it("matches exact routes and subpaths", () => {
+    expect(isWorkerRoute("/auth", ["/auth"])).toBe(true);
+    expect(isWorkerRoute("/auth/token", ["/auth"])).toBe(true);
+    expect(isWorkerRoute("/webmention", ["/webmention"])).toBe(true);
+  });
+
+  it("does not match sibling paths sharing a prefix", () => {
+    expect(isWorkerRoute("/authors", ["/auth"])).toBe(false);
+    expect(isWorkerRoute("/authors/jane", ["/auth"])).toBe(false);
   });
 });
 
