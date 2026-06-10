@@ -104,7 +104,7 @@ export type CommandRunner = (
   opts?: { timeoutMs?: number },
 ) => Promise<CommandResult>;
 
-const defaultRunner: CommandRunner = (command, args, opts = {}) =>
+export const defaultRunner: CommandRunner = (command, args, opts = {}) =>
   new Promise((resolve) => {
     execFile(
       command,

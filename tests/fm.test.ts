@@ -9,7 +9,7 @@ import {
   writeCatalog,
   type AltCatalog,
 } from "../template/scripts/fm.js";
-import { isFmAvailable, generateAltText, type CommandRunner } from "../template/scripts/fm.js";
+import { isFmAvailable, generateAltText, defaultRunner, type CommandRunner } from "../template/scripts/fm.js";
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -167,5 +167,33 @@ describe("generateAltText", () => {
   it("returns null when the runner throws", async () => {
     const run: CommandRunner = async () => { throw new Error("boom"); };
     expect(await generateAltText("/x.webp", run)).toBeNull();
+  });
+});
+
+describe("defaultRunner (real execFile)", () => {
+  it("returns exitCode 0 and captured stdout on success", async () => {
+    const r = await defaultRunner(process.execPath, ["-e", "process.stdout.write('hi')"]);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain("hi");
+  });
+
+  it("returns the numeric exit code on non-zero exit", async () => {
+    const r = await defaultRunner(process.execPath, ["-e", "process.exit(3)"]);
+    expect(r.exitCode).toBe(3);
+  });
+
+  it("returns exitCode -1 when the binary is missing (ENOENT)", async () => {
+    const r = await defaultRunner("anglesite-no-such-binary-xyz", []);
+    expect(r.exitCode).toBe(-1);
+    expect(r.stdout).toBe("");
+  });
+
+  it("preserves stdout printed before a non-zero exit", async () => {
+    const r = await defaultRunner(process.execPath, [
+      "-e",
+      "process.stdout.write('partial'); process.exit(2)",
+    ]);
+    expect(r.exitCode).toBe(2);
+    expect(r.stdout).toContain("partial");
   });
 });
