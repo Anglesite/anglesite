@@ -47,6 +47,36 @@ If any templates or content files reference the original filenames (e.g., `photo
 
 For blog posts in `src/content/posts/`, update the `image` frontmatter field.
 
+## Step 4 — AI-drafted alt text (when available)
+
+On an Apple-Silicon Mac with Apple Intelligence enabled, `npm run ai-optimize`
+also drafts alt text for each image **on-device** (nothing is sent to any
+cloud) and writes it to `image-alt.json` at the project root. Each entry is a
+`draft` — a context-blind starting point, never a finished accessibility claim.
+
+`image-alt.json` is authoring-only: it is committed for review but is **not**
+under `public/`, so it never deploys. Re-running the optimizer never overwrites
+an entry whose `status` is `reviewed`.
+
+When you place an image (new page, blog post, menu, gallery) or remediate an
+`a11y-audit` `img-alt-missing` / `img-alt-placeholder` finding:
+
+1. Look up the draft for that image in `image-alt.json`.
+2. Refine it using the on-page context you have (surrounding copy, the image's
+   role). Purely decorative images get `alt=""`.
+3. Write the result to the real `imageAlt` frontmatter or `alt=` attribute.
+4. Set that catalog entry's `status` to `reviewed`.
+
+Always present drafted alt text to the owner as something to review before
+publishing.
+
+### When `fm` is not available
+
+On any other machine, no catalog is written and nothing breaks — draft alt text
+yourself from context exactly as before. The published result is the same; `fm`
+only changes who drafts first. The owner can disable the pass even on a capable
+Mac with `ALT_TEXT_AI=off` in `.site-config`, or a one-off `npm run ai-optimize -- --no-alt`.
+
 ## Privacy note
 
 EXIF stripping is a privacy feature. Phone photos often contain GPS coordinates that reveal where the photo was taken. The optimizer removes all metadata automatically — the owner doesn't need to think about it.
