@@ -20,7 +20,9 @@
  *   5. Webmention edge-render — on note/post HTML responses, injects any
  *      stored mentions of that page into a <div id="webmentions"> container
  *      via HTMLRewriter. Gated to note/post target paths that actually have
- *      mentions — no WEBMENTION_DB query or rewrite is paid otherwise.
+ *      mentions: a per-isolate cache of known target URLs (refreshed at most
+ *      once per minute) means mention-free pages pay no per-request D1 query
+ *      and no rewrite.
  *
  * Every feature is gated on its binding/var being present, so a site that
  * hasn't run any of these skills serves identically to a bare ASSETS-only
@@ -160,10 +162,11 @@ const worker = {
 
     // 5. Webmention edge-render — inject stored mentions into note/post pages.
     //    Gating order keeps the cost off pages that can't have mentions:
-    //    HTML request → WEBMENTION_DB bound → known target path → HTML
-    //    response → only then query D1. The rewrite is skipped entirely when
-    //    the page has no stored mentions, so a mention-free site pays nothing
-    //    beyond the guard checks.
+    //    HTML request → WEBMENTION_DB bound → note/post path → HTML response
+    //    → page is a known mention target (cached set, refreshed at most once
+    //    a minute per isolate) → only then query D1 for the mentions and
+    //    rewrite. Pages with no stored mentions pay no per-request query and
+    //    no rewrite.
     if (
       isHtmlRequest &&
       env.WEBMENTION_DB &&
@@ -172,11 +175,14 @@ const worker = {
       const contentType = response.headers.get("content-type") ?? "";
       if (contentType.includes("text/html")) {
         const target = `${url.origin}${url.pathname}`;
-        const mentions = await loadWebmentions(env.WEBMENTION_DB, target);
-        if (mentions.length > 0) {
-          response = new HTMLRewriter()
-            .on("#webmentions", new WebmentionInjector(mentions))
-            .transform(response);
+        const targets = await loadWebmentionTargets(env.WEBMENTION_DB);
+        if (targets.has(target)) {
+          const mentions = await loadWebmentions(env.WEBMENTION_DB, target);
+          if (mentions.length > 0) {
+            response = new HTMLRewriter()
+              .on("#webmentions", new WebmentionInjector(mentions))
+              .transform(response);
+          }
         }
       }
     }
@@ -231,6 +237,36 @@ class CountryInjector {
 function isWebmentionTarget(pathname) {
   const p = pathname.replace(/\/+$/, "");
   return p.startsWith("/notes/") || p.startsWith("/blog/");
+}
+
+// The set of target URLs that have at least one verified mention, cached per
+// WEBMENTION_DB binding so each isolate runs the distinct-targets query at
+// most once per TTL — every other note/post request is an in-memory set
+// lookup. New mentions therefore appear within a minute, which is fine for
+// content that's already verified asynchronously. A query failure serves the
+// stale set (or an empty one) rather than breaking the page render.
+const WEBMENTION_TARGETS_TTL_MS = 60_000;
+const webmentionTargetsCache = new WeakMap();
+
+async function loadWebmentionTargets(db) {
+  const cached = webmentionTargetsCache.get(db);
+  if (cached && cached.expires > Date.now()) return cached.targets;
+  try {
+    const rows = await db
+      .prepare(
+        `SELECT DISTINCT target FROM webmentions WHERE status = 'verified'`,
+      )
+      .all();
+    const targets = new Set((rows?.results ?? []).map((row) => row.target));
+    webmentionTargetsCache.set(db, {
+      targets,
+      expires: Date.now() + WEBMENTION_TARGETS_TTL_MS,
+    });
+    return targets;
+  } catch (err) {
+    console.error("Webmention target-set query failed:", err?.message);
+    return cached?.targets ?? new Set();
+  }
 }
 
 // Query WEBMENTION_DB for verified mentions of a target URL. The table/columns

@@ -159,6 +159,50 @@ footer {
   color: var(--color-muted);
 }
 
+/* Webmentions — markup is injected into <div id="webmentions"> at the edge
+   by worker/site-entry.js, so these rules must live in a global stylesheet
+   (scoped Astro styles never see it). Empty on sites without mentions. */
+.webmentions-title {
+  font-size: var(--font-size-lg);
+}
+
+.webmentions-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.webmentions-list .h-cite {
+  overflow: auto;
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.webmentions-list .u-photo {
+  float: left;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  margin-right: var(--space-sm);
+}
+
+.webmentions-list .p-author {
+  font-weight: 600;
+}
+
+.webmentions-list .p-content {
+  margin-top: var(--space-xs);
+}
+
+.webmentions-list a.u-url:not(.p-author) {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
 /* Contact form */
 .contact-form {
   display: flex;
