@@ -247,6 +247,8 @@ LINK_CHECK_ALLOW=staging.example.com,internal.corp
 
 Multiple patterns are comma-separated. Wildcards are supported: `https://cdn.example.com/*`.
 
+IndieWeb endpoint routes (`/auth` and its subpaths, `/.well-known/oauth-authorization-server`, `/micropub`, `/media`, `/webmention`) are recognized automatically when the matching `INDIEWEB_*` flags are set in `.site-config` — they're served by the site Worker, not by files in `dist/`, so the link checker never reports them as broken. No allowlist entry needed.
+
 Present link health findings using the same severity mapping as other checks:
 - Broken internal links → **"Worth fixing soon"** with the affected page and target
 - Broken external links → **"Worth fixing soon"** (the linked site may be temporarily down — suggest re-checking)

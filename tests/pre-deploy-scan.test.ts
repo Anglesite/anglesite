@@ -96,6 +96,67 @@ describe("runScan", () => {
     expect(tokenFailure.remediation).toMatch(/rotate/i);
   });
 
+  it("flags a committed GITHUB_TOKEN in worker/ as an exposed-token failure", () => {
+    writeFile("dist/index.html", "<!doctype html><p>hi</p>");
+    writeFile("worker/site-entry.js", `const GITHUB_TOKEN = "ghp_${"A".repeat(36)}";`);
+
+    const report = runScan({ siteDir: site });
+
+    expect(report.ok).toBe(false);
+    const tokenFailures = report.failures.filter(f => f.category === "exposed-token");
+    expect(tokenFailures.length).toBeGreaterThan(0);
+    expect(tokenFailures[0].file).toBe("worker/site-entry.js");
+  });
+
+  it("flags a committed INDIEAUTH_SIGNING_KEY in wrangler.jsonc with a secret-store remediation", () => {
+    writeFile("dist/index.html", "<!doctype html><p>hi</p>");
+    writeFile(
+      "wrangler.jsonc",
+      `{ "vars": { "INDIEAUTH_SIGNING_KEY": "${"ab01cd23".repeat(8)}" } }`,
+    );
+
+    const report = runScan({ siteDir: site });
+
+    expect(report.ok).toBe(false);
+    const failure = report.failures.find(f => f.category === "exposed-token");
+    expect(failure).toBeDefined();
+    expect(failure!.file).toBe("wrangler.jsonc");
+    expect(failure!.remediation).toContain("wrangler secret put");
+  });
+
+  it("passes on a correctly-configured IndieWeb site (intentional routes, secrets as bindings)", () => {
+    writeFile(
+      "dist/index.html",
+      `<!doctype html><html><head>
+        <meta property="og:image" content="/og.png">
+        <link rel="indieauth-metadata" href="/.well-known/oauth-authorization-server" />
+        <link rel="authorization_endpoint" href="/auth" />
+        <link rel="token_endpoint" href="/auth/token" />
+        <link rel="micropub" href="/micropub" />
+        <link rel="webmention" href="/webmention" />
+      </head><body><h1>Hi</h1></body></html>`,
+    );
+    writeFile("dist/notes/index.html", "<!doctype html><h1>Notes</h1>");
+    // Worker references the secrets by *name* only — the correct posture.
+    writeFile(
+      "worker/site-entry.js",
+      "export default { fetch(request, env) { if (!env.INDIEAUTH_SIGNING_KEY || !env.GITHUB_TOKEN) {} } };\n",
+    );
+    writeFile(
+      "wrangler.jsonc",
+      '{ "d1_databases": [{ "binding": "AUTH_DB", "database_name": "indieauth", "database_id": "abc" }] }',
+    );
+    writeFile(
+      ".site-config",
+      "INDIEWEB_ENABLED=true\nINDIEWEB_INDIEAUTH=true\nINDIEWEB_MICROPUB=true\nINDIEWEB_WEBMENTION=true\n",
+    );
+
+    const report = runScan({ siteDir: site });
+
+    expect(report.ok).toBe(true);
+    expect(report.failures).toEqual([]);
+  });
+
   it("flags an unauthorized third-party script as a third-party-script failure", () => {
     writeFile(
       "dist/index.html",

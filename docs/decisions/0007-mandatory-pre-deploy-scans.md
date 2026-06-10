@@ -54,9 +54,11 @@ The `scripts/pre-deploy-check.ts` script runs before every deploy. The `/anglesi
 Four checks, all required:
 
 1. **PII scan** — greps `dist/` for email patterns (`@`) and phone patterns
-2. **Token scan** — greps `dist/`, `src/`, `public/` for API key patterns (`pat[A-Za-z0-9]{14,}`, `sk-[A-Za-z0-9]{20,}`)
+2. **Token scan** — greps `dist/`, `src/`, `public/`, `worker/`, and the wrangler configs for API key patterns (Airtable PATs, OpenAI `sk-` keys, GitHub `ghp_`/`github_pat_` tokens) and for the IndieWeb secret bindings (`INDIEAUTH_SIGNING_KEY`, `GITHUB_TOKEN`) committed as literals — name-only references (`env.GITHUB_TOKEN`, `${{ secrets.GITHUB_TOKEN }}`) never match
 3. **Third-party script check** — greps `dist/` for `<script src=` tags not from `cloudflareinsights` or `_astro`
 4. **Keystatic admin check** — finds any Keystatic routes in `dist/`
+
+The IndieWeb endpoints set up by `/anglesite:indieweb` (`/auth`, `/micropub`, `/media`, `/webmention`) are intentional public routes served by the site Worker — the route-shaped scans treat them as expected and never flag them (see ADR-0020).
 
 * Good, because automated, consistent, and non-bypassable
 * Good, because catches issues at the last possible moment before production

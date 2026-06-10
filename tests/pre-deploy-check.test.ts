@@ -14,6 +14,7 @@ import {
   formatMaintenanceWarning,
   maintenanceCategories,
   isReservedExampleEmail,
+  indiewebWorkerRoutes,
 } from "../template/scripts/pre-deploy-check.js";
 
 // ---------------------------------------------------------------------------
@@ -21,12 +22,31 @@ import {
 // ---------------------------------------------------------------------------
 
 describe("pre-deploy-check.sh safety", () => {
+  const src = readFileSync(
+    resolve(__dirname, "../scripts/pre-deploy-check.sh"),
+    "utf-8",
+  );
+
   it("does not use eval for script grep", () => {
-    const src = readFileSync(
-      resolve(__dirname, "../scripts/pre-deploy-check.sh"),
-      "utf-8",
-    );
     expect(src).not.toContain("eval ");
+  });
+
+  it("scans worker/ and the wrangler configs for tokens", () => {
+    expect(src).toContain("worker/");
+    expect(src).toContain("wrangler.jsonc");
+    expect(src).toContain("wrangler.toml");
+  });
+
+  it("greps for GitHub token shapes and committed IndieWeb secret bindings", () => {
+    expect(src).toContain("github_pat_");
+    expect(src).toContain("INDIEAUTH_SIGNING_KEY");
+    expect(src).toContain("GITHUB_TOKEN");
+  });
+
+  it("documents the IndieWeb worker routes as intentional public endpoints", () => {
+    for (const route of ["/auth", "/micropub", "/media", "/webmention"]) {
+      expect(src).toContain(route);
+    }
   });
 });
 
@@ -209,6 +229,95 @@ describe("scanTokens", () => {
     const sk = "sk-" + "C".repeat(40);
     expect(scanTokens(`${pat} and ${sk}`).sort()).toEqual(["airtable-pat", "openai-key"]);
   });
+
+  it("detects classic GitHub PATs (ghp_ + 36 chars)", () => {
+    expect(scanTokens("token: ghp_" + "A".repeat(36))).toEqual(["github-token"]);
+  });
+
+  it("detects other classic GitHub token prefixes (gho_, ghu_, ghs_, ghr_)", () => {
+    for (const prefix of ["gho_", "ghu_", "ghs_", "ghr_"]) {
+      expect(scanTokens(`${prefix}${"B".repeat(36)}`)).toEqual(["github-token"]);
+    }
+  });
+
+  it("detects fine-grained GitHub PATs (github_pat_…)", () => {
+    const token = "github_pat_" + "A".repeat(22) + "_" + "B".repeat(59);
+    expect(scanTokens(token)).toEqual(["github-token"]);
+  });
+
+  it("ignores short gh-prefixed strings", () => {
+    expect(scanTokens("ghp_tooshort")).toEqual([]);
+  });
+
+  it("flags a committed INDIEAUTH_SIGNING_KEY literal (wrangler vars, .env, source)", () => {
+    const key = "a1b2c3d4".repeat(8); // openssl rand -hex 32 shape
+    expect(scanTokens(`INDIEAUTH_SIGNING_KEY=${key}`)).toEqual(["committed-secret-binding"]);
+    expect(scanTokens(`"INDIEAUTH_SIGNING_KEY": "${key}"`)).toEqual(["committed-secret-binding"]);
+    expect(scanTokens(`INDIEAUTH_SIGNING_KEY = "${key}"`)).toEqual(["committed-secret-binding"]);
+  });
+
+  it("flags a committed GITHUB_TOKEN literal (both as binding and token shape)", () => {
+    const result = scanTokens(`GITHUB_TOKEN="ghp_${"A".repeat(36)}"`).sort();
+    expect(result).toEqual(["committed-secret-binding", "github-token"]);
+  });
+
+  it("ignores secret *name* references — env access, Actions secrets, wrangler put, docs", () => {
+    expect(scanTokens("if (!env.MICROPUB_DB || !env.GITHUB_TOKEN || !env.GITHUB_REPO) return;")).toEqual([]);
+    expect(scanTokens("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}")).toEqual([]);
+    expect(scanTokens("npx wrangler secret put INDIEAUTH_SIGNING_KEY --name my-site")).toEqual([]);
+    expect(scanTokens("gh secret set GITHUB_TOKEN --repo owner/site")).toEqual([]);
+    expect(scanTokens("*   GITHUB_TOKEN (secret) — Fine-grained PAT, contents:write only")).toEqual([]);
+    expect(scanTokens("INDIEAUTH_SIGNING_KEY: string;")).toEqual([]);
+    expect(scanTokens('GITHUB_TOKEN="$GITHUB_TOKEN"')).toEqual([]);
+    expect(scanTokens("GITHUB_TOKEN=<paste-your-token-here>")).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// indiewebWorkerRoutes — intentional public endpoints (issue #336)
+// ---------------------------------------------------------------------------
+
+describe("indiewebWorkerRoutes", () => {
+  it("covers the four intentional public endpoints", () => {
+    const all = Object.values(indiewebWorkerRoutes).flat();
+    for (const route of ["/auth", "/micropub", "/media", "/webmention"]) {
+      expect(all).toContain(route);
+    }
+  });
+
+  it("keys each route group by its .site-config feature flag", () => {
+    expect(Object.keys(indiewebWorkerRoutes).sort()).toEqual([
+      "INDIEWEB_INDIEAUTH",
+      "INDIEWEB_MICROPUB",
+      "INDIEWEB_WEBMENTION",
+    ]);
+  });
+
+  it("includes the IndieAuth metadata discovery path", () => {
+    expect(indiewebWorkerRoutes.INDIEWEB_INDIEAUTH).toContain(
+      "/.well-known/oauth-authorization-server",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Template files must never trip the token scan (false-positive regression)
+// ---------------------------------------------------------------------------
+
+describe("template IndieWeb files never trip the token scan", () => {
+  const templateFiles = [
+    "../template/worker/site-entry.js",
+    "../template/worker/indieweb-bridge.js",
+    "../template/wrangler.jsonc",
+    "../template/.github/workflows/deploy.yml",
+  ];
+
+  for (const rel of templateFiles) {
+    it(`${rel.replace("../template/", "")} is clean`, () => {
+      const content = readFileSync(resolve(__dirname, rel), "utf-8");
+      expect(scanTokens(content)).toEqual([]);
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

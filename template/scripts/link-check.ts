@@ -10,6 +10,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve, extname, dirname, posix } from "node:path";
 import { readConfig } from "./config.js";
+import { indiewebWorkerRoutes } from "./pre-deploy-check.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,6 +94,25 @@ export function normalizeInternalHref(href: string, sourcePath: string, distDir:
   const sourceRelative = sourcePath.replace(distDir, "").replace(/\\/g, "/");
   const sourceDir = posix.dirname(sourceRelative);
   return posix.resolve(sourceDir, clean);
+}
+
+/**
+ * Routes served by the site Worker rather than by files in dist/. Built from
+ * `.site-config`: each enabled IndieWeb endpoint flag contributes its route(s)
+ * (see `indiewebWorkerRoutes` in pre-deploy-check.ts). These are intentional
+ * public endpoints — the internal-link check must not report them as broken.
+ */
+export function getWorkerRoutes(read: (key: string) => string | undefined): string[] {
+  const routes: string[] = [];
+  for (const [flag, flagRoutes] of Object.entries(indiewebWorkerRoutes)) {
+    if (read(flag) === "true") routes.push(...flagRoutes);
+  }
+  return routes;
+}
+
+/** True when the href is a worker route or lives under one (e.g. /auth/token). */
+export function isWorkerRoute(normalizedHref: string, workerRoutes: string[]): boolean {
+  return workerRoutes.some(r => normalizedHref === r || normalizedHref.startsWith(r + "/"));
 }
 
 export function resolveInternalLink(normalizedHref: string, distDir: string): boolean {
@@ -329,6 +349,8 @@ export async function checkLinks(
     allowlist?: string[];
     externalTimeout?: number;
     externalRetries?: number;
+    /** Worker-served routes (from getWorkerRoutes) that resolve without a dist/ file. */
+    workerRoutes?: string[];
   } = {},
 ): Promise<LinkCheckResult> {
   const issues: LinkIssue[] = [];
@@ -351,6 +373,8 @@ export async function checkLinks(
         internalLinksChecked++;
         const normalized = normalizeInternalHref(href, file, distDir);
         if (!normalized) continue;
+
+        if (options.workerRoutes && isWorkerRoute(normalized, options.workerRoutes)) continue;
 
         const targetPath = normalized.endsWith("/") ? normalized : normalized + "/";
         const altPath = normalized.endsWith("/") ? normalized.slice(0, -1) : normalized;
@@ -497,8 +521,9 @@ if (process.argv[1]?.endsWith("link-check.ts")) {
   const jsonOutput = process.argv.includes("--json");
 
   const allowlist = parseAllowlist(readConfig("LINK_CHECK_ALLOW"));
+  const workerRoutes = getWorkerRoutes(readConfig);
 
-  checkLinks(DIST, { checkExternal, allowlist }).then((result) => {
+  checkLinks(DIST, { checkExternal, allowlist, workerRoutes }).then((result) => {
     if (jsonOutput) {
       console.log(JSON.stringify(result, null, 2));
     } else {
