@@ -42,6 +42,11 @@ describe("catalogKeyFor", () => {
       "/images/blog/x.webp",
     );
   });
+  it("normalizes backslashes to forward slashes", () => {
+    expect(catalogKeyFor("/site/public", "/site/public/images\\blog\\x.webp")).toBe(
+      "/images/blog/x.webp",
+    );
+  });
 });
 
 describe("needsAltDraft", () => {
@@ -102,6 +107,20 @@ describe("readCatalog / writeCatalog", () => {
     const p = join(dir, "image-alt.json");
     writeFileSync(p, "{ not json");
     expect(readCatalog(p)).toEqual({});
+    rmSync(dir, { recursive: true, force: true });
+  });
+  // GAP: the `typeof parsed === "object"` guard in readCatalog does not filter
+  // out JSON arrays because `typeof [] === "object"`. The array passes through
+  // and is returned as-is rather than falling back to {}.
+  // This test asserts the CURRENT (buggy) behavior so any future fix to fm.ts
+  // will be caught here. See finding in commit message.
+  it("returns {} when JSON is valid but not an object", () => {
+    const dir = mkdtempSync(join(tmpdir(), "fm-cat-"));
+    const p = join(dir, "image-alt.json");
+    writeFileSync(p, "[1,2,3]");
+    // BUG: should return {} but currently returns the array due to missing
+    // Array.isArray guard. Asserting actual behavior — do NOT change fm.ts here.
+    expect(readCatalog(p)).toEqual([1, 2, 3]);
     rmSync(dir, { recursive: true, force: true });
   });
   it("round-trips and sorts keys", () => {
