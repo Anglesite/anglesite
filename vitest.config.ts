@@ -17,6 +17,12 @@ export default defineConfig({
       // sharp is now a root dependency (required by server/optimize-images.mjs);
       // tests that need it mocked call vi.mock("sharp") themselves.
       wawoff2: resolve(__dirname, "tests/__stubs__/wawoff2.ts"),
+      // The @dwk/* IndieWeb packages are unpublished (0.0.0); worker/site-entry.js
+      // composes them at module load. Alias to tagged stubs so the dispatch and
+      // edge-render tests can import the real worker without the packages present.
+      "@dwk/indieauth": resolve(__dirname, "tests/__stubs__/dwk-indieauth.ts"),
+      "@dwk/micropub": resolve(__dirname, "tests/__stubs__/dwk-micropub.ts"),
+      "@dwk/webmention": resolve(__dirname, "tests/__stubs__/dwk-webmention.ts"),
     },
   },
   esbuild: {
