@@ -9,6 +9,7 @@ import {
   writeCatalog,
   type AltCatalog,
 } from "../template/scripts/fm.js";
+import { isFmAvailable, generateAltText, type CommandRunner } from "../template/scripts/fm.js";
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -128,5 +129,43 @@ describe("readCatalog / writeCatalog", () => {
     expect(text.indexOf("/images/a.webp")).toBeLessThan(text.indexOf("/images/z.webp"));
     expect(readCatalog(p)).toEqual(cat);
     rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("isFmAvailable", () => {
+  it("is true when `fm available` reports the system model", async () => {
+    const run: CommandRunner = async () => ({ stdout: "System model available", exitCode: 0 });
+    expect(await isFmAvailable(run)).toBe(true);
+  });
+  it("is false when the binary is missing (exitCode -1, empty stdout)", async () => {
+    const run: CommandRunner = async () => ({ stdout: "", exitCode: -1 });
+    expect(await isFmAvailable(run)).toBe(false);
+  });
+  it("is false when stdout lacks the availability phrase", async () => {
+    const run: CommandRunner = async () => ({ stdout: "something else", exitCode: 0 });
+    expect(await isFmAvailable(run)).toBe(false);
+  });
+  it("is false when the runner throws", async () => {
+    const run: CommandRunner = async () => { throw new Error("boom"); };
+    expect(await isFmAvailable(run)).toBe(false);
+  });
+});
+
+describe("generateAltText", () => {
+  it("returns normalized alt on success", async () => {
+    const run: CommandRunner = async () => ({ stdout: "  A red barn\n", exitCode: 0 });
+    expect(await generateAltText("/x.webp", run)).toBe("A red barn");
+  });
+  it("returns null on non-zero exit", async () => {
+    const run: CommandRunner = async () => ({ stdout: "A red barn", exitCode: 1 });
+    expect(await generateAltText("/x.webp", run)).toBeNull();
+  });
+  it("returns null when output is empty", async () => {
+    const run: CommandRunner = async () => ({ stdout: "   ", exitCode: 0 });
+    expect(await generateAltText("/x.webp", run)).toBeNull();
+  });
+  it("returns null when the runner throws", async () => {
+    const run: CommandRunner = async () => { throw new Error("boom"); };
+    expect(await generateAltText("/x.webp", run)).toBeNull();
   });
 });

@@ -8,6 +8,7 @@
  * `isFmAvailable()` returns false. See docs/decisions/0021-on-device-ai-accelerator.md.
  */
 
+import { execFile } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { relative } from "node:path";
 
@@ -86,4 +87,91 @@ export function writeCatalog(path: string, catalog: AltCatalog): void {
   const ordered: AltCatalog = {};
   for (const k of Object.keys(catalog).sort()) ordered[k] = catalog[k];
   writeFileSync(path, JSON.stringify(ordered, null, 2) + "\n");
+}
+
+// ---------------------------------------------------------------------------
+// Command runner (injectable so the shell-outs are testable without `fm`)
+// ---------------------------------------------------------------------------
+
+export interface CommandResult {
+  stdout: string;
+  exitCode: number;
+}
+
+export type CommandRunner = (
+  command: string,
+  args: string[],
+  opts?: { timeoutMs?: number },
+) => Promise<CommandResult>;
+
+const defaultRunner: CommandRunner = (command, args, opts = {}) =>
+  new Promise((resolve) => {
+    execFile(
+      command,
+      args,
+      { timeout: opts.timeoutMs ?? 60_000, maxBuffer: 4 * 1024 * 1024 },
+      (error, stdout) => {
+        if (!error) {
+          resolve({ stdout: stdout ?? "", exitCode: 0 });
+          return;
+        }
+        // Numeric `code` = process exit status; string `code` (ENOENT) or a
+        // kill signal (timeout) = spawn failure → treat as unavailable (-1).
+        const code = (error as NodeJS.ErrnoException & { code?: string | number }).code;
+        const exitCode = typeof code === "number" ? code : -1;
+        resolve({ stdout: stdout ?? "", exitCode });
+      },
+    );
+  });
+
+// ---------------------------------------------------------------------------
+// Foundation-Model calls
+// ---------------------------------------------------------------------------
+
+/**
+ * True only when `fm` is installed AND the on-device system model is ready.
+ * The stdout phrase is the signal; a missing binary or timeout yields empty
+ * stdout via the runner. Never throws.
+ */
+export async function isFmAvailable(run: CommandRunner = defaultRunner): Promise<boolean> {
+  try {
+    const { stdout } = await run("fm", ["available"], { timeoutMs: 5_000 });
+    return /system model available/i.test(stdout);
+  } catch {
+    return false;
+  }
+}
+
+const ALT_INSTRUCTIONS =
+  "Write concise alt text for this image, suitable for a screen reader. " +
+  "Describe what is shown plainly in under 125 characters. " +
+  "Do not start with 'image of' or 'photo of'. Output only the alt text, nothing else.";
+
+/**
+ * Draft alt text for one image on-device. Returns the normalized string, or
+ * null on any failure (caller falls back to Claude).
+ */
+export async function generateAltText(
+  imagePath: string,
+  run: CommandRunner = defaultRunner,
+): Promise<string | null> {
+  try {
+    const { stdout, exitCode } = await run(
+      "fm",
+      [
+        "respond",
+        "--image", imagePath,
+        "--use-case", "content-tagging",
+        "-g",
+        "--no-stream",
+        "-i", ALT_INSTRUCTIONS,
+      ],
+      { timeoutMs: 60_000 },
+    );
+    if (exitCode !== 0) return null;
+    const alt = normalizeAltOutput(stdout);
+    return alt.length > 0 ? alt : null;
+  } catch {
+    return null;
+  }
 }
