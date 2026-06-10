@@ -112,6 +112,11 @@ const giscusProps = showComments
     }
   </article>
 
+  {/* Webmentions are injected here at the edge by worker/site-entry.js when
+      WEBMENTION_DB holds verified mentions of this page. Empty in the static
+      build; populated per-request without client JS. See docs/indieweb.md. */}
+  <div id="webmentions"></div>
+
   {giscusProps && giscusProps.repoId && giscusProps.categoryId && (
     <Comments {...giscusProps} />
   )}

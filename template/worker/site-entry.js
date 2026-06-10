@@ -14,6 +14,13 @@
  *      <meta name="cf-country"> into HTML responses so the consent banner
  *      runtime can apply EU/UK default-deny on first paint. Configured by
  *      /anglesite:consent.
+ *   4. IndieWeb endpoints — IndieAuth (/auth), Micropub (/micropub, /media),
+ *      and Webmention (/webmention) handlers, each gated on its D1 binding.
+ *      Configured by /anglesite:indieweb.
+ *   5. Webmention edge-render — on note/post HTML responses, injects any
+ *      stored mentions of that page into a <div id="webmentions"> container
+ *      via HTMLRewriter. Gated to note/post target paths that actually have
+ *      mentions — no WEBMENTION_DB query or rewrite is paid otherwise.
  *
  * Every feature is gated on its binding/var being present, so a site that
  * hasn't run any of these skills serves identically to a bare ASSETS-only
@@ -151,6 +158,29 @@ const worker = {
       }
     }
 
+    // 5. Webmention edge-render — inject stored mentions into note/post pages.
+    //    Gating order keeps the cost off pages that can't have mentions:
+    //    HTML request → WEBMENTION_DB bound → known target path → HTML
+    //    response → only then query D1. The rewrite is skipped entirely when
+    //    the page has no stored mentions, so a mention-free site pays nothing
+    //    beyond the guard checks.
+    if (
+      isHtmlRequest &&
+      env.WEBMENTION_DB &&
+      isWebmentionTarget(url.pathname)
+    ) {
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("text/html")) {
+        const target = `${url.origin}${url.pathname}`;
+        const mentions = await loadWebmentions(env.WEBMENTION_DB, target);
+        if (mentions.length > 0) {
+          response = new HTMLRewriter()
+            .on("#webmentions", new WebmentionInjector(mentions))
+            .transform(response);
+        }
+      }
+    }
+
     if (setCookieHeader) {
       const headers = new Headers(response.headers);
       headers.append("Set-Cookie", setCookieHeader);
@@ -189,6 +219,84 @@ class CountryInjector {
   element(el) {
     el.append(`<meta name="cf-country" content="${this.country}">`, { html: true });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Webmention edge-render helpers (§3.5 of the active-IndieWeb design)
+// ---------------------------------------------------------------------------
+
+// Only note and blog-post permalinks can be webmention targets. The collection
+// index pages (`/notes`, `/blog`) are excluded — the trailing-slash strip means
+// a bare `/notes` never matches `"/notes/"`.
+function isWebmentionTarget(pathname) {
+  const p = pathname.replace(/\/+$/, "");
+  return p.startsWith("/notes/") || p.startsWith("/blog/");
+}
+
+// Query WEBMENTION_DB for verified mentions of a target URL. The table/columns
+// follow @dwk/webmention's inbox shape; a query failure degrades to "no
+// mentions" so a transient D1 error never breaks the page render.
+async function loadWebmentions(db, target) {
+  try {
+    const rows = await db
+      .prepare(
+        `SELECT author_name, author_url, author_photo, content, url, type, published
+         FROM webmentions
+         WHERE target = ?1 AND status = 'verified'
+         ORDER BY published ASC`,
+      )
+      .bind(target)
+      .all();
+    return rows?.results ?? [];
+  } catch (err) {
+    console.error("Webmention edge-render query failed:", err?.message);
+    return [];
+  }
+}
+
+class WebmentionInjector {
+  constructor(mentions) {
+    this.mentions = mentions;
+  }
+  element(el) {
+    const items = this.mentions.map(renderMention).join("");
+    el.setInnerContent(
+      `<h2 class="webmentions-title">Mentions</h2>` +
+        `<ol class="webmentions-list">${items}</ol>`,
+      { html: true },
+    );
+  }
+}
+
+function renderMention(m) {
+  const name = escapeHtml(m.author_name || m.author_url || "Someone");
+  const photo = m.author_photo
+    ? `<img class="u-photo" src="${escapeHtml(m.author_photo)}" alt="" width="48" height="48" />`
+    : "";
+  const author = m.author_url
+    ? `<a class="p-author h-card u-url" href="${escapeHtml(m.author_url)}">${name}</a>`
+    : `<span class="p-author">${name}</span>`;
+  const content = m.content
+    ? `<div class="p-content">${escapeHtml(m.content)}</div>`
+    : "";
+  const permalink = m.url
+    ? `<a class="u-url" href="${escapeHtml(m.url)}">permalink</a>`
+    : "";
+  return `<li class="h-cite">${photo}${author}${content}${permalink}</li>`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(
+    /[&<>"']/g,
+    (c) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[c],
+  );
 }
 
 // ---------------------------------------------------------------------------
