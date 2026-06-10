@@ -142,6 +142,9 @@ export async function isFmAvailable(run: CommandRunner = defaultRunner): Promise
   }
 }
 
+/** Identifier recorded in catalog entries for drafts produced by `fm`'s system model. */
+export const FM_MODEL_ID = "apple-fm-system";
+
 const ALT_INSTRUCTIONS =
   "Write concise alt text for this image, suitable for a screen reader. " +
   "Describe what is shown plainly in under 125 characters. " +
