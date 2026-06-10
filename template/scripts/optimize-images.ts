@@ -9,6 +9,18 @@
 
 import { readdirSync, existsSync } from "node:fs";
 import { join, extname, basename, dirname } from "node:path";
+import { readConfig } from "./config.js";
+import {
+  isFmAvailable,
+  generateAltText,
+  catalogKeyFor,
+  readCatalog,
+  writeCatalog,
+  needsAltDraft,
+  mergeAltEntry,
+  shouldRunAltPass,
+  type AltCatalog,
+} from "./fm.js";
 
 // ---------------------------------------------------------------------------
 // Types (kept here so template-side tests can import them)
@@ -99,6 +111,10 @@ function formatBytes(bytes: number): string {
 // without triggering the sharp pipeline load.
 // ---------------------------------------------------------------------------
 
+function shouldRunAltPassLocal(noAltFlag: boolean): boolean {
+  return shouldRunAltPass({ noAltFlag, altTextAiConfig: readConfig("ALT_TEXT_AI") });
+}
+
 async function main() {
   // Resolve the sharp pipeline relative to this script rather than via a bare
   // package specifier. A scaffolded site IS the plugin package (its name is set
@@ -121,12 +137,48 @@ async function main() {
     return;
   }
   console.log(`Optimizing ${files.length} image(s)…`);
+  const noAltFlag = process.argv.includes("--no-alt");
+  const altEnabled = shouldRunAltPassLocal(noAltFlag);
+  const publicDir = join(cwd, "public");
+  const catalogPath = join(cwd, "image-alt.json");
+  let catalog: AltCatalog = {};
+  let fmReady = false;
+  if (altEnabled) {
+    fmReady = await isFmAvailable();
+    if (fmReady) catalog = readCatalog(catalogPath);
+  }
+  let altDrafted = 0;
   for (const file of files) {
     const result = await optimizeImage(file, {
       outputDir: dirname(file),
       preserveOriginalsDir: join(imagesDir, "originals"),
     });
     console.log(`  ${file.replace(cwd + "/", "")} → ${result.primary} (+${result.variants.length} variants)`);
+
+    if (fmReady) {
+      const primaryAbs = join(dirname(file), result.primary);
+      const key = catalogKeyFor(publicDir, primaryAbs);
+      if (needsAltDraft(catalog, key)) {
+        const alt = await generateAltText(primaryAbs);
+        if (alt) {
+          mergeAltEntry(catalog, key, {
+            alt,
+            model: "apple-fm-system",
+            generatedAt: new Date().toISOString().slice(0, 10),
+            status: "draft",
+          });
+          altDrafted++;
+          console.log(`    alt draft: ${alt}`);
+        }
+      }
+    }
+  }
+
+  if (fmReady && altDrafted > 0) {
+    writeCatalog(catalogPath, catalog);
+    console.log(
+      `Drafted alt text for ${altDrafted} image(s) → image-alt.json (review before publishing).`,
+    );
   }
   console.log("Done.");
 }
