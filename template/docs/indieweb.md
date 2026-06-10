@@ -213,6 +213,8 @@ Don't recommend it during `/anglesite:start`. It adds complexity that most SMB o
 
 Run the owner's own Webmention endpoint on their domain instead of delegating to webmention.io. `/anglesite:indieweb` deploys `@dwk/webmention` into the site's Worker: it receives mentions, verifies the source link asynchronously, stores them in a D1 inbox, and edge-renders them onto the target page (no client JS). No third-party dependency; the mention data lives only on the owner's Cloudflare account. See the "Active IndieWeb" section above and `docs/platforms/dwk-workers.md`.
 
+Display details: the note and blog post templates ship an empty `<div id="webmentions">` after the article; the Worker fills it per-request (h-cite list with author, avatar, content, permalink) only for pages that actually have verified mentions — mention-free pages serve unchanged, and new mentions appear within about a minute. Styling lives under the `.webmentions-*` rules in `src/styles/global.css` (it must stay global — scoped Astro styles can't reach edge-injected markup).
+
 **Option 3: Static webmentions (build-time)**
 
 Fetch webmentions during `npm run build` and bake them into the HTML. No client-side JavaScript needed. Use the webmention.io API or a self-hosted endpoint. This fits Anglesite's zero-JS philosophy.

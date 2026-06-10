@@ -188,37 +188,55 @@ describe("Webmention edge-render gating", () => {
     delete (globalThis as any).HTMLRewriter;
   });
 
-  function webmentionDb(results: unknown[]) {
-    const all = vi.fn(async () => ({ results }));
-    const bind = vi.fn(() => ({ all }));
-    const prepare = vi.fn(() => ({ bind }));
-    return { db: { prepare }, prepare, bind, all };
+  // Serves both edge-render queries: the distinct-targets set (keys of
+  // mentionsByTarget) and the per-target mention rows. The worker caches the
+  // target set per binding object, so each test's fresh mock starts cold.
+  function webmentionDb(mentionsByTarget: Record<string, unknown[]>) {
+    const targetsAll = vi.fn(async () => ({
+      results: Object.keys(mentionsByTarget).map((target) => ({ target })),
+    }));
+    let boundTarget: string;
+    const mentionsAll = vi.fn(async () => ({
+      results: mentionsByTarget[boundTarget] ?? [],
+    }));
+    const bind = vi.fn((target: string) => {
+      boundTarget = target;
+      return { all: mentionsAll };
+    });
+    const prepare = vi.fn((sql: string) =>
+      sql.includes("DISTINCT") ? { all: targetsAll } : { bind },
+    );
+    return { db: { prepare }, prepare, bind, targetsAll, mentionsAll };
   }
 
   it("queries D1 and rewrites a note/blog page that has stored mentions", async () => {
     for (const path of ["/notes/abc/", "/blog/my-post/"]) {
       rewriteUsed = false;
-      const { db, prepare, bind } = webmentionDb([
-        {
-          author_name: "Alice",
-          author_url: "https://alice.example",
-          content: "Great post!",
-          url: "https://alice.example/reply/1",
-          type: "in-reply-to",
-          published: "2026-06-01T00:00:00Z",
-        },
-      ]);
+      const target = `https://example.com${path}`;
+      const { db, bind } = webmentionDb({
+        [target]: [
+          {
+            author_name: "Alice",
+            author_url: "https://alice.example",
+            content: "Great post!",
+            url: "https://alice.example/reply/1",
+            type: "in-reply-to",
+            published: "2026-06-01T00:00:00Z",
+          },
+        ],
+      });
       const env = makeEnv({ WEBMENTION_DB: db });
       await worker.fetch(req(path, { accept: "text/html" }), env, makeCtx());
 
-      expect(prepare, path).toHaveBeenCalledOnce();
-      expect(bind, path).toHaveBeenCalledWith(`https://example.com${path}`);
+      expect(bind, path).toHaveBeenCalledWith(target);
       expect(rewriteUsed, path).toBe(true);
     }
   });
 
-  it("queries but does NOT rewrite when the target page has no mentions", async () => {
-    const { db, prepare } = webmentionDb([]);
+  it("does NOT query mentions or rewrite when the page has no stored mentions", async () => {
+    const { db, bind } = webmentionDb({
+      "https://example.com/notes/other/": [{ author_name: "Alice" }],
+    });
     const env = makeEnv({ WEBMENTION_DB: db });
     const res = await worker.fetch(
       req("/notes/abc/", { accept: "text/html" }),
@@ -226,15 +244,26 @@ describe("Webmention edge-render gating", () => {
       makeCtx(),
     );
 
-    expect(prepare).toHaveBeenCalledOnce();
+    // The page isn't in the known-target set, so no per-target query runs.
+    expect(bind).not.toHaveBeenCalled();
     expect(rewriteUsed).toBe(false);
     // Response passes through untouched.
     expect(res.headers.get("x-asset")).toBe("1");
   });
 
+  it("caches the known-target set — one distinct query across requests", async () => {
+    const { db, targetsAll } = webmentionDb({});
+    const env = makeEnv({ WEBMENTION_DB: db });
+    await worker.fetch(req("/notes/a/", { accept: "text/html" }), env, makeCtx());
+    await worker.fetch(req("/notes/b/", { accept: "text/html" }), env, makeCtx());
+    expect(targetsAll).toHaveBeenCalledOnce();
+  });
+
   it("does NOT query for non-target paths (home, about)", async () => {
     for (const path of ["/", "/about/", "/contact/"]) {
-      const { db, prepare } = webmentionDb([{ author_name: "Bob" }]);
+      const { db, prepare } = webmentionDb({
+        "https://example.com/notes/abc/": [{ author_name: "Bob" }],
+      });
       const env = makeEnv({ WEBMENTION_DB: db });
       await worker.fetch(req(path, { accept: "text/html" }), env, makeCtx());
       expect(prepare, path).not.toHaveBeenCalled();
@@ -244,7 +273,9 @@ describe("Webmention edge-render gating", () => {
 
   it("does NOT query the collection index — only permalinks are targets", async () => {
     for (const path of ["/notes", "/notes/", "/blog", "/blog/"]) {
-      const { db, prepare } = webmentionDb([{ author_name: "Bob" }]);
+      const { db, prepare } = webmentionDb({
+        "https://example.com/notes/abc/": [{ author_name: "Bob" }],
+      });
       const env = makeEnv({ WEBMENTION_DB: db });
       await worker.fetch(req(path, { accept: "text/html" }), env, makeCtx());
       expect(prepare, path).not.toHaveBeenCalled();
@@ -263,7 +294,9 @@ describe("Webmention edge-render gating", () => {
   });
 
   it("does NOT query non-HTML responses even on a target path", async () => {
-    const { db, prepare } = webmentionDb([{ author_name: "Bob" }]);
+    const { db, prepare } = webmentionDb({
+      "https://example.com/notes/abc/": [{ author_name: "Bob" }],
+    });
     const env = makeEnv({
       WEBMENTION_DB: db,
       ASSETS: {
@@ -276,7 +309,9 @@ describe("Webmention edge-render gating", () => {
   });
 
   it("does NOT query for non-HTML requests (no Accept: text/html)", async () => {
-    const { db, prepare } = webmentionDb([{ author_name: "Bob" }]);
+    const { db, prepare } = webmentionDb({
+      "https://example.com/notes/abc/": [{ author_name: "Bob" }],
+    });
     const env = makeEnv({ WEBMENTION_DB: db });
     await worker.fetch(req("/notes/abc/"), env, makeCtx());
     expect(prepare).not.toHaveBeenCalled();
