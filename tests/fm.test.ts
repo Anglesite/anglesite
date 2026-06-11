@@ -238,4 +238,13 @@ describe("parseClassification", () => {
   it("returns null for a JSON array", () => {
     expect(parseClassification("[1,2,3]")).toBeNull();
   });
+  it("coerces case-insensitively for isSpam", () => {
+    expect(parseClassification('{"isSpam": "Yes", "category": "other", "reason": ""}')!.isSpam).toBe(true);
+    expect(parseClassification('{"isSpam": "TRUE", "category": "other", "reason": ""}')!.isSpam).toBe(true);
+    expect(parseClassification('{"isSpam": "true", "category": "other", "reason": ""}')!.isSpam).toBe(true);
+  });
+  it("normalizes category casing", () => {
+    expect(parseClassification('{"isSpam": false, "category": "Lead", "reason": ""}')!.category).toBe("lead");
+    expect(parseClassification('{"isSpam": false, "category": "SUPPORT", "reason": ""}')!.category).toBe("support");
+  });
 });

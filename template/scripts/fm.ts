@@ -96,11 +96,12 @@ export function parseClassification(raw: string): SubmissionClassification | nul
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
   const o = parsed as Record<string, unknown>;
-  const category =
-    typeof o.category === "string" && (SUBMISSION_CATEGORIES as string[]).includes(o.category)
-      ? (o.category as SubmissionCategory)
-      : "other";
-  const isSpam = o.isSpam === true || o.isSpam === "true" || o.isSpam === "yes";
+  const categoryRaw = typeof o.category === "string" ? o.category.toLowerCase() : "";
+  const category = (SUBMISSION_CATEGORIES as string[]).includes(categoryRaw)
+    ? (categoryRaw as SubmissionCategory)
+    : "other";
+  const isSpam =
+    o.isSpam === true || (typeof o.isSpam === "string" && /^(true|yes)$/i.test(o.isSpam));
   const reason = typeof o.reason === "string" ? o.reason.trim() : "";
   return { category, isSpam, reason };
 }
