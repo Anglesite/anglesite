@@ -287,9 +287,10 @@ export async function generateAltText(
 }
 
 /**
- * Draft alt text for one image and merge it into the catalog as a `draft`,
- * unless the image already has a usable entry (draft or reviewed-protected).
- * Shared by `ai-optimize` (source images) and `ai-alt` (all images incl. webp).
+ * Draft alt text for one image and merge it into the catalog as a `draft`.
+ * Skips images that already have a `reviewed` entry (never overwritten);
+ * a missing key or an existing `draft` entry is (re)drafted. Shared by
+ * `ai-optimize` (source images) and `ai-alt` (all images incl. webp).
  * Returns the drafted alt, or null if skipped or generation failed.
  */
 export async function draftAltForImage(
