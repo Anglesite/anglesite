@@ -1,7 +1,7 @@
 ---
 name: convert
 description: "Convert an existing static site generator project (Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress, MkDocs, Eleventy, Hexo) to Anglesite/Astro"
-allowed-tools: ["Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(node *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(cp *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(find */layouts *)", "Bash(find */templates *)", "Bash(find */_includes *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["Bash(npm run build)", "Bash(npm install)", "Bash(npm run ai-alt)", "Bash(zsh *)", "Bash(node *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(cp *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(find */layouts *)", "Bash(find */templates *)", "Bash(find */_includes *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -498,6 +498,14 @@ For each post in BLOG_POSTS:
    "Image handling" section specifies where images are stored (e.g.,
    `static/img/` for Docusaurus, `source/images/` for Hexo, `content/` for
    Hugo page bundles)
+
+   After copying the images, run `npm run ai-alt` once. On a capable Mac it
+   drafts on-device alt text for any image lacking it (including `.webp`) into
+   `image-alt.json`; elsewhere it's a no-op. When writing each post, where the
+   source frontmatter/Markdown has **no alt** for an image, use the draft from
+   `image-alt.json` for the `![alt](path)` / `imageAlt` and flip that entry to
+   `reviewed`. Keep any alt the source already provided.
+
 4. Write the `.mdoc` file per the shared procedures. Use `-converted` suffix
    for slug conflicts
 

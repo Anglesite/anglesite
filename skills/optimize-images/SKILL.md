@@ -70,6 +70,13 @@ When you place an image (new page, blog post, menu, gallery) or remediate an
 Always present drafted alt text to the owner as something to review before
 publishing.
 
+Images that arrived **already optimized** (`.webp`) — e.g. from `/anglesite:import`
+— are skipped by `npm run ai-optimize`. To draft alt for those, run
+`npm run ai-alt`, the standalone pass that walks every image in `public/images/`
+(including `.webp`) and drafts alt for anything missing from `image-alt.json`.
+Same catalog, same review flow. It's idempotent — re-running only drafts images
+that have no entry yet.
+
 ### When `fm` is not available
 
 On any other machine, no catalog is written and nothing breaks — draft alt text

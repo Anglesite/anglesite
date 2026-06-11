@@ -2,7 +2,7 @@
 name: import
 description: "Import content from a website URL (WordPress, Squarespace, Wix, Webflow, GoDaddy, Ghost, Medium, Substack, Blogger, Shopify, Weebly, Tumblr, Micro.blog, WriteFreely, Carrd) or static site generator project"
 argument-hint: "[website URL or local path]"
-allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(zsh *)", "Bash(node *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
+allowed-tools: ["WebFetch", "Bash(curl *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(npm run build)", "Bash(npm install)", "Bash(npm run ai-alt)", "Bash(zsh *)", "Bash(node *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(wc *)", "Bash(grep *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(cp *)", "Write", "Read", "Glob", "Edit"]
 disable-model-invocation: true
 ---
 
@@ -468,12 +468,24 @@ If the download fails, add to FAILED_IMAGES and omit `image` from frontmatter.
 **Inline images:** Download with `SLUG-body-N.webp` naming and replace inline
 URLs with local paths.
 
+**Draft missing alt text (on-device).** After the images for this import are
+downloaded, run `npm run ai-alt` once. On an Apple-Silicon Mac with Apple
+Intelligence enabled, it drafts alt text **on-device** (nothing is uploaded)
+for every image lacking one — including the `.webp` files just created — into
+`image-alt.json`. On any other machine it's a no-op and nothing breaks.
+
 ### 2d — Assemble frontmatter and write the .mdoc file
 
 Follow the `.mdoc` writing procedure in
 `${CLAUDE_PLUGIN_ROOT}/docs/content-conversion.md`. Use `-imported`
 suffix for slug conflicts. Additionally, set:
 - `syndication`: `["ORIGINAL_POST_URL"]` — the URL on the old platform, preserving provenance per ADR-0006
+- Image alt text: where the **source HTML provides alt** (`<img alt="...">`),
+  keep it. Where alt is **missing or empty**, look up the image's draft in
+  `image-alt.json` (keyed by its `/images/...` path) and use it for the Markdown
+  `![alt](path)` and the blog `imageAlt` frontmatter, then set that catalog
+  entry's `status` to `reviewed`. Never override real authored alt with a draft.
+  If there's no draft (no `fm`), leave alt as the source provided (or empty).
 
 ### 2e — Progress updates
 

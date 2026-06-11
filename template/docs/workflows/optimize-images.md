@@ -44,6 +44,10 @@ directly — the end result is the same.
 
 To turn the feature off, add `ALT_TEXT_AI=off` to `.site-config`.
 
+If you imported a site or already have web-ready images, run `npm run ai-alt` to
+draft alt text for those too (the regular optimize step only covers images it
+converts). It works the same way — drafts you review before publishing.
+
 ## Why this matters
 
 A single unoptimized phone photo (3–5 MB) can make a page load 10x slower. WebP images are typically 25–35% smaller than JPEG at equivalent quality. Responsive variants ensure mobile visitors don't download desktop-sized images.
