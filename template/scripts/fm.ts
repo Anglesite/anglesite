@@ -229,6 +229,8 @@ export async function classifySubmission(
   run: CommandRunner = defaultRunner,
 ): Promise<SubmissionClassification | null> {
   try {
+    // Fixed temp path is safe because callers classify sequentially (the inbox
+    // sync awaits each call); revisit if classification is ever parallelized.
     const schemaPath = join(tmpdir(), "anglesite-fm-triage-schema.json");
     writeFileSync(schemaPath, JSON.stringify(TRIAGE_SCHEMA));
     const { stdout, exitCode } = await run(

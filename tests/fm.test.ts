@@ -262,7 +262,9 @@ describe("classifySubmission", () => {
     const r = await classifySubmission("Form: contact\nMessage: please send a quote", run);
     expect(r).toEqual({ isSpam: false, category: "lead", reason: "quote request" });
     expect(seenInput).toContain("please send a quote");
-    expect(seenArgs).toContain("--schema");
+    const schemaIdx = seenArgs.indexOf("--schema");
+    expect(schemaIdx).toBeGreaterThan(-1);
+    expect(seenArgs[schemaIdx + 1]).toMatch(/anglesite-fm-triage-schema\.json$/);
   });
   it("returns null on non-zero exit", async () => {
     const run: CommandRunner = async () => ({ stdout: "{}", exitCode: 1 });
