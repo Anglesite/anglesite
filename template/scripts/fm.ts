@@ -26,6 +26,20 @@ export interface AltEntry {
 export type AltCatalog = Record<string, AltEntry>;
 
 // ---------------------------------------------------------------------------
+// Inbox triage classification types
+// ---------------------------------------------------------------------------
+
+export type SubmissionCategory = "lead" | "support" | "question" | "other";
+
+export interface SubmissionClassification {
+  category: SubmissionCategory;
+  isSpam: boolean;
+  reason: string;
+}
+
+const SUBMISSION_CATEGORIES: SubmissionCategory[] = ["lead", "support", "question", "other"];
+
+// ---------------------------------------------------------------------------
 // Pure helpers (no I/O, no shell — unit-tested directly)
 // ---------------------------------------------------------------------------
 
@@ -65,6 +79,30 @@ export function shouldRunAltPass(opts: { noAltFlag: boolean; altTextAiConfig?: s
   if (opts.noAltFlag) return false;
   if ((opts.altTextAiConfig ?? "").toLowerCase() === "off") return false;
   return true;
+}
+
+/**
+ * Parse `fm`'s structured-output JSON into a classification. Defensive:
+ * validates the category against the allowed set (else "other"), coerces
+ * isSpam to a boolean, and returns null only when the input is not a usable
+ * JSON object. `fm` field order is not guaranteed, so this never relies on it.
+ */
+export function parseClassification(raw: string): SubmissionClassification | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw.replace(ANSI, "").trim());
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const o = parsed as Record<string, unknown>;
+  const category =
+    typeof o.category === "string" && (SUBMISSION_CATEGORIES as string[]).includes(o.category)
+      ? (o.category as SubmissionCategory)
+      : "other";
+  const isSpam = o.isSpam === true || o.isSpam === "true" || o.isSpam === "yes";
+  const reason = typeof o.reason === "string" ? o.reason.trim() : "";
+  return { category, isSpam, reason };
 }
 
 // ---------------------------------------------------------------------------
