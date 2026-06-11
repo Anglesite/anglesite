@@ -134,6 +134,29 @@ Open Keystatic and route them to the **Form Submissions** collection so they can
 
 Triage actions are just edits to the `status` field — no special tooling. Encourage the owner to bulk-process: archive what's resolved, mark spam as spam.
 
+## Step 6b — AI triage (when available)
+
+On an Apple-Silicon Mac with Apple Intelligence enabled, `npm run ai-inbox-fetch`
+also classifies each **new** submission **on-device** — nothing is uploaded.
+Each new submission gets three advisory fields: `aiCategory`
+(lead / support / question / other), `aiSpam` (yes / no), and `aiReason` (the
+model's short rationale).
+
+These are **suggestions only**. The owner's `status` field is never changed
+automatically — a misclassified message is never hidden. Surface the suggestion
+and let the owner decide.
+
+After a sync, the script prints a one-line summary like
+`Triaged 3 new: 1 likely spam, 2 leads`. **Relay this to the owner in chat** so
+they get the overview before opening Keystatic — e.g. "3 new submissions: 1
+looks like spam, 2 look like leads. Open the inbox to confirm and triage."
+
+### When `fm` is not available
+
+On any other machine, no AI fields are written and nothing breaks — the owner
+triages `status` manually exactly as before. To disable AI triage even on a
+capable Mac, set `INBOX_TRIAGE_AI=off` in `.site-config`.
+
 ## Step 7 — Export to CSV (optional)
 
 Lead-capture and survey responses are easier to work with in a spreadsheet. The export script reads the same files Keystatic shows:

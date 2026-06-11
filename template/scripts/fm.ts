@@ -10,7 +10,8 @@
 
 import { execFile } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { relative } from "node:path";
+import { relative, join } from "node:path";
+import { tmpdir } from "node:os";
 
 // ---------------------------------------------------------------------------
 // Catalog types
@@ -24,6 +25,20 @@ export interface AltEntry {
 }
 
 export type AltCatalog = Record<string, AltEntry>;
+
+// ---------------------------------------------------------------------------
+// Inbox triage classification types
+// ---------------------------------------------------------------------------
+
+export type SubmissionCategory = "lead" | "support" | "question" | "other";
+
+export interface SubmissionClassification {
+  category: SubmissionCategory;
+  isSpam: boolean;
+  reason: string;
+}
+
+const SUBMISSION_CATEGORIES: SubmissionCategory[] = ["lead", "support", "question", "other"];
 
 // ---------------------------------------------------------------------------
 // Pure helpers (no I/O, no shell — unit-tested directly)
@@ -67,6 +82,31 @@ export function shouldRunAltPass(opts: { noAltFlag: boolean; altTextAiConfig?: s
   return true;
 }
 
+/**
+ * Parse `fm`'s structured-output JSON into a classification. Defensive:
+ * validates the category against the allowed set (else "other"), coerces
+ * isSpam to a boolean, and returns null only when the input is not a usable
+ * JSON object. `fm` field order is not guaranteed, so this never relies on it.
+ */
+export function parseClassification(raw: string): SubmissionClassification | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw.replace(ANSI, "").trim());
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const o = parsed as Record<string, unknown>;
+  const categoryRaw = typeof o.category === "string" ? o.category.toLowerCase() : "";
+  const category = (SUBMISSION_CATEGORIES as string[]).includes(categoryRaw)
+    ? (categoryRaw as SubmissionCategory)
+    : "other";
+  const isSpam =
+    o.isSpam === true || (typeof o.isSpam === "string" && /^(true|yes)$/i.test(o.isSpam));
+  const reason = typeof o.reason === "string" ? o.reason.trim() : "";
+  return { category, isSpam, reason };
+}
+
 // ---------------------------------------------------------------------------
 // Catalog I/O
 // ---------------------------------------------------------------------------
@@ -101,12 +141,12 @@ export interface CommandResult {
 export type CommandRunner = (
   command: string,
   args: string[],
-  opts?: { timeoutMs?: number },
+  opts?: { timeoutMs?: number; input?: string },
 ) => Promise<CommandResult>;
 
 export const defaultRunner: CommandRunner = (command, args, opts = {}) =>
   new Promise((resolve) => {
-    execFile(
+    const child = execFile(
       command,
       args,
       { timeout: opts.timeoutMs ?? 60_000, maxBuffer: 4 * 1024 * 1024 },
@@ -122,6 +162,11 @@ export const defaultRunner: CommandRunner = (command, args, opts = {}) =>
         resolve({ stdout: stdout ?? "", exitCode });
       },
     );
+    if (opts.input != null) {
+      // Guard against EPIPE if the child exits without reading stdin.
+      child.stdin?.on("error", () => {});
+      child.stdin?.end(opts.input);
+    }
   });
 
 // ---------------------------------------------------------------------------
@@ -144,6 +189,68 @@ export async function isFmAvailable(run: CommandRunner = defaultRunner): Promise
 
 /** Identifier recorded in catalog entries for drafts produced by `fm`'s system model. */
 export const FM_MODEL_ID = "apple-fm-system";
+
+// The schema fm expects is NOT generic JSON Schema — it requires fm's own
+// shape (note `x-order`). `enum` IS honored inside that shape. Verified against
+// the real CLI during design. Property descriptions are intentionally terse to
+// stay within the on-device system model's context window.
+const TRIAGE_SCHEMA = {
+  required: ["isSpam", "category", "reason"],
+  "x-order": ["isSpam", "category", "reason"],
+  additionalProperties: false,
+  title: "Triage",
+  type: "object",
+  properties: {
+    isSpam: {
+      type: "boolean",
+      description: "true if the message is spam, advertising, or abuse",
+    },
+    category: {
+      type: "string",
+      enum: ["lead", "support", "question", "other"],
+      description:
+        "lead=potential new customer; support=existing-customer help; question=general inquiry; other=anything else",
+    },
+    reason: { type: "string", description: "short rationale, max 12 words" },
+  },
+};
+
+const TRIAGE_INSTRUCTIONS =
+  "Classify this form submission. A pricing, booking, or service inquiry from a " +
+  "potential new customer is a 'lead'. Help from an existing customer is 'support'.";
+
+/**
+ * Classify a form submission on-device. Writes fm's schema to a temp file,
+ * runs `fm respond --schema` with the submission text on stdin, and parses
+ * the structured JSON. Returns null on any failure (caller falls back).
+ */
+export async function classifySubmission(
+  submissionText: string,
+  run: CommandRunner = defaultRunner,
+): Promise<SubmissionClassification | null> {
+  try {
+    // Fixed temp path is safe because callers classify sequentially (the inbox
+    // sync awaits each call); revisit if classification is ever parallelized.
+    const schemaPath = join(tmpdir(), "anglesite-fm-triage-schema.json");
+    writeFileSync(schemaPath, JSON.stringify(TRIAGE_SCHEMA));
+    const { stdout, exitCode } = await run(
+      "fm",
+      [
+        "respond",
+        "--schema", schemaPath,
+        "--use-case", "content-tagging",
+        "-g",
+        "--no-stream",
+        "-i", TRIAGE_INSTRUCTIONS,
+      ],
+      { timeoutMs: 60_000, input: submissionText },
+    );
+    if (exitCode !== 0) return null;
+    return parseClassification(stdout);
+  } catch {
+    return null;
+  }
+}
 
 const ALT_INSTRUCTIONS =
   "Write concise alt text for this image, suitable for a screen reader. " +

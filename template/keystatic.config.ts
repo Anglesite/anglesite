@@ -637,6 +637,33 @@ const allCollections: Record<string, ReturnType<typeof collection>> = {
           ],
           defaultValue: "new",
         }),
+        aiCategory: fields.select({
+          label: "AI Category",
+          description: "On-device suggestion (advisory). The Status field above is what you triage.",
+          options: [
+            { label: "—", value: "" },
+            { label: "Lead", value: "lead" },
+            { label: "Support", value: "support" },
+            { label: "Question", value: "question" },
+            { label: "Other", value: "other" },
+          ],
+          defaultValue: "",
+        }),
+        aiSpam: fields.select({
+          label: "AI Spam?",
+          description: "On-device suggestion (advisory).",
+          options: [
+            { label: "—", value: "" },
+            { label: "Yes", value: "yes" },
+            { label: "No", value: "no" },
+          ],
+          defaultValue: "",
+        }),
+        aiReason: fields.text({
+          label: "AI Reason",
+          description: "Why the model suggested the above. Advisory — safe to ignore or edit.",
+          multiline: true,
+        }),
         senderName: fields.text({ label: "Sender Name" }),
         senderEmail: fields.text({ label: "Sender Email" }),
         ip: fields.text({
