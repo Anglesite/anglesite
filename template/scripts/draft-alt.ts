@@ -25,10 +25,12 @@ import {
 const ALT_CANDIDATE_EXTENSIONS = new Set([
   ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".tif", ".heif", ".heic", ".webp", ".avif",
 ]);
+// Generated raster files that ARE candidate extensions but should never be
+// captioned. (`.svg` files are already excluded by the extension check above,
+// so no `.svg` filename belongs here.)
 const SKIP_FILENAMES = new Set([
   "apple-touch-icon.png",
   "og-image.png",
-  "favicon.svg",
 ]);
 
 export function isAltCandidate(filePath: string): boolean {
@@ -85,6 +87,11 @@ async function main(): Promise<void> {
   }
   const catalogPath = join(cwd, "image-alt.json");
   const catalog = readCatalog(catalogPath);
+  // This pre-filter makes `ai-alt` deliberately MORE conservative than
+  // `ai-optimize`: it skips images with any entry (draft or reviewed), whereas
+  // `ai-optimize` calls `draftAltForImage` directly and so re-drafts existing
+  // `draft` entries (the source was just re-optimized). A backfill pass must
+  // not re-hammer the on-device model on every run.
   const files = uncataloguedImages(getAltCandidateFiles(imagesDir), publicDir, catalog);
   let drafted = 0;
   for (const file of files) {

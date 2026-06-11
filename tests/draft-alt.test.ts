@@ -17,11 +17,14 @@ describe("isAltCandidate", () => {
     expect(isAltCandidate("/x/scan.tif")).toBe(true);
     expect(isAltCandidate("/x/photo.heif")).toBe(true);
   });
-  it("rejects svg and generated filenames", () => {
+  it("rejects svg by extension, regardless of filename", () => {
     expect(isAltCandidate("/x/logo.svg")).toBe(false);
     expect(isAltCandidate("/x/favicon.svg")).toBe(false);
+  });
+  it("rejects generated png filenames by name (a normal png is a candidate)", () => {
     expect(isAltCandidate("/x/og-image.png")).toBe(false);
     expect(isAltCandidate("/x/apple-touch-icon.png")).toBe(false);
+    expect(isAltCandidate("/x/photo.png")).toBe(true);
   });
   it("rejects non-images", () => {
     expect(isAltCandidate("/x/readme.md")).toBe(false);
