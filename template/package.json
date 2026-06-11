@@ -16,6 +16,7 @@
     "ai-images": "tsx scripts/generate-images.ts",
     "ai-og": "tsx scripts/generate-og-pages.ts",
     "ai-optimize": "tsx scripts/optimize-images.ts",
+    "ai-alt": "tsx scripts/draft-alt.ts",
     "ai-qr": "tsx scripts/qr-generate.ts",
     "ai-linkcheck": "tsx scripts/link-check.ts",
     "ai-forms-build": "tsx scripts/build-forms-catalog.ts",
