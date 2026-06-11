@@ -201,9 +201,17 @@ const TRIAGE_SCHEMA = {
   title: "Triage",
   type: "object",
   properties: {
-    isSpam: { type: "boolean" },
-    category: { type: "string", enum: ["lead", "support", "question", "other"] },
-    reason: { type: "string" },
+    isSpam: {
+      type: "boolean",
+      description: "true if the message is spam, advertising, or abuse",
+    },
+    category: {
+      type: "string",
+      enum: ["lead", "support", "question", "other"],
+      description:
+        "lead=potential new customer; support=existing-customer help; question=general inquiry; other=anything else",
+    },
+    reason: { type: "string", description: "short rationale, max 12 words" },
   },
 };
 
