@@ -285,3 +285,28 @@ export async function generateAltText(
     return null;
   }
 }
+
+/**
+ * Draft alt text for one image and merge it into the catalog as a `draft`,
+ * unless the image already has a usable entry (draft or reviewed-protected).
+ * Shared by `ai-optimize` (source images) and `ai-alt` (all images incl. webp).
+ * Returns the drafted alt, or null if skipped or generation failed.
+ */
+export async function draftAltForImage(
+  catalog: AltCatalog,
+  publicDir: string,
+  absImagePath: string,
+  run?: CommandRunner,
+): Promise<string | null> {
+  const key = catalogKeyFor(publicDir, absImagePath);
+  if (!needsAltDraft(catalog, key)) return null;
+  const alt = await generateAltText(absImagePath, run);
+  if (!alt) return null;
+  mergeAltEntry(catalog, key, {
+    alt,
+    model: FM_MODEL_ID,
+    generatedAt: new Date().toISOString().slice(0, 10),
+    status: "draft",
+  });
+  return alt;
+}
