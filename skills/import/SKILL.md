@@ -667,11 +667,20 @@ curl -L -s -o "public/images/gallery/PAGE-SLUG-NN.jpg" "IMAGE_URL"
 
 Check file size and convert with `sharp-cli` if over 500KB (same as Step 2c).
 
+After the gallery images are downloaded and converted, run `npm run ai-alt`
+again (it's idempotent — it only drafts images that have no entry yet, so this
+just covers the new gallery images). On a capable Mac it drafts on-device alt
+text for any gallery image lacking it into `image-alt.json`; elsewhere it's a
+no-op.
+
 Create a gallery `.astro` page in `src/pages/` with:
 - The page title and meta description
 - `BaseLayout` wrapper
 - A responsive CSS grid layout displaying all downloaded images
-- Each image using Astro's `<img>` tag with the local path and alt text
+- Each image using Astro's `<img>` tag with the local path and alt text — where
+  the source had no alt, use the draft from `image-alt.json` (keyed by the
+  image's `/images/gallery/...` path) and treat that entry as `reviewed`; keep
+  any alt the source provided
 - A note that the owner can rearrange or edit in the source file
 
 ## Step 5 — Generate redirect mappings
