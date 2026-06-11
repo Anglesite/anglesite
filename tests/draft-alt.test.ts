@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { isAltCandidate, getAltCandidateFiles } from "../template/scripts/draft-alt.js";
+import { isAltCandidate, getAltCandidateFiles, uncataloguedImages } from "../template/scripts/draft-alt.js";
+import type { AltCatalog } from "../template/scripts/fm.js";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -11,6 +12,10 @@ describe("isAltCandidate", () => {
     expect(isAltCandidate("/x/photo.webp")).toBe(true);
     expect(isAltCandidate("/x/photo.avif")).toBe(true);
     expect(isAltCandidate("/x/photo.heic")).toBe(true);
+    expect(isAltCandidate("/x/photo.gif")).toBe(true);
+    expect(isAltCandidate("/x/scan.tiff")).toBe(true);
+    expect(isAltCandidate("/x/scan.tif")).toBe(true);
+    expect(isAltCandidate("/x/photo.heif")).toBe(true);
   });
   it("rejects svg and generated filenames", () => {
     expect(isAltCandidate("/x/logo.svg")).toBe(false);
@@ -44,5 +49,16 @@ describe("getAltCandidateFiles", () => {
   });
   it("returns [] for a missing directory", () => {
     expect(getAltCandidateFiles(join(dir, "nope"))).toEqual([]);
+  });
+});
+
+describe("uncataloguedImages", () => {
+  it("keeps only images with no catalog entry (idempotent backfill)", () => {
+    const files = ["/p/images/a.webp", "/p/images/b.webp", "/p/images/c.webp"];
+    const catalog: AltCatalog = {
+      "/images/a.webp": { alt: "x", model: "m", generatedAt: "d", status: "draft" },
+      "/images/b.webp": { alt: "y", model: "m", generatedAt: "d", status: "reviewed" },
+    };
+    expect(uncataloguedImages(files, "/p", catalog)).toEqual(["/p/images/c.webp"]);
   });
 });

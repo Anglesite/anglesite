@@ -18,6 +18,8 @@ import {
   writeCatalog,
   shouldRunAltPass,
   draftAltForImage,
+  catalogKeyFor,
+  type AltCatalog,
 } from "./fm.js";
 
 const ALT_CANDIDATE_EXTENSIONS = new Set([
@@ -34,6 +36,19 @@ export function isAltCandidate(filePath: string): boolean {
   if (!ALT_CANDIDATE_EXTENSIONS.has(ext)) return false;
   if (SKIP_FILENAMES.has(basename(filePath))) return false;
   return true;
+}
+
+/**
+ * Images with no catalog entry yet. `ai-alt` is a backfill pass: it never
+ * re-drafts an image that already has an entry (draft or reviewed), so
+ * re-running it is idempotent and won't re-hammer the on-device model.
+ */
+export function uncataloguedImages(
+  files: string[],
+  publicDir: string,
+  catalog: AltCatalog,
+): string[] {
+  return files.filter((f) => !catalog[catalogKeyFor(publicDir, f)]);
 }
 
 export function getAltCandidateFiles(dir: string): string[] {
@@ -68,9 +83,9 @@ async function main(): Promise<void> {
     console.log("On-device alt drafting unavailable (fm not present). Skipping.");
     return;
   }
-  const files = getAltCandidateFiles(imagesDir);
   const catalogPath = join(cwd, "image-alt.json");
   const catalog = readCatalog(catalogPath);
+  const files = uncataloguedImages(getAltCandidateFiles(imagesDir), publicDir, catalog);
   let drafted = 0;
   for (const file of files) {
     const alt = await draftAltForImage(catalog, publicDir, file);
