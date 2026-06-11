@@ -48,6 +48,20 @@ Open Keystatic → **Form Submissions**. Each entry shows the form it came from,
 
 Add private commentary in the **Notes** field — it's never published.
 
+## AI triage (Mac only)
+
+If you're on a Mac with Apple Intelligence turned on, syncing your inbox also
+adds a quick on-device read on each new submission: whether it looks like spam,
+and a rough category (lead, support, question, or other). This happens entirely
+on your Mac — no submissions are uploaded anywhere.
+
+These are suggestions, not decisions. Your webmaster shows you the summary
+("3 new: 1 likely spam, 2 leads") and you stay in control of how each one is
+filed — the AI never marks anything as spam for you. On computers without this
+feature, you just triage as usual.
+
+To turn it off, add `INBOX_TRIAGE_AI=off` to `.site-config`.
+
 ## CSV export
 
 ```sh
