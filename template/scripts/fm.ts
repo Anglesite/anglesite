@@ -10,7 +10,8 @@
 
 import { execFile } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { relative } from "node:path";
+import { relative, join } from "node:path";
+import { tmpdir } from "node:os";
 
 // ---------------------------------------------------------------------------
 // Catalog types
@@ -188,6 +189,58 @@ export async function isFmAvailable(run: CommandRunner = defaultRunner): Promise
 
 /** Identifier recorded in catalog entries for drafts produced by `fm`'s system model. */
 export const FM_MODEL_ID = "apple-fm-system";
+
+// The schema fm expects is NOT generic JSON Schema — it requires fm's own
+// shape (note `x-order`). `enum` IS honored inside that shape. Verified against
+// the real CLI during design. Property descriptions are intentionally terse to
+// stay within the on-device system model's context window.
+const TRIAGE_SCHEMA = {
+  required: ["isSpam", "category", "reason"],
+  "x-order": ["isSpam", "category", "reason"],
+  additionalProperties: false,
+  title: "Triage",
+  type: "object",
+  properties: {
+    isSpam: { type: "boolean" },
+    category: { type: "string", enum: ["lead", "support", "question", "other"] },
+    reason: { type: "string" },
+  },
+};
+
+const TRIAGE_INSTRUCTIONS =
+  "Classify this form submission. A pricing, booking, or service inquiry from a " +
+  "potential new customer is a 'lead'. Help from an existing customer is 'support'.";
+
+/**
+ * Classify a form submission on-device. Writes fm's schema to a temp file,
+ * runs `fm respond --schema` with the submission text on stdin, and parses
+ * the structured JSON. Returns null on any failure (caller falls back).
+ */
+export async function classifySubmission(
+  submissionText: string,
+  run: CommandRunner = defaultRunner,
+): Promise<SubmissionClassification | null> {
+  try {
+    const schemaPath = join(tmpdir(), "anglesite-fm-triage-schema.json");
+    writeFileSync(schemaPath, JSON.stringify(TRIAGE_SCHEMA));
+    const { stdout, exitCode } = await run(
+      "fm",
+      [
+        "respond",
+        "--schema", schemaPath,
+        "--use-case", "content-tagging",
+        "-g",
+        "--no-stream",
+        "-i", TRIAGE_INSTRUCTIONS,
+      ],
+      { timeoutMs: 60_000, input: submissionText },
+    );
+    if (exitCode !== 0) return null;
+    return parseClassification(stdout);
+  } catch {
+    return null;
+  }
+}
 
 const ALT_INSTRUCTIONS =
   "Write concise alt text for this image, suitable for a screen reader. " +

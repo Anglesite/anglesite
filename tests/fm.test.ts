@@ -8,6 +8,7 @@ import {
   readCatalog,
   writeCatalog,
   parseClassification,
+  classifySubmission,
   type AltCatalog,
   type SubmissionClassification,
 } from "../template/scripts/fm.js";
@@ -246,5 +247,33 @@ describe("parseClassification", () => {
   it("normalizes category casing", () => {
     expect(parseClassification('{"isSpam": false, "category": "Lead", "reason": ""}')!.category).toBe("lead");
     expect(parseClassification('{"isSpam": false, "category": "SUPPORT", "reason": ""}')!.category).toBe("support");
+  });
+});
+
+describe("classifySubmission", () => {
+  it("returns the parsed classification on success and forwards text via stdin", async () => {
+    let seenInput: string | undefined;
+    let seenArgs: string[] = [];
+    const run: CommandRunner = async (_cmd, args, opts) => {
+      seenInput = opts?.input;
+      seenArgs = args;
+      return { stdout: '{"isSpam": false, "category": "lead", "reason": "quote request"}', exitCode: 0 };
+    };
+    const r = await classifySubmission("Form: contact\nMessage: please send a quote", run);
+    expect(r).toEqual({ isSpam: false, category: "lead", reason: "quote request" });
+    expect(seenInput).toContain("please send a quote");
+    expect(seenArgs).toContain("--schema");
+  });
+  it("returns null on non-zero exit", async () => {
+    const run: CommandRunner = async () => ({ stdout: "{}", exitCode: 1 });
+    expect(await classifySubmission("x", run)).toBeNull();
+  });
+  it("returns null on unparseable output", async () => {
+    const run: CommandRunner = async () => ({ stdout: "not json", exitCode: 0 });
+    expect(await classifySubmission("x", run)).toBeNull();
+  });
+  it("returns null when the runner throws", async () => {
+    const run: CommandRunner = async () => { throw new Error("boom"); };
+    expect(await classifySubmission("x", run)).toBeNull();
   });
 });
