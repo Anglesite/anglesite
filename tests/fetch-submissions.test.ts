@@ -48,6 +48,16 @@ describe("renderSubmission", () => {
     expect(out).toContain("aiModel: apple-fm-system");
     expect(out).toContain("status: new");
   });
+  it("quotes an aiReason containing colon-space (valid YAML)", () => {
+    const out = renderSubmission(sample, { category: "question", isSpam: false, reason: "re: pricing question" });
+    expect(out).toContain('aiReason: "re: pricing question"');
+  });
+  it("still emits an ISO timestamp without escaping internal colons", () => {
+    // Timestamps start with a digit so escapeYaml quotes them for YAML safety,
+    // but internal colons (12:00:00Z) must not be double-escaped.
+    const out = renderSubmission(sample);
+    expect(out).toContain('submittedAt: "2026-06-10T12:00:00Z"');
+  });
 });
 
 describe("formatTriageSummary", () => {

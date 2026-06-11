@@ -77,7 +77,14 @@ function listExistingIds(): Set<string> {
 
 function escapeYaml(value: string): string {
   if (value === "") return '""';
-  if (/^[\w\-/.@:+ ]+$/.test(value) && !/^[\d-]/.test(value)) return value;
+  if (
+    /^[\w\-/.@:+ ]+$/.test(value) &&
+    !/^[\d-]/.test(value) &&
+    !/:\s/.test(value) && // colon followed by whitespace is a YAML mapping indicator
+    !/:$/.test(value) // trailing colon
+  ) {
+    return value;
+  }
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
 }
 
