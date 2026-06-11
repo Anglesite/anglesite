@@ -9,6 +9,7 @@ import {
   writeCatalog,
   parseClassification,
   classifySubmission,
+  draftAltForImage,
   type AltCatalog,
   type SubmissionClassification,
 } from "../template/scripts/fm.js";
@@ -277,5 +278,45 @@ describe("classifySubmission", () => {
   it("returns null when the runner throws", async () => {
     const run: CommandRunner = async () => { throw new Error("boom"); };
     expect(await classifySubmission("x", run)).toBeNull();
+  });
+});
+
+describe("draftAltForImage", () => {
+  it("drafts and merges a draft entry for a missing key", async () => {
+    const catalog: AltCatalog = {};
+    const run: CommandRunner = async () => ({ stdout: "A red barn", exitCode: 0 });
+    const alt = await draftAltForImage(catalog, "/site/public", "/site/public/images/x.webp", run);
+    expect(alt).toBe("A red barn");
+    expect(catalog["/images/x.webp"]).toMatchObject({
+      alt: "A red barn",
+      model: "apple-fm-system",
+      status: "draft",
+    });
+    expect(catalog["/images/x.webp"].generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+  it("returns null and does not overwrite a reviewed entry", async () => {
+    const catalog: AltCatalog = {
+      "/images/x.webp": { alt: "kept", model: "m", generatedAt: "2026-01-01", status: "reviewed" },
+    };
+    const run: CommandRunner = async () => ({ stdout: "new", exitCode: 0 });
+    const alt = await draftAltForImage(catalog, "/site/public", "/site/public/images/x.webp", run);
+    expect(alt).toBeNull();
+    expect(catalog["/images/x.webp"].alt).toBe("kept");
+  });
+  it("re-drafts when the existing entry is a draft", async () => {
+    const catalog: AltCatalog = {
+      "/images/x.webp": { alt: "old", model: "m", generatedAt: "2026-01-01", status: "draft" },
+    };
+    const run: CommandRunner = async () => ({ stdout: "fresh", exitCode: 0 });
+    const alt = await draftAltForImage(catalog, "/site/public", "/site/public/images/x.webp", run);
+    expect(alt).toBe("fresh");
+    expect(catalog["/images/x.webp"].alt).toBe("fresh");
+  });
+  it("returns null when generateAltText yields nothing (non-zero exit)", async () => {
+    const catalog: AltCatalog = {};
+    const run: CommandRunner = async () => ({ stdout: "", exitCode: 1 });
+    const alt = await draftAltForImage(catalog, "/site/public", "/site/public/images/x.webp", run);
+    expect(alt).toBeNull();
+    expect(catalog["/images/x.webp"]).toBeUndefined();
   });
 });

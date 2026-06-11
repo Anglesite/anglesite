@@ -12,14 +12,10 @@ import { join, extname, basename, dirname } from "node:path";
 import { readConfig } from "./config.js";
 import {
   isFmAvailable,
-  generateAltText,
-  catalogKeyFor,
   readCatalog,
   writeCatalog,
-  needsAltDraft,
-  mergeAltEntry,
   shouldRunAltPass,
-  FM_MODEL_ID,
+  draftAltForImage,
   type AltCatalog,
 } from "./fm.js";
 
@@ -160,19 +156,10 @@ async function main() {
     // concurrent calls would contend on the same hardware, not speed up.
     if (fmReady) {
       const primaryAbs = join(dirname(file), result.primary);
-      const key = catalogKeyFor(publicDir, primaryAbs);
-      if (needsAltDraft(catalog, key)) {
-        const alt = await generateAltText(primaryAbs);
-        if (alt) {
-          mergeAltEntry(catalog, key, {
-            alt,
-            model: FM_MODEL_ID,
-            generatedAt: new Date().toISOString().slice(0, 10),
-            status: "draft",
-          });
-          altDrafted++;
-          console.log(`    alt draft: ${alt}`);
-        }
+      const alt = await draftAltForImage(catalog, publicDir, primaryAbs);
+      if (alt) {
+        altDrafted++;
+        console.log(`    alt draft: ${alt}`);
       }
     }
   }

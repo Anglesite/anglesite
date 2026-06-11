@@ -227,7 +227,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Industry tools first | Recommend purpose-built solutions (Square, Shopify, Clio, etc.) over generic databases |
 | Edge A/B testing (not client-side) | Build-time variants + Worker-entry edge assignment = zero flicker, static-site compatible |
 | Pagefind (not Algolia/Orama) | Build-time index, ~6 KB JS, no external service, first-class Astro integration |
-| On-device `fm` as optional authoring accelerator | Free/private/offline drafts — alt text and inbox triage; never in the deployed site, always falls back to Claude (ADR-0021) |
+| On-device `fm` as optional authoring accelerator | Free/private/offline drafts — alt text (incl. imported images via `ai-alt`) and inbox triage; never in the deployed site, always falls back to Claude (ADR-0021) |
 
 Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0021).
 
