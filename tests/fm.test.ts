@@ -196,4 +196,14 @@ describe("defaultRunner (real execFile)", () => {
     expect(r.exitCode).toBe(2);
     expect(r.stdout).toContain("partial");
   });
+
+  it("passes opts.input to the child's stdin", async () => {
+    const r = await defaultRunner(
+      process.execPath,
+      ["-e", "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(d.toUpperCase()))"],
+      { input: "hello" },
+    );
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toBe("HELLO");
+  });
 });

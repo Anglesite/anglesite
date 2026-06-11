@@ -101,12 +101,12 @@ export interface CommandResult {
 export type CommandRunner = (
   command: string,
   args: string[],
-  opts?: { timeoutMs?: number },
+  opts?: { timeoutMs?: number; input?: string },
 ) => Promise<CommandResult>;
 
 export const defaultRunner: CommandRunner = (command, args, opts = {}) =>
   new Promise((resolve) => {
-    execFile(
+    const child = execFile(
       command,
       args,
       { timeout: opts.timeoutMs ?? 60_000, maxBuffer: 4 * 1024 * 1024 },
@@ -122,6 +122,11 @@ export const defaultRunner: CommandRunner = (command, args, opts = {}) =>
         resolve({ stdout: stdout ?? "", exitCode });
       },
     );
+    if (opts.input != null) {
+      // Guard against EPIPE if the child exits without reading stdin.
+      child.stdin?.on("error", () => {});
+      child.stdin?.end(opts.input);
+    }
   });
 
 // ---------------------------------------------------------------------------
