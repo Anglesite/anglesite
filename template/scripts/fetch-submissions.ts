@@ -20,15 +20,16 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readConfig } from "./config.js";
+import { isFmAvailable, classifySubmission, FM_MODEL_ID, type SubmissionClassification } from "./fm.js";
 
-interface SubmissionEntry {
+export interface SubmissionEntry {
   key: string;
   label?: string;
   type?: string;
   value: string;
 }
 
-interface Submission {
+export interface Submission {
   id: string;
   formSlug: string;
   formTitle?: string;
@@ -90,9 +91,20 @@ function renderEntry(entry: SubmissionEntry): string {
   return lines.join("\n");
 }
 
-function renderSubmission(s: Submission): string {
+export function renderSubmission(
+  s: Submission,
+  classification?: SubmissionClassification | null,
+): string {
   const status = s.status ?? "new";
   const entries = (s.entries ?? []).map(renderEntry).join("\n");
+  const aiLines = classification
+    ? [
+        `aiCategory: ${escapeYaml(classification.category)}`,
+        `aiSpam: ${classification.isSpam ? "yes" : "no"}`,
+        `aiReason: ${escapeYaml(classification.reason)}`,
+        `aiModel: ${escapeYaml(FM_MODEL_ID)}`,
+      ]
+    : [];
   return [
     "---",
     `id: ${escapeYaml(s.id)}`,
@@ -103,11 +115,43 @@ function renderSubmission(s: Submission): string {
     `senderName: ${escapeYaml(s.senderName ?? "")}`,
     `senderEmail: ${escapeYaml(s.senderEmail ?? "")}`,
     `ip: ${escapeYaml(s.ip ?? "")}`,
+    ...aiLines,
     "entries:",
     entries,
     "---",
     "",
   ].join("\n");
+}
+
+export function buildSubmissionText(s: Submission): string {
+  const lines: string[] = [`Form: ${s.formTitle ?? s.formSlug}`];
+  if (s.senderName) lines.push(`From: ${s.senderName}`);
+  if (s.senderEmail) lines.push(`Email: ${s.senderEmail}`);
+  for (const e of s.entries ?? []) {
+    const label = e.label ?? e.key;
+    lines.push(`${label}: ${(e.value ?? "").slice(0, 1000)}`);
+  }
+  return lines.join("\n");
+}
+
+export interface TriageTally {
+  classified: number;
+  spam: number;
+  lead: number;
+  support: number;
+  question: number;
+  other: number;
+}
+
+export function formatTriageSummary(t: TriageTally): string {
+  if (t.classified === 0) return "";
+  const parts: string[] = [];
+  if (t.spam) parts.push(`${t.spam} likely spam`);
+  if (t.lead) parts.push(`${t.lead} lead${t.lead === 1 ? "" : "s"}`);
+  if (t.support) parts.push(`${t.support} support`);
+  if (t.question) parts.push(`${t.question} question${t.question === 1 ? "" : "s"}`);
+  if (t.other) parts.push(`${t.other} other`);
+  return `Triaged ${t.classified} new: ${parts.join(", ")}`;
 }
 
 function workerUrls(): string[] {
@@ -119,7 +163,7 @@ function workerUrls(): string[] {
   return [...urls];
 }
 
-export async function fetchSubmissions(): Promise<{ added: number; skipped: number }> {
+export async function fetchSubmissions(): Promise<{ added: number; skipped: number; triage: TriageTally }> {
   const urls = workerUrls();
   if (urls.length === 0) {
     throw new Error(
@@ -132,6 +176,10 @@ export async function fetchSubmissions(): Promise<{ added: number; skipped: numb
       "INBOX_SECRET not set in .env.local. Run /anglesite:inbox to set it up.",
     );
   }
+
+  const triageEnabled =
+    readConfig("INBOX_TRIAGE_AI") !== "off" && (await isFmAvailable());
+  const triage: TriageTally = { classified: 0, spam: 0, lead: 0, support: 0, question: 0, other: 0 };
 
   if (!existsSync(SUBMISSIONS_DIR)) {
     mkdirSync(SUBMISSIONS_DIR, { recursive: true });
@@ -158,13 +206,22 @@ export async function fetchSubmissions(): Promise<{ added: number; skipped: numb
         skipped++;
         continue;
       }
+      let classification: SubmissionClassification | null = null;
+      if (triageEnabled) {
+        classification = await classifySubmission(buildSubmissionText(item));
+        if (classification) {
+          triage.classified++;
+          if (classification.isSpam) triage.spam++;
+          else triage[classification.category]++;
+        }
+      }
       const path = join(SUBMISSIONS_DIR, `${item.id}.mdoc`);
-      writeFileSync(path, renderSubmission(item));
+      writeFileSync(path, renderSubmission(item, classification));
       added++;
     }
   }
 
-  return { added, skipped };
+  return { added, skipped, triage };
 }
 
 async function main(): Promise<void> {
@@ -172,6 +229,8 @@ async function main(): Promise<void> {
   console.log(
     `fetch-submissions: ${result.added} new, ${result.skipped} already on disk`,
   );
+  const summary = formatTriageSummary(result.triage);
+  if (summary) console.log(summary);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
