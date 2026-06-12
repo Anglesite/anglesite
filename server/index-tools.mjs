@@ -10,6 +10,7 @@ import { applyEditInputShape } from "./apply-edit-schema.mjs";
 import { applyEdit } from "./apply-edit-dispatcher.mjs";
 import { recordEdit } from "./edit-history.mjs";
 import { undoEdit } from "./undo-edit.mjs";
+import { listContent } from "./list-content.mjs";
 
 /**
  * Build the Anglesite MCP server with every tool registered against `projectRoot`.
@@ -105,6 +106,23 @@ export function buildServer(projectRoot) {
         content: [{ type: "text", text: JSON.stringify(result) }],
         isError: result.status === "refused",
       };
+    },
+  );
+
+  server.tool(
+    "list_content",
+    "List the site's content — pages (routes), posts (content-collection entries), and images — as a site-agnostic JSON snapshot. Consumed by the Anglesite-app to build its content graph for Siri entity resolution. No entity ids or siteID are emitted; the host stamps those.",
+    {},
+    () => {
+      try {
+        const listing = listContent(projectRoot);
+        return { content: [{ type: "text", text: JSON.stringify(listing) }] };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: error.message }],
+          isError: true,
+        };
+      }
     },
   );
 

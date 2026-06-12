@@ -182,6 +182,7 @@ describe("MCP annotation server", () => {
         "add_annotation",
         "apply_edit",
         "list_annotations",
+        "list_content",
         "resolve_annotation",
         "undo_edit",
       ]);
