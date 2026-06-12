@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
@@ -181,7 +181,10 @@ describe("MCP annotation server", () => {
       expect(names).toEqual([
         "add_annotation",
         "apply_edit",
+        "create_page",
+        "create_post",
         "list_annotations",
+        "list_content",
         "resolve_annotation",
         "undo_edit",
       ]);
@@ -355,6 +358,90 @@ describe("MCP annotation server", () => {
       };
       const remaining = JSON.parse(listResult.content[0].text);
       expect(remaining).toHaveLength(0);
+    } finally {
+      proc.kill();
+    }
+  });
+
+  it("list_content returns structured pages, posts, and images over stdio", async () => {
+    mkdirSync(join(tmpDir, "src", "pages"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "src", "pages", "about.astro"),
+      `<BaseLayout title="About" description="x" />`,
+    );
+    mkdirSync(join(tmpDir, "src", "content", "posts"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "src", "content", "posts", "hello.md"),
+      `---\ntitle: Hello\ndescription: d\npublishDate: 2026-06-01\ndraft: false\ntags: [intro]\n---\nBody`,
+    );
+
+    const proc = startServer(tmpDir);
+    try {
+      await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "test", version: "1.0.0" },
+        },
+      });
+      sendNotification(proc, {
+        jsonrpc: "2.0",
+        method: "notifications/initialized",
+      });
+
+      const response = await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "list_content", arguments: {} },
+      });
+      const result = response.result as { content: { text: string }[] };
+      const listing = JSON.parse(result.content[0].text);
+      expect(listing.pages).toEqual([
+        expect.objectContaining({ route: "/about", filePath: "src/pages/about.astro", title: "About" }),
+      ]);
+      expect(listing.posts).toEqual([
+        expect.objectContaining({ collection: "posts", slug: "hello", title: "Hello", draft: false, tags: ["intro"] }),
+      ]);
+      expect(listing.images).toEqual([]);
+    } finally {
+      proc.kill();
+    }
+  });
+
+  it("create_page scaffolds a page and reports its route over stdio", async () => {
+    const proc = startServer(tmpDir);
+    try {
+      await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "test", version: "1.0.0" },
+        },
+      });
+      sendNotification(proc, {
+        jsonrpc: "2.0",
+        method: "notifications/initialized",
+      });
+
+      const response = await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "create_page", arguments: { name: "Contact Us" } },
+      });
+      const result = response.result as { content: { text: string }[]; isError?: boolean };
+      expect(result.isError).toBeFalsy();
+      const created = JSON.parse(result.content[0].text);
+      expect(created.route).toBe("/contact-us");
+      expect(created.filePath).toBe("src/pages/contact-us.astro");
+      expect(readFileSync(join(tmpDir, created.filePath), "utf-8")).toContain('title="Contact Us"');
     } finally {
       proc.kill();
     }

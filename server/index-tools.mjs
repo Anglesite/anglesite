@@ -10,6 +10,8 @@ import { applyEditInputShape } from "./apply-edit-schema.mjs";
 import { applyEdit } from "./apply-edit-dispatcher.mjs";
 import { recordEdit } from "./edit-history.mjs";
 import { undoEdit } from "./undo-edit.mjs";
+import { listContent } from "./list-content.mjs";
+import { createPage, createPost } from "./create-content.mjs";
 
 /**
  * Build the Anglesite MCP server with every tool registered against `projectRoot`.
@@ -105,6 +107,59 @@ export function buildServer(projectRoot) {
         content: [{ type: "text", text: JSON.stringify(result) }],
         isError: result.status === "refused",
       };
+    },
+  );
+
+  // Siri AI Phase A content tools (#140 / A.6). `list_content` feeds the Anglesite-app's
+  // SiteContentGraph (#142); `create_page`/`create_post` back the Add-Page/Add-Post intents (A.5).
+  server.tool(
+    "list_content",
+    "List the site's pages, article-like content-collection entries (posts, notes, episodes, experiments), and images under public/images, as structured JSON. Read-only; the filesystem is the source of truth.",
+    {},
+    () => {
+      const listing = listContent(projectRoot);
+      return { content: [{ type: "text", text: JSON.stringify(listing) }] };
+    },
+  );
+
+  server.tool(
+    "create_page",
+    "Scaffold a new Astro page under src/pages/ from a BaseLayout template and commit it. Does not overwrite an existing page.",
+    {
+      name: z.string().describe("Human-readable page name, e.g. 'About Us'. Used as the title."),
+      route: z
+        .string()
+        .optional()
+        .describe("URL route, e.g. /about or /services/web. Derived from name when omitted."),
+    },
+    ({ name, route }) => {
+      try {
+        const result = createPage(projectRoot, { name, route });
+        return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: error.message }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "create_post",
+    "Scaffold a new content-collection entry (default collection: posts) as a draft from a template and commit it. Does not overwrite an existing entry.",
+    {
+      title: z.string().describe("Post title. Used as the slug source when slug is omitted."),
+      collection: z
+        .string()
+        .optional()
+        .describe("Content collection name, e.g. posts (default) or notes."),
+      slug: z.string().optional().describe("URL slug. Derived from title when omitted."),
+    },
+    ({ title, collection, slug }) => {
+      try {
+        const result = createPost(projectRoot, { title, collection, slug });
+        return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: error.message }], isError: true };
+      }
     },
   );
 
