@@ -10,7 +10,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ├── .claude-plugin/
 │   ├── plugin.json               Plugin manifest (name, version, metadata)
 │   └── marketplace.json          Marketplace catalog — this repo is also its own marketplace
-├── skills/                       Skills (54 total: 29 user-facing, 25 model-only)
+├── skills/                       Skills (56 total: 31 user-facing, 25 model-only)
 │   ├── start/SKILL.md            First-time setup + scaffolding
 │   ├── deploy/SKILL.md           Build, scan, deploy to Cloudflare Workers
 │   ├── check/SKILL.md            Health audit + troubleshooting
@@ -64,7 +64,9 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── giscus/SKILL.md          Blog comments via Giscus + GitHub Discussions (user-facing)
 │   ├── consent/SKILL.md         Category-based GDPR/CCPA cookie consent banner (user-facing)
 │   ├── membership/SKILL.md       Paywall + content gating: free (newsletter) and paid (Stripe) tiers (user-facing)
-│   └── tracking/SKILL.md         Meta Pixel, Google Ads, GA4, LinkedIn, TikTok, Pinterest, X via @astrojs/partytown + Microsoft Clarity (main thread) (user-facing)
+│   ├── tracking/SKILL.md         Meta Pixel, Google Ads, GA4, LinkedIn, TikTok, Pinterest, X via @astrojs/partytown + Microsoft Clarity (main thread) (user-facing)
+│   ├── pwa/SKILL.md              Progressive Web App: installable, offline support, service worker (user-facing)
+│   └── share/SKILL.md            Native sharing via Web Share API + clipboard fallback (user-facing)
 ├── settings.json                 Plugin settings (empty — permissions via allowed-tools)
 ├── hooks/hooks.json              PreToolUse hook for deploy safety scans
 ├── scripts/
@@ -168,6 +170,8 @@ Two levels of agent instructions exist — do not confuse them:
 | `consent` | Category-based GDPR/CCPA cookie consent banner; gates third-party scripts/embeds via `data-consent` |
 | `membership` | Paywall and content gating: free tier (newsletter) and paid tier (Stripe), edge-gated via signed cookie |
 | `tracking` | Meta Pixel, Google Ads, GA4, LinkedIn Insight, TikTok, Pinterest, X — wrapped in `@astrojs/partytown` so they run in a worker, not on the main thread; plus Microsoft Clarity (heatmaps + session recording), which runs on the main thread because session replay needs DOM access |
+| `pwa` | Progressive Web App: standalone display, service worker with offline caching, install prompt — no app store required |
+| `share` | Native share button via Web Share API (mobile) with copy-to-clipboard fallback (desktop) — no third-party share widgets |
 
 **Model-only** (called programmatically by other skills, `user-invocable: false`):
 
