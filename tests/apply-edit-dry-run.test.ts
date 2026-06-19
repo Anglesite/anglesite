@@ -58,4 +58,21 @@ describe("apply_edit dry_run", () => {
     const { join: pathJoin } = await import("node:path");
     expect(existsSync(pathJoin(root, "public/images"))).toBe(false);
   });
+
+  it("dry_run edit-style returns a preview and leaves the file unchanged", async () => {
+    const file = join(root, "src/pages/about.astro");
+    writeFileSync(file, "---\n---\n<h1 id=\"t\">Welcome</h1>\n");
+    const before = readFileSync(file, "utf-8");
+    const res = await applyEdit(root, {
+      id: "9", path: "/about/",
+      selector: { tag: "h1", id: "t", classes: [], nthChild: 1, textContent: "Welcome" },
+      op: "edit-style", value: { property: "color", value: "teal" }, dry_run: true,
+    });
+    expect(res.isError).toBeFalsy();
+    const body = JSON.parse(res.content[0].text);
+    expect(body.type).toBe("anglesite:edit-preview");
+    expect(body.op).toBe("edit-style");
+    expect(body.after).toMatch(/color:\s*teal/);
+    expect(readFileSync(file, "utf-8")).toBe(before); // unchanged
+  });
 });
