@@ -38,7 +38,7 @@ export const elementInfoSchema = z.object({
 
 /** Edit operations the patcher knows how to apply. Phase 5's patcher (#295) implements these;
  *  new ops require an explicit enum addition + a resolver update. */
-export const editOps = ["replace-text", "replace-attr", "replace-image-src"];
+export const editOps = ["replace-text", "replace-attr", "replace-image-src", "edit-style"];
 
 /** The MCP tool's input shape, as passed to `server.tool(name, description, shape, handler)`. */
 export const applyEditInputShape = {
@@ -60,12 +60,12 @@ export const applyEditInputShape = {
   op: z
     .enum(editOps)
     .describe(
-      "Edit operation: replace-text (innerText), replace-attr (op needs value to be {name, value}), replace-image-src (value is {filename, mimeType, dataURL})",
+      "Edit operation: replace-text (innerText), replace-attr (op needs value to be {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>)",
     ),
   value: z
     .unknown()
     .describe(
-      "Operation payload; varies by op (string for replace-text, {name, value} for replace-attr, {filename, mimeType, dataURL} for replace-image-src)",
+      "Operation payload; varies by op (string for replace-text, {name, value} for replace-attr, {filename, mimeType, dataURL} for replace-image-src, {property, value} for edit-style)",
     ),
   dry_run: z
     .boolean()

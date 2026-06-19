@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, extname, basename, dirname } from "node:path";
+import { rewriteAstroStyle } from "./style-edit.mjs";
 
 /**
  * @typedef {import('./apply-edit-schema.mjs').default} _unused
@@ -19,6 +20,9 @@ import { join, relative, extname, basename, dirname } from "node:path";
  * @returns {ResolveResult | ResolveRefusal}
  */
 export function resolve(projectRoot, edit) {
+  if (edit.op === "edit-style") {
+    return resolveStyle(projectRoot, edit);
+  }
   const resolvers = [resolveMdoc, resolveKeystatic, resolveAstro];
   let bestRefusal = /** @type {ResolveRefusal | null} */ (null);
 
@@ -428,6 +432,37 @@ function findValueInDataFile(source, needle, ext) {
 }
 
 // ── .astro resolver ───────────────────────────────────────────────
+
+/** Resolve an edit-style op to a whole-file rewrite of the owning .astro component. */
+function resolveStyle(projectRoot, edit) {
+  const { path: pagePath, selector, value } = edit;
+  if (!value || typeof value !== "object" || !value.property) {
+    return refuse("no-match", "edit-style value must be { property, value }");
+  }
+  const candidates = pathToAstroCandidates(projectRoot, pagePath);
+  if (candidates.length === 0) {
+    return refuse("no-match", `no .astro file found for path ${pagePath}`);
+  }
+  const hits = [];
+  for (const file of candidates) {
+    let source;
+    try {
+      source = readFileSync(file, "utf-8");
+    } catch {
+      continue;
+    }
+    const r = rewriteAstroStyle(source, selector, value.property, value.value);
+    if (!r.refused) hits.push({ file: relative(projectRoot, file), source, r });
+  }
+  if (hits.length === 0) {
+    return refuse("no-match", `could not locate <${selector.tag}> for style edit`);
+  }
+  if (hits.length > 1) {
+    return refuse("ambiguous", `element matched in ${hits.length} .astro files`);
+  }
+  const { file, source, r } = hits[0];
+  return { file, range: { start: 0, end: source.length }, replacement: r.next };
+}
 
 function resolveAstro(projectRoot, edit) {
   const { path: pagePath, selector, op, value } = edit;
