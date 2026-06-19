@@ -42,4 +42,20 @@ describe("apply_edit dry_run", () => {
     expect(res.isError).toBe(true);
     expect(JSON.parse(res.content[0].text).reason).toBe("no-match");
   });
+
+  it("dry_run refuses replace-image-src without writing image files", async () => {
+    const res = await applyEdit(root, {
+      id: "img1", path: "/about/",
+      selector: { tag: "img", classes: [], nthChild: 1, textContent: "/images/hero.jpg" },
+      op: "replace-image-src",
+      value: { filename: "x.jpg", mimeType: "image/jpeg", dataURL: "data:image/jpeg;base64,AAAA" },
+      dry_run: true,
+    });
+    expect(res.isError).toBe(true);
+    expect(JSON.parse(res.content[0].text).reason).toBe("not-implemented");
+    // read-only: no public/images dir was created
+    const { existsSync } = await import("node:fs");
+    const { join: pathJoin } = await import("node:path");
+    expect(existsSync(pathJoin(root, "public/images"))).toBe(false);
+  });
 });
