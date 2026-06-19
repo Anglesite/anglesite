@@ -67,6 +67,12 @@ export const applyEditInputShape = {
     .describe(
       "Operation payload; varies by op (string for replace-text, {name, value} for replace-attr, {filename, mimeType, dataURL} for replace-image-src)",
     ),
+  dry_run: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, compute the would-be change and return an edit-preview {before, after} WITHOUT writing to disk or recording history",
+    ),
 };
 
 /** Build the MCP `content` entry for an edit-failed response. The handler wraps this in

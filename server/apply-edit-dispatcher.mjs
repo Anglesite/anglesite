@@ -35,6 +35,7 @@ import { optimizeImage } from "./optimize-images.mjs";
 import {
   createEditAppliedContent,
   createEditFailedContent,
+  createEditPreviewContent,
 } from "./apply-edit-schema.mjs";
 
 function failed(id, reason, detail) {
@@ -48,6 +49,19 @@ function applied(id, file, range, commit, result) {
 /** Splice `replacement` into `source` at the resolved byte range. */
 function spliceSource(source, range, replacement) {
   return source.slice(0, range.start) + replacement + source.slice(range.end);
+}
+
+/** Bounded before/after fragments around a [start,end) splice — keeps preview payloads small. */
+function windowAround(source, start, end, replacement, pad = 200) {
+  const from = Math.max(0, start - pad);
+  const to = Math.min(source.length, end + pad);
+  const before = source.slice(from, to);
+  const after = source.slice(from, start) + replacement + source.slice(end, to);
+  return { before, after };
+}
+
+function preview(id, file, range, op, before, after) {
+  return { content: [createEditPreviewContent(id, file, range, op, before, after)] };
 }
 
 /** Atomic write via temp-sibling + rename, so a crashed mid-write can't truncate the source. */
@@ -195,6 +209,11 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
   }
 
   const next = spliceSource(source, range, replacement);
+
+  if (edit.dry_run) {
+    const { before, after } = windowAround(source, range.start, range.end, replacement);
+    return preview(edit.id, file, range, edit.op, before, after);
+  }
 
   try {
     atomicWrite(absPath, next);
