@@ -14,7 +14,12 @@ function refuse(reason, detail) {
   return { refused: true, reason, detail };
 }
 
-/** Locate the element's opening tag in `source`. Returns {start, end, tagText} or null. */
+/**
+ * Locate the element's opening tag in `source`.
+ * Returns {start, end, tagText} on success,
+ * {ambiguous: true} when multiple candidates exist but no text anchor resolves them,
+ * or null when no candidate found.
+ */
 function findOpeningTag(source, selector) {
   const tag = selector.tag?.toLowerCase();
   if (!tag) return null;
@@ -34,7 +39,9 @@ function findOpeningTag(source, selector) {
       if (owning) return owning;
     }
   }
-  return tags.length === 1 ? tags[0] : null; // ambiguous without text anchor
+  if (tags.length === 1) return tags[0];
+  // Multiple candidates but no usable text anchor — signal ambiguity to the caller.
+  return { ambiguous: true };
 }
 
 /** Derive the CSS selector for the element, mutating the tag to add a marker class if needed. */
@@ -54,26 +61,36 @@ function deriveSelector(tagText, selector) {
 /** Insert/merge `property: value` for `selectorUsed` in the file's scoped <style> block. */
 function upsertStyleRule(source, selectorUsed, property, value) {
   const decl = `${property}: ${value};`;
-  const styleRe = /<style>([\s\S]*?)<\/style>/i;
+  // Bug 1 fix: match any <style ...> opening tag (e.g. is:global, lang="scss") and capture it.
+  const styleRe = /(<style\b[^>]*>)([\s\S]*?)<\/style>/i;
   const sm = source.match(styleRe);
   if (!sm) {
     // No <style> block — append one at end of file.
     const block = `\n<style>\n  ${selectorUsed} { ${decl} }\n</style>\n`;
     return source.replace(/\s*$/, "") + block + "\n";
   }
-  const css = sm[1];
+  const openTag = sm[1];
+  const css = sm[2];
   // Existing rule for this selector?
   const ruleRe = new RegExp(`(${escapeRegex(selectorUsed)}\\s*\\{)([^}]*)(\\})`);
   const rm = css.match(ruleRe);
   let newCss;
   if (rm) {
-    const body = rm[2].trim();
-    const merged = body.length ? `${body} ${decl}` : decl;
+    // Bug 2 fix: strip any existing declaration for the same property before merging.
+    // Use a word-boundary-ish check: require the char before the property name to be start, `;`, or
+    // whitespace so that `color` doesn't incorrectly strip `background-color`.
+    const propRe = new RegExp(
+      `(^|;)(\\s*)(?<![\\w-])${escapeRegex(property)}\\s*:[^;]*;?`,
+      "gi",
+    );
+    const bodyStripped = rm[2].replace(propRe, "$1$2").trim();
+    const merged = bodyStripped.length ? `${bodyStripped} ${decl}` : decl;
     newCss = css.replace(ruleRe, `$1 ${merged} $3`);
   } else {
     newCss = `${css.replace(/\s*$/, "")}\n  ${selectorUsed} { ${decl} }\n`;
   }
-  return source.replace(styleRe, `<style>${newCss}</style>`);
+  // Bug 1 fix: reconstruct using the actual opening tag, not a hard-coded <style>.
+  return source.replace(styleRe, `${openTag}${newCss}</style>`);
 }
 
 function escapeRegex(s) {
@@ -83,6 +100,7 @@ function escapeRegex(s) {
 export function rewriteAstroStyle(source, selector, property, value) {
   const tag = findOpeningTag(source, selector);
   if (!tag) return refuse("no-match", `could not locate <${selector.tag}> for style edit`);
+  if (tag.ambiguous) return refuse("ambiguous", `multiple <${selector.tag}> candidates with no usable text anchor`);
   const { selectorUsed, addedMarkerClass, newTagText } = deriveSelector(tag.tagText, selector);
   let next = source;
   if (newTagText !== tag.tagText) {
