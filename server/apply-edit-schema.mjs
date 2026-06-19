@@ -88,3 +88,10 @@ export function createEditAppliedContent(id, file, range, commit, result) {
   if (result !== undefined) body.result = result;
   return { type: "text", text: JSON.stringify(body) };
 }
+
+/** Build the MCP `content` entry for an edit-preview (dry-run) response. `before`/`after` are the
+ *  windowed source fragments around the change — see dispatcher `windowAround`. */
+export function createEditPreviewContent(id, file, range, op, before, after) {
+  const body = { type: "anglesite:edit-preview", id, file, range, op, before, after };
+  return { type: "text", text: JSON.stringify(body) };
+}
