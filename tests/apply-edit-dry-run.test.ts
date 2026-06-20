@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyEdit } from "../server/apply-edit-dispatcher.mjs";
@@ -54,9 +54,7 @@ describe("apply_edit dry_run", () => {
     expect(res.isError).toBe(true);
     expect(JSON.parse(res.content[0].text).reason).toBe("not-implemented");
     // read-only: no public/images dir was created
-    const { existsSync } = await import("node:fs");
-    const { join: pathJoin } = await import("node:path");
-    expect(existsSync(pathJoin(root, "public/images"))).toBe(false);
+    expect(existsSync(join(root, "public/images"))).toBe(false);
   });
 
   it("dry_run edit-style returns a preview and leaves the file unchanged", async () => {
@@ -74,5 +72,28 @@ describe("apply_edit dry_run", () => {
     expect(body.op).toBe("edit-style");
     expect(body.after).toMatch(/color:\s*teal/);
     expect(readFileSync(file, "utf-8")).toBe(before); // unchanged
+  });
+
+  it("edit-style dry_run on a large file returns a bounded preview", async () => {
+    const file = join(root, "src/pages/about.astro");
+    // Build a ~300-line file: lots of filler <p> then the target <h1 id="t">
+    const filler = Array.from({ length: 300 }, (_, i) => `<p>Filler line ${i + 1} — padding content to make this file large enough to test the window bound.</p>`).join("\n");
+    const content = `---\n---\n${filler}\n<h1 id="t">Welcome</h1>\n`;
+    writeFileSync(file, content);
+    const wholeFileLength = content.length;
+    const res = await applyEdit(root, {
+      id: "big1", path: "/about/",
+      selector: { tag: "h1", id: "t", classes: [], nthChild: 1, textContent: "Welcome" },
+      op: "edit-style", value: { property: "color", value: "navy" }, dry_run: true,
+    });
+    expect(res.isError).toBeFalsy();
+    const body = JSON.parse(res.content[0].text);
+    expect(body.type).toBe("anglesite:edit-preview");
+    // The preview fragments must be much smaller than the full file
+    expect(body.before.length).toBeLessThan(wholeFileLength);
+    expect(body.after.length).toBeLessThan(wholeFileLength);
+    // But the changed region (#t style) must appear in the after fragment
+    expect(body.after).toMatch(/color:\s*navy/);
+    expect(body.after).toMatch(/#t/);
   });
 });

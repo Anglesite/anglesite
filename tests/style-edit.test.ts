@@ -38,17 +38,32 @@ describe("rewriteAstroStyle", () => {
     expect(r.reason).toBe("no-match");
   });
 
-  // Bug 1: <style> with attributes (lang, is:global, define:vars) must be edited, not duplicated
-  it("edits <style is:global> block without duplicating it", () => {
+  // Fix 4: when only a <style is:global> block exists, a NEW scoped block is appended
+  it("appends a new scoped <style> block when only is:global is present", () => {
     const src = `${FM}<h1 id="t">Hi</h1>\n<style is:global>\n  body { margin: 0; }\n</style>\n`;
     const r = rewriteAstroStyle(src, { tag: "h1", id: "t", classes: [], nthChild: 1, textContent: "Hi" }, "color", "teal");
     expect(r.refused).toBeFalsy();
-    // Exactly one <style opening tag — no duplicate block appended
-    expect((r.next.match(/<style/g) || []).length).toBe(1);
-    // The new rule is present
+    // Now TWO <style blocks — original global + new scoped
+    expect((r.next.match(/<style/g) || []).length).toBe(2);
+    // The new rule is in the result
     expect(r.next).toMatch(/#t\s*\{[^}]*color:\s*teal/);
-    // The original opening tag is preserved
-    expect(r.next).toContain("<style is:global>");
+    // The original is:global block is byte-identical (untouched)
+    expect(r.next).toContain("<style is:global>\n  body { margin: 0; }\n</style>");
+    // The new block is a plain scoped <style>
+    expect(r.next).toContain("<style>\n");
+  });
+
+  // Fix 4: two blocks — scoped block after global one receives the rule
+  it("targets the scoped block when is:global comes first", () => {
+    const src = `${FM}<h1 id="t">Hi</h1>\n<style is:global>\n  body { margin: 0; }\n</style>\n<style>\n  p { font-size: 1rem; }\n</style>\n`;
+    const r = rewriteAstroStyle(src, { tag: "h1", id: "t", classes: [], nthChild: 1, textContent: "Hi" }, "color", "teal");
+    expect(r.refused).toBeFalsy();
+    // Still two <style blocks
+    expect((r.next.match(/<style/g) || []).length).toBe(2);
+    // Rule went into the SCOPED block
+    expect(r.next).toMatch(/#t\s*\{[^}]*color:\s*teal/);
+    // The is:global block is untouched
+    expect(r.next).toContain("<style is:global>\n  body { margin: 0; }\n</style>");
   });
 
   // Bug 2: setting a property that already exists should replace it, not duplicate it

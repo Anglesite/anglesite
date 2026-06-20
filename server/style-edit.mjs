@@ -58,26 +58,44 @@ function deriveSelector(tagText, selector) {
   return { selectorUsed: `.${marker}`, addedMarkerClass: marker, newTagText };
 }
 
-/** Insert/merge `property: value` for `selectorUsed` in the file's scoped <style> block. */
+/** Insert/merge `property: value` for `selectorUsed` in the file's scoped <style> block.
+ *
+ * A scoped rule must NOT land in a block marked is:global or is:inline.
+ * Logic:
+ *   1. Find ALL <style …>…</style> blocks.
+ *   2. Pick the first whose opening tag has neither is:global nor is:inline.
+ *   3. If found, merge into it (preserving its exact opening tag).
+ *   4. If none found (only global/inline blocks, or no blocks at all), append a fresh
+ *      scoped <style> block — do NOT modify any global/inline block.
+ */
 function upsertStyleRule(source, selectorUsed, property, value) {
   const decl = `${property}: ${value};`;
-  // Bug 1 fix: match any <style ...> opening tag (e.g. is:global, lang="scss") and capture it.
-  const styleRe = /(<style\b[^>]*>)([\s\S]*?)<\/style>/i;
-  const sm = source.match(styleRe);
-  if (!sm) {
-    // No <style> block — append one at end of file.
+
+  // Collect all <style …>…</style> occurrences.
+  const styleRe = /(<style\b[^>]*>)([\s\S]*?)<\/style>/gi;
+  let m;
+  let scopedMatch = null;
+  while ((m = styleRe.exec(source)) !== null) {
+    const openTag = m[1];
+    // Skip global or inline blocks.
+    if (/\bis:global\b/.test(openTag) || /\bis:inline\b/.test(openTag)) continue;
+    scopedMatch = { full: m[0], openTag, css: m[2], index: m.index };
+    break;
+  }
+
+  if (!scopedMatch) {
+    // No scoped <style> block — append one at end of file.
     const block = `\n<style>\n  ${selectorUsed} { ${decl} }\n</style>\n`;
     return source.replace(/\s*$/, "") + block + "\n";
   }
-  const openTag = sm[1];
-  const css = sm[2];
-  // Existing rule for this selector?
+
+  const { full, openTag, css, index } = scopedMatch;
   const ruleRe = new RegExp(`(${escapeRegex(selectorUsed)}\\s*\\{)([^}]*)(\\})`);
   const rm = css.match(ruleRe);
   let newCss;
   if (rm) {
-    // Bug 2 fix: strip any existing declaration for the same property before merging.
-    // Use a word-boundary-ish check: require the char before the property name to be start, `;`, or
+    // Strip any existing declaration for the same property before merging.
+    // Word-boundary-ish check: require the char before the property name to be start, `;`, or
     // whitespace so that `color` doesn't incorrectly strip `background-color`.
     const propRe = new RegExp(
       `(^|;)(\\s*)(?<![\\w-])${escapeRegex(property)}\\s*:[^;]*;?`,
@@ -89,8 +107,9 @@ function upsertStyleRule(source, selectorUsed, property, value) {
   } else {
     newCss = `${css.replace(/\s*$/, "")}\n  ${selectorUsed} { ${decl} }\n`;
   }
-  // Bug 1 fix: reconstruct using the actual opening tag, not a hard-coded <style>.
-  return source.replace(styleRe, `${openTag}${newCss}</style>`);
+
+  const newBlock = `${openTag}${newCss}</style>`;
+  return source.slice(0, index) + newBlock + source.slice(index + full.length);
 }
 
 function escapeRegex(s) {

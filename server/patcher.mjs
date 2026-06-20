@@ -44,6 +44,7 @@ const REASON_PRIORITY = {
   "no-match": 1,
   "not-implemented": 0,
   "write-failed": 0,
+  "invalid-input": 0,
 };
 
 function refusalPriority(reason) {
@@ -436,8 +437,8 @@ function findValueInDataFile(source, needle, ext) {
 /** Resolve an edit-style op to a whole-file rewrite of the owning .astro component. */
 function resolveStyle(projectRoot, edit) {
   const { path: pagePath, selector, value } = edit;
-  if (!value || typeof value !== "object" || !value.property) {
-    return refuse("no-match", "edit-style value must be { property, value }");
+  if (!value || typeof value !== "object" || !value.property || value.value === undefined) {
+    return refuse("invalid-input", "edit-style value must be { property, value }");
   }
   const candidates = pathToAstroCandidates(projectRoot, pagePath);
   if (candidates.length === 0) {

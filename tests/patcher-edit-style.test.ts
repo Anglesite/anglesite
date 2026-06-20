@@ -24,4 +24,15 @@ describe("patcher resolve() for edit-style", () => {
     expect(r.range).toEqual({ start: 0, end: expect.any(Number) });
     expect(r.replacement).toMatch(/#t\s*\{[^}]*color:\s*teal/);
   });
+
+  it("refuses with invalid-input when value.value is missing", () => {
+    const r = resolve(root, {
+      path: "/about/",
+      selector: { tag: "h1", id: "t", classes: [], nthChild: 1, textContent: "Welcome" },
+      op: "edit-style",
+      value: { property: "color" },
+    });
+    expect(r.refused).toBe(true);
+    expect(r.reason).toBe("invalid-input");
+  });
 });

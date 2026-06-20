@@ -51,13 +51,19 @@ function spliceSource(source, range, replacement) {
   return source.slice(0, range.start) + replacement + source.slice(range.end);
 }
 
-/** Bounded before/after fragments around a [start,end) splice — keeps preview payloads small. */
-function windowAround(source, start, end, replacement, pad = 200) {
-  const from = Math.max(0, start - pad);
-  const to = Math.min(source.length, end + pad);
-  const before = source.slice(from, to);
-  const after = source.slice(from, start) + replacement + source.slice(end, to);
-  return { before, after };
+/** Bounded before/after fragments around the changed span — keeps preview payloads small for any op. */
+function windowAround(source, next, pad = 200) {
+  // common prefix
+  let p = 0;
+  const max = Math.min(source.length, next.length);
+  while (p < max && source[p] === next[p]) p++;
+  // common suffix (not overlapping the prefix)
+  let s = 0;
+  while (s < max - p && source[source.length - 1 - s] === next[next.length - 1 - s]) s++;
+  const from = Math.max(0, p - pad);
+  const beforeTo = source.length - Math.max(0, s - pad);
+  const afterTo = next.length - Math.max(0, s - pad);
+  return { before: source.slice(from, beforeTo), after: next.slice(from, afterTo) };
 }
 
 function preview(id, file, range, op, before, after) {
@@ -217,7 +223,7 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
   const next = spliceSource(source, range, replacement);
 
   if (edit.dry_run) {
-    const { before, after } = windowAround(source, range.start, range.end, replacement);
+    const { before, after } = windowAround(source, next);
     return preview(edit.id, file, range, edit.op, before, after);
   }
 
