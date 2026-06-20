@@ -61,6 +61,27 @@ Ask:
 
 Write `EMAIL_TIER=icloud-plus` or `EMAIL_TIER=apple-business` to `.site-config`.
 
+### Verify domain ownership with Apple (iCloud+ tier)
+
+**Do this before changing any DNS records.** For the `icloud-plus` tier, Apple verifies that the owner controls the domain by sending a verification email to addresses that already exist on it. If the MX records are switched to iCloud first, those verification emails can't be delivered and verification fails. Walk the owner through this step **before** the SPF conflict check and MX pre-fill below.
+
+> Skip this section for the `apple-business` tier — Apple Business verifies ownership through the DNS-based `apple-domain-verification` TXT record (added in "Collect DKIM and verification values"), not an email flow.
+
+Walk the owner through it:
+
+1. Go to **iCloud.com** and sign in.
+2. Open **iCloud+ features** > **Custom Email Domain** (or Account Settings > Custom Email Domain).
+3. Choose **Add a domain you already own**.
+4. Choose who will use the domain — **Only you** or **You and other people**.
+5. Enter the domain name (the root domain from `.site-config`).
+6. Enter the existing email addresses you already use at this domain (for example, `hello@yourdomain.com`). If the domain has never had email, see the note below.
+7. Apple sends a **verification email to each address you entered**. Open each one and click the verification link.
+8. Back in iCloud, confirm each address shows as **Verified**. If an email didn't arrive, select **Resend Verification Emails**.
+
+> **No email at this domain yet?** If the owner has never received mail at this domain, there's no existing mailbox to receive Apple's verification email. In that case, tell them to skip entering existing addresses — Apple instead verifies ownership through the DNS records (including the `apple-domain-verification` TXT record) added in the next steps.
+
+Only continue to the DNS steps below once Apple shows the domain (and any existing addresses) as **Verified**, **or** the owner has confirmed there are no existing addresses to verify.
+
 ### SPF conflict check
 
 Before adding any records, check for an existing SPF TXT record:
