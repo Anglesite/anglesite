@@ -38,7 +38,7 @@ export const elementInfoSchema = z.object({
 
 /** Edit operations the patcher knows how to apply. Phase 5's patcher (#295) implements these;
  *  new ops require an explicit enum addition + a resolver update. */
-export const editOps = ["replace-text", "replace-attr", "replace-image-src"];
+export const editOps = ["replace-text", "replace-attr", "replace-image-src", "edit-style"];
 
 /** The MCP tool's input shape, as passed to `server.tool(name, description, shape, handler)`. */
 export const applyEditInputShape = {
@@ -60,12 +60,18 @@ export const applyEditInputShape = {
   op: z
     .enum(editOps)
     .describe(
-      "Edit operation: replace-text (innerText), replace-attr (op needs value to be {name, value}), replace-image-src (value is {filename, mimeType, dataURL})",
+      "Edit operation: replace-text (innerText), replace-attr (op needs value to be {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>)",
     ),
   value: z
     .unknown()
     .describe(
-      "Operation payload; varies by op (string for replace-text, {name, value} for replace-attr, {filename, mimeType, dataURL} for replace-image-src)",
+      "Operation payload; varies by op (string for replace-text, {name, value} for replace-attr, {filename, mimeType, dataURL} for replace-image-src, {property, value} for edit-style)",
+    ),
+  dry_run: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, compute the would-be change and return an edit-preview {before, after} WITHOUT writing to disk or recording history",
     ),
 };
 
@@ -86,5 +92,12 @@ export function createEditAppliedContent(id, file, range, commit, result) {
   const body = { type: "anglesite:edit-applied", id, file, range };
   if (commit !== undefined) body.commit = commit;
   if (result !== undefined) body.result = result;
+  return { type: "text", text: JSON.stringify(body) };
+}
+
+/** Build the MCP `content` entry for an edit-preview (dry-run) response. `before`/`after` are the
+ *  windowed source fragments around the change — see dispatcher `windowAround`. */
+export function createEditPreviewContent(id, file, range, op, before, after) {
+  const body = { type: "anglesite:edit-preview", id, file, range, op, before, after };
   return { type: "text", text: JSON.stringify(body) };
 }

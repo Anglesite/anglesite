@@ -446,4 +446,57 @@ describe("MCP annotation server", () => {
       proc.kill();
     }
   });
+
+  it("apply_edit with op edit-style + dry_run returns edit-preview and leaves file unchanged", async () => {
+    mkdirSync(join(tmpDir, "src", "pages"), { recursive: true });
+    const filePath = join(tmpDir, "src", "pages", "about.astro");
+    writeFileSync(filePath, '---\n---\n<h1 id="t">Welcome</h1>\n');
+    const before = readFileSync(filePath);
+
+    const proc = startServer(tmpDir);
+    try {
+      await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "test", version: "1.0.0" },
+        },
+      });
+      sendNotification(proc, {
+        jsonrpc: "2.0",
+        method: "notifications/initialized",
+      });
+
+      const response = await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: {
+          name: "apply_edit",
+          arguments: {
+            id: "9",
+            path: "/about/",
+            selector: { tag: "h1", id: "t", classes: [], nthChild: 1, textContent: "Welcome" },
+            op: "edit-style",
+            value: { property: "color", value: "teal" },
+            dry_run: true,
+          },
+        },
+      });
+
+      const result = response.result as { content: { text: string }[]; isError?: boolean };
+      expect(result.isError).toBeFalsy();
+      const body = JSON.parse(result.content[0].text);
+      expect(body.type).toBe("anglesite:edit-preview");
+      expect(body.after).toMatch(/color:\s*teal/);
+
+      // File must be byte-identical — dry_run must not mutate disk
+      expect(readFileSync(filePath)).toEqual(before);
+    } finally {
+      proc.kill();
+    }
+  });
 });

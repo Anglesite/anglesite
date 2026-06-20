@@ -35,6 +35,7 @@ import { optimizeImage } from "./optimize-images.mjs";
 import {
   createEditAppliedContent,
   createEditFailedContent,
+  createEditPreviewContent,
 } from "./apply-edit-schema.mjs";
 
 function failed(id, reason, detail) {
@@ -48,6 +49,25 @@ function applied(id, file, range, commit, result) {
 /** Splice `replacement` into `source` at the resolved byte range. */
 function spliceSource(source, range, replacement) {
   return source.slice(0, range.start) + replacement + source.slice(range.end);
+}
+
+/** Bounded before/after fragments around the changed span — keeps preview payloads small for any op. */
+function windowAround(source, next, pad = 200) {
+  // common prefix
+  let p = 0;
+  const max = Math.min(source.length, next.length);
+  while (p < max && source[p] === next[p]) p++;
+  // common suffix (not overlapping the prefix)
+  let s = 0;
+  while (s < max - p && source[source.length - 1 - s] === next[next.length - 1 - s]) s++;
+  const from = Math.max(0, p - pad);
+  const beforeTo = source.length - Math.max(0, s - pad);
+  const afterTo = next.length - Math.max(0, s - pad);
+  return { before: source.slice(from, beforeTo), after: next.slice(from, afterTo) };
+}
+
+function preview(id, file, range, op, before, after) {
+  return { content: [createEditPreviewContent(id, file, range, op, before, after)] };
 }
 
 /** Atomic write via temp-sibling + rename, so a crashed mid-write can't truncate the source. */
@@ -164,6 +184,12 @@ async function processImageDrop(projectRoot, edit) {
  * @param {{ onApplied?: (info: {file:string, range:{start:number,end:number}, projectRoot:string}) => Promise<string|undefined> | string | undefined }} [opts]
  */
 export async function applyEdit(projectRoot, edit, opts = {}) {
+  // dry_run is read-only. Image edits can't be previewed without writing optimized
+  // bytes to disk, so refuse rather than violate the no-write invariant.
+  if (edit.dry_run && edit.op === "replace-image-src") {
+    return failed(edit.id, "not-implemented", "dry-run preview is not supported for image edits");
+  }
+
   let effectiveEdit = edit;
   let imageResult;
 
@@ -195,6 +221,11 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
   }
 
   const next = spliceSource(source, range, replacement);
+
+  if (edit.dry_run) {
+    const { before, after } = windowAround(source, next);
+    return preview(edit.id, file, range, edit.op, before, after);
+  }
 
   try {
     atomicWrite(absPath, next);
