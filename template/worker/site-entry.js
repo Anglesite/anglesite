@@ -316,13 +316,13 @@ export function renderMention(m) {
     ? `<img class="u-photo" src="${escapeHtml(photoUrl)}" alt="" width="48" height="48" />`
     : "";
   const author = authorUrl
-    ? `<a class="p-author h-card u-url" rel="nofollow ugc noopener" href="${escapeHtml(authorUrl)}">${name}</a>`
+    ? `<a class="p-author h-card u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(authorUrl)}">${name}</a>`
     : `<span class="p-author">${name}</span>`;
   const content = m.content
     ? `<div class="p-content">${escapeHtml(m.content)}</div>`
     : "";
   const permalink = url
-    ? `<a class="u-url" rel="nofollow ugc noopener" href="${escapeHtml(url)}">permalink</a>`
+    ? `<a class="u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(url)}">permalink</a>`
     : "";
   return `<li class="h-cite">${photo}${author}${content}${permalink}</li>`;
 }

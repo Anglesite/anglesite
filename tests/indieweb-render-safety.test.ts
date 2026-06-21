@@ -16,7 +16,11 @@ const HOSTILE = [
   " javascript:alert(1)",
   "data:text/html,<script>alert(1)</script>",
   "vbscript:msgbox(1)",
-  "javascript:alert(1)",
+  "mailto:me@example.com",
+  "file:///etc/passwd",
+  // Unicode-confusable scheme: U+FF4A FULLWIDTH LATIN SMALL LETTER J. The WHATWG
+  // URL parser rejects a non-ASCII scheme start, so safeUrl drops it via catch.
+  "ｊavascript:alert(1)",
 ];
 
 describe("renderMention URL-scheme safety", () => {
@@ -54,10 +58,22 @@ describe("renderMention URL-scheme safety", () => {
     expect(html).toContain('href="https://alice.example/"');
     expect(html).toContain('src="https://alice.example/me.jpg"');
     expect(html).toContain('href="https://alice.example/reply/1"');
-    // External, user-generated content: don't pass link equity or window handle.
+    // External, user-generated content: don't pass link equity, a window handle,
+    // or a Referer signal that this URL appeared as a webmention here.
     expect(html).toMatch(/rel="[^"]*nofollow[^"]*"/);
     expect(html).toMatch(/rel="[^"]*ugc[^"]*"/);
     expect(html).toMatch(/rel="[^"]*noopener[^"]*"/);
+    expect(html).toMatch(/rel="[^"]*noreferrer[^"]*"/);
+  });
+
+  it("never lets a hostile author_url reach an attribute via the name fallback", () => {
+    // With author_name absent, the visible text falls back to author_url. A
+    // hostile scheme must render only as escaped text, never inside href/src.
+    const html = renderMention({ author_url: "javascript:alert(1)" });
+    expect(html).not.toMatch(/href="[^"]*javascript:/i);
+    expect(html).not.toMatch(/src="[^"]*javascript:/i);
+    // It appears as escaped text in the fallback span instead.
+    expect(html).toContain('<span class="p-author">javascript:alert(1)</span>');
   });
 
   it("still escapes HTML metacharacters in text fields", () => {
