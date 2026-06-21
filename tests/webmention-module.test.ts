@@ -18,6 +18,7 @@ import {
   handleWebmention,
   drainWebmentionQueue,
   injectWebmentions,
+  createWebmentionInbox,
 } from "../template/worker/webmention.js";
 import { webmentionCalls, resetWebmentionCalls } from "./__stubs__/dwk-webmention";
 
@@ -110,6 +111,38 @@ describe("drainWebmentionQueue() — queue consumer gating", () => {
   it("is a no-op when WEBMENTION_DB is absent", async () => {
     await drainWebmentionQueue({ messages: [] }, {}, { waitUntil: vi.fn() });
     expect(webmentionCalls.queue).toBe(0);
+  });
+});
+
+describe("createWebmentionInbox() — schema resilience", () => {
+  // A db whose first CREATE TABLE rejects, then succeeds; all other statements
+  // (upsert/delete) are no-ops. Proves a transient first-write D1 error doesn't
+  // wedge the inbox — ensureSchema clears its cached promise and retries.
+  function flakySchemaDb() {
+    let createCalls = 0;
+    const prepare = vi.fn((sql: string) => {
+      if (sql.includes("CREATE TABLE")) {
+        return {
+          run: async () => {
+            createCalls++;
+            if (createCalls === 1) throw new Error("transient D1 error");
+          },
+        };
+      }
+      return { bind: () => ({ run: async () => {} }) };
+    });
+    return { db: { prepare } as any, createCalls: () => createCalls };
+  }
+
+  it("retries CREATE TABLE after a transient failure instead of wedging", async () => {
+    const { db, createCalls } = flakySchemaDb();
+    const inbox = createWebmentionInbox(db);
+    const mention = { source: "https://x.example/a", target: TARGET, verifiedAt: 1 };
+
+    await expect(inbox.store(mention)).rejects.toThrow("transient D1 error");
+    // The cached promise was cleared, so the next write retries and succeeds.
+    await expect(inbox.store(mention)).resolves.toBeUndefined();
+    expect(createCalls()).toBe(2);
   });
 });
 

@@ -102,10 +102,19 @@ const UPSERT_SQL =
 export function createWebmentionInbox(db, { fetchImpl = fetch } = {}) {
   let ready = null;
   const ensureSchema = () => {
-    ready ??= db
-      .prepare(CREATE_TABLE_SQL)
-      .run()
-      .then(() => undefined);
+    // Clear the cached promise on failure so a transient D1 error on the first
+    // write doesn't permanently wedge the inbox for this isolate — the next
+    // call retries the CREATE TABLE rather than re-awaiting a rejected promise.
+    if (!ready) {
+      ready = db
+        .prepare(CREATE_TABLE_SQL)
+        .run()
+        .then(() => undefined)
+        .catch((err) => {
+          ready = null;
+          throw err;
+        });
+    }
     return ready;
   };
 
@@ -320,10 +329,14 @@ async function loadWebmentions(db, target) {
   try {
     const rows = await db
       .prepare(
+        // `published` is nullable TEXT; `verified_at` is INTEGER ms. Ordering by
+        // a raw COALESCE of the two would sort by type affinity (all integers
+        // before all text), so undated mentions normalize to an ISO string from
+        // verified_at — keeping the column uniformly text and chronological.
         `SELECT author_name, author_url, author_photo, content, url, type, published
          FROM webmentions
          WHERE target = ?1 AND status = 'verified'
-         ORDER BY published ASC`,
+         ORDER BY COALESCE(published, datetime(verified_at / 1000, 'unixepoch')) ASC`,
       )
       .bind(target)
       .all();
@@ -387,13 +400,13 @@ export function renderMention(m) {
     ? `<img class="u-photo" src="${escapeHtml(authorPhoto)}" alt="" width="48" height="48" />`
     : "";
   const author = authorUrl
-    ? `<a class="p-author h-card u-url" rel="nofollow ugc noopener" href="${escapeHtml(authorUrl)}">${name}</a>`
+    ? `<a class="p-author h-card u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(authorUrl)}">${name}</a>`
     : `<span class="p-author">${name}</span>`;
   const content = m.content
     ? `<div class="p-content">${escapeHtml(m.content)}</div>`
     : "";
   const permalink = permalinkUrl
-    ? `<a class="u-url" rel="nofollow ugc noopener" href="${escapeHtml(permalinkUrl)}">permalink</a>`
+    ? `<a class="u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(permalinkUrl)}">permalink</a>`
     : "";
   return `<li class="h-cite">${photo}${author}${content}${permalink}</li>`;
 }

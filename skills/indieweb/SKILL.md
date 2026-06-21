@@ -188,6 +188,13 @@ site without Webmention never bundles the `@dwk/webmention` + `microformats-pars
 dependencies. Enabling Webmention means installing those packages and replacing
 each sentinel with its real line.
 
+**Idempotency — check before re-wiring.** This step runs again whenever the
+owner re-runs `/anglesite:indieweb` (e.g. to add IndieAuth later). First read
+`worker/site-entry.js` and check for `import { handleWebmention` — if it's
+already present, Webmention is wired: skip both the install and the sentinel
+replacements below (the `@anglesite-inject:*` sentinels are already gone, so the
+Edit calls would error). Otherwise proceed.
+
 **1. Install the packages:**
 
 ```sh

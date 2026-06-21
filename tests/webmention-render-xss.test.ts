@@ -76,8 +76,9 @@ describe("renderMention() URL hardening", () => {
     expect(html).toContain('href="https://alice.example/"');
     expect(html).toContain('src="https://alice.example/me.jpg"');
     expect(html).toContain('href="https://alice.example/post/1"');
-    // Both anchors carry the untrusted-link hardening rel.
-    expect(html.match(/rel="nofollow ugc noopener"/g)?.length).toBe(2);
+    // Both anchors carry the untrusted-link hardening rel (noreferrer also
+    // suppresses the Referer header leaking the host page to the linked domain).
+    expect(html.match(/rel="nofollow ugc noopener noreferrer"/g)?.length).toBe(2);
   });
 
   it("does not surface a dangerous author_url as the display name", () => {
