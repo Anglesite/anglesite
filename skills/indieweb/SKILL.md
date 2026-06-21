@@ -182,6 +182,26 @@ For the Queue (Webmention):
 }
 ```
 
+## Step 4b — Install the endpoint packages
+
+`site-entry.js` imports the `@dwk/*` worker packages for the endpoints it serves, so install the ones for the selected endpoints. Webmention additionally needs `microformats-parser`: the site's rich inbox (`worker/webmention-inbox.js`) parses each verified source's microformats2 so stored mentions carry the author's name, photo, and a content snippet — not just the source URL.
+
+Install only what the owner selected:
+
+```sh
+npm install @dwk/webmention microformats-parser
+```
+
+```sh
+npm install @dwk/indieauth @dwk/webauthn
+```
+
+```sh
+npm install @dwk/micropub
+```
+
+(IndieAuth and Micropub are a pair — Micropub validates IndieAuth-issued tokens — so install `@dwk/indieauth` whenever `@dwk/micropub` is selected.)
+
 ## Step 5 — Store secrets
 
 ### 5a — IndieAuth signing key (if IndieAuth selected)
@@ -326,7 +346,7 @@ Tell the owner what's live and what to expect:
 For each enabled endpoint, explain in one sentence:
 
 - **IndieAuth** — "You can now sign in to IndieWeb services (and any IndieAuth-compatible app) with `https://<SITE_DOMAIN>`. Your tokens are issued by your own server."
-- **Webmention** — "Your site can now receive mentions, replies, and likes from other websites. They'll appear on your posts automatically."
+- **Webmention** — "Your site can now receive mentions, replies, and likes from other websites. They appear on your posts automatically as cards showing the sender's name, photo, and a snippet of what they wrote."
 - **Micropub** — "You can publish to your site from Micropub clients (like phone apps). New posts appear as notes — they're committed to your repo and go live after a rebuild (~1–2 minutes)."
 
 Important caveats to surface:
@@ -347,4 +367,4 @@ Suggest next steps:
 - **No cost.** Everything runs within Cloudflare's free tier (Workers, D1, R2, Queues). No third-party service fees.
 - **Privacy.** Webmention data (mentions from other sites) is stored in D1 on the owner's account. The owner should mention in their privacy policy that the site receives and stores Webmentions. Micropub posts are committed to the owner's private GitHub repo.
 - **Diagnostics.** If endpoints misbehave, check the Worker logs: `https://dash.cloudflare.com/<account-id>/workers/services/view/<CF_PROJECT_NAME>/production/observability/logs`. Or run `/anglesite:check` which will inspect the IndieWeb endpoint configuration.
-- **Schema management.** The `@dwk/*` packages manage their own D1 schemas. Schema migrations run automatically on first request or can be triggered manually via `npx wrangler d1 execute <db-name> --remote --file=<schema-path>`.
+- **Schema management.** The `@dwk/indieauth` / `@dwk/micropub` packages manage their own D1 schemas, which run automatically on first request. Webmention is the exception: the site's rich inbox (`worker/webmention-inbox.js`) owns its `webmentions` table — an extended schema (author name/url/photo, content, permalink, reply/like/repost type) created on first verified mention, replacing the package's default source/target-only inbox. **Migration:** a site that already ran the earlier minimal Webmention has a 3-column `webmentions` table; `CREATE TABLE IF NOT EXISTS` won't add the new columns, so the first rich UPSERT would fail. Drop the old table once so the rich schema is recreated on the next mention (verified mentions are re-sent/re-verifiable, so nothing is permanently lost): `npx wrangler d1 execute webmention --remote --command "DROP TABLE IF EXISTS webmentions"`.

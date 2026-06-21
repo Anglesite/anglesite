@@ -59,8 +59,8 @@ import { createHandler as createMicropub } from "@dwk/micropub";
 import {
   createWebmention,
   createWebmentionQueueConsumer,
-  createD1Inbox,
 } from "@dwk/webmention";
+import { createRichWebmentionInbox } from "./webmention-inbox.js";
 import { createWebAuthn, WebAuthnObject } from "@dwk/webauthn";
 import { sync as syncMicropubBridge } from "./indieweb-bridge.js";
 import {
@@ -192,10 +192,17 @@ function webmentionFor(env) {
           "to configure it.",
       );
     }
+    // The rich inbox parses each verified source's microformats2 so mentions
+    // carry the author h-card + content, not just the source/target pair. It
+    // backs BOTH the queue consumer (verification writes the rich row) and the
+    // edge-render reader (the page shows it).
+    const inbox = env.WEBMENTION_INBOX
+      ? createRichWebmentionInbox(env.WEBMENTION_INBOX)
+      : null;
     bundle = {
       handler: createWebmention({ baseUrl }),
-      consumer: createWebmentionQueueConsumer({ baseUrl }),
-      inbox: env.WEBMENTION_INBOX ? createD1Inbox(env.WEBMENTION_INBOX) : null,
+      consumer: createWebmentionQueueConsumer({ baseUrl, inbox }),
+      inbox,
     };
     webmentionByEnv.set(env, bundle);
   }
@@ -430,7 +437,7 @@ const WEBMENTION_TARGETS_TTL_MS = 60_000;
 const webmentionTargetsCache = new WeakMap();
 
 // `dbKey` is the WEBMENTION_INBOX binding (the stable cache key); `inbox` is the
-// createD1Inbox reader over it. Each isolate runs the full list() scan at most
+// rich inbox reader over it. Each isolate runs the full list() scan at most
 // once per TTL — every other note/post request is an in-memory set lookup. A
 // failure serves the stale (or empty) set rather than breaking the render.
 async function loadWebmentionTargets(dbKey, inbox) {
@@ -481,17 +488,36 @@ class WebmentionInjector {
 // must pass the http(s) scheme allow-list before reaching an href, and the
 // anchor is `nofollow ugc noopener` (untrusted, user-generated). A source that
 // isn't a safe http(s) URL is dropped entirely.
+const MENTION_TYPES = new Set(["mention", "reply", "like", "repost", "bookmark"]);
+
 export function renderMention(m) {
-  const href = safeUrl(m.source);
-  if (!href) return "";
-  // safeUrl already returned a normalized, valid URL string, so re-parsing for
-  // the display host cannot throw.
-  const host = new URL(href).host;
-  return (
-    `<li class="h-cite">` +
-    `<a class="u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(href)}">${escapeHtml(host)}</a>` +
-    `</li>`
+  // Every external URL is scheme-checked before it can reach an href/src —
+  // escapeHtml alone wouldn't block `javascript:`/`data:` (stored XSS, since
+  // webmention data is attacker-controlled). A mention with no usable http(s)
+  // permalink/source is hostile or malformed, so drop it entirely.
+  const permalink = safeUrl(m.url) ?? safeUrl(m.source);
+  if (!permalink) return "";
+  const authorUrl = safeUrl(m.author_url);
+  const authorPhoto = safeUrl(m.author_photo);
+  // safeUrl returns normalized, valid URL strings, so re-parsing for a display
+  // host cannot throw.
+  const name = escapeHtml(
+    m.author_name ||
+      (authorUrl ? new URL(authorUrl).host : new URL(permalink).host),
   );
+  const type = MENTION_TYPES.has(m.type) ? m.type : "mention";
+
+  const photo = authorPhoto
+    ? `<img class="u-photo" src="${escapeHtml(authorPhoto)}" alt="" width="48" height="48" loading="lazy" />`
+    : "";
+  const author = authorUrl
+    ? `<a class="p-author h-card u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(authorUrl)}">${name}</a>`
+    : `<span class="p-author">${name}</span>`;
+  const content = m.content
+    ? `<div class="p-content">${escapeHtml(m.content)}</div>`
+    : "";
+  const link = `<a class="u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(permalink)}">permalink</a>`;
+  return `<li class="h-cite webmention-${type}">${photo}${author}${content}${link}</li>`;
 }
 
 // Return the URL only if it parses to an http(s) URL, else null. Blocks
