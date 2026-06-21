@@ -36,6 +36,16 @@ Chosen option: **compose the `@dwk/*` endpoint handlers into `site-entry.js`**, 
 
 ### Architecture
 
+> **Update (2026-06-21):** reconciled with the shipped `@dwk/*` `0.1.0-beta.3`
+> API. The Webmention slice changed: the binding is `WEBMENTION_INBOX` (not
+> `WEBMENTION_DB`), the queue consumer is a separate `createWebmentionQueueConsumer`
+> factory (the handler has no `.queue`/`.scheduled`), `baseUrl` comes from a
+> `SITE_URL` var, and the inbox stores only `{ source, target, verified_at }` — so
+> the display (item 5) is a minimal source-link list, not rich `h-cite` cards. See
+> `docs/superpowers/specs/2026-06-21-webmention-realignment-design.md`. IndieAuth
+> and Micropub realignment (incl. the `approveAuthorization` passkey mechanism)
+> are tracked separately.
+
 1. **Composition:** `site-entry.js` mounts the three factory handlers ahead of `env.ASSETS.fetch()`, each gated on the presence of its Cloudflare binding (`AUTH_DB`, `MICROPUB_DB`, `WEBMENTION_DB`). A site that hasn't enabled the feature serves identically to before.
 2. **Bindings:** D1 for IndieAuth codes/tokens, Micropub posts + DPoP replay, and the Webmention inbox; R2 for the Micropub media endpoint; a Queue for async Webmention verification; secrets for token signing and the bridge's GitHub token. Provisioned MCP-first (`mcp__cloudflare__*`), wrangler fallback.
 3. **Discovery:** conditional `<link>` tags (`indieauth-metadata`, `authorization_endpoint`, `token_endpoint`, `micropub`, `webmention`) in `BaseLayout.astro`.

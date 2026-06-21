@@ -4,9 +4,10 @@
  *
  *   - Gated endpoint dispatch — each route fires only when its binding is
  *     present, and falls through to ASSETS otherwise.
- *   - queue()/scheduled() hooks — webmention drain runs only with
- *     WEBMENTION_DB; the Micropub bridge sync always runs via waitUntil.
- *   - Webmention edge-render gating — no WEBMENTION_DB query and no rewrite
+ *   - queue()/scheduled() hooks — the webmention queue consumer runs only with
+ *     WEBMENTION_INBOX; the Micropub bridge sync always runs via waitUntil.
+ *     (@dwk/webmention has no scheduled arm, so scheduled() only syncs the bridge.)
+ *   - Webmention edge-render gating — no WEBMENTION_INBOX read and no rewrite
  *     unless the request is for a note/post HTML page that actually has
  *     stored mentions.
  *
@@ -92,8 +93,8 @@ describe("IndieWeb endpoint dispatch (gated on bindings)", () => {
     expect(res.headers.get("x-handler")).toBeNull();
   });
 
-  it("routes /webmention to the Webmention handler when WEBMENTION_DB is bound", async () => {
-    const env = makeEnv({ WEBMENTION_DB: {} });
+  it("routes /webmention to the Webmention handler when WEBMENTION_INBOX is bound", async () => {
+    const env = makeEnv({ WEBMENTION_INBOX: {} });
     const res = await worker.fetch(
       req("/webmention", { method: "POST" }),
       env,
@@ -104,7 +105,7 @@ describe("IndieWeb endpoint dispatch (gated on bindings)", () => {
     expect(env.ASSETS.fetch).not.toHaveBeenCalled();
   });
 
-  it("falls through /webmention to ASSETS when WEBMENTION_DB is absent", async () => {
+  it("falls through /webmention to ASSETS when WEBMENTION_INBOX is absent", async () => {
     const env = makeEnv();
     const res = await worker.fetch(
       req("/webmention", { method: "POST" }),
@@ -124,7 +125,7 @@ describe("IndieWeb endpoint dispatch (gated on bindings)", () => {
   });
 
   it("unknown paths always fall through to ASSETS even with every binding set", async () => {
-    const env = makeEnv({ AUTH_DB: {}, MICROPUB_DB: {}, WEBMENTION_DB: {} });
+    const env = makeEnv({ AUTH_DB: {}, MICROPUB_DB: {}, WEBMENTION_INBOX: {} });
     const res = await worker.fetch(req("/about/"), env, makeCtx());
     expect(env.ASSETS.fetch).toHaveBeenCalledOnce();
     expect(res.headers.get("x-handler")).toBeNull();
@@ -132,8 +133,8 @@ describe("IndieWeb endpoint dispatch (gated on bindings)", () => {
 });
 
 describe("queue() and scheduled() dispatch", () => {
-  it("queue() drains the webmention queue only when WEBMENTION_DB is bound", async () => {
-    await worker.queue({ messages: [] }, makeEnv({ WEBMENTION_DB: {} }), makeCtx());
+  it("queue() runs the webmention queue consumer only when WEBMENTION_INBOX is bound", async () => {
+    await worker.queue({ messages: [] }, makeEnv({ WEBMENTION_INBOX: {} }), makeCtx());
     expect(webmentionCalls.queue).toBe(1);
 
     resetWebmentionCalls();
@@ -147,19 +148,38 @@ describe("queue() and scheduled() dispatch", () => {
     expect(ctx.waitUntil).toHaveBeenCalledOnce();
   });
 
-  it("scheduled() runs the webmention cron only when WEBMENTION_DB is bound", async () => {
-    await worker.scheduled({}, makeEnv({ WEBMENTION_DB: {} }), makeCtx());
-    expect(webmentionCalls.scheduled).toBe(1);
-
-    resetWebmentionCalls();
-    await worker.scheduled({}, makeEnv(), makeCtx());
-    expect(webmentionCalls.scheduled).toBe(0);
+  it("scheduled() does NOT invoke the webmention consumer (the package has no scheduled arm)", async () => {
+    await worker.scheduled({}, makeEnv({ WEBMENTION_INBOX: {} }), makeCtx());
+    expect(webmentionCalls.queue).toBe(0);
+    expect(webmentionCalls.fetch).toBe(0);
   });
 
   it("scheduled() always schedules the Micropub bridge sync via waitUntil", async () => {
     const ctx = makeCtx();
     await worker.scheduled({}, makeEnv(), ctx);
     expect(ctx.waitUntil).toHaveBeenCalledOnce();
+  });
+});
+
+describe("SITE_URL guard", () => {
+  // An empty baseUrl makes @dwk/webmention reject every inbound mention silently.
+  it("warns once when WEBMENTION_INBOX is bound but SITE_URL is empty", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const env = makeEnv({ WEBMENTION_INBOX: {} }); // no SITE_URL
+    await worker.queue({ messages: [] }, env, makeCtx());
+    expect(err).toHaveBeenCalledWith(expect.stringContaining("SITE_URL"));
+    err.mockRestore();
+  });
+
+  it("does not warn when SITE_URL is set", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const env = makeEnv({
+      WEBMENTION_INBOX: {},
+      SITE_URL: "https://example.com",
+    });
+    await worker.queue({ messages: [] }, env, makeCtx());
+    expect(err).not.toHaveBeenCalledWith(expect.stringContaining("SITE_URL"));
+    err.mockRestore();
   });
 });
 
@@ -188,56 +208,51 @@ describe("Webmention edge-render gating", () => {
     delete (globalThis as any).HTMLRewriter;
   });
 
-  // Serves both edge-render queries: the distinct-targets set (keys of
-  // mentionsByTarget) and the per-target mention rows. The worker caches the
-  // target set per binding object, so each test's fresh mock starts cold.
-  function webmentionDb(mentionsByTarget: Record<string, unknown[]>) {
-    const targetsAll = vi.fn(async () => ({
-      results: Object.keys(mentionsByTarget).map((target) => ({ target })),
-    }));
-    let boundTarget: string;
-    const mentionsAll = vi.fn(async () => ({
-      results: mentionsByTarget[boundTarget] ?? [],
-    }));
-    const bind = vi.fn((target: string) => {
-      boundTarget = target;
-      return { all: mentionsAll };
+  // The edge-render reads through createD1Inbox(env.WEBMENTION_INBOX).list(). The
+  // stub's createD1Inbox delegates to `db.__list(target)`, so this fake serves
+  // both the known-target set query (list() — no arg) and the per-target query
+  // (list(target)). The worker caches the target set per inbox object, so each
+  // test's fresh fake starts cold.
+  function webmentionInbox(mentionsByTarget: Record<string, { source: string }[]>) {
+    const list = vi.fn(async (target?: string) => {
+      const row = (source: string, t: string) => ({
+        source,
+        target: t,
+        verifiedAt: "2026-06-01T00:00:00Z",
+      });
+      if (target === undefined) {
+        return Object.entries(mentionsByTarget).flatMap(([t, arr]) =>
+          arr.map((m) => row(m.source, t)),
+        );
+      }
+      return (mentionsByTarget[target] ?? []).map((m) => row(m.source, target));
     });
-    const prepare = vi.fn((sql: string) =>
-      sql.includes("DISTINCT") ? { all: targetsAll } : { bind },
-    );
-    return { db: { prepare }, prepare, bind, targetsAll, mentionsAll };
+    // How many times the worker ran the "all targets" set query.
+    const setQueries = () =>
+      list.mock.calls.filter((c) => c[0] === undefined).length;
+    return { db: { __list: list }, list, setQueries };
   }
 
-  it("queries D1 and rewrites a note/blog page that has stored mentions", async () => {
+  it("queries the inbox and rewrites a note/blog page that has stored mentions", async () => {
     for (const path of ["/notes/abc/", "/blog/my-post/"]) {
       rewriteUsed = false;
       const target = `https://example.com${path}`;
-      const { db, bind } = webmentionDb({
-        [target]: [
-          {
-            author_name: "Alice",
-            author_url: "https://alice.example",
-            content: "Great post!",
-            url: "https://alice.example/reply/1",
-            type: "in-reply-to",
-            published: "2026-06-01T00:00:00Z",
-          },
-        ],
+      const { db, list } = webmentionInbox({
+        [target]: [{ source: "https://alice.example/reply/1" }],
       });
-      const env = makeEnv({ WEBMENTION_DB: db });
+      const env = makeEnv({ WEBMENTION_INBOX: db });
       await worker.fetch(req(path, { accept: "text/html" }), env, makeCtx());
 
-      expect(bind, path).toHaveBeenCalledWith(target);
+      expect(list, path).toHaveBeenCalledWith(target);
       expect(rewriteUsed, path).toBe(true);
     }
   });
 
   it("does NOT query mentions or rewrite when the page has no stored mentions", async () => {
-    const { db, bind } = webmentionDb({
-      "https://example.com/notes/other/": [{ author_name: "Alice" }],
+    const { db, list } = webmentionInbox({
+      "https://example.com/notes/other/": [{ source: "https://alice.example" }],
     });
-    const env = makeEnv({ WEBMENTION_DB: db });
+    const env = makeEnv({ WEBMENTION_INBOX: db });
     const res = await worker.fetch(
       req("/notes/abc/", { accept: "text/html" }),
       env,
@@ -245,44 +260,44 @@ describe("Webmention edge-render gating", () => {
     );
 
     // The page isn't in the known-target set, so no per-target query runs.
-    expect(bind).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalledWith("https://example.com/notes/abc/");
     expect(rewriteUsed).toBe(false);
     // Response passes through untouched.
     expect(res.headers.get("x-asset")).toBe("1");
   });
 
-  it("caches the known-target set — one distinct query across requests", async () => {
-    const { db, targetsAll } = webmentionDb({});
-    const env = makeEnv({ WEBMENTION_DB: db });
+  it("caches the known-target set — one list() across requests", async () => {
+    const { db, setQueries } = webmentionInbox({});
+    const env = makeEnv({ WEBMENTION_INBOX: db });
     await worker.fetch(req("/notes/a/", { accept: "text/html" }), env, makeCtx());
     await worker.fetch(req("/notes/b/", { accept: "text/html" }), env, makeCtx());
-    expect(targetsAll).toHaveBeenCalledOnce();
+    expect(setQueries()).toBe(1);
   });
 
   it("does NOT query for non-target paths (home, about)", async () => {
     for (const path of ["/", "/about/", "/contact/"]) {
-      const { db, prepare } = webmentionDb({
-        "https://example.com/notes/abc/": [{ author_name: "Bob" }],
+      const { db, list } = webmentionInbox({
+        "https://example.com/notes/abc/": [{ source: "https://bob.example" }],
       });
-      const env = makeEnv({ WEBMENTION_DB: db });
+      const env = makeEnv({ WEBMENTION_INBOX: db });
       await worker.fetch(req(path, { accept: "text/html" }), env, makeCtx());
-      expect(prepare, path).not.toHaveBeenCalled();
+      expect(list, path).not.toHaveBeenCalled();
       expect(rewriteUsed, path).toBe(false);
     }
   });
 
   it("does NOT query the collection index — only permalinks are targets", async () => {
     for (const path of ["/notes", "/notes/", "/blog", "/blog/"]) {
-      const { db, prepare } = webmentionDb({
-        "https://example.com/notes/abc/": [{ author_name: "Bob" }],
+      const { db, list } = webmentionInbox({
+        "https://example.com/notes/abc/": [{ source: "https://bob.example" }],
       });
-      const env = makeEnv({ WEBMENTION_DB: db });
+      const env = makeEnv({ WEBMENTION_INBOX: db });
       await worker.fetch(req(path, { accept: "text/html" }), env, makeCtx());
-      expect(prepare, path).not.toHaveBeenCalled();
+      expect(list, path).not.toHaveBeenCalled();
     }
   });
 
-  it("does NOT query when WEBMENTION_DB is unbound", async () => {
+  it("does NOT query when WEBMENTION_INBOX is unbound", async () => {
     const env = makeEnv();
     const res = await worker.fetch(
       req("/notes/abc/", { accept: "text/html" }),
@@ -294,27 +309,27 @@ describe("Webmention edge-render gating", () => {
   });
 
   it("does NOT query non-HTML responses even on a target path", async () => {
-    const { db, prepare } = webmentionDb({
-      "https://example.com/notes/abc/": [{ author_name: "Bob" }],
+    const { db, list } = webmentionInbox({
+      "https://example.com/notes/abc/": [{ source: "https://bob.example" }],
     });
     const env = makeEnv({
-      WEBMENTION_DB: db,
+      WEBMENTION_INBOX: db,
       ASSETS: {
         fetch: vi.fn(async () => assetsResponse("{}", "application/json")),
       },
     });
     await worker.fetch(req("/notes/abc/", { accept: "text/html" }), env, makeCtx());
-    expect(prepare).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
     expect(rewriteUsed).toBe(false);
   });
 
   it("does NOT query for non-HTML requests (no Accept: text/html)", async () => {
-    const { db, prepare } = webmentionDb({
-      "https://example.com/notes/abc/": [{ author_name: "Bob" }],
+    const { db, list } = webmentionInbox({
+      "https://example.com/notes/abc/": [{ source: "https://bob.example" }],
     });
-    const env = makeEnv({ WEBMENTION_DB: db });
+    const env = makeEnv({ WEBMENTION_INBOX: db });
     await worker.fetch(req("/notes/abc/"), env, makeCtx());
-    expect(prepare).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
     expect(rewriteUsed).toBe(false);
   });
 });
