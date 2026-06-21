@@ -145,6 +145,28 @@ describe("createRichWebmentionInbox()", () => {
     expect(createCalls()).toBe(2);
   });
 
+  it("remove() deletes by (source, target) in the right bind order", async () => {
+    const calls: { sql: string; args: unknown[] }[] = [];
+    const db = {
+      prepare: (sql: string) => {
+        if (sql.includes("CREATE TABLE")) return { run: async () => ({}) };
+        return {
+          bind: (...args: unknown[]) => {
+            calls.push({ sql, args });
+            return { run: async () => ({}) };
+          },
+        };
+      },
+    };
+    const inbox = createRichWebmentionInbox(db as any);
+    await inbox.remove("https://x.example/s", "https://example.com/notes/abc/");
+    expect(calls[0].sql).toContain("DELETE FROM webmentions");
+    expect(calls[0].args).toEqual([
+      "https://x.example/s",
+      "https://example.com/notes/abc/",
+    ]);
+  });
+
   it("list(target) maps D1 rows to rich mention objects", async () => {
     const db = {
       prepare: (sql: string) => {

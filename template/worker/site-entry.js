@@ -508,7 +508,7 @@ export function renderMention(m) {
   const type = MENTION_TYPES.has(m.type) ? m.type : "mention";
 
   const photo = authorPhoto
-    ? `<img class="u-photo" src="${escapeHtml(authorPhoto)}" alt="" width="48" height="48" loading="lazy" />`
+    ? `<img class="u-photo" src="${escapeHtml(authorPhoto)}" alt="" width="48" height="48" loading="lazy" referrerpolicy="no-referrer" />`
     : "";
   const author = authorUrl
     ? `<a class="p-author h-card u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(authorUrl)}">${name}</a>`

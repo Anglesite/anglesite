@@ -1,19 +1,4 @@
-/**
- * Rich Webmention inbox for the site Worker.
- *
- * `@dwk/webmention`'s default `createD1Inbox` stores only `(source, target,
- * verified_at)`, so the edge-render can show no more than the mentioning host.
- * This drop-in `InboxStore` (same `store` / `remove` / `list` contract) instead
- * re-fetches each verified source — SSRF-guarded via the package's `safeFetch` —
- * parses its microformats2, and persists the author h-card, content, permalink,
- * and reply/like/repost type to an extended `webmentions` table that
- * `renderMention()` reads to build full mention cards.
- *
- * It is wired in `site-entry.js`'s `webmentionFor(env)` as BOTH the queue
- * consumer's inbox (so verification populates the rich row) and the edge-render
- * reader (so the page shows it). A fetch/parse failure degrades to a
- * source/target-only row rather than dropping the verified mention.
- */
+// Rich `InboxStore` for @dwk/webmention: re-fetches each verified source and parses its mf2 into an extended `webmentions` table so mentions render as full author cards. Wire the SAME instance into the queue consumer and the edge-render reader.
 import { safeFetch } from "@dwk/webmention";
 import { mf2 } from "microformats-parser";
 
@@ -95,7 +80,9 @@ export function createRichWebmentionInbox(db, { fetchImpl = fetch } = {}) {
           fetchImpl,
           mention.source,
           { headers: { accept: "text/html" } },
-          { timeoutMs: 8000 },
+          // Cap below the package default (10s) so one slow source can't stall
+          // the queue drain, which processes a batch's messages in sequence.
+          { timeoutMs: 5000 },
         );
         if (response.ok) {
           parsed = { ...parsed, ...parseMention(await response.text(), mention) };

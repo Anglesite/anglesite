@@ -22,6 +22,8 @@ describe("renderMention() — rich author cards", () => {
     });
     expect(html).toContain('class="h-cite webmention-reply"');
     expect(html).toContain('src="https://alice.example/me.jpg"');
+    // The avatar origin is attacker-controlled — don't leak the visitor's page.
+    expect(html).toContain('referrerpolicy="no-referrer"');
     expect(html).toContain('href="https://alice.example/"');
     expect(html).toContain(">Alice<");
     expect(html).toContain('<div class="p-content">Great post!</div>');
