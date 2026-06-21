@@ -1,6 +1,28 @@
 import { mkdirSync, copyFileSync, existsSync } from "node:fs";
 import { join, basename, extname } from "node:path";
-import sharp from "sharp";
+
+/**
+ * Lazily resolve `sharp`. It's an optional native dependency: importing it at
+ * module top level would crash the whole MCP server at boot when it's absent
+ * (stale/partial node_modules), because this module sits on the apply_edit boot
+ * path. Loading it on first use keeps the server alive and fails only the
+ * image-optimization tool — at call time, with an actionable message (#361).
+ *
+ * @returns {Promise<import("sharp").default>}
+ */
+let _sharp;
+async function loadSharp() {
+  if (!_sharp) {
+    try {
+      _sharp = (await import("sharp")).default;
+    } catch {
+      throw new Error(
+        "image optimization requires the 'sharp' package — run `npm install` (or `npm install sharp`)",
+      );
+    }
+  }
+  return _sharp;
+}
 
 /**
  * Optimize a single image: write a primary WebP plus responsive variants,
@@ -18,6 +40,7 @@ import sharp from "sharp";
  * }>}
  */
 export async function optimizeImage(inputFile, options) {
+  const sharp = await loadSharp();
   const widths = options.widths ?? [480, 768, 1024, 1920];
   const outputDir = options.outputDir;
   if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
