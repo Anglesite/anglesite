@@ -23,6 +23,7 @@ export default defineConfig({
       "@dwk/indieauth": resolve(__dirname, "tests/__stubs__/dwk-indieauth.ts"),
       "@dwk/micropub": resolve(__dirname, "tests/__stubs__/dwk-micropub.ts"),
       "@dwk/webmention": resolve(__dirname, "tests/__stubs__/dwk-webmention.ts"),
+      "@dwk/webauthn": resolve(__dirname, "tests/__stubs__/dwk-webauthn.ts"),
     },
   },
   esbuild: {

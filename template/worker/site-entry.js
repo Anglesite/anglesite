@@ -61,7 +61,12 @@ import {
   createWebmentionQueueConsumer,
   createD1Inbox,
 } from "@dwk/webmention";
+import { createWebAuthn, WebAuthnObject } from "@dwk/webauthn";
 import { sync as syncMicropubBridge } from "./indieweb-bridge.js";
+
+// @dwk/webauthn is bound as a Durable Object namespace (WEBAUTHN); the Worker
+// must re-export the class so wrangler can instantiate it.
+export { WebAuthnObject };
 
 const COOKIE_NAME = "__anglesite_member";
 
@@ -96,6 +101,22 @@ function webmentionFor(env) {
       inbox: env.WEBMENTION_INBOX ? createD1Inbox(env.WEBMENTION_INBOX) : null,
     };
     webmentionByEnv.set(env, bundle);
+  }
+  return bundle;
+}
+
+// IndieAuth + WebAuthn factories also need config (origin/rpId) derived from
+// env.SITE_URL, available only at request time. Build once per env and memoize.
+const authByEnv = new WeakMap();
+function authFor(env) {
+  let bundle = authByEnv.get(env);
+  if (!bundle) {
+    const origin = env.SITE_URL;
+    const rpId = origin ? new URL(origin).host : undefined;
+    bundle = {
+      webauthn: createWebAuthn({ rpId, rpName: rpId ?? "site", origin }),
+    };
+    authByEnv.set(env, bundle);
   }
   return bundle;
 }
@@ -170,6 +191,8 @@ const worker = {
 
     // 4. IndieWeb endpoints — each gated on its D1 binding being present.
     const p = url.pathname;
+    if (env.AUTH_DB && p.startsWith("/auth/webauthn/"))
+      return authFor(env).webauthn(request, env, ctx);
     if (env.AUTH_DB && p.startsWith("/auth"))
       return indieauth(request, env, ctx);
     if (env.MICROPUB_DB && (p === "/micropub" || p === "/media"))
