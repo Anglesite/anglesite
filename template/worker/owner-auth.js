@@ -135,3 +135,69 @@ export async function verifyConsentToken(token, keyHex, req) {
     consentMessage(req, exp),
   );
 }
+
+// --- single-use backup codes (OWNER_AUTH_DB) -------------------------------
+
+async function sha256Hex(s) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return bytesToHex(d);
+}
+
+// Codes are high-entropy (10 bytes → 50 bits over a 32-symbol alphabet), emitted
+// uppercase and grouped `XXXXX-XXXXX` for legibility on a printed sheet.
+function randomCode() {
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  const A = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"; // Crockford base32 (no I L O U)
+  const s = [...bytes].map((x) => A[x % 32]).join("");
+  return `${s.slice(0, 5)}-${s.slice(5, 10)}`;
+}
+
+async function ensureBackupTable(db) {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS owner_backup_codes (` +
+        `code_hash TEXT PRIMARY KEY, created_at INTEGER, used_at INTEGER)`,
+    )
+    .run();
+}
+
+// Generate `n` codes, store only their hashes, and return the plaintext ONCE for
+// the owner to print. Callers must never persist the returned plaintext.
+export async function generateBackupCodes(db, n = 10) {
+  await ensureBackupTable(db);
+  const now = Math.floor(Date.now() / 1000);
+  const codes = [];
+  for (let i = 0; i < n; i++) {
+    const code = randomCode();
+    codes.push(code);
+    await db
+      .prepare(
+        `INSERT INTO owner_backup_codes (code_hash, created_at, used_at) VALUES (?1, ?2, NULL)`,
+      )
+      .bind(await sha256Hex(code), now)
+      .run();
+  }
+  return codes;
+}
+
+// Redeem a code: true on a first, valid redemption; false for unknown, already
+// used, or empty. Normalizes case/whitespace to match the emitted form.
+export async function redeemBackupCode(db, code) {
+  if (!code) return false;
+  const hash = await sha256Hex(String(code).trim().toUpperCase());
+  const row = await db
+    .prepare(
+      `SELECT code_hash FROM owner_backup_codes WHERE code_hash = ?1 AND used_at IS NULL`,
+    )
+    .bind(hash)
+    .first();
+  if (!row) return false;
+  await db
+    .prepare(
+      `UPDATE owner_backup_codes SET used_at = ?2 WHERE code_hash = ?1 AND used_at IS NULL`,
+    )
+    .bind(hash, Math.floor(Date.now() / 1000))
+    .run();
+  return true;
+}
