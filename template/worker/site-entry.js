@@ -54,7 +54,7 @@
  */
 
 import premiumRoutes from "./_premium-routes.json";
-import { createHandler as createIndieAuth } from "@dwk/indieauth";
+import { createIndieAuth } from "@dwk/indieauth";
 import { createHandler as createMicropub } from "@dwk/micropub";
 import {
   createWebmention,
@@ -63,6 +63,13 @@ import {
 } from "@dwk/webmention";
 import { createWebAuthn, WebAuthnObject } from "@dwk/webauthn";
 import { sync as syncMicropubBridge } from "./indieweb-bridge.js";
+import {
+  OWNER_COOKIE,
+  readCookie,
+  verifyOwnerSession,
+  verifyConsentToken,
+} from "./owner-auth.js";
+import { renderConsentPage } from "./auth-pages.js";
 
 // @dwk/webauthn is bound as a Durable Object namespace (WEBAUTHN); the Worker
 // must re-export the class so wrangler can instantiate it.
@@ -70,10 +77,42 @@ export { WebAuthnObject };
 
 const COOKIE_NAME = "__anglesite_member";
 
-const indieauth = createIndieAuth();
 const micropub = createMicropub({
   generatePostUrl: (slug) => `/notes/${slug}/`,
 });
+
+// The IndieAuth authentication + consent hook. @dwk/indieauth owns the protocol;
+// proving the owner's identity (passkey/backup code) and obtaining consent is
+// ours. Returns an AuthorizationApproval only when the request carries a valid
+// owner-session cookie AND a consent token bound to this exact request;
+// otherwise returns the consent page (the library forwards it verbatim).
+function makeApproveAuthorization(env) {
+  return async (authReq, httpRequest) => {
+    const sessionKey = env.INDIEAUTH_SESSION_KEY;
+    const cookie = readCookie(
+      httpRequest.headers.get("Cookie") ?? "",
+      OWNER_COOKIE,
+    );
+    const session = await verifyOwnerSession(cookie, sessionKey);
+    const consent = new URL(httpRequest.url).searchParams.get("_consent");
+    const bound = {
+      clientId: authReq.clientId,
+      redirectUri: authReq.redirectUri,
+      scope: authReq.scope,
+    };
+    if (session && consent && (await verifyConsentToken(consent, sessionKey, bound))) {
+      return {
+        me: env.SITE_URL,
+        scopes: authReq.scopes,
+        profile: { url: env.SITE_URL },
+      };
+    }
+    return new Response(
+      renderConsentPage({ request: httpRequest, authenticated: !!session }),
+      { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+    );
+  };
+}
 
 // @dwk/webmention's factories take config (baseUrl) at construction, but the
 // Worker only has `env` at request/queue time — and the queue consumer has no
@@ -114,6 +153,10 @@ function authFor(env) {
     const origin = env.SITE_URL;
     const rpId = origin ? new URL(origin).host : undefined;
     bundle = {
+      indieauth: createIndieAuth({
+        baseUrl: origin,
+        approveAuthorization: makeApproveAuthorization(env),
+      }),
       webauthn: createWebAuthn({ rpId, rpName: rpId ?? "site", origin }),
     };
     authByEnv.set(env, bundle);
@@ -194,7 +237,7 @@ const worker = {
     if (env.AUTH_DB && p.startsWith("/auth/webauthn/"))
       return authFor(env).webauthn(request, env, ctx);
     if (env.AUTH_DB && p.startsWith("/auth"))
-      return indieauth(request, env, ctx);
+      return authFor(env).indieauth(request, env, ctx);
     if (env.MICROPUB_DB && (p === "/micropub" || p === "/media"))
       return micropub(request, env, ctx);
     if (env.WEBMENTION_INBOX && p === "/webmention")
