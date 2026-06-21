@@ -10,6 +10,19 @@
  * interpolated value is HTML-escaped.
  */
 
+// Serialize a value for safe interpolation into an inline <script>. JSON.stringify
+// alone does NOT escape `</script>` (or the U+2028/U+2029 line separators that
+// break JS string literals), so a `</script>` in attacker-controlled input would
+// terminate the element. Escaping `<`,`>`,`&` to \uXXXX keeps it inert.
+function jsonForScript(value) {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003C")
+    .replace(/>/g, "\\u003E")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 function escapeHtml(value) {
   return String(value).replace(
     /[&<>"']/g,
@@ -74,7 +87,7 @@ export function renderConsentPage({ request, authenticated = false }) {
     signIn +
     approve +
     `<script type="module">
-      const QUERY = ${JSON.stringify(query)};
+      const QUERY = ${jsonForScript(query)};
       const btn = document.getElementById("passkey-signin");
       function b64urlToBytes(s){s=s.replace(/-/g,"+").replace(/_/g,"/");const p=s.length%4?"=".repeat(4-s.length%4):"";const b=atob(s+p);return Uint8Array.from(b,c=>c.charCodeAt(0));}
       function bytesToB64url(buf){let s=btoa(String.fromCharCode(...new Uint8Array(buf)));return s.replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");}
@@ -124,7 +137,7 @@ export function renderRegisterPage({ token = "" } = {}) {
     `device doesn't lock you out.</p>` +
     `<button id="passkey-register" type="button">Register a passkey</button>` +
     `<script type="module">
-      const TOKEN = ${JSON.stringify(token)};
+      const TOKEN = ${jsonForScript(token)};
       const qs = TOKEN ? ("?token=" + encodeURIComponent(TOKEN)) : "";
       function b64urlToBytes(s){s=s.replace(/-/g,"+").replace(/_/g,"/");const p=s.length%4?"=".repeat(4-s.length%4):"";const b=atob(s+p);return Uint8Array.from(b,c=>c.charCodeAt(0));}
       function bytesToB64url(buf){let s=btoa(String.fromCharCode(...new Uint8Array(buf)));return s.replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");}
