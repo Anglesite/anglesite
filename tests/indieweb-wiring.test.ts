@@ -120,7 +120,12 @@ describe("wrangler.jsonc binding union after wiring", () => {
     );
     expect(byBinding.AUTH_DB.database_name).toBe("indieauth");
     expect(byBinding.MICROPUB_DB.database_name).toBe("micropub");
-    expect(byBinding.WEBMENTION_DB.database_name).toBe("webmention");
+    expect(byBinding.WEBMENTION_INBOX.database_name).toBe("webmention");
+  });
+
+  it("declares the SITE_URL var (@dwk/webmention baseUrl source)", () => {
+    expect(config.vars).toBeTruthy();
+    expect("SITE_URL" in config.vars).toBe(true);
   });
 
   it("declares the Micropub MEDIA R2 bucket", () => {

@@ -1,11 +1,11 @@
 /**
  * Webmention edge-render output safety (Anglesite/anglesite#363, problem 3).
  *
- * `renderMention()` interpolates externally-sourced webmention fields
- * (author_url, author_photo, url) into `href`/`src`. Escaping the value is not
- * enough: a verified mention whose URL is `javascript:…` or `data:…` renders an
- * executable link/`src` — stored XSS, since webmention data comes from arbitrary
- * external sites. Only http/https URLs may reach an attribute.
+ * `renderMention()` interpolates the externally-sourced `source` URL into an
+ * `href`. Escaping the value is not enough: a verified mention whose `source` is
+ * `javascript:…` or `data:…` would render an executable link — stored XSS, since
+ * webmention data comes from arbitrary external sites. Only http/https URLs may
+ * reach an attribute; anything else drops the mention entirely.
  */
 import { describe, it, expect } from "vitest";
 import { renderMention } from "../template/worker/site-entry.js";
@@ -24,40 +24,19 @@ const HOSTILE = [
 ];
 
 describe("renderMention URL-scheme safety", () => {
-  it("never emits a javascript:/data:/vbscript: href for author_url", () => {
-    for (const url of HOSTILE) {
-      const html = renderMention({ author_name: "X", author_url: url });
-      expect(html, url).not.toMatch(/href="[^"]*(javascript|data|vbscript):/i);
-      // The name still renders, just not as a link.
-      expect(html).toContain("X");
+  it("drops a mention whose source is a non-http(s) URL", () => {
+    for (const source of HOSTILE) {
+      const html = renderMention({ source });
+      expect(html, source).not.toMatch(/href="[^"]*(javascript|data|vbscript):/i);
+      // Non-http(s) source → nothing rendered at all.
+      expect(html, source).toBe("");
     }
   });
 
-  it("never emits a hostile src for author_photo", () => {
-    for (const url of HOSTILE) {
-      const html = renderMention({ author_name: "X", author_photo: url });
-      expect(html, url).not.toMatch(/src="[^"]*(javascript|data|vbscript):/i);
-    }
-  });
-
-  it("never emits a hostile permalink href for url", () => {
-    for (const url of HOSTILE) {
-      const html = renderMention({ author_name: "X", url });
-      expect(html, url).not.toMatch(/href="[^"]*(javascript|data|vbscript):/i);
-    }
-  });
-
-  it("renders http/https URLs as links with rel hardening", () => {
-    const html = renderMention({
-      author_name: "Alice",
-      author_url: "https://alice.example/",
-      author_photo: "https://alice.example/me.jpg",
-      content: "Nice!",
-      url: "https://alice.example/reply/1",
-    });
-    expect(html).toContain('href="https://alice.example/"');
-    expect(html).toContain('src="https://alice.example/me.jpg"');
+  it("renders an http/https source as a link with rel hardening", () => {
+    const html = renderMention({ source: "https://alice.example/reply/1" });
     expect(html).toContain('href="https://alice.example/reply/1"');
+    expect(html).toContain("alice.example"); // host shown as link text
     // External, user-generated content: don't pass link equity, a window handle,
     // or a Referer signal that this URL appeared as a webmention here.
     expect(html).toMatch(/rel="[^"]*nofollow[^"]*"/);
@@ -66,23 +45,13 @@ describe("renderMention URL-scheme safety", () => {
     expect(html).toMatch(/rel="[^"]*noreferrer[^"]*"/);
   });
 
-  it("never lets a hostile author_url reach an attribute via the name fallback", () => {
-    // With author_name absent, the visible text falls back to author_url. A
-    // hostile scheme must render only as escaped text, never inside href/src.
-    const html = renderMention({ author_url: "javascript:alert(1)" });
-    expect(html).not.toMatch(/href="[^"]*javascript:/i);
-    expect(html).not.toMatch(/src="[^"]*javascript:/i);
-    // It appears as escaped text in the fallback span instead.
-    expect(html).toContain('<span class="p-author">javascript:alert(1)</span>');
-  });
-
-  it("still escapes HTML metacharacters in text fields", () => {
+  it("does not let a crafted source break out of the href attribute", () => {
+    // URL normalization percent-encodes the quotes/angle brackets, and
+    // escapeHtml is a second layer — either way the markup can't break out.
     const html = renderMention({
-      author_name: '<img src=x onerror=alert(1)>',
-      content: "<b>hi</b>",
+      source: 'https://evil.example/?x="><script>alert(1)</script>',
     });
-    expect(html).not.toContain("<img src=x");
-    expect(html).not.toContain("<b>hi</b>");
-    expect(html).toContain("&lt;");
+    expect(html).not.toContain('"><script>');
+    expect(html).not.toContain("<script>");
   });
 });

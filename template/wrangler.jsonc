@@ -16,13 +16,22 @@
     "enabled": true
   },
 
+  // Plain vars. SITE_URL is the site's own origin (e.g. https://example.com);
+  // /anglesite:indieweb fills it from SITE_DOMAIN. @dwk/webmention needs it as
+  // its baseUrl at construction, where no request URL is available (the queue
+  // consumer runs off-request).
+  "vars": {
+    "SITE_URL": ""
+  },
+
   // IndieWeb bindings — provisioned by /anglesite:indieweb.
   // Each is optional; site-entry.js gates on binding presence.
   // Database IDs are written by the skill after D1/R2 creation.
+  // WEBMENTION_INBOX is the D1 binding @dwk/webmention reads its inbox from.
   "d1_databases": [
-    { "binding": "AUTH_DB",       "database_name": "indieauth",   "database_id": "" },
-    { "binding": "MICROPUB_DB",   "database_name": "micropub",    "database_id": "" },
-    { "binding": "WEBMENTION_DB", "database_name": "webmention",  "database_id": "" }
+    { "binding": "AUTH_DB",          "database_name": "indieauth",   "database_id": "" },
+    { "binding": "MICROPUB_DB",      "database_name": "micropub",    "database_id": "" },
+    { "binding": "WEBMENTION_INBOX", "database_name": "webmention",  "database_id": "" }
   ],
   "r2_buckets": [
     { "binding": "MEDIA", "bucket_name": "" }

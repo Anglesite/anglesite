@@ -81,7 +81,7 @@ Each endpoint stores data in its own D1 database. Create only the databases for 
 |---|---|---|---|
 | IndieAuth | `indieauth` | `AUTH_DB` | `INDIEWEB_AUTH_DB_ID` |
 | Micropub | `micropub` | `MICROPUB_DB` | `INDIEWEB_MICROPUB_DB_ID` |
-| Webmention | `webmention` | `WEBMENTION_DB` | `INDIEWEB_WEBMENTION_DB_ID` |
+| Webmention | `webmention` | `WEBMENTION_INBOX` | `INDIEWEB_WEBMENTION_DB_ID` |
 
 **Preferred — Cloudflare MCP (no copy-paste):**
 
@@ -141,6 +141,14 @@ For each selected endpoint's D1 database, add a `d1_databases` entry:
 ```
 
 If a `"d1_databases"` array already exists (e.g. from `/anglesite:inbox`), append to it rather than creating a duplicate key.
+
+If Webmention is selected, also set the `SITE_URL` var to the site's own origin — `@dwk/webmention` needs it as its `baseUrl` at construction (the queue consumer runs off-request, with no request URL to derive an origin from). Edit the `"vars"` block in `wrangler.jsonc`:
+
+```jsonc
+"vars": {
+  "SITE_URL": "https://<SITE_DOMAIN from .site-config>"
+}
+```
 
 For the R2 bucket (Micropub):
 

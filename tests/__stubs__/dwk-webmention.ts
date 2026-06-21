@@ -1,30 +1,40 @@
-// Stub for the unpublished @dwk/webmention package. See dwk-indieauth.ts for
-// the rationale. This stub also records queue/scheduled invocations on a shared
-// `webmentionCalls` object so the queue()/scheduled() dispatch tests can assert
-// that the webmention worker hooks run only when WEBMENTION_DB is bound.
-// Because the vitest alias maps "@dwk/webmention" to this same file, the test
-// and site-entry.js share one module instance — and therefore one counter.
-export const webmentionCalls = { fetch: 0, queue: 0, scheduled: 0 };
+// Stub for the @dwk/webmention package, matching the real 0.1.0-beta.3 API.
+// site-entry.js composes the receiver and queue consumer at module load and
+// reads the inbox through createD1Inbox(); the vitest alias maps
+// "@dwk/webmention" to this file so the worker and the test share one module
+// instance (and one set of counters).
+//
+// The real inbox stores only { source, target, verifiedAt } — no author/content.
+export const webmentionCalls = { fetch: 0, queue: 0 };
 
 export function resetWebmentionCalls() {
   webmentionCalls.fetch = 0;
   webmentionCalls.queue = 0;
-  webmentionCalls.scheduled = 0;
 }
 
-export function createHandler(_config?: unknown) {
-  return Object.assign(
-    (_request: Request, _env: unknown, _ctx: unknown) => {
-      webmentionCalls.fetch++;
-      return new Response("webmention", { headers: { "x-handler": "webmention" } });
-    },
-    {
-      queue: async () => {
-        webmentionCalls.queue++;
-      },
-      scheduled: async () => {
-        webmentionCalls.scheduled++;
-      },
-    },
-  );
+// createWebmention(config) → fetch handler (validates + 202 + enqueue).
+export function createWebmention(_config?: unknown) {
+  return (_request: Request, _env: unknown, _ctx: unknown) => {
+    webmentionCalls.fetch++;
+    return new Response("webmention", { headers: { "x-handler": "webmention" } });
+  };
+}
+
+// createWebmentionQueueConsumer(config) → (batch, env, ctx) => Promise<void>.
+// The queue consumer is a SEPARATE factory from the handler in the real package.
+export function createWebmentionQueueConsumer(_config?: unknown) {
+  return async (_batch: unknown, _env: unknown, _ctx: unknown) => {
+    webmentionCalls.queue++;
+  };
+}
+
+// createD1Inbox(db) → InboxStore. The edge-render reads mentions via
+// inbox.list(target?). Tests drive the data through a fake `db.__list`.
+export function createD1Inbox(db: any) {
+  return {
+    list: async (target?: string) =>
+      db && typeof db.__list === "function" ? db.__list(target) : [],
+    upsert: async () => {},
+    remove: async () => {},
+  };
 }

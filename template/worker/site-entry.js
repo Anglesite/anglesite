@@ -34,9 +34,11 @@
  *   ANALYTICS   (AED, optional)  — Impression event stream
  *   AUTH_DB     (D1, optional)   — IndieAuth codes + tokens
  *   MICROPUB_DB (D1, optional)   — Micropub post records + DPoP jti replay
- *   WEBMENTION_DB (D1, optional) — Verified webmention inbox
+ *   WEBMENTION_INBOX (D1, optional) — Verified webmention inbox (@dwk/webmention)
  *   MEDIA       (R2, optional)   — Micropub media-endpoint blob storage
  *   WEBMENTION_QUEUE (Queue, optional) — Async webmention verification
+ *
+ *   SITE_URL    (var, optional)  — Site origin; @dwk/webmention baseUrl
  *
  * Vars / secrets:
  *   MEMBERSHIP_SIGNING_KEY (optional) — hex HMAC key, set as a wrangler
@@ -54,7 +56,11 @@
 import premiumRoutes from "./_premium-routes.json";
 import { createHandler as createIndieAuth } from "@dwk/indieauth";
 import { createHandler as createMicropub } from "@dwk/micropub";
-import { createHandler as createWebmention } from "@dwk/webmention";
+import {
+  createWebmention,
+  createWebmentionQueueConsumer,
+  createD1Inbox,
+} from "@dwk/webmention";
 import { sync as syncMicropubBridge } from "./indieweb-bridge.js";
 
 const COOKIE_NAME = "__anglesite_member";
@@ -63,7 +69,36 @@ const indieauth = createIndieAuth();
 const micropub = createMicropub({
   generatePostUrl: (slug) => `/notes/${slug}/`,
 });
-const webmention = createWebmention();
+
+// @dwk/webmention's factories take config (baseUrl) at construction, but the
+// Worker only has `env` at request/queue time — and the queue consumer has no
+// request URL to derive an origin from. Build the receiver, the (separate) queue
+// consumer, and the inbox reader once per `env` and memoize them. `baseUrl` comes
+// from the SITE_URL var the indieweb skill writes into wrangler.jsonc.
+const webmentionByEnv = new WeakMap();
+function webmentionFor(env) {
+  let bundle = webmentionByEnv.get(env);
+  if (!bundle) {
+    const baseUrl = env.SITE_URL;
+    // @dwk/webmention validates inbound `target`s against baseUrl. An empty
+    // baseUrl would make the receiver reject every mention silently — surface it
+    // once (memoization means this block runs once per isolate).
+    if (env.WEBMENTION_INBOX && !baseUrl) {
+      console.error(
+        "SITE_URL is not set — @dwk/webmention cannot validate webmention " +
+          "targets and will reject all inbound mentions. Run /anglesite:indieweb " +
+          "to configure it.",
+      );
+    }
+    bundle = {
+      handler: createWebmention({ baseUrl }),
+      consumer: createWebmentionQueueConsumer({ baseUrl }),
+      inbox: env.WEBMENTION_INBOX ? createD1Inbox(env.WEBMENTION_INBOX) : null,
+    };
+    webmentionByEnv.set(env, bundle);
+  }
+  return bundle;
+}
 
 const worker = {
   async fetch(request, env, ctx) {
@@ -139,8 +174,8 @@ const worker = {
       return indieauth(request, env, ctx);
     if (env.MICROPUB_DB && (p === "/micropub" || p === "/media"))
       return micropub(request, env, ctx);
-    if (env.WEBMENTION_DB && p === "/webmention")
-      return webmention(request, env, ctx);
+    if (env.WEBMENTION_INBOX && p === "/webmention")
+      return webmentionFor(env).handler(request, env, ctx);
 
     if (!response) {
       response = await env.ASSETS.fetch(request);
@@ -162,22 +197,23 @@ const worker = {
 
     // 5. Webmention edge-render — inject stored mentions into note/post pages.
     //    Gating order keeps the cost off pages that can't have mentions:
-    //    HTML request → WEBMENTION_DB bound → note/post path → HTML response
+    //    HTML request → WEBMENTION_INBOX bound → note/post path → HTML response
     //    → page is a known mention target (cached set, refreshed at most once
-    //    a minute per isolate) → only then query D1 for the mentions and
-    //    rewrite. Pages with no stored mentions pay no per-request query and
-    //    no rewrite.
+    //    a minute per isolate) → only then read the inbox for that page's
+    //    mentions and rewrite. Pages with no stored mentions pay no per-request
+    //    read and no rewrite.
     if (
       isHtmlRequest &&
-      env.WEBMENTION_DB &&
+      env.WEBMENTION_INBOX &&
       isWebmentionTarget(url.pathname)
     ) {
       const contentType = response.headers.get("content-type") ?? "";
       if (contentType.includes("text/html")) {
         const target = `${url.origin}${url.pathname}`;
-        const targets = await loadWebmentionTargets(env.WEBMENTION_DB);
+        const inbox = webmentionFor(env).inbox;
+        const targets = await loadWebmentionTargets(env.WEBMENTION_INBOX, inbox);
         if (targets.has(target)) {
-          const mentions = await loadWebmentions(env.WEBMENTION_DB, target);
+          const mentions = await loadWebmentions(inbox, target);
           if (mentions.length > 0) {
             response = new HTMLRewriter()
               .on("#webmentions", new WebmentionInjector(mentions))
@@ -202,16 +238,15 @@ const worker = {
   },
 
   async queue(batch, env, ctx) {
-    if (env.WEBMENTION_DB) {
-      await webmention.queue(batch, env, ctx);
+    if (env.WEBMENTION_INBOX) {
+      await webmentionFor(env).consumer(batch, env, ctx);
     }
     ctx.waitUntil(syncMicropubBridge(env));
   },
 
-  async scheduled(event, env, ctx) {
-    if (env.WEBMENTION_DB) {
-      await webmention.scheduled(event, env, ctx);
-    }
+  async scheduled(_event, env, ctx) {
+    // @dwk/webmention has no scheduled arm — verification runs off the queue.
+    // The cron exists for the Micropub bridge's retry sync.
     ctx.waitUntil(syncMicropubBridge(env));
   },
 };
@@ -240,7 +275,7 @@ function isWebmentionTarget(pathname) {
 }
 
 // The set of target URLs that have at least one verified mention, cached per
-// WEBMENTION_DB binding so each isolate runs the distinct-targets query at
+// WEBMENTION_INBOX binding so each isolate runs the list() scan at
 // most once per TTL — every other note/post request is an in-memory set
 // lookup. New mentions therefore appear within a minute, which is fine for
 // content that's already verified asynchronously. A query failure serves the
@@ -248,17 +283,17 @@ function isWebmentionTarget(pathname) {
 const WEBMENTION_TARGETS_TTL_MS = 60_000;
 const webmentionTargetsCache = new WeakMap();
 
-async function loadWebmentionTargets(db) {
-  const cached = webmentionTargetsCache.get(db);
+// `dbKey` is the WEBMENTION_INBOX binding (the stable cache key); `inbox` is the
+// createD1Inbox reader over it. Each isolate runs the full list() scan at most
+// once per TTL — every other note/post request is an in-memory set lookup. A
+// failure serves the stale (or empty) set rather than breaking the render.
+async function loadWebmentionTargets(dbKey, inbox) {
+  const cached = webmentionTargetsCache.get(dbKey);
   if (cached && cached.expires > Date.now()) return cached.targets;
   try {
-    const rows = await db
-      .prepare(
-        `SELECT DISTINCT target FROM webmentions WHERE status = 'verified'`,
-      )
-      .all();
-    const targets = new Set((rows?.results ?? []).map((row) => row.target));
-    webmentionTargetsCache.set(db, {
+    const mentions = await inbox.list();
+    const targets = new Set(mentions.map((m) => m.target));
+    webmentionTargetsCache.set(dbKey, {
       targets,
       expires: Date.now() + WEBMENTION_TARGETS_TTL_MS,
     });
@@ -269,21 +304,11 @@ async function loadWebmentionTargets(db) {
   }
 }
 
-// Query WEBMENTION_DB for verified mentions of a target URL. The table/columns
-// follow @dwk/webmention's inbox shape; a query failure degrades to "no
-// mentions" so a transient D1 error never breaks the page render.
-async function loadWebmentions(db, target) {
+// Verified mentions of a target URL via the @dwk/webmention inbox. A failure
+// degrades to "no mentions" so a transient inbox error never breaks the render.
+async function loadWebmentions(inbox, target) {
   try {
-    const rows = await db
-      .prepare(
-        `SELECT author_name, author_url, author_photo, content, url, type, published
-         FROM webmentions
-         WHERE target = ?1 AND status = 'verified'
-         ORDER BY published ASC`,
-      )
-      .bind(target)
-      .all();
-    return rows?.results ?? [];
+    return await inbox.list(target);
   } catch (err) {
     console.error("Webmention edge-render query failed:", err?.message);
     return [];
@@ -304,33 +329,29 @@ class WebmentionInjector {
   }
 }
 
+// Render one verified mention. @dwk/webmention stores only { source, target,
+// verifiedAt } — no author or content — so a mention is a link to the mentioning
+// page, shown by its host. `source` comes from an arbitrary external site, so it
+// must pass the http(s) scheme allow-list before reaching an href, and the
+// anchor is `nofollow ugc noopener` (untrusted, user-generated). A source that
+// isn't a safe http(s) URL is dropped entirely.
 export function renderMention(m) {
-  const name = escapeHtml(m.author_name || m.author_url || "Someone");
-  // Webmention fields come from arbitrary external sites. escapeHtml() blocks
-  // tag injection but NOT dangerous URL schemes — a `javascript:`/`data:` value
-  // in an href/src is executable. Only http/https URLs may reach an attribute.
-  const photoUrl = safeUrl(m.author_photo);
-  const authorUrl = safeUrl(m.author_url);
-  const url = safeUrl(m.url);
-  const photo = photoUrl
-    ? `<img class="u-photo" src="${escapeHtml(photoUrl)}" alt="" width="48" height="48" />`
-    : "";
-  const author = authorUrl
-    ? `<a class="p-author h-card u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(authorUrl)}">${name}</a>`
-    : `<span class="p-author">${name}</span>`;
-  const content = m.content
-    ? `<div class="p-content">${escapeHtml(m.content)}</div>`
-    : "";
-  const permalink = url
-    ? `<a class="u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(url)}">permalink</a>`
-    : "";
-  return `<li class="h-cite">${photo}${author}${content}${permalink}</li>`;
+  const href = safeUrl(m.source);
+  if (!href) return "";
+  // safeUrl already returned a normalized, valid URL string, so re-parsing for
+  // the display host cannot throw.
+  const host = new URL(href).host;
+  return (
+    `<li class="h-cite">` +
+    `<a class="u-url" rel="nofollow ugc noopener noreferrer" href="${escapeHtml(href)}">${escapeHtml(host)}</a>` +
+    `</li>`
+  );
 }
 
 // Return the URL only if it parses to an http(s) URL, else null. Blocks
 // javascript:/data:/vbscript:/mailto: and any other scheme from reaching an
 // href/src attribute. Relative URLs are rejected (no base to resolve against
-// here); webmention author/permalink URLs are absolute in practice.
+// here); webmention source URLs are absolute in practice.
 export function safeUrl(value) {
   if (!value) return null;
   try {
