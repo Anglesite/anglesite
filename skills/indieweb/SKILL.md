@@ -80,6 +80,7 @@ Each endpoint stores data in its own D1 database. Create only the databases for 
 | Endpoint | D1 database name | Binding name | `.site-config` key |
 |---|---|---|---|
 | IndieAuth | `indieauth` | `AUTH_DB` | `INDIEWEB_AUTH_DB_ID` |
+| IndieAuth (owner auth) | `owner-auth` | `OWNER_AUTH_DB` | `INDIEWEB_OWNER_AUTH_DB_ID` |
 | Micropub | `micropub` | `MICROPUB_DB` | `INDIEWEB_MICROPUB_DB_ID` |
 | Webmention | `webmention` | `WEBMENTION_INBOX` | `INDIEWEB_WEBMENTION_DB_ID` |
 
@@ -198,6 +199,56 @@ npx wrangler secret put INDIEAUTH_SIGNING_KEY --name <CF_PROJECT_NAME>
 ```
 
 Tell the owner to paste the generated key when prompted. The key never appears in source code or `.site-config` — it lives only in Cloudflare's secret store.
+
+### 5c — Passkey owner authentication (if IndieAuth selected)
+
+IndieAuth signs the owner in to other sites with their domain, so the owner must
+prove they are the owner before a token is minted. Anglesite uses **passkeys**
+(`@dwk/webauthn`, served from the `WEBAUTHN` Durable Object — already declared in
+`wrangler.jsonc`, no resource to create) plus printable backup codes.
+
+1. **Session + registration secrets.** Generate and store both:
+
+   ```sh
+   openssl rand -hex 32
+   ```
+
+   ```sh
+   npx wrangler secret put INDIEAUTH_SESSION_KEY --name <CF_PROJECT_NAME>
+   ```
+
+   ```sh
+   openssl rand -hex 24
+   ```
+
+   ```sh
+   npx wrangler secret put INDIEWEB_REG_TOKEN --name <CF_PROJECT_NAME>
+   ```
+
+   `INDIEAUTH_SESSION_KEY` signs the owner-session cookie; `INDIEWEB_REG_TOKEN`
+   is the one-time gate for the first passkey enrolment. Both live only in the
+   secret store — the deploy scan fails the build if either is committed.
+
+2. **Enrol the first passkey.** After the next deploy, give the owner the
+   one-time link (substitute the token value just set):
+
+   `https://<SITE_DOMAIN>/auth/register?token=<INDIEWEB_REG_TOKEN>`
+
+   Tell them to open it on each device they want to sign in from and **register
+   at least two passkeys** (e.g. phone + laptop) so a lost device isn't a
+   lockout. Once a passkey exists, they can add more from a signed-in session at
+   `/auth/register`.
+
+3. **Backup codes.** Have the owner generate 10 single-use backup codes from
+   `/auth/register` and **print or save them now**. A code can stand in for a
+   passkey on the sign-in screen if every device is unavailable. Only hashes are
+   stored; the plaintext is shown once.
+
+4. **Recovery.** Three layers: multiple passkeys, the backup codes, and — as the
+   ultimate root — redeploy access. If the owner loses everything, re-run
+   `/anglesite:indieweb` and choose "reset owner auth", which rotates
+   `INDIEWEB_REG_TOKEN` and re-opens registration (only someone who controls the
+   Cloudflare account can do this).
 
 ### 5b — GitHub token (if Micropub selected)
 

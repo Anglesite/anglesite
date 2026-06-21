@@ -54,21 +54,123 @@
  */
 
 import premiumRoutes from "./_premium-routes.json";
-import { createHandler as createIndieAuth } from "@dwk/indieauth";
+import { createIndieAuth } from "@dwk/indieauth";
 import { createHandler as createMicropub } from "@dwk/micropub";
 import {
   createWebmention,
   createWebmentionQueueConsumer,
   createD1Inbox,
 } from "@dwk/webmention";
+import { createWebAuthn, WebAuthnObject } from "@dwk/webauthn";
 import { sync as syncMicropubBridge } from "./indieweb-bridge.js";
+import {
+  OWNER_COOKIE,
+  readCookie,
+  verifyOwnerSession,
+  verifyConsentToken,
+  issueOwnerSession,
+  mintConsentToken,
+  redeemBackupCode,
+} from "./owner-auth.js";
+import { renderConsentPage, renderRegisterPage } from "./auth-pages.js";
+
+// @dwk/webauthn is bound as a Durable Object namespace (WEBAUTHN); the Worker
+// must re-export the class so wrangler can instantiate it.
+export { WebAuthnObject };
 
 const COOKIE_NAME = "__anglesite_member";
 
-const indieauth = createIndieAuth();
 const micropub = createMicropub({
   generatePostUrl: (slug) => `/notes/${slug}/`,
 });
+
+// The IndieAuth authentication + consent hook. @dwk/indieauth owns the protocol;
+// proving the owner's identity (passkey/backup code) and obtaining consent is
+// ours. Returns an AuthorizationApproval only when the request carries a valid
+// owner-session cookie AND a consent token bound to this exact request;
+// otherwise returns the consent page (the library forwards it verbatim).
+function makeApproveAuthorization(env) {
+  return async (authReq, httpRequest) => {
+    const sessionKey = env.INDIEAUTH_SESSION_KEY;
+    const cookie = readCookie(
+      httpRequest.headers.get("Cookie") ?? "",
+      OWNER_COOKIE,
+    );
+    const session = await verifyOwnerSession(cookie, sessionKey);
+    const consent = new URL(httpRequest.url).searchParams.get("_consent");
+    const bound = {
+      clientId: authReq.clientId,
+      redirectUri: authReq.redirectUri,
+      scope: authReq.scope,
+    };
+    if (session && consent && (await verifyConsentToken(consent, sessionKey, bound))) {
+      return {
+        me: env.SITE_URL,
+        scopes: authReq.scopes,
+        profile: { url: env.SITE_URL },
+      };
+    }
+    return new Response(
+      renderConsentPage({ request: httpRequest, authenticated: !!session }),
+      { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+    );
+  };
+}
+
+// POST /auth/consent — prove ownership (passkey assertion, backup code, or an
+// existing session's explicit Approve), then 302 back to /auth carrying a fresh
+// owner-session cookie and a request-bound consent token so approveAuthorization
+// completes. 401 on any failed proof.
+async function handleConsent(request, env, ctx) {
+  const sessionKey = env.INDIEAUTH_SESSION_KEY;
+  let body = {};
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    body = await request.json().catch(() => ({}));
+  } else {
+    const form = await request.formData().catch(() => null);
+    if (form) body = Object.fromEntries(form);
+  }
+  const query = String(body.query ?? "");
+
+  let ok = false;
+  if (body.backupCode && env.OWNER_AUTH_DB) {
+    ok = await redeemBackupCode(env.OWNER_AUTH_DB, String(body.backupCode));
+  } else if (body.assertion) {
+    const verifyReq = new Request(
+      new URL("/auth/webauthn/authenticate/verify", request.url),
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body.assertion),
+      },
+    );
+    const verifyRes = await authFor(env).webauthn(verifyReq, env, ctx);
+    ok = verifyRes.ok;
+  } else if (body.approve) {
+    const cookie = readCookie(request.headers.get("Cookie") ?? "", OWNER_COOKIE);
+    ok = !!(await verifyOwnerSession(cookie, sessionKey));
+  }
+  if (!ok) return new Response("Unauthorized", { status: 401 });
+
+  const params = new URLSearchParams(query);
+  const bound = {
+    clientId: params.get("client_id") ?? "",
+    redirectUri: params.get("redirect_uri") ?? "",
+    scope: params.get("scope") ?? "",
+  };
+  const session = await issueOwnerSession(sessionKey, 900);
+  const consent = await mintConsentToken(sessionKey, bound, 300);
+  params.set("_consent", consent);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `/auth?${params.toString()}`,
+      "Set-Cookie": `${OWNER_COOKIE}=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=900`,
+      "Cache-Control": "no-store",
+    },
+  });
+}
 
 // @dwk/webmention's factories take config (baseUrl) at construction, but the
 // Worker only has `env` at request/queue time — and the queue consumer has no
@@ -96,6 +198,26 @@ function webmentionFor(env) {
       inbox: env.WEBMENTION_INBOX ? createD1Inbox(env.WEBMENTION_INBOX) : null,
     };
     webmentionByEnv.set(env, bundle);
+  }
+  return bundle;
+}
+
+// IndieAuth + WebAuthn factories also need config (origin/rpId) derived from
+// env.SITE_URL, available only at request time. Build once per env and memoize.
+const authByEnv = new WeakMap();
+function authFor(env) {
+  let bundle = authByEnv.get(env);
+  if (!bundle) {
+    const origin = env.SITE_URL;
+    const rpId = origin ? new URL(origin).host : undefined;
+    bundle = {
+      indieauth: createIndieAuth({
+        baseUrl: origin,
+        approveAuthorization: makeApproveAuthorization(env),
+      }),
+      webauthn: createWebAuthn({ rpId, rpName: rpId ?? "site", origin }),
+    };
+    authByEnv.set(env, bundle);
   }
   return bundle;
 }
@@ -170,8 +292,32 @@ const worker = {
 
     // 4. IndieWeb endpoints — each gated on its D1 binding being present.
     const p = url.pathname;
+    if (env.AUTH_DB && p === "/auth/register" && request.method === "GET")
+      return new Response(
+        renderRegisterPage({ token: url.searchParams.get("token") ?? "" }),
+        { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    // Owner-only gate: the package's /register/* enrols any passkey, so the
+    // first enrolment must carry the one-time INDIEWEB_REG_TOKEN, and later ones
+    // a valid owner session. /authenticate/* stays open (it only proves
+    // possession of an already-registered credential).
+    if (env.AUTH_DB && p.startsWith("/auth/webauthn/register/")) {
+      const tokenOk =
+        env.INDIEWEB_REG_TOKEN &&
+        url.searchParams.get("token") === env.INDIEWEB_REG_TOKEN;
+      const session = await verifyOwnerSession(
+        readCookie(request.headers.get("Cookie") ?? "", OWNER_COOKIE),
+        env.INDIEAUTH_SESSION_KEY,
+      );
+      if (!tokenOk && !session)
+        return new Response("Forbidden", { status: 403 });
+    }
+    if (env.AUTH_DB && p.startsWith("/auth/webauthn/"))
+      return authFor(env).webauthn(request, env, ctx);
+    if (env.AUTH_DB && p === "/auth/consent" && request.method === "POST")
+      return handleConsent(request, env, ctx);
     if (env.AUTH_DB && p.startsWith("/auth"))
-      return indieauth(request, env, ctx);
+      return authFor(env).indieauth(request, env, ctx);
     if (env.MICROPUB_DB && (p === "/micropub" || p === "/media"))
       return micropub(request, env, ctx);
     if (env.WEBMENTION_INBOX && p === "/webmention")

@@ -124,6 +124,19 @@ describe("runScan", () => {
     expect(failure!.remediation).toContain("wrangler secret put");
   });
 
+  it("flags a committed INDIEAUTH_SESSION_KEY or INDIEWEB_REG_TOKEN as an exposed-token failure", () => {
+    writeFile("dist/index.html", "<!doctype html><p>hi</p>");
+    writeFile(
+      "wrangler.jsonc",
+      `{ "vars": { "INDIEWEB_REG_TOKEN": "${"ab01cd23".repeat(8)}" } }`,
+    );
+
+    const report = runScan({ siteDir: site });
+
+    expect(report.ok).toBe(false);
+    expect(report.failures.find(f => f.category === "exposed-token")).toBeDefined();
+  });
+
   it("passes on a correctly-configured IndieWeb site (intentional routes, secrets as bindings)", () => {
     writeFile(
       "dist/index.html",
