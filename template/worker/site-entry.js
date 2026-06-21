@@ -72,7 +72,7 @@ import {
   mintConsentToken,
   redeemBackupCode,
 } from "./owner-auth.js";
-import { renderConsentPage } from "./auth-pages.js";
+import { renderConsentPage, renderRegisterPage } from "./auth-pages.js";
 
 // @dwk/webauthn is bound as a Durable Object namespace (WEBAUTHN); the Worker
 // must re-export the class so wrangler can instantiate it.
@@ -292,6 +292,26 @@ const worker = {
 
     // 4. IndieWeb endpoints — each gated on its D1 binding being present.
     const p = url.pathname;
+    if (env.AUTH_DB && p === "/auth/register" && request.method === "GET")
+      return new Response(
+        renderRegisterPage({ token: url.searchParams.get("token") ?? "" }),
+        { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    // Owner-only gate: the package's /register/* enrols any passkey, so the
+    // first enrolment must carry the one-time INDIEWEB_REG_TOKEN, and later ones
+    // a valid owner session. /authenticate/* stays open (it only proves
+    // possession of an already-registered credential).
+    if (env.AUTH_DB && p.startsWith("/auth/webauthn/register/")) {
+      const tokenOk =
+        env.INDIEWEB_REG_TOKEN &&
+        url.searchParams.get("token") === env.INDIEWEB_REG_TOKEN;
+      const session = await verifyOwnerSession(
+        readCookie(request.headers.get("Cookie") ?? "", OWNER_COOKIE),
+        env.INDIEAUTH_SESSION_KEY,
+      );
+      if (!tokenOk && !session)
+        return new Response("Forbidden", { status: 403 });
+    }
     if (env.AUTH_DB && p.startsWith("/auth/webauthn/"))
       return authFor(env).webauthn(request, env, ctx);
     if (env.AUTH_DB && p === "/auth/consent" && request.method === "POST")

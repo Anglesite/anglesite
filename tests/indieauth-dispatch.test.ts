@@ -5,6 +5,10 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import worker from "../template/worker/site-entry.js";
+import { issueOwnerSession, OWNER_COOKIE } from "../template/worker/owner-auth.js";
+
+const REG_TOKEN = "one-time-reg-token";
+const SESSION_KEY = "aabbccddeeff00112233445566778899";
 
 function ctx() {
   return { waitUntil: vi.fn(), passThroughOnException: vi.fn() };
@@ -35,5 +39,46 @@ describe("WebAuthn ceremony dispatch", () => {
     const res = await worker.fetch(req("/auth/webauthn/authenticate/options"), e, ctx());
     expect(e.ASSETS.fetch).toHaveBeenCalledOnce();
     expect(res.headers.get("x-handler")).toBeNull();
+  });
+});
+
+describe("owner-only registration gating", () => {
+  const base = { AUTH_DB: {}, WEBAUTHN: {}, INDIEWEB_REG_TOKEN: REG_TOKEN, INDIEAUTH_SESSION_KEY: SESSION_KEY };
+
+  it("403s /auth/webauthn/register/* with no token and no session", async () => {
+    const res = await worker.fetch(req("/auth/webauthn/register/options"), env(base), ctx());
+    expect(res.status).toBe(403);
+    expect(res.headers.get("x-handler")).toBeNull();
+  });
+
+  it("allows registration with the one-time token", async () => {
+    const res = await worker.fetch(
+      req(`/auth/webauthn/register/options?token=${REG_TOKEN}`),
+      env(base),
+      ctx(),
+    );
+    expect(res.headers.get("x-handler")).toBe("webauthn");
+  });
+
+  it("allows registration with a valid owner session", async () => {
+    const session = await issueOwnerSession(SESSION_KEY, 900);
+    const r = new Request("https://example.com/auth/webauthn/register/options", {
+      method: "POST",
+      headers: { Cookie: `${OWNER_COOKIE}=${session}` },
+    });
+    const res = await worker.fetch(r, env(base), ctx());
+    expect(res.headers.get("x-handler")).toBe("webauthn");
+  });
+
+  it("does NOT gate the authenticate ceremony (proves possession only)", async () => {
+    const res = await worker.fetch(req("/auth/webauthn/authenticate/options"), env(base), ctx());
+    expect(res.headers.get("x-handler")).toBe("webauthn");
+  });
+
+  it("serves the register page at GET /auth/register", async () => {
+    const r = new Request(`https://example.com/auth/register?token=${REG_TOKEN}`, { method: "GET" });
+    const res = await worker.fetch(r, env(base), ctx());
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('id="passkey-register"');
   });
 });
