@@ -1,10 +1,8 @@
-// Stub for the @dwk/webmention package, matching the real 0.1.0-beta.3 API.
-// site-entry.js composes the receiver and queue consumer at module load and
-// reads the inbox through createD1Inbox(); the vitest alias maps
-// "@dwk/webmention" to this file so the worker and the test share one module
-// instance (and one set of counters).
-//
-// The real inbox stores only { source, target, verifiedAt } — no author/content.
+// Stub for the @dwk/webmention package (real API: 0.1.0-beta.2). site-entry.js
+// composes the receiver + queue consumer at module load and backs the inbox
+// with the rich inbox (worker/webmention-inbox.js, which imports `safeFetch`
+// from here). The vitest alias maps "@dwk/webmention" to this file so the worker
+// and the test share one module instance (and one set of counters).
 export const webmentionCalls = { fetch: 0, queue: 0 };
 
 export function resetWebmentionCalls() {
@@ -21,20 +19,26 @@ export function createWebmention(_config?: unknown) {
 }
 
 // createWebmentionQueueConsumer(config) → (batch, env, ctx) => Promise<void>.
-// The queue consumer is a SEPARATE factory from the handler in the real package.
+// The queue consumer is a SEPARATE factory from the handler in the real package;
+// here it just records that the drain ran.
 export function createWebmentionQueueConsumer(_config?: unknown) {
   return async (_batch: unknown, _env: unknown, _ctx: unknown) => {
     webmentionCalls.queue++;
   };
 }
 
-// createD1Inbox(db) → InboxStore. The edge-render reads mentions via
-// inbox.list(target?). Tests drive the data through a fake `db.__list`.
-export function createD1Inbox(db: any) {
-  return {
-    list: async (target?: string) =>
-      db && typeof db.__list === "function" ? db.__list(target) : [],
-    upsert: async () => {},
-    remove: async () => {},
-  };
+// safeFetch(doFetch, url, init, options) → { response, url }. The real package
+// adds SSRF guards; the stub just delegates to the injected fetch so inbox tests
+// can serve canned source HTML through `fetchImpl`.
+export async function safeFetch(
+  doFetch: unknown,
+  url: string,
+  init?: RequestInit,
+  _options?: unknown,
+) {
+  const response =
+    typeof doFetch === "function"
+      ? await (doFetch as typeof fetch)(url, init)
+      : new Response("", { status: 200 });
+  return { response, url };
 }
