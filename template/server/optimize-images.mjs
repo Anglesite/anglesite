@@ -8,20 +8,28 @@ import { join, basename, extname } from "node:path";
  * path. Loading it on first use keeps the server alive and fails only the
  * image-optimization tool — at call time, with an actionable message (#361).
  *
+ * Caches the import Promise (not the resolved value) so concurrent callers
+ * share one load, and resets on failure so a retry can succeed after a later
+ * `npm install` without restarting the server. The original failure is kept on
+ * `.cause` — a load can fail for reasons other than absence (ABI mismatch,
+ * wrong Node version, corrupted install), and discarding it would be misleading.
+ *
  * @returns {Promise<import("sharp").default>}
  */
-let _sharp;
-async function loadSharp() {
-  if (!_sharp) {
-    try {
-      _sharp = (await import("sharp")).default;
-    } catch {
-      throw new Error(
-        "image optimization requires the 'sharp' package — run `npm install` (or `npm install sharp`)",
-      );
-    }
+let _sharpPromise;
+function loadSharp() {
+  if (!_sharpPromise) {
+    _sharpPromise = import("sharp")
+      .then((m) => m.default)
+      .catch((cause) => {
+        _sharpPromise = undefined;
+        throw new Error(
+          "image optimization requires the 'sharp' package — run `npm install` (or `npm install sharp`)",
+          { cause },
+        );
+      });
   }
-  return _sharp;
+  return _sharpPromise;
 }
 
 /**

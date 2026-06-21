@@ -26,11 +26,17 @@ const OPTIMIZE = join(REPO_ROOT, "server", "optimize-images.mjs");
 
 /** Run a snippet in a subprocess with `sharp` made unresolvable. Returns stdout. */
 function runWithoutSharp(snippet) {
-  return execFileSync(
-    process.execPath,
-    ["--import", REGISTER, "--input-type=module", "-e", snippet],
-    { cwd: REPO_ROOT, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
-  );
+  try {
+    return execFileSync(
+      process.execPath,
+      ["--import", REGISTER, "--input-type=module", "-e", snippet],
+      { cwd: REPO_ROOT, encoding: "utf-8" },
+    );
+  } catch (e) {
+    // execFileSync only surfaces "Command failed" on a non-zero exit; pull the
+    // real stderr/stdout forward so a CI failure here is diagnosable.
+    throw new Error(`subprocess failed:\n${e.stderr ?? ""}\n${e.stdout ?? ""}`, { cause: e });
+  }
 }
 
 describe("sharp is optional (#361)", () => {
