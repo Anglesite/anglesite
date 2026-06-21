@@ -100,3 +100,38 @@ export function readCookie(cookieHeader, name) {
   }
   return null;
 }
+
+// --- request-bound consent token -------------------------------------------
+
+// HMAC over a canonical client_id|redirect_uri|scope|exp string. The token is
+// delivered to the owner's browser only after it POSTs through /auth/consent, so
+// a client can't pre-fabricate `&_consent=…` to skip the visible consent screen.
+function consentMessage({ clientId, redirectUri, scope }, exp) {
+  return new TextEncoder().encode(
+    [clientId, redirectUri, scope ?? "", exp].join("|"),
+  );
+}
+
+export async function mintConsentToken(keyHex, req, ttlSeconds = 300) {
+  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const key = await hmacKey(keyHex, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, consentMessage(req, exp));
+  return `${exp}.${bytesToHex(sig)}`;
+}
+
+export async function verifyConsentToken(token, keyHex, req) {
+  if (!token) return false;
+  const dot = token.indexOf(".");
+  if (dot < 0) return false;
+  const exp = Number(token.slice(0, dot));
+  const sigHex = token.slice(dot + 1);
+  if (!Number.isFinite(exp) || exp * 1000 < Date.now()) return false;
+  if (!/^[0-9a-f]+$/i.test(sigHex)) return false;
+  const key = await hmacKey(keyHex, ["verify"]);
+  return crypto.subtle.verify(
+    "HMAC",
+    key,
+    hexToBytes(sigHex),
+    consentMessage(req, exp),
+  );
+}
