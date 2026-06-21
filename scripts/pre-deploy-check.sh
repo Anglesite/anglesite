@@ -49,7 +49,14 @@ if [[ -n "$EMAIL_HITS" ]]; then
   REASONS+=("Possible email address found in built HTML")
 fi
 
-PHONE_HITS=$(grep -rE '\(?\d{3}\)?[-.[[:space:]]]?\d{3}[-.[[:space:]]]?\d{4}' "$DIST/" --include='*.html' 2>/dev/null || true)
+# Boundary guards keep the 3-3-4 shape from matching digit runs embedded in
+# longer tokens — DOIs in citation URLs, Wayback timestamps, decimal
+# coordinates (issues #362, #365). Leading: not preceded by a digit, '/', or
+# '.' (a preceding '-' is allowed so a '1-800-…' country code still matches).
+# Trailing: not followed by a digit or '/' (a trailing '.' is allowed so a
+# number that ends a sentence still matches). POSIX ERE has no lookaround, so
+# the boundaries are matched as literal context chars.
+PHONE_HITS=$(grep -rE '(^|[^0-9/.])\(?[0-9]{3}\)?[-.[:space:]]?[0-9]{3}[-.[:space:]]?[0-9]{4}([^0-9/]|$)' "$DIST/" --include='*.html' 2>/dev/null || true)
 
 # Filter out allowlisted phone numbers (normalize to digits-only for comparison)
 if [[ -n "$PHONE_HITS" && -n "$PHONE_ALLOW" ]]; then
@@ -93,10 +100,16 @@ fi
 # 3. Third-party scripts — unauthorized external JS (allowlist driven by .site-config)
 check_third_party_scripts() {
   local result
-  result=$(grep -r '<script[^>]*src=' "$DIST/" --include='*.html' 2>/dev/null || true)
+  # Extract individual <script …src=…> tags (the -o keeps minified one-line
+  # HTML from collapsing the whole document into a single match that later
+  # grep -v exclusions could be defeated by), then keep only EXTERNAL srcs:
+  # scheme-qualified (https://) or protocol-relative (//). Root-relative (/…)
+  # and relative srcs are first-party by definition (issues #362, #365).
+  result=$(grep -rohE '<script[^>]*src=[^>]*>' "$DIST/" --include='*.html' 2>/dev/null \
+    | grep -E "src=[\"']?(https?:)?//" || true)
 
-  # Always exclude Cloudflare analytics and Astro bundles
-  result=$(echo "$result" | grep -v 'cloudflareinsights' | grep -v '_astro' || true)
+  # Always exclude Cloudflare analytics (external, but first-party-approved)
+  result=$(echo "$result" | grep -v 'cloudflareinsights' || true)
 
   # Add provider-specific exclusions based on .site-config
   if [[ -f ".site-config" ]]; then

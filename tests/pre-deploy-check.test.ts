@@ -48,6 +48,16 @@ describe("pre-deploy-check.sh safety", () => {
       expect(src).toContain(route);
     }
   });
+
+  it("boundary-guards the phone scan so URL/DOI/coordinate digit runs don't match (issues #362, #365)", () => {
+    // Leading/trailing context classes emulate the .ts lookarounds in POSIX ERE.
+    expect(src).toContain("(^|[^0-9/.])");
+    expect(src).toContain("([^0-9/]|$)");
+  });
+
+  it("only flags external (third-party) script srcs, not same-origin ones (issues #362, #365)", () => {
+    expect(src).toContain('src=[\\"\']?(https?:)?//');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -182,6 +192,29 @@ describe("scanPhones", () => {
   it("handles multiple allowlisted numbers", () => {
     const content = "Lines: 800-662-4357, 800-273-8255, 555-000-1234";
     expect(scanPhones(content, ["800-662-4357", "800-273-8255"])).toEqual(["555-000-1234"]);
+  });
+
+  // Boundary-guard regressions (issues #362, #365): digit runs embedded in
+  // longer tokens must not be mistaken for phone numbers.
+  it("ignores a Nature DOI / article id in a citation URL", () => {
+    expect(scanPhones("See https://www.nature.com/articles/s41598-025-97652-6 for details.")).toEqual([]);
+  });
+
+  it("ignores a Wayback Machine URL timestamp", () => {
+    expect(scanPhones('<a href="https://web.archive.org/web/20120120031959/http://example.com/">snapshot</a>')).toEqual([]);
+  });
+
+  it("ignores a decimal geo-coordinate", () => {
+    expect(scanPhones("The marker sits at 37.3268981241 degrees.")).toEqual([]);
+  });
+
+  it("still detects a phone number that ends a sentence", () => {
+    expect(scanPhones("Reach the front desk at 555-123-4567.")).toEqual(["555-123-4567"]);
+  });
+
+  it("still detects a number with a country-code prefix", () => {
+    // The leading '1-' must not suppress the match.
+    expect(scanPhones("Call 1-800-662-4357 anytime.")).toEqual(["800-662-4357"]);
   });
 });
 
@@ -349,6 +382,32 @@ describe("scanScripts", () => {
 
   it("returns empty array for content with no scripts", () => {
     expect(scanScripts("<p>No scripts here</p>")).toEqual([]);
+  });
+
+  // First-party scripts are not third-party (issues #362, #365).
+  it("allows a site's own root-relative script", () => {
+    const html = '<script src="/js/footnote-popup.js"></script>';
+    expect(scanScripts(html)).toEqual([]);
+  });
+
+  it("allows a relative script path", () => {
+    const html = '<script src="js/footnote-popup.js"></script>';
+    expect(scanScripts(html)).toEqual([]);
+  });
+
+  it("flags protocol-relative external scripts", () => {
+    const html = '<script src="//evil.example.com/x.js"></script>';
+    const result = scanScripts(html);
+    expect(result.length).toBe(1);
+    expect(result[0]).toContain("evil.example.com");
+  });
+
+  it("flags only the external script when first- and third-party scripts coexist", () => {
+    const html =
+      '<script src="/js/app.js"></script><script src="https://evil.example.com/x.js"></script>';
+    const result = scanScripts(html);
+    expect(result.length).toBe(1);
+    expect(result[0]).toContain("evil.example.com");
   });
 });
 
