@@ -68,6 +68,9 @@ import {
   readCookie,
   verifyOwnerSession,
   verifyConsentToken,
+  issueOwnerSession,
+  mintConsentToken,
+  redeemBackupCode,
 } from "./owner-auth.js";
 import { renderConsentPage } from "./auth-pages.js";
 
@@ -112,6 +115,61 @@ function makeApproveAuthorization(env) {
       { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
     );
   };
+}
+
+// POST /auth/consent — prove ownership (passkey assertion, backup code, or an
+// existing session's explicit Approve), then 302 back to /auth carrying a fresh
+// owner-session cookie and a request-bound consent token so approveAuthorization
+// completes. 401 on any failed proof.
+async function handleConsent(request, env, ctx) {
+  const sessionKey = env.INDIEAUTH_SESSION_KEY;
+  let body = {};
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    body = await request.json().catch(() => ({}));
+  } else {
+    const form = await request.formData().catch(() => null);
+    if (form) body = Object.fromEntries(form);
+  }
+  const query = String(body.query ?? "");
+
+  let ok = false;
+  if (body.backupCode && env.OWNER_AUTH_DB) {
+    ok = await redeemBackupCode(env.OWNER_AUTH_DB, String(body.backupCode));
+  } else if (body.assertion) {
+    const verifyReq = new Request(
+      new URL("/auth/webauthn/authenticate/verify", request.url),
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body.assertion),
+      },
+    );
+    const verifyRes = await authFor(env).webauthn(verifyReq, env, ctx);
+    ok = verifyRes.ok;
+  } else if (body.approve) {
+    const cookie = readCookie(request.headers.get("Cookie") ?? "", OWNER_COOKIE);
+    ok = !!(await verifyOwnerSession(cookie, sessionKey));
+  }
+  if (!ok) return new Response("Unauthorized", { status: 401 });
+
+  const params = new URLSearchParams(query);
+  const bound = {
+    clientId: params.get("client_id") ?? "",
+    redirectUri: params.get("redirect_uri") ?? "",
+    scope: params.get("scope") ?? "",
+  };
+  const session = await issueOwnerSession(sessionKey, 900);
+  const consent = await mintConsentToken(sessionKey, bound, 300);
+  params.set("_consent", consent);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `/auth?${params.toString()}`,
+      "Set-Cookie": `${OWNER_COOKIE}=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=900`,
+      "Cache-Control": "no-store",
+    },
+  });
 }
 
 // @dwk/webmention's factories take config (baseUrl) at construction, but the
@@ -236,6 +294,8 @@ const worker = {
     const p = url.pathname;
     if (env.AUTH_DB && p.startsWith("/auth/webauthn/"))
       return authFor(env).webauthn(request, env, ctx);
+    if (env.AUTH_DB && p === "/auth/consent" && request.method === "POST")
+      return handleConsent(request, env, ctx);
     if (env.AUTH_DB && p.startsWith("/auth"))
       return authFor(env).indieauth(request, env, ctx);
     if (env.MICROPUB_DB && (p === "/micropub" || p === "/media"))
