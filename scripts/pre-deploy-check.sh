@@ -81,12 +81,13 @@ if grep -rE 'pat[A-Za-z0-9]{14}\.[A-Za-z0-9]{32,}|sk-[A-Za-z0-9]{20,}|gh[pousr]_
   REASONS+=("API token pattern found in source or build output")
 fi
 
-# 2b. IndieWeb secret bindings (INDIEAUTH_SIGNING_KEY, GITHUB_TOKEN) committed
-# as literals. Name-only references never match — env.GITHUB_TOKEN,
-# ${{ secrets.GITHUB_TOKEN }}, and `wrangler secret put INDIEAUTH_SIGNING_KEY`
-# all lack a credential-shaped value after = or :
-if grep -rE '(INDIEAUTH_SIGNING_KEY|GITHUB_TOKEN)["'\'']?[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9+/_-]{16,}' "${TOKEN_SCAN_PATHS[@]}" 2>/dev/null | grep -q .; then
-  REASONS+=("INDIEAUTH_SIGNING_KEY or GITHUB_TOKEN committed in source — rotate it and store it with 'wrangler secret put'")
+# 2b. IndieWeb secret bindings (INDIEAUTH_SIGNING_KEY, INDIEAUTH_SESSION_KEY,
+# INDIEWEB_REG_TOKEN, GITHUB_TOKEN) committed as literals. Name-only references
+# never match — env.GITHUB_TOKEN, ${{ secrets.GITHUB_TOKEN }}, and
+# `wrangler secret put INDIEAUTH_SIGNING_KEY` all lack a credential-shaped value
+# after = or :
+if grep -rE '(INDIEAUTH_SIGNING_KEY|INDIEAUTH_SESSION_KEY|INDIEWEB_REG_TOKEN|GITHUB_TOKEN)["'\'']?[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9+/_-]{16,}' "${TOKEN_SCAN_PATHS[@]}" 2>/dev/null | grep -q .; then
+  REASONS+=("An IndieWeb secret (INDIEAUTH_SIGNING_KEY / INDIEAUTH_SESSION_KEY / INDIEWEB_REG_TOKEN / GITHUB_TOKEN) is committed in source — rotate it and store it with 'wrangler secret put'")
 fi
 
 # 3. Third-party scripts — unauthorized external JS (allowlist driven by .site-config)

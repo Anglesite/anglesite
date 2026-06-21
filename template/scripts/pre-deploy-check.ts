@@ -82,7 +82,7 @@ export const githubTokenPattern = /\bgh[pousr]_[A-Za-z0-9]{36,}\b|\bgithub_pat_[
  * `<`, and `.` so env interpolations, doc placeholders, and property accesses
  * never match.
  */
-export const committedSecretPattern = /\b(?:INDIEAUTH_SIGNING_KEY|GITHUB_TOKEN)["']?\s*[:=]\s*["']?[A-Za-z0-9+/_-]{16,}/;
+export const committedSecretPattern = /\b(?:INDIEAUTH_SIGNING_KEY|INDIEAUTH_SESSION_KEY|INDIEWEB_REG_TOKEN|GITHUB_TOKEN)["']?\s*[:=]\s*["']?[A-Za-z0-9+/_-]{16,}/;
 
 /**
  * IndieWeb endpoints served by the site Worker (`worker/site-entry.js`), set

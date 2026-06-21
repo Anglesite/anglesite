@@ -45,6 +45,10 @@ The composed Worker's `Env` is the union of the mounted packages' fragments; a m
 | Binding | Type | Package | Purpose |
 |---|---|---|---|
 | `AUTH_DB` | D1 | indieauth | Authorization codes + issued tokens (strongly-consistent; never KV) |
+| `WEBAUTHN` | Durable Object | webauthn | Passkey challenge state + credential records (owner authentication) |
+| `OWNER_AUTH_DB` | D1 | (anglesite) | Single-use backup-code hashes (owner recovery) |
+| `INDIEAUTH_SESSION_KEY` | secret | (anglesite) | Signs the owner-session cookie after a passkey/backup-code sign-in |
+| `INDIEWEB_REG_TOKEN` | secret | (anglesite) | One-time gate for the first passkey enrolment |
 | `MICROPUB_DB` | D1 | micropub | Published post records (mf2 source) + DPoP `jti` replay store |
 | `WEBMENTION_INBOX` | D1 | webmention | Verified-mention inbox (stores `{ source, target, verified_at }` only — no author/content) |
 | `MEDIA` | R2 | micropub | Media-endpoint blob storage |

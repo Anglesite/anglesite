@@ -31,7 +31,8 @@
   "d1_databases": [
     { "binding": "AUTH_DB",          "database_name": "indieauth",   "database_id": "" },
     { "binding": "MICROPUB_DB",      "database_name": "micropub",    "database_id": "" },
-    { "binding": "WEBMENTION_INBOX", "database_name": "webmention",  "database_id": "" }
+    { "binding": "WEBMENTION_INBOX", "database_name": "webmention",  "database_id": "" },
+    { "binding": "OWNER_AUTH_DB",    "database_name": "owner-auth",  "database_id": "" }
   ],
   // Passkey owner-auth (IndieAuth) — provisioned by /anglesite:indieweb.
   // WebAuthnObject (from @dwk/webauthn, re-exported by worker/site-entry.js) owns
