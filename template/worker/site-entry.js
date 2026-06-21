@@ -304,21 +304,41 @@ class WebmentionInjector {
   }
 }
 
-function renderMention(m) {
+export function renderMention(m) {
   const name = escapeHtml(m.author_name || m.author_url || "Someone");
-  const photo = m.author_photo
-    ? `<img class="u-photo" src="${escapeHtml(m.author_photo)}" alt="" width="48" height="48" />`
+  // Webmention fields come from arbitrary external sites. escapeHtml() blocks
+  // tag injection but NOT dangerous URL schemes — a `javascript:`/`data:` value
+  // in an href/src is executable. Only http/https URLs may reach an attribute.
+  const photoUrl = safeUrl(m.author_photo);
+  const authorUrl = safeUrl(m.author_url);
+  const url = safeUrl(m.url);
+  const photo = photoUrl
+    ? `<img class="u-photo" src="${escapeHtml(photoUrl)}" alt="" width="48" height="48" />`
     : "";
-  const author = m.author_url
-    ? `<a class="p-author h-card u-url" href="${escapeHtml(m.author_url)}">${name}</a>`
+  const author = authorUrl
+    ? `<a class="p-author h-card u-url" rel="nofollow ugc noopener" href="${escapeHtml(authorUrl)}">${name}</a>`
     : `<span class="p-author">${name}</span>`;
   const content = m.content
     ? `<div class="p-content">${escapeHtml(m.content)}</div>`
     : "";
-  const permalink = m.url
-    ? `<a class="u-url" href="${escapeHtml(m.url)}">permalink</a>`
+  const permalink = url
+    ? `<a class="u-url" rel="nofollow ugc noopener" href="${escapeHtml(url)}">permalink</a>`
     : "";
   return `<li class="h-cite">${photo}${author}${content}${permalink}</li>`;
+}
+
+// Return the URL only if it parses to an http(s) URL, else null. Blocks
+// javascript:/data:/vbscript:/mailto: and any other scheme from reaching an
+// href/src attribute. Relative URLs are rejected (no base to resolve against
+// here); webmention author/permalink URLs are absolute in practice.
+export function safeUrl(value) {
+  if (!value) return null;
+  try {
+    const u = new URL(String(value).trim());
+    return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
+  } catch {
+    return null;
+  }
 }
 
 function escapeHtml(value) {
