@@ -1,25 +1,31 @@
 /**
- * Plugin-side tests for the IndieWeb runtime wiring in
- * `template/worker/site-entry.js` (issue #337, design §7):
+ * Plugin-side tests for the IndieWeb runtime wiring in the SHIPPED default
+ * `template/worker/site-entry.js` (issues #337, #363):
  *
- *   - Gated endpoint dispatch — each route fires only when its binding is
- *     present, and falls through to ASSETS otherwise.
- *   - queue()/scheduled() hooks — webmention drain runs only with
- *     WEBMENTION_DB; the Micropub bridge sync always runs via waitUntil.
- *   - Webmention edge-render gating — no WEBMENTION_DB query and no rewrite
- *     unless the request is for a note/post HTML page that actually has
- *     stored mentions.
+ *   - IndieAuth + Micropub routes report 501 while their wiring is pending the
+ *     auth follow-up — the Worker boots and never crashes on missing config.
+ *   - Webmention is NOT wired in the default template: `/anglesite:indieweb`
+ *     injects it (import + dispatch + queue drain + edge-render) at the
+ *     `@anglesite-inject:*` sentinels when the owner enables Webmention. The
+ *     default worker therefore falls every IndieWeb-shaped request through to
+ *     ASSETS, and queue()/scheduled() only run the Micropub bridge sync.
+ *   - The integrated webmention behavior is covered in webmention-module.test.ts
+ *     (handler, queue drain, edge-render, mf2 parse) against worker/webmention.js.
  *
- * The @dwk/* handlers are unpublished; vitest aliases them to tagged stubs
- * (tests/__stubs__/dwk-*.ts) so the real worker imports cleanly and each
- * dispatch target is identifiable by its `x-handler` response header.
+ * This file also guards the injection sentinels so the skill's anchors can't
+ * silently disappear.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import worker from "../template/worker/site-entry.js";
-import {
-  webmentionCalls,
-  resetWebmentionCalls,
-} from "./__stubs__/dwk-webmention";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const siteEntrySource = readFileSync(
+  join(__dirname, "..", "template", "worker", "site-entry.js"),
+  "utf-8",
+);
 
 function makeCtx() {
   return { waitUntil: vi.fn(), passThroughOnException: vi.fn() };
@@ -50,271 +56,113 @@ function req(
   return new Request(`https://example.com${path}`, { method, headers });
 }
 
-beforeEach(() => {
-  resetWebmentionCalls();
-});
-
-describe("IndieWeb endpoint dispatch (gated on bindings)", () => {
-  it("routes /auth to the IndieAuth handler when AUTH_DB is bound", async () => {
+describe("IndieAuth / Micropub dispatch (wiring pending — 501)", () => {
+  it("reports 501 for /auth when AUTH_DB is bound, without crashing or hitting ASSETS", async () => {
     const env = makeEnv({ AUTH_DB: {} });
     const res = await worker.fetch(req("/auth"), env, makeCtx());
-    expect(res.headers.get("x-handler")).toBe("indieauth");
+    expect(res.status).toBe(501);
     expect(env.ASSETS.fetch).not.toHaveBeenCalled();
   });
 
-  it("routes any /auth subpath (e.g. /auth/token) to IndieAuth", async () => {
+  it("reports 501 for any /auth subpath (e.g. /auth/token)", async () => {
     const env = makeEnv({ AUTH_DB: {} });
     const res = await worker.fetch(req("/auth/token"), env, makeCtx());
-    expect(res.headers.get("x-handler")).toBe("indieauth");
+    expect(res.status).toBe(501);
   });
 
-  it("falls through /auth to ASSETS when AUTH_DB is absent", async () => {
+  it("falls /auth through to ASSETS when AUTH_DB is absent", async () => {
     const env = makeEnv();
     const res = await worker.fetch(req("/auth"), env, makeCtx());
     expect(env.ASSETS.fetch).toHaveBeenCalledOnce();
     expect(res.headers.get("x-asset")).toBe("1");
-    expect(res.headers.get("x-handler")).toBeNull();
   });
 
-  it("routes /micropub and /media to Micropub when MICROPUB_DB is bound", async () => {
+  it("reports 501 for /micropub and /media when MICROPUB_DB is bound", async () => {
     for (const path of ["/micropub", "/media"]) {
       const env = makeEnv({ MICROPUB_DB: {} });
       const res = await worker.fetch(req(path), env, makeCtx());
-      expect(res.headers.get("x-handler"), path).toBe("micropub");
+      expect(res.status, path).toBe(501);
       expect(env.ASSETS.fetch).not.toHaveBeenCalled();
     }
   });
 
-  it("falls through /micropub to ASSETS when MICROPUB_DB is absent", async () => {
+  it("falls /micropub through to ASSETS when MICROPUB_DB is absent", async () => {
     const env = makeEnv();
     const res = await worker.fetch(req("/micropub"), env, makeCtx());
     expect(env.ASSETS.fetch).toHaveBeenCalledOnce();
-    expect(res.headers.get("x-handler")).toBeNull();
+    expect(res.status).not.toBe(501);
   });
 
-  it("routes /webmention to the Webmention handler when WEBMENTION_DB is bound", async () => {
+  it("routes are independent: AUTH_DB alone does not affect /micropub", async () => {
+    const env = makeEnv({ AUTH_DB: {} });
+    const res = await worker.fetch(req("/micropub"), env, makeCtx());
+    expect(env.ASSETS.fetch).toHaveBeenCalledOnce();
+    expect(res.status).not.toBe(501);
+  });
+});
+
+describe("Webmention is not wired in the default template", () => {
+  it("falls /webmention through to ASSETS even when WEBMENTION_DB is bound", async () => {
     const env = makeEnv({ WEBMENTION_DB: {} });
     const res = await worker.fetch(
       req("/webmention", { method: "POST" }),
       env,
       makeCtx(),
     );
-    expect(res.headers.get("x-handler")).toBe("webmention");
-    expect(webmentionCalls.fetch).toBe(1);
-    expect(env.ASSETS.fetch).not.toHaveBeenCalled();
+    expect(env.ASSETS.fetch).toHaveBeenCalledOnce();
+    expect(res.headers.get("x-asset")).toBe("1");
   });
 
-  it("falls through /webmention to ASSETS when WEBMENTION_DB is absent", async () => {
-    const env = makeEnv();
-    const res = await worker.fetch(
-      req("/webmention", { method: "POST" }),
-      env,
-      makeCtx(),
-    );
-    expect(env.ASSETS.fetch).toHaveBeenCalledOnce();
-    expect(res.headers.get("x-handler")).toBeNull();
-    expect(webmentionCalls.fetch).toBe(0);
-  });
-
-  it("routes are independent: AUTH_DB alone does not enable /micropub", async () => {
-    const env = makeEnv({ AUTH_DB: {} });
-    const res = await worker.fetch(req("/micropub"), env, makeCtx());
-    expect(env.ASSETS.fetch).toHaveBeenCalledOnce();
-    expect(res.headers.get("x-handler")).toBeNull();
-  });
-
-  it("unknown paths always fall through to ASSETS even with every binding set", async () => {
-    const env = makeEnv({ AUTH_DB: {}, MICROPUB_DB: {}, WEBMENTION_DB: {} });
-    const res = await worker.fetch(req("/about/"), env, makeCtx());
-    expect(env.ASSETS.fetch).toHaveBeenCalledOnce();
-    expect(res.headers.get("x-handler")).toBeNull();
+  it("does not rewrite note/post pages (edge-render is injected, not default)", async () => {
+    let rewriteUsed = false;
+    class FakeHTMLRewriter {
+      on() {
+        return this;
+      }
+      transform(r: Response) {
+        rewriteUsed = true;
+        return r;
+      }
+    }
+    (globalThis as any).HTMLRewriter = FakeHTMLRewriter;
+    try {
+      const env = makeEnv({ WEBMENTION_DB: {} });
+      const res = await worker.fetch(
+        req("/notes/abc/", { accept: "text/html" }),
+        env,
+        makeCtx(),
+      );
+      expect(rewriteUsed).toBe(false);
+      expect(res.headers.get("x-asset")).toBe("1");
+    } finally {
+      delete (globalThis as any).HTMLRewriter;
+    }
   });
 });
 
-describe("queue() and scheduled() dispatch", () => {
-  it("queue() drains the webmention queue only when WEBMENTION_DB is bound", async () => {
-    await worker.queue({ messages: [] }, makeEnv({ WEBMENTION_DB: {} }), makeCtx());
-    expect(webmentionCalls.queue).toBe(1);
-
-    resetWebmentionCalls();
-    await worker.queue({ messages: [] }, makeEnv(), makeCtx());
-    expect(webmentionCalls.queue).toBe(0);
-  });
-
-  it("queue() always schedules the Micropub bridge sync via waitUntil", async () => {
+describe("queue() and scheduled() in the default template", () => {
+  it("queue() runs only the Micropub bridge sync (no webmention drain wired)", async () => {
     const ctx = makeCtx();
-    await worker.queue({ messages: [] }, makeEnv(), ctx);
+    await worker.queue({ messages: [] }, makeEnv({ WEBMENTION_DB: {} }), ctx);
     expect(ctx.waitUntil).toHaveBeenCalledOnce();
   });
 
-  it("scheduled() runs the webmention cron only when WEBMENTION_DB is bound", async () => {
-    await worker.scheduled({}, makeEnv({ WEBMENTION_DB: {} }), makeCtx());
-    expect(webmentionCalls.scheduled).toBe(1);
-
-    resetWebmentionCalls();
-    await worker.scheduled({}, makeEnv(), makeCtx());
-    expect(webmentionCalls.scheduled).toBe(0);
-  });
-
-  it("scheduled() always schedules the Micropub bridge sync via waitUntil", async () => {
+  it("scheduled() runs the Micropub bridge sync via waitUntil", async () => {
     const ctx = makeCtx();
     await worker.scheduled({}, makeEnv(), ctx);
     expect(ctx.waitUntil).toHaveBeenCalledOnce();
   });
 });
 
-describe("Webmention edge-render gating", () => {
-  // site-entry.js calls `new HTMLRewriter()` only when it decides to inject.
-  // The Node test runtime has no HTMLRewriter, so we install a fake that
-  // records whether a rewrite was attempted — that flag is the assertion.
-  let rewriteUsed = false;
-
-  class FakeHTMLRewriter {
-    on() {
-      return this;
+describe("webmention injection sentinels (skill anchor contract)", () => {
+  it("ships all four @anglesite-inject sentinels the indieweb skill targets", () => {
+    for (const id of [
+      "webmention-import",
+      "webmention-dispatch",
+      "webmention-render",
+      "webmention-queue",
+    ]) {
+      expect(siteEntrySource, id).toContain(`/* @anglesite-inject:${id} */`);
     }
-    transform(response: Response) {
-      rewriteUsed = true;
-      return response;
-    }
-  }
-
-  beforeEach(() => {
-    rewriteUsed = false;
-    (globalThis as any).HTMLRewriter = FakeHTMLRewriter;
-  });
-
-  afterEach(() => {
-    delete (globalThis as any).HTMLRewriter;
-  });
-
-  // Serves both edge-render queries: the distinct-targets set (keys of
-  // mentionsByTarget) and the per-target mention rows. The worker caches the
-  // target set per binding object, so each test's fresh mock starts cold.
-  function webmentionDb(mentionsByTarget: Record<string, unknown[]>) {
-    const targetsAll = vi.fn(async () => ({
-      results: Object.keys(mentionsByTarget).map((target) => ({ target })),
-    }));
-    let boundTarget: string;
-    const mentionsAll = vi.fn(async () => ({
-      results: mentionsByTarget[boundTarget] ?? [],
-    }));
-    const bind = vi.fn((target: string) => {
-      boundTarget = target;
-      return { all: mentionsAll };
-    });
-    const prepare = vi.fn((sql: string) =>
-      sql.includes("DISTINCT") ? { all: targetsAll } : { bind },
-    );
-    return { db: { prepare }, prepare, bind, targetsAll, mentionsAll };
-  }
-
-  it("queries D1 and rewrites a note/blog page that has stored mentions", async () => {
-    for (const path of ["/notes/abc/", "/blog/my-post/"]) {
-      rewriteUsed = false;
-      const target = `https://example.com${path}`;
-      const { db, bind } = webmentionDb({
-        [target]: [
-          {
-            author_name: "Alice",
-            author_url: "https://alice.example",
-            content: "Great post!",
-            url: "https://alice.example/reply/1",
-            type: "in-reply-to",
-            published: "2026-06-01T00:00:00Z",
-          },
-        ],
-      });
-      const env = makeEnv({ WEBMENTION_DB: db });
-      await worker.fetch(req(path, { accept: "text/html" }), env, makeCtx());
-
-      expect(bind, path).toHaveBeenCalledWith(target);
-      expect(rewriteUsed, path).toBe(true);
-    }
-  });
-
-  it("does NOT query mentions or rewrite when the page has no stored mentions", async () => {
-    const { db, bind } = webmentionDb({
-      "https://example.com/notes/other/": [{ author_name: "Alice" }],
-    });
-    const env = makeEnv({ WEBMENTION_DB: db });
-    const res = await worker.fetch(
-      req("/notes/abc/", { accept: "text/html" }),
-      env,
-      makeCtx(),
-    );
-
-    // The page isn't in the known-target set, so no per-target query runs.
-    expect(bind).not.toHaveBeenCalled();
-    expect(rewriteUsed).toBe(false);
-    // Response passes through untouched.
-    expect(res.headers.get("x-asset")).toBe("1");
-  });
-
-  it("caches the known-target set — one distinct query across requests", async () => {
-    const { db, targetsAll } = webmentionDb({});
-    const env = makeEnv({ WEBMENTION_DB: db });
-    await worker.fetch(req("/notes/a/", { accept: "text/html" }), env, makeCtx());
-    await worker.fetch(req("/notes/b/", { accept: "text/html" }), env, makeCtx());
-    expect(targetsAll).toHaveBeenCalledOnce();
-  });
-
-  it("does NOT query for non-target paths (home, about)", async () => {
-    for (const path of ["/", "/about/", "/contact/"]) {
-      const { db, prepare } = webmentionDb({
-        "https://example.com/notes/abc/": [{ author_name: "Bob" }],
-      });
-      const env = makeEnv({ WEBMENTION_DB: db });
-      await worker.fetch(req(path, { accept: "text/html" }), env, makeCtx());
-      expect(prepare, path).not.toHaveBeenCalled();
-      expect(rewriteUsed, path).toBe(false);
-    }
-  });
-
-  it("does NOT query the collection index — only permalinks are targets", async () => {
-    for (const path of ["/notes", "/notes/", "/blog", "/blog/"]) {
-      const { db, prepare } = webmentionDb({
-        "https://example.com/notes/abc/": [{ author_name: "Bob" }],
-      });
-      const env = makeEnv({ WEBMENTION_DB: db });
-      await worker.fetch(req(path, { accept: "text/html" }), env, makeCtx());
-      expect(prepare, path).not.toHaveBeenCalled();
-    }
-  });
-
-  it("does NOT query when WEBMENTION_DB is unbound", async () => {
-    const env = makeEnv();
-    const res = await worker.fetch(
-      req("/notes/abc/", { accept: "text/html" }),
-      env,
-      makeCtx(),
-    );
-    expect(rewriteUsed).toBe(false);
-    expect(res.headers.get("x-asset")).toBe("1");
-  });
-
-  it("does NOT query non-HTML responses even on a target path", async () => {
-    const { db, prepare } = webmentionDb({
-      "https://example.com/notes/abc/": [{ author_name: "Bob" }],
-    });
-    const env = makeEnv({
-      WEBMENTION_DB: db,
-      ASSETS: {
-        fetch: vi.fn(async () => assetsResponse("{}", "application/json")),
-      },
-    });
-    await worker.fetch(req("/notes/abc/", { accept: "text/html" }), env, makeCtx());
-    expect(prepare).not.toHaveBeenCalled();
-    expect(rewriteUsed).toBe(false);
-  });
-
-  it("does NOT query for non-HTML requests (no Accept: text/html)", async () => {
-    const { db, prepare } = webmentionDb({
-      "https://example.com/notes/abc/": [{ author_name: "Bob" }],
-    });
-    const env = makeEnv({ WEBMENTION_DB: db });
-    await worker.fetch(req("/notes/abc/"), env, makeCtx());
-    expect(prepare).not.toHaveBeenCalled();
-    expect(rewriteUsed).toBe(false);
   });
 });

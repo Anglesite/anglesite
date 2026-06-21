@@ -55,19 +55,25 @@ Do not attempt git installs, forks, or workarounds. The gate is intentional.
 
 ## Step 2 — Choose endpoints
 
-Tell the owner: "There are three IndieWeb endpoints you can enable — each works independently, and I'd recommend all three for the full experience:"
+> **Current availability (issue #363).** Only **Webmention** is wired into the
+> site Worker today. **IndieAuth** and **Micropub** are staged — their routes
+> return `501 Not Configured` until the auth wiring lands in a follow-up release.
+> Recommend Webmention now; only provision IndieAuth/Micropub if the owner
+> explicitly wants the resources pre-created (the endpoints won't function yet).
+> IndieAuth and Micropub are a pair: Micropub consumes the access tokens
+> IndieAuth issues, so neither works until both are wired.
 
-| Endpoint | What it does |
-|---|---|
-| **IndieAuth** | Sign in to other IndieWeb services with your domain; issues access tokens for Micropub |
-| **Webmention** | Receive (and send) cross-site mentions, replies, and likes |
-| **Micropub** | Publish to your site from phone apps and other Micropub clients |
+Tell the owner: "There are three IndieWeb endpoints. **Webmention works today**; IndieAuth and Micropub are coming in a follow-up release."
 
-Ask: "Which would you like to enable? (Default: all three)"
+| Endpoint | What it does | Status |
+|---|---|---|
+| **Webmention** | Receive (and send) cross-site mentions, replies, and likes | ✅ Live |
+| **IndieAuth** | Sign in to other IndieWeb services with your domain; issues access tokens for Micropub | 🚧 Pending (501) |
+| **Micropub** | Publish to your site from phone apps and other Micropub clients | 🚧 Pending (501) |
 
-Note the dependency: Micropub requires IndieAuth for token issuance. If the owner selects Micropub but not IndieAuth, explain this and recommend enabling both. Webmention is fully independent.
+Ask: "Would you like to enable Webmention now? (Recommended)" Only offer to pre-provision IndieAuth/Micropub if the owner asks, and make clear those endpoints won't respond until the follow-up.
 
-Record the choices for use in subsequent steps. If the owner selects all three (or accepts the default), proceed with all.
+Record the choices for use in subsequent steps.
 
 ## Step 3 — Provision bindings
 
@@ -173,9 +179,51 @@ For the Queue (Webmention):
 }
 ```
 
+## Step 4b — Install and wire the Webmention runtime (if Webmention selected)
+
+The webmention code lives in `template/worker/webmention.js` (scaffolded to the
+site as `worker/webmention.js`). It is **not** imported by the default Worker —
+`worker/site-entry.js` ships with four `/* @anglesite-inject:* */` sentinels so a
+site without Webmention never bundles the `@dwk/webmention` + `microformats-parser`
+dependencies. Enabling Webmention means installing those packages and replacing
+each sentinel with its real line.
+
+**1. Install the packages:**
+
+```sh
+npm install @dwk/webmention microformats-parser
+```
+
+**2. Replace the four sentinels in `worker/site-entry.js`** using the Edit tool
+(each sentinel appears exactly once):
+
+| Sentinel | Replace with |
+|---|---|
+| `/* @anglesite-inject:webmention-import */` | `import { handleWebmention, injectWebmentions, drainWebmentionQueue } from "./webmention.js";` |
+| `/* @anglesite-inject:webmention-dispatch */` | `if (env.WEBMENTION_DB && p === "/webmention") return handleWebmention(request, env, ctx, url.origin);` |
+| `/* @anglesite-inject:webmention-render */` | `response = await injectWebmentions(response, env, url);` |
+| `/* @anglesite-inject:webmention-queue */` | `await drainWebmentionQueue(batch, env, ctx);` |
+
+Leave the IndieAuth/Micropub `501` branches untouched — they stay until that
+follow-up. The `webmention-render` sentinel sits inside an `if (isHtmlRequest)`
+block; `injectWebmentions` self-gates on `WEBMENTION_DB`, the note/post target
+path, and an HTML response, so it is a no-op on every other page.
+
+**Schema is automatic.** The custom inbox creates the extended `webmentions`
+table (`source, target, author_name, author_url, author_photo, content, url,
+type, published, status, verified_at`) on first write — no manual migration. The
+queue consumer re-fetches each verified source (SSRF-guarded) and parses its
+microformats2 to populate the author h-card and content the edge-render shows.
+
 ## Step 5 — Store secrets
 
 ### 5a — IndieAuth signing key (if IndieAuth selected)
+
+> **Pending wiring (#363).** IndieAuth is not functional yet (its route returns
+> 501). When it lands, the `@dwk/indieauth` handler reads the signing key from
+> the **`TOKEN_SIGNING_KEY`** binding — not `INDIEAUTH_SIGNING_KEY`. Use that
+> name when the follow-up wires the handler. The step below pre-creates the
+> secret; the endpoint stays 501 until the handler is composed in.
 
 Generate a signing key:
 
@@ -266,9 +314,9 @@ Tell the owner what's live and what to expect:
 
 For each enabled endpoint, explain in one sentence:
 
-- **IndieAuth** — "You can now sign in to IndieWeb services (and any IndieAuth-compatible app) with `https://<SITE_DOMAIN>`. Your tokens are issued by your own server."
-- **Webmention** — "Your site can now receive mentions, replies, and likes from other websites. They'll appear on your posts automatically."
-- **Micropub** — "You can publish to your site from Micropub clients (like phone apps). New posts appear as notes — they're committed to your repo and go live after a rebuild (~1–2 minutes)."
+- **Webmention** (live) — "Your site can now receive mentions, replies, and likes from other websites. They'll appear on your posts automatically, with the sender's name, photo, and a snippet."
+- **IndieAuth** (pending) — "Sign-in with your domain is staged but not active yet — the endpoint returns a 501 until the next release wires it in. I'll let you know when it ships."
+- **Micropub** (pending) — "Publishing from Micropub clients is staged but not active yet (it depends on IndieAuth). The endpoint returns a 501 until both land in the next release."
 
 Important caveats to surface:
 
@@ -284,8 +332,8 @@ Suggest next steps:
 
 ## Notes
 
-- **Per-binding gating.** Every endpoint is gated on the presence of its D1 binding in `site-entry.js`. A partially configured site still serves static pages normally — the guards are all false until the bindings exist.
+- **Per-binding gating.** Every endpoint is gated on the presence of its D1 binding in `site-entry.js`. A partially configured site still serves static pages normally — the guards are all false until the bindings exist. The Webmention runtime is additionally gated at the bundle level: its `@dwk/webmention` + `microformats-parser` imports are injected (Step 4b) only when Webmention is enabled, so other sites never install or bundle them.
 - **No cost.** Everything runs within Cloudflare's free tier (Workers, D1, R2, Queues). No third-party service fees.
 - **Privacy.** Webmention data (mentions from other sites) is stored in D1 on the owner's account. The owner should mention in their privacy policy that the site receives and stores Webmentions. Micropub posts are committed to the owner's private GitHub repo.
 - **Diagnostics.** If endpoints misbehave, check the Worker logs: `https://dash.cloudflare.com/<account-id>/workers/services/view/<CF_PROJECT_NAME>/production/observability/logs`. Or run `/anglesite:check` which will inspect the IndieWeb endpoint configuration.
-- **Schema management.** The `@dwk/*` packages manage their own D1 schemas. Schema migrations run automatically on first request or can be triggered manually via `npx wrangler d1 execute <db-name> --remote --file=<schema-path>`.
+- **Schema management.** Webmention uses a custom inbox (`worker/webmention.js`) that creates and owns its extended `webmentions` table — author h-card, content, type, and permalink, not just `(source, target)` — on first write. The `@dwk/indieauth` / `@dwk/micropub` packages manage their own D1 schemas once their wiring lands; those run automatically on first request.

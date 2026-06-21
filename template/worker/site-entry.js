@@ -52,18 +52,14 @@
  */
 
 import premiumRoutes from "./_premium-routes.json";
-import { createHandler as createIndieAuth } from "@dwk/indieauth";
-import { createHandler as createMicropub } from "@dwk/micropub";
-import { createHandler as createWebmention } from "@dwk/webmention";
 import { sync as syncMicropubBridge } from "./indieweb-bridge.js";
+// `/anglesite:indieweb` replaces the sentinel below with the webmention module
+// import when the owner enables Webmention. Keeping the `@dwk/*` +
+// microformats-parser imports out of the default bundle means a site without
+// Webmention never installs or bundles them. See worker/webmention.js.
+/* @anglesite-inject:webmention-import */
 
 const COOKIE_NAME = "__anglesite_member";
-
-const indieauth = createIndieAuth();
-const micropub = createMicropub({
-  generatePostUrl: (slug) => `/notes/${slug}/`,
-});
-const webmention = createWebmention();
 
 const worker = {
   async fetch(request, env, ctx) {
@@ -134,13 +130,21 @@ const worker = {
     }
 
     // 4. IndieWeb endpoints — each gated on its D1 binding being present.
+    //    IndieAuth + Micropub wiring is pending the auth follow-up (issue #363);
+    //    until then their routes report 501 rather than crashing the Worker on
+    //    boot (the real handlers require config the template can't supply yet).
     const p = url.pathname;
     if (env.AUTH_DB && p.startsWith("/auth"))
-      return indieauth(request, env, ctx);
+      return new Response("IndieAuth endpoint is not configured yet.", {
+        status: 501,
+      });
     if (env.MICROPUB_DB && (p === "/micropub" || p === "/media"))
-      return micropub(request, env, ctx);
-    if (env.WEBMENTION_DB && p === "/webmention")
-      return webmention(request, env, ctx);
+      return new Response("Micropub endpoint is not configured yet.", {
+        status: 501,
+      });
+    // `/anglesite:indieweb` replaces the sentinel below with the `/webmention`
+    // receiver route when Webmention is enabled.
+    /* @anglesite-inject:webmention-dispatch */
 
     if (!response) {
       response = await env.ASSETS.fetch(request);
@@ -160,31 +164,13 @@ const worker = {
       }
     }
 
-    // 5. Webmention edge-render — inject stored mentions into note/post pages.
-    //    Gating order keeps the cost off pages that can't have mentions:
-    //    HTML request → WEBMENTION_DB bound → note/post path → HTML response
-    //    → page is a known mention target (cached set, refreshed at most once
-    //    a minute per isolate) → only then query D1 for the mentions and
-    //    rewrite. Pages with no stored mentions pay no per-request query and
-    //    no rewrite.
-    if (
-      isHtmlRequest &&
-      env.WEBMENTION_DB &&
-      isWebmentionTarget(url.pathname)
-    ) {
-      const contentType = response.headers.get("content-type") ?? "";
-      if (contentType.includes("text/html")) {
-        const target = `${url.origin}${url.pathname}`;
-        const targets = await loadWebmentionTargets(env.WEBMENTION_DB);
-        if (targets.has(target)) {
-          const mentions = await loadWebmentions(env.WEBMENTION_DB, target);
-          if (mentions.length > 0) {
-            response = new HTMLRewriter()
-              .on("#webmentions", new WebmentionInjector(mentions))
-              .transform(response);
-          }
-        }
-      }
+    // 5. Webmention edge-render — `/anglesite:indieweb` injects the stored-mention
+    //    injection call here when Webmention is enabled. The injected helper
+    //    (worker/webmention.js) self-gates on WEBMENTION_DB, the note/post target
+    //    path, and an HTML response, so pages that can't have mentions pay no
+    //    per-request query and no rewrite.
+    if (isHtmlRequest) {
+      /* @anglesite-inject:webmention-render */
     }
 
     if (setCookieHeader) {
@@ -202,16 +188,13 @@ const worker = {
   },
 
   async queue(batch, env, ctx) {
-    if (env.WEBMENTION_DB) {
-      await webmention.queue(batch, env, ctx);
-    }
+    /* @anglesite-inject:webmention-queue */
     ctx.waitUntil(syncMicropubBridge(env));
   },
 
   async scheduled(event, env, ctx) {
-    if (env.WEBMENTION_DB) {
-      await webmention.scheduled(event, env, ctx);
-    }
+    // The Micropub→Git bridge sync runs on the Worker's cron trigger. The
+    // webmention package has no scheduled arm — verification is queue-driven.
     ctx.waitUntil(syncMicropubBridge(env));
   },
 };
@@ -225,114 +208,6 @@ class CountryInjector {
   element(el) {
     el.append(`<meta name="cf-country" content="${this.country}">`, { html: true });
   }
-}
-
-// ---------------------------------------------------------------------------
-// Webmention edge-render helpers (§3.5 of the active-IndieWeb design)
-// ---------------------------------------------------------------------------
-
-// Only note and blog-post permalinks can be webmention targets. The collection
-// index pages (`/notes`, `/blog`) are excluded — the trailing-slash strip means
-// a bare `/notes` never matches `"/notes/"`.
-function isWebmentionTarget(pathname) {
-  const p = pathname.replace(/\/+$/, "");
-  return p.startsWith("/notes/") || p.startsWith("/blog/");
-}
-
-// The set of target URLs that have at least one verified mention, cached per
-// WEBMENTION_DB binding so each isolate runs the distinct-targets query at
-// most once per TTL — every other note/post request is an in-memory set
-// lookup. New mentions therefore appear within a minute, which is fine for
-// content that's already verified asynchronously. A query failure serves the
-// stale set (or an empty one) rather than breaking the page render.
-const WEBMENTION_TARGETS_TTL_MS = 60_000;
-const webmentionTargetsCache = new WeakMap();
-
-async function loadWebmentionTargets(db) {
-  const cached = webmentionTargetsCache.get(db);
-  if (cached && cached.expires > Date.now()) return cached.targets;
-  try {
-    const rows = await db
-      .prepare(
-        `SELECT DISTINCT target FROM webmentions WHERE status = 'verified'`,
-      )
-      .all();
-    const targets = new Set((rows?.results ?? []).map((row) => row.target));
-    webmentionTargetsCache.set(db, {
-      targets,
-      expires: Date.now() + WEBMENTION_TARGETS_TTL_MS,
-    });
-    return targets;
-  } catch (err) {
-    console.error("Webmention target-set query failed:", err?.message);
-    return cached?.targets ?? new Set();
-  }
-}
-
-// Query WEBMENTION_DB for verified mentions of a target URL. The table/columns
-// follow @dwk/webmention's inbox shape; a query failure degrades to "no
-// mentions" so a transient D1 error never breaks the page render.
-async function loadWebmentions(db, target) {
-  try {
-    const rows = await db
-      .prepare(
-        `SELECT author_name, author_url, author_photo, content, url, type, published
-         FROM webmentions
-         WHERE target = ?1 AND status = 'verified'
-         ORDER BY published ASC`,
-      )
-      .bind(target)
-      .all();
-    return rows?.results ?? [];
-  } catch (err) {
-    console.error("Webmention edge-render query failed:", err?.message);
-    return [];
-  }
-}
-
-class WebmentionInjector {
-  constructor(mentions) {
-    this.mentions = mentions;
-  }
-  element(el) {
-    const items = this.mentions.map(renderMention).join("");
-    el.setInnerContent(
-      `<h2 class="webmentions-title">Mentions</h2>` +
-        `<ol class="webmentions-list">${items}</ol>`,
-      { html: true },
-    );
-  }
-}
-
-function renderMention(m) {
-  const name = escapeHtml(m.author_name || m.author_url || "Someone");
-  const photo = m.author_photo
-    ? `<img class="u-photo" src="${escapeHtml(m.author_photo)}" alt="" width="48" height="48" />`
-    : "";
-  const author = m.author_url
-    ? `<a class="p-author h-card u-url" href="${escapeHtml(m.author_url)}">${name}</a>`
-    : `<span class="p-author">${name}</span>`;
-  const content = m.content
-    ? `<div class="p-content">${escapeHtml(m.content)}</div>`
-    : "";
-  const permalink = m.url
-    ? `<a class="u-url" href="${escapeHtml(m.url)}">permalink</a>`
-    : "";
-  return `<li class="h-cite">${photo}${author}${content}${permalink}</li>`;
-}
-
-function escapeHtml(value) {
-  return String(value).replace(
-    /[&<>"']/g,
-    (c) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[c],
-  );
 }
 
 // ---------------------------------------------------------------------------
