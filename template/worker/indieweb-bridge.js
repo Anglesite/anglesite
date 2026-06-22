@@ -70,7 +70,17 @@ export async function sync(env) {
   for (const row of rows.results) {
     const slug = slugFromUrl(row.url);
     if (!slug) {
-      console.error(`Bridge sync: cannot derive slug from url ${row.url}`);
+      // Not a /notes/<slug>/ URL, so there's nothing to materialize. Record
+      // sync state anyway (at the post's current updated_at) so the unsynced
+      // query stops re-selecting this row on every cron run — otherwise a
+      // single malformed URL spams the logs indefinitely. Unlike a failed
+      // GitHub commit (transient — left unsynced so it retries), a bad slug is
+      // permanent; a later edit that changes the URL bumps updated_at and earns
+      // one more attempt.
+      console.error(
+        `Bridge sync: cannot derive a /notes/ slug from url ${row.url} — skipping`,
+      );
+      await recordSync(env.MICROPUB_DB, row.url, row.updated_at);
       continue;
     }
     try {
@@ -92,17 +102,26 @@ export async function sync(env) {
           env.GITHUB_TOKEN,
         );
       }
-      await env.MICROPUB_DB
-        .prepare(
-          `INSERT INTO bridge_sync (url, synced_at) VALUES (?, ?)
-             ON CONFLICT(url) DO UPDATE SET synced_at = excluded.synced_at`,
-        )
-        .bind(row.url, row.updated_at)
-        .run();
+      await recordSync(env.MICROPUB_DB, row.url, row.updated_at);
     } catch (err) {
       console.error(`Bridge sync failed for ${slug}:`, err.message);
     }
   }
+}
+
+/**
+ * Upsert a post's last-synced marker into the bridge-owned bookkeeping table.
+ * Keyed by url; `synced_at` is the post's `updated_at` at the time of sync, so
+ * the unsynced query re-selects the row only after a later edit.
+ */
+function recordSync(db, url, syncedAt) {
+  return db
+    .prepare(
+      `INSERT INTO bridge_sync (url, synced_at) VALUES (?, ?)
+         ON CONFLICT(url) DO UPDATE SET synced_at = excluded.synced_at`,
+    )
+    .bind(url, syncedAt)
+    .run();
 }
 
 /**

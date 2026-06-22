@@ -231,6 +231,14 @@ npx wrangler secret put TOKEN_SIGNING_KEY --name <CF_PROJECT_NAME>
 
 The binding **must** be named `TOKEN_SIGNING_KEY`: `@dwk/indieauth` signs access tokens with it and `@dwk/micropub` verifies them with the same secret, so both endpoints share this one key. Provision it whenever IndieAuth **or** Micropub is selected (they're a token issuer/consumer pair). Tell the owner to paste the generated key when prompted. The key never appears in source code or `.site-config` — it lives only in Cloudflare's secret store.
 
+> **Upgrading an existing IndieAuth/Micropub site?** Earlier plugin versions stored this secret as `INDIEAUTH_SIGNING_KEY`, but the `@dwk/*` packages read `TOKEN_SIGNING_KEY` — so on the next deploy the endpoints would 500 with *"missing required secret binding `TOKEN_SIGNING_KEY`"* until you re-provision it. Retrieve the current value from the Cloudflare dashboard (**Workers → your project → Settings → Variables & Secrets**) and store it under the new name:
+>
+> ```sh
+> npx wrangler secret put TOKEN_SIGNING_KEY --name <CF_PROJECT_NAME>
+> ```
+>
+> Reuse the **same** value so already-issued tokens stay valid. Once `TOKEN_SIGNING_KEY` is confirmed working, delete the old `INDIEAUTH_SIGNING_KEY` secret. Also confirm a `SITE_URL` var exists in `wrangler.jsonc` (see below) — IndieAuth, WebAuthn, and Micropub all derive their origin from it.
+
 ### 5c — Passkey owner authentication (if IndieAuth selected)
 
 IndieAuth signs the owner in to other sites with their domain, so the owner must

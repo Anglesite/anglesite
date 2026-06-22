@@ -265,6 +265,16 @@ function micropubFor(env) {
   let handler = micropubByEnv.get(env);
   if (!handler) {
     const origin = env.SITE_URL;
+    if (!origin) {
+      // Fast-fail with a clear message rather than @dwk/micropub's opaque
+      // "baseUrl is not a valid URL" throw. SITE_URL is set by
+      // /anglesite:indieweb; don't memoize so it recovers once configured.
+      return () =>
+        new Response(
+          "Micropub is not configured: SITE_URL is unset. Run /anglesite:indieweb to set it.",
+          { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } },
+        );
+    }
     handler = createMicropub({
       baseUrl: origin,
       me: origin,

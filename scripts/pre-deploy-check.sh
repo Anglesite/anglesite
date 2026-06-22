@@ -113,7 +113,7 @@ fi
 # and `wrangler secret put TOKEN_SIGNING_KEY` all lack a credential-shaped value
 # after = or :
 if grep -rE '(TOKEN_SIGNING_KEY|INDIEAUTH_SIGNING_KEY|INDIEAUTH_SESSION_KEY|INDIEWEB_REG_TOKEN|GITHUB_TOKEN)["'\'']?[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9+/_-]{16,}' "${TOKEN_SCAN_PATHS[@]}" 2>/dev/null | grep -q .; then
-  REASONS+=("An IndieWeb secret (TOKEN_SIGNING_KEY / INDIEAUTH_SESSION_KEY / INDIEWEB_REG_TOKEN / GITHUB_TOKEN) is committed in source — rotate it and store it with 'wrangler secret put'")
+  REASONS+=("An IndieWeb secret (TOKEN_SIGNING_KEY / INDIEAUTH_SIGNING_KEY (legacy) / INDIEAUTH_SESSION_KEY / INDIEWEB_REG_TOKEN / GITHUB_TOKEN) is committed in source — rotate it and store it with 'wrangler secret put'")
 fi
 
 # 3. Third-party scripts — unauthorized external JS (allowlist driven by .site-config)

@@ -326,6 +326,40 @@ describe("indieweb-bridge", () => {
       }
     });
 
+    it("records sync state (no commit) for a row whose url has no /notes/ slug, so the cron stops re-picking it", async () => {
+      const syncRun = vi.fn().mockResolvedValue({});
+      const syncBind = vi.fn().mockReturnValue({ run: syncRun });
+      wireDb({
+        syncBind,
+        rows: [
+          {
+            url: "https://example.com/about/",
+            properties: JSON.stringify({ content: ["nope"] }),
+            deleted: 0,
+            created_at: 1749470400,
+            updated_at: 1749470400,
+          },
+        ],
+      });
+
+      const originalFetch = globalThis.fetch;
+      const fetchMock = vi.fn();
+      globalThis.fetch = fetchMock;
+
+      try {
+        await sync(env);
+        // No GitHub call for an unmaterializable row...
+        expect(fetchMock).not.toHaveBeenCalled();
+        // ...but it IS recorded so the unsynced query excludes it next run.
+        expect(syncBind).toHaveBeenCalledWith(
+          "https://example.com/about/",
+          1749470400,
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
     it("does not record sync state on GitHub API failure", async () => {
       const syncRun = vi.fn().mockResolvedValue({});
       const syncBind = vi.fn().mockReturnValue({ run: syncRun });
