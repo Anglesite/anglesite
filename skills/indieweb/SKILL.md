@@ -1,7 +1,7 @@
 ---
 name: indieweb
 description: "Deploy self-owned IndieAuth, Webmention, and Micropub endpoints on your domain"
-allowed-tools: Bash(npm run build), Bash(npm install *), Bash(npm view *), Bash(npx wrangler *), Bash(openssl *), Bash(grep *), Bash(gh *), Write, Read, Edit, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__d1_database_create, mcp__cloudflare__d1_databases_list, mcp__cloudflare__d1_database_get, mcp__cloudflare__r2_bucket_create, mcp__cloudflare__r2_buckets_list
+allowed-tools: Bash(npm run build), Bash(npm install *), Bash(npm view *), Bash(npx wrangler *), Bash(openssl *), Bash(grep *), Bash(gh *), Bash(node *), Bash(mktemp *), Bash(printf *), Bash(rm *), Write, Read, Edit, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__d1_database_create, mcp__cloudflare__d1_databases_list, mcp__cloudflare__d1_database_get, mcp__cloudflare__r2_bucket_create, mcp__cloudflare__r2_buckets_list
 disable-model-invocation: true
 ---
 
@@ -33,25 +33,28 @@ If `INDIEWEB_ENABLED=true` is already set in `.site-config`, the endpoints are a
 
 ## Step 1 — Check package availability
 
-The `@dwk/*` packages must be published on npm before the endpoints can be installed. Check each one:
+The `@dwk/*` packages must be published on npm **and actually load under Node ESM** before the endpoints can be installed. A published version is not enough: a broken build whose compiled `dist/` re-exports omit file extensions passes `npm view` but throws `ERR_MODULE_NOT_FOUND` the moment it's imported (issue #363). Composing such a package into `site-entry.js` produces a Worker that can't boot — and the breakage is invisible until deploy because the repo's tests alias `@dwk/*` to stubs. So the gate must **import** each package, not just confirm it exists.
+
+Run this combined gate. It installs the four packages into a throwaway directory (never touching the site) and dynamically imports each one, failing closed on any error:
 
 ```sh
-npm view @dwk/indieauth version
+PKGS="@dwk/indieauth @dwk/webmention @dwk/micropub @dwk/webauthn"
+SMOKE=$(mktemp -d) && printf '{"type":"module","private":true}' > "$SMOKE/package.json"
+( cd "$SMOKE" \
+  && npm install $PKGS >/dev/null 2>&1 \
+  && for p in $PKGS; do \
+       node -e "import('$p').then(()=>console.log('ok   '+process.argv[1])).catch(e=>{console.error('FAIL '+process.argv[1]+': '+(e.code||e.message));process.exit(1)})" "$p" || exit 1; \
+     done )
+GATE=$?
+rm -rf "$SMOKE"
+echo "gate exit: $GATE"
 ```
 
-```sh
-npm view @dwk/webmention version
-```
+If `gate exit` is non-zero — any package is unpublished, reports version `0.0.0`, fails to install, or prints a `FAIL` line (does not import) — stop and tell the owner:
 
-```sh
-npm view @dwk/micropub version
-```
+"The IndieWeb endpoint packages aren't ready yet — this feature isn't available right now. It's being built by an open-source project and will be ready soon. I'll let you know when it ships. In the meantime, your site already supports the passive IndieWeb (microformats, `rel="me"`, RSS) — see `docs/indieweb.md` for what's already working."
 
-If **any** package returns an error (not found) or reports version `0.0.0`, stop and tell the owner:
-
-"The IndieWeb endpoint packages aren't published yet — this feature isn't available right now. It's being built by an open-source project and will be ready soon. I'll let you know when it ships. In the meantime, your site already supports the passive IndieWeb (microformats, `rel="me"`, RSS) — see `docs/indieweb.md` for what's already working."
-
-Do not attempt git installs, forks, or workarounds. The gate is intentional.
+Do not attempt git installs, forks, version pins to a broken build, or workarounds. The gate is intentional: a package that imports cleanly is the contract the rest of this skill depends on.
 
 ## Step 2 — Choose endpoints
 
