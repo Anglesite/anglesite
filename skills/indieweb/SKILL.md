@@ -1,7 +1,7 @@
 ---
 name: indieweb
 description: "Deploy self-owned IndieAuth, Webmention, and Micropub endpoints on your domain"
-allowed-tools: Bash(npm run build), Bash(npm install *), Bash(npm view *), Bash(npx wrangler *), Bash(openssl *), Bash(grep *), Bash(gh *), Bash(node *), Bash(mktemp *), Bash(printf *), Bash(rm *), Write, Read, Edit, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__d1_database_create, mcp__cloudflare__d1_databases_list, mcp__cloudflare__d1_database_get, mcp__cloudflare__r2_bucket_create, mcp__cloudflare__r2_buckets_list
+allowed-tools: Bash(npm run build), Bash(npm install *), Bash(npx wrangler *), Bash(openssl *), Bash(grep *), Bash(gh *), Bash(node *), Bash(mktemp *), Bash(printf *), Bash(rm *), Write, Read, Edit, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__d1_database_create, mcp__cloudflare__d1_databases_list, mcp__cloudflare__d1_database_get, mcp__cloudflare__r2_bucket_create, mcp__cloudflare__r2_buckets_list
 disable-model-invocation: true
 ---
 
@@ -39,18 +39,26 @@ Run this combined gate. It installs the four packages into a throwaway directory
 
 ```sh
 PKGS="@dwk/indieauth @dwk/webmention @dwk/micropub @dwk/webauthn"
-SMOKE=$(mktemp -d) && printf '{"type":"module","private":true}' > "$SMOKE/package.json"
-( cd "$SMOKE" \
-  && npm install $PKGS >/dev/null 2>&1 \
-  && for p in $PKGS; do \
-       node -e "import('$p').then(()=>console.log('ok   '+process.argv[1])).catch(e=>{console.error('FAIL '+process.argv[1]+': '+(e.code||e.message));process.exit(1)})" "$p" || exit 1; \
-     done )
-GATE=$?
-rm -rf "$SMOKE"
+SMOKE=$(mktemp -d)
+GATE=1
+if [ -n "$SMOKE" ]; then
+  printf '{"type":"module","private":true}' > "$SMOKE/package.json"
+  ( cd "$SMOKE" \
+    && { INSTALL_ERR=$(npm install $PKGS 2>&1 >/dev/null) \
+         || { echo "INSTALL FAILED (network/registry issue or unavailable package):"; echo "$INSTALL_ERR"; exit 1; }; } \
+    && for p in $PKGS; do \
+         node -e "import('$p').then(()=>console.log('ok   $p')).catch(e=>{console.error('FAIL $p: '+(e.code||e.message));process.exit(1)})" || exit 1; \
+       done )
+  GATE=$?
+  rm -rf "$SMOKE"
+fi
 echo "gate exit: $GATE"
 ```
 
-If `gate exit` is non-zero — any package is unpublished, reports version `0.0.0`, fails to install, or prints a `FAIL` line (does not import) — stop and tell the owner:
+If `gate exit` is **0**, every package installed and imported cleanly — proceed. Otherwise stop. Read the captured output to tell the two failure modes apart:
+
+- An `INSTALL FAILED` block means the install itself errored — most often a transient network/registry hiccup, occasionally an unavailable package. Tell the owner: "I couldn't install the IndieWeb endpoint packages just now — this is usually a temporary network issue. Try again in a minute. If it keeps failing, the packages may not be ready yet."
+- A `FAIL <pkg>: …` line (e.g. `ERR_MODULE_NOT_FOUND`) means a package is published but doesn't load — a broken build. Tell the owner:
 
 "The IndieWeb endpoint packages aren't ready yet — this feature isn't available right now. It's being built by an open-source project and will be ready soon. I'll let you know when it ships. In the meantime, your site already supports the passive IndieWeb (microformats, `rel="me"`, RSS) — see `docs/indieweb.md` for what's already working."
 
