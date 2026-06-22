@@ -169,7 +169,7 @@ If you changed it, document it. Same session. No exceptions.
 
 - `npm run predeploy` runs the security scan standalone. Use this to check before deploying.
 - On Cloudflare's build system, the build command `npm run build && npm run predeploy` ensures scans also run remotely.
-- Scans: PII (emails, phone numbers), API tokens and committed secrets (including `INDIEAUTH_SIGNING_KEY` / `GITHUB_TOKEN` in `worker/` and the wrangler configs), third-party scripts, Keystatic admin routes, OG images (warn only)
+- Scans: PII (emails, phone numbers), API tokens and committed secrets (including `TOKEN_SIGNING_KEY` / `GITHUB_TOKEN` in `worker/` and the wrangler configs), third-party scripts, Keystatic admin routes, OG images (warn only)
 - The IndieWeb endpoints (`/auth`, `/micropub`, `/media`, `/webmention`) set up by `/anglesite:indieweb` are intentional public routes served by the Worker — the scans never flag them
 - If the site intentionally publishes a contact email (e.g., `mailto:` link), add it to `.site-config`: `PII_EMAIL_ALLOW=me@example.com`
 - If the site publishes phone numbers (business line, hotlines), add them to `.site-config`: `PII_PHONE_ALLOW=555-123-4567,1-800-662-4357`

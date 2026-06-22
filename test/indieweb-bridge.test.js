@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderMdoc, sync } from "../template/worker/indieweb-bridge.js";
+import { renderMdoc, sync, slugFromUrl } from "../template/worker/indieweb-bridge.js";
 
 describe("indieweb-bridge", () => {
   describe("renderMdoc", () => {
@@ -197,6 +197,28 @@ describe("indieweb-bridge", () => {
       };
     });
 
+    // Route a prepare() call to the right fake by inspecting its SQL: the
+    // bridge issues a CREATE TABLE (bridge_sync), one SELECT (the unsynced
+    // join), and an INSERT ... ON CONFLICT (mark synced) per committed post.
+    function wireDb({ rows = [], createBind, selectBind, syncBind }) {
+      createBind = createBind ?? { run: vi.fn().mockResolvedValue({}) };
+      selectBind =
+        selectBind ??
+        vi.fn().mockReturnValue({
+          all: vi.fn().mockResolvedValue({ results: rows }),
+        });
+      syncBind =
+        syncBind ??
+        vi.fn().mockReturnValue({ run: vi.fn().mockResolvedValue({}) });
+      prepareStub.mockImplementation((sql) => {
+        if (sql.includes("CREATE TABLE")) return createBind;
+        if (sql.includes("SELECT")) return { bind: selectBind };
+        if (sql.includes("INSERT INTO bridge_sync")) return { bind: syncBind };
+        return { bind: vi.fn() };
+      });
+      return { createBind, selectBind, syncBind };
+    }
+
     it("returns early when MICROPUB_DB is missing", async () => {
       await sync({ GITHUB_TOKEN: "x", GITHUB_REPO: "a/b" });
       expect(prepareStub).not.toHaveBeenCalled();
@@ -212,64 +234,46 @@ describe("indieweb-bridge", () => {
       expect(prepareStub).not.toHaveBeenCalled();
     });
 
-    it("returns early when no unsynced rows", async () => {
-      prepareStub.mockReturnValue({
-        bind: vi.fn().mockReturnValue({
-          all: vi.fn().mockResolvedValue({ results: [] }),
-        }),
-      });
-      await sync(env);
-      expect(prepareStub).toHaveBeenCalledOnce();
-    });
-
-    it("queries for unsynced posts with BATCH_SIZE limit", async () => {
-      const bindFn = vi.fn().mockReturnValue({
-        all: vi.fn().mockResolvedValue({ results: [] }),
-      });
-      prepareStub.mockReturnValue({ bind: bindFn });
+    it("ensures the bridge_sync table before querying", async () => {
+      wireDb({ rows: [] });
       await sync(env);
       expect(prepareStub).toHaveBeenCalledWith(
-        expect.stringContaining("synced = 0"),
+        expect.stringContaining("CREATE TABLE IF NOT EXISTS bridge_sync"),
       );
-      expect(bindFn).toHaveBeenCalledWith(25);
     });
 
-    it("marks row as synced after successful commit", async () => {
-      const updateBind = vi.fn().mockReturnValue({
-        run: vi.fn().mockResolvedValue({}),
-      });
-      const selectBind = vi.fn().mockReturnValue({
-        all: vi.fn().mockResolvedValue({
-          results: [
-            {
-              id: 1,
-              slug: "test-note",
-              properties: JSON.stringify({
-                published: ["2026-06-09T12:00:00Z"],
-                content: ["Test"],
-              }),
-              deleted: 0,
-              created_at: "2026-06-09T12:00:00Z",
-              updated_at: null,
-            },
-          ],
-        }),
+    it("queries unsynced posts via the bridge_sync join with a BATCH_SIZE limit", async () => {
+      const { selectBind } = wireDb({ rows: [] });
+      await sync(env);
+      expect(prepareStub).toHaveBeenCalledWith(
+        expect.stringContaining("LEFT JOIN bridge_sync"),
+      );
+      expect(selectBind).toHaveBeenCalledWith(25);
+    });
+
+    it("records sync state keyed by url after a successful commit", async () => {
+      const syncRun = vi.fn().mockResolvedValue({});
+      const syncBind = vi.fn().mockReturnValue({ run: syncRun });
+      wireDb({
+        syncBind,
+        rows: [
+          {
+            url: "https://example.com/notes/test-note/",
+            properties: JSON.stringify({
+              published: ["2026-06-09T12:00:00Z"],
+              content: ["Test"],
+            }),
+            deleted: 0,
+            created_at: 1749470400,
+            updated_at: 1749470400,
+          },
+        ],
       });
 
-      let callCount = 0;
-      prepareStub.mockImplementation((sql) => {
-        if (sql.includes("SELECT")) return { bind: selectBind };
-        if (sql.includes("UPDATE")) return { bind: updateBind };
-        return { bind: vi.fn() };
-      });
-
-      // Mock global fetch for GitHub API calls
       const originalFetch = globalThis.fetch;
-      globalThis.fetch = vi.fn()
-        .mockResolvedValueOnce({
-          status: 404,
-          ok: false,
-        })
+      globalThis.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({ status: 404, ok: false })
         .mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve({ content: { sha: "abc" } }),
@@ -277,41 +281,72 @@ describe("indieweb-bridge", () => {
 
       try {
         await sync(env);
-        expect(updateBind).toHaveBeenCalledWith(1);
+        expect(syncBind).toHaveBeenCalledWith(
+          "https://example.com/notes/test-note/",
+          1749470400,
+        );
       } finally {
         globalThis.fetch = originalFetch;
       }
     });
 
-    it("does not mark row synced on GitHub API failure", async () => {
-      const updateBind = vi.fn().mockReturnValue({
-        run: vi.fn().mockResolvedValue({}),
-      });
-      const selectBind = vi.fn().mockReturnValue({
-        all: vi.fn().mockResolvedValue({
-          results: [
-            {
-              id: 1,
-              slug: "fail-note",
-              properties: JSON.stringify({
-                published: ["2026-06-09T12:00:00Z"],
-              }),
-              deleted: 0,
-              created_at: "2026-06-09T12:00:00Z",
-              updated_at: null,
-            },
-          ],
-        }),
-      });
-
-      prepareStub.mockImplementation((sql) => {
-        if (sql.includes("SELECT")) return { bind: selectBind };
-        if (sql.includes("UPDATE")) return { bind: updateBind };
-        return { bind: vi.fn() };
+    it("commits the note under its url-derived slug", async () => {
+      wireDb({
+        rows: [
+          {
+            url: "https://example.com/notes/hello-world/",
+            properties: JSON.stringify({ content: ["hi"] }),
+            deleted: 0,
+            created_at: 1749470400,
+            updated_at: 1749470400,
+          },
+        ],
       });
 
       const originalFetch = globalThis.fetch;
-      globalThis.fetch = vi.fn()
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({ status: 404, ok: false })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ content: { sha: "abc" } }),
+        });
+      globalThis.fetch = fetchMock;
+
+      try {
+        await sync(env);
+        const putCall = fetchMock.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        );
+        expect(putCall[0]).toContain(
+          "src/content/notes/hello-world.mdoc",
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("does not record sync state on GitHub API failure", async () => {
+      const syncRun = vi.fn().mockResolvedValue({});
+      const syncBind = vi.fn().mockReturnValue({ run: syncRun });
+      wireDb({
+        syncBind,
+        rows: [
+          {
+            url: "https://example.com/notes/fail-note/",
+            properties: JSON.stringify({
+              published: ["2026-06-09T12:00:00Z"],
+            }),
+            deleted: 0,
+            created_at: 1749470400,
+            updated_at: 1749470400,
+          },
+        ],
+      });
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi
+        .fn()
         .mockResolvedValueOnce({ status: 404, ok: false })
         .mockResolvedValueOnce({
           ok: false,
@@ -321,10 +356,28 @@ describe("indieweb-bridge", () => {
 
       try {
         await sync(env);
-        expect(updateBind).not.toHaveBeenCalled();
+        expect(syncBind).not.toHaveBeenCalled();
       } finally {
         globalThis.fetch = originalFetch;
       }
+    });
+  });
+
+  describe("slugFromUrl", () => {
+    it("extracts the slug from a /notes/<slug>/ url", () => {
+      expect(slugFromUrl("https://example.com/notes/my-post/")).toBe("my-post");
+    });
+
+    it("handles a missing trailing slash", () => {
+      expect(slugFromUrl("https://example.com/notes/my-post")).toBe("my-post");
+    });
+
+    it("returns empty string for a non-note url", () => {
+      expect(slugFromUrl("https://example.com/about/")).toBe("");
+    });
+
+    it("returns empty string for an unparseable value", () => {
+      expect(slugFromUrl("not a url")).toBe("");
     });
   });
 });

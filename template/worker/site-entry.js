@@ -49,13 +49,17 @@
  *                                         the gate, for owner preview.
  *   CONSENT_GEO (optional)            — "true" to enable cf-country meta
  *                                       injection.
- *   INDIEAUTH_SIGNING_KEY (secret, optional) — Token signing material.
+ *   TOKEN_SIGNING_KEY (secret, optional) — IndieAuth access-token signing
+ *                                          material. The same key signs (in
+ *                                          @dwk/indieauth) and verifies (in
+ *                                          @dwk/micropub), so /auth and
+ *                                          /micropub share it.
  *   GITHUB_TOKEN (secret, optional)   — Fine-grained PAT for Micropub bridge.
  */
 
 import premiumRoutes from "./_premium-routes.json";
 import { createIndieAuth } from "@dwk/indieauth";
-import { createHandler as createMicropub } from "@dwk/micropub";
+import { createMicropub } from "@dwk/micropub";
 import {
   createWebmention,
   createWebmentionQueueConsumer,
@@ -80,9 +84,30 @@ export { WebAuthnObject };
 
 const COOKIE_NAME = "__anglesite_member";
 
-const micropub = createMicropub({
-  generatePostUrl: (slug) => `/notes/${slug}/`,
-});
+// Post-URL policy for @dwk/micropub. The library calls this with the parsed
+// mf2 post and the extracted Micropub commands (e.g. `mp-slug`); we return a
+// root-relative permalink under /notes/ so the D1→GitHub bridge
+// (indieweb-bridge.js) materializes each post at src/content/notes/<slug>.mdoc
+// and the returned Location matches where Astro serves it. Mirrors the
+// package's default slug policy: explicit mp-slug → slug from `name` → random.
+function micropubSlug(post, commands) {
+  const explicit = commands?.slug;
+  if (explicit) return explicit;
+  const name = post?.properties?.name?.[0];
+  if (typeof name === "string" && name.trim()) {
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+    if (slug) return slug;
+  }
+  const time = Date.now().toString(36);
+  const rand = Math.floor(Math.random() * 36 ** 4)
+    .toString(36)
+    .padStart(4, "0");
+  return `${time}-${rand}`;
+}
 
 // The IndieAuth authentication + consent hook. @dwk/indieauth owns the protocol;
 // proving the owner's identity (passkey/backup code) and obtaining consent is
@@ -229,6 +254,28 @@ function authFor(env) {
   return bundle;
 }
 
+// @dwk/micropub also needs request-time config: `baseUrl`/`me` come from
+// env.SITE_URL, so the handler is built per-env (not at module load) and
+// memoized. The handler self-asserts its MEDIA / MICROPUB_DB / AUTH_DB /
+// TOKEN_SIGNING_KEY bindings on each request and validates IndieAuth-issued
+// access tokens with TOKEN_SIGNING_KEY — the same secret @dwk/indieauth signs
+// them with.
+const micropubByEnv = new WeakMap();
+function micropubFor(env) {
+  let handler = micropubByEnv.get(env);
+  if (!handler) {
+    const origin = env.SITE_URL;
+    handler = createMicropub({
+      baseUrl: origin,
+      me: origin,
+      generatePostUrl: (post, commands) =>
+        `/notes/${micropubSlug(post, commands)}/`,
+    });
+    micropubByEnv.set(env, handler);
+  }
+  return handler;
+}
+
 const worker = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -326,7 +373,7 @@ const worker = {
     if (env.AUTH_DB && p.startsWith("/auth"))
       return authFor(env).indieauth(request, env, ctx);
     if (env.MICROPUB_DB && (p === "/micropub" || p === "/media"))
-      return micropub(request, env, ctx);
+      return micropubFor(env)(request, env, ctx);
     if (env.WEBMENTION_INBOX && p === "/webmention")
       return webmentionFor(env).handler(request, env, ctx);
 

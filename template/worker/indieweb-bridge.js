@@ -1,17 +1,25 @@
 /**
  * Micropub D1→GitHub bridge.
  *
- * Materializes unsynced records from MICROPUB_DB into Keystatic .mdoc
- * files and commits them to the site repo via the GitHub Contents API.
- * Designed to run from the queue (event-driven) and scheduled (cron
- * retry) exports in site-entry.js.
+ * Materializes posts from @dwk/micropub's authoritative D1 store into
+ * Keystatic .mdoc files and commits them to the site repo via the GitHub
+ * Contents API. Designed to run from the queue (event-driven) and scheduled
+ * (cron retry) exports in site-entry.js.
  *
- * The Micropub handler returns 201 immediately after writing to D1.
- * This bridge runs asynchronously — a failed commit leaves the record
- * unsynced for cron retry and never blocks the Micropub response.
+ * The Micropub handler returns 201 immediately after writing to D1. This
+ * bridge runs asynchronously — a failed commit leaves the post unsynced for
+ * cron retry and never blocks the Micropub response.
+ *
+ * @dwk/micropub owns the `posts` table (primary key `url`, columns
+ * `url, type, properties, deleted, created_at, updated_at`; timestamps are
+ * Unix seconds). It has no sync-state concept, so the bridge owns a side
+ * `bridge_sync(url, synced_at)` table and re-commits a post whenever its
+ * `updated_at` advances past the last recorded `synced_at` (covering creates,
+ * edits, deletes, and undeletes). The slug is derived from the post's url,
+ * which site-entry.js mints as /notes/<slug>/.
  *
  * Env bindings:
- *   MICROPUB_DB  (D1)     — Post records with a `synced` column
+ *   MICROPUB_DB  (D1)     — @dwk/micropub's `posts` store (+ bridge_sync)
  *   GITHUB_TOKEN (secret) — Fine-grained PAT, contents:write only
  *
  * Reads from .site-config (via env vars or wrangler vars):
@@ -22,6 +30,13 @@
 const BATCH_SIZE = 25;
 const CONTENT_PREFIX = "src/content/notes";
 const GITHUB_API = "https://api.github.com";
+
+// The bridge's own bookkeeping table — see the module header. Created on the
+// first sync; @dwk/micropub never touches it.
+const SYNC_SCHEMA = `CREATE TABLE IF NOT EXISTS bridge_sync (
+   url TEXT PRIMARY KEY,
+   synced_at INTEGER NOT NULL
+ )`;
 
 /**
  * Process unsynced Micropub records: render to .mdoc and commit to GitHub.
@@ -34,10 +49,18 @@ export async function sync(env) {
   const [owner, repo] = env.GITHUB_REPO.split("/");
   if (!owner || !repo) return;
 
+  await env.MICROPUB_DB.prepare(SYNC_SCHEMA).run();
+
+  // A post is unsynced when it has never been committed, or when an edit/
+  // delete/undelete pushed its updated_at past the last sync.
   const rows = await env.MICROPUB_DB
     .prepare(
-      `SELECT id, slug, properties, deleted, created_at, updated_at
-       FROM posts WHERE synced = 0 ORDER BY created_at ASC LIMIT ?`,
+      `SELECT p.url, p.properties, p.deleted, p.created_at, p.updated_at
+         FROM posts p
+         LEFT JOIN bridge_sync b ON b.url = p.url
+        WHERE b.synced_at IS NULL OR b.synced_at < p.updated_at
+        ORDER BY p.created_at ASC
+        LIMIT ?`,
     )
     .bind(BATCH_SIZE)
     .all();
@@ -45,29 +68,65 @@ export async function sync(env) {
   if (!rows.results || rows.results.length === 0) return;
 
   for (const row of rows.results) {
+    const slug = slugFromUrl(row.url);
+    if (!slug) {
+      console.error(`Bridge sync: cannot derive slug from url ${row.url}`);
+      continue;
+    }
     try {
       if (row.deleted) {
-        await deleteFile(owner, repo, branch, row.slug, env.GITHUB_TOKEN);
+        await deleteFile(owner, repo, branch, slug, env.GITHUB_TOKEN);
       } else {
-        const mdoc = renderMdoc(row);
+        const mdoc = renderMdoc({
+          slug,
+          properties: row.properties,
+          created_at: toIso(row.created_at),
+        });
         await commitFile(
           owner,
           repo,
           branch,
-          row.slug,
+          slug,
           mdoc,
-          row.deleted ? "delete" : row.updated_at ? "update" : "create",
+          row.updated_at > row.created_at ? "update" : "create",
           env.GITHUB_TOKEN,
         );
       }
       await env.MICROPUB_DB
-        .prepare("UPDATE posts SET synced = 1 WHERE id = ?")
-        .bind(row.id)
+        .prepare(
+          `INSERT INTO bridge_sync (url, synced_at) VALUES (?, ?)
+             ON CONFLICT(url) DO UPDATE SET synced_at = excluded.synced_at`,
+        )
+        .bind(row.url, row.updated_at)
         .run();
     } catch (err) {
-      console.error(`Bridge sync failed for ${row.slug}:`, err.message);
+      console.error(`Bridge sync failed for ${slug}:`, err.message);
     }
   }
+}
+
+/**
+ * Derive the note slug from a post's canonical url. site-entry.js mints post
+ * URLs as /notes/<slug>/ (absolute against the site origin), so the slug is the
+ * final path segment. Returns "" if the url doesn't match that shape.
+ */
+export function slugFromUrl(url) {
+  try {
+    const path = new URL(url, "https://placeholder.invalid").pathname;
+    const match = path.match(/\/notes\/([^/]+)\/?$/);
+    return match ? match[1] : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * @dwk/micropub stores timestamps as Unix seconds. Convert to ISO 8601 for the
+ * .mdoc publishDate fallback; pass through values that are already strings.
+ */
+function toIso(value) {
+  if (typeof value === "number") return new Date(value * 1000).toISOString();
+  return value;
 }
 
 /**
