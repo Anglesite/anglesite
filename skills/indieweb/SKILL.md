@@ -5,7 +5,7 @@ allowed-tools: Bash(npm run build), Bash(npm install *), Bash(npx wrangler *), B
 disable-model-invocation: true
 ---
 
-Set up self-owned IndieWeb endpoints on the owner's primary domain using the `@dwk/*` worker packages. Deploys IndieAuth (sign in with your domain), Webmention (receive cross-site mentions), and Micropub (publish from third-party clients) — each independently gated and composed into the site's existing `site-entry.js` Worker.
+Set up self-owned IndieWeb endpoints on the owner's primary domain using the `@dwk/*` worker packages. Deploys IndieAuth (sign in with your domain), Webmention (receive cross-site mentions), and Micropub (publish from third-party clients) — each independently selectable, runtime-guarded by its own bindings, and composed into the site's existing `site-entry.js` Worker.
 
 The owner's identity, tokens, and data stay on their own Cloudflare account. No third-party identity or mention hosts.
 
@@ -35,7 +35,7 @@ If `INDIEWEB_ENABLED=true` is already set in `.site-config`, the endpoints are a
 
 The `@dwk/*` packages must be published on npm **and actually load under Node ESM** before the endpoints can be installed. A published version is not enough: a broken build whose compiled `dist/` re-exports omit file extensions passes `npm view` but throws `ERR_MODULE_NOT_FOUND` the moment it's imported (issue #363). Composing such a package into `site-entry.js` produces a Worker that can't boot — and the breakage is invisible until deploy because the repo's tests alias `@dwk/*` to stubs. So the gate must **import** each package, not just confirm it exists.
 
-Run this combined gate. It installs the four packages into a throwaway directory (never touching the site) and dynamically imports each one, failing closed on any error:
+Run this combined gate. It installs the four packages into a throwaway directory (never touching the site) and dynamically imports each one, failing closed on any error. The check is all-or-nothing across the four `@dwk/*` packages: they're published from one monorepo at a shared version, so a broken build breaks them together — gating them as a set keeps this step simple. (Endpoint *selection* in Step 2 and runtime guarding remain per-endpoint.)
 
 ```sh
 PKGS="@dwk/indieauth @dwk/webmention @dwk/micropub @dwk/webauthn"
