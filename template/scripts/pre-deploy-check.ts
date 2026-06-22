@@ -117,7 +117,6 @@ export const indiewebWorkerRoutes: Readonly<Record<string, readonly string[]>> =
 
 /** @deprecated Use airtablePatPattern or openaiKeyPattern. Kept for backwards-compatible imports. */
 export const tokenPattern = new RegExp(`${airtablePatPattern.source}|${openaiKeyPattern.source}`);
-export const scriptSrcPattern = /<script[^>]*src=/gi;
 
 /**
  * Allowed third-party script domains for the pre-deploy scan.

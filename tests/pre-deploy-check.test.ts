@@ -58,6 +58,13 @@ describe("pre-deploy-check.sh safety", () => {
   it("only flags external (third-party) script srcs, not same-origin ones (issues #362, #365)", () => {
     expect(src).toContain('src=[\\"\']?(https?:)?//');
   });
+
+  it("normalizes both sides of the phone allowlist comparison, not just the allowlist entry (issues #362, #365)", () => {
+    // The old digits-only `grep -v "$digits"` compared a normalized allowlist
+    // string against a still-formatted hit and never suppressed anything.
+    expect(src).not.toContain('grep -v "$digits"');
+    expect(src).toContain("grep -qxF");
+  });
 });
 
 // ---------------------------------------------------------------------------
