@@ -3,7 +3,6 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   parsePaddleConfig,
-  buildPaddleCSP,
 } from "../template/scripts/paddle.js";
 
 const templateDir = resolve(import.meta.dirname!, "..", "template");
@@ -42,43 +41,6 @@ describe("parsePaddleConfig", () => {
 
   it("returns null for empty price ID", () => {
     expect(parsePaddleConfig("test_abc123", "")).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// buildPaddleCSP
-// ---------------------------------------------------------------------------
-
-describe("buildPaddleCSP", () => {
-  it("includes cdn.paddle.com in script-src", () => {
-    const csp = buildPaddleCSP();
-    expect(csp["script-src"]).toContain("cdn.paddle.com");
-  });
-
-  it("includes checkout.paddle.com in frame-src", () => {
-    const csp = buildPaddleCSP();
-    expect(csp["frame-src"]).toContain("checkout.paddle.com");
-  });
-
-  it("includes sandbox-cdn.paddle.com in script-src for sandbox coverage", () => {
-    const csp = buildPaddleCSP();
-    expect(csp["script-src"]).toContain("sandbox-cdn.paddle.com");
-  });
-
-  it("includes sandbox-checkout.paddle.com in frame-src for sandbox coverage", () => {
-    const csp = buildPaddleCSP();
-    expect(csp["frame-src"]).toContain("sandbox-checkout.paddle.com");
-  });
-
-  it("includes log.paddle.com in connect-src for analytics", () => {
-    const csp = buildPaddleCSP();
-    expect(csp["connect-src"]).toContain("log.paddle.com");
-  });
-
-  it("does not include style-src or img-src", () => {
-    const csp = buildPaddleCSP();
-    expect(csp["style-src"] ?? []).toEqual([]);
-    expect(csp["img-src"] ?? []).toEqual([]);
   });
 });
 

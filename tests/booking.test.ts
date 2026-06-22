@@ -6,7 +6,6 @@ import {
   extractBrandColor,
   buildCalEmbed,
   buildCalendlyEmbed,
-  buildBookingCSP,
 } from "../template/scripts/booking.js";
 
 // ---------------------------------------------------------------------------
@@ -237,32 +236,5 @@ describe("buildCalendlyEmbed", () => {
     const html = buildCalendlyEmbed("janedoe", "30min", "floating", "#000", "It's Free");
     expect(html).toContain("It\\'s Free");
     expect(html).not.toContain("text:'It's");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// buildBookingCSP
-// ---------------------------------------------------------------------------
-
-describe("buildBookingCSP", () => {
-  it("returns Cal.com script-src for cal provider", () => {
-    const csp = buildBookingCSP("cal");
-    expect(csp["script-src"]).toContain("app.cal.com");
-  });
-
-  it("returns Calendly domains for calendly provider", () => {
-    const csp = buildBookingCSP("calendly");
-    expect(csp["script-src"]).toContain("assets.calendly.com");
-    expect(csp["style-src"]).toContain("assets.calendly.com");
-  });
-
-  it("includes frame-src for cal", () => {
-    const csp = buildBookingCSP("cal");
-    expect(csp["frame-src"]).toContain("app.cal.com");
-  });
-
-  it("includes frame-src for calendly", () => {
-    const csp = buildBookingCSP("calendly");
-    expect(csp["frame-src"]).toContain("calendly.com");
   });
 });

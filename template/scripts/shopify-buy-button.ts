@@ -41,39 +41,3 @@ export function parseShopifyEmbed(embedCode: string): ShopifyEmbedData | null {
     productId: idMatch[1],
   };
 }
-
-// ---------------------------------------------------------------------------
-// CSP directives
-// ---------------------------------------------------------------------------
-
-/** CSP directives needed for Shopify Buy Button */
-export interface ShopifyCSP {
-  "script-src": string[];
-  "style-src": string[];
-  "img-src": string[];
-  "connect-src": string[];
-  "frame-src": string[];
-}
-
-/**
- * Build CSP directives required for the Shopify Buy Button SDK.
- *
- * The Buy Button SDK loads from sdks.shopifycdn.com, fetches product
- * data from the store's myshopify.com domain via the Storefront API,
- * loads images from cdn.shopify.com, and sends analytics to
- * monorail-edge.shopifysvc.com.
- *
- * @returns Object with arrays of domains to add to each CSP directive
- */
-export function buildShopifyCSP(): ShopifyCSP {
-  return {
-    "script-src": ["cdn.shopify.com", "sdks.shopifycdn.com"],
-    "style-src": ["cdn.shopify.com"],
-    "img-src": ["cdn.shopify.com"],
-    "connect-src": [
-      "*.myshopify.com",
-      "monorail-edge.shopifysvc.com",
-    ],
-    "frame-src": [],
-  };
-}

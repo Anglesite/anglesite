@@ -3,7 +3,6 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   parseLemonSqueezyConfig,
-  buildLemonSqueezyCSP,
 } from "../template/scripts/lemon-squeezy.js";
 
 const templateDir = resolve(import.meta.dirname!, "..", "template");
@@ -33,33 +32,6 @@ describe("parseLemonSqueezyConfig", () => {
 
   it("returns null for empty product slug", () => {
     expect(parseLemonSqueezyConfig("my-store", "")).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// buildLemonSqueezyCSP
-// ---------------------------------------------------------------------------
-
-describe("buildLemonSqueezyCSP", () => {
-  it("includes assets.lemonsqueezy.com in script-src", () => {
-    const csp = buildLemonSqueezyCSP();
-    expect(csp["script-src"]).toContain("assets.lemonsqueezy.com");
-  });
-
-  it("includes api.lemonsqueezy.com in connect-src", () => {
-    const csp = buildLemonSqueezyCSP();
-    expect(csp["connect-src"]).toContain("api.lemonsqueezy.com");
-  });
-
-  it("includes *.lemonsqueezy.com in frame-src for checkout overlay", () => {
-    const csp = buildLemonSqueezyCSP();
-    expect(csp["frame-src"]).toContain("*.lemonsqueezy.com");
-  });
-
-  it("does not include style-src or img-src", () => {
-    const csp = buildLemonSqueezyCSP();
-    expect(csp["style-src"] ?? []).toEqual([]);
-    expect(csp["img-src"] ?? []).toEqual([]);
   });
 });
 

@@ -3,7 +3,6 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   buildSnipcartAttrs,
-  buildSnipcartCSP,
   formatPrice,
 } from "../template/scripts/snipcart.js";
 
@@ -121,32 +120,6 @@ describe("formatPrice", () => {
 
   it("formats prices with one cent digit", () => {
     expect(formatPrice(1050)).toBe("10.50");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// buildSnipcartCSP
-// ---------------------------------------------------------------------------
-
-describe("buildSnipcartCSP", () => {
-  it("includes cdn.snipcart.com in script-src", () => {
-    const csp = buildSnipcartCSP();
-    expect(csp["script-src"]).toContain("cdn.snipcart.com");
-  });
-
-  it("includes cdn.snipcart.com in style-src", () => {
-    const csp = buildSnipcartCSP();
-    expect(csp["style-src"]).toContain("cdn.snipcart.com");
-  });
-
-  it("includes app.snipcart.com in connect-src", () => {
-    const csp = buildSnipcartCSP();
-    expect(csp["connect-src"]).toContain("app.snipcart.com");
-  });
-
-  it("includes app.snipcart.com in frame-src", () => {
-    const csp = buildSnipcartCSP();
-    expect(csp["frame-src"]).toContain("app.snipcart.com");
   });
 });
 

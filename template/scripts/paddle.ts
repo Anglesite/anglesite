@@ -34,33 +34,3 @@ export function parsePaddleConfig(
     sandbox: token.startsWith("test_"),
   };
 }
-
-// ---------------------------------------------------------------------------
-// CSP directives
-// ---------------------------------------------------------------------------
-
-/** CSP directives needed for Paddle */
-export interface PaddleCSP {
-  "script-src": string[];
-  "connect-src": string[];
-  "frame-src": string[];
-}
-
-/**
- * Build CSP directives required for Paddle.js.
- *
- * Paddle.js loads from cdn.paddle.com (production) or
- * sandbox-cdn.paddle.com (sandbox). The checkout overlay
- * uses checkout.paddle.com / sandbox-checkout.paddle.com.
- * Paddle sends telemetry to log.paddle.com.
- *
- * Both sandbox and production domains are included so sites
- * work in test mode without CSP changes.
- */
-export function buildPaddleCSP(): PaddleCSP {
-  return {
-    "script-src": ["cdn.paddle.com", "sandbox-cdn.paddle.com"],
-    "connect-src": ["log.paddle.com"],
-    "frame-src": ["checkout.paddle.com", "sandbox-checkout.paddle.com"],
-  };
-}

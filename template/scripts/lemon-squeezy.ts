@@ -31,29 +31,3 @@ export function parseLemonSqueezyConfig(
     productSlug: product,
   };
 }
-
-// ---------------------------------------------------------------------------
-// CSP directives
-// ---------------------------------------------------------------------------
-
-/** CSP directives needed for Lemon Squeezy */
-export interface LemonSqueezyCSP {
-  "script-src": string[];
-  "connect-src": string[];
-  "frame-src": string[];
-}
-
-/**
- * Build CSP directives required for Lemon Squeezy.
- *
- * Lemon Squeezy's checkout overlay loads a script from
- * assets.lemonsqueezy.com and opens the checkout in an iframe
- * on *.lemonsqueezy.com (e.g., my-store.lemonsqueezy.com).
- */
-export function buildLemonSqueezyCSP(): LemonSqueezyCSP {
-  return {
-    "script-src": ["assets.lemonsqueezy.com"],
-    "connect-src": ["api.lemonsqueezy.com"],
-    "frame-src": ["*.lemonsqueezy.com"],
-  };
-}

@@ -153,7 +153,7 @@ For floating style (site-wide), add the structured data to the root layout or ho
 
 ### Content Security Policy
 
-Read `public/_headers` and update the CSP to allow the provider's domains. Use `buildBookingCSP()` from `${CLAUDE_PLUGIN_ROOT}/template/scripts/booking.ts` to get the required domains:
+Read `public/_headers` and update the CSP to allow the provider's domains. Use `buildBookingCSP()` from `${CLAUDE_PLUGIN_ROOT}/template/scripts/csp.ts` to get the required domains:
 
 **Cal.com:** Add `app.cal.com` to `script-src`, `style-src`, and `frame-src`.
 
