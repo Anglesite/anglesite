@@ -54,7 +54,23 @@ export function isReservedExampleEmail(email: string): boolean {
   if (reservedExampleDomains.includes(domain)) return true;
   return reservedExampleTlds.some(tld => domain.endsWith(tld));
 }
-export const phonePattern = /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+/**
+ * North-American phone numbers (3-3-4 with optional separators / parens).
+ *
+ * Boundary guards keep the unanchored 3-3-4 shape from matching digit runs
+ * embedded in longer tokens — the false positives that were blocking real
+ * deploys (issues #362, #365):
+ *   - a Nature DOI in a citation URL (`…s41598-025-97652-6` → `598-025-9765`)
+ *   - a Wayback Machine timestamp (`/web/20120120031959/` → `2012012003`)
+ *   - a decimal geo-coordinate (`37.3268981241` → `3268981241`)
+ *
+ * Leading: reject when preceded by a digit or `/` (URL path / longer number),
+ * or by a digit-then-dot (the fractional part of a decimal). A preceding `-`
+ * is allowed so a country-code prefix (`1-800-662-4357`) is still detected.
+ * Trailing: reject when followed by a digit or `/`, or by a dot-then-digit
+ * (a decimal) — while still allowing a sentence-ending period after the number.
+ */
+export const phonePattern = /(?<![\d/])(?<!\d\.)\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?![\d/])(?!\.\d)/g;
 /**
  * Airtable Personal Access Token: `pat` + 14 alphanumerics + `.` + 32+ alphanumerics.
  * The literal dot and second segment are mandatory in real PATs and eliminate
@@ -101,7 +117,6 @@ export const indiewebWorkerRoutes: Readonly<Record<string, readonly string[]>> =
 
 /** @deprecated Use airtablePatPattern or openaiKeyPattern. Kept for backwards-compatible imports. */
 export const tokenPattern = new RegExp(`${airtablePatPattern.source}|${openaiKeyPattern.source}`);
-export const scriptSrcPattern = /<script[^>]*src=/gi;
 
 /**
  * Allowed third-party script domains for the pre-deploy scan.
@@ -211,14 +226,22 @@ const tokenRemediations: Record<TokenKind, string> = {
 
 export function scanScripts(content: string, scriptAllowlist?: string[]): string[] {
   const allowed = scriptAllowlist ?? allowedScripts;
-  scriptSrcPattern.lastIndex = 0;
   const results: string[] = [];
-  const matches = content.match(scriptSrcPattern) || [];
-  for (const match of matches) {
-    const lineIdx = content.indexOf(match);
-    const line = content.slice(lineIdx, content.indexOf(">", lineIdx) + 1);
-    if (!allowed.some(a => line.includes(a))) {
-      results.push(line);
+  // Capture each <script …> tag along with its src value. Iterating with
+  // exec (rather than indexOf on a prefix match) handles repeated and minified
+  // one-line tags correctly.
+  const re = /<script[^>]*\bsrc\s*=\s*["']?([^"'\s>]+)[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(content)) !== null) {
+    const tag = m[0];
+    const src = m[1] ?? "";
+    // Only EXTERNAL scripts can be third-party. A "third-party script" gate
+    // flags external origins only — scheme-qualified (https://) or
+    // protocol-relative (//). Root-relative (/…), relative, and same-document
+    // srcs are first-party by definition (issues #362, #365).
+    if (!/^(?:https?:)?\/\//i.test(src)) continue;
+    if (!allowed.some(a => tag.includes(a))) {
+      results.push(tag);
     }
   }
   return results;

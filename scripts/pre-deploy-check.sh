@@ -49,17 +49,42 @@ if [[ -n "$EMAIL_HITS" ]]; then
   REASONS+=("Possible email address found in built HTML")
 fi
 
-PHONE_HITS=$(grep -rE '\(?\d{3}\)?[-.[[:space:]]]?\d{3}[-.[[:space:]]]?\d{4}' "$DIST/" --include='*.html' 2>/dev/null || true)
+# Boundary guards keep the 3-3-4 shape from matching digit runs embedded in
+# longer tokens — DOIs in citation URLs, Wayback timestamps, decimal
+# coordinates (issues #362, #365). Leading: not preceded by a digit, '/', or
+# '.' (a preceding '-' is allowed so a '1-800-…' country code still matches).
+# Trailing: not followed by a digit or '/' (a trailing '.' is allowed so a
+# number that ends a sentence still matches). POSIX ERE has no lookaround, so
+# the boundaries are matched as literal context chars.
+# Extract each phone occurrence (-o keeps the boundary context chars, which the
+# digit normalization below strips). Line-based -r output can't be normalized
+# per-number, so the allowlist comparison needs the individual matches.
+PHONE_MATCHES=$(grep -rohE '(^|[^0-9/.])\(?[0-9]{3}\)?[-.[:space:]]?[0-9]{3}[-.[:space:]]?[0-9]{4}([^0-9/]|$)' "$DIST/" --include='*.html' 2>/dev/null || true)
 
-# Filter out allowlisted phone numbers (normalize to digits-only for comparison)
-if [[ -n "$PHONE_HITS" && -n "$PHONE_ALLOW" ]]; then
+# Filter out allowlisted phone numbers. Normalize BOTH the allowlist entry and
+# each hit to their last 10 digits before comparing, so formatting differences
+# (dashes vs dots, a 1- country-code prefix) never defeat the allowlist. The
+# previous digits-only grep -v matched the normalized allowlist string against
+# the still-formatted hit and so never suppressed anything (issues #362, #365).
+if [[ -n "$PHONE_MATCHES" && -n "$PHONE_ALLOW" ]]; then
+  ALLOWED_NORM=""
   IFS=',' read -ra ALLOWED_PHONES <<< "$PHONE_ALLOW"
   for phone in "${ALLOWED_PHONES[@]}"; do
-    digits=$(echo "$phone" | tr -cd '0-9')
-    if [[ -n "$digits" ]]; then
-      PHONE_HITS=$(echo "$PHONE_HITS" | grep -v "$digits" || true)
-    fi
+    d=$(printf '%s' "$phone" | tr -cd '0-9')
+    d=${d: -10}
+    [[ -n "$d" ]] && ALLOWED_NORM+="${d}"$'\n'
   done
+  PHONE_HITS=""
+  while IFS= read -r hit; do
+    [[ -z "$hit" ]] && continue
+    hd=$(printf '%s' "$hit" | tr -cd '0-9')
+    hd=${hd: -10}
+    if ! printf '%s' "$ALLOWED_NORM" | grep -qxF "$hd"; then
+      PHONE_HITS+="${hit}"$'\n'
+    fi
+  done <<< "$PHONE_MATCHES"
+else
+  PHONE_HITS="$PHONE_MATCHES"
 fi
 
 if [[ -n "$PHONE_HITS" ]]; then
@@ -93,10 +118,16 @@ fi
 # 3. Third-party scripts — unauthorized external JS (allowlist driven by .site-config)
 check_third_party_scripts() {
   local result
-  result=$(grep -r '<script[^>]*src=' "$DIST/" --include='*.html' 2>/dev/null || true)
+  # Extract individual <script …src=…> tags (the -o keeps minified one-line
+  # HTML from collapsing the whole document into a single match that later
+  # grep -v exclusions could be defeated by), then keep only EXTERNAL srcs:
+  # scheme-qualified (https://) or protocol-relative (//). Root-relative (/…)
+  # and relative srcs are first-party by definition (issues #362, #365).
+  result=$(grep -rohE '<script[^>]*src=[^>]*>' "$DIST/" --include='*.html' 2>/dev/null \
+    | grep -E "src=[\"']?(https?:)?//" || true)
 
-  # Always exclude Cloudflare analytics and Astro bundles
-  result=$(echo "$result" | grep -v 'cloudflareinsights' | grep -v '_astro' || true)
+  # Always exclude Cloudflare analytics (external, but first-party-approved)
+  result=$(echo "$result" | grep -v 'cloudflareinsights' || true)
 
   # Add provider-specific exclusions based on .site-config
   if [[ -f ".site-config" ]]; then
