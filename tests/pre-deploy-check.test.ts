@@ -289,7 +289,14 @@ describe("scanTokens", () => {
     expect(scanTokens("ghp_tooshort")).toEqual([]);
   });
 
-  it("flags a committed INDIEAUTH_SIGNING_KEY literal (wrangler vars, .env, source)", () => {
+  it("flags a committed TOKEN_SIGNING_KEY literal (the binding @dwk/indieauth + @dwk/micropub read)", () => {
+    const key = "a1b2c3d4".repeat(8); // openssl rand -hex 32 shape
+    expect(scanTokens(`TOKEN_SIGNING_KEY=${key}`)).toEqual(["committed-secret-binding"]);
+    expect(scanTokens(`"TOKEN_SIGNING_KEY": "${key}"`)).toEqual(["committed-secret-binding"]);
+    expect(scanTokens("npx wrangler secret put TOKEN_SIGNING_KEY --name my-site")).toEqual([]);
+  });
+
+  it("flags a committed INDIEAUTH_SIGNING_KEY literal (legacy binding, pre-rename sites)", () => {
     const key = "a1b2c3d4".repeat(8); // openssl rand -hex 32 shape
     expect(scanTokens(`INDIEAUTH_SIGNING_KEY=${key}`)).toEqual(["committed-secret-binding"]);
     expect(scanTokens(`"INDIEAUTH_SIGNING_KEY": "${key}"`)).toEqual(["committed-secret-binding"]);

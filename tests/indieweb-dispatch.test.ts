@@ -79,11 +79,20 @@ describe("IndieWeb endpoint dispatch (gated on bindings)", () => {
 
   it("routes /micropub and /media to Micropub when MICROPUB_DB is bound", async () => {
     for (const path of ["/micropub", "/media"]) {
-      const env = makeEnv({ MICROPUB_DB: {} });
+      const env = makeEnv({ MICROPUB_DB: {}, SITE_URL: "https://example.com" });
       const res = await worker.fetch(req(path), env, makeCtx());
       expect(res.headers.get("x-handler"), path).toBe("micropub");
       expect(env.ASSETS.fetch).not.toHaveBeenCalled();
     }
+  });
+
+  it("503s on /micropub when MICROPUB_DB is bound but SITE_URL is missing", async () => {
+    const env = makeEnv({ MICROPUB_DB: {} }); // no SITE_URL
+    const res = await worker.fetch(req("/micropub"), env, makeCtx());
+    expect(res.status).toBe(503);
+    expect(await res.text()).toContain("SITE_URL");
+    expect(res.headers.get("x-handler")).toBeNull();
+    expect(env.ASSETS.fetch).not.toHaveBeenCalled();
   });
 
   it("falls through /micropub to ASSETS when MICROPUB_DB is absent", async () => {

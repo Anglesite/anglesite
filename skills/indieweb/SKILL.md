@@ -154,7 +154,7 @@ For each selected endpoint's D1 database, add a `d1_databases` entry:
 
 If a `"d1_databases"` array already exists (e.g. from `/anglesite:inbox`), append to it rather than creating a duplicate key.
 
-If Webmention is selected, also set the `SITE_URL` var to the site's own origin — `@dwk/webmention` needs it as its `baseUrl` at construction (the queue consumer runs off-request, with no request URL to derive an origin from). Edit the `"vars"` block in `wrangler.jsonc`:
+If **any** endpoint is selected, set the `SITE_URL` var to the site's own origin. `@dwk/webmention` needs it as its `baseUrl` at construction (the queue consumer runs off-request, with no request URL to derive an origin from), and `site-entry.js` derives the IndieAuth `baseUrl`, the WebAuthn `origin`/`rpId`, and Micropub's `baseUrl`/`me` from it as well — without it those endpoints throw on the first request. Edit the `"vars"` block in `wrangler.jsonc`:
 
 ```jsonc
 "vars": {
@@ -215,7 +215,7 @@ npm install @dwk/micropub
 
 ## Step 5 — Store secrets
 
-### 5a — IndieAuth signing key (if IndieAuth selected)
+### 5a — IndieAuth signing key (if IndieAuth or Micropub selected)
 
 Generate a signing key:
 
@@ -226,10 +226,18 @@ openssl rand -hex 32
 Store it as a wrangler secret on the site Worker (use the `name` value from `wrangler.jsonc`):
 
 ```sh
-npx wrangler secret put INDIEAUTH_SIGNING_KEY --name <CF_PROJECT_NAME>
+npx wrangler secret put TOKEN_SIGNING_KEY --name <CF_PROJECT_NAME>
 ```
 
-Tell the owner to paste the generated key when prompted. The key never appears in source code or `.site-config` — it lives only in Cloudflare's secret store.
+The binding **must** be named `TOKEN_SIGNING_KEY`: `@dwk/indieauth` signs access tokens with it and `@dwk/micropub` verifies them with the same secret, so both endpoints share this one key. Provision it whenever IndieAuth **or** Micropub is selected (they're a token issuer/consumer pair). Tell the owner to paste the generated key when prompted. The key never appears in source code or `.site-config` — it lives only in Cloudflare's secret store.
+
+> **Upgrading an existing IndieAuth/Micropub site?** Earlier plugin versions stored this secret as `INDIEAUTH_SIGNING_KEY`, but the `@dwk/*` packages read `TOKEN_SIGNING_KEY` — so on the next deploy the endpoints would 500 with *"missing required secret binding `TOKEN_SIGNING_KEY`"* until you re-provision it. Retrieve the current value from the Cloudflare dashboard (**Workers → your project → Settings → Variables & Secrets**) and store it under the new name:
+>
+> ```sh
+> npx wrangler secret put TOKEN_SIGNING_KEY --name <CF_PROJECT_NAME>
+> ```
+>
+> Reuse the **same** value so already-issued tokens stay valid. Once `TOKEN_SIGNING_KEY` is confirmed working, delete the old `INDIEAUTH_SIGNING_KEY` secret. Also confirm a `SITE_URL` var exists in `wrangler.jsonc` (see below) — IndieAuth, WebAuthn, and Micropub all derive their origin from it.
 
 ### 5c — Passkey owner authentication (if IndieAuth selected)
 
@@ -378,4 +386,4 @@ Suggest next steps:
 - **No cost.** Everything runs within Cloudflare's free tier (Workers, D1, R2, Queues). No third-party service fees.
 - **Privacy.** Webmention data (mentions from other sites) is stored in D1 on the owner's account. The owner should mention in their privacy policy that the site receives and stores Webmentions. Micropub posts are committed to the owner's private GitHub repo.
 - **Diagnostics.** If endpoints misbehave, check the Worker logs: `https://dash.cloudflare.com/<account-id>/workers/services/view/<CF_PROJECT_NAME>/production/observability/logs`. Or run `/anglesite:check` which will inspect the IndieWeb endpoint configuration.
-- **Schema management.** The `@dwk/indieauth` / `@dwk/micropub` packages manage their own D1 schemas, which run automatically on first request. Webmention is the exception: the site's rich inbox (`worker/webmention-inbox.js`) owns its `webmentions` table — an extended schema (author name/url/photo, content, permalink, reply/like/repost type) created on first verified mention, replacing the package's default source/target-only inbox. **Migration:** a site that already ran the earlier minimal Webmention has a 3-column `webmentions` table; `CREATE TABLE IF NOT EXISTS` won't add the new columns, so the first rich UPSERT would fail. Drop the old table once so the rich schema is recreated on the next mention (verified mentions are re-sent/re-verifiable, so nothing is permanently lost): `npx wrangler d1 execute webmention --remote --command "DROP TABLE IF EXISTS webmentions"`.
+- **Schema management.** The `@dwk/indieauth` / `@dwk/micropub` packages manage their own D1 schemas, which run automatically on first request. Micropub's `posts` table (keyed by post URL) is the package's authoritative store and has no sync-state of its own, so the D1→GitHub bridge (`worker/indieweb-bridge.js`) owns a side `bridge_sync(url, synced_at)` table in the same `MICROPUB_DB` database — created on the bridge's first run — and re-commits a post whenever its `updated_at` advances past the last recorded sync. Webmention is the other exception: the site's rich inbox (`worker/webmention-inbox.js`) owns its `webmentions` table — an extended schema (author name/url/photo, content, permalink, reply/like/repost type) created on first verified mention, replacing the package's default source/target-only inbox. **Migration:** a site that already ran the earlier minimal Webmention has a 3-column `webmentions` table; `CREATE TABLE IF NOT EXISTS` won't add the new columns, so the first rich UPSERT would fail. Drop the old table once so the rich schema is recreated on the next mention (verified mentions are re-sent/re-verifiable, so nothing is permanently lost): `npx wrangler d1 execute webmention --remote --command "DROP TABLE IF EXISTS webmentions"`.

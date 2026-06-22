@@ -90,15 +90,17 @@ export const openaiKeyPattern = /\bsk-[A-Za-z0-9]{20,}\b/;
 export const githubTokenPattern = /\bgh[pousr]_[A-Za-z0-9]{36,}\b|\bgithub_pat_[A-Za-z0-9_]{22,}\b/;
 
 /**
- * IndieWeb secret bindings committed as literals. `INDIEAUTH_SIGNING_KEY` and
- * `GITHUB_TOKEN` are wrangler / GitHub secrets — referencing the *name* is
- * fine (`env.GITHUB_TOKEN`, `${{ secrets.GITHUB_TOKEN }}`, `wrangler secret
- * put INDIEAUTH_SIGNING_KEY`), but a credential-shaped literal assigned to
- * either name means the secret was committed. The value class excludes `$`,
- * `<`, and `.` so env interpolations, doc placeholders, and property accesses
- * never match.
+ * IndieWeb secret bindings committed as literals. `TOKEN_SIGNING_KEY` (the
+ * IndieAuth access-token signing secret @dwk/indieauth and @dwk/micropub both
+ * read) and `GITHUB_TOKEN` are wrangler / GitHub secrets — referencing the
+ * *name* is fine (`env.GITHUB_TOKEN`, `${{ secrets.GITHUB_TOKEN }}`, `wrangler
+ * secret put TOKEN_SIGNING_KEY`), but a credential-shaped literal assigned to
+ * any of these names means the secret was committed. `INDIEAUTH_SIGNING_KEY`
+ * stays in the list so sites scaffolded before the TOKEN_SIGNING_KEY rename are
+ * still caught. The value class excludes `$`, `<`, and `.` so env
+ * interpolations, doc placeholders, and property accesses never match.
  */
-export const committedSecretPattern = /\b(?:INDIEAUTH_SIGNING_KEY|INDIEAUTH_SESSION_KEY|INDIEWEB_REG_TOKEN|GITHUB_TOKEN)["']?\s*[:=]\s*["']?[A-Za-z0-9+/_-]{16,}/;
+export const committedSecretPattern = /\b(?:TOKEN_SIGNING_KEY|INDIEAUTH_SIGNING_KEY|INDIEAUTH_SESSION_KEY|INDIEWEB_REG_TOKEN|GITHUB_TOKEN)["']?\s*[:=]\s*["']?[A-Za-z0-9+/_-]{16,}/;
 
 /**
  * IndieWeb endpoints served by the site Worker (`worker/site-entry.js`), set
@@ -212,7 +214,7 @@ const tokenLabels: Record<TokenKind, string> = {
   "airtable-pat": "Airtable Personal Access Token",
   "openai-key": "OpenAI secret key",
   "github-token": "GitHub token",
-  "committed-secret-binding": "Committed secret binding (INDIEAUTH_SIGNING_KEY / GITHUB_TOKEN)",
+  "committed-secret-binding": "Committed secret binding (TOKEN_SIGNING_KEY / GITHUB_TOKEN)",
 };
 
 const tokenRemediations: Record<TokenKind, string> = {
@@ -431,7 +433,7 @@ export function runScan(input: { siteDir: string }): ScanReport {
 
   // 2. Exposed tokens in dist/, src/, public/, worker/, and the wrangler
   //    configs. worker/ and the configs are where the IndieWeb secret
-  //    bindings (INDIEAUTH_SIGNING_KEY, GITHUB_TOKEN) would land if someone
+  //    bindings (TOKEN_SIGNING_KEY, GITHUB_TOKEN) would land if someone
   //    committed them instead of using `wrangler secret put`.
   const tokenScanFiles = [
     distDir,

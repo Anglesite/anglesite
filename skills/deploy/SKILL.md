@@ -87,7 +87,7 @@ Then re-run `npm run predeploy` to confirm it passes.
 
 `/auth`, `/micropub`, `/media`, and `/webmention` are **intentional public routes** served by the site Worker — the scans expect them and never flag them. Two things the scan does enforce on an IndieWeb site:
 
-- **Secrets stay secret.** `INDIEAUTH_SIGNING_KEY` and `GITHUB_TOKEN` must be secret bindings (`npx wrangler secret put …` on the Worker, `gh secret set …` for the Actions workflow) — never literals in source, `worker/`, or the wrangler configs. The token scan blocks the deploy if either appears committed; rotate the leaked value first, then move it to the secret store.
+- **Secrets stay secret.** `TOKEN_SIGNING_KEY` and `GITHUB_TOKEN` must be secret bindings (`npx wrangler secret put …` on the Worker, `gh secret set …` for the Actions workflow) — never literals in source, `worker/`, or the wrangler configs. The token scan blocks the deploy if either appears committed; rotate the leaked value first, then move it to the secret store.
 - **DPoP-only is by design.** The Micropub endpoint requires a DPoP proof on every request and binds the token subject to the configured `me` (`INDIEWEB_ME`). Bearer-only Micropub clients — including micropub.rocks' default flow — won't authenticate. That's intentional security posture, not a deploy regression: never "fix" 401s from bearer clients by weakening the endpoint. See `${CLAUDE_PLUGIN_ROOT}/docs/platforms/dwk-workers.md`.
 
 ## Step 2a — SEO audit (non-blocking)
