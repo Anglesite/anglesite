@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
-  buildShopifyCSP,
   parseShopifyEmbed,
 } from "../template/scripts/shopify-buy-button.js";
 
@@ -82,37 +81,6 @@ describe("parseShopifyEmbed", () => {
     expect(result!.domain).toBe("another-shop.myshopify.com");
     expect(result!.storefrontAccessToken).toBe("tokenABC");
     expect(result!.productId).toBe("9876543210987");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// buildShopifyCSP
-// ---------------------------------------------------------------------------
-
-describe("buildShopifyCSP", () => {
-  it("includes cdn.shopify.com in script-src", () => {
-    const csp = buildShopifyCSP();
-    expect(csp["script-src"]).toContain("cdn.shopify.com");
-  });
-
-  it("includes sdks.shopifycdn.com in script-src", () => {
-    const csp = buildShopifyCSP();
-    expect(csp["script-src"]).toContain("sdks.shopifycdn.com");
-  });
-
-  it("includes monorail-edge.shopifysvc.com in connect-src", () => {
-    const csp = buildShopifyCSP();
-    expect(csp["connect-src"]).toContain("monorail-edge.shopifysvc.com");
-  });
-
-  it("includes cdn.shopify.com in img-src", () => {
-    const csp = buildShopifyCSP();
-    expect(csp["img-src"]).toContain("cdn.shopify.com");
-  });
-
-  it("includes *.myshopify.com in connect-src for storefront API", () => {
-    const csp = buildShopifyCSP();
-    expect(csp["connect-src"]).toContain("*.myshopify.com");
   });
 });
 

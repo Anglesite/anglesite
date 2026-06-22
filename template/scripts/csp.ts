@@ -8,16 +8,19 @@
  * @module
  */
 
-import { buildSnipcartCSP } from "./snipcart.js";
-import { buildShopifyCSP } from "./shopify-buy-button.js";
-import { buildPaddleCSP } from "./paddle.js";
-import { buildLemonSqueezyCSP } from "./lemon-squeezy.js";
-import { buildBookingCSP, type BookingProvider } from "./booking.js";
 import { readConfigFromString } from "./config.js";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+/**
+ * Supported booking providers. Defined here (rather than imported from
+ * `booking.ts`) so this central CSP module has no runtime or type dependency
+ * on the optional provider helper modules — content-only sites can delete
+ * `booking.ts`, `snipcart.ts`, etc. without having to edit this file (#364).
+ */
+export type BookingProvider = "cal" | "calendly";
 
 /** Parsed provider configuration from .site-config */
 export interface SiteProviders {
@@ -77,6 +80,79 @@ export function buildPolarCSP(): CSPDirectives {
     "script-src": ["cdn.polar.sh"],
     "connect-src": ["api.polar.sh"],
     "frame-src": ["buy.polar.sh"],
+  };
+}
+
+/** CSP directives for Snipcart checkout */
+export function buildSnipcartCSP(): CSPDirectives {
+  return {
+    "script-src": ["cdn.snipcart.com"],
+    "style-src": ["cdn.snipcart.com"],
+    "connect-src": ["app.snipcart.com"],
+    "frame-src": ["app.snipcart.com"],
+  };
+}
+
+/**
+ * CSP directives for the Shopify Buy Button SDK.
+ *
+ * The Buy Button SDK loads from sdks.shopifycdn.com, fetches product data
+ * from the store's myshopify.com domain via the Storefront API, loads images
+ * from cdn.shopify.com, and sends analytics to monorail-edge.shopifysvc.com.
+ */
+export function buildShopifyCSP(): CSPDirectives {
+  return {
+    "script-src": ["cdn.shopify.com", "sdks.shopifycdn.com"],
+    "style-src": ["cdn.shopify.com"],
+    "img-src": ["cdn.shopify.com"],
+    "connect-src": ["*.myshopify.com", "monorail-edge.shopifysvc.com"],
+  };
+}
+
+/**
+ * CSP directives for Paddle.js.
+ *
+ * Paddle.js loads from cdn.paddle.com (production) or sandbox-cdn.paddle.com
+ * (sandbox); the checkout overlay uses checkout.paddle.com /
+ * sandbox-checkout.paddle.com; telemetry goes to log.paddle.com. Both sandbox
+ * and production domains are included so sites work in test mode without CSP
+ * changes.
+ */
+export function buildPaddleCSP(): CSPDirectives {
+  return {
+    "script-src": ["cdn.paddle.com", "sandbox-cdn.paddle.com"],
+    "connect-src": ["log.paddle.com"],
+    "frame-src": ["checkout.paddle.com", "sandbox-checkout.paddle.com"],
+  };
+}
+
+/**
+ * CSP directives for Lemon Squeezy.
+ *
+ * The checkout overlay loads a script from assets.lemonsqueezy.com and opens
+ * the checkout in an iframe on *.lemonsqueezy.com.
+ */
+export function buildLemonSqueezyCSP(): CSPDirectives {
+  return {
+    "script-src": ["assets.lemonsqueezy.com"],
+    "connect-src": ["api.lemonsqueezy.com"],
+    "frame-src": ["*.lemonsqueezy.com"],
+  };
+}
+
+/** CSP directives for a booking provider (Cal.com or Calendly). */
+export function buildBookingCSP(provider: BookingProvider): CSPDirectives {
+  if (provider === "cal") {
+    return {
+      "script-src": ["app.cal.com"],
+      "style-src": ["app.cal.com"],
+      "frame-src": ["app.cal.com"],
+    };
+  }
+  return {
+    "script-src": ["assets.calendly.com"],
+    "style-src": ["assets.calendly.com"],
+    "frame-src": ["calendly.com"],
   };
 }
 

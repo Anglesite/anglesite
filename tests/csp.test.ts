@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   buildPolarCSP,
+  buildSnipcartCSP,
+  buildShopifyCSP,
+  buildPaddleCSP,
+  buildLemonSqueezyCSP,
+  buildBookingCSP,
   buildTurnstileCSP,
   buildGiscusCSP,
   buildTrackingCSP,
@@ -34,6 +41,121 @@ describe("buildPolarCSP", () => {
     const csp = buildPolarCSP();
     expect(csp["style-src"] ?? []).toEqual([]);
     expect(csp["img-src"] ?? []).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSnipcartCSP
+// ---------------------------------------------------------------------------
+
+describe("buildSnipcartCSP", () => {
+  it("includes cdn.snipcart.com in script-src", () => {
+    expect(buildSnipcartCSP()["script-src"]).toContain("cdn.snipcart.com");
+  });
+
+  it("includes cdn.snipcart.com in style-src", () => {
+    expect(buildSnipcartCSP()["style-src"]).toContain("cdn.snipcart.com");
+  });
+
+  it("includes app.snipcart.com in connect-src", () => {
+    expect(buildSnipcartCSP()["connect-src"]).toContain("app.snipcart.com");
+  });
+
+  it("includes app.snipcart.com in frame-src", () => {
+    expect(buildSnipcartCSP()["frame-src"]).toContain("app.snipcart.com");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildShopifyCSP
+// ---------------------------------------------------------------------------
+
+describe("buildShopifyCSP", () => {
+  it("includes cdn.shopify.com and sdks.shopifycdn.com in script-src", () => {
+    const csp = buildShopifyCSP();
+    expect(csp["script-src"]).toContain("cdn.shopify.com");
+    expect(csp["script-src"]).toContain("sdks.shopifycdn.com");
+  });
+
+  it("includes monorail-edge.shopifysvc.com and *.myshopify.com in connect-src", () => {
+    const csp = buildShopifyCSP();
+    expect(csp["connect-src"]).toContain("monorail-edge.shopifysvc.com");
+    expect(csp["connect-src"]).toContain("*.myshopify.com");
+  });
+
+  it("includes cdn.shopify.com in img-src", () => {
+    expect(buildShopifyCSP()["img-src"]).toContain("cdn.shopify.com");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildPaddleCSP
+// ---------------------------------------------------------------------------
+
+describe("buildPaddleCSP", () => {
+  it("includes production and sandbox script-src domains", () => {
+    const csp = buildPaddleCSP();
+    expect(csp["script-src"]).toContain("cdn.paddle.com");
+    expect(csp["script-src"]).toContain("sandbox-cdn.paddle.com");
+  });
+
+  it("includes production and sandbox checkout frames", () => {
+    const csp = buildPaddleCSP();
+    expect(csp["frame-src"]).toContain("checkout.paddle.com");
+    expect(csp["frame-src"]).toContain("sandbox-checkout.paddle.com");
+  });
+
+  it("includes log.paddle.com in connect-src for analytics", () => {
+    expect(buildPaddleCSP()["connect-src"]).toContain("log.paddle.com");
+  });
+
+  it("does not include style-src or img-src", () => {
+    const csp = buildPaddleCSP();
+    expect(csp["style-src"] ?? []).toEqual([]);
+    expect(csp["img-src"] ?? []).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildLemonSqueezyCSP
+// ---------------------------------------------------------------------------
+
+describe("buildLemonSqueezyCSP", () => {
+  it("includes assets.lemonsqueezy.com in script-src", () => {
+    expect(buildLemonSqueezyCSP()["script-src"]).toContain("assets.lemonsqueezy.com");
+  });
+
+  it("includes api.lemonsqueezy.com in connect-src", () => {
+    expect(buildLemonSqueezyCSP()["connect-src"]).toContain("api.lemonsqueezy.com");
+  });
+
+  it("includes *.lemonsqueezy.com in frame-src for the checkout overlay", () => {
+    expect(buildLemonSqueezyCSP()["frame-src"]).toContain("*.lemonsqueezy.com");
+  });
+
+  it("does not include style-src or img-src", () => {
+    const csp = buildLemonSqueezyCSP();
+    expect(csp["style-src"] ?? []).toEqual([]);
+    expect(csp["img-src"] ?? []).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildBookingCSP
+// ---------------------------------------------------------------------------
+
+describe("buildBookingCSP", () => {
+  it("returns Cal.com domains for the cal provider", () => {
+    const csp = buildBookingCSP("cal");
+    expect(csp["script-src"]).toContain("app.cal.com");
+    expect(csp["frame-src"]).toContain("app.cal.com");
+  });
+
+  it("returns Calendly domains for the calendly provider", () => {
+    const csp = buildBookingCSP("calendly");
+    expect(csp["script-src"]).toContain("assets.calendly.com");
+    expect(csp["style-src"]).toContain("assets.calendly.com");
+    expect(csp["frame-src"]).toContain("calendly.com");
   });
 });
 
@@ -540,4 +662,29 @@ describe("generateHeadersContent", () => {
     expect(content).toContain("challenges.cloudflare.com");
     expect(content).not.toContain("cdn.shopify.com");
   });
+});
+
+// ---------------------------------------------------------------------------
+// Decoupling guard (#364): csp.ts must not statically import the optional
+// commerce / booking provider helper modules, so content-only sites can
+// delete them without editing csp.ts.
+// ---------------------------------------------------------------------------
+
+describe("csp.ts provider-module decoupling (#364)", () => {
+  const source = readFileSync(
+    resolve(import.meta.dirname!, "../template/scripts/csp.ts"),
+    "utf-8",
+  );
+
+  for (const mod of [
+    "./snipcart.js",
+    "./shopify-buy-button.js",
+    "./paddle.js",
+    "./lemon-squeezy.js",
+    "./booking.js",
+  ]) {
+    it(`does not import ${mod}`, () => {
+      expect(source).not.toContain(mod);
+    });
+  }
 });

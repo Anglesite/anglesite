@@ -194,34 +194,3 @@ export function buildCalendlyEmbed(
   // button → popup
   return `${cssLink}\n<button class="booking-button" onclick="Calendly.initPopupWidget({url:'${url}'});return false;">${safeButtonText}</button>\n${jsScript}`;
 }
-
-// ---------------------------------------------------------------------------
-// CSP directives
-// ---------------------------------------------------------------------------
-
-/** CSP directives needed for a booking provider */
-export interface BookingCSP {
-  "script-src": string[];
-  "style-src": string[];
-  "frame-src": string[];
-}
-
-/**
- * Build CSP directives required for a booking provider.
- * @param provider - "cal" or "calendly"
- * @returns Object with arrays of domains to add to each CSP directive
- */
-export function buildBookingCSP(provider: BookingProvider): BookingCSP {
-  if (provider === "cal") {
-    return {
-      "script-src": ["app.cal.com"],
-      "style-src": ["app.cal.com"],
-      "frame-src": ["app.cal.com"],
-    };
-  }
-  return {
-    "script-src": ["assets.calendly.com"],
-    "style-src": ["assets.calendly.com"],
-    "frame-src": ["calendly.com"],
-  };
-}

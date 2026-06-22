@@ -50,28 +50,3 @@ export function buildSnipcartAttrs(product: SnipcartProduct): SnipcartAttrs {
 export function formatPrice(cents: number): string {
   return (cents / 100).toFixed(2);
 }
-
-// ---------------------------------------------------------------------------
-// CSP directives
-// ---------------------------------------------------------------------------
-
-/** CSP directives needed for Snipcart */
-export interface SnipcartCSP {
-  "script-src": string[];
-  "style-src": string[];
-  "connect-src": string[];
-  "frame-src": string[];
-}
-
-/**
- * Build CSP directives required for Snipcart.
- * @returns Object with arrays of domains to add to each CSP directive
- */
-export function buildSnipcartCSP(): SnipcartCSP {
-  return {
-    "script-src": ["cdn.snipcart.com"],
-    "style-src": ["cdn.snipcart.com"],
-    "connect-src": ["app.snipcart.com"],
-    "frame-src": ["app.snipcart.com"],
-  };
-}
