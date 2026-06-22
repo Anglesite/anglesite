@@ -1,11 +1,11 @@
 ---
 name: indieweb
 description: "Deploy self-owned IndieAuth, Webmention, and Micropub endpoints on your domain"
-allowed-tools: Bash(npm run build), Bash(npm install *), Bash(npm view *), Bash(npx wrangler *), Bash(openssl *), Bash(grep *), Bash(gh *), Write, Read, Edit, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__d1_database_create, mcp__cloudflare__d1_databases_list, mcp__cloudflare__d1_database_get, mcp__cloudflare__r2_bucket_create, mcp__cloudflare__r2_buckets_list
+allowed-tools: Bash(npm run build), Bash(npm install *), Bash(npx wrangler *), Bash(openssl *), Bash(grep *), Bash(gh *), Bash(node *), Bash(mktemp *), Bash(printf *), Bash(rm *), Write, Read, Edit, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__d1_database_create, mcp__cloudflare__d1_databases_list, mcp__cloudflare__d1_database_get, mcp__cloudflare__r2_bucket_create, mcp__cloudflare__r2_buckets_list
 disable-model-invocation: true
 ---
 
-Set up self-owned IndieWeb endpoints on the owner's primary domain using the `@dwk/*` worker packages. Deploys IndieAuth (sign in with your domain), Webmention (receive cross-site mentions), and Micropub (publish from third-party clients) — each independently gated and composed into the site's existing `site-entry.js` Worker.
+Set up self-owned IndieWeb endpoints on the owner's primary domain using the `@dwk/*` worker packages. Deploys IndieAuth (sign in with your domain), Webmention (receive cross-site mentions), and Micropub (publish from third-party clients) — each independently selectable, runtime-guarded by its own bindings, and composed into the site's existing `site-entry.js` Worker.
 
 The owner's identity, tokens, and data stay on their own Cloudflare account. No third-party identity or mention hosts.
 
@@ -33,25 +33,36 @@ If `INDIEWEB_ENABLED=true` is already set in `.site-config`, the endpoints are a
 
 ## Step 1 — Check package availability
 
-The `@dwk/*` packages must be published on npm before the endpoints can be installed. Check each one:
+The `@dwk/*` packages must be published on npm **and actually load under Node ESM** before the endpoints can be installed. A published version is not enough: a broken build whose compiled `dist/` re-exports omit file extensions passes `npm view` but throws `ERR_MODULE_NOT_FOUND` the moment it's imported (issue #363). Composing such a package into `site-entry.js` produces a Worker that can't boot — and the breakage is invisible until deploy because the repo's tests alias `@dwk/*` to stubs. So the gate must **import** each package, not just confirm it exists.
+
+Run this combined gate. It installs the four packages into a throwaway directory (never touching the site) and dynamically imports each one, failing closed on any error. The check is all-or-nothing across the four `@dwk/*` packages: they're published from one monorepo at a shared version, so a broken build breaks them together — gating them as a set keeps this step simple. (Endpoint *selection* in Step 2 and runtime guarding remain per-endpoint.)
 
 ```sh
-npm view @dwk/indieauth version
+PKGS="@dwk/indieauth @dwk/webmention @dwk/micropub @dwk/webauthn"
+SMOKE=$(mktemp -d)
+GATE=1
+if [ -n "$SMOKE" ]; then
+  printf '{"type":"module","private":true}' > "$SMOKE/package.json"
+  ( cd "$SMOKE" \
+    && { INSTALL_ERR=$(npm install $PKGS 2>&1 >/dev/null) \
+         || { echo "INSTALL FAILED (network/registry issue or unavailable package):"; echo "$INSTALL_ERR"; exit 1; }; } \
+    && for p in $PKGS; do \
+         node -e "import('$p').then(()=>console.log('ok   $p')).catch(e=>{console.error('FAIL $p: '+(e.code||e.message));process.exit(1)})" || exit 1; \
+       done )
+  GATE=$?
+  rm -rf "$SMOKE"
+fi
+echo "gate exit: $GATE"
 ```
 
-```sh
-npm view @dwk/webmention version
-```
+If `gate exit` is **0**, every package installed and imported cleanly — proceed. Otherwise stop. Read the captured output to tell the two failure modes apart:
 
-```sh
-npm view @dwk/micropub version
-```
+- An `INSTALL FAILED` block means the install itself errored — most often a transient network/registry hiccup, occasionally an unavailable package. Tell the owner: "I couldn't install the IndieWeb endpoint packages just now — this is usually a temporary network issue. Try again in a minute. If it keeps failing, the packages may not be ready yet."
+- A `FAIL <pkg>: …` line (e.g. `ERR_MODULE_NOT_FOUND`) means a package is published but doesn't load — a broken build. Tell the owner:
 
-If **any** package returns an error (not found) or reports version `0.0.0`, stop and tell the owner:
+"The IndieWeb endpoint packages aren't ready yet — this feature isn't available right now. It's being built by an open-source project and will be ready soon. I'll let you know when it ships. In the meantime, your site already supports the passive IndieWeb (microformats, `rel="me"`, RSS) — see `docs/indieweb.md` for what's already working."
 
-"The IndieWeb endpoint packages aren't published yet — this feature isn't available right now. It's being built by an open-source project and will be ready soon. I'll let you know when it ships. In the meantime, your site already supports the passive IndieWeb (microformats, `rel="me"`, RSS) — see `docs/indieweb.md` for what's already working."
-
-Do not attempt git installs, forks, or workarounds. The gate is intentional.
+Do not attempt git installs, forks, version pins to a broken build, or workarounds. The gate is intentional: a package that imports cleanly is the contract the rest of this skill depends on.
 
 ## Step 2 — Choose endpoints
 
