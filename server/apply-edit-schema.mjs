@@ -8,7 +8,7 @@
  *   - `selector: ElementInfo` (drops `element/tagName/textFingerprint/domPath`; matches
  *     selector.mjs's existing typedef).
  *   - `path` (drops `url`; the app already uses `path` on its side).
- *   - `op` is the closed enum {replace-text, replace-attr, replace-image-src, edit-style}.
+ *   - `op` is the closed enum {replace-text, replace-attr, replace-image-src, edit-style, apply-instruction}.
  *   - No `site` field — the MCP server already knows its `projectRoot`.
  *   - `type` is accepted-and-ignored — the app uses it as a WKWebView-side boundary tag.
  */
@@ -36,9 +36,10 @@ export const elementInfoSchema = z.object({
   textContent: z.string().optional(),
 });
 
-/** Edit operations the patcher knows how to apply. Phase 5's patcher (#295) implements these;
- *  new ops require an explicit enum addition + a resolver update. */
-export const editOps = ["replace-text", "replace-attr", "replace-image-src", "edit-style"];
+/** Edit operations the server accepts. The patcher resolves the first four; `apply-instruction`
+ *  is an NL-forwarding op the app's Foundation Models chat path sends — the server returns a
+ *  structured `needs-agent` refusal so the app can route it to its agent. */
+export const editOps = ["replace-text", "replace-attr", "replace-image-src", "edit-style", "apply-instruction"];
 
 /** The MCP tool's input shape, as passed to `server.tool(name, description, shape, handler)`. */
 export const applyEditInputShape = {
@@ -60,7 +61,7 @@ export const applyEditInputShape = {
   op: z
     .enum(editOps)
     .describe(
-      "Edit operation: replace-text (innerText), replace-attr (op needs value to be {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>)",
+      "Edit operation: replace-text (innerText), replace-attr (value is {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>), apply-instruction (NL instruction forwarded by the app's Foundation Models chat — returns needs-agent for app-side routing)",
     ),
   value: z
     .unknown()

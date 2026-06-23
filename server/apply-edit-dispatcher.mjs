@@ -184,6 +184,13 @@ async function processImageDrop(projectRoot, edit) {
  * @param {{ onApplied?: (info: {file:string, range:{start:number,end:number}, projectRoot:string}) => Promise<string|undefined> | string | undefined }} [opts]
  */
 export async function applyEdit(projectRoot, edit, opts = {}) {
+  // The app's Foundation Models chat path (ApplyEditTool, #251) forwards NL instructions
+  // as op="apply-instruction" expecting plugin-side interpretation. The MCP server is
+  // deterministic (no LLM), so return a structured refusal the app can route to its agent.
+  if (edit.op === "apply-instruction") {
+    return failed(edit.id, "needs-agent", "apply-instruction requires LLM interpretation; route to the agent");
+  }
+
   // dry_run is read-only. Image edits can't be previewed without writing optimized
   // bytes to disk, so refuse rather than violate the no-write invariant.
   if (edit.dry_run && edit.op === "replace-image-src") {

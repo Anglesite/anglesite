@@ -55,6 +55,12 @@ describe("applyEditInputShape", () => {
     }
   });
 
+  it("accepts op=apply-instruction (Foundation Models chat forward)", () => {
+    expect(
+      applyEditSchema.safeParse({ ...validPayload, op: "apply-instruction" }).success,
+    ).toBe(true);
+  });
+
   it("rejects op values outside the enum", () => {
     expect(applyEditSchema.safeParse({ ...validPayload, op: "set-text" }).success).toBe(false);
     expect(applyEditSchema.safeParse({ ...validPayload, op: "delete" }).success).toBe(false);
