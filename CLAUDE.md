@@ -108,7 +108,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── smb/                      Business type guides (66 files, 50+ verticals)
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (19 files)
-│   ├── decisions/                ADRs — architecture decision records (21 files)
+│   ├── decisions/                ADRs — architecture decision records (23 files)
 │   ├── style-guide.md           HTML, CSS, and TypeScript coding standards for generated sites
 │   └── content-conversion.md    Shared HTML-to-Markdown guidance (used by import + convert)
 ├── template/                     Files scaffolded to user's project
@@ -263,7 +263,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Pagefind (not Algolia/Orama) | Build-time index, ~6 KB JS, no external service, first-class Astro integration |
 | On-device `fm` as optional authoring accelerator | Free/private/offline drafts — alt text (incl. imported images via `ai-alt`) and inbox triage; never in the deployed site, always falls back to Claude (ADR-0021) |
 
-Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0021).
+Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0023).
 
 ## Testing
 
@@ -303,6 +303,8 @@ Anglesite ships two ways from one source — they coexist:
 `skills/` is the source of truth. `agent-skills/` is **generated** by `npm run build:agent-skills` (`bin/build-agent-skills.ts`) and committed so the skills.sh CLI can resolve skills by path. The transformer rewrites `${CLAUDE_PLUGIN_ROOT}` references into bundled `references/`, drops plugin-only frontmatter (`disable-model-invocation`, `user-invocable`, `argument-hint`) into spec `metadata`, and converts cross-skill links into plain mentions. **Never edit `agent-skills/` by hand** — edit `skills/` and rebuild. CI (`.github/workflows/test.yml`) fails if the export is stale. See `docs/dev/agent-skills.md` for the full contract and known limitations.
 
 ## CI/CD
+
+**`.github/workflows/test.yml`** — Runs on PRs and pushes to `main`. The test matrix covers Node 22 (the `engines` floor) **and** Node 24 (the runtime `Anglesite-app` vendors via `scripts/node-version.txt`). When the app bumps its pinned Node version, update the matrix to match so regressions on the shipped interpreter are caught here.
 
 **`.github/workflows/release.yml`** — Triggered on `v*` tags:
 1. Verifies version consistency across all manifests
