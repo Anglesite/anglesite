@@ -108,7 +108,8 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── smb/                      Business type guides (66 files, 50+ verticals)
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (19 files)
-│   ├── decisions/                ADRs — architecture decision records (21 files)
+│   ├── dev/                      Plugin development guides (7 files: architecture, releasing, testing, etc.)
+│   ├── decisions/                ADRs — architecture decision records (23 files)
 │   ├── style-guide.md           HTML, CSS, and TypeScript coding standards for generated sites
 │   └── content-conversion.md    Shared HTML-to-Markdown guidance (used by import + convert)
 ├── template/                     Files scaffolded to user's project
@@ -263,7 +264,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Pagefind (not Algolia/Orama) | Build-time index, ~6 KB JS, no external service, first-class Astro integration |
 | On-device `fm` as optional authoring accelerator | Free/private/offline drafts — alt text (incl. imported images via `ai-alt`) and inbox triage; never in the deployed site, always falls back to Claude (ADR-0021) |
 
-Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0021).
+Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0023).
 
 ## Testing
 
@@ -303,6 +304,13 @@ Anglesite ships two ways from one source — they coexist:
 `skills/` is the source of truth. `agent-skills/` is **generated** by `npm run build:agent-skills` (`bin/build-agent-skills.ts`) and committed so the skills.sh CLI can resolve skills by path. The transformer rewrites `${CLAUDE_PLUGIN_ROOT}` references into bundled `references/`, drops plugin-only frontmatter (`disable-model-invocation`, `user-invocable`, `argument-hint`) into spec `metadata`, and converts cross-skill links into plain mentions. **Never edit `agent-skills/` by hand** — edit `skills/` and rebuild. CI (`.github/workflows/test.yml`) fails if the export is stale. See `docs/dev/agent-skills.md` for the full contract and known limitations.
 
 ## CI/CD
+
+**`.github/workflows/test.yml`** — Runs on PRs and pushes to `main`. Three jobs:
+1. **`test`** — Node matrix [22, 24]; runs the full test suite on both the `engines` floor and the runtime `Anglesite-app` ships
+2. **`agent-skills-export`** — verifies `agent-skills/` is current (`npm run build:agent-skills`); fails if stale
+3. **`template-lockfile`** — verifies `template/package-lock.json` is in sync (`npm ci` inside `template/`)
+
+When the app bumps its pinned Node version (`Anglesite-app/scripts/node-version.txt`), update the matrix to match.
 
 **`.github/workflows/release.yml`** — Triggered on `v*` tags:
 1. Verifies version consistency across all manifests
