@@ -53,7 +53,11 @@ The start command scaffolds your project, learns about your business, designs th
 | `/anglesite:domain` | Manage DNS records (email, Bluesky verification, etc.) |
 | `/anglesite:import` | Import content from a website URL |
 | `/anglesite:convert` | Convert an SSG project (Hugo, Jekyll, etc.) to Anglesite |
+| `/anglesite:export` | Portable export for self-hosting or migration |
 | `/anglesite:contact` | Set up a contact form |
+| `/anglesite:forms` | Custom forms (RSVP, lead capture, survey, callback) |
+| `/anglesite:inbox` | Browse, triage, and export form submissions from Keystatic |
+| `/anglesite:indieweb` | Self-owned IndieAuth, Webmention, and Micropub endpoints |
 | `/anglesite:backup` | Save work to GitHub |
 | `/anglesite:stats` | Plain-language site analytics |
 | `/anglesite:newsletter` | Set up an email newsletter |
@@ -63,6 +67,16 @@ The start command scaffolds your project, learns about your business, designs th
 | `/anglesite:search` | Add on-site search via Pagefind |
 | `/anglesite:photography` | Site-specific photo shot list with tips |
 | `/anglesite:menu` | Restaurant menu import, creation, and editing |
+| `/anglesite:podcast` | Podcast episodes, RSS feed, transcripts, audio player |
+| `/anglesite:donations` | Donation button or page (Stripe, Liberapay, GitHub Sponsors) |
+| `/anglesite:redirects` | Manage Cloudflare redirects (add, remove, list, bulk-import) |
+| `/anglesite:design-import` | Import design tokens from Canva or Figma |
+| `/anglesite:giscus` | Blog comments via GitHub Discussions |
+| `/anglesite:consent` | GDPR/CCPA cookie consent banner |
+| `/anglesite:membership` | Paywall and content gating (free newsletter + paid Stripe) |
+| `/anglesite:tracking` | Analytics pixels (Meta, Google, LinkedIn, etc.) via Partytown |
+| `/anglesite:pwa` | Make the site installable as a Progressive Web App |
+| `/anglesite:share` | Native sharing via Web Share API |
 
 ## Who this is for
 
