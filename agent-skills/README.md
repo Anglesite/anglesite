@@ -19,6 +19,10 @@ Install an individual skill from this repo with the skills.sh CLI:
 npx skills add Anglesite/anglesite/agent-skills/<skill>
 ```
 
+> **Note:** Anglesite is not yet listed in the skills.sh public registry.
+> Install directly by path as shown above; `npx skills find anglesite` will not
+> return results until a registry submission is made.
+
 ## Skills
 
 | Skill | Install | Description |

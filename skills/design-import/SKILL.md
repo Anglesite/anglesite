@@ -400,6 +400,11 @@ npm run dev -- --port 4321 &
 
 Wait a few seconds for it to start, then run the comparison script:
 
+<!-- TODO: compare-screenshots.mjs does not exist. The screenshot tool is
+scripts/design-import/comparison.mjs, which exports captureComparisons() as a
+programmatic module rather than a CLI. The Open Agent Skills build flags this as
+a MISSING REFERENCE — see docs/dev/agent-skills.md. -->
+
 ```sh
 node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/compare-screenshots.mjs "SOURCE_URL" "http://localhost:4321"
 ```

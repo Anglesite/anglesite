@@ -316,8 +316,10 @@ export function emitSkill(
     cpSync(src, dest, { recursive: st.isDirectory() });
     bundled.add(relPath);
     // Flag nested plugin-root references inside copied text files (spec
-    // discourages deep reference chains; these won't resolve standalone).
-    if (st.isFile() && PLUGIN_VAR_RE.test(readFileSync(src, "utf-8"))) {
+    // discourages deep reference chains; these won't resolve standalone). Use a
+    // non-global regex — a /g regex would carry lastIndex across files and miss
+    // matches on later ones.
+    if (st.isFile() && /\$\{CLAUDE_PLUGIN_ROOT\}/.test(readFileSync(src, "utf-8"))) {
       warnings.push(`NESTED REF: references/${relPath} still contains \${CLAUDE_PLUGIN_ROOT}`);
     }
   };
@@ -438,6 +440,10 @@ export function renderIndex(
     "```sh",
     "npx skills add Anglesite/anglesite/agent-skills/<skill>",
     "```",
+    "",
+    "> **Note:** Anglesite is not yet listed in the skills.sh public registry.",
+    "> Install directly by path as shown above; `npx skills find anglesite` will not",
+    "> return results until a registry submission is made.",
     "",
     "## Skills",
     "",

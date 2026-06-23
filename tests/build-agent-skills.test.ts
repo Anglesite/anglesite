@@ -1,12 +1,14 @@
-import { describe, it, expect } from "vitest";
-import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import {
   parseSkill,
   classify,
   rewriteBody,
   buildFrontmatter,
   buildSkill,
+  emitSkill,
   validateSkillName,
   validateSkill,
   inferCompatibility,
@@ -124,6 +126,80 @@ describe("renderIndex", () => {
   it("lists install commands per skill", () => {
     const md = renderIndex([{ name: "seo", description: "SEO", invocation: "user-facing" }], VERSION);
     expect(md).toContain("npx skills add Anglesite/anglesite/agent-skills/seo");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// emitSkill — file writing, reference bundling, and warning paths
+// ---------------------------------------------------------------------------
+
+describe("emitSkill", () => {
+  let pluginRoot: string;
+  let outRoot: string;
+
+  beforeEach(() => {
+    const base = join(tmpdir(), `emit-skill-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    pluginRoot = join(base, "plugin");
+    outRoot = join(base, "out");
+    mkdirSync(pluginRoot, { recursive: true });
+    mkdirSync(outRoot, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(resolve(pluginRoot, ".."), { recursive: true, force: true });
+  });
+
+  const writePlugin = (rel: string, content: string) => {
+    const p = join(pluginRoot, rel);
+    mkdirSync(resolve(p, ".."), { recursive: true });
+    writeFileSync(p, content);
+  };
+
+  const result = (name: string, references: string[]) => ({
+    name,
+    references,
+    crossSkillRefs: [],
+    warnings: [],
+    skillMd: `---\nname: ${name}\ndescription: "x"\n---\n\nBody.\n`,
+  });
+
+  it("writes SKILL.md and bundles an existing reference file", () => {
+    writePlugin("docs/decisions/0001-astro.md", "# ADR\n");
+    const warnings = emitSkill(result("demo", ["docs/decisions/0001-astro.md"]), pluginRoot, outRoot);
+    expect(existsSync(join(outRoot, "demo", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(outRoot, "demo", "references/docs/decisions/0001-astro.md"))).toBe(true);
+    expect(warnings).toEqual([]);
+  });
+
+  it("emits a NESTED REF warning for every bundled file that still contains the plugin var", () => {
+    // Two files, both with nested refs — guards against stale regex lastIndex.
+    writePlugin("docs/a.md", "see ${CLAUDE_PLUGIN_ROOT}/docs/x.md\n");
+    writePlugin("docs/b.md", "see ${CLAUDE_PLUGIN_ROOT}/docs/y.md\n");
+    const warnings = emitSkill(result("demo", ["docs/a.md", "docs/b.md"]), pluginRoot, outRoot);
+    const nested = warnings.filter((w) => w.startsWith("NESTED REF:"));
+    expect(nested).toHaveLength(2);
+    expect(nested.some((w) => w.includes("docs/a.md"))).toBe(true);
+    expect(nested.some((w) => w.includes("docs/b.md"))).toBe(true);
+  });
+
+  it("bundles the static parent directory for a placeholder (DYNAMIC) reference", () => {
+    writePlugin("docs/smb/plumber.md", "# Plumber\n");
+    writePlugin("docs/smb/florist.md", "# Florist\n");
+    const warnings = emitSkill(result("demo", ["docs/smb/<BUSINESS_TYPE>.md"]), pluginRoot, outRoot);
+    expect(existsSync(join(outRoot, "demo", "references/docs/smb/plumber.md"))).toBe(true);
+    expect(existsSync(join(outRoot, "demo", "references/docs/smb/florist.md"))).toBe(true);
+    expect(warnings).toEqual([]);
+  });
+
+  it("emits DYNAMIC REF (not MISSING) when the placeholder parent is denylisted", () => {
+    const warnings = emitSkill(result("demo", ["template/<path>"]), pluginRoot, outRoot);
+    expect(warnings.some((w) => w.startsWith("DYNAMIC REF:") && w.includes("template/<path>"))).toBe(true);
+    expect(warnings.some((w) => w.startsWith("MISSING REFERENCE:"))).toBe(false);
+  });
+
+  it("emits MISSING REFERENCE for a non-placeholder path that does not exist", () => {
+    const warnings = emitSkill(result("demo", ["scripts/does-not-exist.mjs"]), pluginRoot, outRoot);
+    expect(warnings.some((w) => w.startsWith("MISSING REFERENCE:") && w.includes("does-not-exist"))).toBe(true);
   });
 });
 

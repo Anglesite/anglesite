@@ -1,0 +1,3 @@
+# agent-skills/ is generated from skills/ by bin/build-agent-skills.ts.
+# Mark it generated so it's excluded from language stats and collapsed in diffs.
+agent-skills/** linguist-generated=true
