@@ -111,13 +111,13 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ├── bin/
 │   ├── build-instructions.ts     Agent instruction file validator
 │   ├── build-agent-skills.ts     Generates agent-skills/ (Open Agent Skills export)
-│   ├── generate-skill-registry.ts Generates skill registry for runtime lookup
+│   ├── generate-skill-registry.ts Generates docs/dev/skill-registry.md from frontmatter
 │   └── release.ts                Semantic version bumper (updates all manifests)
 ├── agent-skills/                 GENERATED — Open Agent Skills export (skills.sh); never edit by hand
 ├── package.json                  Dev dependencies and test scripts
 ├── vitest.config.ts              Test configuration
 ├── docs/                         Reference docs (read by skills via ${CLAUDE_PLUGIN_ROOT})
-│   ├── smb/                      Business type guides (67 files, 65+ verticals)
+│   ├── smb/                      Business type guides (67 files, ~59 verticals)
 │   ├── import/                   Platform migration guides (29 files)
 │   ├── platforms/                Tool integration guides (23 files)
 │   ├── dev/                      Plugin development guides (7 files: architecture, releasing, testing, etc.)
@@ -131,7 +131,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   │   └── styles/immersive.css           Dark/immersive styles for creative work
 │   ├── public/                   Static assets
 │   ├── scripts/                  setup.ts, check-prereqs.ts, cleanup.ts, platform.ts
-│   ├── docs/                     Site-specific docs (~44 files) + workflows/
+│   ├── docs/                     Site-specific docs (~17 files) + workflows/
 │   ├── CLAUDE.md                 Webmaster guide + Claude Code commands
 │   ├── package.json              Site dependencies (Astro, Keystatic)
 │   ├── astro.config.ts           Astro + Keystatic integration config

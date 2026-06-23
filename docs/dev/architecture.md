@@ -10,10 +10,23 @@
 │   ├── update.sh                 Compares template files against scaffolded site
 │   ├── pre-deploy-check.sh       Blocks deploy if security scans fail
 │   ├── pack-plugin.sh            Builds distributable plugin ZIP
-│   └── import/                   Wix-specific extraction scripts
-│       ├── wix-playwright.mjs     Browser-based content + CSS token extraction
-│       ├── wix-extract.mjs        Curl+regex fallback for Wix HTML parsing
-│       └── color-utils.mjs        RGB/hex conversion, luminance, color classification
+│   ├── design-import/            Canva/Figma extraction scripts
+│   │   ├── canva-playwright.mjs  Browser-based Canva content extraction
+│   │   ├── canva-colors.mjs      Canva color token extraction
+│   │   ├── canva-fonts.mjs       Canva font extraction
+│   │   ├── comparison.mjs        Design comparison utilities
+│   │   ├── infer-axes.mjs        Layout axis inference
+│   │   ├── layout-heuristics.mjs Layout detection heuristics
+│   │   └── text-hierarchy.mjs    Text hierarchy analysis
+│   └── import/                   Platform-specific extraction scripts
+│       ├── menu-extract.mjs      Menu extraction from PDF/photo
+│       ├── wix/
+│       │   ├── wix-playwright.mjs Browser-based content + CSS token extraction
+│       │   ├── wix-extract.mjs    Curl+regex fallback for Wix HTML parsing
+│       │   └── color-utils.mjs    RGB/hex conversion, luminance, color classification
+│       └── wordpress/
+│           ├── wp-xml-parse.mjs   WordPress WXR export parser
+│           └── wp-content-clean.mjs WordPress content cleanup
 ├── server/                       MCP annotation server + shared modules (Node.js, ESM)
 │   ├── annotations.mjs           Annotation store (CRUD + persistence)
 │   ├── selector.mjs              CSS selector generation from element metadata
@@ -21,16 +34,17 @@
 │   └── index.mjs                 MCP stdio server entry point
 ├── bin/
 │   ├── build-instructions.ts     Agent instruction file validator
+│   ├── build-agent-skills.ts     Generates agent-skills/ (Open Agent Skills export)
 │   ├── generate-skill-registry.ts  Generates docs/dev/skill-registry.md from frontmatter
 │   └── release.ts                Semantic version bumper (updates all manifests)
 ├── package.json                  Dev dependencies and test scripts
 ├── vitest.config.ts              Test configuration
 ├── docs/                         Reference docs (read by skills via ${CLAUDE_PLUGIN_ROOT})
-│   ├── smb/                      Business type guides (70 files, 50+ verticals)
-│   ├── import/                   Platform migration guides (28 files)
-│   ├── platforms/                Tool integration guides (13 files)
+│   ├── smb/                      Business type guides (67 files, ~59 verticals)
+│   ├── import/                   Platform migration guides (29 files)
+│   ├── platforms/                Tool integration guides (23 files)
 │   ├── dev/                      Plugin development docs (this directory)
-│   └── decisions/                ADRs — architecture decision records (15 files)
+│   └── decisions/                ADRs — architecture decision records (24 files)
 ├── template/                     Files scaffolded to user's project
 │   ├── src/                      Astro source (pages, layouts, styles)
 │   ├── public/                   Static assets
