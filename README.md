@@ -38,6 +38,22 @@ claude
 
 Then type `/anglesite:start` to begin.
 
+### Open Agent Skills (any AI coding agent)
+
+Individual skills can be installed in any agent that supports the [Open Agent Skills](https://agentskills.io) spec ([skills.sh](https://www.skills.sh)):
+
+```sh
+# Install a single skill
+npx skills add Anglesite/anglesite/agent-skills/start
+
+# Examples
+npx skills add Anglesite/anglesite/agent-skills/deploy
+npx skills add Anglesite/anglesite/agent-skills/seo
+npx skills add Anglesite/anglesite/agent-skills/contact
+```
+
+Each skill is self-contained with bundled reference material. See [`agent-skills/README.md`](agent-skills/README.md) for the full list of available skills.
+
 ---
 
 The start command scaffolds your project, learns about your business, designs the site with you, and installs the tools to preview it. When you're ready to go live, `/anglesite:deploy` handles hosting, domains, and publishing.
