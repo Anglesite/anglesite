@@ -37,6 +37,27 @@ jobs:
 
       - run: npm test
 
+  agent-skills-export:
+    # Deterministic and Node-version-independent — runs once, outside any test matrix.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Verify Open Agent Skills export is up to date
+        run: |
+          npm run build:agent-skills
+          if ! git diff --quiet agent-skills/; then
+            echo "::error::agent-skills/ is stale — run 'npm run build:agent-skills' and commit the result"
+            git diff --stat agent-skills/
+            exit 1
+          fi
+
   template-lockfile:
     runs-on: ubuntu-latest
     steps:

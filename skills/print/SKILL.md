@@ -9,7 +9,7 @@ Generate print-ready marketing materials that match the site's visual identity. 
 
 ## Architecture decisions
 
-- [ADR-0004 Vanilla CSS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0004-vanilla-css.md) — materials use the same CSS custom properties as the site
+- [ADR-0004 Vanilla CSS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0004-vanilla-css-custom-properties.md) — materials use the same CSS custom properties as the site
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — all generation happens locally
 
 ## When to invoke this skill

@@ -99,7 +99,9 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 ├── bin/
 │   ├── average-tokens.ts         Token cost calculator for start skill
 │   ├── build-instructions.ts     Agent instruction file validator
+│   ├── build-agent-skills.ts     Generates agent-skills/ (Open Agent Skills export)
 │   └── release.ts                Semantic version bumper (updates all manifests)
+├── agent-skills/                 GENERATED — Open Agent Skills export (skills.sh); never edit by hand
 ├── package.json                  Dev dependencies and test scripts
 ├── vitest.config.ts              Test configuration
 ├── docs/                         Reference docs (read by skills via ${CLAUDE_PLUGIN_ROOT})
@@ -290,6 +292,15 @@ Versions must stay in sync across three files:
 Use `bin/release.ts` to bump all at once. It creates a git tag (`v*`) which triggers the CI release workflow.
 
 The MCP server version reported on `initialize` is **not** a fourth file to bump — `server/index-tools.mjs` reads it from `.claude-plugin/plugin.json` at startup, so it tracks the plugin version automatically.
+
+## Distribution channels
+
+Anglesite ships two ways from one source — they coexist:
+
+1. **Claude Code plugin** — the `skills/` tree, installed from the `Anglesite/anglesite` marketplace.
+2. **Open Agent Skills** — a spec-compliant ([agentskills.io](https://agentskills.io) / [skills.sh](https://www.skills.sh)) export under `agent-skills/`, installable with `npx skills add Anglesite/anglesite/agent-skills/<skill>`.
+
+`skills/` is the source of truth. `agent-skills/` is **generated** by `npm run build:agent-skills` (`bin/build-agent-skills.ts`) and committed so the skills.sh CLI can resolve skills by path. The transformer rewrites `${CLAUDE_PLUGIN_ROOT}` references into bundled `references/`, drops plugin-only frontmatter (`disable-model-invocation`, `user-invocable`, `argument-hint`) into spec `metadata`, and converts cross-skill links into plain mentions. **Never edit `agent-skills/` by hand** — edit `skills/` and rebuild. CI (`.github/workflows/test.yml`) fails if the export is stale. See `docs/dev/agent-skills.md` for the full contract and known limitations.
 
 ## CI/CD
 

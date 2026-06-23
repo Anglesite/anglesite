@@ -13,8 +13,8 @@ automatically so the owner doesn't have to describe it manually.
 
 ## Architecture decisions
 
-- [ADR-0004 Vanilla CSS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0004-vanilla-css.md) — custom properties for theming, no framework overhead
-- [ADR-0005 System fonts](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0005-system-font-stacks.md) — map extracted fonts to performant system stacks
+- [ADR-0004 Vanilla CSS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0004-vanilla-css-custom-properties.md) — custom properties for theming, no framework overhead
+- [ADR-0005 System fonts](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0005-system-fonts.md) — map extracted fonts to performant system stacks
 - [ADR-0008 No third-party JS](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0008-no-third-party-javascript.md) — no Canva embeds or external scripts in the output
 - [ADR-0011 Owner ownership](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0011-owner-controls-everything.md) — imported content must not depend on Canva to display
 
@@ -399,6 +399,11 @@ npm run dev -- --port 4321 &
 ```
 
 Wait a few seconds for it to start, then run the comparison script:
+
+<!-- TODO: compare-screenshots.mjs does not exist. The screenshot tool is
+scripts/design-import/comparison.mjs, which exports captureComparisons() as a
+programmatic module rather than a CLI. The Open Agent Skills build flags this as
+a MISSING REFERENCE — see docs/dev/agent-skills.md. -->
 
 ```sh
 node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/compare-screenshots.mjs "SOURCE_URL" "http://localhost:4321"

@@ -1,0 +1,284 @@
+---
+// Privacy / cookie consent banner.
+// Installed and configured by `/anglesite:consent`. Inert until BaseLayout passes
+// a non-empty `categories` array.
+//
+// The banner renders a single <dialog> with Accept / Reject / Preferences actions
+// and a per-category toggle modal. The runtime reads stored consent on load,
+// shows the banner when consent is missing or out-of-date, and gates third-party
+// scripts/iframes via the `data-consent` attribute pattern.
+
+interface Props {
+  categories: string[]; // e.g. ["necessary", "analytics", "embeds"]
+  defaultPolicy: "geo" | "strict";
+  version: string; // serialized integer; bumped to re-prompt
+}
+
+const { categories, defaultPolicy, version } = Astro.props;
+
+const labelMap: Record<string, { label: string; description: string }> = {
+  necessary: {
+    label: "Necessary",
+    description: "Required for the site to work — login, forms, security. Always on.",
+  },
+  analytics: {
+    label: "Analytics",
+    description: "Anonymous traffic and engagement measurement.",
+  },
+  embeds: {
+    label: "Embeds",
+    description: "Embedded video, audio, maps, and social posts from other sites.",
+  },
+  ads: {
+    label: "Ads",
+    description: "Personalized advertising and conversion tracking.",
+  },
+};
+
+const versionInt = Number.parseInt(version, 10) || 1;
+---
+
+<div
+  id="consent-root"
+  data-categories={categories.join(",")}
+  data-default={defaultPolicy}
+  data-version={String(versionInt)}
+>
+  <div
+    class="consent-banner"
+    role="region"
+    aria-label="Cookie consent"
+    aria-live="polite"
+    hidden
+  >
+    <p class="consent-banner__copy">
+      We use cookies to keep this site working and, with your permission, to measure
+      traffic and load embeds from other sites.
+      <a href="/privacy">Privacy policy</a>
+    </p>
+    <div class="consent-banner__actions">
+      <button type="button" data-consent-action="accept-all">Accept all</button>
+      <button type="button" data-consent-action="reject-all">Reject all</button>
+      <button type="button" data-consent-action="open-prefs">Preferences</button>
+    </div>
+  </div>
+
+  <dialog
+    class="consent-prefs"
+    aria-modal="true"
+    aria-labelledby="consent-prefs-title"
+  >
+    <form method="dialog" data-consent-form>
+      <h2 id="consent-prefs-title">Cookie preferences</h2>
+      <p>Choose which categories you allow. You can change this any time.</p>
+      <ul class="consent-prefs__list">
+        {categories.map((cat) => {
+          const meta = labelMap[cat] ?? { label: cat, description: "" };
+          const isNecessary = cat === "necessary";
+          return (
+            <li>
+              <label>
+                <input
+                  type="checkbox"
+                  name={cat}
+                  checked={isNecessary}
+                  disabled={isNecessary}
+                />
+                <span class="consent-prefs__label">{meta.label}</span>
+              </label>
+              <p class="consent-prefs__desc">{meta.description}</p>
+            </li>
+          );
+        })}
+      </ul>
+      <div class="consent-prefs__actions">
+        <button type="button" data-consent-action="save-prefs">Save preferences</button>
+        <button type="button" data-consent-action="close-prefs">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+
+<style>
+  .consent-banner {
+    position: fixed;
+    inset: auto 1rem 1rem 1rem;
+    max-width: 48rem;
+    margin-inline: auto;
+    padding: 1rem 1.25rem;
+    background: var(--color-bg, #fff);
+    color: var(--color-text, #111);
+    border: 1px solid currentColor;
+    border-radius: 8px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    z-index: 9999;
+    font-size: 0.95rem;
+  }
+  .consent-banner[hidden] {
+    display: none;
+  }
+  .consent-banner__copy {
+    flex: 1 1 20rem;
+    margin: 0;
+    line-height: 1.5;
+  }
+  .consent-banner__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .consent-banner__actions button,
+  .consent-prefs__actions button {
+    font: inherit;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .consent-banner__actions button[data-consent-action="accept-all"],
+  .consent-prefs__actions button[data-consent-action="save-prefs"] {
+    background: var(--color-text, #111);
+    color: var(--color-bg, #fff);
+  }
+  .consent-prefs {
+    max-width: 32rem;
+    border: 1px solid currentColor;
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+  .consent-prefs__list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    display: grid;
+    gap: 1rem;
+  }
+  .consent-prefs__list label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+  .consent-prefs__desc {
+    margin: 0.25rem 0 0 1.75rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+  .consent-prefs__actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .consent-banner:not([hidden]) {
+      animation: consent-fade-in 200ms ease-out;
+    }
+  }
+  @keyframes consent-fade-in {
+    from { opacity: 0; transform: translateY(0.5rem); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<script>
+  import {
+    type ConsentCategory,
+    type ConsentChoices,
+    applyConsent,
+    defaultChoices,
+    detectCountry,
+    dispatchConsent,
+    readStoredConsent,
+    writeStoredConsent,
+  } from "../scripts/consent";
+
+  const root = document.getElementById("consent-root");
+  if (root) {
+    const categories = (root.dataset.categories ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean) as ConsentCategory[];
+    const policy = (root.dataset.default === "geo" ? "geo" : "strict") as "geo" | "strict";
+    const version = Number.parseInt(root.dataset.version ?? "1", 10) || 1;
+
+    const banner = root.querySelector<HTMLDivElement>(".consent-banner")!;
+    const prefs = root.querySelector<HTMLDialogElement>(".consent-prefs")!;
+    const form = root.querySelector<HTMLFormElement>("[data-consent-form]")!;
+
+    const stored = readStoredConsent(version);
+    if (stored) {
+      applyConsent(stored.c);
+      dispatchConsent(stored.c);
+    } else {
+      // Default-deny until the visitor chooses. We never pre-load optional
+      // categories (analytics/embeds/ads) before consent, even under geo policy
+      // — the GDPR/PECR safe default applies everywhere. defaultChoices() is
+      // still consulted to *pre-fill* the preferences form so visitors see a
+      // sensible starting point.
+      banner.hidden = false;
+      // Move focus to the first action so keyboard users can act on the banner
+      // without having to Tab through page content first.
+      const firstAction = banner.querySelector<HTMLButtonElement>("[data-consent-action]");
+      if (firstAction) firstAction.focus({ preventScroll: true });
+    }
+
+    function commit(choices: ConsentChoices): void {
+      writeStoredConsent(version, choices);
+      applyConsent(choices);
+      dispatchConsent(choices);
+      banner.hidden = true;
+      if (prefs.open) prefs.close();
+    }
+
+    function readForm(): ConsentChoices {
+      const data = new FormData(form);
+      const out: ConsentChoices = { necessary: true };
+      for (const cat of categories) {
+        if (cat === "necessary") continue;
+        out[cat] = data.get(cat) === "on";
+      }
+      return out;
+    }
+
+    function allOf(value: boolean): ConsentChoices {
+      const out: ConsentChoices = { necessary: true };
+      for (const cat of categories) {
+        if (cat === "necessary") continue;
+        out[cat] = value;
+      }
+      return out;
+    }
+
+    root.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement;
+      const action = target.closest<HTMLElement>("[data-consent-action]")?.dataset.consentAction;
+      if (!action) return;
+      if (action === "accept-all") commit(allOf(true));
+      else if (action === "reject-all") commit(allOf(false));
+      else if (action === "open-prefs") {
+        // Pre-fill the form with the current/provisional choices.
+        const current = readStoredConsent(version)?.c ?? defaultChoices(categories, policy, detectCountry());
+        for (const cat of categories) {
+          if (cat === "necessary") continue;
+          const input = form.elements.namedItem(cat) as HTMLInputElement | null;
+          if (input) input.checked = current[cat] === true;
+        }
+        prefs.showModal();
+        // Native <dialog> traps focus; nudge the first focusable control so AT
+        // users land somewhere meaningful instead of on the dialog itself.
+        const firstControl = form.querySelector<HTMLElement>(
+          'input:not([disabled]), button:not([disabled])',
+        );
+        if (firstControl) firstControl.focus({ preventScroll: true });
+      } else if (action === "save-prefs") commit(readForm());
+      else if (action === "close-prefs") prefs.close();
+    });
+  }
+</script>

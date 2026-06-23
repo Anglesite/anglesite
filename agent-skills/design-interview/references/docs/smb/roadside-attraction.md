@@ -1,0 +1,95 @@
+# Roadside Attraction
+
+Covers: roadside attractions, novelty museums, mystery spots, themed experiences, oversized landmarks, curiosity shops, corn mazes, adventure parks, natural wonders with admission, tourist stops, Americana landmarks. See also [museum.md](museum.md) for traditional museums, and [retail.md](retail.md) if the gift shop is a major component.
+
+The business model: people stop because it's worth the detour. Discovery is road-trip-driven — travelers decide to visit based on reviews, lists, and signs they pass on the highway. The website's job is to convince someone planning a trip that your stop is worth adding to the route.
+
+## Pages
+
+- **What we are** — The hero page. Big photos, the story of the attraction, what visitors experience. Answer: "What is this place and why should I stop?" Don't oversell — authenticity is the brand. Quirky is good. Pretending to be something you're not isn't.
+- **Visit** — Hours, admission pricing (adults, kids, seniors, group rates), directions with highway exit numbers and landmarks ("take Exit 42, turn left at the gas station, 2 miles on the right"), parking, estimated visit duration ("plan for 45 minutes to an hour"), accessibility notes.
+- **Gift shop** — If there's a shop (and there usually is), feature it. Unique merchandise tied to the attraction is a major revenue stream. Consider an online shop for items people didn't buy on-site or want as gifts. "I wish I'd bought the t-shirt" is a real thing.
+- **Gallery** — Photos and videos of the attraction, visitors enjoying it (with permission), the grounds, seasonal variations. User-generated content is gold — encourage visitors to tag your location on social.
+- **Group visits & events** — School field trips, tour bus stops, birthday parties, corporate team outings, private rentals. Include group pricing, booking process, and what's included.
+- **About / History** — How the attraction came to be, who built it, the story behind it. For Americana attractions, the history IS the attraction. Don't skip this.
+- **Reviews** — Visitor testimonials. These matter enormously for "is it worth the stop?" decisions. Embed or link to TripAdvisor, Google Reviews, and Yelp. Feature the best quotes on the home page.
+- **Contact** — Phone, email, social links. Include "report a problem" and "press/media inquiries" if applicable.
+
+## Design
+
+**Visual mood:** Quirky, fun, and memorable. The site should feel like the attraction itself — weird-and-proud, one-of-a-kind, worth the detour.
+
+**Color direction:** Bold, playful colors that match the attraction's personality. Kitschy, retro, or deliberately over-the-top is fine — authenticity is the brand. Avoid generic corporate palettes.
+
+**Typography feel:** Modern stack (system-ui) with bold weight. Possibly playful — a roadside attraction can get away with personality in the type that a law firm can't.
+
+**Layout emphasis:** The main attraction photo and directions above the fold. Answer two questions immediately: "What is this?" and "How do I get there?" Pattern 2 (hero + content) for the home page, with the best photo of the attraction as the hero. Max-width 56rem.
+
+**Photography style:** Fun, shareable photos — the thing that makes people stop their car. Encourage visitor photos. 4:3 or 1:1 for social sharing compatibility.
+
+**Key component:** Hero image of the attraction that's share-worthy and unmistakable, paired with clear "How to Find Us" directions including highway exit numbers and landmarks. The photo sells the stop; the directions close it.
+
+## Tools
+
+- **Google Business Profile** — Critical. Claim it, keep hours updated, respond to reviews, post photos regularly. Most discovery comes from Google Maps searches like "things to do near [highway/town]." See `docs/webmaster.md` → Map listings.
+- **TripAdvisor** — Claim the listing. For tourist attractions, TripAdvisor is a primary discovery channel. Respond to reviews. tripadvisor.com
+- **Atlas Obscura** — Submit the attraction. This is THE directory for quirky, unusual, and offbeat places. Inclusion drives visits from road-trip planners. atlasobscura.com
+- **Roadtrippers** — Submit to the Roadtrippers database. Trip-planning app used by road trippers. roadtrippers.com
+- **Square** (free POS, 2.6% per transaction) — For admission and gift shop sales. square.com
+- **Shopify Lite** or **Square Online** — For online gift shop if they sell merchandise.
+- **Social media** — Instagram and TikTok are primary discovery channels. Visitors create content — encourage it with photo spots, hashtags, and signs. The attraction IS the content.
+
+## Review platforms
+
+- **Google Business Profile** — Critical. Travelers searching "things to do near [highway/town]" find roadside attractions primarily through Google Maps. Keep photos current (show the attraction at its best), respond to all reviews, and post updates before peak travel season. A high Google rating and review count is the single biggest factor in whether a road tripper adds the stop to their route.
+- **TripAdvisor** — The dominant review platform for tourist attractions. Families and road trippers cross-check Google with TripAdvisor. A TripAdvisor Certificate of Excellence signals legitimacy. Respond to reviews, especially critical ones — a measured, friendly response to a mixed review demonstrates character. Claim the listing and upload photos.
+- **Atlas Obscura** — Not a traditional review platform, but comments and saves on Atlas Obscura entries function as social proof for the "weird and wonderful" crowd. A well-maintained Atlas Obscura entry with many saves signals the attraction is worth the detour for road trip enthusiasts and travel bloggers.
+- **Roadtrippers** — User reviews and saves on Roadtrippers influence road trip planning decisions. The app is used heavily by the demographic that visits roadside attractions — submit and keep the listing current.
+- **Yelp** — Relevant in some markets. Worth monitoring and responding, but less dominant for attractions than for food and services.
+
+Feature the best visitor quotes prominently on the home page and the Reviews page — "is it worth the stop?" is the exact question reviews answer for a potential visitor sitting in a car 20 miles away deciding whether to turn off.
+
+See `docs/smb/reviews.md` for full review management guidance.
+
+## Compliance
+
+- **Liability and insurance**: Visitors on the property need general liability coverage. If there are physical activities (climbing, mazes, rides), additional coverage and safety inspections apply. Consult an insurance agent specializing in attractions or tourism.
+- **ADA accessibility**: Note what's accessible and what isn't. Outdoor and older attractions often have terrain challenges — be transparent on the website. "The main attraction is wheelchair accessible; the nature trail is not."
+- **Zoning**: Commercial tourist attraction on rural or residential land needs appropriate zoning. If it's an existing attraction, this is likely settled. If converting property to an attraction, check with the planning office.
+- **Occupancy and fire safety**: Indoor spaces need fire marshal approval and posted occupancy limits.
+- **Food service**: If selling food (even pre-packaged), health department permits may apply. See [restaurant.md](restaurant.md) compliance.
+- **Signage permits**: Highway signs and roadside billboards are regulated by state DOT and local ordinances. Those iconic "SEE THE GIANT BALL OF TWINE — 5 MILES" signs may require permits.
+
+## Content ideas
+
+Visitor photos and stories (with permission), the history of the attraction, "how it was built" stories, seasonal events, behind-the-scenes maintenance and updates, "on this day in history" posts, collaborations with other nearby attractions ("road trip route" content), press coverage and media appearances, anniversary celebrations, new additions or exhibits, "weirdest question we've been asked" posts, day-in-the-life of running the attraction.
+
+**Video content** — Roadside attractions are inherently visual and shareable. Walk-through tours, visitor reactions, the story behind the attraction, time-lapse of setup or maintenance. TikTok and Instagram Reels drive discovery — one viral video can fill a parking lot.
+
+## Key dates
+
+- **National Road Trip Day** (last Fri May) — Perfect for "add us to your route" content. Promote road trip itineraries that include the attraction.
+- **Tourist season** (Memorial Day–Labor Day in most locations) — Peak traffic. Keep hours extended, staff the gift shop, post daily.
+- **Fall foliage / harvest season** (Sep–Oct) — Second peak for many attractions, especially those in scenic areas.
+- **Atlas Obscura Day** (if running events) — Community-organized events at unusual places.
+
+See `seasonal-calendar/` for broader tourism hooks tagged `types: hospitality`.
+
+## Structured data
+
+Use `TouristAttraction` with:
+- name, address, phone
+- `openingHoursSpecification`
+- `isAccessibleForFree` (or `offers` with pricing)
+- `image` — multiple photos
+- `description` — what makes it worth the stop
+- `touristType` — families, road trippers, etc.
+
+If there's a gift shop, add `Store` as an additional type on the shop page.
+
+## Data tracking
+
+- **Visitors:** Date, Count (if tracked), Source (Google/TripAdvisor/highway sign/word of mouth), Group (Individual/School/Tour Bus/Event), Notes
+- **Gift shop:** handled by POS (Square)
+- **Events:** Client, Date, Type (Field Trip/Birthday/Private/Corporate), Guest Count, Price, Status, Notes
+- **Press:** Outlet, Date, Type (Article/TV/Podcast/Social), Link, Notes
