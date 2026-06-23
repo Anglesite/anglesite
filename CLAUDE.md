@@ -108,6 +108,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── smb/                      Business type guides (66 files, 50+ verticals)
 │   ├── import/                   Platform migration guides (28 files)
 │   ├── platforms/                Tool integration guides (19 files)
+│   ├── dev/                      Plugin development guides (7 files: architecture, releasing, testing, etc.)
 │   ├── decisions/                ADRs — architecture decision records (23 files)
 │   ├── style-guide.md           HTML, CSS, and TypeScript coding standards for generated sites
 │   └── content-conversion.md    Shared HTML-to-Markdown guidance (used by import + convert)
@@ -304,7 +305,12 @@ Anglesite ships two ways from one source — they coexist:
 
 ## CI/CD
 
-**`.github/workflows/test.yml`** — Runs on PRs and pushes to `main`. The test matrix covers Node 22 (the `engines` floor) **and** Node 24 (the runtime `Anglesite-app` vendors via `scripts/node-version.txt`). When the app bumps its pinned Node version, update the matrix to match so regressions on the shipped interpreter are caught here.
+**`.github/workflows/test.yml`** — Runs on PRs and pushes to `main`. Three jobs:
+1. **`test`** — Node matrix [22, 24]; runs the full test suite on both the `engines` floor and the runtime `Anglesite-app` ships
+2. **`agent-skills-export`** — verifies `agent-skills/` is current (`npm run build:agent-skills`); fails if stale
+3. **`template-lockfile`** — verifies `template/package-lock.json` is in sync (`npm ci` inside `template/`)
+
+When the app bumps its pinned Node version (`Anglesite-app/scripts/node-version.txt`), update the matrix to match.
 
 **`.github/workflows/release.yml`** — Triggered on `v*` tags:
 1. Verifies version consistency across all manifests

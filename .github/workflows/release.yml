@@ -31,6 +31,11 @@ jobs:
             echo "::error::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
             exit 1
           fi
+          TEMPLATE_VERSION="$(node -p "require('./template/package.json').version")"
+          if [[ "$TEMPLATE_VERSION" != "$TAG_VERSION" ]]; then
+            echo "::error::template/package.json version ($TEMPLATE_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
 
       - name: Pack plugin zip
         run: bash scripts/pack-plugin.sh
