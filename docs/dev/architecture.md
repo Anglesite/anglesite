@@ -20,7 +20,6 @@
 │   ├── messages.mjs              WebSocket message schema (overlay ↔ server)
 │   └── index.mjs                 MCP stdio server entry point
 ├── bin/
-│   ├── average-tokens.ts         Token cost calculator for start skill
 │   ├── build-instructions.ts     Agent instruction file validator
 │   ├── generate-skill-registry.ts  Generates docs/dev/skill-registry.md from frontmatter
 │   └── release.ts                Semantic version bumper (updates all manifests)

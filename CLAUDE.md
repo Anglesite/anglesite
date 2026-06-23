@@ -109,7 +109,6 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── content-frontmatter.mjs   Shared frontmatter helpers for content tools
 │   └── optimize-images.mjs       Image optimize/srcset used by the image-drop edit path
 ├── bin/
-│   ├── average-tokens.ts         Token cost calculator for start skill
 │   ├── build-instructions.ts     Agent instruction file validator
 │   ├── build-agent-skills.ts     Generates agent-skills/ (Open Agent Skills export)
 │   ├── generate-skill-registry.ts Generates skill registry for runtime lookup
