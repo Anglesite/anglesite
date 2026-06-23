@@ -3,6 +3,17 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import {
+  addAnnotation,
+  listAnnotations,
+  resolveAnnotation,
+} from "./annotations.mjs";
+import { applyEditInputShape } from "./apply-edit-schema.mjs";
+import { applyEdit } from "./apply-edit-dispatcher.mjs";
+import { recordEdit } from "./edit-history.mjs";
+import { undoEdit } from "./undo-edit.mjs";
+import { listContent } from "./list-content.mjs";
+import { createPage, createPost } from "./create-content.mjs";
 
 /**
  * The plugin version is the single source of truth (`bin/release.ts` keeps the
@@ -17,21 +28,13 @@ function pluginVersion() {
     );
     const manifest = JSON.parse(readFileSync(fileURLToPath(manifestUrl), "utf8"));
     return manifest.version ?? "0.0.0";
-  } catch {
+  } catch (err) {
+    // Surface the problem (bad install path, stale bundled copy) without breaking
+    // startup — the app-host may read this version for compatibility checks.
+    console.warn("[anglesite] could not read plugin version:", err.message);
     return "0.0.0";
   }
 }
-import {
-  addAnnotation,
-  listAnnotations,
-  resolveAnnotation,
-} from "./annotations.mjs";
-import { applyEditInputShape } from "./apply-edit-schema.mjs";
-import { applyEdit } from "./apply-edit-dispatcher.mjs";
-import { recordEdit } from "./edit-history.mjs";
-import { undoEdit } from "./undo-edit.mjs";
-import { listContent } from "./list-content.mjs";
-import { createPage, createPost } from "./create-content.mjs";
 
 /**
  * Build the Anglesite MCP server with every tool registered against `projectRoot`.
@@ -39,7 +42,7 @@ import { createPage, createPost } from "./create-content.mjs";
  */
 export function buildServer(projectRoot) {
   const server = new McpServer({
-    name: "anglesite-annotations",
+    name: "anglesite",
     version: pluginVersion(),
   });
 

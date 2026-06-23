@@ -10,6 +10,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      # Run both legs to completion so a regression on one Node version doesn't
+      # mask the other — the whole point of the matrix.
+      fail-fast: false
       matrix:
         # 22 = the engines floor; 24 = the runtime Anglesite-app vendors and ships
         # (scripts/node-version.txt), which actually executes server/*.mjs in production.
