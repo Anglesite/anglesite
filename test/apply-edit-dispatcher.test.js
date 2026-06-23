@@ -151,6 +151,7 @@ describe("applyEdit — apply-instruction (needs-agent refusal)", () => {
     expect(body.type).toBe("anglesite:edit-failed");
     expect(body.id).toBe("e-1");
     expect(body.reason).toBe("needs-agent");
+    expect(body.detail).toBeTruthy();
   });
 
   it("does not touch the filesystem", async () => {
