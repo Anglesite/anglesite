@@ -1,7 +1,10 @@
 # Anglesite Mac App — High-Level Design
 
-**Status:** Draft / exploration
-**Branch:** `claude/anglesite-gui-exploration-SqJjG`
+**Status:** Shipped — the native host lives in `Anglesite/Anglesite-app`. This document is the
+original design and is kept for the rationale (§1–§3). Where the as-built system has moved past it,
+inline **Update** notes point to the current contract; see ADR-0023 (`docs/decisions/0023-native-mac-app.md`)
+for the ratified summary.
+**Branch:** `claude/anglesite-gui-exploration-SqJjG` (original exploration)
 **Audience:** Plugin maintainers and contributors evaluating a native GUI on top of Anglesite.
 
 ## 1. Summary
@@ -85,13 +88,24 @@ The Swift app spawns and supervises:
 
 ### 5.4 MCP server (existing, extended)
 
-Today the server in `server/*.mjs` handles three messages: `add-annotation`, `list-annotations`, `resolve-annotation`. We add an edit family:
+When this section was written the server handled three messages: `add-annotation`, `list-annotations`, `resolve-annotation`. We add an edit family:
 
 - `anglesite:apply-edit { path, selector, op, value }` — patch a text node, attribute, or image src.
 - `anglesite:edit-applied { id, path, before, after }` — confirmation back to the client.
 - `anglesite:edit-failed { id, reason }` — selector didn't resolve, file is dirty in git, etc.
 
 Source-patching logic lives in a new `server/patcher.mjs` (see §6).
+
+> **Update (as-built).** The server now registers **eight** MCP tools, not three:
+> `add_annotation`, `list_annotations`, `resolve_annotation`, `apply_edit`, `undo_edit`,
+> `list_content`, `create_page`, `create_post` (`server/index-tools.mjs`). The `apply_edit`
+> op enum is `{replace-text, replace-attr, replace-image-src, edit-style}`
+> (`server/apply-edit-schema.mjs`), and the edit family also emits `edit-preview` for
+> `dry_run` requests. The server is transport-agnostic: stdio by default, or a Streamable
+> HTTP transport (`/mcp`, `Mcp-Session-Id`) selected via `ANGLESITE_MCP_TRANSPORT=http`
+> with `ANGLESITE_MCP_HOST` / `ANGLESITE_MCP_PORT` (`server/http-server.mjs`) for the app's
+> container runtimes. The wire contract is owned by the plugin; the app mirrors it. See the
+> root `CLAUDE.md` "Plugin structure" → `server/` for the full module list.
 
 ### 5.5 Site project on disk
 
@@ -215,4 +229,4 @@ Bundle size target: under 200 MB including Node, Astro, and a primed `node_modul
 
 The Mac app does not invalidate any ADR in `docs/decisions/`. Astro (ADR-0001), Keystatic (ADR-0002), Cloudflare Workers (ADR-0003), pre-deploy scans (ADR-0007), no-third-party-JS (ADR-0008), GitHub backup (ADR-0013), and owner-controls-everything (ADR-0011) all carry over unchanged. The app is a host for the same architecture, not a replacement for it.
 
-If this design ships, it should be ratified as a new ADR (`0020-native-mac-app.md`) summarizing §1–§3 and pointing at this document for the details.
+This design shipped and is ratified as ADR-0023 (`docs/decisions/0023-native-mac-app.md`), which summarizes §1–§3 and points back here for the details. (The originally-suggested `0020` number was taken by `0020-active-indieweb.md` before this app landed.)

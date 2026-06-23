@@ -8,7 +8,7 @@
  *   - `selector: ElementInfo` (drops `element/tagName/textFingerprint/domPath`; matches
  *     selector.mjs's existing typedef).
  *   - `path` (drops `url`; the app already uses `path` on its side).
- *   - `op` is the closed enum {replace-text, replace-attr, replace-image-src}.
+ *   - `op` is the closed enum {replace-text, replace-attr, replace-image-src, edit-style}.
  *   - No `site` field — the MCP server already knows its `projectRoot`.
  *   - `type` is accepted-and-ignored — the app uses it as a WKWebView-side boundary tag.
  */

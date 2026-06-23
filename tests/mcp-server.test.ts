@@ -145,7 +145,7 @@ describe("MCP annotation server", () => {
         serverInfo: { name: string };
         capabilities: { tools: object };
       };
-      expect(result.serverInfo.name).toBe("anglesite-annotations");
+      expect(result.serverInfo.name).toBe("anglesite");
       expect(result.capabilities.tools).toBeDefined();
     } finally {
       proc.kill();

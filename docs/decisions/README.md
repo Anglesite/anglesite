@@ -31,3 +31,5 @@ ADRs follow the [MADR](https://adr.github.io/madr/) format.
 - [ADR-0019](0019-d1-inbox.md) — Cloudflare D1 for the form submissions inbox
 - [ADR-0020](0020-active-indieweb.md) — Run active IndieWeb endpoints (IndieAuth, Webmention, Micropub) on the owner's own domain via `@dwk/*` workers
 - [ADR-0021](0021-on-device-ai-accelerator.md) — On-device AI (`fm`) as an optional authoring-time accelerator
+- [ADR-0022](0022-passkey-indieauth.md) — Authenticate the IndieAuth owner with passkeys (`@dwk/webauthn`)
+- [ADR-0023](0023-native-mac-app.md) — Ship a native macOS host (`Anglesite-app`) that embeds — not forks — this plugin
