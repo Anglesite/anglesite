@@ -1,6 +1,26 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+
+/**
+ * The plugin version is the single source of truth (`bin/release.ts` keeps the
+ * three manifests in lockstep). Read it from the manifest at startup so the MCP
+ * `initialize` handshake never drifts from the bundled plugin the host copied.
+ */
+function pluginVersion() {
+  try {
+    const manifestUrl = new URL(
+      "../.claude-plugin/plugin.json",
+      import.meta.url,
+    );
+    const manifest = JSON.parse(readFileSync(fileURLToPath(manifestUrl), "utf8"));
+    return manifest.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
 import {
   addAnnotation,
   listAnnotations,
@@ -20,7 +40,7 @@ import { createPage, createPost } from "./create-content.mjs";
 export function buildServer(projectRoot) {
   const server = new McpServer({
     name: "anglesite-annotations",
-    version: "0.16.4",
+    version: pluginVersion(),
   });
 
   server.tool(

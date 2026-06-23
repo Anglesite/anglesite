@@ -79,13 +79,23 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │           ├── wix-playwright.mjs Browser-based content + CSS token extraction
 │           ├── wix-extract.mjs    Curl+regex fallback for Wix HTML parsing
 │           └── color-utils.mjs    RGB/hex conversion, luminance, color classification
-├── server/                       MCP annotation server + shared modules (Node.js, ESM)
+├── server/                       MCP server + shared modules (Node.js, ESM) — the wire contract the Anglesite-app host builds against
+│   ├── index-tools.mjs           buildServer(projectRoot): registers all 8 MCP tools (transport-agnostic)
+│   ├── index.mjs                 stdio entry point (wires buildServer to StdioServerTransport)
+│   ├── http-server.mjs           Streamable HTTP transport (/mcp, Mcp-Session-Id) for container runtimes
 │   ├── annotations.mjs           Annotation store (CRUD + persistence)
-│   ├── selector.mjs              CSS selector generation from element metadata
+│   ├── selector.mjs              CSS selector generation from ElementInfo metadata
 │   ├── messages.mjs              WebSocket message schema (overlay ↔ server)
-│   ├── apply-edit-schema.mjs     Zod schema for apply_edit MCP tool
+│   ├── apply-edit-schema.mjs     Zod schema + response builders for apply_edit (ElementInfo, op enum, edit-applied/failed/preview)
+│   ├── apply-edit-dispatcher.mjs apply_edit handler: image pre-process → resolve → atomic write → onApplied hook
 │   ├── patcher.mjs               Source-file resolver (mdoc → Keystatic → .astro)
-│   └── index.mjs                 MCP stdio server entry point
+│   ├── style-edit.mjs            edit-style op resolver (inline/scoped style patches)
+│   ├── undo-edit.mjs             undo_edit handler
+│   ├── edit-history.mjs          Commits applied edits to the hidden anglesite/edits branch
+│   ├── list-content.mjs          list_content tool (enumerate pages/posts)
+│   ├── create-content.mjs        create_page / create_post tools
+│   ├── content-frontmatter.mjs   Shared frontmatter helpers for content tools
+│   └── optimize-images.mjs       Image optimize/srcset used by the image-drop edit path
 ├── bin/
 │   ├── average-tokens.ts         Token cost calculator for start skill
 │   ├── build-instructions.ts     Agent instruction file validator
@@ -134,6 +144,24 @@ Two levels of agent instructions exist — do not confuse them:
 2. `/anglesite:start` runs `scripts/scaffold.sh` to copy `template/` to the user's project
 3. Start skill proceeds with discovery interview, design, and tool installation
 4. All other skills (`/anglesite:deploy`, `/anglesite:check`, etc.) execute in the user's working directory
+
+## MCP server & the Anglesite-app host
+
+`server/` is also a public integration surface: the native macOS host `Anglesite/Anglesite-app` embeds this plugin and drives its click-to-edit UI through this MCP server. Treat the schema and transport below as a contract — change them plugin-side first, then coordinate with the app (see ADR-0023 and `docs/dev/mac-app-design.md`).
+
+**Tools** (registered by `buildServer(projectRoot)` in `server/index-tools.mjs`):
+
+| Tool | Purpose |
+|---|---|
+| `add_annotation` / `list_annotations` / `resolve_annotation` | Pin, list, and resolve feedback notes anchored to page elements |
+| `apply_edit` | Patch source from an `ElementInfo` selector. Closed op enum: `replace-text`, `replace-attr`, `replace-image-src`, `edit-style`. Supports `dry_run` (returns `edit-preview`); responses are `edit-applied` / `edit-failed` (`server/apply-edit-schema.mjs`, `apply-edit-dispatcher.mjs`) |
+| `undo_edit` | Revert the last applied edit via the `anglesite/edits` history branch |
+| `list_content` | Enumerate pages/posts |
+| `create_page` / `create_post` | Scaffold new content with frontmatter |
+
+**Transport.** The server is transport-agnostic. `server/index.mjs` connects it over **stdio** by default. Set `ANGLESITE_MCP_TRANSPORT=http` to use the **Streamable HTTP** transport (`server/http-server.mjs`, endpoint `/mcp`, session via `Mcp-Session-Id`) with `ANGLESITE_MCP_HOST` / `ANGLESITE_MCP_PORT` — used by the app's container runtimes. The server prints an `Anglesite MCP listening on …` readiness line the host waits for.
+
+**Runtime.** The app vendors a pinned Node (`Anglesite-app/scripts/node-version.txt`) to execute `server/*.mjs`; the CI test matrix should track it so the shipped interpreter is exercised here.
 
 ## Skills reference
 
@@ -260,6 +288,8 @@ Versions must stay in sync across three files:
 - `template/package.json`
 
 Use `bin/release.ts` to bump all at once. It creates a git tag (`v*`) which triggers the CI release workflow.
+
+The MCP server version reported on `initialize` is **not** a fourth file to bump — `server/index-tools.mjs` reads it from `.claude-plugin/plugin.json` at startup, so it tracks the plugin version automatically.
 
 ## CI/CD
 
