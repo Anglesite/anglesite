@@ -74,11 +74,23 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── update.sh                 Compares template files against scaffolded site
 │   ├── pre-deploy-check.sh       Blocks deploy if security scans fail
 │   ├── pack-plugin.sh            Builds distributable plugin ZIP
-│   └── import/                   Wix-specific extraction scripts
-│       └── wix/
-│           ├── wix-playwright.mjs Browser-based content + CSS token extraction
-│           ├── wix-extract.mjs    Curl+regex fallback for Wix HTML parsing
-│           └── color-utils.mjs    RGB/hex conversion, luminance, color classification
+│   ├── design-import/            Canva/Figma extraction scripts
+│   │   ├── canva-playwright.mjs  Browser-based Canva content extraction
+│   │   ├── canva-colors.mjs      Canva color token extraction
+│   │   ├── canva-fonts.mjs       Canva font extraction
+│   │   ├── comparison.mjs        Design comparison utilities
+│   │   ├── infer-axes.mjs        Layout axis inference
+│   │   ├── layout-heuristics.mjs Layout detection heuristics
+│   │   └── text-hierarchy.mjs    Text hierarchy analysis
+│   └── import/                   Platform-specific extraction scripts
+│       ├── menu-extract.mjs      Menu extraction from PDF/photo
+│       ├── wix/
+│       │   ├── wix-playwright.mjs Browser-based content + CSS token extraction
+│       │   ├── wix-extract.mjs    Curl+regex fallback for Wix HTML parsing
+│       │   └── color-utils.mjs    RGB/hex conversion, luminance, color classification
+│       └── wordpress/
+│           ├── wp-xml-parse.mjs   WordPress WXR export parser
+│           └── wp-content-clean.mjs WordPress content cleanup
 ├── server/                       MCP server + shared modules (Node.js, ESM) — the wire contract the Anglesite-app host builds against
 │   ├── index-tools.mjs           buildServer(projectRoot): registers all 8 MCP tools (transport-agnostic)
 │   ├── index.mjs                 stdio entry point (wires buildServer to StdioServerTransport)
@@ -97,19 +109,19 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── content-frontmatter.mjs   Shared frontmatter helpers for content tools
 │   └── optimize-images.mjs       Image optimize/srcset used by the image-drop edit path
 ├── bin/
-│   ├── average-tokens.ts         Token cost calculator for start skill
 │   ├── build-instructions.ts     Agent instruction file validator
 │   ├── build-agent-skills.ts     Generates agent-skills/ (Open Agent Skills export)
+│   ├── generate-skill-registry.ts Generates docs/dev/skill-registry.md from frontmatter
 │   └── release.ts                Semantic version bumper (updates all manifests)
 ├── agent-skills/                 GENERATED — Open Agent Skills export (skills.sh); never edit by hand
 ├── package.json                  Dev dependencies and test scripts
 ├── vitest.config.ts              Test configuration
 ├── docs/                         Reference docs (read by skills via ${CLAUDE_PLUGIN_ROOT})
-│   ├── smb/                      Business type guides (66 files, 50+ verticals)
-│   ├── import/                   Platform migration guides (28 files)
-│   ├── platforms/                Tool integration guides (19 files)
+│   ├── smb/                      Business type guides (67 files, ~59 verticals)
+│   ├── import/                   Platform migration guides (29 files)
+│   ├── platforms/                Tool integration guides (23 files)
 │   ├── dev/                      Plugin development guides (7 files: architecture, releasing, testing, etc.)
-│   ├── decisions/                ADRs — architecture decision records (23 files)
+│   ├── decisions/                ADRs — architecture decision records (24 files)
 │   ├── style-guide.md           HTML, CSS, and TypeScript coding standards for generated sites
 │   └── content-conversion.md    Shared HTML-to-Markdown guidance (used by import + convert)
 ├── template/                     Files scaffolded to user's project
@@ -157,7 +169,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Tool | Purpose |
 |---|---|
 | `add_annotation` / `list_annotations` / `resolve_annotation` | Pin, list, and resolve feedback notes anchored to page elements |
-| `apply_edit` | Patch source from an `ElementInfo` selector. Closed op enum: `replace-text`, `replace-attr`, `replace-image-src`, `edit-style`. Supports `dry_run` (returns `edit-preview`); responses are `edit-applied` / `edit-failed` (`server/apply-edit-schema.mjs`, `apply-edit-dispatcher.mjs`) |
+| `apply_edit` | Patch source from an `ElementInfo` selector. Closed op enum: `replace-text`, `replace-attr`, `replace-image-src`, `edit-style`, `apply-instruction`. Supports `dry_run` (returns `edit-preview`); responses are `edit-applied` / `edit-failed` (`server/apply-edit-schema.mjs`, `apply-edit-dispatcher.mjs`) |
 | `undo_edit` | Revert the last applied edit via the `anglesite/edits` history branch |
 | `list_content` | Enumerate pages/posts |
 | `create_page` / `create_post` | Scaffold new content with frontmatter |
@@ -264,7 +276,7 @@ Two levels of agent instructions exist — do not confuse them:
 | Pagefind (not Algolia/Orama) | Build-time index, ~6 KB JS, no external service, first-class Astro integration |
 | On-device `fm` as optional authoring accelerator | Free/private/offline drafts — alt text (incl. imported images via `ai-alt`) and inbox triage; never in the deployed site, always falls back to Claude (ADR-0021) |
 
-Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0023).
+Full ADRs are in `docs/decisions/` (ADR-0001 through ADR-0023, plus README).
 
 ## Testing
 
@@ -329,7 +341,7 @@ npm run dev
 
 ## Serena (optional, plugin development)
 
-[Serena](https://github.com/oraios/serena) provides semantic, symbol-level code navigation via language servers. It's useful when working on the plugin itself (tracing cross-skill references, finding symbol usages across 40 skills). Not required — all standard tools work without it.
+[Serena](https://github.com/oraios/serena) provides semantic, symbol-level code navigation via language servers. It's useful when working on the plugin itself (tracing cross-skill references, finding symbol usages across 56 skills). Not required — all standard tools work without it.
 
 **Setup:**
 
