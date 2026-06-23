@@ -140,6 +140,32 @@ describe("applyEdit — write-failed surface", () => {
   });
 });
 
+describe("applyEdit — apply-instruction (needs-agent refusal)", () => {
+  it("returns edit-failed with reason needs-agent instead of crashing", async () => {
+    const response = await applyEdit(root, makeEdit({
+      op: "apply-instruction",
+      value: "Make the heading more welcoming",
+    }));
+    expect(response.isError).toBe(true);
+    const body = parseContent(response);
+    expect(body.type).toBe("anglesite:edit-failed");
+    expect(body.id).toBe("e-1");
+    expect(body.reason).toBe("needs-agent");
+    expect(body.detail).toBeTruthy();
+  });
+
+  it("does not touch the filesystem", async () => {
+    const indexPath = join(root, "src/pages/index.astro");
+    const before = readFileSync(indexPath, "utf-8");
+    await applyEdit(root, makeEdit({
+      op: "apply-instruction",
+      value: "Change the hero text",
+    }));
+    const after = readFileSync(indexPath, "utf-8");
+    expect(after).toBe(before);
+  });
+});
+
 describe("replace-image-src", () => {
   let projectRoot;
 
