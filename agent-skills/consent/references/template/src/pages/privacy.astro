@@ -1,0 +1,145 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+const configPath = resolve(process.cwd(), ".site-config");
+const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
+const siteName = config.match(/^SITE_NAME=(.+)$/m)?.[1]?.trim() ?? "This website";
+const siteDomain = config.match(/^SITE_DOMAIN=(.+)$/m)?.[1]?.trim() ?? "";
+const ownerName = config.match(/^OWNER_NAME=(.+)$/m)?.[1]?.trim() ?? siteName;
+const contactEmail = config.match(/^CONTACT_EMAIL=(.+)$/m)?.[1]?.trim() ?? "";
+const categories = (config.match(/^CONSENT_CATEGORIES=(.+)$/m)?.[1]?.trim() ?? "necessary")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+const consentVersion = config.match(/^CONSENT_VERSION=(.+)$/m)?.[1]?.trim() ?? "1";
+
+const lastUpdated = new Date().toISOString().slice(0, 10);
+
+const has = (cat: string) => categories.includes(cat);
+---
+
+<BaseLayout
+  title="Privacy Policy — What We Collect and Why"
+  description={`Privacy policy for ${siteName} — what we collect, why, and how to control it.`}
+>
+  <h1>Privacy policy</h1>
+  <p><em>Last updated: {lastUpdated} · Consent version: {consentVersion}</em></p>
+
+  <p>
+    This page explains what {siteName} collects, why, and the choices you have.
+    {ownerName} is the data controller. Questions? {contactEmail
+      ? <>Contact <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.</>
+      : <>Use the <a href="/contact">contact page</a>.</>}
+  </p>
+
+  <h2>What we collect</h2>
+
+  <h3>Always — necessary</h3>
+  <p>
+    These cookies and storage are required for the site to function and are not
+    optional. They do not track you across other sites.
+  </p>
+  <ul>
+    <li><strong>Session and security</strong> — login, form CSRF, anti-spam (Cloudflare Turnstile).</li>
+    <li><strong>Consent record</strong> — a <code>consent</code> cookie that stores your category choices for 6 months and the policy version you accepted.</li>
+    <li><strong>Server logs</strong> — Cloudflare may log IP addresses and request metadata for security and abuse prevention. Logs are retained per Cloudflare's policy.</li>
+  </ul>
+
+  {has("analytics") && (
+    <>
+      <h3>With your permission — analytics</h3>
+      <p>
+        If you allow analytics, we measure aggregate traffic so we can improve the site.
+        We do not sell or share this data. You can revoke consent any time using the
+        "Cookie preferences" link in the footer.
+      </p>
+      <ul>
+        <li><strong>Vendors:</strong> [list every analytics tool in use, e.g. Plausible, GA4, Fathom]</li>
+        <li><strong>Data:</strong> page views, referrer, country (from IP, not stored), device type, anonymous session ID.</li>
+      </ul>
+    </>
+  )}
+
+  {has("embeds") && (
+    <>
+      <h3>With your permission — embeds</h3>
+      <p>
+        If you allow embeds, we load video, audio, maps, or social content from third-party
+        sites. Those sites can set their own cookies and may track you according to their
+        privacy policies.
+      </p>
+      <ul>
+        <li><strong>Vendors:</strong> [list every embed source in use, e.g. YouTube, Vimeo, Spotify, OpenStreetMap]</li>
+        <li><strong>Data:</strong> whatever the embedded site collects — see their privacy policies linked below.</li>
+      </ul>
+    </>
+  )}
+
+  {has("ads") && (
+    <>
+      <h3>With your permission — ads</h3>
+      <p>
+        If you allow ads, we display advertising and may share limited browsing
+        information with ad networks for measurement and personalization.
+      </p>
+      <ul>
+        <li><strong>Vendors:</strong> [list every ad network in use, e.g. Google AdSense, Mediavine]</li>
+        <li><strong>Data:</strong> page URL, referrer, ad interaction events, advertising identifiers as set by the network.</li>
+      </ul>
+    </>
+  )}
+
+  <h2>Your choices</h2>
+  <ul>
+    <li>
+      <strong>Cookie preferences</strong> — change your category choices any time. The
+      banner re-appears whenever we update the categories or vendors above. You can also
+      delete the <code>consent</code> cookie in your browser to be re-prompted.
+    </li>
+    <li>
+      <strong>Do Not Track</strong> — modern browsers send this signal inconsistently, so
+      we don't rely on it. Use the cookie preferences instead.
+    </li>
+    <li>
+      <strong>Right to access, correct, or delete</strong> — under GDPR (EU/UK), CCPA
+      (California), and similar laws, you can request a copy of any personal data we hold
+      and ask us to correct or delete it. {contactEmail
+        ? <>Contact <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.</>
+        : <>Use the <a href="/contact">contact page</a>.</>}
+    </li>
+  </ul>
+
+  <h2>EU / UK visitors</h2>
+  <p>
+    Under GDPR and the UK GDPR / PECR, we ask for consent before any non-necessary
+    cookies are set or any third-party scripts are loaded. Until you accept, only the
+    necessary category runs. We rely on consent (Article 6(1)(a)) for analytics, embeds,
+    and ads, and legitimate interest for security logging and spam prevention.
+  </p>
+
+  <h2>California visitors</h2>
+  <p>
+    Under the CCPA / CPRA, you have the right to know what personal information is
+    collected, to opt out of sale or sharing, and to delete personal information.
+    {siteName} does not sell personal information. To exercise your rights,
+    {contactEmail
+      ? <> contact <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.</>
+      : <> use the <a href="/contact">contact page</a>.</>}
+  </p>
+
+  <h2>Hosting and processors</h2>
+  <ul>
+    <li><strong>Cloudflare Workers</strong> — hosting and CDN. {siteDomain && <>Site served from <code>{siteDomain}</code>.</>}</li>
+    <li><strong>Cloudflare Web Analytics</strong> — cookieless, aggregate traffic stats. Always on. <a href="https://www.cloudflare.com/web-analytics/">Privacy details</a>.</li>
+    <li><strong>Cloudflare Turnstile</strong> — spam protection on forms. <a href="https://www.cloudflare.com/privacypolicy/">Privacy details</a>.</li>
+  </ul>
+
+  <h2>Changes to this policy</h2>
+  <p>
+    When the categories or vendors above change in any material way, we bump
+    <code>CONSENT_VERSION</code> and the banner re-appears so you can review and choose
+    again. The "Last updated" date at the top reflects the most recent change.
+  </p>
+</BaseLayout>

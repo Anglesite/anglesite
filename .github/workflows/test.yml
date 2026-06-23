@@ -27,6 +27,15 @@ jobs:
             exit 1
           fi
 
+      - name: Verify Open Agent Skills export is up to date
+        run: |
+          npm run build:agent-skills
+          if ! git diff --quiet agent-skills/; then
+            echo "::error::agent-skills/ is stale — run 'npm run build:agent-skills' and commit the result"
+            git diff --stat agent-skills/
+            exit 1
+          fi
+
       - run: npm test
 
   template-lockfile:

@@ -1,0 +1,57 @@
+---
+name: new-page
+description: "Create a new page with SEO and accessibility"
+license: ISC
+compatibility: "Designed for Claude Code / compatible agents operating inside an Anglesite project (Astro + Keystatic, Node >=22)."
+allowed-tools: Write, Read, Glob
+metadata:
+  author: "David W. Keith"
+  version: "1.2.0"
+  source: "https://github.com/Anglesite/anglesite"
+  invocation: "model-only"
+  argument-hint: "[page name or purpose]"
+---
+
+Create a new page on the site.
+
+## Planning
+
+Before creating the page, show the owner where it fits in the site structure. Glob `src/pages/` for existing pages and present a nested markdown list with the proposed new page highlighted, e.g.:
+
+```
+- /
+  - /about
+  - /services
+  - /contact
+  - /events  ← new page
+```
+
+This helps the owner understand navigation impact and approve the placement.
+
+## Architecture decisions
+
+- [ADR-0001 Astro](references/docs/decisions/0001-astro-static-site-generator.md) — pages are `.astro` files with zero client JS by default
+- [ADR-0004 Vanilla CSS](references/docs/decisions/0004-vanilla-css-custom-properties.md) — styling uses CSS custom properties from `global.css`
+- [ADR-0005 System fonts](references/docs/decisions/0005-system-fonts.md) — no external font loading
+
+1. Ask what the page is for and what content it should have
+
+   **Experiment pages:** If the owner wants an interactive experiment, creative coding piece, or visual effect page, delegate to the `creative-canvas` skill (the `creative-canvas` skill). It handles library installation, layout selection (`ImmersiveLayout` for full-viewport experiments), canvas setup, and accessibility requirements. This applies to any business type — not just web artists.
+
+2. Create the `.astro` file in `src/pages/`
+3. Use `BaseLayout` with proper title, description, and OG tags (or `ImmersiveLayout` for experiment pages)
+4. Follow the standards checklist:
+   - Semantic HTML (headings, sections, nav)
+   - Responsive (works on phone, tablet, desktop)
+   - Accessible — validate with `scripts/a11y-validate.ts`: single h1, no skipped heading levels, descriptive link text, meaningful alt text on all images, color contrast meeting WCAG AA (verify with `scripts/contrast.ts`)
+   - Performance (optimized images, no unnecessary JS)
+   - SEO (title, meta description, OG tags)
+   - Matches the brand from `docs/brand.md` and follows `docs/design-system.md` and `references/docs/style-guide.md`
+   - CSS passes `npm run lint:css` (design token enforcement via Stylelint)
+5. Add navigation link if appropriate
+6. Preview on the dev server
+7. Ask if they want to publish
+
+## Important: Keep docs in sync
+
+Update `docs/architecture.md` with the new page and its purpose.

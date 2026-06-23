@@ -1,0 +1,872 @@
+---
+name: convert
+description: "Convert an existing static site generator project (Hugo, Jekyll, Next.js, Gatsby, Nuxt, Docusaurus, VuePress, MkDocs, Eleventy, Hexo) to Anglesite/Astro"
+license: ISC
+compatibility: "Designed for Claude Code / compatible agents operating inside an Anglesite project (Astro + Keystatic, Node >=22)."
+allowed-tools: ["Bash(npm run build)", "Bash(npm install)", "Bash(npm run ai-alt)", "Bash(zsh *)", "Bash(node *)", "Bash(npx sharp-cli *)", "Bash(mkdir *)", "Bash(git add *)", "Bash(git commit *)", "Bash(ls *)", "Bash(wc *)", "Bash(cp *)", "Bash(find src/content/posts *)", "Bash(find public/images *)", "Bash(find */images *)", "Bash(find */public *)", "Bash(find */static *)", "Bash(find */source *)", "Bash(find */content *)", "Bash(find */docs *)", "Bash(find */_posts *)", "Bash(find */layouts *)", "Bash(find */templates *)", "Bash(find */_includes *)", "Write", "Read", "Glob", "Edit"]
+metadata:
+  author: "David W. Keith"
+  version: "1.2.0"
+  source: "https://github.com/Anglesite/anglesite"
+  invocation: "user-facing"
+---
+
+Convert an existing static site generator project in the current directory to
+Anglesite (Astro + Keystatic CMS). Reads content from Hugo, Jekyll, Next.js,
+Gatsby, Nuxt, Docusaurus, VuePress, MkDocs, Eleventy, or Hexo projects.
+Migrates posts and pages into Markdoc, copies images, and generates redirect
+mappings. Your existing files are preserved — new Anglesite files are created
+alongside them.
+
+## Shared guidance
+
+Before reading the platform-specific doc, read `references/docs/import/ssg-migrations.md`
+for template syntax stripping, frontmatter mapping conventions, image file
+handling, and config-driven content discovery.
+
+The platform-specific docs (`references/docs/import/PLATFORM.md`) cover only what's unique
+to that platform — config structure, content directories, template syntax
+families, and URL patterns.
+
+## Conversion principles
+
+1. **Content accuracy and visual identity.** The first pass prioritizes getting all content moved correctly and preserving the source site's branding (colors, fonts, logo, layout structure). Pixel-perfect fidelity isn't the goal, but the converted site should be recognizable as the same brand.
+2. **Copy all images locally.** Images are copied from the source project to `public/images/blog/`. No references to old paths.
+3. **Generate descriptions from content.** If the frontmatter has no excerpt field, use the first 1-2 sentences of the post body.
+4. **Preserve provenance.** Every converted post gets a `syndication` URL if the old site had a known public URL.
+5. **Strip all template syntax.** Shortcodes, Liquid tags, Vue components, Nunjucks tags, admonitions — all stripped or converted to plain Markdown.
+6. **Build must pass.** Fix every build error before presenting results to the owner (ADR-0012).
+
+## Architecture decisions
+
+- [ADR-0002 Keystatic CMS](references/docs/decisions/0002-keystatic-local-cms.md) — content lands as `.mdoc` files in `src/content/posts/`
+- [ADR-0008 No third-party JS](references/docs/decisions/0008-no-third-party-javascript.md) — embedded widgets and component tags must be stripped
+- [ADR-0011 Owner ownership](references/docs/decisions/0011-owner-controls-everything.md) — converted content must be fully self-contained
+- [ADR-0012 Verify first](references/docs/decisions/0012-verify-before-presenting.md) — build must pass after conversion before presenting results
+
+Before every tool call or command that will trigger a permission prompt, explain
+what you're about to do and why. The owner is non-technical.
+
+## Step 0 — Detect the project
+
+### 0a — Already an Anglesite project?
+
+Use Glob to check for `src/content/config.ts` or `src/content.config.ts` (Astro 5
+moved the content config to `src/content.config.ts`; either path means Anglesite).
+
+If either exists AND the current directory also has an SSG config file (see table
+below), treat it as a conversion that was already scaffolded — read `.site-config`
+and skip to **Step 1**.
+
+If either exists but there's no SSG project here, tell the owner:
+
+> "This is already an Anglesite project. If you want to import content from a
+> website, use `/anglesite:import` with the URL instead."
+
+Stop.
+
+### 0b — Detect the SSG
+
+Use Glob to check for these config files in the current directory:
+
+| Config file(s) | Platform |
+| --- | --- |
+| `hugo.toml`, `hugo.yaml`, `hugo.json`, or `config.toml` (with `[params]`) | Hugo |
+| `_config.yml` AND (`Gemfile` with `jekyll` OR `_posts/` directory) | Jekyll |
+| `next.config.js`, `next.config.mjs`, or `next.config.ts` | Next.js |
+| `gatsby-config.js` or `gatsby-config.ts` | Gatsby |
+| `nuxt.config.js`, `nuxt.config.ts`, or `nuxt.config.mjs` | Nuxt |
+| `docusaurus.config.js` or `docusaurus.config.ts` | Docusaurus |
+| `.vuepress/config.js` or `.vuepress/config.ts` (in `docs/` or root) | VuePress |
+| `mkdocs.yml` | MkDocs |
+| `.eleventy.js`, `eleventy.config.js`, `eleventy.config.ts`, `eleventy.config.mjs`, or `eleventy.config.cjs` | Eleventy |
+| `_config.yml` AND `package.json` containing `"hexo"` | Hexo |
+| `astro.config.mjs`, `astro.config.ts`, or `astro.config.js` (without Anglesite/Keystatic) | Non-Anglesite Astro |
+
+If no SSG is detected, tell the owner:
+
+> "I don't recognize the project type in this directory. If you want to import
+> content from a website URL, use `/anglesite:import` instead. Or tell me which
+> generator this project uses and where the content files are."
+
+Wait for guidance.
+
+If an SSG is detected, tell the owner:
+
+> "I see you have a [Platform] project here. I can convert this to an Anglesite
+> site — that means moving your content into Astro with Keystatic CMS, so you
+> get a visual editor and easy publishing to Cloudflare Workers.
+>
+> Your existing files won't be deleted — I'll read your content and create new
+> files alongside them. Would you like to go ahead?"
+
+Wait for confirmation. If they decline, stop.
+
+Store the detected platform as PLATFORM.
+
+### 0c — Scaffold Anglesite
+
+```sh
+zsh references/scripts/scaffold.sh --yes .
+```
+
+Ask the essentials (normally gathered by `/anglesite:start`):
+
+1. "What should we call the site?"
+
+Don't ask for the owner's name here — convert doesn't need it upfront. The footer (Step 7's copyright line) and any About-page work will prompt for it on-demand if `OWNER_NAME` isn't already in `.site-config`. See "On-demand owner name" in the `start` skill.
+
+Save to `.site-config` using the **Write tool**:
+
+```
+SITE_TYPE=blog
+SITE_NAME=Site Name
+DEV_HOSTNAME=sitename.local
+AI_MODEL=(write your actual model name here)
+EXPLAIN_STEPS=true
+POST_URL_PREFIX=blog
+```
+
+Note: `POST_URL_PREFIX` defaults to `blog` here. It will be updated after the
+URL structure question in Step 1 if the owner chooses to keep root-level URLs.
+
+```sh
+npm install
+```
+
+## Step 1 — Discover content
+
+Tell the owner:
+> "I'm reading through your [Platform] project to catalog all the content.
+> This takes about a minute."
+
+Read the platform doc (`references/docs/import/PLATFORM.md`) and the shared SSG guidance
+(`references/docs/import/ssg-migrations.md`) to learn:
+- Where content files live (directory structure)
+- Frontmatter field mapping to Anglesite fields
+- Platform-specific syntax to strip or convert
+- Image file locations
+- URL patterns for redirect generation
+
+| Platform | Doc reference |
+| --- | --- |
+| Hugo | `references/docs/import/hugo.md` |
+| Jekyll | `references/docs/import/jekyll.md` |
+| Next.js | `references/docs/import/nextjs.md` |
+| Gatsby | `references/docs/import/gatsby.md` |
+| Nuxt | `references/docs/import/nuxt.md` |
+| Docusaurus | `references/docs/import/docusaurus.md` |
+| VuePress | `references/docs/import/vuepress.md` |
+| MkDocs | `references/docs/import/mkdocs.md` |
+| Eleventy | `references/docs/import/eleventy.md` |
+| Hexo | `references/docs/import/hexo.md` |
+
+Use Glob to find all `.md` and `.mdx` files in the content directories specified
+by the platform doc. Read each file to extract frontmatter and body content.
+
+Build BLOG_POSTS from files in blog/post directories.
+Build STATIC_PAGES from files in page/doc directories.
+
+If no SSG is detected (user provided manual guidance), use the directories they
+specified.
+
+### Discover pagination-based pages
+
+Many SSGs use template files with pagination to dynamically generate pages from
+collection metadata (tags, categories, authors, date archives). These are not
+Markdown content files — they're template files that produce multiple pages at
+build time. Glob for them separately:
+
+| Platform | What to look for |
+| --- | --- |
+| Eleventy | `.webc`, `.njk`, `.liquid`, `.11ty.js` files with `pagination:` in frontmatter |
+| Hugo | `_index.md` in taxonomy dirs (`tags/`, `categories/`), `layouts/taxonomy/`, `layouts/_default/taxonomy.html`, `layouts/_default/term.html` |
+| Jekyll | Files using `site.tags`, `site.categories`, or `paginator` in Liquid templates |
+| Gatsby | `gatsby-node.js` calls to `createPages` that iterate over tags/categories |
+| Next.js | `[tag].tsx`, `[category].tsx`, or other dynamic route files under `pages/tags/`, `pages/categories/` |
+| Hexo | `_config.yml` tag/category settings + theme `layout/tag.ejs`, `layout/category.ejs` |
+| Docusaurus | Tag pages are auto-generated — check `blog/tags/` config in `docusaurus.config.js` |
+
+For each platform, use Glob to search for these patterns. Read any found files
+to determine what collection data they paginate over (tags, categories, authors,
+years, etc.).
+
+Build PAGINATION_PAGES from the discovered templates. Each entry should note:
+- **Type**: `tags`, `categories`, `authors`, `date-archive`, or `custom`
+- **Source file**: path to the template file
+- **Index page**: whether the source had a listing page (e.g., `/tags/` index)
+- **Item pages**: whether it generates per-item pages (e.g., `/tags/{tag}/`)
+
+### Present the inventory
+
+Tell the owner what was found. Example:
+
+> "Here's what I found in your project:
+>
+> **Blog posts:** 23 posts (July 2024 – February 2026)
+> **Pages:** 6 pages (About, FAQ, Services, Contact, Gallery, Docs)
+> **Dynamic pages:** Tag pages (8 tags), category pages (4 categories)
+>
+> I'll convert all the blog posts, create pages for the static content,
+> and generate tag and category pages. This will take about 5–10 minutes
+> for a project this size."
+
+Include PAGINATION_PAGES in the inventory if any were found. List the type
+and count (e.g., "8 tags" or "3 author pages").
+
+Ask:
+> "Would you like to convert all of it, or just the blog posts?"
+> - **Everything** — posts + pages + dynamic pages + redirects (recommended)
+> - **Blog posts only** — skip static pages and dynamic pages
+
+Wait for their answer before continuing.
+
+### Choose the URL structure
+
+Detect the source site's blog post URL pattern from the SSG config and content
+files. For example, Eleventy with `permalink: /{{ page.fileSlug }}/` means posts
+live at `/{slug}/`, while Jekyll's default is `/YYYY/MM/DD/{slug}/`.
+
+Tell the owner what you found and ask what URL structure they want:
+
+> "Your [Platform] site currently serves posts at `/{slug}/` (e.g.,
+> `/copper-charlie/`). For the converted site, would you like to:"
+>
+> - **Keep `/{slug}/`** — posts stay at the same URLs, no redirects needed
+> - **Use `/blog/{slug}/`** — posts move under `/blog/`, old URLs redirect
+>   automatically
+
+If you can't detect the source pattern, default to offering both options.
+
+Wait for their answer. Store the choice as `POST_URL_PREFIX` in `.site-config`:
+
+- If they chose `/{slug}/`, set `POST_URL_PREFIX=` (empty — root-level posts)
+- If they chose `/blog/{slug}/`, set `POST_URL_PREFIX=blog` (the default)
+
+This value determines:
+- Where `[slug].astro` is placed: `src/pages/POST_URL_PREFIX/[slug].astro`
+  (or `src/pages/[slug].astro` if empty)
+- The `href` prefix in homepage and listing templates
+- Whether redirects are needed for blog post URLs
+
+If `POST_URL_PREFIX` is empty and you move `[slug].astro` out of `src/pages/blog/`,
+ensure the new file still includes `export const prerender = true;` in its frontmatter.
+This is required for `getStaticPaths()` to work in dev mode (hybrid output).
+
+## Step 1.5 — Extract visual identity
+
+Tell the owner:
+> "Before converting your content, I'm reading your site's design — colors, fonts,
+> logo, and layout — so the converted site keeps your existing look and feel."
+
+The scaffold creates generic defaults (blue `#2563eb`, system fonts, plain text
+header). This step replaces those with values extracted from the source project.
+
+### 1.5a — Find and read source CSS
+
+Use Glob to find CSS files in the source project. Common locations:
+
+| Platform | CSS locations |
+| --- | --- |
+| Hugo | `assets/css/`, `static/css/`, `themes/*/assets/css/` |
+| Jekyll | `_sass/`, `assets/css/`, `css/` |
+| Next.js | `styles/`, `src/styles/`, `app/globals.css` |
+| Gatsby | `src/styles/`, `src/css/` |
+| Nuxt | `assets/css/`, `assets/styles/` |
+| Docusaurus | `src/css/` |
+| VuePress | `.vuepress/styles/` |
+| MkDocs | `docs/stylesheets/` |
+| Eleventy | `src/_includes/css/`, `src/css/`, `css/`, `_includes/css/` |
+| Hexo | `themes/*/source/css/` |
+
+Read all CSS files found. Extract these design tokens:
+
+**Colors** — Look for CSS custom properties (`--color-*`, `--bg-*`, `--text-*`,
+`--link-*`, `--accent-*`), or recurring color values in `color:`, `background:`,
+`background-color:`, `border-color:` properties. Identify:
+- Background color (body/html `background` or `background-color`)
+- Text color (body/html `color`)
+- Link/primary color (`a` color or most prominent accent)
+- Heading color (if different from text)
+- Muted/secondary text color
+- Surface/card background color
+- Border color
+
+**Fonts** — Look for `font-family` on `body`, `html`, headings. Note whether
+fonts are system fonts, self-hosted (look for `@font-face`), or external (Google
+Fonts links — these will be self-hosted per ADR-0008).
+
+**Layout** — Look for `max-width` on the main content container. Note the value
+to apply to `--max-width`.
+
+**Dark mode** — Check for `@media (prefers-color-scheme: dark)` or a
+`.dark`/`[data-theme="dark"]` selector. If present, note the dark palette.
+
+**Accessibility** — Check for `@media (prefers-contrast: more)`,
+`prefers-reduced-motion`, or `color-scheme` meta declarations.
+
+### 1.5b — Read layout templates
+
+Use Glob to find layout/template files. Common locations:
+
+| Platform | Layout locations |
+| --- | --- |
+| Hugo | `layouts/_default/baseof.html`, `layouts/partials/` |
+| Jekyll | `_layouts/default.html`, `_includes/` |
+| Next.js | `src/app/layout.tsx`, `pages/_app.tsx`, `components/Layout.tsx` |
+| Gatsby | `src/components/layout.js`, `src/templates/` |
+| Nuxt | `layouts/default.vue`, `components/` |
+| Docusaurus | `src/theme/Layout/`, `src/components/` |
+| VuePress | `.vuepress/theme/layouts/` |
+| MkDocs | `overrides/` |
+| Eleventy | `src/_includes/`, `_includes/`, `layouts/` |
+| Hexo | `themes/*/layout/` |
+
+Read the main layout file. Extract:
+
+**Header structure:**
+- Logo image path and alt text (e.g., `<img src="/img/logo.svg">`)
+- Site title text or element
+- Navigation links (names and hrefs)
+
+**Footer structure:**
+- Social media links (platform and URL for each)
+- Copyright text or license information
+- Any badges or certifications
+
+**Meta tags:**
+- `color-scheme` meta tag value
+- Any additional meta tags worth preserving
+
+### 1.5c — Read data/config files
+
+Many SSGs store site metadata in data files:
+
+| Platform | Metadata locations |
+| --- | --- |
+| Hugo | `config.toml` (`[params]`), `data/` |
+| Jekyll | `_config.yml`, `_data/` |
+| Next.js | `package.json`, custom config files |
+| Gatsby | `gatsby-config.js` (`siteMetadata`) |
+| Nuxt | `nuxt.config.ts` |
+| Eleventy | `src/_data/`, `_data/` (JSON/JS files) |
+| Hexo | `_config.yml` |
+
+Look for:
+- Site title, description, author name
+- Social media handles/URLs
+- Logo file reference
+- License or copyright text
+
+### 1.5d — Copy static assets
+
+Use Glob to find logo files, favicons, and avatar images in the source project:
+
+```sh
+find . -maxdepth 4 -type f \( -name "logo.*" -o -name "favicon.*" -o -name "avatar.*" -o -name "apple-touch-icon.*" \) -not -path "*/node_modules/*" -not -path "*/_site/*" -not -path "*/dist/*"
+```
+
+Copy found assets to `public/`:
+
+```sh
+cp SOURCE_LOGO public/logo.EXT
+```
+
+If a `favicon.svg` or `favicon.ico` is found, copy it to `public/`. The Anglesite template ships without a default favicon, so this populates the missing icon.
+
+### 1.5e — Apply extracted design to Anglesite
+
+**Update `src/styles/global.css`** — Use the Edit tool to replace the `:root`
+CSS custom properties block with the extracted values. Map source colors to
+Anglesite tokens:
+
+| Anglesite token | Source value |
+| --- | --- |
+| `--color-primary` | Link color or main accent |
+| `--color-accent` | Secondary accent (or derive from primary) |
+| `--color-bg` | Body background |
+| `--color-text` | Body text color |
+| `--color-muted` | Secondary/lighter text |
+| `--color-surface` | Card/section background |
+| `--color-border` | Border color |
+| `--font-heading` | Heading font-family |
+| `--font-body` | Body font-family |
+| `--max-width` | Content max-width (convert to rem if in px: divide by 16) |
+
+If the source uses external fonts (Google Fonts), download the font files and
+add `@font-face` declarations at the top of `global.css` with the files in
+`public/fonts/`. Never link to external font services (ADR-0008).
+
+If the source has dark mode support, add a `@media (prefers-color-scheme: dark)`
+block after the `:root` block with the dark palette mapped to the same tokens.
+
+If the source has `prefers-contrast: more` or `prefers-reduced-motion` support,
+add those media queries as well.
+
+If the source has custom blockquote, code, or other element styling that differs
+significantly from the scaffold defaults, add those styles to the appropriate
+sections of `global.css`.
+
+**Update `src/layouts/BaseLayout.astro`** — Use the Edit tool to update:
+
+1. **Header**: If the source has a logo, add an `<img>` tag. If it has
+   navigation, add a `<nav>` element with the extracted links. Structure:
+   ```html
+   <header class="h-card">
+     <a href="/" class="p-name u-url">
+       <img src="/logo.EXT" alt="SITE_NAME logo" width="W" height="H" />
+       SITE_NAME
+     </a>
+     <nav>
+       <a href="/about/">About</a>
+       <a href="/blog/">Blog</a>
+     </nav>
+   </header>
+   ```
+
+2. **Footer**: If the source has social links, add them. If it has a license,
+   include it. Structure:
+   ```html
+   <footer>
+     <nav class="social-links">
+       <a href="URL" rel="me">Platform</a>
+     </nav>
+     <p>&copy; YEAR HOLDER</p>
+   </footer>
+   ```
+
+   For `HOLDER`, prefer `OWNER_NAME` from `.site-config` if it's set. If it's
+   not, **this is a legitimate on-demand trigger** — ask the owner once: "What
+   name should appear on the copyright line — your name, or the business
+   name?" Save the answer to `.site-config` as `OWNER_NAME` (or use `SITE_NAME`
+   if they pick the business name and want to skip personal-name collection
+   entirely). See "On-demand owner name" in the `start` skill.
+
+3. **Meta tags**: If the source had `<meta name="color-scheme" content="dark light">`,
+   add it to the `<head>`.
+
+4. **HTML lang**: If the source used a different `lang` attribute, update it.
+
+**Add header/footer CSS** if needed — add styles for the nav and social links to
+`global.css`:
+
+```css
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+header nav {
+  display: flex;
+  gap: var(--space-md);
+}
+
+header nav a {
+  text-decoration: none;
+  color: var(--color-text);
+}
+
+.social-links {
+  display: flex;
+  gap: var(--space-sm);
+}
+```
+
+**Fallback**: If no CSS or layout files are found (unlikely but possible),
+skip this step and proceed with scaffold defaults. Tell the owner:
+> "I couldn't find design files in your project. The site will use default
+> styling — you can customize colors and fonts anytime by asking me."
+
+## Step 2 — Convert blog posts
+
+Tell the owner:
+> "I'm converting your blog posts now. I'll keep you posted on progress."
+
+Ensure the image directory exists:
+
+```sh
+mkdir -p public/images/blog
+```
+
+Read `references/docs/content-conversion.md` for the full
+content conversion, image optimization, and `.mdoc` writing procedures.
+
+For each post in BLOG_POSTS:
+
+1. Parse the frontmatter using the field mapping from the platform doc
+2. Convert body content following the shared conversion procedures — also apply
+   the platform doc's "Content conversion" section and
+   `references/docs/import/ssg-migrations.md` for platform-specific
+   template syntax stripping
+3. Copy and optimize images per the shared procedures. The platform doc's
+   "Image handling" section specifies where images are stored (e.g.,
+   `static/img/` for Docusaurus, `source/images/` for Hexo, `content/` for
+   Hugo page bundles)
+
+   After copying the images, run `npm run ai-alt` once. On a capable Mac it
+   drafts on-device alt text for any image lacking it (including `.webp`) into
+   `image-alt.json`; elsewhere it's a no-op. When writing each post, where the
+   source frontmatter/Markdown has **no alt** for an image, use the draft from
+   `image-alt.json` for the `![alt](path)` / `imageAlt` and flip that entry to
+   `reviewed`. Keep any alt the source already provided.
+
+4. Write the `.mdoc` file per the shared procedures. Use `-converted` suffix
+   for slug conflicts
+
+## Step 2.5 — Check for existing pages
+
+```sh
+find src/pages -name "*.astro" -type f
+```
+
+Build a PROTECTED_PAGES set from existing page paths (relative to `src/pages/`,
+without the `.astro` extension). For example, `src/pages/contact.astro` becomes
+`contact`. These pages will not be overwritten during conversion.
+
+## Step 3 — Handle static pages
+
+If the owner chose "Everything", process STATIC_PAGES.
+
+For each page, read the source file and convert the content to clean Markdown
+(same template syntax stripping as Step 2a).
+
+Before writing, check if the target slug is in PROTECTED_PAGES. If the page
+already exists, do NOT overwrite it. Add it to SKIPPED_PAGES with the converted
+content so the owner can review it in the summary. This preserves scaffolded
+functionality like contact forms, review forms, and subscribe forms.
+
+If the page does not exist, create a `.astro` file in `src/pages/` with the
+page title, meta description, `BaseLayout` wrapper, and the converted content.
+
+For pages that are primarily image galleries (10+ images), create a gallery page
+with a responsive CSS grid layout.
+
+## Step 3.5 — Generate dynamic route pages
+
+If PAGINATION_PAGES is non-empty and the owner chose "Everything", generate
+Astro dynamic route pages for each discovered pagination type.
+
+### Tag pages
+
+If the source site had tag pages, create two files:
+
+**`src/pages/tags/index.astro`** — lists all tags with post counts:
+
+```astro
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+export const prerender = true;
+
+const allPosts = await getCollection("posts", ({ data }) => {
+  return import.meta.env.PROD ? !data.draft : true;
+});
+
+const tags = [...new Set(allPosts.flatMap((post) => post.data.tags ?? []))].sort();
+const tagCounts = Object.fromEntries(
+  tags.map((tag) => [
+    tag,
+    allPosts.filter((post) => post.data.tags?.includes(tag)).length,
+  ]),
+);
+---
+
+<BaseLayout title="Tags" description="Browse posts by tag">
+  <h1>Tags</h1>
+  <ul class="tag-list">
+    {
+      tags.map((tag) => (
+        <li>
+          <a href={`/tags/${tag}/`}>
+            {tag} ({tagCounts[tag]})
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+```
+
+**`src/pages/tags/[tag].astro`** — lists posts for a single tag:
+
+```astro
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const allPosts = await getCollection("posts", ({ data }) => {
+    return import.meta.env.PROD ? !data.draft : true;
+  });
+
+  const tags = [...new Set(allPosts.flatMap((post) => post.data.tags ?? []))];
+
+  return tags.map((tag) => ({
+    params: { tag },
+    props: {
+      posts: allPosts
+        .filter((post) => post.data.tags?.includes(tag))
+        .sort(
+          (a, b) =>
+            b.data.publishDate.getTime() - a.data.publishDate.getTime(),
+        ),
+    },
+  }));
+}
+
+const { tag } = Astro.params;
+const { posts } = Astro.props;
+---
+
+<BaseLayout title={`Posts tagged "${tag}"`} description={`All posts tagged "${tag}"`}>
+  <h1>Posts tagged &ldquo;{tag}&rdquo;</h1>
+  <ul class="post-list">
+    {
+      posts.map((post) => (
+        <li class="h-entry">
+          <a href={`/POST_URL_PREFIX/${post.id}/`} class="u-url">
+            <h2 class="p-name">{post.data.title}</h2>
+          </a>
+          <time
+            class="dt-published"
+            datetime={post.data.publishDate.toISOString()}
+          >
+            {post.data.publishDate.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </time>
+          <p class="p-summary">{post.data.description}</p>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+```
+
+Replace `POST_URL_PREFIX` in the href with the value from `.site-config`
+(same logic as Step 4.5).
+
+### Category pages
+
+If the source site had category pages, create the same structure under
+`src/pages/categories/`:
+- `src/pages/categories/index.astro` — lists all categories
+- `src/pages/categories/[category].astro` — lists posts per category
+
+Use the same pattern as tag pages but filter on `post.data.categories`
+instead of `post.data.tags`. If the Keystatic content schema doesn't have
+a `categories` field, check whether the source used categories and add the
+field to `keystatic.config.ts` and `src/content.config.ts` if needed.
+
+### Author pages
+
+If the source site had author pages and posts have an `author` field,
+create `src/pages/authors/[author].astro` using the same pattern.
+
+### Date archive pages
+
+If the source site had year or month archive pages (e.g., `/2025/` or
+`/2025/01/`), create:
+- `src/pages/archive/[year].astro` — lists posts for a year
+- Optionally `src/pages/archive/[year]/[month].astro` — lists posts for a month
+
+### Custom pagination pages
+
+For any other pagination types discovered, create equivalent Astro dynamic
+routes following the same pattern: `export const prerender = true`,
+`getStaticPaths()` that returns all possible values, and a listing template.
+
+### Redirects for pagination pages
+
+If the source site served tag pages at a different path than `/tags/{tag}/`
+(e.g., Hugo's default `/tags/{tag}/` vs. a custom taxonomy path), add
+redirect rules in Step 4.
+
+## Step 4 — Generate redirect mappings
+
+Read `POST_URL_PREFIX` from `.site-config` to determine the target URL pattern.
+
+**Skip redirects when source and target URL patterns match.** For example, if the
+source Eleventy site serves posts at `/{slug}/` and the owner chose to keep
+`/{slug}/`, no blog post redirects are needed — the URLs are identical. Still
+generate redirects for `aliases` or `permalink` overrides that differ from the
+default pattern.
+
+If redirects are needed (the URL structure changed), read the existing
+`public/_redirects` file. Append new rules — do not overwrite existing entries.
+
+The platform doc's "URL patterns for redirects" section describes the old URL
+structure. Generate redirects based on the source file paths and any `permalink`
+or `aliases` frontmatter. Use `POST_URL_PREFIX` to compute the target URL
+(e.g., `/POST_URL_PREFIX/slug` or `/slug` if the prefix is empty). Common
+patterns:
+- Hugo `aliases` field → one redirect per alias
+- Jekyll date-prefixed filenames → `/YYYY/MM/DD/slug/` → `/POST_URL_PREFIX/slug`
+- Hexo permalink config in `_config.yml` → computed old URLs
+- Docusaurus → `/docs/path` and `/POST_URL_PREFIX/slug`
+
+Write the updated `_redirects` file, preserving all existing rules and comments.
+
+For every rule appended in this step, also append a row to `.anglesite/url-map.csv`
+(create the directory and file if missing) so `/anglesite:redirects review`
+has an audit trail. The format is `from,to,status,note,source` — for example:
+
+```
+/old/slug,/blog/slug,301,platform-rename,convert:hugo
+```
+
+Use `convert:<platform>` for the `source` column (substituting the detected SSG)
+and a short `note` describing why the rule was added (`platform-rename`,
+`alias`, `permalink-override`, etc.).
+
+## Step 4.5 — Update the homepage
+
+The scaffold placeholder in `src/pages/index.astro` must be replaced with
+content appropriate for the site type.
+
+Read `SITE_TYPE` from `.site-config`.
+
+**If `SITE_TYPE=blog`:** Replace `src/pages/index.astro` with a blog listing
+homepage that shows recent posts. Read `POST_URL_PREFIX` from `.site-config`
+to determine the correct link prefix.
+
+Use the **Edit tool** to replace the entire file content with:
+
+```astro
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+const allPosts = await getCollection("posts", ({ data }) => {
+  return import.meta.env.PROD ? !data.draft : true;
+});
+
+const posts = allPosts.sort(
+  (a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime(),
+);
+---
+
+<BaseLayout title="SITE_NAME" description="SITE_DESCRIPTION">
+  <ul class="post-list">
+    {
+      posts.map((post) => (
+        <li class="h-entry">
+          <a href={`/POST_URL_PREFIX/${post.id}/`} class="u-url">
+            <h2 class="p-name">{post.data.title}</h2>
+          </a>
+          <time
+            class="dt-published"
+            datetime={post.data.publishDate.toISOString()}
+          >
+            {post.data.publishDate.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </time>
+          <p class="p-summary">{post.data.description}</p>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+```
+
+Replace `POST_URL_PREFIX` with the value from `.site-config`:
+- If `POST_URL_PREFIX=blog`, the href becomes `` `/blog/${post.id}/` ``
+- If `POST_URL_PREFIX=` (empty), the href becomes `` `/${post.id}/` ``
+
+Replace `SITE_NAME` with the value from `.site-config` and `SITE_DESCRIPTION`
+with a brief description of the site.
+
+**If `SITE_TYPE` is not `blog`:** Keep the scaffold placeholder for now — the
+owner will customize the homepage during the design phase.
+
+## Step 5 — Build and verify
+
+Follow the build-and-verify procedure in
+`references/docs/content-conversion.md`. Fix all build
+errors before presenting results (ADR-0012).
+
+## Step 6 — Present the results
+
+Give the owner a plain-English summary:
+
+> "Your project has been converted! Here's what happened:
+>
+> **Design:** Carried over your colors, fonts, logo, and layout from the
+> original site
+> **Blog posts:** 21 of 23 converted successfully
+> **Images:** 19 copied and optimized
+> **Redirects:** 27 redirect rules added
+> **Pages created:** 4 (About, FAQ, Services, Contact)
+> **Dynamic pages:** Tag pages (8 tags), category pages (4 categories)
+>
+> The design should look close to your original site. If anything looks off
+> or you'd like to tweak colors, fonts, or layout, just let me know."
+
+Include dynamic pages in the summary only if PAGINATION_PAGES was non-empty.
+
+If any posts failed to convert, list them so the owner knows what needs attention.
+
+For each SKIPPED_PAGES entry, tell the owner what was found and that the existing
+page was preserved:
+> "Your **[page name]** page already existed, so I kept it as-is. Here's what
+> was in your old project for that page: [converted content summary]. Let me
+> know if you'd like me to add any of that."
+
+## Step 7 — Save a snapshot
+
+```sh
+git add -A
+```
+
+```sh
+git commit -m "Convert from PLATFORM to Anglesite (N posts, N pages)"
+```
+
+Replace PLATFORM and N with actual values.
+
+## Step 8 — Offer next steps
+
+Tell the owner:
+
+> "Your project is converted! Here's what you can do next:
+> - **Preview it:** Run `npm run dev` to see your site locally
+> - **Customize the design:** Just ask me to change colors, fonts, or layout
+> - **Deploy it:** Type `/anglesite:deploy` when you're ready to go live
+> - **Clean up old files:** Once you're happy with the conversion, I can help
+>   remove the old [Platform] config and source files"
+
+## Keep docs in sync
+
+After this skill runs, update `docs/architecture.md` to note that content was
+converted and the date. Example:
+> "Content converted from [Platform] on YYYY-MM-DD. N posts, N pages. Redirects
+> in `public/_redirects`."
+
+## Edge cases
+
+See `references/docs/content-conversion.md` for shared edge
+cases (large images, multilingual content, slug conflicts, mixed formats).
+
+### No blog posts in the project
+
+If BLOG_POSTS is empty after discovery:
+> "Your project doesn't appear to have blog posts. I can still convert your
+> pages and set up redirects."
+
+Continue with Steps 3-4 for pages and redirects only.
+
+### Monorepos and nested projects
+
+If the SSG project is in a subdirectory of a monorepo (e.g., `packages/blog/`),
+the content directories are relative to that subdirectory. Adjust Glob paths
+accordingly.

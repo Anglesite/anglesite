@@ -1,0 +1,168 @@
+---
+name: domain
+description: "Manage DNS records: email, Bluesky, verification"
+license: ISC
+compatibility: "Designed for Claude Code / compatible agents operating inside an Anglesite project (Astro + Keystatic, Node >=22). Deploy/provisioning steps require a Cloudflare account and Wrangler."
+allowed-tools: Bash(curl *), Write, Read, mcp__cloudflare__search_cloudflare_documentation
+metadata:
+  author: "David W. Keith"
+  version: "1.2.0"
+  source: "https://github.com/Anglesite/anglesite"
+  invocation: "user-facing"
+  argument-hint: "[email, bluesky, or service name]"
+---
+
+Manage DNS records for the owner's domain on Cloudflare. All DNS changes are made directly via the Cloudflare API — never ask the owner to add, remove, or modify DNS records themselves. Never open the Cloudflare dashboard for DNS operations.
+
+## Architecture decisions
+
+- [ADR-0003 Cloudflare Workers](references/docs/decisions/0003-cloudflare-workers-hosting.md) — why DNS is managed through Cloudflare (API access, at-cost registration)
+- [ADR-0011 Owner ownership](references/docs/decisions/0011-owner-controls-everything.md) — why the domain is in the owner's account
+
+Read `EXPLAIN_STEPS` from `.site-config`. If `true` or not set, tell the owner what you're about to do and why in plain English before making any change, and confirm what was done after. If `false`, proceed without pre-announcing changes (still confirm after).
+
+## Look up current Cloudflare docs first
+
+Before explaining DNS records, verification flows, propagation behavior, or any Cloudflare-specific quirk to the owner, call `mcp__cloudflare__search_cloudflare_documentation` with a query that names what's being set up (e.g., "DMARC record syntax Cloudflare DNS", "Bluesky _atproto TXT verification", "domain verification CAA record", "MX records Cloudflare Email Routing"). Read the matching result before answering — Cloudflare ships changes to defaults and dashboard flows often, and stale advice misroutes the owner. If the search returns nothing useful, say so rather than guessing from training data.
+
+Skip this when the request is mechanical (e.g., the owner pasted the exact records a third party told them to add).
+
+## Prerequisites
+
+Read `SITE_DOMAIN` from `.site-config`. If not set, tell the owner: "You need a custom domain first. Run `/anglesite:deploy` to set one up."
+
+Read `CF_PROJECT_NAME` from `.site-config` to identify the Cloudflare project.
+
+## Cloudflare API access
+
+All DNS operations use the Cloudflare API with a scoped API token.
+
+Read `CF_API_TOKEN` from `.env`. If not set, the owner needs to create one (one-time setup):
+
+Tell the owner: "To manage your domain's DNS records, I need a Cloudflare API token. I'll walk you through creating one — it takes about 30 seconds."
+
+Open the API tokens page in their browser: `https://dash.cloudflare.com/profile/api-tokens`
+
+Walk them through:
+1. Click **Create Token**
+2. Find the **Edit zone DNS** template and click **Use template**
+3. Under Zone Resources, select **Specific zone** → their domain
+4. Click **Continue to summary** → **Create Token**
+5. Copy the token value shown
+
+Save the token to `.env` using the **Write tool** (update or create the file, adding `CF_API_TOKEN=the-token-value`). **Never save API tokens to `.site-config`** — that file is committed to git. `.env` is gitignored and stays local.
+
+Then get the zone ID:
+
+```sh
+CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
+CF_ZONE_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=SITE_DOMAIN" \
+  -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[0].id')
+```
+
+Replace `SITE_DOMAIN` with the root domain (no `www.`). If the zone ID comes back null, the token may be invalid or the domain not yet active on Cloudflare.
+
+## Proactive: Bluesky handle verification
+
+Before asking what the owner needs, check `.site-config` for `BLUESKY_HANDLE`. If the owner is on Bluesky but still using a `.bsky.social` handle, proactively offer: "I noticed you're on Bluesky — want me to set up your domain as your Bluesky handle? People would see @SITE_DOMAIN instead of your current handle. It takes about a minute."
+
+If `BLUESKY_HANDLE` is not set, and this is the first time running `/anglesite:domain`, ask: "By the way — are you on Bluesky? It's a social network where your domain becomes your handle, so people see @yourdomain.com. If you have an account, I can set that up in about a minute."
+
+Read `references/docs/domain-guide.md` for context on why domain-as-identity matters across the open web.
+
+## Domain education
+
+If this is the first time running `/anglesite:domain`, surface the domain education prompts from `references/docs/education-prompts.md` section 2 ("Domain Setup"). Check `.site-config` for each `EDUCATION_<KEY>=shown` flag before surfacing. Share `DOMAIN_VS_WEBSITE`, `DOMAIN_RENEWAL`, `EMAIL_NOT_AUTOMATIC`, and `TLD_AND_SEO` as a brief aside — the owner may have already heard these during `/anglesite:deploy`, so the flags prevent repetition. Write any new flags to `.site-config` after.
+
+## What do you need?
+
+Ask: "What do you need to set up on your domain?" Common requests:
+
+### Email
+
+For email setup (business mailboxes at the owner's domain), invoke the email skill:
+
+Read and follow the `email` skill
+
+The email skill expects the Cloudflare API context (`CF_API_TOKEN`, `CF_ZONE_ID`) to already be available. Ensure the Cloudflare API access section above has been completed before invoking it.
+
+### Bluesky verification
+
+To verify a custom domain as their Bluesky handle:
+
+1. Ask the owner for their current Bluesky handle (e.g., `@user.bsky.social`)
+2. Tell them: go to Bluesky Settings → Account → Handle → "I have my own domain" and read back the value shown (looks like `did=did:plc:abc123...`)
+3. Tell the owner: "I'm adding a verification record to your domain so Bluesky knows it's yours."
+4. Add the TXT record:
+   ```sh
+   curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+     -X POST -H "Authorization: Bearer $CF_API_TOKEN" \
+     -H "Content-Type: application/json" \
+     --data '{"type":"TXT","name":"_atproto","content":"did=did:plc:VALUE","ttl":1,"proxied":false}'
+   ```
+5. Confirm: "Done — I added the verification record. Go back to Bluesky and click 'Verify DNS Record'. Once verified, your Bluesky handle will be your domain name — people will see @yourdomain.com instead of @user.bsky.social."
+6. After verification succeeds, save `BLUESKY_HANDLE=@SITE_DOMAIN` to `.site-config` using the **Write tool**.
+
+### Google site verification
+
+For Google Search Console, Google Business Profile, or other Google services:
+
+1. Google will provide either a TXT record or a CNAME record
+2. Tell the owner: "I'm adding Google's verification record to your domain."
+3. Add the record via the API (same pattern as above)
+4. Confirm what was added, then tell the owner to return to Google and click verify
+
+### Other DNS records
+
+For any other service that needs DNS records:
+
+1. Ask the owner what service they're connecting
+2. Ask for the DNS records the service requires (they'll be in the service's setup instructions)
+3. Tell the owner what you're adding and why
+4. Add each record via the API
+5. Confirm what was done
+
+### View current records
+
+If the owner wants to see what's currently set up:
+
+```sh
+curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?per_page=100" \
+  -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[] | "\(.type)\t\(.name)\t\(.content)\t(proxied: \(.proxied))"'
+```
+
+Translate the output into plain English. Example: "Your domain has 5 DNS records: your website address (www), two email routing records, a spam prevention record, and your Bluesky verification."
+
+### Remove a record
+
+If a record needs to be removed (e.g., switching email providers):
+
+1. List current records to find the record ID
+2. Tell the owner what you're removing and why
+3. Delete it:
+   ```sh
+   curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/RECORD_ID" \
+     -X DELETE -H "Authorization: Bearer $CF_API_TOKEN"
+   ```
+4. Confirm: "I removed [description]. Here's why: [reason]."
+
+When switching email providers, always remove old MX records before adding new ones to avoid conflicts.
+
+## After any change
+
+Update `docs/cloudflare.md` with what was added or removed and why. Example:
+
+```
+### DNS records
+- MX: iCloud Mail servers (email delivery)
+- TXT (SPF): v=spf1 include:icloud.com ~all (spam prevention)
+- TXT (_atproto): Bluesky domain verification
+```
+
+## Safety rules
+
+- **Never change the CNAME record for `www`** — that points to the Workers project
+- **Never change nameservers** via the API
+- **When switching email providers**, remove old MX records before adding new ones
+- **Email records must be DNS only** (`"proxied": false`) — MX, SPF, DKIM, DMARC should never be proxied
+- **Before deleting any record**, tell the owner what you're removing and why
