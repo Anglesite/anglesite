@@ -3,7 +3,7 @@
  * `AnglesiteCore/ContentTypeRegistry.swift` built-in catalog.
  *
  * **Source of truth is Swift.** This is the scaffolding-relevant projection only — each
- * descriptor's `id`, `displayName`, `storage`, and ordered `fields` (name + kind). The
+ * descriptor's `id`, `displayName`, `collection`, and ordered `fields` (name + kind). The
  * microformats2 / schema.org projections that the Swift descriptors also carry are NOT
  * mirrored here: scaffolding (`renderEntry`) never reads them, and the template/JSON-LD
  * layers that do live app-side. Keep this list byte-faithful to the Swift catalog so the
@@ -164,6 +164,13 @@ export const contentTypes = [...PERSONAL_TYPES, ...BUSINESS_TYPES];
 
 /** All built-in content-type ids, in order. */
 export const contentTypeIds = contentTypes.map((t) => t.id);
+
+/**
+ * Ids of types that `createTyped` can actually scaffold: collection-stored only. Page-stored
+ * types (e.g. `businessProfile`, #345) are excluded so the MCP `create_content` schema never
+ * advertises an input the backend will reject.
+ */
+export const creatableContentTypeIds = contentTypes.filter((t) => t.collection !== null).map((t) => t.id);
 
 const byID = new Map(contentTypes.map((t) => [t.id, t]));
 

@@ -12,7 +12,7 @@ import { recordEdit } from "./edit-history.mjs";
 import { undoEdit } from "./undo-edit.mjs";
 import { listContent } from "./list-content.mjs";
 import { createPage, createPost, createTyped } from "./create-content.mjs";
-import { contentTypeIds } from "./content-types.mjs";
+import { creatableContentTypeIds } from "./content-types.mjs";
 
 /**
  * Build the Anglesite MCP server with every tool registered against `projectRoot`.
@@ -171,7 +171,7 @@ export function buildServer(projectRoot) {
     "Scaffold a typed content entry (e.g. note, article, photo, event, review) as a draft from the shared content-type registry and commit it. Collection-stored types only; does not overwrite an existing entry.",
     {
       type: z
-        .enum(contentTypeIds)
+        .enum(creatableContentTypeIds)
         .describe("Content type id, e.g. note, article, event. Determines the collection and frontmatter."),
       title: z
         .string()

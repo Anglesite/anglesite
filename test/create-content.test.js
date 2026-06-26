@@ -186,6 +186,12 @@ describe("createTyped", () => {
     expect(() => createTyped(repo, { type: "nope", title: "x" })).toThrow(/unknown content type/i);
   });
 
+  it("a title with path separators cannot escape the collection dir", () => {
+    const result = createTyped(repo, { type: "note", title: "../../../etc/evil" });
+    expect(existsSync(join(repo, "..", "..", "..", "etc", "evil.md"))).toBe(false);
+    expect(result.filePath).toMatch(/^src\/content\/notes\//);
+  });
+
   it("rejects a page-stored type (not yet supported)", () => {
     expect(() => createTyped(repo, { type: "businessProfile", title: "Acme" })).toThrow(/page-stored/i);
   });

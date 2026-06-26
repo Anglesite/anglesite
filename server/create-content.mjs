@@ -96,6 +96,11 @@ export function createTyped(projectRoot, { type, title }) {
   if (!collection) {
     throw new Error(`Page-stored type ${type} is not supported by createTyped yet`);
   }
+  // Defence-in-depth: `collection` comes from the hardcoded registry today, but keep the same
+  // path-segment contract `createPost` enforces so a future bad descriptor can't escape src/content.
+  if (!/^[A-Za-z0-9_-]+$/.test(collection)) {
+    throw new Error(`Internal error: invalid collection name in registry: ${collection}`);
+  }
 
   const cleanTitle = (title ?? "").trim();
   const finalSlug = slugify(cleanTitle || descriptor.id);
@@ -191,6 +196,10 @@ function renderEntry(descriptor, title, now = new Date()) {
         lines.push(`${field.name}: "${escapeYaml(value)}"`);
         break;
       }
+      default:
+        // A field kind the Swift catalog added (or a registry typo) would otherwise be silently
+        // dropped from the frontmatter; fail loudly instead. `createTyped` catches and surfaces it.
+        throw new Error(`renderEntry: unhandled field kind "${field.kind}" on field "${field.name}"`);
     }
   }
   lines.push("---");
