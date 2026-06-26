@@ -1,17 +1,20 @@
 /**
- * `create_page` / `create_post` MCP tool backends (#140 / A.6).
+ * `create_page` / `create_post` / `create_content` MCP tool backends (#140 / A.6; typed: #377).
  *
- * Both scaffold a minimal, valid source file from a fixed template and commit it onto the
+ * Each scaffolds a minimal, valid source file from a fixed template and commits it onto the
  * project's current branch (best-effort — the filesystem is the source of truth, so a missing
  * git repo or a rejecting hook leaves the file on disk and reports `commit: null` rather than
- * failing). Neither overwrites an existing file. These back the App Intents Add-Page / Add-Post
- * flows (A.5) and feed the same content graph `list_content` reports.
+ * failing). None overwrites an existing file. `create_page`/`create_post` back the App Intents
+ * Add-Page / Add-Post flows (A.5); `create_content` scaffolds a typed entry (note, article,
+ * event, …) from the shared content-type registry. All feed the content graph `list_content`
+ * reports.
  *
  * @module
  */
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { execFileSync } from "node:child_process";
+import { descriptorById } from "./content-types.mjs";
 
 /**
  * Scaffold a new Astro page under `src/pages/`.
@@ -76,6 +79,47 @@ export function createPost(projectRoot, { title, collection, slug }) {
   };
 }
 
+/**
+ * Scaffold a typed content entry (V-1.2 / #377) from the shared content-type registry. Mirrors the
+ * app's `NativeContentOperations.createTyped`: looks the type up by id, derives a slug from `title`,
+ * renders frontmatter via `renderEntry`, writes the `.md`, and commits — the same write/commit path
+ * as `createPost`. Collection-stored types only; page-stored types (e.g. `businessProfile`) are #345.
+ *
+ * @param {string} projectRoot
+ * @param {{ type: string, title?: string }} input
+ * @returns {{ filePath: string, slug: string, collection: string, type: string, commit: string | null }}
+ */
+export function createTyped(projectRoot, { type, title }) {
+  const descriptor = descriptorById(type);
+  if (!descriptor) throw new Error(`Unknown content type: ${type}`);
+  const collection = descriptor.collection;
+  if (!collection) {
+    throw new Error(`Page-stored type ${type} is not supported by createTyped yet`);
+  }
+  // Defence-in-depth: `collection` comes from the hardcoded registry today, but keep the same
+  // path-segment contract `createPost` enforces so a future bad descriptor can't escape src/content.
+  if (!/^[A-Za-z0-9_-]+$/.test(collection)) {
+    throw new Error(`Internal error: invalid collection name in registry: ${collection}`);
+  }
+
+  const cleanTitle = (title ?? "").trim();
+  const finalSlug = slugify(cleanTitle || descriptor.id);
+  if (!finalSlug) throw new Error("createTyped could not derive a slug");
+
+  const relPath = `src/content/${collection}/${finalSlug}.md`;
+  const abs = join(projectRoot, relPath);
+  if (existsSync(abs)) throw new Error(`A ${collection} entry already exists at ${relPath}`);
+
+  writeFile(abs, renderEntry(descriptor, cleanTitle || null));
+  return {
+    filePath: relPath,
+    slug: finalSlug,
+    collection,
+    type,
+    commit: commitFile(projectRoot, relPath, `anglesite: add ${collection} ${finalSlug}`),
+  };
+}
+
 // MARK: - Templates
 
 function pageTemplate({ title, layoutImport }) {
@@ -105,6 +149,64 @@ tags: []
 
 Write your post here.
 `;
+}
+
+/**
+ * Render a typed entry's file contents from its descriptor: a YAML frontmatter block (one line per
+ * non-markdown field, in declaration order) followed by a placeholder body for the type's `markdown`
+ * field, if any. Pure; byte-faithful to the app's `ContentScaffold.renderEntry` — same ISO 8601
+ * date format (`Date#toISOString`) as `postTemplate`, same field-kind defaults.
+ *
+ * @param {import("./content-types.mjs").ContentTypeDescriptor} descriptor
+ * @param {string | null} title  Value for a `title`/`name` field; other string fields stay empty.
+ * @param {Date} [now]
+ * @returns {string}
+ */
+function renderEntry(descriptor, title, now = new Date()) {
+  const dateTime = now.toISOString();
+
+  const lines = ["---"];
+  let bodyPlaceholder = null;
+  for (const field of descriptor.fields) {
+    switch (field.kind) {
+      case "markdown":
+        bodyPlaceholder = `Write your ${descriptor.displayName.toLowerCase()} here.`;
+        break;
+      case "datetime":
+        lines.push(`${field.name}: ${dateTime}`);
+        break;
+      case "date":
+        lines.push(`${field.name}: ${dateTime.slice(0, 10)}`);
+        break;
+      case "bool":
+        lines.push(`${field.name}: false`);
+        break;
+      case "number":
+        lines.push(`${field.name}: 0`);
+        break;
+      case "stringArray":
+      case "imageArray":
+        lines.push(`${field.name}: []`);
+        break;
+      case "string":
+      case "text":
+      case "url":
+      case "image": {
+        const value = field.name === "title" || field.name === "name" ? (title ?? "") : "";
+        lines.push(`${field.name}: "${escapeYaml(value)}"`);
+        break;
+      }
+      default:
+        // A field kind the Swift catalog added (or a registry typo) would otherwise be silently
+        // dropped from the frontmatter; fail loudly instead. `createTyped` catches and surfaces it.
+        throw new Error(`renderEntry: unhandled field kind "${field.kind}" on field "${field.name}"`);
+    }
+  }
+  lines.push("---");
+
+  let output = lines.join("\n") + "\n";
+  if (bodyPlaceholder) output += `\n${bodyPlaceholder}\n`;
+  return output;
 }
 
 // MARK: - Git (best-effort, commits to HEAD on the current branch)

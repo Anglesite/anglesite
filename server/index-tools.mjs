@@ -13,7 +13,8 @@ import { applyEdit } from "./apply-edit-dispatcher.mjs";
 import { recordEdit } from "./edit-history.mjs";
 import { undoEdit } from "./undo-edit.mjs";
 import { listContent } from "./list-content.mjs";
-import { createPage, createPost } from "./create-content.mjs";
+import { createPage, createPost, createTyped } from "./create-content.mjs";
+import { creatableContentTypeIds } from "./content-types.mjs";
 
 /**
  * The plugin version is the single source of truth (`bin/release.ts` keeps the
@@ -179,6 +180,30 @@ export function buildServer(projectRoot) {
     ({ title, collection, slug }) => {
       try {
         const result = createPost(projectRoot, { title, collection, slug });
+        return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: error.message }], isError: true };
+      }
+    },
+  );
+
+  // Typed content objects (#377 / V-1). Scaffolds an h-entry-family or business entry from the
+  // shared content-type registry, byte-faithful to the app's native createTyped path.
+  server.tool(
+    "create_content",
+    "Scaffold a typed content entry (e.g. note, article, photo, event, review) as a draft from the shared content-type registry and commit it. Collection-stored types only; does not overwrite an existing entry.",
+    {
+      type: z
+        .enum(creatableContentTypeIds)
+        .describe("Content type id, e.g. note, article, event. Determines the collection and frontmatter."),
+      title: z
+        .string()
+        .optional()
+        .describe("Entry title. Used for the title/name field (when the type has one) and as the slug source."),
+    },
+    ({ type, title }) => {
+      try {
+        const result = createTyped(projectRoot, { type, title });
         return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (error) {
         return { content: [{ type: "text", text: error.message }], isError: true };
