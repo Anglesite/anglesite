@@ -181,6 +181,7 @@ describe("MCP annotation server", () => {
       expect(names).toEqual([
         "add_annotation",
         "apply_edit",
+        "create_content",
         "create_page",
         "create_post",
         "list_annotations",
