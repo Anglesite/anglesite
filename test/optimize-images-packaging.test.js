@@ -5,6 +5,7 @@ import {
   readFileSync,
   existsSync,
   writeFileSync,
+  symlinkSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -89,6 +90,16 @@ describe.skipIf(!hasZsh)('ai-optimize in a scaffolded site (#320)', () => {
 
   it('runs the optimize script against a fixture JPEG without ERR_MODULE_NOT_FOUND', async () => {
     execFileSync('/bin/zsh', [SCAFFOLD_SCRIPT, '--yes', tmpDir], { stdio: 'pipe' });
+
+    // Stand in for the site's `npm install`: in a real scaffolded site,
+    // `server/optimize-images.mjs` resolves `sharp` from the site's OWN
+    // node_modules/ (sharp is a template devDependency), the first hop of
+    // Node's walk-up. The sandbox scaffold isn't installed, so link the
+    // plugin's node_modules — which carries the same sharp ^0.33 — into the
+    // site root. This supplies only third-party deps: node_modules/@dwk does
+    // not exist here, so a regressed bare `@dwk/anglesite` import (the actual
+    // #320 bug) would still fail through this link.
+    symlinkSync(join(REPO_ROOT, 'node_modules'), join(tmpDir, 'node_modules'), 'dir');
 
     // Drop one unoptimized JPEG into public/images/.
     const imagesDir = join(tmpDir, 'public', 'images');
