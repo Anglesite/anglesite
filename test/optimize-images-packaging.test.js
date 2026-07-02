@@ -100,6 +100,10 @@ describe.skipIf(!hasZsh)('ai-optimize in a scaffolded site (#320)', () => {
     // not exist here, so a regressed bare `@dwk/anglesite` import (the actual
     // #320 bug) would still fail through this link.
     symlinkSync(join(REPO_ROOT, 'node_modules'), join(tmpDir, 'node_modules'), 'dir');
+    // Guard the guard: if a @dwk/* package is ever installed at the repo root,
+    // a bare `@dwk/anglesite` import would resolve through this link and this
+    // e2e would silently stop catching the #320 regression — fail loudly instead.
+    expect(existsSync(join(REPO_ROOT, 'node_modules', '@dwk'))).toBe(false);
 
     // Drop one unoptimized JPEG into public/images/.
     const imagesDir = join(tmpDir, 'public', 'images');
