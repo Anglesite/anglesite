@@ -24,6 +24,13 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      # The optimize-images packaging e2e (test/optimize-images-packaging.test.js, #320)
+      # scaffolds a real site via scaffold.sh, which needs zsh (and rsync) — both absent
+      # from ubuntu-latest, so the suite's describe.skipIf(!hasZsh) silently skipped it
+      # here and the regression guard only ever ran on contributor Macs.
+      - name: Install zsh + rsync (for the scaffold e2e)
+        run: sudo apt-get update -q && sudo apt-get install -y --no-install-recommends zsh rsync
+
       - run: npm ci
 
       - name: Verify skill registry is up to date
