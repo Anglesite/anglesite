@@ -1,0 +1,85 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection, render } from "astro:content";
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const events = await getCollection("events");
+  return events.map((event) => ({
+    params: { slug: event.id },
+    props: { event },
+  }));
+}
+
+const { event } = Astro.props;
+const { Content } = await render(event);
+
+// The schema stores time-of-day as free text (e.g. "7:00 PM"), not a
+// timezone-aware value, so `date` (day-level ISO) is the only value
+// precise enough to encode in dt-start/dt-end and JSON-LD startDate —
+// the human-readable time is shown alongside it, not folded into the
+// datetime attribute.
+const isoDate = event.data.date.toISOString();
+
+const eventJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Event",
+  name: event.data.title,
+  startDate: isoDate,
+  ...(event.data.endTime && { endDate: isoDate }),
+  description: event.data.description,
+  url: new URL(`/events/${event.id}/`, Astro.site).toString(),
+  ...(event.data.location && {
+    location: { "@type": "Place", name: event.data.location },
+  }),
+  eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+  eventStatus: "https://schema.org/EventScheduled",
+};
+---
+
+<BaseLayout
+  title={event.data.title}
+  description={event.data.description}
+  image={event.data.image}
+  jsonLd={eventJsonLd}
+>
+  <article class="h-event">
+    <header>
+      <h1 class="p-name">{event.data.title}</h1>
+      <p class="event__meta">
+        <time class="dt-start" datetime={isoDate}>
+          {event.data.date.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </time>
+        {event.data.time && <span> · {event.data.time}</span>}
+        {event.data.endTime && (
+          <span>
+            {" "}
+            – <time class="dt-end" datetime={isoDate}>{event.data.endTime}</time>
+          </span>
+        )}
+        {event.data.recurring && <span> · Recurs {event.data.recurring}</span>}
+      </p>
+      {event.data.location && (
+        <p class="p-location">{event.data.location}</p>
+      )}
+    </header>
+
+    <p class="p-summary">{event.data.description}</p>
+
+    <div class="e-content">
+      <Content />
+    </div>
+  </article>
+</BaseLayout>
+
+<style>
+  .event__meta {
+    color: var(--color-muted, #666);
+    font-size: 0.875rem;
+  }
+</style>

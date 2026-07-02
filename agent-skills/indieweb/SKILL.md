@@ -371,7 +371,7 @@ Tell the owner what's live and what to expect:
 For each enabled endpoint, explain in one sentence:
 
 - **IndieAuth** — "You can now sign in to IndieWeb services (and any IndieAuth-compatible app) with `https://<SITE_DOMAIN>`. Your tokens are issued by your own server."
-- **Webmention** — "Your site can now receive mentions, replies, and likes from other websites. They appear on your posts automatically as cards showing the sender's name, photo, and a snippet of what they wrote."
+- **Webmention** — "Your site can now receive mentions, replies, and likes from other websites. They appear on your posts automatically as cards showing the sender's name, photo, and a snippet of what they wrote. It also sends webmentions of its own — every `/anglesite:deploy` scans new posts for outbound links and notifies the sites you linked to."
 - **Micropub** — "You can publish to your site from Micropub clients (like phone apps). New posts appear as notes — they're committed to your repo and go live after a rebuild (~1–2 minutes)."
 
 Important caveats to surface:
@@ -385,6 +385,7 @@ Suggest next steps:
 - Run `/anglesite:deploy` to publish the changes
 - Test IndieAuth by signing in at `https://indieauth.com` (or any relying party) with their domain
 - Try posting a note from a Micropub client
+- If Webmention is enabled and the owner uses POSSE (recording syndication links on posts), mention Brid.gy (see "Backfeed from social replies" in `docs/indieweb.md`) — it turns likes/replies/reposts on the syndicated copies back into webmentions on the original post. It's the one piece of the loop that still runs through a third-party service (Brid.gy itself), so frame it as optional, not a default step.
 
 ## Notes
 

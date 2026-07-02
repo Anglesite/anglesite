@@ -53,6 +53,8 @@ Chosen option: **compose the `@dwk/*` endpoint handlers into `site-entry.js`**, 
 5. **Webmention display:** received mentions are edge-rendered into target pages with `HTMLRewriter` — no client JS, always current.
 6. **Distribution gate:** the `@dwk/*` packages are unpublished (`0.0.0`); the skill installs from npm and stops gracefully until they ship.
 
+> **Update (2026-07-01):** the `@dwk/*` packages are now published (`0.1.0-beta.2`+). The distribution gate in item 6 no longer blocks — the skill's Step 1 import-smoke-test (see `skills/indieweb/SKILL.md`) now runs against a live, loadable package set rather than stopping at "not yet published."
+
 ### Consequences
 
 * Good, because the owner's identity, tokens, and data live only on their own Cloudflare account — no third-party identity host

@@ -3,7 +3,7 @@ name: deploy
 description: "Build, security scan, and deploy to Cloudflare Workers"
 license: ISC
 compatibility: "Designed for Claude Code / compatible agents operating inside an Anglesite project (Astro + Keystatic, Node >=22). Deploy/provisioning steps require a Cloudflare account and Wrangler."
-allowed-tools: Bash(npm run build), Bash(npm run deploy *), Bash(npm run preview *), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npm run ai-a14y *), Bash(npm run ai-perf *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Bash(kill *), Write, Read, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__search_cloudflare_documentation
+allowed-tools: Bash(npm run build), Bash(npm run deploy *), Bash(npm run preview *), Bash(npm run ai-linkcheck *), Bash(npm run ai-a11y *), Bash(npm run ai-a14y *), Bash(npm run ai-perf *), Bash(npm run ai-webmention-send *), Bash(npx wrangler *), Bash(grep *), Bash(find dist/ *), Bash(gh *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git checkout *), Bash(git merge *), Bash(git branch *), Bash(kill *), Write, Read, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__search_cloudflare_documentation
 metadata:
   author: "David W. Keith"
   version: "1.2.0"
@@ -165,6 +165,18 @@ Read `AGENTIC_CRAWLERS` from `.site-config`. The default (when unset) is `allow`
 - **`block`** — the owner has declared agentic crawlers shouldn't read this site. Skip this step entirely. (`/anglesite:check` still runs a14y informationally — useful for reference even when blocked, but never blocks deploy.)
 
 Translate the choice for the owner the first time you encounter a site where it isn't set: "Your site is open to AI agents (search summaries, chat browsers, content mappers). I'll check that they can actually read it before each deploy. If you'd rather block agentic crawlers entirely, set `AGENTIC_CRAWLERS=block` in `.site-config` and I'll skip this check."
+
+## Step 2a-webmention — Send webmentions (conditional on Webmention being enabled)
+
+Read `INDIEWEB_WEBMENTION` from `.site-config`. If not `true`, skip this step entirely — the site has no Webmention endpoint set up (`/anglesite:indieweb`).
+
+If `true`, run the build-time webmention sender against the built output:
+
+```sh
+npm run ai-webmention-send
+```
+
+This scans blog posts and notes for outbound links in their content, discovers each target's Webmention endpoint, and sends one — closing the loop with the site's own receiving endpoint (ADR-0020) instead of leaving sending to a third-party tool. Each (post, link) pair is attempted once, ever; state is tracked in `webmention-sent.json` at the project root. Never blocks the deploy — it only logs a summary line (e.g. "3 sent, 12 already sent, 1 no endpoint"). If `webmention-sent.json` changed, it needs to be committed along with any other site changes so the next deploy doesn't re-attempt the same pairs.
 
 ### When the gate runs
 

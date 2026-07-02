@@ -14,12 +14,13 @@ These ship with every Anglesite site. No setup needed:
 |---|---|---|
 | `h-card` | Site header (`BaseLayout.astro`) | Machine-readable identity: business name + URL |
 | `h-entry` | Blog posts (`[slug].astro`) | Machine-readable posts: title, date, content, photo, tags |
-| `h-feed` | Blog listing (`/blog/index.astro`) | Machine-readable feed of posts (TODO: add to blog listing page) |
+| `h-feed` | Blog listing (`/blog/index.astro`) | Machine-readable feed of posts |
 | `u-syndication` | Blog posts | Links back to copies on social media |
 | RSS feed | `/rss.xml` | Feed readers and podcast apps |
 | Feed discovery | `<link rel="alternate">` in `<head>` | Feed readers auto-discover the RSS feed |
 | POSSE workflow | Keystatic syndication field | Publish here first, share elsewhere, record the links |
 | Domain ownership | Cloudflare Registrar | Owner controls DNS, email, identity |
+| `h-event` | Events (`/events/index.astro`, `/events/[slug].astro`) | Machine-readable events with `Event` JSON-LD; add entries to the `events` Keystatic collection |
 
 ---
 
@@ -133,35 +134,23 @@ On the blog listing page. Wraps the collection of `h-entry` items so machines ca
 
 ### h-event (events)
 
-For businesses that host events — venues, theaters, farms, fitness studios, breweries, museums, houses of worship. Add `h-event` markup when creating event pages or event listings.
+For businesses that host events — venues, theaters, farms, fitness studios, breweries, museums, houses of worship. Ships as a real feature, not just markup guidance: `/events/index.astro` lists upcoming entries from the `events` Keystatic collection, and `/events/[slug].astro` renders each one with both `h-event` microformats and `Event` JSON-LD (the two serve different audiences — microformats for IndieWeb tools, JSON-LD for search engines).
 
-Properties:
+To add an event, create an entry in the **Events** collection in Keystatic (`title`, `date`, `time`, `endTime`, `location`, `description`, `recurring`, `image`) — the page and both markup formats are generated automatically. No page-authoring needed.
+
+Properties rendered:
 
 - `p-name` — event name
-- `dt-start` — start date/time (ISO 8601)
-- `dt-end` — end date/time (ISO 8601)
+- `dt-start` — start date (ISO 8601, day-level — the schema stores time-of-day as free text, not a timezone-aware value, so only the date is encoded in the datetime attribute; the human-readable time is shown alongside it)
+- `dt-end` — present when `endTime` is set
 - `p-location` — venue name or address
 - `p-summary` — short description
-- `e-content` — full description
+- `e-content` — full description (Markdoc body)
 - `u-url` — link to event page
 
-Example:
+The index page filters one-time events whose `date` has passed; events with a `recurring` value (e.g. "weekly") always stay listed — keep `date` pointed at the next occurrence.
 
-```html
-<article class="h-event">
-  <h2 class="p-name">Fall Harvest Festival</h2>
-  <time class="dt-start" datetime="2025-10-11T10:00:00-05:00">Oct 11, 10am</time> –
-  <time class="dt-end" datetime="2025-10-11T16:00:00-05:00">4pm</time>
-  <span class="p-location">Green Acres Farm, Springfield, IL</span>
-  <div class="e-content">
-    <p>Apple picking, corn maze, hayrides, and cider donuts.</p>
-  </div>
-</article>
-```
-
-Use `h-event` alongside the `Event` JSON-LD structured data that SMB files already recommend. They serve different audiences — microformats for IndieWeb tools, JSON-LD for search engines.
-
-Business types that commonly need events: `event-venue`, `community-theater`, `farm`, `brewery`, `fitness`, `museum`, `house-of-worship`, `bookshop`, `entertainment`, `dance-studio`, `marina`, `tour-guide`.
+Business types that commonly need events: `event-venue`, `community-theater`, `farm`, `brewery`, `fitness`, `museum`, `house-of-worship`, `bookshop`, `entertainment`, `dance-studio`, `marina`, `tour-guide`. Suggest enabling it (adding a link to `/events/`) for these types during `/anglesite:start`.
 
 ---
 
@@ -177,7 +166,7 @@ When to reach for it:
 - The site is on a **custom domain** (identity must be HTTPS-rooted there — the skill refuses on a bare `*.workers.dev` address)
 - It's an opt-in enhancement — don't offer it during `/anglesite:start`
 
-> The `@dwk/*` packages aren't published to npm yet, so `/anglesite:indieweb` reports "not available yet" until they ship. Plugin maintainers: see `docs/platforms/dwk-workers.md` and ADR-0020 for the integration design.
+> The `@dwk/*` packages are published on npm (`0.1.0-beta.2`+). `/anglesite:indieweb`'s Step 1 still runs a live install-and-import smoke test before proceeding — a published version alone isn't a guarantee the compiled build loads cleanly under Node ESM — and reports "not available yet" only if that check fails. Plugin maintainers: see `docs/platforms/dwk-workers.md` and ADR-0020 for the integration design.
 
 ---
 
@@ -221,10 +210,29 @@ Fetch webmentions during `npm run build` and bake them into the HTML. No client-
 
 ### Sending webmentions
 
-When the owner publishes a post that links to another website, the site can notify that website. This is done at build time or deploy time:
+Ships as a real feature when Webmention is enabled — not a third-party pointer. `scripts/send-webmentions.ts` runs as part of `/anglesite:deploy` (gated on `INDIEWEB_WEBMENTION=true`): it scans the built blog posts and notes for external links inside `e-content`, discovers each target's Webmention endpoint (HTTP `Link` header, then `<link rel="webmention">`), and sends one. This closes the loop with the site's own receiving endpoint instead of falling back to `webmention.io` or a manual tool — the self-owned story is complete on both directions.
 
-- Use a tool like `webmention.app` or a build script that scans the post for external links and sends webmentions
-- This is advanced and optional — most SMB sites receive more than they send
+Each `(post, link)` pair is attempted once, ever; the outcome is tracked in `webmention-sent.json` at the project root, which is committed to the repo like `.site-config` so state survives across deploys. Targets are checked against a private/loopback-address guard before any request goes out. Run it directly with `npm run ai-webmention-send`.
+
+### Backfeed from social replies (Brid.gy)
+
+The POSSE workflow (see above) records where a post was syndicated — the `syndication` field, rendered as `u-syndication` links. Those social copies still collect their own likes, replies, and reposts on the silo (X, Mastodon, Bluesky) — none of that activity reaches the canonical post automatically.
+
+[Brid.gy](https://brid.gy) closes that loop: it polls the owner's connected social accounts, matches activity on syndicated posts back to the original via the `u-syndication` link, and sends a webmention to the site for each one — likes, replies, and reposts all show up as regular webmentions in the site's inbox, no different from a mention sent directly. It's a free, well-established IndieWeb community service (not a paid SaaS), but it **is** a third-party dependency — the one piece of the loop that doesn't run entirely on the owner's own infrastructure. Mention it as optional, not a default step.
+
+Prerequisites (all already true for a site with Webmention enabled and POSSE in use):
+
+- `rel="me"` links to the social profiles being connected (passive layer, ships by default)
+- A Webmention receiving endpoint on the owner's domain (`/anglesite:indieweb`, Webmention selected)
+- Syndication links recorded on posts (the owner's normal POSSE habit — see `/anglesite:syndicate`)
+
+Setup (owner-facing, not something the skill automates — Brid.gy account linking happens on brid.gy's own site):
+
+1. Go to `https://brid.gy` and sign in with the site's domain (IndieAuth, since the site already has an endpoint)
+2. Connect each social account Brid.gy supports that the owner posts to
+3. Brid.gy starts polling; new likes/replies/reposts on syndicated copies arrive as webmentions within its normal poll interval — no further setup on the Anglesite side
+
+If the owner later disables Webmention or removes `/anglesite:indieweb`, backfeed simply stops arriving (the receiving endpoint is gone) — nothing to clean up on Brid.gy's side beyond disconnecting the account there.
 
 ---
 
@@ -300,10 +308,10 @@ The owner doesn't need to understand IndieWeb terminology. Here's what matters t
 - [ ] RSS feed at `/rss.xml` with discovery link in `<head>`
 - [ ] Syndication links render as `u-syndication` with `rel="syndication"`
 
-### When creating event pages
+### When creating an event
 
-- [ ] `h-event` markup with dt-start, dt-end, p-name, p-location
-- [ ] Corresponding `Event` JSON-LD structured data
+- [ ] Entry added to the `events` Keystatic collection (title, date, description at minimum)
+- [ ] `/events/[slug].astro` renders `h-event` markup and `Event` JSON-LD automatically — no manual markup needed
 
 ### When owner is ready for advanced features
 
