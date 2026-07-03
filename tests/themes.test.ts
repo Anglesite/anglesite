@@ -24,8 +24,8 @@ const REQUIRED_CSS_PROPS = [
 ];
 
 describe("THEMES", () => {
-  it("has 8 themes", () => {
-    expect(Object.keys(THEMES).length).toBe(8);
+  it("has 9 themes", () => {
+    expect(Object.keys(THEMES).length).toBe(9);
   });
 
   it("has all expected theme names", () => {
@@ -38,6 +38,7 @@ describe("THEMES", () => {
     expect(names).toContain("playful");
     expect(names).toContain("elegant");
     expect(names).toContain("community");
+    expect(names).toContain("studio");
   });
 
   for (const [name, theme] of Object.entries(THEMES)) {
@@ -75,8 +76,8 @@ describe("THEMES", () => {
 // ---------------------------------------------------------------------------
 
 describe("themeNames", () => {
-  it("returns all 8 theme names", () => {
-    expect(themeNames().length).toBe(8);
+  it("returns all 9 theme names", () => {
+    expect(themeNames().length).toBe(9);
   });
 
   it("returns strings", () => {
@@ -121,6 +122,10 @@ describe("themeForBusinessType", () => {
 
   it("maps healthcare to fresh", () => {
     expect(themeForBusinessType("healthcare")).toBe("fresh");
+  });
+
+  it("maps web-artist to studio", () => {
+    expect(themeForBusinessType("web-artist")).toBe("studio");
   });
 
   it("falls back to classic for unknown types", () => {

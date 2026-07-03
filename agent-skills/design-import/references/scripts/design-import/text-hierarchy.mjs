@@ -6,6 +6,9 @@
  * text elements so the page generator can emit semantic markup.
  */
 
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
 /**
  * Assign HTML heading levels to a flat list of text elements based on font size.
  *
@@ -92,4 +95,53 @@ export function detectButtons(elements) {
     }
   }
   return indices;
+}
+
+// ---------------------------------------------------------------------------
+// CLI entry point
+// ---------------------------------------------------------------------------
+
+function main() {
+  const [file] = process.argv.slice(2);
+
+  if (!file) {
+    console.error("Usage: node text-hierarchy.mjs <extraction.json>");
+    console.error("  extraction.json is the saved output of canva-playwright.mjs");
+    process.exitCode = 1;
+    return;
+  }
+
+  const data = JSON.parse(readFileSync(file, "utf8"));
+  // Accept both extractCanvaSite ({pages: [...]}) and extractCanvaPage output
+  const pages = data.pages ?? [data];
+
+  const result = pages.map((page) => {
+    let h1Used = false;
+    return {
+      url: page.url ?? null,
+      sections: (page.sections ?? []).map((section) => {
+        const elements = section.elements ?? [];
+        const textElements = elements.filter((el) => el.type === "text");
+        const tagged = assignHeadingLevels(textElements, { h1Used });
+        if (tagged.some((t) => t.tag === "h1")) h1Used = true;
+        return {
+          index: section.index,
+          text: tagged,
+          buttonIndices: detectButtons(elements),
+        };
+      }),
+    };
+  });
+
+  console.log(JSON.stringify(result, null, 2));
+}
+
+// Only run CLI when executed directly (rename-proof, unlike an endsWith check)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main();
+  } catch (err) {
+    console.error(err.message);
+    process.exitCode = 1;
+  }
 }

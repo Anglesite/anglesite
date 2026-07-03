@@ -14,6 +14,7 @@
 
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { parseInlineColors, rankColors, inferColorRoles } from './canva-colors.mjs';
 import { parseCanvaFonts } from './canva-fonts.mjs';
@@ -353,10 +354,19 @@ async function main() {
   const args = process.argv.slice(2);
   const url = args.find((a) => !a.startsWith('--'));
   const contentOnly = args.includes('--content-only');
+  const site = args.includes('--site');
 
   if (!url) {
-    console.error('Usage: node canva-playwright.mjs <url> [--content-only]');
+    console.error('Usage: node canva-playwright.mjs <url> [--site] [--content-only]');
+    console.error('  --site crawls nav-linked subpages too and returns { tokens, pages, images, navigation }');
     process.exitCode = 1;
+    return;
+  }
+
+  if (site) {
+    // extractCanvaSite manages its own browser lifecycle
+    const result = await extractCanvaSite(url);
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
 
@@ -388,7 +398,10 @@ async function main() {
   }
 }
 
-// Only run CLI when executed directly
-if (process.argv[1]?.endsWith('canva-playwright.mjs')) {
-  main();
+// Only run CLI when executed directly (rename-proof, unlike an endsWith check)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error(err.message);
+    process.exitCode = 1;
+  });
 }

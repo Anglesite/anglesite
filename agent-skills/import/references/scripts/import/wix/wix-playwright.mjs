@@ -15,6 +15,7 @@
 
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { rgbToHex, classifyTokens } from './color-utils.mjs';
 
@@ -403,7 +404,7 @@ async function main() {
   const stylesOnly = args.includes('--styles-only');
 
   if (!url) {
-    console.error('Usage: node wix-playwright.js <url> [--content-only] [--styles-only]');
+    console.error('Usage: node wix-playwright.mjs <url> [--content-only] [--styles-only]');
     process.exitCode = 1;
     return;
   }
@@ -434,8 +435,12 @@ async function main() {
   }
 }
 
-// Only run CLI when executed directly
-const isDirectRun = process.argv[1]?.endsWith('wix-playwright.js');
+// Only run CLI when executed directly (rename-proof, unlike an endsWith check)
+const isDirectRun =
+  process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isDirectRun) {
-  main();
+  main().catch((err) => {
+    console.error(err.message);
+    process.exitCode = 1;
+  });
 }

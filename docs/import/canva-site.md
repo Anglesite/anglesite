@@ -93,7 +93,7 @@ Canva sites have minimal metadata. Expect:
 Run the Canva Playwright extractor against each page URL:
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/canva/canva-playwright.mjs "PAGE_URL"
+node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/canva-playwright.mjs "PAGE_URL"
 ```
 
 Extract design tokens from the **homepage only** — they apply site-wide. Extract content from each page individually.

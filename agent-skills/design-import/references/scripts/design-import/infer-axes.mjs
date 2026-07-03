@@ -4,6 +4,8 @@
 // five design axes (temperature, weight, register, time, voice). These axes
 // seed design.json and drive CSS custom property generation via design.ts.
 
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { mapToSystemStack } from "./canva-fonts.mjs";
 import { saturation } from "../import/wix/color-utils.mjs";
 
@@ -238,4 +240,36 @@ export function inferAxes({ colorRoles, fonts }) {
     time: inferTime(fonts ?? []),
     voice: inferVoice(primary ?? null, accent ?? null),
   };
+}
+
+// ---------------------------------------------------------------------------
+// CLI entry point
+// ---------------------------------------------------------------------------
+
+function main() {
+  const [file] = process.argv.slice(2);
+
+  if (!file) {
+    console.error("Usage: node infer-axes.mjs <extraction.json>");
+    console.error("  extraction.json is the saved output of canva-playwright.mjs");
+    process.exitCode = 1;
+    return;
+  }
+
+  const data = JSON.parse(readFileSync(file, "utf8"));
+  const tokens = data.tokens ?? data;
+  const colorRoles = tokens.colors ?? {};
+  const fonts = tokens.fonts ?? [];
+
+  console.log(JSON.stringify(inferAxes({ colorRoles, fonts }), null, 2));
+}
+
+// Only run CLI when executed directly (rename-proof, unlike an endsWith check)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main();
+  } catch (err) {
+    console.error(err.message);
+    process.exitCode = 1;
+  }
 }
