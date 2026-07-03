@@ -41,6 +41,42 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       wait_for_navigation: () => ({ content: [{ type: 'text', text: '{"url":"done"}' }] }),
       evaluate_javascript: () => {
         const expr = args.expression || '';
+        // — Canva page-functions (design-import), keyed on source markers unique
+        //   to each serialized extractor so they can't shadow the Wix ones —
+        if (expr.includes('FONT_FACE_RULE')) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            styles: [
+              'color: rgb(20, 20, 20); font-size: 48px',
+              'background-color: rgb(245, 245, 245)',
+              'color: rgb(200, 30, 60)',
+              'color: rgb(200, 30, 60)',
+              'color: rgb(30, 90, 180)',
+            ],
+            fontFaces: [{ family: 'Canva Sans' }, { family: 'Playfair Display' }, { family: 'Open Sans' }],
+          })}] };
+        }
+        if (expr.includes('data-section-id')) {
+          return { content: [{ type: 'text', text: JSON.stringify([{
+            id: 'section-0',
+            bounds: { x: 0, y: 0, width: 1280, height: 640 },
+            elements: [
+              { tagName: 'H1', textContent: 'Welcome',
+                style: { fontSize: '48px', fontFamily: 'Playfair Display', color: 'rgb(20, 20, 20)' },
+                bounds: { x: 100, y: 120, width: 600, height: 60 }, src: null },
+              { tagName: 'IMG', textContent: '', style: {},
+                bounds: { x: 0, y: 0, width: 1280, height: 640 }, src: 'https://cdn.example/hero.jpg' },
+            ],
+          }])}] };
+        }
+        if (expr.includes('nav a[href]')) {
+          return { content: [{ type: 'text', text: JSON.stringify([{ label: 'About', path: '/about' }]) }] };
+        }
+        if (expr.includes('img[src]')) {
+          return { content: [{ type: 'text', text: JSON.stringify([{ src: 'https://cdn.example/hero.jpg', alt: 'Hero' }]) }] };
+        }
+        if (expr.startsWith('document.querySelectorAll(') && expr.endsWith('.length')) {
+          return { content: [{ type: 'text', text: '1' }] }; // selector-poll: element present
+        }
         if (expr.includes('extractStylesSrc') || expr.includes('samples')) {
           return { content: [{ type: 'text', text: JSON.stringify({
             samples: { bg: ['rgb(200, 164, 126)'], text: ['rgb(118, 118, 118)'], heading: ['rgb(0, 0, 0)'] },
