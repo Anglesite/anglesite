@@ -403,7 +403,7 @@ async function main() {
   const stylesOnly = args.includes('--styles-only');
 
   if (!url) {
-    console.error('Usage: node wix-playwright.js <url> [--content-only] [--styles-only]');
+    console.error('Usage: node wix-playwright.mjs <url> [--content-only] [--styles-only]');
     process.exitCode = 1;
     return;
   }
@@ -435,7 +435,7 @@ async function main() {
 }
 
 // Only run CLI when executed directly
-const isDirectRun = process.argv[1]?.endsWith('wix-playwright.js');
+const isDirectRun = process.argv[1]?.endsWith('wix-playwright.mjs');
 if (isDirectRun) {
   main();
 }

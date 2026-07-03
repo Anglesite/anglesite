@@ -239,3 +239,34 @@ export function inferAxes({ colorRoles, fonts }) {
     voice: inferVoice(primary ?? null, accent ?? null),
   };
 }
+
+// ---------------------------------------------------------------------------
+// CLI entry point
+// ---------------------------------------------------------------------------
+
+async function main() {
+  const { readFileSync } = await import("node:fs");
+  const [file] = process.argv.slice(2);
+
+  if (!file) {
+    console.error("Usage: node infer-axes.mjs <extraction.json>");
+    console.error("  extraction.json is the saved output of canva-playwright.mjs");
+    process.exitCode = 1;
+    return;
+  }
+
+  const data = JSON.parse(readFileSync(file, "utf8"));
+  const tokens = data.tokens ?? data;
+  const colorRoles = tokens.colors ?? tokens.colorRoles ?? {};
+  const fonts = tokens.fonts ?? [];
+
+  console.log(JSON.stringify(inferAxes({ colorRoles, fonts }), null, 2));
+}
+
+// Only run CLI when executed directly
+if (process.argv[1]?.endsWith("infer-axes.mjs")) {
+  main().catch((err) => {
+    console.error(err.message);
+    process.exitCode = 1;
+  });
+}

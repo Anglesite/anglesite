@@ -107,6 +107,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── list-content.mjs          list_content tool (enumerate pages/posts)
 │   ├── create-content.mjs        create_page / create_post tools
 │   ├── content-frontmatter.mjs   Shared frontmatter helpers for content tools
+│   ├── content-types.mjs         Built-in typed-content catalog mirrored from the app's ContentTypeRegistry.swift (source of truth is Swift)
 │   └── optimize-images.mjs       Image optimize/srcset used by the image-drop edit path
 ├── bin/
 │   ├── build-instructions.ts     Agent instruction file validator

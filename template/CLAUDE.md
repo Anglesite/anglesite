@@ -61,7 +61,7 @@ Step-by-step guides for common operations:
 | Image optimization | `docs/workflows/optimize-images.md` |
 | Business hours and location | `docs/workflows/business-info.md` |
 | Email newsletter | `docs/workflows/newsletter.md` |
-| Visual themes | See `scripts/themes.ts` for 8 pre-built palettes |
+| Visual themes | See `scripts/themes.ts` for 9 pre-built palettes |
 | QR codes and campaign tracking | `docs/workflows/qr.md` |
 | Customer testimonials | `docs/workflows/testimonials.md` |
 | Multi-language (i18n) | `docs/workflows/i18n.md` |
@@ -287,6 +287,9 @@ The owner uses commands provided by the Anglesite plugin, invoked as slash comma
 | Add a cookie / privacy consent banner | `/anglesite:consent` |
 | Add a paywall (free or paid members) | `/anglesite:membership` |
 | Install ad pixels (Meta, Google Ads, GA4, LinkedIn, TikTok, Pinterest, X) | `/anglesite:tracking` |
+| Make the site installable / work offline (PWA) | `/anglesite:pwa` |
+| Add a native share button | `/anglesite:share` |
+| Import a design from Canva or Figma | `/anglesite:design-import` |
 
 For everything else — adding a page, changing the design, adding animations, updating dependencies — the owner just asks in plain English. You handle it.
 

@@ -141,6 +141,24 @@ export const THEMES: Record<string, Theme> = {
       "font-body": "system-ui, -apple-system, sans-serif",
     },
   },
+  studio: {
+    displayName: "Studio",
+    description: "Dark mode for creative coders and web artists",
+    bestFor: ["web-artist", "creative-coder", "generative-art"],
+    vars: {
+      "color-primary": "#e0e0e0",
+      "color-accent": "#00ff88",
+      "color-bg": "#000000",
+      "color-text": "#e0e0e0",
+      "color-muted": "#888888",
+      "color-surface": "#111111",
+      "color-border": "#222222",
+      "font-heading":
+        "ui-monospace, 'Cascadia Code', 'Source Code Pro', 'Fira Code', monospace",
+      "font-body":
+        "ui-monospace, 'Cascadia Code', 'Source Code Pro', 'Fira Code', monospace",
+    },
+  },
 };
 
 /**
@@ -201,6 +219,10 @@ const BUSINESS_TYPE_MAP: Record<string, string> = {
   "social-services": "community",
   "food-bank": "community",
   "animal-shelter": "community",
+  // Studio
+  "web-artist": "studio",
+  "creative-coder": "studio",
+  "generative-art": "studio",
 };
 
 /**

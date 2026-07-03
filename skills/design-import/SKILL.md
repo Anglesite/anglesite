@@ -185,15 +185,15 @@ Tell the owner:
 > colors, fonts, images, and page layouts. This takes about a minute."
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/canva-playwright.mjs "SOURCE_URL"
+node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/canva-playwright.mjs --site "SOURCE_URL" > /tmp/canva-extraction.json
 ```
 
-Parse the JSON output as EXTRACTION_RESULT. It contains:
-- `pages` — array of page objects with sections, text, and images
-- `colorRoles` — mapped color roles (background, primary, accent, text)
-- `fonts` — array of font names found in the design
-- `images` — array of image URLs and metadata
-- `navLinks` — navigation links extracted from the site
+Read `/tmp/canva-extraction.json` as EXTRACTION_RESULT. It contains:
+- `pages` — array of page objects, each with `url` and `sections` (text and image elements with bounds and font sizes)
+- `tokens.colors` — mapped color roles (background, primary, accent, text)
+- `tokens.fonts` — array of font names found in the design
+- `images` — array of image URLs and alt text, deduplicated across pages
+- `navigation` — navigation links (`label` + `path`) extracted from the site
 
 If the extraction fails, tell the owner:
 
@@ -263,7 +263,7 @@ Tell the owner:
 Run the design axis inference script:
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/infer-axes.mjs
+node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/infer-axes.mjs /tmp/canva-extraction.json
 ```
 
 This reads the extracted colors, fonts, and layout patterns to determine where
@@ -288,7 +288,7 @@ For each page in EXTRACTION_RESULT, classify the sections using the layout
 heuristics script:
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/layout-heuristics.mjs
+node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/layout-heuristics.mjs /tmp/canva-extraction.json
 ```
 
 This maps each extracted section to a semantic type: `hero`, `feature-grid`,
@@ -322,7 +322,7 @@ Run the text hierarchy script to determine heading levels and body text from
 the extracted text elements:
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/text-hierarchy.mjs
+node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/text-hierarchy.mjs /tmp/canva-extraction.json
 ```
 
 This uses font size, weight, and position to assign `h1`, `h2`, `h3`, `p`, and
@@ -398,15 +398,11 @@ Start the dev server:
 npm run dev -- --port 4321 &
 ```
 
-Wait a few seconds for it to start, then run the comparison script:
-
-<!-- TODO: compare-screenshots.mjs does not exist. The screenshot tool is
-scripts/design-import/comparison.mjs, which exports captureComparisons() as a
-programmatic module rather than a CLI. The Open Agent Skills build flags this as
-a MISSING REFERENCE — see docs/dev/agent-skills.md. -->
+Wait a few seconds for it to start, then run the comparison script, passing the
+page paths you imported (defaults to `/` if omitted):
 
 ```sh
-node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/compare-screenshots.mjs "SOURCE_URL" "http://localhost:4321"
+node ${CLAUDE_PLUGIN_ROOT}/scripts/design-import/comparison.mjs "SOURCE_URL" "http://localhost:4321" / /services /about
 ```
 
 Save screenshots to `docs/design-import/comparison/`. Stop the dev server.

@@ -149,3 +149,41 @@ export function classifyAllSections(sections) {
     section,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// CLI entry point
+// ---------------------------------------------------------------------------
+
+async function main() {
+  const { readFileSync } = await import("node:fs");
+  const [file] = process.argv.slice(2);
+
+  if (!file) {
+    console.error("Usage: node layout-heuristics.mjs <extraction.json>");
+    console.error("  extraction.json is the saved output of canva-playwright.mjs");
+    process.exitCode = 1;
+    return;
+  }
+
+  const data = JSON.parse(readFileSync(file, "utf8"));
+  // Accept both extractCanvaSite ({pages: [...]}) and extractCanvaPage output
+  const pages = data.pages ?? [data];
+
+  const result = pages.map((page) => ({
+    url: page.url ?? null,
+    sections: classifyAllSections(page.sections ?? []).map(({ type, section }) => ({
+      index: section.index,
+      type,
+    })),
+  }));
+
+  console.log(JSON.stringify(result, null, 2));
+}
+
+// Only run CLI when executed directly
+if (process.argv[1]?.endsWith("layout-heuristics.mjs")) {
+  main().catch((err) => {
+    console.error(err.message);
+    process.exitCode = 1;
+  });
+}
