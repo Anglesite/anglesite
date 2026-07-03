@@ -234,6 +234,43 @@ When USE_WIX_MCP=true:
 Read `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` ("Wix MCP server" section)
 for the full extraction workflow and operational notes.
 
+### 1a.2 — Rendered-page backend detection (Wix and Squarespace)
+
+If PLATFORM is `wix` or `squarespace`, resolve which backend renders pages
+for extraction. Run:
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/browser/safari-driver.mjs --check
+```
+
+Branch on the exit code:
+
+- **0** — set RENDER_BACKEND=safari. Tell the owner:
+  > "I can use Safari on your Mac to read your site exactly the way visitors
+  > see it. A Safari window will open and browse your pages by itself —
+  > you don't need to do anything, just don't click inside that window."
+- **3** (Safari present, automation not enabled) — show this once:
+  > "Your Mac's Safari can help me import your site more accurately, but it
+  > needs one-time permission. In Safari Technology Preview, open
+  > Settings → Advanced and turn on 'Show features for web developers',
+  > then Settings → Developer and turn on 'Allow remote automation'.
+  > Say 'ready' when done, or 'skip' to continue without it."
+  If the owner enables it, re-run the check. If they skip, fall through to
+  the Playwright branch below.
+- **2 or 4** — fall through to Playwright silently (Safari unavailable is
+  the normal case on Linux/Windows).
+
+**Playwright branch:** follow the existing Playwright install check (Step 2a);
+if installed or the owner accepts the install, set RENDER_BACKEND=playwright.
+Otherwise set RENDER_BACKEND=none (content still imports via curl/regex,
+JSON endpoints, and WebFetch; design tokens are skipped).
+
+Both backends share one invocation contract — the same flags and the same
+`tokens`/`content` JSON. Substitute the driver path for the resolved backend:
+
+- safari: `node ${CLAUDE_PLUGIN_ROOT}/scripts/import/browser/safari-driver.mjs "URL…" [flags]` (batch all URLs in ONE invocation; NDJSON out, one line per URL; a line with `"error"` falls back per-page like a Playwright timeout)
+- playwright: `node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.mjs "URL" [flags]` (one URL per invocation)
+
 ### 1b — Platform-specific content discovery
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/import/content-discovery.md` and follow the
@@ -379,11 +416,11 @@ If `ExecuteWixAPI` fails on a specific post, fall back to the Playwright path
 below for that post only. Add the post to FAILED_POSTS only if both methods
 fail.
 
-**Wix (USE_WIX_MCP=false):** Use Playwright to extract content and design
-tokens. WebFetch does not work on Wix pages.
+**Wix (USE_WIX_MCP=false):** Use the RENDER_BACKEND driver (Step 1a.2) to
+extract content and design tokens. WebFetch does not work on Wix pages.
 
-Before the first extraction, check if Playwright is installed and offer to
-install it if not:
+Skip this check when RENDER_BACKEND=safari. Before the first extraction,
+check if Playwright is installed and offer to install it if not:
 
 ```sh
 npm ls playwright
@@ -530,12 +567,15 @@ Convert HTML to Markdown as in Step 2b.
 Note that Squarespace only exports text blocks — complex layouts (galleries,
 forms, product grids) are not included in the export.
 
-**Wix:** Use Playwright (styles were already extracted from the homepage in
-Step 2a, so use `--content-only` here):
+**Wix:** Use the RENDER_BACKEND driver (Step 1a.2) (styles were already
+extracted from the homepage in Step 2a, so use `--content-only` here):
 
 ```sh
 node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.mjs "PAGE_URL" --content-only
 ```
+
+With the Safari backend, pass every static page URL in one invocation and
+read the NDJSON lines.
 
 If Playwright fails on a specific page, fall back to curl + regex for that page:
 
@@ -771,10 +811,11 @@ values are `platform-rename`, `wix-opaque-slug`, `date-permalink-collapse`, and
 `app-page-placeholder` (302s pointing at `/` for booking, store, events, etc.,
 which the owner should revisit once they pick a replacement tool).
 
-## Step 5.5 — Apply design tokens (Playwright only)
+## Step 5.5 — Apply design tokens (rendered backend)
 
-If Playwright was used and design tokens were extracted from the homepage in
-Step 2a, apply them to `src/styles/global.css`:
+If a rendered backend (Safari or Playwright) captured tokens and design
+tokens were extracted from the homepage in Step 2a, apply them to
+`src/styles/global.css`:
 
 1. Read the current `global.css`
 2. For each non-null token from the Playwright output, replace the corresponding
@@ -793,6 +834,9 @@ Tell the owner:
 
 If Playwright failed on the homepage and no tokens were captured, skip this
 step. The owner can set up colors and fonts later via `/anglesite:design-interview`.
+
+This step now applies to Squarespace imports too — extract homepage tokens
+with `--styles-only` via RENDER_BACKEND when available.
 
 ## Step 6 — Build and verify
 

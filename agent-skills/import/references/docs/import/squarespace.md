@@ -42,7 +42,55 @@ Squarespace blogs publish an RSS feed at `COLLECTION_URL?format=rss`. The collec
 
 The feed contains up to 20 recent posts with full content. Some sites return fewer (as few as 10). Useful as a fallback or supplement to the WXR export.
 
-### 3. WebFetch (fallback)
+### 3. Page JSON endpoint
+
+Every Squarespace page also serves a structured JSON version of itself: append
+`?format=json` to any page URL (validated live 2026-07-03).
+
+```sh
+curl -s "https://SITE/page-url?format=json"
+```
+
+The response includes:
+
+- `mainContent` — the page body as HTML (convert with the standard rules)
+- `collection` / `items` — for blog and gallery collections, the item list
+  with metadata and pagination
+- `website` — site-wide configuration (title, locale, social accounts)
+
+Prefer this over scraping rendered HTML for any page that isn't in the WXR
+export — it's structured, complete, and needs no browser. Note it does NOT
+expose computed styles; design tokens come from rendered extraction below.
+Some sites disable it (returns HTML instead of JSON) — fall through to
+rendered extraction or WebFetch when the response doesn't parse as JSON.
+
+### Rendered extraction (design tokens, accordions, galleries)
+
+Exports and JSON endpoints can't see computed styles, collapsed accordion
+panels, or full-resolution gallery layouts. For those, use the rendered
+backend chosen in import Step 1a.2 (RENDER_BACKEND):
+
+```sh
+# Safari backend (macOS, preferred — no install required)
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/browser/safari-driver.mjs "HOMEPAGE_URL" --styles-only
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/browser/safari-driver.mjs "PAGE_URL…" --content-only
+```
+
+Output is NDJSON — one `{"url", "tokens", "content"}` line per page. The
+same design-token map (`--color-bg`, `--color-primary`, `--font-heading`, …)
+maps onto `src/styles/global.css` custom properties exactly as it does for
+Wix (see import Step 5.5). Accordion/FAQ panels are expanded automatically
+before extraction. Gallery pages return every `<img>` with full
+`images.squarespace-cdn.com` URLs — apply the standard `?format=2500w`
+normalization from the Image handling section.
+
+When RENDER_BACKEND is `playwright`, the equivalent Playwright invocation
+(`scripts/import/wix/wix-playwright.mjs`) works on Squarespace pages too —
+the extraction functions are shared. When neither backend is available,
+design tokens are skipped and the owner picks colors via
+`/anglesite:design-interview`.
+
+### 4. WebFetch (fallback)
 
 For pages not in the export or RSS feed, use WebFetch on each page URL. Squarespace pages are server-rendered HTML (not JS-dependent like Wix), so WebFetch extracts content reliably.
 

@@ -88,6 +88,13 @@ The RSS feed contains up to 20 recent blog posts with full content (some sites
 return as few as 10). The sitemap lists all pages. Posts not in the RSS feed
 will be fetched via WebFetch in Step 2.
 
+For Squarespace, after the WXR/RSS/JSON passes, use RENDER_BACKEND (when not
+`none`) for the three things exports can't see — read the "Rendered
+extraction" section of `${CLAUDE_PLUGIN_ROOT}/docs/import/squarespace.md`:
+1. Design tokens from the homepage (`--styles-only`) → Step 5.5
+2. Pages with accordion/FAQ blocks (accordions expand automatically)
+3. Gallery pages (full-resolution image URLs)
+
 ## Wix
 
 If USE_WIX_MCP=true (set in Step 1a.1), discover blog posts via the Wix MCP
