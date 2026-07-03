@@ -14,6 +14,7 @@
 
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { parseInlineColors, rankColors, inferColorRoles } from './canva-colors.mjs';
 import { parseCanvaFonts } from './canva-fonts.mjs';
@@ -397,8 +398,8 @@ async function main() {
   }
 }
 
-// Only run CLI when executed directly
-if (process.argv[1]?.endsWith('canva-playwright.mjs')) {
+// Only run CLI when executed directly (rename-proof, unlike an endsWith check)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
     console.error(err.message);
     process.exitCode = 1;

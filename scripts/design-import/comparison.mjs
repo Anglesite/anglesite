@@ -15,6 +15,7 @@
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -125,8 +126,8 @@ async function main() {
   }
 }
 
-// Only run CLI when executed directly
-if (process.argv[1]?.endsWith('comparison.mjs')) {
+// Only run CLI when executed directly (rename-proof, unlike an endsWith check)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
     console.error(err.message);
     process.exitCode = 1;

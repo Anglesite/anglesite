@@ -5,6 +5,9 @@
  * sections by spatial patterns and content so we can generate semantic Astro pages.
  */
 
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
 /**
  * Cluster elements by x-position within 50px tolerance.
  * Returns the number of clusters if they are evenly spaced (gaps within 20% of
@@ -154,8 +157,7 @@ export function classifyAllSections(sections) {
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-async function main() {
-  const { readFileSync } = await import("node:fs");
+function main() {
   const [file] = process.argv.slice(2);
 
   if (!file) {
@@ -180,10 +182,12 @@ async function main() {
   console.log(JSON.stringify(result, null, 2));
 }
 
-// Only run CLI when executed directly
-if (process.argv[1]?.endsWith("layout-heuristics.mjs")) {
-  main().catch((err) => {
+// Only run CLI when executed directly (rename-proof, unlike an endsWith check)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main();
+  } catch (err) {
     console.error(err.message);
     process.exitCode = 1;
-  });
+  }
 }

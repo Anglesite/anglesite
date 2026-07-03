@@ -15,6 +15,7 @@
 
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { rgbToHex, classifyTokens } from './color-utils.mjs';
 
@@ -434,8 +435,12 @@ async function main() {
   }
 }
 
-// Only run CLI when executed directly
-const isDirectRun = process.argv[1]?.endsWith('wix-playwright.mjs');
+// Only run CLI when executed directly (rename-proof, unlike an endsWith check)
+const isDirectRun =
+  process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isDirectRun) {
-  main();
+  main().catch((err) => {
+    console.error(err.message);
+    process.exitCode = 1;
+  });
 }

@@ -220,7 +220,7 @@ Skip this step if DESIGN_MODE is `keep`.
 
 ### 3a — Map colors to CSS custom properties
 
-Read `src/styles/global.css`. Map the extracted `colorRoles` to CSS custom
+Read `src/styles/global.css`. Map the extracted `tokens.colors` roles to CSS custom
 properties:
 
 | Extracted role | CSS custom property |
@@ -353,7 +353,7 @@ reference any Canva URLs in the output (ADR-0008, ADR-0011).
 
 ### 4e — Generate navigation
 
-Build site navigation from the extracted `navLinks` in EXTRACTION_RESULT. For
+Build site navigation from the extracted `navigation` links in EXTRACTION_RESULT. For
 each link:
 - Map to the local page path (e.g., `/about`, `/services`)
 - Drop any links to external Canva URLs
