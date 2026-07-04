@@ -44,19 +44,27 @@ export function locateSafaridriver() {
 }
 
 export class SafariMcp {
-  /** Set once the child process errors or exits; new calls fail fast. */
-  #dead = false;
-
   constructor(binaryPath) {
     this.binaryPath = binaryPath;
     this.child = null;
     this.pending = new Map();
     this.nextId = 1;
+    this.closing = false; // set by close() to suppress the 'close' handler's reaction
+    this.closed = false; // set once the child is gone (deliberately or not)
   }
 
-  #rejectAllPending(err) {
+  /**
+   * Single state transition for "this session is dead": marks closed, drops
+   * the child reference, and rejects any in-flight calls. Called from the
+   * child's 'error' and 'close' handlers (and can race a broken-pipe write)
+   * so it must be idempotent — safe to call more than once.
+   */
+  #markDead(reason) {
+    this.closed = true;
+    this.child = null;
+    if (this.closing) return; // deliberate close() — no pending calls to reject
     for (const { reject } of this.pending.values()) {
-      reject(err);
+      reject(new SafariMcpError('session-failed', reason));
     }
     this.pending.clear();
   }
@@ -66,25 +74,12 @@ export class SafariMcp {
     this.child = this.binaryPath.endsWith('.mjs')
       ? spawn(process.execPath, [this.binaryPath, ...args], { stdio: ['pipe', 'pipe', 'ignore'] })
       : spawn(this.binaryPath, args, { stdio: ['pipe', 'pipe', 'ignore'] });
-    this.child.on('error', (err) => {
-      this.#rejectAllPending(new SafariMcpError('session-failed', err.message));
-    });
-    // A reader that has gone away (e.g. the user closed the Safari window
-    // mid-session) turns a write into an EPIPE on the stdin stream itself —
-    // distinct from the child's own 'error' event. Without this handler an
-    // unhandled 'error' on the stream would crash the whole process.
-    this.child.stdin.on('error', (err) => {
-      this.#rejectAllPending(new SafariMcpError('session-failed', err.message));
-    });
-    // If safaridriver dies unexpectedly, nothing else will reject in-flight
-    // requests — each would otherwise wait out its own timeout. Fail fast
-    // and mark the session dead so subsequent calls don't hang either.
-    this.child.on('exit', (code, signal) => {
-      this.#dead = true;
-      this.#rejectAllPending(
-        new SafariMcpError('session-failed', `safaridriver exited unexpectedly (code=${code}, signal=${signal})`),
-      );
-    });
+    // A broken stdin pipe (safaridriver exited before Node delivered 'close')
+    // emits its own 'error' on the stream; without this handler that's an
+    // unhandled error that crashes the process. Degrade to markDead instead.
+    this.child.stdin.on('error', (err) => this.#markDead(err.message));
+    this.child.on('error', (err) => this.#markDead(err.message));
+    this.child.on('close', () => this.#markDead('safaridriver exited unexpectedly'));
     createInterface({ input: this.child.stdout }).on('line', (line) => {
       let msg;
       try { msg = JSON.parse(line); } catch { return; }
@@ -108,8 +103,10 @@ export class SafariMcp {
   }
 
   #request(method, params, timeoutMs) {
-    if (this.#dead) {
-      return Promise.reject(new SafariMcpError('session-failed', 'safaridriver session is no longer running'));
+    if (this.closed || !this.child) {
+      return Promise.reject(
+        new SafariMcpError('session-failed', 'safaridriver session is closed'),
+      );
     }
     const id = this.nextId++;
     const promise = new Promise((resolve, reject) => {
@@ -138,7 +135,7 @@ export class SafariMcp {
       .map((c) => c.text)
       .join('\n');
     if (result.isError) {
-      if (/allow remote automation/i.test(text)) {
+      if (/allow remote automation/i.test(text) && /WebDriverErrorDomain|Could not create a session/i.test(text)) {
         throw new SafariMcpError('not-enabled', text);
       }
       throw new SafariMcpError('page-failure', text);
@@ -147,6 +144,8 @@ export class SafariMcp {
   }
 
   close() {
+    this.closing = true;
+    this.closed = true;
     this.child?.kill();
     this.child = null;
   }

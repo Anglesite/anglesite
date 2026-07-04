@@ -156,7 +156,30 @@ the owner to create an API key. Don't ask for it unless the site has more than
 20 blog posts (where RSS falls short). The API does **not** cover static pages —
 those still require WebFetch.
 
-### Playwright extraction (when Wix MCP is unavailable, or for static pages and design tokens)
+### Safari extraction (preferred rendered backend on macOS)
+
+When import Step 1a.2 resolved RENDER_BACKEND=safari, use the Safari driver
+for everything the Playwright section below describes — same flags, same
+JSON shape, no browser download:
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/scripts/import/browser/safari-driver.mjs "URL…" [--content-only|--styles-only|--fullPage]
+```
+
+Differences from Playwright:
+
+- **Pass all URLs in one invocation.** Each run opens one visible Safari
+  window (an isolated session — no cookies or logins); output is NDJSON,
+  one line per URL. Lines with `{"url", "error"}` should fall back to
+  curl + `wix-extract.mjs` for that page, exactly like a Playwright timeout.
+- **Real-Safari fingerprint.** Wix's throttling of rapid curl/headless
+  requests does not apply; no pause between pages is needed.
+- Requires macOS with Safari's "Allow remote automation" enabled
+  (Safari Technology Preview 247+ or any stable Safari whose safaridriver
+  supports `--mcp`). Detection and owner-facing setup instructions live in
+  import Step 1a.2 — do not repeat them here.
+
+### Playwright extraction (fallback rendered backend)
 
 When Playwright is available, a single browser session extracts both content
 and computed CSS styles from the rendered page. This is the path the import

@@ -1,10 +1,19 @@
 #!/usr/bin/env node
 // Fake `safaridriver --mcp` for tests. Modes via FAKE_SAFARIDRIVER_MODE:
-//   ok          — happy path, canned tool responses
-//   not-enabled — every tools/call returns the WebDriver enable error
-//   hang        — never responds to tools/call (for timeout tests)
-//   fail        — every tools/call returns a generic (non-"not-enabled") JSON-RPC
-//                 error, exercising the SESSION_FAILED (exit 4) path
+//   ok                  — happy path, canned tool responses
+//   not-enabled         — every tools/call returns the WebDriver enable error
+//   not-enabled-second-url — navigate_to_url succeeds for the first URL seen,
+//                          then every call for the second (and later) URL
+//                          returns the WebDriver enable error (mid-batch test)
+//   hang                — never responds to tools/call (for timeout tests)
+//   die-after-first-call — respond normally to the first tools/call, then
+//                          exit(0) on the second tools/call before responding
+//   fail                — every tools/call returns a generic (non-"not-enabled")
+//                          JSON-RPC error, exercising the SESSION_FAILED (exit 4) path
+//
+// FAKE_TOKENS_FAIL_URL=<url> makes style extraction (evaluate_javascript for
+// extractStylesSrc) fail with a page-failure error only while `currentUrl`
+// equals that URL — used to test the design-token fallback-to-later-page path.
 import { createInterface } from 'node:readline';
 
 const mode = process.env.FAKE_SAFARIDRIVER_MODE || 'ok';
@@ -13,6 +22,10 @@ const NOT_ENABLED_TEXT =
   'Tool error: Error Domain=WebDriverErrorDomain Code=6 "Could not create a session: ' +
   "You must enable 'Allow remote automation' in the Developer section of Safari Settings " +
   'to control Safari via WebDriver."';
+
+let callCount = 0;
+let seenFirstUrl = null; // the first URL passed to navigate_to_url, for mode branches keyed on "which page is this"
+let currentUrl = null; // the most recent URL passed to navigate_to_url
 
 createInterface({ input: process.stdin }).on('line', (line) => {
   let msg;
@@ -28,6 +41,16 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   if (msg.id === undefined) return; // notifications
   if (msg.method === 'tools/call') {
     if (mode === 'hang') return;
+    if (mode === 'die-after-first-call') {
+      callCount++;
+      if (callCount >= 2) {
+        process.exit(0);
+      }
+      send({ jsonrpc: '2.0', id: msg.id, result: {
+        content: [{ type: 'text', text: 'Loaded https://ok.example' }],
+      }});
+      return;
+    }
     if (mode === 'not-enabled') {
       send({ jsonrpc: '2.0', id: msg.id, result: {
         content: [{ type: 'text', text: NOT_ENABLED_TEXT }], isError: true,
@@ -40,6 +63,18 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       }});
       return;
     }
+    if (msg.params?.name === 'navigate_to_url') {
+      currentUrl = msg.params?.arguments?.url;
+      if (seenFirstUrl === null) seenFirstUrl = currentUrl;
+    }
+    if (mode === 'not-enabled-second-url' && msg.params?.name === 'navigate_to_url') {
+      if (currentUrl !== seenFirstUrl) {
+        send({ jsonrpc: '2.0', id: msg.id, result: {
+          content: [{ type: 'text', text: NOT_ENABLED_TEXT }], isError: true,
+        }});
+        return;
+      }
+    }
     const { name, arguments: args = {} } = msg.params;
     const canned = {
       navigate_to_url: () => args.url === 'https://fails.example'
@@ -49,6 +84,9 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       wait_for_navigation: () => ({ content: [{ type: 'text', text: '{"url":"done"}' }] }),
       evaluate_javascript: () => {
         const expr = args.expression || '';
+        if (process.env.FAKE_EVAL_ERROR_TEXT) {
+          return { content: [{ type: 'text', text: process.env.FAKE_EVAL_ERROR_TEXT }], isError: true };
+        }
         // — Canva page-functions (design-import), keyed on source markers unique
         //   to each serialized extractor so they can't shadow the Wix ones —
         if (expr.includes('FONT_FACE_RULE')) {
@@ -86,6 +124,9 @@ createInterface({ input: process.stdin }).on('line', (line) => {
           return { content: [{ type: 'text', text: '1' }] }; // selector-poll: element present
         }
         if (expr.includes('extractStylesSrc') || expr.includes('samples')) {
+          if (process.env.FAKE_TOKENS_FAIL_URL && currentUrl === process.env.FAKE_TOKENS_FAIL_URL) {
+            return { content: [{ type: 'text', text: 'Tool error: style extraction blew up' }], isError: true };
+          }
           return { content: [{ type: 'text', text: JSON.stringify({
             samples: { bg: ['rgb(200, 164, 126)'], text: ['rgb(118, 118, 118)'], heading: ['rgb(0, 0, 0)'] },
             fonts: { heading: ['Poppins'], body: ['Poppins'] },
