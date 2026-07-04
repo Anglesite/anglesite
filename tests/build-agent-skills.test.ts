@@ -13,6 +13,7 @@ import {
   validateSkill,
   inferCompatibility,
   renderIndex,
+  relativeImports,
 } from "../bin/build-agent-skills.ts";
 
 const ROOT = resolve(__dirname, "..");
@@ -200,6 +201,80 @@ describe("emitSkill", () => {
   it("emits MISSING REFERENCE for a non-placeholder path that does not exist", () => {
     const warnings = emitSkill(result("demo", ["scripts/does-not-exist.mjs"]), pluginRoot, outRoot);
     expect(warnings.some((w) => w.startsWith("MISSING REFERENCE:") && w.includes("does-not-exist"))).toBe(true);
+  });
+
+  it("bundles the transitive relative-import closure of a copied script", () => {
+    writePlugin(
+      "scripts/a/entry.mjs",
+      "import { x } from './sibling.mjs';\nimport { y } from '../b/dep.mjs';\nexport const z = x + y;\n",
+    );
+    writePlugin("scripts/a/sibling.mjs", "export { s } from './deep.mjs';\nexport const x = 1;\n");
+    writePlugin("scripts/a/deep.mjs", "export const s = 2;\n");
+    writePlugin("scripts/b/dep.mjs", "export const y = 3;\n");
+    const warnings = emitSkill(result("demo", ["scripts/a/entry.mjs"]), pluginRoot, outRoot);
+    // Direct imports, a re-export chain, and a parent-directory import all land
+    // in references/ at their plugin-root-relative paths.
+    expect(existsSync(join(outRoot, "demo", "references/scripts/a/sibling.mjs"))).toBe(true);
+    expect(existsSync(join(outRoot, "demo", "references/scripts/a/deep.mjs"))).toBe(true);
+    expect(existsSync(join(outRoot, "demo", "references/scripts/b/dep.mjs"))).toBe(true);
+    expect(warnings).toEqual([]);
+  });
+
+  it("warns when a copied script imports a relative path that does not exist", () => {
+    writePlugin("scripts/a/entry.mjs", "import { x } from './gone.mjs';\n");
+    const warnings = emitSkill(result("demo", ["scripts/a/entry.mjs"]), pluginRoot, outRoot);
+    expect(
+      warnings.some((w) => w.startsWith("MISSING IMPORT:") && w.includes("scripts/a/gone.mjs")),
+    ).toBe(true);
+  });
+
+  it("follows relative imports of scripts inside a bundled directory", () => {
+    writePlugin("scripts/dir/tool.mjs", "import { u } from '../shared/util.mjs';\n");
+    writePlugin("scripts/shared/util.mjs", "export const u = 1;\n");
+    const warnings = emitSkill(result("demo", ["scripts/dir"]), pluginRoot, outRoot);
+    expect(existsSync(join(outRoot, "demo", "references/scripts/shared/util.mjs"))).toBe(true);
+    expect(warnings).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Bundled scripts must be runnable: every relative import inside a bundled
+// .mjs/.js/.ts file must resolve within the same references/ tree.
+// ---------------------------------------------------------------------------
+
+describe("bundled scripts resolve their relative imports", () => {
+  const SCRIPT_EXT_RE = /\.(mjs|cjs|js|ts|mts)$/;
+
+  const walkScripts = (dir: string): string[] => {
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) return walkScripts(p);
+      return SCRIPT_EXT_RE.test(e.name) ? [p] : [];
+    });
+  };
+
+  const bundledSkills = readdirSync(OUT_DIR, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && walkScripts(join(OUT_DIR, e.name, "references")).length > 0)
+    .map((e) => e.name);
+
+  it("covers the skills known to bundle scripts", () => {
+    expect(bundledSkills).toEqual(expect.arrayContaining(["design-import", "import"]));
+  });
+
+  it.each(bundledSkills)("agent-skills/%s bundles the relative-import closure", (name) => {
+    for (const file of walkScripts(join(OUT_DIR, name, "references"))) {
+      const src = readFileSync(file, "utf-8");
+      for (const spec of relativeImports(src)) {
+        const target = resolve(join(file, ".."), spec);
+        // TS ESM convention: './x.js' in a .ts file resolves to './x.ts'.
+        const tsTarget = target.replace(/\.js$/, ".ts");
+        expect(
+          existsSync(target) || existsSync(tsTarget),
+          `${file} imports ${spec} which is not bundled`,
+        ).toBe(true);
+      }
+    }
   });
 });
 
