@@ -69,6 +69,12 @@ npx tsx bin/build-agent-skills.ts seo deploy   # a subset (index not regenerated
 - **Nested references.** A few bundled docs (e.g. `import`'s `docs/import/wix.md`)
   contain their own `${CLAUDE_PLUGIN_ROOT}` references that are not transitively
   rewritten. The build flags these as `NESTED REF`. Mostly affects the `import` skill.
+- **Relative JS imports are not followed.** Bundled scripts keep their relative
+  `import` statements but sibling modules referenced only via those imports are not
+  copied (e.g. `canva-playwright.mjs` / `canva-safari.mjs` without `canva-colors.mjs`
+  or `scripts/import/browser/safari-mcp.mjs`; `wix-playwright.mjs` without
+  `color-utils.mjs`). Those scripts run in the plugin distribution but crash on import
+  in an agent-skills install. Fix is to walk relative import graphs during bundling.
 - **Body length.** `convert`, `deploy`, and `import` exceed the spec's recommended
   500-line `SKILL.md` budget. Functional, but candidates for splitting into
   `references/`.

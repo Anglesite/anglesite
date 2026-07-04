@@ -4,8 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { extractContentSrc } from '../scripts/import/wix/wix-playwright.mjs';
 
-import { extractContentSrc } from '../scripts/import/wix/wix-playwright.mjs';
-
 // We can't import extractWixPage directly (requires Playwright runtime),
 // but we can verify the source code uses the correct wait strategy.
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -13,6 +11,14 @@ const src = readFileSync(
   join(__dirname, '..', 'scripts', 'import', 'wix', 'wix-playwright.mjs'),
   'utf-8',
 );
+// extractStylesSrc/extractContentSrc/expandAccordionsSrc now live in the
+// shared browser module (moved out of wix-playwright.mjs); include it so
+// assertions about their implementation details still hold.
+const pageFunctionsSrc = readFileSync(
+  join(__dirname, '..', 'scripts', 'import', 'browser', 'page-functions.mjs'),
+  'utf-8',
+);
+const combinedSrc = `${src}\n${pageFunctionsSrc}`;
 
 describe('wix-playwright.mjs wait strategy', () => {
   it('does not use networkidle (Wix Thunderbolt never quiesces)', () => {
@@ -44,21 +50,21 @@ describe('wix-playwright.mjs fullPage option', () => {
 
   it('extracts header images when fullPage is true', () => {
     // The source should query header/SITE_HEADER for images
-    expect(src).toContain('SITE_HEADER');
-    expect(src).toContain('header');
+    expect(combinedSrc).toContain('SITE_HEADER');
+    expect(combinedSrc).toContain('header');
   });
 
   it('extracts footer content when fullPage is true', () => {
     // The source should query footer/SITE_FOOTER for content
-    expect(src).toContain('SITE_FOOTER');
-    expect(src).toContain('footer');
+    expect(combinedSrc).toContain('SITE_FOOTER');
+    expect(combinedSrc).toContain('footer');
   });
 
   it('returns header and footer fields in the content output', () => {
     // Output structure should include header.logo, header.images, footer.text, footer.images
-    expect(src).toContain('header');
-    expect(src).toContain('footer');
-    expect(src).toContain('logo');
+    expect(combinedSrc).toContain('header');
+    expect(combinedSrc).toContain('footer');
+    expect(combinedSrc).toContain('logo');
   });
 });
 
@@ -78,16 +84,16 @@ describe('wix-playwright.mjs playwright resolution', () => {
 
 describe('wix-playwright.mjs accordion expansion', () => {
   it('expands aria-expanded="false" elements before extraction', () => {
-    expect(src).toContain('aria-expanded="false"');
-    expect(src).toContain('expandAccordions');
+    expect(combinedSrc).toContain('aria-expanded="false"');
+    expect(combinedSrc).toContain('expandAccordions');
   });
 
   it('handles Wix FAQ data-hook elements', () => {
-    expect(src).toContain('data-hook="faq-question"');
+    expect(combinedSrc).toContain('data-hook="faq-question"');
   });
 
   it('handles HTML details elements', () => {
-    expect(src).toContain('details:not([open])');
+    expect(combinedSrc).toContain('details:not([open])');
   });
 });
 
@@ -102,17 +108,17 @@ describe('wix-playwright.mjs fullPage option', () => {
   });
 
   it('extracts header images when fullPage is true', () => {
-    expect(src).toContain('SITE_HEADER');
+    expect(combinedSrc).toContain('SITE_HEADER');
   });
 
   it('extracts footer content when fullPage is true', () => {
     // Should query footer elements for text and images
-    expect(src).toMatch(/footer.*images|header.*footer/s);
+    expect(combinedSrc).toMatch(/footer.*images|header.*footer/s);
   });
 
   it('returns header and footer fields in fullPage output structure', () => {
     // The source should assign header and footer to the result object
-    expect(src).toContain('result.header');
-    expect(src).toContain('result.footer');
+    expect(combinedSrc).toContain('result.header');
+    expect(combinedSrc).toContain('result.footer');
   });
 });
