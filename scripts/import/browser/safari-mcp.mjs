@@ -44,11 +44,21 @@ export function locateSafaridriver() {
 }
 
 export class SafariMcp {
+  /** Set once the child process errors or exits; new calls fail fast. */
+  #dead = false;
+
   constructor(binaryPath) {
     this.binaryPath = binaryPath;
     this.child = null;
     this.pending = new Map();
     this.nextId = 1;
+  }
+
+  #rejectAllPending(err) {
+    for (const { reject } of this.pending.values()) {
+      reject(err);
+    }
+    this.pending.clear();
   }
 
   async start() {
@@ -57,10 +67,23 @@ export class SafariMcp {
       ? spawn(process.execPath, [this.binaryPath, ...args], { stdio: ['pipe', 'pipe', 'ignore'] })
       : spawn(this.binaryPath, args, { stdio: ['pipe', 'pipe', 'ignore'] });
     this.child.on('error', (err) => {
-      for (const { reject } of this.pending.values()) {
-        reject(new SafariMcpError('session-failed', err.message));
-      }
-      this.pending.clear();
+      this.#rejectAllPending(new SafariMcpError('session-failed', err.message));
+    });
+    // A reader that has gone away (e.g. the user closed the Safari window
+    // mid-session) turns a write into an EPIPE on the stdin stream itself —
+    // distinct from the child's own 'error' event. Without this handler an
+    // unhandled 'error' on the stream would crash the whole process.
+    this.child.stdin.on('error', (err) => {
+      this.#rejectAllPending(new SafariMcpError('session-failed', err.message));
+    });
+    // If safaridriver dies unexpectedly, nothing else will reject in-flight
+    // requests — each would otherwise wait out its own timeout. Fail fast
+    // and mark the session dead so subsequent calls don't hang either.
+    this.child.on('exit', (code, signal) => {
+      this.#dead = true;
+      this.#rejectAllPending(
+        new SafariMcpError('session-failed', `safaridriver exited unexpectedly (code=${code}, signal=${signal})`),
+      );
     });
     createInterface({ input: this.child.stdout }).on('line', (line) => {
       let msg;
@@ -85,6 +108,9 @@ export class SafariMcp {
   }
 
   #request(method, params, timeoutMs) {
+    if (this.#dead) {
+      return Promise.reject(new SafariMcpError('session-failed', 'safaridriver session is no longer running'));
+    }
     const id = this.nextId++;
     const promise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => {

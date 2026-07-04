@@ -3,6 +3,8 @@
 //   ok          — happy path, canned tool responses
 //   not-enabled — every tools/call returns the WebDriver enable error
 //   hang        — never responds to tools/call (for timeout tests)
+//   fail        — every tools/call returns a generic (non-"not-enabled") JSON-RPC
+//                 error, exercising the SESSION_FAILED (exit 4) path
 import { createInterface } from 'node:readline';
 
 const mode = process.env.FAKE_SAFARIDRIVER_MODE || 'ok';
@@ -29,6 +31,12 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     if (mode === 'not-enabled') {
       send({ jsonrpc: '2.0', id: msg.id, result: {
         content: [{ type: 'text', text: NOT_ENABLED_TEXT }], isError: true,
+      }});
+      return;
+    }
+    if (mode === 'fail') {
+      send({ jsonrpc: '2.0', id: msg.id, result: {
+        content: [{ type: 'text', text: 'Tool error: internal WebDriver session error' }], isError: true,
       }});
       return;
     }

@@ -36,6 +36,11 @@ describe('canva-safari --check', () => {
     const { status } = run(['--check'], { SAFARIDRIVER_PATH: '/nonexistent/safaridriver' }, true);
     expect(status).toBe(2);
   });
+
+  it('exits 4 on a generic session failure (not the not-enabled case)', () => {
+    const { status } = run(['--check'], { FAKE_SAFARIDRIVER_MODE: 'fail' }, true);
+    expect(status).toBe(4);
+  });
 });
 
 describe('canva-safari single-page extraction', () => {
