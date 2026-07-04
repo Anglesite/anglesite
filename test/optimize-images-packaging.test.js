@@ -82,11 +82,15 @@ describe.skipIf(!hasZsh)('ai-optimize in a scaffolded site (#320)', () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  // Scaffolding + running the CLI takes ~10s alone; give these room to breathe
+  // under full-suite parallelism and loaded CI runners (~60s observed worst case).
+  const SCAFFOLD_TIMEOUT = 60_000;
+
   it('scaffolds server/optimize-images.mjs alongside the CLI script', () => {
     execFileSync('/bin/zsh', [SCAFFOLD_SCRIPT, '--yes', tmpDir], { stdio: 'pipe' });
     expect(existsSync(join(tmpDir, 'server', 'optimize-images.mjs'))).toBe(true);
     expect(existsSync(join(tmpDir, 'scripts', 'optimize-images.ts'))).toBe(true);
-  });
+  }, SCAFFOLD_TIMEOUT);
 
   it('runs the optimize script against a fixture JPEG without ERR_MODULE_NOT_FOUND', async () => {
     execFileSync('/bin/zsh', [SCAFFOLD_SCRIPT, '--yes', tmpDir], { stdio: 'pipe' });
@@ -134,5 +138,5 @@ describe.skipIf(!hasZsh)('ai-optimize in a scaffolded site (#320)', () => {
     expect(existsSync(join(imagesDir, 'sample.webp'))).toBe(true);
     // The original should be preserved.
     expect(existsSync(join(imagesDir, 'originals', 'sample.jpg'))).toBe(true);
-  });
+  }, SCAFFOLD_TIMEOUT);
 });
