@@ -442,10 +442,11 @@ design tokens).
 
 Use the RENDER_BACKEND resolved in Step 1a.2:
 
-- **safari** — batch every post URL in one invocation:
+- **safari** — batch every post URL in one invocation. Put the homepage URL
+  first in the batch — design tokens are extracted from the first URL only:
 
   ```sh
-  node ${CLAUDE_PLUGIN_ROOT}/scripts/import/browser/safari-driver.mjs "POST_URL_1" "POST_URL_2" …
+  node ${CLAUDE_PLUGIN_ROOT}/scripts/import/browser/safari-driver.mjs "HOMEPAGE_URL" "POST_URL_1" "POST_URL_2" …
   ```
 
   Reads back as NDJSON, one line per post.

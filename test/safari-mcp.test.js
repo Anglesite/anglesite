@@ -42,4 +42,33 @@ describe('SafariMcp', () => {
     await client.start();
     await expect(client.call('create_tab', {}, 300)).rejects.toMatchObject({ code: 'timeout' });
   });
+
+  it('maps a page-thrown error containing "allow remote automation" without the WebDriver signature to page-failure', async () => {
+    process.env.FAKE_EVAL_ERROR_TEXT = 'Uncaught ReferenceError: please allow remote automation of this widget';
+    client = new SafariMcp(FAKE);
+    await client.start();
+    await expect(client.call('evaluate_javascript', { expression: '1' }))
+      .rejects.toMatchObject({ code: 'page-failure' });
+    delete process.env.FAKE_EVAL_ERROR_TEXT;
+  });
+
+  it('rejects pending calls with session-failed when safaridriver dies mid-batch, and guards use-after-death', async () => {
+    process.env.FAKE_SAFARIDRIVER_MODE = 'die-after-first-call';
+    client = new SafariMcp(FAKE);
+    await client.start();
+
+    // First call succeeds normally.
+    const first = await client.call('navigate_to_url', { url: 'https://ok.example' });
+    expect(first).toBe('Loaded https://ok.example');
+
+    // Second call: the fake driver exits before responding. Must reject
+    // promptly with session-failed, well under the large timeout passed.
+    await expect(client.call('navigate_to_url', { url: 'https://ok.example' }, 30000))
+      .rejects.toMatchObject({ code: 'session-failed' });
+
+    // A subsequent call after the child has died must also reject immediately
+    // instead of writing to a dead stdin.
+    await expect(client.call('navigate_to_url', { url: 'https://ok.example' }, 30000))
+      .rejects.toMatchObject({ code: 'session-failed' });
+  }, 5000);
 });

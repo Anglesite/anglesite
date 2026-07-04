@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Fake `safaridriver --mcp` for tests. Modes via FAKE_SAFARIDRIVER_MODE:
-//   ok          — happy path, canned tool responses
-//   not-enabled — every tools/call returns the WebDriver enable error
-//   hang        — never responds to tools/call (for timeout tests)
+//   ok                  — happy path, canned tool responses
+//   not-enabled         — every tools/call returns the WebDriver enable error
+//   hang                — never responds to tools/call (for timeout tests)
+//   die-after-first-call — respond normally to the first tools/call, then
+//                          exit(0) on the second tools/call before responding
 import { createInterface } from 'node:readline';
 
 const mode = process.env.FAKE_SAFARIDRIVER_MODE || 'ok';
@@ -11,6 +13,8 @@ const NOT_ENABLED_TEXT =
   'Tool error: Error Domain=WebDriverErrorDomain Code=6 "Could not create a session: ' +
   "You must enable 'Allow remote automation' in the Developer section of Safari Settings " +
   'to control Safari via WebDriver."';
+
+let callCount = 0;
 
 createInterface({ input: process.stdin }).on('line', (line) => {
   let msg;
@@ -26,6 +30,16 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   if (msg.id === undefined) return; // notifications
   if (msg.method === 'tools/call') {
     if (mode === 'hang') return;
+    if (mode === 'die-after-first-call') {
+      callCount++;
+      if (callCount >= 2) {
+        process.exit(0);
+      }
+      send({ jsonrpc: '2.0', id: msg.id, result: {
+        content: [{ type: 'text', text: 'Loaded https://ok.example' }],
+      }});
+      return;
+    }
     if (mode === 'not-enabled') {
       send({ jsonrpc: '2.0', id: msg.id, result: {
         content: [{ type: 'text', text: NOT_ENABLED_TEXT }], isError: true,
@@ -41,6 +55,9 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       wait_for_navigation: () => ({ content: [{ type: 'text', text: '{"url":"done"}' }] }),
       evaluate_javascript: () => {
         const expr = args.expression || '';
+        if (process.env.FAKE_EVAL_ERROR_TEXT) {
+          return { content: [{ type: 'text', text: process.env.FAKE_EVAL_ERROR_TEXT }], isError: true };
+        }
         if (expr.includes('extractStylesSrc') || expr.includes('samples')) {
           return { content: [{ type: 'text', text: JSON.stringify({
             samples: { bg: ['rgb(200, 164, 126)'], text: ['rgb(118, 118, 118)'], heading: ['rgb(0, 0, 0)'] },

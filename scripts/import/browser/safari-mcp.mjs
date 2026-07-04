@@ -49,6 +49,8 @@ export class SafariMcp {
     this.child = null;
     this.pending = new Map();
     this.nextId = 1;
+    this.closing = false; // set by close() to suppress the 'close' handler's reaction
+    this.closed = false; // set once the child is gone (deliberately or not)
   }
 
   async start() {
@@ -59,6 +61,15 @@ export class SafariMcp {
     this.child.on('error', (err) => {
       for (const { reject } of this.pending.values()) {
         reject(new SafariMcpError('session-failed', err.message));
+      }
+      this.pending.clear();
+    });
+    this.child.on('close', () => {
+      this.closed = true;
+      this.child = null;
+      if (this.closing) return; // deliberate close() — no pending calls to reject
+      for (const { reject } of this.pending.values()) {
+        reject(new SafariMcpError('session-failed', 'safaridriver exited unexpectedly'));
       }
       this.pending.clear();
     });
@@ -85,6 +96,11 @@ export class SafariMcp {
   }
 
   #request(method, params, timeoutMs) {
+    if (this.closed || !this.child) {
+      return Promise.reject(
+        new SafariMcpError('session-failed', 'safaridriver session is closed'),
+      );
+    }
     const id = this.nextId++;
     const promise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -112,7 +128,7 @@ export class SafariMcp {
       .map((c) => c.text)
       .join('\n');
     if (result.isError) {
-      if (/allow remote automation/i.test(text)) {
+      if (/allow remote automation/i.test(text) && /WebDriverErrorDomain|Could not create a session/i.test(text)) {
         throw new SafariMcpError('not-enabled', text);
       }
       throw new SafariMcpError('page-failure', text);
@@ -121,6 +137,8 @@ export class SafariMcp {
   }
 
   close() {
+    this.closing = true;
+    this.closed = true;
     this.child?.kill();
     this.child = null;
   }

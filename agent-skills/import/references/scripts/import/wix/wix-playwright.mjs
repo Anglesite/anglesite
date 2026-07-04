@@ -86,9 +86,10 @@ async function main() {
   const url = args.find((a) => !a.startsWith('--'));
   const contentOnly = args.includes('--content-only');
   const stylesOnly = args.includes('--styles-only');
+  const fullPage = args.includes('--fullPage');
 
   if (!url) {
-    console.error('Usage: node wix-playwright.mjs <url> [--content-only] [--styles-only]');
+    console.error('Usage: node wix-playwright.mjs <url> [--content-only] [--styles-only] [--fullPage]');
     process.exitCode = 1;
     return;
   }
@@ -112,7 +113,7 @@ async function main() {
   const page = await browser.newPage();
 
   try {
-    const result = await extractWixPage(page, url, { contentOnly, stylesOnly });
+    const result = await extractWixPage(page, url, { contentOnly, stylesOnly, fullPage });
     console.log(JSON.stringify(result, null, 2));
   } finally {
     await browser.close();
