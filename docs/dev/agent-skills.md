@@ -39,6 +39,13 @@ Per `skills/<name>/SKILL.md` it emits `agent-skills/<name>/`:
   (e.g. `references/docs/decisions/0003-...md`). Runtime-computed paths
   (`docs/smb/<BUSINESS_TYPE>.md`) bundle their static parent directory so the path
   resolves at runtime.
+- **Relative JS imports are followed.** Every bundled script (`.mjs`/`.cjs`/`.js`/
+  `.ts`/`.mts`) has its static relative imports (`import … from './x.mjs'`,
+  `export … from`, side-effect and dynamic imports) walked transitively, and the
+  whole closure is copied into `references/` at plugin-root-relative paths — so
+  bundled scripts stay runnable in a standalone install. The TS ESM convention
+  (`./x.js` importing a `./x.ts` source) is resolved. Imports that don't resolve
+  inside the plugin root are surfaced as `MISSING IMPORT` build warnings.
 
 `agent-skills/README.md` is a generated index with per-skill install commands.
 
