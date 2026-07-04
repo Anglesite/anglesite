@@ -446,19 +446,32 @@ npx playwright install chromium
 If they decline, skip to the curl + regex fallback below (content only, no
 design tokens).
 
-For each post:
+Use the RENDER_BACKEND resolved in Step 1a.2:
 
-```sh
-node references/scripts/import/wix/wix-playwright.mjs "POST_URL"
-```
+- **safari** — batch every post URL in one invocation:
 
-Returns `{tokens, content}` where `content` has `{body, images, title, navLinks}`.
+  ```sh
+  node references/scripts/import/browser/safari-driver.mjs "POST_URL_1" "POST_URL_2" …
+  ```
+
+  Reads back as NDJSON, one line per post.
+
+- **playwright** — one invocation per post:
+
+  ```sh
+  node references/scripts/import/wix/wix-playwright.mjs "POST_URL"
+  ```
+
+Each result is `{tokens, content}` where `content` has `{body, images, title, navLinks}`.
 On the **first page** (homepage), save the `tokens` object — it contains
 `--color-primary`, `--color-bg`, `--font-heading`, etc. that seed `global.css`.
-For subsequent pages, use `--content-only` to skip redundant style extraction.
+For subsequent pages, skip redundant style extraction: with playwright, pass
+`--content-only`; the safari driver already extracts tokens only for the first
+URL in the batch, so no flag is needed there.
 
-If Playwright fails on a specific page (timeout, crash), fall back to curl +
-regex for that page only:
+If the rendered backend fails on a specific page (Playwright timeout/crash, or
+a Safari NDJSON line with `"error"`), fall back to curl + regex for that page
+only:
 
 ```sh
 curl -sL "POST_URL" > /tmp/wix-post.html
@@ -573,17 +586,26 @@ Convert HTML to Markdown as in Step 2b.
 Note that Squarespace only exports text blocks — complex layouts (galleries,
 forms, product grids) are not included in the export.
 
-**Wix:** Use the RENDER_BACKEND driver (Step 1a.2) (styles were already
-extracted from the homepage in Step 2a, so use `--content-only` here):
+**Wix:** Use the RENDER_BACKEND driver (Step 1a.2). Styles were already
+extracted from the homepage in Step 2a, so skip redundant style extraction:
 
-```sh
-node references/scripts/import/wix/wix-playwright.mjs "PAGE_URL" --content-only
-```
+- **safari** — batch every static page URL in one invocation with
+  `--content-only`:
 
-With the Safari backend, pass every static page URL in one invocation and
-read the NDJSON lines.
+  ```sh
+  node references/scripts/import/browser/safari-driver.mjs "PAGE_URL_1" "PAGE_URL_2" … --content-only
+  ```
 
-If Playwright fails on a specific page, fall back to curl + regex for that page:
+  Read back the NDJSON lines, one per page.
+
+- **playwright** — one invocation per page:
+
+  ```sh
+  node references/scripts/import/wix/wix-playwright.mjs "PAGE_URL" --content-only
+  ```
+
+If the rendered backend fails on a specific page (Playwright timeout/crash, or
+a Safari NDJSON line with `"error"`), fall back to curl + regex for that page:
 
 ```sh
 curl -sL "PAGE_URL" > /tmp/wix-page.html
@@ -824,8 +846,8 @@ tokens were extracted from the homepage in Step 2a, apply them to
 `src/styles/global.css`:
 
 1. Read the current `global.css`
-2. For each non-null token from the Playwright output, replace the corresponding
-   CSS custom property value:
+2. For each non-null token from the rendered backend's output, replace the
+   corresponding CSS custom property value:
    - `--color-primary`, `--color-accent`, `--color-bg`, `--color-text`, `--color-muted`
    - `--font-heading`, `--font-body`
 3. Write the updated file
@@ -838,8 +860,9 @@ Tell the owner:
 >
 > These have been applied to your new site's stylesheet."
 
-If Playwright failed on the homepage and no tokens were captured, skip this
-step. The owner can set up colors and fonts later via `/anglesite:design-interview`.
+If the rendered backend failed on the homepage and no tokens were captured,
+skip this step. The owner can set up colors and fonts later via
+`/anglesite:design-interview`.
 
 This step now applies to Squarespace imports too — extract homepage tokens
 with `--styles-only` via RENDER_BACKEND when available.
