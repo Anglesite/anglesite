@@ -278,9 +278,62 @@ export async function extractCanvaPage(page, url, options = {}) {
 }
 
 /**
- * Extract tokens and content from an entire Canva published site.
+ * Crawl an entire Canva published site with an already-open page.
  * Visits homepage for tokens, then discovers subpages from nav and visits each
- * with contentOnly: true.
+ * with contentOnly: true. Backend-agnostic: `page` may be a Playwright page or
+ * any object with the same goto/waitForSelector/waitForTimeout/evaluate subset
+ * (see canva-safari.mjs).
+ *
+ * @param {import('playwright').Page} page - An open page
+ * @param {string} baseUrl - Homepage URL of the published Canva site
+ * @returns {Promise<{ tokens: Object, pages: Array, images: Array, navigation: Array }>}
+ */
+export async function crawlCanvaSite(page, baseUrl) {
+  // Homepage extraction includes tokens
+  const home = await extractCanvaPage(page, baseUrl, {});
+  const { tokens, navigation } = home;
+
+  const pages = [{ url: baseUrl, ...home }];
+  const allImages = [...home.images];
+
+  // Discover and visit subpages from navigation
+  const visited = new Set([baseUrl]);
+  for (const link of navigation) {
+    const href = link.path;
+    if (!href || href.startsWith('#') || href.startsWith('mailto:')) continue;
+
+    // Resolve relative paths against base URL
+    let pageUrl;
+    try {
+      pageUrl = new URL(href, baseUrl).href;
+    } catch {
+      continue;
+    }
+
+    if (visited.has(pageUrl)) continue;
+    // Only visit pages on the same origin
+    if (!pageUrl.startsWith(new URL(baseUrl).origin)) continue;
+
+    visited.add(pageUrl);
+
+    const subPage = await extractCanvaPage(page, pageUrl, { contentOnly: true });
+    pages.push({ url: pageUrl, ...subPage });
+    allImages.push(...subPage.images);
+  }
+
+  // Deduplicate images by src
+  const seenSrcs = new Set();
+  const uniqueImages = allImages.filter(({ src }) => {
+    if (seenSrcs.has(src)) return false;
+    seenSrcs.add(src);
+    return true;
+  });
+
+  return { tokens, pages, images: uniqueImages, navigation };
+}
+
+/**
+ * Extract tokens and content from an entire Canva published site.
  *
  * @param {string} baseUrl - Homepage URL of the published Canva site
  * @returns {Promise<{ tokens: Object, pages: Array, images: Array, navigation: Array }>}
@@ -300,47 +353,7 @@ export async function extractCanvaSite(baseUrl) {
   const page = await browser.newPage();
 
   try {
-    // Homepage extraction includes tokens
-    const home = await extractCanvaPage(page, baseUrl, {});
-    const { tokens, navigation } = home;
-
-    const pages = [{ url: baseUrl, ...home }];
-    const allImages = [...home.images];
-
-    // Discover and visit subpages from navigation
-    const visited = new Set([baseUrl]);
-    for (const link of navigation) {
-      const href = link.path;
-      if (!href || href.startsWith('#') || href.startsWith('mailto:')) continue;
-
-      // Resolve relative paths against base URL
-      let pageUrl;
-      try {
-        pageUrl = new URL(href, baseUrl).href;
-      } catch {
-        continue;
-      }
-
-      if (visited.has(pageUrl)) continue;
-      // Only visit pages on the same origin
-      if (!pageUrl.startsWith(new URL(baseUrl).origin)) continue;
-
-      visited.add(pageUrl);
-
-      const subPage = await extractCanvaPage(page, pageUrl, { contentOnly: true });
-      pages.push({ url: pageUrl, ...subPage });
-      allImages.push(...subPage.images);
-    }
-
-    // Deduplicate images by src
-    const seenSrcs = new Set();
-    const uniqueImages = allImages.filter(({ src }) => {
-      if (seenSrcs.has(src)) return false;
-      seenSrcs.add(src);
-      return true;
-    });
-
-    return { tokens, pages, images: uniqueImages, navigation };
+    return await crawlCanvaSite(page, baseUrl);
   } finally {
     await browser.close();
   }

@@ -39,6 +39,13 @@ Per `skills/<name>/SKILL.md` it emits `agent-skills/<name>/`:
   (e.g. `references/docs/decisions/0003-...md`). Runtime-computed paths
   (`docs/smb/<BUSINESS_TYPE>.md`) bundle their static parent directory so the path
   resolves at runtime.
+- **Relative JS imports are followed.** Every bundled script (`.mjs`/`.cjs`/`.js`/
+  `.ts`/`.mts`) has its static relative imports (`import … from './x.mjs'`,
+  `export … from`, side-effect and dynamic imports) walked transitively, and the
+  whole closure is copied into `references/` at plugin-root-relative paths — so
+  bundled scripts stay runnable in a standalone install. The TS ESM convention
+  (`./x.js` importing a `./x.ts` source) is resolved. Imports that don't resolve
+  inside the plugin root are surfaced as `MISSING IMPORT` build warnings.
 
 `agent-skills/README.md` is a generated index with per-skill install commands.
 
@@ -69,6 +76,12 @@ npx tsx bin/build-agent-skills.ts seo deploy   # a subset (index not regenerated
 - **Nested references.** A few bundled docs (e.g. `import`'s `docs/import/wix.md`)
   contain their own `${CLAUDE_PLUGIN_ROOT}` references that are not transitively
   rewritten. The build flags these as `NESTED REF`. Mostly affects the `import` skill.
+- **Relative JS imports are not followed.** Bundled scripts keep their relative
+  `import` statements but sibling modules referenced only via those imports are not
+  copied (e.g. `canva-playwright.mjs` / `canva-safari.mjs` without `canva-colors.mjs`
+  or `scripts/import/browser/safari-mcp.mjs`; `wix-playwright.mjs` without
+  `color-utils.mjs`). Those scripts run in the plugin distribution but crash on import
+  in an agent-skills install. Fix is to walk relative import graphs during bundling.
 - **Body length.** `convert`, `deploy`, and `import` exceed the spec's recommended
   500-line `SKILL.md` budget. Functional, but candidates for splitting into
   `references/`.
