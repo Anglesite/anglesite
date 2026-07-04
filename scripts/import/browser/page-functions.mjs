@@ -138,6 +138,15 @@ export const extractContentSrc = function (options) {
 
   let currentBlock = [];
   let lastParent = null;
+  let headingEl = null;
+
+  const flushHeading = () => {
+    if (!headingEl) return;
+    const level = headingEl.tagName?.match(/H(\d)/)?.[1] || '2';
+    blocks.push('#'.repeat(Number(level)) + ' ' + currentBlock.join(' '));
+    currentBlock = [];
+    headingEl = null;
+  };
 
   while (walker.nextNode()) {
     const node = walker.currentNode;
@@ -147,35 +156,37 @@ export const extractContentSrc = function (options) {
     // Detect block boundaries (different parent block element)
     const blockParent = node.parentElement?.closest('div, p, h1, h2, h3, h4, h5, h6, li, blockquote');
     if (blockParent !== lastParent && currentBlock.length > 0) {
-      blocks.push(currentBlock.join(' '));
-      currentBlock = [];
-    }
-    lastParent = blockParent;
-
-    // Check if this is a heading
-    const heading = node.parentElement?.closest('h1, h2, h3, h4, h5, h6, [role="heading"]');
-    if (heading) {
-      if (currentBlock.length > 0) {
+      if (headingEl) {
+        flushHeading();
+      } else {
         blocks.push(currentBlock.join(' '));
         currentBlock = [];
       }
-      // Detect heading level
-      const level = heading.tagName?.match(/H(\d)/)?.[1] || '2';
-      blocks.push('#'.repeat(Number(level)) + ' ' + text);
-      lastParent = blockParent;
-      continue;
     }
+    lastParent = blockParent;
 
     // Check if this text is inside a hyperlink
     const link = node.parentElement?.closest('a[href]');
-    if (link) {
-      currentBlock.push(`[${text}](${link.href})`);
-    } else {
-      currentBlock.push(text);
+    const piece = link ? `[${text}](${link.href})` : text;
+
+    // Check if this is a heading: accumulate into currentBlock (same as
+    // paragraphs) and only flush once, when the walker moves past the
+    // heading element (handled by the block-boundary check above).
+    const heading = node.parentElement?.closest('h1, h2, h3, h4, h5, h6, [role="heading"]');
+    if (heading) {
+      headingEl = heading;
+      currentBlock.push(piece);
+      continue;
     }
+
+    currentBlock.push(piece);
   }
   if (currentBlock.length > 0) {
-    blocks.push(currentBlock.join(' '));
+    if (headingEl) {
+      flushHeading();
+    } else {
+      blocks.push(currentBlock.join(' '));
+    }
   }
 
   result.body = blocks.join('\n\n');

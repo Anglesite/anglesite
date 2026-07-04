@@ -56,11 +56,21 @@ export class SafariMcp {
     this.child = this.binaryPath.endsWith('.mjs')
       ? spawn(process.execPath, [this.binaryPath, ...args], { stdio: ['pipe', 'pipe', 'ignore'] })
       : spawn(this.binaryPath, args, { stdio: ['pipe', 'pipe', 'ignore'] });
-    this.child.on('error', (err) => {
+    const failPending = (message) => {
       for (const { reject } of this.pending.values()) {
-        reject(new SafariMcpError('session-failed', err.message));
+        reject(new SafariMcpError('session-failed', message));
       }
       this.pending.clear();
+    };
+    this.child.on('error', (err) => failPending(err.message));
+    // A broken pipe (e.g. the Safari window was closed) surfaces as an EPIPE
+    // write error on stdin; without a listener here it's an unhandled stream
+    // error that crashes the process instead of rejecting the in-flight call.
+    this.child.stdin.on('error', (err) => failPending(err.message));
+    // If safaridriver dies while requests are pending, reject them immediately
+    // instead of letting each one silently wait out its own timeout (up to 60s).
+    this.child.on('exit', (code, signal) => {
+      failPending(`safaridriver exited (code=${code}, signal=${signal})`);
     });
     createInterface({ input: this.child.stdout }).on('line', (line) => {
       let msg;

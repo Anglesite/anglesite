@@ -88,7 +88,9 @@ function textToMarkdown(node) {
   let out = text;
   // Escape nothing: Wix prose rarely contains markdown metachars, and escaping
   // would corrupt the common cases (URLs, apostrophes) worse than it helps.
-  if (has('BOLD') && decorations.find((d) => d.type === 'BOLD')?.fontWeightValue >= 700) {
+  // Ricos' BOLD decoration is a boolean-style marker ({ type: 'BOLD' }) with
+  // no weight field in the common case, so presence alone is sufficient.
+  if (has('BOLD')) {
     out = `**${out}**`;
   }
   if (has('ITALIC')) out = `*${out}*`;
