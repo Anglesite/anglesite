@@ -24,3 +24,18 @@ cd /tmp/test-site
 npm install
 npm run dev
 ```
+
+## Manual validation: Safari rendered-extraction backend
+
+CI covers the Safari driver against a fake safaridriver
+(`test/fixtures/fake-safaridriver.mjs`). Before releases that touch
+`scripts/import/browser/`, validate against live Safari on macOS:
+
+1. Safari Technology Preview installed; Settings → Developer →
+   "Allow remote automation" enabled.
+2. `node scripts/import/browser/safari-driver.mjs --check` → exit 0.
+3. `node scripts/import/browser/safari-driver.mjs "https://cami-demo.squarespace.com"`
+   → NDJSON line with `tokens["--color-bg"] === "#c8a47e"` (template tan)
+   and body containing "Sandra Cami".
+4. `node scripts/import/browser/safari-driver.mjs "https://www.wix.com/blog" --content-only`
+   → body with full `static.wixstatic.com` image URLs.

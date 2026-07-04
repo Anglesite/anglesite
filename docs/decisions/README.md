@@ -33,3 +33,4 @@ ADRs follow the [MADR](https://adr.github.io/madr/) format.
 - [ADR-0021](0021-on-device-ai-accelerator.md) — On-device AI (`fm`) as an optional authoring-time accelerator
 - [ADR-0022](0022-passkey-indieauth.md) — Authenticate the IndieAuth owner with passkeys (`@dwk/webauthn`)
 - [ADR-0023](0023-native-mac-app.md) — Ship a native macOS host (`Anglesite-app`) that embeds — not forks — this plugin
+- [ADR-0024](0024-safari-rendered-extraction-backend.md) — Safari's MCP server as an optional rendered-extraction backend
