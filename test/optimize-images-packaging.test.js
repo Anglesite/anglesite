@@ -83,8 +83,8 @@ describe.skipIf(!hasZsh)('ai-optimize in a scaffolded site (#320)', () => {
   });
 
   // Scaffolding + running the CLI takes ~10s alone; give these room to breathe
-  // under full-suite parallelism and loaded CI runners.
-  const SCAFFOLD_TIMEOUT = 120_000;
+  // under full-suite parallelism and loaded CI runners (~60s observed worst case).
+  const SCAFFOLD_TIMEOUT = 60_000;
 
   it('scaffolds server/optimize-images.mjs alongside the CLI script', () => {
     execFileSync('/bin/zsh', [SCAFFOLD_SCRIPT, '--yes', tmpDir], { stdio: 'pipe' });
