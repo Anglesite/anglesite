@@ -201,6 +201,51 @@ describe("emitSkill", () => {
     const warnings = emitSkill(result("demo", ["scripts/does-not-exist.mjs"]), pluginRoot, outRoot);
     expect(warnings.some((w) => w.startsWith("MISSING REFERENCE:") && w.includes("does-not-exist"))).toBe(true);
   });
+
+  it("bundles transitive relative .mjs imports of a referenced script", () => {
+    writePlugin(
+      "scripts/import/wix/wix-playwright.mjs",
+      "import { rgbToHex } from './color-utils.mjs';\nimport { shared } from '../shared/util.mjs';\n",
+    );
+    writePlugin("scripts/import/wix/color-utils.mjs", "export const rgbToHex = () => {};\n");
+    // Depth-2 chain: util.mjs re-exports from a sibling.
+    writePlugin("scripts/import/shared/util.mjs", "export * from './deep.mjs';\n");
+    writePlugin("scripts/import/shared/deep.mjs", "export const shared = 1;\n");
+    const warnings = emitSkill(
+      result("demo", ["scripts/import/wix/wix-playwright.mjs"]),
+      pluginRoot,
+      outRoot,
+    );
+    const refs = join(outRoot, "demo", "references");
+    expect(existsSync(join(refs, "scripts/import/wix/color-utils.mjs"))).toBe(true);
+    expect(existsSync(join(refs, "scripts/import/shared/util.mjs"))).toBe(true);
+    expect(existsSync(join(refs, "scripts/import/shared/deep.mjs"))).toBe(true);
+    expect(warnings).toEqual([]);
+  });
+
+  it("warns when a transitive relative import does not exist in the plugin", () => {
+    writePlugin("scripts/a.mjs", "import { gone } from './gone.mjs';\n");
+    const warnings = emitSkill(result("demo", ["scripts/a.mjs"]), pluginRoot, outRoot);
+    expect(warnings.some((w) => w.startsWith("MISSING IMPORT:") && w.includes("gone.mjs"))).toBe(true);
+  });
+
+  it("handles circular relative imports without recursing forever", () => {
+    writePlugin("scripts/a.mjs", "import './b.mjs';\n");
+    writePlugin("scripts/b.mjs", "import './a.mjs';\n");
+    const warnings = emitSkill(result("demo", ["scripts/a.mjs"]), pluginRoot, outRoot);
+    expect(existsSync(join(outRoot, "demo", "references/scripts/b.mjs"))).toBe(true);
+    expect(warnings).toEqual([]);
+  });
+
+  it("follows relative imports of .mjs files inside a bundled directory", () => {
+    // A dynamic reference bundles docs/tools/ wholesale; a script inside it
+    // imports a module outside the bundled directory.
+    writePlugin("docs/tools/run.mjs", "import { helper } from '../../scripts/helper.mjs';\n");
+    writePlugin("scripts/helper.mjs", "export const helper = 1;\n");
+    const warnings = emitSkill(result("demo", ["docs/tools/<TOOL>/run.mjs"]), pluginRoot, outRoot);
+    expect(existsSync(join(outRoot, "demo", "references/scripts/helper.mjs"))).toBe(true);
+    expect(warnings).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------

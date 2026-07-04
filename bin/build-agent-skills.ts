@@ -28,7 +28,7 @@ import {
   cpSync,
   rmSync,
 } from "node:fs";
-import { join, resolve, dirname } from "node:path";
+import { join, resolve, dirname, posix, relative, sep } from "node:path";
 
 const PLUGIN_VAR = "${CLAUDE_PLUGIN_ROOT}";
 
@@ -294,6 +294,12 @@ function staticPrefix(path: string): string {
   return out.join("/");
 }
 
+// Relative specifiers in static imports/re-exports (`from './x.mjs'`),
+// side-effect imports (`import './x.mjs'`), and dynamic `import('./x.mjs')`.
+// May also match specifiers in comments — harmless, since a false positive
+// only bundles an extra existing file.
+const RELATIVE_IMPORT_RE = /(?:from|import)\s*\(?\s*["'](\.\.?\/[^"']+)["']/g;
+
 export function emitSkill(
   result: BuildResult,
   pluginRoot: string,
@@ -307,6 +313,34 @@ export function emitSkill(
   writeFileSync(join(skillDir, "SKILL.md"), result.skillMd.endsWith("\n") ? result.skillMd : result.skillMd + "\n");
 
   const bundled = new Set<string>();
+
+  // Bundle every relative .mjs import of relPath so the script keeps working
+  // when run out of references/. `copyInto` dedupes, which also breaks cycles.
+  const followImports = (relPath: string, source: string) => {
+    for (const m of source.matchAll(RELATIVE_IMPORT_RE)) {
+      const target = posix.normalize(posix.join(posix.dirname(relPath), m[1]));
+      if (target.startsWith("..")) {
+        warnings.push(`MISSING IMPORT: ${m[1]} in ${relPath} escapes the plugin root`);
+      } else if (existsSync(join(pluginRoot, target))) {
+        copyInto(target);
+      } else {
+        warnings.push(`MISSING IMPORT: ${target} (imported by references/${relPath})`);
+      }
+    }
+  };
+
+  const inspectFile = (relPath: string, src: string) => {
+    const text = readFileSync(src, "utf-8");
+    // Flag nested plugin-root references inside copied text files (spec
+    // discourages deep reference chains; these won't resolve standalone). Use a
+    // non-global regex — a /g regex would carry lastIndex across files and miss
+    // matches on later ones.
+    if (/\$\{CLAUDE_PLUGIN_ROOT\}/.test(text)) {
+      warnings.push(`NESTED REF: references/${relPath} still contains \${CLAUDE_PLUGIN_ROOT}`);
+    }
+    if (relPath.endsWith(".mjs")) followImports(relPath, text);
+  };
+
   const copyInto = (relPath: string) => {
     if (bundled.has(relPath)) return;
     const src = join(pluginRoot, relPath);
@@ -315,12 +349,16 @@ export function emitSkill(
     const st = statSync(src);
     cpSync(src, dest, { recursive: st.isDirectory() });
     bundled.add(relPath);
-    // Flag nested plugin-root references inside copied text files (spec
-    // discourages deep reference chains; these won't resolve standalone). Use a
-    // non-global regex — a /g regex would carry lastIndex across files and miss
-    // matches on later ones.
-    if (st.isFile() && /\$\{CLAUDE_PLUGIN_ROOT\}/.test(readFileSync(src, "utf-8"))) {
-      warnings.push(`NESTED REF: references/${relPath} still contains \${CLAUDE_PLUGIN_ROOT}`);
+    if (st.isFile()) {
+      inspectFile(relPath, src);
+    } else {
+      // Scripts inside a bundled directory may import modules outside it.
+      for (const e of readdirSync(src, { recursive: true, withFileTypes: true })) {
+        if (!e.isFile() || !e.name.endsWith(".mjs")) continue;
+        const abs = join(e.parentPath, e.name);
+        const rel = posix.join(relPath, relative(src, abs).split(sep).join("/"));
+        followImports(rel, readFileSync(abs, "utf-8"));
+      }
     }
   };
 
