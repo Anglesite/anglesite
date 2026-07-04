@@ -75,7 +75,8 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── pre-deploy-check.sh       Blocks deploy if security scans fail
 │   ├── pack-plugin.sh            Builds distributable plugin ZIP
 │   ├── design-import/            Canva/Figma extraction scripts
-│   │   ├── canva-playwright.mjs  Browser-based Canva content extraction
+│   │   ├── canva-playwright.mjs  Browser-based Canva content extraction (Playwright fallback)
+│   │   ├── canva-safari.mjs      Safari MCP Canva extraction (preferred on macOS; same JSON contract)
 │   │   ├── canva-colors.mjs      Canva color token extraction
 │   │   ├── canva-fonts.mjs       Canva font extraction
 │   │   ├── comparison.mjs        Design comparison utilities

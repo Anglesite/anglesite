@@ -13,6 +13,7 @@ import {
   validateSkill,
   inferCompatibility,
   renderIndex,
+  relativeImports,
 } from "../bin/build-agent-skills.ts";
 
 const ROOT = resolve(__dirname, "..");
@@ -202,49 +203,78 @@ describe("emitSkill", () => {
     expect(warnings.some((w) => w.startsWith("MISSING REFERENCE:") && w.includes("does-not-exist"))).toBe(true);
   });
 
-  it("bundles transitive relative .mjs imports of a referenced script", () => {
+  it("bundles the transitive relative-import closure of a copied script", () => {
     writePlugin(
-      "scripts/import/wix/wix-playwright.mjs",
-      "import { rgbToHex } from './color-utils.mjs';\nimport { shared } from '../shared/util.mjs';\n",
+      "scripts/a/entry.mjs",
+      "import { x } from './sibling.mjs';\nimport { y } from '../b/dep.mjs';\nexport const z = x + y;\n",
     );
-    writePlugin("scripts/import/wix/color-utils.mjs", "export const rgbToHex = () => {};\n");
-    // Depth-2 chain: util.mjs re-exports from a sibling.
-    writePlugin("scripts/import/shared/util.mjs", "export * from './deep.mjs';\n");
-    writePlugin("scripts/import/shared/deep.mjs", "export const shared = 1;\n");
-    const warnings = emitSkill(
-      result("demo", ["scripts/import/wix/wix-playwright.mjs"]),
-      pluginRoot,
-      outRoot,
-    );
-    const refs = join(outRoot, "demo", "references");
-    expect(existsSync(join(refs, "scripts/import/wix/color-utils.mjs"))).toBe(true);
-    expect(existsSync(join(refs, "scripts/import/shared/util.mjs"))).toBe(true);
-    expect(existsSync(join(refs, "scripts/import/shared/deep.mjs"))).toBe(true);
+    writePlugin("scripts/a/sibling.mjs", "export { s } from './deep.mjs';\nexport const x = 1;\n");
+    writePlugin("scripts/a/deep.mjs", "export const s = 2;\n");
+    writePlugin("scripts/b/dep.mjs", "export const y = 3;\n");
+    const warnings = emitSkill(result("demo", ["scripts/a/entry.mjs"]), pluginRoot, outRoot);
+    // Direct imports, a re-export chain, and a parent-directory import all land
+    // in references/ at their plugin-root-relative paths.
+    expect(existsSync(join(outRoot, "demo", "references/scripts/a/sibling.mjs"))).toBe(true);
+    expect(existsSync(join(outRoot, "demo", "references/scripts/a/deep.mjs"))).toBe(true);
+    expect(existsSync(join(outRoot, "demo", "references/scripts/b/dep.mjs"))).toBe(true);
     expect(warnings).toEqual([]);
   });
 
-  it("warns when a transitive relative import does not exist in the plugin", () => {
-    writePlugin("scripts/a.mjs", "import { gone } from './gone.mjs';\n");
-    const warnings = emitSkill(result("demo", ["scripts/a.mjs"]), pluginRoot, outRoot);
-    expect(warnings.some((w) => w.startsWith("MISSING IMPORT:") && w.includes("gone.mjs"))).toBe(true);
+  it("warns when a copied script imports a relative path that does not exist", () => {
+    writePlugin("scripts/a/entry.mjs", "import { x } from './gone.mjs';\n");
+    const warnings = emitSkill(result("demo", ["scripts/a/entry.mjs"]), pluginRoot, outRoot);
+    expect(
+      warnings.some((w) => w.startsWith("MISSING IMPORT:") && w.includes("scripts/a/gone.mjs")),
+    ).toBe(true);
   });
 
-  it("handles circular relative imports without recursing forever", () => {
-    writePlugin("scripts/a.mjs", "import './b.mjs';\n");
-    writePlugin("scripts/b.mjs", "import './a.mjs';\n");
-    const warnings = emitSkill(result("demo", ["scripts/a.mjs"]), pluginRoot, outRoot);
-    expect(existsSync(join(outRoot, "demo", "references/scripts/b.mjs"))).toBe(true);
+  it("follows relative imports of scripts inside a bundled directory", () => {
+    writePlugin("scripts/dir/tool.mjs", "import { u } from '../shared/util.mjs';\n");
+    writePlugin("scripts/shared/util.mjs", "export const u = 1;\n");
+    const warnings = emitSkill(result("demo", ["scripts/dir"]), pluginRoot, outRoot);
+    expect(existsSync(join(outRoot, "demo", "references/scripts/shared/util.mjs"))).toBe(true);
     expect(warnings).toEqual([]);
   });
+});
 
-  it("follows relative imports of .mjs files inside a bundled directory", () => {
-    // A dynamic reference bundles docs/tools/ wholesale; a script inside it
-    // imports a module outside the bundled directory.
-    writePlugin("docs/tools/run.mjs", "import { helper } from '../../scripts/helper.mjs';\n");
-    writePlugin("scripts/helper.mjs", "export const helper = 1;\n");
-    const warnings = emitSkill(result("demo", ["docs/tools/<TOOL>/run.mjs"]), pluginRoot, outRoot);
-    expect(existsSync(join(outRoot, "demo", "references/scripts/helper.mjs"))).toBe(true);
-    expect(warnings).toEqual([]);
+// ---------------------------------------------------------------------------
+// Bundled scripts must be runnable: every relative import inside a bundled
+// .mjs/.js/.ts file must resolve within the same references/ tree.
+// ---------------------------------------------------------------------------
+
+describe("bundled scripts resolve their relative imports", () => {
+  const SCRIPT_EXT_RE = /\.(mjs|cjs|js|ts|mts)$/;
+
+  const walkScripts = (dir: string): string[] => {
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) return walkScripts(p);
+      return SCRIPT_EXT_RE.test(e.name) ? [p] : [];
+    });
+  };
+
+  const bundledSkills = readdirSync(OUT_DIR, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && walkScripts(join(OUT_DIR, e.name, "references")).length > 0)
+    .map((e) => e.name);
+
+  it("covers the skills known to bundle scripts", () => {
+    expect(bundledSkills).toEqual(expect.arrayContaining(["design-import", "import"]));
+  });
+
+  it.each(bundledSkills)("agent-skills/%s bundles the relative-import closure", (name) => {
+    for (const file of walkScripts(join(OUT_DIR, name, "references"))) {
+      const src = readFileSync(file, "utf-8");
+      for (const spec of relativeImports(src)) {
+        const target = resolve(join(file, ".."), spec);
+        // TS ESM convention: './x.js' in a .ts file resolves to './x.ts'.
+        const tsTarget = target.replace(/\.js$/, ".ts");
+        expect(
+          existsSync(target) || existsSync(tsTarget),
+          `${file} imports ${spec} which is not bundled`,
+        ).toBe(true);
+      }
+    }
   });
 });
 

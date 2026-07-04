@@ -28,7 +28,7 @@ import {
   cpSync,
   rmSync,
 } from "node:fs";
-import { join, resolve, dirname, posix, relative, sep } from "node:path";
+import { join, resolve, dirname, relative } from "node:path";
 
 const PLUGIN_VAR = "${CLAUDE_PLUGIN_ROOT}";
 
@@ -266,6 +266,40 @@ export function buildSkill(content: string, version: string): BuildResult {
 }
 
 // ---------------------------------------------------------------------------
+// Relative-import walking — bundled scripts must be runnable, so every copied
+// script file drags its relative-import closure into references/ with it.
+// ---------------------------------------------------------------------------
+
+const SCRIPT_FILE_RE = /\.(mjs|cjs|js|ts|mts)$/;
+
+// import/export ... from './x' · side-effect import './x' · dynamic import('./x')
+const RELATIVE_IMPORT_RES = [
+  /(?:import|export)\s[^'"()]*?from\s*['"](\.[^'"]+)['"]/g,
+  /import\s*['"](\.[^'"]+)['"]/g,
+  /import\(\s*['"](\.[^'"]+)['"]\s*\)/g,
+];
+
+/** Static relative import specifiers ('./x.mjs', '../y/z.mjs') in a script. */
+export function relativeImports(source: string): string[] {
+  const specs = new Set<string>();
+  for (const re of RELATIVE_IMPORT_RES) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(source)) !== null) specs.add(m[1]);
+  }
+  return [...specs].sort();
+}
+
+/** All script files under a path (the file itself, or a directory walk). */
+function scriptFilesUnder(path: string): string[] {
+  const st = statSync(path);
+  if (st.isFile()) return SCRIPT_FILE_RE.test(path) ? [path] : [];
+  return readdirSync(path, { withFileTypes: true }).flatMap((e) =>
+    scriptFilesUnder(join(path, e.name)),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // emitSkill — write the result + bundled references to disk
 // ---------------------------------------------------------------------------
 
@@ -294,12 +328,6 @@ function staticPrefix(path: string): string {
   return out.join("/");
 }
 
-// Relative specifiers in static imports/re-exports (`from './x.mjs'`),
-// side-effect imports (`import './x.mjs'`), and dynamic `import('./x.mjs')`.
-// May also match specifiers in comments — harmless, since a false positive
-// only bundles an extra existing file.
-const RELATIVE_IMPORT_RE = /(?:from|import)\s*\(?\s*["'](\.\.?\/[^"']+)["']/g;
-
 export function emitSkill(
   result: BuildResult,
   pluginRoot: string,
@@ -313,34 +341,6 @@ export function emitSkill(
   writeFileSync(join(skillDir, "SKILL.md"), result.skillMd.endsWith("\n") ? result.skillMd : result.skillMd + "\n");
 
   const bundled = new Set<string>();
-
-  // Bundle every relative .mjs import of relPath so the script keeps working
-  // when run out of references/. `copyInto` dedupes, which also breaks cycles.
-  const followImports = (relPath: string, source: string) => {
-    for (const m of source.matchAll(RELATIVE_IMPORT_RE)) {
-      const target = posix.normalize(posix.join(posix.dirname(relPath), m[1]));
-      if (target.startsWith("..")) {
-        warnings.push(`MISSING IMPORT: ${m[1]} in ${relPath} escapes the plugin root`);
-      } else if (existsSync(join(pluginRoot, target))) {
-        copyInto(target);
-      } else {
-        warnings.push(`MISSING IMPORT: ${target} (imported by references/${relPath})`);
-      }
-    }
-  };
-
-  const inspectFile = (relPath: string, src: string) => {
-    const text = readFileSync(src, "utf-8");
-    // Flag nested plugin-root references inside copied text files (spec
-    // discourages deep reference chains; these won't resolve standalone). Use a
-    // non-global regex — a /g regex would carry lastIndex across files and miss
-    // matches on later ones.
-    if (/\$\{CLAUDE_PLUGIN_ROOT\}/.test(text)) {
-      warnings.push(`NESTED REF: references/${relPath} still contains \${CLAUDE_PLUGIN_ROOT}`);
-    }
-    if (relPath.endsWith(".mjs")) followImports(relPath, text);
-  };
-
   const copyInto = (relPath: string) => {
     if (bundled.has(relPath)) return;
     const src = join(pluginRoot, relPath);
@@ -349,15 +349,31 @@ export function emitSkill(
     const st = statSync(src);
     cpSync(src, dest, { recursive: st.isDirectory() });
     bundled.add(relPath);
-    if (st.isFile()) {
-      inspectFile(relPath, src);
-    } else {
-      // Scripts inside a bundled directory may import modules outside it.
-      for (const e of readdirSync(src, { recursive: true, withFileTypes: true })) {
-        if (!e.isFile() || !e.name.endsWith(".mjs")) continue;
-        const abs = join(e.parentPath, e.name);
-        const rel = posix.join(relPath, relative(src, abs).split(sep).join("/"));
-        followImports(rel, readFileSync(abs, "utf-8"));
+    // Flag nested plugin-root references inside copied text files (spec
+    // discourages deep reference chains; these won't resolve standalone). Use a
+    // non-global regex — a /g regex would carry lastIndex across files and miss
+    // matches on later ones.
+    if (st.isFile() && /\$\{CLAUDE_PLUGIN_ROOT\}/.test(readFileSync(src, "utf-8"))) {
+      warnings.push(`NESTED REF: references/${relPath} still contains \${CLAUDE_PLUGIN_ROOT}`);
+    }
+    // Follow relative imports so bundled scripts stay runnable: references/
+    // preserves the plugin-root-relative layout, so each import target lands
+    // exactly where the importing file expects it.
+    for (const scriptFile of scriptFilesUnder(src)) {
+      const scriptRel = relative(pluginRoot, scriptFile);
+      for (const spec of relativeImports(readFileSync(scriptFile, "utf-8"))) {
+        let target = resolve(dirname(scriptFile), spec);
+        if (!existsSync(target) && spec.endsWith(".js")) {
+          // TS ESM convention: './x.js' in a .ts file compiles from './x.ts'.
+          const tsTarget = target.replace(/\.js$/, ".ts");
+          if (existsSync(tsTarget)) target = tsTarget;
+        }
+        const targetRel = relative(pluginRoot, target);
+        if (targetRel.startsWith("..") || !existsSync(target)) {
+          warnings.push(`MISSING IMPORT: ${scriptRel} imports ${spec} (${targetRel} not found)`);
+          continue;
+        }
+        copyInto(targetRel);
       }
     }
   };
