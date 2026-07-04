@@ -53,26 +53,33 @@ export class SafariMcp {
     this.closed = false; // set once the child is gone (deliberately or not)
   }
 
+  /**
+   * Single state transition for "this session is dead": marks closed, drops
+   * the child reference, and rejects any in-flight calls. Called from the
+   * child's 'error' and 'close' handlers (and can race a broken-pipe write)
+   * so it must be idempotent — safe to call more than once.
+   */
+  #markDead(reason) {
+    this.closed = true;
+    this.child = null;
+    if (this.closing) return; // deliberate close() — no pending calls to reject
+    for (const { reject } of this.pending.values()) {
+      reject(new SafariMcpError('session-failed', reason));
+    }
+    this.pending.clear();
+  }
+
   async start() {
     const args = ['--mcp'];
     this.child = this.binaryPath.endsWith('.mjs')
       ? spawn(process.execPath, [this.binaryPath, ...args], { stdio: ['pipe', 'pipe', 'ignore'] })
       : spawn(this.binaryPath, args, { stdio: ['pipe', 'pipe', 'ignore'] });
-    this.child.on('error', (err) => {
-      for (const { reject } of this.pending.values()) {
-        reject(new SafariMcpError('session-failed', err.message));
-      }
-      this.pending.clear();
-    });
-    this.child.on('close', () => {
-      this.closed = true;
-      this.child = null;
-      if (this.closing) return; // deliberate close() — no pending calls to reject
-      for (const { reject } of this.pending.values()) {
-        reject(new SafariMcpError('session-failed', 'safaridriver exited unexpectedly'));
-      }
-      this.pending.clear();
-    });
+    // A broken stdin pipe (safaridriver exited before Node delivered 'close')
+    // emits its own 'error' on the stream; without this handler that's an
+    // unhandled error that crashes the process. Degrade to markDead instead.
+    this.child.stdin.on('error', (err) => this.#markDead(err.message));
+    this.child.on('error', (err) => this.#markDead(err.message));
+    this.child.on('close', () => this.#markDead('safaridriver exited unexpectedly'));
     createInterface({ input: this.child.stdout }).on('line', (line) => {
       let msg;
       try { msg = JSON.parse(line); } catch { return; }
