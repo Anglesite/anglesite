@@ -2,9 +2,16 @@
 // Fake `safaridriver --mcp` for tests. Modes via FAKE_SAFARIDRIVER_MODE:
 //   ok                  — happy path, canned tool responses
 //   not-enabled         — every tools/call returns the WebDriver enable error
+//   not-enabled-second-url — navigate_to_url succeeds for the first URL seen,
+//                          then every call for the second (and later) URL
+//                          returns the WebDriver enable error (mid-batch test)
 //   hang                — never responds to tools/call (for timeout tests)
 //   die-after-first-call — respond normally to the first tools/call, then
 //                          exit(0) on the second tools/call before responding
+//
+// FAKE_TOKENS_FAIL_URL=<url> makes style extraction (evaluate_javascript for
+// extractStylesSrc) fail with a page-failure error only while `currentUrl`
+// equals that URL — used to test the design-token fallback-to-later-page path.
 import { createInterface } from 'node:readline';
 
 const mode = process.env.FAKE_SAFARIDRIVER_MODE || 'ok';
@@ -15,6 +22,8 @@ const NOT_ENABLED_TEXT =
   'to control Safari via WebDriver."';
 
 let callCount = 0;
+let seenFirstUrl = null; // the first URL passed to navigate_to_url, for mode branches keyed on "which page is this"
+let currentUrl = null; // the most recent URL passed to navigate_to_url
 
 createInterface({ input: process.stdin }).on('line', (line) => {
   let msg;
@@ -46,6 +55,18 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       }});
       return;
     }
+    if (msg.params?.name === 'navigate_to_url') {
+      currentUrl = msg.params?.arguments?.url;
+      if (seenFirstUrl === null) seenFirstUrl = currentUrl;
+    }
+    if (mode === 'not-enabled-second-url' && msg.params?.name === 'navigate_to_url') {
+      if (currentUrl !== seenFirstUrl) {
+        send({ jsonrpc: '2.0', id: msg.id, result: {
+          content: [{ type: 'text', text: NOT_ENABLED_TEXT }], isError: true,
+        }});
+        return;
+      }
+    }
     const { name, arguments: args = {} } = msg.params;
     const canned = {
       navigate_to_url: () => args.url === 'https://fails.example'
@@ -59,6 +80,9 @@ createInterface({ input: process.stdin }).on('line', (line) => {
           return { content: [{ type: 'text', text: process.env.FAKE_EVAL_ERROR_TEXT }], isError: true };
         }
         if (expr.includes('extractStylesSrc') || expr.includes('samples')) {
+          if (process.env.FAKE_TOKENS_FAIL_URL && currentUrl === process.env.FAKE_TOKENS_FAIL_URL) {
+            return { content: [{ type: 'text', text: 'Tool error: style extraction blew up' }], isError: true };
+          }
           return { content: [{ type: 'text', text: JSON.stringify({
             samples: { bg: ['rgb(200, 164, 126)'], text: ['rgb(118, 118, 118)'], heading: ['rgb(0, 0, 0)'] },
             fonts: { heading: ['Poppins'], body: ['Poppins'] },

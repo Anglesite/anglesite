@@ -63,4 +63,30 @@ describe('safari-driver extraction', () => {
     expect(line.content.body).toContain('Rescued markdown body');
     expect(line.content.images[0].src).toBe('https://cdn.example/rescued.jpg');
   });
+
+  it('falls back to a later page for design tokens when the homepage style extraction fails', () => {
+    const { stdout } = run(
+      ['https://a.example', 'https://b.example', 'https://c.example'],
+      { FAKE_TOKENS_FAIL_URL: 'https://a.example' },
+    );
+    const lines = stdout.trim().split('\n').map((l) => JSON.parse(l));
+    expect(lines).toHaveLength(3);
+    expect(lines[0].tokens).toBeNull();
+    expect(lines[1].tokens['--font-heading']).toBe('Poppins');
+    expect(lines[2].tokens).toBeNull(); // tokens already captured on page 2
+  });
+
+  it('emits an error line for every remaining URL when automation becomes disabled mid-batch', () => {
+    const { status, stdout } = run(
+      ['https://a.example', 'https://b.example', 'https://c.example'],
+      { FAKE_SAFARIDRIVER_MODE: 'not-enabled-second-url' },
+      true,
+    );
+    expect(status).toBe(3);
+    const lines = stdout.trim().split('\n').map((l) => JSON.parse(l));
+    expect(lines).toHaveLength(3);
+    expect(lines[0].content.body).toBeTruthy();
+    expect(lines[1].error).toBeTruthy();
+    expect(lines[2].error).toBeTruthy();
+  });
 });

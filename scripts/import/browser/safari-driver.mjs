@@ -62,7 +62,12 @@ async function extractContent(mcp, fullPage) {
       shortenURLs: false,
     });
     const rescued = JSON.parse(rescueRaw);
-    const body = rescued.content || '';
+    if (typeof rescued.content !== 'string') {
+      throw new Error(
+        `get_page_content rescue returned an unexpected shape (expected string "content", got ${typeof rescued.content}); WebKit's tool response format may have changed`,
+      );
+    }
+    const body = rescued.content;
     const images = [...body.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)].map((m) => ({
       src: m[2].replace(/\\\//g, '/'),
       alt: m[1],
@@ -112,6 +117,13 @@ async function main() {
   const contentOnly = flags.has('--content-only');
   const fullPage = flags.has('--fullPage');
   let successes = 0;
+  // Design tokens are normally captured from the homepage (index 0), mirroring
+  // the Playwright driver's "extract styles from the homepage" rule. If index
+  // 0 fails before tokens are captured (redirect loop, timeout, etc.), keep
+  // trying on each subsequent successful page until tokens are captured, so a
+  // single homepage failure doesn't zero out tokens for an otherwise-healthy
+  // batch.
+  let tokensCaptured = false;
 
   for (const [index, url] of urls.entries()) {
     try {
@@ -123,10 +135,21 @@ async function main() {
       );
       if (expanded > 0) await sleep(500);
 
-      // Design tokens come from the homepage only (first URL), mirroring the
-      // Playwright driver's "extract styles from the homepage" rule.
-      const wantStyles = !contentOnly && (stylesOnly || index === 0);
-      const tokens = wantStyles ? await extractStyles(mcp) : null;
+      const wantStyles = !contentOnly && (stylesOnly || !tokensCaptured);
+      // Isolate style-extraction failures from content extraction: a page
+      // whose style pass throws (redirect loop, timeout, etc.) should still
+      // have its content extracted normally, and should leave tokensCaptured
+      // false so a later page gets a chance to supply tokens instead.
+      let tokens = null;
+      if (wantStyles) {
+        try {
+          tokens = await extractStyles(mcp);
+          tokensCaptured = true;
+        } catch (err) {
+          if (err instanceof SafariMcpError && err.code === 'not-enabled') throw err;
+          console.error(`style extraction failed for ${url}: ${err.message}`);
+        }
+      }
       const content = stylesOnly ? null : await extractContent(mcp, fullPage);
 
       console.log(JSON.stringify({ url, tokens, content }));
@@ -134,6 +157,13 @@ async function main() {
     } catch (err) {
       if (err instanceof SafariMcpError && err.code === 'not-enabled') {
         console.error(err.message);
+        // Emit an error line for this URL and every URL not yet attempted so
+        // NDJSON consumers see one line per input URL (SKILL.md's documented
+        // contract: "a line with error falls back per-page"), instead of the
+        // remaining batch silently vanishing from output.
+        for (const remaining of urls.slice(index)) {
+          console.log(JSON.stringify({ url: remaining, error: err.message }));
+        }
         process.exit(EXIT.NOT_ENABLED);
       }
       console.log(JSON.stringify({ url, error: err.message }));
