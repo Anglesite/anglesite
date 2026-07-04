@@ -118,8 +118,12 @@ describe.skipIf(!hasZsh)('ai-optimize in a scaffolded site (#320)', () => {
     // Run the CLI exactly as `npm run ai-optimize` would, resolving tsx from
     // the plugin's own node_modules (the scaffolded site isn't `npm install`ed
     // in this sandbox, but the script + module are what we're exercising).
+    // --no-alt: on machines where the on-device `fm` model is installed, the
+    // alt-text pass would do a real inference call whose cold model load can
+    // exceed the vitest timeout. Module resolution — what #320 is about — is
+    // unaffected by skipping it.
     const tsx = join(REPO_ROOT, 'node_modules', '.bin', 'tsx');
-    const out = execFileSync(tsx, ['scripts/optimize-images.ts'], {
+    const out = execFileSync(tsx, ['scripts/optimize-images.ts', '--no-alt'], {
       cwd: tmpDir,
       stdio: 'pipe',
       encoding: 'utf-8',
