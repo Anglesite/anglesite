@@ -13,6 +13,7 @@ import {
   validateSkill,
   inferCompatibility,
   renderIndex,
+  relativeImports,
 } from "../bin/build-agent-skills.ts";
 
 const ROOT = resolve(__dirname, "..");
@@ -243,11 +244,6 @@ describe("emitSkill", () => {
 
 describe("bundled scripts resolve their relative imports", () => {
   const SCRIPT_EXT_RE = /\.(mjs|cjs|js|ts|mts)$/;
-  const IMPORT_RES = [
-    /(?:import|export)\s[^'"()]*?from\s*['"](\.[^'"]+)['"]/g, // import/export ... from './x'
-    /import\s*['"](\.[^'"]+)['"]/g, // side-effect: import './x'
-    /import\(\s*['"](\.[^'"]+)['"]\s*\)/g, // dynamic: import('./x')
-  ];
 
   const walkScripts = (dir: string): string[] => {
     if (!existsSync(dir)) return [];
@@ -269,18 +265,14 @@ describe("bundled scripts resolve their relative imports", () => {
   it.each(bundledSkills)("agent-skills/%s bundles the relative-import closure", (name) => {
     for (const file of walkScripts(join(OUT_DIR, name, "references"))) {
       const src = readFileSync(file, "utf-8");
-      for (const re of IMPORT_RES) {
-        re.lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = re.exec(src)) !== null) {
-          const target = resolve(join(file, ".."), m[1]);
-          // TS ESM convention: './x.js' in a .ts file resolves to './x.ts'.
-          const tsTarget = target.replace(/\.js$/, ".ts");
-          expect(
-            existsSync(target) || existsSync(tsTarget),
-            `${file} imports ${m[1]} which is not bundled`,
-          ).toBe(true);
-        }
+      for (const spec of relativeImports(src)) {
+        const target = resolve(join(file, ".."), spec);
+        // TS ESM convention: './x.js' in a .ts file resolves to './x.ts'.
+        const tsTarget = target.replace(/\.js$/, ".ts");
+        expect(
+          existsSync(target) || existsSync(tsTarget),
+          `${file} imports ${spec} which is not bundled`,
+        ).toBe(true);
       }
     }
   });
