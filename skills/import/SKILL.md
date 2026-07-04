@@ -271,6 +271,11 @@ Both backends share one invocation contract — the same flags and the same
 - safari: `node ${CLAUDE_PLUGIN_ROOT}/scripts/import/browser/safari-driver.mjs "URL…" [flags]` (batch all URLs in ONE invocation; NDJSON out, one line per URL; a line with `"error"` falls back per-page like a Playwright timeout)
 - playwright: `node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-playwright.mjs "URL" [flags]` (one URL per invocation)
 
+Both drivers also accept `--fullPage`, reserved for a future full-page
+(header + footer image) extraction pass — no step in this skill passes it
+today, so its absence from the invocations below is intentional, not an
+oversight.
+
 ### 1b — Platform-specific content discovery
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/import/content-discovery.md` and follow the
