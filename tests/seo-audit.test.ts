@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, it, expect, afterEach } from "vitest";
 import {
   htmlPathToUrlPath,
   isNoindex,
@@ -6,6 +9,8 @@ import {
   extractDescription,
   hasJsonLd,
   exitCodeFor,
+  resolveDistDir,
+  runAudit,
   type SeoAuditReport,
 } from "../template/scripts/seo-audit.js";
 
@@ -76,6 +81,64 @@ describe("hasJsonLd", () => {
 
   it("returns false when no JSON-LD is present", () => {
     expect(hasJsonLd(`<script>console.log("hi")</script>`)).toBe(false);
+  });
+});
+
+describe("resolveDistDir", () => {
+  let tmpDir: string;
+
+  afterEach(() => {
+    if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns dist/client when it exists (Workers Static Assets adapter)", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "seo-audit-"));
+    mkdirSync(join(tmpDir, "client"), { recursive: true });
+    expect(resolveDistDir(tmpDir)).toBe(join(tmpDir, "client"));
+  });
+
+  it("returns the base dir when no client subdirectory exists", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "seo-audit-"));
+    expect(resolveDistDir(tmpDir)).toBe(tmpDir);
+  });
+});
+
+describe("runAudit with a client subdirectory", () => {
+  let tmpDir: string;
+
+  afterEach(() => {
+    if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("finds sitemap.xml and robots.txt under dist/client, not dist/", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "seo-audit-"));
+    const clientDir = join(tmpDir, "client");
+    mkdirSync(clientDir, { recursive: true });
+    writeFileSync(
+      join(clientDir, "index.html"),
+      "<html><head><title>Home</title><meta name=\"description\" content=\"Home page\"></head></html>",
+    );
+    writeFileSync(join(clientDir, "sitemap-index.xml"), "<urlset></urlset>");
+    writeFileSync(join(clientDir, "robots.txt"), "User-agent: *\nAllow: /\n");
+
+    const report = runAudit({ distDir: tmpDir, siteUrl: "https://example.com" });
+
+    expect(report.issues.some((i) => i.code === "missing-sitemap")).toBe(false);
+    expect(report.issues.some((i) => i.code === "missing-robots")).toBe(false);
+    expect(report.pagesAudited).toBe(1);
+  });
+
+  it("reports the resolved client dir path, not the base dir, when files are missing", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "seo-audit-"));
+    mkdirSync(join(tmpDir, "client"), { recursive: true });
+    writeFileSync(join(tmpDir, "client", "index.html"), "<html><head></head></html>");
+
+    const report = runAudit({ distDir: tmpDir });
+    const sitemapIssue = report.issues.find((i) => i.code === "missing-sitemap");
+    const robotsIssue = report.issues.find((i) => i.code === "missing-robots");
+
+    expect(sitemapIssue?.message).toContain(join(tmpDir, "client"));
+    expect(robotsIssue?.message).toContain(join(tmpDir, "client"));
   });
 });
 
