@@ -1,4 +1,4 @@
-# Social media syndication
+# Repurpose a blog post for social media
 
 Generate ready-to-copy social media posts from a published blog post, following the POSSE principle (Publish on your Own Site, Syndicate Elsewhere).
 

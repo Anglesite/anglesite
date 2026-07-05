@@ -1,8 +1,8 @@
 /**
- * Social media post formatters for POSSE syndication.
+ * Social media post formatters for the repurpose skill.
  *
  * Generates ready-to-copy text for each platform from a blog post's
- * frontmatter. Used by the /anglesite:syndicate skill.
+ * frontmatter. Used by the /anglesite:repurpose skill.
  */
 
 export interface PostInput {

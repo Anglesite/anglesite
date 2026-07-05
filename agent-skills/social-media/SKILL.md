@@ -11,7 +11,7 @@ metadata:
   invocation: "model-only"
 ---
 
-Provide proactive social media strategy, content planning, and profile optimization for small business owners. Called during `/anglesite:start` (initial setup), `/anglesite:check` (periodic review), by the `seasonal` skill, or when the owner asks about social media. Complements the `syndicate` skill, which handles reactive blog-to-social POSSE — this skill covers the full social media presence.
+Provide proactive social media strategy, content planning, and profile optimization for small business owners. Called during `/anglesite:start` (initial setup), `/anglesite:check` (periodic review), by the `seasonal` skill, or when the owner asks about social media. Complements the `repurpose` skill, which generates reactive blog-to-social post copy — this skill covers the full social media presence.
 
 ## Architecture decisions
 
@@ -43,7 +43,7 @@ If `BUSINESS_TYPE` is set, read `references/docs/smb/<BUSINESS_TYPE>.md` for:
 
 ### Brand voice profile
 
-Check for `docs/brand-voice.md` in the project. If it exists, read it to align all social content with the established brand tone, audience, and vocabulary. This file is shared with the `copy-edit` and `syndicate` skills.
+Check for `docs/brand-voice.md` in the project. If it exists, read it to align all social content with the established brand tone, audience, and vocabulary. This file is shared with the `copy-edit` and `repurpose` skills.
 
 If `docs/brand-voice.md` does not exist and this is a conversational invocation (not from `check`), mention it: "If you'd like your social content to have a consistent voice, I can help you define one — just ask me to review your copy and we'll start there." Do not run the brand voice interview yourself — that belongs to the `copy-edit` skill.
 
@@ -203,7 +203,7 @@ Example:
 
 | Skill | Relationship |
 |---|---|
-| `syndicate` | Generates posts FROM blog content (reactive); `social-media` plans content proactively. When a blog post is published, syndicate handles the social posts for it. |
+| `repurpose` | Generates posts FROM blog content (reactive); `social-media` plans content proactively. When a blog post is published, repurpose handles the social posts for it. |
 | `seasonal` | Surfaces seasonal content hooks; `social-media` incorporates them into the calendar. |
 | `reputation` | Covers review monitoring and response in depth; `social-media` touches engagement broadly. Defer to reputation for review-specific coaching. |
 | `copy-edit` | Shares `docs/brand-voice.md` for consistent tone. Copy-edit owns the brand voice interview; social-media reads the result. |
@@ -215,4 +215,4 @@ Example:
 After first run:
 - `docs/social-calendar.md` — the content calendar artifact. Update on subsequent invocations rather than creating a new file.
 - `docs/architecture.md` — note `social-calendar.md` if created.
-- If the owner's social handles are shared, note them in `.site-config` (e.g., `SOCIAL_INSTAGRAM=@handle`) for use by `syndicate` and profile optimization.
+- If the owner's social handles are shared, note them in `.site-config` (e.g., `SOCIAL_INSTAGRAM=@handle`) for use by `repurpose` and profile optimization.

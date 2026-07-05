@@ -224,7 +224,7 @@ Prerequisites (all already true for a site with Webmention enabled and POSSE in 
 
 - `rel="me"` links to the social profiles being connected (passive layer, ships by default)
 - A Webmention receiving endpoint on the owner's domain (`/anglesite:indieweb`, Webmention selected)
-- Syndication links recorded on posts (the owner's normal POSSE habit — see `/anglesite:syndicate`)
+- Syndication links recorded on posts (the owner's normal POSSE habit — see `/anglesite:repurpose`)
 
 Setup (owner-facing, not something the skill automates — Brid.gy account linking happens on brid.gy's own site):
 

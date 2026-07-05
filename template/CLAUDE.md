@@ -55,7 +55,7 @@ Step-by-step guides for common operations:
 | Build a custom form (RSVP, lead, survey, callback) | `docs/workflows/forms.md` |
 | Form submissions inbox in Keystatic | `docs/workflows/inbox.md` |
 | Back up to GitHub | `docs/workflows/backup.md` |
-| Social media syndication | `docs/workflows/syndicate.md` |
+| Repurpose a blog post for social media | `docs/workflows/repurpose.md` |
 | Site analytics | `docs/workflows/stats.md` |
 | Seasonal content ideas | `docs/workflows/seasonal.md` |
 | Image optimization | `docs/workflows/optimize-images.md` |

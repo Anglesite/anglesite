@@ -55,7 +55,7 @@ If the owner agrees, ask these questions one at a time:
 4. "Are there any words or phrases you love using — or hate seeing?"
 5. "Show me a sentence from your site that sounds most like *you*."
 
-Save the answers to `docs/brand-voice.md`. This profile is shared with the `syndicate` and future `social-media` skills.
+Save the answers to `docs/brand-voice.md`. This profile is shared with the `repurpose` and future `social-media` skills.
 
 ## Step 2 — Sweep all content
 
@@ -138,7 +138,7 @@ If the owner asks for rewrites, edit content files directly but always show the 
 - **`/anglesite:check`** — include a "Copy quality" section in the health report (non-interactive)
 - **`/anglesite:deploy`** — non-blocking content scan; write findings to `reports/copy-edit-report.md`
 - **`/anglesite:new-page`** — after page creation, review the new page's copy interactively
-- **`/anglesite:syndicate`** — shares `docs/brand-voice.md` for consistent tone across platforms
+- **`/anglesite:repurpose`** — shares `docs/brand-voice.md` for consistent tone across platforms
 
 ## Keep docs in sync
 

@@ -68,6 +68,7 @@ npx skills add Anglesite/anglesite/agent-skills/<skill>
 | `pwa` | `npx skills add Anglesite/anglesite/agent-skills/pwa` | Make the site installable as a Progressive Web App with offline support |
 | `qr` | `npx skills add Anglesite/anglesite/agent-skills/qr` | Generate QR codes with UTM tracking, shortlink redirects, and campaign-tagged URLs |
 | `redirects` | `npx skills add Anglesite/anglesite/agent-skills/redirects` | Manage the _redirects file: add, remove, list, validate, and bulk-import redirects (301 / 302 / 308) |
+| `repurpose` | `npx skills add Anglesite/anglesite/agent-skills/repurpose` | Generate per-platform social media post variants from a blog post |
 | `reputation` | `npx skills add Anglesite/anglesite/agent-skills/reputation` | Surface review response suggestions and competitive insights based on business type |
 | `search` | `npx skills add Anglesite/anglesite/agent-skills/search` | Add on-site search so visitors can find content quickly |
 | `seasonal` | `npx skills add Anglesite/anglesite/agent-skills/seasonal` | Surface seasonal content suggestions based on business type and current date |
@@ -78,7 +79,6 @@ npx skills add Anglesite/anglesite/agent-skills/<skill>
 | `social-media` | `npx skills add Anglesite/anglesite/agent-skills/social-media` | Proactive social media strategy, content calendars, and profile optimization |
 | `start` | `npx skills add Anglesite/anglesite/agent-skills/start` | First-time setup: discovery, design, tools, preview |
 | `stats` | `npx skills add Anglesite/anglesite/agent-skills/stats` | Show site analytics in plain language |
-| `syndicate` | `npx skills add Anglesite/anglesite/agent-skills/syndicate` | Generate social media posts from a blog post for POSSE syndication |
 | `testimonials` | `npx skills add Anglesite/anglesite/agent-skills/testimonials` | Set up customer review collection, moderation, and display with star ratings |
 | `themes` | `npx skills add Anglesite/anglesite/agent-skills/themes` | Present pre-built visual themes from freedesignmd plus built-in quick-picks, then apply the owner's choice |
 | `tracking` | `npx skills add Anglesite/anglesite/agent-skills/tracking` | Embed Meta Pixel, Google Ads / GA4, LinkedIn, TikTok, Pinterest, or X conversion pixels via @astrojs/partytown (off the main thread), plus Microsoft Clarity analytics (heatmaps + session recording) on the main thread. All gated behind cookie consent. |

@@ -63,12 +63,12 @@ Called programmatically by other skills (25 skills):
 | `paddle` | Set up Paddle checkout for software licensing, SaaS subscriptions, or metered billing |
 | `print` | Generate print-ready materials (business cards, flyers, door hangers, social cards) from site branding |
 | `qr` | Generate QR codes with UTM tracking, shortlink redirects, and campaign-tagged URLs |
+| `repurpose` | Generate per-platform social media post variants from a blog post |
 | `reputation` | Surface review response suggestions and competitive insights based on business type |
 | `seasonal` | Surface seasonal content suggestions based on business type and current date |
 | `shopify-buy-button` | Set up Shopify Buy Button for a full physical product catalog with dashboard |
 | `snipcart` | Set up Snipcart ecommerce for a small physical product catalog |
 | `social-media` | Proactive social media strategy, content calendars, and profile optimization |
-| `syndicate` | Generate social media posts from a blog post for POSSE syndication |
 | `testimonials` | Set up customer review collection, moderation, and display with star ratings |
 | `themes` | Present pre-built visual themes from freedesignmd plus built-in quick-picks, then apply the owner's choice |
 
