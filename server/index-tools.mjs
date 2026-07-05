@@ -75,9 +75,15 @@ export function buildServer(projectRoot) {
     "List unresolved feedback annotations",
     {
       path: z.string().optional().describe("Filter by page path"),
+      resolved: z
+        .boolean()
+        .optional()
+        .describe("Include resolved annotations too. Default false (unresolved only)."),
+      limit: z.number().int().positive().optional().describe("Max annotations to return"),
+      offset: z.number().int().nonnegative().optional().describe("Skip this many before applying limit"),
     },
-    ({ path }) => {
-      const annotations = listAnnotations(projectRoot, path);
+    ({ path, resolved, limit, offset }) => {
+      const annotations = listAnnotations(projectRoot, path, { resolved, limit, offset });
       return { content: [{ type: "text", text: JSON.stringify(annotations) }] };
     },
   );
@@ -139,9 +145,20 @@ export function buildServer(projectRoot) {
   server.tool(
     "list_content",
     "List the site's pages, article-like content-collection entries (posts, notes, episodes, experiments), and images under public/images, as structured JSON. Read-only; the filesystem is the source of truth.",
-    {},
-    () => {
-      const listing = listContent(projectRoot);
+    {
+      type: z
+        .enum(["pages", "posts", "images"])
+        .optional()
+        .describe("Return only this bucket; the other two come back empty. Default: all three."),
+      limit: z.number().int().positive().optional().describe("Max entries to return per bucket"),
+      offset: z.number().int().nonnegative().optional().describe("Skip this many entries per bucket before applying limit"),
+      fields: z
+        .array(z.string())
+        .optional()
+        .describe("Project each entry down to only these field names, e.g. [\"title\", \"filePath\"]"),
+    },
+    ({ type, limit, offset, fields }) => {
+      const listing = listContent(projectRoot, { type, limit, offset, fields });
       return { content: [{ type: "text", text: JSON.stringify(listing) }] };
     },
   );

@@ -275,6 +275,39 @@ describe("listAnnotations", () => {
     const result = listAnnotations(tmpDir);
     expect(result).toHaveLength(2);
   });
+
+  // ---------------------------------------------------------------------------
+  // pagination / resolved filter (#392)
+  // ---------------------------------------------------------------------------
+
+  it("includes resolved annotations when resolved: true", () => {
+    const all = loadAnnotations(tmpDir);
+    resolveAnnotation(tmpDir, all[0].id);
+    const result = listAnnotations(tmpDir, undefined, { resolved: true });
+    expect(result).toHaveLength(3);
+  });
+
+  it("limit caps the returned annotations", () => {
+    const result = listAnnotations(tmpDir, undefined, { limit: 2 });
+    expect(result).toHaveLength(2);
+  });
+
+  it("offset skips annotations before applying limit", () => {
+    const all = listAnnotations(tmpDir);
+    const paged = listAnnotations(tmpDir, undefined, { offset: 1 });
+    expect(paged).toEqual(all.slice(1));
+  });
+
+  it("offset past the end returns an empty array", () => {
+    const result = listAnnotations(tmpDir, undefined, { offset: 100 });
+    expect(result).toEqual([]);
+  });
+
+  it("combines path filter with limit/offset", () => {
+    const result = listAnnotations(tmpDir, "/about", { limit: 1 });
+    expect(result).toHaveLength(1);
+    expect(result[0].path).toBe("/about");
+  });
 });
 
 // ---------------------------------------------------------------------------

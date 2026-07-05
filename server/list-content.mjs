@@ -29,16 +29,38 @@ const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".sv
  */
 const ARTICLE_COLLECTIONS = new Set(["posts", "notes", "episodes", "experiments"]);
 
+const BUCKET_SCANNERS = { pages: scanPages, posts: scanPosts, images: scanImages };
+
 /**
  * @param {string} projectRoot absolute path to the site root
+ * @param {object} [options]
+ * @param {"pages"|"posts"|"images"} [options.type] scan only this bucket; the other two come
+ *   back empty instead of being walked (#392) — saves the filesystem walk, not just the tokens.
+ * @param {number} [options.limit] cap each returned bucket to this many entries
+ * @param {number} [options.offset] skip this many entries per bucket before applying `limit`
+ * @param {string[]} [options.fields] project each entry down to only these keys
  * @returns {{ pages: object[], posts: object[], images: object[] }}
  */
-export function listContent(projectRoot) {
-  return {
-    pages: scanPages(projectRoot),
-    posts: scanPosts(projectRoot),
-    images: scanImages(projectRoot),
-  };
+export function listContent(projectRoot, { type, limit, offset = 0, fields } = {}) {
+  const buckets = type ? [type] : Object.keys(BUCKET_SCANNERS);
+  const result = { pages: [], posts: [], images: [] };
+  for (const bucket of buckets) {
+    let entries = BUCKET_SCANNERS[bucket](projectRoot);
+    entries = entries.slice(offset);
+    if (limit !== undefined) entries = entries.slice(0, limit);
+    if (fields !== undefined) entries = entries.map((e) => pick(e, fields));
+    result[bucket] = entries;
+  }
+  return result;
+}
+
+/** Project `obj` down to only the requested keys. Unknown keys are silently ignored. */
+function pick(obj, keys) {
+  const out = {};
+  for (const key of keys) {
+    if (key in obj) out[key] = obj[key];
+  }
+  return out;
 }
 
 // MARK: - Pages
