@@ -38,6 +38,20 @@ describe("runScan", () => {
     expect(report.failures).toEqual([]);
   });
 
+  it("scans dist/client/ (Workers Static Assets adapter output) instead of dist/ directly", () => {
+    writeFile(
+      "dist/client/index.html",
+      "<!doctype html><p>Contact us at jane@yourbusiness.com</p>",
+    );
+
+    const report = runScan({ siteDir: site });
+
+    expect(report.ok).toBe(false);
+    expect(report.failures).toHaveLength(1);
+    expect(report.failures[0].category).toBe("pii-email");
+    expect(report.failures[0].file).toBe("dist/client/index.html");
+  });
+
   it("flags a PII email in dist/ HTML as ok=false with a pii-email failure", () => {
     writeFile(
       "dist/index.html",

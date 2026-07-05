@@ -20,7 +20,7 @@ import { readdirSync, readFileSync, statSync, existsSync, writeFileSync, mkdirSy
 import { join, extname, resolve, dirname } from "node:path";
 import { readConfig } from "./config.js";
 import { parseProviders, buildAllowedScripts } from "./csp.js";
-import { runAudit as runSeoAudit } from "./seo-audit.js";
+import { runAudit as runSeoAudit, resolveDistDir } from "./seo-audit.js";
 import { formatSeoReport, type AgenticCrawlersPolicy } from "./seo.js";
 
 // ---------------------------------------------------------------------------
@@ -369,10 +369,14 @@ export function runScan(input: { siteDir: string }): ScanReport {
   const failures: ScanFailure[] = [];
   const warnings: ScanWarning[] = [];
 
-  const distDir = resolve(input.siteDir, "dist");
-  if (!existsSync(distDir)) {
-    throw new Error(`dist/ not found at ${distDir} — run \`npm run build\` first.`);
+  const baseDistDir = resolve(input.siteDir, "dist");
+  if (!existsSync(baseDistDir)) {
+    throw new Error(`dist/ not found at ${baseDistDir} — run \`npm run build\` first.`);
   }
+  // The @astrojs/cloudflare adapter (Workers Static Assets) writes the client
+  // build to dist/client/, not dist/ directly — scan the resolved directory
+  // so PII/token/Keystatic checks see the real production output.
+  const distDir = resolveDistDir(baseDistDir);
 
   const configPath = resolve(input.siteDir, ".site-config");
   const readSiteConfig = (key: string): string | undefined => {
@@ -555,12 +559,17 @@ if (process.argv[1]?.endsWith("pre-deploy-check.ts")) {
     }
   }
 
-  const DIST = "dist";
+  const BASE_DIST = "dist";
 
-  if (!existsSync(DIST)) {
+  if (!existsSync(BASE_DIST)) {
     console.error("dist/ not found — run `npm run build` first.");
     process.exit(1);
   }
+
+  // The @astrojs/cloudflare adapter (Workers Static Assets) writes the client
+  // build to dist/client/, not dist/ directly — scan the resolved directory
+  // so PII/token/Keystatic checks see the real production output.
+  const DIST = resolveDistDir(BASE_DIST);
 
   /**
    * Emails the site owner has explicitly approved for publication.

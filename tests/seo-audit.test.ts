@@ -128,6 +128,20 @@ describe("runAudit with a client subdirectory", () => {
     expect(report.pagesAudited).toBe(1);
   });
 
+  it("computes page paths relative to dist/client, without a leading client/ segment", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "seo-audit-"));
+    const aboutDir = join(tmpDir, "client", "about");
+    mkdirSync(aboutDir, { recursive: true });
+    // No <title> — triggers a missing-title issue whose `page` field is the
+    // computed urlPath, so a `client/` prefix leaking through would show up here.
+    writeFileSync(join(aboutDir, "index.html"), "<html><head></head></html>");
+
+    const report = runAudit({ distDir: tmpDir });
+    const missingTitle = report.issues.find((i) => i.code === "missing-title");
+
+    expect(missingTitle?.page).toBe("/about/");
+  });
+
   it("reports the resolved client dir path, not the base dir, when files are missing", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "seo-audit-"));
     mkdirSync(join(tmpDir, "client"), { recursive: true });
