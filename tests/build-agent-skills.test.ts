@@ -172,15 +172,26 @@ describe("emitSkill", () => {
     expect(warnings).toEqual([]);
   });
 
-  it("emits a NESTED REF warning for every bundled file that still contains the plugin var", () => {
+  it("resolves nested ${CLAUDE_PLUGIN_ROOT} references inside bundled markdown files instead of leaving them dangling", () => {
     // Two files, both with nested refs — guards against stale regex lastIndex.
     writePlugin("docs/a.md", "see ${CLAUDE_PLUGIN_ROOT}/docs/x.md\n");
     writePlugin("docs/b.md", "see ${CLAUDE_PLUGIN_ROOT}/docs/y.md\n");
+    writePlugin("docs/x.md", "# X\n");
+    writePlugin("docs/y.md", "# Y\n");
     const warnings = emitSkill(result("demo", ["docs/a.md", "docs/b.md"]), pluginRoot, outRoot);
-    const nested = warnings.filter((w) => w.startsWith("NESTED REF:"));
-    expect(nested).toHaveLength(2);
-    expect(nested.some((w) => w.includes("docs/a.md"))).toBe(true);
-    expect(nested.some((w) => w.includes("docs/b.md"))).toBe(true);
+    expect(warnings.filter((w) => w.startsWith("NESTED REF:"))).toHaveLength(0);
+    expect(existsSync(join(outRoot, "demo", "references/docs/x.md"))).toBe(true);
+    expect(existsSync(join(outRoot, "demo", "references/docs/y.md"))).toBe(true);
+    const rewrittenA = readFileSync(join(outRoot, "demo", "references/docs/a.md"), "utf-8");
+    expect(rewrittenA).toBe("see references/docs/x.md\n");
+  });
+
+  it("emits a MISSING REFERENCE warning when a nested reference's target doesn't exist", () => {
+    writePlugin("docs/a.md", "see ${CLAUDE_PLUGIN_ROOT}/docs/missing.md\n");
+    const warnings = emitSkill(result("demo", ["docs/a.md"]), pluginRoot, outRoot);
+    expect(
+      warnings.some((w) => w.startsWith("MISSING REFERENCE:") && w.includes("docs/missing.md")),
+    ).toBe(true);
   });
 
   it("bundles the static parent directory for a placeholder (DYNAMIC) reference", () => {

@@ -90,7 +90,7 @@ will be fetched via WebFetch in Step 2.
 
 For Squarespace, after the WXR/RSS/JSON passes, use RENDER_BACKEND (when not
 `none`) for the three things exports can't see — read the "Rendered
-extraction" section of `${CLAUDE_PLUGIN_ROOT}/docs/import/squarespace.md`:
+extraction" section of `references/docs/import/squarespace.md`:
 1. Design tokens from the homepage (`--styles-only`) → Step 5.5
 2. Pages with accordion/FAQ blocks (accordions expand automatically)
 3. Gallery pages (full-resolution image URLs)
@@ -173,7 +173,7 @@ BLOG_POSTS by `<link>` URL.
 Wix API key. The Blog REST API at
 `https://www.wixapis.com/blog/v3/posts?fieldsToInclude=CONTENT` returns full
 post content with pagination — much faster than WebFetch for large blogs. See
-`${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` for details. Don't ask for an API
+`references/docs/import/wix.md` for details. Don't ask for an API
 key if the blog has 20 or fewer posts (RSS + WebFetch is sufficient), or if
 USE_WIX_MCP=true (the MCP path already covers this).
 
@@ -182,11 +182,11 @@ script to get structured metadata (JSON-LD and OG tags):
 
 ```sh
 curl -sL "POST_URL" > /tmp/wix-post.html
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/wix/wix-extract.mjs meta /tmp/wix-post.html
+node references/scripts/import/wix/wix-extract.mjs meta /tmp/wix-post.html
 ```
 
 This returns `{title, date, description, author, image}` — more accurate than
-RSS fields. See `${CLAUDE_PLUGIN_ROOT}/docs/import/wix.md` for full details.
+RSS fields. See `references/docs/import/wix.md` for full details.
 
 ## Ghost
 
@@ -209,7 +209,7 @@ If no API key, fall back to the RSS feed:
 curl -s SITE_URL/rss/
 ```
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/ghost.md` for full field mapping and content conversion details.
+Read `references/docs/import/ghost.md` for full field mapping and content conversion details.
 
 ## Medium
 
@@ -223,7 +223,7 @@ The RSS feed contains full HTML content in `<content:encoded>`, plus title,
 date, tags (as `<category>` elements), and post URL. The feed typically returns
 only the 10–20 most recent posts. For older posts, use WebFetch on each URL.
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/medium.md` for image CDN handling and URL patterns.
+Read `references/docs/import/medium.md` for image CDN handling and URL patterns.
 
 ## Substack
 
@@ -235,7 +235,7 @@ The RSS feed contains full HTML content for public posts. Each `<item>` includes
 title, content, date, author, and enclosure (cover image). Paywalled posts have
 truncated content.
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/substack.md` for content conversion details.
+Read `references/docs/import/substack.md` for content conversion details.
 
 ## Blogger
 
@@ -251,7 +251,7 @@ Differentiate posts from pages by `<category>` term:
 - Pages: `kind#page`
 - Comments: `kind#comment` (skip)
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/blogger.md` for XML structure and image handling.
+Read `references/docs/import/blogger.md` for XML structure and image handling.
 
 ## Shopify
 
@@ -267,7 +267,7 @@ curl -s SITE_URL/sitemap.xml
 
 The Atom feed contains full article content, tags, author, and date.
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/shopify.md` for CDN URL patterns and store-specific issues.
+Read `references/docs/import/shopify.md` for CDN URL patterns and store-specific issues.
 
 ## Weebly
 
@@ -281,7 +281,7 @@ post URL. Discover pages from the sitemap:
 curl -s SITE_URL/sitemap.xml
 ```
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/weebly.md` for content extraction details.
+Read `references/docs/import/weebly.md` for content extraction details.
 
 ## Tumblr
 
@@ -300,7 +300,7 @@ curl -s "SITE_URL/rss"
 Tumblr has multiple post types (text, photo, quote, link, chat, audio, video).
 Import text and photo posts as blog posts. Ask the owner about other types.
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/tumblr.md` for post type mapping and image CDN details.
+Read `references/docs/import/tumblr.md` for post type mapping and image CDN details.
 
 ## Webflow
 
@@ -322,7 +322,7 @@ curl -s -H "Authorization: Bearer API_TOKEN" "https://api.webflow.com/v2/sites"
 Then list collections and fetch items via the API. Without API access, use
 WebFetch on each page URL discovered from the sitemap.
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/webflow.md` for CMS field mapping and content extraction details.
+Read `references/docs/import/webflow.md` for CMS field mapping and content extraction details.
 
 ## GoDaddy Website Builder
 
@@ -335,7 +335,7 @@ If no sitemap, WebFetch the homepage to extract navigation links. For each page,
 use WebFetch with the standard extraction prompt. GoDaddy sites are typically
 small (5–15 pages).
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/godaddy.md` for detection signals and content extraction details.
+Read `references/docs/import/godaddy.md` for detection signals and content extraction details.
 
 ## Carrd
 
@@ -346,7 +346,7 @@ links and WebFetch each page.
 Carrd imports produce **pages** (not blog posts) since Carrd sites don't have
 blogs.
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/carrd.md` for content structuring details.
+Read `references/docs/import/carrd.md` for content structuring details.
 
 ## Micro.blog
 
@@ -361,7 +361,7 @@ Tell the owner:
 > "If you can export your data from micro.blog (Account → Export), I'll get
 > the most complete copy including all your images."
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/microblog.md` for untitled post handling and image details.
+Read `references/docs/import/microblog.md` for untitled post handling and image details.
 
 ## WriteFreely / Write.as
 
@@ -378,7 +378,7 @@ For Write.as:
 curl -s "https://write.as/api/collections/USERNAME/posts"
 ```
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/import/writefreely.md` for API details and untitled post handling.
+Read `references/docs/import/writefreely.md` for API details and untitled post handling.
 
 ## Unknown platform
 
