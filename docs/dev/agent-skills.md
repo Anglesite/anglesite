@@ -73,9 +73,14 @@ npx tsx bin/build-agent-skills.ts seo deploy   # a subset (index not regenerated
   (`docs/smb/<BUSINESS_TYPE>.md`) bundle the whole `docs/smb/` catalog (~66 files), so
   several skills duplicate it. This keeps each skill self-contained at the cost of repo
   size (~11 MB). A leaner mode (reference without bundling) is possible if desired.
-- **Nested references.** A few bundled docs (e.g. `import`'s `docs/import/wix.md`)
-  contain their own `${CLAUDE_PLUGIN_ROOT}` references that are not transitively
-  rewritten. The build flags these as `NESTED REF`. Mostly affects the `import` skill.
+- **Nested references (resolved for markdown).** Bundled `.md` docs (e.g. `import`'s
+  `docs/import/wix.md`, `deploy`'s `skills/deploy/domain-setup.md`) may contain their
+  own `${CLAUDE_PLUGIN_ROOT}` references. The build rewrites those the same way it
+  rewrites the top-level `SKILL.md` body and transitively bundles whatever they point
+  to, so the chain resolves standalone. A `NESTED REF` warning only fires if a rewrite
+  is somehow left in place; a `MISSING REFERENCE` warning fires instead if the nested
+  target doesn't exist in the plugin root. Non-markdown bundled files (scripts, etc.)
+  are not scanned for nested plugin-root references.
 - **Relative JS imports are not followed.** Bundled scripts keep their relative
   `import` statements but sibling modules referenced only via those imports are not
   copied (e.g. `canva-playwright.mjs` / `canva-safari.mjs` without `canva-colors.mjs`

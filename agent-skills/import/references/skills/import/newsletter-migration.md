@@ -19,7 +19,7 @@ Wait for the owner's answer.
 
 ## If they choose Ghost
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/platforms/ghost-newsletter.md` for setup details.
+Read `references/docs/platforms/ghost-newsletter.md` for setup details.
 
 **Ghost → Ghost (same instance):** The subscribers are already in Ghost. Tell
 the owner:
@@ -27,7 +27,7 @@ the owner:
 > set up a signup form on the website that connects to your Ghost instance."
 
 Ask for the Ghost Admin API URL and key. Add a newsletter signup form to the
-website footer (see `${CLAUDE_PLUGIN_ROOT}/docs/platforms/ghost-newsletter.md` → Website integration).
+website footer (see `references/docs/platforms/ghost-newsletter.md` → Website integration).
 Update the CSP `form-action` in `public/_headers`.
 
 **Substack → Ghost:** Tell the owner:
@@ -40,7 +40,7 @@ Walk them through the process. Then set up the signup form as above.
 
 ## If they choose Buttondown
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/platforms/buttondown.md` for setup details.
+Read `references/docs/platforms/buttondown.md` for setup details.
 
 **Ghost → Buttondown:** Tell the owner:
 > "I need your subscriber list from Ghost. In Ghost Admin, go to Members and

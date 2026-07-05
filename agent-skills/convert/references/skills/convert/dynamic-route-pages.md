@@ -1,9 +1,6 @@
-## Step 3.5 — Generate dynamic route pages
+# Dynamic route pages
 
-If PAGINATION_PAGES is non-empty and the owner chose "Everything", generate
-Astro dynamic route pages for each discovered pagination type.
-
-### Tag pages
+## Tag pages
 
 If the source site had tag pages, create two files:
 
@@ -108,7 +105,7 @@ const { posts } = Astro.props;
 Replace `POST_URL_PREFIX` in the href with the value from `.site-config`
 (same logic as Step 4.5).
 
-### Category pages
+## Category pages
 
 If the source site had category pages, create the same structure under
 `src/pages/categories/`:
@@ -120,25 +117,25 @@ instead of `post.data.tags`. If the Keystatic content schema doesn't have
 a `categories` field, check whether the source used categories and add the
 field to `keystatic.config.ts` and `src/content.config.ts` if needed.
 
-### Author pages
+## Author pages
 
 If the source site had author pages and posts have an `author` field,
 create `src/pages/authors/[author].astro` using the same pattern.
 
-### Date archive pages
+## Date archive pages
 
 If the source site had year or month archive pages (e.g., `/2025/` or
 `/2025/01/`), create:
 - `src/pages/archive/[year].astro` — lists posts for a year
 - Optionally `src/pages/archive/[year]/[month].astro` — lists posts for a month
 
-### Custom pagination pages
+## Custom pagination pages
 
 For any other pagination types discovered, create equivalent Astro dynamic
 routes following the same pattern: `export const prerender = true`,
 `getStaticPaths()` that returns all possible values, and a listing template.
 
-### Redirects for pagination pages
+## Redirects for pagination pages
 
 If the source site served tag pages at a different path than `/tags/{tag}/`
 (e.g., Hugo's default `/tags/{tag}/` vs. a custom taxonomy path), add

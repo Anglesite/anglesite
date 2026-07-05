@@ -1,14 +1,10 @@
-## Step 4 — First deploy: Domain setup
-
-Ask: "Do you want a custom domain for your website — like www.yourbusiness.com — or is the .workers.dev address fine for now?"
-
-If they want to skip, that's fine. They can add a domain later by running `/anglesite:deploy` and asking about it.
+# Domain setup
 
 If they want a custom domain, surface the domain education prompts from `${CLAUDE_PLUGIN_ROOT}/docs/education-prompts.md` section 2 ("Domain Setup"). Check `.site-config` for each `EDUCATION_<KEY>=shown` flag. Share `DOMAIN_VS_WEBSITE`, `DOMAIN_RENEWAL`, `EMAIL_NOT_AUTOMATIC`, and `TLD_AND_SEO` as a natural aside before diving into options — this is the richest single moment for education. Write the flags to `.site-config` after.
 
 Then determine the right path. Ask: "Do you already own a domain, or do you need to buy one?"
 
-### Option A — Buy a new domain
+## Option A — Buy a new domain
 
 Before searching, read `${CLAUDE_PLUGIN_ROOT}/docs/domain-guide.md` and check the owner's `BUSINESS_TYPE` in `.site-config`. The right TLD depends on who they are — co-ops should consider .coop, nonprofits should consider .org, environmental orgs should consider .eco. Some mission-aligned TLDs aren't available on Cloudflare; if the best TLD for this owner requires an external registrar, help them register there first and then point nameservers to Cloudflare (Option C below). See the domain guide for the full recommendation table.
 
@@ -22,7 +18,7 @@ Walk them through:
 3. Complete purchase (requires payment method on Cloudflare account)
 4. Wait for registration to complete (usually instant)
 
-### Option B — Transfer an existing domain to Cloudflare
+## Option B — Transfer an existing domain to Cloudflare
 
 Tell the owner: "We can move your domain to Cloudflare so everything is in one place. Cloudflare charges only the registry cost — usually cheaper than other registrars."
 
@@ -36,7 +32,7 @@ Walk them through:
 
 Tell the owner: "Transfers can take up to 5 days, but usually finish within a few hours. Your website will keep working during the transfer."
 
-### Option C — Point an existing domain (keep current registrar)
+## Option C — Point an existing domain (keep current registrar)
 
 Tell the owner: "We can point your domain at Cloudflare without moving it. Your domain stays where it is, but Cloudflare will handle the DNS."
 
@@ -51,13 +47,13 @@ Walk them through:
 
 Tell the owner: "That's the only step I can't do for you — it has to be done where you bought the domain. Propagation usually takes minutes but can take up to 48 hours."
 
-### Option D — Use a subdomain of an existing Cloudflare zone
+## Option D — Use a subdomain of an existing Cloudflare zone
 
 If the domain is a subdomain (e.g., `shop.example.com`) and the parent zone (`example.com`) is already on Cloudflare, the buy/transfer/point steps don't apply. Skip straight to Step 5 — the custom domain just needs a CNAME record added to the existing zone.
 
 Tell the owner: "Since your parent domain is already on Cloudflare, we just need to connect this subdomain to your site. I'll do that in the next step."
 
-### After domain setup — save and update local HTTPS
+## After domain setup — save and update local HTTPS
 
 Save the domain to `.site-config` using the Write tool (update the existing file, adding `SITE_DOMAIN=example.com`).
 

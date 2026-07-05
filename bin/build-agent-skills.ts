@@ -341,7 +341,34 @@ export function emitSkill(
   writeFileSync(join(skillDir, "SKILL.md"), result.skillMd.endsWith("\n") ? result.skillMd : result.skillMd + "\n");
 
   const bundled = new Set<string>();
-  const copyInto = (relPath: string) => {
+
+  /**
+   * Resolve a ${CLAUDE_PLUGIN_ROOT}-relative reference (found either in the
+   * top-level SKILL.md or inside a nested bundled doc) and bundle it.
+   */
+  function bundleRef(ref: string) {
+    if (existsSync(join(pluginRoot, ref))) {
+      copyInto(ref);
+      return;
+    }
+    // Path doesn't exist verbatim. If it's a runtime-computed (placeholder)
+    // path, bundle its static parent directory so the path resolves at runtime.
+    const isDynamic = ref.split("/").some(isPlaceholderSegment);
+    if (isDynamic) {
+      const prefix = staticPrefix(ref);
+      if (prefix && !NO_BULK_BUNDLE.has(prefix) && existsSync(join(pluginRoot, prefix))) {
+        copyInto(prefix);
+      } else {
+        warnings.push(
+          `DYNAMIC REF: ${ref} left as references/${ref} (resolved at runtime; parent not bundled)`,
+        );
+      }
+      return;
+    }
+    warnings.push(`MISSING REFERENCE: ${ref} (referenced but not found in plugin root)`);
+  }
+
+  function copyInto(relPath: string) {
     if (bundled.has(relPath)) return;
     const src = join(pluginRoot, relPath);
     const dest = join(skillDir, "references", relPath);
@@ -349,12 +376,18 @@ export function emitSkill(
     const st = statSync(src);
     cpSync(src, dest, { recursive: st.isDirectory() });
     bundled.add(relPath);
-    // Flag nested plugin-root references inside copied text files (spec
-    // discourages deep reference chains; these won't resolve standalone). Use a
-    // non-global regex — a /g regex would carry lastIndex across files and miss
-    // matches on later ones.
-    if (st.isFile() && /\$\{CLAUDE_PLUGIN_ROOT\}/.test(readFileSync(src, "utf-8"))) {
-      warnings.push(`NESTED REF: references/${relPath} still contains \${CLAUDE_PLUGIN_ROOT}`);
+    // Markdown reference files can themselves contain ${CLAUDE_PLUGIN_ROOT}
+    // links (e.g. a skill's companion doc pointing at another plugin doc).
+    // Rewrite those the same way the top-level SKILL.md body is rewritten,
+    // and bundle whatever they point to, so the chain resolves standalone
+    // instead of shipping a dangling variable reference.
+    if (st.isFile() && relPath.endsWith(".md")) {
+      const content = readFileSync(src, "utf-8");
+      if (content.includes(PLUGIN_VAR)) {
+        const { body: rewritten, references: nestedRefs } = rewriteBody(content);
+        writeFileSync(dest, rewritten);
+        for (const nestedRef of nestedRefs) bundleRef(nestedRef);
+      }
     }
     // Follow relative imports so bundled scripts stay runnable: references/
     // preserves the plugin-root-relative layout, so each import target lands
@@ -376,28 +409,10 @@ export function emitSkill(
         copyInto(targetRel);
       }
     }
-  };
+  }
 
   for (const ref of result.references) {
-    if (existsSync(join(pluginRoot, ref))) {
-      copyInto(ref);
-      continue;
-    }
-    // Path doesn't exist verbatim. If it's a runtime-computed (placeholder)
-    // path, bundle its static parent directory so the path resolves at runtime.
-    const isDynamic = ref.split("/").some(isPlaceholderSegment);
-    if (isDynamic) {
-      const prefix = staticPrefix(ref);
-      if (prefix && !NO_BULK_BUNDLE.has(prefix) && existsSync(join(pluginRoot, prefix))) {
-        copyInto(prefix);
-      } else {
-        warnings.push(
-          `DYNAMIC REF: ${ref} left as references/${ref} (resolved at runtime; parent not bundled)`,
-        );
-      }
-      continue;
-    }
-    warnings.push(`MISSING REFERENCE: ${ref} (referenced but not found in plugin root)`);
+    bundleRef(ref);
   }
 
   return warnings;

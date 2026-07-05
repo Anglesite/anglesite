@@ -72,8 +72,8 @@ backend chosen in import Step 1a.2 (RENDER_BACKEND):
 
 ```sh
 # Safari backend (macOS, preferred — no install required)
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/browser/safari-driver.mjs "HOMEPAGE_URL" --styles-only
-node ${CLAUDE_PLUGIN_ROOT}/scripts/import/browser/safari-driver.mjs "PAGE_URL…" --content-only
+node references/scripts/import/browser/safari-driver.mjs "HOMEPAGE_URL" --styles-only
+node references/scripts/import/browser/safari-driver.mjs "PAGE_URL…" --content-only
 ```
 
 Output is NDJSON — one `{"url", "tokens", "content"}` line per page. The

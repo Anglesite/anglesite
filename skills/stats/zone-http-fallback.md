@@ -1,6 +1,4 @@
-## Step 2B — Fetch via zone HTTP analytics (fallback)
-
-Skip this section if `STATS_SOURCE` is `web-analytics` and Step 2A succeeded.
+# Zone HTTP analytics fallback
 
 The zone HTTP dataset is derived from edge logs and exists only when the custom domain is on Cloudflare proxied DNS. Free Cloudflare zones gate several fields and cap the adaptive dataset to a 1-day window, so split the work across two datasets:
 
@@ -16,7 +14,7 @@ CF_API_TOKEN=$(grep CF_API_TOKEN .env | cut -d= -f2)
 CF_ZONE_ID=$(grep CF_ZONE_ID .env | cut -d= -f2)
 ```
 
-### Query A (zone) — weekly comparison (last 14 days, daily roll-ups)
+## Query A (zone) — weekly comparison (last 14 days, daily roll-ups)
 
 Replace `DATE_START_PREV` with 14 days ago and `DATE_END_CURR` with today (ISO `YYYY-MM-DD`).
 
@@ -29,7 +27,7 @@ curl -s "https://api.cloudflare.com/client/v4/graphql" \
 
 Split the results: rows with `date >= today - 7` are the current week; the earlier 7 are the previous week.
 
-### Query B (zone) — top paths (most recent day)
+## Query B (zone) — top paths (most recent day)
 
 Replace `DATE_TODAY` with today's ISO date. Keep the range to a single day so the query stays inside the free-plan limit.
 
@@ -42,7 +40,7 @@ curl -s "https://api.cloudflare.com/client/v4/graphql" \
   --data '{"query":"{ viewer { zones(filter: {zoneTag: \"'$CF_ZONE_ID'\"}) { httpRequestsAdaptiveGroups(filter: {date: \"DATE_TODAY\", edgeResponseContentTypeName: \"html\", edgeResponseStatus_lt: 400}, limit: 100, orderBy: [count_DESC]) { count dimensions { clientRequestPath } } } } }"}'
 ```
 
-### Query C (zone) — country breakdown (most recent day)
+## Query C (zone) — country breakdown (most recent day)
 
 Replace `DATE_TODAY` with today's ISO date. Same single-day window as Query B. The country breakdown lets the owner self-diagnose datacenter/bot inflation in the unique-visitor count — small sites often see Hetzner Frankfurt (DE), AWS/Hetzner Dublin (IE), OVH, Vultr Singapore (SG), and Tor (T1) dominate the geography.
 
@@ -53,11 +51,11 @@ curl -s "https://api.cloudflare.com/client/v4/graphql" \
   --data '{"query":"{ viewer { zones(filter: {zoneTag: \"'$CF_ZONE_ID'\"}) { httpRequestsAdaptiveGroups(filter: {date: \"DATE_TODAY\", edgeResponseContentTypeName: \"html\", edgeResponseStatus_lt: 400}, limit: 25, orderBy: [count_DESC]) { count dimensions { clientCountryName } } } } }"}'
 ```
 
-### Graceful degradation (zone)
+## Graceful degradation (zone)
 
 Inspect the JSON response for an `errors[]` array before parsing. If any error message contains `authz`, `does not have access`, or `time range wider than`, drop that section from the output and continue with the data you do have. Don't surface the raw error to the owner — note in the summary that the section requires a paid Cloudflare plan (for referrer/device) or a longer history (for the adaptive window).
 
-### Paid-plan extras (zone, optional)
+## Paid-plan extras (zone, optional)
 
 Only attempt these if the owner has confirmed a paid Cloudflare plan. Add `clientRefererHost`, `userAgentBrowser`, and/or `clientRequestQuery` dimensions to Query B. If the response returns an `authz` error, fall back to the default query above.
 
