@@ -107,5 +107,5 @@ If any of these change, regenerate by running both commands.
 | **new-page** | Run `npm run ai-og` after creating the page |
 | **deploy** | Run `npm run ai-og` before build to catch any missing images |
 | **seo** | Run `npm run ai-og` when audit flags missing `og:image` |
-| **syndicate** | Per-page OG images double as social card previews |
+| **repurpose** | Per-page OG images double as social card previews |
 | **creative-canvas** | Experiment pages use owner-provided screenshots as OG images. Remind the owner to capture a screenshot of each experiment and save it to `public/images/experiments/<slug>.png`. If no screenshot is provided, the Satori text card is used as fallback. |

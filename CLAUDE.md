@@ -31,7 +31,7 @@ Anglesite is a Claude plugin that scaffolds and manages websites for small busin
 │   ├── email/SKILL.md            Business email setup, Apple-first (model-only)
 │   ├── animate/SKILL.md          CSS animations (model-only)
 │   ├── new-page/SKILL.md         Page creation (model-only)
-│   ├── syndicate/SKILL.md        Social media post generation (model-only)
+│   ├── repurpose/SKILL.md        Social media post generation (model-only)
 │   ├── seasonal/SKILL.md         Seasonal content suggestions (model-only)
 │   ├── optimize-images/SKILL.md  Image optimization pipeline (model-only)
 │   ├── og-images/SKILL.md       Satori-based OG image generation (model-only)
@@ -227,7 +227,7 @@ Two levels of agent instructions exist — do not confuse them:
 | `animate` | CSS animations (hover, scroll reveals, transitions) |
 | `creative-canvas` | Interactive visual effects and creative coding (p5.js, Three.js, GSAP, Tone.js, D3.js) |
 | `new-page` | Create new page with SEO and accessibility |
-| `syndicate` | Generate social media posts from blog post (POSSE) |
+| `repurpose` | Generate per-platform social media post variants from blog post |
 | `seasonal` | Surface seasonal content suggestions by business type |
 | `optimize-images` | Resize, convert to WebP, strip EXIF, generate srcset |
 | `og-images` | Satori-based OG image generation for social sharing previews |

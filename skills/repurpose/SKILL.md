@@ -1,21 +1,15 @@
 ---
-name: syndicate
-description: "Generate social media posts from a blog post for POSSE syndication"
-license: ISC
-compatibility: "Designed for Claude Code / compatible agents operating inside an Anglesite project (Astro + Keystatic, Node >=22)."
+name: repurpose
+description: "Generate per-platform social media post variants from a blog post"
+user-invocable: false
 allowed-tools: Write, Read, Glob
-metadata:
-  author: "David W. Keith"
-  version: "1.2.0"
-  source: "https://github.com/Anglesite/anglesite"
-  invocation: "model-only"
 ---
 
 Generate ready-to-copy social media posts from a blog post. Called after blog post creation or deployment — not invoked directly by the owner.
 
 ## Architecture decisions
 
-- [ADR-0006 IndieWeb POSSE](references/docs/decisions/0006-indieweb-posse.md) — why content is published on the site first, then syndicated to social platforms
+- [ADR-0006 IndieWeb POSSE](${CLAUDE_PLUGIN_ROOT}/docs/decisions/0006-indieweb-posse.md) — why content is published on the site first, then syndicated to social platforms
 
 ## When to invoke this skill
 
@@ -37,7 +31,7 @@ Read `.site-config` for:
 - `SITE_DOMAIN` — to construct the full post URL
 - `BUSINESS_TYPE` — to tailor tone and hashtags
 
-If `BUSINESS_TYPE` is set, read `references/docs/smb/<type>.md` for industry-specific guidance on tone, audience, and relevant hashtags.
+If `BUSINESS_TYPE` is set, read `${CLAUDE_PLUGIN_ROOT}/docs/smb/<type>.md` for industry-specific guidance on tone, audience, and relevant hashtags.
 
 Construct the post URL: `https://SITE_DOMAIN/blog/<slug>`
 
