@@ -24,11 +24,16 @@
  *   0  — no critical issues (warnings or nice-to-have are OK, or `--warn-only`)
  *   1  — at least one critical issue
  *
+ * The `@astrojs/cloudflare` adapter (Workers Static Assets) writes the client
+ * build to `dist/client/` rather than `dist/` directly — `runAudit` detects
+ * this and audits the client subdirectory automatically when present.
+ *
  * Usage:
  *   tsx scripts/seo-audit.ts                       # write reports/seo-report.md, log summary
  *   tsx scripts/seo-audit.ts --json                # machine-readable report on stdout
  *   tsx scripts/seo-audit.ts --warn-only           # always exit 0 (non-blocking mode)
  *   tsx scripts/seo-audit.ts --report path.md      # write the report to a custom path
+ *   tsx scripts/seo-audit.ts --distDir out         # audit a non-default build output dir
  */
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -120,6 +125,17 @@ export function findSitemapFile(distDir: string): string | null {
   return null;
 }
 
+/**
+ * Resolve the actual build output directory. The `@astrojs/cloudflare`
+ * adapter (Workers Static Assets) writes the client build to `dist/client/`
+ * rather than `dist/` directly — if that subdirectory exists, audit it
+ * instead of the outer directory.
+ */
+export function resolveDistDir(baseDir: string): string {
+  const clientDir = join(baseDir, "client");
+  return existsSync(clientDir) ? clientDir : baseDir;
+}
+
 // ---------------------------------------------------------------------------
 // Audit
 // ---------------------------------------------------------------------------
@@ -138,7 +154,7 @@ export interface RunAuditOptions {
 }
 
 export function runAudit(opts: RunAuditOptions = {}): SeoAuditReport {
-  const distDir = opts.distDir ?? "dist";
+  const baseDir = opts.distDir ?? "dist";
   const siteUrl = opts.siteUrl ?? "";
   const agenticCrawlers = opts.agenticCrawlers ?? "allow";
 
@@ -146,7 +162,7 @@ export function runAudit(opts: RunAuditOptions = {}): SeoAuditReport {
   let pagesAudited = 0;
   let pagesSkipped = 0;
 
-  if (!existsSync(distDir)) {
+  if (!existsSync(baseDir)) {
     return {
       issues,
       totals: { critical: 0, warning: 0, niceToHave: 0 },
@@ -155,6 +171,7 @@ export function runAudit(opts: RunAuditOptions = {}): SeoAuditReport {
     };
   }
 
+  const distDir = resolveDistDir(baseDir);
   const htmlFiles = walkHtml(distDir);
   const pageData: PageSeoData[] = [];
   const indexedPagePaths: string[] = [];
@@ -206,7 +223,7 @@ export function runAudit(opts: RunAuditOptions = {}): SeoAuditReport {
     issues.push({
       code: "missing-sitemap",
       severity: "warning",
-      message: "No sitemap.xml / sitemap-index.xml found in dist/",
+      message: `No sitemap.xml / sitemap-index.xml found in ${distDir}/`,
       page: "sitemap.xml",
     });
   }
@@ -220,7 +237,7 @@ export function runAudit(opts: RunAuditOptions = {}): SeoAuditReport {
     issues.push({
       code: "missing-robots",
       severity: "warning",
-      message: "No robots.txt found in dist/",
+      message: `No robots.txt found in ${distDir}/`,
       page: "robots.txt",
     });
   }
@@ -249,9 +266,11 @@ if (process.argv[1]?.endsWith("seo-audit.ts")) {
   const reportIdx = args.indexOf("--report");
   const reportPath = reportIdx >= 0 ? args[reportIdx + 1] : "reports/seo-report.md";
   const warnOnly = args.includes("--warn-only");
+  const distDirIdx = args.indexOf("--distDir");
+  const baseDir = distDirIdx >= 0 ? args[distDirIdx + 1] : "dist";
 
-  if (!existsSync("dist")) {
-    console.error("dist/ not found — run `npm run build` first.");
+  if (!existsSync(baseDir)) {
+    console.error(`${baseDir}/ not found — run \`npm run build\` first.`);
     process.exit(warnOnly ? 0 : 1);
   }
 
@@ -260,7 +279,7 @@ if (process.argv[1]?.endsWith("seo-audit.ts")) {
   const agenticCrawlers =
     (readConfig("AGENTIC_CRAWLERS") as AgenticCrawlersPolicy | undefined) ?? "allow";
 
-  const report = runAudit({ distDir: "dist", siteUrl, agenticCrawlers });
+  const report = runAudit({ distDir: baseDir, siteUrl, agenticCrawlers });
 
   if (reportPath) {
     mkdirSync(dirname(reportPath), { recursive: true });
