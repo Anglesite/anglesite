@@ -70,12 +70,26 @@ export function addAnnotation(projectRoot, { path, selector, text, sourceFile })
   return annotation;
 }
 
-/** List annotations, optionally filtered by page path. Excludes resolved by default. */
-export function listAnnotations(projectRoot, path) {
+/**
+ * List annotations, optionally filtered by page path. Excludes resolved by default.
+ *
+ * @param {string} projectRoot
+ * @param {string} [path] filter to a single page path
+ * @param {{ resolved?: boolean, limit?: number, offset?: number }} [options]
+ *   `resolved`: include resolved annotations too (default false — unresolved only, #392).
+ *   `limit`/`offset`: paginate the (already-filtered) result (#392).
+ */
+export function listAnnotations(projectRoot, path, { resolved = false, limit, offset = 0 } = {}) {
   let annotations = loadAnnotations(projectRoot);
-  annotations = annotations.filter((a) => !a.resolved);
+  if (!resolved) {
+    annotations = annotations.filter((a) => !a.resolved);
+  }
   if (path !== undefined) {
     annotations = annotations.filter((a) => a.path === path);
+  }
+  annotations = annotations.slice(offset);
+  if (limit !== undefined) {
+    annotations = annotations.slice(0, limit);
   }
   return annotations;
 }

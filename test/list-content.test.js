@@ -131,3 +131,62 @@ describe("listContent — empty / missing dirs", () => {
     expect(result).toEqual({ pages: [], posts: [], images: [] });
   });
 });
+
+describe("listContent — pagination and filtering (#392)", () => {
+  beforeEach(() => {
+    write("src/pages/about.astro", `<BaseLayout title="About" description="x" />`);
+    write("src/pages/contact.astro", `<BaseLayout title="Contact" description="x" />`);
+    write(
+      "src/content/posts/a.md",
+      `---\ntitle: A\ndescription: d\npublishDate: 2026-06-01\n---\nbody`,
+    );
+    write(
+      "src/content/posts/b.md",
+      `---\ntitle: B\ndescription: d\npublishDate: 2026-06-02\n---\nbody`,
+    );
+    write("public/images/hero.jpg", "fakejpgbytes");
+  });
+
+  it("with no options, behaves exactly as before (all buckets, unfiltered)", () => {
+    const result = listContent(root);
+    expect(result.pages).toHaveLength(2);
+    expect(result.posts).toHaveLength(2);
+    expect(result.images).toHaveLength(1);
+  });
+
+  it("type filters to a single bucket, leaving the others empty", () => {
+    const result = listContent(root, { type: "posts" });
+    expect(result.posts).toHaveLength(2);
+    expect(result.pages).toEqual([]);
+    expect(result.images).toEqual([]);
+  });
+
+  it("limit caps entries per bucket", () => {
+    const result = listContent(root, { limit: 1 });
+    expect(result.pages).toHaveLength(1);
+    expect(result.posts).toHaveLength(1);
+  });
+
+  it("offset skips entries before applying limit", () => {
+    const all = listContent(root, { type: "posts" });
+    const paged = listContent(root, { type: "posts", offset: 1 });
+    expect(paged.posts).toEqual(all.posts.slice(1));
+  });
+
+  it("offset past the end returns an empty bucket", () => {
+    const result = listContent(root, { type: "posts", offset: 100 });
+    expect(result.posts).toEqual([]);
+  });
+
+  it("fields projects each entry down to the requested keys", () => {
+    const result = listContent(root, { type: "posts", fields: ["title", "slug"] });
+    for (const post of result.posts) {
+      expect(Object.keys(post).sort()).toEqual(["slug", "title"]);
+    }
+  });
+
+  it("fields ignores unknown key names", () => {
+    const result = listContent(root, { type: "posts", fields: ["title", "nonexistent"] });
+    expect(Object.keys(result.posts[0])).toEqual(["title"]);
+  });
+});
