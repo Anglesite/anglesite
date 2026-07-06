@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: ["Bash(node *)", "Bash(npx sharp-cli *)", "Bash(npx playwright install *)", "Bash(npm install *)", "Bash(npm run dev *)", "Bash(npm run build)", "Bash(mkdir *)", "Bash(curl *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(ls *)", "Bash(npm ls *)", "Bash(grep *)", "WebFetch", "Write", "Read", "Edit", "Glob"]
 metadata:
   author: "David W. Keith"
-  version: "1.2.0"
+  version: "1.3.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "user-facing"
   argument-hint: "[Canva site URL, Figma file URL, or freedesignmd.com system URL]"
