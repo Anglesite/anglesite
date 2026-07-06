@@ -115,4 +115,28 @@ describe("buildComponentModel", () => {
     const [s, e] = plain.declarations[0].span;
     expect(CARD.slice(s, e)).toContain("padding");
   });
+
+  it("extracts frontmatter with a parsed Props interface", async () => {
+    const model = await buildComponentModel(tmpDir, "src/components/Card.astro");
+    expect(model.frontmatter?.source).toContain("interface Props");
+    expect(model.frontmatter?.props).toEqual([
+      { name: "title", type: "string", optional: false, default: null },
+      { name: "count", type: "number", optional: true, default: "1" },
+    ]);
+  });
+
+  it("extracts the client script zone", async () => {
+    const model = await buildComponentModel(tmpDir, "src/components/Card.astro");
+    expect(model.clientScript?.source).toContain("card mounted");
+    const [s, e] = model.clientScript!.span;
+    expect(CARD.slice(s!, e!)).toContain("card mounted");
+  });
+
+  it("returns null zones and empty props when absent", async () => {
+    writeFileSync(join(tmpDir, "src", "components", "Bare.astro"), `<p>hello</p>\n`);
+    const model = await buildComponentModel(tmpDir, "src/components/Bare.astro");
+    expect(model.frontmatter).toBeNull();
+    expect(model.clientScript).toBeNull();
+    expect(model.styles).toEqual([]);
+  });
 });

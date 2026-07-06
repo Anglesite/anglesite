@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { parse } from "@astrojs/compiler";
 import { parse as parseCss, generate, walk } from "css-tree";
+import { parseProps } from "./props-interface.mjs";
 
 export class ComponentModelError extends Error {
   constructor(reason, message) {
@@ -57,13 +58,34 @@ export async function buildComponentModel(projectRoot, relPath) {
   collectElements(ast, "style", styleElements);
   const styles = styleElements.flatMap((el) => extractRules(el));
 
+  const fmNode = topLevel.find((n) => n.type === "frontmatter");
+  const frontmatter = fmNode
+    ? {
+        source: fmNode.value ?? "",
+        span: [fmNode.position?.start?.offset ?? null, fmNode.position?.end?.offset ?? null],
+        props: parseProps(fmNode.value ?? ""),
+      }
+    : null;
+
+  const scriptElements = [];
+  collectElements(ast, "script", scriptElements);
+  const scriptText = scriptElements
+    .map((el) => (el.children ?? []).find((c) => c.type === "text"))
+    .find((t) => t?.value);
+  const clientScript = scriptText
+    ? {
+        source: scriptText.value,
+        span: [scriptText.position?.start?.offset ?? null, scriptText.position?.end?.offset ?? null],
+      }
+    : null;
+
   return {
     version: fileVersion(projectRoot, source),
     path: relPath,
     template,
-    frontmatter: null, // Task 3
+    frontmatter,
     styles,
-    clientScript: null, // Task 3
+    clientScript,
   };
 }
 
