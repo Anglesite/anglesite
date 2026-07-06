@@ -1,0 +1,98 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { buildComponentModel } from "../server/component-model.mjs";
+
+const CARD = `---
+interface Props {
+  title: string;
+  count?: number;
+}
+const { title, count = 1 } = Astro.props;
+---
+<article class="card">
+  <h2>{title}</h2>
+  <slot />
+</article>
+
+<style>
+  .card { padding: 1rem; }
+  @media (max-width: 600px) {
+    .card { padding: 0.5rem; }
+  }
+</style>
+
+<script>
+  console.log("card mounted");
+</script>
+`;
+
+describe("buildComponentModel", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "anglesite-cm-"));
+    mkdirSync(join(tmpDir, "src", "components"), { recursive: true });
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), CARD);
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("builds the template tree with kinds, spans, and locs", async () => {
+    const model = await buildComponentModel(tmpDir, "src/components/Card.astro");
+    expect(model.path).toBe("src/components/Card.astro");
+    expect(model.version).toMatch(/^(sha256:[0-9a-f]{12}|[0-9a-f]{40})$/);
+
+    expect(model.template.kind).toBe("fragment");
+    const article = model.template.children[0];
+    expect(article.kind).toBe("element");
+    expect(article.tag).toBe("article");
+    expect(article.attrs).toEqual([{ name: "class", value: "card" }]);
+    expect(article.span[0]).toBeGreaterThan(0);
+    expect(article.loc?.line).toBeGreaterThan(0);
+
+    const [h2, slot] = article.children;
+    expect(h2.tag).toBe("h2");
+    expect(h2.children[0].kind).toBe("expression");
+    expect(slot.kind).toBe("slot");
+
+    // ids unique across the tree
+    const ids = new Set<string>();
+    const visit = (n: { id: string; children: { id: string }[] }) => {
+      expect(ids.has(n.id)).toBe(false);
+      ids.add(n.id);
+      (n.children as any[]).forEach(visit);
+    };
+    visit(model.template as any);
+  });
+
+  it("classifies component instances", async () => {
+    writeFileSync(
+      join(tmpDir, "src", "components", "Page.astro"),
+      `<div>\n  <Card title="hi" />\n</div>\n`,
+    );
+    const model = await buildComponentModel(tmpDir, "src/components/Page.astro");
+    const card = model.template.children[0].children[0];
+    expect(card.kind).toBe("component");
+    expect(card.tag).toBe("Card");
+    expect(card.attrs).toEqual([{ name: "title", value: "hi" }]);
+  });
+
+  it("rejects traversal and non-astro paths", async () => {
+    await expect(buildComponentModel(tmpDir, "../etc/passwd")).rejects.toMatchObject({
+      reason: "invalid-input",
+    });
+    await expect(buildComponentModel(tmpDir, "src/components/Card.css")).rejects.toMatchObject({
+      reason: "invalid-input",
+    });
+  });
+
+  it("reports read failures", async () => {
+    await expect(buildComponentModel(tmpDir, "src/components/Missing.astro")).rejects.toMatchObject({
+      reason: "read-failed",
+    });
+  });
+});
