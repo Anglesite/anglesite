@@ -47,7 +47,9 @@
     "playwright": "^1.52.0"
   },
   "dependencies": {
+    "@astrojs/compiler": "^4.0.0",
     "@modelcontextprotocol/sdk": "^1.28.0",
+    "css-tree": "^3.2.1",
     "sharp": "^0.33.0"
   }
 }
