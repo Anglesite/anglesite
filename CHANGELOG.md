@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+- `get_component_model` MCP tool: structured read-only model of an `.astro`
+  component (template tree, Props interface, style rules, client script) for
+  the app's Component Editor (Slice 1).
+
 ## [1.0.0-beta.7] — 2026-05-07
 
 Big beta. Nine new user-invocable skills round out the 1.0 commerce, community, and ops surface; analytics gets honest about what it's measuring; deploy learns about agent readability and performance budgets.
