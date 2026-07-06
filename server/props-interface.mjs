@@ -13,27 +13,36 @@ export function parseProps(frontmatterSource) {
   }
   const destructure = frontmatterSource.match(/const\s*\{([\s\S]*?)\}\s*=\s*Astro\.props/);
   if (destructure) {
-    for (const part of destructure[1].split(",")) {
+    for (const part of splitTopLevel(destructure[1])) {
       const dm = part.match(/^\s*(\w+)\s*=\s*(.+?)\s*$/s);
       if (!dm) continue;
       const prop = props.find((p) => p.name === dm[1]);
-      if (prop && isBalanced(dm[2].trim())) prop.default = dm[2].trim();
+      if (prop) prop.default = dm[2].trim();
     }
   }
   return props;
 }
 
-// A comma inside a default (array/object/call/string literal) makes the naive
-// comma-split above produce a truncated chunk. Rather than return that
-// silently-wrong value, require balanced brackets and quotes and leave
-// `default` null (unknown) when the chunk fails the check.
-function isBalanced(value) {
-  const pairs = { "(": ")", "[": "]", "{": "}" };
-  const open = [];
-  for (const ch of value) {
-    if (pairs[ch]) open.push(pairs[ch]);
-    else if (Object.values(pairs).includes(ch) && open.pop() !== ch) return false;
+// Split the destructure body on commas at bracket depth zero, outside string
+// literals, so defaults like ["a", "b"] or { x: 1, y: 2 } survive whole.
+function splitTopLevel(source) {
+  const parts = [];
+  let depth = 0;
+  let quote = null;
+  let start = 0;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (quote) {
+      if (ch === "\\") i++;
+      else if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'" || ch === "`") quote = ch;
+    else if ("([{".includes(ch)) depth++;
+    else if (")]}".includes(ch)) depth--;
+    else if (ch === "," && depth === 0) {
+      parts.push(source.slice(start, i));
+      start = i + 1;
+    }
   }
-  const quotesEven = ['"', "'", "`"].every((q) => (value.split(q).length - 1) % 2 === 0);
-  return open.length === 0 && quotesEven;
+  parts.push(source.slice(start));
+  return parts;
 }

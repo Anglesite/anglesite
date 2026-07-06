@@ -94,6 +94,8 @@ function collectElements(node, name, out) {
 }
 
 function extractRules(styleElement) {
+  const lang = (styleElement.attributes ?? []).find((a) => a.name === "lang")?.value;
+  if (lang && lang.toLowerCase() !== "css") return []; // scss/less etc.: css-tree error-recovery emits garbage rows
   const textChild = (styleElement.children ?? []).find((c) => c.type === "text");
   if (!textChild?.value) return [];
   const baseOffset = textChild.position?.start?.offset ?? 0;
@@ -157,6 +159,8 @@ class NodeBuilder {
       case "component":
       case "custom-element":
         return this.#make(n, "component", n.name);
+      case "fragment":
+        return this.#make(n, "fragment", null);
       case "expression":
         return { ...this.#base(n), kind: "expression", tag: null, attrs: [], children: [] };
       case "text": {
@@ -165,7 +169,7 @@ class NodeBuilder {
         return { ...this.#base(n), kind: "text", tag: null, attrs: [], text: value.slice(0, 80), children: [] };
       }
       default:
-        return null; // comment, doctype, fragment wrappers
+        return null; // comment, doctype
     }
   }
   #make(n, kind, tag) {

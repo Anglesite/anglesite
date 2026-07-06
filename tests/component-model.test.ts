@@ -154,27 +154,99 @@ describe("buildComponentModel", () => {
     expect(again.version).toBe(after.version);
   });
 
-  it("leaves defaults null rather than truncating comma-containing values", async () => {
+  it("captures comma-containing default values intact", async () => {
     writeFileSync(
       join(tmpDir, "src", "components", "List.astro"),
       `---
 interface Props {
   items: string[];
   label?: string;
+  point?: object;
   count?: number;
 }
-const { items = ["a", "b"], label = "hello, world", count = 2 } = Astro.props;
+const { items = ["a", "b"], label = "hello, world", point = { x: 1, y: 2 }, count = 2 } = Astro.props;
 ---
 <ul></ul>
 `,
     );
     const model = await buildComponentModel(tmpDir, "src/components/List.astro");
     expect(model.frontmatter?.props).toEqual([
-      // Comma-split truncates these chunks; better null than wrong.
-      { name: "items", type: "string[]", optional: false, default: null },
-      { name: "label", type: "string", optional: true, default: null },
-      // Simple defaults still come through.
+      { name: "items", type: "string[]", optional: false, default: '["a", "b"]' },
+      { name: "label", type: "string", optional: true, default: '"hello, world"' },
+      { name: "point", type: "object", optional: true, default: "{ x: 1, y: 2 }" },
       { name: "count", type: "number", optional: true, default: "2" },
     ]);
+  });
+
+  it("passes <Fragment> through with its children instead of dropping the subtree", async () => {
+    writeFileSync(
+      join(tmpDir, "src", "components", "Frag.astro"),
+      `<Fragment slot="header">\n  <p>one</p>\n  <p>two</p>\n</Fragment>\n`,
+    );
+    const model = await buildComponentModel(tmpDir, "src/components/Frag.astro");
+    const frag = model.template.children[0];
+    expect(frag.kind).toBe("fragment");
+    expect(frag.attrs).toEqual([{ name: "slot", value: "header" }]);
+    const tags = frag.children.map((c: { tag: string }) => c.tag);
+    expect(tags).toEqual(["p", "p"]);
+  });
+
+  it("skips non-CSS style blocks instead of emitting error-recovery garbage", async () => {
+    writeFileSync(
+      join(tmpDir, "src", "components", "Scss.astro"),
+      `<div class="a">hi</div>
+<style lang="scss">
+  $x: 1;
+  .a { color: red; }
+</style>
+<style>
+  .b { color: blue; }
+</style>
+`,
+    );
+    const model = await buildComponentModel(tmpDir, "src/components/Scss.astro");
+    expect(model.styles).toHaveLength(1);
+    expect(model.styles[0].selector).toBe(".b");
+  });
+
+  it("still extracts rules from is:global style blocks (plain CSS)", async () => {
+    writeFileSync(
+      join(tmpDir, "src", "components", "Global.astro"),
+      `<div>hi</div>\n<style is:global>\n  body { margin: 0; }\n</style>\n`,
+    );
+    const model = await buildComponentModel(tmpDir, "src/components/Global.astro");
+    expect(model.styles).toHaveLength(1);
+    expect(model.styles[0].selector).toBe("body");
+  });
+
+  it("filters style/script zones at any depth while still extracting them", async () => {
+    writeFileSync(
+      join(tmpDir, "src", "components", "Nested.astro"),
+      `<div>
+  <style>
+    .deep { color: red; }
+  </style>
+  <script>
+    console.log("deep script");
+  </script>
+  <p>content</p>
+</div>
+`,
+    );
+    const model = await buildComponentModel(tmpDir, "src/components/Nested.astro");
+    const div = model.template.children[0];
+    // No style/script nodes anywhere in the template tree...
+    const tags: string[] = [];
+    const visit = (n: { tag: string | null; children: any[] }) => {
+      if (n.tag) tags.push(n.tag);
+      n.children.forEach(visit);
+    };
+    visit(model.template as any);
+    expect(tags).toEqual(["div", "p"]);
+    expect(div.children).toHaveLength(1);
+    // ...but the zones are still extracted.
+    expect(model.styles).toHaveLength(1);
+    expect(model.styles[0].selector).toBe(".deep");
+    expect(model.clientScript?.source).toContain("deep script");
   });
 });
