@@ -6,6 +6,7 @@ import { join, normalize } from "node:path";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { parse } from "@astrojs/compiler";
+import { parse as parseCss, generate, walk } from "css-tree";
 
 export class ComponentModelError extends Error {
   constructor(reason, message) {
@@ -52,14 +53,70 @@ export async function buildComponentModel(projectRoot, relPath) {
       .filter(Boolean),
   };
 
+  const styleElements = [];
+  collectElements(ast, "style", styleElements);
+  const styles = styleElements.flatMap((el) => extractRules(el));
+
   return {
     version: fileVersion(projectRoot, source),
     path: relPath,
     template,
     frontmatter: null, // Task 3
-    styles: [], // Task 2
+    styles,
     clientScript: null, // Task 3
   };
+}
+
+function collectElements(node, name, out) {
+  if (node.type === "element" && node.name === name) out.push(node);
+  for (const child of node.children ?? []) collectElements(child, name, out);
+}
+
+function extractRules(styleElement) {
+  const textChild = (styleElement.children ?? []).find((c) => c.type === "text");
+  if (!textChild?.value) return [];
+  const baseOffset = textChild.position?.start?.offset ?? 0;
+  let cssAst;
+  try {
+    cssAst = parseCss(textChild.value, {
+      positions: true,
+      parseValue: false,
+      parseAtrulePrelude: false,
+    });
+  } catch {
+    return []; // unparseable CSS: styles stay empty; template/props still usable
+  }
+  const rules = [];
+  walk(cssAst, {
+    visit: "Rule",
+    enter(node) {
+      const media =
+        this.atrule && this.atrule.name === "media" && this.atrule.prelude
+          ? generate(this.atrule.prelude).trim()
+          : null;
+      const declarations = [];
+      node.block.children.forEach((decl) => {
+        if (decl.type !== "Declaration") return;
+        declarations.push({
+          property: decl.property,
+          value: generate(decl.value).trim(),
+          span: cssSpan(decl.loc, baseOffset),
+        });
+      });
+      rules.push({
+        selector: generate(node.prelude),
+        media,
+        span: cssSpan(node.loc, baseOffset),
+        declarations,
+      });
+    },
+  });
+  return rules;
+}
+
+function cssSpan(loc, baseOffset) {
+  if (!loc) return [null, null];
+  return [baseOffset + loc.start.offset, baseOffset + loc.end.offset];
 }
 
 // style/script/frontmatter are zones, not template nodes.

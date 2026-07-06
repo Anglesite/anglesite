@@ -95,4 +95,24 @@ describe("buildComponentModel", () => {
       reason: "read-failed",
     });
   });
+
+  it("extracts style rules with media context and file-absolute spans", async () => {
+    const model = await buildComponentModel(tmpDir, "src/components/Card.astro");
+    expect(model.styles).toHaveLength(2);
+
+    const [plain, mobile] = model.styles;
+    expect(plain.selector).toBe(".card");
+    expect(plain.media).toBeNull();
+    expect(plain.declarations).toEqual([
+      expect.objectContaining({ property: "padding", value: "1rem" }),
+    ]);
+
+    expect(mobile.selector).toBe(".card");
+    expect(mobile.media).toContain("max-width");
+    expect(mobile.declarations[0].value).toBe("0.5rem");
+
+    // file-absolute span: the source slice at the declaration span mentions the property
+    const [s, e] = plain.declarations[0].span;
+    expect(CARD.slice(s, e)).toContain("padding");
+  });
 });
