@@ -95,7 +95,7 @@ function collectElements(node, name, out) {
 
 function extractRules(styleElement) {
   const lang = (styleElement.attributes ?? []).find((a) => a.name === "lang")?.value;
-  if (lang && lang.toLowerCase() !== "css") return []; // scss/less etc.: css-tree error-recovery emits garbage rows
+  if (lang && lang.trim().toLowerCase() !== "css") return []; // scss/less etc.: css-tree error-recovery emits garbage rows
   const textChild = (styleElement.children ?? []).find((c) => c.type === "text");
   if (!textChild?.value) return [];
   const baseOffset = textChild.position?.start?.offset ?? 0;

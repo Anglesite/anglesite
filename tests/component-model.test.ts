@@ -178,6 +178,28 @@ const { items = ["a", "b"], label = "hello, world", point = { x: 1, y: 2 }, coun
     ]);
   });
 
+  it("leaves defaults null for malformed (mid-edit) destructures instead of assigning garbage", async () => {
+    // Unbalanced bracket, as the live Component Editor will see mid-keystroke:
+    // the naive part would be `["a", "b", label = "fallback"` — silently wrong.
+    writeFileSync(
+      join(tmpDir, "src", "components", "Broken.astro"),
+      `---
+interface Props {
+  items: string[];
+  label?: string;
+}
+const { items = ["a", "b", label = "fallback" } = Astro.props;
+---
+<ul></ul>
+`,
+    );
+    const model = await buildComponentModel(tmpDir, "src/components/Broken.astro");
+    expect(model.frontmatter?.props).toEqual([
+      { name: "items", type: "string[]", optional: false, default: null },
+      { name: "label", type: "string", optional: true, default: null },
+    ]);
+  });
+
   it("passes <Fragment> through with its children instead of dropping the subtree", async () => {
     writeFileSync(
       join(tmpDir, "src", "components", "Frag.astro"),
@@ -207,6 +229,16 @@ const { items = ["a", "b"], label = "hello, world", point = { x: 1, y: 2 }, coun
     const model = await buildComponentModel(tmpDir, "src/components/Scss.astro");
     expect(model.styles).toHaveLength(1);
     expect(model.styles[0].selector).toBe(".b");
+  });
+
+  it('treats lang=" css " (stray whitespace) as plain CSS', async () => {
+    writeFileSync(
+      join(tmpDir, "src", "components", "LangWs.astro"),
+      `<div>hi</div>\n<style lang=" css ">\n  .a { color: red; }\n</style>\n`,
+    );
+    const model = await buildComponentModel(tmpDir, "src/components/LangWs.astro");
+    expect(model.styles).toHaveLength(1);
+    expect(model.styles[0].selector).toBe(".a");
   });
 
   it("still extracts rules from is:global style blocks (plain CSS)", async () => {
