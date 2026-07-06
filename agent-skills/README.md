@@ -9,7 +9,7 @@ material lives in its `references/` directory.
 > Generated — do not edit by hand. Edit the plugin sources in `skills/` and run
 > `npm run build:agent-skills`.
 
-**Version:** 1.2.0 · **License:** ISC · 56 skills
+**Version:** 1.3.0 · **License:** ISC · 56 skills
 
 ## Install
 

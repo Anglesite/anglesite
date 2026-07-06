@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: Read, Write, Edit, Glob, Bash(grep *), Bash(find *), Bash(wc *), Bash(sort *), Bash(awk *), Bash(test *), Bash(ls *), Bash(cat *)
 metadata:
   author: "David W. Keith"
-  version: "1.2.0"
+  version: "1.3.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "user-facing"
   argument-hint: "[add | remove | list | validate | import | review]"

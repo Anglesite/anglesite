@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: Bash(zsh *), Bash(npm install), Bash(npm run *), Bash(gh *), Bash(git remote *), Bash(git push *), Bash(git branch *), Bash(git add *), Bash(git commit *), WebFetch, Write, Read, Glob
 metadata:
   author: "David W. Keith"
-  version: "1.2.0"
+  version: "1.3.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "user-facing"
 ---
