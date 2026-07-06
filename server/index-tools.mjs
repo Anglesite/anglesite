@@ -15,6 +15,7 @@ import { undoEdit } from "./undo-edit.mjs";
 import { listContent } from "./list-content.mjs";
 import { createPage, createPost, createTyped } from "./create-content.mjs";
 import { creatableContentTypeIds } from "./content-types.mjs";
+import { buildComponentModel, ComponentModelError } from "./component-model.mjs";
 
 /**
  * The plugin version is the single source of truth (`bin/release.ts` keeps the
@@ -137,6 +138,35 @@ export function buildServer(projectRoot) {
         content: [{ type: "text", text: JSON.stringify(result) }],
         isError: result.status === "refused",
       };
+    },
+  );
+
+  server.tool(
+    "get_component_model",
+    "Parse an .astro component into a structured, read-only model: template node tree with source spans, frontmatter Props interface, scoped style rules, and client script zone. Used by the app's Component Editor.",
+    {
+      path: z.string().describe("Component path relative to the project root, e.g. src/components/Card.astro"),
+    },
+    async ({ path }) => {
+      try {
+        const model = await buildComponentModel(projectRoot, path);
+        return { content: [{ type: "text", text: JSON.stringify(model) }] };
+      } catch (err) {
+        const reason = err instanceof ComponentModelError ? err.reason : "parse-failed";
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                type: "anglesite:component-model-failed",
+                reason,
+                detail: String(err?.message ?? err),
+              }),
+            },
+          ],
+          isError: true,
+        };
+      }
     },
   );
 

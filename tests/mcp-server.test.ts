@@ -184,6 +184,7 @@ describe("MCP annotation server", () => {
         "create_content",
         "create_page",
         "create_post",
+        "get_component_model",
         "list_annotations",
         "list_content",
         "resolve_annotation",
@@ -496,6 +497,54 @@ describe("MCP annotation server", () => {
 
       // File must be byte-identical — dry_run must not mutate disk
       expect(readFileSync(filePath)).toEqual(before);
+    } finally {
+      proc.kill();
+    }
+  });
+
+  it("get_component_model returns a structured model over stdio", async () => {
+    mkdirSync(join(tmpDir, "src", "components"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "src", "components", "Card.astro"),
+      `---\ninterface Props {\n  title: string;\n}\nconst { title } = Astro.props;\n---\n<article class="card"><h2>{title}</h2></article>\n<style>.card { padding: 1rem; }</style>\n`,
+    );
+    const proc = startServer(tmpDir);
+    try {
+      await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "test", version: "1.0.0" },
+        },
+      });
+      sendNotification(proc, { jsonrpc: "2.0", method: "notifications/initialized" });
+
+      const response = await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "get_component_model", arguments: { path: "src/components/Card.astro" } },
+      });
+      const result = response.result as { content: { text: string }[]; isError?: boolean };
+      expect(result.isError).toBeFalsy();
+      const model = JSON.parse(result.content[0].text);
+      expect(model.path).toBe("src/components/Card.astro");
+      expect(model.template.children[0].tag).toBe("article");
+      expect(model.frontmatter.props[0].name).toBe("title");
+      expect(model.styles[0].selector).toBe(".card");
+
+      const failure = await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: { name: "get_component_model", arguments: { path: "src/components/Nope.astro" } },
+      });
+      const failResult = failure.result as { content: { text: string }[]; isError?: boolean };
+      expect(failResult.isError).toBe(true);
+      expect(JSON.parse(failResult.content[0].text).reason).toBe("read-failed");
     } finally {
       proc.kill();
     }
