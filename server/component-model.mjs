@@ -4,7 +4,6 @@
 import { readFileSync } from "node:fs";
 import { join, normalize } from "node:path";
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
 import { parse } from "@astrojs/compiler";
 import { parse as parseCss, generate, walk } from "css-tree";
 import { parseProps } from "./props-interface.mjs";
@@ -80,7 +79,7 @@ export async function buildComponentModel(projectRoot, relPath) {
     : null;
 
   return {
-    version: fileVersion(projectRoot, source),
+    version: fileVersion(source),
     path: relPath,
     template,
     frontmatter,
@@ -192,10 +191,10 @@ class NodeBuilder {
   }
 }
 
-function fileVersion(projectRoot, source) {
-  try {
-    return execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectRoot, encoding: "utf-8" }).trim();
-  } catch {
-    return "sha256:" + createHash("sha256").update(source).digest("hex").slice(0, 12);
-  }
+// Content hash, not a git SHA: apply_edit commits land on the hidden
+// anglesite/edits branch without moving HEAD, so a repo-level SHA would stay
+// constant across edits — useless as a staleness token. Hashing the file
+// content means the version changes exactly when the model's source does.
+function fileVersion(source) {
+  return "sha256:" + createHash("sha256").update(source).digest("hex").slice(0, 12);
 }

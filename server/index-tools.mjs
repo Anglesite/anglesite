@@ -152,7 +152,10 @@ export function buildServer(projectRoot) {
         const model = await buildComponentModel(projectRoot, path);
         return { content: [{ type: "text", text: JSON.stringify(model) }] };
       } catch (err) {
-        const reason = err instanceof ComponentModelError ? err.reason : "parse-failed";
+        // Distinguish real syntax problems (ComponentModelError.parse-failed)
+        // from bugs in this tool — the app should not tell the user their
+        // component is invalid because we threw a TypeError.
+        const reason = err instanceof ComponentModelError ? err.reason : "internal-error";
         return {
           content: [
             {

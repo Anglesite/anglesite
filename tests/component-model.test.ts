@@ -44,7 +44,7 @@ describe("buildComponentModel", () => {
   it("builds the template tree with kinds, spans, and locs", async () => {
     const model = await buildComponentModel(tmpDir, "src/components/Card.astro");
     expect(model.path).toBe("src/components/Card.astro");
-    expect(model.version).toMatch(/^(sha256:[0-9a-f]{12}|[0-9a-f]{40})$/);
+    expect(model.version).toMatch(/^sha256:[0-9a-f]{12}$/);
 
     expect(model.template.kind).toBe("fragment");
     const article = model.template.children[0];
@@ -138,5 +138,43 @@ describe("buildComponentModel", () => {
     expect(model.frontmatter).toBeNull();
     expect(model.clientScript).toBeNull();
     expect(model.styles).toEqual([]);
+  });
+
+  it("version tracks file content, not repo state", async () => {
+    const before = await buildComponentModel(tmpDir, "src/components/Card.astro");
+    writeFileSync(
+      join(tmpDir, "src", "components", "Card.astro"),
+      CARD.replace("card mounted", "card remounted"),
+    );
+    const after = await buildComponentModel(tmpDir, "src/components/Card.astro");
+    expect(before.version).not.toBe(after.version);
+
+    // Same content → same version, regardless of when it's computed.
+    const again = await buildComponentModel(tmpDir, "src/components/Card.astro");
+    expect(again.version).toBe(after.version);
+  });
+
+  it("leaves defaults null rather than truncating comma-containing values", async () => {
+    writeFileSync(
+      join(tmpDir, "src", "components", "List.astro"),
+      `---
+interface Props {
+  items: string[];
+  label?: string;
+  count?: number;
+}
+const { items = ["a", "b"], label = "hello, world", count = 2 } = Astro.props;
+---
+<ul></ul>
+`,
+    );
+    const model = await buildComponentModel(tmpDir, "src/components/List.astro");
+    expect(model.frontmatter?.props).toEqual([
+      // Comma-split truncates these chunks; better null than wrong.
+      { name: "items", type: "string[]", optional: false, default: null },
+      { name: "label", type: "string", optional: true, default: null },
+      // Simple defaults still come through.
+      { name: "count", type: "number", optional: true, default: "2" },
+    ]);
   });
 });
