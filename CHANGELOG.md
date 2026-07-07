@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 - `get_component_model` MCP tool: structured read-only model of an `.astro`
   component (template tree, Props interface, style rules, client script) for
   the app's Component Editor (Slice 1).
+- `apply_edit` gains four component-style ops — `set-style-property`,
+  `remove-style-property`, `add-style-rule`, `set-rule-selector` — with
+  content-hash (`baseVersion`) staleness checking. Successful component-style
+  edits piggyback a freshly rebuilt `get_component_model` result on the reply.
 
 ## [1.0.0-beta.7] — 2026-05-07
 
