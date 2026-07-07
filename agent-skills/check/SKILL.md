@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: Bash(npm run *), Bash(npx astro check), Bash(npx pa11y *), Bash(npx pa11y-ci *), Bash(npx tsx scripts/link-check.ts *), Bash(npx tsx scripts/a11y-audit.ts *), Bash(npx tsx scripts/a14y-audit.ts *), Bash(npx a14y *), Bash(a14y *), Bash(grep *), Bash(find dist/ *), Bash(stat *), Bash(npm audit *), Bash(lsof *), Bash(netstat *), Bash(getent *), Bash(nslookup *), Bash(gh issue *), Bash(gh label *), Write, Read, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__search_cloudflare_documentation, mcp__cloudflare__workers_list, mcp__cloudflare__workers_get_worker, mcp__cloudflare__workers_get_worker_code
 metadata:
   author: "David W. Keith"
-  version: "1.3.0"
+  version: "1.4.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "user-facing"
   argument-hint: "[optional: describe the problem]"

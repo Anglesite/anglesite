@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: Bash(npm install *), Bash(npm run dev), Bash(npm run build), Write, Read, Glob
 metadata:
   author: "David W. Keith"
-  version: "1.3.0"
+  version: "1.4.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "model-only"
   argument-hint: "[effect description or library name]"
