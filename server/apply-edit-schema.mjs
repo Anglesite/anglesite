@@ -139,11 +139,14 @@ export function createEditFailedContent(id, reason, detail) {
  *  offsets in `file`; `commit` is the SHA the patch was committed to on the hidden
  *  `anglesite/edits` branch (added by #298). `result` is optional, op-scoped metadata that the
  *  overlay can apply directly: e.g. `replace-image-src` returns `{ src, srcset? }` so the
- *  overlay swaps both attributes on success without re-deriving them from the patch text. */
-export function createEditAppliedContent(id, file, range, commit, result) {
+ *  overlay swaps both attributes on success without re-deriving them from the patch text.
+ *  `model` is a fresh `buildComponentModel` result piggybacked on component-style-op success so
+ *  the app never needs a second round-trip to `get_component_model` after a write. */
+export function createEditAppliedContent(id, file, range, commit, result, model) {
   const body = { type: "anglesite:edit-applied", id, file, range };
   if (commit !== undefined) body.commit = commit;
   if (result !== undefined) body.result = result;
+  if (model !== undefined) body.model = model;
   return { type: "text", text: JSON.stringify(body) };
 }
 

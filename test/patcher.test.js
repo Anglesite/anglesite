@@ -27,8 +27,8 @@ function makeEdit(overrides = {}) {
 // ── .mdoc resolver ────────────────────────────────────────────────
 
 describe("mdoc resolver", () => {
-  it("unique match → returns correct {file, range, replacement}", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("unique match → returns correct {file, range, replacement}", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/blog/hello-world/",
       selector: makeSelector({ textContent: "Welcome to our new website! We are excited to share our journey with you." }),
       value: "Welcome to our redesigned website!",
@@ -42,8 +42,8 @@ describe("mdoc resolver", () => {
     expect(matched).toBe("Welcome to our new website! We are excited to share our journey with you.");
   });
 
-  it("no match → refuses with reason: no-match", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("no match → refuses with reason: no-match", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/blog/hello-world/",
       selector: makeSelector({ textContent: "This text does not exist anywhere" }),
     }));
@@ -51,8 +51,8 @@ describe("mdoc resolver", () => {
     expect(result.reason).toBe("no-match");
   });
 
-  it("multiple matches → refuses with reason: ambiguous", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("multiple matches → refuses with reason: ambiguous", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/blog/duplicate-text/",
       selector: makeSelector({ textContent: "Welcome to our bakery! We bake fresh bread every morning." }),
     }));
@@ -60,8 +60,8 @@ describe("mdoc resolver", () => {
     expect(result.reason).toBe("ambiguous");
   });
 
-  it("finds text in the body, not in the frontmatter", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("finds text in the body, not in the frontmatter", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/blog/hello-world/",
       selector: makeSelector({ textContent: "This is the second paragraph with some bold text and a link." }),
       value: "Updated second paragraph.",
@@ -75,8 +75,8 @@ describe("mdoc resolver", () => {
 // ── Keystatic (YAML/JSON) resolver ────────────────────────────────
 
 describe("keystatic resolver", () => {
-  it("unique match in YAML → returns correct {file, range, replacement}", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("unique match in YAML → returns correct {file, range, replacement}", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/",
       selector: makeSelector({ textContent: "Fresh bread since 1985" }),
       value: "Fresh bread since 1980",
@@ -92,8 +92,8 @@ describe("keystatic resolver", () => {
     }
   });
 
-  it("no match in data files → falls through to astro resolver", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("no match in data files → falls through to astro resolver", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/",
       selector: makeSelector({ textContent: "We sell the finest goods in town. Come visit us today!" }),
       value: "Updated shop description",
@@ -107,8 +107,8 @@ describe("keystatic resolver", () => {
 // ── .astro resolver ───────────────────────────────────────────────
 
 describe("astro resolver", () => {
-  it("unique match → returns correct {file, range, replacement}", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("unique match → returns correct {file, range, replacement}", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/",
       selector: makeSelector({ tag: "H1", textContent: "Welcome to Our Shop" }),
       value: "Welcome to Our New Shop",
@@ -122,8 +122,8 @@ describe("astro resolver", () => {
     expect(matched).toBe("Welcome to Our Shop");
   });
 
-  it("no match → refuses with reason: no-match", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("no match → refuses with reason: no-match", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/",
       selector: makeSelector({ textContent: "This sentence does not appear anywhere in the project" }),
     }));
@@ -131,8 +131,8 @@ describe("astro resolver", () => {
     expect(result.reason).toBe("no-match");
   });
 
-  it("dynamic expression → refuses with reason: dynamic-expression", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("dynamic expression → refuses with reason: dynamic-expression", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/about/",
       // "12" rendered by {teamSize} in about.astro — not static text
       selector: makeSelector({ textContent: "Our team of 12 experts is here to help you." }),
@@ -144,8 +144,8 @@ describe("astro resolver", () => {
     expect(result.reason).toBe("dynamic-expression");
   });
 
-  it("resolves static text from index.astro for / path", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("resolves static text from index.astro for / path", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/",
       selector: makeSelector({ tag: "P", textContent: "Open Monday through Friday, 9am to 5pm." }),
       value: "Open every day, 8am to 6pm.",
@@ -156,8 +156,8 @@ describe("astro resolver", () => {
   });
 
   describe("replace-image-src", () => {
-    it("rewrites the entire <img> opening tag with new src + srcset", () => {
-      const result = resolve(FIXTURE_ROOT, {
+    it("rewrites the entire <img> opening tag with new src + srcset", async () => {
+      const result = await resolve(FIXTURE_ROOT, {
         path: "/photo/",
         selector: { tag: "IMG", classes: [], nthChild: 1, textContent: "/images/hero.jpg" },
         op: "replace-image-src",
@@ -178,8 +178,8 @@ describe("astro resolver", () => {
       expect(matched.endsWith("/>") || matched.endsWith(">")).toBe(true);
     });
 
-    it("adds srcset when the original <img> had none", () => {
-      const result = resolve(FIXTURE_ROOT, {
+    it("adds srcset when the original <img> had none", async () => {
+      const result = await resolve(FIXTURE_ROOT, {
         path: "/photo/",
         selector: { tag: "IMG", classes: [], nthChild: 2, textContent: "/images/loose.jpg" },
         op: "replace-image-src",
@@ -194,8 +194,8 @@ describe("astro resolver", () => {
       expect(result.replacement).toContain('alt="No srcset"');
     });
 
-    it("refuses with no-match when no <img> with the current src is found", () => {
-      const result = resolve(FIXTURE_ROOT, {
+    it("refuses with no-match when no <img> with the current src is found", async () => {
+      const result = await resolve(FIXTURE_ROOT, {
         path: "/photo/",
         selector: { tag: "IMG", classes: [], nthChild: 1, textContent: "/images/missing.jpg" },
         op: "replace-image-src",
@@ -210,11 +210,11 @@ describe("astro resolver", () => {
 // ── Cross-resolver priority ───────────────────────────────────────
 
 describe("cross-resolver priority", () => {
-  it("mdoc wins over astro when both could match", () => {
+  it("mdoc wins over astro when both could match", async () => {
     // The mdoc fixture has "Welcome to our new website!" which a greedy astro
     // resolver might also match if there were an astro file with the same text.
     // By design, mdoc is tried first.
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/blog/hello-world/",
       selector: makeSelector({ textContent: "Welcome to our new website! We are excited to share our journey with you." }),
       value: "Updated content",
@@ -224,8 +224,8 @@ describe("cross-resolver priority", () => {
     }
   });
 
-  it("all three refuse → returns the most informative reason", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("all three refuse → returns the most informative reason", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/nonexistent/",
       selector: makeSelector({ textContent: "Text that does not exist in any file" }),
     }));
@@ -238,8 +238,8 @@ describe("cross-resolver priority", () => {
 // ── Resolver contract ─────────────────────────────────────────────
 
 describe("resolver contract", () => {
-  it("successful resolve returns file, range, and replacement", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("successful resolve returns file, range, and replacement", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/",
       selector: makeSelector({ tag: "H1", textContent: "Welcome to Our Shop" }),
       value: "Updated Title",
@@ -254,8 +254,8 @@ describe("resolver contract", () => {
     expect(result.range.start).toBeLessThan(result.range.end);
   });
 
-  it("refusal returns refused: true and a reason string", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("refusal returns refused: true and a reason string", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/",
       selector: makeSelector({ textContent: "No such text" }),
     }));
@@ -263,8 +263,8 @@ describe("resolver contract", () => {
     expect(typeof result.reason).toBe("string");
   });
 
-  it("range bytes correctly slice the original file", () => {
-    const result = resolve(FIXTURE_ROOT, makeEdit({
+  it("range bytes correctly slice the original file", async () => {
+    const result = await resolve(FIXTURE_ROOT, makeEdit({
       path: "/",
       selector: makeSelector({ tag: "P", textContent: "Open Monday through Friday, 9am to 5pm." }),
       value: "Replacement",

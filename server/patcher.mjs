@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, extname, basename, dirname } from "node:path";
 import { rewriteAstroStyle } from "./style-edit.mjs";
+import { resolveComponentStyle } from "./component-style-edit.mjs";
+import { COMPONENT_STYLE_OPS } from "./apply-edit-schema.mjs";
 
 /**
  * @typedef {import('./apply-edit-schema.mjs').default} _unused
@@ -11,17 +13,26 @@ import { rewriteAstroStyle } from "./style-edit.mjs";
 /**
  * Resolve an edit payload to a source-file patch.
  *
- * Tries resolvers in priority order: .mdoc → Keystatic YAML/JSON → .astro.
- * Returns the first non-refusal. If all refuse, returns the most informative
- * refusal (from the highest-priority resolver that had an opinion).
+ * Tries resolvers in priority order: edit-style → component-style ops → .mdoc →
+ * Keystatic YAML/JSON → .astro. Returns the first non-refusal. If all refuse,
+ * returns the most informative refusal (from the highest-priority resolver
+ * that had an opinion).
+ *
+ * Async because `resolveComponentStyle` (component-style-edit.mjs) parses the
+ * target .astro file with `@astrojs/compiler`, which is itself async. Every
+ * other resolver here is synchronous; awaiting their (non-Promise) return
+ * values is a no-op, so this doesn't change their behavior.
  *
  * @param {string} projectRoot
- * @param {{ path: string, selector: object, op: string, value?: unknown }} edit
- * @returns {ResolveResult | ResolveRefusal}
+ * @param {{ path: string, selector: object, op: string, value?: unknown, component?: object }} edit
+ * @returns {Promise<ResolveResult | ResolveRefusal>}
  */
-export function resolve(projectRoot, edit) {
+export async function resolve(projectRoot, edit) {
   if (edit.op === "edit-style") {
     return resolveStyle(projectRoot, edit);
+  }
+  if (COMPONENT_STYLE_OPS.has(edit.op)) {
+    return resolveComponentStyle(projectRoot, edit);
   }
   const resolvers = [resolveMdoc, resolveKeystatic, resolveAstro];
   let bestRefusal = /** @type {ResolveRefusal | null} */ (null);

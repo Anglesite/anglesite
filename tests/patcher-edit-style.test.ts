@@ -13,8 +13,8 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("patcher resolve() for edit-style", () => {
-  it("returns whole-file replacement with the merged style", () => {
-    const r = resolve(root, {
+  it("returns whole-file replacement with the merged style", async () => {
+    const r = await resolve(root, {
       path: "/about/",
       selector: { tag: "h1", id: "t", classes: [], nthChild: 1, textContent: "Welcome" },
       op: "edit-style",
@@ -25,8 +25,8 @@ describe("patcher resolve() for edit-style", () => {
     expect(r.replacement).toMatch(/#t\s*\{[^}]*color:\s*teal/);
   });
 
-  it("refuses with invalid-input when value.value is missing", () => {
-    const r = resolve(root, {
+  it("refuses with invalid-input when value.value is missing", async () => {
+    const r = await resolve(root, {
       path: "/about/",
       selector: { tag: "h1", id: "t", classes: [], nthChild: 1, textContent: "Welcome" },
       op: "edit-style",
