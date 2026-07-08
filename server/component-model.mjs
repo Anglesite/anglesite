@@ -3,10 +3,10 @@
 // 2026-07-05-component-editor-design.md §2.2).
 import { readFileSync } from "node:fs";
 import { join, normalize } from "node:path";
-import { createHash } from "node:crypto";
 import { parse } from "@astrojs/compiler";
-import { parse as parseCss, generate, walk } from "css-tree";
 import { parseProps } from "./props-interface.mjs";
+import { fileVersion } from "./file-version.mjs";
+import { indexCssRules } from "./css-rule-index.mjs";
 
 export class ComponentModelError extends Error {
   constructor(reason, message) {
@@ -94,52 +94,12 @@ function collectElements(node, name, out) {
 }
 
 function extractRules(styleElement) {
-  const lang = (styleElement.attributes ?? []).find((a) => a.name === "lang")?.value;
-  if (lang && lang.trim().toLowerCase() !== "css") return []; // scss/less etc.: css-tree error-recovery emits garbage rows
-  const textChild = (styleElement.children ?? []).find((c) => c.type === "text");
-  if (!textChild?.value) return [];
-  const baseOffset = textChild.position?.start?.offset ?? 0;
-  let cssAst;
-  try {
-    cssAst = parseCss(textChild.value, {
-      positions: true,
-      parseValue: false,
-      parseAtrulePrelude: false,
-    });
-  } catch {
-    return []; // unparseable CSS: styles stay empty; template/props still usable
-  }
-  const rules = [];
-  walk(cssAst, {
-    visit: "Rule",
-    enter(node) {
-      const media =
-        this.atrule && this.atrule.name === "media" && this.atrule.prelude
-          ? generate(this.atrule.prelude).trim()
-          : null;
-      const declarations = [];
-      node.block.children.forEach((decl) => {
-        if (decl.type !== "Declaration") return;
-        declarations.push({
-          property: decl.property,
-          value: generate(decl.value).trim(),
-          span: cssSpan(decl.loc, baseOffset),
-        });
-      });
-      rules.push({
-        selector: generate(node.prelude),
-        media,
-        span: cssSpan(node.loc, baseOffset),
-        declarations,
-      });
-    },
-  });
-  return rules;
-}
-
-function cssSpan(loc, baseOffset) {
-  if (!loc) return [null, null];
-  return [baseOffset + loc.start.offset, baseOffset + loc.end.offset];
+  return indexCssRules(styleElement).map(({ selector, media, span, declarations }) => ({
+    selector,
+    media,
+    span,
+    declarations,
+  }));
 }
 
 // style/script/frontmatter are zones, not template nodes.
@@ -193,12 +153,4 @@ class NodeBuilder {
       loc: start ? { line: start.line, column: start.column } : null,
     };
   }
-}
-
-// Content hash, not a git SHA: apply_edit commits land on the hidden
-// anglesite/edits branch without moving HEAD, so a repo-level SHA would stay
-// constant across edits — useless as a staleness token. Hashing the file
-// content means the version changes exactly when the model's source does.
-function fileVersion(source) {
-  return "sha256:" + createHash("sha256").update(source).digest("hex").slice(0, 12);
 }

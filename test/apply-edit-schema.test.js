@@ -45,8 +45,10 @@ describe("applyEditInputShape", () => {
     ).toBe(true);
   });
 
-  it("requires id, path, selector, and op", () => {
-    for (const field of ["id", "path", "selector", "op"]) {
+  it("requires id, path, and op", () => {
+    // `selector` is optional as of the Component Editor's style ops (#496): those ops carry
+    // their payload in `component` instead — see apply-edit-schema-component.test.ts.
+    for (const field of ["id", "path", "op"]) {
       const { [field]: _omitted, ...rest } = validPayload;
       expect(
         applyEditSchema.safeParse(rest).success,

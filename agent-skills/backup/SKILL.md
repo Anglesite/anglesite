@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: Bash(git status *), Bash(git add *), Bash(git commit *), Bash(git push *), Bash(git log *), Bash(git diff *), Bash(git checkout *), Bash(git branch *), Bash(git tag *), Bash(git show *), Bash(git stash *), Bash(git fetch *), Bash(git rev-parse *), Bash(npx tsx *), Read
 metadata:
   author: "David W. Keith"
-  version: "1.3.0"
+  version: "1.4.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "user-facing"
 ---

@@ -36,14 +36,17 @@ import {
   createEditAppliedContent,
   createEditFailedContent,
   createEditPreviewContent,
+  COMPONENT_STYLE_OPS,
 } from "./apply-edit-schema.mjs";
+import { buildComponentModel } from "./component-model.mjs";
+import { fileVersion } from "./file-version.mjs";
 
 function failed(id, reason, detail) {
   return { content: [createEditFailedContent(id, reason, detail)], isError: true };
 }
 
-function applied(id, file, range, commit, result) {
-  return { content: [createEditAppliedContent(id, file, range, commit, result)] };
+function applied(id, file, range, commit, result, model) {
+  return { content: [createEditAppliedContent(id, file, range, commit, result, model)] };
 }
 
 /** Splice `replacement` into `source` at the resolved byte range. */
@@ -191,6 +194,13 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
     return failed(edit.id, "needs-agent", "apply-instruction requires LLM interpretation; route to the agent");
   }
 
+  // Component-style ops (Component Editor styles panel) identify their target via a
+  // structured `component` payload rather than `selector`; fail fast rather than let
+  // resolveComponentStyle's own destructure surface a less specific refusal.
+  if (COMPONENT_STYLE_OPS.has(edit.op) && !edit.component) {
+    return failed(edit.id, "invalid-input", `op ${edit.op} requires a component payload`);
+  }
+
   // dry_run is read-only. Image edits can't be previewed without writing optimized
   // bytes to disk, so refuse rather than violate the no-write invariant.
   if (edit.dry_run && edit.op === "replace-image-src") {
@@ -212,7 +222,7 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
     };
   }
 
-  const resolution = resolveEdit(projectRoot, effectiveEdit);
+  const resolution = await resolveEdit(projectRoot, effectiveEdit);
   if (resolution.refused) {
     return failed(edit.id, resolution.reason, resolution.detail);
   }
@@ -225,6 +235,16 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
     source = readFileSync(absPath, "utf-8");
   } catch (err) {
     return failed(edit.id, "write-failed", `read ${file}: ${err.message}`);
+  }
+
+  // Component-style ops resolve via an async parser (component-style-edit.mjs's
+  // `await parse(...)`), which opens a real yield point between that resolver's own
+  // baseVersion check and this second, independent read. A concurrent edit landing in
+  // that window would otherwise splice this call's now-stale byte offsets into the
+  // other call's already-written content — re-validate the hash against this fresh
+  // read, immediately before splicing, to close the gap.
+  if (COMPONENT_STYLE_OPS.has(edit.op) && fileVersion(source) !== edit.component.baseVersion) {
+    return failed(edit.id, "stale", `${file} changed since the model was fetched`);
   }
 
   const next = spliceSource(source, range, replacement);
@@ -251,5 +271,21 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
     }
   }
 
-  return applied(edit.id, file, range, commit, imageResult ? { src: imageResult.src, srcset: imageResult.srcset } : undefined);
+  let model;
+  if (COMPONENT_STYLE_OPS.has(edit.op)) {
+    try {
+      model = await buildComponentModel(projectRoot, edit.component.path);
+    } catch {
+      model = undefined; // best-effort — a failed refetch shouldn't fail an already-applied edit
+    }
+  }
+
+  return applied(
+    edit.id,
+    file,
+    range,
+    commit,
+    imageResult ? { src: imageResult.src, srcset: imageResult.srcset } : undefined,
+    model,
+  );
 }
