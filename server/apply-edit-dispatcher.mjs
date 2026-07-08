@@ -39,6 +39,7 @@ import {
   COMPONENT_STYLE_OPS,
 } from "./apply-edit-schema.mjs";
 import { buildComponentModel } from "./component-model.mjs";
+import { fileVersion } from "./file-version.mjs";
 
 function failed(id, reason, detail) {
   return { content: [createEditFailedContent(id, reason, detail)], isError: true };
@@ -234,6 +235,16 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
     source = readFileSync(absPath, "utf-8");
   } catch (err) {
     return failed(edit.id, "write-failed", `read ${file}: ${err.message}`);
+  }
+
+  // Component-style ops resolve via an async parser (component-style-edit.mjs's
+  // `await parse(...)`), which opens a real yield point between that resolver's own
+  // baseVersion check and this second, independent read. A concurrent edit landing in
+  // that window would otherwise splice this call's now-stale byte offsets into the
+  // other call's already-written content — re-validate the hash against this fresh
+  // read, immediately before splicing, to close the gap.
+  if (COMPONENT_STYLE_OPS.has(edit.op) && fileVersion(source) !== edit.component.baseVersion) {
+    return failed(edit.id, "stale", `${file} changed since the model was fetched`);
   }
 
   const next = spliceSource(source, range, replacement);

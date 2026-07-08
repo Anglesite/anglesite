@@ -33,7 +33,7 @@ export async function resolveComponentStyle(projectRoot, edit) {
   try {
     source = readFileSync(absPath, "utf-8");
   } catch (err) {
-    return refuse("no-match", `read ${relPath}: ${err.message}`);
+    return refuse("read-failed", `read ${relPath}: ${err.message}`);
   }
 
   if (fileVersion(source) !== baseVersion) {
@@ -44,7 +44,7 @@ export async function resolveComponentStyle(projectRoot, edit) {
   try {
     ({ ast } = await parse(source, { position: true }));
   } catch (err) {
-    return refuse("invalid-input", `parse ${relPath}: ${err.message}`);
+    return refuse("parse-failed", `parse ${relPath}: ${err.message}`);
   }
 
   const styleElements = [];

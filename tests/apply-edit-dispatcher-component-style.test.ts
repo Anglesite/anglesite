@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { applyEdit } from "../server/apply-edit-dispatcher.mjs";
@@ -62,5 +62,38 @@ describe("applyEdit — component-style ops", () => {
     expect(response.isError).toBe(true);
     const body = parseContent(response);
     expect(body.reason).toBe("stale");
+  });
+
+  it("re-checks staleness after the resolver's async gap, refusing a concurrent write race", async () => {
+    const baseVersion = fileVersion(CARD);
+    const { indexCssRules } = await import("../server/css-rule-index.mjs");
+    const { parse } = await import("@astrojs/compiler");
+    const { ast } = await parse(CARD, { position: true });
+    const styleEl = ast.children.find((n) => n.type === "element" && n.name === "style");
+    const [cardRule] = indexCssRules(styleEl);
+
+    const editPromise = applyEdit(tmpDir, {
+      id: "1",
+      path: "src/components/Card.astro",
+      op: "set-style-property",
+      component: { path: "src/components/Card.astro", baseVersion, ruleSpan: cardRule.span, property: "color", value: "blue" },
+    });
+
+    // Simulate a second edit landing while this one is suspended at
+    // resolveComponentStyle's `await parse(...)` — rewrite the file (changing its
+    // hash) before this call's dispatcher-level re-check runs. This synchronous
+    // write executes before `parse()`'s WASM call can resolve, since calling an
+    // async function runs synchronously up to its first real suspension point.
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), CARD.replace("padding: 1rem", "padding: 3rem"));
+
+    const response = await editPromise;
+    expect(response.isError).toBe(true);
+    const body = parseContent(response);
+    expect(body.reason).toBe("stale");
+
+    // And the concurrent write itself must survive untouched — not clobbered by
+    // this call's stale byte-offset splice.
+    const onDisk = readFileSync(join(tmpDir, "src", "components", "Card.astro"), "utf-8");
+    expect(onDisk).toContain("padding: 3rem");
   });
 });

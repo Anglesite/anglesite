@@ -45,6 +45,16 @@ describe("resolveComponentStyle", () => {
     expect(result.reason).toBe("stale");
   });
 
+  it("refuses with read-failed (not no-match) when the file can't be read", async () => {
+    const edit = { op: "set-style-property", component: { path: "src/components/Missing.astro", baseVersion: "sha256:000000000000", ruleSpan: [0, 1], property: "color", value: "blue" } };
+    const result = await resolveComponentStyle(tmpDir, edit);
+    expect(result.refused).toBe(true);
+    // Distinct from "no-match" (a rule span that doesn't resolve within a file that
+    // DID read and parse successfully) — matches buildComponentModel's ComponentModelError
+    // reason for the same failure mode on the same file.
+    expect(result.reason).toBe("read-failed");
+  });
+
   it("set-style-property updates an existing declaration in place", async () => {
     const baseVersion = fileVersion(CARD);
     // Recompute the real span via the resolver's own indexing to avoid hand-counting offsets:
