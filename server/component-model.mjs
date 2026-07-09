@@ -107,6 +107,10 @@ function isZoneNode(n) {
   return n.type === "frontmatter" || (n.type === "element" && (n.name === "style" || n.name === "script"));
 }
 
+// AST node types that represent real embedded JSX inside an expression's
+// `children` (as opposed to "text" pseudo-nodes, which are raw JS source).
+const JSX_CHILD_TYPES = new Set(["element", "component", "custom-element", "fragment"]);
+
 class NodeBuilder {
   #next = 0;
   nextId() {
@@ -126,13 +130,18 @@ class NodeBuilder {
         // e.g. "profile && (" ) with any JSX actually embedded in it (e.g. a
         // conditional root `{cond && (<el/>)}` or a mapped list). Only the
         // latter are real markup — walk those; drop the JS-source text.
+        //
+        // A two-branch conditional (`{cond ? <A/> : <B/>}`) surfaces both `<A>`
+        // and `<B>` as siblings here even though only one renders at a time —
+        // acceptable for a static outline/editor tree, but worth knowing if a
+        // future consumer assumes every outline row is on the live page.
         return {
           ...this.#base(n),
           kind: "expression",
           tag: null,
           attrs: [],
           children: (n.children ?? [])
-            .filter((c) => c.type === "element" || c.type === "component" || c.type === "custom-element" || c.type === "fragment")
+            .filter((c) => JSX_CHILD_TYPES.has(c.type))
             .map((c) => this.toNode(c))
             .filter(Boolean),
         };
