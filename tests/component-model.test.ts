@@ -251,6 +251,39 @@ const { items = ["a", "b", label = "fallback" } = Astro.props;
     expect(model.styles[0].selector).toBe("body");
   });
 
+  it("walks JSX embedded in a top-level conditional expression instead of dropping it", async () => {
+    writeFileSync(
+      join(tmpDir, "src", "components", "Hcard.astro"),
+      `---
+const profile = { name: "x" };
+---
+{profile && (
+  <footer class="site-identity">
+    <div class="h-card">
+      <p class="p-name">{profile.name}</p>
+    </div>
+  </footer>
+)}
+`,
+    );
+    const model = await buildComponentModel(tmpDir, "src/components/Hcard.astro");
+    const expr = model.template.children[0];
+    expect(expr.kind).toBe("expression");
+    expect(expr.children).toHaveLength(1);
+
+    const footer = expr.children[0];
+    expect(footer.kind).toBe("element");
+    expect(footer.tag).toBe("footer");
+    const div = footer.children[0];
+    expect(div.tag).toBe("div");
+    const p = div.children[0];
+    expect(p.tag).toBe("p");
+    // The inline `{profile.name}` expression stays a childless leaf — its
+    // "children" are JS source (an identifier chain), not markup.
+    expect(p.children[0].kind).toBe("expression");
+    expect(p.children[0].children).toEqual([]);
+  });
+
   it("filters style/script zones at any depth while still extracting them", async () => {
     writeFileSync(
       join(tmpDir, "src", "components", "Nested.astro"),

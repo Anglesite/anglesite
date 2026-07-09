@@ -13,6 +13,12 @@ All notable changes to this project will be documented in this file.
   content-hash (`baseVersion`) staleness checking. Successful component-style
   edits piggyback a freshly rebuilt `get_component_model` result on the reply.
 
+### Fixed
+- `get_component_model`'s outline extraction no longer drops JSX embedded in
+  a top-level conditional expression (e.g. `{profile && (<footer>...</footer>)}`)
+  — a component whose entire template was one conditional root previously got
+  a childless outline with nothing to select or map canvas clicks onto.
+
 ## [1.0.0-beta.7] — 2026-05-07
 
 Big beta. Nine new user-invocable skills round out the 1.0 commerce, community, and ops surface; analytics gets honest about what it's measuring; deploy learns about agent readability and performance budgets.
