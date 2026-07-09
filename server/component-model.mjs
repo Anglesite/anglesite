@@ -122,7 +122,20 @@ class NodeBuilder {
       case "fragment":
         return this.#make(n, "fragment", null);
       case "expression":
-        return { ...this.#base(n), kind: "expression", tag: null, attrs: [], children: [] };
+        // An expression's `children` mix raw JS source (as "text" pseudo-nodes,
+        // e.g. "profile && (" ) with any JSX actually embedded in it (e.g. a
+        // conditional root `{cond && (<el/>)}` or a mapped list). Only the
+        // latter are real markup — walk those; drop the JS-source text.
+        return {
+          ...this.#base(n),
+          kind: "expression",
+          tag: null,
+          attrs: [],
+          children: (n.children ?? [])
+            .filter((c) => c.type === "element" || c.type === "component" || c.type === "custom-element" || c.type === "fragment")
+            .map((c) => this.toNode(c))
+            .filter(Boolean),
+        };
       case "text": {
         const value = (n.value ?? "").trim();
         if (!value) return null;
