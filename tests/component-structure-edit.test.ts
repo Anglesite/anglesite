@@ -247,4 +247,38 @@ describe("resolveComponentStructure — remove-node", () => {
     expect(next).not.toContain("<li>");
     expect(next).toContain("<ul></ul>");
   });
+
+  it("correctly removes the target expression node when Unicode precedes it, without touching a different expression", async () => {
+    const src = `---\n---\n<p>🎉 emoji {first} then {second}</p>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const p = byId.get(byId.get(rootId).childIds[0]);
+    const firstExpr = byId.get(p.childIds.find((id) => byId.get(id).kind === "expression"));
+
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: firstExpr.id } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result, src);
+    expect(next).not.toContain("{first}");
+    expect(next).toContain("{second}");
+  });
+
+  it("correctly removes a plain element when Unicode precedes it, without corrupting a later sibling", async () => {
+    const src = `---\n---\n<div>🎉 emoji before <p>Body</p><span>Keep</span></div>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const div = byId.get(byId.get(rootId).childIds[0]);
+    const p = byId.get(div.childIds.find((id) => byId.get(id).tag === "p"));
+
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: p.id } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result, src);
+    expect(next).not.toContain("Body");
+    expect(next).toContain("<span>Keep</span>");
+    const { ast } = await parse(next, { position: true });
+    expect(ast).toBeDefined(); // re-parses cleanly, no tag-soup corruption
+  });
 });
