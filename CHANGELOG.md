@@ -33,6 +33,11 @@ All notable changes to this project will be documented in this file.
   element. `indexCssRules` now takes the file's `lineStarts` and derives
   `baseOffset` from the `<style>` text child's line/column, same as the fix
   above.
+- `apply_edit`'s `add-style-rule` op had the same UTF-8-byte-offset bug in
+  `styleInsertionPoint` — an emoji or other multi-byte-UTF-8 character before
+  an empty `<style></style>` block spliced the new rule after the closing
+  tag (rendered as literal page text) instead of inside it. Now derived from
+  `lineStarts` like the fixes above.
 
 ## [1.0.0-beta.7] — 2026-05-07
 

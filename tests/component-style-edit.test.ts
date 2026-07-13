@@ -156,4 +156,20 @@ describe("resolveComponentStyle", () => {
     expect(result.refused).toBe(true);
     expect(result.reason).toBe("no-match");
   });
+
+  // @astrojs/compiler@4.0.0 reports `position.*.offset` as a UTF-8 byte offset, not a
+  // JS-string (UTF-16) index — an emoji or other multi-byte-UTF-8 character earlier in
+  // the source used to splice add-style-rule's new rule at the wrong position, most
+  // visibly for an empty <style></style> block (see the analogous fix in css-rule-index.mjs).
+  it("add-style-rule appends inside an empty <style></style> block when an emoji precedes it", async () => {
+    const emojiEmptyStyle = `---\n---\n<article>\u{1F389} emoji</article>\n\n<style></style>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), emojiEmptyStyle);
+    const baseVersion = fileVersion(emojiEmptyStyle);
+    const edit = { op: "add-style-rule", component: { path: "src/components/Card.astro", baseVersion, selector: ".card", declarations: [{ property: "padding", value: "1rem" }] } };
+    const result = await resolveComponentStyle(tmpDir, edit);
+    const next = apply(result);
+    expect(next.indexOf(".card {")).toBeGreaterThan(next.indexOf("<style>"));
+    expect(next.indexOf(".card {")).toBeLessThan(next.indexOf("</style>"));
+    expect(next).toMatch(/\.card\s*{\s*padding: 1rem;\s*}/);
+  });
 });
