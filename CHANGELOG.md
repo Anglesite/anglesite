@@ -12,6 +12,12 @@ All notable changes to this project will be documented in this file.
   `remove-style-property`, `add-style-rule`, `set-rule-selector` — with
   content-hash (`baseVersion`) staleness checking. Successful component-style
   edits piggyback a freshly rebuilt `get_component_model` result on the reply.
+- `apply_edit` gains four component-structure ops — `insert-node`, `move-node`,
+  `remove-node`, `set-attr` — with the same content-hash (`baseVersion`)
+  staleness checking as the style ops. `insert-node` auto-adds a component
+  import to frontmatter when needed; `remove-node` prunes now-unused imports.
+  Successful structure edits piggyback a freshly rebuilt
+  `get_component_model` result on the reply, same as the style ops.
 
 ### Fixed
 - `get_component_model`'s outline extraction no longer drops JSX embedded in
