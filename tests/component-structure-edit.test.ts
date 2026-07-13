@@ -349,3 +349,183 @@ describe("resolveComponentStructure — remove-node", () => {
     expect(next).toContain("<p>Keep</p>");
   });
 });
+
+describe("resolveComponentStructure — insert-node", () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "anglesite-cse4-"));
+    mkdirSync(join(tmpDir, "src", "components"), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function apply(resolution, before) {
+    return before.slice(0, resolution.range.start) + resolution.replacement + before.slice(resolution.range.end);
+  }
+
+  it("inserts a plain element as the last child of a parent with existing children", async () => {
+    const src = `---\n---\n<article><h2>Title</h2></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+
+    const edit = {
+      op: "insert-node",
+      component: { path: "src/components/Card.astro", baseVersion, parentId: article.id, index: 1, node: { kind: "element", tag: "p" } },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    expect(next).toContain("<h2>Title</h2><p></p>");
+
+    // Re-parses cleanly.
+    const { ast } = await parse(next, { position: true });
+    expect(ast).toBeDefined();
+  });
+
+  it("inserts a top-level element when parentId is the fragment root", async () => {
+    const src = `---\n---\n<article></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { rootId } = await nodeIndex(src);
+
+    const edit = {
+      op: "insert-node",
+      component: { path: "src/components/Card.astro", baseVersion, parentId: rootId, index: 1, node: { kind: "element", tag: "footer" } },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    // Whitespace-insensitive: insertion lands right after </article>'s own resolved span,
+    // not necessarily preserving the original file's exact trailing-newline formatting.
+    expect(next).toMatch(/<article><\/article>\s*<footer><\/footer>/);
+  });
+
+  it("inserts a slot", async () => {
+    const src = `---\n---\n<article></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+
+    const edit = {
+      op: "insert-node",
+      component: { path: "src/components/Card.astro", baseVersion, parentId: article.id, index: 0, node: { kind: "slot", slotName: "footer" } },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    expect(next).toContain('<slot name="footer" />');
+  });
+
+  it("inserts a component instance and adds its import", async () => {
+    const src = `---\n---\n<article></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    mkdirSync(join(tmpDir, "src", "components"), { recursive: true });
+    writeFileSync(join(tmpDir, "src", "components", "Badge.astro"), `---\n---\n<span>Badge</span>\n`);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+
+    const edit = {
+      op: "insert-node",
+      component: {
+        path: "src/components/Card.astro",
+        baseVersion,
+        parentId: article.id,
+        index: 0,
+        node: { kind: "component", tag: "Badge", componentPath: "src/components/Badge.astro" },
+      },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    expect(next).toContain('import Badge from "./Badge.astro";');
+    expect(next).toContain("<Badge />");
+
+    const { ast } = await parse(next, { position: true });
+    expect(ast).toBeDefined();
+  });
+
+  it("reuses an existing import instead of duplicating it", async () => {
+    const src = `---\nimport Badge from "./Badge.astro";\n---\n<article><Badge label="a" /></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+
+    const edit = {
+      op: "insert-node",
+      component: {
+        path: "src/components/Card.astro",
+        baseVersion,
+        parentId: article.id,
+        index: 1,
+        node: { kind: "component", tag: "Badge", componentPath: "src/components/Badge.astro" },
+      },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    expect(next.match(/import Badge/g)).toHaveLength(1);
+  });
+
+  it("refuses invalid-input when a component node has no componentPath", async () => {
+    const src = `---\n---\n<article></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+
+    const edit = {
+      op: "insert-node",
+      component: { path: "src/components/Card.astro", baseVersion, parentId: article.id, index: 0, node: { kind: "component", tag: "Badge" } },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBe(true);
+    expect(result.reason).toBe("invalid-input");
+  });
+
+  it("refuses no-match when parentId doesn't exist", async () => {
+    const src = `---\n---\n<article></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const edit = {
+      op: "insert-node",
+      component: { path: "src/components/Card.astro", baseVersion, parentId: "n999", index: 0, node: { kind: "element", tag: "p" } },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBe(true);
+    expect(result.reason).toBe("no-match");
+  });
+
+  // Beyond the original plan's 7 cases: proves the resolveAllSpans-based insertion offset
+  // (and its forward/backward resolvable-sibling search) works correctly when a preceding
+  // sibling is a Unicode-containing text node rather than a spanned element — the case the
+  // now-superseded raw node.span approach could not have handled reliably (see Task 5's
+  // history: astral-plane Unicode earlier in the source corrupts the compiler's own byte
+  // offsets for everything that follows).
+  it("inserts before an element sibling that follows a Unicode-containing text node", async () => {
+    const src = `---\n---\n<article>🎉 some text <h2>Title</h2></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+    // children: [text("🎉 some text"), h2] — index 1 targets "right before the h2".
+    expect(article.childIds.length).toBe(2);
+
+    const edit = {
+      op: "insert-node",
+      component: { path: "src/components/Card.astro", baseVersion, parentId: article.id, index: 1, node: { kind: "element", tag: "p" } },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result, src);
+
+    // The new <p> lands immediately before <h2>, not corrupting the preceding Unicode text
+    // or the h2's own content.
+    expect(next).toContain("🎉 some text <p></p><h2>Title</h2>");
+
+    const { ast } = await parse(next, { position: true });
+    expect(ast).toBeDefined();
+  });
+});

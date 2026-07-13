@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { join, normalize, dirname, relative } from "node:path";
+import { join, normalize, dirname, relative, sep } from "node:path";
 import { parse } from "@astrojs/compiler";
 import { fileVersion } from "./file-version.mjs";
 import { buildTemplateNodeIndex } from "./component-node-index.mjs";
@@ -60,6 +60,8 @@ export async function resolveComponentStructure(projectRoot, edit) {
       return applySetAttr(relPath, source, byId, component);
     case "remove-node":
       return applyRemoveNode(relPath, source, byId, rootId, component);
+    case "insert-node":
+      return applyInsertNode(relPath, source, byId, rootId, component);
     default:
       return refuse("invalid-input", `unsupported component-structure op: ${edit.op}`);
   }
@@ -462,4 +464,145 @@ function collectComponentTags(byId, nodeId) {
   }
   walk(nodeId);
   return names;
+}
+
+function buildMarkup(nodeSpec) {
+  if (nodeSpec.kind === "slot") {
+    return nodeSpec.slotName ? `<slot name="${escapeAttr(nodeSpec.slotName)}" />` : `<slot />`;
+  }
+  if (nodeSpec.kind === "component") {
+    return `<${nodeSpec.tag} />`;
+  }
+  return `<${nodeSpec.tag}></${nodeSpec.tag}>`;
+}
+
+/** Relative import specifier from the target component's own directory to the component
+ *  being inserted, Astro-style (keeps the .astro extension, always POSIX-separated, always
+ *  prefixed with ./ or ../ so it never gets mistaken for a bare-specifier package import). */
+function importSpecifier(targetRelPath, componentRelPath) {
+  const rel = relative(dirname(targetRelPath), componentRelPath).split(sep).join("/");
+  return rel.startsWith(".") ? rel : `./${rel}`;
+}
+
+// Offset just inside `parent`'s content when it currently has no (resolvable) children to
+// anchor on — i.e. "right after the opening tag" for a real element/component/slot, or
+// "end of file" for the synthetic fragment root (which has no lexical open/close tag of
+// its own to anchor on). Returns null when a safe insertion point can't be determined
+// (parent's own span wasn't resolved, or it turns out to be self-closing/void and
+// therefore has no content region to insert into at all).
+function childlessInsertionPoint(parent, rootId, spans, source) {
+  if (parent.id === rootId) return source.length;
+  const parentSpan = spans.get(parent.id);
+  if (!parentSpan) return null;
+  const wholeText = source.slice(parentSpan[0], parentSpan[1]);
+  if (wholeText.endsWith("/>") || VOID_ELEMENTS.has(parent.tag)) return null; // no closing tag to insert before
+  const closeTag = `</${parent.tag}>`;
+  const candidate = parentSpan[1] - closeTag.length;
+  return source.slice(candidate, parentSpan[1]) === closeTag ? candidate : parentSpan[1];
+}
+
+// The non-empty-children insertion offset (below, inlined in `applyInsertNode`) picks the
+// nearest RESOLVABLE sibling as its anchor, since text-kind children (and any node
+// `resolveAllSpans` couldn't resolve) have no entry in `spans`:
+//   - Appending (clampedIndex === children.length): the nearest resolvable sibling
+//     searching BACKWARD from the end, anchored at its span END.
+//   - Inserting before children[clampedIndex]: the nearest resolvable sibling searching
+//     FORWARD from that index, anchored at its span START (so the new node lands
+//     immediately before it); if none found forward, falls back to searching BACKWARD for
+//     the nearest resolvable PRECEDING sibling's span END instead. If no child in the list
+//     is resolvable at all, falls back to the childless-parent case.
+
+function applyInsertNode(file, source, byId, rootId, component) {
+  const { parentId, index, node: nodeSpec } = component;
+  if (typeof parentId !== "string" || typeof index !== "number" || !nodeSpec || typeof nodeSpec !== "object") {
+    return refuse("invalid-input", "insert-node requires component.parentId, component.index, and component.node");
+  }
+  if (!["element", "component", "slot"].includes(nodeSpec.kind)) {
+    return refuse("invalid-input", `unsupported node.kind: ${nodeSpec.kind}`);
+  }
+  if ((nodeSpec.kind === "element" || nodeSpec.kind === "component") && typeof nodeSpec.tag !== "string") {
+    return refuse("invalid-input", "node.tag is required for element/component inserts");
+  }
+  if (nodeSpec.kind === "component" && typeof nodeSpec.componentPath !== "string") {
+    return refuse("invalid-input", "node.componentPath is required for component inserts");
+  }
+
+  const parent = byId.get(parentId);
+  if (!parent) return refuse("no-match", "no parent node found at the given id — the file may have changed");
+  if (parent.kind === "text") {
+    return refuse("invalid-input", "cannot insert into a text node — it has no children");
+  }
+
+  // Same discipline as remove-node: NEVER trust `node.span`/`position.offset` straight off
+  // `byId` (unreliable for expression-kind nodes, and historically for others too — see
+  // the file-level comment above `resolveAllSpans`). Every insertion offset below is
+  // derived exclusively from the `spans` Map this returns.
+  let spans;
+  try {
+    spans = resolveAllSpans(byId, rootId, source);
+  } catch (err) {
+    if (!(err instanceof SpanResolutionError)) throw err;
+    return refuse(
+      "no-match",
+      "could not lexically re-locate the parent's true source span without trusting compiler offsets — refusing rather than risking corruption"
+    );
+  }
+
+  const children = parent.childIds.map((id) => byId.get(id));
+  let insertAt;
+  if (children.length === 0) {
+    insertAt = childlessInsertionPoint(parent, rootId, spans, source);
+  } else {
+    const clampedIndex = Math.max(0, Math.min(index, children.length));
+    if (clampedIndex === children.length) {
+      // Append: nearest resolvable sibling searching backward, anchored at its span end.
+      for (let i = children.length - 1; i >= 0 && insertAt == null; i--) {
+        const span = spans.get(children[i].id);
+        if (span) insertAt = span[1];
+      }
+    } else {
+      // Insert before children[clampedIndex]: nearest resolvable sibling searching
+      // forward, anchored at its span start (lands immediately before it).
+      for (let i = clampedIndex; i < children.length && insertAt == null; i++) {
+        const span = spans.get(children[i].id);
+        if (span) insertAt = span[0];
+      }
+      // None found forward (e.g. only trailing text children remain) — fall back to the
+      // nearest resolvable PRECEDING sibling's span end instead.
+      if (insertAt == null) {
+        for (let i = clampedIndex - 1; i >= 0 && insertAt == null; i--) {
+          const span = spans.get(children[i].id);
+          if (span) insertAt = span[1];
+        }
+      }
+    }
+    // No child in the list was resolvable at all — fall back to the childless case.
+    if (insertAt == null) {
+      insertAt = childlessInsertionPoint(parent, rootId, spans, source);
+    }
+  }
+
+  if (insertAt == null) {
+    return refuse("no-match", "could not resolve an insertion point for the given parent/index");
+  }
+
+  const markup = buildMarkup(nodeSpec);
+  const withNode = source.slice(0, insertAt) + markup + source.slice(insertAt);
+
+  if (nodeSpec.kind !== "component") {
+    return { file, range: { start: 0, end: source.length }, replacement: withNode };
+  }
+
+  // Component insert: also add (or reuse) its default import in the frontmatter.
+  const fmMatch = withNode.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
+  if (!fmMatch) {
+    // No frontmatter at all yet — synthesize one carrying just the import.
+    const importLine = `import ${nodeSpec.tag} from "${importSpecifier(file, nodeSpec.componentPath)}";\n`;
+    return { file, range: { start: 0, end: source.length }, replacement: `---\n${importLine}---\n${withNode}` };
+  }
+  const [, open, fmBody] = fmMatch;
+  const fmBodyStart = fmMatch.index + open.length;
+  const { source: newFmBody } = ensureImport(fmBody, { localName: nodeSpec.tag, specifier: importSpecifier(file, nodeSpec.componentPath) });
+  const rewritten = withNode.slice(0, fmBodyStart) + newFmBody + withNode.slice(fmBodyStart + fmBody.length);
+  return { file, range: { start: 0, end: source.length }, replacement: rewritten };
 }
