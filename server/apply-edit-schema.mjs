@@ -52,6 +52,10 @@ export const editOps = [
   "remove-style-property",
   "add-style-rule",
   "set-rule-selector",
+  "insert-node",
+  "move-node",
+  "remove-node",
+  "set-attr",
 ];
 
 /** The subset of `editOps` that operate on a component's scoped `<style>` via `component`
@@ -64,6 +68,13 @@ export const COMPONENT_STYLE_OPS = new Set([
   "set-rule-selector",
 ]);
 
+/** The subset of `editOps` that operate on a component's template structure (DOM nodes)
+ *  via `component` rather than on a page element via `selector`. */
+export const COMPONENT_STRUCTURE_OPS = new Set(["insert-node", "move-node", "remove-node", "set-attr"]);
+
+/** Union of style and structure component ops — used by the dispatcher's shared checks. */
+export const COMPONENT_OPS = new Set([...COMPONENT_STYLE_OPS, ...COMPONENT_STRUCTURE_OPS]);
+
 /** Structured payload for the four component-style ops. Identifies the target rule by its exact
  *  byte span (from `get_component_model`'s `styles[].span`) plus a `baseVersion` content-hash
  *  guard so a stale client-side model is refused rather than silently mis-patching. */
@@ -75,13 +86,28 @@ export const componentEditSchema = z.object({
     .optional()
     .describe("Identifies an existing rule by its exact byte span from get_component_model's styles[].span. Required for set-style-property, remove-style-property, set-rule-selector. Omitted for add-style-rule."),
   property: z.string().optional().describe("Declaration property name; required for set-style-property and remove-style-property"),
-  value: z.string().optional().describe("Declaration value; required for set-style-property"),
+  value: z.string().nullable().optional().describe("Declaration value; required for set-style-property. For set-attr, a null value means remove the attribute."),
   selector: z.string().optional().describe("New rule's selector for add-style-rule, or the renamed selector for set-rule-selector"),
   media: z.string().nullable().optional().describe("@media condition for add-style-rule; absent/null means no wrapping media query"),
   declarations: z
     .array(z.object({ property: z.string(), value: z.string() }))
     .optional()
     .describe("Initial declarations for add-style-rule"),
+  nodeId: z.string().optional().describe("Identifies an existing template node by its get_component_model id. Required for set-attr, remove-node, move-node's source node."),
+  name: z.string().optional().describe("Attribute name for set-attr"),
+  parentId: z.string().optional().describe("Parent node id for insert-node (the fragment root's id for a top-level insert)"),
+  index: z.number().int().optional().describe("Child index to insert at, for insert-node"),
+  newParentId: z.string().optional().describe("Destination parent node id for move-node"),
+  newIndex: z.number().int().optional().describe("Destination child index for move-node"),
+  node: z
+    .object({
+      kind: z.enum(["element", "component", "slot"]),
+      tag: z.string().optional().describe("HTML tag name (element) or component name (component); omitted for slot"),
+      componentPath: z.string().optional().describe("Project-relative .astro path to import, required when kind=component"),
+      slotName: z.string().optional().describe("Named slot, for kind=slot; omitted means the default slot"),
+    })
+    .optional()
+    .describe("New node spec for insert-node"),
 });
 
 /** The MCP tool's input shape, as passed to `server.tool(name, description, shape, handler)`. */
@@ -111,7 +137,7 @@ export const applyEditInputShape = {
   op: z
     .enum(editOps)
     .describe(
-      "Edit operation: replace-text (innerText), replace-attr (value is {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>), apply-instruction (reserved: sent only by the Anglesite-app Foundation Models chat path; always returns edit-failed/needs-agent — do not use from external callers), set-style-property/remove-style-property/add-style-rule/set-rule-selector (component-style ops — see componentEditSchema)",
+      "Edit operation: replace-text (innerText), replace-attr (value is {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>), apply-instruction (reserved: sent only by the Anglesite-app Foundation Models chat path; always returns edit-failed/needs-agent — do not use from external callers), set-style-property/remove-style-property/add-style-rule/set-rule-selector (component-style ops), insert-node/move-node/remove-node/set-attr (component-structure ops — see componentEditSchema)",
     ),
   value: z
     .unknown()
