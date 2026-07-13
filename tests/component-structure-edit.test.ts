@@ -528,4 +528,46 @@ describe("resolveComponentStructure — insert-node", () => {
     const { ast } = await parse(next, { position: true });
     expect(ast).toBeDefined();
   });
+
+  it("falls back to inserting after the preceding resolvable sibling when the target index lands on trailing text", async () => {
+    const src = `---\n---\n<article><h2>Title</h2> trailing text</article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+    // children are [h2, text] — index 1 targets the text node, which has no resolvable span.
+
+    const edit = {
+      op: "insert-node",
+      component: { path: "src/components/Card.astro", baseVersion, parentId: article.id, index: 1, node: { kind: "element", tag: "p" } },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result, src);
+    expect(next).toContain("<h2>Title</h2><p></p> trailing text");
+
+    const { ast } = await parse(next, { position: true });
+    expect(ast).toBeDefined();
+  });
+
+  it("falls back to the childless insertion point when no child in the parent has a resolvable span", async () => {
+    const src = `---\n---\n<article>just some text, no elements</article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+
+    const edit = {
+      op: "insert-node",
+      component: { path: "src/components/Card.astro", baseVersion, parentId: article.id, index: 1, node: { kind: "element", tag: "p" } },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result, src);
+    expect(next).toContain("just some text, no elements<p></p>");
+    expect(next.indexOf("<p></p>")).toBeLessThan(next.indexOf("</article>"));
+
+    const { ast } = await parse(next, { position: true });
+    expect(ast).toBeDefined();
+  });
 });
