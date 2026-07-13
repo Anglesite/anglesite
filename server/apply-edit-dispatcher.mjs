@@ -36,7 +36,7 @@ import {
   createEditAppliedContent,
   createEditFailedContent,
   createEditPreviewContent,
-  COMPONENT_STYLE_OPS,
+  COMPONENT_OPS,
 } from "./apply-edit-schema.mjs";
 import { buildComponentModel } from "./component-model.mjs";
 import { fileVersion } from "./file-version.mjs";
@@ -194,10 +194,10 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
     return failed(edit.id, "needs-agent", "apply-instruction requires LLM interpretation; route to the agent");
   }
 
-  // Component-style ops (Component Editor styles panel) identify their target via a
-  // structured `component` payload rather than `selector`; fail fast rather than let
-  // resolveComponentStyle's own destructure surface a less specific refusal.
-  if (COMPONENT_STYLE_OPS.has(edit.op) && !edit.component) {
+  // Component ops (Component Editor styles panel + structure ops) identify their target
+  // via a structured `component` payload rather than `selector`; fail fast rather than
+  // let the resolver's own destructure surface a less specific refusal.
+  if (COMPONENT_OPS.has(edit.op) && !edit.component) {
     return failed(edit.id, "invalid-input", `op ${edit.op} requires a component payload`);
   }
 
@@ -237,13 +237,13 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
     return failed(edit.id, "write-failed", `read ${file}: ${err.message}`);
   }
 
-  // Component-style ops resolve via an async parser (component-style-edit.mjs's
-  // `await parse(...)`), which opens a real yield point between that resolver's own
-  // baseVersion check and this second, independent read. A concurrent edit landing in
-  // that window would otherwise splice this call's now-stale byte offsets into the
-  // other call's already-written content — re-validate the hash against this fresh
-  // read, immediately before splicing, to close the gap.
-  if (COMPONENT_STYLE_OPS.has(edit.op) && fileVersion(source) !== edit.component.baseVersion) {
+  // Component ops resolve via an async parser (component-style-edit.mjs's /
+  // component-structure-edit.mjs's `await parse(...)`), which opens a real yield point
+  // between that resolver's own baseVersion check and this second, independent read. A
+  // concurrent edit landing in that window would otherwise splice this call's now-stale
+  // byte offsets into the other call's already-written content — re-validate the hash
+  // against this fresh read, immediately before splicing, to close the gap.
+  if (COMPONENT_OPS.has(edit.op) && fileVersion(source) !== edit.component.baseVersion) {
     return failed(edit.id, "stale", `${file} changed since the model was fetched`);
   }
 
@@ -272,7 +272,7 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
   }
 
   let model;
-  if (COMPONENT_STYLE_OPS.has(edit.op)) {
+  if (COMPONENT_OPS.has(edit.op)) {
     try {
       model = await buildComponentModel(projectRoot, edit.component.path);
     } catch {

@@ -18,6 +18,26 @@ All notable changes to this project will be documented in this file.
   a top-level conditional expression (e.g. `{profile && (<footer>...</footer>)}`)
   — a component whose entire template was one conditional root previously got
   a childless outline with nothing to select or map canvas clicks onto.
+- `get_component_model` no longer reports corrupted `span`/`loc` values for
+  template nodes, attributes, frontmatter, and the client script whenever the
+  component's source contains an emoji or other multi-byte-UTF-8 character
+  (accented Latin, CJK, etc.) — `@astrojs/compiler@4.0.0` reports source
+  positions as UTF-8 byte offsets, not JS-string (UTF-16) indices, so any such
+  character earlier in the file silently drifted the offset of every node
+  after it. Spans are now derived from the (reliably UTF-16-based) line/column
+  fields instead of trusting `.offset`.
+- `get_component_model`'s `styles[]` (CSS rule/declaration spans) had the same
+  UTF-8-byte-offset-vs-UTF-16-index bug as above, independently, in
+  `indexCssRules`'s `baseOffset` — corrupted whenever a component's source
+  contained an emoji or other multi-byte-UTF-8 character before its `<style>`
+  element. `indexCssRules` now takes the file's `lineStarts` and derives
+  `baseOffset` from the `<style>` text child's line/column, same as the fix
+  above.
+- `apply_edit`'s `add-style-rule` op had the same UTF-8-byte-offset bug in
+  `styleInsertionPoint` — an emoji or other multi-byte-UTF-8 character before
+  an empty `<style></style>` block spliced the new rule after the closing
+  tag (rendered as literal page text) instead of inside it. Now derived from
+  `lineStarts` like the fixes above.
 
 ## [1.0.0-beta.7] — 2026-05-07
 

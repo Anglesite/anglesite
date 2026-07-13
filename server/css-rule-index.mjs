@@ -1,4 +1,5 @@
 import { parse as parseCss, generate, walk } from "css-tree";
+import { offsetFromLineColumn } from "./component-node-index.mjs";
 
 /**
  * Span-precise CSS rule index for one <style> element. Shared by the
@@ -6,13 +7,23 @@ import { parse as parseCss, generate, walk } from "css-tree";
  * resolver (component-style-edit.mjs) so both agree byte-for-byte on rule
  * identity — selector text alone is not reliable (css-tree's generate()
  * re-serializes and can normalize whitespace/quoting away from the source).
+ *
+ * `lineStarts` (from component-node-index.mjs's `buildLineStarts(source)`) is
+ * required, not optional: @astrojs/compiler@4.0.0 reports `position.*.offset`
+ * as a UTF-8 byte offset, not a JS-string (UTF-16) index, so it can't be used
+ * directly as `baseOffset` — any multi-byte-UTF-8 character earlier in the
+ * source (emoji, accented Latin, CJK, etc.) would silently corrupt every rule
+ * and declaration span this function returns. `.line`/`.column` are reliable
+ * in UTF-16 terms, so `baseOffset` is derived from those instead — the same
+ * approach component-node-index.mjs and component-model.mjs already use for
+ * template/frontmatter/clientScript spans.
  */
-export function indexCssRules(styleElement) {
+export function indexCssRules(styleElement, lineStarts) {
   const lang = (styleElement.attributes ?? []).find((a) => a.name === "lang")?.value;
   if (lang && lang.trim().toLowerCase() !== "css") return []; // scss/less etc.: css-tree error-recovery emits garbage rows
   const textChild = (styleElement.children ?? []).find((c) => c.type === "text");
   if (!textChild?.value) return [];
-  const baseOffset = textChild.position?.start?.offset ?? 0;
+  const baseOffset = offsetFromLineColumn(lineStarts, textChild.position?.start) ?? 0;
 
   let cssAst;
   try {

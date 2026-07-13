@@ -7,6 +7,7 @@ import { parse } from "@astrojs/compiler";
 import { parseProps } from "./props-interface.mjs";
 import { fileVersion } from "./file-version.mjs";
 import { indexCssRules } from "./css-rule-index.mjs";
+import { buildTemplateNodeIndex, buildLineStarts, offsetFromLineColumn } from "./component-node-index.mjs";
 
 export class ComponentModelError extends Error {
   constructor(reason, message) {
@@ -38,30 +39,24 @@ export async function buildComponentModel(projectRoot, relPath) {
     throw new ComponentModelError("parse-failed", `parse ${relPath}: ${err.message}`);
   }
 
-  const builder = new NodeBuilder();
   const topLevel = ast.children ?? [];
-  const template = {
-    id: builder.nextId(),
-    kind: "fragment",
-    tag: null,
-    attrs: [],
-    span: [0, source.length],
-    loc: null,
-    children: topLevel
-      .filter((n) => !isZoneNode(n))
-      .map((n) => builder.toNode(n))
-      .filter(Boolean),
-  };
+  const { byId, rootId } = buildTemplateNodeIndex(ast, source);
+  const template = toPublicNode(byId, rootId);
+
+  // See the offset-encoding note in component-node-index.mjs: @astrojs/compiler's
+  // `position.*.offset` is a UTF-8 byte offset, not a JS-string index, so it's never
+  // consulted here either — spans below are derived from the (reliable) line/column.
+  const lineStarts = buildLineStarts(source);
 
   const styleElements = [];
   collectElements(ast, "style", styleElements);
-  const styles = styleElements.flatMap((el) => extractRules(el));
+  const styles = styleElements.flatMap((el) => extractRules(el, lineStarts));
 
   const fmNode = topLevel.find((n) => n.type === "frontmatter");
   const frontmatter = fmNode
     ? {
         source: fmNode.value ?? "",
-        span: [fmNode.position?.start?.offset ?? null, fmNode.position?.end?.offset ?? null],
+        span: [offsetFromLineColumn(lineStarts, fmNode.position?.start), offsetFromLineColumn(lineStarts, fmNode.position?.end)],
         props: parseProps(fmNode.value ?? ""),
       }
     : null;
@@ -74,7 +69,10 @@ export async function buildComponentModel(projectRoot, relPath) {
   const clientScript = scriptText
     ? {
         source: scriptText.value,
-        span: [scriptText.position?.start?.offset ?? null, scriptText.position?.end?.offset ?? null],
+        span: [
+          offsetFromLineColumn(lineStarts, scriptText.position?.start),
+          offsetFromLineColumn(lineStarts, scriptText.position?.end),
+        ],
       }
     : null;
 
@@ -93,8 +91,8 @@ function collectElements(node, name, out) {
   for (const child of node.children ?? []) collectElements(child, name, out);
 }
 
-function extractRules(styleElement) {
-  return indexCssRules(styleElement).map(({ selector, media, span, declarations }) => ({
+function extractRules(styleElement, lineStarts) {
+  return indexCssRules(styleElement, lineStarts).map(({ selector, media, span, declarations }) => ({
     selector,
     media,
     span,
@@ -102,77 +100,17 @@ function extractRules(styleElement) {
   }));
 }
 
-// style/script/frontmatter are zones, not template nodes.
-function isZoneNode(n) {
-  return n.type === "frontmatter" || (n.type === "element" && (n.name === "style" || n.name === "script"));
-}
-
-// AST node types that represent real embedded JSX inside an expression's
-// `children` (as opposed to "text" pseudo-nodes, which are raw JS source).
-const JSX_CHILD_TYPES = new Set(["element", "component", "custom-element", "fragment"]);
-
-class NodeBuilder {
-  #next = 0;
-  nextId() {
-    return `n${this.#next++}`;
-  }
-  toNode(n) {
-    switch (n.type) {
-      case "element":
-        return this.#make(n, n.name === "slot" ? "slot" : "element", n.name);
-      case "component":
-      case "custom-element":
-        return this.#make(n, "component", n.name);
-      case "fragment":
-        return this.#make(n, "fragment", null);
-      case "expression":
-        // An expression's `children` mix raw JS source (as "text" pseudo-nodes,
-        // e.g. "profile && (" ) with any JSX actually embedded in it (e.g. a
-        // conditional root `{cond && (<el/>)}` or a mapped list). Only the
-        // latter are real markup — walk those; drop the JS-source text.
-        //
-        // A two-branch conditional (`{cond ? <A/> : <B/>}`) surfaces both `<A>`
-        // and `<B>` as siblings here even though only one renders at a time —
-        // acceptable for a static outline/editor tree, but worth knowing if a
-        // future consumer assumes every outline row is on the live page.
-        return {
-          ...this.#base(n),
-          kind: "expression",
-          tag: null,
-          attrs: [],
-          children: (n.children ?? [])
-            .filter((c) => JSX_CHILD_TYPES.has(c.type))
-            .map((c) => this.toNode(c))
-            .filter(Boolean),
-        };
-      case "text": {
-        const value = (n.value ?? "").trim();
-        if (!value) return null;
-        return { ...this.#base(n), kind: "text", tag: null, attrs: [], text: value.slice(0, 80), children: [] };
-      }
-      default:
-        return null; // comment, doctype
-    }
-  }
-  #make(n, kind, tag) {
-    return {
-      ...this.#base(n),
-      kind,
-      tag,
-      attrs: (n.attributes ?? []).map((a) => ({ name: a.name, value: a.value ?? null })),
-      children: (n.children ?? [])
-        .filter((c) => !isZoneNode(c))
-        .map((c) => this.toNode(c))
-        .filter(Boolean),
-    };
-  }
-  #base(n) {
-    const start = n.position?.start;
-    const end = n.position?.end;
-    return {
-      id: this.nextId(),
-      span: [start?.offset ?? null, end?.offset ?? null],
-      loc: start ? { line: start.line, column: start.column } : null,
-    };
-  }
+function toPublicNode(byId, id) {
+  const r = byId.get(id);
+  const node = {
+    id: r.id,
+    kind: r.kind,
+    tag: r.tag,
+    attrs: r.attrs.map(({ name, value }) => ({ name, value })),
+    span: r.span,
+    loc: r.loc,
+    children: r.childIds.map((cid) => toPublicNode(byId, cid)),
+  };
+  if (r.text !== undefined) node.text = r.text;
+  return node;
 }

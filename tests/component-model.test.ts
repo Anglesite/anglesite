@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { buildComponentModel } from "../server/component-model.mjs";
@@ -313,5 +313,48 @@ const profile = { name: "x" };
     expect(model.styles).toHaveLength(1);
     expect(model.styles[0].selector).toBe(".deep");
     expect(model.clientScript?.source).toContain("deep script");
+  });
+
+  // @astrojs/compiler@4.0.0 reports `position.*.offset` as a UTF-8 byte offset, not a
+  // JS-string (UTF-16) index — an emoji or other multi-byte-UTF-8 character anywhere
+  // earlier in the source used to corrupt template/frontmatter/clientScript spans for
+  // everything that followed it.
+  describe("Unicode-safe spans end to end", () => {
+    it("keeps template node spans correct when an emoji precedes them in the template", async () => {
+      writeFileSync(
+        join(tmpDir, "src", "components", "Emoji.astro"),
+        `---\n---\n<div>\u{1F389} emoji before <p>Body</p><span>Keep</span></div>\n`,
+      );
+      const model = await buildComponentModel(tmpDir, "src/components/Emoji.astro");
+      const source = readFileSync(join(tmpDir, "src", "components", "Emoji.astro"), "utf-8");
+      const div = model.template.children[0];
+      const [, p, span] = div.children;
+      expect(source.slice(...(p.span as [number, number]))).toBe("<p>Body</p>");
+      expect(source.slice(...(span.span as [number, number]))).toBe("<span>Keep</span>");
+    });
+
+    it("keeps frontmatter and clientScript spans correct when the template (which comes first in source order for clientScript) contains an emoji", async () => {
+      const src = `---\ninterface Props { title: string; }\n---\n<div>\u{1F389} hi</div>\n<script>\n  console.log("after emoji");\n</script>\n`;
+      writeFileSync(join(tmpDir, "src", "components", "EmojiScript.astro"), src);
+      const model = await buildComponentModel(tmpDir, "src/components/EmojiScript.astro");
+
+      const [fs, fe] = model.frontmatter!.span as [number, number];
+      expect(src.slice(fs, fe)).toBe('---\ninterface Props { title: string; }\n---');
+
+      const [ss, se] = model.clientScript!.span as [number, number];
+      expect(src.slice(ss, se)).toContain('console.log("after emoji")');
+    });
+
+    it("keeps CSS rule/declaration spans correct when an emoji precedes the <style> element", async () => {
+      const src = `---\n---\n<div>\u{1F389} emoji before</div>\n<style>\n  .card { padding: 1rem; }\n</style>\n`;
+      writeFileSync(join(tmpDir, "src", "components", "EmojiStyle.astro"), src);
+      const model = await buildComponentModel(tmpDir, "src/components/EmojiStyle.astro");
+
+      expect(model.styles).toHaveLength(1);
+      const [rule] = model.styles;
+      expect(src.slice(...(rule.span as [number, number]))).toBe(".card { padding: 1rem; }");
+      const [ds, de] = rule.declarations[0].span as [number, number];
+      expect(src.slice(ds, de)).toBe("padding: 1rem");
+    });
   });
 });

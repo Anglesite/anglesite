@@ -3,6 +3,7 @@ import { join, normalize } from "node:path";
 import { parse } from "@astrojs/compiler";
 import { fileVersion } from "./file-version.mjs";
 import { indexCssRules } from "./css-rule-index.mjs";
+import { buildLineStarts, offsetFromLineColumn } from "./component-node-index.mjs";
 
 /**
  * Write-side resolver for the four Component Editor style ops
@@ -47,9 +48,10 @@ export async function resolveComponentStyle(projectRoot, edit) {
     return refuse("parse-failed", `parse ${relPath}: ${err.message}`);
   }
 
+  const lineStarts = buildLineStarts(source);
   const styleElements = [];
   collectStyleElements(ast, styleElements);
-  const rules = styleElements.flatMap((el) => indexCssRules(el));
+  const rules = styleElements.flatMap((el) => indexCssRules(el, lineStarts));
 
   switch (edit.op) {
     case "set-style-property":
@@ -59,7 +61,7 @@ export async function resolveComponentStyle(projectRoot, edit) {
     case "set-rule-selector":
       return applySetRuleSelector(relPath, rules, ruleSpan, selector);
     case "add-style-rule":
-      return applyAddStyleRule(relPath, source, styleElements, selector, media, declarations);
+      return applyAddStyleRule(relPath, source, styleElements, selector, media, declarations, lineStarts);
     default:
       return refuse("invalid-input", `unsupported component-style op: ${edit.op}`);
   }
@@ -128,7 +130,7 @@ function applySetRuleSelector(file, rules, ruleSpan, selector) {
   return { file, range: { start: rule.preludeSpan[0], end: rule.preludeSpan[1] }, replacement: selector };
 }
 
-function applyAddStyleRule(file, source, styleElements, selector, media, declarations) {
+function applyAddStyleRule(file, source, styleElements, selector, media, declarations, lineStarts) {
   if (typeof selector !== "string" || selector.trim() === "") {
     return refuse("invalid-input", "add-style-rule requires a non-empty component.selector");
   }
@@ -142,26 +144,34 @@ function applyAddStyleRule(file, source, styleElements, selector, media, declara
   if (!lastStyle) {
     return { file, range: { start: source.length, end: source.length }, replacement: `\n<style>\n${rule}\n</style>\n` };
   }
-  const insertAt = styleInsertionPoint(lastStyle, source);
+  const insertAt = styleInsertionPoint(lastStyle, source, lineStarts);
   return { file, range: { start: insertAt, end: insertAt }, replacement: `\n\n${rule}` };
 }
 
 /**
  * Where to splice a new rule into an existing <style> element: right before
  * its closing tag. Normally that's the text child's end offset — but a
- * genuinely empty `<style></style>` has no text child at all, and
- * `lastStyle.position.end.offset` is the offset *after* `</style>`, not
- * before it. Falling back to that would splice the new rule outside the
- * style element (rendered as literal page text, not CSS). Instead, derive
- * the pre-closing-tag offset from the closing tag's own length, verified
- * against the source so a malformed/unexpected shape still degrades to the
- * (safe, if imprecise) end-of-element offset rather than guessing wrong.
+ * genuinely empty `<style></style>` has no text child at all, and the style
+ * element's own end position is the offset *after* `</style>`, not before
+ * it. Falling back to that would splice the new rule outside the style
+ * element (rendered as literal page text, not CSS). Instead, derive the
+ * pre-closing-tag offset from the closing tag's own length, verified against
+ * the source so a malformed/unexpected shape still degrades to the (safe, if
+ * imprecise) end-of-element offset rather than guessing wrong.
+ *
+ * Every offset here is derived from `lineStarts` (line/column), never from
+ * the compiler's `.offset` — see the note in css-rule-index.mjs: `.offset`
+ * is a UTF-8 byte offset, not a JS-string index, so an emoji or other
+ * multi-byte-UTF-8 character earlier in the source would silently splice
+ * the new rule at the wrong position.
  */
-function styleInsertionPoint(styleEl, source) {
+function styleInsertionPoint(styleEl, source, lineStarts) {
   const textChild = (styleEl.children ?? []).find((c) => c.type === "text");
-  if (textChild?.position?.end?.offset != null) return textChild.position.end.offset;
+  const textEnd = offsetFromLineColumn(lineStarts, textChild?.position?.end);
+  if (textEnd != null) return textEnd;
   const closeTag = `</${styleEl.name}>`;
-  const candidate = styleEl.position.end.offset - closeTag.length;
-  if (source.slice(candidate, styleEl.position.end.offset) === closeTag) return candidate;
-  return styleEl.position.end.offset;
+  const elEnd = offsetFromLineColumn(lineStarts, styleEl.position?.end);
+  const candidate = elEnd - closeTag.length;
+  if (source.slice(candidate, elEnd) === closeTag) return candidate;
+  return elEnd;
 }
