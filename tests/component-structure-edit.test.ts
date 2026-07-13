@@ -89,6 +89,49 @@ describe("resolveComponentStructure — set-attr", () => {
     expect(result.reason).toBe("no-match");
   });
 
+  it("escapes double quotes and ampersands in an attribute value", async () => {
+    const baseVersion = fileVersion(CARD);
+    const { byId, rootId } = await nodeIndex(CARD);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+    const edit = {
+      op: "set-attr",
+      component: { path: "src/components/Card.astro", baseVersion, nodeId: article.id, name: "title", value: 'Say "hi" to us & co' },
+    };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result);
+
+    // Re-parse the patched source and confirm exactly one "title" attribute exists
+    // (an unescaped quote would break out of the attribute and produce phantom
+    // extra attributes instead), and that its unescaped value round-trips.
+    const { ast } = await parse(next, { position: true });
+    const { byId: nextById, rootId: nextRootId } = buildTemplateNodeIndex(ast, next);
+    const nextArticle = nextById.get(nextById.get(nextRootId).childIds[0]);
+    const titleAttrs = nextArticle.attrs.filter((a) => a.name === "title");
+    expect(titleAttrs).toHaveLength(1);
+    expect(titleAttrs[0].value).toBe('Say "hi" to us & co');
+  });
+
+  it("removes an attribute from a one-per-line-formatted tag without leaving a blank line", async () => {
+    const multiline = `---\n---\n<article\n  class="card"\n  data-size="lg"\n  id="hero"\n>\n  <h2>title</h2>\n</article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), multiline);
+    const baseVersion = fileVersion(multiline);
+    const { byId, rootId } = await nodeIndex(multiline);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+
+    const edit = { op: "set-attr", component: { path: "src/components/Card.astro", baseVersion, nodeId: article.id, name: "data-size", value: null } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result);
+
+    expect(next).not.toContain("data-size");
+    // Exclude the final split segment: it's the empty string after the file's own
+    // trailing newline, not a blank line the removal introduced.
+    const lines = next.split("\n");
+    expect(lines.slice(0, -1).some((line) => line.trim() === "")).toBe(false);
+    expect(next).toContain('  class="card"\n  id="hero"');
+  });
+
   it("adds an attribute to an element with no existing attributes", async () => {
     const bare = `---\n---\n<article><p></p></article>\n`;
     writeFileSync(join(tmpDir, "src", "components", "Card.astro"), bare);

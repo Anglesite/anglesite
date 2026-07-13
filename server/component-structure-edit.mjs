@@ -9,6 +9,13 @@ function refuse(reason, detail) {
   return { refused: true, reason, detail };
 }
 
+// Matches escapeAttr in create-content.mjs: escape "&" first (so it doesn't
+// double-escape the entities this introduces), then escape '"' so the value
+// can't break out of the double-quoted attribute it's interpolated into.
+function escapeAttr(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
 function validPath(relPath) {
   return typeof relPath === "string" && relPath.endsWith(".astro") && !normalize(relPath).startsWith("..") && !relPath.startsWith("/");
 }
@@ -28,7 +35,7 @@ async function loadFresh(projectRoot, relPath, baseVersion) {
   try {
     ({ ast } = await parse(source, { position: true }));
   } catch (err) {
-    return { error: refuse("invalid-input", `parse ${relPath}: ${err.message}`) };
+    return { error: refuse("parse-failed", `parse ${relPath}: ${err.message}`) };
   }
   const { byId, rootId } = buildTemplateNodeIndex(ast, source);
   return { source, ast, byId, rootId };
@@ -50,13 +57,13 @@ export async function resolveComponentStructure(projectRoot, edit) {
 
   switch (edit.op) {
     case "set-attr":
-      return applySetAttr(relPath, byId, component);
+      return applySetAttr(relPath, source, byId, component);
     default:
       return refuse("invalid-input", `unsupported component-structure op: ${edit.op}`);
   }
 }
 
-function applySetAttr(file, byId, component) {
+function applySetAttr(file, source, byId, component) {
   const { nodeId, name, value } = component;
   if (typeof nodeId !== "string" || typeof name !== "string") {
     return refuse("invalid-input", "set-attr requires component.nodeId and component.name");
@@ -69,14 +76,19 @@ function applySetAttr(file, byId, component) {
 
   if (value === null || value === undefined) {
     if (!existing) return refuse("no-match", `node has no attribute "${name}" to remove`);
-    // Trim exactly the one leading space that separated this attribute from the previous
-    // token (tag name or prior attribute) so removal doesn't leave a double space.
-    const start = existing.span[0] - 1 >= 0 ? existing.span[0] - 1 : existing.span[0];
+    // Mirrors applyRemoveStyleProperty in component-style-edit.mjs: trim leading horizontal
+    // whitespace back to (but not past) a preceding newline, then also swallow that one
+    // newline, so removing an attribute on a one-per-line-formatted tag doesn't leave a
+    // blank/trailing-whitespace line behind. On a single-line tag this just trims back to
+    // the previous token (tag name or prior attribute), same as before.
+    let start = existing.span[0];
+    while (start > 0 && (source[start - 1] === " " || source[start - 1] === "\t")) start--;
+    if (start > 0 && source[start - 1] === "\n") start--;
     return { file, range: { start, end: existing.span[1] }, replacement: "" };
   }
 
   if (existing) {
-    return { file, range: { start: existing.span[0], end: existing.span[1] }, replacement: `${name}="${value}"` };
+    return { file, range: { start: existing.span[0], end: existing.span[1] }, replacement: `${name}="${escapeAttr(value)}"` };
   }
   // Insert right after the opening tag name / last attribute — i.e. at the end of the node's
   // own attribute list. `node.span[0]` is the start of `<tag`; the tag-name end is the offset
@@ -84,5 +96,5 @@ function applySetAttr(file, byId, component) {
   // attribute's end when present; otherwise fall back to just after the tag name.
   const lastAttr = node.attrs[node.attrs.length - 1];
   const insertAt = lastAttr ? lastAttr.span[1] : node.span[0] + 1 + (node.tag?.length ?? 0);
-  return { file, range: { start: insertAt, end: insertAt }, replacement: ` ${name}="${value}"` };
+  return { file, range: { start: insertAt, end: insertAt }, replacement: ` ${name}="${escapeAttr(value)}"` };
 }
