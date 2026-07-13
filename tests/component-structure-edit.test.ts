@@ -146,6 +146,59 @@ describe("resolveComponentStructure — set-attr", () => {
     const next = source.slice(0, result.range.start) + result.replacement + source.slice(result.range.end);
     expect(next).toContain('<p class="lead"></p>');
   });
+
+  // set-attr must refuse non-tag-shaped nodes (text/expression/tagless-fragment) rather
+  // than splice attribute syntax into their span — see resolveAllSpans' precedent for
+  // refusing these kinds and the review finding that flagged this gap.
+  describe("kind guard", () => {
+    const KINDS = `---\n---\n<article>\n  <p>Hello world</p>\n  <h2>{title}</h2>\n</article>\n`;
+
+    it("refuses set-attr on a text node instead of splicing into running text", async () => {
+      writeFileSync(join(tmpDir, "src", "components", "Card.astro"), KINDS);
+      const baseVersion = fileVersion(KINDS);
+      const { byId, rootId } = await nodeIndex(KINDS);
+      const article = byId.get(byId.get(rootId).childIds[0]);
+      const p = byId.get(article.childIds[0]);
+      const text = byId.get(p.childIds[0]);
+      expect(text.kind).toBe("text");
+
+      const edit = { op: "set-attr", component: { path: "src/components/Card.astro", baseVersion, nodeId: text.id, name: "class", value: "x" } };
+      const result = await resolveComponentStructure(tmpDir, edit);
+      expect(result.refused).toBe(true);
+      expect(result.reason).toBe("invalid-input");
+
+      // The file on disk must be untouched — no test relies on `result.range`/`replacement`
+      // when refused, but assert the source itself never gets corrupted either way.
+      const onDisk = readFileSync(join(tmpDir, "src", "components", "Card.astro"), "utf-8");
+      expect(onDisk).toBe(KINDS);
+    });
+
+    it("refuses set-attr on an expression node instead of trusting its unreliable span", async () => {
+      writeFileSync(join(tmpDir, "src", "components", "Card.astro"), KINDS);
+      const baseVersion = fileVersion(KINDS);
+      const { byId, rootId } = await nodeIndex(KINDS);
+      const article = byId.get(byId.get(rootId).childIds[0]);
+      const h2 = byId.get(article.childIds[1]);
+      const expr = byId.get(h2.childIds[0]);
+      expect(expr.kind).toBe("expression");
+
+      const edit = { op: "set-attr", component: { path: "src/components/Card.astro", baseVersion, nodeId: expr.id, name: "class", value: "x" } };
+      const result = await resolveComponentStructure(tmpDir, edit);
+      expect(result.refused).toBe(true);
+      expect(result.reason).toBe("invalid-input");
+    });
+
+    it("still allows set-attr on element/component/slot nodes", async () => {
+      const baseVersion = fileVersion(CARD);
+      const { byId, rootId } = await nodeIndex(CARD);
+      const article = byId.get(byId.get(rootId).childIds[0]);
+      expect(article.kind).toBe("element");
+
+      const edit = { op: "set-attr", component: { path: "src/components/Card.astro", baseVersion, nodeId: article.id, name: "id", value: "ok" } };
+      const result = await resolveComponentStructure(tmpDir, edit);
+      expect(result.refused).toBeFalsy();
+    });
+  });
 });
 
 describe("resolveComponentStructure — remove-node", () => {

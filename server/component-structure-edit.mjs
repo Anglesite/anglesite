@@ -78,6 +78,14 @@ function applySetAttr(file, source, byId, component) {
   if (!node || node.span[0] == null || node.span[1] == null) {
     return refuse("no-match", "no node found at the given id — the file may have changed");
   }
+  // Only element/component/slot nodes are tag-shaped (`<tag ...>`); text and shorthand
+  // fragments have no attribute list to search or insert into, and expression nodes'
+  // spans are unreliable even via line/column (see resolveAllSpans' file-level comment).
+  // Trusting node.span/node.attrs for any other kind would splice attribute syntax into
+  // running text or an unreliable expression span instead of refusing.
+  if (node.kind !== "element" && node.kind !== "component" && node.kind !== "slot") {
+    return refuse("invalid-input", `set-attr requires a tag-shaped node (element/component/slot), got kind=${node.kind}`);
+  }
   const existing = node.attrs.find((a) => a.name === name);
 
   if (value === null || value === undefined) {
