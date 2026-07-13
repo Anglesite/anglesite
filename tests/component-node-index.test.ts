@@ -69,4 +69,70 @@ describe("buildTemplateNodeIndex", () => {
       expect(rec.kind).not.toBe("script");
     }
   });
+
+  // @astrojs/compiler@4.0.0 reports `position.*.offset` as a UTF-8 byte offset, not a
+  // JS-string (UTF-16) index. Any multi-byte-UTF-8 character earlier in the source
+  // (astral-plane emoji, but also plain accented/CJK characters) used to corrupt the
+  // span of every node that followed it. These regressions assert every node's span
+  // slices back to itself regardless of what precedes it in the source.
+  describe("Unicode-safe spans", () => {
+    function assertAllSpansSelfConsistent(byId, src) {
+      for (const rec of byId.values()) {
+        if (rec.span[0] == null || rec.span[1] == null) continue;
+        const slice = src.slice(rec.span[0], rec.span[1]);
+        if (rec.kind === "text") {
+          expect(slice).toContain(rec.text.length < 80 ? rec.text : rec.text.slice(0, 10));
+        } else if (rec.tag) {
+          expect(slice.startsWith(`<${rec.tag}`)).toBe(true);
+        }
+      }
+    }
+
+    it("keeps element spans correct when an emoji precedes them in a text node", async () => {
+      const src = `---\n---\n<div>\u{1F389} emoji before <p>Body</p><span>Keep</span></div>\n`;
+      const { ast } = await parse(src, { position: true });
+      const { byId, rootId } = buildTemplateNodeIndex(ast, src);
+      const div = byId.get(byId.get(rootId).childIds[0]);
+      const [text, p, span] = div.childIds.map((id) => byId.get(id));
+      expect(src.slice(...text.span)).toContain("emoji before");
+      expect(src.slice(...p.span)).toBe("<p>Body</p>");
+      expect(src.slice(...span.span)).toBe("<span>Keep</span>");
+      assertAllSpansSelfConsistent(byId, src);
+    });
+
+    it("keeps attribute-value spans correct when the value itself contains an emoji", async () => {
+      const src = `---\n---\n<div data-x="\u{1F389}"><p>Body</p><span>Keep</span></div>\n`;
+      const { ast } = await parse(src, { position: true });
+      const { byId, rootId } = buildTemplateNodeIndex(ast, src);
+      const div = byId.get(byId.get(rootId).childIds[0]);
+      const attr = div.attrs.find((a) => a.name === "data-x");
+      expect(src.slice(...attr.span)).toBe('data-x="\u{1F389}"');
+      const [p, span] = div.childIds.map((id) => byId.get(id));
+      expect(src.slice(...p.span)).toBe("<p>Body</p>");
+      expect(src.slice(...span.span)).toBe("<span>Keep</span>");
+      assertAllSpansSelfConsistent(byId, src);
+    });
+
+    it("keeps spans correct with multiple emoji inside nested elements", async () => {
+      const src = `---\n---\n<section>\u{1F389}\u{1F680}<article><h1>\u{2764}Title</h1><p>Body \u{1F600} text</p></article></section>\n`;
+      const { ast } = await parse(src, { position: true });
+      const { byId, rootId } = buildTemplateNodeIndex(ast, src);
+      const section = byId.get(byId.get(rootId).childIds[0]);
+      const article = section.childIds.map((id) => byId.get(id)).find((n) => n.tag === "article");
+      const [h1, p] = article.childIds.map((id) => byId.get(id));
+      expect(src.slice(...h1.span)).toBe("<h1>\u{2764}Title</h1>");
+      expect(src.slice(...p.span)).toBe("<p>Body \u{1F600} text</p>");
+      assertAllSpansSelfConsistent(byId, src);
+    });
+
+    it("keeps element spans correct when a plain (BMP) accented/CJK character precedes them", async () => {
+      const src = `---\n---\n<div>café 你好 before <p>Body</p></div>\n`;
+      const { ast } = await parse(src, { position: true });
+      const { byId, rootId } = buildTemplateNodeIndex(ast, src);
+      const div = byId.get(byId.get(rootId).childIds[0]);
+      const p = byId.get(div.childIds[1]);
+      expect(src.slice(...p.span)).toBe("<p>Body</p>");
+      assertAllSpansSelfConsistent(byId, src);
+    });
+  });
 });

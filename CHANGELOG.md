@@ -18,6 +18,14 @@ All notable changes to this project will be documented in this file.
   a top-level conditional expression (e.g. `{profile && (<footer>...</footer>)}`)
   — a component whose entire template was one conditional root previously got
   a childless outline with nothing to select or map canvas clicks onto.
+- `get_component_model` no longer reports corrupted `span`/`loc` values for
+  template nodes, attributes, frontmatter, and the client script whenever the
+  component's source contains an emoji or other multi-byte-UTF-8 character
+  (accented Latin, CJK, etc.) — `@astrojs/compiler@4.0.0` reports source
+  positions as UTF-8 byte offsets, not JS-string (UTF-16) indices, so any such
+  character earlier in the file silently drifted the offset of every node
+  after it. Spans are now derived from the (reliably UTF-16-based) line/column
+  fields instead of trusting `.offset`.
 
 ## [1.0.0-beta.7] — 2026-05-07
 

@@ -7,7 +7,7 @@ import { parse } from "@astrojs/compiler";
 import { parseProps } from "./props-interface.mjs";
 import { fileVersion } from "./file-version.mjs";
 import { indexCssRules } from "./css-rule-index.mjs";
-import { buildTemplateNodeIndex } from "./component-node-index.mjs";
+import { buildTemplateNodeIndex, buildLineStarts, offsetFromLineColumn } from "./component-node-index.mjs";
 
 export class ComponentModelError extends Error {
   constructor(reason, message) {
@@ -43,6 +43,11 @@ export async function buildComponentModel(projectRoot, relPath) {
   const { byId, rootId } = buildTemplateNodeIndex(ast, source);
   const template = toPublicNode(byId, rootId);
 
+  // See the offset-encoding note in component-node-index.mjs: @astrojs/compiler's
+  // `position.*.offset` is a UTF-8 byte offset, not a JS-string index, so it's never
+  // consulted here either — spans below are derived from the (reliable) line/column.
+  const lineStarts = buildLineStarts(source);
+
   const styleElements = [];
   collectElements(ast, "style", styleElements);
   const styles = styleElements.flatMap((el) => extractRules(el));
@@ -51,7 +56,7 @@ export async function buildComponentModel(projectRoot, relPath) {
   const frontmatter = fmNode
     ? {
         source: fmNode.value ?? "",
-        span: [fmNode.position?.start?.offset ?? null, fmNode.position?.end?.offset ?? null],
+        span: [offsetFromLineColumn(lineStarts, fmNode.position?.start), offsetFromLineColumn(lineStarts, fmNode.position?.end)],
         props: parseProps(fmNode.value ?? ""),
       }
     : null;
@@ -64,7 +69,10 @@ export async function buildComponentModel(projectRoot, relPath) {
   const clientScript = scriptText
     ? {
         source: scriptText.value,
-        span: [scriptText.position?.start?.offset ?? null, scriptText.position?.end?.offset ?? null],
+        span: [
+          offsetFromLineColumn(lineStarts, scriptText.position?.start),
+          offsetFromLineColumn(lineStarts, scriptText.position?.end),
+        ],
       }
     : null;
 
