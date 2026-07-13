@@ -53,13 +53,13 @@ export async function resolveComponentStructure(projectRoot, edit) {
 
   const loaded = await loadFresh(projectRoot, relPath, baseVersion);
   if (loaded.error) return loaded.error;
-  const { source, byId } = loaded;
+  const { source, byId, rootId } = loaded;
 
   switch (edit.op) {
     case "set-attr":
       return applySetAttr(relPath, source, byId, component);
     case "remove-node":
-      return applyRemoveNode(relPath, source, byId, component);
+      return applyRemoveNode(relPath, source, byId, rootId, component);
     default:
       return refuse("invalid-input", `unsupported component-structure op: ${edit.op}`);
   }
@@ -104,47 +104,51 @@ function applySetAttr(file, source, byId, component) {
 // @astrojs/compiler (4.0.0) reports CORRUPTED source positions for ANY node kind —
 // element/component/fragment/slot as well as "expression" — whenever astral-plane
 // Unicode (e.g. an emoji) appears anywhere in the source BEFORE that node. The
-// corruption is not a fixed/predictable delta, so `position.start/end.offset` cannot
-// be trusted, patched, or scanned-forward-from for ANY node kind (an earlier version of
-// this file only patched expression-kind nodes by scanning forward from the reported
-// offset for the next literal "{" — that can land on the WRONG node entirely under this
-// bug, silently deleting an unrelated sibling). Root-causing the compiler's offset math
-// is out of scope here; instead, remove-node NEVER consults `node.span`/`position.offset`
-// to locate a removal boundary. It re-derives the node's true span purely lexically from
-// `source`, anchored by the node's ordinal position among same-(kind,tag) siblings under
-// its parent — `byId`'s parent/child SHAPE (not its offsets) is unaffected by the bug,
-// since it comes from the AST tree structure, not from position numbers.
+// corruption is not a fixed/predictable delta, so `position.start/end.offset` cannot be
+// trusted, patched, or scanned-forward-from for ANY node kind. Root-causing the
+// compiler's offset math is out of scope here; instead, remove-node NEVER consults
+// `node.span`/`position.offset` to locate a removal boundary.
 //
-// Two lexical scanners do the actual span-finding, operating on `source` with
-// frontmatter/`<style>`/`<script>`/HTML-comment zones blanked out (`maskOpaqueZones`) so
-// stray `<`, `>`, `{`, `}` in those regions can't produce false matches:
-//   - findNthExpressionBlock: the k-th top-level `{...}` block in *text* position
-//     (i.e. not inside a tag's own attribute list — `<div class={x}>`'s `{x}` doesn't
-//     count) anywhere in the source.
-//   - findNthTagSpan: the k-th `<tagName ...>...</tagName>` (or self-closing
-//     `<tagName ... />`) occurrence of a given tag name anywhere in the source, with its
-//     true matching close resolved via depth-counting over nested same-name tags.
+// A first fix (see git history) re-derived each node's span by finding the k-th
+// DOCUMENT-WIDE occurrence of its `(kind, tag)` marker, where k was the node's ordinal
+// among its TRUE parent's children. That broke whenever an EARLIER sibling contained a
+// nested descendant of the same `(kind, tag)` — e.g. `<div><div>Inner</div></div>
+// <div>Target</div>`: removing the second top-level `<div>` instead silently removed
+// "Inner", because document-wide occurrence counting doesn't respect nesting depth (the
+// 2nd `<div>` textually is nested one level inside the FIRST top-level div, not a
+// sibling of "Target" at all). Same bug for expressions.
 //
-// Both scan the WHOLE source rather than a "search window" bounded by the parent's own
-// span — the parent's span may ALSO be corrupted, so it can't be trusted as a bound
-// either. The sibling-ordinal anchor (not a tight window) is what disambiguates.
+// `resolveAllSpans` replaces that ordinal search with a monotonic-cursor parallel walk:
+// it walks `byId` in the SAME depth-first order the AST was built in (that order is
+// already correct — @astrojs/compiler gets tree STRUCTURE right; only its byte OFFSETS
+// are corrupted), advancing a single cursor through `source` in lockstep. The cursor
+// only ever moves forward and always fully consumes a node's entire extent (including
+// all its descendants) before searching for the NEXT sibling, so a later sibling's
+// search can never accidentally match something nested inside an earlier sibling — by
+// the time that search runs, the cursor has already passed the entire earlier subtree.
+// No occurrence counting is needed at all: each sibling is simply "the next occurrence
+// of this marker from here."
+//
+// Searches run over `maskOpaqueZones(source)` (frontmatter/`<style>`/`<script>`/HTML
+// comments blanked to same-length spaces) so stray `<`, `>`, `{`, `}` in those
+// regions — none of which are represented in `byId` — can't produce false matches;
+// spans returned still index into the real `source` (masking preserves length/offsets),
+// and blanking the frontmatter also means the cursor can simply start at 0.
 //
 // LIMITATIONS (a deliberate, documented simplification — not a general HTML/JSX parser;
-// remove-node refuses with "no-match" rather than guessing when these scanners can't
-// find a confident k-th occurrence, so failure is safe even where these limits are hit):
-//   - The ordinal count spans the WHOLE document in source order, not just the target's
-//     immediate siblings. A node nested *inside* an earlier same-tag sibling (e.g.
-//     `<div><div/></div><div/>`, removing the second top-level div) can shift the count
-//     and misidentify the target. Not exercised by any fixture in this repo today.
-//   - findNthExpressionBlock only counts *top-level* `{...}` blocks: an expression nested
-//     inside another expression's JSX children is consumed as part of the outer block's
-//     span (matching the existing "remove as a single opaque unit" requirement), so it
-//     can't separately target such a nested node — but buildTemplateNodeIndex doesn't
-//     index those as separate nodes anyway (JSX_CHILD_TYPES excludes "expression").
-//   - Shorthand `<>...</>` fragments (kind "fragment" with no tag name) have no lexical
-//     tag to search for and are refused outright, as are any other unhandled node kinds
-//     (e.g. "text") — this fix only covers "expression" and "element"/"component"/
-//     "slot"/"fragment-with-a-tag" removal, matching the reported bug's scope.
+// remove-node refuses with "no-match" (via `SpanResolutionError`) rather than guessing
+// when the walk can't find a node's marker, so failure is safe even where these limits
+// are hit):
+//   - An expression's own nested JSX children (e.g. the `<li>{i}</li>` inside
+//     `{items.map((i) => (<li>{i}</li>))}`) are consumed as part of the outer
+//     expression's span (matching the existing "remove as a single opaque unit"
+//     requirement) — their own spans are still resolved (for reusability by future
+//     callers like move-node) but bounded to fall strictly inside the outer expression.
+//   - Shorthand `<>...</>` fragments (kind "fragment" with no tag name — true of both
+//     the synthetic document root and any real `<>...</>` in the template) have no
+//     lexical tag to search for and are refused outright, as is "text" kind (which is
+//     also never spanned — a text node's `.text` is a truncated preview, not reliably
+//     re-locatable, and nothing needs its exact span).
 
 function maskOpaqueZones(source) {
   const maskRange = (str, start, end) => str.slice(0, start) + " ".repeat(end - start) + str.slice(end);
@@ -229,44 +233,6 @@ function readTagOpenerAt(s, i) {
   return { closing, name, afterName: j };
 }
 
-// The k-th (0-based) top-level `{...}` block in text position anywhere in `masked`.
-function findNthExpressionBlock(masked, k) {
-  let count = 0;
-  let i = 0;
-  const n = masked.length;
-  while (i < n) {
-    const ch = masked[i];
-    if (ch === "<") {
-      const opener = readTagOpenerAt(masked, i);
-      if (opener) {
-        if (opener.closing) {
-          const gt = masked.indexOf(">", opener.afterName);
-          i = gt === -1 ? n : gt + 1;
-          continue;
-        }
-        const tagInfo = scanTagOpen(masked, i);
-        if (tagInfo) {
-          i = tagInfo.end;
-          continue;
-        }
-      }
-    }
-    if (ch === "{") {
-      const end = scanBraceBlock(masked, i);
-      if (end === -1) {
-        i++;
-        continue;
-      }
-      if (count === k) return [i, end];
-      count++;
-      i = end;
-      continue;
-    }
-    i++;
-  }
-  return null;
-}
-
 // From just after a non-self-closing open tag's `<tagName ...>`, scans forward
 // depth-counting nested same-name tags to find the true matching `</tagName>`. Returns
 // the offset just past that close tag, or -1 if unterminated.
@@ -307,11 +273,14 @@ function findMatchingClose(masked, tagName, from) {
   return -1;
 }
 
-// The k-th (0-based) occurrence of an open tag named `tagName` anywhere in `masked`
-// (self-closing or not), with its true matching close.
-function findNthTagSpan(masked, tagName, k) {
-  let count = 0;
-  let i = 0;
+// Forward search from `from` for the next OPEN `<tagName ...>` (or self-closing
+// `<tagName ... />`) occurrence in `masked` — i.e. "the next occurrence of this marker
+// from here," not a k-th-occurrence count. Skips over any other tag (open or close)
+// encountered along the way, respecting quoted attribute values and brace-delimited
+// attribute expressions (via `scanTagOpen`) so a stray `<`/`>` inside either can't
+// terminate the skip early. Returns the index of the opening `<`, or -1 if not found.
+function findTagOpenFrom(masked, tagName, from) {
+  let i = from;
   const n = masked.length;
   while (i < n) {
     const opener = readTagOpenerAt(masked, i);
@@ -324,60 +293,95 @@ function findNthTagSpan(masked, tagName, k) {
       i = gt === -1 ? n : gt + 1;
       continue;
     }
+    if (opener.name === tagName) return i;
     const tagInfo = scanTagOpen(masked, i);
-    if (!tagInfo) return null;
-    if (opener.name === tagName) {
-      if (count === k) {
-        if (tagInfo.selfClosing) return [i, tagInfo.end];
-        const closeEnd = findMatchingClose(masked, tagName, tagInfo.end);
-        return closeEnd === -1 ? null : [i, closeEnd];
-      }
-      count++;
-    }
+    if (!tagInfo) return -1;
     i = tagInfo.end;
   }
-  return null;
+  return -1;
 }
 
-// Establishes the node's 0-based ordinal `k` among its parent's children that share the
-// same (kind, tag) grouping (expression nodes group by kind alone — tag is always null).
-function siblingOrdinal(byId, node) {
-  const parent = byId.get(node.parentId);
-  if (!parent) return null;
-  const sameGroup = parent.childIds
-    .map((id) => byId.get(id))
-    .filter((n) => n && (node.kind === "expression" ? n.kind === "expression" : n.kind === node.kind && n.tag === node.tag));
-  const k = sameGroup.findIndex((n) => n.id === node.id);
-  return k === -1 ? null : k;
+// Thrown by `resolveAllSpans` when a node's lexical marker can't be found from the
+// current cursor position. Callers must catch this and refuse the op (fail closed)
+// rather than guess — see the file-level comment above for why offsets can't be trusted.
+class SpanResolutionError extends Error {
+  constructor(nodeId) {
+    super(`could not lexically locate node ${nodeId}`);
+    this.nodeId = nodeId;
+  }
 }
 
-function findTrueSpan(byId, node, source) {
-  const k = siblingOrdinal(byId, node);
-  if (k === null) return null;
+// Reconstructs correct byte spans for every element/component/slot/fragment/expression
+// node in `byId` in one full depth-first walk, in lockstep with a monotonically
+// advancing cursor through `source` (see the file-level comment above for why this
+// replaces the old per-node k-th-occurrence search). Returns a Map<nodeId, [start, end]>
+// (only for kinds this function can resolve — text nodes and tagless fragments are
+// never spanned); throws `SpanResolutionError` if a node's marker can't be located.
+function resolveAllSpans(byId, rootId, source) {
   const masked = maskOpaqueZones(source);
-  if (node.kind === "expression") return findNthExpressionBlock(masked, k);
-  if ((node.kind === "element" || node.kind === "component" || node.kind === "slot" || node.kind === "fragment") && node.tag) {
-    return findNthTagSpan(masked, node.tag, k);
+  const spans = new Map();
+  let cursor = 0;
+
+  function consumeChildren(childIds, boundEnd) {
+    for (const childId of childIds) consume(childId, boundEnd);
   }
-  return null; // unhandled kind (e.g. "text", tagless fragment) — caller refuses
+
+  // `boundEnd`, when non-null, is the exclusive upper bound a node's own marker must be
+  // found before — used to keep an expression's nested JSX children from resolving past
+  // that expression's own closing brace.
+  function consume(nodeId, boundEnd) {
+    const node = byId.get(nodeId);
+    if (!node || node.kind === "text") return; // no span needed; cursor untouched
+
+    if (node.kind === "expression") {
+      const openIdx = masked.indexOf("{", cursor);
+      if (openIdx === -1 || (boundEnd != null && openIdx >= boundEnd)) throw new SpanResolutionError(nodeId);
+      const closeEnd = scanBraceBlock(masked, openIdx); // exclusive end, one past the matching "}"
+      if (closeEnd === -1) throw new SpanResolutionError(nodeId);
+      spans.set(nodeId, [openIdx, closeEnd]);
+      cursor = openIdx + 1;
+      consumeChildren(node.childIds, closeEnd - 1);
+      cursor = closeEnd;
+      return;
+    }
+
+    // element / component / slot / fragment — all tag-shaped, keyed by node.tag. A
+    // shorthand `<>...</>` fragment (kind "fragment" with no tag name, true of both the
+    // synthetic document root and any real `<>...</>` in the template) has no lexical
+    // marker to search for — refuse rather than guess.
+    if (!node.tag) throw new SpanResolutionError(nodeId);
+    const openIdx = findTagOpenFrom(masked, node.tag, cursor);
+    if (openIdx === -1 || (boundEnd != null && openIdx >= boundEnd)) throw new SpanResolutionError(nodeId);
+    const tagInfo = scanTagOpen(masked, openIdx);
+    if (!tagInfo) throw new SpanResolutionError(nodeId);
+    if (tagInfo.selfClosing || node.childIds.length === 0) {
+      if (tagInfo.selfClosing) {
+        spans.set(nodeId, [openIdx, tagInfo.end]);
+        cursor = tagInfo.end;
+        return;
+      }
+      // Childless in the model (no element/component/expression/non-blank-text child)
+      // but not self-closing — e.g. `<p></p>` or `<div>   </div>`. Still has a real
+      // close tag; find it directly from just past the open tag.
+      const closeEnd = findMatchingClose(masked, node.tag, tagInfo.end);
+      if (closeEnd === -1) throw new SpanResolutionError(nodeId);
+      spans.set(nodeId, [openIdx, closeEnd]);
+      cursor = closeEnd;
+      return;
+    }
+    cursor = tagInfo.end;
+    consumeChildren(node.childIds, null);
+    const closeEnd = findMatchingClose(masked, node.tag, cursor);
+    if (closeEnd === -1) throw new SpanResolutionError(nodeId);
+    spans.set(nodeId, [openIdx, closeEnd]);
+    cursor = closeEnd;
+  }
+
+  consumeChildren(byId.get(rootId).childIds, null);
+  return spans;
 }
 
-// Defends against a scanner returning a span that doesn't actually start with the
-// marker we searched for — belt-and-suspenders on top of the ordinal anchor.
-function spanLooksSane(source, node, span) {
-  if (!span) return false;
-  const [start, end] = span;
-  if (start == null || end == null || end <= start || end > source.length) return false;
-  if (node.kind === "expression") {
-    return source[start] === "{" && source[end - 1] === "}";
-  }
-  const prefix = `<${node.tag}`;
-  if (source.slice(start, start + prefix.length) !== prefix) return false;
-  const afterPrefixChar = source[start + prefix.length];
-  return afterPrefixChar === undefined || /[\s/>]/.test(afterPrefixChar);
-}
-
-function applyRemoveNode(file, source, byId, component) {
+function applyRemoveNode(file, source, byId, rootId, component) {
   const { nodeId } = component;
   if (typeof nodeId !== "string") {
     return refuse("invalid-input", "remove-node requires component.nodeId");
@@ -386,8 +390,18 @@ function applyRemoveNode(file, source, byId, component) {
   if (!node) return refuse("no-match", "no node found at the given id — the file may have changed");
   if (node.parentId === null) return refuse("invalid-input", "cannot remove the component's root");
 
-  const span = findTrueSpan(byId, node, source);
-  if (!spanLooksSane(source, node, span)) {
+  let spans;
+  try {
+    spans = resolveAllSpans(byId, rootId, source);
+  } catch (err) {
+    if (!(err instanceof SpanResolutionError)) throw err;
+    return refuse(
+      "no-match",
+      "could not lexically re-locate the node's true source span without trusting compiler offsets — refusing rather than risking corruption"
+    );
+  }
+  const span = spans.get(nodeId);
+  if (!span) {
     return refuse(
       "no-match",
       "could not lexically re-locate the node's true source span without trusting compiler offsets — refusing rather than risking corruption"

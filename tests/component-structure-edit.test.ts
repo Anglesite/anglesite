@@ -281,4 +281,37 @@ describe("resolveComponentStructure — remove-node", () => {
     const { ast } = await parse(next, { position: true });
     expect(ast).toBeDefined(); // re-parses cleanly, no tag-soup corruption
   });
+
+  it("does not confuse a nested same-tag descendant with a later top-level sibling", async () => {
+    const src = `---\n---\n<div><div>Inner</div></div><div>Target</div>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const topLevelDivs = byId.get(rootId).childIds.map((id) => byId.get(id));
+    const targetDiv = topLevelDivs[1]; // the second top-level <div>, containing "Target"
+
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: targetDiv.id } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result, src);
+    expect(next).not.toContain("Target");
+    expect(next).toContain("Inner");
+  });
+
+  it("does not confuse a nested expression with a sibling expression at a shallower depth", async () => {
+    const src = `---\n---\n<div>{a}<span>{b}</span></div>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const div = byId.get(byId.get(rootId).childIds[0]);
+    const span = byId.get(div.childIds.find((id) => byId.get(id).tag === "span"));
+    const bExpr = byId.get(span.childIds.find((id) => byId.get(id).kind === "expression"));
+
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: bExpr.id } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result, src);
+    expect(next).not.toContain("{b}");
+    expect(next).toContain("{a}");
+  });
 });
