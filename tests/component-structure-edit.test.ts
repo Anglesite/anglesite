@@ -147,3 +147,104 @@ describe("resolveComponentStructure — set-attr", () => {
     expect(next).toContain('<p class="lead"></p>');
   });
 });
+
+describe("resolveComponentStructure — remove-node", () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "anglesite-cse3-"));
+    mkdirSync(join(tmpDir, "src", "components"), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function apply(resolution, before) {
+    return before.slice(0, resolution.range.start) + resolution.replacement + before.slice(resolution.range.end);
+  }
+
+  it("removes a plain element subtree", async () => {
+    const src = `---\n---\n<article><h2>Title</h2><p>Body</p></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+    const p = byId.get(article.childIds[1]);
+
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: p.id } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    expect(next).not.toContain("Body");
+    expect(next).toContain("<h2>Title</h2>");
+  });
+
+  it("removing the last usage of a component prunes its import", async () => {
+    const src = `---\nimport Badge from "./Badge.astro";\n---\n<article><Badge label="new" /></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+    const badge = byId.get(article.childIds[0]);
+
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: badge.id } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    expect(next).not.toContain("Badge");
+    expect(next).not.toContain("import Badge");
+  });
+
+  it("keeps the import when another usage remains", async () => {
+    const src = `---\nimport Badge from "./Badge.astro";\n---\n<article><Badge label="a" /><Badge label="b" /></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+    const firstBadge = byId.get(article.childIds[0]);
+
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: firstBadge.id } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    expect(next).toContain("import Badge");
+    expect(next).toContain('label="b"');
+    expect(next).not.toContain('label="a"');
+  });
+
+  it("refuses no-match for an unknown nodeId", async () => {
+    const src = `---\n---\n<article></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: "n999" } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBe(true);
+    expect(result.reason).toBe("no-match");
+  });
+
+  it("refuses invalid-input when trying to remove the fragment root", async () => {
+    const src = `---\n---\n<article></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: "n0" } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBe(true);
+    expect(result.reason).toBe("invalid-input");
+  });
+
+  it("removes an expression node as a single opaque unit (spec §2.2: move/remove as a unit only)", async () => {
+    const src = `---\n---\n<ul>{items.map((i) => (<li>{i}</li>))}</ul>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const ul = byId.get(byId.get(rootId).childIds[0]);
+    const expr = byId.get(ul.childIds[0]);
+    expect(expr.kind).toBe("expression");
+
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: expr.id } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    // The whole {items.map(...)} block is gone in one piece — not just the <li> JSX inside it.
+    expect(next).not.toContain("items.map");
+    expect(next).not.toContain("<li>");
+    expect(next).toContain("<ul></ul>");
+  });
+});
