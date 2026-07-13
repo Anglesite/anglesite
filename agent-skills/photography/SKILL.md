@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: Read, Glob, Write
 metadata:
   author: "David W. Keith"
-  version: "1.4.0"
+  version: "1.5.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "user-facing"
 ---

@@ -619,4 +619,64 @@ describe("MCP annotation server", () => {
       proc.kill();
     }
   });
+
+  it("apply_edit insert-node round trip returns a piggybacked model", async () => {
+    mkdirSync(join(tmpDir, "src", "components"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "src", "components", "Card.astro"),
+      `---\ninterface Props {\n  title: string;\n}\nconst { title } = Astro.props;\n---\n<article class="card"><h2>{title}</h2></article>\n<style>.card { padding: 1rem; }</style>\n`,
+    );
+    const proc = startServer(tmpDir);
+    try {
+      await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "test", version: "1.0.0" },
+        },
+      });
+      sendNotification(proc, { jsonrpc: "2.0", method: "notifications/initialized" });
+
+      const modelResponse = await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "get_component_model", arguments: { path: "src/components/Card.astro" } },
+      });
+      const modelResult = modelResponse.result as { content: { text: string }[]; isError?: boolean };
+      expect(modelResult.isError).toBeFalsy();
+      const model = JSON.parse(modelResult.content[0].text);
+
+      const editResponse = await sendMessage(proc, {
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: {
+          name: "apply_edit",
+          arguments: {
+            id: "rt-2",
+            path: "src/components/Card.astro",
+            op: "insert-node",
+            component: {
+              path: "src/components/Card.astro",
+              baseVersion: model.version,
+              parentId: model.template.id,
+              index: model.template.children.length,
+              node: { kind: "element", tag: "footer" },
+            },
+          },
+        },
+      });
+      const editResult = editResponse.result as { content: { text: string }[]; isError?: boolean };
+      expect(editResult.isError).toBeFalsy();
+      const body = JSON.parse(editResult.content[0].text);
+      expect(body.type).toBe("anglesite:edit-applied");
+      expect(body.model.template.children.some((c: { tag?: string }) => c.tag === "footer")).toBe(true);
+    } finally {
+      proc.kill();
+    }
+  });
 });
