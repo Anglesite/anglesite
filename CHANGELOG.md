@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## [1.5.0] — 2026-07-12
 
 ### Added
 - `get_component_model` MCP tool: structured read-only model of an `.astro`
@@ -44,6 +44,11 @@ All notable changes to this project will be documented in this file.
   an empty `<style></style>` block spliced the new rule after the closing
   tag (rendered as literal page text) instead of inside it. Now derived from
   `lineStarts` like the fixes above.
+- `apply_edit`'s `set-attr` op now refuses (`invalid-input`) instead of
+  splicing attribute syntax into a non-tag-shaped node (text, expression,
+  shorthand fragment) — previously it trusted `node.attrs`/`node.span`
+  unconditionally, which could corrupt output for a node kind that has no
+  real attribute list to edit.
 
 ## [1.0.0-beta.7] — 2026-05-07
 
