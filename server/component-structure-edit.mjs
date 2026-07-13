@@ -62,6 +62,8 @@ export async function resolveComponentStructure(projectRoot, edit) {
       return applyRemoveNode(relPath, source, byId, rootId, component);
     case "insert-node":
       return applyInsertNode(relPath, source, byId, rootId, component);
+    case "move-node":
+      return applyMoveNode(relPath, source, byId, rootId, component);
     default:
       return refuse("invalid-input", `unsupported component-structure op: ${edit.op}`);
   }
@@ -501,9 +503,14 @@ function childlessInsertionPoint(parent, rootId, spans, source) {
   return source.slice(candidate, parentSpan[1]) === closeTag ? candidate : parentSpan[1];
 }
 
-// The non-empty-children insertion offset (below, inlined in `applyInsertNode`) picks the
-// nearest RESOLVABLE sibling as its anchor, since text-kind children (and any node
-// `resolveAllSpans` couldn't resolve) have no entry in `spans`:
+// Resolves the character offset in `source` at which to insert new content as a child of
+// `parent` at position `index` (clamped to the child count). Shared by insert-node (new
+// content, nothing excluded) and move-node (destination side; excludes the node being
+// moved from the sibling list, since it may already be a child of `parent` when reordering
+// in place).
+//
+// Picks the nearest RESOLVABLE sibling as its anchor, since text-kind children (and any
+// node `resolveAllSpans` couldn't resolve) have no entry in `spans`:
 //   - Appending (clampedIndex === children.length): the nearest resolvable sibling
 //     searching BACKWARD from the end, anchored at its span END.
 //   - Inserting before children[clampedIndex]: the nearest resolvable sibling searching
@@ -511,6 +518,37 @@ function childlessInsertionPoint(parent, rootId, spans, source) {
 //     immediately before it); if none found forward, falls back to searching BACKWARD for
 //     the nearest resolvable PRECEDING sibling's span END instead. If no child in the list
 //     is resolvable at all, falls back to the childless-parent case.
+//
+// Returns null when no insertion point could be resolved.
+function resolveInsertionOffset(byId, rootId, spans, source, parent, index, excludeChildId) {
+  const children = parent.childIds.filter((id) => id !== excludeChildId).map((id) => byId.get(id));
+  if (children.length === 0) {
+    return childlessInsertionPoint(parent, rootId, spans, source);
+  }
+  const clampedIndex = Math.max(0, Math.min(index, children.length));
+  let insertAt = null;
+  if (clampedIndex === children.length) {
+    for (let i = children.length - 1; i >= 0 && insertAt == null; i--) {
+      const span = spans.get(children[i].id);
+      if (span) insertAt = span[1];
+    }
+  } else {
+    for (let i = clampedIndex; i < children.length && insertAt == null; i++) {
+      const span = spans.get(children[i].id);
+      if (span) insertAt = span[0];
+    }
+    if (insertAt == null) {
+      for (let i = clampedIndex - 1; i >= 0 && insertAt == null; i--) {
+        const span = spans.get(children[i].id);
+        if (span) insertAt = span[1];
+      }
+    }
+  }
+  if (insertAt == null) {
+    insertAt = childlessInsertionPoint(parent, rootId, spans, source);
+  }
+  return insertAt;
+}
 
 function applyInsertNode(file, source, byId, rootId, component) {
   const { parentId, index, node: nodeSpec } = component;
@@ -548,40 +586,7 @@ function applyInsertNode(file, source, byId, rootId, component) {
     );
   }
 
-  const children = parent.childIds.map((id) => byId.get(id));
-  let insertAt;
-  if (children.length === 0) {
-    insertAt = childlessInsertionPoint(parent, rootId, spans, source);
-  } else {
-    const clampedIndex = Math.max(0, Math.min(index, children.length));
-    if (clampedIndex === children.length) {
-      // Append: nearest resolvable sibling searching backward, anchored at its span end.
-      for (let i = children.length - 1; i >= 0 && insertAt == null; i--) {
-        const span = spans.get(children[i].id);
-        if (span) insertAt = span[1];
-      }
-    } else {
-      // Insert before children[clampedIndex]: nearest resolvable sibling searching
-      // forward, anchored at its span start (lands immediately before it).
-      for (let i = clampedIndex; i < children.length && insertAt == null; i++) {
-        const span = spans.get(children[i].id);
-        if (span) insertAt = span[0];
-      }
-      // None found forward (e.g. only trailing text children remain) — fall back to the
-      // nearest resolvable PRECEDING sibling's span end instead.
-      if (insertAt == null) {
-        for (let i = clampedIndex - 1; i >= 0 && insertAt == null; i--) {
-          const span = spans.get(children[i].id);
-          if (span) insertAt = span[1];
-        }
-      }
-    }
-    // No child in the list was resolvable at all — fall back to the childless case.
-    if (insertAt == null) {
-      insertAt = childlessInsertionPoint(parent, rootId, spans, source);
-    }
-  }
-
+  const insertAt = resolveInsertionOffset(byId, rootId, spans, source, parent, index, undefined);
   if (insertAt == null) {
     return refuse("no-match", "could not resolve an insertion point for the given parent/index");
   }
@@ -604,5 +609,107 @@ function applyInsertNode(file, source, byId, rootId, component) {
   const fmBodyStart = fmMatch.index + open.length;
   const { source: newFmBody } = ensureImport(fmBody, { localName: nodeSpec.tag, specifier: importSpecifier(file, nodeSpec.componentPath) });
   const rewritten = withNode.slice(0, fmBodyStart) + newFmBody + withNode.slice(fmBodyStart + fmBody.length);
+  return { file, range: { start: 0, end: source.length }, replacement: rewritten };
+}
+
+// True if `nodeId` is a descendant of `ancestorId`, walking `byId`'s `parentId` chain
+// upward from `nodeId`. Used to refuse move-node when the requested destination sits
+// inside the subtree of the node being moved (which would otherwise create a cycle).
+function isDescendant(byId, ancestorId, nodeId) {
+  const node = byId.get(nodeId);
+  let cur = node?.parentId ?? null;
+  while (cur !== null) {
+    if (cur === ancestorId) return true;
+    cur = byId.get(cur)?.parentId ?? null;
+  }
+  return false;
+}
+
+// move-node is an in-source remove-then-reinsert against a single mutable string, done in
+// ONE splice against the ORIGINAL (pre-removal) source rather than two sequential edits.
+// Both the node's own span and the destination insertion offset are resolved from the same
+// `resolveAllSpans` call, over the SAME unmutated `source` — exactly like remove-node and
+// insert-node resolve their spans/offsets, and for the same reason (never trust
+// `node.span`/`position.offset` straight off `byId`, see the file-level comment above
+// `resolveAllSpans`).
+//
+// Because both offsets are resolved against the original string, removing the node's old
+// text shifts every offset that came after it — including, potentially, the destination
+// insertion offset. Rather than computing that shift as a separate correction pass, the
+// splice below picks one of two mutually exclusive orderings directly from the ORIGINAL
+// offsets:
+//   - insertAt <= removeStart: the destination is at or before the node's own (trimmed)
+//     removal start, so the removal happens entirely AFTER the insertion point in the
+//     original string — insert first, then everything from the insertion point up to
+//     removeStart carries over unshifted, and the removed range is simply dropped.
+//   - insertAt >= removeEnd: the destination is at or after the node's own removal end, so
+//     the removal happens entirely BEFORE the insertion point — the removed range is
+//     dropped first, then everything from removeEnd up to the insertion point carries over
+//     unshifted, followed by the moved node's text, then the remainder.
+// A destination offset strictly BETWEEN removeStart and removeEnd would mean landing inside
+// the very span being removed; the ancestor check earlier already rules out the structural
+// case that would cause this (moving into your own subtree), but it's guarded again below
+// as a fail-closed check rather than assumed.
+function applyMoveNode(file, source, byId, rootId, component) {
+  const { nodeId, newParentId, newIndex } = component;
+  if (typeof nodeId !== "string" || typeof newParentId !== "string" || typeof newIndex !== "number") {
+    return refuse("invalid-input", "move-node requires component.nodeId, component.newParentId, and component.newIndex");
+  }
+  const node = byId.get(nodeId);
+  const newParent = byId.get(newParentId);
+  if (!node || !newParent) return refuse("no-match", "nodeId or newParentId not found — the file may have changed");
+  if (node.parentId === null) return refuse("invalid-input", "cannot move the component's root");
+  if (newParent.kind === "text") {
+    return refuse("invalid-input", "cannot move a node into a text node — it has no children");
+  }
+  if (nodeId === newParentId || isDescendant(byId, nodeId, newParentId)) {
+    return refuse("invalid-input", "cannot move a node into its own subtree");
+  }
+
+  let spans;
+  try {
+    spans = resolveAllSpans(byId, rootId, source);
+  } catch (err) {
+    if (!(err instanceof SpanResolutionError)) throw err;
+    return refuse(
+      "no-match",
+      "could not lexically re-locate the node's true source span without trusting compiler offsets — refusing rather than risking corruption"
+    );
+  }
+  const nodeSpan = spans.get(nodeId);
+  if (!nodeSpan) {
+    return refuse(
+      "no-match",
+      "could not lexically re-locate the node's true source span without trusting compiler offsets — refusing rather than risking corruption"
+    );
+  }
+
+  // Resolve the destination offset on the ORIGINAL source, excluding the moving node from
+  // `newParent`'s own children list (it may already be one of them, when reordering siblings
+  // in place — see the file-level comment above `resolveInsertionOffset`).
+  const insertAt = resolveInsertionOffset(byId, rootId, spans, source, newParent, newIndex, nodeId);
+  if (insertAt == null) {
+    return refuse("no-match", "could not resolve an insertion point for the given newParentId/newIndex");
+  }
+
+  const nodeText = source.slice(nodeSpan[0], nodeSpan[1]);
+
+  // Same whitespace/newline cleanup remove-node uses at the node's old location: trim a
+  // leading run of horizontal whitespace back to (but not past) a preceding newline, then
+  // swallow that newline too, so the old location doesn't leave a blank line behind.
+  let removeStart = nodeSpan[0];
+  while (removeStart > 0 && (source[removeStart - 1] === " " || source[removeStart - 1] === "\t")) removeStart--;
+  if (removeStart > 0 && source[removeStart - 1] === "\n") removeStart--;
+  const removeEnd = nodeSpan[1];
+
+  if (insertAt > removeStart && insertAt < removeEnd) {
+    return refuse("invalid-input", "insertion point falls inside the node's own span being moved");
+  }
+
+  const rewritten =
+    insertAt <= removeStart
+      ? source.slice(0, insertAt) + nodeText + source.slice(insertAt, removeStart) + source.slice(removeEnd)
+      : source.slice(0, removeStart) + source.slice(removeEnd, insertAt) + nodeText + source.slice(insertAt);
+
   return { file, range: { start: 0, end: source.length }, replacement: rewritten };
 }

@@ -571,3 +571,129 @@ describe("resolveComponentStructure — insert-node", () => {
     expect(ast).toBeDefined();
   });
 });
+
+describe("resolveComponentStructure — move-node", () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "anglesite-cse5-"));
+    mkdirSync(join(tmpDir, "src", "components"), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function apply(resolution, before) {
+    return before.slice(0, resolution.range.start) + resolution.replacement + before.slice(resolution.range.end);
+  }
+
+  it("reorders two siblings under the same parent", async () => {
+    const src = `---\n---\n<article><h2>A</h2><h3>B</h3></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+    const [h2, h3] = article.childIds.map((id) => byId.get(id));
+
+    const edit = { op: "move-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: h2.id, newParentId: article.id, newIndex: 1 } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    expect(next.indexOf("<h3>B</h3>")).toBeLessThan(next.indexOf("<h2>A</h2>"));
+
+    const { ast } = await parse(next, { position: true });
+    expect(ast).toBeDefined();
+  });
+
+  it("reparents a node into a different element", async () => {
+    const src = `---\n---\n<article><h2>Title</h2></article><footer></footer>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const [article, footer] = byId.get(rootId).childIds.map((id) => byId.get(id));
+    const h2 = byId.get(article.childIds[0]);
+
+    const edit = { op: "move-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: h2.id, newParentId: footer.id, newIndex: 0 } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    expect(next).toContain("<footer><h2>Title</h2></footer>");
+    expect(next).not.toContain("<article><h2>Title</h2></article>");
+
+    const { ast } = await parse(next, { position: true });
+    expect(ast).toBeDefined();
+  });
+
+  it("refuses invalid-input when moving a node into its own subtree", async () => {
+    const src = `---\n---\n<article><section><h2>Title</h2></section></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+    const section = byId.get(article.childIds[0]);
+
+    const edit = { op: "move-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: article.id, newParentId: section.id, newIndex: 0 } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBe(true);
+    expect(result.reason).toBe("invalid-input");
+  });
+
+  it("refuses no-match when nodeId doesn't exist", async () => {
+    const src = `---\n---\n<article></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { rootId } = await nodeIndex(src);
+    const edit = { op: "move-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: "n999", newParentId: rootId, newIndex: 0 } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBe(true);
+    expect(result.reason).toBe("no-match");
+  });
+
+  // Beyond the brief's original 4 cases: the two tests above both move a node FORWARD (its
+  // new position lands after its old one in the source), so the offset-shift-on-insert-side
+  // arithmetic only ever exercises the "insertion point at/after the removal point" branch.
+  // This test exercises the opposite direction — moving the LAST of three siblings to become
+  // the FIRST — so the insertion point falls BEFORE the node's own current position, and no
+  // offset-shift is needed on the insert side (the removal happens entirely after the splice).
+  it("moves a node to an earlier position, where the insertion point precedes the node's own current span", async () => {
+    const src = `---\n---\n<article><h2>A</h2><h3>B</h3><p>C</p></article>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const article = byId.get(byId.get(rootId).childIds[0]);
+    const [, , p] = article.childIds.map((id) => byId.get(id));
+
+    const edit = { op: "move-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: p.id, newParentId: article.id, newIndex: 0 } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    const next = apply(result, src);
+    expect(next).toContain("<article><p>C</p><h2>A</h2><h3>B</h3></article>");
+
+    const { ast } = await parse(next, { position: true });
+    expect(ast).toBeDefined();
+  });
+
+  // Beyond the brief's original 4 cases: proves the insert-side fallback logic Task 6 added
+  // to applyInsertNode (forward search for a resolvable sibling, then backward fallback) also
+  // works correctly when move-node's destination parent has a text-kind sibling sitting right
+  // at the target index — the moved node must land after the resolvable <span>, not swallowed
+  // into (or corrupting) the unresolvable trailing text.
+  it("moves a node into a destination parent whose target index lands on a trailing text sibling", async () => {
+    const src = `---\n---\n<article><h2>Title</h2></article><footer><span>X</span> trailing text</footer>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const [article, footer] = byId.get(rootId).childIds.map((id) => byId.get(id));
+    const h2 = byId.get(article.childIds[0]);
+    // footer's children are [span, text] — index 1 targets the unresolvable trailing text.
+    expect(footer.childIds.length).toBe(2);
+
+    const edit = { op: "move-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: h2.id, newParentId: footer.id, newIndex: 1 } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result, src);
+    expect(next).toContain("<span>X</span><h2>Title</h2> trailing text");
+    expect(next).not.toContain("<article><h2>Title</h2></article>");
+
+    const { ast } = await parse(next, { position: true });
+    expect(ast).toBeDefined();
+  });
+});
