@@ -314,4 +314,38 @@ describe("resolveComponentStructure — remove-node", () => {
     expect(next).not.toContain("{b}");
     expect(next).toContain("{a}");
   });
+
+  it("does not refuse removal when the file contains a bare void element elsewhere", async () => {
+    const src = `---\n---\n<div><img src="x.jpg"><p>Keep</p><p>Target</p></div>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const div = byId.get(byId.get(rootId).childIds[0]);
+    const paragraphs = div.childIds.map((id) => byId.get(id)).filter((n) => n.tag === "p");
+    const target = paragraphs[1];
+
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: target.id } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result, src);
+    expect(next).not.toContain("Target");
+    expect(next).toContain("Keep");
+    expect(next).toContain('<img src="x.jpg">');
+  });
+
+  it("removes a bare void element directly", async () => {
+    const src = `---\n---\n<div><img src="x.jpg"><p>Keep</p></div>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Card.astro"), src);
+    const baseVersion = fileVersion(src);
+    const { byId, rootId } = await nodeIndex(src);
+    const div = byId.get(byId.get(rootId).childIds[0]);
+    const img = byId.get(div.childIds.find((id) => byId.get(id).tag === "img"));
+
+    const edit = { op: "remove-node", component: { path: "src/components/Card.astro", baseVersion, nodeId: img.id } };
+    const result = await resolveComponentStructure(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    const next = apply(result, src);
+    expect(next).not.toContain("img");
+    expect(next).toContain("<p>Keep</p>");
+  });
 });

@@ -311,6 +311,13 @@ class SpanResolutionError extends Error {
   }
 }
 
+// HTML void elements: never have a closing tag, self-closing or not — same terminal
+// handling as an explicit self-closing tag (<img />). https://html.spec.whatwg.org/#void-elements
+const VOID_ELEMENTS = new Set([
+  "area", "base", "br", "col", "embed", "hr", "img", "input",
+  "link", "meta", "param", "source", "track", "wbr",
+]);
+
 // Reconstructs correct byte spans for every element/component/slot/fragment/expression
 // node in `byId` in one full depth-first walk, in lockstep with a monotonically
 // advancing cursor through `source` (see the file-level comment above for why this
@@ -354,12 +361,16 @@ function resolveAllSpans(byId, rootId, source) {
     if (openIdx === -1 || (boundEnd != null && openIdx >= boundEnd)) throw new SpanResolutionError(nodeId);
     const tagInfo = scanTagOpen(masked, openIdx);
     if (!tagInfo) throw new SpanResolutionError(nodeId);
-    if (tagInfo.selfClosing || node.childIds.length === 0) {
-      if (tagInfo.selfClosing) {
-        spans.set(nodeId, [openIdx, tagInfo.end]);
-        cursor = tagInfo.end;
-        return;
-      }
+    // Void elements (<img>, <br>, etc.) never have a closing tag — treat them as
+    // terminal at their own opening tag's end, same as an explicit self-closing tag,
+    // regardless of what the model reports for childIds. Checked before the close-tag
+    // search below so a bare `<img src="x">` never triggers a `</img>` lookup.
+    if (tagInfo.selfClosing || VOID_ELEMENTS.has(node.tag)) {
+      spans.set(nodeId, [openIdx, tagInfo.end]);
+      cursor = tagInfo.end;
+      return;
+    }
+    if (node.childIds.length === 0) {
       // Childless in the model (no element/component/expression/non-blank-text child)
       // but not self-closing — e.g. `<p></p>` or `<div>   </div>`. Still has a real
       // close tag; find it directly from just past the open tag.
