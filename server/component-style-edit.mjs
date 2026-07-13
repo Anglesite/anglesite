@@ -3,6 +3,7 @@ import { join, normalize } from "node:path";
 import { parse } from "@astrojs/compiler";
 import { fileVersion } from "./file-version.mjs";
 import { indexCssRules } from "./css-rule-index.mjs";
+import { buildLineStarts } from "./component-node-index.mjs";
 
 /**
  * Write-side resolver for the four Component Editor style ops
@@ -47,9 +48,10 @@ export async function resolveComponentStyle(projectRoot, edit) {
     return refuse("parse-failed", `parse ${relPath}: ${err.message}`);
   }
 
+  const lineStarts = buildLineStarts(source);
   const styleElements = [];
   collectStyleElements(ast, styleElements);
-  const rules = styleElements.flatMap((el) => indexCssRules(el));
+  const rules = styleElements.flatMap((el) => indexCssRules(el, lineStarts));
 
   switch (edit.op) {
     case "set-style-property":

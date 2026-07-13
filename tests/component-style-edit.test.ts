@@ -59,10 +59,11 @@ describe("resolveComponentStyle", () => {
     const baseVersion = fileVersion(CARD);
     // Recompute the real span via the resolver's own indexing to avoid hand-counting offsets:
     const { indexCssRules } = await import("../server/css-rule-index.mjs");
+    const { buildLineStarts } = await import("../server/component-node-index.mjs");
     const { parse } = await import("@astrojs/compiler");
     const { ast } = await parse(CARD, { position: true });
     const styleEl = ast.children.find((n) => n.type === "element" && n.name === "style");
-    const [cardRule] = indexCssRules(styleEl);
+    const [cardRule] = indexCssRules(styleEl, buildLineStarts(CARD));
 
     const edit = { op: "set-style-property", component: { path: "src/components/Card.astro", baseVersion, ruleSpan: cardRule.span, property: "color", value: "blue" } };
     const result = await resolveComponentStyle(tmpDir, edit);
@@ -74,10 +75,11 @@ describe("resolveComponentStyle", () => {
   it("set-style-property inserts a new declaration when the property is absent", async () => {
     const baseVersion = fileVersion(CARD);
     const { indexCssRules } = await import("../server/css-rule-index.mjs");
+    const { buildLineStarts } = await import("../server/component-node-index.mjs");
     const { parse } = await import("@astrojs/compiler");
     const { ast } = await parse(CARD, { position: true });
     const styleEl = ast.children.find((n) => n.type === "element" && n.name === "style");
-    const [cardRule] = indexCssRules(styleEl);
+    const [cardRule] = indexCssRules(styleEl, buildLineStarts(CARD));
 
     const edit = { op: "set-style-property", component: { path: "src/components/Card.astro", baseVersion, ruleSpan: cardRule.span, property: "margin", value: "0" } };
     const result = await resolveComponentStyle(tmpDir, edit);
@@ -87,10 +89,11 @@ describe("resolveComponentStyle", () => {
   it("remove-style-property deletes the declaration and its semicolon", async () => {
     const baseVersion = fileVersion(CARD);
     const { indexCssRules } = await import("../server/css-rule-index.mjs");
+    const { buildLineStarts } = await import("../server/component-node-index.mjs");
     const { parse } = await import("@astrojs/compiler");
     const { ast } = await parse(CARD, { position: true });
     const styleEl = ast.children.find((n) => n.type === "element" && n.name === "style");
-    const [cardRule] = indexCssRules(styleEl);
+    const [cardRule] = indexCssRules(styleEl, buildLineStarts(CARD));
 
     const edit = { op: "remove-style-property", component: { path: "src/components/Card.astro", baseVersion, ruleSpan: cardRule.span, property: "color" } };
     const result = await resolveComponentStyle(tmpDir, edit);
@@ -101,10 +104,11 @@ describe("resolveComponentStyle", () => {
   it("set-rule-selector renames only the prelude", async () => {
     const baseVersion = fileVersion(CARD);
     const { indexCssRules } = await import("../server/css-rule-index.mjs");
+    const { buildLineStarts } = await import("../server/component-node-index.mjs");
     const { parse } = await import("@astrojs/compiler");
     const { ast } = await parse(CARD, { position: true });
     const styleEl = ast.children.find((n) => n.type === "element" && n.name === "style");
-    const [cardRule] = indexCssRules(styleEl);
+    const [cardRule] = indexCssRules(styleEl, buildLineStarts(CARD));
 
     const edit = { op: "set-rule-selector", component: { path: "src/components/Card.astro", baseVersion, ruleSpan: cardRule.span, selector: ".card--big" } };
     const result = await resolveComponentStyle(tmpDir, edit);

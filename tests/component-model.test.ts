@@ -344,5 +344,17 @@ const profile = { name: "x" };
       const [ss, se] = model.clientScript!.span as [number, number];
       expect(src.slice(ss, se)).toContain('console.log("after emoji")');
     });
+
+    it("keeps CSS rule/declaration spans correct when an emoji precedes the <style> element", async () => {
+      const src = `---\n---\n<div>\u{1F389} emoji before</div>\n<style>\n  .card { padding: 1rem; }\n</style>\n`;
+      writeFileSync(join(tmpDir, "src", "components", "EmojiStyle.astro"), src);
+      const model = await buildComponentModel(tmpDir, "src/components/EmojiStyle.astro");
+
+      expect(model.styles).toHaveLength(1);
+      const [rule] = model.styles;
+      expect(src.slice(...(rule.span as [number, number]))).toBe(".card { padding: 1rem; }");
+      const [ds, de] = rule.declarations[0].span as [number, number];
+      expect(src.slice(ds, de)).toBe("padding: 1rem");
+    });
   });
 });

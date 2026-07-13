@@ -34,10 +34,11 @@ describe("applyEdit — component-style ops", () => {
   it("applies set-style-property and piggybacks a fresh model", async () => {
     const baseVersion = fileVersion(CARD);
     const { indexCssRules } = await import("../server/css-rule-index.mjs");
+    const { buildLineStarts } = await import("../server/component-node-index.mjs");
     const { parse } = await import("@astrojs/compiler");
     const { ast } = await parse(CARD, { position: true });
     const styleEl = ast.children.find((n) => n.type === "element" && n.name === "style");
-    const [cardRule] = indexCssRules(styleEl);
+    const [cardRule] = indexCssRules(styleEl, buildLineStarts(CARD));
 
     const response = await applyEdit(tmpDir, {
       id: "1",
@@ -67,10 +68,11 @@ describe("applyEdit — component-style ops", () => {
   it("re-checks staleness after the resolver's async gap, refusing a concurrent write race", async () => {
     const baseVersion = fileVersion(CARD);
     const { indexCssRules } = await import("../server/css-rule-index.mjs");
+    const { buildLineStarts } = await import("../server/component-node-index.mjs");
     const { parse } = await import("@astrojs/compiler");
     const { ast } = await parse(CARD, { position: true });
     const styleEl = ast.children.find((n) => n.type === "element" && n.name === "style");
-    const [cardRule] = indexCssRules(styleEl);
+    const [cardRule] = indexCssRules(styleEl, buildLineStarts(CARD));
 
     const editPromise = applyEdit(tmpDir, {
       id: "1",

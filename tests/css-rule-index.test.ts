@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "@astrojs/compiler";
 import { indexCssRules } from "../server/css-rule-index.mjs";
+import { buildLineStarts } from "../server/component-node-index.mjs";
 
 const SOURCE = `<style>
   .card { padding: 1rem; color: red; }
@@ -10,15 +11,15 @@ const SOURCE = `<style>
 </style>
 `;
 
-async function styleElement() {
-  const { ast } = await parse(SOURCE, { position: true });
+async function styleElement(src: string = SOURCE) {
+  const { ast } = await parse(src, { position: true });
   return ast.children.find((n: any) => n.type === "element" && n.name === "style");
 }
 
 describe("indexCssRules", () => {
   it("captures selector, media, span, preludeSpan, blockInner, and declarations", async () => {
     const el = await styleElement();
-    const rules = indexCssRules(el);
+    const rules = indexCssRules(el, buildLineStarts(SOURCE));
     expect(rules).toHaveLength(2);
 
     const [card, media] = rules;
@@ -43,6 +44,18 @@ describe("indexCssRules", () => {
     const src = `<style lang="scss">.x { &:hover { color: blue; } }</style>`;
     const { ast } = await parse(src, { position: true });
     const el = ast.children.find((n: any) => n.type === "element" && n.name === "style");
-    expect(indexCssRules(el)).toEqual([]);
+    expect(indexCssRules(el, buildLineStarts(src))).toEqual([]);
+  });
+
+  // @astrojs/compiler@4.0.0 reports `position.*.offset` as a UTF-8 byte offset, not a
+  // JS-string (UTF-16) index — an emoji or other multi-byte-UTF-8 character earlier in
+  // the source used to corrupt every span this module returns (see the analogous fix in
+  // component-node-index.mjs's buildLineStarts/offsetFromLineColumn).
+  it("keeps spans correct when an emoji precedes the <style> element", async () => {
+    const src = `<div>\u{1F389} emoji</div>\n<style>\n  .card { padding: 1rem; }\n</style>\n`;
+    const el = await styleElement(src);
+    const [rule] = indexCssRules(el, buildLineStarts(src));
+    expect(src.slice(rule.span[0], rule.span[1])).toBe(".card { padding: 1rem; }");
+    expect(src.slice(rule.declarations[0].span[0], rule.declarations[0].span[1])).toBe("padding: 1rem");
   });
 });

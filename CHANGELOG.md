@@ -26,6 +26,13 @@ All notable changes to this project will be documented in this file.
   character earlier in the file silently drifted the offset of every node
   after it. Spans are now derived from the (reliably UTF-16-based) line/column
   fields instead of trusting `.offset`.
+- `get_component_model`'s `styles[]` (CSS rule/declaration spans) had the same
+  UTF-8-byte-offset-vs-UTF-16-index bug as above, independently, in
+  `indexCssRules`'s `baseOffset` — corrupted whenever a component's source
+  contained an emoji or other multi-byte-UTF-8 character before its `<style>`
+  element. `indexCssRules` now takes the file's `lineStarts` and derives
+  `baseOffset` from the `<style>` text child's line/column, same as the fix
+  above.
 
 ## [1.0.0-beta.7] — 2026-05-07
 

@@ -50,7 +50,7 @@ export async function buildComponentModel(projectRoot, relPath) {
 
   const styleElements = [];
   collectElements(ast, "style", styleElements);
-  const styles = styleElements.flatMap((el) => extractRules(el));
+  const styles = styleElements.flatMap((el) => extractRules(el, lineStarts));
 
   const fmNode = topLevel.find((n) => n.type === "frontmatter");
   const frontmatter = fmNode
@@ -91,8 +91,8 @@ function collectElements(node, name, out) {
   for (const child of node.children ?? []) collectElements(child, name, out);
 }
 
-function extractRules(styleElement) {
-  return indexCssRules(styleElement).map(({ selector, media, span, declarations }) => ({
+function extractRules(styleElement, lineStarts) {
+  return indexCssRules(styleElement, lineStarts).map(({ selector, media, span, declarations }) => ({
     selector,
     media,
     span,
