@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: Bash(npm run build), Bash(npm run ai-seo*), Bash(npx astro check), Bash(grep *), Bash(find dist/ *), Bash(git log *), Write, Read, Glob
 metadata:
   author: "David W. Keith"
-  version: "1.5.0"
+  version: "1.6.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "user-facing"
   argument-hint: "[page /about | schema | sitemap | og-images]"

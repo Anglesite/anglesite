@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: Bash(npm run build), Bash(npm install *), Bash(npx wrangler *), Bash(openssl *), Bash(grep *), Bash(gh *), Bash(node *), Bash(mktemp *), Bash(printf *), Bash(rm *), Write, Read, Edit, Glob, mcp__cloudflare__accounts_list, mcp__cloudflare__set_active_account, mcp__cloudflare__d1_database_create, mcp__cloudflare__d1_databases_list, mcp__cloudflare__d1_database_get, mcp__cloudflare__r2_bucket_create, mcp__cloudflare__r2_buckets_list
 metadata:
   author: "David W. Keith"
-  version: "1.5.0"
+  version: "1.6.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "user-facing"
 ---

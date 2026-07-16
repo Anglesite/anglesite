@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: Write, Read, Glob, Bash(npm run ai-qr)
 metadata:
   author: "David W. Keith"
-  version: "1.5.0"
+  version: "1.6.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "model-only"
 ---
