@@ -6,7 +6,7 @@ compatibility: "Designed for Claude Code / compatible agents operating inside an
 allowed-tools: Bash(npm run ai-optimize), Bash(npx wrangler r2 *), mcp__cloudflare__r2_bucket_create, mcp__cloudflare__r2_bucket_get, mcp__cloudflare__r2_buckets_list, Write, Read, Edit, Glob
 metadata:
   author: "David W. Keith"
-  version: "1.5.0"
+  version: "1.6.0"
   source: "https://github.com/Anglesite/anglesite"
   invocation: "model-only"
 ---

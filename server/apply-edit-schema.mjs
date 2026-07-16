@@ -56,6 +56,8 @@ export const editOps = [
   "move-node",
   "remove-node",
   "set-attr",
+  "set-props-interface",
+  "set-script-zone",
 ];
 
 /** The subset of `editOps` that operate on a component's scoped `<style>` via `component`
@@ -72,8 +74,12 @@ export const COMPONENT_STYLE_OPS = new Set([
  *  via `component` rather than on a page element via `selector`. */
 export const COMPONENT_STRUCTURE_OPS = new Set(["insert-node", "move-node", "remove-node", "set-attr"]);
 
-/** Union of style and structure component ops — used by the dispatcher's shared checks. */
-export const COMPONENT_OPS = new Set([...COMPONENT_STYLE_OPS, ...COMPONENT_STRUCTURE_OPS]);
+/** The subset of `editOps` that codegen/replace a component's frontmatter or client-script
+ *  zone via `component` — the Props form and STTextView code-pane saves. */
+export const COMPONENT_FRONTMATTER_OPS = new Set(["set-props-interface", "set-script-zone"]);
+
+/** Union of style, structure, and frontmatter component ops — used by the dispatcher's shared checks. */
+export const COMPONENT_OPS = new Set([...COMPONENT_STYLE_OPS, ...COMPONENT_STRUCTURE_OPS, ...COMPONENT_FRONTMATTER_OPS]);
 
 /** Structured payload for the four component-style ops. Identifies the target rule by its exact
  *  byte span (from `get_component_model`'s `styles[].span`) plus a `baseVersion` content-hash
@@ -108,6 +114,21 @@ export const componentEditSchema = z.object({
     })
     .optional()
     .describe("New node spec for insert-node"),
+  props: z
+    .array(
+      z.object({
+        name: z.string(),
+        type: z.string(),
+        optional: z.boolean(),
+        default: z.string().nullable().optional(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Full Props array for set-props-interface — codegens/replaces the frontmatter's `interface Props {...}` and its `Astro.props` destructure. An empty array removes both.",
+    ),
+  zone: z.enum(["frontmatter", "client"]).optional().describe("Script zone for set-script-zone: the frontmatter TS or the client <script>"),
+  source: z.string().optional().describe("Replacement source text for set-script-zone's target zone"),
 });
 
 /** The MCP tool's input shape, as passed to `server.tool(name, description, shape, handler)`. */
@@ -137,13 +158,13 @@ export const applyEditInputShape = {
   op: z
     .enum(editOps)
     .describe(
-      "Edit operation: replace-text (innerText), replace-attr (value is {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>), apply-instruction (reserved: sent only by the Anglesite-app Foundation Models chat path; always returns edit-failed/needs-agent — do not use from external callers), set-style-property/remove-style-property/add-style-rule/set-rule-selector (component-style ops), insert-node/move-node/remove-node/set-attr (component-structure ops — see componentEditSchema)",
+      "Edit operation: replace-text (innerText), replace-attr (value is {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>), apply-instruction (reserved: sent only by the Anglesite-app Foundation Models chat path; always returns edit-failed/needs-agent — do not use from external callers), set-style-property/remove-style-property/add-style-rule/set-rule-selector (component-style ops), insert-node/move-node/remove-node/set-attr (component-structure ops), set-props-interface/set-script-zone (component-frontmatter ops — see componentEditSchema)",
     ),
   value: z
     .unknown()
     .optional()
     .describe(
-      "Operation payload; varies by op (string for replace-text, {name, value} for replace-attr, {filename, mimeType, dataURL} for replace-image-src, {property, value} for edit-style, string for apply-instruction — the NL instruction text). Omitted for the component-style ops, whose payload is `component`.",
+      "Operation payload; varies by op (string for replace-text, {name, value} for replace-attr, {filename, mimeType, dataURL} for replace-image-src, {property, value} for edit-style, string for apply-instruction — the NL instruction text). Omitted for the component ops, whose payload is `component`.",
     ),
   dry_run: z
     .boolean()

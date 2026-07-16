@@ -66,3 +66,27 @@ function isBalanced(value) {
   }
   return open.length === 0 && quote === null;
 }
+
+// Write-side counterpart to `parseProps`, for the `set-props-interface` op
+// (component-frontmatter-edit.mjs). Regex/string codegen only — same
+// "no TS compiler in the container" discipline as the read side above.
+// `props` is the same `{name, type, optional, default}[]` shape `parseProps`
+// returns, so `parseProps(generatePropsInterface(p) + "\n" + generatePropsDestructure(p))`
+// round-trips (module the destructure emitting property-shorthand names).
+
+/** The `interface Props {...}` block text, or `null` for an empty props array
+ *  (meaning: no Props interface at all). */
+export function generatePropsInterface(props) {
+  if (!Array.isArray(props) || props.length === 0) return null;
+  const lines = props.map((p) => `  ${p.name}${p.optional ? "?" : ""}: ${p.type};`);
+  return `interface Props {\n${lines.join("\n")}\n}`;
+}
+
+/** The `const { ... } = Astro.props;` destructure line, or `null` for an
+ *  empty props array. Every prop is destructured (not just ones with
+ *  defaults) so the frontmatter has bindings to reference by name. */
+export function generatePropsDestructure(props) {
+  if (!Array.isArray(props) || props.length === 0) return null;
+  const parts = props.map((p) => (p.default != null && p.default !== "" ? `${p.name} = ${p.default}` : p.name));
+  return `const { ${parts.join(", ")} } = Astro.props;`;
+}
