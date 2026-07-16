@@ -131,7 +131,7 @@ function replacePropsDestructure(fmBody, newDestructure) {
   return fmBody.slice(0, trimmedEnd) + (trimmedEnd > 0 ? "\n" : "") + newDestructure + fmBody.slice(trimmedEnd);
 }
 
-function applySetScriptZone(file, source, component) {
+async function applySetScriptZone(file, source, component) {
   const { zone, source: newSource } = component;
   if (zone !== "frontmatter" && zone !== "client") {
     return refuse("invalid-input", 'set-script-zone requires component.zone to be "frontmatter" or "client"');
@@ -142,14 +142,33 @@ function applySetScriptZone(file, source, component) {
   return zone === "frontmatter" ? applySetFrontmatterZone(file, source, newSource) : applySetClientScriptZone(file, source, newSource);
 }
 
-function applySetFrontmatterZone(file, source, newSource) {
-  const fmMatch = source.match(FRONTMATTER_RE);
-  if (!fmMatch) {
+// The code-pane's "Props & Data" content is `get_component_model`'s `frontmatter.source` —
+// `component-model.mjs`'s `fmNode.value` — so this MUST replace exactly that same span, not an
+// independently-regex-derived one, or a verbatim no-op save would drift the file (e.g. gain a
+// stray trailing newline each time). `fmNode.value` is the text strictly between the opening
+// and closing `---` fences: parsing gives `fmNode.position.start/end` spanning the WHOLE
+// `---\n...\n---` block (verified empirically — see component-model.test.ts's emoji-safety
+// test), so the value's bounds are simply that span narrowed by exactly 3 characters (`---`'s
+// literal length) on each side — independent of the fence's line-ending style, since the
+// narrowing never has to find or count the newline itself.
+async function applySetFrontmatterZone(file, source, newSource) {
+  let ast;
+  try {
+    ({ ast } = await parse(source, { position: true }));
+  } catch (err) {
+    return refuse("parse-failed", `parse ${file}: ${err.message}`);
+  }
+  const fmNode = (ast.children ?? []).find((n) => n.type === "frontmatter");
+  if (!fmNode) {
     return { file, range: { start: 0, end: 0 }, replacement: `---\n${newSource}\n---\n` };
   }
-  const [, open, fmBody] = fmMatch;
-  const fmBodyStart = fmMatch.index + open.length;
-  return { file, range: { start: fmBodyStart, end: fmBodyStart + fmBody.length }, replacement: newSource };
+  const lineStarts = buildLineStarts(source);
+  const fmStart = offsetFromLineColumn(lineStarts, fmNode.position?.start);
+  const fmEnd = offsetFromLineColumn(lineStarts, fmNode.position?.end);
+  if (fmStart == null || fmEnd == null) {
+    return refuse("no-match", "could not resolve the frontmatter's source span");
+  }
+  return { file, range: { start: fmStart + 3, end: fmEnd - 3 }, replacement: newSource };
 }
 
 async function applySetClientScriptZone(file, source, newSource) {

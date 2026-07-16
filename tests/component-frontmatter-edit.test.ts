@@ -146,7 +146,11 @@ describe("resolveComponentFrontmatter", () => {
   describe("set-script-zone", () => {
     it("replaces the frontmatter zone wholesale", async () => {
       const baseVersion = fileVersion(CARD);
-      const newFrontmatter = "const greeting = \"hi\";";
+      // Mirrors what a real code-pane save looks like: the pane is seeded from
+      // get_component_model's frontmatter.source, which already carries its own leading/
+      // trailing newline (the text strictly between the `---` fences) — so a realistic edit
+      // includes that framing itself rather than relying on the resolver to add it.
+      const newFrontmatter = "\nconst greeting = \"hi\";\n";
       const edit = {
         op: "set-script-zone",
         component: { path: "src/components/Card.astro", baseVersion, zone: "frontmatter", source: newFrontmatter },
@@ -154,11 +158,28 @@ describe("resolveComponentFrontmatter", () => {
       const result = await resolveComponentFrontmatter(tmpDir, edit);
       expect(result.refused).toBeFalsy();
       const next = apply("Card.astro", result);
-      expect(next).toContain(`---\n${newFrontmatter}\n---`);
+      expect(next).toContain(`---${newFrontmatter}---`);
       expect(next).toContain("<h2>{title}</h2>");
     });
 
-    it("synthesizes a frontmatter block when none exists", async () => {
+    it("is a byte-exact round trip against get_component_model's frontmatter.source (regression: a verbatim no-op save must not drift the file)", async () => {
+      const before = await buildComponentModel(tmpDir, "src/components/Card.astro");
+      const edit = {
+        op: "set-script-zone",
+        component: {
+          path: "src/components/Card.astro",
+          baseVersion: before.version,
+          zone: "frontmatter",
+          source: before.frontmatter.source,
+        },
+      };
+      const result = await resolveComponentFrontmatter(tmpDir, edit);
+      expect(result.refused).toBeFalsy();
+      const next = apply("Card.astro", result);
+      expect(next).toBe(CARD);
+    });
+
+    it("replaces an empty frontmatter zone verbatim, without adding padding", async () => {
       const baseVersion = fileVersion(BARE);
       const edit = {
         op: "set-script-zone",
@@ -170,7 +191,22 @@ describe("resolveComponentFrontmatter", () => {
       const result = await resolveComponentFrontmatter(tmpDir, edit);
       expect(result.refused).toBeFalsy();
       const next = apply("Bare.astro", result);
+      expect(next).toContain("---const x = 1;---");
+    });
+
+    it("synthesizes a frontmatter block when the component has none at all", async () => {
+      const noFrontmatter = "<p>plain</p>\n";
+      writeFileSync(join(tmpDir, "src", "components", "NoFrontmatter.astro"), noFrontmatter);
+      const baseVersion = fileVersion(noFrontmatter);
+      const edit = {
+        op: "set-script-zone",
+        component: { path: "src/components/NoFrontmatter.astro", baseVersion, zone: "frontmatter", source: "const x = 1;" },
+      };
+      const result = await resolveComponentFrontmatter(tmpDir, edit);
+      expect(result.refused).toBeFalsy();
+      const next = apply("NoFrontmatter.astro", result);
       expect(next).toContain("---\nconst x = 1;\n---");
+      expect(next).toContain("<p>plain</p>");
     });
 
     it("replaces the client script zone in place", async () => {
