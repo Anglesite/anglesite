@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] — 2026-07-16
+
+### Added
+- `apply_edit` gains two component-frontmatter ops — `set-props-interface`,
+  `set-script-zone` — for the Component Editor's Props form and code panes
+  (Slice 4). `set-props-interface` codegens/replaces a component's
+  `interface Props {...}` block and its `Astro.props` destructure from a
+  structured `{name, type, optional, default}[]` array (an empty array
+  removes both); `set-script-zone` replaces a whole script zone
+  (`frontmatter` or `client`) wholesale, for the code-pane "save" gesture,
+  synthesizing the zone if it doesn't exist yet. Both share the same
+  content-hash (`baseVersion`) staleness checking as the existing
+  component-style/component-structure ops, and piggyback a freshly rebuilt
+  `get_component_model` result on a successful reply.
+
 ## [1.5.0] — 2026-07-12
 
 ### Added
