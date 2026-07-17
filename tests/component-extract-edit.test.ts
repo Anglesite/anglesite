@@ -215,4 +215,54 @@ describe("resolveComponentExtract — core", () => {
     expect(result.hoistedProps).toEqual(["title"]);
     expect(result.replacement.match(/title=\{title\}/g)).toHaveLength(1); // one instance attr, not two
   });
+
+  it("copies a nested component's import into the new file, re-based to its directory, and prunes it from the original when unused elsewhere", async () => {
+    const source = `---\nimport Badge from "./Badge.astro";\n---\n<main>\n  <div class="hero">\n    <Badge />\n  </div>\n</main>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    writeFileSync(join(tmpDir, "src", "components", "Badge.astro"), "<span>Badge</span>\n");
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    expect(result.newFile.content).toMatch(/import Badge from "\.\/Badge\.astro";/);
+    expect(result.newFile.content).toContain("<Badge />");
+    expect(result.replacement).not.toContain("import Badge"); // pruned — no longer used in the original
+    expect(result.replacement).toMatch(/import Hero from "\.\/Hero\.astro";/);
+  });
+
+  it("keeps a nested component's import in the original when it's also used outside the extracted subtree", async () => {
+    const source = `---\nimport Badge from "./Badge.astro";\n---\n<main>\n  <Badge />\n  <div class="hero">\n    <Badge />\n  </div>\n</main>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    writeFileSync(join(tmpDir, "src", "components", "Badge.astro"), "<span>Badge</span>\n");
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[1]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.replacement).toMatch(/import Badge from "\.\/Badge\.astro";/); // still needed for the sibling <Badge />
+    expect(result.newFile.content).toMatch(/import Badge from "\.\/Badge\.astro";/); // also copied — extracted one still needs it
+  });
+
+  it("re-bases a nested component's relative import specifier for a new file in a different directory", async () => {
+    mkdirSync(join(tmpDir, "src", "components", "sections"), { recursive: true });
+    const source = `---\nimport Badge from "../Badge.astro";\n---\n<main>\n  <div class="hero">\n    <Badge />\n  </div>\n</main>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "sections", "Page.astro"), source);
+    writeFileSync(join(tmpDir, "src", "components", "Badge.astro"), "<span>Badge</span>\n");
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/sections/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    // Hero.astro lives directly under src/components/, so its import of Badge.astro (a sibling) is "./Badge.astro",
+    // not the "../Badge.astro" that was correct from sections/Page.astro's own directory.
+    expect(result.newFile.content).toMatch(/import Badge from "\.\/Badge\.astro";/);
+  });
 });

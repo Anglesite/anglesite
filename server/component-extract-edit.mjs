@@ -1,10 +1,10 @@
 import { readFileSync, existsSync } from "node:fs";
-import { join, normalize, basename, sep } from "node:path";
+import { join, normalize, basename, dirname, sep } from "node:path";
 import { parse } from "@astrojs/compiler";
 import { fileVersion } from "./file-version.mjs";
 import { buildTemplateNodeIndex } from "./component-node-index.mjs";
-import { resolveAllSpans, SpanResolutionError, importSpecifier } from "./component-structure-edit.mjs";
-import { ensureImport } from "./frontmatter-imports.mjs";
+import { resolveAllSpans, SpanResolutionError, importSpecifier, collectComponentTags } from "./component-structure-edit.mjs";
+import { ensureImport, parseImports, pruneImportIfUnused } from "./frontmatter-imports.mjs";
 import { parseProps, generatePropsInterface, generatePropsDestructure } from "./props-interface.mjs";
 
 /**
@@ -113,12 +113,48 @@ function findHoistCandidates(byId, astById, subtreeIds, spans, source, originalP
   return [...hoisted.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function rewriteOriginalFrontmatter(afterNode, relPath, componentName, newComponentPath) {
+// Re-bases a relative import specifier from the ORIGINAL file's directory to a
+// project-relative path, so it can be re-expressed relative to the NEW file's own
+// directory below (via importSpecifier). E.g. from "src/components/sections/Page.astro"
+// resolving specifier "../Badge.astro" yields "src/components/Badge.astro".
+function resolveImportTargetPath(originalRelPath, specifier) {
+  const abs = normalize(join(dirname(originalRelPath), specifier));
+  return abs.split(sep).join("/");
+}
+
+// Import lines for any nested component(s) carried into the extracted subtree — copied
+// from the original file's frontmatter and re-based to the new file's own directory. A
+// moved name with no matching import in the original frontmatter (e.g. never actually
+// declared) is silently skipped rather than fabricated.
+function importLinesForNewFile(originalFmBody, movedComponentNames, relPath, newComponentPath) {
+  const origImports = parseImports(originalFmBody ?? "");
+  return movedComponentNames
+    .map((name) => origImports.find((i) => i.localName === name))
+    .filter(Boolean)
+    .map((imp) => {
+      const targetRelPath = resolveImportTargetPath(relPath, imp.specifier);
+      return `import ${imp.localName} from "${importSpecifier(newComponentPath, targetRelPath)}";\n`;
+    })
+    .join("");
+}
+
+// `findFrontmatterBody` (not the FRONTMATTER_RE regex) is used here deliberately — see its
+// file-level comment above: the regex fails to match the minimal empty-body frontmatter
+// shape "---\n---\n", which would otherwise cause a second frontmatter block to be
+// prepended via the no-frontmatter fallback below, corrupting the file.
+function rewriteOriginalFrontmatter(afterNode, relPath, componentName, newComponentPath, movedComponentNames) {
   const specifier = importSpecifier(relPath, newComponentPath);
   const fm = findFrontmatterBody(afterNode);
+  const ensureAndPrune = (fmBody) => {
+    let body = ensureImport(fmBody, { localName: componentName, specifier }).source;
+    for (const name of movedComponentNames) {
+      body = pruneImportIfUnused(body, afterNode, name).source;
+    }
+    return body;
+  };
   if (fm) {
     const fmBody = afterNode.slice(fm.bodyStart, fm.bodyEnd);
-    const { source: newFmBody } = ensureImport(fmBody, { localName: componentName, specifier });
+    const newFmBody = ensureAndPrune(fmBody);
     return afterNode.slice(0, fm.bodyStart) + newFmBody + afterNode.slice(fm.bodyStart + fmBody.length);
   }
   const importLine = `import ${componentName} from "${specifier}";\n`;
@@ -184,15 +220,17 @@ export async function resolveComponentExtract(projectRoot, edit) {
   const originalProps = origFmMatch ? parseProps(origFmMatch[2]) : [];
   const subtreeIds = collectSubtreeIds(byId, nodeId);
   const hoistedPropRecords = findHoistCandidates(byId, astById, subtreeIds, spans, source, originalProps);
+  const movedComponentNames = collectComponentTags(byId, nodeId);
 
   const instanceAttrs = hoistedPropRecords.map((p) => ` ${p.name}={${p.name}}`).join("");
   const instanceTag = `<${componentName}${instanceAttrs} />`;
   const afterNode = source.slice(0, nodeSpan[0]) + instanceTag + source.slice(nodeSpan[1]);
-  const afterImport = rewriteOriginalFrontmatter(afterNode, relPath, componentName, newComponentPath);
+  const afterImport = rewriteOriginalFrontmatter(afterNode, relPath, componentName, newComponentPath, movedComponentNames);
 
+  const importLines = importLinesForNewFile(origFmMatch ? origFmMatch[2] : "", movedComponentNames, relPath, newComponentPath);
   const propsInterface = generatePropsInterface(hoistedPropRecords);
   const propsDestructure = generatePropsDestructure(hoistedPropRecords);
-  const fmParts = [propsInterface, propsDestructure].filter(Boolean);
+  const fmParts = [importLines ? importLines.trimEnd() : null, propsInterface, propsDestructure].filter(Boolean);
   const newFm = fmParts.length ? `---\n${fmParts.join("\n")}\n---\n` : "";
 
   return {
