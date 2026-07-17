@@ -2,10 +2,13 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, normalize, basename, dirname, sep } from "node:path";
 import { parse } from "@astrojs/compiler";
 import { fileVersion } from "./file-version.mjs";
-import { buildTemplateNodeIndex } from "./component-node-index.mjs";
+import { buildTemplateNodeIndex, buildLineStarts } from "./component-node-index.mjs";
 import { resolveAllSpans, SpanResolutionError, importSpecifier, collectComponentTags } from "./component-structure-edit.mjs";
 import { ensureImport, parseImports, pruneImportIfUnused } from "./frontmatter-imports.mjs";
 import { parseProps, generatePropsInterface, generatePropsDestructure } from "./props-interface.mjs";
+import { collectElements } from "./component-model.mjs";
+import { indexCssRules } from "./css-rule-index.mjs";
+import { isSimpleSelector, selectorMatchesNode } from "./style-selector-match.mjs";
 
 /**
  * Write-side resolver for extract-component (Component Editor Slice 5). Unlike every other
@@ -161,6 +164,107 @@ function rewriteOriginalFrontmatter(afterNode, relPath, componentName, newCompon
   return `---\n${importLine}---\n${afterNode}`;
 }
 
+function anyNodeMatches(byId, nodeIds, selector) {
+  return nodeIds.some((id) => selectorMatchesNode(selector, byId.get(id)));
+}
+
+/**
+ * `selectorMatchesNode` (Task 1) returns false outright for any non-simple selector — it
+ * doesn't understand combinators, so it can't itself tell whether a complex selector like
+ * ".hero > h1" "touches" the subtree. For the complex-selector warning we don't need real
+ * combinator matching, just a signal of "plausibly related to this subtree" — so split on
+ * whitespace/combinators, strip pseudo-classes/attribute-selector brackets, and check whether
+ * any resulting SIMPLE token matches a subtree node. ".hero > h1" tokenizes to [".hero", "h1"];
+ * either one matching the extracted <div class="hero"> is enough to warn.
+ */
+function selectorTouchesNodes(selector, byId, nodeIds) {
+  const tokens = selector
+    .split(/[\s>+~]+/)
+    .map((tok) => tok.replace(/:[\w-]+(\([^)]*\))?/g, "").replace(/\[[^\]]*\]/g, ""))
+    .filter(Boolean);
+  return tokens.some((tok) => isSimpleSelector(tok) && anyNodeMatches(byId, nodeIds, tok));
+}
+
+/** Splits `rules` into ones to move (simple selector, exclusively inside the subtree) and
+ *  warnings for everything else that touches the subtree but can't safely move. */
+function classifyStyleRules(byId, subtreeIds, outsideIds, rules) {
+  const toMove = [];
+  const warnings = [];
+  for (const rule of rules) {
+    if (!isSimpleSelector(rule.selector)) {
+      if (selectorTouchesNodes(rule.selector, byId, subtreeIds)) {
+        warnings.push(`${rule.selector} not moved: selector too complex to analyze automatically`);
+      }
+      continue;
+    }
+    const insideMatch = anyNodeMatches(byId, subtreeIds, rule.selector);
+    if (!insideMatch) continue;
+    if (anyNodeMatches(byId, outsideIds, rule.selector)) {
+      warnings.push(`${rule.selector} not moved: also used outside the extracted markup`);
+      continue;
+    }
+    toMove.push(rule);
+  }
+  return { toMove, warnings };
+}
+
+// Compares by CONTENT only (selector/media/declaration property+value pairs), never by
+// span. `removeMovedRules` re-parses `current` fresh before every removal, and each prior
+// removal shifts every subsequent byte offset in the file — so a `target` rule's span
+// (captured once, from the original `source`) can never be expected to equal the span of
+// the same rule re-derived from a `current` string of a different length. Declaration
+// `span`s (nested inside `declarations`) would leak into a naive `JSON.stringify` diff,
+// so they're stripped before comparing.
+function sameRule(a, b) {
+  const strip = (decls) => decls.map(({ property, value }) => ({ property, value }));
+  return a.selector === b.selector && a.media === b.media && JSON.stringify(strip(a.declarations)) === JSON.stringify(strip(b.declarations));
+}
+
+function removeRuleSpan(text, span) {
+  let start = span[0];
+  while (start > 0 && (text[start - 1] === " " || text[start - 1] === "\t")) start--;
+  if (start > 0 && text[start - 1] === "\n") start--;
+  return text.slice(0, start) + text.slice(span[1]);
+}
+
+/** Removes each `toMove` rule from `text` one at a time, re-parsing/re-indexing fresh before
+ *  each removal (rather than composing stale offsets) — the same "never trust a stale offset,
+ *  always re-derive against the current string" discipline the rest of this codebase uses. */
+async function removeMovedRules(text, toMove) {
+  let current = text;
+  for (const target of toMove) {
+    const { ast } = await parse(current, { position: true });
+    const lineStarts = buildLineStarts(current);
+    const styleEls = [];
+    collectElements(ast, "style", styleEls);
+    const rules = styleEls.flatMap((el) => indexCssRules(el, lineStarts));
+    const match = rules.find((r) => sameRule(r, target));
+    if (!match) continue; // defensive: rule text/media/declarations are stable across re-parses
+    current = removeRuleSpan(current, match.span);
+  }
+  return current;
+}
+
+function indent(text) {
+  return text.split("\n").map((l) => (l ? "  " + l : l)).join("\n");
+}
+
+function buildMovedStyleBlock(source, toMove) {
+  if (toMove.length === 0) return "";
+  const byMedia = new Map();
+  for (const rule of toMove) {
+    const key = rule.media ?? "";
+    if (!byMedia.has(key)) byMedia.set(key, []);
+    byMedia.get(key).push(rule);
+  }
+  const blocks = [];
+  for (const [media, rules] of byMedia) {
+    const ruleTexts = rules.map((r) => source.slice(r.span[0], r.span[1])).join("\n\n");
+    blocks.push(media ? `@media ${media} {\n${indent(ruleTexts)}\n}` : ruleTexts);
+  }
+  return `\n<style>\n${blocks.join("\n\n")}\n</style>\n`;
+}
+
 export async function resolveComponentExtract(projectRoot, edit) {
   const { component } = edit;
   if (!component || typeof component !== "object") {
@@ -183,7 +287,7 @@ export async function resolveComponentExtract(projectRoot, edit) {
 
   const loaded = await loadFresh(projectRoot, relPath, baseVersion);
   if (loaded.error) return loaded.error;
-  const { source, byId, rootId, astById } = loaded;
+  const { source, ast, byId, rootId, astById } = loaded;
 
   const node = byId.get(nodeId);
   if (!node) return refuse("no-match", "no node found at the given id — the file may have changed");
@@ -222,6 +326,13 @@ export async function resolveComponentExtract(projectRoot, edit) {
   const hoistedPropRecords = findHoistCandidates(byId, astById, subtreeIds, spans, source, originalProps);
   const movedComponentNames = collectComponentTags(byId, nodeId);
 
+  const outsideIds = [...byId.keys()].filter((id) => id !== rootId && !subtreeIds.includes(id));
+  const styleElements = [];
+  collectElements(ast, "style", styleElements);
+  const lineStarts = buildLineStarts(source);
+  const allRules = styleElements.flatMap((el) => indexCssRules(el, lineStarts));
+  const { toMove, warnings } = classifyStyleRules(byId, subtreeIds, outsideIds, allRules);
+
   const instanceAttrs = hoistedPropRecords.map((p) => ` ${p.name}={${p.name}}`).join("");
   const instanceTag = `<${componentName}${instanceAttrs} />`;
   const afterNode = source.slice(0, nodeSpan[0]) + instanceTag + source.slice(nodeSpan[1]);
@@ -233,12 +344,15 @@ export async function resolveComponentExtract(projectRoot, edit) {
   const fmParts = [importLines ? importLines.trimEnd() : null, propsInterface, propsDestructure].filter(Boolean);
   const newFm = fmParts.length ? `---\n${fmParts.join("\n")}\n---\n` : "";
 
+  const finalReplacement = await removeMovedRules(afterImport, toMove);
+  const styleBlock = buildMovedStyleBlock(source, toMove);
+
   return {
     file: relPath,
     range: { start: 0, end: source.length },
-    replacement: afterImport,
-    newFile: { path: newComponentPath, content: `${newFm}${subtreeText}\n` },
+    replacement: finalReplacement,
+    newFile: { path: newComponentPath, content: `${newFm}${subtreeText}\n${styleBlock}` },
     hoistedProps: hoistedPropRecords.map((p) => p.name),
-    warnings: [],
+    warnings,
   };
 }

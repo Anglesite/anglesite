@@ -285,4 +285,72 @@ describe("resolveComponentExtract — core", () => {
     const badgeUsages = result.newFile.content.match(/<Badge \/>/g);
     expect(badgeUsages).toHaveLength(2);
   });
+
+  it("moves a simple-selector rule that only targets nodes inside the extracted subtree", async () => {
+    const source = `---\n---\n<main>\n  <div class="hero">\n    <h1>Hi</h1>\n  </div>\n</main>\n<style>\n  .hero {\n    color: blue;\n  }\n</style>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.warnings).toEqual([]);
+    expect(result.newFile.content).toContain(".hero {\n    color: blue;\n  }");
+    expect(result.replacement).not.toContain("color: blue");
+    // The rule's own text is gone, but removeMovedRules only strips the {...} block it matched —
+    // it does not clean up a now-empty surrounding <style></style> shell (documented limitation,
+    // see the note under Step 3 below). Assert the shell is empty rather than asserting it's gone.
+    expect(result.replacement).toMatch(/<style>\s*<\/style>/);
+  });
+
+  it("keeps a simple-selector rule in the original and reports a warning when it's also used outside the extracted subtree", async () => {
+    const source = `---\n---\n<main>\n  <p class="hero">Outside</p>\n  <div class="hero">\n    <h1>Hi</h1>\n  </div>\n</main>\n<style>\n  .hero {\n    color: blue;\n  }\n</style>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[1]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.warnings).toEqual([".hero not moved: also used outside the extracted markup"]);
+    expect(result.replacement).toContain("color: blue"); // stays in the original
+    expect(result.newFile.content).not.toContain("<style>");
+  });
+
+  it("keeps a complex-selector rule in the original and reports a warning", async () => {
+    const source = `---\n---\n<main>\n  <div class="hero">\n    <h1>Hi</h1>\n  </div>\n</main>\n<style>\n  .hero > h1 {\n    color: blue;\n  }\n</style>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    // css-tree's generate() (used by indexCssRules, out of scope for this task) normalizes
+    // combinator whitespace away — ".hero > h1" round-trips as ".hero>h1", not the
+    // source-literal spacing. The warning text is built from that already-normalized
+    // rule.selector, so it reflects the normalized form too.
+    expect(result.warnings).toEqual([".hero>h1 not moved: selector too complex to analyze automatically"]);
+    expect(result.replacement).toContain("color: blue");
+  });
+
+  it("splits a media-query block when only some of its rules move", async () => {
+    const source = `---\n---\n<main>\n  <p class="kept">Kept</p>\n  <div class="hero">\n    <h1>Hi</h1>\n  </div>\n</main>\n<style>\n  @media (min-width: 40em) {\n    .hero {\n      color: blue;\n    }\n    .kept {\n      color: red;\n    }\n  }\n</style>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[1]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.warnings).toEqual([]);
+    expect(result.newFile.content).toMatch(/@media \(min-width: 40em\)[\s\S]*\.hero[\s\S]*color: blue/);
+    expect(result.replacement).toMatch(/@media \(min-width: 40em\)[\s\S]*\.kept[\s\S]*color: red/);
+    expect(result.replacement).not.toContain(".hero");
+  });
 });
