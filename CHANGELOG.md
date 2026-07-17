@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- `apply_edit` gains `extract-component` — the first two-file component op —
+  for the Component Editor's "Extract into Component…" gesture (Slice 5).
+  Carves a `get_component_model` outline subtree (element/component/slot
+  only) into a new `.astro` file under `src/components/`, hoists the
+  original component's own declared Props that the subtree bare-referenced,
+  migrates simple-selector scoped-style rules that exclusively target the
+  extracted markup (reporting non-blocking `warnings` for anything shared or
+  too complex to analyze automatically), and replaces the extracted markup
+  with a self-closing instance + import. Lands both files in one hidden
+  `anglesite/edits` branch commit, so `undo_edit` reverts both together.
+
 ## [1.6.0] — 2026-07-16
 
 ### Added
