@@ -51,14 +51,28 @@ async function loadFresh(projectRoot, relPath, baseVersion) {
   return { source, ast, byId, rootId, astById };
 }
 
+// Detects an existing frontmatter block via indexOf rather than a regex requiring two
+// independently-matched newlines — the regex approach fails to match the minimal
+// empty-body shape `"---\n---\n"` (no blank body line between fences), which caused a
+// second frontmatter block to be prepended in front of the existing one, corrupting the
+// file. Mirrors the already-correct `findFrontmatterEnd` pattern in server/patcher.mjs.
+function findFrontmatterBody(source) {
+  if (!source.startsWith("---")) return null;
+  const afterOpen = source.indexOf("\n", 3);
+  if (afterOpen === -1) return null;
+  const bodyStart = afterOpen + 1;
+  const closeIdx = source.indexOf("\n---", 3);
+  if (closeIdx === -1) return null;
+  return { bodyStart, bodyEnd: closeIdx };
+}
+
 function rewriteOriginalFrontmatter(afterNode, relPath, componentName, newComponentPath) {
-  const fmMatch = afterNode.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
   const specifier = importSpecifier(relPath, newComponentPath);
-  if (fmMatch) {
-    const [, open, fmBody] = fmMatch;
-    const fmBodyStart = fmMatch.index + open.length;
+  const fm = findFrontmatterBody(afterNode);
+  if (fm) {
+    const fmBody = afterNode.slice(fm.bodyStart, fm.bodyEnd);
     const { source: newFmBody } = ensureImport(fmBody, { localName: componentName, specifier });
-    return afterNode.slice(0, fmBodyStart) + newFmBody + afterNode.slice(fmBodyStart + fmBody.length);
+    return afterNode.slice(0, fm.bodyStart) + newFmBody + afterNode.slice(fm.bodyStart + fmBody.length);
   }
   const importLine = `import ${componentName} from "${specifier}";\n`;
   return `---\n${importLine}---\n${afterNode}`;
@@ -78,6 +92,10 @@ export async function resolveComponentExtract(projectRoot, edit) {
   }
   if (!validNewComponentPath(newComponentPath)) {
     return refuse("invalid-input", `newComponentPath must be a project-relative .astro path under src/components/: ${newComponentPath}`);
+  }
+  const componentName = basename(newComponentPath, ".astro");
+  if (!/^[A-Z][A-Za-z0-9_]*$/.test(componentName)) {
+    return refuse("invalid-input", `newComponentPath's basename must be a capitalized component identifier: ${componentName}`);
   }
 
   const loaded = await loadFresh(projectRoot, relPath, baseVersion);
@@ -114,7 +132,6 @@ export async function resolveComponentExtract(projectRoot, edit) {
   }
 
   const subtreeText = source.slice(nodeSpan[0], nodeSpan[1]);
-  const componentName = basename(newComponentPath, ".astro");
 
   const instanceTag = `<${componentName} />`;
   const afterNode = source.slice(0, nodeSpan[0]) + instanceTag + source.slice(nodeSpan[1]);

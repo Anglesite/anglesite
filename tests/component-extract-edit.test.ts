@@ -106,6 +106,24 @@ describe("resolveComponentExtract — core", () => {
     expect(next).toContain("<Hero />");
     expect(next).not.toContain('<div class="hero">');
     expect(next).toMatch(/import Hero from "\.\/Hero\.astro";/);
+
+    // PAGE's frontmatter is the minimal empty-body, adjacent-fence shape ("---\n---\n"). A prior
+    // regex-based frontmatter detector failed to match this shape and prepended a second
+    // frontmatter block, leaving a stray "---\n---\n" text node when re-parsed. Guard against
+    // regressions by re-parsing the rewritten source and asserting exactly one frontmatter node.
+    const { ast: nextAst } = await parse(next, { position: true });
+    expect(nextAst.children.filter((n) => n.type === "frontmatter")).toHaveLength(1);
+  });
+
+  it("refuses invalid-input when newComponentPath's basename is not capitalized", async () => {
+    const baseVersion = fileVersion(PAGE);
+    const { byId, rootId } = await nodeIndex(PAGE);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/hero.astro" } };
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.refused).toBe(true);
+    expect(result.reason).toBe("invalid-input");
   });
 
   it("refuses invalid-input for a text-kind node", async () => {
