@@ -94,6 +94,30 @@ describe("applyEdit — extract-component (no git repo)", () => {
     expect(readFileSync(join(tmpDir, "src/components/Hero.astro"), "utf-8")).toBe(HERO);
   });
 
+  it("surfaces dynamic-expression as a failed reply and touches neither file, instead of silently writing a new file that fails to build", async () => {
+    const WITH_EXPRESSION = `---
+const title = "Welcome";
+---
+<section>
+  <h2>{title}</h2>
+</section>
+`;
+    writeFileSync(join(tmpDir, "src", "components", "Hero.astro"), WITH_EXPRESSION);
+    const baseVersion = fileVersion(WITH_EXPRESSION);
+    const h2 = await findTag(WITH_EXPRESSION, "h2");
+
+    const response = await applyEdit(tmpDir, {
+      id: "1",
+      path: "src/components/Hero.astro",
+      op: "extract-component",
+      component: { path: "src/components/Hero.astro", baseVersion, nodeId: h2.id, newName: "CardTitle" },
+    });
+    expect(response.isError).toBe(true);
+    expect(parseContent(response).reason).toBe("dynamic-expression");
+    expect(existsSync(join(tmpDir, "src/components/CardTitle.astro"))).toBe(false);
+    expect(readFileSync(join(tmpDir, "src/components/Hero.astro"), "utf-8")).toBe(WITH_EXPRESSION);
+  });
+
   it("refuses already-exists and writes nothing when the target file appears between resolve and write", async () => {
     const baseVersion = fileVersion(HERO);
     const h2 = await findTag(HERO, "h2");

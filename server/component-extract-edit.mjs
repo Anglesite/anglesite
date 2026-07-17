@@ -47,6 +47,19 @@ import {
  *    generic `text1`, `text2`, … sequence in document order. Every hoisted prop is `type:
  *    "string"` — no number/boolean inference (no prior art for it in this codebase, and the
  *    payoff isn't worth the complexity for a first cut). Name collisions get a numeric suffix.
+ *
+ * 3. Dynamic content is refused outright, not silently copied. `collectCandidates` already never
+ *    offers an expression/dynamic-attribute as a HOISTABLE prop — but that alone isn't enough:
+ *    without a separate check, anything that isn't specifically hoisted (including any
+ *    `{expression}` — text interpolation, a dynamic attribute binding, a spread, a template
+ *    literal) would still get copied byte-for-byte into the new file by `hoistProps`'s markup
+ *    splice. Its referenced identifiers (frontmatter variables, props destructured from
+ *    `Astro.props`, loop variables from an enclosing `.map()`, …) are NOT in scope in the new
+ *    file, which only gets the hoisted-prop destructure — so the new file would fail to build.
+ *    `findDynamicContent` walks the subtree up front and refuses with the same `dynamic-expression`
+ *    reason `patcher.mjs`'s `resolveAstro` already uses for "can't safely act on dynamic content,"
+ *    matching every sibling structural op's fail-closed convention rather than attempting to
+ *    hoist expressions as pass-through props in this same change.
  */
 
 function refuse(reason, detail) {
@@ -75,6 +88,34 @@ const RESERVED_WORDS = new Set([
   "with", "yield", "let", "static", "enum", "await", "implements", "interface", "package",
   "private", "protected", "public", "null", "true", "false",
 ]);
+
+// Every @astrojs/compiler attribute kind OTHER than "quoted" (a plain string literal) and
+// "empty" (a valueless boolean attribute like `disabled` — no referenced identifier at all) is
+// dynamic: it either directly names a variable ("expression": `src={imageUrl}`, "shorthand":
+// `{value}`), splices one in ("template-literal": `` `hi${x}` ``), or spreads a whole object
+// ("spread": `{...rest}`). Any of these inside the extracted subtree references an identifier
+// that won't exist in the new file — see `findDynamicContent`.
+const DYNAMIC_ATTR_KINDS = new Set(["expression", "shorthand", "spread", "template-literal"]);
+
+/**
+ * True if the subtree rooted at `nodeId` contains ANY dynamic content: an "expression"-kind
+ * node (text interpolation, `{items.map(...)}`, etc.) anywhere in the tree, or a dynamic-kind
+ * attribute (see `DYNAMIC_ATTR_KINDS`) on any element/component descendant. Used to refuse the
+ * whole op up front — see design decision 3 in the file header for why silently copying such
+ * content into the new file (rather than refusing) would produce a file that fails to build.
+ */
+function findDynamicContent(byId, nodeId) {
+  function visit(id) {
+    const n = byId.get(id);
+    if (!n) return false;
+    if (n.kind === "expression") return true;
+    if (n.kind === "element" || n.kind === "component") {
+      if (n.attrs.some((attr) => DYNAMIC_ATTR_KINDS.has(attr.kind))) return true;
+    }
+    return n.childIds.some((childId) => visit(childId));
+  }
+  return visit(nodeId);
+}
 
 async function loadFresh(projectRoot, relPath, baseVersion) {
   const absPath = join(projectRoot, relPath);
@@ -270,6 +311,12 @@ export async function resolveComponentExtract(projectRoot, edit) {
   if (node.parentId === null) return refuse("invalid-input", "cannot extract the component's own root");
   if (node.kind !== "element" && node.kind !== "component") {
     return refuse("invalid-input", `extract-component requires an element or component node, got kind=${node.kind}`);
+  }
+  if (findDynamicContent(byId, nodeId)) {
+    return refuse(
+      "dynamic-expression",
+      "extract-component cannot safely extract a subtree containing dynamic content ({expression} interpolation, a dynamic attribute binding, a spread, or a template literal) — the identifiers it references would not be in scope in the new file",
+    );
   }
 
   const newRelPath = `src/components/${newName}.astro`;

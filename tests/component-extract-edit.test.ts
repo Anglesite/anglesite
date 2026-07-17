@@ -294,4 +294,69 @@ import Button from "@components/Button.astro";
     expect(result.newFile.content).toContain('import Icon from "some-astro-lib/Icon.astro";');
     expect(result.newFile.content).toContain('import Button from "@components/Button.astro";');
   });
+
+  it("refuses dynamic-expression rather than copying a {variable} text interpolation into the new file verbatim", async () => {
+    // `title` is a frontmatter const in the SOURCE file — it would not exist in the new file's
+    // scope (which only gets the hoisted-prop destructure), so silently copying `{title}` across
+    // would produce a component that fails to build.
+    const WITH_EXPRESSION = `---
+const title = "Hello";
+---
+<section>
+  <div class="card">
+    <h2>{title}</h2>
+  </div>
+</section>
+`;
+    writeFileSync(join(tmpDir, "src", "components", "Hero.astro"), WITH_EXPRESSION);
+    const baseVersion = fileVersion(WITH_EXPRESSION);
+    const { ast } = await parse(WITH_EXPRESSION, { position: true });
+    const { byId, rootId } = buildTemplateNodeIndex(ast, WITH_EXPRESSION);
+    const section = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(section.childIds[0]);
+
+    const result = await resolveComponentExtract(tmpDir, {
+      op: "extract-component",
+      component: { path: "src/components/Hero.astro", baseVersion, nodeId: div.id, newName: "Card" },
+    });
+
+    expect(result.refused).toBe(true);
+    expect(result.reason).toBe("dynamic-expression");
+  });
+
+  it("refuses dynamic-expression rather than copying a dynamic attribute binding (src={imageUrl}) into the new file verbatim", async () => {
+    const WITH_DYNAMIC_ATTR = `---
+const imageUrl = "/photo.jpg";
+---
+<section>
+  <div class="card">
+    <img src={imageUrl} alt="Static alt" />
+  </div>
+</section>
+`;
+    writeFileSync(join(tmpDir, "src", "components", "Hero.astro"), WITH_DYNAMIC_ATTR);
+    const baseVersion = fileVersion(WITH_DYNAMIC_ATTR);
+    const { ast } = await parse(WITH_DYNAMIC_ATTR, { position: true });
+    const { byId, rootId } = buildTemplateNodeIndex(ast, WITH_DYNAMIC_ATTR);
+    const section = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(section.childIds[0]);
+
+    const result = await resolveComponentExtract(tmpDir, {
+      op: "extract-component",
+      component: { path: "src/components/Hero.astro", baseVersion, nodeId: div.id, newName: "Card" },
+    });
+
+    expect(result.refused).toBe(true);
+    expect(result.reason).toBe("dynamic-expression");
+  });
+
+  it("still extracts a subtree that has no dynamic content at all (sanity: the new refusal doesn't over-trigger)", async () => {
+    const baseVersion = fileVersion(HERO);
+    const { node: h2 } = await findTag(HERO, "h2");
+    const result = await resolveComponentExtract(tmpDir, {
+      op: "extract-component",
+      component: { path: "src/components/Hero.astro", baseVersion, nodeId: h2.id, newName: "CardTitle" },
+    });
+    expect(result.refused).toBeFalsy();
+  });
 });
