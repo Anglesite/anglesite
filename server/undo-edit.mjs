@@ -14,7 +14,7 @@
  *   - working-tree-modified: at least one touched file differs on disk vs. HEAD's blob
  */
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 const EDITS_REF = "refs/heads/anglesite/edits";
@@ -76,10 +76,25 @@ export async function undoEdit(projectRoot, { commit, force = false } = {}) {
     }
   }
 
-  // 6. Write parent's blob content for each file back to disk.
+  // 6. Write parent's blob content for each file back to disk — or, for a file that HEAD
+  //    introduced (didn't exist in `parent` at all), delete it instead of trying to "restore"
+  //    content that never existed. Every op before extract-component only ever modified files
+  //    already present in the base tree, so this branch was unreachable until extract-component
+  //    started committing a brand-new src/components/<Name>.astro alongside the edited source
+  //    file in the SAME commit (Anglesite/Anglesite-app#495) — without it, undoing an extract
+  //    would crash on the `git show` below instead of cleanly removing the new file.
   for (const file of files) {
-    const content = runGitBuffer(projectRoot, ["show", `${parent}:${file}`]);
-    writeFileSync(join(projectRoot, file), content);
+    const existedInParent = tryRunGit(projectRoot, ["cat-file", "-e", `${parent}:${file}`]) !== undefined;
+    if (existedInParent) {
+      const content = runGitBuffer(projectRoot, ["show", `${parent}:${file}`]);
+      writeFileSync(join(projectRoot, file), content);
+    } else {
+      try {
+        unlinkSync(join(projectRoot, file));
+      } catch {
+        // Already gone on disk — nothing to do.
+      }
+    }
   }
 
   // 7. Advance the hidden branch with a new commit whose tree matches parent's tree.

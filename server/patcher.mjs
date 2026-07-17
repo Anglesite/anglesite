@@ -4,7 +4,13 @@ import { rewriteAstroStyle } from "./style-edit.mjs";
 import { resolveComponentStyle } from "./component-style-edit.mjs";
 import { resolveComponentStructure } from "./component-structure-edit.mjs";
 import { resolveComponentFrontmatter } from "./component-frontmatter-edit.mjs";
-import { COMPONENT_STYLE_OPS, COMPONENT_STRUCTURE_OPS, COMPONENT_FRONTMATTER_OPS } from "./apply-edit-schema.mjs";
+import { resolveComponentExtract } from "./component-extract-edit.mjs";
+import {
+  COMPONENT_STYLE_OPS,
+  COMPONENT_STRUCTURE_OPS,
+  COMPONENT_FRONTMATTER_OPS,
+  COMPONENT_EXTRACT_OPS,
+} from "./apply-edit-schema.mjs";
 
 /**
  * @typedef {import('./apply-edit-schema.mjs').default} _unused
@@ -16,21 +22,22 @@ import { COMPONENT_STYLE_OPS, COMPONENT_STRUCTURE_OPS, COMPONENT_FRONTMATTER_OPS
  * Resolve an edit payload to a source-file patch.
  *
  * Tries resolvers in priority order: edit-style → component-style ops →
- * component-structure ops → component-frontmatter ops → .mdoc → Keystatic
- * YAML/JSON → .astro. Returns the first non-refusal. If all refuse, returns
- * the most informative refusal (from the highest-priority resolver that had
- * an opinion).
+ * component-structure ops → component-frontmatter ops → component-extract op →
+ * .mdoc → Keystatic YAML/JSON → .astro. Returns the first non-refusal. If all
+ * refuse, returns the most informative refusal (from the highest-priority
+ * resolver that had an opinion).
  *
  * Async because `resolveComponentStyle` (component-style-edit.mjs),
- * `resolveComponentStructure` (component-structure-edit.mjs), and
- * `resolveComponentFrontmatter` (component-frontmatter-edit.mjs) parse the
- * target .astro file with `@astrojs/compiler`, which is itself async. Every
- * other resolver here is synchronous; awaiting their (non-Promise) return
- * values is a no-op, so this doesn't change their behavior.
+ * `resolveComponentStructure` (component-structure-edit.mjs),
+ * `resolveComponentFrontmatter` (component-frontmatter-edit.mjs), and
+ * `resolveComponentExtract` (component-extract-edit.mjs) parse the target
+ * .astro file with `@astrojs/compiler`, which is itself async. Every other
+ * resolver here is synchronous; awaiting their (non-Promise) return values is
+ * a no-op, so this doesn't change their behavior.
  *
  * @param {string} projectRoot
  * @param {{ path: string, selector: object, op: string, value?: unknown, component?: object }} edit
- * @returns {Promise<ResolveResult | ResolveRefusal>}
+ * @returns {Promise<ResolveResult | ResolveRefusal | { extract: true, newFile: object, original: ResolveResult }>}
  */
 export async function resolve(projectRoot, edit) {
   if (edit.op === "edit-style") {
@@ -44,6 +51,9 @@ export async function resolve(projectRoot, edit) {
   }
   if (COMPONENT_FRONTMATTER_OPS.has(edit.op)) {
     return resolveComponentFrontmatter(projectRoot, edit);
+  }
+  if (COMPONENT_EXTRACT_OPS.has(edit.op)) {
+    return resolveComponentExtract(projectRoot, edit);
   }
   const resolvers = [resolveMdoc, resolveKeystatic, resolveAstro];
   let bestRefusal = /** @type {ResolveRefusal | null} */ (null);

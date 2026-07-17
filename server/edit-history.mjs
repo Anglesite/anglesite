@@ -40,18 +40,32 @@ function isGitRepo(projectRoot) {
   return tryRunGit(projectRoot, ["rev-parse", "--git-dir"]) !== undefined;
 }
 
-function formatMessage({ file, range, message }) {
-  const headline = message && message.trim() ? message.trim() : `anglesite: edit ${file}`;
+function formatMessage({ file, files, range, message }) {
+  const headline = message && message.trim() ? message.trim() : `anglesite: edit ${file ?? files?.[0]}`;
+  // Multi-file commits (currently only extract-component, which adds a brand-new
+  // src/components/<Name>.astro alongside patching the file the extraction was made from) have
+  // no single meaningful byte range, so the trailer lists every touched path instead.
+  if (files && files.length > 1) {
+    return `${headline}\n\nfiles:\n${files.map((f) => `  ${f}`).join("\n")}\n`;
+  }
   return `${headline}\n\nfile: ${file}\nrange: ${range.start}-${range.end}\n`;
 }
 
 /**
  * @param {string} projectRoot
- * @param {{ file: string, range: {start:number,end:number}, message?: string }} info
+ * @param {{ file: string, range: {start:number,end:number}, message?: string }
+ *        | { files: string[], message?: string }} info
+ *   Single-file form (`file`/`range`) is the original, still-default shape every non-extract op
+ *   uses. `files` (2+ paths) commits ALL of them onto ONE anglesite/edits commit — used by
+ *   extract-component so "one semantic op → one commit" (the invariant every other op already
+ *   gets for free) holds for its two-file write too, and so a single `undo_edit` call reverts
+ *   the whole op atomically instead of needing one call per touched file.
  * @returns {Promise<string | undefined>} commit SHA, or undefined on any failure
  */
-export async function recordEdit(projectRoot, { file, range, message }) {
+export async function recordEdit(projectRoot, { file, files, range, message }) {
   if (!isGitRepo(projectRoot)) return undefined;
+  const fileList = files ?? (file ? [file] : []);
+  if (fileList.length === 0) return undefined;
 
   try {
     // 1. Ensure refs/heads/anglesite/edits exists, initializing from HEAD on first edit.
@@ -69,19 +83,18 @@ export async function recordEdit(projectRoot, { file, range, message }) {
     const env = { GIT_INDEX_FILE: tmpIndex };
     try {
       runGit(projectRoot, ["read-tree", EDITS_REF], env);
-      // hash-object -w writes a blob from the on-disk file content into the object DB,
-      // regardless of whether `file` is tracked or .gitignored.
-      const blob = runGit(projectRoot, ["hash-object", "-w", "--", file]);
-      // --cacheinfo lets us add/replace by blob SHA without consulting the working index.
-      runGit(
-        projectRoot,
-        ["update-index", "--add", "--cacheinfo", `100644,${blob},${file}`],
-        env,
-      );
+      for (const f of fileList) {
+        // hash-object -w writes a blob from the on-disk file content into the object DB,
+        // regardless of whether `f` is tracked or .gitignored, already existed, or is brand new.
+        const blob = runGit(projectRoot, ["hash-object", "-w", "--", f]);
+        // --cacheinfo lets us add/replace by blob SHA without consulting the working index;
+        // --add covers both "replace an existing path" and "add a path new to this tree".
+        runGit(projectRoot, ["update-index", "--add", "--cacheinfo", `100644,${blob},${f}`], env);
+      }
       const tree = runGit(projectRoot, ["write-tree"], env);
       const parent = runGit(projectRoot, ["rev-parse", EDITS_REF]);
       const commit = runGit(projectRoot, [
-        "commit-tree", tree, "-p", parent, "-m", formatMessage({ file, range, message }),
+        "commit-tree", tree, "-p", parent, "-m", formatMessage({ file, files, range, message }),
       ]);
       // CAS update with OLDVALUE so two concurrent recordEdits can't silently clobber each other.
       runGit(projectRoot, ["update-ref", EDITS_REF, commit, parent]);
