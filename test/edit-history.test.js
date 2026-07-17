@@ -93,4 +93,24 @@ describe("recordEdit", () => {
       rmSync(notRepo, { recursive: true, force: true });
     }
   });
+
+  it("stages a second file into the same commit when newFile is provided", async () => {
+    writeFileSync(join(repo, "README.md"), "edited\n");
+    mkdirSync(join(repo, "src", "components"), { recursive: true });
+    writeFileSync(join(repo, "src", "components", "Hero.astro"), "<div>Hero</div>\n");
+
+    const sha = await recordEdit(repo, {
+      file: "README.md",
+      range: { start: 0, end: 7 },
+      newFile: { path: "src/components/Hero.astro" },
+      message: "extract Hero",
+    });
+
+    expect(sha).toMatch(/^[0-9a-f]{40}$/);
+    expect(git(["show", `${sha}:README.md`])).toBe("edited");
+    expect(git(["show", `${sha}:src/components/Hero.astro`])).toBe("<div>Hero</div>");
+    // Both files land in ONE commit, not two.
+    const parents = git(["rev-list", "--parents", "-n", "1", sha]).split(/\s+/);
+    expect(parents).toHaveLength(2); // sha itself + exactly one parent
+  });
 });

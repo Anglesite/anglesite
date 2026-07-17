@@ -47,10 +47,10 @@ function formatMessage({ file, range, message }) {
 
 /**
  * @param {string} projectRoot
- * @param {{ file: string, range: {start:number,end:number}, message?: string }} info
+ * @param {{ file: string, range: {start:number,end:number}, newFile?: {path: string}, message?: string }} info
  * @returns {Promise<string | undefined>} commit SHA, or undefined on any failure
  */
-export async function recordEdit(projectRoot, { file, range, message }) {
+export async function recordEdit(projectRoot, { file, range, newFile, message }) {
   if (!isGitRepo(projectRoot)) return undefined;
 
   try {
@@ -78,6 +78,10 @@ export async function recordEdit(projectRoot, { file, range, message }) {
         ["update-index", "--add", "--cacheinfo", `100644,${blob},${file}`],
         env,
       );
+      if (newFile) {
+        const newBlob = runGit(projectRoot, ["hash-object", "-w", "--", newFile.path]);
+        runGit(projectRoot, ["update-index", "--add", "--cacheinfo", `100644,${newBlob},${newFile.path}`], env);
+      }
       const tree = runGit(projectRoot, ["write-tree"], env);
       const parent = runGit(projectRoot, ["rev-parse", EDITS_REF]);
       const commit = runGit(projectRoot, [
