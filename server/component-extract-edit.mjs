@@ -128,7 +128,7 @@ function resolveImportTargetPath(originalRelPath, specifier) {
 // declared) is silently skipped rather than fabricated.
 function importLinesForNewFile(originalFmBody, movedComponentNames, relPath, newComponentPath) {
   const origImports = parseImports(originalFmBody ?? "");
-  return movedComponentNames
+  return [...new Set(movedComponentNames)]
     .map((name) => origImports.find((i) => i.localName === name))
     .filter(Boolean)
     .map((imp) => {

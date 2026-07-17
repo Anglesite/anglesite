@@ -265,4 +265,24 @@ describe("resolveComponentExtract — core", () => {
     // not the "../Badge.astro" that was correct from sections/Page.astro's own directory.
     expect(result.newFile.content).toMatch(/import Badge from "\.\/Badge\.astro";/);
   });
+
+  it("dedups a repeated nested-component import when the same component appears multiple times in the extracted subtree", async () => {
+    const source = `---\nimport Badge from "./Badge.astro";\n---\n<main>\n  <div class="hero">\n    <Badge />\n    <Badge />\n  </div>\n</main>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    writeFileSync(join(tmpDir, "src", "components", "Badge.astro"), "<span>Badge</span>\n");
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    // The import line should appear exactly once, not twice
+    const importMatches = result.newFile.content.match(/import Badge from "\.\/Badge\.astro";/g);
+    expect(importMatches).toHaveLength(1);
+    // But both <Badge /> usages should still be in the extracted markup
+    const badgeUsages = result.newFile.content.match(/<Badge \/>/g);
+    expect(badgeUsages).toHaveLength(2);
+  });
 });
