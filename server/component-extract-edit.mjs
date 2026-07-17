@@ -71,7 +71,6 @@ function findFrontmatterBody(source) {
 }
 
 const BARE_IDENTIFIER_RE = /^[A-Za-z_$][\w$]*$/;
-const FRONTMATTER_RE = /^(---\r?\n)([\s\S]*?)(\r?\n---)/;
 
 function collectSubtreeIds(byId, nodeId) {
   const ids = [];
@@ -141,10 +140,11 @@ function importLinesForNewFile(originalFmBody, movedComponentNames, relPath, new
     .join("");
 }
 
-// `findFrontmatterBody` (not the FRONTMATTER_RE regex) is used here deliberately — see its
-// file-level comment above: the regex fails to match the minimal empty-body frontmatter
-// shape "---\n---\n", which would otherwise cause a second frontmatter block to be
-// prepended via the no-frontmatter fallback below, corrupting the file.
+// `findFrontmatterBody` is the sole frontmatter detector in this module (see its file-level
+// comment above) — it correctly matches the minimal empty-body frontmatter shape
+// "---\n---\n", which a regex requiring two independently-matched newlines would miss,
+// causing a second frontmatter block to be prepended via the no-frontmatter fallback below
+// and corrupting the file.
 function rewriteOriginalFrontmatter(afterNode, relPath, componentName, newComponentPath, movedComponentNames) {
   const specifier = importSpecifier(relPath, newComponentPath);
   const fm = findFrontmatterBody(afterNode);
@@ -320,8 +320,9 @@ export async function resolveComponentExtract(projectRoot, edit) {
 
   const subtreeText = source.slice(nodeSpan[0], nodeSpan[1]);
 
-  const origFmMatch = source.match(FRONTMATTER_RE);
-  const originalProps = origFmMatch ? parseProps(origFmMatch[2]) : [];
+  const origFm = findFrontmatterBody(source);
+  const origFmBody = origFm ? source.slice(origFm.bodyStart, origFm.bodyEnd) : "";
+  const originalProps = parseProps(origFmBody);
   const subtreeIds = collectSubtreeIds(byId, nodeId);
   const hoistedPropRecords = findHoistCandidates(byId, astById, subtreeIds, spans, source, originalProps);
   const movedComponentNames = collectComponentTags(byId, nodeId);
@@ -338,7 +339,7 @@ export async function resolveComponentExtract(projectRoot, edit) {
   const afterNode = source.slice(0, nodeSpan[0]) + instanceTag + source.slice(nodeSpan[1]);
   const afterImport = rewriteOriginalFrontmatter(afterNode, relPath, componentName, newComponentPath, movedComponentNames);
 
-  const importLines = importLinesForNewFile(origFmMatch ? origFmMatch[2] : "", movedComponentNames, relPath, newComponentPath);
+  const importLines = importLinesForNewFile(origFmBody, movedComponentNames, relPath, newComponentPath);
   const propsInterface = generatePropsInterface(hoistedPropRecords);
   const propsDestructure = generatePropsDestructure(hoistedPropRecords);
   const fmParts = [importLines ? importLines.trimEnd() : null, propsInterface, propsDestructure].filter(Boolean);
