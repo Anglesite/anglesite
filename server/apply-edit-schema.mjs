@@ -58,6 +58,7 @@ export const editOps = [
   "set-attr",
   "set-props-interface",
   "set-script-zone",
+  "extract-component",
 ];
 
 /** The subset of `editOps` that operate on a component's scoped `<style>` via `component`
@@ -78,8 +79,18 @@ export const COMPONENT_STRUCTURE_OPS = new Set(["insert-node", "move-node", "rem
  *  zone via `component` — the Props form and STTextView code-pane saves. */
 export const COMPONENT_FRONTMATTER_OPS = new Set(["set-props-interface", "set-script-zone"]);
 
-/** Union of style, structure, and frontmatter component ops — used by the dispatcher's shared checks. */
-export const COMPONENT_OPS = new Set([...COMPONENT_STYLE_OPS, ...COMPONENT_STRUCTURE_OPS, ...COMPONENT_FRONTMATTER_OPS]);
+/** Extract-component: carves a get_component_model outline subtree into a new .astro file
+ *  under src/components/, replacing it in place with a component instance + import. The only
+ *  op whose resolution touches two files — see component-extract-edit.mjs. */
+export const COMPONENT_EXTRACT_OPS = new Set(["extract-component"]);
+
+/** Union of style, structure, frontmatter, and extract component ops — used by the dispatcher's shared checks. */
+export const COMPONENT_OPS = new Set([
+  ...COMPONENT_STYLE_OPS,
+  ...COMPONENT_STRUCTURE_OPS,
+  ...COMPONENT_FRONTMATTER_OPS,
+  ...COMPONENT_EXTRACT_OPS,
+]);
 
 /** Structured payload for the four component-style ops. Identifies the target rule by its exact
  *  byte span (from `get_component_model`'s `styles[].span`) plus a `baseVersion` content-hash
@@ -129,6 +140,10 @@ export const componentEditSchema = z.object({
     ),
   zone: z.enum(["frontmatter", "client"]).optional().describe("Script zone for set-script-zone: the frontmatter TS or the client <script>"),
   source: z.string().optional().describe("Replacement source text for set-script-zone's target zone"),
+  newComponentPath: z
+    .string()
+    .optional()
+    .describe("Project-relative .astro path under src/components/ for the new component — required for extract-component"),
 });
 
 /** The MCP tool's input shape, as passed to `server.tool(name, description, shape, handler)`. */
@@ -158,7 +173,7 @@ export const applyEditInputShape = {
   op: z
     .enum(editOps)
     .describe(
-      "Edit operation: replace-text (innerText), replace-attr (value is {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>), apply-instruction (reserved: sent only by the Anglesite-app Foundation Models chat path; always returns edit-failed/needs-agent — do not use from external callers), set-style-property/remove-style-property/add-style-rule/set-rule-selector (component-style ops), insert-node/move-node/remove-node/set-attr (component-structure ops), set-props-interface/set-script-zone (component-frontmatter ops — see componentEditSchema)",
+      "Edit operation: replace-text (innerText), replace-attr (value is {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>), apply-instruction (reserved: sent only by the Anglesite-app Foundation Models chat path; always returns edit-failed/needs-agent — do not use from external callers), set-style-property/remove-style-property/add-style-rule/set-rule-selector (component-style ops), insert-node/move-node/remove-node/set-attr (component-structure ops), set-props-interface/set-script-zone (component-frontmatter ops — see componentEditSchema), extract-component (carves an outline subtree into a new component under src/components/ — see componentEditSchema's nodeId/newComponentPath)",
     ),
   value: z
     .unknown()
@@ -199,7 +214,8 @@ export function createEditAppliedContent(id, file, range, commit, result, model)
 
 /** Build the MCP `content` entry for an edit-preview (dry-run) response. `before`/`after` are the
  *  windowed source fragments around the change — see dispatcher `windowAround`. */
-export function createEditPreviewContent(id, file, range, op, before, after) {
+export function createEditPreviewContent(id, file, range, op, before, after, newFile) {
   const body = { type: "anglesite:edit-preview", id, file, range, op, before, after };
+  if (newFile !== undefined) body.newFile = newFile;
   return { type: "text", text: JSON.stringify(body) };
 }
