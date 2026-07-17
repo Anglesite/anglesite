@@ -120,8 +120,8 @@ export function buildServer(projectRoot) {
     applyEditInputShape,
     async (input) =>
       applyEdit(projectRoot, input, {
-        onApplied: ({ file, range }) =>
-          recordEdit(projectRoot, { file, range, message: `anglesite: edit ${file}` }),
+        onApplied: ({ file, range, newFile }) =>
+          recordEdit(projectRoot, { file, range, newFile, message: `anglesite: edit ${file}` }),
       }),
   );
 

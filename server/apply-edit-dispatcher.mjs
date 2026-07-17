@@ -6,13 +6,16 @@
  *      via `processImageDrop` — write the bytes under `public/images/`, run optimize, build the
  *      `{src, srcset}` value the patcher's resolver expects. Throws map to `image-optimize-failed`.
  *   2. `resolve(projectRoot, edit)` (patcher.mjs) returns either `{file, range, replacement}`
- *      or `{refused: true, reason, detail?}`.
+ *      (plus, for `extract-component`, a second `newFile: {path, content}`) or
+ *      `{refused: true, reason, detail?}`.
  *   3. On refusal: forward as an `edit-failed` MCP response.
- *   4. On success: read the source, splice in the replacement, atomically write back (write to
- *      a sibling temp file then `rename`), invoke an optional `onApplied` hook so #298's
- *      `edit-history.mjs` can commit to the hidden `anglesite/edits` branch and thread its SHA
- *      back as `commit`, then return `edit-applied` — with `result: {src, srcset}` for the
- *      image-drop path.
+ *   4. On success: for `extract-component`, create-write `newFile` first (fails as `exists` on
+ *      EEXIST, so the original is never touched if the new path is already taken) — then read
+ *      the source, splice in the replacement, atomically write back (write to a sibling temp
+ *      file then `rename`), invoke an optional `onApplied` hook so #298's `edit-history.mjs`
+ *      can commit both files to the hidden `anglesite/edits` branch in one commit and thread its
+ *      SHA back as `commit`, then return `edit-applied` — with `result: {src, srcset}` for the
+ *      image-drop path, or `result: {componentPath, hoistedProps, warnings}` for extract-component.
  *   5. On any filesystem error: return `edit-failed` with reason `write-failed`.
  *
  * The handler stays a pure async function so it's unit-testable independent of the MCP
@@ -69,8 +72,8 @@ function windowAround(source, next, pad = 200) {
   return { before: source.slice(from, beforeTo), after: next.slice(from, afterTo) };
 }
 
-function preview(id, file, range, op, before, after) {
-  return { content: [createEditPreviewContent(id, file, range, op, before, after)] };
+function preview(id, file, range, op, before, after, newFile) {
+  return { content: [createEditPreviewContent(id, file, range, op, before, after, newFile)] };
 }
 
 /** Atomic write via temp-sibling + rename, so a crashed mid-write can't truncate the source. */
@@ -184,7 +187,7 @@ async function processImageDrop(projectRoot, edit) {
  *
  * @param {string} projectRoot
  * @param {object} edit  payload from the `apply_edit` tool (already zod-validated)
- * @param {{ onApplied?: (info: {file:string, range:{start:number,end:number}, projectRoot:string}) => Promise<string|undefined> | string | undefined }} [opts]
+ * @param {{ onApplied?: (info: {file:string, range:{start:number,end:number}, projectRoot:string, newFile?:{path:string}}) => Promise<string|undefined> | string | undefined }} [opts]
  */
 export async function applyEdit(projectRoot, edit, opts = {}) {
   // The app's Foundation Models chat path (ApplyEditTool, #251) forwards NL instructions
@@ -251,7 +254,27 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
 
   if (edit.dry_run) {
     const { before, after } = windowAround(source, next);
-    return preview(edit.id, file, range, edit.op, before, after);
+    const newFilePreview = resolution.newFile
+      ? { path: resolution.newFile.path, after: resolution.newFile.content }
+      : undefined;
+    return preview(edit.id, file, range, edit.op, before, after, newFilePreview);
+  }
+
+  // extract-component writes a second, brand-new file. Do that FIRST with a create-if-absent
+  // flag ("wx" — fails on EEXIST) so the only possible partial-failure state is "new file
+  // exists, original untouched" — never the reverse. If this fails, the primary atomicWrite
+  // below never runs, so the original component is guaranteed unmodified.
+  if (resolution.newFile) {
+    const absNewPath = join(projectRoot, resolution.newFile.path);
+    try {
+      mkdirSync(dirname(absNewPath), { recursive: true });
+      writeFileSync(absNewPath, resolution.newFile.content, { encoding: "utf-8", flag: "wx" });
+    } catch (err) {
+      if (err.code === "EEXIST") {
+        return failed(edit.id, "exists", `${resolution.newFile.path} already exists`);
+      }
+      return failed(edit.id, "write-failed", `${resolution.newFile.path}: ${err.message}`);
+    }
   }
 
   try {
@@ -263,7 +286,12 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
   let commit;
   if (opts.onApplied) {
     try {
-      commit = await opts.onApplied({ file, range, projectRoot });
+      commit = await opts.onApplied({
+        file,
+        range,
+        projectRoot,
+        newFile: resolution.newFile ? { path: resolution.newFile.path } : undefined,
+      });
     } catch (err) {
       // Patch landed on disk but history-keeping failed. Surface as a successful apply with no
       // commit SHA — the user-visible source change is real; #298 can decide its own policy.
@@ -280,12 +308,16 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
     }
   }
 
+  const extractResult = edit.op === "extract-component"
+    ? { componentPath: resolution.newFile?.path, hoistedProps: resolution.hoistedProps ?? [], warnings: resolution.warnings ?? [] }
+    : undefined;
+
   return applied(
     edit.id,
     file,
     range,
     commit,
-    imageResult ? { src: imageResult.src, srcset: imageResult.srcset } : undefined,
+    imageResult ? { src: imageResult.src, srcset: imageResult.srcset } : extractResult,
     model,
   );
 }
