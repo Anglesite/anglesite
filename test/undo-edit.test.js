@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -127,6 +127,25 @@ describe("undoEdit", () => {
     const result = await undoEdit(repo, {});
     expect(result.status).toBe("refused");
     expect(result.reason).toBe("initial-commit");
+  });
+
+  it("deletes a newly-added file on undo while restoring the modified primary file", async () => {
+    writeFileSync(join(repo, "about.md"), "edited\n");
+    writeFileSync(join(repo, "hero.md"), "brand new\n");
+    const editSha = await recordEdit(repo, {
+      file: "about.md",
+      range: { start: 0, end: 7 },
+      newFile: { path: "hero.md" },
+      message: "extract hero.md",
+    });
+    expect(editSha).toMatch(/^[0-9a-f]{40}$/);
+    expect(existsSync(join(repo, "hero.md"))).toBe(true);
+
+    const result = await undoEdit(repo, {});
+    expect(result.status).toBe("undone");
+
+    expect(readFileSync(join(repo, "about.md"), "utf-8")).toBe("original\n");
+    expect(existsSync(join(repo, "hero.md"))).toBe(false);
   });
 
   it("refuses with no-edits-to-undo when projectRoot is not a git repo", async () => {

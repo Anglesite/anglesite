@@ -14,7 +14,7 @@
  *   - working-tree-modified: at least one touched file differs on disk vs. HEAD's blob
  */
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 const EDITS_REF = "refs/heads/anglesite/edits";
@@ -76,10 +76,22 @@ export async function undoEdit(projectRoot, { commit, force = false } = {}) {
     }
   }
 
-  // 6. Write parent's blob content for each file back to disk.
+  // 6. Restore each touched file: files that existed at `parent` get their old blob content
+  // written back; files that were pure additions at `head` (didn't exist at `parent` — e.g. the
+  // new component file extract-component creates) get deleted instead, since "undo" for a newly
+  // created file means removing it.
   for (const file of files) {
-    const content = runGitBuffer(projectRoot, ["show", `${parent}:${file}`]);
-    writeFileSync(join(projectRoot, file), content);
+    const existedAtParent = tryRunGit(projectRoot, ["cat-file", "-e", `${parent}:${file}`]) !== undefined;
+    if (existedAtParent) {
+      const content = runGitBuffer(projectRoot, ["show", `${parent}:${file}`]);
+      writeFileSync(join(projectRoot, file), content);
+    } else {
+      try {
+        unlinkSync(join(projectRoot, file));
+      } catch {
+        // already gone; nothing to undo
+      }
+    }
   }
 
   // 7. Advance the hidden branch with a new commit whose tree matches parent's tree.

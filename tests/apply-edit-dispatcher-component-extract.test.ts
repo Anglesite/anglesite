@@ -7,7 +7,7 @@ import { applyEdit } from "../server/apply-edit-dispatcher.mjs";
 import { buildTemplateNodeIndex } from "../server/component-node-index.mjs";
 import { fileVersion } from "../server/file-version.mjs";
 
-const PAGE = `---\ninterface Props { title: string; }\nconst { title } = Astro.props;\n---\n<main>\n  <div class="hero">\n    <h1>{title}</h1>\n  </div>\n</main>\n`;
+const PAGE = `---\ninterface Props {\n  title: string;\n}\nconst { title } = Astro.props;\n---\n<main>\n  <div class="hero">\n    <h1>{title}</h1>\n  </div>\n</main>\n`;
 
 function parseContent(response) {
   return JSON.parse(response.content[0].text);
