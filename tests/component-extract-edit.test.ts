@@ -110,9 +110,11 @@ describe("resolveComponentExtract — core", () => {
     // PAGE's frontmatter is the minimal empty-body, adjacent-fence shape ("---\n---\n"). A prior
     // regex-based frontmatter detector failed to match this shape and prepended a second
     // frontmatter block, leaving a stray "---\n---\n" text node when re-parsed. Guard against
-    // regressions by re-parsing the rewritten source and asserting exactly one frontmatter node.
+    // regressions by re-parsing the rewritten source and asserting exactly one frontmatter node
+    // AND that no stray text nodes contain "---" (which would indicate corruption).
     const { ast: nextAst } = await parse(next, { position: true });
     expect(nextAst.children.filter((n) => n.type === "frontmatter")).toHaveLength(1);
+    expect(nextAst.children.some((n) => n.type === "text" && n.value.includes("---"))).toBe(false);
   });
 
   it("refuses invalid-input when newComponentPath's basename is not capitalized", async () => {
