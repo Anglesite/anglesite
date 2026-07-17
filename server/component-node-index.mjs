@@ -79,6 +79,7 @@ function baseSpanLoc(n, lineStarts) {
 
 export function buildTemplateNodeIndex(ast, source) {
   const byId = new Map();
+  const astById = new Map();
   let next = 0;
   const nextId = () => `n${next++}`;
   const lineStarts = buildLineStarts(source);
@@ -136,6 +137,7 @@ export function buildTemplateNodeIndex(ast, source) {
       case "expression": {
         record = { id: nextId(), kind: "expression", tag: null, attrs: [], ...baseSpanLoc(n, lineStarts), parentId, childIds: [] };
         byId.set(record.id, record);
+        astById.set(record.id, n);
         for (const c of n.children ?? []) {
           if (!JSX_CHILD_TYPES.has(c.type)) continue;
           const child = visit(c, record.id);
@@ -157,12 +159,14 @@ export function buildTemplateNodeIndex(ast, source) {
           childIds: [],
         };
         byId.set(record.id, record);
+        astById.set(record.id, n);
         return record;
       }
       default:
         return null; // comment, doctype
     }
     byId.set(record.id, record);
+    astById.set(record.id, n);
     for (const c of n.children ?? []) {
       if (isZoneNode(c)) continue;
       const child = visit(c, record.id);
@@ -177,5 +181,5 @@ export function buildTemplateNodeIndex(ast, source) {
     if (child) rootChildIds.push(child.id);
   }
 
-  return { byId, rootId };
+  return { byId, rootId, astById };
 }

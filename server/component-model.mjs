@@ -86,7 +86,7 @@ export async function buildComponentModel(projectRoot, relPath) {
   };
 }
 
-function collectElements(node, name, out) {
+export function collectElements(node, name, out) {
   if (node.type === "element" && node.name === name) out.push(node);
   for (const child of node.children ?? []) collectElements(child, name, out);
 }

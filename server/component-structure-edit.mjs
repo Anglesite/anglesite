@@ -316,7 +316,7 @@ function findTagOpenFrom(masked, tagName, from) {
 // Thrown by `resolveAllSpans` when a node's lexical marker can't be found from the
 // current cursor position. Callers must catch this and refuse the op (fail closed)
 // rather than guess — see the file-level comment above for why offsets can't be trusted.
-class SpanResolutionError extends Error {
+export class SpanResolutionError extends Error {
   constructor(nodeId) {
     super(`could not lexically locate node ${nodeId}`);
     this.nodeId = nodeId;
@@ -336,7 +336,7 @@ const VOID_ELEMENTS = new Set([
 // replaces the old per-node k-th-occurrence search). Returns a Map<nodeId, [start, end]>
 // (only for kinds this function can resolve — text nodes and tagless fragments are
 // never spanned); throws `SpanResolutionError` if a node's marker can't be located.
-function resolveAllSpans(byId, rootId, source) {
+export function resolveAllSpans(byId, rootId, source) {
   const masked = maskOpaqueZones(source);
   const spans = new Map();
   let cursor = 0;
@@ -464,7 +464,7 @@ function applyRemoveNode(file, source, byId, rootId, component) {
   return { file, range: { start: 0, end: source.length }, replacement: rewritten };
 }
 
-function collectComponentTags(byId, nodeId) {
+export function collectComponentTags(byId, nodeId) {
   const names = [];
   function walk(id) {
     const n = byId.get(id);
@@ -489,7 +489,7 @@ function buildMarkup(nodeSpec) {
 /** Relative import specifier from the target component's own directory to the component
  *  being inserted, Astro-style (keeps the .astro extension, always POSIX-separated, always
  *  prefixed with ./ or ../ so it never gets mistaken for a bare-specifier package import). */
-function importSpecifier(targetRelPath, componentRelPath) {
+export function importSpecifier(targetRelPath, componentRelPath) {
   const rel = relative(dirname(targetRelPath), componentRelPath).split(sep).join("/");
   return rel.startsWith(".") ? rel : `./${rel}`;
 }

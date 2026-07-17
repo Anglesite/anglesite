@@ -27,6 +27,17 @@ describe("buildTemplateNodeIndex", () => {
     expect(article.parentId).toBe("n0");
   });
 
+  it("also returns astById, mapping each node id to its raw compiler AST node", async () => {
+    const source = `---\n---\n<div title={foo}><h2>Hi</h2></div>\n`;
+    const { ast } = await parse(source, { position: true });
+    const { byId, rootId, astById } = buildTemplateNodeIndex(ast, source);
+    const div = byId.get(byId.get(rootId).childIds[0]);
+    const astNode = astById.get(div.id);
+    expect(astNode.type).toBe("element");
+    expect(astNode.name).toBe("div");
+    expect(astNode.attributes.find((a) => a.name === "title").kind).toBe("expression");
+  });
+
   it("captures attribute name/value/span", async () => {
     const { ast } = await parse(CARD, { position: true });
     const { byId, rootId } = buildTemplateNodeIndex(ast, CARD);
