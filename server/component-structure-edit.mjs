@@ -5,6 +5,16 @@ import { fileVersion } from "./file-version.mjs";
 import { buildTemplateNodeIndex } from "./component-node-index.mjs";
 import { ensureImport, pruneImportIfUnused } from "./frontmatter-imports.mjs";
 
+// `resolveAllSpans`/`SpanResolutionError`/`VOID_ELEMENTS`/`escapeAttr`/`importSpecifier`/
+// `collectComponentTags` are exported (in addition to being used locally) so
+// component-extract-edit.mjs — which needs the exact same "never trust node.span directly for a
+// node's own boundary" span-resolution discipline to locate the extracted subtree, the same
+// attribute-escaping and relative-import-specifier helpers `insert-node`'s component-import case
+// uses, and the same component-tag walk `remove-node` uses for import pruning (extract-component
+// uses it the other direction: carrying imports for component-kind descendants INTO the new
+// file) — can reuse this module's single, carefully-tested implementation rather than a second,
+// drift-prone copy.
+
 function refuse(reason, detail) {
   return { refused: true, reason, detail };
 }
@@ -12,7 +22,7 @@ function refuse(reason, detail) {
 // Matches escapeAttr in create-content.mjs: escape "&" first (so it doesn't
 // double-escape the entities this introduces), then escape '"' so the value
 // can't break out of the double-quoted attribute it's interpolated into.
-function escapeAttr(s) {
+export function escapeAttr(s) {
   return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
@@ -316,7 +326,7 @@ function findTagOpenFrom(masked, tagName, from) {
 // Thrown by `resolveAllSpans` when a node's lexical marker can't be found from the
 // current cursor position. Callers must catch this and refuse the op (fail closed)
 // rather than guess — see the file-level comment above for why offsets can't be trusted.
-class SpanResolutionError extends Error {
+export class SpanResolutionError extends Error {
   constructor(nodeId) {
     super(`could not lexically locate node ${nodeId}`);
     this.nodeId = nodeId;
@@ -325,7 +335,7 @@ class SpanResolutionError extends Error {
 
 // HTML void elements: never have a closing tag, self-closing or not — same terminal
 // handling as an explicit self-closing tag (<img />). https://html.spec.whatwg.org/#void-elements
-const VOID_ELEMENTS = new Set([
+export const VOID_ELEMENTS = new Set([
   "area", "base", "br", "col", "embed", "hr", "img", "input",
   "link", "meta", "param", "source", "track", "wbr",
 ]);
@@ -336,7 +346,7 @@ const VOID_ELEMENTS = new Set([
 // replaces the old per-node k-th-occurrence search). Returns a Map<nodeId, [start, end]>
 // (only for kinds this function can resolve — text nodes and tagless fragments are
 // never spanned); throws `SpanResolutionError` if a node's marker can't be located.
-function resolveAllSpans(byId, rootId, source) {
+export function resolveAllSpans(byId, rootId, source) {
   const masked = maskOpaqueZones(source);
   const spans = new Map();
   let cursor = 0;
@@ -464,7 +474,7 @@ function applyRemoveNode(file, source, byId, rootId, component) {
   return { file, range: { start: 0, end: source.length }, replacement: rewritten };
 }
 
-function collectComponentTags(byId, nodeId) {
+export function collectComponentTags(byId, nodeId) {
   const names = [];
   function walk(id) {
     const n = byId.get(id);
@@ -489,7 +499,7 @@ function buildMarkup(nodeSpec) {
 /** Relative import specifier from the target component's own directory to the component
  *  being inserted, Astro-style (keeps the .astro extension, always POSIX-separated, always
  *  prefixed with ./ or ../ so it never gets mistaken for a bare-specifier package import). */
-function importSpecifier(targetRelPath, componentRelPath) {
+export function importSpecifier(targetRelPath, componentRelPath) {
   const rel = relative(dirname(targetRelPath), componentRelPath).split(sep).join("/");
   return rel.startsWith(".") ? rel : `./${rel}`;
 }

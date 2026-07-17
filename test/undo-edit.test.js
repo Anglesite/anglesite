@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -138,5 +138,31 @@ describe("undoEdit", () => {
     } finally {
       rmSync(notARepo, { recursive: true, force: true });
     }
+  });
+
+  it("deletes a brand-new file introduced by the commit being undone, instead of crashing (extract-component)", async () => {
+    // Mirrors what apply-edit-dispatcher's extract-component path commits: a pre-existing file
+    // patched, plus a brand-new file that didn't exist in the parent commit at all. Hero.astro
+    // has to be established as "pre-existing" via its OWN prior recordEdit commit first, so the
+    // extract's own commit has a parent where Hero.astro already exists but Card.astro doesn't.
+    mkdirSync(join(repo, "src/components"), { recursive: true });
+    writeFileSync(join(repo, "src/components/Hero.astro"), "---\n---\n<h1>Welcome</h1>\n");
+    await recordEdit(repo, {
+      file: "src/components/Hero.astro", range: { start: 0, end: 0 }, message: "add Hero.astro",
+    });
+
+    writeFileSync(join(repo, "src/components/Hero.astro"), "---\n---\n<Card />\n");
+    writeFileSync(join(repo, "src/components/Card.astro"), "---\n---\n<h1>Welcome</h1>\n");
+    const sha = await recordEdit(repo, {
+      files: ["src/components/Card.astro", "src/components/Hero.astro"],
+      message: "anglesite: extract src/components/Card.astro from src/components/Hero.astro",
+    });
+    expect(sha).toMatch(/^[0-9a-f]{40}$/);
+
+    const result = await undoEdit(repo, {});
+    expect(result.status).toBe("undone");
+
+    expect(existsSync(join(repo, "src/components/Card.astro"))).toBe(false);
+    expect(readFileSync(join(repo, "src/components/Hero.astro"), "utf-8")).toBe("---\n---\n<h1>Welcome</h1>\n");
   });
 });

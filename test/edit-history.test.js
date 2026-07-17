@@ -94,3 +94,31 @@ describe("recordEdit", () => {
     }
   });
 });
+
+describe("recordEdit — multi-file (extract-component)", () => {
+  it("commits two files (one brand new) onto ONE anglesite/edits commit", async () => {
+    mkdirSync(join(repo, "src/components"), { recursive: true });
+    writeFileSync(join(repo, "src/components/Hero.astro"), "---\n---\n<Card />\n");
+    writeFileSync(join(repo, "src/components/Card.astro"), "---\n---\n<article>New</article>\n");
+
+    const sha = await recordEdit(repo, {
+      files: ["src/components/Card.astro", "src/components/Hero.astro"],
+      message: "anglesite: extract src/components/Card.astro from src/components/Hero.astro",
+    });
+
+    expect(sha).toMatch(/^[0-9a-f]{40}$/);
+    expect(git(["rev-parse", "refs/heads/anglesite/edits"])).toBe(sha);
+    expect(git(["show", `${sha}:src/components/Card.astro`])).toBe("---\n---\n<article>New</article>");
+    expect(git(["show", `${sha}:src/components/Hero.astro`])).toBe("---\n---\n<Card />");
+    // Exactly one commit was created for both files — not two.
+    const parents = git(["rev-list", "--parents", "-n", "1", sha]).split(/\s+/);
+    expect(parents).toHaveLength(2); // [sha, one parent]
+  });
+
+  it("falls back to single-file behavior when files is omitted (back-compat)", async () => {
+    writeFileSync(join(repo, "README.md"), "edited\n");
+    const sha = await recordEdit(repo, { file: "README.md", range: { start: 0, end: 7 }, message: "edit" });
+    expect(sha).toMatch(/^[0-9a-f]{40}$/);
+    expect(git(["show", `${sha}:README.md`])).toBe("edited");
+  });
+});

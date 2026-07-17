@@ -113,15 +113,19 @@ export function buildServer(projectRoot) {
   // hidden-branch history that backs per-edit undo in `edit-history.mjs` (#298). The dispatcher
   // invokes `onApplied` after a successful patch — `recordEdit` commits onto refs/heads/anglesite/edits
   // without touching HEAD/index/working-tree and returns the SHA, which the dispatcher threads
-  // back as `commit` on the edit-applied response.
+  // back as `commit` on the edit-applied response. `onApplied` is called with `{file, range}` for
+  // every single-file op, or `{files, message}` for extract-component's two-file write (Component
+  // Editor slice 5, Anglesite-app#495) — `recordEdit`'s `files` mode commits both onto ONE commit.
   server.tool(
     "apply_edit",
     "Apply an edit to the underlying source for a previewed page element. The selector is the structured ElementInfo payload built by the WKWebView overlay; the server resolves it via selector.mjs and patches the matching source file. Successful edits are also committed onto the hidden anglesite/edits branch for per-edit undo.",
     applyEditInputShape,
     async (input) =>
       applyEdit(projectRoot, input, {
-        onApplied: ({ file, range }) =>
-          recordEdit(projectRoot, { file, range, message: `anglesite: edit ${file}` }),
+        onApplied: ({ file, range, files, message }) =>
+          files
+            ? recordEdit(projectRoot, { files, message })
+            : recordEdit(projectRoot, { file, range, message: `anglesite: edit ${file}` }),
       }),
   );
 

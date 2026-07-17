@@ -58,6 +58,7 @@ export const editOps = [
   "set-attr",
   "set-props-interface",
   "set-script-zone",
+  "extract-component",
 ];
 
 /** The subset of `editOps` that operate on a component's scoped `<style>` via `component`
@@ -78,8 +79,22 @@ export const COMPONENT_STRUCTURE_OPS = new Set(["insert-node", "move-node", "rem
  *  zone via `component` — the Props form and STTextView code-pane saves. */
 export const COMPONENT_FRONTMATTER_OPS = new Set(["set-props-interface", "set-script-zone"]);
 
-/** Union of style, structure, and frontmatter component ops — used by the dispatcher's shared checks. */
-export const COMPONENT_OPS = new Set([...COMPONENT_STYLE_OPS, ...COMPONENT_STRUCTURE_OPS, ...COMPONENT_FRONTMATTER_OPS]);
+/** The subset of `editOps` that extracts an outline subtree into a brand-new component file —
+ *  currently just `extract-component` (Component Editor slice 5). Its own Set (rather than
+ *  folding it into COMPONENT_STRUCTURE_OPS) because it's dispatched differently: every other
+ *  component op resolves to a single-file `{file, range, replacement}` splice, while this one
+ *  resolves to a two-file write (see `component-extract-edit.mjs` and the dispatcher's
+ *  `resolution.extract` branch). */
+export const COMPONENT_EXTRACT_OPS = new Set(["extract-component"]);
+
+/** Union of style, structure, frontmatter, and extract component ops — used by the dispatcher's
+ *  shared checks (payload presence, baseVersion re-check, model refetch). */
+export const COMPONENT_OPS = new Set([
+  ...COMPONENT_STYLE_OPS,
+  ...COMPONENT_STRUCTURE_OPS,
+  ...COMPONENT_FRONTMATTER_OPS,
+  ...COMPONENT_EXTRACT_OPS,
+]);
 
 /** Structured payload for the four component-style ops. Identifies the target rule by its exact
  *  byte span (from `get_component_model`'s `styles[].span`) plus a `baseVersion` content-hash
@@ -129,6 +144,12 @@ export const componentEditSchema = z.object({
     ),
   zone: z.enum(["frontmatter", "client"]).optional().describe("Script zone for set-script-zone: the frontmatter TS or the client <script>"),
   source: z.string().optional().describe("Replacement source text for set-script-zone's target zone"),
+  newName: z
+    .string()
+    .optional()
+    .describe(
+      "New component's PascalCase base name for extract-component (no extension, no path) — the extracted subtree lands at src/components/<newName>.astro and the source file gets an instance of it (<newName ... />) plus a matching import.",
+    ),
 });
 
 /** The MCP tool's input shape, as passed to `server.tool(name, description, shape, handler)`. */
@@ -158,7 +179,7 @@ export const applyEditInputShape = {
   op: z
     .enum(editOps)
     .describe(
-      "Edit operation: replace-text (innerText), replace-attr (value is {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>), apply-instruction (reserved: sent only by the Anglesite-app Foundation Models chat path; always returns edit-failed/needs-agent — do not use from external callers), set-style-property/remove-style-property/add-style-rule/set-rule-selector (component-style ops), insert-node/move-node/remove-node/set-attr (component-structure ops), set-props-interface/set-script-zone (component-frontmatter ops — see componentEditSchema)",
+      "Edit operation: replace-text (innerText), replace-attr (value is {name, value}), replace-image-src (value is {filename, mimeType, dataURL}), edit-style (value is {property, value}; merges a rule into the owning component's scoped <style>), apply-instruction (reserved: sent only by the Anglesite-app Foundation Models chat path; always returns edit-failed/needs-agent — do not use from external callers), set-style-property/remove-style-property/add-style-rule/set-rule-selector (component-style ops), insert-node/move-node/remove-node/set-attr (component-structure ops), set-props-interface/set-script-zone (component-frontmatter ops), extract-component (nodeId + newName — writes a new src/components/<newName>.astro from the selected subtree, hoists obvious literal props, and replaces the selection in the source file with an instance + import — see componentEditSchema)",
     ),
   value: z
     .unknown()
@@ -188,12 +209,16 @@ export function createEditFailedContent(id, reason, detail) {
  *  overlay can apply directly: e.g. `replace-image-src` returns `{ src, srcset? }` so the
  *  overlay swaps both attributes on success without re-deriving them from the patch text.
  *  `model` is a fresh `buildComponentModel` result piggybacked on component-style-op success so
- *  the app never needs a second round-trip to `get_component_model` after a write. */
-export function createEditAppliedContent(id, file, range, commit, result, model) {
+ *  the app never needs a second round-trip to `get_component_model` after a write. `newFile` is
+ *  additive (extract-component only): the project-relative path of the brand-new component file
+ *  the op created, alongside `file`/`range` which still describe the SOURCE file's own edit —
+ *  every other op's reply shape is unchanged by this field's addition. */
+export function createEditAppliedContent(id, file, range, commit, result, model, newFile) {
   const body = { type: "anglesite:edit-applied", id, file, range };
   if (commit !== undefined) body.commit = commit;
   if (result !== undefined) body.result = result;
   if (model !== undefined) body.model = model;
+  if (newFile !== undefined) body.newFile = newFile;
   return { type: "text", text: JSON.stringify(body) };
 }
 

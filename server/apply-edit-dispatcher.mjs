@@ -5,8 +5,13 @@
  *   1. For `replace-image-src` with a raw `{filename, mimeType, dataURL}` value: pre-process
  *      via `processImageDrop` — write the bytes under `public/images/`, run optimize, build the
  *      `{src, srcset}` value the patcher's resolver expects. Throws map to `image-optimize-failed`.
- *   2. `resolve(projectRoot, edit)` (patcher.mjs) returns either `{file, range, replacement}`
- *      or `{refused: true, reason, detail?}`.
+ *   2. `resolve(projectRoot, edit)` (patcher.mjs) returns one of:
+ *        - `{file, range, replacement}` — the single-file case every op except extract-component
+ *          resolves to.
+ *        - `{extract: true, newFile: {path, content}, original: {file, range, replacement}}` —
+ *          extract-component's two-file case (component-extract-edit.mjs), handled by
+ *          `applyExtractComponent` below instead of the generic single-splice path.
+ *        - `{refused: true, reason, detail?}`.
  *   3. On refusal: forward as an `edit-failed` MCP response.
  *   4. On success: read the source, splice in the replacement, atomically write back (write to
  *      a sibling temp file then `rename`), invoke an optional `onApplied` hook so #298's
@@ -45,8 +50,8 @@ function failed(id, reason, detail) {
   return { content: [createEditFailedContent(id, reason, detail)], isError: true };
 }
 
-function applied(id, file, range, commit, result, model) {
-  return { content: [createEditAppliedContent(id, file, range, commit, result, model)] };
+function applied(id, file, range, commit, result, model, newFile) {
+  return { content: [createEditAppliedContent(id, file, range, commit, result, model, newFile)] };
 }
 
 /** Splice `replacement` into `source` at the resolved byte range. */
@@ -179,12 +184,99 @@ async function processImageDrop(projectRoot, edit) {
 }
 
 /**
+ * Handle extract-component's two-file write. `resolution` is component-extract-edit.mjs's
+ * `{extract: true, newFile: {path, content}, original: {file, range, replacement}}`.
+ *
+ * Design decision — write order and partial-failure handling: the brand-new component file is
+ * written FIRST, then the source file is patched second. This ordering makes the failure-of-the-
+ * second-write case cheap and safe to roll back: the new file never existed before this op, so
+ * "undo the first write" is just deleting it. The reverse order (patch source first, write new
+ * file second) would risk leaving the source file referencing a component
+ * (`<NewName ... />` + its import) that doesn't exist on disk if the second write then failed —
+ * a broken build, and a harder state to describe as "rolled back." There's still no cross-file
+ * transaction (this repo's `atomicWrite` only gives single-file atomicity via temp-sibling +
+ * rename — same accepted limitation `create-content.mjs`'s writes have), but new-file-first
+ * plus a best-effort unlink on second-write failure closes the realistic failure window: the
+ * only way to land in a truly inconsistent state is the unlink itself failing (e.g. permissions
+ * changed between the two writes), which is reported via `write-failed` either way.
+ *
+ * Once both writes succeed, both files are committed onto ONE `anglesite/edits` commit via
+ * `opts.onApplied({files: [...]})` (see edit-history.mjs's multi-file `recordEdit` mode) — so
+ * "one semantic op → one commit" holds here too, and a single `undo_edit` call reverts the whole
+ * extraction (both the new file's removal and the source file's restoration) atomically.
+ */
+async function applyExtractComponent(projectRoot, edit, resolution, opts) {
+  const { newFile, original } = resolution;
+  const absNewFile = join(projectRoot, newFile.path);
+  const absOriginal = join(projectRoot, original.file);
+
+  // Re-validate staleness against a FRESH read, immediately before writing — same TOCTOU
+  // discipline the generic single-file path applies below for every other COMPONENT_OPS member
+  // (component-extract-edit.mjs's own `await parse(...)` opens the same async yield point a
+  // concurrent edit could land in).
+  let freshSource;
+  try {
+    freshSource = readFileSync(absOriginal, "utf-8");
+  } catch (err) {
+    return failed(edit.id, "write-failed", `read ${original.file}: ${err.message}`);
+  }
+  if (fileVersion(freshSource) !== edit.component.baseVersion) {
+    return failed(edit.id, "stale", `${original.file} changed since the model was fetched`);
+  }
+  // The resolver already checked this once; re-check immediately before writing to narrow the
+  // race window against a concurrent extract targeting the same new name.
+  if (existsSync(absNewFile)) {
+    return failed(edit.id, "already-exists", `${newFile.path} already exists`);
+  }
+
+  try {
+    mkdirSync(dirname(absNewFile), { recursive: true });
+    atomicWrite(absNewFile, newFile.content);
+  } catch (err) {
+    return failed(edit.id, "write-failed", `${newFile.path}: ${err.message}`);
+  }
+
+  const next = spliceSource(freshSource, original.range, original.replacement);
+  try {
+    atomicWrite(absOriginal, next);
+  } catch (err) {
+    // Roll back the new file — see the design note above: new-file-first ordering makes this a
+    // plain unlink of something that never existed before this op, not a content restore.
+    try { unlinkSync(absNewFile); } catch {} // best-effort
+    return failed(edit.id, "write-failed", `${original.file}: ${err.message}`);
+  }
+
+  let commit;
+  if (opts.onApplied) {
+    try {
+      commit = await opts.onApplied({
+        files: [newFile.path, original.file],
+        projectRoot,
+        message: `anglesite: extract ${newFile.path} from ${original.file}`,
+      });
+    } catch {
+      commit = undefined; // patch landed; history-keeping failure shouldn't fail an already-applied edit
+    }
+  }
+
+  let model;
+  try {
+    model = await buildComponentModel(projectRoot, edit.component.path);
+  } catch {
+    model = undefined;
+  }
+
+  return applied(edit.id, original.file, original.range, commit, undefined, model, newFile.path);
+}
+
+/**
  * Apply an edit. Returns an MCP tool response (`{content, isError?}`) whose first content entry
  * is the JSON-encoded `edit-applied` / `edit-failed` body.
  *
  * @param {string} projectRoot
  * @param {object} edit  payload from the `apply_edit` tool (already zod-validated)
- * @param {{ onApplied?: (info: {file:string, range:{start:number,end:number}, projectRoot:string}) => Promise<string|undefined> | string | undefined }} [opts]
+ * @param {{ onApplied?: (info: {file:string, range:{start:number,end:number}, projectRoot:string}
+ *   | {files:string[], projectRoot:string, message?:string}) => Promise<string|undefined> | string | undefined }} [opts]
  */
 export async function applyEdit(projectRoot, edit, opts = {}) {
   // The app's Foundation Models chat path (ApplyEditTool, #251) forwards NL instructions
@@ -206,6 +298,11 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
   if (edit.dry_run && edit.op === "replace-image-src") {
     return failed(edit.id, "not-implemented", "dry-run preview is not supported for image edits");
   }
+  // Same reasoning for extract-component: its two-file write doesn't fit the single-window
+  // {before, after} preview shape every other op's dry_run uses, so refuse rather than fake one.
+  if (edit.dry_run && edit.op === "extract-component") {
+    return failed(edit.id, "not-implemented", "dry-run preview is not supported for extract-component");
+  }
 
   let effectiveEdit = edit;
   let imageResult;
@@ -225,6 +322,10 @@ export async function applyEdit(projectRoot, edit, opts = {}) {
   const resolution = await resolveEdit(projectRoot, effectiveEdit);
   if (resolution.refused) {
     return failed(edit.id, resolution.reason, resolution.detail);
+  }
+
+  if (resolution.extract) {
+    return applyExtractComponent(projectRoot, edit, resolution, opts);
   }
 
   const { file, range, replacement } = resolution;

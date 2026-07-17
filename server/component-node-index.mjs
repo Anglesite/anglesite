@@ -61,9 +61,18 @@ function attrsOf(n, lineStarts) {
   // pre-refactor NodeBuilder preserved that `""` in the model's public JSON.
   // Special-casing empty attrs to `null` here would silently change
   // component-model.mjs's output for a case none of its existing tests cover.
+  //
+  // `kind` (@astrojs/compiler's own attribute-kind enum: quoted/empty/expression/spread/
+  // shorthand/template-literal) is carried internally so component-extract-edit.mjs can tell a
+  // literal string attribute (`class="card"`, kind "quoted") apart from a dynamic one
+  // (`class={x}`, kind "expression") when deciding what's "obvious" enough to hoist into a
+  // prop. It's intentionally NOT surfaced by component-model.mjs's public JSON —
+  // `toPublicNode` there whitelists `{name, value}` only, so adding this field here doesn't
+  // change the get_component_model wire contract.
   return (n.attributes ?? []).map((a) => ({
     name: a.name,
     value: a.value ?? null,
+    kind: a.kind,
     span: attrSpan(a, lineStarts),
   }));
 }
