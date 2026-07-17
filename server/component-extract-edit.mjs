@@ -5,6 +5,7 @@ import { fileVersion } from "./file-version.mjs";
 import { buildTemplateNodeIndex } from "./component-node-index.mjs";
 import { resolveAllSpans, SpanResolutionError, importSpecifier } from "./component-structure-edit.mjs";
 import { ensureImport } from "./frontmatter-imports.mjs";
+import { parseProps, generatePropsInterface, generatePropsDestructure } from "./props-interface.mjs";
 
 /**
  * Write-side resolver for extract-component (Component Editor Slice 5). Unlike every other
@@ -66,6 +67,52 @@ function findFrontmatterBody(source) {
   return { bodyStart, bodyEnd: closeIdx };
 }
 
+const BARE_IDENTIFIER_RE = /^[A-Za-z_$][\w$]*$/;
+const FRONTMATTER_RE = /^(---\r?\n)([\s\S]*?)(\r?\n---)/;
+
+function collectSubtreeIds(byId, nodeId) {
+  const ids = [];
+  (function walk(id) {
+    ids.push(id);
+    for (const c of byId.get(id).childIds) walk(c);
+  })(nodeId);
+  return ids;
+}
+
+/**
+ * Bare-identifier expressions (attribute values AND text-content expression children)
+ * inside the subtree whose name is one of the original component's own declared Props.
+ * Anything else — a non-identifier expression, or an identifier that isn't an original
+ * Prop — is left alone; see the Global Constraints note on hoisting scope. Returns prop
+ * records sorted by name (the module's `props` shape: {name, type, optional, default}).
+ */
+function findHoistCandidates(byId, astById, subtreeIds, spans, source, originalProps) {
+  const ownProps = new Map(originalProps.map((p) => [p.name, p]));
+  const hoisted = new Map();
+
+  function consider(text) {
+    const trimmed = text.trim();
+    if (!BARE_IDENTIFIER_RE.test(trimmed)) return;
+    const prop = ownProps.get(trimmed);
+    if (prop) hoisted.set(trimmed, { name: prop.name, type: prop.type, optional: prop.optional, default: null });
+  }
+
+  for (const id of subtreeIds) {
+    const node = byId.get(id);
+    const astNode = astById.get(id);
+    if (astNode && Array.isArray(astNode.attributes)) {
+      for (const a of astNode.attributes) {
+        if (a.kind === "expression") consider(a.value ?? "");
+      }
+    }
+    if (node.kind === "expression") {
+      const span = spans.get(id);
+      if (span) consider(source.slice(span[0], span[1]).replace(/^\{/, "").replace(/\}$/, ""));
+    }
+  }
+  return [...hoisted.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function rewriteOriginalFrontmatter(afterNode, relPath, componentName, newComponentPath) {
   const specifier = importSpecifier(relPath, newComponentPath);
   const fm = findFrontmatterBody(afterNode);
@@ -100,7 +147,7 @@ export async function resolveComponentExtract(projectRoot, edit) {
 
   const loaded = await loadFresh(projectRoot, relPath, baseVersion);
   if (loaded.error) return loaded.error;
-  const { source, byId, rootId } = loaded;
+  const { source, byId, rootId, astById } = loaded;
 
   const node = byId.get(nodeId);
   if (!node) return refuse("no-match", "no node found at the given id — the file may have changed");
@@ -133,16 +180,27 @@ export async function resolveComponentExtract(projectRoot, edit) {
 
   const subtreeText = source.slice(nodeSpan[0], nodeSpan[1]);
 
-  const instanceTag = `<${componentName} />`;
+  const origFmMatch = source.match(FRONTMATTER_RE);
+  const originalProps = origFmMatch ? parseProps(origFmMatch[2]) : [];
+  const subtreeIds = collectSubtreeIds(byId, nodeId);
+  const hoistedPropRecords = findHoistCandidates(byId, astById, subtreeIds, spans, source, originalProps);
+
+  const instanceAttrs = hoistedPropRecords.map((p) => ` ${p.name}={${p.name}}`).join("");
+  const instanceTag = `<${componentName}${instanceAttrs} />`;
   const afterNode = source.slice(0, nodeSpan[0]) + instanceTag + source.slice(nodeSpan[1]);
   const afterImport = rewriteOriginalFrontmatter(afterNode, relPath, componentName, newComponentPath);
+
+  const propsInterface = generatePropsInterface(hoistedPropRecords);
+  const propsDestructure = generatePropsDestructure(hoistedPropRecords);
+  const fmParts = [propsInterface, propsDestructure].filter(Boolean);
+  const newFm = fmParts.length ? `---\n${fmParts.join("\n")}\n---\n` : "";
 
   return {
     file: relPath,
     range: { start: 0, end: source.length },
     replacement: afterImport,
-    newFile: { path: newComponentPath, content: `${subtreeText}\n` },
-    hoistedProps: [],
+    newFile: { path: newComponentPath, content: `${newFm}${subtreeText}\n` },
+    hoistedProps: hoistedPropRecords.map((p) => p.name),
     warnings: [],
   };
 }

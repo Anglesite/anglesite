@@ -141,4 +141,78 @@ describe("resolveComponentExtract — core", () => {
     expect(result.refused).toBe(true);
     expect(result.reason).toBe("invalid-input");
   });
+
+  it("hoists a bare-identifier attribute expression that is one of the original's own Props", async () => {
+    const source = `---\ninterface Props {\n  title: string;\n}\nconst { title } = Astro.props;\n---\n<main>\n  <div class="hero" data-label={title}>\n    <h1>Static</h1>\n  </div>\n</main>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.refused).toBeFalsy();
+    expect(result.hoistedProps).toEqual(["title"]);
+    expect(result.newFile.content).toContain("interface Props {\n  title: string;\n}");
+    expect(result.newFile.content).toContain("const { title } = Astro.props;");
+    expect(result.replacement).toContain("<Hero title={title} />");
+  });
+
+  it("hoists a bare-identifier text-content expression that is one of the original's own Props", async () => {
+    const source = `---\ninterface Props {\n  title: string;\n}\nconst { title } = Astro.props;\n---\n<main>\n  <div class="hero">\n    <h1>{title}</h1>\n  </div>\n</main>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.hoistedProps).toEqual(["title"]);
+    expect(result.newFile.content).toContain("<h1>{title}</h1>");
+  });
+
+  it("does not hoist a bare identifier that is not one of the original's own Props", async () => {
+    const source = `---\nconst label = "computed";\n---\n<main>\n  <div class="hero">\n    <h1>{label}</h1>\n  </div>\n</main>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.hoistedProps).toEqual([]);
+    expect(result.newFile.content).toContain("<h1>{label}</h1>"); // left in place, unhoisted
+    expect(result.newFile.content).not.toContain("interface Props");
+  });
+
+  it("does not hoist a non-bare-identifier expression even when it references an original Prop", async () => {
+    const source = `---\ninterface Props {\n  title: string;\n}\nconst { title } = Astro.props;\n---\n<main>\n  <div class="hero">\n    <h1>{title.toUpperCase()}</h1>\n  </div>\n</main>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.hoistedProps).toEqual([]);
+    expect(result.newFile.content).toContain("<h1>{title.toUpperCase()}</h1>");
+  });
+
+  it("dedups the same identifier referenced twice into one hoisted prop", async () => {
+    const source = `---\ninterface Props {\n  title: string;\n}\nconst { title } = Astro.props;\n---\n<main>\n  <div class="hero" data-label={title}>\n    <h1>{title}</h1>\n  </div>\n</main>\n`;
+    writeFileSync(join(tmpDir, "src", "components", "Page.astro"), source);
+    const baseVersion = fileVersion(source);
+    const { byId, rootId } = await nodeIndex(source);
+    const main = byId.get(byId.get(rootId).childIds[0]);
+    const div = byId.get(main.childIds[0]);
+    const edit = { op: "extract-component", component: { path: "src/components/Page.astro", baseVersion, nodeId: div.id, newComponentPath: "src/components/Hero.astro" } };
+
+    const result = await resolveComponentExtract(tmpDir, edit);
+    expect(result.hoistedProps).toEqual(["title"]);
+    expect(result.replacement.match(/title=\{title\}/g)).toHaveLength(1); // one instance attr, not two
+  });
 });
