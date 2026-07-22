@@ -6,7 +6,7 @@
  * this via `ContentListing.parse(jsonText:siteID:)` (A.8, #142) to populate `SiteContentGraph`,
  * which backs the App Intents `PageEntity`/`PostEntity`/`ImageEntity` (A.2, #137) and the
  * Spotlight indexer (A.3). The payload carries NO siteID and NO entity ids — the app stamps
- * those, so the plugin never needs to know which on-disk site it's serving.
+ * those, so the sidecar never needs to know which on-disk site it's serving.
  *
  * The filesystem is the source of truth; this is a read-only scan with no side effects.
  *

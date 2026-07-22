@@ -1,126 +1,36 @@
-# Anglesite
+# Anglesite MCP Sidecar
 
-An AI webmaster for independent websites — a [Claude plugin](https://docs.anthropic.com/en/docs/claude-code/plugins) that scaffolds, designs, and deploys Astro sites on Cloudflare Workers.
+The Anglesite MCP Sidecar powers source-aware editing for the native
+[Anglesite app](https://github.com/Anglesite/Anglesite-app). It is a Node.js
+MCP server, bundled into the app's container image; it is not a standalone
+site generator or agent runtime.
 
-Anglesite works with [Claude Cowork](https://support.claude.com/en/articles/13345190-get-started-with-cowork) (for non-technical site owners) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (for developers). Both use the same plugin — the experience adapts to the environment.
+The server exposes tools for annotations, source edits and undo, structured
+component editing, and site content creation. It operates on a site's source
+repository supplied through `ANGLESITE_PROJECT_ROOT`.
 
-## Install
-
-### Claude Cowork (recommended for site owners)
-
-Plugins in Cowork require a paid plan (Pro, Max, Team, or Enterprise).
-
-1. Open [Claude](https://claude.ai) and start a Cowork session
-2. Open the **Code** tab
-3. Press **+** > **Plugins** > **Add Plugin**
-4. Select the **Personal** tab, press **+**
-5. Select **Add Marketplace from GitHub**
-6. Enter `Anglesite/anglesite` and press **Sync**
-7. Enable the **anglesite** plugin
-8. Create a new folder for your site and open it in the **Code** tab
-9. Type `/anglesite:start`
-
-No terminal, no installs, no prerequisites. Claude handles everything.
-
-### Claude Code (for developers)
+## Run locally
 
 ```sh
-# Add the marketplace (one-time)
-claude plugin marketplace add Anglesite/anglesite
-
-# Install the plugin
-claude plugin install anglesite
-
-# Start a new project
-mkdir my-site && cd my-site
-claude
+npm ci
+ANGLESITE_PROJECT_ROOT=/path/to/site node server/index.mjs
 ```
 
-Then type `/anglesite:start` to begin.
+By default, the server uses stdio. Set `ANGLESITE_MCP_TRANSPORT=http` to run a
+Streamable HTTP server instead. `ANGLESITE_MCP_HOST` and
+`ANGLESITE_MCP_PORT` configure its bind address and port.
 
-### Open Agent Skills (any AI coding agent)
+## Development
 
-Individual skills can be installed in any agent that supports the [Open Agent Skills](https://agentskills.io) spec ([skills.sh](https://www.skills.sh)):
+Node.js 22 or later is required.
 
 ```sh
-# Install a single skill
-npx skills add Anglesite/anglesite/agent-skills/start
-
-# Examples
-npx skills add Anglesite/anglesite/agent-skills/deploy
-npx skills add Anglesite/anglesite/agent-skills/seo
-npx skills add Anglesite/anglesite/agent-skills/contact
+npm test
 ```
 
-Each skill is self-contained with bundled reference material. See [`agent-skills/README.md`](agent-skills/README.md) for the full list of available skills.
-
----
-
-The start command scaffolds your project, learns about your business, designs the site with you, and installs the tools to preview it. When you're ready to go live, `/anglesite:deploy` handles hosting, domains, and publishing.
-
-## Skills
-
-| Skill | What it does |
-|---|---|
-| `/anglesite:start` | First-time setup: discovery, design, tools, preview |
-| `/anglesite:deploy` | Build, security scan, deploy, domain setup |
-| `/anglesite:check` | Health audit (build, privacy, security, accessibility) |
-| `/anglesite:update` | Update dependencies safely |
-| `/anglesite:domain` | Manage DNS records (email, Bluesky verification, etc.) |
-| `/anglesite:import` | Import content from a website URL |
-| `/anglesite:convert` | Convert an SSG project (Hugo, Jekyll, etc.) to Anglesite |
-| `/anglesite:export` | Portable export for self-hosting or migration |
-| `/anglesite:contact` | Set up a contact form |
-| `/anglesite:forms` | Custom forms (RSVP, lead capture, survey, callback) |
-| `/anglesite:inbox` | Browse, triage, and export form submissions from Keystatic |
-| `/anglesite:indieweb` | Self-owned IndieAuth, Webmention, and Micropub endpoints |
-| `/anglesite:backup` | Save work to GitHub |
-| `/anglesite:stats` | Plain-language site analytics |
-| `/anglesite:newsletter` | Set up an email newsletter |
-| `/anglesite:add-store` | Add ecommerce to your site |
-| `/anglesite:booking` | Embed appointment scheduling |
-| `/anglesite:seo` | SEO audit, metadata, Schema.org, sitemap |
-| `/anglesite:search` | Add on-site search via Pagefind |
-| `/anglesite:photography` | Site-specific photo shot list with tips |
-| `/anglesite:menu` | Restaurant menu import, creation, and editing |
-| `/anglesite:podcast` | Podcast episodes, RSS feed, transcripts, audio player |
-| `/anglesite:donations` | Donation button or page (Stripe, Liberapay, GitHub Sponsors) |
-| `/anglesite:redirects` | Manage Cloudflare redirects (add, remove, list, bulk-import) |
-| `/anglesite:design-import` | Import design tokens from Canva or Figma |
-| `/anglesite:giscus` | Blog comments via GitHub Discussions |
-| `/anglesite:consent` | GDPR/CCPA cookie consent banner |
-| `/anglesite:membership` | Paywall and content gating (free newsletter + paid Stripe) |
-| `/anglesite:tracking` | Analytics pixels (Meta, Google, LinkedIn, etc.) via Partytown |
-| `/anglesite:pwa` | Make the site installable as a Progressive Web App |
-| `/anglesite:share` | Native sharing via Web Share API |
-
-## Who this is for
-
-Small businesses — farms, restaurants, legal firms, retailers, makers, artists, content creators, service providers — who want a fast, private, professional website without learning to code.
-
-## Philosophy
-
-- **The website is the center** — Publish here first, syndicate elsewhere (POSSE)
-- **IndieWeb first** — Microformats, Webmention, IndieAuth. The owner controls their identity and content.
-- **Accessible by design** — WCAG AA minimum. Not an afterthought.
-- **No external runtime dependencies** — Zero third-party JavaScript in production
-- **Privacy by default** — No tracking, no cookies, no third-party scripts (Cloudflare Web Analytics only)
-
-## Stack
-
-| Component | Technology |
-|---|---|
-| Site generator | [Astro 5](https://astro.build) |
-| Content editor | [Keystatic](https://keystatic.com) |
-| Hosting | [Cloudflare Workers](https://workers.cloudflare.com) (Static Assets) |
-| Analytics | Cloudflare Web Analytics |
-| Language | TypeScript (strict) |
-| Styling | Vanilla CSS with custom properties |
-
-## Plugin development
-
-See [CLAUDE.md](CLAUDE.md) for plugin structure, editing guidelines, and testing instructions.
+Changes to the MCP tool schema require a paired change in
+[`Anglesite/Anglesite-app`](https://github.com/Anglesite/Anglesite-app).
 
 ## License
 
-Code is [ISC](LICENSE). Documentation is [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+[ISC](LICENSE)

@@ -18,22 +18,18 @@ import { creatableContentTypeIds } from "./content-types.mjs";
 import { buildComponentModel, ComponentModelError } from "./component-model.mjs";
 
 /**
- * The plugin version is the single source of truth (`bin/release.ts` keeps the
- * three manifests in lockstep). Read it from the manifest at startup so the MCP
- * `initialize` handshake never drifts from the bundled plugin the host copied.
+ * The package manifest is the sidecar's single source of truth. Read it at
+ * startup so the MCP `initialize` handshake reports the bundled version.
  */
-function pluginVersion() {
+function sidecarVersion() {
   try {
-    const manifestUrl = new URL(
-      "../.claude-plugin/plugin.json",
-      import.meta.url,
-    );
-    const manifest = JSON.parse(readFileSync(fileURLToPath(manifestUrl), "utf8"));
-    return manifest.version ?? "0.0.0";
+    const packageUrl = new URL("../package.json", import.meta.url);
+    const packageManifest = JSON.parse(readFileSync(fileURLToPath(packageUrl), "utf8"));
+    return packageManifest.version ?? "0.0.0";
   } catch (err) {
-    // Surface the problem (bad install path, stale bundled copy) without breaking
-    // startup — the app-host may read this version for compatibility checks.
-    console.warn("[anglesite] could not read plugin version:", err.message);
+    // Surface a malformed or incomplete sidecar bundle without preventing the
+    // server from starting.
+    console.warn("[anglesite] could not read sidecar version:", err.message);
     return "0.0.0";
   }
 }
@@ -45,7 +41,7 @@ function pluginVersion() {
 export function buildServer(projectRoot) {
   const server = new McpServer({
     name: "anglesite",
-    version: pluginVersion(),
+    version: sidecarVersion(),
   });
 
   server.tool(

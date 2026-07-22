@@ -280,7 +280,7 @@ async function applyExtractComponent(projectRoot, edit, resolution, opts) {
  */
 export async function applyEdit(projectRoot, edit, opts = {}) {
   // The app's Foundation Models chat path (ApplyEditTool, #251) forwards NL instructions
-  // as op="apply-instruction" expecting plugin-side interpretation. The MCP server is
+  // as op="apply-instruction" expecting agent-side interpretation. The MCP server is
   // deterministic (no LLM), so return a structured refusal the app can route to its agent.
   if (edit.op === "apply-instruction") {
     return failed(edit.id, "needs-agent", "apply-instruction requires LLM interpretation; route to the agent");

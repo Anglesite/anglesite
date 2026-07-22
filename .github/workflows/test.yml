@@ -10,12 +10,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
-      # Run both legs to completion so a regression on one Node version doesn't
-      # mask the other — the whole point of the matrix.
       fail-fast: false
       matrix:
-        # 22 = the engines floor; 24 = the runtime Anglesite-app vendors and ships
-        # (scripts/node-version.txt), which actually executes server/*.mjs in production.
         node-version: [22, 24]
     steps:
       - uses: actions/checkout@v4
@@ -24,56 +20,5 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      # The optimize-images packaging e2e (test/optimize-images-packaging.test.js, #320)
-      # scaffolds a real site via scaffold.sh, which needs zsh (and rsync) — both absent
-      # from ubuntu-latest, so the suite's describe.skipIf(!hasZsh) silently skipped it
-      # here and the regression guard only ever ran on contributor Macs.
-      - name: Install zsh + rsync (for the scaffold e2e)
-        run: sudo apt-get update -q && sudo apt-get install -y --no-install-recommends zsh rsync
-
       - run: npm ci
-
-      - name: Verify skill registry is up to date
-        run: |
-          npm run registry
-          if ! git diff --quiet docs/dev/skill-registry.md; then
-            echo "::error::docs/dev/skill-registry.md is stale — run 'npm run registry' and commit the result"
-            git diff docs/dev/skill-registry.md
-            exit 1
-          fi
-
       - run: npm test
-
-  agent-skills-export:
-    # Deterministic and Node-version-independent — runs once, outside any test matrix.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - run: npm ci
-
-      - name: Verify Open Agent Skills export is up to date
-        run: |
-          npm run build:agent-skills
-          if ! git diff --quiet agent-skills/; then
-            echo "::error::agent-skills/ is stale — run 'npm run build:agent-skills' and commit the result"
-            git diff --stat agent-skills/
-            exit 1
-          fi
-
-  template-lockfile:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Verify template package-lock.json is in sync
-        run: npm ci
-        working-directory: template

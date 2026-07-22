@@ -1,23 +1,17 @@
 {
-  "name": "anglesite",
+  "name": "@anglesite/mcp-sidecar",
   "version": "1.7.0",
   "type": "module",
-  "description": "AI webmaster that scaffolds, designs, and deploys Astro + Keystatic sites on Cloudflare Workers.",
+  "description": "MCP sidecar for source-aware editing in Anglesite.",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "registry": "tsx bin/generate-skill-registry.ts",
-    "build:agent-skills": "tsx bin/build-agent-skills.ts"
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
-    "website",
-    "small-business",
-    "astro",
-    "cloudflare",
-    "webmaster",
-    "ai",
-    "agents"
+    "mcp",
+    "anglesite",
+    "astro"
   ],
   "author": "David W. Keith",
   "license": "ISC",
@@ -27,24 +21,10 @@
     "url": "https://github.com/Anglesite/anglesite"
   },
   "devDependencies": {
-    "@types/semver": "^7.7.1",
-    "html-validate": "^10.11.2",
-    "jsdom": "^29.1.1",
-    "markdownlint-cli2": "^0.22.0",
-    "microformats-parser": "^2.0.4",
-    "robots-parser": "^3.0.1",
-    "schema-dts": "^2.0.0",
-    "semver": "^7.7.4",
-    "stylelint": "^17.6.0",
-    "stylelint-declaration-strict-value": "^1.11.1",
-    "tsx": "^4.21.0",
     "vitest": "^3.1.1"
   },
   "engines": {
     "node": ">=22"
-  },
-  "optionalDependencies": {
-    "playwright": "^1.52.0"
   },
   "dependencies": {
     "@astrojs/compiler": "^4.0.0",

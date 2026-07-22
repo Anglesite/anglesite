@@ -10,6 +10,6 @@
     "rootDir": ".",
     "resolveJsonModule": true
   },
-  "include": ["bin/**/*.ts", "template/scripts/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["node_modules", "template/node_modules"]
+  "include": ["server-tests/**/*.ts"],
+  "exclude": ["node_modules"]
 }

@@ -1,7 +1,7 @@
 /**
  * Minimal YAML frontmatter reader for the content tools (#140 / A.6).
  *
- * The plugin has no YAML dependency, and `list_content` only needs a handful of scalar/array
+ * The sidecar has no YAML dependency, and `list_content` only needs a handful of scalar/array
  * fields (`title`, `slug`, `draft`, `publishDate`, `date`, `tags`) off article-like collection
  * entries. This parses exactly that subset — quoted/unquoted scalars, booleans, and string
  * arrays in both inline (`[a, b]`) and block (`- a`) form. It is deliberately NOT a general

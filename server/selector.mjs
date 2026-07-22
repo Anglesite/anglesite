@@ -116,7 +116,7 @@ function selectorPart(info) {
 const MAX_HINT_LENGTH = 80;
 
 /**
- * Build a selector and an optional truncated text content hint for Claude.
+ * Build a selector and an optional truncated text content hint for source mapping.
  * The textHint is NOT used in the selector — it's context for source mapping.
  *
  * @param {ElementInfo} info
