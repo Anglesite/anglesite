@@ -306,6 +306,38 @@ struct WorkerCatalogReaderTests {
         #expect(decoded == original)
     }
 
+    @Test("decoding a prefix route strips the published trailing slash (davidwkeith/workers spec/catalog.md convention)")
+    func decodingPrefixRouteStripsTrailingSlash() throws {
+        let json = Data("""
+        {
+          "workers": [
+            {
+              "id": "activitypub",
+              "package": "@dwk/activitypub",
+              "displayName": "Fediverse",
+              "description": "ActivityPub actor",
+              "group": "social",
+              "binding": { "kind": "settingsActivated" },
+              "resources": { "needsD1": false, "needsKV": false, "needsR2": false },
+              "routes": [
+                {
+                  "path": "/users/",
+                  "match": "prefix",
+                  "methods": ["GET"],
+                  "handler": "createActivityPub",
+                  "specificationURL": "https://www.w3.org/TR/activitypub/"
+                }
+              ]
+            }
+          ]
+        }
+        """.utf8)
+
+        let workers = try WorkerCatalogReader.parse(json)
+        let route = try #require(workers.first?.routes?.first)
+        #expect(route.path == "/users")
+    }
+
     @Test("route claims round-trip through JSONEncoder/JSONDecoder")
     func routeClaimRoundTrip() throws {
         let claim = WorkerRouteClaim(
