@@ -1,5 +1,0 @@
-# CodeQL configuration: analyze only languages present in this repo.
-# Swift + TypeScript/JavaScript; disable C/C++ (no source files).
-languages:
-  - javascript-typescript
-  - swift
