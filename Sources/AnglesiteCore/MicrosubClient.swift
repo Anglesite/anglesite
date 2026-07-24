@@ -143,8 +143,7 @@ public struct MicrosubClient: Sendable {
         }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        try authorize(&request, method: "GET")
-        return try await send(request)
+        return try await sendAuthorized(request, method: "GET")
     }
 
     private func post<Response: Decodable>(action: String, body: [String: Any]) async throws -> Response {
@@ -154,8 +153,7 @@ public struct MicrosubClient: Sendable {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        try authorize(&request, method: "POST")
-        return try await send(request)
+        return try await sendAuthorized(request, method: "POST")
     }
 
     /// For actions whose response body carries nothing the caller needs (`{}` on success).
@@ -164,28 +162,14 @@ public struct MicrosubClient: Sendable {
         let _: Empty = try await post(action: action, body: body)
     }
 
-    /// Attaches the `Authorization: DPoP <token>` and `DPoP: <proof>` headers RFC 9449 requires —
-    /// every microsub action is authorized this way, GET and POST alike (`auth.ts`'s `authorize`
-    /// always passes `accessToken` to `verifyDpopProof`, so `ath` is never optional here). The
-    /// proof's `htu` is the bare endpoint URL (no query) — matching the server's
-    /// `expectedHtu: config.microsubEndpoint`, which `verifyDpopProof`'s own `normalizeHtu` would
-    /// strip a query string from regardless.
-    private func authorize(_ request: inout URLRequest, method: String) throws {
-        request.setValue("DPoP \(accessToken)", forHTTPHeaderField: "Authorization")
-        do {
-            let proof = try dpopKeyPair.proof(htm: method, htu: endpoint.absoluteString, accessToken: accessToken)
-            request.setValue(proof, forHTTPHeaderField: "DPoP")
-        } catch is DPoPError {
-            throw MicrosubError.dpopUnavailable
-        }
-    }
-
-    private func send<Response: Decodable>(_ request: URLRequest) async throws -> Response {
-        let data: Data, http: HTTPURLResponse
-        do {
-            (data, http) = try await transport(request)
-        } catch {
-            throw MicrosubError.requestFailed(status: 0, body: error.localizedDescription)
+    /// Signs and sends `request` and — on an RFC 9449 §8 `use_dpop_nonce` challenge — retries
+    /// exactly once with a fresh proof echoing the nonce, before applying the ordinary
+    /// status/decode checks. Every microsub action (`get`/`post` above) funnels through here, so
+    /// the retry applies uniformly to every action, GET and POST alike.
+    private func sendAuthorized<Response: Decodable>(_ request: URLRequest, method: String) async throws -> Response {
+        var (data, http) = try await authorizedSend(request, method: method, nonce: nil)
+        if let nonce = DPoPNonceChallenge.nonce(in: data, response: http) {
+            (data, http) = try await authorizedSend(request, method: method, nonce: nonce)
         }
         guard (200..<300).contains(http.statusCode) else {
             throw MicrosubError.requestFailed(status: http.statusCode, body: String(data: data, encoding: .utf8) ?? "")
@@ -194,6 +178,33 @@ public struct MicrosubClient: Sendable {
             return try JSONDecoder().decode(Response.self, from: data)
         } catch {
             throw MicrosubError.decodingFailed("\(error)")
+        }
+    }
+
+    private func authorizedSend(_ request: URLRequest, method: String, nonce: String?) async throws -> (Data, HTTPURLResponse) {
+        var signedRequest = request
+        try authorize(&signedRequest, method: method, nonce: nonce)
+        do {
+            return try await transport(signedRequest)
+        } catch {
+            throw MicrosubError.requestFailed(status: 0, body: error.localizedDescription)
+        }
+    }
+
+    /// Attaches the `Authorization: DPoP <token>` and `DPoP: <proof>` headers RFC 9449 requires —
+    /// every microsub action is authorized this way, GET and POST alike (`auth.ts`'s `authorize`
+    /// always passes `accessToken` to `verifyDpopProof`, so `ath` is never optional here). The
+    /// proof's `htu` is the bare endpoint URL (no query) — matching the server's
+    /// `expectedHtu: config.microsubEndpoint`, which `verifyDpopProof`'s own `normalizeHtu` would
+    /// strip a query string from regardless. `nonce` echoes a prior RFC 9449 §8 challenge on
+    /// retry (`authorizedSend`'s job to supply it); omitted on the first attempt.
+    private func authorize(_ request: inout URLRequest, method: String, nonce: String? = nil) throws {
+        request.setValue("DPoP \(accessToken)", forHTTPHeaderField: "Authorization")
+        do {
+            let proof = try dpopKeyPair.proof(htm: method, htu: endpoint.absoluteString, accessToken: accessToken, nonce: nonce)
+            request.setValue(proof, forHTTPHeaderField: "DPoP")
+        } catch is DPoPError {
+            throw MicrosubError.dpopUnavailable
         }
     }
 

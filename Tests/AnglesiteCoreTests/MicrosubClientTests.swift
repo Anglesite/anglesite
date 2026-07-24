@@ -34,6 +34,93 @@ struct MicrosubClientTests {
         #expect(captured?.value(forHTTPHeaderField: "DPoP")?.split(separator: ".").count == 3)
     }
 
+    @Test("listChannels retries once with the echoed nonce after a use_dpop_nonce challenge")
+    func listChannelsRetriesOnNonceChallenge() async throws {
+        var capturedDPoPHeaders: [String] = []
+        var transportCallCount = 0
+        let client = MicrosubClient(
+            endpoint: endpoint, accessToken: "tok-123", dpopKeyPair: DPoPKeyPair(),
+            transport: { request in
+                transportCallCount += 1
+                capturedDPoPHeaders.append(request.value(forHTTPHeaderField: "DPoP") ?? "")
+                if transportCallCount == 1 {
+                    let challenge = Data(#"{"error":"use_dpop_nonce"}"#.utf8)
+                    let http = HTTPURLResponse(
+                        url: self.endpoint, statusCode: 401, httpVersion: nil,
+                        headerFields: ["DPoP-Nonce": "server-nonce-1"]
+                    )!
+                    return (challenge, http)
+                }
+                let body = #"{"channels":[{"uid":"c1","name":"Blogs","unread":3}]}"#
+                return (Data(body.utf8), self.response(200))
+            }
+        )
+
+        let channels = try await client.listChannels()
+
+        #expect(channels == [MicrosubChannel(uid: "c1", name: "Blogs", unread: 3)])
+        #expect(transportCallCount == 2)
+
+        func base64urlDecode(_ segment: Substring) -> Data {
+            var base64 = segment.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+            while base64.count % 4 != 0 { base64 += "=" }
+            return Data(base64Encoded: base64) ?? Data()
+        }
+        let retryPayload = try JSONSerialization.jsonObject(
+            with: base64urlDecode(capturedDPoPHeaders[1].split(separator: ".")[1])
+        ) as! [String: Any]
+        #expect(retryPayload["nonce"] as? String == "server-nonce-1")
+    }
+
+    @Test("follow (POST) retries once with the echoed nonce, resending the same body")
+    func followRetriesOnNonceChallenge() async throws {
+        var transportCallCount = 0
+        var capturedBodies: [Data] = []
+        let client = MicrosubClient(
+            endpoint: endpoint, accessToken: "tok-123", dpopKeyPair: DPoPKeyPair(),
+            transport: { request in
+                transportCallCount += 1
+                capturedBodies.append(request.httpBody ?? Data())
+                if transportCallCount == 1 {
+                    let challenge = Data(#"{"error":"use_dpop_nonce"}"#.utf8)
+                    let http = HTTPURLResponse(
+                        url: self.endpoint, statusCode: 401, httpVersion: nil,
+                        headerFields: ["DPoP-Nonce": "server-nonce-2"]
+                    )!
+                    return (challenge, http)
+                }
+                return (Data("{}".utf8), self.response(200))
+            }
+        )
+
+        try await client.follow(url: "https://feed.example/atom.xml", channel: "c1")
+
+        #expect(transportCallCount == 2)
+        #expect(capturedBodies[0] == capturedBodies[1])
+    }
+
+    @Test("a repeated nonce challenge still throws — caps at one retry")
+    func capsRetryAtOne() async {
+        var transportCallCount = 0
+        let client = MicrosubClient(
+            endpoint: endpoint, accessToken: "tok-123", dpopKeyPair: DPoPKeyPair(),
+            transport: { _ in
+                transportCallCount += 1
+                let challenge = Data(#"{"error":"use_dpop_nonce"}"#.utf8)
+                let http = HTTPURLResponse(
+                    url: self.endpoint, statusCode: 401, httpVersion: nil,
+                    headerFields: ["DPoP-Nonce": "server-nonce-\(transportCallCount)"]
+                )!
+                return (challenge, http)
+            }
+        )
+
+        await #expect(throws: MicrosubError.self) {
+            _ = try await client.listChannels()
+        }
+        #expect(transportCallCount == 2)
+    }
+
     @Test("follow posts a JSON body with action/channel/url")
     func followPostsJSONBody() async throws {
         var captured: URLRequest?
