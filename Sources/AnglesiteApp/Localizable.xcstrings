@@ -79,6 +79,9 @@
     "%lld chars" : {
 
     },
+    "%lld followers" : {
+
+    },
     "%lld incoming references" : {
 
     },
@@ -309,6 +312,9 @@
 
     },
     "Answer a couple of questions and we'll pick the right commerce integration." : {
+
+    },
+    "Anyone on Mastodon can follow this site by pasting its address into search:" : {
 
     },
     "Apple Intelligence (On-Device)" : {
@@ -702,6 +708,9 @@
     "Copy" : {
 
     },
+    "Copy Actor URL" : {
+
+    },
     "Copy Animation" : {
 
     },
@@ -1078,6 +1087,12 @@
     "Follow a feed or site URL…" : {
 
     },
+    "Followers" : {
+
+    },
+    "Followers…" : {
+
+    },
     "Font" : {
 
     },
@@ -1324,6 +1339,9 @@
     "Load" : {
 
     },
+    "Load More" : {
+
+    },
     "Load Settings" : {
 
     },
@@ -1477,6 +1495,9 @@
     "No entries yet — follow a feed above to get started." : {
 
     },
+    "No followers yet" : {
+
+    },
     "No issues found in the most recent scan." : {
 
     },
@@ -1553,6 +1574,9 @@
 
     },
     "Open GitHub personal access tokens" : {
+
+    },
+    "Open Profile" : {
 
     },
     "Open Recent" : {
@@ -1742,6 +1766,12 @@
 
     },
     "Re-check" : {
+
+    },
+    "Reader" : {
+
+    },
+    "Reader error" : {
 
     },
     "Reader…" : {

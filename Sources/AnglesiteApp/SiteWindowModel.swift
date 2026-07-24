@@ -12,6 +12,7 @@ enum MainPaneMode: Equatable {
     case graph
     case cleanup        // Site ▸ Cleanup… (#714 moved it out of the sidebar)
     case reader         // Website ▸ Reader… (V-4.3, #365)
+    case followers      // Website ▸ Followers… (V-4.2, #364)
 }
 
 enum ActiveEditor {
@@ -118,6 +119,9 @@ final class SiteWindowModel {
     /// Drives the main-pane Reader view (Website ▸ Reader…, V-4.3 #365): Microsub sign-in, follow,
     /// and timeline.
     var reader = MicrosubReaderModel()
+    /// Drives the main-pane Followers view (Website ▸ Followers…, V-4.2 #364): the site's public
+    /// ActivityPub followers collection, with lazily-enriched display identities.
+    var followers = FollowersModel()
     var harden = HardenModel()
     var onionRouting = OnionRoutingModel()
     var domain = DomainModel()
@@ -278,6 +282,17 @@ final class SiteWindowModel {
             activeEditor = nil
             inspectorContext = nil
             mainPaneMode = .reader
+        }
+    }
+
+    /// Switches the main pane to Followers (Website ▸ Followers…, V-4.2 #364). Mirrors
+    /// `presentReader()`'s leave-current-surface-first guard.
+    func presentFollowers() {
+        Task {
+            guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
+            activeEditor = nil
+            inspectorContext = nil
+            mainPaneMode = .followers
         }
     }
 
@@ -1376,6 +1391,7 @@ final class SiteWindowModel {
         graphExplorer.start(site: currentSite)
         cleanup.configure(site: currentSite)
         reader.configure(site: currentSite)
+        followers.configure(site: currentSite)
         // Cold-open path for any `PreviewSiteIntent` (#139) navigation; the already-open window
         // is handled reactively by `.onChange(of: router.pendingNavigation)` in `body`.
         applyPendingNavigation(for: resolved.id)
