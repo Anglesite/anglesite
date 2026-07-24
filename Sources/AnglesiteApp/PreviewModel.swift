@@ -197,6 +197,11 @@ final class PreviewModel {
                 .appendingPathComponent("Config", isDirectory: true)
             _ = await InboxSubmissionSync.pullAndCommitIfConfigured(
                 siteDirectory: siteDirectory, configDirectory: configDirectory)
+            // #362: pull the webmention Worker's verified inbox from D1 and snapshot it into the
+            // git working copy. No-ops for sites without a provisioned D1 database
+            // (SiteSettings.provisionedWorkerResources.d1DatabaseID unset).
+            _ = await ReceivedInteractionSync.pullAndCommitIfConfigured(
+                siteDirectory: siteDirectory, configDirectory: configDirectory)
             clearDevServerCommandInFlight(token: token)
         }
     }
