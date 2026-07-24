@@ -34,4 +34,28 @@ struct ActorHandleTests {
         let actor = try #require(URL(string: "https://example.com"))
         #expect(ActorHandle.derive(from: actor) == nil)
     }
+
+    @Test("derives a handle from a Lemmy user IRI")
+    func derivesFromLemmyUser() throws {
+        let actor = try #require(URL(string: "https://lemmy.world/u/dave"))
+        #expect(ActorHandle.derive(from: actor) == "@dave@lemmy.world")
+    }
+
+    @Test("strips a bidi override character from the derived handle")
+    func stripsBidiOverrideFromName() throws {
+        // U+202E RIGHT-TO-LEFT OVERRIDE embedded in the name segment: URL.pathComponents
+        // percent-decodes, so a malicious server can serve this in an actor IRI to make the
+        // handle render misleadingly (impersonation vector). It must not survive into the
+        // returned handle.
+        let actor = try #require(URL(string: "https://mastodon.social/users/alice%E2%80%AEevil"))
+        #expect(ActorHandle.derive(from: actor) == "@aliceevil@mastodon.social")
+    }
+
+    @Test("returns nil when the name is entirely format characters")
+    func returnsNilWhenNameIsEntirelyFormatCharacters() throws {
+        // The name segment decodes to nothing but bidi isolate controls, i.e. an empty name
+        // once sanitized — the existing empty-name guard's reasoning applies here too.
+        let actor = try #require(URL(string: "https://mastodon.social/users/%E2%81%A6%E2%81%A9"))
+        #expect(ActorHandle.derive(from: actor) == nil)
+    }
 }

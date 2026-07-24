@@ -29,6 +29,16 @@ public enum ActorHandle {
         }
 
         guard !name.isEmpty else { return nil }
-        return "@\(name)@\(host)"
+
+        // The IRI is attacker-supplied (any Fediverse actor can follow the site), and
+        // `URL.pathComponents` percent-decodes, so a hostile server can smuggle invisible
+        // Unicode bidi-control characters into the name segment to make the rendered handle
+        // impersonate a different, trusted one. Sanitize both extracted pieces before
+        // assembling the handle — see `DisplayString` for why this is the one place the rule
+        // lives.
+        let safeName = DisplayString.safe(name)
+        let safeHost = DisplayString.safe(host)
+        guard !safeName.isEmpty else { return nil }
+        return "@\(safeName)@\(safeHost)"
     }
 }
