@@ -174,7 +174,9 @@ public struct WorkerRouteClaim: Sendable, Equatable, Hashable, Codable {
 
     /// Absolute origin path, e.g. `"/.well-known/webfinger"`. Validated by
     /// `WorkerRouteClaims.validate` (leading slash, no traversal/encoding/query, no root or bare
-    /// `/.well-known` claims).
+    /// `/.well-known` claims). A `prefix` claim's trailing slash — the `davidwkeith/workers`
+    /// catalog's published convention (`spec/catalog.md`: "a prefix path ends with `/`") — is
+    /// stripped on construction so this always holds the app's own slash-less canonical form.
     public let path: String
     public let match: Match
     /// Uppercase HTTP methods the handler serves. `HEAD` must be declared explicitly to be
@@ -205,7 +207,7 @@ public struct WorkerRouteClaim: Sendable, Equatable, Hashable, Codable {
         authorityBinding: Bool = false,
         specificationURL: URL? = nil
     ) {
-        self.path = path
+        self.path = Self.normalizedPrefixPath(path, match: match)
         self.match = match
         self.methods = methods
         self.handler = handler
@@ -220,13 +222,25 @@ public struct WorkerRouteClaim: Sendable, Equatable, Hashable, Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        path = try container.decode(String.self, forKey: .path)
-        match = try container.decode(Match.self, forKey: .match)
+        let decodedPath = try container.decode(String.self, forKey: .path)
+        let decodedMatch = try container.decode(Match.self, forKey: .match)
+        path = Self.normalizedPrefixPath(decodedPath, match: decodedMatch)
+        match = decodedMatch
         methods = try container.decode([String].self, forKey: .methods)
         handler = try container.decode(String.self, forKey: .handler)
         validatorID = try container.decodeIfPresent(String.self, forKey: .validatorID)
         authorityBinding = try container.decodeIfPresent(Bool.self, forKey: .authorityBinding) ?? false
         specificationURL = try container.decodeIfPresent(URL.self, forKey: .specificationURL)
+    }
+
+    /// Strips a single trailing slash from a `prefix` claim's path — the `davidwkeith/workers`
+    /// catalog declares prefix paths with a trailing slash (`spec/catalog.md`), while
+    /// `WorkerRouteClaims.validate` and `runWorkerFirstPatterns` expect the slash-less form and
+    /// append their own `/*` glob. `exact` claims and the bare root are left untouched so a
+    /// genuinely malformed exact-match trailing slash still fails validation.
+    private static func normalizedPrefixPath(_ path: String, match: Match) -> String {
+        guard match == .prefix, path.count > 1, path.hasSuffix("/") else { return path }
+        return String(path.dropLast())
     }
 }
 
