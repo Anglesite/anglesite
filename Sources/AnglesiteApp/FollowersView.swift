@@ -1,5 +1,7 @@
 import SwiftUI
 import AppKit
+import CoreGraphics
+import ImageIO
 import AnglesiteCore
 
 /// Main-pane Followers surface (Website ▸ Followers…, V-4.2 #364): who follows this site in the
@@ -61,7 +63,20 @@ struct FollowersView: View {
                         followerRow(row)
                     }
                     if followers.canLoadMore {
+                        // Disabled while a page is in flight: two rapid clicks would append the
+                        // same page twice and hand `ForEach` duplicate IDs.
                         Button("Load More") { Task { await followers.loadMore() } }
+                            .disabled(followers.isLoadingMore)
+                    }
+                    // A paging failure is additive, not fatal — it annotates the list instead of
+                    // replacing it, so the rows already loaded stay reachable.
+                    if let failure = followers.loadMoreFailure {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Couldn't load more followers")
+                            // Server-supplied, like `.unreachable`'s reason: rendered verbatim
+                            // via the `StringProtocol` overload, never as a localization key.
+                            Text(failure).font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -127,10 +142,59 @@ struct FollowersView: View {
     private func avatar(for row: FollowerRow) -> some View {
         // `iconURL` is `nil` unless the fetched value was HTTPS — `ActorProfileFetcher` drops
         // insecure ones, so this never loads an avatar over plaintext.
-        AsyncImage(url: row.profile?.iconURL) { image in
-            image.resizable().aspectRatio(contentMode: .fill)
-        } placeholder: {
-            Image(systemName: "person.crop.circle").resizable().foregroundStyle(.tertiary)
+        FollowerAvatar(url: row.profile?.iconURL, loader: followers.avatarLoader)
+    }
+
+    /// `title` is static UI copy and localizes via the `LocalizedStringKey` overload. `detail` is
+    /// pre-built `Text` rather than `String` so each call site controls whether its content
+    /// localizes (static copy: a `Text` built from a literal) or renders verbatim (the
+    /// `.unreachable` case's server-supplied reason: `Text(reason)`, which must never be treated
+    /// as a localization key).
+    ///
+    /// Note the wording above deliberately avoids writing a quoted literal after `Text(` —
+    /// `scripts/check-localization-catalog.sh` is a regex scanner that doesn't strip comments, so
+    /// a prose example of that shape reads as a real, uncataloged call site and fails CI (#811).
+    ///
+    /// Every error state gets a Try Again button: `.noSiteURL` and `.notActivated` both tell the
+    /// owner to go do something, so the pane has to be able to notice they did it. `retry()`
+    /// re-resolves the site URL, which is what makes `.noSiteURL` genuinely recoverable.
+    @ViewBuilder
+    private func message(_ title: LocalizedStringKey, detail: Text) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.title2)
+            detail.foregroundStyle(.secondary)
+            Button("Try Again") { Task { await followers.retry() } }
+                .padding(.top, 4)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+/// One follower's avatar, loaded through `AnglesiteCore`'s capped `AvatarLoader`.
+///
+/// Deliberately not `AsyncImage`: that would hand a follower-chosen URL to `URLSession.shared`
+/// with no byte cap, no wall-clock deadline, and no bound on decoded pixel dimensions — a
+/// follower could serve a 200 MB file or a decompression bomb as their avatar, and several
+/// visible rows could do it at once. `AvatarLoader` bounds the transfer; the decode below bounds
+/// the pixels and runs off the MainActor.
+private struct FollowerAvatar: View {
+    let url: URL?
+    let loader: AvatarLoader
+
+    @State private var image: CGImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                // `decorative:` matches `.accessibilityHidden(true)` below — no alt text is
+                // wanted here, and none of it would be trustworthy anyway.
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Image(systemName: "person.crop.circle").resizable().foregroundStyle(.tertiary)
+            }
         }
         .frame(width: 32, height: 32)
         .clipShape(.circle)
@@ -138,19 +202,43 @@ struct FollowersView: View {
         // handle carry the information, so VoiceOver should skip this rather than announce
         // "person crop circle" before every row.
         .accessibilityHidden(true)
+        .task(id: url) {
+            image = nil
+            guard let url else { return }
+            // Any failure — unreachable host, oversize body, insecure redirect, undecodable
+            // bytes — falls back to the placeholder, exactly like a failed profile fetch falls
+            // back to the derived handle.
+            image = await Self.load(url, loader: loader)?.image
+        }
     }
 
-    /// `title` is static UI copy and localizes via the `LocalizedStringKey` overload. `detail` is
-    /// pre-built `Text` rather than `String` so each call site controls whether its content
-    /// localizes (static copy: `Text("…")`) or renders verbatim (the `.unreachable` case's
-    /// server-supplied reason: `Text(reason)`, which must never be treated as a localization key).
-    @ViewBuilder
-    private func message(_ title: LocalizedStringKey, detail: Text) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.title2)
-            detail.foregroundStyle(.secondary)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    /// `CGImage` is immutable once created, so it crosses the isolation boundary safely. Stated
+    /// here rather than leaned on from a framework conformance.
+    private struct Decoded: @unchecked Sendable { let image: CGImage }
+
+    private nonisolated static func load(_ url: URL, loader: AvatarLoader) async -> Decoded? {
+        guard let data = try? await loader.data(for: url) else { return nil }
+        // Detached so neither the decode nor the downsample runs on the MainActor: this is the
+        // expensive half, and it is being handed attacker-chosen bytes.
+        return await Task.detached(priority: .utility) { decode(data) }.value
     }
+
+    /// Decodes to at most ``maximumPixelSize`` on the long edge. ImageIO's thumbnail path
+    /// subsamples during decode rather than after, so a hostile image that declares enormous
+    /// dimensions never gets fully expanded in memory — the byte cap alone wouldn't stop that,
+    /// since a compression bomb is small on the wire and huge only once decoded.
+    private nonisolated static func decode(_ data: Data) -> Decoded? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maximumPixelSize,
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+        else { return nil }
+        return Decoded(image: image)
+    }
+
+    /// The avatar renders at 32pt; 128px covers a 3× display with room to spare.
+    private nonisolated static let maximumPixelSize = 128
 }
