@@ -170,6 +170,9 @@
     "Active — used on ^[%lld page](inflect: true)" : {
 
     },
+    "ActivityPub isn't turned on for this site" : {
+
+    },
     "Actual Size" : {
 
     },
@@ -764,6 +767,9 @@
 
     },
     "Couldn't publish" : {
+
+    },
+    "Couldn't reach this site" : {
 
     },
     "Couldn't run the check" : {
@@ -1744,6 +1750,9 @@
     "Publish DNS Records" : {
 
     },
+    "Publish it at least once, then followers will appear here." : {
+
+    },
     "Publish to GitHub" : {
 
     },
@@ -2402,6 +2411,9 @@
     "This site does not have any collection-backed content types." : {
 
     },
+    "This site hasn't been published yet" : {
+
+    },
     "This will remove the file from your site. You can undo it right after deleting." : {
 
     },
@@ -2433,6 +2445,9 @@
 
     },
     "Try again" : {
+
+    },
+    "Turn on ActivityPub in Settings ▸ Workers, then publish again." : {
 
     },
     "Type" : {

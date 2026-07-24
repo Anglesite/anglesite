@@ -21,13 +21,16 @@ struct FollowersView: View {
             case .noSiteURL:
                 message(
                     "This site hasn't been published yet",
-                    detail: "Publish it at least once, then followers will appear here.")
+                    detail: Text("Publish it at least once, then followers will appear here."))
             case .notActivated:
                 message(
                     "ActivityPub isn't turned on for this site",
-                    detail: "Turn on ActivityPub in Settings ▸ Workers, then publish again.")
+                    detail: Text("Turn on ActivityPub in Settings ▸ Workers, then publish again."))
             case .unreachable(let reason):
-                message("Couldn't reach this site", detail: reason)
+                // `reason` is server-supplied (HTTP body / error description) — untrusted remote
+                // content, never a localization key or format string. `Text(reason)` binds to the
+                // `StringProtocol` overload and renders it verbatim.
+                message("Couldn't reach this site", detail: Text(reason))
             }
         }
         .navigationSubtitle("Followers")
@@ -131,13 +134,21 @@ struct FollowersView: View {
         }
         .frame(width: 32, height: 32)
         .clipShape(.circle)
+        // Purely decorative in both states (loaded image and placeholder): the row's name and
+        // handle carry the information, so VoiceOver should skip this rather than announce
+        // "person crop circle" before every row.
+        .accessibilityHidden(true)
     }
 
+    /// `title` is static UI copy and localizes via the `LocalizedStringKey` overload. `detail` is
+    /// pre-built `Text` rather than `String` so each call site controls whether its content
+    /// localizes (static copy: `Text("…")`) or renders verbatim (the `.unreachable` case's
+    /// server-supplied reason: `Text(reason)`, which must never be treated as a localization key).
     @ViewBuilder
-    private func message(_ title: String, detail: String) -> some View {
+    private func message(_ title: LocalizedStringKey, detail: Text) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.title2)
-            Text(detail).foregroundStyle(.secondary)
+            detail.foregroundStyle(.secondary)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
