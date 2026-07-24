@@ -541,7 +541,7 @@ final class DeployModel {
             tokenSource: { [weak self] in try await self?.command.tokenSource() },
             runner: containerRunner ?? SocialWorkerProvisionCommand.defaultRunner,
             secretRunner: containerSecretRunner ?? SocialWorkerProvisionCommand.defaultSecretRunner,
-            deployer: { [weak self] _, deploySiteID, deploySiteDirectory in
+            deployer: { [weak self] _, deploySiteID, deploySiteDirectory, _ in
                 await activeCommand.deploy(
                     siteID: deploySiteID,
                     siteDirectory: deploySiteDirectory,
