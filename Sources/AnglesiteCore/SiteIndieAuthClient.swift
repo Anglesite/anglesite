@@ -187,7 +187,10 @@ public struct SiteIndieAuthClient: Sendable {
 
     /// Exchanges `code` for a DPoP-bound access token, proving possession of `dpopKeyPair` at the
     /// token endpoint (RFC 9449 §5) — the same key pair must sign every later resource-request
-    /// proof, since the minted token's `cnf.jkt` binds to it.
+    /// proof, since the minted token's `cnf.jkt` binds to it. Retries exactly once, with a fresh
+    /// proof echoing the nonce, if the server answers with an RFC 9449 §8 `use_dpop_nonce`
+    /// challenge — anything else (including a second challenge) surfaces as
+    /// `.tokenExchangeFailed`.
     public func exchange(
         code: String,
         for request: SiteIndieAuthRequest,
@@ -201,24 +204,27 @@ public struct SiteIndieAuthClient: Sendable {
             URLQueryItem(name: "redirect_uri", value: request.redirectURI.absoluteString),
             URLQueryItem(name: "code_verifier", value: request.codeVerifier),
         ]
-        var urlRequest = URLRequest(url: request.tokenEndpoint)
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        urlRequest.httpBody = Data((form.percentEncodedQuery ?? "").utf8)
-        do {
-            urlRequest.setValue(
-                try dpopKeyPair.proof(htm: "POST", htu: request.tokenEndpoint.absoluteString),
-                forHTTPHeaderField: "DPoP"
-            )
-        } catch is DPoPError {
-            throw SiteIndieAuthError.dpopUnavailable
+        let bodyData = Data((form.percentEncodedQuery ?? "").utf8)
+
+        func makeRequest(nonce: String?) throws -> URLRequest {
+            var urlRequest = URLRequest(url: request.tokenEndpoint)
+            urlRequest.httpMethod = "POST"
+            urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+            urlRequest.httpBody = bodyData
+            do {
+                urlRequest.setValue(
+                    try dpopKeyPair.proof(htm: "POST", htu: request.tokenEndpoint.absoluteString, nonce: nonce),
+                    forHTTPHeaderField: "DPoP"
+                )
+            } catch is DPoPError {
+                throw SiteIndieAuthError.dpopUnavailable
+            }
+            return urlRequest
         }
 
-        let data: Data, http: HTTPURLResponse
-        do {
-            (data, http) = try await transport(urlRequest)
-        } catch {
-            throw SiteIndieAuthError.tokenExchangeFailed(error.localizedDescription)
+        var (data, http) = try await send(makeRequest(nonce: nil))
+        if let nonce = DPoPNonceChallenge.nonce(in: data, response: http) {
+            (data, http) = try await send(makeRequest(nonce: nonce))
         }
         guard (200..<300).contains(http.statusCode) else {
             throw SiteIndieAuthError.tokenExchangeFailed("HTTP \(http.statusCode): \(String(data: data, encoding: .utf8) ?? "")")
@@ -227,6 +233,14 @@ public struct SiteIndieAuthClient: Sendable {
             return try JSONDecoder().decode(SiteIndieAuthToken.self, from: data)
         } catch {
             throw SiteIndieAuthError.tokenExchangeFailed("bad response: \(error)")
+        }
+    }
+
+    private func send(_ urlRequest: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        do {
+            return try await transport(urlRequest)
+        } catch {
+            throw SiteIndieAuthError.tokenExchangeFailed(error.localizedDescription)
         }
     }
 

@@ -99,5 +99,77 @@ struct DPoPKeyPairTests {
         let signature = try P256.Signing.ECDSASignature(rawRepresentation: signatureBytes)
         #expect(publicKey.isValidSignature(signature, for: signingInput))
     }
+
+    @Test("proof(nonce:) carries the nonce claim when passed")
+    func proofNonceClaim() throws {
+        let keyPair = DPoPKeyPair()
+        let proof = try keyPair.proof(htm: "POST", htu: "https://owner.example/token", nonce: "server-nonce-1")
+        let segments = proof.split(separator: ".", omittingEmptySubsequences: false)
+        let payload = jsonSegment(String(segments[1]))
+        #expect(payload["nonce"] as? String == "server-nonce-1")
+    }
+
+    @Test("proof omits the nonce claim by default")
+    func proofNoNonceByDefault() throws {
+        let keyPair = DPoPKeyPair()
+        let proof = try keyPair.proof(htm: "POST", htu: "https://owner.example/token")
+        let segments = proof.split(separator: ".", omittingEmptySubsequences: false)
+        let payload = jsonSegment(String(segments[1]))
+        #expect(payload["nonce"] == nil)
+    }
     #endif
+}
+
+/// Tests `DPoPNonceChallenge`'s RFC 9449 §8 detection: it must require all three of status
+/// 400/401, a `use_dpop_nonce` error body, and a non-empty `DPoP-Nonce` header before treating a
+/// response as a challenge — anything less is an ordinary failure the caller handles as today.
+@Suite
+struct DPoPNonceChallengeTests {
+    private let url = URL(string: "https://owner.example/token")!
+
+    private func response(_ code: Int, headers: [String: String] = [:]) -> HTTPURLResponse {
+        HTTPURLResponse(url: url, statusCode: code, httpVersion: nil, headerFields: headers)!
+    }
+
+    @Test("matches a 400 with use_dpop_nonce error and a DPoP-Nonce header")
+    func matchesChallenge() {
+        let data = Data(#"{"error":"use_dpop_nonce"}"#.utf8)
+        let http = response(400, headers: ["DPoP-Nonce": "nonce-abc"])
+        #expect(DPoPNonceChallenge.nonce(in: data, response: http) == "nonce-abc")
+    }
+
+    @Test("matches a 401 with use_dpop_nonce error and a DPoP-Nonce header")
+    func matchesChallengeOn401() {
+        let data = Data(#"{"error":"use_dpop_nonce","error_description":"nonce required"}"#.utf8)
+        let http = response(401, headers: ["DPoP-Nonce": "nonce-xyz"])
+        #expect(DPoPNonceChallenge.nonce(in: data, response: http) == "nonce-xyz")
+    }
+
+    @Test("does not match a 400 with a different error, even with a DPoP-Nonce header")
+    func ignoresOtherErrors() {
+        let data = Data(#"{"error":"invalid_dpop_proof"}"#.utf8)
+        let http = response(400, headers: ["DPoP-Nonce": "nonce-abc"])
+        #expect(DPoPNonceChallenge.nonce(in: data, response: http) == nil)
+    }
+
+    @Test("does not match use_dpop_nonce without a DPoP-Nonce header")
+    func ignoresMissingHeader() {
+        let data = Data(#"{"error":"use_dpop_nonce"}"#.utf8)
+        let http = response(400)
+        #expect(DPoPNonceChallenge.nonce(in: data, response: http) == nil)
+    }
+
+    @Test("does not match on a 403 even with the right body and header")
+    func ignoresWrongStatus() {
+        let data = Data(#"{"error":"use_dpop_nonce"}"#.utf8)
+        let http = response(403, headers: ["DPoP-Nonce": "nonce-abc"])
+        #expect(DPoPNonceChallenge.nonce(in: data, response: http) == nil)
+    }
+
+    @Test("does not match a 200 success response")
+    func ignoresSuccess() {
+        let data = Data(#"{"access_token":"tok"}"#.utf8)
+        let http = response(200, headers: ["DPoP-Nonce": "nonce-abc"])
+        #expect(DPoPNonceChallenge.nonce(in: data, response: http) == nil)
+    }
 }
