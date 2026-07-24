@@ -5,9 +5,8 @@ import FoundationNetworking
 
 /// A follower's display identity, fetched from their home instance's actor document.
 ///
-/// Only the icon's *URL* is kept, never image bytes: `AsyncImage` fetches the image and
-/// URLSession's HTTP cache handles reuse, which keeps the persisted cache small and stops the
-/// app becoming an image store.
+/// Only the icon's *URL* is kept, never image bytes: `AvatarLoader` fetches the image per visible
+/// row, which keeps the persisted cache small and stops the app becoming an image store.
 public struct ActorProfile: Codable, Equatable, Sendable {
     public let actor: URL
     public let preferredUsername: String?
@@ -49,7 +48,14 @@ public struct ActorProfileFetcher: Sendable {
 
     /// 256 KB. An actor document is a few KB; anything approaching this is pathological.
     public static let maximumResponseBytes = 256 * 1024
+    /// Idle timeout: the longest the transfer may go without progress.
     public static let timeout: TimeInterval = 10
+    /// Wall-clock deadline for the *whole* transfer, however slowly it progresses. Without this
+    /// only the idle timeout applies, and a server that dribbles one byte every nine seconds
+    /// keeps its fetch alive indefinitely — cheap for the attacker, and expensive here because
+    /// `FollowersModel` gates enrichment on a small shared pool, so a few such followers stall
+    /// every other row for the life of the window. See `CappedHTTPTransport`.
+    public static let resourceTimeout: TimeInterval = 20
 
     private let transport: Transport
 
@@ -145,22 +151,17 @@ public struct ActorProfileFetcher: Sendable {
         }
     }
 
-    /// Production transport. Streams the body so the size cap is enforced *during* transfer —
-    /// `URLSession.data(for:)` buffers the whole response before returning, which would make a
-    /// post-hoc `data.count` check purely decorative.
-    public static let defaultTransport: Transport = { request in
-        let (bytes, response) = try await URLSession.shared.bytes(for: request)
-        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+    /// Its own session rather than `URLSession.shared`: `timeoutIntervalForResource` — the only
+    /// bound a slow-drip server can't sidestep — is settable on a configuration and nowhere else.
+    static let session = CappedHTTPTransport.session(
+        requestTimeout: timeout, resourceTimeout: resourceTimeout)
 
-        let cap = ActorProfileFetcher.maximumResponseBytes
-        if http.expectedContentLength > Int64(cap) {
-            throw ActorProfileError.responseTooLarge(Int(http.expectedContentLength))
-        }
-        var data = Data()
-        for try await byte in bytes {
-            data.append(byte)
-            if data.count > cap { throw ActorProfileError.responseTooLarge(data.count) }
-        }
-        return (data, http)
+    /// Production transport. Streams the body so the size cap is enforced *during* transfer.
+    public static let defaultTransport: Transport = { request in
+        try await CappedHTTPTransport.fetch(
+            request,
+            session: ActorProfileFetcher.session,
+            cap: ActorProfileFetcher.maximumResponseBytes,
+            tooLarge: ActorProfileError.responseTooLarge)
     }
 }

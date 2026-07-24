@@ -77,6 +77,12 @@ public struct ActivityPubFollowersClient: Sendable {
     static let acceptHeader =
         "application/activity+json, application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
 
+    /// A failure body becomes model state and then UI text, so it can't be unbounded: an
+    /// origin-served nginx/Cloudflare error page is routinely tens of kilobytes and can be
+    /// megabytes, and all of it would be retained by the model and pushed into a non-scrolling
+    /// `Text`. Nothing past the first few hundred characters is ever diagnostic anyway.
+    static let maximumErrorBodyCharacters = 400
+
     private let followersURL: URL
     private let transport: Transport
 
@@ -123,17 +129,33 @@ public struct ActivityPubFollowersClient: Sendable {
             (data, http) = try await transport(request)
         } catch {
             throw ActivityPubFollowersError.requestFailed(
-                status: 0, body: error.localizedDescription)
+                status: 0, body: Self.truncated(error.localizedDescription))
         }
         guard (200..<300).contains(http.statusCode) else {
             throw ActivityPubFollowersError.requestFailed(
-                status: http.statusCode, body: String(data: data, encoding: .utf8) ?? "")
+                status: http.statusCode, body: Self.truncatedBody(data))
         }
         do {
             return try JSONDecoder().decode(Response.self, from: data)
         } catch {
             throw ActivityPubFollowersError.decodingFailed("\(error)")
         }
+    }
+
+    /// Decodes at most ``maximumErrorBodyCharacters``' worth of a failure body. The `Data` is
+    /// sliced *before* decoding so a multi-megabyte error page is never materialized as a
+    /// `String` at all; `String(decoding:as:)` repairs the UTF-8 sequence the slice may have cut
+    /// in half rather than returning `nil` and losing the diagnostic entirely.
+    static func truncatedBody(_ data: Data) -> String {
+        // 4 bytes per character is UTF-8's worst case, so this prefix can't drop a character the
+        // limit would have kept.
+        truncated(String(decoding: data.prefix(maximumErrorBodyCharacters * 4), as: UTF8.self))
+    }
+
+    static func truncated(_ body: String) -> String {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > maximumErrorBodyCharacters else { return trimmed }
+        return trimmed.prefix(maximumErrorBodyCharacters) + "…"
     }
 
     /// Production transport: a plain `URLSession` request. The collection needs no credentials.

@@ -44,14 +44,23 @@ public struct ActorProfileCache: Equatable, Sendable {
         return ActorProfileCache(profiles: envelope.profiles)
     }
 
-    public func save(to configDirectory: URL) throws {
+    /// Writes the cache, dropping entries already past ``timeToLive``.
+    ///
+    /// The prune is what keeps the file from growing monotonically with every follower the site
+    /// has ever had: an expired entry is already invisible to ``profile(for:now:)``, so carrying
+    /// it forward only costs bytes on disk and encode time on every subsequent save. Callers save
+    /// on a debounce while enrichment streams in, so this runs repeatedly — see
+    /// `FollowersModel.scheduleCacheSave`, which also keeps it off the MainActor.
+    public func save(to configDirectory: URL, now: Date = Date()) throws {
         try FileManager.default.createDirectory(
             at: configDirectory, withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(
-            Envelope(profiles: profiles.values.sorted { $0.actor.absoluteString < $1.actor.absoluteString }))
+        let fresh = profiles.values
+            .filter { now.timeIntervalSince($0.fetchedAt) < Self.timeToLive }
+            .sorted { $0.actor.absoluteString < $1.actor.absoluteString }
+        let data = try encoder.encode(Envelope(profiles: fresh))
         try data.write(to: configDirectory.appendingPathComponent(Self.filename), options: .atomic)
     }
 }

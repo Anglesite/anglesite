@@ -135,4 +135,32 @@ struct ActorProfileFetcherTests {
         #expect(profile.name == DisplayString.safe(hostile))
         #expect(profile.name?.unicodeScalars.contains(where: { $0.properties.generalCategory == .format }) == false)
     }
+
+    /// Amendment (whole-branch review): `URLRequest.timeoutInterval` is an *idle* timeout, so a
+    /// server that dribbles one byte every nine seconds never trips it and holds one of
+    /// `FollowersModel`'s four shared enrichment slots indefinitely. Only
+    /// `timeoutIntervalForResource` bounds the whole transfer, and it is settable on a session
+    /// configuration and nowhere else — which is why the fetcher can't use `URLSession.shared`.
+    ///
+    /// Asserting on the configuration rather than on a slow socket: the deadline itself only
+    /// fires against a real, deliberately-slow server, which no unit test should stand up.
+    @Test("bounds the whole transfer, not just idle time")
+    func configuresAWallClockDeadline() throws {
+        let configuration = CappedHTTPTransport.configuration(
+            requestTimeout: ActorProfileFetcher.timeout,
+            resourceTimeout: ActorProfileFetcher.resourceTimeout)
+
+        #expect(configuration.timeoutIntervalForRequest == ActorProfileFetcher.timeout)
+        #expect(configuration.timeoutIntervalForResource == ActorProfileFetcher.resourceTimeout)
+        // Far below URLSession's 7-day default, which is what "unset" would leave in place.
+        #expect(configuration.timeoutIntervalForResource < 60)
+    }
+
+    /// An oversize response must not also land in the process-wide `URLCache`.
+    @Test("fetches on an ephemeral configuration, not the shared session")
+    func usesAnEphemeralConfiguration() throws {
+        let configuration = CappedHTTPTransport.configuration(
+            requestTimeout: 1, resourceTimeout: 2)
+        #expect(configuration.urlCache !== URLSessionConfiguration.default.urlCache)
+    }
 }

@@ -172,4 +172,54 @@ struct ActivityPubFollowersClientTests {
         }
         #expect(status == 0)
     }
+
+    /// The failure body becomes model state and then UI text in a non-scrolling `VStack`. An
+    /// origin-served nginx/Cloudflare error page can be megabytes, so it has to be bounded here —
+    /// where it's constructed and testable — rather than at the view.
+    @Test("truncates an oversize error body")
+    func truncatesOversizeErrorBody() async throws {
+        let huge = String(
+            repeating: "A", count: ActivityPubFollowersClient.maximumErrorBodyCharacters * 50)
+        let fake = FakeTransport(status: 500, body: huge)
+
+        let error = try await #require(throws: ActivityPubFollowersError.self) {
+            _ = try await Self.client(fake).collection()
+        }
+        guard case .requestFailed(_, let body) = error else {
+            Issue.record("expected .requestFailed, got \(error)")
+            return
+        }
+        #expect(body.count == ActivityPubFollowersClient.maximumErrorBodyCharacters + 1)
+        #expect(body.hasSuffix("…"))
+    }
+
+    @Test("leaves a short error body intact")
+    func keepsShortErrorBody() async throws {
+        let fake = FakeTransport(status: 404, body: "  not found\n")
+        await #expect(throws: ActivityPubFollowersError.requestFailed(
+            status: 404, body: "not found")) {
+            _ = try await Self.client(fake).collection()
+        }
+    }
+
+    /// The `Data` is sliced before it's decoded, so the slice can land mid-character. Decoding
+    /// must repair that rather than returning `nil` and throwing the whole diagnostic away.
+    @Test("survives a truncation that splits a multi-byte character")
+    func survivesSplitMultiByteCharacter() async throws {
+        let fake = FakeTransport(
+            status: 500,
+            body: String(
+                repeating: "é",
+                count: ActivityPubFollowersClient.maximumErrorBodyCharacters * 3))
+
+        let error = try await #require(throws: ActivityPubFollowersError.self) {
+            _ = try await Self.client(fake).collection()
+        }
+        guard case .requestFailed(_, let body) = error else {
+            Issue.record("expected .requestFailed, got \(error)")
+            return
+        }
+        #expect(body.hasPrefix("é"))
+        #expect(body.count == ActivityPubFollowersClient.maximumErrorBodyCharacters + 1)
+    }
 }

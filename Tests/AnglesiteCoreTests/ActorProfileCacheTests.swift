@@ -80,6 +80,39 @@ struct ActorProfileCacheTests {
         #expect(ActorProfileCache.load(from: directory) == nil)
     }
 
+    /// Without a prune the file grows monotonically with every follower the site has ever had,
+    /// and every debounced save re-encodes the whole accumulated history — for entries
+    /// `profile(for:now:)` already refuses to return.
+    @Test("save drops entries past the TTL")
+    func savePrunesExpiredProfiles() throws {
+        let directory = try Self.makeConfigDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let now = Date()
+        let stale = try #require(URL(string: "https://example.social/users/bob"))
+
+        var cache = ActorProfileCache()
+        cache.store(Self.profile(fetchedAt: now.addingTimeInterval(-60)))
+        cache.store(ActorProfile(
+            actor: stale, preferredUsername: "bob", name: "Bob",
+            iconURL: nil,
+            fetchedAt: now.addingTimeInterval(-ActorProfileCache.timeToLive - 1)))
+        try cache.save(to: directory, now: now)
+
+        // Asserted against the file itself, not just the reloaded cache: an expired entry is
+        // already invisible through `profile(for:now:)`, so only the bytes on disk show the prune.
+        let written = try Data(
+            contentsOf: directory.appendingPathComponent(ActorProfileCache.filename))
+        let object = try JSONSerialization.jsonObject(with: written) as? [String: Any]
+        let persisted = try #require(object?["profiles"] as? [[String: Any]])
+        #expect(persisted.count == 1)
+        #expect(persisted.first?["actor"] as? String == Self.alice.absoluteString)
+
+        // Reloading must not resurrect it, even asked with a `now` that would make it fresh.
+        let reloaded = try #require(ActorProfileCache.load(from: directory))
+        #expect(reloaded.profile(for: stale, now: now.addingTimeInterval(-ActorProfileCache.timeToLive)) == nil)
+        #expect(reloaded.profile(for: Self.alice, now: now)?.name == "Alice Example")
+    }
+
     @Test("storing the same actor twice keeps the newer profile")
     func storeOverwrites() throws {
         let now = Date()
