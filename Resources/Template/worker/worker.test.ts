@@ -1015,6 +1015,52 @@ test("websub queue consumer: dispatches into @dwk/websub's consumer without thro
   ).resolves.toBeUndefined();
 });
 
+// --- WebFinger discovery (V-4.4, #366) ------------------------------------------------------
+// Composition of @dwk/webfinger's handler, which is RFC 7033-conformant on its own (query
+// validation, CORS, JRD body, 400/404) — these tests cover only what this file supplies: the
+// resource map resolving `acct:site@<host>` to the ActivityPub actor, and the 503-when-
+// unconfigured guard every other composed handler in this file follows.
+
+test("webfinger: resolves acct:site@<host> to the ActivityPub actor", async () => {
+  const response = await fetchWorker(
+    new Request("https://owner.example/.well-known/webfinger?resource=acct:site@owner.example"),
+  );
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toContain("application/jrd+json");
+  expect(response.headers.get("access-control-allow-origin")).toBe("*");
+  const jrd = await response.json() as { subject: string; links: Array<{ rel: string; type?: string; href?: string }> };
+  expect(jrd.subject).toBe("acct:site@owner.example");
+  expect(jrd.links).toContainEqual({
+    rel: "self",
+    type: "application/activity+json",
+    href: "https://owner.example/users/site",
+  });
+});
+
+test("webfinger: 503 when ActivityPub isn't configured", async () => {
+  const { ACTOR: _unusedActor, ...envWithoutActor } = testEnv;
+  const response = await worker.fetch(
+    new Request("https://owner.example/.well-known/webfinger?resource=acct:site@owner.example"),
+    envWithoutActor as WorkerEnv,
+    createExecutionContext(),
+  );
+  expect(response.status).toBe(503);
+});
+
+test("webfinger: 400 when the resource query parameter is missing", async () => {
+  const response = await fetchWorker(new Request("https://owner.example/.well-known/webfinger"));
+  expect(response.status).toBe(400);
+  expect(response.headers.get("access-control-allow-origin")).toBe("*");
+});
+
+test("webfinger: 404 for a resource this site does not control", async () => {
+  const response = await fetchWorker(
+    new Request("https://owner.example/.well-known/webfinger?resource=acct:someone-else@owner.example"),
+  );
+  expect(response.status).toBe(404);
+  expect(response.headers.get("access-control-allow-origin")).toBe("*");
+});
+
 // --- Microsub reader (V-4.3, #365) ----------------------------------------------------------
 // Composition of @dwk/microsub's single endpoint. These run through worker.fetch in the workerd
 // pool with MICROSUB_DB/MICROSUB_QUEUE/AUTH_DB/TOKEN_SIGNING_KEY bound (see vitest.config.ts),

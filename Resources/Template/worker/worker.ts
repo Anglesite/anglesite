@@ -34,6 +34,7 @@ import {
   type MicrosubEnv,
   type MicrosubJob,
 } from "@dwk/microsub";
+import { createWebfinger } from "@dwk/webfinger";
 
 /**
  * Per-site Cloudflare Worker entry point.
@@ -624,8 +625,9 @@ async function fanOutMicropubCreateToActivityPub(
 /**
  * Fixed identity for this app's single-actor-per-site model (V-4.1, #363) — no per-site
  * Settings field for a custom handle; see the design doc §"Actor identity source". WebFinger
- * (`.well-known/webfinger`, so `@site@domain` search resolves) is a separate feature (#364);
- * Mastodon can still follow this actor by pasting its URL directly into search.
+ * (`.well-known/webfinger`, so `@site@domain` search resolves) is composed by
+ * `handleWebFinger` below (V-4.4, #366); Mastodon can still follow this actor by pasting its
+ * URL directly into search even where WebFinger isn't active.
  */
 const ACTIVITYPUB_USERNAME = "site";
 
@@ -672,6 +674,42 @@ function handleActivityPub(
   }
   const activitypub = createActivityPub(config);
   return activitypub(request, env as unknown as ActivityPubEnv, ctx);
+}
+
+/**
+ * WebFinger discovery (V-4.4, #366): resolves `acct:<username>@<host>` to this site's
+ * ActivityPub actor, so `@site@domain` search works in Mastodon and other fediverse clients.
+ * `@dwk/webfinger`'s handler is RFC 7033-conformant on its own (query validation, CORS, JRD
+ * body, 400/404); this function only supplies the resource map. The actor is WebFinger's only
+ * controlled resource today, so — like every other composed handler in this file — this
+ * returns 503 when ActivityPub isn't provisioned rather than constructing an always-empty
+ * endpoint.
+ */
+function handleWebFinger(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = activityPubConfig(request, env);
+  if (!config) {
+    return Promise.resolve(new Response("WebFinger is not configured", { status: 503 }));
+  }
+  const baseUrl = new URL(request.url).origin;
+  const host = new URL(baseUrl).hostname;
+  const webfinger = createWebfinger({
+    resources: {
+      [`acct:${config.actor.username}@${host}`]: {
+        links: [
+          {
+            rel: "self",
+            type: "application/activity+json",
+            href: `${baseUrl}/users/${config.actor.username}`,
+          },
+        ],
+      },
+    },
+  });
+  return webfinger(request, {}, ctx);
 }
 
 /**
@@ -1054,6 +1092,13 @@ export const ROUTES: readonly WorkerRoute[] = [
     match: "exact",
     methods: ["GET", "POST"],
     handler: (request, env, ctx) => handleMicrosub(request, env, ctx),
+  },
+  {
+    // WebFinger discovery (V-4.4, #366): resolve acct:site@<host> to the ActivityPub actor.
+    path: "/.well-known/webfinger",
+    match: "exact",
+    methods: ["GET", "HEAD"],
+    handler: (request, env, ctx) => handleWebFinger(request, env, ctx),
   },
 ];
 
