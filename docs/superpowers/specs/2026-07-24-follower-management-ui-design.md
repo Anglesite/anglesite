@@ -90,7 +90,9 @@ type.
 |---|---|
 | `ActivityPubFollowersClient` | Fetches the public collection. Injectable `Transport` closure mirroring `MicrosubClient.Transport`, but with no auth layer — no `authorize`, no DPoP proof, no nonce retry, because the collection is unauthenticated. `collection()` → `FollowersCollection` (`totalItems`, `firstPage`); `page(at: URL)` → `FollowersPage` (`items: [URL]`, `next: URL?`). |
 | `ActorHandle` | Pure, no I/O. Derives `@alice@mastodon.social` from an actor IRI. Recognizes `/users/<name>`, `/@<name>`, and `/c/<name>`; returns `nil` for anything else so callers fall back to the raw IRI rather than inventing a wrong handle. |
-| `ActorProfileFetcher` | Fetches one remote actor document. Injectable `Transport`, HTTPS-only, byte-capped, short timeout. Tolerant `icon` decoding: AS2 permits a string, an object, or an array of objects, and deployed instances ship all three. |
+| `ActorProfileFetcher` | Fetches one remote actor document. Injectable `Transport`, HTTPS-only, byte-capped, with a wall-clock deadline. Tolerant `icon` decoding: AS2 permits a string, an object, or an array of objects, and deployed instances ship all three. |
+| `AvatarLoader` | Fetches one follower's avatar bytes under the same guards, since the icon URL is just as attacker-chosen as the document it came from. Returns raw `Data` so the caller can decode off the MainActor and against a pixel bound. |
+| `CappedHTTPTransport` | The shared plumbing under both: an ephemeral `URLSession` carrying `timeoutIntervalForResource`, and a streaming fetch that aborts past a byte cap. |
 | `ActorProfileCache` | Persisted enrichment store, modeled directly on `POSSESyndicationLog`: a `Sendable` struct with `static let filename`, `load(from configDirectory:)`, `save(to:)`, ISO-8601 dates, atomic write, and `nil` on a corrupt file rather than a throw. |
 
 `ActivityPubActor.username = "site"` also lands in `AnglesiteCore`, beside
@@ -101,7 +103,9 @@ type.
 - `FollowersModel` — `@MainActor @Observable`. `configure(site: CurrentSite)`
   is called once per site open from `SiteWindowModel.loadAndStart()`, the same
   lifecycle hook `MicrosubReaderModel` uses. Owns the row list, paging state,
-  the enrichment gate, and the cache instance.
+  the enrichment gate, and the cache instance. `resolveSite()` is split out of
+  `configure` so `retry()` can re-read the site URL without a `CurrentSite`, and a
+  generation counter lets an in-flight page discard itself across a `refresh()`.
 - `FollowersView` — the pane. `.navigationSubtitle("Followers")`, matching
   `MicrosubReaderView`.
 - Wiring: a `MainPaneMode.followers` case, `SiteWindowModel.presentFollowers()`,
@@ -142,9 +146,16 @@ The save is debounced rather than only on close so that a quit, crash, or
 window close that never runs the disappear hook still leaves a warm cache —
 enrichment work is wasted otherwise.
 
-The cache persists the **icon URL**, never image bytes. `AsyncImage` fetches
-the image and URLSession's HTTP cache handles reuse — keeping the `Config/`
-JSON small and avoiding turning the app into an image store.
+The cache persists the **icon URL**, never image bytes. `AvatarLoader` fetches
+the image per visible row — keeping the `Config/` JSON small and avoiding
+turning the app into an image store.
+
+Each save **prunes entries past the TTL**. An expired entry is already invisible
+to `profile(for:now:)`, so carrying it forward would only grow the file
+monotonically with every follower the site has ever had and re-encode that
+history on every debounced save. The save itself runs off the MainActor
+(`Task.detached` over a value copy of the `Sendable` cache), so the encode and
+atomic write never land on the main thread mid-enrichment.
 
 `Config/` is the correct home because it is app-owned per-site state that must
 never enter the site's git repo, per the `.anglesite` package model (#242).
@@ -159,21 +170,37 @@ Follower IRIs and display names are **attacker-supplied** — anyone in the
 Fediverse can follow the site and thereby place a URL and a display string in
 this pane. Every guard below follows from that.
 
-**Outbound fetches** (`ActorProfileFetcher`, and the same checks applied to
-icon URLs before they reach `AsyncImage`):
+**Outbound fetches** — `ActorProfileFetcher` for the actor document and
+`AvatarLoader` for the avatar image, both built on `CappedHTTPTransport`:
 
 - **HTTPS only.** Reject any scheme but `https` before issuing the request, and
   re-check the scheme of the *final* URL afterwards, so a redirect chain cannot
   downgrade to `http://` or divert to `file://`.
-- **256 KB byte cap**, enforced *during* transfer, and a **10-second timeout**
-  per request. The cap has to be a streaming one: `URLSession.data(for:)`
-  buffers the entire body before returning, so a post-hoc `data.count` check
-  would already have accepted an arbitrarily large response. The default
-  transport therefore uses `URLSession.bytes(for:)`, rejects early on an
-  `expectedContentLength` over the cap, and aborts as soon as accumulated bytes
-  exceed it. The fetcher additionally re-checks `data.count` after the fact, so
-  an injected test transport is held to the same limit. An instance that streams
-  without end, or simply hangs, costs one row's label — never the pane.
+- **Streaming byte cap** — 256 KB for an actor document, 2 MB for an avatar. The
+  cap has to be a streaming one: `URLSession.data(for:)` buffers the entire body
+  before returning, so a post-hoc `data.count` check would already have accepted
+  an arbitrarily large response. The default transport therefore uses
+  `URLSession.bytes(for:)`, rejects early on an `expectedContentLength` over the
+  cap, and aborts as soon as accumulated bytes exceed it. Both types
+  additionally re-check `data.count` after the fact, so an injected test
+  transport is held to the same limit.
+- **A wall-clock deadline, not just an idle timeout.**
+  `URLRequest.timeoutInterval` maps to `timeoutIntervalForRequest`, which bounds
+  only how long a transfer may sit *idle* — a server that dribbles one byte
+  every nine seconds never trips it and can hold a fetch open until the byte cap
+  is reached. Because enrichment is gated on a small shared pool, a handful of
+  such followers would starve every other row for the life of the window. Both
+  fetches therefore run on their own ephemeral `URLSession` whose configuration
+  sets `timeoutIntervalForResource` (settable only on a configuration, which is
+  why neither can use `URLSession.shared`). An instance that hangs, streams
+  without end, or drips slowly costs one row's label — never the pane.
+- **Avatars do not go through `AsyncImage`.** It would hand a follower-chosen
+  URL to `URLSession.shared` with no byte cap, no deadline, and no bound on
+  decoded pixel dimensions — a larger attack surface than the actor document the
+  guards were built for. Avatar bytes come from `AvatarLoader` and are decoded
+  off the MainActor through ImageIO's thumbnail path at a 128px bound, so a
+  decompression bomb (small on the wire, enormous once decoded) is subsampled
+  rather than expanded.
 - **Bounded concurrency, 4 in flight.** A site with thousands of followers must
   not fan out thousands of sockets.
 - **Failures are silent by design** — logged, never surfaced. The row keeps its
@@ -203,6 +230,18 @@ fix:
 | `404` / transport failure | The site is unreachable or its Worker isn't deployed. |
 | `200`, `totalItems == 0` | Genuine empty state — show the actor URL to paste into Mastodon search. |
 
+Every non-empty state above carries a **Try Again** button, and retry
+**re-resolves the site URL** before reloading. Without that, the first two rows
+of the table are dead ends by construction: they tell the owner to go publish
+the site or turn ActivityPub on, and the pane could never notice they had —
+`configure(site:)` runs once per window open, so nothing re-read `.site-config`
+until the window was closed and reopened.
+
+A **paging** failure is deliberately not one of these states. Paging is
+additive, and these states render *instead of* the list, so routing a failed
+"Load More" through them would hide every row already fetched. It surfaces as a
+separate annotation beside the list instead, leaving the loaded rows in place.
+
 The empty state does double duty as discovery guidance: until WebFinger ships
 ([#366](https://github.com/Anglesite/Anglesite-app/issues/366)), pasting the
 raw actor URL into Mastodon's search field is the *only* way anyone can find
@@ -222,16 +261,32 @@ moment they need a next step.
   than producing a wrong handle.
 - `ActorProfileFetcherTests` — `icon` as string, object, and array; missing
   fields; oversize body rejected; non-HTTPS rejected; a redirect landing on
-  `http://` rejected.
-- `ActorProfileCacheTests` — save/load round-trip, TTL expiry, and a corrupt
-  file returning `nil` without throwing.
+  `http://` rejected; the session configuration carries a wall-clock
+  `timeoutIntervalForResource`, not just an idle timeout.
+- `AvatarLoaderTests` — a normal response; oversize rejected; non-HTTPS
+  rejected without issuing a request; a redirect landing on `http://` rejected;
+  non-2xx mapped to a typed error; the same wall-clock deadline assertion.
+- `ActorProfileCacheTests` — save/load round-trip, TTL expiry, a corrupt file
+  returning `nil` without throwing, and `save` pruning expired entries out of
+  the written file.
 - `ActivityPubActorUsernameTests` — the Swift constant matches the template's
   `ACTIVITYPUB_USERNAME`.
 
-`FollowersModel` stays thin enough to need no hosted app test. Verification
-also includes `xcodebuild` (a `swift test` pass alone does not prove the `.app`
-links) and an `xcstrings` sync for the new user-visible strings, per
-`CONTRIBUTING.md`.
+The wall-clock deadline itself is asserted on the session *configuration*: it
+only fires against a real, deliberately-slow server, which no unit test should
+stand up.
+
+`FollowersModel` is covered by `AnglesiteAppTests` (a SwiftPM target over
+`AnglesiteAppCore` — no hosted app test needed) with a scripted in-process
+followers server: retry recovering `.noSiteURL` after the site is published, a
+paging failure leaving the loaded rows in place, overlapping `loadMore()` calls
+appending each follower exactly once, and a page in flight across a `refresh()`
+discarding itself. That is why the followers `Transport` is injectable into the
+model rather than the client being built opaquely.
+
+Verification also includes `xcodebuild` (a `swift test` pass alone does not
+prove the `.app` links) and an `xcstrings` sync for the new user-visible
+strings, per `CONTRIBUTING.md`.
 
 ## Scope
 
