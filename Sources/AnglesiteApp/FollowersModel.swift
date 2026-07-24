@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 import Observation
 import AnglesiteCore
@@ -60,6 +59,14 @@ final class FollowersModel {
     private var cache = ActorProfileCache()
     private var inFlight: Set<String> = []
     private var queued: Set<String> = []
+    /// Actor keys whose enrichment already failed this session. Without this, a row that scrolls
+    /// out of the `List` and back in re-triggers its `.task` and re-enqueues a fetch — so an
+    /// unreachable (or hostile, or merely slow) follower instance would get re-pinged every time
+    /// its row is realized, for the life of the window. That's an unbounded retry storm against
+    /// exactly the servers the concurrency cap and 7-day cache exist to protect. Session-scoped
+    /// (never persisted): `refresh()` clears it, since that's the user's deliberate escape hatch
+    /// for "try again" once a flaky instance comes back up.
+    private var unreachableActors: Set<String> = []
     private var pendingQueue: [URL] = []
     private var saveTask: Task<Void, Never>?
 
@@ -91,6 +98,7 @@ final class FollowersModel {
         state = .loading
         rows = []
         nextPage = nil
+        totalItems = 0
         do {
             let collection = try await client.collection()
             totalItems = collection.totalItems
@@ -123,6 +131,9 @@ final class FollowersModel {
 
     func refresh() async {
         state = .idle
+        // The user's explicit escape hatch for a flaky follower instance: give every previously
+        // failed actor a fresh attempt instead of honoring the session-scoped failure memory.
+        unreachableActors.removeAll()
         await load()
     }
 
@@ -143,7 +154,7 @@ final class FollowersModel {
     func enrichIfNeeded(_ actor: URL) {
         let key = actor.absoluteString
         guard rows.first(where: { $0.actor == actor })?.profile == nil,
-              !inFlight.contains(key), !queued.contains(key)
+              !inFlight.contains(key), !queued.contains(key), !unreachableActors.contains(key)
         else { return }
         queued.insert(key)
         pendingQueue.append(actor)
@@ -165,13 +176,16 @@ final class FollowersModel {
     }
 
     private func finishEnrichment(_ actor: URL, profile: ActorProfile?) {
-        inFlight.remove(actor.absoluteString)
+        let key = actor.absoluteString
+        inFlight.remove(key)
         if let profile {
             cache.store(profile)
             if let index = rows.firstIndex(where: { $0.actor == actor }) {
                 rows[index].profile = profile
             }
             scheduleCacheSave()
+        } else {
+            unreachableActors.insert(key)
         }
         pumpQueue()
     }
