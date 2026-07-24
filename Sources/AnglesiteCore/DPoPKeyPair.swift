@@ -60,8 +60,9 @@ public struct DPoPKeyPair: Sendable {
     /// Builds and signs a DPoP proof JWT (RFC 9449 §4.2) for one HTTP request: a fresh `jti`/
     /// `iat`, `htm`/`htu` binding it to this request, and — when `accessToken` is supplied — the
     /// `ath` claim binding it to that specific bearer token (required on every resource request;
-    /// omit for the token-endpoint exchange, which has no token yet).
-    public func proof(htm: String, htu: String, accessToken: String? = nil) throws -> String {
+    /// omit for the token-endpoint exchange, which has no token yet). `nonce` echoes a
+    /// server-issued `DPoP-Nonce` (RFC 9449 §8) on a retried proof; omit on the first attempt.
+    public func proof(htm: String, htu: String, accessToken: String? = nil, nonce: String? = nil) throws -> String {
         #if canImport(CryptoKit)
         let header: [String: Any] = ["typ": "dpop+jwt", "alg": "ES256", "jwk": publicJWK]
         var payload: [String: Any] = [
@@ -72,6 +73,9 @@ public struct DPoPKeyPair: Sendable {
         ]
         if let accessToken {
             payload["ath"] = Self.base64URL(Data(SHA256.hash(data: Data(accessToken.utf8))))
+        }
+        if let nonce {
+            payload["nonce"] = nonce
         }
         let headerSegment = try Self.base64URLJSON(header)
         let payloadSegment = try Self.base64URLJSON(payload)
@@ -100,4 +104,20 @@ public struct DPoPKeyPair: Sendable {
 
 public enum DPoPError: Error, Sendable {
     case unavailable
+}
+
+/// Detects an RFC 9449 §8 DPoP-nonce challenge: a 400/401 response carrying `error:
+/// "use_dpop_nonce"` and a `DPoP-Nonce` response header with the nonce the retried proof's
+/// `nonce` claim must echo. Shared by `SiteIndieAuthClient` and `MicrosubClient` so both clients
+/// agree on what counts as a challenge — any other 4xx/5xx (including a bare `invalid_dpop_proof`
+/// with no nonce header) falls through to the caller's ordinary failure handling.
+enum DPoPNonceChallenge {
+    static func nonce(in data: Data, response http: HTTPURLResponse) -> String? {
+        guard http.statusCode == 400 || http.statusCode == 401 else { return nil }
+        guard let nonce = http.value(forHTTPHeaderField: "DPoP-Nonce"), !nonce.isEmpty else { return nil }
+        guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              object["error"] as? String == "use_dpop_nonce"
+        else { return nil }
+        return nonce
+    }
 }
