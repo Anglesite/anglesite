@@ -58,7 +58,8 @@ public actor SocialWorkerProvisionCommand {
     public typealias Deployer = @Sendable (
         _ token: String,
         _ siteID: String,
-        _ siteDirectory: URL
+        _ siteDirectory: URL,
+        _ wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim]
     ) async -> DeployCommand.Result
 
     public nonisolated let tokenSource: TokenSource
@@ -110,7 +111,14 @@ public actor SocialWorkerProvisionCommand {
         /// the Cloudflare Workers Paid plan (#359) — `DeployModel` sets this from
         /// `SiteSettings.webmentionReceivePaidPlanAcknowledged` plus the in-flight confirmation
         /// sheet's "Enable & retry" action. Ignored unless a `webmention` worker is active.
-        acknowledgesPaidPlan: Bool = false
+        acknowledgesPaidPlan: Bool = false,
+        /// Effective active dynamic `/.well-known/` route claims (#746), with owner attribution —
+        /// forwarded verbatim to `deployer` for `DeployCommand.deploy`'s pre-build #744 collision
+        /// check, the same way `DeployModel.runDeploy`'s custom deployer closure already threads
+        /// `WorkerRouteClaims.wellKnownClaims(routeClaims)` for the GUI path (#934). Distinct from
+        /// `routeClaims` above (`[WorkerRouteClaim]`, used only to compose `wrangler.toml`)
+        /// because the collision check needs the `OwnedClaim` wrapper's owner attribution.
+        wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim] = []
     ) async -> Result {
         let token: String?
         do {
@@ -345,7 +353,7 @@ public actor SocialWorkerProvisionCommand {
             }
         }
 
-        switch await deployer(token, siteID, siteDirectory) {
+        switch await deployer(token, siteID, siteDirectory, wellKnownDynamicClaims) {
         case .succeeded(let url, _):
             return .succeeded(url: url, resources: resources, duration: Date().timeIntervalSince(started))
         case .blocked(let failures, let warnings):
@@ -537,14 +545,15 @@ public actor SocialWorkerProvisionCommand {
         try ActivityPubKeyProvisioning.secrets(siteID: siteID, secretStore: PlatformSecretStore.make())
     }
 
-    // Calls `DeployCommand.deploy` with its defaults: no `configDirectory` (route-coverage
-    // scanning skipped, #530) and no `wellKnownDynamicClaims` (#744's pre-build /.well-known/
-    // collision check still runs — `scanUserStatic` and `executor.reportOwnedPathClaims()` don't
-    // need it — but with no visibility into this deploy's active dynamic Worker routes, so a
-    // static/dynamic collision on this path isn't caught pre-build). `DeployModel.runDeploy`
-    // constructs its own deployer closure specifically to thread both through.
-    public static let defaultDeployer: Deployer = { token, siteID, siteDirectory in
-        await DeployCommand(tokenSource: { token }).deploy(siteID: siteID, siteDirectory: siteDirectory)
+    // Calls `DeployCommand.deploy` with `configDirectory` still defaulted (route-coverage
+    // scanning skipped, #530), but now forwards `wellKnownDynamicClaims` through to #744's
+    // pre-build /.well-known/ collision check (#934) — `provision`'s caller supplies whatever
+    // active dynamic-route claims it computed (empty if it didn't, matching prior behavior).
+    // `DeployModel.runDeploy` still constructs its own deployer closure (for `configDirectory`/
+    // `onPreflight`/`onProgress`, which this default has no equivalent for).
+    public static let defaultDeployer: Deployer = { token, siteID, siteDirectory, wellKnownDynamicClaims in
+        await DeployCommand(tokenSource: { token }).deploy(
+            siteID: siteID, siteDirectory: siteDirectory, wellKnownDynamicClaims: wellKnownDynamicClaims)
     }
 }
 

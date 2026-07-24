@@ -121,7 +121,12 @@ public struct SiteOperations: Sendable {
             siteName: workerSiteName,
             workers: workers,
             routeClaims: routeClaims.map(\.claim),
-            knownResources: settings.provisionedWorkerResources ?? .init()
+            knownResources: settings.provisionedWorkerResources ?? .init(),
+            // #934: this headless path (App Intents/Shortcuts/Siri) now sees the same active
+            // dynamic /.well-known/ claims the GUI Deploy button already threads via
+            // `DeployModel.runDeploy`'s custom deployer closure, so #744's collision check blocks
+            // identically regardless of trigger.
+            wellKnownDynamicClaims: WorkerRouteClaims.wellKnownClaims(routeClaims)
         )
         onProgress?(.deployFinalizing)
 
