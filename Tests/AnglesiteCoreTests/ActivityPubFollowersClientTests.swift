@@ -7,25 +7,46 @@ import FoundationNetworking
 
 @Suite("ActivityPubFollowersClient")
 struct ActivityPubFollowersClientTests {
-    /// A transport that answers every request with one canned status + body, and records the
-    /// URLs it was asked for.
-    final class FakeTransport: @unchecked Sendable {
-        let status: Int
-        let body: String
+    /// A transport that answers every request with one canned status + body (or, when built with
+    /// `init(throwing:)`, throws instead of returning), and records the URLs and headers it was
+    /// asked for. An `actor` rather than an `@unchecked Sendable` class: the recording state is
+    /// mutated from the `@Sendable` transport closure, so it needs real isolation, not just a
+    /// promise that callers won't race it.
+    actor FakeTransport {
+        private let status: Int
+        private let body: String
+        private let error: (any Error)?
         private(set) var requestedURLs: [URL] = []
+        private(set) var requestedHeaders: [[String: String]] = []
 
-        init(status: Int = 200, body: String) {
+        init(status: Int = 200, body: String = "") {
             self.status = status
             self.body = body
+            self.error = nil
         }
 
-        var transport: ActivityPubFollowersClient.Transport {
-            { [self] request in
-                requestedURLs.append(request.url!)
-                let http = HTTPURLResponse(
-                    url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
-                return (Data(body.utf8), http)
+        /// Simulates a network-level failure with no HTTP response at all (DNS failure, no
+        /// connectivity, etc.) — the branch `ActivityPubFollowersClient.fetch` re-wraps as
+        /// `.requestFailed(status: 0, ...)`.
+        init(throwing error: any Error) {
+            self.status = 0
+            self.body = ""
+            self.error = error
+        }
+
+        private func respond(to request: URLRequest) throws -> (Data, HTTPURLResponse) {
+            requestedURLs.append(request.url!)
+            requestedHeaders.append(request.allHTTPHeaderFields ?? [:])
+            if let error {
+                throw error
             }
+            let http = HTTPURLResponse(
+                url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+            return (Data(body.utf8), http)
+        }
+
+        nonisolated var transport: ActivityPubFollowersClient.Transport {
+            { request in try await self.respond(to: request) }
         }
     }
 
@@ -48,8 +69,22 @@ struct ActivityPubFollowersClientTests {
         #expect(collection.totalItems == 42)
         #expect(collection.firstPage?.absoluteString
             == "https://example.com/users/site/followers?page=1")
-        #expect(fake.requestedURLs.first?.absoluteString
+        #expect(await fake.requestedURLs.first?.absoluteString
             == "https://example.com/users/site/followers")
+    }
+
+    /// Fediverse servers content-negotiate on `Accept` and will serve HTML instead of AS2 to a
+    /// client that omits it, so this header is functionally load-bearing, not decorative.
+    @Test("sends the AS2 Accept header on every request")
+    func sendsAcceptHeader() async throws {
+        let fake = FakeTransport(body: """
+        {"id":"https://example.com/users/site/followers",
+         "type":"OrderedCollection","totalItems":0}
+        """)
+        _ = try await Self.client(fake).collection()
+
+        let headers = await fake.requestedHeaders
+        #expect(headers.first?["Accept"] == ActivityPubFollowersClient.acceptHeader)
     }
 
     /// `@dwk/activitypub` omits `first`/`last` entirely when the collection is empty, which is
@@ -111,8 +146,30 @@ struct ActivityPubFollowersClientTests {
     @Test("maps a malformed body to decodingFailed")
     func mapsMalformedBody() async throws {
         let fake = FakeTransport(body: "not json at all")
-        await #expect(throws: ActivityPubFollowersError.self) {
+        let error = try await #require(throws: ActivityPubFollowersError.self) {
             _ = try await Self.client(fake).collection()
         }
+        guard case .decodingFailed = error else {
+            Issue.record("expected .decodingFailed, got \(error)")
+            return
+        }
+    }
+
+    /// A transport-level throw (DNS failure, no connectivity — no HTTP response at all) is
+    /// distinct from a non-2xx response, and `fetch` re-wraps it as `status: 0` so the pane can
+    /// tell "couldn't reach the Worker" apart from a Worker-returned error status.
+    @Test("maps a transport throw to requestFailed with status 0")
+    func mapsTransportThrow() async throws {
+        struct SampleTransportError: Error {}
+        let fake = FakeTransport(throwing: SampleTransportError())
+
+        let error = try await #require(throws: ActivityPubFollowersError.self) {
+            _ = try await Self.client(fake).collection()
+        }
+        guard case .requestFailed(let status, _) = error else {
+            Issue.record("expected .requestFailed, got \(error)")
+            return
+        }
+        #expect(status == 0)
     }
 }
