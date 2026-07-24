@@ -176,4 +176,66 @@ struct SiteIndieAuthClientTests {
             _ = try await client.exchange(code: "auth-code", for: request, dpopKeyPair: DPoPKeyPair())
         }
     }
+
+    @Test("exchange retries once with the echoed nonce after a use_dpop_nonce challenge")
+    func exchangeRetriesOnNonceChallenge() async throws {
+        let request = makeRequest()
+        let dpopKeyPair = DPoPKeyPair()
+        var capturedDPoPHeaders: [String] = []
+        var transportCallCount = 0
+        let client = SiteIndieAuthClient(transport: { req in
+            transportCallCount += 1
+            capturedDPoPHeaders.append(req.value(forHTTPHeaderField: "DPoP") ?? "")
+            if transportCallCount == 1 {
+                let challenge = Data(#"{"error":"use_dpop_nonce"}"#.utf8)
+                let http = HTTPURLResponse(
+                    url: request.tokenEndpoint, statusCode: 400, httpVersion: nil,
+                    headerFields: ["DPoP-Nonce": "server-nonce-1"]
+                )!
+                return (challenge, http)
+            }
+            let body = #"{"access_token":"tok-123","token_type":"DPoP","scope":"read","me":"https://owner.example/","expires_in":3600}"#
+            return (Data(body.utf8), self.response(200))
+        })
+
+        let token = try await client.exchange(code: "auth-code", for: request, dpopKeyPair: dpopKeyPair)
+
+        #expect(token.accessToken == "tok-123")
+        #expect(transportCallCount == 2)
+
+        func base64urlDecode(_ segment: Substring) -> Data {
+            var base64 = segment.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+            while base64.count % 4 != 0 { base64 += "=" }
+            return Data(base64Encoded: base64) ?? Data()
+        }
+        let firstPayload = try JSONSerialization.jsonObject(
+            with: base64urlDecode(capturedDPoPHeaders[0].split(separator: ".")[1])
+        ) as! [String: Any]
+        #expect(firstPayload["nonce"] == nil)
+
+        let retryPayload = try JSONSerialization.jsonObject(
+            with: base64urlDecode(capturedDPoPHeaders[1].split(separator: ".")[1])
+        ) as! [String: Any]
+        #expect(retryPayload["nonce"] as? String == "server-nonce-1")
+    }
+
+    @Test("exchange caps at one retry — a repeated nonce challenge still throws .tokenExchangeFailed")
+    func exchangeCapsRetryAtOne() async {
+        let request = makeRequest()
+        var transportCallCount = 0
+        let client = SiteIndieAuthClient(transport: { _ in
+            transportCallCount += 1
+            let challenge = Data(#"{"error":"use_dpop_nonce"}"#.utf8)
+            let http = HTTPURLResponse(
+                url: request.tokenEndpoint, statusCode: 400, httpVersion: nil,
+                headerFields: ["DPoP-Nonce": "server-nonce-\(transportCallCount)"]
+            )!
+            return (challenge, http)
+        })
+
+        await #expect(throws: SiteIndieAuthError.self) {
+            _ = try await client.exchange(code: "auth-code", for: request, dpopKeyPair: DPoPKeyPair())
+        }
+        #expect(transportCallCount == 2)
+    }
 }
