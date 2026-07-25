@@ -161,16 +161,24 @@ Discovery app-side):
 
 - For each `ContentTypeField` on the descriptor, reads `properties[rawMf2PropertyName]`.
 - Converts by `Kind`: `.string`/`.text`/`.markdown`/`.url` take `values[0]` (markdown/body
-  additionally unwraps mf2 rich-text — a string as-is, or an object's `.value` string, mirroring
-  `extractMf2ContentString` in `worker.ts`'s AP fan-out; no HTML-to-Markdown conversion in this
-  slice — an explicit, stated simplification, same posture #362's design doc took on
-  interaction-content truncation); `.datetime`/`.date` parse `values[0]` as ISO 8601;
-  `.stringArray` takes the whole array as strings; `.image` takes `values[0]` as a URL string
-  (the R2 media URL a prior `/media` upload returned); `.imageArray` (album only) takes every
-  value; `.bool` (`draft`) is derived from `properties["post-status"] == ["draft"]`, not a direct
-  field — matches the Post Status extension`@dwk/micropub` already validates on write.
-- A required field with no matching property → the post is skipped (logged), not written with a
-  placeholder — a malformed/partial post shouldn't produce invalid frontmatter.
+  additionally unwraps mf2 rich-text — a string as-is, an object's `.value` string, or (the
+  standard Micropub JSON *create* shape, which has no `value` key at all) an object's `.html`
+  string as a fallback, mirroring `extractMf2ContentString` in `worker.ts`'s AP fan-out; no
+  HTML-to-Markdown conversion in this slice — an explicit, stated simplification, same posture
+  #362's design doc took on interaction-content truncation); `.datetime`/`.date` parse `values[0]`
+  as ISO 8601; `.stringArray` takes the whole array as strings; `.image` takes `values[0]` as a
+  URL string (the R2 media URL a prior `/media` upload returned); `.imageArray` (album only) takes
+  every value; `.bool` (`draft`) is derived from `properties["post-status"] == ["draft"]`, not a
+  direct field — matches the Post Status extension`@dwk/micropub` already validates on write.
+- Most required fields with no matching/resolvable property → the post is skipped (logged), not
+  written with a placeholder — a malformed/partial post shouldn't produce invalid frontmatter. Two
+  exceptions have dedicated fallbacks instead of skipping, because both have a reasonable
+  synthesized value and skipping them would drop the most common real-world Micropub create shapes:
+  `publishDate` falls back to the post's D1 `updated_at` timestamp (`@dwk/micropub` doesn't inject
+  a `published` timestamp on create, so the micropub.rocks conformance shape — no dates at all —
+  would otherwise always fail this always-required field), and a required title-like field
+  (`title`/`name`) falls back to a slug-derived title (`"my-trip-2026"` → `"My Trip 2026"`), for a
+  nameless post such as a multi-photo album.
 
 ### 4. Swift app-side: `MicropubContentCommitter` + sync-state file
 
@@ -185,9 +193,15 @@ New `Sources/AnglesiteCore/MicropubContentCommitter.swift`, structurally close t
     collision check — this is what makes a second sync of the same post update-in-place).
   - Otherwise, derive the slug (from the URL's last path segment — the same slug the Worker
     already chose, so no independent slug logic app-side either), check
-    `src/content/<collection>/<slug>.md` for an existing file; if present and its content wasn't
-    written by this committer (no entry pointing at it in the map), suffix
-    (`<slug>-2`, `<slug>-3`, …) until free, then record the mapping.
+    `src/content/<collection>/<slug>.md` for an existing file; if present, suffix (`<slug>-2`,
+    `<slug>-3`, …) until a candidate path names no file on disk, then record the mapping. File
+    existence is the only signal — there is no "owned by this committer" check (an earlier design
+    had one, but it was a bug: it let two distinct posts collapse onto the same file whenever one
+    candidate path was already claimed by a *different* URL's own state entry). The fast path
+    above already handles a post's own previously-recorded path, so by the time this loop runs the
+    only way a candidate can already exist on disk is that some other post — hand-authored or a
+    different Micropub post — owns it, and a fresh post always suffixes past it regardless of who
+    put it there.
 - For each mapped `relPath` no longer present in the live set (post soft-deleted, or its type
   fell out of scope on an edit — see below), delete the file and its map entry.
 - Renders frontmatter (YAML, sorted keys for stable diffs) + body per the field mapping above,
@@ -269,7 +283,11 @@ Next site-open (PreviewModel.open(site:)):
   time, or its mf2 `type` isn't one this bridge recognizes) → skipped, logged, left D1-only —
   visible in the debug pane (`LogCenter`), not a silent gap.
 - A post missing a required field's mf2 property → skipped, logged — never written with a
-  placeholder value that would fail the collection's Zod schema at build time anyway.
+  placeholder value that would fail the collection's Zod schema at build time anyway. Two fields
+  are exceptions with dedicated fallbacks rather than skip-on-missing (see §3): `publishDate`
+  (falls back to the post's D1 `updated_at`) and a title-like field (`title`/`name`, falls back to
+  a slug-derived title) — both have a reasonable synthesized value, and skipping them would drop
+  the most common real-world Micropub create shapes.
 - Filesystem collision with a non-Micropub file → suffixed per the flow in §4, never
   overwritten.
 - Commit failure (git subprocess/libgit2 error) → `micropubSync.json` is still saved
