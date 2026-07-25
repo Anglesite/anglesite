@@ -277,6 +277,27 @@ struct WellKnownInventoryTests {
         #expect(manifest.entries.contains { $0.path == "acme-challenge/" && $0.owner == "cloudflare-managed-tls" && $0.match == .prefix })
     }
 
+    /// The build step needs the delivery class to tell a static file that merely *is* a user-static
+    /// claim from one that shadows a dynamic/runtime claim — the collision it must reject.
+    @Test("claimManifest carries each row's delivery class")
+    func claimManifestCarriesDelivery() throws {
+        let rows = [
+            row("humans.txt", delivery: .userStatic, owner: "user-static"),
+            row("security.txt", delivery: .generated, owner: "generator:security-txt"),
+            row("webfinger", delivery: .dynamic, owner: "webfinger"),
+            row("acme-challenge/", delivery: .externalRuntime, owner: "cloudflare-managed-tls", match: .prefix),
+        ]
+        let manifest = WellKnownInventory.claimManifest(from: rows)
+        #expect(manifest.entries.map(\.delivery) == ["userStatic", "generated", "dynamic", "externalRuntime"])
+    }
+
+    @Test("a manifest entry with no delivery decodes as the non-blocking class")
+    func manifestEntryDeliveryDefaults() throws {
+        let json = #"{"entries":[{"id":"a","path":"a","match":"exact","owner":"o"}]}"#
+        let manifest = try JSONDecoder().decode(WellKnownClaimManifest.self, from: Data(json.utf8))
+        #expect(manifest.entries.first?.delivery == "userStatic")
+    }
+
     @Test("verifyBuildArtifacts reports a missing expected static/generated artifact")
     func verifyReportsMissingArtifact() throws {
         let expected = [row("security.txt", delivery: .generated, owner: "generator:security-txt")]
@@ -294,6 +315,17 @@ struct WellKnownInventoryTests {
         #expect(findings.count == 1)
         #expect(findings[0].path == "mystery.txt")
         #expect(findings[0].message.contains("no matching inventory claim"))
+    }
+
+    /// Anglesite's generators run inside the runtime clone at prebuild, so a first deploy's
+    /// `security.txt` cannot appear in the host-assembled inventory. Without this, every such
+    /// deploy would warn about its own generated output.
+    @Test("verifyBuildArtifacts accepts an artifact the build reported as its own generator output")
+    func verifyAcceptsBuildGeneratedArtifact() throws {
+        let result = WellKnownBuildSeamResult(
+            observedArtifacts: ["security.txt", "mystery.txt"], generatedArtifacts: ["security.txt"])
+        let findings = WellKnownInventory.verifyBuildArtifacts(expected: [], result: result)
+        #expect(findings.map(\.path) == ["mystery.txt"])
     }
 
     @Test("verifyBuildArtifacts passes clean when every expected static/generated row was observed")
@@ -345,6 +377,30 @@ struct WellKnownInventoryTests {
         let source = try String(contentsOf: scriptURL, encoding: .utf8)
         #expect(source.contains(GeneratedEndpoints.securityTxtMarker))
         #expect(source.contains(GeneratedEndpoints.mtaStsMarker))
+    }
+
+    /// The build seam is a *string* contract across two languages: rename an env var on either side
+    /// and the runtime silently stops receiving the manifest — a security gate that fails open.
+    /// This asserts the real `well-known.ts` still names both variables, and that the template's
+    /// build lifecycle actually invokes both of its modes.
+    @Test("the template build seam still uses the env var names Swift sends")
+    func buildSeamContractMatchesTemplateSource() throws {
+        let templateRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Resources/Template", isDirectory: true)
+        let script = try String(
+            contentsOf: templateRoot.appendingPathComponent("scripts/well-known.ts"), encoding: .utf8)
+        #expect(script.contains(WellKnownClaimManifest.environmentVariableName))
+        #expect(script.contains(WellKnownClaimManifest.resultPathEnvironmentVariable))
+        // The runtime shell emits the result marker itself, exactly once; the script must not.
+        #expect(!script.contains(ContainerDeployExecutor.wellKnownResultMarker))
+
+        let packageJSON = try String(
+            contentsOf: templateRoot.appendingPathComponent("package.json"), encoding: .utf8)
+        #expect(packageJSON.contains("well-known.ts check"))
+        #expect(packageJSON.contains("well-known.ts verify"))
     }
 
     // MARK: Test helpers

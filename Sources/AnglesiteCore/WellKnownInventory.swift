@@ -320,7 +320,8 @@ public enum WellKnownInventory {
     /// receives so it can detect a fresh on-disk collision against the effective claim set.
     public static func claimManifest(from rows: [WellKnownEndpointDescriptor]) -> WellKnownClaimManifest {
         WellKnownClaimManifest(entries: rows.map {
-            WellKnownClaimManifest.Entry(id: $0.id, path: $0.suffix, match: $0.match, owner: $0.owner)
+            WellKnownClaimManifest.Entry(
+                id: $0.id, path: $0.suffix, match: $0.match, owner: $0.owner, delivery: $0.delivery.rawValue)
         })
     }
 
@@ -342,7 +343,12 @@ public enum WellKnownInventory {
                 path: row.suffix,
                 message: "expected .well-known/\(row.suffix) (owner: \(row.owner)) was not found in the built output"))
         }
-        let expectedSuffixes = Set(staticallyDelivered.map(\.suffix))
+        // A build-generated artifact counts as claimed even though the host-side inventory couldn't
+        // have seen it: Anglesite's generators run inside the runtime clone at prebuild, so a
+        // first-deploy `security.txt` exists only after the host finished scanning. The build step
+        // identifies these by the generator's own content marker, exactly as `GeneratedEndpoints`
+        // does host-side — so this stays "recognized generator output," never "anything new."
+        let expectedSuffixes = Set(staticallyDelivered.map(\.suffix)).union(result.generatedArtifacts)
         for artifact in result.observedArtifacts where !expectedSuffixes.contains(artifact) {
             findings.append(Finding(
                 path: artifact,
