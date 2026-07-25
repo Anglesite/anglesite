@@ -32,6 +32,14 @@ enum CappedHTTPTransport {
                 requestTimeout: requestTimeout, resourceTimeout: resourceTimeout))
     }
 
+    /// Batched before each flush into `Data`: `URLSession.AsyncBytes` still hands bytes over one
+    /// at a time, but appending each one straight into `Data` pays a mutation/capacity check per
+    /// byte. That was tolerable at the 256 KB actor-document cap; at a 2 MB avatar cap times
+    /// several concurrent rows it is materially more expensive. Small relative to either cap, so
+    /// the early-abort-past-cap check below still fires within one buffer's worth of the limit,
+    /// not after the whole body has arrived.
+    private static let readBufferSize = 16 * 1024
+
     /// Streams the body so the size cap is enforced *during* transfer — `URLSession.data(for:)`
     /// buffers the whole response before returning, which would make a post-hoc `data.count`
     /// check purely decorative.
@@ -52,10 +60,20 @@ enum CappedHTTPTransport {
         if http.expectedContentLength > 0 {
             data.reserveCapacity(min(cap, Int(http.expectedContentLength)))
         }
+        var buffer = [UInt8]()
+        buffer.reserveCapacity(readBufferSize)
         for try await byte in bytes {
-            data.append(byte)
-            if data.count > cap { throw tooLarge(data.count) }
+            buffer.append(byte)
+            if buffer.count >= readBufferSize {
+                data.append(contentsOf: buffer)
+                buffer.removeAll(keepingCapacity: true)
+                if data.count > cap { throw tooLarge(data.count) }
+            }
         }
+        if !buffer.isEmpty {
+            data.append(contentsOf: buffer)
+        }
+        if data.count > cap { throw tooLarge(data.count) }
         return (data, http)
     }
 }

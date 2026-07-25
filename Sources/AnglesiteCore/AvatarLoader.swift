@@ -34,17 +34,37 @@ public struct AvatarLoader: Sendable {
     /// Wall-clock deadline for the whole transfer — see `CappedHTTPTransport` for why the idle
     /// timeout alone is not a bound a slow-drip server has to respect.
     public static let resourceTimeout: TimeInterval = 20
+    /// Mirrors `FollowersModel.maxConcurrentEnrichments`: a `List` can realize dozens of rows at
+    /// once, and every realized row starts its own avatar `.task` independently of the enrichment
+    /// gate (avatars aren't routed through it — an `AvatarLoader` is shared per pane instead, so
+    /// this bound applies across every row in that pane). Without a cap here, dozens of concurrent
+    /// 2 MB transfers plus that many detached ImageIO decodes would follow from one scroll.
+    public static let maxConcurrentLoads = 4
 
     private let transport: Transport
+    private let gate: ConcurrencyGate
 
     public init(transport: @escaping Transport = AvatarLoader.defaultTransport) {
         self.transport = transport
+        self.gate = ConcurrencyGate(limit: Self.maxConcurrentLoads)
     }
 
     public func data(for url: URL) async throws -> Data {
         // The one expression of the HTTPS rule, shared with the actor-document fetch.
         guard ActorProfileFetcher.isHTTPS(url) else { throw AvatarLoadError.insecureURL }
 
+        await gate.acquire()
+        do {
+            let data = try await fetch(url)
+            await gate.release()
+            return data
+        } catch {
+            await gate.release()
+            throw error
+        }
+    }
+
+    private func fetch(_ url: URL) async throws -> Data {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("image/*", forHTTPHeaderField: "Accept")
@@ -79,5 +99,47 @@ public struct AvatarLoader: Sendable {
             session: AvatarLoader.session,
             cap: AvatarLoader.maximumResponseBytes,
             tooLarge: AvatarLoadError.responseTooLarge)
+    }
+}
+
+/// A simple counting semaphore for bounding concurrent `async` work, FIFO over waiters. An `actor`
+/// rather than `Synchronization.Mutex`: the test binary's deployment target is macOS 14, and
+/// `Mutex` needs 15+.
+///
+/// `AvatarLoader` is a `struct`, but every copy of one instance shares the same gate — the actor
+/// is a reference type, so copying the struct copies the reference, not the semaphore state. That
+/// is what lets a single `AvatarLoader` instance (one per `FollowersModel`, per `FollowersView`'s
+/// doc comment) bound every row's avatar load in that pane, the same way one `FollowersModel`
+/// instance bounds its own enrichment fan-out.
+actor ConcurrencyGate {
+    private let limit: Int
+    private var available: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) {
+        self.limit = limit
+        self.available = limit
+    }
+
+    /// Suspends until a slot is free. Always pair with ``release()`` — including on the throwing
+    /// path, since a leaked slot permanently shrinks the pool for the life of the loader.
+    func acquire() async {
+        if available > 0 {
+            available -= 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    /// Hands the freed slot straight to the oldest waiter rather than incrementing `available`,
+    /// so waiters are served in arrival order.
+    func release() {
+        if !waiters.isEmpty {
+            waiters.removeFirst().resume()
+        } else {
+            available += 1
+        }
     }
 }
