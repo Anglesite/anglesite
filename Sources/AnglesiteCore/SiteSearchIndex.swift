@@ -42,3 +42,47 @@ enum ContentRouteResolver {
         return "/\(collection)/\(slug)"
     }
 }
+
+/// UI-facing search over a site's `SiteKnowledgeIndex`, shaped for toolbar-style consumers
+/// (#765/#520): ranked hits with kind, title, a navigable route where one exists, and match
+/// context. Wraps `SiteKnowledgeIndex.search()` as-is — same lexical ranking, no semantic
+/// reranking — since a toolbar search field wants fast literal matching, not RAG recall. Holds
+/// no state of its own: every call reads the live index, so results always reflect whatever the
+/// file-watcher pipeline (`KnowledgeReindex`) has most recently applied.
+public enum SiteSearchIndex {
+    public struct Hit: Sendable, Equatable, Identifiable {
+        public let id: String
+        public let kind: SiteKnowledgeIndex.Document.Kind
+        public let title: String?
+        public let route: String?
+        public let path: String
+        public let matchContext: String
+        public let score: Double
+    }
+
+    public static func search(
+        _ index: SiteKnowledgeIndex,
+        siteID: String,
+        query: String,
+        limit: Int = 8,
+        kinds: Set<SiteKnowledgeIndex.Document.Kind>? = nil
+    ) async -> [Hit] {
+        let results = await index.search(
+            siteID: siteID, query: query, options: .init(limit: limit, kinds: kinds))
+        return results.map { result in
+            Hit(
+                id: result.id,
+                kind: result.document.kind,
+                title: result.document.title,
+                route: ContentRouteResolver.route(
+                    kind: result.document.kind,
+                    path: result.document.path,
+                    frontmatter: result.document.frontmatter
+                ),
+                path: result.document.path,
+                matchContext: result.excerpt,
+                score: result.score
+            )
+        }
+    }
+}
