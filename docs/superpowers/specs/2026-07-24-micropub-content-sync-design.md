@@ -86,8 +86,15 @@ A new pure module, `Resources/Template/worker/post-type-discovery.ts`, exports
 
 - `type[0] === "h-event"` → `"events"`.
 - `type[0] === "h-review"` → `"reviews"`.
-- `type[0] === "h-entry"` (or absent, matching `@dwk/micropub`'s own default) → run IndieWeb
-  [Post Type Discovery](https://www.w3.org/TR/post-type-discovery/), extended with a
+- Any other recognized `h-*` type → `null` (unsupported).
+- `type[0] === "h-entry"` (or absent, matching `@dwk/micropub`'s own default) → **first** check for
+  an unsupported post shape — `repost-of`, `rsvp`, `checkin`, or `video` present → `null`. This
+  precedes every check below, not just the terminal `"notes"` fallback: a real post can combine an
+  unsupported property with a supported one (an RSVP conventionally carries both `rsvp` and
+  `in-reply-to` — see [indieweb.org/rsvp](https://indieweb.org/rsvp)), and the unsupported shape
+  must win that combination, or it silently miscategorizes instead of skipping. Only once none of
+  those four are present does IndieWeb
+  [Post Type Discovery](https://www.w3.org/TR/post-type-discovery/) run, extended with a
   `bookmark-of` check (present in practice, not in the original algorithm text) and the
   count-based photo/album split:
   1. `bookmark-of` present → `"bookmarks"`
@@ -97,7 +104,6 @@ A new pure module, `Resources/Template/worker/post-type-discovery.ts`, exports
   5. `photo` present, 2+ values → `"albums"`
   6. `name` present and the plain-text `content` doesn't start with `name` → `"articles"`
   7. else → `"notes"`
-- Anything else (unrecognized `h-*`, `repost-of`, `rsvp`, `checkin`, `video`) → `null`.
 
 `generatePostUrl` (passed into `createMicropub({ baseUrl, me, generatePostUrl })` in `worker.ts`):
 calls `discoverCollection`; if `null`, falls back to `@dwk/micropub`'s own default flat-URL
