@@ -79,6 +79,9 @@
     "%lld chars" : {
 
     },
+    "%lld followers" : {
+
+    },
     "%lld incoming references" : {
 
     },
@@ -165,6 +168,9 @@
 
     },
     "Active — used on ^[%lld page](inflect: true)" : {
+
+    },
+    "ActivityPub isn't turned on for this site" : {
 
     },
     "Actual Size" : {
@@ -309,6 +315,9 @@
 
     },
     "Answer a couple of questions and we'll pick the right commerce integration." : {
+
+    },
+    "Anyone on Mastodon can follow this site by pasting its address into search:" : {
 
     },
     "Apple Intelligence (On-Device)" : {
@@ -702,6 +711,9 @@
     "Copy" : {
 
     },
+    "Copy Actor URL" : {
+
+    },
     "Copy Animation" : {
 
     },
@@ -748,6 +760,9 @@
     "Couldn't finish setup" : {
 
     },
+    "Couldn't load more followers" : {
+
+    },
     "Couldn't load sites" : {
 
     },
@@ -755,6 +770,9 @@
 
     },
     "Couldn't publish" : {
+
+    },
+    "Couldn't reach this site" : {
 
     },
     "Couldn't run the check" : {
@@ -1078,6 +1096,12 @@
     "Follow a feed or site URL…" : {
 
     },
+    "Followers" : {
+
+    },
+    "Followers…" : {
+
+    },
     "Font" : {
 
     },
@@ -1324,6 +1348,9 @@
     "Load" : {
 
     },
+    "Load More" : {
+
+    },
     "Load Settings" : {
 
     },
@@ -1477,6 +1504,9 @@
     "No entries yet — follow a feed above to get started." : {
 
     },
+    "No followers yet" : {
+
+    },
     "No issues found in the most recent scan." : {
 
     },
@@ -1553,6 +1583,9 @@
 
     },
     "Open GitHub personal access tokens" : {
+
+    },
+    "Open Profile" : {
 
     },
     "Open Recent" : {
@@ -1720,6 +1753,9 @@
     "Publish DNS Records" : {
 
     },
+    "Publish it at least once, then followers will appear here." : {
+
+    },
     "Publish to GitHub" : {
 
     },
@@ -1742,6 +1778,12 @@
 
     },
     "Re-check" : {
+
+    },
+    "Reader" : {
+
+    },
+    "Reader error" : {
 
     },
     "Reader…" : {
@@ -2372,6 +2414,9 @@
     "This site does not have any collection-backed content types." : {
 
     },
+    "This site hasn't been published yet" : {
+
+    },
     "This will remove the file from your site. You can undo it right after deleting." : {
 
     },
@@ -2403,6 +2448,9 @@
 
     },
     "Try again" : {
+
+    },
+    "Turn on ActivityPub in Settings ▸ Workers, then publish again." : {
 
     },
     "Type" : {
