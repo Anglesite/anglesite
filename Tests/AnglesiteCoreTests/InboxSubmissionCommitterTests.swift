@@ -135,6 +135,84 @@ struct InboxSubmissionCommitterTests {
         #expect(ids.isEmpty)
     }
 
+    @Test("processGitCommitBatch stages a path's deletion, not just its earlier addition")
+    func processGitCommitBatchStagesDeletion() async throws {
+        let dir = try Self.makeThrowawayGitRepo()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try FileManager.default.createDirectory(
+            at: dir.appendingPathComponent("src/content/inbox", isDirectory: true),
+            withIntermediateDirectories: true)
+        let relPath = "src/content/inbox/stale.txt"
+        let fileURL = dir.appendingPathComponent(relPath)
+        try "stale content\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        #expect(await InboxSubmissionCommitter.processGitCommitBatch(dir, [relPath], "add stale.txt") != nil)
+
+        try FileManager.default.removeItem(at: fileURL)
+        let deleteSHA = try #require(
+            await InboxSubmissionCommitter.processGitCommitBatch(dir, [relPath], "remove stale.txt"))
+
+        // Assert against the actual commit contents, not filesystem state (removeItem above
+        // already made the file disappear from disk regardless of whether git staged anything) —
+        // a fresh checkout of `deleteSHA` must not resurrect the file. `Repository.add(path:)`
+        // wraps `git_index_add_all` with a literal (non-wildcard) single-path pathspec, which
+        // libgit2 special-cases to match plain `git add <path>` CLI semantics for a path that's
+        // gone missing from the working tree: it stages the removal, unlike the broader-pathspec
+        // case `addAll()`'s own doc comment warns about (`git_index_add_all` over a wildcard/
+        // directory pathspec only walks files that still exist on disk, so it can't discover
+        // already-gone ones — that's what `git_index_update_all` is for). Confirmed empirically:
+        // this and `processGitCommitBatchStagesMixedDeletionAndWrite` below both pass.
+        let tree = try Self.gitOutput(["ls-tree", "-r", "--name-only", deleteSHA], in: dir)
+        #expect(!tree.contains("stale.txt"))
+    }
+
+    @Test("processGitCommitBatch stages a deletion mixed with a write in the same call")
+    func processGitCommitBatchStagesMixedDeletionAndWrite() async throws {
+        let dir = try Self.makeThrowawayGitRepo()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let keepURL = dir.appendingPathComponent("keep.txt")
+        let deleteURL = dir.appendingPathComponent("delete-me.txt")
+        try "keep\n".write(to: keepURL, atomically: true, encoding: .utf8)
+        try "gone\n".write(to: deleteURL, atomically: true, encoding: .utf8)
+        let setupSHA = await InboxSubmissionCommitter.processGitCommitBatch(
+            dir, ["keep.txt", "delete-me.txt"], "seed")
+        #expect(setupSHA != nil)
+
+        try FileManager.default.removeItem(at: deleteURL)
+        try "new\n".write(to: dir.appendingPathComponent("new.txt"), atomically: true, encoding: .utf8)
+        let mixedSHA = try #require(
+            await InboxSubmissionCommitter.processGitCommitBatch(
+                dir, ["delete-me.txt", "new.txt"], "reconcile: 1 write, 1 delete"))
+
+        // Mirrors how ReceivedInteractionCommitter/MicropubContentCommitter actually call this:
+        // one relPaths array covering both a deletion and a write in the same commit.
+        let tree = try Self.gitOutput(["ls-tree", "-r", "--name-only", mixedSHA], in: dir)
+        #expect(!tree.contains("delete-me.txt"))
+        #expect(tree.contains("new.txt"))
+        #expect(tree.contains("keep.txt"))
+    }
+
+    /// Runs a read-only `git` subprocess against `dir` and returns its captured stdout — used to
+    /// inspect actual commit contents (not just filesystem state) independent of the SwiftGit2
+    /// path the code under test exercises on Darwin.
+    private static func gitOutput(_ args: [String], in dir: URL) throws -> String {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        p.arguments = args
+        p.currentDirectoryURL = dir
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        try p.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        guard p.terminationStatus == 0 else {
+            struct GitFailed: Error {}
+            throw GitFailed()
+        }
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
     /// Mirrors `AnglesiteContainerProbe.makeThrowawayAstroRepo` — a minimal on-disk git repo with
     /// one initial commit, so `git add`/`git commit` in the code under test have somewhere to work.
     private static func makeThrowawayGitRepo() throws -> URL {
