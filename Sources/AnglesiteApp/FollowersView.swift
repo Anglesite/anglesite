@@ -181,7 +181,10 @@ struct FollowersView: View {
 /// follower could serve a 200 MB file or a decompression bomb as their avatar, and several
 /// visible rows could do it at once. `AvatarLoader` bounds the transfer; the decode below bounds
 /// the pixels and runs off the MainActor.
-private struct FollowerAvatar: View {
+// Internal (not `private`) so `Tests/AnglesiteAppTests` can `@testable import AnglesiteAppCore`
+// and exercise `dimensionsWithinBound(_:)` directly — the decompression-bomb guard this type
+// exists to enforce should not ship unverified.
+struct FollowerAvatar: View {
     let url: URL?
     let loader: AvatarLoader
 
@@ -250,7 +253,8 @@ private struct FollowerAvatar: View {
     /// reads only the format's header metadata — it does not decode the raster — so this check is
     /// cheap even against a hostile file. Missing dimensions are treated as a rejection rather
     /// than an approval: an image this code can't measure gets the placeholder, not a decode.
-    private nonisolated static func dimensionsWithinBound(_ source: CGImageSource) -> Bool {
+    // Internal (not `private`) for the same testability reason as the enclosing type.
+    nonisolated static func dimensionsWithinBound(_ source: CGImageSource) -> Bool {
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int
@@ -264,5 +268,6 @@ private struct FollowerAvatar: View {
     /// Generous enough for any real-world avatar (even an uncropped full-resolution photo) while
     /// rejecting the pathological case a decompression bomb relies on: a file that is small on the
     /// wire but declares e.g. 50000×50000 pixels of raster to decode.
-    private nonisolated static let maximumDeclaredPixelDimension = 4096
+    // Internal (not `private`) for the same testability reason as the enclosing type.
+    nonisolated static let maximumDeclaredPixelDimension = 4096
 }
