@@ -177,12 +177,16 @@ public enum MicropubContentSync {
             }
             if field.required { return nil }
 
-            // A non-required date/url-kind field that can't be resolved must be OMITTED, not set
-            // to an empty placeholder: `TypedContentEditor.write` only touches keys present in
-            // the `Values` it's given, so omitting the key leaves the file's existing value (or
-            // leaves it simply absent for a new file) instead of emitting an invalid blank scalar
-            // that a `z.coerce.date().optional()` / `z.string().url().optional()` schema rejects.
-            if field.kind == .date || field.kind == .datetime || field.kind == .url { continue }
+            // A non-required date/url/number-kind field that can't be resolved must be OMITTED,
+            // not set to an empty placeholder: `TypedContentEditor.write` only touches keys
+            // present in the `Values` it's given, so omitting the key leaves the file's existing
+            // value (or leaves it simply absent for a new file) instead of emitting an invalid
+            // blank scalar that a `z.coerce.date().optional()` / `z.string().url().optional()` /
+            // `z.number().optional()` schema rejects (`TypedContentEditor.defaultValue(for:
+            // .number)` is `.number(nil)`, which serializes to `.string("")` the same way the
+            // date/url defaults do).
+            if field.kind == .date || field.kind == .datetime || field.kind == .url
+                || field.kind == .number { continue }
 
             out[field.name] = TypedContentEditor.defaultValue(for: field.kind)
         }

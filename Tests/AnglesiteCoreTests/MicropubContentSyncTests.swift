@@ -212,6 +212,32 @@ struct MicropubContentSyncTests {
         #expect(values["tags"] == .list([]))
     }
 
+    // No built-in content type currently has an optional `.number` field (only `review.rating`,
+    // which is required), so this is defensive/latent rather than reachable through the real
+    // registry — exercise it against a synthetic descriptor instead of `ContentTypeRegistry`.
+    @Test("values omits an unresolved optional number field instead of writing an invalid blank scalar")
+    func valuesOmitsUnresolvedOptionalNumber() throws {
+        let descriptor = ContentTypeDescriptor(
+            id: "syntheticScore",
+            displayName: "Synthetic Score",
+            storage: .collection("scores"),
+            fields: [
+                ContentTypeField("title", .string, required: true),
+                ContentTypeField("score", .number, required: false),
+            ],
+            projections: ContentTypeProjections(
+                microformat: "h-entry",
+                microformatProperties: ["title": "p-name"],
+                schemaType: nil))
+        let properties: [String: [JSONValue]] = [
+            "name": [.string("Synthetic Post")],
+            // No "score" property at all — the optional `.number` field can't resolve.
+        ]
+        let values = try #require(MicropubContentSync.values(
+            for: descriptor, properties: properties, updatedAt: Self.anUpdatedAt, slug: "synthetic-post"))
+        #expect(values["score"] == nil)
+    }
+
     // MARK: - values: Fix 8 — every built-in collection type resolves end-to-end
 
     @Test("values resolves a realistic payload for every built-in collection type", arguments: [
