@@ -14,6 +14,7 @@ import {
   createMicropub,
   type MicropubEnv,
 } from "@dwk/micropub";
+import { discoverCollection, generateSlug } from "./post-type-discovery.ts";
 import {
   createActivityPub,
   ActivityPubObject,
@@ -533,7 +534,19 @@ function handleMicropub(
     return Promise.resolve(new Response("Micropub is not configured", { status: 503 }));
   }
   const baseUrl = new URL(request.url).origin;
-  const micropub = createMicropub({ baseUrl, me: `${baseUrl}/` });
+  const micropub = createMicropub({
+    baseUrl,
+    me: `${baseUrl}/`,
+    // #912: assign a type-aware URL at create time so a synced git file (written under
+    // src/content/{collection}/, per MicropubContentSync) renders at the same URL this
+    // response's Location header already promised — see post-type-discovery.ts and
+    // docs/superpowers/specs/2026-07-24-micropub-content-sync-design.md §1.
+    generatePostUrl: (post, commands) => {
+      const slug = generateSlug(post, commands);
+      const collection = discoverCollection(post);
+      return collection ? `${baseUrl}/${collection}/${slug}` : `${baseUrl}/${slug}`;
+    },
+  });
   const micropubEnv: MicropubEnv = {
     MEDIA: env.MEDIA,
     MICROPUB_DB: env.MICROPUB_DB,

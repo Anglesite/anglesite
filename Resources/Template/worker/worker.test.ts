@@ -656,6 +656,107 @@ test("micropub: 503 when MICROPUB_DB isn't bound", async () => {
   expect(response.status).toBe(503);
 });
 
+test("micropub: a note (plain content, no name) is created under /notes/", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const response = await fetchWorker(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-entry"],
+      properties: { content: ["Just a quick note"] },
+    }),
+  }));
+  expect(response.status).toBe(201);
+  const location = response.headers.get("location");
+  expect(location).toMatch(/^https:\/\/owner\.example\/notes\/[0-9a-z-]+$/);
+});
+
+test("micropub: an article (name distinct from content) is created under /articles/", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const response = await fetchWorker(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-entry"],
+      properties: {
+        name: ["My Big Announcement"],
+        content: ["Today I'm launching something new..."],
+      },
+    }),
+  }));
+  expect(response.status).toBe(201);
+  expect(response.headers.get("location")).toMatch(/^https:\/\/owner\.example\/articles\/my-big-announcement/);
+});
+
+test("micropub: a bookmark (bookmark-of) is created under /bookmarks/", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const response = await fetchWorker(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-entry"],
+      properties: { "bookmark-of": ["https://example.com/article"] },
+    }),
+  }));
+  expect(response.status).toBe(201);
+  expect(response.headers.get("location")).toMatch(/^https:\/\/owner\.example\/bookmarks\//);
+});
+
+test("micropub: an h-event post is created under /events/", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const response = await fetchWorker(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-event"],
+      properties: { name: ["Meetup"], start: ["2026-08-01T18:00:00Z"] },
+    }),
+  }));
+  expect(response.status).toBe(201);
+  expect(response.headers.get("location")).toMatch(/^https:\/\/owner\.example\/events\//);
+});
+
+test("micropub: an unrecognized type (h-card) falls back to the flat URL scheme", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const response = await fetchWorker(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-card"],
+      properties: { name: ["Jane Doe"] },
+    }),
+  }));
+  expect(response.status).toBe(201);
+  const location = response.headers.get("location") ?? "";
+  // Flat scheme: exactly one path segment, no collection prefix.
+  expect(new URL(location).pathname.split("/").filter(Boolean).length).toBe(1);
+});
+
 // --- WebSub hub (V-3.3, #361) ---------------------------------------------------------------
 // Composition of @dwk/websub's hub. These run through worker.fetch in the workerd pool with
 // WEBSUB_DB/WEBSUB_QUEUE/SITE_URL bound (see vitest.config.ts), so they exercise the same
