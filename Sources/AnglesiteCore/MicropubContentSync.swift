@@ -140,4 +140,59 @@ public enum MicropubContentSync {
             url: post.url, collection: collection, descriptor: descriptor,
             values: values, updatedAt: post.updatedAt)
     }
+
+    /// Queries `client` for every current post (live and soft-deleted), resolves each to its
+    /// content type, and reconciles the result into `siteDirectory` via
+    /// `MicropubContentCommitter`. Returns 0 (never throws) if the D1 query failed. Soft-deleted
+    /// and unresolvable posts are simply absent from the resolved set passed to the committer — a
+    /// previously-synced post whose row later became unresolvable (soft-deleted, or an edit that
+    /// broke a required field) is removed from git the same way a truly-deleted post is.
+    public static func pullAndCommit(
+        client: MicropubPostD1Client, siteDirectory: URL, configDirectory: URL
+    ) async -> Int {
+        guard let posts = try? await client.listAllPosts() else { return 0 }
+        let resolved = posts.filter { !$0.deleted }.compactMap { resolve(post: $0) }
+        return await MicropubContentCommitter.commit(
+            posts: resolved, into: siteDirectory, configDirectory: configDirectory)
+    }
+
+    /// Reads the site's `SiteSettings` and the Cloudflare API token from `secretStore`; no-ops
+    /// (returns 0, no network call) unless a D1 database has been provisioned — same gate
+    /// `ReceivedInteractionSync` uses, since Micropub shares the same D1 database.
+    /// `configDirectory` is the package's `Config/` directory (`AnglesitePackage.configURL`), a
+    /// sibling of `siteDirectory` (`AnglesitePackage.sourceURL`).
+    public static func pullAndCommitIfConfigured(
+        siteDirectory: URL,
+        configDirectory: URL,
+        secretStore: any SecretStore = PlatformSecretStore.make(),
+        baseURL: String = "https://api.cloudflare.com/client/v4",
+        transport: @escaping CloudflareTransport = HTTPCloudflareClient.defaultTransport
+    ) async -> Int {
+        guard let settings = try? SiteConfigStore.read(from: configDirectory),
+              let databaseID = settings.provisionedWorkerResources?.d1DatabaseID, !databaseID.isEmpty,
+              let token = try? secretStore.readCloudflareToken(), !token.isEmpty
+        else { return 0 }
+        guard let accountID = await Self.resolveAccountID(apiToken: token, baseURL: baseURL, transport: transport)
+        else { return 0 }
+
+        let client = MicropubPostD1Client(
+            accountID: accountID, databaseID: databaseID, apiToken: token, baseURL: baseURL, transport: transport)
+        return await pullAndCommit(client: client, siteDirectory: siteDirectory, configDirectory: configDirectory)
+    }
+
+    private struct CFAccount: Decodable, Sendable { let id: String }
+    private struct CFEnvelope: Decodable, Sendable { let success: Bool; let result: [CFAccount]? }
+
+    /// Resolves the token's first visible Cloudflare account id — same resolution
+    /// `ReceivedInteractionSync` uses, since a personal Anglesite deployment has exactly one
+    /// Cloudflare account per token.
+    private static func resolveAccountID(apiToken: String, baseURL: String, transport: CloudflareTransport) async -> String? {
+        guard let url = URL(string: "\(baseURL)/accounts?per_page=1") else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
+        guard let (data, http) = try? await transport(request), (200..<300).contains(http.statusCode),
+              let envelope = try? JSONDecoder().decode(CFEnvelope.self, from: data), envelope.success
+        else { return nil }
+        return envelope.result?.first?.id
+    }
 }
