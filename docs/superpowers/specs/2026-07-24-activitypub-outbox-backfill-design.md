@@ -27,7 +27,7 @@
 
 ## 3. Upstream request (`davidwkeith/workers`)
 
-File an issue (mirroring how `davidwkeith/workers#376` was filed for V-5 Stage 2's Group-actor hosting) asking `@dwk/activitypub`'s outbox DO for:
+Filed as [`davidwkeith/workers#451`](https://github.com/davidwkeith/workers/issues/451) (mirroring how `davidwkeith/workers#376` was filed for V-5 Stage 2's Group-actor hosting), asking `@dwk/activitypub`'s outbox DO for:
 
 1. **Quiet insert** — a flag on `#publish`/`#publishPost` (or a distinct backfill-only entry point) that inserts into the `outbox` table without enqueueing delivery to current followers (`#enqueueDelivery`/the alarm-armed background fan-out in `object.ts`'s `#publish`).
 2. **Preserve caller-supplied `published`** — `#asOutboxActivity` currently spreads caller input *before* overwriting `id`/`actor`/`published` with literals (`object.ts`), silently discarding any backdated timestamp. Backfill needs the real historical date to reach the AS2 object.
