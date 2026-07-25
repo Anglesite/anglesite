@@ -98,17 +98,25 @@ public struct MicropubPostD1Client: Sendable {
               let rows = envelope.result?.first?.results
         else { throw CloudflareError.malformedResponse }
 
-        return rows.compactMap { row in
+        var posts: [Post] = []
+        for row in rows {
             guard let propertiesData = row.properties.data(using: .utf8),
                   let raw = try? JSONSerialization.jsonObject(with: propertiesData) as? [String: [Any]]
-            else { return nil }
+            else {
+                await LogCenter.shared.append(
+                    source: "MicropubPostD1Client", stream: .stderr,
+                    text: "Skipping Micropub post \(row.url): properties column is not valid JSON. "
+                        + "It will be re-attempted on the next pull.")
+                continue
+            }
             var properties: [String: [JSONValue]] = [:]
             for (key, values) in raw {
                 properties[key] = values.compactMap(JSONValue.from)
             }
-            return Post(
+            posts.append(Post(
                 url: row.url, type: row.type, properties: properties,
-                deleted: row.deleted != 0, updatedAt: row.updated_at)
+                deleted: row.deleted != 0, updatedAt: row.updated_at))
         }
+        return posts
     }
 }

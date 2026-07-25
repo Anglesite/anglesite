@@ -97,11 +97,16 @@ public enum MicropubContentCommitter {
 
         // Delete files for URLs no longer in the current resolved set before writing, so a slug
         // freed by a deletion is immediately available to a same-round collision resolution.
+        // The state entry is dropped unconditionally, even when the removal itself fails (e.g.
+        // the file was already deleted by hand outside the app) — only whether to stage/commit
+        // the removal depends on `removeItem` having actually done something; otherwise a stale
+        // entry for an already-gone file would retry (and fail) on every sync forever.
         for (url, relPath) in state where !currentURLs.contains(url) {
             let fileURL = siteDirectory.appendingPathComponent(relPath)
-            guard (try? fileManager.removeItem(at: fileURL)) != nil else { continue }
-            relPaths.append(relPath)
-            deletedCount += 1
+            if (try? fileManager.removeItem(at: fileURL)) != nil {
+                relPaths.append(relPath)
+                deletedCount += 1
+            }
             state.removeValue(forKey: url)
         }
 

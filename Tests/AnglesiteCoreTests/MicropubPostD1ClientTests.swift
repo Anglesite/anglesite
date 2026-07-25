@@ -73,7 +73,7 @@ struct MicropubPostD1ClientTests {
         #expect(post.deleted == true)
     }
 
-    @Test("skips a row whose properties column isn't valid JSON")
+    @Test("skips a row whose properties column isn't valid JSON, and logs the skip")
     func skipsMalformedPropertiesRow() async throws {
         let body = Self.d1Body("""
         {"url": "https://me.example/notes/bad", "type": "h-entry",
@@ -83,8 +83,16 @@ struct MicropubPostD1ClientTests {
             accountID: "acct1", databaseID: "db1", apiToken: "token",
             transport: { _ in (body, Self.response(200)) })
 
+        let beforeCount = await LogCenter.shared.snapshot().count
         let posts = try await client.listAllPosts()
         #expect(posts.isEmpty)
+
+        let logged = await LogCenter.shared.snapshot()
+        #expect(logged.count == beforeCount + 1)
+        let entry = try #require(logged.last)
+        #expect(entry.source == "MicropubPostD1Client")
+        #expect(entry.stream == .stderr)
+        #expect(entry.text.contains("https://me.example/notes/bad"))
     }
 
     @Test("throws unauthorized on 401")

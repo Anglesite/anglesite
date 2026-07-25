@@ -144,6 +144,29 @@ struct MicropubContentCommitterTests {
         #expect(state.isEmpty)
     }
 
+    @Test("a stale state entry for an already hand-deleted file is still dropped, not retried forever")
+    func staleStateEntryForAlreadyDeletedFileIsDropped() async throws {
+        let (siteDirectory, configDirectory) = try Self.makeThrowawaySite()
+        defer { try? FileManager.default.removeItem(at: siteDirectory.deletingLastPathComponent()) }
+
+        _ = await MicropubContentCommitter.commit(
+            posts: [Self.post(url: "https://me.example/notes/hello-abc123")],
+            into: siteDirectory, configDirectory: configDirectory)
+        let written = siteDirectory.appendingPathComponent("src/content/notes/hello-abc123.md")
+
+        // Simulate the file having already been removed by hand, outside the app, before the
+        // post falls out of the resolved set.
+        try FileManager.default.removeItem(at: written)
+
+        let count = await MicropubContentCommitter.commit(
+            posts: [], into: siteDirectory, configDirectory: configDirectory)
+        #expect(count == 0)  // nothing was actually removed by this call — it was already gone
+
+        let stateData = try Data(contentsOf: configDirectory.appendingPathComponent("micropubSync.json"))
+        let state = try JSONDecoder().decode([String: String].self, from: stateData)
+        #expect(state.isEmpty, "the stale entry must be dropped even though removeItem had nothing to remove")
+    }
+
     @Test("commit is a no-op when nothing changed")
     func commitNoOpWhenNothingChanged() async throws {
         let (siteDirectory, configDirectory) = try Self.makeThrowawaySite()
