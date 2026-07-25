@@ -79,10 +79,21 @@ Items are ordered `added_at DESC` — newest follower first.
 
 ## Architecture
 
-All logic lands in `AnglesiteCore`, which `swift test` covers on CI. The app
-target gets thin glue only: per `CLAUDE.md`, hosted app-target tests cannot
-run on CI's older runners, so anything needing coverage belongs in a Core
-type.
+The protocol, parsing, and security logic — the wire client, the actor-document
+and avatar fetchers, the shared transport, the cache — all lands in
+`AnglesiteCore`, which `swift test` covers on CI directly.
+
+`FollowersModel` itself lives in the app layer, but "the app layer" here means
+`AnglesiteAppCore`: a plain SwiftPM target (`Package.swift`) that
+`Tests/AnglesiteAppTests` depends on and `swift test` exercises on CI like any
+other target — it is not the same thing as a *hosted* app test. A hosted app
+test (`xcodebuild test` with `Anglesite.app` as the test host) genuinely cannot
+run on CI's older runners, because launching a macOS-27 `.app` needs
+LaunchServices support CI's runner doesn't have. `FollowersModel` avoids that
+path entirely by being plain, dependency-injected Swift with no
+`xcodebuild`-only dependency, so it gets full CI coverage without a hosted
+test. `FollowersView` stays thin SwiftUI glue with no logic of its own to
+test.
 
 ### `AnglesiteCore` (new)
 
@@ -181,9 +192,11 @@ this pane. Every guard below follows from that.
   before returning, so a post-hoc `data.count` check would already have accepted
   an arbitrarily large response. The default transport therefore uses
   `URLSession.bytes(for:)`, rejects early on an `expectedContentLength` over the
-  cap, and aborts as soon as accumulated bytes exceed it. Both types
-  additionally re-check `data.count` after the fact, so an injected test
-  transport is held to the same limit.
+  cap, and aborts mid-transfer once accumulated bytes exceed it — checked every
+  16 KB read buffer rather than every single byte, so the abort still lands
+  well before the whole body arrives without paying a `Data` mutation on every
+  byte. Both types additionally re-check `data.count` after the fact, so an
+  injected test transport is held to the same limit.
 - **A wall-clock deadline, not just an idle timeout.**
   `URLRequest.timeoutInterval` maps to `timeoutIntervalForRequest`, which bounds
   only how long a transfer may sit *idle* — a server that dribbles one byte
@@ -198,11 +211,26 @@ this pane. Every guard below follows from that.
   URL to `URLSession.shared` with no byte cap, no deadline, and no bound on
   decoded pixel dimensions — a larger attack surface than the actor document the
   guards were built for. Avatar bytes come from `AvatarLoader` and are decoded
-  off the MainActor through ImageIO's thumbnail path at a 128px bound, so a
-  decompression bomb (small on the wire, enormous once decoded) is subsampled
-  rather than expanded.
-- **Bounded concurrency, 4 in flight.** A site with thousands of followers must
-  not fan out thousands of sockets.
+  off the MainActor through ImageIO's thumbnail path at a 128px bound.
+  `CGImageSourceCreateThumbnailAtIndex` genuinely subsamples during decode for
+  JPEG (DCT scaling), but for PNG/GIF ImageIO generally decodes the full raster
+  before downsampling — so the thumbnail call alone does not stop a small PNG
+  that declares enormous dimensions from spiking memory. `FollowersView` closes
+  that gap with a pixel-dimension precheck: it reads
+  `kCGImagePropertyPixelWidth`/`kCGImagePropertyPixelHeight` via
+  `CGImageSourceCopyPropertiesAtIndex` — metadata only, no raster decode — and
+  rejects anything declaring more than 4096px on a side before the thumbnail
+  call ever runs.
+- **Bounded concurrency, 4 in flight — for both `ActorProfileFetcher` and
+  `AvatarLoader`, independently.** `FollowersModel.maxConcurrentEnrichments`
+  gates profile fetches; `AvatarLoader` gates avatar loads through its own
+  actor-based semaphore (`AvatarLoader.maxConcurrentLoads`), since a realized
+  `List` row's avatar `.task` fires independently of the enrichment queue —
+  routing it through the same gate would couple two independent resources for
+  no benefit, but leaving it ungated would let a `List` realizing dozens of
+  rows (many with an already-cached, instantly-available icon URL) open dozens
+  of concurrent 2 MB transfers at once. A site with thousands of followers must
+  not fan out thousands of sockets on either path.
 - **Failures are silent by design** — logged, never surfaced. The row keeps its
   derived handle.
 
@@ -265,7 +293,10 @@ moment they need a next step.
   `timeoutIntervalForResource`, not just an idle timeout.
 - `AvatarLoaderTests` — a normal response; oversize rejected; non-HTTPS
   rejected without issuing a request; a redirect landing on `http://` rejected;
-  non-2xx mapped to a typed error; the same wall-clock deadline assertion.
+  non-2xx mapped to a typed error; the same wall-clock deadline assertion;
+  concurrent loads bounded at `maxConcurrentLoads`; a failing transport still
+  releases its concurrency-gate slot (asserted by the suite's `.timeLimit`
+  catching a leaked-slot deadlock rather than hanging forever).
 - `ActorProfileCacheTests` — save/load round-trip, TTL expiry, a corrupt file
   returning `nil` without throwing, and `save` pruning expired entries out of
   the written file.
