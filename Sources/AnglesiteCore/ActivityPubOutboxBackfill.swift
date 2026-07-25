@@ -74,8 +74,17 @@ public struct ActivityPubOutboxBackfill: Sendable {
                 if (200..<300).contains(http.statusCode) {
                     let activityID = Self.activityID(from: data) ?? canonical
                     ledger.record(.init(canonicalURL: canonical, activityID: activityID, syncedAt: referenceDate))
-                    try? ledger.save(to: configDirectory)
-                    outcome = Outcome(canonicalURL: canonical, accepted: true, detail: nil)
+                    do {
+                        try ledger.save(to: configDirectory)
+                        outcome = Outcome(canonicalURL: canonical, accepted: true, detail: nil)
+                    } catch {
+                        await LogCenter.shared.append(
+                            source: "activitypub-backfill:\(siteID)", stream: .stderr,
+                            text: "outbox accepted \(canonical) but the local ledger write failed: \(error) — this entry may be re-posted on the next run"
+                        )
+                        outcomes.append(Outcome(canonicalURL: canonical, accepted: true, detail: "ledger write failed: \(error)"))
+                        continue
+                    }
                 } else {
                     let body = String(data: data, encoding: .utf8) ?? ""
                     outcome = Outcome(

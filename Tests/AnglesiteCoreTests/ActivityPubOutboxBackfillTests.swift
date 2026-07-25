@@ -195,4 +195,33 @@ struct ActivityPubOutboxBackfillTests {
         #expect(json["skipDelivery"] as? Bool == true)
         #expect(json["published"] as? String != nil)
     }
+
+    @Test("a ledger save failure is surfaced as an accepted-but-unledgered outcome, not swallowed")
+    func ledgerSaveFailureIsSurfaced() async throws {
+        let siteDirectory = try makeTempDir()
+        // `configDirectory` points at a plain file, not a directory, so
+        // `ActivityPubOutboxLedger.save(to:)`'s `FileManager.createDirectory` call throws.
+        let configDirectory = try makeTempDir().appendingPathComponent("not-a-directory")
+        try Data("blocked".utf8).write(to: configDirectory)
+        defer {
+            try? FileManager.default.removeItem(at: siteDirectory)
+            try? FileManager.default.removeItem(at: configDirectory)
+        }
+        try writeBlogPost(in: siteDirectory, slug: "hello", title: "Hello", pubDate: "2026-01-01", body: "Hi.")
+
+        let backfill = ActivityPubOutboxBackfill { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil)!
+            return (Data("{}".utf8), response)
+        }
+
+        let outcomes = await backfill.backfill(
+            siteID: "site-1", siteDirectory: siteDirectory, configDirectory: configDirectory,
+            siteBase: URL(string: "https://owner.example")!, secretStore: FakeSecretStore(token: "test-token")
+        )
+
+        #expect(outcomes.count == 1)
+        #expect(outcomes.first?.accepted == true)
+        let detail = try #require(outcomes.first?.detail)
+        #expect(detail.contains("ledger") || detail.contains("write"))
+    }
 }
