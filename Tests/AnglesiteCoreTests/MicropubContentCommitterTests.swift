@@ -85,6 +85,43 @@ struct MicropubContentCommitterTests {
         #expect(suffixed.contains("From Micropub"))
     }
 
+    @Test("a second, unrelated post whose natural slug matches an earlier post's suffixed path gets its own file")
+    func distinctPostsWithCollidingNaturalSlugsGetDistinctFiles() async throws {
+        let (siteDirectory, configDirectory) = try Self.makeThrowawaySite()
+        defer { try? FileManager.default.removeItem(at: siteDirectory.deletingLastPathComponent()) }
+
+        // A hand-authored file already occupies the slug "hello" — post A (slug "hello") collides
+        // with it and gets suffixed to "hello-2.md".
+        let notesDir = siteDirectory.appendingPathComponent("src/content/notes", isDirectory: true)
+        try FileManager.default.createDirectory(at: notesDir, withIntermediateDirectories: true)
+        try "---\nbody: \"hand-authored\"\n---\n".write(
+            to: notesDir.appendingPathComponent("hello.md"), atomically: true, encoding: .utf8)
+        let postA = Self.post(url: "https://me.example/notes/hello", body: "Post A")
+
+        // Post B is a completely distinct, later-created URL (e.g. an explicit `mp-slug=hello-2`)
+        // whose OWN natural slug happens to be "hello-2" — the exact path A was just suffixed
+        // onto. `@dwk/micropub`'s URL-uniqueness check is per-URL, not per-eventual-filename, so
+        // this is a legitimate, distinct post. Before the fix, `ownedPaths.contains(relPath)`
+        // treated A's own suffixed path as "free real estate" for any post, so B silently
+        // collapsed onto A's file instead of suffixing past it.
+        let postB = Self.post(url: "https://me.example/notes/hello-2", body: "Post B")
+
+        _ = await MicropubContentCommitter.commit(
+            posts: [postA, postB], into: siteDirectory, configDirectory: configDirectory)
+
+        let stateData = try Data(contentsOf: configDirectory.appendingPathComponent("micropubSync.json"))
+        let state = try JSONDecoder().decode([String: String].self, from: stateData)
+        let pathA = try #require(state["https://me.example/notes/hello"])
+        let pathB = try #require(state["https://me.example/notes/hello-2"])
+        #expect(pathA == "src/content/notes/hello-2.md")
+        #expect(pathA != pathB, "distinct Micropub posts must never collapse onto the same file")
+
+        let contentsA = try String(contentsOf: siteDirectory.appendingPathComponent(pathA), encoding: .utf8)
+        let contentsB = try String(contentsOf: siteDirectory.appendingPathComponent(pathB), encoding: .utf8)
+        #expect(contentsA.contains("Post A"))
+        #expect(contentsB.contains("Post B"))
+    }
+
     @Test("commit deletes the file and state entry for a post no longer in the resolved set")
     func commitDeletesStalePost() async throws {
         let (siteDirectory, configDirectory) = try Self.makeThrowawaySite()

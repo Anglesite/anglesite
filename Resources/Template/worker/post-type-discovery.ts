@@ -16,12 +16,19 @@ function hasProperty(mf2: Mf2Object, name: string): boolean {
   return Array.isArray(values) && values.length > 0;
 }
 
-/** Mirrors `worker.ts`'s AP fan-out `extractMf2ContentString` — same mf2 rich-text shape. */
+/**
+ * Mirrors `worker.ts`'s AP fan-out `extractMf2ContentString` — same mf2 rich-text shape. The
+ * standard Micropub JSON *create* shape for HTML content is `content: [{"html": "..."}]` with NO
+ * `value` key at all — `value` only appears in mf2 read back off a rendered page, not in what a
+ * client posts — so `html` is checked as a fallback, not just `value`.
+ */
 function plainTextContent(mf2: Mf2Object): string {
   const raw = mf2.properties.content?.[0];
   if (typeof raw === "string") return raw;
-  if (raw && typeof raw === "object" && typeof (raw as { value?: unknown }).value === "string") {
-    return (raw as { value: string }).value;
+  if (raw && typeof raw === "object") {
+    const obj = raw as { value?: unknown; html?: unknown };
+    if (typeof obj.value === "string") return obj.value;
+    if (typeof obj.html === "string") return obj.html;
   }
   return "";
 }

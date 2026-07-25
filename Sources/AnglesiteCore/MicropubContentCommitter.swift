@@ -39,9 +39,12 @@ public enum MicropubContentCommitter {
 
     /// Resolves the relative path a post should be written to: the path already recorded in
     /// `state` for its URL, or (first sync) a freshly slugified path — suffixed (`-2`, `-3`, …)
-    /// until it names either a nonexistent file or one already owned by this committer (i.e.
-    /// present in `state`'s values), so a Micropub-created file never silently overwrites a
-    /// hand-authored one sharing the same slug.
+    /// until it names a nonexistent file, so a Micropub-created file never silently overwrites a
+    /// hand-authored one (or a DIFFERENT Micropub post's own file) sharing the same slug. By the
+    /// time this loop runs, `post.url` has no entry in `state` (the early return above already
+    /// handled that case), so the only way a candidate path can already be on disk is that some
+    /// other post — hand-authored or a different, already-synced Micropub post — owns it; a
+    /// fresh post always suffixes past it regardless of who put it there.
     static func resolvePath(
         for post: MicropubContentSync.ResolvedPost,
         state: SyncState,
@@ -51,13 +54,12 @@ public enum MicropubContentCommitter {
         if let existing = state[post.url] { return existing }
 
         let baseSlug = MicropubContentSync.collectionAndSlug(from: post.url)?.slug ?? post.url
-        let ownedPaths = Set(state.values)
         var candidateSlug = baseSlug
         var attempt = 1
         while true {
             let relPath = ContentScaffold.postRelativePath(collection: post.collection, slug: candidateSlug)
             let fileURL = siteDirectory.appendingPathComponent(relPath)
-            if ownedPaths.contains(relPath) || !fileManager.fileExists(atPath: fileURL.path) {
+            if !fileManager.fileExists(atPath: fileURL.path) {
                 return relPath
             }
             attempt += 1

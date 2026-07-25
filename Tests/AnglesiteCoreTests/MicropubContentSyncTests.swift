@@ -42,7 +42,9 @@ struct MicropubContentSyncTests {
         #expect(MicropubContentSync.plainText(from: nil) == nil)
     }
 
-    // MARK: - values(for:properties:)
+    // MARK: - values(for:properties:updatedAt:slug:)
+
+    private static let anUpdatedAt = 1_753_300_000
 
     @Test("values builds a note's fields from raw mf2 properties")
     func valuesBuildsNoteFields() throws {
@@ -52,7 +54,8 @@ struct MicropubContentSyncTests {
             "published": [.string("2026-07-24T12:00:00Z")],
             "category": [.string("indieweb"), .string("test")],
         ]
-        let values = try #require(MicropubContentSync.values(for: note, properties: properties))
+        let values = try #require(MicropubContentSync.values(
+            for: note, properties: properties, updatedAt: Self.anUpdatedAt, slug: "hello"))
         #expect(values["body"] == .text("Hello world"))
         #expect(values["tags"] == .list(["indieweb", "test"]))
         guard case .date(let date) = values["publishDate"] else {
@@ -70,7 +73,8 @@ struct MicropubContentSyncTests {
             "published": [.string("2026-07-24T12:00:00Z")],
             "post-status": [.string("draft")],
         ]
-        let values = try #require(MicropubContentSync.values(for: note, properties: properties))
+        let values = try #require(MicropubContentSync.values(
+            for: note, properties: properties, updatedAt: Self.anUpdatedAt, slug: "hello"))
         #expect(values["draft"] == .flag(true))
     }
 
@@ -81,7 +85,8 @@ struct MicropubContentSyncTests {
             "content": [.string("Hello")],
             "published": [.string("2026-07-24T12:00:00Z")],
         ]
-        let values = try #require(MicropubContentSync.values(for: note, properties: properties))
+        let values = try #require(MicropubContentSync.values(
+            for: note, properties: properties, updatedAt: Self.anUpdatedAt, slug: "hello"))
         #expect(values["draft"] == .flag(false))
     }
 
@@ -90,7 +95,8 @@ struct MicropubContentSyncTests {
         let note = ContentTypeRegistry.note
         // "body" (e-content, required) is missing.
         let properties: [String: [JSONValue]] = ["published": [.string("2026-07-24T12:00:00Z")]]
-        #expect(MicropubContentSync.values(for: note, properties: properties) == nil)
+        #expect(MicropubContentSync.values(
+            for: note, properties: properties, updatedAt: Self.anUpdatedAt, slug: "hello") == nil)
     }
 
     @Test("values requires all photo values to resolve album's imageArray, or fails")
@@ -101,7 +107,155 @@ struct MicropubContentSyncTests {
             "published": [.string("2026-07-24T12:00:00Z")],
         ]
         // "images" (u-photo, required imageArray) has no matching values at all.
-        #expect(MicropubContentSync.values(for: album, properties: properties) == nil)
+        #expect(MicropubContentSync.values(
+            for: album, properties: properties, updatedAt: Self.anUpdatedAt, slug: "trip") == nil)
+    }
+
+    // MARK: - values: Fix 1 — `published` fallback to `updatedAt`
+
+    @Test("values falls back to updatedAt for publishDate when the client sends no published property at all")
+    func valuesFallsBackToUpdatedAtForPublishDate() throws {
+        let note = ContentTypeRegistry.note
+        // The micropub.rocks conformance shape: h=entry&content=... with no dates whatsoever.
+        let properties: [String: [JSONValue]] = ["content": [.string("Hello world")]]
+        let values = try #require(MicropubContentSync.values(
+            for: note, properties: properties, updatedAt: 1_753_300_000, slug: "hello"))
+        #expect(values["body"] == .text("Hello world"))
+        guard case .date(let date) = values["publishDate"] else {
+            Issue.record("expected publishDate to fall back to a decoded date")
+            return
+        }
+        #expect(date?.timeIntervalSince1970 == 1_753_300_000)
+    }
+
+    // MARK: - values: Fix 2 — `{html: "..."}` rich-text objects with no `value` key
+
+    @Test("values reads body from a rich-text content object with only an html key (no value key)")
+    func valuesReadsBodyFromHTMLOnlyContentObject() throws {
+        let note = ContentTypeRegistry.note
+        let properties: [String: [JSONValue]] = [
+            "content": [.object(["html": .string("<p>Hello</p>")])],
+            "published": [.string("2026-07-24T12:00:00Z")],
+        ]
+        let values = try #require(MicropubContentSync.values(
+            for: note, properties: properties, updatedAt: Self.anUpdatedAt, slug: "hello"))
+        #expect(values["body"] == .text("<p>Hello</p>"))
+    }
+
+    // MARK: - values: Fix 5 — numeric mf2 properties and h-review's nested `item`
+
+    @Test("values resolves rating when sent as a genuine JSON number, not a string")
+    func valuesResolvesNumericRating() throws {
+        let review = ContentTypeRegistry.review
+        let properties: [String: [JSONValue]] = [
+            "item": [.string("A Book")],
+            "rating": [.int(4)],
+            "published": [.string("2026-07-24T12:00:00Z")],
+        ]
+        let values = try #require(MicropubContentSync.values(
+            for: review, properties: properties, updatedAt: Self.anUpdatedAt, slug: "a-book-review"))
+        #expect(values["rating"] == .number(4))
+    }
+
+    @Test("values resolves itemReviewed from a nested h-item mf2 object")
+    func valuesResolvesNestedItemReviewed() throws {
+        let review = ContentTypeRegistry.review
+        let nestedItem = JSONValue.object([
+            "type": .array([.string("h-item")]),
+            "properties": .object(["name": .array([.string("A Book")])]),
+        ])
+        let properties: [String: [JSONValue]] = [
+            "item": [nestedItem],
+            "rating": [.string("4")],
+            "published": [.string("2026-07-24T12:00:00Z")],
+        ]
+        let values = try #require(MicropubContentSync.values(
+            for: review, properties: properties, updatedAt: Self.anUpdatedAt, slug: "a-book-review"))
+        #expect(values["itemReviewed"] == .text("A Book"))
+    }
+
+    // MARK: - values: Fix 6 — slug-derived title fallback for a title-like required field
+
+    @Test("values falls back to a slug-derived title for an album with no name property")
+    func valuesFallsBackToSlugDerivedTitleForAlbum() throws {
+        let album = ContentTypeRegistry.album
+        let properties: [String: [JSONValue]] = [
+            "photo": [.string("https://example.com/a.jpg"), .string("https://example.com/b.jpg")],
+            "published": [.string("2026-07-24T12:00:00Z")],
+        ]
+        let values = try #require(MicropubContentSync.values(
+            for: album, properties: properties, updatedAt: Self.anUpdatedAt, slug: "my-trip-2026"))
+        #expect(values["title"] == .text("My Trip 2026"))
+        #expect(values["images"] == .list(["https://example.com/a.jpg", "https://example.com/b.jpg"]))
+    }
+
+    // MARK: - values: Fix 7 — an unresolvable optional date/url field is omitted, not blanked
+
+    @Test("values omits an unresolved optional datetime field instead of writing an invalid blank scalar")
+    func valuesOmitsUnresolvedOptionalDatetime() throws {
+        let article = ContentTypeRegistry.article
+        let properties: [String: [JSONValue]] = [
+            "name": [.string("My Announcement")],
+            "content": [.string("Today I'm launching something new")],
+            "published": [.string("2026-07-24T12:00:00Z")],
+            // No "updated" property at all — `updated` (optional dt-updated) can't resolve.
+        ]
+        let values = try #require(MicropubContentSync.values(
+            for: article, properties: properties, updatedAt: Self.anUpdatedAt, slug: "my-announcement"))
+        #expect(values["updated"] == nil)
+        // A cleared optional stringArray (tags) is fine to default to an empty list, unlike date/url.
+        #expect(values["tags"] == .list([]))
+    }
+
+    // MARK: - values: Fix 8 — every built-in collection type resolves end-to-end
+
+    @Test("values resolves a realistic payload for every built-in collection type", arguments: [
+        "note", "article", "photo", "album", "bookmark", "reply", "like", "event", "review",
+    ])
+    func valuesResolvesEveryCollectionType(id: String) throws {
+        let descriptor = try #require(ContentTypeRegistry.default.descriptor(id: id))
+        let properties = Self.samplePayload(for: id)
+        let values = try #require(MicropubContentSync.values(
+            for: descriptor, properties: properties, updatedAt: Self.anUpdatedAt, slug: "sample-slug"))
+        for field in descriptor.fields where field.required {
+            #expect(values[field.name] != nil, "expected \(id)'s required field \(field.name) to resolve")
+        }
+    }
+
+    /// A plausible, complete mf2 properties payload for one built-in collection type, keyed by
+    /// each field's raw (prefix-stripped) mf2 property name.
+    private static func samplePayload(for id: String) -> [String: [JSONValue]] {
+        let published: [JSONValue] = [.string("2026-07-24T12:00:00Z")]
+        switch id {
+        case "note":
+            return ["content": [.string("Hello world")], "published": published]
+        case "article":
+            return [
+                "name": [.string("My Announcement")],
+                "content": [.string("Today I'm launching something new")],
+                "published": published,
+            ]
+        case "photo":
+            return ["photo": [.string("https://example.com/a.jpg")], "published": published]
+        case "album":
+            return [
+                "name": [.string("Trip")],
+                "photo": [.string("https://example.com/a.jpg"), .string("https://example.com/b.jpg")],
+                "published": published,
+            ]
+        case "bookmark":
+            return ["bookmark-of": [.string("https://example.com/article")], "published": published]
+        case "reply":
+            return ["in-reply-to": [.string("https://example.com/post")], "content": [.string("Agreed!")], "published": published]
+        case "like":
+            return ["like-of": [.string("https://example.com/post")], "published": published]
+        case "event":
+            return ["name": [.string("Meetup")], "start": published]
+        case "review":
+            return ["item": [.string("A Book")], "rating": [.int(5)], "published": published]
+        default:
+            return [:]
+        }
     }
 
     // MARK: - resolve

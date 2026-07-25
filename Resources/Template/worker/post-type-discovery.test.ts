@@ -71,6 +71,13 @@ describe("discoverCollection", () => {
     }))).toBe("articles");
   });
 
+  test("rich-text content object with only an html key (the standard Micropub create shape, no value key) is read via html", () => {
+    expect(discoverCollection(mf2("h-entry", {
+      name: ["My Announcement"],
+      content: [{ html: "<p>Something else entirely</p>" }],
+    }))).toBe("articles");
+  });
+
   test("absent mf2 type ([]) is treated as h-entry", () => {
     expect(discoverCollection({ type: [], properties: { content: ["hi"] } })).toBe("notes");
   });

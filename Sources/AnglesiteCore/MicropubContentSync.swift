@@ -28,17 +28,49 @@ public enum MicropubContentSync {
         return (segments[0], segments[1])
     }
 
-    /// Extracts a plain-text string from one mf2 property value: a bare string, or a rich-text
-    /// object's `value` key (mirrors `worker.ts`'s AP fan-out `extractMf2ContentString` — same
-    /// mf2 shape, same fallback). `nil` for any other shape.
+    /// Extracts a plain-text string from one mf2 property value: a bare string, a rich-text
+    /// object's `value` key, or (the standard Micropub JSON *create* shape, as opposed to mf2
+    /// read back off a rendered page) a rich-text object's `html` key with no `value` key at all
+    /// (mirrors `worker.ts`'s AP fan-out `extractMf2ContentString` — same mf2 shape, same
+    /// fallback). Storing the raw HTML string as-is in the Markdown body is a deliberate
+    /// simplification for this slice — no HTML-to-Markdown conversion (see the design doc's §3).
+    /// `nil` for any other shape.
     static func plainText(from value: JSONValue?) -> String? {
         switch value {
         case .string(let s): return s
         case .object(let o):
             if case .string(let s)? = o["value"] { return s }
+            if case .string(let s)? = o["html"] { return s }
             return nil
         default: return nil
         }
+    }
+
+    /// Extracts the `name` of a nested h-item/h-card mf2 object (`{type: [...], properties: {name:
+    /// [...]}}`) — the conventional shape for h-review's `item` property. Narrowly scoped to
+    /// `itemReviewed` resolution, not a general mf2-object-tree walker.
+    static func nestedItemName(from value: JSONValue?) -> String? {
+        guard case .object(let o)? = value, case .object(let properties)? = o["properties"] else { return nil }
+        switch properties["name"] {
+        case .string(let s): return s
+        case .array(let values):
+            if case .string(let s)? = values.first { return s }
+            return nil
+        default: return nil
+        }
+    }
+
+    /// `title`/`name` — the two field names this registry uses purely as a post's own title (as
+    /// opposed to `itemReviewed`, which is also "title-like" for `ContentScaffold`'s placeholder-
+    /// fill purposes but names the *reviewed item*, not the post — a slug-derived fallback would
+    /// be nonsensical there).
+    private static let slugFallbackFieldNames = ContentScaffold.titleLikeFieldNames.subtracting(["itemReviewed"])
+
+    /// "my-trip-2026" → "My Trip 2026": the slug-derived title fallback for a required title-like
+    /// field (`title`/`name`) a Micropub client didn't send (e.g. a nameless multi-photo post that
+    /// Post Type Discovery still routes to `albums`, whose descriptor requires `title`).
+    static func titleFromSlug(_ slug: String) -> String {
+        slug.split(separator: "-").map { $0.capitalized }.joined(separator: " ")
     }
 
     private static let isoWithFractionalSeconds: ISO8601DateFormatter = {
@@ -57,9 +89,10 @@ public enum MicropubContentSync {
         return df.date(from: raw)
     }
 
-    /// Builds one `ContentTypeField`'s value from a post's raw mf2 properties. Returns `nil` only
-    /// when `field.required` and no usable value exists — the caller (`values(for:properties:)`)
-    /// treats that as "skip the whole post."
+    /// Builds one `ContentTypeField`'s value from a post's raw mf2 properties. Returns `nil` when
+    /// no usable value exists at all — regardless of `field.required` — leaving the
+    /// required-vs-optional decision (fail the whole post vs. fall back vs. omit the key) to the
+    /// caller, `values(for:properties:updatedAt:slug:)`.
     static func fieldValue(
         for field: ContentTypeField,
         rawProperty: String,
@@ -68,9 +101,11 @@ public enum MicropubContentSync {
         let values = properties[rawProperty] ?? []
         switch field.kind {
         case .string, .text, .url, .image, .markdown:
-            guard let text = values.first.flatMap(plainText) else {
-                return field.required ? nil : .text("")
-            }
+            let raw = values.first
+            // `itemReviewed` (h-review's `item`) is conventionally a nested h-item/h-card mf2
+            // object, not a plain string — only that field tries the nested-object fallback.
+            let text = plainText(from: raw) ?? (field.name == "itemReviewed" ? nestedItemName(from: raw) : nil)
+            guard let text else { return nil }
             return .text(text)
         // No field in the built-in registry maps a raw mf2 property to `.bool` today (`draft` is
         // special-cased in `values(for:)` below, driven by `post-status` instead) — this arm
@@ -78,29 +113,38 @@ public enum MicropubContentSync {
         case .bool:
             return .flag(false)
         case .date, .datetime:
-            guard let text = values.first.flatMap(plainText), let date = parseDate(text) else {
-                return field.required ? nil : .date(nil)
-            }
+            guard let text = values.first.flatMap(plainText), let date = parseDate(text) else { return nil }
             return .date(date)
         case .number:
-            guard let text = values.first.flatMap(plainText), let number = Double(text) else {
-                return field.required ? nil : .number(nil)
-            }
+            // A client can send `rating` as a genuine JSON number (not a string) — check that
+            // directly before falling back to the plainText-then-`Double(text)` string path.
+            if case .int(let n)? = values.first { return .number(Double(n)) }
+            if case .double(let n)? = values.first { return .number(n) }
+            guard let text = values.first.flatMap(plainText), let number = Double(text) else { return nil }
             return .number(number)
         case .stringArray:
             return .list(values.compactMap(plainText))
         case .imageArray:
             let strings = values.compactMap(plainText)
-            return (field.required && strings.isEmpty) ? nil : .list(strings)
+            return strings.isEmpty ? nil : .list(strings)
         }
     }
 
     /// Builds every field value for `descriptor` from a post's raw mf2 properties. Returns `nil`
-    /// (skip the whole post) when a required field can't be resolved — a malformed/partial post
-    /// shouldn't produce invalid frontmatter.
+    /// (skip the whole post) when a required field can't be resolved even after the fallbacks
+    /// below — a malformed/partial post shouldn't produce invalid frontmatter.
+    ///
+    /// - `updatedAt`: the D1 row's own `updated_at`, used as a `publishDate` fallback — `@dwk/
+    ///   micropub` does NOT inject a `published` timestamp on create, so the micropub.rocks
+    ///   conformance shape (no dates at all) would otherwise fail this always-required field.
+    /// - `slug`: the post URL's slug, used as a `title`/`name` fallback for a post whose required
+    ///   title-like field has no resolvable mf2 value (e.g. a nameless multi-photo post Post Type
+    ///   Discovery still routes to `albums`).
     static func values(
         for descriptor: ContentTypeDescriptor,
-        properties: [String: [JSONValue]]
+        properties: [String: [JSONValue]],
+        updatedAt: Int,
+        slug: String
     ) -> TypedContentEditor.Values? {
         var out = TypedContentEditor.Values()
         for field in descriptor.fields {
@@ -112,15 +156,35 @@ public enum MicropubContentSync {
                 out["draft"] = .flag(status == "draft")
                 continue
             }
-            guard let rawProperty = descriptor.projections.rawMf2Property(forField: field.name) else {
-                if field.required { return nil }
-                out[field.name] = TypedContentEditor.defaultValue(for: field.kind)
+
+            let resolved = descriptor.projections.rawMf2Property(forField: field.name)
+                .flatMap { fieldValue(for: field, rawProperty: $0, properties: properties) }
+            if let resolved {
+                out[field.name] = resolved
                 continue
             }
-            guard let value = fieldValue(for: field, rawProperty: rawProperty, properties: properties) else {
-                return nil
+
+            // Unresolved (no mf2 mapping at all, or a mapping with no usable value). Try the
+            // field-specific fallbacks before giving up on the field/post.
+            if field.name == "publishDate" {
+                out[field.name] = .date(Date(timeIntervalSince1970: Double(updatedAt)))
+                continue
             }
-            out[field.name] = value
+            if field.required, field.kind == .string || field.kind == .text,
+               slugFallbackFieldNames.contains(field.name) {
+                out[field.name] = .text(titleFromSlug(slug))
+                continue
+            }
+            if field.required { return nil }
+
+            // A non-required date/url-kind field that can't be resolved must be OMITTED, not set
+            // to an empty placeholder: `TypedContentEditor.write` only touches keys present in
+            // the `Values` it's given, so omitting the key leaves the file's existing value (or
+            // leaves it simply absent for a new file) instead of emitting an invalid blank scalar
+            // that a `z.coerce.date().optional()` / `z.string().url().optional()` schema rejects.
+            if field.kind == .date || field.kind == .datetime || field.kind == .url { continue }
+
+            out[field.name] = TypedContentEditor.defaultValue(for: field.kind)
         }
         return out
     }
@@ -132,9 +196,10 @@ public enum MicropubContentSync {
         post: MicropubPostD1Client.Post,
         registry: ContentTypeRegistry = .default
     ) -> ResolvedPost? {
-        guard let (collection, _) = collectionAndSlug(from: post.url),
+        guard let (collection, slug) = collectionAndSlug(from: post.url),
               let descriptor = registry.descriptor(forCollection: collection),
-              let values = values(for: descriptor, properties: post.properties)
+              let values = values(
+                for: descriptor, properties: post.properties, updatedAt: post.updatedAt, slug: slug)
         else { return nil }
         return ResolvedPost(
             url: post.url, collection: collection, descriptor: descriptor,
@@ -146,12 +211,25 @@ public enum MicropubContentSync {
     /// `MicropubContentCommitter`. Returns 0 (never throws) if the D1 query failed. Soft-deleted
     /// and unresolvable posts are simply absent from the resolved set passed to the committer — a
     /// previously-synced post whose row later became unresolvable (soft-deleted, or an edit that
-    /// broke a required field) is removed from git the same way a truly-deleted post is.
+    /// broke a required field) is removed from git the same way a truly-deleted post is. A live
+    /// post that `resolve(post:)` can't map (unknown collection, or a required field with no
+    /// resolvable value even after the fallbacks above) is logged to `LogCenter`, per the design
+    /// doc's Error Handling section, rather than silently vanishing.
     public static func pullAndCommit(
         client: MicropubPostD1Client, siteDirectory: URL, configDirectory: URL
     ) async -> Int {
         guard let posts = try? await client.listAllPosts() else { return 0 }
-        let resolved = posts.filter { !$0.deleted }.compactMap { resolve(post: $0) }
+        var resolved: [ResolvedPost] = []
+        for post in posts where !post.deleted {
+            if let resolvedPost = resolve(post: post) {
+                resolved.append(resolvedPost)
+            } else {
+                await LogCenter.shared.append(
+                    source: "MicropubContentSync", stream: .stderr,
+                    text: "Skipping unresolvable Micropub post \(post.url): unknown collection "
+                        + "or a required field with no resolvable mf2 value.")
+            }
+        }
         return await MicropubContentCommitter.commit(
             posts: resolved, into: siteDirectory, configDirectory: configDirectory)
     }
