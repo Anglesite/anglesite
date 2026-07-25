@@ -132,4 +132,20 @@ describe("generateSlug", () => {
     const slug = generateSlug(mf2("h-entry", { content: ["hi"] }), commands());
     expect(slug).toMatch(/^[0-9a-z]+-[0-9a-z]{4}$/);
   });
+
+  test("an mp-slug containing a slash is sanitized to a single path segment", () => {
+    const slug = generateSlug(mf2("h-entry", { content: ["hi"] }), commands({ slug: "notes/x" }));
+    expect(slug).not.toContain("/");
+    expect(slug).toBe("notes-x");
+  });
+
+  test("an mp-slug that sluggifies to empty falls through to the name-derived slug", () => {
+    const slug = generateSlug(mf2("h-entry", { name: ["Hello"] }), commands({ slug: "///" }));
+    expect(slug).toBe("hello");
+  });
+
+  test("an mp-slug that sluggifies to empty with no name falls through to a random slug", () => {
+    const slug = generateSlug(mf2("h-entry", { content: ["hi"] }), commands({ slug: "///" }));
+    expect(slug).toMatch(/^[0-9a-z]+-[0-9a-z]{4}$/);
+  });
 });

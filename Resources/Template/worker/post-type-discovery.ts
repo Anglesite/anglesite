@@ -89,12 +89,18 @@ function randomSlug(): string {
  * post's slug doesn't change depending on whether its type was recognized (see `worker.ts`'s
  * `generatePostUrl`, which calls this once and uses the same slug for both the type-aware and
  * flat-URL fallback branches).
+ *
+ * `commands.slug` (the Micropub `mp-slug` command) is client-supplied and unvalidated by
+ * `@dwk/micropub` — it must be run through `slugify()` just like the name-derived fallback, or a
+ * value containing `/` produces a multi-segment slug that either smuggles an unrecognized post
+ * into a collection (flat-URL fallback happens to look like `collection/slug`) or breaks the
+ * Swift-side `collectionAndSlug` two-segment parser for a real, recognized post. Slugifying can
+ * itself reduce a command to an empty string (e.g. `"///"`), so all three sources fall through in
+ * priority order rather than short-circuiting on a merely-present `commands.slug`.
  */
 export function generateSlug(mf2: Mf2Object, commands: MicropubCommands): string {
   const name = mf2.properties.name?.[0];
-  return (
-    commands.slug ||
-    (typeof name === "string" && name.trim() ? slugify(name) : "") ||
-    randomSlug()
-  );
+  const fromCommand = commands.slug ? slugify(commands.slug) : "";
+  const fromName = typeof name === "string" && name.trim() ? slugify(name) : "";
+  return fromCommand || fromName || randomSlug();
 }

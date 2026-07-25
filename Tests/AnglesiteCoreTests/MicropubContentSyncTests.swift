@@ -23,6 +23,11 @@ struct MicropubContentSyncTests {
         #expect(MicropubContentSync.collectionAndSlug(from: "not a url") == nil)
     }
 
+    @Test("collectionAndSlug returns nil for a three-segment URL (a real, supported post's own path must never smuggle an extra segment past this guard)")
+    func collectionAndSlugNilForThreeSegments() {
+        #expect(MicropubContentSync.collectionAndSlug(from: "https://me.example/notes/a/b") == nil)
+    }
+
     // MARK: - plainText
 
     @Test("plainText reads a bare string value")
