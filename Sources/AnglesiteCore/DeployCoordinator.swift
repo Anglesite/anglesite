@@ -140,10 +140,15 @@ public enum DeployCoordinator {
         sendWebmentions: () async -> Void,
         syndicate: () async -> Void,
         /// WebSub publish pings (#361): tells the site's own hub the feeds changed so it fans
-        /// the update out to subscribers. Ordered last — the deployed feeds must exist before
-        /// the hub fetches them, and (like the other two passes) it's best-effort and never
-        /// throws. Callers without the hub provisioned pass a no-op.
-        notifySubscribers: () async -> Void = {}
+        /// the update out to subscribers. Ordered before the ActivityPub backfill below — the
+        /// deployed feeds must exist before the hub fetches them, and (like the other passes)
+        /// it's best-effort and never throws. Callers without the hub provisioned pass a no-op.
+        notifySubscribers: () async -> Void = {},
+        /// ActivityPub outbox backfill (#926): syncs existing content into the site's actor's
+        /// outbox. Ordered last — after `syndicate()`, since POSSE write-back can change post
+        /// frontmatter a backfill pass might otherwise read stale. Best-effort and never throws,
+        /// like every other step here. Callers without ActivityPub provisioned pass a no-op.
+        backfillActivityPubOutbox: () async -> Void = {}
     ) async {
         onMilestone(.deployWebmentions)
         await sendWebmentions()
@@ -151,5 +156,7 @@ public enum DeployCoordinator {
         await syndicate()
         onMilestone(.deployNotifyingSubscribers)
         await notifySubscribers()
+        onMilestone(.deployBackfillingActivityPub)
+        await backfillActivityPubOutbox()
     }
 }
