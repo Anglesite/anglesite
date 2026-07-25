@@ -243,4 +243,27 @@ struct ContentTypeRegistryTests {
             }
         }
     }
+
+    // MARK: rawMf2Property reverse lookup
+
+    @Test("rawMf2Property strips the mf2 prefix class from a field's microformat mapping")
+    func rawMf2PropertyStripsPrefix() {
+        let article = ContentTypeRegistry.article
+        #expect(article.projections.rawMf2Property(forField: "body") == "content")        // e-content
+        #expect(article.projections.rawMf2Property(forField: "publishDate") == "published") // dt-published
+        #expect(article.projections.rawMf2Property(forField: "tags") == "category")        // p-category
+    }
+
+    @Test("rawMf2Property handles the u- prefix")
+    func rawMf2PropertyHandlesUPrefix() {
+        let bookmark = ContentTypeRegistry.bookmark
+        #expect(bookmark.projections.rawMf2Property(forField: "bookmarkOf") == "bookmark-of") // u-bookmark-of
+    }
+
+    @Test("rawMf2Property returns nil for a field with no mf2 mapping")
+    func rawMf2PropertyNilForUnmappedField() {
+        let article = ContentTypeRegistry.article
+        #expect(article.projections.rawMf2Property(forField: "draft") == nil)
+        #expect(article.projections.rawMf2Property(forField: "nonexistent") == nil)
+    }
 }

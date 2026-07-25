@@ -202,6 +202,11 @@ final class PreviewModel {
             // (SiteSettings.provisionedWorkerResources.d1DatabaseID unset).
             _ = await ReceivedInteractionSync.pullAndCommitIfConfigured(
                 siteDirectory: siteDirectory, configDirectory: configDirectory)
+            // #912: pull Micropub-created posts from MICROPUB_DB and sync each into a typed
+            // content file under src/content/. No-ops for sites without a provisioned D1
+            // database (same gate as ReceivedInteractionSync — Micropub shares the database).
+            _ = await MicropubContentSync.pullAndCommitIfConfigured(
+                siteDirectory: siteDirectory, configDirectory: configDirectory)
             clearDevServerCommandInFlight(token: token)
         }
     }
