@@ -1,5 +1,10 @@
 // Sources/AnglesiteCore/MicropubContentSync.swift
 import Foundation
+// URLSession/URLRequest/HTTPURLResponse live in FoundationNetworking on non-Darwin
+// platforms (swift-corelibs-foundation); this import is a no-op on macOS.
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Orchestrates #912's "pull Micropub-created posts from D1 and turn each into a typed content
 /// file" step. This file holds the pure URL-parsing and mf2-to-field mapping logic; `pullAndCommit`
