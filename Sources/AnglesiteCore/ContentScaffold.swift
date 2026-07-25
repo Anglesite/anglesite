@@ -273,5 +273,7 @@ public enum ContentScaffold {
         return out
     }
 
-    private static let titleLikeFieldNames: Set<String> = ["title", "name", "itemReviewed"]
+    // Not `private`: `MicropubContentSync` (#912) also reads this to fall back to a slug-derived
+    // title for a required title-like field a Micropub client didn't send.
+    static let titleLikeFieldNames: Set<String> = ["title", "name", "itemReviewed"]
 }
