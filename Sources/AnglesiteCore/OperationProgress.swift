@@ -42,6 +42,9 @@ public extension OperationProgress {
     static let deployWebmentions = OperationProgress(kind: .deploy, phase: "webmentions", label: "Sending webmentions…")
     static let deploySyndicating = OperationProgress(kind: .deploy, phase: "syndicating", label: "Syndicating posts…")
     static let deployNotifyingSubscribers = OperationProgress(kind: .deploy, phase: "websubPing", label: "Notifying feed subscribers…")
+    static let deployBackfillingActivityPub = OperationProgress(
+        kind: .deploy, phase: "activityPubBackfill", label: "Backfilling ActivityPub outbox…"
+    )
 
     static let backupStaging = OperationProgress(kind: .backup, phase: "staging", label: "Staging changes…")
     static let backupCommitting = OperationProgress(kind: .backup, phase: "committing", label: "Committing…")
