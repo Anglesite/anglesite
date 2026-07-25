@@ -42,22 +42,25 @@ struct FollowersView: View {
 
     @ViewBuilder
     private var loadedContent: some View {
-        if followers.rows.isEmpty {
-            emptyState
-        } else {
-            VStack(spacing: 0) {
-                // Refresh lives inline rather than in the window toolbar, matching
-                // `MicrosubReaderView`'s inline "Sign Out" — the customizable toolbar (#518) is
-                // owned by the window, and a pane-scoped item doesn't belong in it.
-                HStack {
-                    Text("\(followers.totalItems) followers").font(.headline)
-                    Spacer()
-                    Button("Refresh", systemImage: "arrow.clockwise") {
-                        Task { await followers.refresh() }
-                    }
+        VStack(spacing: 0) {
+            // Refresh lives inline rather than in the window toolbar, matching
+            // `MicrosubReaderView`'s inline "Sign Out" — the customizable toolbar (#518) is
+            // owned by the window, and a pane-scoped item doesn't belong in it. Hoisted out of
+            // the empty/non-empty split below so the empty state ("No followers yet") isn't a
+            // dead end: without it, an owner watching for their first follower had no way to
+            // re-check from inside the pane.
+            HStack {
+                Text("\(followers.totalItems) followers").font(.headline)
+                Spacer()
+                Button("Refresh", systemImage: "arrow.clockwise") {
+                    Task { await followers.refresh() }
                 }
-                .padding()
+            }
+            .padding()
 
+            if followers.rows.isEmpty {
+                emptyState
+            } else {
                 List {
                     ForEach(followers.rows) { row in
                         followerRow(row)
@@ -223,12 +226,15 @@ private struct FollowerAvatar: View {
         return await Task.detached(priority: .utility) { decode(data) }.value
     }
 
-    /// Decodes to at most ``maximumPixelSize`` on the long edge. ImageIO's thumbnail path
-    /// subsamples during decode rather than after, so a hostile image that declares enormous
-    /// dimensions never gets fully expanded in memory — the byte cap alone wouldn't stop that,
-    /// since a compression bomb is small on the wire and huge only once decoded.
+    /// Decodes to at most ``maximumPixelSize`` on the long edge. `CGImageSourceCreateThumbnailAtIndex`
+    /// genuinely subsamples during decode for JPEG (DCT scaling) — but for PNG/GIF, ImageIO
+    /// generally decodes the *full* raster before downsampling, so the thumbnail path alone
+    /// wouldn't stop a small PNG that declares enormous dimensions from spiking memory during that
+    /// decode. ``dimensionsWithinBound(_:)`` closes that gap by rejecting the declared dimensions
+    /// up front, before any raster is decoded.
     private nonisolated static func decode(_ data: Data) -> Decoded? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        guard dimensionsWithinBound(source) else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
@@ -239,6 +245,24 @@ private struct FollowerAvatar: View {
         return Decoded(image: image)
     }
 
+    /// Rejects an image whose *declared* pixel dimensions exceed a sane bound before
+    /// ``decode(_:)`` asks ImageIO to create a thumbnail. `CGImageSourceCopyPropertiesAtIndex`
+    /// reads only the format's header metadata — it does not decode the raster — so this check is
+    /// cheap even against a hostile file. Missing dimensions are treated as a rejection rather
+    /// than an approval: an image this code can't measure gets the placeholder, not a decode.
+    private nonisolated static func dimensionsWithinBound(_ source: CGImageSource) -> Bool {
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int
+        else { return false }
+        return width <= maximumDeclaredPixelDimension && height <= maximumDeclaredPixelDimension
+    }
+
     /// The avatar renders at 32pt; 128px covers a 3× display with room to spare.
     private nonisolated static let maximumPixelSize = 128
+
+    /// Generous enough for any real-world avatar (even an uncropped full-resolution photo) while
+    /// rejecting the pathological case a decompression bomb relies on: a file that is small on the
+    /// wire but declares e.g. 50000×50000 pixels of raster to decode.
+    private nonisolated static let maximumDeclaredPixelDimension = 4096
 }
