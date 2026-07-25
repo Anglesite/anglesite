@@ -40,9 +40,13 @@ enum CappedHTTPTransport {
     /// not after the whole body has arrived.
     private static let readBufferSize = 16 * 1024
 
+    #if !canImport(FoundationNetworking)
     /// Streams the body so the size cap is enforced *during* transfer — `URLSession.data(for:)`
     /// buffers the whole response before returning, which would make a post-hoc `data.count`
     /// check purely decorative.
+    ///
+    /// Darwin-only: `URLSession.bytes(for:)` / `AsyncBytes` aren't part of swift-corelibs-foundation.
+    /// See the `#else` branch below for the Linux fallback and what it gives up.
     static func fetch(
         _ request: URLRequest,
         session: URLSession,
@@ -76,4 +80,31 @@ enum CappedHTTPTransport {
         if data.count > cap { throw tooLarge(data.count) }
         return (data, http)
     }
+    #else
+    /// Linux fallback: swift-corelibs-foundation has no `URLSession.bytes(for:)` /
+    /// `AsyncBytes`, so this cannot stream. `URLSession.data(for:)` buffers the *entire* body
+    /// before returning, which means an oversized response from a hostile follower's server is
+    /// fully read into memory before the `data.count` check below ever runs — the byte cap
+    /// still holds (nothing over `cap` is handed back to the caller), but it is enforced
+    /// post-hoc, not during transfer, so the memory spend the streaming path exists to avoid is
+    /// paid here. This is a real capability gap versus the Darwin path above, not an equivalent
+    /// substitute — a future Linux port that takes this seriously needs a streaming HTTP client
+    /// (e.g. via `AsyncHTTPClient`) to close it for real.
+    static func fetch(
+        _ request: URLRequest,
+        session: URLSession,
+        cap: Int,
+        tooLarge: @Sendable (Int) -> Error
+    ) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+
+        // A declared length over the cap fails before trusting the (already fully-buffered) body.
+        if http.expectedContentLength > Int64(cap) {
+            throw tooLarge(Int(http.expectedContentLength))
+        }
+        if data.count > cap { throw tooLarge(data.count) }
+        return (data, http)
+    }
+    #endif
 }
