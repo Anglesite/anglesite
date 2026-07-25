@@ -376,8 +376,10 @@ Swift/TypeScript.
 - Astro build smoke proving hidden files reach `dist/.well-known/...` byte-for-byte; and
 - exact `_headers` generation that survives a CSP rebuild.
 
-Template Node tests are not currently a direct CI lane. Add a hermetic Swift asset test or a
-dedicated template Node lane so these tests actually execute in CI.
+Template Node tests originally had no direct CI lane. #744 added both halves: `npm run
+test:scripts` runs `Resources/Template/scripts/*.test.ts` in the existing `template-worker` job,
+and `WellKnownInventoryTests` carries hermetic Swift asset tests that read the real template source
+to catch the cross-language marker and build-seam contracts drifting apart.
 
 ### HTTP behavior
 

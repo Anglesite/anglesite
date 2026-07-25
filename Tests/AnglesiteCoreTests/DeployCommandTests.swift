@@ -233,6 +233,165 @@ struct DeployCommandTests {
         }
     }
 
+    // MARK: #744/#748 build-seam wiring
+
+    /// A `DeployExecutor` that implements the well-known build seam, records the manifest it was
+    /// handed, and returns a canned outcome. Everything else delegates to the plain fake.
+    private final class SeamExecutor: DeployExecutor, @unchecked Sendable {
+        private let inner = FakeExecutor()
+        private let lock = NSLock()
+        private var outcome: WellKnownBuildSeamOutcome = .unsupported
+        private(set) var receivedManifest: WellKnownClaimManifest?
+
+        @discardableResult
+        func returning(_ outcome: WellKnownBuildSeamOutcome) -> SeamExecutor {
+            lock.lock(); self.outcome = outcome; lock.unlock()
+            return self
+        }
+
+        @discardableResult
+        func set(_ step: DeployStep, exitCode: Int32?, output: String) -> SeamExecutor {
+            inner.set(step, exitCode: exitCode, output: output)
+            return self
+        }
+
+        func ran(_ step: DeployStep) -> Bool { inner.ran(step) }
+
+        func run(step: DeployStep, siteDirectory: URL, environment: [String: String], source: String) async -> DeployStepResult {
+            await inner.run(step: step, siteDirectory: siteDirectory, environment: environment, source: source)
+        }
+
+        func runBuildWithClaimManifest(
+            siteDirectory: URL, environment: [String: String], source: String, claimManifest: WellKnownClaimManifest
+        ) async -> WellKnownBuildSeamOutcome {
+            lock.lock(); receivedManifest = claimManifest; let outcome = self.outcome; lock.unlock()
+            return outcome
+        }
+    }
+
+    /// The whole point of the seam: the orchestrator owns the complete inventory (Worker activation
+    /// lives in `Config/`, provider capabilities are host-side), so the runtime can only rescan its
+    /// clone against what it is handed.
+    @Test("the derived claim manifest carries every effective claim with its delivery class")
+    func seamManifestCarriesEffectiveClaims() async throws {
+        let siteDirectory = try makeWellKnownSiteDirectory(wellKnownFiles: ["humans.txt": "hi"])
+        defer { try? FileManager.default.removeItem(at: siteDirectory) }
+        let exec = SeamExecutor()
+            .returning(.completed(DeployStepResult(exitCode: 0, output: ""), WellKnownBuildSeamResult(
+                observedArtifacts: ["humans.txt"])))
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+            .set(.wrangler, exitCode: 0, output: "Published x (0.1 sec)\n  https://x.workers.dev")
+        let claim = WorkerRouteClaims.OwnedClaim(
+            owner: "webfinger",
+            claim: WorkerRouteClaim(path: "/.well-known/webfinger", match: .exact, methods: ["GET"], handler: "h"))
+
+        _ = await DeployCommand(tokenSource: { "tok" }, executor: exec)
+            .deploy(siteID: "s", siteDirectory: siteDirectory, wellKnownDynamicClaims: [claim])
+
+        let entries = try #require(exec.receivedManifest?.entries)
+        #expect(entries.contains { $0.path == "humans.txt" && $0.delivery == "userStatic" })
+        #expect(entries.contains { $0.path == "webfinger" && $0.delivery == "dynamic" && $0.owner == "webfinger" })
+        #expect(!exec.ran(.build), "the seam replaces the plain build step, it doesn't run alongside it")
+    }
+
+    @Test("an executor without the seam falls back to the plain build step")
+    func seamUnsupportedFallsBackToPlainBuild() async throws {
+        let siteDirectory = try makeWellKnownSiteDirectory()
+        defer { try? FileManager.default.removeItem(at: siteDirectory) }
+        let exec = SeamExecutor()
+            .returning(.unsupported)
+            .set(.build, exitCode: 0, output: "")
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+            .set(.wrangler, exitCode: 0, output: "Published x (0.1 sec)\n  https://x.workers.dev")
+
+        let result = await DeployCommand(tokenSource: { "tok" }, executor: exec)
+            .deploy(siteID: "s", siteDirectory: siteDirectory)
+
+        guard case .succeeded = result else { Issue.record("expected .succeeded, got \(result)"); return }
+        #expect(exec.ran(.build))
+    }
+
+    @Test("a collision the runtime found in its own clone blocks the deploy with both owners named")
+    func seamRuntimeCollisionBlocks() async throws {
+        let siteDirectory = try makeWellKnownSiteDirectory()
+        defer { try? FileManager.default.removeItem(at: siteDirectory) }
+        let exec = SeamExecutor()
+            .returning(.completed(
+                DeployStepResult(exitCode: 1, output: "build failed"),
+                WellKnownBuildSeamResult(findings: [.init(
+                    path: "webfinger",
+                    message: ".well-known/webfinger (static file in the site source) collides with /.well-known/webfinger claimed by webfinger (dynamic)")])))
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+
+        var observedOutcome: PreDeployCheck.Outcome?
+        let result = await DeployCommand(tokenSource: { "tok" }, executor: exec)
+            .deploy(siteID: "s", siteDirectory: siteDirectory, onPreflight: { observedOutcome = $0 })
+
+        guard case .blocked(let failures, _) = result else {
+            Issue.record("expected .blocked, got \(result)"); return
+        }
+        #expect(failures.count == 1)
+        #expect(failures.first?.category == .wellKnownCollision)
+        #expect(failures.first?.file == "public/.well-known/webfinger")
+        #expect(failures.first?.message.contains("claimed by webfinger (dynamic)") == true)
+        if case .blocked = observedOutcome {} else {
+            Issue.record("expected the preflight observer to see .blocked, got \(String(describing: observedOutcome))")
+        }
+        #expect(!exec.ran(.preflight), "a collision stops the deploy before the security scan runs")
+    }
+
+    /// An ordinary build failure carries no findings; it must stay a plain `.failed`, not get
+    /// dressed up as a security block.
+    @Test("a build failure with no seam findings stays a plain failure")
+    func seamBuildFailureWithoutFindingsIsNotBlocked() async throws {
+        let siteDirectory = try makeWellKnownSiteDirectory()
+        defer { try? FileManager.default.removeItem(at: siteDirectory) }
+        let exec = SeamExecutor()
+            .returning(.completed(DeployStepResult(exitCode: 2, output: "syntax error"), WellKnownBuildSeamResult()))
+
+        let result = await DeployCommand(tokenSource: { "tok" }, executor: exec)
+            .deploy(siteID: "s", siteDirectory: siteDirectory)
+
+        guard case .failed(_, let exitCode) = result else {
+            Issue.record("expected .failed, got \(result)"); return
+        }
+        #expect(exitCode == 2)
+    }
+
+    @Test("a static claim missing from the built output becomes an advisory warning")
+    func seamMissingArtifactBecomesWarning() async throws {
+        let siteDirectory = try makeWellKnownSiteDirectory(wellKnownFiles: ["humans.txt": "hi"])
+        defer { try? FileManager.default.removeItem(at: siteDirectory) }
+        let exec = SeamExecutor()
+            .returning(.completed(DeployStepResult(exitCode: 0, output: ""), WellKnownBuildSeamResult()))
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+            .set(.wrangler, exitCode: 0, output: "Published x (0.1 sec)\n  https://x.workers.dev")
+
+        var observedOutcome: PreDeployCheck.Outcome?
+        let result = await DeployCommand(tokenSource: { "tok" }, executor: exec)
+            .deploy(siteID: "s", siteDirectory: siteDirectory, onPreflight: { observedOutcome = $0 })
+
+        guard case .succeeded = result else { Issue.record("expected .succeeded, got \(result)"); return }
+        guard case .passed(let warnings) = observedOutcome else {
+            Issue.record("expected .passed with warnings, got \(String(describing: observedOutcome))"); return
+        }
+        #expect(warnings.contains {
+            $0.category == .wellKnownArtifact && $0.file == "dist/.well-known/humans.txt"
+        })
+    }
+
+    @Test("a cancelled seam build reports termination rather than a spurious failure reason")
+    func seamCancelledBuildTerminates() async throws {
+        let siteDirectory = try makeWellKnownSiteDirectory()
+        defer { try? FileManager.default.removeItem(at: siteDirectory) }
+        let exec = SeamExecutor().returning(.cancelled)
+
+        let result = await DeployCommand(tokenSource: { "tok" }, executor: exec)
+            .deploy(siteID: "s", siteDirectory: siteDirectory)
+
+        #expect(result == .failed(reason: "build was terminated", exitCode: nil))
+    }
+
     // MARK: Host environment curation
 
     @Test("hostDeployEnvironment retains PATH, HOME, and CI")

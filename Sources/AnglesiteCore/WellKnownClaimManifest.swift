@@ -66,12 +66,30 @@ public struct WellKnownClaimManifest: Sendable, Codable, Equatable {
         public var path: String
         public var match: WellKnownPathMatch
         public var owner: String
+        /// The claim's delivery class, as the raw value of
+        /// `WellKnownEndpointDescriptor.Delivery` (`AnglesiteCore` owns that enum; this contract
+        /// stays a plain string so the seam's JSON has no dependency direction). The build step
+        /// needs it to tell a fresh static file that merely *is* a user-static claim from one that
+        /// **shadows** a `dynamic`/`externalRuntime` claim — the latter is a collision it must
+        /// reject before generation. Decodes as `"userStatic"` when absent so an older producer's
+        /// manifest still parses.
+        public var delivery: String
 
-        public init(id: String, path: String, match: WellKnownPathMatch, owner: String) {
+        public init(id: String, path: String, match: WellKnownPathMatch, owner: String, delivery: String = "userStatic") {
             self.id = id
             self.path = path
             self.match = match
             self.owner = owner
+            self.delivery = delivery
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(String.self, forKey: .id)
+            path = try container.decode(String.self, forKey: .path)
+            match = try container.decode(WellKnownPathMatch.self, forKey: .match)
+            owner = try container.decode(String.self, forKey: .owner)
+            delivery = try container.decodeIfPresent(String.self, forKey: .delivery) ?? "userStatic"
         }
     }
 
@@ -105,11 +123,25 @@ public struct WellKnownBuildSeamResult: Sendable, Codable, Equatable {
 
     /// Relative `dist/.well-known/...` paths the build actually produced.
     public var observedArtifacts: [String]
+    /// The subset of `observedArtifacts` the build recognized as its own generator's output (by
+    /// the generator's content marker). Anglesite's generators run *inside* the runtime clone
+    /// during prebuild, so the host-assembled inventory legitimately cannot know about a file that
+    /// did not exist when it scanned — without this, every generated `security.txt`/`mta-sts.txt`
+    /// would read as an unclaimed artifact on a first deploy.
+    public var generatedArtifacts: [String]
     public var findings: [Finding]
 
-    public init(observedArtifacts: [String] = [], findings: [Finding] = []) {
+    public init(observedArtifacts: [String] = [], generatedArtifacts: [String] = [], findings: [Finding] = []) {
         self.observedArtifacts = observedArtifacts
+        self.generatedArtifacts = generatedArtifacts
         self.findings = findings
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        observedArtifacts = try container.decodeIfPresent([String].self, forKey: .observedArtifacts) ?? []
+        generatedArtifacts = try container.decodeIfPresent([String].self, forKey: .generatedArtifacts) ?? []
+        findings = try container.decodeIfPresent([Finding].self, forKey: .findings) ?? []
     }
 
     /// Parses the JSON blob a build step returns after the result marker. Never throws — an

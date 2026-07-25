@@ -98,7 +98,12 @@ struct DeployExecutorSelectionTests {
         let calls = await stepAware.calls
         let argvs = calls.map(\.argv)
         #expect(argvs.count == 3)
-        #expect(argvs[0] == ["npm", "run", "build"])
+        // The build step goes through the #744/#748 well-known claim-manifest seam, which
+        // `ContainerDeployExecutor` implements — so it's a wrapper shell around `npm run build`
+        // rather than the bare argv. The manifest itself is a positional parameter, never spliced
+        // into the script text (`wellKnownSeamArgv`).
+        #expect(argvs[0].first == "sh")
+        #expect(argvs[0].contains { $0.contains("npm run build") })
         #expect(argvs[1] == ["npx", "tsx", "scripts/pre-deploy-check.ts", "--json"])
         #expect(argvs[2] == ["npx", "wrangler", "deploy"])
     }

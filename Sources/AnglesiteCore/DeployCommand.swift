@@ -6,7 +6,10 @@ import Foundation
 /// each run through the injected `DeployExecutor` seam. Container runtimes run the steps in a
 /// guest; the default process-backed executor fails explicitly after embedded Node retirement.
 ///   1. Resolve / read the Cloudflare API token (pre-spawn; no token → `.failed`).
-///   2. `executor.run(step: .build, …)` so `dist/` is fresh.
+///   2. `executor.runBuildWithClaimManifest(…)` so `dist/` is fresh — the build carries the derived
+///      `/.well-known/` claim manifest (#744/#748) so the runtime can reject a collision in its own
+///      clone and report the artifacts it produced. An executor without the seam falls back to
+///      `executor.run(step: .build, …)` and gets no post-build well-known verification.
 ///   3. `executor.run(step: .preflight, …)` — the bundled plugin's pre-deploy scan; its captured
 ///      stdout is parsed into a `PreDeployCheck.Outcome`. `.blocked` short-circuits with no
 ///      override (per CLAUDE.md, the app cannot bypass plugin security hooks).
@@ -146,8 +149,9 @@ public actor DeployCommand {
             wellKnownDirectory: siteDirectory.appendingPathComponent("public/.well-known", isDirectory: true))
         let wellKnownRuntimeRows = WellKnownInventory.runtimeRows(from: await executor.reportOwnedPathClaims())
         let wellKnownDynamicRows = WellKnownInventory.dynamicRows(from: wellKnownDynamicClaims)
+        let wellKnownInventory: [WellKnownEndpointDescriptor]
         do {
-            _ = try WellKnownInventory.merge(
+            wellKnownInventory = try WellKnownInventory.merge(
                 userStatic: wellKnownScan.rows.filter { $0.delivery == .userStatic },
                 generated: wellKnownScan.rows.filter { $0.delivery == .generated },
                 dynamic: wellKnownDynamicRows,
@@ -169,13 +173,57 @@ public actor DeployCommand {
         }
 
         // Build dist/ before the scan needs it. Streams to LogCenter via the executor.
+        //
+        // #744/#748 build seam: when the executor implements it, the build runs with the derived
+        // claim manifest so the runtime can (a) rescan its OWN clone before any generator writes —
+        // catching a collision the host's working-tree scan above could not see — and (b) report
+        // the exact `dist/.well-known/...` artifacts it produced. An executor that returns
+        // `.unsupported` falls back to the plain build step and gets NO post-build verification;
+        // we must not claim protection that never ran.
         onProgress?(.deployBuilding)
-        let buildResult = await executor.run(
-            step: .build,
+        var wellKnownArtifactWarnings: [PreDeployCheck.ScanWarning] = []
+        let buildResult: DeployStepResult
+        switch await executor.runBuildWithClaimManifest(
             siteDirectory: siteDirectory,
             environment: baseEnvironment,
-            source: "deploy:\(siteID):build"
-        )
+            source: "deploy:\(siteID):build",
+            claimManifest: WellKnownInventory.claimManifest(from: wellKnownInventory)
+        ) {
+        case .unsupported:
+            buildResult = await executor.run(
+                step: .build,
+                siteDirectory: siteDirectory,
+                environment: baseEnvironment,
+                source: "deploy:\(siteID):build"
+            )
+        case .cancelled:
+            return .failed(reason: "build was terminated", exitCode: nil)
+        case .completed(let stepResult, let seamResult):
+            buildResult = stepResult
+            // A failed build that still reported findings is the runtime's own collision rejection
+            // (`scripts/well-known.ts check` writes ONLY the blocking findings before exiting
+            // non-zero). Surface it as a `.blocked` security outcome with both owners named, not as
+            // an opaque "npm run build failed (exit 1)".
+            if stepResult.exitCode != 0, !seamResult.findings.isEmpty {
+                let failures = seamResult.findings.map {
+                    PreDeployCheck.ScanFailure(
+                        category: .wellKnownCollision,
+                        message: $0.message,
+                        file: $0.path.map { "public/.well-known/\($0)" },
+                        remediation: "Resolve the /.well-known/ ownership conflict named above (rename or remove one of the claims), then redeploy.")
+                }
+                let outcome = PreDeployCheck.Outcome.blocked(failures: failures, warnings: [])
+                onPreflight?(outcome)
+                return .blocked(failures: failures, warnings: [])
+            }
+            wellKnownArtifactWarnings = WellKnownInventory.verifyBuildArtifacts(
+                expected: wellKnownInventory, result: seamResult
+            ).map {
+                PreDeployCheck.ScanWarning(
+                    category: .wellKnownArtifact, message: $0.message,
+                    file: $0.path.map { "dist/.well-known/\($0)" })
+            }
+        }
         guard buildResult.exitCode == 0 else {
             if let code = buildResult.exitCode {
                 return .failed(reason: "npm run build failed (exit \(code))", exitCode: code)
@@ -203,7 +251,7 @@ public actor DeployCommand {
         var preflightOutcome = Self.parseScanReport(output: preflightResult.output, exitCode: preflightResult.exitCode)
         // Swift-computed warnings, not emitted by the JS scan script — merged into the outcome
         // the same way `RouteCoverageScanner`'s `.orphanedRoute` findings always have been.
-        var extraWarnings = wellKnownScanWarnings
+        var extraWarnings = wellKnownScanWarnings + wellKnownArtifactWarnings
         if let configDirectory {
             let previousRoutes = DeployedRoutesSnapshot.load(from: configDirectory)
             let redirects = (try? RedirectsStore(sourceDirectory: siteDirectory).load()) ?? []

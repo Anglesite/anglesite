@@ -4,12 +4,14 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
-    "prebuild": "npx tsx scripts/csp.ts && npx tsx scripts/edge-artifacts.ts",
+    "prebuild": "npx tsx scripts/well-known.ts check && npx tsx scripts/csp.ts && npx tsx scripts/edge-artifacts.ts",
     "build": "astro check && astro build && npx tsx scripts/check-microformats.ts",
+    "postbuild": "npx tsx scripts/well-known.ts verify",
     "preview": "astro preview",
     "check": "npx tsx scripts/pre-deploy-check.ts",
     "build:ci": "npm run build && npx tsx scripts/pre-deploy-check.ts --json --strict",
-    "test:worker": "vitest run --config vitest.config.ts"
+    "test:worker": "vitest run --config vitest.config.ts",
+    "test:scripts": "npx tsx --test scripts/*.test.ts"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.0",
