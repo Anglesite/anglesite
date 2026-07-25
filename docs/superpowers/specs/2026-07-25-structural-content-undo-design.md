@@ -95,9 +95,20 @@ The undo handler therefore registers **optimistically and synchronously**:
 1. Drop this record from `tokens` (`UndoManager` popped it synchronously).
 2. `register(mutation.reversed)` — `isUndoing`/`isRedoing` is true, so it lands on the opposite
    stack with the same action name.
-3. Spawn the async apply. On `.failed`, `invalidate(id:)` the inverse and `register(mutation)`
-   again — by then neither flag is set, so the original returns to the undo stack. This is the same
-   failure-re-arm shape #527 uses, generalized to both directions.
+3. Spawn the async apply. On `.failed`, `invalidate(id:)` the inverse — it describes a transition
+   that never happened.
+
+Re-arming after that rollback is **direction-asymmetric**, because `UndoManager` exposes no way to
+push onto the redo stack outside an undo pass. By the time the apply resolves, `undo()`/`redo()`
+have returned and both flags are false, so any `register` necessarily lands on the undo stack:
+
+- **Failed undo** → re-register the original, so ⌘Z retries. Same policy as #527's retryable
+  outcome, and the case that matters (a restore that couldn't recommit must stay reachable).
+- **Failed redo** → drop the record. Migrating it to the undo stack would park an "Undo Delete
+  “About”" on ⌘Z for a delete that never happened. The disk is already in the undone state, so ⌘Z
+  would be a no-op regardless; the applier's error alert carries the reason.
+
+The handler captures `undoManager.isUndoing` synchronously to tell the two apart.
 
 `register` opens an explicit undo group **only** when not undoing/redoing. During undo/redo,
 `UndoManager` has already opened the group for the opposite stack; nesting one inside it would
@@ -160,11 +171,15 @@ Two behaviors that alert owned move:
   alert to decline, `confirmDelete()` sets `pendingRedirectOfferRoute` directly on success.
 - **Reopening the editor/inspector the delete closed** (PR #608 review: "an undo that brings the
   file back but leaves the user staring at Preview would be only half a restore") is preserved and
-  generalized. `SiteWindowModel` keeps `closedSurfaces: [String: …]`, keyed by relative path,
-  written whenever a delete closes surfaces (both `confirmDelete` and `applyContentUndo`'s delete
-  branch) and consumed when a restore for that path lands. `confirmDelete`'s existing
-  restore-on-`.failed` behavior is unchanged. Entries are removed on consumption and cleared on site
-  change, so the map cannot grow unbounded.
+  generalized. `SiteWindowModel` keeps `closedSurfaces: [String: ClosedFileSurfaces]`, keyed by
+  relative path, written whenever a delete closes surfaces (both `confirmDelete` and
+  `applyContentUndo`'s delete branch) and consumed when a restore for that path lands.
+  `confirmDelete`'s existing restore-on-`.failed` behavior is unchanged.
+
+  Entries are removed on consumption and cleared on site change, so the map cannot grow unbounded.
+  They are also cleared by *closing nothing* on a path and by registering a create for one — a
+  delete the user never undid would otherwise leave a snapshot that a later create-then-redo of the
+  same path could reopen, surfacing an editor holding a long-dead buffer.
 
 The delete confirmation dialog's message changes from "You can undo it right after deleting." to
 point at Edit ▸ Undo, which requires a `Localizable.xcstrings` sync per CONTRIBUTING.
@@ -186,8 +201,13 @@ UI); file-moving rename; text-editor field undo.
   `undoManager`. `groupsByEvent = false` in tests, as `EditUndoCoordinatorTests` does.
 - **`NavigatorRenameServiceTests`** — updated for `RenameOutcome`, asserting both contents sides.
 - **`SiteWindowModelTests`** — the three `pendingDeleteUndo`/`dismissDeleteUndo` tests are replaced
-  by coverage of `applyContentUndo` (restore and delete directions against a temp site) and of the
-  now-immediate redirect offer.
+  by `applyContentUndo`'s no-site guard reporting `.failed` (so the coordinator re-arms rather than
+  consuming the record), `handleSiteChanged` dropping pending records, and a failed delete reopening
+  the editor it closed. Successful delete/restore paths stay out of reach here: as
+  `confirmDeletePostRouteResolvesCleanly` already documents, `ContentCreationWorkflow.native`'s
+  resolver is hardwired to the process-wide `SiteStore.shared` with no test seam. The write paths
+  themselves are covered by `ContentUndoCoordinatorTests` and `NativeContentOperationsTests`;
+  end-to-end behavior is manual GUI verification, as #586's was.
 
 ## 7. Acceptance mapping
 

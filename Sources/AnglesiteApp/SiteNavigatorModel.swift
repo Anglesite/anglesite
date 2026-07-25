@@ -27,6 +27,12 @@ final class SiteNavigatorModel {
     private var siteID: String?
     private var siteRoot: URL?
     private let renameService = NavigatorRenameService()
+    /// Set by `SiteWindowModel` when it builds this model: hands a completed rename to the
+    /// window's `ContentUndoCoordinator` so ⌘Z reverses it (#675). Rename is the one structural
+    /// operation `SiteWindowModel` doesn't own, so it comes back out through this hook instead of
+    /// this model holding a coordinator of its own. `nil` in tests/previews — rename still works,
+    /// it just isn't undoable.
+    var registerUndo: ((ContentUndoCoordinator.Mutation) -> Void)?
     /// Post ids seen in the last `refresh()`, so `canRepurpose` can distinguish post rows from
     /// page rows without an extra actor hop — both are `.route` targets and `isContentRow` alone
     /// can't tell them apart (Task 16, #465).
@@ -184,10 +190,11 @@ final class SiteNavigatorModel {
                 relativePath: page.filePath,
                 newTitle: title)
             switch result {
-            case .success(let title):
+            case .success(let outcome):
+                registerRenameUndo(outcome, relativePath: page.filePath)
                 await graph.upsertPage(SiteContentGraph.Page(
                     id: page.id, siteID: page.siteID, route: page.route,
-                    filePath: page.filePath, title: title, lastModified: page.lastModified))
+                    filePath: page.filePath, title: outcome.title, lastModified: page.lastModified))
             case .failure(.emptyTitle):
                 break  // no write happened; keep the old title silently
             case .failure(.noEditableLocation):
@@ -204,10 +211,11 @@ final class SiteNavigatorModel {
                 relativePath: post.filePath,
                 newTitle: title)
             switch result {
-            case .success(let title):
+            case .success(let outcome):
+                registerRenameUndo(outcome, relativePath: post.filePath)
                 await graph.upsertPost(SiteContentGraph.Post(
                     id: post.id, siteID: post.siteID, collection: post.collection, slug: post.slug,
-                    title: title, draft: post.draft, publishDate: post.publishDate, tags: post.tags,
+                    title: outcome.title, draft: post.draft, publishDate: post.publishDate, tags: post.tags,
                     filePath: post.filePath, lastModified: post.lastModified))
             case .failure(.emptyTitle):
                 break
@@ -217,6 +225,20 @@ final class SiteNavigatorModel {
                 renameError = "Couldn't rename: \(msg)"
             }
         }
+    }
+
+    /// Hands a completed rename to `registerUndo` as a before/after content snapshot (#675). A
+    /// rename that changed nothing (same title re-committed) registers no record, so ⌘Z doesn't
+    /// collect no-op steps the user has to press through.
+    private func registerRenameUndo(
+        _ outcome: NavigatorRenameService.RenameOutcome, relativePath: String
+    ) {
+        guard outcome.previousContents != outcome.newContents else { return }
+        registerUndo?(ContentUndoCoordinator.Mutation(
+            relativePath: relativePath,
+            before: outcome.previousContents,
+            after: outcome.newContents,
+            actionName: ContentUndoCoordinator.renameActionName()))
     }
 
     /// Rebuilds `nodes` for the given site. Takes `siteID`/`siteRoot` as parameters (the values

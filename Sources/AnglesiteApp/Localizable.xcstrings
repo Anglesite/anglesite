@@ -537,9 +537,6 @@
     "Choose Logo" : {
 
     },
-    "Choose Undo now to bring it back, or OK to keep it deleted." : {
-
-    },
     "Choose a provider" : {
 
     },
@@ -2306,7 +2303,7 @@
     "This site does not have any collection-backed content types." : {
 
     },
-    "This will remove the file from your site. You can undo it right after deleting." : {
+    "This will remove the file from your site. You can bring it back with Edit ▸ Undo." : {
 
     },
     "This zone already has all recommended hardening settings." : {
