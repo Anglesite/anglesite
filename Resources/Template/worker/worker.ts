@@ -507,8 +507,13 @@ function handleWebmentionQueue(
  */
 function extractMf2ContentString(raw: unknown): string {
   if (typeof raw === "string") return raw;
-  if (raw && typeof raw === "object" && typeof (raw as { value?: unknown }).value === "string") {
-    return (raw as { value: string }).value;
+  if (raw && typeof raw === "object") {
+    const obj = raw as { value?: unknown; html?: unknown };
+    if (typeof obj.value === "string") return obj.value;
+    // Standard Micropub JSON *create* shape for HTML content: { html } with no `value` key at
+    // all — `value` only appears in mf2 read back off a rendered page, not in what a client
+    // posts — so `html` is checked as a fallback, not just `value`.
+    if (typeof obj.html === "string") return obj.html;
   }
   return "";
 }

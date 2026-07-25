@@ -1074,6 +1074,33 @@ test("micropub-to-activitypub fan-out: an mf2 rich-text content object publishes
   expect(outboxPage.orderedItems?.some((item) => item.object?.content?.includes("[object Object]"))).toBe(false);
 });
 
+test("micropub-to-activitypub fan-out: an html-only mf2 rich-text content object (the standard Micropub create shape, no value key) still publishes a non-empty Note", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-entry"],
+      // Standard Micropub JSON *create* shape for HTML content: { html } with no `value` key at
+      // all — `value` only appears in mf2 read back off a rendered page. The fan-out must fall
+      // back to `.html`, not just `.value`, or this silently skips publishing.
+      properties: { content: [{ html: "<p>Hello, html-only fediverse</p>" }] },
+    }),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: Array<{ object?: { content?: string } }> };
+  expect(outboxPage.orderedItems?.some((item) => item.object?.content?.includes("Hello, html-only fediverse"))).toBe(true);
+});
+
 test("micropub-to-activitypub fan-out: never fires when ActivityPub isn't provisioned", async () => {
   const { AP_PUBLISH_TOKEN: _unusedToken, ...envWithoutToken } = testEnv;
   const { token, keyPair } = await mintAccessToken("create");
