@@ -858,7 +858,7 @@ struct MicropubContentSyncTests {
             Issue.record("expected publishDate to decode as a date")
             return
         }
-        #expect(date?.timeIntervalSince1970 == 1_753_358_400)
+        #expect(date?.timeIntervalSince1970 == 1_784_894_400)
     }
 
     @Test("values derives draft from the post-status extension property, not a raw field")
