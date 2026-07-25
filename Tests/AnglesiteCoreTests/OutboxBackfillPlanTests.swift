@@ -190,6 +190,69 @@ struct OutboxBackfillPlanTests {
         #expect(plan.entries.isEmpty)
     }
 
+    @Test("a fractional-second ISO8601 date (what TypedContentEditor actually writes) parses correctly")
+    func fractionalSecondDateParses() throws {
+        let root = try writeSiteTree([
+            "src/content/notes/a-thought.md": """
+            ---
+            publishDate: 2026-02-01T12:00:00.000Z
+            ---
+            Just a quick thought.
+            """,
+        ])
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let plan = OutboxBackfillPlan.build(
+            projectRoot: root, siteBase: URL(string: "https://owner.example")!, referenceDate: referenceDate
+        )
+
+        #expect(plan.entries.count == 1)
+    }
+
+    @Test("event's location is prefixed into content")
+    func eventLocationIsPrefixed() throws {
+        let root = try writeSiteTree([
+            "src/content/events/launch-party.md": """
+            ---
+            name: Launch Party
+            start: 2026-03-01
+            location: Main Street
+            ---
+            Come celebrate!
+            """,
+        ])
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let plan = OutboxBackfillPlan.build(
+            projectRoot: root, siteBase: URL(string: "https://owner.example")!, referenceDate: referenceDate
+        )
+
+        let entry = try #require(plan.entries.first)
+        #expect(entry.content.hasPrefix("Location: Main Street"))
+    }
+
+    @Test("review's itemReviewed and rating are combined into a content summary")
+    func reviewSummaryIsPrefixed() throws {
+        let root = try writeSiteTree([
+            "src/content/reviews/hello-review.md": """
+            ---
+            itemReviewed: "Hello, product"
+            rating: 5
+            publishDate: 2026-01-01
+            ---
+            This is a sample review.
+            """,
+        ])
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let plan = OutboxBackfillPlan.build(
+            projectRoot: root, siteBase: URL(string: "https://owner.example")!, referenceDate: referenceDate
+        )
+
+        let entry = try #require(plan.entries.first)
+        #expect(entry.content.hasPrefix("Reviewed: Hello, product — Rating: 5/5"))
+    }
+
     @Test("long body content is truncated to roughly 500 characters")
     func longBodyIsTruncated() throws {
         let longBody = String(repeating: "word ", count: 200) // 1000 chars

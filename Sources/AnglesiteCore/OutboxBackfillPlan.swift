@@ -69,6 +69,10 @@ public enum OutboxBackfillPlan {
         /// Not a real AS2 property — the target URL is prefixed onto `content` as plain text
         /// (design doc D4: `likeOf`/`bookmarkOf` targets usually aren't resolvable AP objects).
         case asContentPrefix(key: String, label: String)
+        /// Reviews (design doc §4: "review text/rating as text") — combines two differently-typed
+        /// frontmatter fields (`itemReviewed`: string, `rating`: number) into one content prefix,
+        /// degrading gracefully if either is absent rather than requiring both.
+        case asReviewSummary(itemKey: String, ratingKey: String)
     }
 
     private struct CollectionSpec {
@@ -111,9 +115,11 @@ public enum OutboxBackfillPlan {
         CollectionSpec("photos", kind: .note, dateKeys: ["publishDate"], imageKey: "image"),
         CollectionSpec("albums", kind: .note, titleKey: "title", dateKeys: ["publishDate"],
                         imageKey: "images", imageIsArray: true),
-        CollectionSpec("events", kind: .note, titleKey: "name", dateKeys: ["start"]),
+        CollectionSpec("events", kind: .note, titleKey: "name", dateKeys: ["start"],
+                        target: .asContentPrefix(key: "location", label: "Location")),
         CollectionSpec("announcements", kind: .note, titleKey: "title", dateKeys: ["publishDate"]),
-        CollectionSpec("reviews", kind: .note, dateKeys: ["publishDate"]),
+        CollectionSpec("reviews", kind: .note, dateKeys: ["publishDate"],
+                        target: .asReviewSummary(itemKey: "itemReviewed", ratingKey: "rating")),
     ]
 
     /// The 11 in-scope collection names (design doc D3) — exposed for a coverage test guarding
@@ -128,14 +134,25 @@ public enum OutboxBackfillPlan {
         return String(trimmed.prefix(excerptMaxLength)) + "…"
     }
 
+    /// `TypedContentEditor.format()` writes every non-`.date`-kind field (i.e. every in-scope
+    /// collection's date field except `blog`'s `pubDate`) as fractional-second ISO8601
+    /// (`2026-06-26T12:00:00.000Z`), which `SocialPublishPlan.parseDate(_:)` cannot parse (it
+    /// only handles plain ISO8601 or a bare `yyyy-MM-dd`). Mirrors the fractional-then-plain
+    /// fallback `ContentScanner.swift` already uses.
+    private nonisolated(unsafe) static let isoFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
     /// Tries each of `keys` in order against `frontmatter`, returning the first one that parses
-    /// as a date — `SocialPublishPlan.parseDate(_:)` only ever takes a single already-resolved
-    /// string, so the multi-key fallback lives here rather than in that shared helper.
+    /// as a date: fractional-seconds ISO8601 first, then `SocialPublishPlan.parseDate(_:)`
+    /// (plain ISO8601 or bare `yyyy-MM-dd`, which covers `blog`'s `pubDate`).
     private static func date(in frontmatter: [String: FrontmatterValue], keys: [String]) -> Date? {
         for key in keys {
-            if let date = SocialPublishPlan.parseDate(SocialPublishPlan.string(frontmatter[key])) {
-                return date
-            }
+            guard let raw = SocialPublishPlan.string(frontmatter[key]) else { continue }
+            if let date = isoFractional.date(from: raw) { return date }
+            if let date = SocialPublishPlan.parseDate(raw) { return date }
         }
         return nil
     }
@@ -183,6 +200,28 @@ public enum OutboxBackfillPlan {
                     if let target = SocialPublishPlan.string(frontmatter[key]) {
                         content = content.isEmpty ? "\(label): \(target)" : "\(label): \(target)\n\n\(content)"
                     }
+                case .asReviewSummary(let itemKey, let ratingKey):
+                    let item = SocialPublishPlan.string(frontmatter[itemKey])
+                    // `Frontmatter.parse` never produces `.number` (it's write-only — see
+                    // `FrontmatterValue`'s doc comment); a numeric `rating:` scalar parses as
+                    // `.string`, so try both representations rather than only `.number`.
+                    var rating: Double?
+                    switch frontmatter[ratingKey] {
+                    case .number(let value)?:
+                        rating = value
+                    case .string(let value)?:
+                        rating = Double(value)
+                    default:
+                        break
+                    }
+                    let parts: [String] = [
+                        item.map { "Reviewed: \($0)" },
+                        rating.map { "Rating: \(Self.formatRating($0))/5" },
+                    ].compactMap { $0 }
+                    if !parts.isEmpty {
+                        let summary = parts.joined(separator: " — ")
+                        content = content.isEmpty ? summary : "\(summary)\n\n\(content)"
+                    }
                 }
 
                 var attachments: [Attachment] = []
@@ -207,6 +246,12 @@ public enum OutboxBackfillPlan {
     private static func attachmentURL(_ raw: String, siteBase: URL) -> Attachment? {
         guard let url = URL(string: raw, relativeTo: siteBase)?.absoluteURL else { return nil }
         return Attachment(url: url.absoluteString)
+    }
+
+    /// Formats a rating without a trailing ".0" for whole numbers (`5` not `5.0`), but keeps a
+    /// fractional rating as written (`4.5`).
+    private static func formatRating(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(value)
     }
 
     /// Same `/<collection>/<slug>/` scheme as `SocialPublishPlan.canonicalURL` (kept separate
