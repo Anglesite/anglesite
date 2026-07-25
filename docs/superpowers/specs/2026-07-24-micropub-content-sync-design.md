@@ -129,7 +129,7 @@ public struct MicropubPostD1Client: Sendable {
         public let deleted: Bool
         public let updatedAt: Int
     }
-    public func listLivePosts() async throws -> [Post]   // SELECT ... FROM posts ORDER BY updated_at DESC
+    public func listAllPosts() async throws -> [Post]   // SELECT ... FROM posts ORDER BY updated_at DESC
 }
 ```
 
@@ -244,7 +244,7 @@ Micropub client → POST /micropub (h-entry/h-event/h-review, Bearer token)
 
 
 Next site-open (PreviewModel.open(site:)):
-     MicropubPostD1Client.listLivePosts() → full current `posts` table
+     MicropubPostD1Client.listAllPosts() → full current `posts` table
                        │
                        ▼
      MicropubContentSync: for each row, parse {collection} from url,
@@ -262,7 +262,7 @@ Next site-open (PreviewModel.open(site:)):
 
 ## Error handling
 
-- D1 query failure → `listLivePosts()` throws, caught by
+- D1 query failure → `listAllPosts()` throws, caught by
   `pullAndCommitIfConfigured` → returns 0; the next site-open re-attempts (matches both
   precedents — never surfaces a transient network error to the caller).
 - A post whose collection can't be resolved (`discoverCollection` returned `null` at create
@@ -272,10 +272,12 @@ Next site-open (PreviewModel.open(site:)):
   placeholder value that would fail the collection's Zod schema at build time anyway.
 - Filesystem collision with a non-Micropub file → suffixed per the flow in §4, never
   overwritten.
-- Commit failure (git subprocess/libgit2 error) → the whole reconcile for this sync pass
-  returns without updating `micropubSync.json` for any newly-resolved mapping, so an
-  interrupted sync re-attempts cleanly next time rather than leaving `micropubSync.json` and
-  git out of sync with each other.
+- Commit failure (git subprocess/libgit2 error) → `micropubSync.json` is still saved
+  unconditionally — the physical file writes already happened on disk, so a retry must see those
+  paths as already resolved rather than re-deriving (and potentially re-suffixing) a fresh slug
+  for the same post. Only the *count this call reports* (and thus whether a caller treats it as
+  "synced this round") depends on the commit having actually landed; a subsequent successful sync
+  reuses the recorded mapping and simply re-attempts the commit.
 
 ## Testing
 

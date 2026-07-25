@@ -100,8 +100,8 @@ describe("discoverCollection", () => {
 
   test("rich-text content object is read via its plain-text value", () => {
     expect(discoverCollection(mf2("h-entry", {
-      name: ["Title Here"],
-      content: [{ html: "<p>Title Here and more</p>", value: "Title Here and more" }],
+      name: ["My Announcement"],
+      content: [{ html: "<p>Something else entirely</p>", value: "Something else entirely" }],
     }))).toBe("articles");
   });
 
