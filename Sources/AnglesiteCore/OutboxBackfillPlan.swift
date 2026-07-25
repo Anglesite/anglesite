@@ -251,7 +251,10 @@ public enum OutboxBackfillPlan {
     /// Formats a rating without a trailing ".0" for whole numbers (`5` not `5.0`), but keeps a
     /// fractional rating as written (`4.5`).
     private static func formatRating(_ value: Double) -> String {
-        value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(value)
+        guard value.isFinite, value.truncatingRemainder(dividingBy: 1) == 0, let intValue = Int(exactly: value) else {
+            return String(value)
+        }
+        return String(intValue)
     }
 
     /// Same `/<collection>/<slug>/` scheme as `SocialPublishPlan.canonicalURL` (kept separate

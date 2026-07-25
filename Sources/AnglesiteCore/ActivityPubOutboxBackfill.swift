@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 /// Backfills a site's existing content into its ActivityPub actor's outbox at deploy time
 /// (#926) — reads `OutboxBackfillPlan`, skips anything already in `ActivityPubOutboxLedger`,
 /// and POSTs the rest, oldest-`publishedAt`-first, to the deployed site's own `/users/site/outbox`
@@ -57,7 +61,7 @@ public struct ActivityPubOutboxBackfill: Sendable {
             .sorted { $0.publishedAt < $1.publishedAt }
         guard !pending.isEmpty else { return [] }
 
-        let outboxURL = siteBase.appendingPathComponent("users/site/outbox")
+        let outboxURL = ActivityPubActor.actorURL(siteURL: siteBase).appendingPathComponent("outbox")
         var outcomes: [Outcome] = []
 
         for entry in pending {
@@ -114,6 +118,7 @@ public struct ActivityPubOutboxBackfill: Sendable {
             "@context": "https://www.w3.org/ns/activitystreams",
             "type": entry.kind.rawValue,
             "content": entry.content,
+            "mediaType": "text/plain",
             "url": entry.canonicalURL.absoluteString,
             "published": ISO8601DateFormatter().string(from: entry.publishedAt),
             "to": ["https://www.w3.org/ns/activitystreams#Public"],

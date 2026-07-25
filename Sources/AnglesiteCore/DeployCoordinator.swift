@@ -125,16 +125,18 @@ public enum DeployCoordinator {
         try? await configStore.save(updated)
     }
 
-    /// Runs the post-deploy webmention-send and POSSE-syndication passes in the fixed order the
-    /// deploy pipeline has always used: Astro's build (already complete by the time this runs)
-    /// regenerates the site's RSS/Atom/JSON feeds, so webmention discovery is ordered after the
-    /// deployed canonical pages exist, and syndication is ordered after that. `onMilestone` fires
-    /// immediately before each pass so a UI caller can surface progress (`DeployModel` wires it to
-    /// the Dock-tile progress bar, #526) — the milestone always fires even if the caller-supplied
-    /// closure for that pass turns out to be a no-op (e.g. no pending webmention targets). Both
-    /// passes are awaited sequentially, never concurrently, matching the historical behavior;
-    /// neither closure is expected to throw (the real `WebmentionSendCommand`/
-    /// `POSSESyndicationCommand` calls they wrap are documented best-effort and never throw).
+    /// Runs the four post-deploy passes — webmention-send, POSSE-syndication, WebSub publish-ping,
+    /// and ActivityPub outbox backfill (`sendWebmentions`, `syndicate`, `notifySubscribers`, and
+    /// `backfillActivityPubOutbox` below) — in the fixed order the deploy pipeline has always used:
+    /// Astro's build (already complete by the time this runs) regenerates the site's RSS/Atom/JSON
+    /// feeds, so webmention discovery is ordered after the deployed canonical pages exist, and each
+    /// subsequent pass is ordered after the ones before it (see each parameter's own doc comment for
+    /// why). `onMilestone` fires immediately before each pass so a UI caller can surface progress
+    /// (`DeployModel` wires it to the Dock-tile progress bar, #526) — the milestone always fires even
+    /// if the caller-supplied closure for that pass turns out to be a no-op (e.g. no pending
+    /// webmention targets). All four passes are awaited sequentially, never concurrently, matching
+    /// the historical behavior; none of the four closures is expected to throw (the real commands
+    /// they wrap are documented best-effort and never throw).
     public static func runPostDeploySequencing(
         onMilestone: (OperationProgress) -> Void,
         sendWebmentions: () async -> Void,
