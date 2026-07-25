@@ -26,6 +26,14 @@ enum ContentRouteResolver {
     /// `src/content/{collection}/{entry}` → `/{collection}/{slug}`, matching the shipped
     /// template's `[collection]/[...slug].astro` catch-all route. `nil` when `path` isn't at
     /// least two segments under `src/content/` (no collection folder to anchor the route on).
+    ///
+    /// Note: This route is a convention-based best-effort guess. It is valid only when the
+    /// collection is actually served by a route in the site's `src/pages/` (e.g., via
+    /// `[collection]/[...slug].astro` or a dedicated route like `blog/[...slug].astro`). Not
+    /// every `src/content/` collection is necessarily routed — for example, a collection with
+    /// no matching page template. A non-nil route is therefore not a guarantee the URL resolves.
+    /// Callers should be prepared to fall back gracefully (e.g., open the file, or verify
+    /// before navigating) rather than assume every non-nil route is navigable.
     private static func collectionEntryRoute(
         path: String, frontmatter: [String: FrontmatterValue]
     ) -> String? {
@@ -60,6 +68,9 @@ public enum SiteSearchIndex {
         public let score: Double
     }
 
+    /// Searches the index for documents matching the query.
+    /// - Parameter limit: Maximum number of results to return. Clamped to a minimum of 1 by
+    ///   the underlying `SiteKnowledgeIndex.SearchOptions`, so `limit: 0` still returns one hit.
     public static func search(
         _ index: SiteKnowledgeIndex,
         siteID: String,
