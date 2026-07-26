@@ -210,43 +210,84 @@ extension SiteWindowModelTests {
         #expect(model.contentActionError == nil)
     }
 
-    @Test("dismissDeleteUndo declines the restore and surfaces the deferred redirect offer")
-    func dismissDeleteUndoSurfacesRedirectOffer() {
+    // MARK: - ⌘Z for structural content operations (#675)
+    //
+    // The one-shot post-delete "Undo" alert (#586) was retired here in favour of the window
+    // `UndoManager`, so its `pendingDeleteUndo`/`dismissDeleteUndo` tests are replaced by the
+    // coverage below. The same seam limit called out on `confirmDeletePostRouteResolvesCleanly`
+    // applies: `ContentCreationWorkflow.native`'s resolver is hardwired to `SiteStore.shared`, so
+    // no test here can drive a *successful* delete or restore. What is reachable — and what these
+    // cover — is the guard/rollback wiring around them; the write paths themselves are covered by
+    // `ContentUndoCoordinatorTests` and `NativeContentOperationsTests`.
+
+    @Test("applyContentUndo reports failure rather than crashing when there is no open site")
+    func applyContentUndoNoSiteFails() async {
         let model = makeModel()
-        model.pendingDeleteUndo = DeleteUndoOffer(
-            id: "src/pages/about.astro", title: "About", relativePath: "src/pages/about.astro",
-            contents: "stub", redirectRoute: "/about/")
 
-        model.dismissDeleteUndo()
+        let outcome = await model.applyContentUndo(ContentUndoCoordinator.Mutation(
+            relativePath: "src/pages/about.astro", before: "restored", after: nil,
+            actionName: "Delete \u{201C}About\u{201D}"))
 
-        #expect(model.pendingDeleteUndo == nil)
-        #expect(model.pendingRedirectOfferRoute == "/about/")
-    }
-
-    @Test("dismissDeleteUndo with no redirect route just clears the offer")
-    func dismissDeleteUndoWithoutRedirectRoute() {
-        let model = makeModel()
-        model.pendingDeleteUndo = DeleteUndoOffer(
-            id: "src/components/Widget.astro", title: "Widget", relativePath: "src/components/Widget.astro",
-            contents: "stub", redirectRoute: nil)
-
-        model.dismissDeleteUndo()
-
-        #expect(model.pendingDeleteUndo == nil)
-        #expect(model.pendingRedirectOfferRoute == nil)
-    }
-
-    @Test("undoDelete no-ops safely when there is no open site, clearing the offer rather than leaving it stale")
-    func undoDeleteNoSiteClearsOffer() async {
-        let model = makeModel()
-        model.pendingDeleteUndo = DeleteUndoOffer(
-            id: "src/pages/about.astro", title: "About", relativePath: "src/pages/about.astro",
-            contents: "stub", redirectRoute: nil)
-
-        await model.undoDelete()
-
-        #expect(model.pendingDeleteUndo == nil)
+        // `.failed` (not a silent `.applied`) is what makes the coordinator re-arm the record, so
+        // a ⌘Z fired at a window whose site went away stays retryable instead of being consumed.
+        #expect(outcome == .failed)
         #expect(model.contentActionError == nil)
+    }
+
+    @Test("handleSiteChanged drops pending content-undo records")
+    func siteChangeInvalidatesContentUndo() {
+        let model = makeModel()
+        let undoManager = UndoManager()
+        undoManager.groupsByEvent = false
+        model.windowUndoManager = undoManager
+        model.contentUndoCoordinator.register(ContentUndoCoordinator.Mutation(
+            relativePath: "src/pages/about.astro", before: "old", after: "new",
+            actionName: "Rename"))
+        #expect(undoManager.canUndo)
+
+        model.handleSiteChanged()
+
+        // Records are site-relative paths plus captured contents — applying one after a site
+        // replay would write the old site's bytes into the new site.
+        #expect(!undoManager.canUndo)
+    }
+
+    @Test("a failed delete reopens the editor it closed")
+    func failedDeleteReopensEditor() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("site-window-undo-\(UUID().uuidString)")
+        let sourceDirectory = root.appendingPathComponent("Test.anglesite/Source/src/pages")
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fileURL = sourceDirectory.appendingPathComponent("about.astro")
+        try Data("<h1>About</h1>".utf8).write(to: fileURL)
+
+        let graph = SiteContentGraph()
+        let model = makeModel(contentGraph: graph)
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: root.appendingPathComponent("Test.anglesite"),
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let page = SiteContentGraph.Page(
+            id: "site-a:page:/about", siteID: "site-a", route: "/about",
+            filePath: "src/pages/about.astro", title: "About", lastModified: Date())
+        await graph.upsertPage(page)
+
+        let editor = FileEditorModel(file: FileRef(url: fileURL, group: .pages, name: "about.astro"))
+        model.activeEditor = .text(editor)
+        model.mainPaneMode = .editor(editor.file)
+        model.deleteConfirmation = NavigatorItem(id: page.id, title: "About", target: .route("/about"))
+
+        await model.confirmDelete()
+
+        // `SiteStore.shared` doesn't know "site-a", so the delete resolves `.siteNotFound` and
+        // never touches the file. The editor was closed *before* the delete call (so a suspended
+        // flush couldn't resurrect the file), which means the model owes it back — leaving the
+        // user on Preview with their buffer discarded for a delete that didn't happen would be a
+        // silent data loss.
+        #expect(model.activeEditor != nil)
+        #expect(model.mainPaneMode == .editor(editor.file))
+        #expect(FileManager.default.fileExists(atPath: fileURL.path))
     }
 }
 
