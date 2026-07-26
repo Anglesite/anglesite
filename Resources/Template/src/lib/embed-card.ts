@@ -39,6 +39,26 @@ function youTubeID(url: string): string | null {
   }
 }
 
+/**
+ * `escapeHTML` neutralizes markup-breaking characters, but it has no opinion on URL *scheme* —
+ * `javascript:...` or `data:text/html,...` survive escaping byte-for-byte and become a
+ * clickable, script-executing link once rendered into an `href`. Both `author.url` and `url`
+ * are remote-derived (Mastodon is federated with no host allowlist, so any cited instance
+ * fully controls `author.url`; snapshots are also committed files owners are invited to
+ * hand-edit, so `url` can't assume it only ever came from `resolveAdapter`). Mirrors the
+ * protocol check in `scripts/embeds/adapters.ts` so both call sites agree on what counts as
+ * a link. Do not remove this in favor of escaping alone — escaping and scheme-gating guard
+ * against different things.
+ */
+function isSafeHref(url: string): boolean {
+  try {
+    const protocol = new URL(url).protocol;
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 export function renderEmbedCard(snap: EmbedSnapshot, options: CardOptions = {}): string {
   const cite = options.citeClass;
   const rootClass = `embed-card embed-card--${snap.provider}${cite ? ` ${cite} h-cite` : ""}`;
@@ -52,7 +72,7 @@ export function renderEmbedCard(snap: EmbedSnapshot, options: CardOptions = {}):
   const authorInner = `${avatar}<span class="embed-card__name">${escapeHTML(snap.author.name)}</span>${handle}`;
   const authorClass = `embed-card__author${cite ? " p-author h-card" : ""}`;
   parts.push(
-    snap.author.url
+    snap.author.url && isSafeHref(snap.author.url)
       ? `<a class="${authorClass}" href="${escapeHTML(snap.author.url)}" rel="noopener noreferrer">${authorInner}</a>`
       : `<span class="${authorClass}">${authorInner}</span>`,
   );
@@ -84,8 +104,11 @@ export function renderEmbedCard(snap: EmbedSnapshot, options: CardOptions = {}):
   const time = snap.publishedAt
     ? `<time class="dt-published" datetime="${escapeHTML(snap.publishedAt)}">${escapeHTML(snap.publishedAt.slice(0, 10))}</time>`
     : "";
+  const permalinkInner = time || "View original";
   parts.push(
-    `<a class="embed-card__permalink${cite ? " u-url" : ""}" href="${escapeHTML(snap.url)}" rel="noopener noreferrer">${time || "View original"}</a>`,
+    isSafeHref(snap.url)
+      ? `<a class="embed-card__permalink${cite ? " u-url" : ""}" href="${escapeHTML(snap.url)}" rel="noopener noreferrer">${permalinkInner}</a>`
+      : `<span class="embed-card__permalink${cite ? " u-url" : ""}">${permalinkInner}</span>`,
   );
 
   return `<div class="${rootClass}">${parts.join("")}</div>`;

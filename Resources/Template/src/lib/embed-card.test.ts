@@ -65,6 +65,49 @@ test("renderEmbedCard: a remote media src is refused — the privacy invariant i
   assert.ok(!html.includes("pbs.twimg.com"));
 });
 
+test("renderEmbedCard: a remote avatar src is refused — mirrors the remote-media invariant", () => {
+  const html = renderEmbedCard(snap({ author: { name: "jack", handle: "@jack", avatar: "https://pbs.twimg.com/avatar.jpg" } }));
+  assert.ok(!html.includes("pbs.twimg.com"));
+  assert.ok(!html.includes("embed-card__avatar"));
+});
+
+test("renderEmbedCard: a javascript: author.url renders no anchor and is scrubbed from output", () => {
+  const html = renderEmbedCard(snap({ author: { name: "jack", handle: "@jack", url: "javascript:alert(document.domain)" } }));
+  assert.ok(!html.includes("javascript:"));
+  assert.ok(!/<a[^>]*class="embed-card__author/.test(html));
+  assert.match(html, /<span class="embed-card__author">/);
+  assert.match(html, /jack/);
+});
+
+test("renderEmbedCard: a javascript: snap.url renders the permalink without an anchor", () => {
+  const html = renderEmbedCard(snap({ url: "javascript:alert(document.domain)" }));
+  assert.ok(!html.includes("javascript:"));
+  assert.ok(!/<a[^>]*class="embed-card__permalink/.test(html));
+  assert.match(html, /<span class="embed-card__permalink">/);
+});
+
+test("renderEmbedCard: a data: URL author.url is likewise refused", () => {
+  const html = renderEmbedCard(snap({ author: { name: "jack", handle: "@jack", url: "data:text/html,<script>alert(1)</script>" } }));
+  assert.ok(!html.includes("data:text/html"));
+  assert.ok(!/<a[^>]*class="embed-card__author/.test(html));
+});
+
+test("renderEmbedCard: a data: URL snap.url is likewise refused", () => {
+  const html = renderEmbedCard(snap({ url: "data:text/html,<script>alert(1)</script>" }));
+  assert.ok(!html.includes("data:text/html"));
+  assert.ok(!/<a[^>]*class="embed-card__permalink/.test(html));
+});
+
+test("renderEmbedCard: an ordinary https:// author.url still renders as a link", () => {
+  const html = renderEmbedCard(snap({ author: { name: "jack", handle: "@jack", url: "https://x.com/jack" } }));
+  assert.match(html, /<a class="embed-card__author" href="https:\/\/x\.com\/jack" rel="noopener noreferrer">/);
+});
+
+test("renderEmbedCard: an ordinary https:// snap.url still renders as a link", () => {
+  const html = renderEmbedCard(snap({ url: "https://x.com/jack/status/20" }));
+  assert.match(html, /<a class="embed-card__permalink" href="https:\/\/x\.com\/jack\/status\/20" rel="noopener noreferrer">/);
+});
+
 test("renderEmbedCard: citeClass wraps the card in h-cite for reply context", () => {
   const html = renderEmbedCard(snap(), { citeClass: "u-in-reply-to" });
   assert.match(html, /class="embed-card embed-card--x u-in-reply-to h-cite"/);
