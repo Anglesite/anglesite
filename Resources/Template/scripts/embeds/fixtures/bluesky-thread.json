@@ -1,0 +1,25 @@
+{
+  "thread": {
+    "post": {
+      "uri": "at://did:plc:abc123/app.bsky.feed.post/3juvfg",
+      "author": {
+        "did": "did:plc:abc123",
+        "handle": "example.bsky.social",
+        "displayName": "Example Person",
+        "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:abc123/bafkrei@jpeg"
+      },
+      "record": { "text": "hello from the open network", "createdAt": "2026-03-04T10:11:12.000Z" },
+      "embed": {
+        "$type": "app.bsky.embed.images#view",
+        "images": [
+          {
+            "thumb": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:abc123/bafthumb@jpeg",
+            "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:abc123/baffull@jpeg",
+            "alt": "A photo of a sunset",
+            "aspectRatio": { "width": 1200, "height": 800 }
+          }
+        ]
+      }
+    }
+  }
+}
