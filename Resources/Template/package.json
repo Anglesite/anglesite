@@ -11,7 +11,7 @@
     "embed": "tsx scripts/embed-snapshot.ts",
     "build:ci": "npm run build && npx tsx scripts/pre-deploy-check.ts --json --strict",
     "test:worker": "vitest run --config vitest.config.ts",
-    "test:scripts": "tsx --test scripts/*.test.ts scripts/embeds/*.test.ts"
+    "test:scripts": "tsx --test scripts/*.test.ts scripts/embeds/*.test.ts src/lib/*.test.ts"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.0",

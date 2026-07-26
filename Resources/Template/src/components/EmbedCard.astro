@@ -1,0 +1,22 @@
+---
+/**
+ * Renders a committed embed snapshot. The markup comes from `renderEmbedCard` as a string so
+ * the remark plugin (in-body embeds) and this component (reply context) share exactly one
+ * renderer — a plugin cannot instantiate an Astro component. Styles therefore live in
+ * global.css under `.embed-card`, not in a scoped block here: Astro's style scoping does not
+ * reach markup injected with `set:html`.
+ */
+import type { EmbedSnapshot } from "../../scripts/embeds/types";
+import { renderEmbedCard, type CardOptions } from "../lib/embed-card";
+
+interface Props {
+  snapshot: EmbedSnapshot;
+  citeClass?: CardOptions["citeClass"];
+  inlineVideo?: boolean;
+}
+
+const { snapshot, citeClass, inlineVideo } = Astro.props;
+const html = renderEmbedCard(snapshot, { citeClass, inlineVideo });
+---
+
+<Fragment set:html={html} />
