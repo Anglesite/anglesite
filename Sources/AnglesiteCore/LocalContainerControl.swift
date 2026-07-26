@@ -30,11 +30,39 @@ public enum LocalContainerError: Error, Equatable {
 /// where a `Source/` without `.git` (a failed scaffold git-init, or a pre-existing site) died
 /// inside the guest with a raw `git clone ... exited 128` and no indication why.
 public enum SourceRepoPrecondition {
-    public static func requireGitRepo(at sourceRepo: URL, fileManager: FileManager = .default) throws {
-        guard fileManager.fileExists(atPath: sourceRepo.appendingPathComponent(".git").path) else {
+    /// Validates that `sourceRepo` is hydratable and returns the host directory a container
+    /// runtime must share into the guest as the clone source:
+    /// - embedded layout (`Source/.git` is a directory) → `sourceRepo` itself, unchanged.
+    /// - split layout (#888: `Source/.git` is a gitfile pointing at `Config/repo.nosync/`) → the
+    ///   resolved git directory. The gitfile's target sits outside a `Source/`-only share, so the
+    ///   guest's `git clone` cannot resolve `.git` and dies with exit 128 (#903). `git clone`
+    ///   accepts a git *directory* as its source and produces the same HEAD checkout, so the
+    ///   runtime shares the resolved git dir instead. `Config/` as a whole must never enter a
+    ///   container — only the relocated git dir is shared.
+    public static func cloneSource(for sourceRepo: URL, fileManager: FileManager = .default) throws -> URL {
+        let gitPath = sourceRepo.appendingPathComponent(".git")
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: gitPath.path, isDirectory: &isDirectory) else {
             throw LocalContainerError.cloneFailed(
                 "this site has no git repository — recreate it, or run `git init` in its Source folder")
         }
+        if isDirectory.boolValue { return sourceRepo }
+
+        let contents = (try? String(contentsOf: gitPath, encoding: .utf8)) ?? ""
+        let target = contents.split(separator: "\n").first.flatMap { line -> String? in
+            guard line.hasPrefix("gitdir:") else { return nil }
+            return line.dropFirst("gitdir:".count).trimmingCharacters(in: .whitespaces)
+        }
+        guard let target, !target.isEmpty else {
+            throw LocalContainerError.cloneFailed(
+                "this site's Source/.git isn't a git directory or a gitdir pointer — recreate it, or run `git init` in its Source folder")
+        }
+        let resolved = URL(fileURLWithPath: target, relativeTo: sourceRepo).standardizedFileURL
+        guard fileManager.fileExists(atPath: resolved.appendingPathComponent("HEAD").path) else {
+            throw LocalContainerError.cloneFailed(
+                "this site's git history (\(resolved.path)) is missing — wait for iCloud to sync it, or open the site on the Mac that has it")
+        }
+        return resolved
     }
 }
 

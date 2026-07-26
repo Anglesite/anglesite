@@ -11,6 +11,8 @@ enum MainPaneMode: Equatable {
     case editor(FileRef)
     case graph
     case cleanup        // Site ▸ Cleanup… (#714 moved it out of the sidebar)
+    case reader         // Website ▸ Reader… (V-4.3, #365)
+    case followers      // Website ▸ Followers… (V-4.2, #364)
 }
 
 enum ActiveEditor {
@@ -129,6 +131,12 @@ final class SiteWindowModel {
     /// `scan()` runs once automatically when `ProjectCleanupView` first appears; the manual
     /// Rescan button re-runs it on demand afterward.
     var cleanup: ProjectCleanupModel
+    /// Drives the main-pane Reader view (Website ▸ Reader…, V-4.3 #365): Microsub sign-in, follow,
+    /// and timeline.
+    var reader = MicrosubReaderModel()
+    /// Drives the main-pane Followers view (Website ▸ Followers…, V-4.2 #364): the site's public
+    /// ActivityPub followers collection, with lazily-enriched display identities.
+    var followers = FollowersModel()
     var harden = HardenModel()
     var onionRouting = OnionRoutingModel()
     var domain = DomainModel()
@@ -232,6 +240,9 @@ final class SiteWindowModel {
         // all correctly read as unselected instead of Cleanup falsely appearing as Preview (#723
         // review).
         if case .cleanup = mainPaneMode { return 3 }
+        // Same reasoning as Cleanup above: Reader has no toolbar/View-menu segment (Website ▸
+        // Reader… is the only way in).
+        if case .reader = mainPaneMode { return 4 }
         return 0
     }
 
@@ -267,6 +278,28 @@ final class SiteWindowModel {
             activeEditor = nil
             inspectorContext = nil
             mainPaneMode = .cleanup
+        }
+    }
+
+    /// Switches the main pane to Reader (Website ▸ Reader…, V-4.3 #365). Mirrors
+    /// `presentCleanup()`'s leave-current-surface-first guard.
+    func presentReader() {
+        Task {
+            guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
+            activeEditor = nil
+            inspectorContext = nil
+            mainPaneMode = .reader
+        }
+    }
+
+    /// Switches the main pane to Followers (Website ▸ Followers…, V-4.2 #364). Mirrors
+    /// `presentReader()`'s leave-current-surface-first guard.
+    func presentFollowers() {
+        Task {
+            guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
+            activeEditor = nil
+            inspectorContext = nil
+            mainPaneMode = .followers
         }
     }
 
@@ -823,10 +856,19 @@ final class SiteWindowModel {
                 // wired in at the call site — see `SiteWindow.mainPaneContent`.
                 activeEditor = .text(FileEditorModel(file: file))
             case .plist:
+                // Captures the per-window child models directly (both outlive any editor and are
+                // never replaced), not `self` — no ownership cycle: neither owns the editor model.
+                let graphExplorer = graphExplorer
+                let preview = preview
                 activeEditor = .plist(PlistEditorModel(
                     file: file,
                     websiteTitle: site?.name ?? file.name,
-                    sourceDirectory: site?.sourceDirectory ?? file.url.deletingLastPathComponent()
+                    sourceDirectory: site?.sourceDirectory ?? file.url.deletingLastPathComponent(),
+                    configDirectory: site?.configDirectory,
+                    graphSnapshotProvider: { graphExplorer.snapshot },
+                    onActiveWorkersChanged: { settings in
+                        await preview.activeWorkersChanged(settings)
+                    }
                 ))
             }
             mainPaneMode = .editor(file)
@@ -1433,6 +1475,8 @@ final class SiteWindowModel {
         navigator = navModel
         graphExplorer.start(site: currentSite)
         cleanup.configure(site: currentSite)
+        reader.configure(site: currentSite)
+        followers.configure(site: currentSite)
         // Cold-open path for any `PreviewSiteIntent` (#139) navigation; the already-open window
         // is handled reactively by `.onChange(of: router.pendingNavigation)` in `body`.
         applyPendingNavigation(for: resolved.id)

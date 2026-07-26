@@ -13,12 +13,12 @@
     "@cloudflare/sandbox": "0.12.1"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.5",
+    "@cloudflare/vitest-pool-workers": "^0.18",
     "@cloudflare/workers-types": "^4",
     "wrangler": "^4",
     "typescript": "^5.6.0",
-    "vitest": "^2",
+    "vitest": "^4",
     "@types/node": "^22",
-    "esbuild": "^0.24"
+    "esbuild": "^0.28"
   }
 }

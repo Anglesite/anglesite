@@ -10,6 +10,11 @@ import { ownerName } from "../lib/profile.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
+import Interactions from "../components/Interactions.astro";
+// Imported unconditionally (like BaseLayout.astro) so the giscus and share
+// integrations, which both read config at this anchor, don't each need their
+// own copy — astro check rejects the resulting duplicate identifier.
+import { readConfig } from "../../scripts/config";
 
 interface Props {
   title: string;
@@ -47,6 +52,7 @@ const jsonLd = blogPostingSchema(
     <div class="e-content"><slot /></div>
     <SyndicationLinks urls={syndication} />
     <!-- anglesite:share -->
+    <Interactions canonical={canonical} />
     <!-- anglesite:comments -->
   </article>
 </BaseLayout>

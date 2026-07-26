@@ -7,6 +7,7 @@ import { ownerName } from "../lib/profile.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
+import Interactions from "../components/Interactions.astro";
 
 interface Props {
   entry: CollectionEntry<HentryCollection>;
@@ -71,5 +72,6 @@ const jsonLd = entrySchema(entry.collection, entry.data as HentryData, {
       </ul>
     )}
     <SyndicationLinks urls={d.syndication} />
+    <Interactions canonical={canonical} />
   </article>
 </BaseLayout>

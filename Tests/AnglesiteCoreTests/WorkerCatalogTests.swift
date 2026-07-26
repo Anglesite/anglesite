@@ -40,6 +40,105 @@ struct WorkerDescriptorTests {
         #expect(decoded.binding == .settingsActivated)
     }
 
+    @Test("decodes the typed-array resources shape catalog.json now publishes")
+    func decodesTypedArrayResources() throws {
+        let json = """
+        {
+          "id": "micropub",
+          "displayName": "Micropub",
+          "description": "Publish posts to this site from any Micropub client",
+          "group": "publishing",
+          "binding": { "kind": "settingsActivated" },
+          "resources": [
+            { "type": "d1", "binding": "MICROPUB_DB" },
+            { "type": "d1", "binding": "AUTH_DB" },
+            { "type": "r2", "binding": "MEDIA" },
+            { "type": "secret", "binding": "TOKEN_SIGNING_KEY" }
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(WorkerDescriptor.self, from: json)
+        #expect(decoded.resources.needsD1 == true)
+        #expect(decoded.resources.needsKV == false)
+        #expect(decoded.resources.needsR2 == true)
+    }
+
+    @Test("a durable-object resource entry decodes without throwing and sets no D1/KV/R2 flag")
+    func decodesDurableObjectResourceEntry() throws {
+        let json = """
+        {
+            "id": "activitypub",
+            "displayName": "Fediverse",
+            "description": "Make this site a Fediverse actor",
+            "group": "social",
+            "binding": { "kind": "settingsActivated" },
+            "resources": [
+                { "type": "durable-object", "binding": "ACTOR", "className": "ActivityPubObject", "sqlite": true }
+            ]
+        }
+        """
+        let workers = try WorkerCatalogReader.parse(Data("{\"workers\":[\(json)]}".utf8))
+        let activitypub = try #require(workers.first)
+        #expect(activitypub.resources.needsD1 == false)
+        #expect(activitypub.resources.needsKV == false)
+        #expect(activitypub.resources.needsR2 == false)
+    }
+
+    @Test("still decodes the legacy flat-object resources shape")
+    func decodesLegacyFlatResources() throws {
+        let json = """
+        {
+          "id": "solid-pod",
+          "displayName": "Solid Pod",
+          "description": "Expose a Solid-compatible personal data store for this site",
+          "group": "storage",
+          "binding": { "kind": "settingsActivated" },
+          "resources": { "needsD1": false, "needsKV": true, "needsR2": true }
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(WorkerDescriptor.self, from: json)
+        #expect(decoded.resources.needsD1 == false)
+        #expect(decoded.resources.needsKV == true)
+        #expect(decoded.resources.needsR2 == true)
+    }
+
+    @Test("decodes requires when present")
+    func decodesRequires() throws {
+        let json = """
+        {
+          "id": "micropub",
+          "displayName": "Micropub",
+          "description": "Publish posts to this site from any Micropub client",
+          "group": "publishing",
+          "binding": { "kind": "settingsActivated" },
+          "requires": ["indieauth"],
+          "resources": { "needsD1": true, "needsKV": false, "needsR2": true }
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(WorkerDescriptor.self, from: json)
+        #expect(decoded.requires == ["indieauth"])
+    }
+
+    @Test("requires defaults to nil when absent")
+    func requiresDefaultsToNil() throws {
+        let json = """
+        {
+          "id": "indieauth",
+          "displayName": "IndieAuth",
+          "description": "Sign in to apps with your own domain",
+          "group": "identity",
+          "binding": { "kind": "settingsActivated" },
+          "resources": { "needsD1": true, "needsKV": false, "needsR2": false }
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(WorkerDescriptor.self, from: json)
+        #expect(decoded.requires == nil)
+    }
+
     @Test("decoding an unknown binding kind throws")
     func unknownBindingKindThrows() {
         let json = """
@@ -156,6 +255,87 @@ struct WorkerCatalogReaderTests {
         #expect(webmention.validatorID == nil)
         #expect(!webmention.authorityBinding)
         #expect(webmention.specificationURL == nil)
+    }
+
+    @Test("parse accepts the published array resources shape (davidwkeith/workers spec/catalog.md)")
+    func parseAcceptsPublishedResourcesArrayShape() throws {
+        let json = Data("""
+        {
+          "workers": [
+            {
+              "id": "indieauth",
+              "package": "@dwk/indieauth",
+              "displayName": "IndieAuth",
+              "description": "Sign in with your own domain",
+              "group": "identity",
+              "binding": { "kind": "settingsActivated" },
+              "requires": [],
+              "resources": [
+                { "type": "d1", "binding": "AUTH_DB" },
+                { "type": "secret", "binding": "TOKEN_SIGNING_KEY" }
+              ]
+            },
+            {
+              "id": "solid-pod",
+              "displayName": "Solid Pod",
+              "description": "Personal data store",
+              "group": "storage",
+              "binding": { "kind": "settingsActivated" },
+              "resources": [
+                { "type": "kv", "binding": "POD_KV" },
+                { "type": "r2", "binding": "POD_BLOBS" }
+              ]
+            }
+          ]
+        }
+        """.utf8)
+
+        let workers = try WorkerCatalogReader.parse(json)
+
+        let indieauth = try #require(workers.first { $0.id == "indieauth" })
+        #expect(indieauth.resources == WorkerDescriptor.Resources(needsD1: true, needsKV: false, needsR2: false))
+        let solidPod = try #require(workers.first { $0.id == "solid-pod" })
+        #expect(solidPod.resources == WorkerDescriptor.Resources(needsD1: false, needsKV: true, needsR2: true))
+    }
+
+    @Test("Resources round-trips through its encoded object shape")
+    func resourcesEncodedObjectShapeRoundTrips() throws {
+        let original = WorkerDescriptor.Resources(needsD1: true, needsKV: false, needsR2: true)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(WorkerDescriptor.Resources.self, from: data)
+        #expect(decoded == original)
+    }
+
+    @Test("decoding a prefix route strips the published trailing slash (davidwkeith/workers spec/catalog.md convention)")
+    func decodingPrefixRouteStripsTrailingSlash() throws {
+        let json = Data("""
+        {
+          "workers": [
+            {
+              "id": "activitypub",
+              "package": "@dwk/activitypub",
+              "displayName": "Fediverse",
+              "description": "ActivityPub actor",
+              "group": "social",
+              "binding": { "kind": "settingsActivated" },
+              "resources": { "needsD1": false, "needsKV": false, "needsR2": false },
+              "routes": [
+                {
+                  "path": "/users/",
+                  "match": "prefix",
+                  "methods": ["GET"],
+                  "handler": "createActivityPub",
+                  "specificationURL": "https://www.w3.org/TR/activitypub/"
+                }
+              ]
+            }
+          ]
+        }
+        """.utf8)
+
+        let workers = try WorkerCatalogReader.parse(json)
+        let route = try #require(workers.first?.routes?.first)
+        #expect(route.path == "/users")
     }
 
     @Test("route claims round-trip through JSONEncoder/JSONDecoder")

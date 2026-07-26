@@ -217,7 +217,7 @@ final class SiteScaffolderTests: XCTestCase {
         let configDir = pkgURL.appendingPathComponent("Config")
         let baseline = DependencyBaseline.load(from: configDir)
         XCTAssertNotNil(baseline)
-        XCTAssertEqual(baseline?["astro"], "^6.4.8")  // matches Resources/Template/package.json today
+        XCTAssertEqual(baseline?["astro"], "^7.1.3")  // matches Resources/Template/package.json today
 
         let siteConfig = try String(
             contentsOf: pkgURL.appendingPathComponent("Source/.site-config"), encoding: .utf8)

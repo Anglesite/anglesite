@@ -76,6 +76,29 @@ struct TypedContentEditorTests {
         if case .date(let d?) = v["publishDate"] { #expect(d.timeIntervalSince1970 > 0) } else { Issue.record("no date") }
     }
 
+    @Test("audience round-trips through the editor like any other optional url field")
+    func audienceRoundTrips() {
+        let src = "---\npublishDate: 2026-01-02T03:04:05.000Z\n---\n\nHello.\n"
+
+        // absent in the source -> empty default, same as every other optional scalar
+        let read = TypedContentEditor.read(src, descriptor: note)
+        #expect(read["audience"] == .text(""))
+
+        // editing it writes a quoted scalar and round-trips back to the same value
+        var v = read
+        v["audience"] = .text("https://community.example/c/local")
+        let out = TypedContentEditor.write(v, into: src, descriptor: note)
+        #expect(out.contains("audience: \"https://community.example/c/local\""))
+        #expect(TypedContentEditor.read(out, descriptor: note)["audience"]
+                == .text("https://community.example/c/local"))
+
+        // leaving it untouched writes nothing new for it
+        var unchanged = read
+        unchanged["publishDate"] = read["publishDate"]!
+        let out2 = TypedContentEditor.write(unchanged, into: src, descriptor: note)
+        #expect(!out2.contains("audience:"))
+    }
+
     @Test("missing fields get empty defaults")
     func defaults() {
         let v = TypedContentEditor.read("---\n---\n", descriptor: reply)

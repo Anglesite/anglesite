@@ -660,4 +660,68 @@ extension SiteWindowModelTests {
         #expect(model.mainPaneMode == .editor(fileRef))
         #expect(model.activeEditor != nil)
     }
+
+    /// Mirrors `presentCleanupSwitchesPane` for `presentReader()` (V-4.3, #365) — same
+    /// leave-current-surface-first guard, same out-of-range `paneSelection` reasoning.
+    @Test("presentReader switches the main pane to Reader, clearing any open editor/inspector")
+    func presentReaderSwitchesPane() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let model = makeModel()
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let priorFile = FileRef(url: root.appendingPathComponent("dummy.astro"), group: .components, name: "dummy.astro")
+        model.activeEditor = .text(FileEditorModel(file: priorFile))
+        model.mainPaneMode = .editor(priorFile)
+        model.inspectorContext = .page(PageMetadataModel(file: priorFile, sourceDirectory: package.sourceURL))
+
+        model.presentReader()
+
+        while model.mainPaneMode != .reader { await Task.yield() }
+        #expect(model.activeEditor == nil)
+        #expect(model.inspectorContext == nil)
+        // Same "out of the Picker's 0–2 range" reasoning as Cleanup's 3 (#723) — Reader has no
+        // toolbar/View-menu segment of its own either.
+        #expect(model.paneSelection == 4)
+    }
+
+    /// Mirrors `presentCleanupAbortsOnEditorConflict` for `presentReader()`.
+    @Test("presentReader doesn't switch panes when leaveCurrentEditor aborts on an editor conflict")
+    func presentReaderAbortsOnEditorConflict() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let model = makeModel()
+        let editedFile = root.appendingPathComponent("conflict.txt")
+        try Data("original".utf8).write(to: editedFile)
+        let fileRef = FileRef(url: editedFile, group: .components, name: "conflict.txt")
+        let editorModel = FileEditorModel(file: fileRef)
+        await editorModel.load()
+        editorModel.text = "dirty edit"
+        try Data("changed on disk".utf8).write(to: editedFile)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(2)], ofItemAtPath: editedFile.path
+        )
+        model.mainPaneMode = .editor(fileRef)
+        model.activeEditor = .text(editorModel)
+
+        model.presentReader()
+
+        var iterations = 0
+        while editorModel.conflictDiskContents == nil, iterations < 10_000 {
+            await Task.yield()
+            iterations += 1
+        }
+        guard editorModel.conflictDiskContents != nil else {
+            Issue.record("flushBeforeLeaving never surfaced the external conflict")
+            return
+        }
+
+        #expect(model.mainPaneMode == .editor(fileRef))
+        #expect(model.activeEditor != nil)
+    }
 }

@@ -74,6 +74,33 @@ export function siteFrom(context: { site?: URL }): string {
   return context.site.href;
 }
 
+/** WebSub discovery advertisement for one feed: the hub plus the feed's own canonical URL. */
+export interface WebSubHubAdvertisement {
+  /** Absolute URL of the site's WebSub hub endpoint (`/websub`). */
+  hubUrl: string;
+  /** Absolute canonical URL of this feed — the topic a subscriber passes as `hub.topic`. */
+  selfUrl: string;
+}
+
+/**
+ * The WebSub advertisement for the feed at `selfPath`, or `undefined` when the hub isn't
+ * provisioned (`WEBSUB_ENABLED` in `.site-config`, written by Anglesite's worker provisioning).
+ * WebSub discovery requires the topic to advertise both `rel="hub"` and `rel="self"`, and the
+ * URLs must match the hub's allowed-topic list (worker/worker.ts `WEBSUB_TOPIC_PATHS`) — both
+ * derive from the same canonical site origin, so they agree by construction.
+ */
+export function websubHub(
+  site: string,
+  selfPath: string,
+  enabled: boolean,
+): WebSubHubAdvertisement | undefined {
+  if (!enabled) return undefined;
+  return {
+    hubUrl: new URL("/websub", site).href,
+    selfUrl: new URL(selfPath, site).href,
+  };
+}
+
 export function toFeedItem(collection: string, entry: FeedEntry, site: string): FeedItem {
   const cfg = FEED_COLLECTIONS[collection];
   if (!cfg) throw new Error(`No feed config for collection "${collection}"`);
@@ -103,11 +130,21 @@ export function renderRss(o: {
   description: string;
   site: string;
   items: FeedItem[];
+  hub?: WebSubHubAdvertisement;
 }): Promise<Response> {
+  // RSS 2.0 has no native link relations; WebSub discovery in RSS uses Atom link elements
+  // inside <channel> (the convention websub.rocks and every major reader check).
+  const hubData = o.hub
+    ? `<atom:link rel="hub" href="${escapeXml(o.hub.hubUrl)}"/>` +
+      `<atom:link rel="self" type="application/rss+xml" href="${escapeXml(o.hub.selfUrl)}"/>`
+    : undefined;
   return rss({
     title: o.title,
     description: o.description,
     site: o.site,
+    ...(hubData
+      ? { xmlns: { atom: "http://www.w3.org/2005/Atom" }, customData: hubData }
+      : {}),
     items: o.items.map((i) => ({
       title: i.title,
       link: i.link,
@@ -131,6 +168,8 @@ export function renderAtom(o: {
   site: string;
   feedUrl: string;
   items: FeedItem[];
+  /** WebSub hub URL; emits a `rel="hub"` link when set (`rel="self"` is always present). */
+  hubUrl?: string;
 }): Response {
   const updated = o.items[0]?.date ?? new Date(0);
   const entries = o.items
@@ -153,7 +192,7 @@ export function renderAtom(o: {
   <id>${escapeXml(o.site)}</id>
   <link href="${escapeXml(o.site)}"/>
   <link rel="self" href="${escapeXml(o.feedUrl)}"/>
-  <updated>${updated.toISOString()}</updated>
+${o.hubUrl ? `  <link rel="hub" href="${escapeXml(o.hubUrl)}"/>\n` : ""}  <updated>${updated.toISOString()}</updated>
 ${entries}
 </feed>
 `;
@@ -167,12 +206,15 @@ export function renderJsonFeed(o: {
   site: string;
   feedUrl: string;
   items: FeedItem[];
+  /** WebSub hub URL; emits the JSON Feed `hubs` array when set. */
+  hubUrl?: string;
 }): Response {
   const feed = {
     version: "https://jsonfeed.org/version/1.1",
     title: o.title,
     home_page_url: o.site,
     feed_url: o.feedUrl,
+    ...(o.hubUrl ? { hubs: [{ type: "WebSub", url: o.hubUrl }] } : {}),
     items: o.items.map((i) => ({
       id: i.link,
       url: i.link,

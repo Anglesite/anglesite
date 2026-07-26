@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -140,6 +143,9 @@ jobs:
           cache-dependency-path: Resources/Template/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run test:worker
+      # The template's node:test suites (scripts/*.test.ts) had no CI lane at all — the
+      # `.well-known` design doc calls that out explicitly. `test:worker` is vitest/workerd only.
+      - run: npm run test:scripts
       - run: npm run build
 
   help-book-links:
@@ -162,11 +168,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Cross-platform port, phase 1 "purity" (2026-07-08 design §9/§10): the compiler is the
-    # purity lint. Off-Darwin, Package.swift exposes only the targets that compile there
-    # (AnglesiteSiteModel today); each seam PR that purifies more of AnglesiteCore expands
-    # that set until `swift build && swift test` covers the whole portable core. The official
-    # Swift image pins the toolchain (and ships the right libxml2), so this lane is immune to
-    # runner-image drift.
+    # purity lint. Off-Darwin, Package.swift exposes only the targets that compile there —
+    # AnglesiteSiteModel and AnglesiteCore today; each seam PR that purifies more of the
+    # portable set expands that list until `swift build && swift test` covers the whole
+    # portable core. The official Swift image pins the toolchain (and ships the right
+    # libxml2), so this lane is immune to runner-image drift.
     container:
       image: swift:6.3.3-noble
     steps:

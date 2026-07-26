@@ -54,9 +54,13 @@ public struct ContainerizationControl: LocalContainerControl {
         ref: String,
         onOutput: @escaping @Sendable (String, LogCenter.Stream) -> Void
     ) async throws -> LocalContainerSession {
-        try SourceRepoPrecondition.requireGitRepo(at: sourceRepo)
+        // Resolves the split-repo gitfile layout (#888/#903): share the directory git can
+        // actually clone (Source/ for an embedded .git, the resolved Config/repo.nosync/ gitdir
+        // for a migrated package) — a Source/-only share leaves the gitfile's target invisible
+        // to the guest and the clone below exits 128.
+        let cloneSource = try SourceRepoPrecondition.cloneSource(for: sourceRepo)
 
-        let container = try await makeBareContainer(siteID: siteID, sourceRepo: sourceRepo, onOutput: onOutput)
+        let container = try await makeBareContainer(siteID: siteID, sourceRepo: cloneSource, onOutput: onOutput)
 
         // 3. Hydrate from the repo: clone the virtio-fs-shared host repo into /workspace/site, then
         //    check out ref. Cloning from the read-only share (not in place) keeps /workspace

@@ -121,7 +121,12 @@ public struct SiteOperations: Sendable {
             siteName: workerSiteName,
             workers: workers,
             routeClaims: routeClaims.map(\.claim),
-            knownResources: settings.provisionedWorkerResources ?? .init()
+            knownResources: settings.provisionedWorkerResources ?? .init(),
+            // #934: this headless path (App Intents/Shortcuts/Siri) now sees the same active
+            // dynamic /.well-known/ claims the GUI Deploy button already threads via
+            // `DeployModel.runDeploy`'s custom deployer closure, so #744's collision check blocks
+            // identically regardless of trigger.
+            wellKnownDynamicClaims: WorkerRouteClaims.wellKnownClaims(routeClaims)
         )
         onProgress?(.deployFinalizing)
 
@@ -244,7 +249,7 @@ public struct SiteOperations: Sendable {
         case .workerNameConflict(let name, let resources):
             return "Social Worker provisioning blocked: the Worker name \"\(name)\" is already in use on your Cloudflare account. Rename the site's Worker in Anglesite and try again.\(resourceSuffix(resources))"
         case .webmentionPaidPlanConfirmationNeeded(let resources):
-            return "Social Worker provisioning paused: inbound Webmention requires the Cloudflare Workers Paid plan. Confirm this in Anglesite's deploy sheet and try again.\(resourceSuffix(resources))"
+            return "Social Worker provisioning paused: inbound Webmention and WebSub require the Cloudflare Workers Paid plan. Confirm this in Anglesite's deploy sheet and try again.\(resourceSuffix(resources))"
         case .failed(let reason, _, let resources):
             return "Social Worker provisioning failed: \(reason).\(resourceSuffix(resources))"
         }
