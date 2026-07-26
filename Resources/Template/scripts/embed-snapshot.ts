@@ -21,14 +21,66 @@ import { collectRemoteAssets, embedSlug, loadAllSnapshots, localizeAssets, write
 
 const CONTENT_DIR = "src/content";
 
-/** Bare URLs sitting alone on a line — the same shape the remark plugin turns into a card. */
-function bareURLsIn(markdown: string): string[] {
+/**
+ * Best-effort textual sweep for the `--all` convenience path: finds lines that look like a
+ * bare URL, so `--all` has something to snapshot without a markdown parser dependency.
+ *
+ * This is NOT the same check the remark plugin (built separately) uses to decide what
+ * renders as a card. The plugin does a structural mdast check — a paragraph whose sole
+ * child is a link node whose sole child is text identical to the URL — while this is a
+ * per-line regex. The two diverge in known, bounded ways:
+ *
+ * - A URL that is the only text in a soft-wrapped paragraph line (with other text on a
+ *   preceding/following line of the same paragraph) is found here but rejected by the
+ *   plugin, since the paragraph has more than one child.
+ * - An explicit link whose text matches its href, e.g. `[https://x](https://x)`, is
+ *   accepted by the plugin but not found here (this function requires the line itself to
+ *   start with `<` or `http`).
+ *
+ * Both are acceptable for a convenience sweep: `--all` under-collecting just means a URL
+ * has to be snapshotted explicitly instead of automatically. What this function does try
+ * to avoid, because they'd cause `--all` to fetch and commit a snapshot nobody wanted:
+ *
+ * - Fenced code blocks (``` or ~~~) are skipped entirely — a bare URL inside a fence is
+ *   sample text, not content the plugin will ever touch.
+ * - Trailing punctuation that GFM autolinking would not consider part of the URL
+ *   (`. , ; : ! ?` and an unbalanced closing `)`) is trimmed, so `https://x.com/page.`
+ *   yields `https://x.com/page` rather than a URL with a stray period baked in.
+ */
+export function bareURLsIn(markdown: string): string[] {
   const out: string[] = [];
+  let fence: string | null = null;
   for (const line of markdown.split("\n")) {
     const trimmed = line.trim();
-    if (/^<?https?:\/\/\S+>?$/.test(trimmed)) out.push(trimmed.replace(/^<|>$/g, ""));
+
+    const fenceMatch = /^(```+|~~~+)/.exec(trimmed);
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      if (fence === null) fence = marker;
+      else if (fence === marker) fence = null;
+      continue;
+    }
+    if (fence !== null) continue;
+
+    if (/^<?https?:\/\/\S+>?$/.test(trimmed)) out.push(trimEndPunctuation(trimmed.replace(/^<|>$/g, "")));
   }
   return out;
+}
+
+/** Strips trailing punctuation a GFM autolink would not include, plus an unbalanced `)`. */
+function trimEndPunctuation(url: string): string {
+  let trimmed = url;
+  for (;;) {
+    if (/[.,;:!?]$/.test(trimmed)) {
+      trimmed = trimmed.slice(0, -1);
+      continue;
+    }
+    if (trimmed.endsWith(")") && !trimmed.includes("(")) {
+      trimmed = trimmed.slice(0, -1);
+      continue;
+    }
+    return trimmed;
+  }
 }
 
 function* markdownFiles(dir: string): Generator<string> {
