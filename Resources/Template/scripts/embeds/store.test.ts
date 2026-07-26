@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { EmbedSnapshot } from "./types";
 import {
   embedSlug,
@@ -11,6 +11,7 @@ import {
   localizeAssets,
   writeSnapshot,
   loadAllSnapshots,
+  SNAPSHOT_DIR,
 } from "./store";
 
 function sample(): EmbedSnapshot {
@@ -99,4 +100,60 @@ test("writeSnapshot: re-snapshotting the same URL overwrites rather than duplica
 test("loadAllSnapshots: a missing directory is empty, not an error", () => {
   const cwd = mkdtempSync(join(tmpdir(), "embeds-"));
   assert.equal(loadAllSnapshots(cwd).size, 0);
+});
+
+test("loadAllSnapshots: caches per directory, does not re-read the disk", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "embeds-"));
+  writeSnapshot(cwd, localizeAssets(sample(), {}));
+  const first = loadAllSnapshots(cwd);
+  assert.equal(first.size, 1);
+
+  // Add a second snapshot straight to disk, bypassing writeSnapshot (and thus its
+  // cache invalidation). A live cache must not see this file.
+  const other = localizeAssets(sample(), {});
+  other.url = "https://x.com/jack/status/21";
+  writeFileSync(
+    join(resolve(cwd, SNAPSHOT_DIR), `${embedSlug(other.url)}.json`),
+    `${JSON.stringify(other, null, 2)}\n`,
+    "utf-8",
+  );
+
+  const second = loadAllSnapshots(cwd);
+  assert.equal(second.size, 1);
+  assert.equal(second.has(other.url), false);
+});
+
+test("writeSnapshot invalidates the cache for the directory it wrote to", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "embeds-"));
+  writeSnapshot(cwd, localizeAssets(sample(), {}));
+  assert.equal(loadAllSnapshots(cwd).size, 1);
+
+  const second = localizeAssets(sample(), {});
+  second.url = "https://x.com/jack/status/21";
+  writeSnapshot(cwd, second);
+
+  const all = loadAllSnapshots(cwd);
+  assert.equal(all.size, 2);
+  assert.equal(all.has(second.url), true);
+});
+
+test("loadAllSnapshots: two different directories do not share cached entries", () => {
+  const cwdA = mkdtempSync(join(tmpdir(), "embeds-"));
+  const cwdB = mkdtempSync(join(tmpdir(), "embeds-"));
+  writeSnapshot(cwdA, localizeAssets(sample(), {}));
+
+  assert.equal(loadAllSnapshots(cwdA).size, 1);
+  assert.equal(loadAllSnapshots(cwdB).size, 0);
+});
+
+test("loadAllSnapshots: returned Map is a copy, safe for callers to mutate", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "embeds-"));
+  writeSnapshot(cwd, localizeAssets(sample(), {}));
+
+  const first = loadAllSnapshots(cwd);
+  first.clear();
+  assert.equal(first.size, 0);
+
+  const second = loadAllSnapshots(cwd);
+  assert.equal(second.size, 1);
 });

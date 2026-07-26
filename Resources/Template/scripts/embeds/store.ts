@@ -75,8 +75,16 @@ export function writeSnapshot(cwd: string, snap: EmbedSnapshot): string {
   const path = snapshotPath(cwd, embedSlug(snap.url));
   mkdirSync(resolve(cwd, SNAPSHOT_DIR), { recursive: true });
   writeFileSync(path, `${JSON.stringify(snap, null, 2)}\n`, "utf-8");
+  _cache.delete(resolve(cwd, SNAPSHOT_DIR));
   return path;
 }
+
+// Hentry.astro pulls every h-entry collection through this one layout, so loadAllSnapshots
+// runs on every rendered page — including plain notes/articles that never cite anything.
+// Cache per resolved snapshot directory so the readdirSync + JSON.parse pass happens once per
+// build rather than once per page. Keyed on the directory (not a single global cwd) so callers
+// pointed at different roots (tests, multiple sites) don't bleed into each other.
+const _cache = new Map<string, Map<string, EmbedSnapshot>>();
 
 /**
  * Every committed snapshot, keyed by canonical URL. Called once per build by the remark plugin
@@ -84,16 +92,21 @@ export function writeSnapshot(cwd: string, snap: EmbedSnapshot): string {
  */
 export function loadAllSnapshots(cwd: string): Map<string, EmbedSnapshot> {
   const dir = resolve(cwd, SNAPSHOT_DIR);
+  const cached = _cache.get(dir);
+  if (cached !== undefined) return new Map(cached);
+
   const out = new Map<string, EmbedSnapshot>();
-  if (!existsSync(dir)) return out;
-  for (const name of readdirSync(dir)) {
-    if (!name.endsWith(".json")) continue;
-    try {
-      const snap = JSON.parse(readFileSync(join(dir, name), "utf-8")) as EmbedSnapshot;
-      if (snap.version === 1 && typeof snap.url === "string") out.set(snap.url, snap);
-    } catch {
-      // A corrupt snapshot degrades that one embed to a plain link; it must never fail a build.
+  if (existsSync(dir)) {
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith(".json")) continue;
+      try {
+        const snap = JSON.parse(readFileSync(join(dir, name), "utf-8")) as EmbedSnapshot;
+        if (snap.version === 1 && typeof snap.url === "string") out.set(snap.url, snap);
+      } catch {
+        // A corrupt snapshot degrades that one embed to a plain link; it must never fail a build.
+      }
     }
   }
-  return out;
+  _cache.set(dir, out);
+  return new Map(out);
 }
