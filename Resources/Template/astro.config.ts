@@ -4,6 +4,7 @@ import react from "@astrojs/react";
 import { readConfig } from "./scripts/config.ts";
 import anglesiteHarness from "./scripts/anglesite-harness.ts";
 import redirects from "./scripts/redirects.ts";
+import remarkEmbeds from "./scripts/remark-embeds.ts";
 import { isKeystaticDev } from "./scripts/keystatic-gate.ts";
 
 // The deploy step writes the real domain into `.site-config` (SITE_URL=…) before build.
@@ -21,4 +22,7 @@ const isDev = isKeystaticDev(process.argv);
 export default defineConfig({
   site,
   integrations: [anglesiteHarness(), redirects(), ...(isDev ? [react(), keystatic()] : [])],
+  markdown: {
+    remarkPlugins: [remarkEmbeds],
+  },
 });
