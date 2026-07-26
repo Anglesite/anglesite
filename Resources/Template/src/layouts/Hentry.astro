@@ -7,6 +7,9 @@ import { ownerName } from "../lib/profile.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
+import EmbedCard from "../components/EmbedCard.astro";
+import { loadAllSnapshots } from "../../scripts/embeds/store";
+import { readConfig } from "../../scripts/config.ts";
 
 interface Props {
   entry: CollectionEntry<HentryCollection>;
@@ -46,6 +49,15 @@ const jsonLd = entrySchema(entry.collection, entry.data as HentryData, {
   site: Astro.site,
   authorName: ownerName(),
 });
+
+// Reply context (#682). Snapshots are read from src/embeds/ — committed, never fetched. With no
+// snapshot for a cited URL these fall through to the bare links this layout has always rendered.
+const snapshots = loadAllSnapshots(process.cwd());
+const inlineVideo = (readConfig("EMBED_VIDEO_INLINE") ?? "").trim().toLowerCase() === "true";
+const cited = (url: string | undefined) => (url ? (snapshots.get(url) ?? null) : null);
+const bookmarkCite = cited(d.bookmarkOf);
+const replyCite = cited(d.inReplyTo);
+const likeCite = cited(d.likeOf);
 ---
 
 <BaseLayout title={title ?? "Post"} description={d.summary}>
@@ -55,9 +67,15 @@ const jsonLd = entrySchema(entry.collection, entry.data as HentryData, {
     {title && <h1 class="p-name">{title}</h1>}
     {d.image && <img class="u-photo" src={d.image} alt={d.caption ?? ""} />}
     {images.map((src) => <img class="u-photo" src={src} alt="" />)}
-    {d.bookmarkOf && <a class="u-bookmark-of" href={d.bookmarkOf}>{d.bookmarkOf}</a>}
-    {d.inReplyTo && <a class="u-in-reply-to" href={d.inReplyTo}>In reply to</a>}
-    {d.likeOf && <a class="u-like-of" href={d.likeOf}>Liked this</a>}
+    {d.bookmarkOf && (bookmarkCite
+      ? <EmbedCard snapshot={bookmarkCite} citeClass="u-bookmark-of" inlineVideo={inlineVideo} />
+      : <a class="u-bookmark-of" href={d.bookmarkOf}>{d.bookmarkOf}</a>)}
+    {d.inReplyTo && (replyCite
+      ? <EmbedCard snapshot={replyCite} citeClass="u-in-reply-to" inlineVideo={inlineVideo} />
+      : <a class="u-in-reply-to" href={d.inReplyTo}>In reply to</a>)}
+    {d.likeOf && (likeCite
+      ? <EmbedCard snapshot={likeCite} citeClass="u-like-of" inlineVideo={inlineVideo} />
+      : <a class="u-like-of" href={d.likeOf}>Liked this</a>)}
     {(d.summary ?? d.caption) && <p class="p-summary">{d.summary ?? d.caption}</p>}
     <div class="e-content"><slot /></div>
     {/* The permalink (u-url) is unconditional — every entry has one regardless of whether

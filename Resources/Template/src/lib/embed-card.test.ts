@@ -143,3 +143,12 @@ test("renderEmbedCard: inlineVideo opts into a click-to-load youtube-nocookie if
 test("renderEmbedCard: inlineVideo on a non-youtube snapshot changes nothing", () => {
   assert.ok(!renderEmbedCard(snap(), { inlineVideo: true }).includes("<iframe"));
 });
+
+test("reply context: each citation class produces the matching mf2 root", () => {
+  for (const citeClass of ["u-in-reply-to", "u-bookmark-of", "u-like-of"]) {
+    const html = renderEmbedCard(snap(), { citeClass });
+    assert.ok(html.includes(`${citeClass} h-cite`), citeClass);
+    assert.ok(html.includes("p-author h-card"), citeClass);
+    assert.ok(html.includes("u-url"), citeClass);
+  }
+});
