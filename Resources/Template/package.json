@@ -8,6 +8,7 @@
     "build": "astro check && astro build && npx tsx scripts/check-microformats.ts",
     "preview": "astro preview",
     "check": "npx tsx scripts/pre-deploy-check.ts",
+    "embed": "tsx scripts/embed-snapshot.ts",
     "build:ci": "npm run build && npx tsx scripts/pre-deploy-check.ts --json --strict",
     "test:worker": "vitest run --config vitest.config.ts",
     "test:scripts": "tsx --test scripts/*.test.ts scripts/embeds/*.test.ts"

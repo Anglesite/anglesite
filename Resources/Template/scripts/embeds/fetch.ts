@@ -1,0 +1,96 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import type { AdapterRequest } from "./adapters";
+import type { EmbedProvider, EmbedSnapshot } from "./types";
+import { assetFilename, mediaDir, MEDIA_DIR } from "./store";
+import {
+  normalizeBluesky,
+  normalizeMastodon,
+  normalizeOpenGraph,
+  normalizeX,
+  normalizeYouTube,
+} from "./normalize";
+
+/** Refuse to commit anything larger than this into the owner's site repo. */
+export const MAX_ASSET_BYTES = 5_000_000;
+
+const USER_AGENT = "Anglesite-EmbedSnapshot/1.0 (+https://github.com/Anglesite/Anglesite-app)";
+const TIMEOUT_MS = 15_000;
+
+export function normalizeFor(
+  provider: EmbedProvider,
+  raw: unknown,
+  canonicalURL: string,
+  capturedAt: string,
+): EmbedSnapshot {
+  switch (provider) {
+    case "x": return normalizeX(raw, canonicalURL, capturedAt);
+    case "youtube": return normalizeYouTube(raw, canonicalURL, capturedAt);
+    case "bluesky": return normalizeBluesky(raw, canonicalURL, capturedAt);
+    case "mastodon": return normalizeMastodon(raw, canonicalURL, capturedAt);
+    case "opengraph": return normalizeOpenGraph(String(raw), canonicalURL, capturedAt);
+  }
+}
+
+async function get(url: string, fetchImpl: typeof fetch, accept: string): Promise<Response> {
+  const response = await fetchImpl(url, {
+    redirect: "follow",
+    headers: { accept, "user-agent": USER_AGENT },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText} for ${url}`);
+  return response;
+}
+
+/**
+ * Fetch and normalize one embed. This function and `downloadAssets` are the only network code
+ * in the feature — the build never calls either.
+ */
+export async function fetchSnapshot(
+  request: AdapterRequest,
+  capturedAt: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<EmbedSnapshot> {
+  const wantsHTML = request.provider === "opengraph";
+  const response = await get(
+    request.apiURL,
+    fetchImpl,
+    wantsHTML ? "text/html,application/xhtml+xml" : "application/json",
+  );
+  const raw: unknown = wantsHTML ? await response.text() : await response.json();
+  return normalizeFor(request.provider, raw, request.canonicalURL, capturedAt);
+}
+
+/**
+ * Download every remote asset into `public/embeds/<slug>/`, returning remote URL → repo-relative
+ * path. A failed or oversized asset is simply absent from the map; `localizeAssets` then drops
+ * that reference rather than leaving it pointing at the platform CDN.
+ */
+export async function downloadAssets(
+  urls: readonly string[],
+  cwd: string,
+  slug: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Record<string, string>> {
+  const map: Record<string, string> = {};
+  if (urls.length === 0) return map;
+  const dir = mediaDir(cwd, slug);
+  mkdirSync(dir, { recursive: true });
+
+  for (const [index, url] of urls.entries()) {
+    const filename = assetFilename(url, index);
+    try {
+      const response = await get(url, fetchImpl, "image/*");
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength > MAX_ASSET_BYTES) {
+        console.error(`  skipped ${url} — ${bytes.byteLength} bytes exceeds the ${MAX_ASSET_BYTES}-byte cap`);
+        continue;
+      }
+      writeFileSync(resolve(dir, filename), bytes);
+      map[url] = `/${MEDIA_DIR.replace(/^public\//, "")}/${slug}/${filename}`;
+    } catch (error) {
+      console.error(`  skipped ${url} — ${(error as Error).message}`);
+    }
+  }
+  return map;
+}
