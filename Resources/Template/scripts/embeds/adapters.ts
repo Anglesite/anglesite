@@ -79,8 +79,17 @@ export function resolveAdapter(rawURL: string): AdapterRequest | null {
   }
 
   // Mastodon is federated — there is no host allowlist to match against, so detect it
-  // structurally: /@<user>/<numeric status id> is the universal permalink shape.
-  const masto = path.match(/^\/@[^/]+\/(\d+)$/);
+  // structurally: /@<user>/<numeric status id> is the universal permalink shape. But that
+  // shape isn't unique to Mastodon (e.g. a blog with /@user/<numeric-id> permalinks), so
+  // guard it against hosts we already know belong to a different provider — otherwise a
+  // matching path on X, YouTube, or Bluesky would be misrouted to a Mastodon API call
+  // instead of falling through to the opengraph fallback below. Do not drop this guard.
+  const isKnownOtherHost =
+    X_HOSTS.has(host) ||
+    YT_HOSTS.has(host) ||
+    stripLeadingWWW(host) === "youtu.be" ||
+    stripLeadingWWW(host) === "bsky.app";
+  const masto = isKnownOtherHost ? null : path.match(/^\/@[^/]+\/(\d+)$/);
   if (masto) {
     return {
       provider: "mastodon",

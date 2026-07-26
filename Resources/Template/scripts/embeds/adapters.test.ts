@@ -56,3 +56,22 @@ test("resolveAdapter: unknown host falls back to opengraph, scraping the page it
 test("resolveAdapter: an x profile URL is not a post, so it degrades to opengraph", () => {
   assert.equal(resolveAdapter("https://x.com/jack")?.provider, "opengraph");
 });
+
+test("resolveAdapter: a mastodon-shaped path on a known non-mastodon host degrades to opengraph", () => {
+  // /@handle/<numeric id> matches the structural Mastodon permalink shape, but these hosts
+  // are already claimed by other providers — they must not be misrouted to a mastodon API call.
+  const onX = resolveAdapter("https://x.com/@somebody/12345");
+  assert.equal(onX?.provider, "opengraph");
+  assert.equal(onX?.apiURL, "https://x.com/@somebody/12345");
+
+  const onBsky = resolveAdapter("https://bsky.app/@somebody/12345");
+  assert.equal(onBsky?.provider, "opengraph");
+  assert.equal(onBsky?.apiURL, "https://bsky.app/@somebody/12345");
+});
+
+test("resolveAdapter: mastodon still resolves on an arbitrary instance host not shared with another provider", () => {
+  const r = resolveAdapter("https://fosstodon.org/@someone/987654321");
+  assert.equal(r?.provider, "mastodon");
+  assert.equal(r?.canonicalURL, "https://fosstodon.org/@someone/987654321");
+  assert.equal(r?.apiURL, "https://fosstodon.org/api/v1/statuses/987654321");
+});
