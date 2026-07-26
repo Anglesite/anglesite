@@ -9,14 +9,14 @@
     "preview": "astro preview",
     "check": "npx tsx scripts/pre-deploy-check.ts",
     "build:ci": "npm run build && npx tsx scripts/pre-deploy-check.ts --json --strict",
-    "test:worker": "vitest run --config vitest.config.ts"
+    "test:worker": "vitest run --config vitest.config.ts",
+    "test:scripts": "tsx --test scripts/*.test.ts"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.0",
     "@dwk/indieauth": "0.1.0-beta.3",
     "@dwk/webmention": "0.1.0-beta.3",
     "astro": "^6.4.8",
-    "astro-embed": "^0.13.0",
     "astro-seo-schema": "^6.0.0"
   },
   "devDependencies": {
