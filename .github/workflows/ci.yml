@@ -380,7 +380,7 @@ jobs:
         run: scripts/check-xcodeproj-sync.sh
 
   localization-catalog:
-    name: Localizable.xcstrings covers scanned string literals
+    name: String Catalog checks (literal coverage + trailing newline)
     needs: changes
     if: needs.changes.outputs.swift == 'true'
     runs-on: ubuntu-latest
@@ -394,6 +394,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: scripts/check-localization-catalog.sh
+      # scripts/git-hooks/pre-commit restores the trailing newline Xcode strips, but it's a
+      # local hook — absent in any clone that skipped setup-dev-env.sh, and already bypassed
+      # more than once (#970). Enforce it here so the last byte stops flip-flopping.
+      - run: scripts/check-xcstrings-newline.sh
 
   appintents-schema:
     name: AppIntents schema conformance (metadata processor)

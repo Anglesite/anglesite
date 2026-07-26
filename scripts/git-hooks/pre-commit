@@ -4,6 +4,11 @@
 # needed a manual "restore trailing newline" follow-up commit twice already
 # (bdd306ae, 6b16b6ca). Auto-fix and re-stage any staged .xcstrings file that's
 # missing its final newline so that never has to happen again.
+#
+# This hook is advisory — it's silently absent in any clone that skipped
+# scripts/setup-dev-env.sh, and has been bypassed since (b800ced2). The
+# non-advisory half is scripts/check-xcstrings-newline.sh, which CI enforces (#970);
+# keep the two rules in step.
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
