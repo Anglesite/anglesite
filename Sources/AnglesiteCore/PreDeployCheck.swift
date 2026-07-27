@@ -32,6 +32,10 @@ public actor PreDeployCheck {
             case thirdPartyScript = "third-party-script"
             case keystaticRoute = "keystatic-route"
             case cspMisconfigured = "csp-misconfigured"
+            /// Built output references embed media on a platform CDN instead of the snapshot
+            /// copy under `public/embeds/`. See `checkEmbedMedia` in
+            /// `Resources/Template/scripts/pre-deploy-check.ts` (#682).
+            case embedMediaHotlink = "embed-media-hotlink"
             /// Two or more owners claim the same effective `/.well-known/` path (or an
             /// exact/prefix pair overlaps) — `WellKnownInventory.merge` (#744) computed this
             /// Swift-side before build, the same way `RouteCoverageScanner`'s `.orphanedRoute`
