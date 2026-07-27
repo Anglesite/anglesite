@@ -1,7 +1,11 @@
-# Anglesite website template
+# Anglesite site
 
-This directory is the Anglesite website template: an Astro project that gets scaffolded into
-a new site's `Source/` directory when you create a site in the app.
+An Astro project managed by [Anglesite](https://github.com/Anglesite/Anglesite-app). This is
+the canonical, externally-editable copy of your site: it is a plain git repository, so you can
+clone it, edit it in any editor, and build it without the app.
+
+This file is also the source template the app scaffolds new sites from, so it describes the
+project layout rather than any one site's content.
 
 ## Content licensing
 
