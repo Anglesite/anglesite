@@ -1904,6 +1904,9 @@
     "Preview ${site}" : {
 
     },
+    "Preview Box" : {
+
+    },
     "Preview and apply Cloudflare security hardening for this site" : {
 
     },
@@ -1938,6 +1941,9 @@
 
     },
     "Provider" : {
+
+    },
+    "Providers" : {
 
     },
     "Publish" : {
@@ -1982,6 +1988,9 @@
     "Publish…" : {
 
     },
+    "Purpose" : {
+
+    },
     "Quarantined copies" : {
 
     },
@@ -2019,6 +2028,9 @@
 
     },
     "Record Published URLs" : {
+
+    },
+    "Redirects" : {
 
     },
     "Reduce File Size…" : {
@@ -2119,6 +2131,9 @@
 
     },
     "Require TLS for mail delivered to this domain. Start in testing mode and only switch to enforce after your mail provider is working cleanly." : {
+
+    },
+    "Required DNS Records" : {
 
     },
     "Required DNS records" : {
@@ -2371,6 +2386,9 @@
     "Sets a display name just for Anglesite. Leave blank to use the site's built-in name." : {
 
     },
+    "Setting" : {
+
+    },
     "Setting up…" : {
 
     },
@@ -2464,6 +2482,9 @@
     "Site" : {
 
     },
+    "Site Details" : {
+
+    },
     "Site Graph" : {
 
     },
@@ -2525,6 +2546,9 @@
 
     },
     "Start a design interview for ${site}" : {
+
+    },
+    "Status" : {
 
     },
     "Status of ${site}" : {
@@ -2823,6 +2847,9 @@
 
     },
     "View on GitHub" : {
+
+    },
+    "Vulnerability Reports" : {
 
     },
     "Vulnerability reports" : {
