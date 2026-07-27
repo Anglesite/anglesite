@@ -16,7 +16,10 @@ const EMBED_DIRECTIVES = ["script-src", "frame-src", "connect-src", "img-src", "
 /** Baseline directive values (secure-by-default). */
 const BASE: Record<string, string[]> = {
   "default-src": ["'self'"],
-  "script-src": ["'self'", "static.cloudflareinsights.com"],
+  // 'wasm-unsafe-eval' is what lets the browser compile the WebAssembly module Pagefind's
+  // search index reader is built on (/search, #974). It permits WASM compilation only — not
+  // eval() or new Function() — so it doesn't widen the policy for ordinary script.
+  "script-src": ["'self'", "'wasm-unsafe-eval'", "static.cloudflareinsights.com"],
   "style-src": ["'self'", "'unsafe-inline'"],
   "img-src": ["'self'", "data:"],
   "font-src": ["'self'"],

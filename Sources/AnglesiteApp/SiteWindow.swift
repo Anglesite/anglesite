@@ -126,6 +126,11 @@ struct SiteWindow: View {
     /// function (rather than inlined into one long modifier chain) so the type checker solves it
     /// as an independent unit — `navigatorSelectionActions(for:)` pushed the combined `body`
     /// expression over Swift's type-check-in-reasonable-time budget once added inline (#516).
+    ///
+    /// One exception to "every focused value is published here": `siteSearchActions` is published
+    /// by `SiteSearchFieldModifier` (`SiteSearchField.swift`, #520), because it hands out a
+    /// closure over that modifier's own `@FocusState` — scene-local state this function has no
+    /// access to. Look there too when auditing the full set.
     @ViewBuilder
     private func focusedValues<Content: View>(for content: Content) -> some View {
         content
@@ -501,6 +506,14 @@ struct SiteWindow: View {
                 .help("Show or hide the page inspector")
             }
         }
+        // Trailing search field (#520). Not a `.toolbar(id:)` item: `.searchable` mints its own
+        // toolbar item id, so it stays out of the frozen `SiteToolbarItemID` set and out of
+        // users' saved customizations.
+        .modifier(SiteSearchFieldModifier(
+            model: model.search,
+            siteID: site.id,
+            activate: { hit in model.openSearchHit(hit) }
+        ))
         .sheet(isPresented: $bindableModel.deploy.blockedPresented) {
             if case .blocked(let failures, let warnings) = model.deploy.phase {
                 BlockedDeploySheetView(failures: failures, warnings: warnings) {
