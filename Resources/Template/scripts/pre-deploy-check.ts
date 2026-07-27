@@ -66,6 +66,26 @@ const BLOCKED_SCRIPTS = [
 
 const BLOCKED_ROUTES = [/\/keystatic(?:\/|$)/i, /\/api\/keystatic/i];
 
+/**
+ * Media hosts belonging to the platforms the embed snapshotter supports (#682). A reference to
+ * one of these in built output means an embed is hotlinking rather than serving its snapshotted
+ * copy, which leaks every visitor's IP and Referer to the platform — the tracking ADR-0008
+ * exists to prevent. Anchor hrefs are excluded: a permalink back to the original post is the
+ * point of a citation.
+ */
+const EMBED_MEDIA_HOSTS = [
+  "pbs.twimg.com",
+  "video.twimg.com",
+  "abs.twimg.com",
+  "scontent.cdninstagram.com",
+  "cdninstagram.com",
+  "cdn.bsky.app",
+  "i.ytimg.com",
+  "img.youtube.com",
+  /** Mastodon media is per-instance; files.* covers the common CDN shape. */
+  "files.mastodon.social",
+];
+
 async function* walk(dir: string): AsyncGenerator<string> {
   const entries = await readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
@@ -140,6 +160,35 @@ export function checkPII(content: string, file: string): Issue[] {
     }
   }
   return issues;
+}
+
+/**
+ * Hotlinked platform media in built output. Matches resource-loading contexts only —
+ * `src`, `srcset`, and CSS `url(...)` — never `href`, so citation permalinks pass.
+ * One issue per offending host per file.
+ */
+export function checkEmbedMedia(content: string, file: string): Issue[] {
+  const matched: string[] = [];
+  for (const host of EMBED_MEDIA_HOSTS) {
+    const escaped = host.replace(/\./g, "\\.");
+    const pattern = new RegExp(
+      `(?:\\bsrc\\s*=\\s*["']|\\bsrcset\\s*=\\s*["'][^"']*?|url\\(\\s*["']?)(?:https?:)?//[^"')\\s]*${escaped}`,
+      "i",
+    );
+    if (pattern.test(content)) {
+      matched.push(host);
+    }
+  }
+  // A host that is a domain suffix of another matched host (e.g. "cdninstagram.com" vs.
+  // "scontent.cdninstagram.com") describes the same hotlinked URL twice — keep only the
+  // more specific match so one URL yields one issue.
+  const specific = matched.filter((host) => !matched.some((other) => other !== host && other.endsWith(`.${host}`)));
+  return specific.map((host) => ({
+    severity: "error",
+    category: "embed-media-hotlink",
+    message: `Embed media hotlinked from ${host} — run "npm run embed -- <url>" to snapshot it first-party.`,
+    file,
+  }));
 }
 
 /**
@@ -480,6 +529,10 @@ async function scan(): Promise<Issue[]> {
     relPaths.push(rel);
 
     issues.push(...checkPII(content, rel));
+
+    if (/\.(html?|css)$/i.test(file)) {
+      issues.push(...checkEmbedMedia(content, rel));
+    }
 
     for (const { name, pattern } of SECRET_PATTERNS) {
       pattern.lastIndex = 0;

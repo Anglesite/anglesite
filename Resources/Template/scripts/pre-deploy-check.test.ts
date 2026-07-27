@@ -9,6 +9,7 @@ import {
   checkPII,
   checkMTAStsPolicy,
   checkSecurityTxt,
+  checkEmbedMedia,
 } from "./pre-deploy-check";
 import { MTA_STS_MARKER, SECURITY_TXT_MARKER } from "./edge-artifacts";
 
@@ -352,4 +353,40 @@ test("checkMTAStsPolicy: reports missing, hand-authored, and malformed enabled p
   assert.ok(checkMTAStsPolicy(null, "MTA_STS_MODE=enforce\nMTA_STS_MX=mx.example.com").some((i) => /missing/.test(i.message)));
   assert.ok(checkMTAStsPolicy("version: STSv1\nmode: enforce\nmx: mx.example.com\nmax_age: 604800\n", "MTA_STS_MODE=enforce\nMTA_STS_MX=mx.example.com").some((i) => /not generated/.test(i.message)));
   assert.ok(checkMTAStsPolicy(validMTASts(), "MTA_STS_MODE=enforce\nMTA_STS_MX=not a host").some((i) => /no valid MX host/.test(i.message)));
+});
+
+test("checkEmbedMedia: a hotlinked platform image is an error", () => {
+  const issues = checkEmbedMedia('<img src="https://pbs.twimg.com/media/x.jpg">', "dist/index.html");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].severity, "error");
+  assert.equal(issues[0].category, "embed-media-hotlink");
+});
+
+test("checkEmbedMedia: every known platform media host is caught", () => {
+  for (const host of [
+    "pbs.twimg.com",
+    "scontent.cdninstagram.com",
+    "cdn.bsky.app",
+    "files.mastodon.social",
+    "i.ytimg.com",
+  ]) {
+    assert.equal(checkEmbedMedia(`<img src="https://${host}/a.jpg">`, "f.html").length, 1, host);
+  }
+});
+
+test("checkEmbedMedia: self-hosted embed media passes", () => {
+  assert.deepEqual(checkEmbedMedia('<img src="/embeds/abc123/asset-0.png">', "dist/index.html"), []);
+});
+
+test("checkEmbedMedia: srcset and CSS url() are caught too", () => {
+  assert.equal(checkEmbedMedia('<img srcset="https://pbs.twimg.com/a.jpg 2x">', "f.html").length, 1);
+  assert.equal(checkEmbedMedia("a{background:url(https://cdn.bsky.app/x.png)}", "f.css").length, 1);
+});
+
+test("checkEmbedMedia: a permalink to the platform is not media and must pass", () => {
+  assert.deepEqual(checkEmbedMedia('<a href="https://x.com/jack/status/20">View original</a>', "f.html"), []);
+});
+
+test("checkEmbedMedia: the youtube-nocookie iframe is not a media hotlink", () => {
+  assert.deepEqual(checkEmbedMedia('<iframe src="https://www.youtube-nocookie.com/embed/a"></iframe>', "f.html"), []);
 });

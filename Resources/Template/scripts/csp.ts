@@ -53,6 +53,12 @@ export function buildCSP(configContent: string): string {
       if (!directives[name].includes(d)) directives[name].push(d);
     }
   }
+  // Inline video (#682) is opt-in and narrow: click-to-load youtube-nocookie only, and only
+  // frame-src. The default card is a thumbnail link, so the baseline policy stays untouched.
+  // Exact "true" only — matching HSTS_PRELOAD's deliberate strictness above.
+  if ((readConfigFromString(configContent, "EMBED_VIDEO_INLINE") ?? "").trim().toLowerCase() === "true") {
+    directives["frame-src"].push("www.youtube-nocookie.com");
+  }
   return DIRECTIVE_ORDER.map((name) =>
     directives[name].length ? `${name} ${directives[name].join(" ")}` : name,
   ).join("; ");
