@@ -215,33 +215,108 @@ struct NativeContentOperationsTests {
         #expect(sha?.count == 40)
     }
 
-    @Test("processGitCommit returns nil when the configured git identity can't be resolved")
+    @Test("processGitCommit falls back to the app identity when none is configured")
     func realGitNoIdentity() async throws {
-        // Forcing "genuinely no user.name/user.email anywhere in the config chain" isn't
-        // reliably constructible here: SwiftGit2's resolution goes through libgit2's own
-        // process-global config-search-path cache (populated once, at first SwiftGit2Init()), so
-        // mutating HOME/XDG_CONFIG_HOME mid-test doesn't retroactively affect it. Making the local
-        // repo config merely unreadable doesn't work either — empirically verified: libgit2
-        // silently skips an inaccessible local config and falls through to this dev/CI machine's
-        // real ambient global config instead of failing. What *does* reliably fail is malformed
-        // config syntax: a config file libgit2 can open but not parse is a hard error, not a
-        // silently-skipped level. This is a different trigger than "no identity configured
-        // anywhere" but exercises the exact thing this test actually cares about: a
-        // `defaultSignature()` failure, for any reason, must make `processGitCommit` return nil
-        // rather than crash or silently misbehave (finding #2 in PR #649's review).
+        // #969: under App Sandbox `HOME` is redirected into the app's container, so the user's
+        // ~/.gitconfig is invisible to libgit2 no matter how they configured git in Terminal.
+        // `git_signature_default` then fails and every commit that treated that as fatal did
+        // nothing at all. The commit must still land, attributed to the app.
+        //
+        // An *empty* repo-local user.name/user.email is the deterministic way to reproduce that
+        // here: it fails `defaultSignature()` ("Signature cannot have an empty name or email")
+        // even on a dev/CI machine that has a real ambient global identity, which a merely-absent
+        // local identity would silently fall through to. (libgit2's config-search-path cache is
+        // process-global and populated at the first SwiftGit2Init(), so mutating HOME/XDG mid-test
+        // can't truncate the chain the way the sandbox does.)
+        let repo = try await makeIdentitylessRepo(seeding: "p.astro", contents: "page")
+
+        let sha = await NativeContentOperations.processGitCommit(repo, "p.astro", "anglesite: add page /p")
+        #expect(sha?.count == 40)
+        #expect(try await lastCommitAuthor(in: repo) == "Anglesite <noreply@anglesite.app>")
+    }
+
+    @Test("processGitCommit still returns nil on a corrupt repo config, rather than committing as the app")
+    func realGitMalformedConfig() async throws {
+        // The identity fallback must not swallow a *corrupt* repository. A config libgit2 can open
+        // but not parse is a different thing from "this user never configured an identity", and it
+        // shouldn't quietly land a commit attributed to Anglesite in a repo that's structurally
+        // broken.
+        //
+        // It doesn't, but not via the fallback: an unparseable config fails `Repository.at`
+        // (`git_repository_open` reads config as part of opening), so the guard at the top of
+        // `processGitCommit` returns nil before identity resolution is ever reached. This test
+        // exists to pin that ordering — it's what keeps `GitIdentity`'s "any `defaultSignature()`
+        // failure ⇒ substitute" rule from widening into "any broken repo ⇒ commit anyway"
+        // (PR #983 review). It's the surviving half of the pre-#983 `realGitNoIdentity` test, whose
+        // other assertion (a missing identity ⇒ nil) is the behavior #969 fixed.
         let repo = FileManager.default.temporaryDirectory.appendingPathComponent("git-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
         let git = URL(fileURLWithPath: "/usr/bin/git")
         _ = try await ProcessSupervisor.shared.run(executable: git, arguments: ["init"], currentDirectoryURL: repo)
-        // Deliberately no `git config user.email`/`user.name` this time — and the config file's
-        // contents are overwritten with unparseable garbage below, so it can't fall back to
-        // whatever `git init` itself wrote there either.
-        let configPath = repo.appendingPathComponent(".git/config")
-        try "[core\nthis is not valid git-config syntax".write(to: configPath, atomically: true, encoding: .utf8)
-
+        try "[core\nthis is not valid git-config syntax".write(
+            to: repo.appendingPathComponent(".git/config"), atomically: true, encoding: .utf8)
         try "page".write(to: repo.appendingPathComponent("p.astro"), atomically: true, encoding: .utf8)
+
         let sha = await NativeContentOperations.processGitCommit(repo, "p.astro", "anglesite: add page /p")
         #expect(sha == nil)
+    }
+
+    @Test("processGitCommit prefers a configured identity over the app fallback")
+    func realGitPrefersConfiguredIdentity() async throws {
+        let repo = FileManager.default.temporaryDirectory.appendingPathComponent("git-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        let git = URL(fileURLWithPath: "/usr/bin/git")
+        for args in [["init"], ["config", "user.email", "t@t.io"], ["config", "user.name", "t"]] {
+            _ = try await ProcessSupervisor.shared.run(executable: git, arguments: args, currentDirectoryURL: repo)
+        }
+        try "page".write(to: repo.appendingPathComponent("p.astro"), atomically: true, encoding: .utf8)
+
+        let sha = await NativeContentOperations.processGitCommit(repo, "p.astro", "anglesite: add page /p")
+        #expect(sha?.count == 40)
+        #expect(try await lastCommitAuthor(in: repo) == "t <t@t.io>")
+    }
+
+    @Test("processGitDelete deletes and commits when no git identity is configured")
+    func realGitDeleteNoIdentity() async throws {
+        // The #969 headline symptom: on a sandboxed build the delete removed the file, failed to
+        // commit for want of an identity, rolled back, and reported nothing — so Delete read as
+        // "I clicked it and nothing happened". It must complete instead.
+        let repo = try await makeIdentitylessRepo(seeding: "unused.astro", contents: "<div></div>", commitSeed: true)
+        let filePath = repo.appendingPathComponent("unused.astro")
+
+        let sha = await NativeContentOperations.processGitDelete(repo, "unused.astro", "Remove unused.astro")
+        #expect(sha?.count == 40)
+        #expect(!FileManager.default.fileExists(atPath: filePath.path))
+        #expect(try await lastCommitAuthor(in: repo) == "Anglesite <noreply@anglesite.app>")
+    }
+
+    /// A repo whose local `user.name`/`user.email` are set to the empty string — the deterministic
+    /// `defaultSignature()` failure described in `realGitNoIdentity`. Seeded (and optionally
+    /// committed) *before* the identity is blanked, so `HEAD` can still contain the file.
+    private func makeIdentitylessRepo(
+        seeding relPath: String, contents: String, commitSeed: Bool = false
+    ) async throws -> URL {
+        let repo = FileManager.default.temporaryDirectory.appendingPathComponent("git-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        let git = URL(fileURLWithPath: "/usr/bin/git")
+        for args in [["init"], ["config", "user.email", "seed@t.io"], ["config", "user.name", "seed"]] {
+            _ = try await ProcessSupervisor.shared.run(executable: git, arguments: args, currentDirectoryURL: repo)
+        }
+        try contents.write(to: repo.appendingPathComponent(relPath), atomically: true, encoding: .utf8)
+        if commitSeed {
+            _ = await NativeContentOperations.processGitCommit(repo, relPath, "add \(relPath)")
+        }
+        for args in [["config", "user.email", ""], ["config", "user.name", ""]] {
+            _ = try await ProcessSupervisor.shared.run(executable: git, arguments: args, currentDirectoryURL: repo)
+        }
+        return repo
+    }
+
+    private func lastCommitAuthor(in repo: URL) async throws -> String {
+        let result = try await ProcessSupervisor.shared.run(
+            executable: URL(fileURLWithPath: "/usr/bin/git"),
+            arguments: ["log", "-1", "--format=%an <%ae>"], currentDirectoryURL: repo)
+        return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @Test("processGitDelete removes and commits the file, nil outside a repo")
