@@ -109,12 +109,12 @@ changes land.
     --body "Fixes the clipped/misaligned Settings tab bar (segmented \`Picker\` gives every tab equal width regardless of label length) and restructures each tab's content into nested, Xcode-Signing-&-Capabilities-style boxes with native zebra striping on list-shaped content (Workers toggles, Crawlers Content Signals). Design: docs/superpowers/specs/2026-07-27-settings-panel-nested-zebra-design.md"
   ```
 
-  Note the printed issue number (referred to as `<ISSUE>` below).
+  Note the printed issue number (referred to as `1040` below).
 
 - [ ] **Step 3: Claim it**
 
   ```bash
-  gh issue edit <ISSUE> --repo Anglesite/Anglesite-app --add-label "🛠️ In Progress"
+  gh issue edit 1040 --repo Anglesite/Anglesite-app --add-label "🛠️ In Progress"
   ```
 
 - [ ] **Step 4: Reference it in the design doc's frontmatter**
@@ -129,14 +129,14 @@ changes land.
 
   ```markdown
   **Repo:** `Anglesite/Anglesite-app` (app-only; no MCP or worker-catalog schema changes)
-  **Issue:** #<ISSUE>
+  **Issue:** #1040
   ```
 
 - [ ] **Step 5: Commit**
 
   ```bash
   git add docs/superpowers/specs/2026-07-27-settings-panel-nested-zebra-design.md
-  git commit -m "docs: link Settings panel redesign spec to issue #<ISSUE>"
+  git commit -m "docs: link Settings panel redesign spec to issue #1040"
   ```
 
 ---
@@ -1719,7 +1719,7 @@ changes land.
 - [ ] **Step 4: Remove the in-progress label**
 
   ```bash
-  gh issue edit <ISSUE> --repo Anglesite/Anglesite-app --remove-label "🛠️ In Progress"
+  gh issue edit 1040 --repo Anglesite/Anglesite-app --remove-label "🛠️ In Progress"
   ```
 
   (Per `CLAUDE.md` ▸ "Issue-in-flight signaling" — do this once the PR is about to open,
@@ -1732,4 +1732,4 @@ changes land.
 Once all 11 tasks are complete and verified, use the `superpowers:finishing-a-development-branch`
 skill to open the PR — remember `CLAUDE.md`'s requirement to build the PR body from
 `.github/PULL_REQUEST_TEMPLATE.md`'s actual headings (Summary, Paired PR check, Test plan),
-not a generic Summary/Test-plan shape, and to reference issue `#<ISSUE>` from Task 1.
+not a generic Summary/Test-plan shape, and to reference issue `#1040` from Task 1.

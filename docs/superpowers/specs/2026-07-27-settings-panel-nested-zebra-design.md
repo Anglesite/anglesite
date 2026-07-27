@@ -3,6 +3,7 @@
 **Date:** 2026-07-27
 **Status:** Approved (brainstorm 2026-07-27)
 **Repo:** `Anglesite/Anglesite-app` (app-only; no MCP or worker-catalog schema changes)
+**Issue:** #1040
 
 ## Context
 
