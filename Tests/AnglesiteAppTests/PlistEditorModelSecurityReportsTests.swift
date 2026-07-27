@@ -276,6 +276,46 @@ struct PlistEditorModelSecurityReportsTests {
         #expect(model.securityReportingError != nil)
     }
 
+    @Test("a first-ever failed check on an already-configured repo leaves the state flagged unknown")
+    func firstCheckFailureLeavesStateUnknown() async throws {
+        let fake = FakeRepoSecurity(readFailure: .network)
+        let model = try makeModel(
+            config: "SECURITY_CONTACT=https://github.com/acme/site/security/advisories/new\n",
+            repoSecurity: fake)
+        await model.load()
+        await model.refreshRepoSecurityState()
+        // Derived purely from the local contacts list, so a failed network check still lands here.
+        #expect(model.securityReportingReadiness == .alreadyConfigured)
+        // But neither sub-flag was ever populated by a successful check — the view must not warn
+        // about visibility or PVR state from these unpopulated `false` defaults.
+        #expect(!model.securityReportingStateIsKnown)
+        #expect(model.securityReportingError != nil)
+    }
+
+    @Test("a later failure after a successful check keeps the last known values")
+    func laterFailureKeepsLastKnownValues() async throws {
+        let fake = FakeRepoSecurity(privateRepo: false, pvr: true)
+        let model = try makeModel(
+            config: "SECURITY_CONTACT=https://github.com/acme/site/security/advisories/new\n",
+            repoSecurity: fake)
+        await model.load()
+        await model.refreshRepoSecurityState()
+        #expect(model.securityReportingReadiness == .alreadyConfigured)
+        #expect(model.securityReportingStateIsKnown)
+        #expect(!model.securityReportingRepoIsPrivate)
+        #expect(model.securityReportingPVREnabled)
+
+        await fake.setReadFailure(.network)
+        await model.refreshRepoSecurityState()
+        #expect(model.securityReportingReadiness == .alreadyConfigured)
+        // The last known values survive the failed check rather than reverting to unpopulated
+        // defaults — a stale-but-true fact beats a fresh-but-wrong one here.
+        #expect(model.securityReportingStateIsKnown)
+        #expect(!model.securityReportingRepoIsPrivate)
+        #expect(model.securityReportingPVREnabled)
+        #expect(model.securityReportingError != nil)
+    }
+
     @Test("flushBeforeLeaving saves a dirty security-reporting facet instead of discarding it")
     func flushBeforeLeavingSavesSecurityReporting() async throws {
         let model = try makeModel()

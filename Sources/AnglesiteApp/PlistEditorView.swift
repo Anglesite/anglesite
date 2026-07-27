@@ -554,18 +554,29 @@ struct PlistEditorView: View {
                             .font(.callout)
                         Link("Open the advisory form", destination: SecurityReportingAsset.advisoryURL(for: repo))
                             .font(.callout)
-                        if model.securityReportingRepoIsPrivate {
-                            Label("\(repo.owner)/\(repo.name) is now private, so researchers outside it can't reach this form. Make the repository public, or publish a different contact.", systemImage: "exclamationmark.triangle.fill")
+                        if model.securityReportingStateIsKnown {
+                            if model.securityReportingRepoIsPrivate {
+                                Label("\(repo.owner)/\(repo.name) is now private, so researchers outside it can't reach this form. Make the repository public, or publish a different contact.", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.callout)
+                                    .foregroundStyle(.orange)
+                            }
+                            if !model.securityReportingPVREnabled {
+                                Label("\(repo.owner)/\(repo.name) has private vulnerability reporting turned off, so this form can't accept reports yet. Turn it on, or publish a different contact.", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.callout)
+                                    .foregroundStyle(.orange)
+                                Button("Enable Private Reporting") { isConfirmingEnablePVRForConfiguredRepo = true }
+                                    .buttonStyle(.bordered)
+                                    .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting || model.isAdoptingAdvisoryForm)
+                            }
+                        } else {
+                            // A check has never succeeded for this repo (first-ever check failed, or
+                            // the remote just changed) — `securityReportingRepoIsPrivate`/
+                            // `securityReportingPVREnabled` are still unpopulated `false` defaults, so
+                            // rendering either warning above would assert state nobody actually
+                            // observed. The "couldn't check" error banner below already explains why.
+                            Text("Couldn't confirm \(repo.owner)/\(repo.name)'s visibility or private-reporting status on the last check.")
                                 .font(.callout)
-                                .foregroundStyle(.orange)
-                        }
-                        if !model.securityReportingPVREnabled {
-                            Label("\(repo.owner)/\(repo.name) has private vulnerability reporting turned off, so this form can't accept reports yet. Turn it on, or publish a different contact.", systemImage: "exclamationmark.triangle.fill")
-                                .font(.callout)
-                                .foregroundStyle(.orange)
-                            Button("Enable Private Reporting") { isConfirmingEnablePVRForConfiguredRepo = true }
-                                .buttonStyle(.bordered)
-                                .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting || model.isAdoptingAdvisoryForm)
+                                .foregroundStyle(.secondary)
                         }
                     case .ready:
                         Text("\(repo.owner)/\(repo.name) accepts private vulnerability reports. Routing reports there keeps them out of public issues and off your inbox.")

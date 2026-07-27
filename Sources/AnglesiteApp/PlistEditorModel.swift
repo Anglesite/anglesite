@@ -64,6 +64,13 @@ final class PlistEditorModel {
     /// this to warn an owner whose published contact routes to a form the repo can't receive —
     /// e.g. PVR was never turned on, or was switched off on github.com after the contact was set.
     private(set) var securityReportingPVREnabled = false
+    /// True once `securityReportingRepoIsPrivate`/`securityReportingPVREnabled` have actually been
+    /// populated by a successful check of the *current* repo. `recordCheckFailure(...)` can put
+    /// readiness at `.alreadyConfigured` from the local contacts list alone, with no network call
+    /// — so on a first-ever failed check (or after the remote changes), those two flags are still
+    /// their unpopulated `false` defaults. The view must not render either sub-warning from that
+    /// unpopulated data, which would assert PVR/visibility state nobody actually observed.
+    private(set) var securityReportingStateIsKnown = false
     private let repoSecurity: any RepoSecurityReading & RepoSecurityWriting
     private let gitRunner: BackupCommand.GitRunner
     private let githubToken: @Sendable () throws -> String?
@@ -415,6 +422,9 @@ final class PlistEditorModel {
         securityReportingError = nil
 
         let repo = await currentRemoteRepo()
+        if repo != securityReportingRepo {
+            securityReportingStateIsKnown = false
+        }
         securityReportingRepo = repo
         guard let repo else {
             securityReportingReadiness = .notGitHub
@@ -443,6 +453,7 @@ final class PlistEditorModel {
                 owner: repo.owner, name: repo.name, token: token)
             securityReportingRepoIsPrivate = isPrivate
             securityReportingPVREnabled = pvrEnabled
+            securityReportingStateIsKnown = true
             securityReportingReadiness = .evaluate(
                 repo: repo, isPrivate: isPrivate, pvrEnabled: pvrEnabled,
                 contacts: securityReportingSettings.contacts)

@@ -793,6 +793,16 @@
     "Couldn't complete that action" : {
 
     },
+    "Couldn't confirm %@/%@'s visibility or private-reporting status on the last check." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't confirm %1$@/%2$@'s visibility or private-reporting status on the last check."
+          }
+        }
+      }
+    },
     "Couldn't finish setup" : {
 
     },
