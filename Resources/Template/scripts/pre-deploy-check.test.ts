@@ -420,3 +420,32 @@ test("checkEmbedMedia: an unquoted src value does not swallow a following href",
 test("checkEmbedMedia: an href with a real listed host is never flagged", () => {
   assert.deepEqual(checkEmbedMedia('<a href="https://pbs.twimg.com/media/x.jpg">original</a>', "f.html"), []);
 });
+
+// Regression guard for #682 finding (round 2): the per-occurrence rewrite's host check used
+// JS `includes`, which is case-sensitive, so an upper-cased hostname (accidental paste, or a CMS
+// that changes case) slipped through even though DNS hostnames are case-insensitive.
+test("checkEmbedMedia: an upper-case host in src is flagged", () => {
+  const issues = checkEmbedMedia('<img src="https://PBS.TWIMG.COM/media/x.jpg">', "f.html");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].category, "embed-media-hotlink");
+});
+
+test("checkEmbedMedia: a mixed-case host in src is flagged", () => {
+  const issues = checkEmbedMedia('<img src="https://Pbs.TwImg.CoM/media/x.jpg">', "f.html");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].category, "embed-media-hotlink");
+});
+
+test("checkEmbedMedia: an upper-case host in srcset is flagged", () => {
+  const issues = checkEmbedMedia('<img srcset="https://PBS.TWIMG.COM/a.jpg 1x">', "f.html");
+  assert.equal(issues.length, 1);
+});
+
+test("checkEmbedMedia: an upper-case host in a CSS url() is flagged", () => {
+  const issues = checkEmbedMedia("a{background:url(https://CDN.BSKY.APP/x.png)}", "f.css");
+  assert.equal(issues.length, 1);
+});
+
+test("checkEmbedMedia: an upper-case host in href is still not flagged", () => {
+  assert.deepEqual(checkEmbedMedia('<a href="https://PBS.TWIMG.COM/media/x.jpg">original</a>', "f.html"), []);
+});

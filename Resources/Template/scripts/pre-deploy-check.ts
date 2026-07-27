@@ -78,6 +78,10 @@ const BLOCKED_ROUTES = [/\/keystatic(?:\/|$)/i, /\/api\/keystatic/i];
  * generic host already substring-matches every subdomain of it — a redundant, more-specific pair
  * doesn't catch anything extra, and previously caused a single hotlinked URL to be double-reported
  * once per matching entry (see the checkEmbedMedia doc comment for how that's guarded against now).
+ *
+ * Invariant: every entry must stay lower-case — checkEmbedMedia lower-cases the matched URL
+ * value before comparing against this list (hostnames are case-insensitive by DNS definition,
+ * but JS string `includes` is not), so an upper-case entry here would never match.
  */
 const EMBED_MEDIA_HOSTS = [
   "pbs.twimg.com",
@@ -188,7 +192,7 @@ export function checkEmbedMedia(content: string, file: string): Issue[] {
   let m: RegExpExecArray | null;
   while ((m = urlContextPattern.exec(content)) !== null) {
     const value = m[1] ?? m[2] ?? m[3] ?? m[4] ?? m[5] ?? m[6] ?? "";
-    const host = EMBED_MEDIA_HOSTS.find((h) => value.includes(h));
+    const host = EMBED_MEDIA_HOSTS.find((h) => value.toLowerCase().includes(h));
     if (host) {
       issues.push({
         severity: "error",
