@@ -1,0 +1,67 @@
+---
+// One <li class="h-entry"> for a collection index or /timeline/ page. Titled entries (articles,
+// albums, and titled bookmarks) render as a linked headline, matching `blog/index.astro`'s
+// spirit; title-less entries (notes, photos, replies, likes, and title-less bookmarks) render
+// their full body inline via `render(entry)`'s `<Content />` — the page-side equivalent of what
+// `feed-data.ts` does with markdown-remark for feeds. Do NOT redesign `Hentry.astro`: this is a
+// separate, list-context rendering of the same entries, not a replacement for their own
+// `/<collection>/<id>/` page.
+import type { IndexItem } from "../lib/collection-index-astro.ts";
+import { tagSlug } from "../lib/tags.ts";
+import DraftBadge from "./DraftBadge.astro";
+
+interface Props {
+  item: IndexItem;
+}
+
+const { item } = Astro.props;
+const { Content } = item;
+const iso = item.date.toISOString();
+const human = item.date.toLocaleDateString("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  timeZone: "UTC",
+});
+---
+
+<li class="h-entry">
+  <DraftBadge draft={item.draft} />
+  {
+    item.title ? (
+      <>
+        <a class="p-name u-url" href={item.permalink}>{item.title}</a>{" "}
+        <time class="dt-published" datetime={iso}>{human}</time>
+        {item.summary && <p class="p-summary">{item.summary}</p>}
+      </>
+    ) : (
+      <>
+        {item.image && <img class="u-photo" src={item.image} alt={item.caption ?? ""} />}
+        {(item.summary ?? item.caption) && <p class="p-summary">{item.summary ?? item.caption}</p>}
+        <div class="e-content">
+          {item.hasBody ? (
+            <Content />
+          ) : item.targetUrl && item.targetClass ? (
+            <a class={item.targetClass} href={item.targetUrl}>{item.targetUrl}</a>
+          ) : (
+            <Content />
+          )}
+        </div>
+        <a class="u-url" href={item.permalink}>
+          <time class="dt-published" datetime={iso}>{human}</time>
+        </a>
+      </>
+    )
+  }
+  {
+    item.tags && item.tags.length > 0 && (
+      <ul class="tags">
+        {item.tags.map((t) => (
+          <li>
+            <a class="p-category" href={`/tags/${tagSlug(t)}/`}>{t}</a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</li>
