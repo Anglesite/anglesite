@@ -50,6 +50,36 @@ public enum ContentScaffold {
         "src/content/\(collection)/\(slug).md"
     }
 
+    /// Derive a slug from a target URL, for content types with no title field to slugify — `reply`
+    /// and `like` are identified by what they point at, not by a name (#916).
+    ///
+    /// `yyyy-MM-dd` (UTC, same clock and formatter family `renderEntry` uses) + the host with a
+    /// leading `www.` dropped + the last non-empty path component, all through `slugify`. Query and
+    /// fragment are ignored. The date prefix keeps entries chronologically sortable and makes
+    /// collisions practically impossible — two replies to the same URL on the same day — while
+    /// keeping the permalink descriptive; it matches the IndieWeb convention for replies and likes.
+    ///
+    /// Returns `""` when `value` has no host, so callers fall back to their own default rather than
+    /// producing a date-only slug that says nothing about the entry.
+    public static func slugFromURL(_ value: String, now: Date) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: trimmed),
+              let host = components.host, !host.isEmpty
+        else { return "" }
+
+        let bareHost = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        let lastSegment = components.path
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .last
+            .map(String.init) ?? ""
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let day = String(formatter.string(from: now).prefix(10))
+
+        return slugify([day, bareHost, lastSegment].filter { !$0.isEmpty }.joined(separator: "-"))
+    }
+
     public static func singletonRelativePath(slot: String) -> String {
         "src/data/\(slot).json"
     }

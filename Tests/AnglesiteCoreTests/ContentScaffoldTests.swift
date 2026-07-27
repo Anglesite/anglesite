@@ -282,4 +282,30 @@ struct ContentScaffoldTests {
             }
         }
     }
+
+    @Test("slugFromURL combines the UTC date, host, and last path segment")
+    func slugFromURLShape() {
+        // 1_750_000_000 == 2025-06-15T15:06:40Z
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        #expect(ContentScaffold.slugFromURL("https://example.com/blog/hello-world", now: now)
+                == "2025-06-15-example-com-hello-world")
+        #expect(ContentScaffold.slugFromURL("https://www.example.com/a/b/", now: now)
+                == "2025-06-15-example-com-b")
+        #expect(ContentScaffold.slugFromURL("https://example.com/", now: now)
+                == "2025-06-15-example-com")
+        #expect(ContentScaffold.slugFromURL("https://example.com", now: now)
+                == "2025-06-15-example-com")
+        // Query and fragment are not part of the slug.
+        #expect(ContentScaffold.slugFromURL("https://example.com/post?utm=x#frag", now: now)
+                == "2025-06-15-example-com-post")
+    }
+
+    @Test("slugFromURL returns empty for a value with no host, so callers can fall back")
+    func slugFromURLNoHost() {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        #expect(ContentScaffold.slugFromURL("", now: now).isEmpty)
+        #expect(ContentScaffold.slugFromURL("not a url", now: now).isEmpty)
+        #expect(ContentScaffold.slugFromURL("/relative/path", now: now).isEmpty)
+        #expect(ContentScaffold.slugFromURL("mailto:a@b.c", now: now).isEmpty)
+    }
 }
