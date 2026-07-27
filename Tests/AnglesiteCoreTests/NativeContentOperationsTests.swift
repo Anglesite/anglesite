@@ -212,6 +212,22 @@ struct NativeContentOperationsTests {
         #expect(written.contains("title: \"Cool post\""))
     }
 
+    @Test("createTyped persists a required URL trimmed, not the raw supplied value")
+    func createTypedPersistsTrimmedRequiredURL() async throws {
+        let (ops, root, _) = makeOps()
+        // Surrounding whitespace (including a trailing newline) passes ContentFieldValidation's
+        // trimmed check, but the raw value must never reach disk: escapeYAML doesn't escape
+        // newlines, so persisting the untrimmed original would split the frontmatter (#916
+        // follow-up). The written line must be exactly the clean, trimmed URL.
+        let result = await ops.createTyped(
+            siteID: "s1", typeID: "bookmark", title: "Cool post", slug: nil,
+            fieldValues: ["bookmarkOf": "  https://example.com/post\n"])
+        #expect(result == .created(filePath: "src/content/bookmarks/cool-post.md", identifier: "cool-post"))
+        let written = try String(
+            contentsOf: root.appendingPathComponent("src/content/bookmarks/cool-post.md"), encoding: .utf8)
+        #expect(written.contains("bookmarkOf: \"https://example.com/post\"\n"))
+    }
+
     @Test("a titleless type with no title derives its slug from the target URL")
     func createTypedDerivesSlugFromURL() async {
         let (ops, _, spy) = makeOps()   // now == 2025-06-15T15:06:40Z

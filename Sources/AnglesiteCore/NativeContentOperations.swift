@@ -164,8 +164,18 @@ public struct NativeContentOperations: ContentOperationsService {
             return .failed(reason: "\(typeID) is not a collection type; use createTypedSingleton")
         }
 
+        // Trimmed copy of `fieldValues`, built alongside the validation loop below: `.url` values
+        // are trimmed here for both the guard and everything downstream, so the value that gets
+        // validated is exactly the value that gets rendered and slugged — not the raw, untrimmed
+        // input. Without this, a value like `"https://example.com/post\n"` passes validation (via
+        // its trimmed copy) but the untrimmed original — which `ContentScaffold.escapeYAML` doesn't
+        // clean up — is what reaches the file, splitting the YAML frontmatter (#916 follow-up).
+        var trimmedFieldValues = fieldValues
         for field in descriptor.fields where field.kind == .url {
             let supplied = fieldValues[field.name]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let supplied {
+                trimmedFieldValues[field.name] = supplied
+            }
             if field.required {
                 guard let supplied, ContentFieldValidation.isAbsoluteURL(supplied) else {
                     return .failed(reason:
@@ -178,6 +188,9 @@ public struct NativeContentOperations: ContentOperationsService {
             }
         }
 
+        // Single-sourced so the slug date and `publishDate` can never disagree across a UTC
+        // midnight boundary between the two `now()` calls this used to be.
+        let createdAt = now()
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSlug = (slug ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         // Slug precedence: explicit → title → target URL → type id. The URL step is what gives
@@ -185,8 +198,8 @@ public struct NativeContentOperations: ContentOperationsService {
         // (#916); it uses the first required `.url` field in declaration order, which is the only
         // one each of bookmark/reply/like declares.
         let urlSlug = descriptor.requiredURLFields.first
-            .flatMap { fieldValues[$0.name] }
-            .map { ContentScaffold.slugFromURL($0, now: now()) } ?? ""
+            .flatMap { trimmedFieldValues[$0.name] }
+            .map { ContentScaffold.slugFromURL($0, now: createdAt) } ?? ""
         let slugSource = [cleanSlug, cleanTitle, urlSlug].first { !$0.isEmpty } ?? descriptor.id
         let finalSlug = ContentScaffold.slugify(slugSource)
         guard !finalSlug.isEmpty else { return .failed(reason: "createTyped could not derive a slug") }
@@ -200,8 +213,8 @@ public struct NativeContentOperations: ContentOperationsService {
         // No `.createCallingPlugin` here: this is a native Swift write with no plugin involved.
         // `.createFinalizing` (below) covers the write + commit milestone honestly.
         let contents = ContentScaffold.renderEntry(
-            descriptor: descriptor, title: cleanTitle.isEmpty ? nil : cleanTitle, now: now(),
-            fieldValues: fieldValues)
+            descriptor: descriptor, title: cleanTitle.isEmpty ? nil : cleanTitle, now: createdAt,
+            fieldValues: trimmedFieldValues)
         do { try write(contents, to: abs) }
         catch { return .failed(reason: "\(error)") }
 
