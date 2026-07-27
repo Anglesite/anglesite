@@ -1497,7 +1497,7 @@ Expected: `✓ wrote …/src/embeds/<slug>.json`. Then confirm the privacy invar
 grep -c "https://" src/embeds/*.json
 ```
 
-Expected: `1` — the only absolute URL in the file is the post's own permalink (`"url"`); the X adapter carries no avatar or media, so there is nothing else to localize.
+Expected: `2` — the post's own permalink (`"url"`) and the author's profile link (`"author.url"`). The X adapter carries no avatar or media, so those two are the only absolute URLs in the file; a profile link is a citation, not a loaded subresource, so it's outside the privacy invariant, which covers only `author.avatar` and `media[].src`.
 
 - [ ] **Step 8: Remove the scratch snapshot**
 
