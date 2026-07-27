@@ -2,8 +2,10 @@
 import type { CollectionEntry } from "astro:content";
 import { Schema } from "astro-seo-schema";
 import { entrySchema } from "../lib/schema.ts";
+import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
+import LicenseLink from "../components/LicenseLink.astro";
 import Interactions from "../components/Interactions.astro";
 
 interface Props {
@@ -21,10 +23,11 @@ const human = publishedDate?.toLocaleDateString("en-US");
 // text content, smashing item/rating/body together. Generate one from the reviewed item.
 const reviewName = `Review of ${d.itemReviewed}`;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
-const jsonLd = entrySchema("reviews", entry.data, { url: canonical, site: Astro.site });
+const license = licenseFor("reviews");
+const jsonLd = entrySchema("reviews", entry.data, { url: canonical, site: Astro.site, license: license?.url });
 ---
 
-<BaseLayout title={reviewName}>
+<BaseLayout title={reviewName} license={license}>
   {jsonLd && <Schema slot="head" item={jsonLd} />}
   <article class="h-review">
     <h1 class="p-name">{reviewName}</h1>
@@ -35,6 +38,7 @@ const jsonLd = entrySchema("reviews", entry.data, { url: canonical, site: Astro.
     <a class="u-url" href={Astro.url.pathname}>
       {iso && <time class="dt-published" datetime={iso}>{human}</time>}
     </a>
+    <LicenseLink license={license} />
     <SyndicationLinks urls={d.syndication} />
     <Interactions canonical={canonical} />
   </article>

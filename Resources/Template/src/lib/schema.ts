@@ -35,6 +35,12 @@ export interface SchemaContext {
   site?: URL;
   /** Site owner's name (from `src/data/profile.json`), used as the `author` of Article/BlogPosting. */
   authorName?: string;
+  /**
+   * Canonical URL of the license applying to this entry (#689), from `licenseFor()`.
+   * Undefined means assert nothing — `clean()` drops the property entirely.
+   * Only set on CreativeWork types; `Event` has no `license` property in schema.org.
+   */
+  license?: string;
 }
 
 /** Flattened union of the h-entry collections' frontmatter — every field optional. */
@@ -141,6 +147,7 @@ function hentrySchema(
         datePublished,
         dateModified: iso(d.updated),
         keywords,
+        license: ctx.license,
         url: ctx.url,
       });
     case "announcements":
@@ -150,6 +157,7 @@ function hentrySchema(
         headline: d.title,
         author: authorOf(ctx),
         datePublished,
+        license: ctx.license,
         url: ctx.url,
       });
     case "notes":
@@ -158,6 +166,7 @@ function hentrySchema(
         "@type": "SocialMediaPosting",
         datePublished,
         keywords,
+        license: ctx.license,
         url: ctx.url,
       });
     case "photos":
@@ -168,6 +177,7 @@ function hentrySchema(
         caption: d.caption,
         datePublished,
         keywords,
+        license: ctx.license,
         url: ctx.url,
       });
     case "albums":
@@ -177,6 +187,7 @@ function hentrySchema(
         name: d.title,
         datePublished,
         keywords,
+        license: ctx.license,
         url: ctx.url,
         image: (d.images ?? []).map((src) => abs(src, ctx.site)).filter((s): s is string => !!s),
       });
@@ -187,6 +198,7 @@ function hentrySchema(
         name: d.title,
         datePublished,
         keywords,
+        license: ctx.license,
         url: ctx.url,
         relatedLink: d.bookmarkOf,
       });
@@ -195,6 +207,7 @@ function hentrySchema(
         "@context": CONTEXT,
         "@type": "Comment",
         datePublished,
+        license: ctx.license,
         url: ctx.url,
         about: d.inReplyTo ? { "@type": "WebPage", url: d.inReplyTo } : undefined,
       });
@@ -226,6 +239,7 @@ function reviewSchema(d: ReviewData, ctx: SchemaContext): WithContext<Review> {
     reviewRating:
       d.rating !== undefined ? { "@type": "Rating", ratingValue: d.rating } : undefined,
     datePublished: iso(d.publishDate),
+    license: ctx.license,
     url: ctx.url,
   });
 }
@@ -254,6 +268,7 @@ export function blogPostingSchema(d: BlogData, ctx: SchemaContext): WithContext<
     description: d.description,
     author: authorOf(ctx),
     datePublished: iso(d.pubDate),
+    license: ctx.license,
     url: ctx.url,
   });
 }

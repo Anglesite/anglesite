@@ -51,3 +51,14 @@ test("readConfigFromString: WEBMENTION_RECEIVE_ENABLED is undefined when absent"
     undefined,
   );
 });
+
+test("readConfigFromString: reads COPYRIGHT_HOLDER", () => {
+  assert.equal(
+    readConfigFromString("SITE_NAME=Acme\nCOPYRIGHT_HOLDER=Ada Lovelace\n", "COPYRIGHT_HOLDER"),
+    "Ada Lovelace",
+  );
+});
+
+test("readConfigFromString: COPYRIGHT_HOLDER is undefined when absent", () => {
+  assert.equal(readConfigFromString("SITE_NAME=Acme\n", "COPYRIGHT_HOLDER"), undefined);
+});

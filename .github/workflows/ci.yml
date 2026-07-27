@@ -126,11 +126,11 @@ jobs:
       - run: npm test
 
   template-worker:
-    name: Template Worker (build/test)
+    name: Template (build/test)
     needs: changes
     if: needs.changes.outputs.template == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: Resources/Template
@@ -142,10 +142,12 @@ jobs:
           cache: npm
           cache-dependency-path: Resources/Template/package-lock.json
       - run: npm ci --no-audit --no-fund
+      # The template's node:test suites had no CI lane at all — the `.well-known` design doc
+      # calls that out explicitly. `test:worker` is vitest/workerd only. `npm test` covers every
+      # node:test suite (scripts/ plus src/); `test:scripts` stays in package.json as the fast
+      # scripts-only subset for local iteration, but running it here too would be redundant.
+      - run: npm test
       - run: npm run test:worker
-      # The template's node:test suites (scripts/*.test.ts) had no CI lane at all — the
-      # `.well-known` design doc calls that out explicitly. `test:worker` is vitest/workerd only.
-      - run: npm run test:scripts
       - run: npm run build
 
   help-book-links:

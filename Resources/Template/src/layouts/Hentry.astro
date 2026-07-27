@@ -4,9 +4,11 @@ import { Schema } from "astro-seo-schema";
 import type { HentryCollection } from "../lib/collections.ts";
 import { entrySchema, type HentryData } from "../lib/schema.ts";
 import { ownerName } from "../lib/profile.ts";
+import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
+import LicenseLink from "../components/LicenseLink.astro";
 import EmbedCard from "../components/EmbedCard.astro";
 import { snapshotKey } from "../../scripts/embeds/adapters";
 import { loadAllSnapshots } from "../../scripts/embeds/store";
@@ -46,10 +48,12 @@ const tags: string[] = Array.isArray(d.tags) ? d.tags : [];
 // schema.org JSON-LD twin of the mf2 markup (V-1.8). `entry.collection` discriminates which
 // h-entry vocabulary this is; `entrySchema` returns null for likes (no rich-result type).
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
+const license = licenseFor(entry.collection);
 const jsonLd = entrySchema(entry.collection, entry.data as HentryData, {
   url: canonical,
   site: Astro.site,
   authorName: ownerName(),
+  license: license?.url,
 });
 
 // Reply context (#682). Snapshots are read from src/embeds/ — committed, never fetched. With no
@@ -65,7 +69,7 @@ const replyCite = cited(d.inReplyTo);
 const likeCite = cited(d.likeOf);
 ---
 
-<BaseLayout title={title ?? "Post"} description={d.summary}>
+<BaseLayout title={title ?? "Post"} description={d.summary} license={license}>
   {jsonLd && <Schema slot="head" item={jsonLd} />}
   <article class="h-entry">
     <DraftBadge draft={d.draft} />
@@ -93,6 +97,7 @@ const likeCite = cited(d.likeOf);
         {tags.map((t) => <li><a class="p-category" href={`/tags/${t}`}>{t}</a></li>)}
       </ul>
     )}
+    <LicenseLink license={license} />
     <SyndicationLinks urls={d.syndication} />
     <Interactions canonical={canonical} />
   </article>

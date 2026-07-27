@@ -1,0 +1,15 @@
+---
+// The entry's license, as Microformats2 `u-license` (#689). Rendered by the four entry
+// layouts; a null license renders nothing, which is how a non-asserting collection stays
+// silent. `rel="license"` is deliberate — it makes the anchor meaningful to plain HTML
+// consumers as well as to mf2 parsers.
+import type { LicenseRef } from "../lib/licensing.ts";
+
+interface Props {
+  license: LicenseRef | null;
+}
+
+const { license } = Astro.props;
+---
+
+{license && <a class="u-license" href={license.url} rel="license">{license.name}</a>}
