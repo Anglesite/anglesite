@@ -60,13 +60,13 @@ export function contentSignalDirective(usage: AIUsage): string | undefined {
  */
 export function readLicensingUsage(cwd: string): { usage: AIUsage; clamped: boolean } {
   const path = resolve(cwd, "src/data/licensing.json");
-  if (!existsSync(path)) return { usage: NO_USAGE, clamped: false };
+  if (!existsSync(path)) return { usage: { ...NO_USAGE }, clamped: false };
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(path, "utf-8"));
   } catch {
     console.log("src/data/licensing.json is not valid JSON — no AI usage policy applied to robots.txt.");
-    return { usage: NO_USAGE, clamped: false };
+    return { usage: { ...NO_USAGE }, clamped: false };
   }
   const usage = normalizePolicy(raw).usage;
   const requested = (raw as { usage?: { blockAICrawlers?: unknown } })?.usage?.blockAICrawlers === true;

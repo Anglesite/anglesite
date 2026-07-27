@@ -166,7 +166,7 @@ function toLicenseRef(raw: unknown): LicenseRef | null {
 /**
  * Parse a hand-edited `licensing.json` defensively. Unrecognized collection keys and
  * malformed license refs are dropped rather than passed through, matching how
- * `edge-artifacts.ts`'s `normalizeContentSignal` treats a typo'd config value.
+ * `normalizeUsage` and `edge-artifacts.ts`'s `readLicensingUsage` treat typo'd config values.
  */
 export function normalizePolicy(raw: unknown): LicensingPolicy {
   const policy: LicensingPolicy = { default: null, collections: {}, usage: { ...NO_USAGE } };
