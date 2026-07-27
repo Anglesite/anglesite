@@ -66,7 +66,10 @@ public enum ExperimentStats {
 
     /// Compare `treatment` against `control` under a Beta-Binomial model with uniform priors.
     ///
-    /// - Parameter confidenceThreshold: probability at which a side is declared the winner.
+    /// - Parameters:
+    ///   - control: The control variant's impression/conversion counts.
+    ///   - treatment: The treatment variant's impression/conversion counts.
+    ///   - confidenceThreshold: probability at which a side is declared the winner.
     public static func analyze(
         control: Variant,
         treatment: Variant,

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Pure link-graph analysis over ``SiteKnowledgeIndex`` documents. No embeddings, no actors —
-/// reads ``Document.internalLinks`` to surface structural linking issues.
+/// reads ``SiteKnowledgeIndex/Document/internalLinks`` to surface structural linking issues.
 public enum LinkGraph {
     /// A missing reciprocal link: `sourcePath` is the page that should add a link,
     /// `targetPath` is the page it should link back to.

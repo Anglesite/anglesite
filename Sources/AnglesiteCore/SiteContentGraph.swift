@@ -193,11 +193,16 @@ public actor SiteContentGraph {
     /// other siteIDs are untouched. Always emits a change for `siteID`, unless discarded by
     /// the `generation` guard below.
     ///
-    /// - Parameter generation: A token from `beginScan(siteID:)`. When provided, this call is
-    ///   silently discarded (no state change, no emit) if a newer scan has since claimed a
-    ///   later generation for `siteID` — see `beginScan` (#666). `nil` (the default) skips the
-    ///   guard entirely, applying unconditionally; used by incremental/test callers that don't
-    ///   participate in the scan-race fence.
+    /// - Parameters:
+    ///   - siteID: The site whose entries are being replaced.
+    ///   - pages: The site's full new page payload.
+    ///   - posts: The site's full new post payload.
+    ///   - images: The site's full new image payload.
+    ///   - generation: A token from `beginScan(siteID:)`. When provided, this call is
+    ///     silently discarded (no state change, no emit) if a newer scan has since claimed a
+    ///     later generation for `siteID` — see `beginScan` (#666). `nil` (the default) skips the
+    ///     guard entirely, applying unconditionally; used by incremental/test callers that don't
+    ///     participate in the scan-race fence.
     public func load(
         siteID: String,
         pages: [Page],

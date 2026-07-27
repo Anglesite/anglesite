@@ -6,7 +6,7 @@ import Foundation
 #if compiler(>=6.4) && canImport(FoundationModels)
 import FoundationModels
 
-/// A FoundationModels ``Tool`` that lets the on-device model apply a structured edit to an element
+/// A FoundationModels `Tool` that lets the on-device model apply a structured edit to an element
 /// on a page of the current site, routing through ``IntentEditBridge`` (and on to the plugin's
 /// edit pipeline). Reuses ``GeneratedEditCommand`` (#154) as its arguments so the model speaks one
 /// edit vocabulary.

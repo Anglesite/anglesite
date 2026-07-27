@@ -34,12 +34,12 @@ import Foundation
 ///
 /// - **Redo works here** (unlike #527, whose reverse-apply is a sidecar git revert with no
 ///   re-apply primitive). See ``register(_:)`` for the ordering that makes it work with an
-///   asynchronous applier.
+///   asynchronous applier. (`perform(_:)` is the private popped-record apply path.)
 /// - **Failure re-arms ⌘Z.** `UndoManager` pops the entry synchronously the instant ⌘Z fires,
 ///   long before the async apply resolves. On ``ApplyOutcome/failed`` the optimistically-registered
 ///   inverse is removed and, for a failed undo, the original record re-registered — the same shape
 ///   ``EditUndoCoordinator`` uses for its retryable outcome. A failed *redo* can only be dropped;
-///   see ``perform(_:)``.
+///   see `perform(_:)`.
 /// - **Out-of-band invalidation.** Each record registers against its own private token target, so
 ///   ``invalidate(id:)`` removes exactly one record (`removeAllActions(withTarget:)` on that
 ///   token) rather than clearing the stack. ``invalidateAll()`` drops every pending record — call
@@ -83,7 +83,7 @@ public final class ContentUndoCoordinator {
         case applied
         /// The write or delete didn't happen (git refused, no site open, I/O error). The
         /// coordinator drops the inverse it optimistically pushed. A failed **undo** is then
-        /// re-registered so ⌘Z can retry; a failed **redo** is dropped — see ``perform(_:)``.
+        /// re-registered so ⌘Z can retry; a failed **redo** is dropped — see `perform(_:)`.
         case failed
     }
 

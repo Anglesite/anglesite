@@ -118,6 +118,15 @@ public enum WorkerComposition {
     ///     patterns so *only* claimed routes bypass asset-first serving — a static asset can no
     ///     longer shadow an active dynamic route, while every unclaimed path keeps Cloudflare's
     ///     asset-first fallback. Omitted entirely when there are no active dynamic routes.
+    ///   - resources: The site's provisioned Cloudflare resource IDs (D1/KV/R2/queues).
+    ///   - inboxCaptureEnabled: Whether the inbox-capture route claim is appended to `routeClaims`.
+    ///   - inboxKVNamespaceID: The inbox KV namespace ID, required when `inboxCaptureEnabled`.
+    ///   - siteURL: The site's public URL, threaded into the composed Worker's config.
+    ///   - displayName: The site's display name (`SiteSettings.displayName`, already falling back
+    ///     to the site name by the time a caller passes it in — this function stays pure and does
+    ///     no fallback of its own), threaded into the ActivityPub actor's `AP_DISPLAY_NAME` var.
+    ///     `nil` when unknown; the composed Worker's actor document then falls back to a fixed
+    ///     generic name (`worker.ts`'s concern, not this function's).
     /// - Returns: A complete wrangler.toml string.
     /// - Throws: ``ConfigError/invalidSiteName(_:)`` if `siteName` contains
     ///   characters outside `[A-Za-z0-9_-]`, or ``ConfigError/invalidRouteClaim(path:reason:)``
@@ -130,11 +139,6 @@ public enum WorkerComposition {
         inboxCaptureEnabled: Bool = false,
         inboxKVNamespaceID: String? = nil,
         siteURL: String? = nil,
-        /// The site's display name (`SiteSettings.displayName`, already falling back to the site
-        /// name by the time a caller passes it in — this function stays pure and does no
-        /// fallback of its own), threaded into the ActivityPub actor's `AP_DISPLAY_NAME` var.
-        /// `nil` when unknown; the composed Worker's actor document then falls back to a fixed
-        /// generic name (`worker.ts`'s concern, not this function's).
         displayName: String? = nil
     ) throws -> String {
         guard isValidSiteName(siteName) else {

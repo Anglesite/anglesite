@@ -12,8 +12,8 @@ import FoundationModels
 /// answer structural questions ("how is navigation generated", "why does this image appear
 /// here") that a text search over file contents can't answer.
 ///
-/// Reuses #614's per-node fact list (``SiteGraphExplainPrompt/facts(node:impact:dependsOn:referencedBy:)``)
-/// for up to ``SiteGraphAugmentedAssistant/maxSeedNodes`` nodes matched against the question's
+/// Reuses #614's per-node fact list (`SiteGraphExplainPrompt.facts(node:impact:dependsOn:referencedBy:)`)
+/// for up to `SiteGraphAugmentedAssistant.maxSeedNodes` nodes matched against the question's
 /// words. Contributes nothing when no node matches, so unrelated chat turns are unaffected.
 public actor SiteGraphAugmentedAssistant: ConversationalAssistant {
     /// Largest number of matched nodes to ground a single question in — keeps the prompt within
