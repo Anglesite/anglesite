@@ -79,32 +79,40 @@ struct SiteNavigatorView: View {
                 }
                 .task { editingFocused = true }
                 .tag(node.id)
+        } else if let url = model.fileURL(for: node.id) {
+            // Draggable out to Finder/another app (#676) — only rows backed by a single source
+            // file (today: page/post `.route` rows) qualify; see `fileURL(for:)`.
+            rowLabel(for: node).draggable(url)
         } else {
-            Label { Text(node.title) } icon: { icon(for: node) }
-                .tag(node.id)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .contextMenu {
-                    if model.canRename(node.id) {
-                        Button("Rename") { model.beginEditing(node.id) }
-                    }
-                    if model.canDuplicate(node.id), let item = model.item(for: node.id) {
-                        Button("Duplicate") { onDuplicateRequested(item) }
-                    }
-                    if model.canRepurpose(node.id), let item = model.item(for: node.id) {
-                        Button("Repurpose Post…") { onRepurposeRequested(item) }
-                    }
-                    if model.canPublish(node.id), let item = model.item(for: node.id) {
-                        Button("Publish") { onPublishRequested(item) }
-                    }
-                    if model.canUnpublish(node.id), let item = model.item(for: node.id) {
-                        Button("Unpublish") { onUnpublishRequested(item) }
-                    }
-                    if model.canDelete(node.id), let item = model.item(for: node.id) {
-                        Button("Delete", role: .destructive) { onDeleteRequested(item) }
-                    }
-                }
+            rowLabel(for: node)
         }
+    }
+
+    private func rowLabel(for node: URLTreeNode) -> some View {
+        Label { Text(node.title) } icon: { icon(for: node) }
+            .tag(node.id)
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .contextMenu {
+                if model.canRename(node.id) {
+                    Button("Rename") { model.beginEditing(node.id) }
+                }
+                if model.canDuplicate(node.id), let item = model.item(for: node.id) {
+                    Button("Duplicate") { onDuplicateRequested(item) }
+                }
+                if model.canRepurpose(node.id), let item = model.item(for: node.id) {
+                    Button("Repurpose Post…") { onRepurposeRequested(item) }
+                }
+                if model.canPublish(node.id), let item = model.item(for: node.id) {
+                    Button("Publish") { onPublishRequested(item) }
+                }
+                if model.canUnpublish(node.id), let item = model.item(for: node.id) {
+                    Button("Unpublish") { onUnpublishRequested(item) }
+                }
+                if model.canDelete(node.id), let item = model.item(for: node.id) {
+                    Button("Delete", role: .destructive) { onDeleteRequested(item) }
+                }
+            }
     }
 
     /// #714 icon table: globe (website settings) / house (home) / doc.richtext (pages, entries) /

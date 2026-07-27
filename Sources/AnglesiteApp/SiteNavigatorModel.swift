@@ -44,6 +44,11 @@ final class SiteNavigatorModel {
     /// Full post records from the last `refresh()`, so `canPublish`/`canUnpublish` (#798) can read
     /// a row's collection and current draft state without an extra actor hop.
     private var postsByID: [String: SiteContentGraph.Post] = [:]
+    /// Synchronous id → source-file cache for `.route` (page/post) rows, rebuilt with `nodes` in
+    /// `refresh()`. `.draggable(_:)`'s payload closure runs synchronously at drag-start and can't
+    /// await the graph actor, so rename/delete's `graph.page(id:)`/`graph.post(id:)` pattern
+    /// doesn't work here — this cache exists so `fileURL(for:)` can answer immediately (#676).
+    private var routeFileURLs: [String: URL] = [:]
     private let contentTypeRegistry = ContentTypeRegistry()
 
     private let graph: SiteContentGraph
@@ -94,6 +99,16 @@ final class SiteNavigatorModel {
     }
 
     func target(for id: String) -> NavigatorTarget? { nodesByID[id]?.target }
+
+    /// The `Source/`-relative file URL backing a draggable row, or nil when the row has no single
+    /// backing file (directories, website settings) or isn't a `.route` row. `NavigatorTarget` also
+    /// has a `.file(FileRef)` case, but no `URLTreeNode.Kind` currently produces it — components and
+    /// styles moved out of this tree in #714 slice 1 — so this only handles `.route` today; add a
+    /// `.file` branch returning `ref.url` if `.file` rows come back.
+    func fileURL(for id: String) -> URL? {
+        guard case .route = target(for: id) else { return nil }
+        return routeFileURLs[id]
+    }
 
     /// Bridge for callbacks that still traffic in `NavigatorItem` (delete/duplicate/repurpose
     /// plumbing in SiteWindow/SiteWindowModel predates the tree).
@@ -266,6 +281,14 @@ final class SiteNavigatorModel {
         // gate against a post set that's out of sync with what's actually shown in the sidebar.
         postIDs = Set(posts.map(\.id))
         postsByID = Dictionary(uniqueKeysWithValues: posts.map { ($0.id, $0) })
+        if let sourceDirectory {
+            var fileURLs: [String: URL] = [:]
+            for page in pages { fileURLs[page.id] = sourceDirectory.appendingPathComponent(page.filePath) }
+            for post in posts { fileURLs[post.id] = sourceDirectory.appendingPathComponent(post.filePath) }
+            routeFileURLs = fileURLs
+        } else {
+            routeFileURLs = [:]
+        }
         let tree = buildSiteURLTree(
             websiteTitle: websiteTitle, pages: pages, posts: posts, feedCollections: feeds)
         nodes = tree

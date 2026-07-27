@@ -748,6 +748,59 @@ struct SocialWorkerProvisionCommandTests {
         #expect(SiteConfigFile.value(forKey: "WEBMENTION_RECEIVE_ENABLED", in: config) == "false")
     }
 
+    @Test("Micropub writes MICROPUB_ENABLED into .site-config, gating BaseLayout.astro's rel=micropub discovery tag")
+    func micropubWritesEnabledFlag() async throws {
+        let siteDirectory = try temporaryDirectory()
+        let recorder = WranglerRecorder([
+            ["d1", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"uuid":"d1-id"}}"#, stderr: "", exitCode: 0),
+            ["r2", "bucket", "create", "my-site-media"]: .init(stdout: "Created bucket my-site-media", stderr: "", exitCode: 0),
+            ["d1", "migrations", "apply", "AUTH_DB", "--remote"]: .init(stdout: "Migrations applied", stderr: "", exitCode: 0),
+        ])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "tok" }, runner: recorder.runner,
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let indieauth = worker(WorkerComposition.indieauthWorkerID, d1: true, kv: false, r2: false)
+        let micropub = worker(WorkerComposition.micropubWorkerID, d1: true, kv: false, r2: true)
+
+        _ = await command.provision(
+            siteID: "site-1", siteDirectory: siteDirectory, siteName: "my-site",
+            workers: [indieauth, micropub], acknowledgesPaidPlan: true)
+
+        let config = try String(contentsOf: siteDirectory.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "MICROPUB_ENABLED", in: config) == "true")
+    }
+
+    @Test("deactivating Micropub reconciles MICROPUB_ENABLED back to false")
+    func micropubDeactivationReconcilesFlagToFalse() async throws {
+        let siteDirectory = try temporaryDirectory()
+        let recorder = WranglerRecorder([
+            ["d1", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"uuid":"d1-id"}}"#, stderr: "", exitCode: 0),
+            ["r2", "bucket", "create", "my-site-media"]: .init(stdout: "Created bucket my-site-media", stderr: "", exitCode: 0),
+            ["d1", "migrations", "apply", "AUTH_DB", "--remote"]: .init(stdout: "Migrations applied", stderr: "", exitCode: 0),
+        ])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "tok" }, runner: recorder.runner,
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let indieauth = worker(WorkerComposition.indieauthWorkerID, d1: true, kv: false, r2: false)
+        let micropub = worker(WorkerComposition.micropubWorkerID, d1: true, kv: false, r2: true)
+
+        _ = await command.provision(
+            siteID: "site-1", siteDirectory: siteDirectory, siteName: "my-site",
+            workers: [indieauth, micropub], acknowledgesPaidPlan: true)
+
+        let enabledConfig = try String(contentsOf: siteDirectory.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "MICROPUB_ENABLED", in: enabledConfig) == "true")
+
+        _ = await command.provision(
+            siteID: "site-1", siteDirectory: siteDirectory, siteName: "my-site",
+            workers: [indieauth], acknowledgesPaidPlan: true)
+
+        let disabledConfig = try String(contentsOf: siteDirectory.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "MICROPUB_ENABLED", in: disabledConfig) == "false")
+    }
+
     @Test("websub worker without paid-plan acknowledgment returns the confirmation-needed gate, no wrangler call")
     func websubWithoutAcknowledgmentBlocksBeforeAnyCall() async throws {
         let site = try temporaryDirectory()
