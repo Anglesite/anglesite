@@ -20,6 +20,7 @@ public struct ContentCreationWorkflow: ContentOperationsService {
         _ typeID: String,
         _ title: String,
         _ slug: String?,
+        _ fieldValues: [String: String],
         _ onProgress: ProgressHandler?
     ) async -> ContentCreateResult
     public typealias ContentDeleter = @Sendable (_ siteID: String, _ relativePath: String) async -> ContentDeleteResult
@@ -102,12 +103,13 @@ public struct ContentCreationWorkflow: ContentOperationsService {
                     onProgress: onProgress
                 )
             },
-            typedSlugCreator: { siteID, typeID, title, slug, onProgress in
+            typedSlugCreator: { siteID, typeID, title, slug, fieldValues, onProgress in
                 await native.createTyped(
                     siteID: siteID,
                     typeID: typeID,
                     title: title,
                     slug: slug,
+                    fieldValues: fieldValues,
                     onProgress: onProgress
                 )
             },
@@ -210,16 +212,20 @@ public struct ContentCreationWorkflow: ContentOperationsService {
         return result
     }
 
+    /// `fieldValues` carries values collected before the write (required `.url` fields — #916). It
+    /// reaches `NativeContentOperations` only through `typedSlugCreator`; the `operations` fallback
+    /// is the title-only `ContentOperationsService` witness and necessarily drops them.
     public func createTyped(
         siteID: String,
         typeID: String,
         title: String,
         slug: String?,
+        fieldValues: [String: String] = [:],
         onProgress: ProgressHandler? = nil
     ) async -> ContentCreateResult {
         let result: ContentCreateResult
         if let typedSlugCreator {
-            result = await typedSlugCreator(siteID, typeID, title, slug, onProgress)
+            result = await typedSlugCreator(siteID, typeID, title, slug, fieldValues, onProgress)
         } else {
             result = await operations.createTyped(
                 siteID: siteID,

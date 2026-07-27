@@ -159,7 +159,7 @@ struct ContentCreationWorkflowTests {
             contentGraph: graph,
             knowledgeIndex: knowledgeIndex,
             siteDirectory: { _ in root },
-            typedSlugCreator: { siteID, typeID, title, slug, _ in
+            typedSlugCreator: { siteID, typeID, title, slug, _, _ in
                 await operations.createTyped(siteID: siteID, typeID: typeID, title: title, slug: slug)
             }
         )
@@ -424,6 +424,39 @@ struct ContentCreationWorkflowTests {
 
         guard case .failed = result else { Issue.record("expected .failed, got \(result)"); return }
     }
+
+    @Test("createTyped forwards fieldValues to the typed slug creator")
+    func createTypedForwardsFieldValues() async throws {
+        let root = try makeTempDir(prefix: "content-workflow")
+        let seen = SeenFieldValues()
+        let operations = FakeCreateOperations { _, _, _ in
+            .failed(reason: "unexpected")
+        } createPost: { _, _, _, _ in
+            .failed(reason: "unexpected")
+        } createTyped: { _, _, _, _ in
+            .failed(reason: "unexpected")
+        }
+        let workflow = ContentCreationWorkflow(
+            operations: operations,
+            contentGraph: nil,
+            siteDirectory: { _ in root },
+            typedSlugCreator: { _, _, _, _, fieldValues, _ in
+                await seen.record(fieldValues)
+                return .created(filePath: "src/content/likes/x.md", identifier: "x")
+            }
+        )
+
+        _ = await workflow.createTyped(
+            siteID: Self.siteID, typeID: "like", title: "", slug: nil,
+            fieldValues: ["likeOf": "https://example.com/post"])
+
+        #expect(await seen.values == ["likeOf": "https://example.com/post"])
+    }
+}
+
+private actor SeenFieldValues {
+    private(set) var values: [String: String] = [:]
+    func record(_ v: [String: String]) { values = v }
 }
 
 private struct FakeCreateOperations: ContentOperationsService {
