@@ -1,6 +1,14 @@
 import { getCollection } from "astro:content";
 import { createMarkdownProcessor, type MarkdownRenderer } from "@astrojs/markdown-remark";
-import { FEED_COLLECTIONS, toFeedItem, sortAndLimit, type FeedEntry, type FeedItem } from "./feeds.ts";
+import {
+  FEED_COLLECTIONS,
+  toFeedItem,
+  sortAndLimit,
+  type FeedEntry,
+  type FeedItem,
+  type FeedAuthor,
+} from "./feeds.ts";
+import { siteProfile } from "./profile.ts";
 
 const PER_COLLECTION_LIMIT = 50;
 const COMBINED_LIMIT = 50;
@@ -56,4 +64,18 @@ export async function getCombinedItems(site: string, limit = COMBINED_LIMIT): Pr
     all.push(...(await mapCollection(collection, site)));
   }
   return sortAndLimit(all, limit);
+}
+
+/// Feed-level (channel/feed) author, derived from `siteProfile()` (`src/data/profile.json`).
+/// `siteProfile()` reads via `import.meta.glob`, which only resolves under Astro/Vite — this
+/// lookup belongs here (consumed by the 27 feed routes) rather than in `feeds.ts`, whose
+/// renderers take `author` as a plain parameter so pure node:test unit tests can inject it
+/// directly. Returns `undefined` when no name is configured (the default, unconfigured site),
+/// so every renderer omits author markup cleanly.
+export function feedAuthor(): FeedAuthor | undefined {
+  const profile = siteProfile();
+  const name = typeof profile.name === "string" && profile.name.length > 0 ? profile.name : undefined;
+  if (!name) return undefined;
+  const url = typeof profile.url === "string" && profile.url.length > 0 ? profile.url : undefined;
+  return url ? { name, url } : { name };
 }

@@ -10,6 +10,14 @@ export interface FeedItem {
   summary: string;
   /** Full entry body rendered to HTML at build time (see `feed-data.ts`). */
   contentHtml: string;
+  /** `entry.data.tags`, when the collection's schema has the field and the entry set it. */
+  tags?: string[];
+}
+
+/** Feed-level (RSS channel / Atom feed / JSON Feed) attribution, sourced from `siteProfile()`. */
+export interface FeedAuthor {
+  name: string;
+  url?: string;
 }
 
 export type FeedEntry = {
@@ -127,12 +135,14 @@ export function toFeedItem(
     throw new Error(`[feeds] entry "${entry.id}" has a missing or invalid ${cfg.dateField}`);
   }
   const summary = (entry.data.summary ?? entry.data.caption ?? excerpt(entry.body, 280)) || "";
+  const tags = Array.isArray(entry.data.tags) && entry.data.tags.length > 0 ? entry.data.tags : undefined;
   return {
     title: cfg.deriveTitle(entry) || undefined,
     link: new URL(`/${collection}/${entry.id}/`, site).href,
     date,
     summary: String(summary),
     contentHtml: contentHtml || interactionContentFallback(collection, entry.data),
+    tags,
   };
 }
 
@@ -147,6 +157,8 @@ export function renderRss(o: {
   site: string;
   items: FeedItem[];
   hub?: WebSubHubAdvertisement;
+  /** Channel-level attribution, rendered as `<dc:creator>` (RSS 2.0 has no native author element). */
+  author?: FeedAuthor;
 }): Promise<Response> {
   // RSS 2.0 has no native link relations; WebSub discovery in RSS uses Atom link elements
   // inside <channel> (the convention websub.rocks and every major reader check).
@@ -154,13 +166,17 @@ export function renderRss(o: {
     ? `<atom:link rel="hub" href="${escapeXml(o.hub.hubUrl)}"/>` +
       `<atom:link rel="self" type="application/rss+xml" href="${escapeXml(o.hub.selfUrl)}"/>`
     : undefined;
+  const authorData = o.author ? `<dc:creator>${escapeXml(o.author.name)}</dc:creator>` : undefined;
+  const customData = [hubData, authorData].filter((s): s is string => Boolean(s)).join("") || undefined;
+  const xmlns: Record<string, string> = {};
+  if (o.hub) xmlns.atom = "http://www.w3.org/2005/Atom";
+  if (o.author) xmlns.dc = "http://purl.org/dc/elements/1.1/";
   return rss({
     title: o.title,
     description: o.description,
     site: o.site,
-    ...(hubData
-      ? { xmlns: { atom: "http://www.w3.org/2005/Atom" }, customData: hubData }
-      : {}),
+    ...(Object.keys(xmlns).length ? { xmlns } : {}),
+    ...(customData ? { customData } : {}),
     items: o.items.map((i) => ({
       // Zod's `title` field is optional and `@astrojs/rss` only emits <title> when truthy, so an
       // absent `i.title` correctly drops the element rather than rendering it empty.
@@ -175,6 +191,9 @@ export function renderRss(o: {
       // (used by `@astrojs/rss` under the hood) escapes text-node content automatically, so the
       // raw `i.link` here doesn't need manual XML-escaping.
       description: i.contentHtml || i.summary || i.link,
+      // `@astrojs/rss` maps a `categories` array to one <category> element per tag; `undefined`
+      // (no tags) is dropped, matching the title/description optionality above.
+      categories: i.tags,
     })),
   });
 }
@@ -195,32 +214,42 @@ export function renderAtom(o: {
   items: FeedItem[];
   /** WebSub hub URL; emits a `rel="hub"` link when set (`rel="self"` is always present). */
   hubUrl?: string;
+  /** Feed-level attribution, rendered as a top-level `<author>`. */
+  author?: FeedAuthor;
 }): Response {
   const updated = o.items[0]?.date ?? new Date(0);
   const entries = o.items
-    .map(
+    .map((i) => {
+      // One <category term="…"/> per tag; entries without tags emit none.
+      const categories = (i.tags ?? []).map((t) => `    <category term="${escapeXml(t)}"/>\n`).join("");
       // Known limitation: <id> uses the permalink rather than a permanent tag: IRI (RFC 4287
       // §4.2.6). Renaming a slug therefore reads as a new entry in readers that saw the old URL.
       // This matches most simple RSS libraries; a stable tag: URI is a future improvement.
       // Atom requires <title> on every entry (unlike RSS/JSON Feed); title-less items emit an
       // empty element rather than omitting the tag or faking a title.
-      (i) => `  <entry>
+      return `  <entry>
     <title>${escapeXml(i.title ?? "")}</title>
     <link href="${escapeXml(i.link)}"/>
     <id>${escapeXml(i.link)}</id>
     <updated>${i.date.toISOString()}</updated>
-    <summary>${escapeXml(i.summary)}</summary>
+${categories}    <summary>${escapeXml(i.summary)}</summary>
     <content type="html">${escapeXml(i.contentHtml)}</content>
-  </entry>`,
-    )
+  </entry>`;
+    })
     .join("\n");
+  const authorXml = o.author
+    ? `  <author>
+    <name>${escapeXml(o.author.name)}</name>
+${o.author.url ? `    <uri>${escapeXml(o.author.url)}</uri>\n` : ""}  </author>
+`
+    : "";
   const xml = `<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>${escapeXml(o.title)}</title>
   <id>${escapeXml(o.site)}</id>
   <link href="${escapeXml(o.site)}"/>
   <link rel="self" href="${escapeXml(o.feedUrl)}"/>
-${o.hubUrl ? `  <link rel="hub" href="${escapeXml(o.hubUrl)}"/>\n` : ""}  <updated>${updated.toISOString()}</updated>
+${o.hubUrl ? `  <link rel="hub" href="${escapeXml(o.hubUrl)}"/>\n` : ""}${authorXml}  <updated>${updated.toISOString()}</updated>
 ${entries}
 </feed>
 `;
@@ -236,6 +265,8 @@ export function renderJsonFeed(o: {
   items: FeedItem[];
   /** WebSub hub URL; emits the JSON Feed `hubs` array when set. */
   hubUrl?: string;
+  /** Feed-level attribution, rendered as the top-level `authors` array. */
+  author?: FeedAuthor;
 }): Response {
   const feed = {
     version: "https://jsonfeed.org/version/1.1",
@@ -243,6 +274,7 @@ export function renderJsonFeed(o: {
     home_page_url: o.site,
     feed_url: o.feedUrl,
     ...(o.hubUrl ? { hubs: [{ type: "WebSub", url: o.hubUrl }] } : {}),
+    ...(o.author ? { authors: [{ name: o.author.name, url: o.author.url }] } : {}),
     items: o.items.map((i) => ({
       id: i.link,
       url: i.link,
@@ -254,6 +286,8 @@ export function renderJsonFeed(o: {
       // short summary when the body was empty.
       content_html: i.contentHtml || i.summary,
       date_published: i.date.toISOString(),
+      // Undefined (no tags) is dropped by JSON.stringify below.
+      tags: i.tags,
     })),
   };
   return new Response(JSON.stringify(feed, null, 2), {

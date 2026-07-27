@@ -109,6 +109,29 @@ test("toFeedItem gives an empty-body, title-less entry an empty summary rather t
   assert.equal(like.title, undefined);
 });
 
+test("toFeedItem carries entry.data.tags through to FeedItem.tags", () => {
+  const item = toFeedItem(
+    "articles",
+    entry("articles", { title: "Hi", publishDate: "2026-01-02", tags: ["astro", "feeds"] }),
+    SITE,
+    "<p>Hi</p>",
+  );
+  assert.deepEqual(item.tags, ["astro", "feeds"]);
+});
+
+test("toFeedItem leaves tags undefined when the entry has none or an empty array", () => {
+  const noTags = toFeedItem("blog", entry("blog", { title: "Hi", pubDate: "2026-01-02" }), SITE, "");
+  assert.equal(noTags.tags, undefined);
+
+  const emptyTags = toFeedItem(
+    "articles",
+    entry("articles", { title: "Hi", publishDate: "2026-01-02", tags: [] }),
+    SITE,
+    "",
+  );
+  assert.equal(emptyTags.tags, undefined);
+});
+
 test("toFeedItem throws on a missing or invalid date field", () => {
   assert.throws(
     () => toFeedItem("notes", entry("notes", {}), SITE, ""),
@@ -352,6 +375,147 @@ test("renderRss falls back to the permalink for <description> when contentHtml a
   });
   const xml = await res.text();
   assert.match(xml, new RegExp(`<description>${SITE.replace(/\./g, "\\.")}/likes/hello-like/</description>`));
+});
+
+// --- Tags/categories and author metadata (#1023) ---------------------------------------------
+
+test("renderRss emits a <category> element per tag and none when the item has no tags", async () => {
+  const withTags = await (
+    await renderRss({
+      title: "All",
+      description: "Everything",
+      site: SITE,
+      items: [
+        { title: "A", link: `${SITE}/blog/a/`, date: new Date("2026-01-02"), summary: "", contentHtml: "", tags: ["astro", "micro.blog"] },
+      ],
+    })
+  ).text();
+  assert.match(withTags, /<category>astro<\/category>/);
+  assert.match(withTags, /<category>micro\.blog<\/category>/);
+
+  const withoutTags = await (
+    await renderRss({
+      title: "All",
+      description: "Everything",
+      site: SITE,
+      items: [{ title: "A", link: `${SITE}/blog/a/`, date: new Date("2026-01-02"), summary: "", contentHtml: "" }],
+    })
+  ).text();
+  assert.doesNotMatch(withoutTags, /<category>/);
+});
+
+test("renderRss emits channel <dc:creator> with the dc xmlns declared when an author is given, and neither when not", async () => {
+  const withAuthor = await (
+    await renderRss({
+      title: "All",
+      description: "Everything",
+      site: SITE,
+      items: [],
+      author: { name: "Ada Lovelace" },
+    })
+  ).text();
+  assert.match(withAuthor, /xmlns:dc="http:\/\/purl\.org\/dc\/elements\/1\.1\/"/);
+  assert.match(withAuthor, /<dc:creator>Ada Lovelace<\/dc:creator>/);
+
+  const withoutAuthor = await (
+    await renderRss({ title: "All", description: "Everything", site: SITE, items: [] })
+  ).text();
+  assert.doesNotMatch(withoutAuthor, /xmlns:dc/);
+  assert.doesNotMatch(withoutAuthor, /dc:creator/);
+});
+
+test("renderRss combines hub and author customData, declaring both atom and dc xmlns", async () => {
+  const hub = websubHub(SITE, "/rss.xml", true)!;
+  const xml = await (
+    await renderRss({
+      title: "All",
+      description: "Everything",
+      site: SITE,
+      items: [],
+      hub,
+      author: { name: "Ada Lovelace" },
+    })
+  ).text();
+  assert.match(xml, /xmlns:atom="http:\/\/www\.w3\.org\/2005\/Atom"/);
+  assert.match(xml, /xmlns:dc="http:\/\/purl\.org\/dc\/elements\/1\.1\/"/);
+  assert.match(xml, /<dc:creator>Ada Lovelace<\/dc:creator>/);
+  assert.match(xml, /rel="hub"/);
+});
+
+test("renderAtom emits a <category term> per tag and none when the item has no tags", async () => {
+  const withTags = await renderAtom({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/atom.xml`,
+    items: [
+      { title: "A", link: `${SITE}/blog/a/`, date: new Date("2026-01-02"), summary: "", contentHtml: "", tags: ["astro", "micro.blog"] },
+    ],
+  }).text();
+  assert.match(withTags, /<category term="astro"\/>/);
+  assert.match(withTags, /<category term="micro\.blog"\/>/);
+
+  const withoutTags = await renderAtom({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/atom.xml`,
+    items: [{ title: "A", link: `${SITE}/blog/a/`, date: new Date("2026-01-02"), summary: "", contentHtml: "" }],
+  }).text();
+  assert.doesNotMatch(withoutTags, /<category/);
+});
+
+test("renderAtom emits a top-level <author> with <uri> when given a url, and omits <author> when not", async () => {
+  const withUrl = await renderAtom({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/atom.xml`,
+    items: [],
+    author: { name: "Ada Lovelace", url: "https://example.com/" },
+  }).text();
+  assert.match(withUrl, /<author>\s*<name>Ada Lovelace<\/name>\s*<uri>https:\/\/example\.com\/<\/uri>\s*<\/author>/);
+
+  const withoutUrl = await renderAtom({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/atom.xml`,
+    items: [],
+    author: { name: "Ada Lovelace" },
+  }).text();
+  assert.match(withoutUrl, /<author>\s*<name>Ada Lovelace<\/name>\s*<\/author>/);
+  assert.doesNotMatch(withoutUrl, /<uri>/);
+
+  const noAuthor = await renderAtom({ title: "All", site: SITE, feedUrl: `${SITE}/atom.xml`, items: [] }).text();
+  assert.doesNotMatch(noAuthor, /<author>/);
+});
+
+test("renderJsonFeed includes a tags array per item and omits the key when the item has none", async () => {
+  const res = await renderJsonFeed({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/feed.json`,
+    items: [
+      { title: "A", link: `${SITE}/blog/a/`, date: new Date("2026-01-02"), summary: "", contentHtml: "", tags: ["astro", "micro.blog"] },
+      { title: "B", link: `${SITE}/blog/b/`, date: new Date("2026-01-02"), summary: "", contentHtml: "" },
+    ],
+  });
+  const feed = JSON.parse(await res.text());
+  assert.deepEqual(feed.items[0].tags, ["astro", "micro.blog"]);
+  assert.equal("tags" in feed.items[1], false);
+});
+
+test("renderJsonFeed includes a top-level authors array when given an author, and omits it when not", async () => {
+  const withAuthor = await renderJsonFeed({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/feed.json`,
+    items: [],
+    author: { name: "Ada Lovelace", url: "https://example.com/" },
+  });
+  assert.deepEqual(JSON.parse(await withAuthor.text()).authors, [
+    { name: "Ada Lovelace", url: "https://example.com/" },
+  ]);
+
+  const withoutAuthor = await renderJsonFeed({ title: "All", site: SITE, feedUrl: `${SITE}/feed.json`, items: [] });
+  assert.equal("authors" in JSON.parse(await withoutAuthor.text()), false);
 });
 
 // --- WebSub discovery (V-3.3, #361) ---------------------------------------------------------
