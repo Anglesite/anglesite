@@ -933,6 +933,12 @@ import { siteLicense } from "../lib/licensing-data.ts";
 import type { LicenseRef } from "../lib/licensing.ts";
 ```
 
+> **Superseded during execution.** The Task 5 review found this destructuring-default form
+> correct but untested — a later "simplification" to `license ?? siteLicense()` would silently
+> collapse the `null`-vs-absent distinction. The shipped code instead calls a named, tested
+> `headLicense(prop, siteDefault)` from `licensing.ts` (commit `53c17347`). The behavior is
+> identical; the invariant is now explicit and guarded by tests.
+
 Extend `Props` and the destructuring:
 
 ```ts
