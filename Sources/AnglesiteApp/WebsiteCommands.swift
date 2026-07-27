@@ -79,6 +79,9 @@ struct WebsiteCommands: Commands {
             Button("Add Integration…") { model?.openIntegrationWizard() }
                 .disabled(model?.canOpenIntegrationWizard != true)
 
+            Button("Animations…") { model?.presentAnimations() }
+                .disabled(model?.canOpenAnimations != true)
+
             Menu("Assistant") {
                 Button("Review Copy…") { model?.presentCopyEdit() }
                     .disabled(model?.canOpenCopyEdit != true)

@@ -736,6 +736,9 @@ struct SiteWindow: View {
                 await model.createComponent(name: name)
             }
         }
+        .sheet(isPresented: $bindableModel.animationsPresented) {
+            AnimationsGalleryView()
+        }
         .annotatedAsSite(site)
     }
 

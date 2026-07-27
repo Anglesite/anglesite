@@ -169,6 +169,10 @@ final class SiteWindowModel {
     var newCollectionPresented = false
     var newPostPresented = false
     var newComponentPresented = false
+    /// Website ▸ Animations… (#1007). The gallery is self-contained (owns its own
+    /// `AnimationsGalleryModel`, resolves the bundled template itself) so a plain Bool is enough —
+    /// no per-site data to carry, unlike the `.sheet(item:)` models above.
+    var animationsPresented = false
     /// Non-nil ⟺ the Delete confirmation dialog is showing for this navigator item (#516).
     /// Hosted in `SiteWindow` (mirrors `revertConfirmationPresented`'s alert-hosting pattern) —
     /// set from both the navigator's row context menu and the Edit ▸ Delete menu command.
@@ -401,6 +405,17 @@ final class SiteWindowModel {
     var canOpenSocialPlan: Bool { site != nil }
 
     var canOpenDesignInterview: Bool { site != nil }
+
+    /// Website ▸ Animations… (#1007), same shape as `canOpenSocialPlan` — gated on a site window
+    /// being focused, even though the gallery itself only reads the bundled template.
+    var canOpenAnimations: Bool { site != nil }
+
+    /// Presents the Animations gallery sheet (Website ▸ Animations…, #1007). Mirrors
+    /// `presentReader()`'s naming (`present…`), but toggles a plain Bool rather than switching
+    /// `mainPaneMode` — the gallery is a modal browse surface, not a main-pane mode.
+    func presentAnimations() {
+        animationsPresented = true
+    }
 
     /// Presents the Social Media Plan sheet (#465), same pattern as `presentCopyEdit`.
     func presentSocialPlan() {
