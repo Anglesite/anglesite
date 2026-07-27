@@ -57,7 +57,7 @@ struct MarkdownFindBar: View {
         // The find bar sits OUTSIDE the engine's focus-tracking container, so gaining field focus
         // would otherwise read as "editor lost focus" and disable Find Next/Format mid-search.
         .onChange(of: findFieldFocused) { _, focused in
-            if focused { MarkdownEditorFocusRegistry.shared.activate(controller) }
+            if focused { EditorFocusRegistry.shared.activate(.markdown(Weak(controller)), token: controller.id) }
         }
         .onChange(of: controller.query) { controller.queryChanged() }
         .onExitCommand { controller.hideFind() }
