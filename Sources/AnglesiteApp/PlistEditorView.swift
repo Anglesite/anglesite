@@ -726,25 +726,31 @@ struct PlistEditorView: View {
             }
 
             ForEach(model.workerGroups) { group in
-                VStack(alignment: .leading, spacing: 8) {
-                    // Group keys are manifest-owned free text (design doc §3) — display-cased,
-                    // never localized or enumerated here.
-                    Text(group.name.capitalized)
-                        .font(.headline)
-                    ForEach(group.rows) { row in
-                        workerRow(row)
-                    }
+                // Group keys are manifest-owned free text (design doc §3) — display-cased,
+                // never localized or enumerated here.
+                SettingsBox(title: group.name.capitalized) {
+                    workersGroupTable(group.rows)
                 }
             }
         }
         .task { await model.loadWorkers() }
     }
 
-    private func workerRow(_ row: PlistEditorModel.WorkerRow) -> some View {
+    private func workersGroupTable(_ rows: [PlistEditorModel.WorkerRow]) -> some View {
+        Table(rows) {
+            TableColumn("Name") { row in
+                Text(row.descriptor.displayName)
+                    .help(row.descriptor.description)
+            }
+            TableColumn("Status") { row in
+                workerStatus(row)
+            }
+        }
+        .frame(minHeight: max(60, CGFloat(rows.count) * 28 + 32))
+    }
+
+    private func workerStatus(_ row: PlistEditorModel.WorkerRow) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(row.descriptor.displayName)
-                .frame(minWidth: 160, alignment: .leading)
-                .help(row.descriptor.description)
             switch row.status {
             case .componentTied(let affectedPages):
                 if affectedPages.isEmpty {
