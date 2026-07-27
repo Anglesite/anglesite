@@ -630,11 +630,14 @@ git commit -m "feat(#689): project content license into schema.org JSON-LD"
 ### Task 4: Emit Microformats2 `u-license`
 
 **Files:**
+- Create: `Resources/Template/src/components/LicenseLink.astro`
 - Modify: `Resources/Template/src/layouts/Hentry.astro`
 - Modify: `Resources/Template/src/layouts/BlogPost.astro`
 - Modify: `Resources/Template/src/layouts/Hevent.astro`
 - Modify: `Resources/Template/src/layouts/Hreview.astro`
 - Modify: `Resources/Template/scripts/microformats.test.ts`
+
+The anchor lives in a component rather than being pasted into four layouts, matching the existing `SyndicationLinks.astro` and `DraftBadge.astro` convention for small repeated entry markup.
 
 `scripts/microformats.ts` needs **no change**: its validator reports missing required properties and does not gate on an allowlist, so an extra `u-license` inside an entry root parses as valid mf2 automatically. Don't go looking for a registration step.
 
@@ -684,36 +687,57 @@ cd Resources/Template && npx tsx --test scripts/microformats.test.ts
 
 Expected: PASS. These tests characterize parser behavior the markup relies on — they should pass before the layouts change, and their job is to fail loudly if a future validator change starts rejecting `u-license`. If `validateEntryHtml` reports a problem, stop: the validator is stricter than assumed and needs a fix before the layouts emit anything.
 
-- [ ] **Step 3: Add the markup to `Hentry.astro`**
+- [ ] **Step 3: Create the LicenseLink component**
 
-`license` is already bound from Task 3. Add the anchor immediately before `<SyndicationLinks …>` inside the `<article class="h-entry">`:
+Create `Resources/Template/src/components/LicenseLink.astro`:
 
 ```astro
-    {license && (
-      <a class="u-license" href={license.url} rel="license">{license.name}</a>
-    )}
+---
+// The entry's license, as Microformats2 `u-license` (#689). Rendered by the four entry
+// layouts; a null license renders nothing, which is how a non-asserting collection stays
+// silent. `rel="license"` is deliberate — it makes the anchor meaningful to plain HTML
+// consumers as well as to mf2 parsers.
+import type { LicenseRef } from "../lib/licensing.ts";
+
+interface Props {
+  license: LicenseRef | null;
+}
+
+const { license } = Astro.props;
+---
+
+{license && <a class="u-license" href={license.url} rel="license">{license.name}</a>}
+```
+
+- [ ] **Step 4: Render it from `Hentry.astro` and `BlogPost.astro`**
+
+`license` is already bound in both from Task 3. In each, add the import beside the existing `SyndicationLinks` import:
+
+```ts
+import LicenseLink from "../components/LicenseLink.astro";
+```
+
+In `Hentry.astro`, add the element immediately before `<SyndicationLinks …>` inside `<article class="h-entry">`:
+
+```astro
+    <LicenseLink license={license} />
     <SyndicationLinks urls={d.syndication} />
 ```
 
-The `rel="license"` attribute is deliberate — it makes the anchor meaningful to plain HTML consumers as well as mf2 parsers.
-
-- [ ] **Step 4: Add the markup to `BlogPost.astro`**
-
-`license` is already bound from Task 3. Add before `<SyndicationLinks …>`:
+In `BlogPost.astro`, the same, before its `<SyndicationLinks urls={syndication} />`:
 
 ```astro
-    {license && (
-      <a class="u-license" href={license.url} rel="license">{license.name}</a>
-    )}
+    <LicenseLink license={license} />
     <SyndicationLinks urls={syndication} />
 ```
 
-- [ ] **Step 5: Add the import, binding, and markup to `Hevent.astro`**
+- [ ] **Step 5: Add the import, binding, and element to `Hevent.astro`**
 
-Add the import beside the existing `schema.ts` import:
+Add both imports:
 
 ```ts
 import { licenseFor } from "../lib/licensing-data.ts";
+import LicenseLink from "../components/LicenseLink.astro";
 ```
 
 Add the binding after the existing `jsonLd` line:
@@ -722,21 +746,20 @@ Add the binding after the existing `jsonLd` line:
 const license = licenseFor("events");
 ```
 
-Add the markup before `<SyndicationLinks …>` inside `<article class="h-event">`:
+Add the element before `<SyndicationLinks …>` inside `<article class="h-event">`:
 
 ```astro
-    {license && (
-      <a class="u-license" href={license.url} rel="license">{license.name}</a>
-    )}
+    <LicenseLink license={license} />
     <SyndicationLinks urls={d.syndication} />
 ```
 
-- [ ] **Step 6: Add the import, binding, and markup to `Hreview.astro`**
+- [ ] **Step 6: Add the import, binding, and element to `Hreview.astro`**
 
-Same import:
+Same two imports:
 
 ```ts
 import { licenseFor } from "../lib/licensing-data.ts";
+import LicenseLink from "../components/LicenseLink.astro";
 ```
 
 Binding after the existing `jsonLd` line:
@@ -745,16 +768,14 @@ Binding after the existing `jsonLd` line:
 const license = licenseFor("reviews");
 ```
 
-Markup before `<SyndicationLinks …>` inside `<article class="h-review">`:
+Element before `<SyndicationLinks …>` inside `<article class="h-review">`:
 
 ```astro
-    {license && (
-      <a class="u-license" href={license.url} rel="license">{license.name}</a>
-    )}
+    <LicenseLink license={license} />
     <SyndicationLinks urls={d.syndication} />
 ```
 
-`reviews` is in `NON_ASSERTING_COLLECTIONS`, so this renders nothing unless the site owner explicitly overrides it. That is intended — the branch exists so the override works.
+`reviews` is in `NON_ASSERTING_COLLECTIONS`, so this renders nothing unless the site owner explicitly overrides it. That is intended — the wiring exists so the override works.
 
 - [ ] **Step 7: Verify end to end with a real license configured**
 
@@ -802,7 +823,8 @@ Expected: both PASS.
 - [ ] **Step 10: Commit**
 
 ```bash
-git add Resources/Template/src/layouts/Hentry.astro \
+git add Resources/Template/src/components/LicenseLink.astro \
+        Resources/Template/src/layouts/Hentry.astro \
         Resources/Template/src/layouts/BlogPost.astro \
         Resources/Template/src/layouts/Hevent.astro \
         Resources/Template/src/layouts/Hreview.astro \
@@ -858,19 +880,30 @@ Create `Resources/Template/src/components/Rights.astro`:
 
 ```astro
 ---
-// Footer rights statement (#689). Renders the copyright holder and, when the site declares a
-// default license, a link to it. The holder falls back to the h-card profile name so a site
-// that has filled in its profile gets a correct notice without a second setting.
+// Footer rights statement (#689). Renders the copyright holder and, when a license applies to
+// this page, a link to it. The holder falls back to the h-card profile name so a site that has
+// filled in its profile gets a correct notice without a second setting.
+//
+// The license arrives as a prop from BaseLayout — the *page's* resolved license, not the site
+// default. A collection that overrides the default would otherwise make the footer contradict
+// the page's own <link rel="license"> and u-license.
+//
+// No `u-license` class here: this anchor sits outside every microformat root, where the class
+// would parse as nothing. `rel="license"` is the meaningful attribute at this position.
 //
 // Absent both a holder and a license this renders nothing at all — an empty <footer> would be
 // worse than no footer, and asserting rights on a user's behalf is exactly what §Q3 of the
 // design forbids.
 import { readConfig } from "../../scripts/config";
 import { ownerName } from "../lib/profile.ts";
-import { siteLicense } from "../lib/licensing-data.ts";
+import type { LicenseRef } from "../lib/licensing.ts";
 
+interface Props {
+  license: LicenseRef | null;
+}
+
+const { license } = Astro.props;
 const holder = readConfig("COPYRIGHT_HOLDER") ?? ownerName();
-const license = siteLicense();
 const year = new Date().getFullYear();
 ---
 
@@ -880,7 +913,7 @@ const year = new Date().getFullYear();
     {license && (
       <span>
         {holder && " · "}
-        Licensed <a class="u-license" href={license.url} rel="license">{license.name}</a>
+        Licensed <a href={license.url} rel="license">{license.name}</a>
       </span>
     )}
   </footer>
@@ -924,11 +957,11 @@ Add the head link after the existing `indieauth-metadata` link:
     {license && <link rel="license" href={license.url} title={license.name} />}
 ```
 
-Add the footer in the body, after `<Hcard />`:
+Add the footer in the body, after `<Hcard />`, passing the same resolved `license` the head link uses so the two can never disagree:
 
 ```astro
     <Hcard />
-    <Rights />
+    <Rights license={license} />
     <!-- anglesite:body-end -->
 ```
 
