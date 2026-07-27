@@ -17,7 +17,10 @@ export function escapeHTML(value: string): string {
 export interface CardOptions {
   /** Microformats root for reply context: "u-in-reply-to" | "u-bookmark-of" | "u-like-of". */
   citeClass?: string;
-  /** Opt in to a click-to-load youtube-nocookie iframe (EMBED_VIDEO_INLINE=true). */
+  /**
+   * Opt in to an inline youtube-nocookie iframe (EMBED_VIDEO_INLINE=true). The player is
+   * `loading="lazy"`, so it is requested when it scrolls into view — not on a click.
+   */
   inlineVideo?: boolean;
 }
 
@@ -83,8 +86,17 @@ export function renderEmbedCard(snap: EmbedSnapshot, options: CardOptions = {}):
 
   const videoID = snap.provider === "youtube" ? youTubeID(snap.url) : null;
   if (options.inlineVideo && videoID) {
-    // Click-to-load is the browser's own lazy-loading: no youtube-nocookie request is made
-    // until the frame scrolls into view, and none at all if the visitor never gets there.
+    // This is scroll-triggered, not click-to-load: `loading="lazy"` defers the request until
+    // the frame approaches the viewport, and the visitor takes no action to trigger it. A page
+    // the visitor never scrolls that far down makes no youtube-nocookie request at all.
+    //
+    // A real click-to-load facade is deliberately not implemented. It would need first-party
+    // JavaScript delivered as a file — the CSP is `script-src 'self'` with no 'unsafe-inline',
+    // and this markup is injected via a remark `html` node / `set:html`, which Astro's bundler
+    // never scans for `<script>`. Adding a script-delivery mechanism for an opt-in path cuts
+    // against the whole no-JS thesis of the feature. What keeps this acceptable instead: it is
+    // off by default, turning it on is a recorded and reversible `.site-config` edit, the host
+    // is `youtube-nocookie.com`, and `frame-src` widens to exactly that one host.
     parts.push(
       `<iframe class="embed-card__video" src="https://www.youtube-nocookie.com/embed/${escapeHTML(videoID)}" ` +
         `title="${escapeHTML(snap.content)}" loading="lazy" allowfullscreen ` +

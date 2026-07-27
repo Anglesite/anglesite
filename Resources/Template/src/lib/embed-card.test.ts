@@ -131,7 +131,7 @@ test("renderEmbedCard: youtube renders a thumbnail link, not an iframe, by defau
   assert.match(html, /embed-card__play/);
 });
 
-test("renderEmbedCard: inlineVideo opts into a click-to-load youtube-nocookie iframe", () => {
+test("renderEmbedCard: inlineVideo opts into a lazily-loaded youtube-nocookie iframe", () => {
   const html = renderEmbedCard(
     snap({ provider: "youtube", url: "https://www.youtube.com/watch?v=abc", media: [] }),
     { inlineVideo: true },

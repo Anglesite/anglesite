@@ -195,10 +195,18 @@ the privacy guarantee silently regresses the first time someone hand-writes an
 author, and a self-hosted thumbnail, rendered as a link to the video with a play
 affordance — which is already what ADR-0008's alternatives table prescribes, and it
 keeps `frame-src 'self'`. Owners who want inline playback set
-`EMBED_VIDEO_INLINE=true` in `.site-config`; the card becomes a click-to-load
+`EMBED_VIDEO_INLINE=true` in `.site-config`; the card becomes a `loading="lazy"`
 `youtube-nocookie.com` iframe and `csp.ts` adds that single host to `frame-src`
-through the existing config-driven path. Opt-in, recorded in the repo, reversible,
-and no third-party bytes until the visitor deliberately clicks.
+through the existing config-driven path. That is scroll-triggered, not
+click-to-load: the player is requested once it approaches the viewport, with no
+action from the visitor, and not at all on a page they never scroll that far down.
+A true click-to-load facade is deliberately out of scope — it would require
+first-party JavaScript delivered as a file (`script-src 'self'` permits no inline
+handler, and the card markup is injected as raw HTML the bundler never scans), which
+is disproportionate for an opt-in path and cuts against the feature's no-JS thesis.
+What makes the trade acceptable is the rest of it: off by default, opt-in through a
+recorded and reversible `.site-config` edit, `youtube-nocookie.com` rather than
+`youtube.com`, and exactly one host added to `frame-src`.
 
 ## 6. Failure behavior
 
