@@ -72,6 +72,13 @@ final class SiteSearchModel {
         isSearching = false
     }
 
+    /// The hit to activate for the current field contents — a selected suggestion (whose
+    /// completion put its path in the field) or, for typed text committed with Return, the
+    /// top-ranked hit. `nil` when nothing matched.
+    func submit() -> SiteSearchIndex.Hit? {
+        SiteSearchIndex.hit(forSubmittedQuery: query, in: hits)
+    }
+
     /// Dismisses the suggestions list after the user picks a hit. Clearing the query is what
     /// closes the dropdown; the field itself keeps focus per macOS convention.
     func clear() {

@@ -41,12 +41,22 @@ struct SiteSearchFieldModifier: ViewModifier {
                     }
                 } else {
                     ForEach(model.hits) { hit in
-                        Button { activate(hit) } label: {
-                            SiteSearchSuggestionRow(hit: hit)
-                        }
-                        .buttonStyle(.plain)
+                        // `.searchCompletion`, not a `Button`: it's the mechanism that makes a
+                        // suggestion row selectable by both click and arrow-keys-then-Return,
+                        // and a bare Button here is unreliable anyway — since macOS 26 an
+                        // NSGlassContainerView swallows mouse events for interactive SwiftUI
+                        // views layered over the title-bar/toolbar area, which is exactly where
+                        // this popover sits. Selecting a row puts the completion in the field
+                        // and submits, which `onSubmit(of: .search)` below turns back into a hit.
+                        SiteSearchSuggestionRow(hit: hit)
+                            .searchCompletion(hit.path)
                     }
                 }
+            }
+            // Fires both for a selected suggestion (the completion above) and for a bare Return
+            // in the field; `SiteSearchModel.submit` distinguishes them.
+            .onSubmit(of: .search) {
+                if let hit = model.submit() { activate(hit) }
             }
             // `.task(id:)` over the query+scope pair: SwiftUI cancels the in-flight search on
             // every change, which is what implements both the debounce and the staleness guard

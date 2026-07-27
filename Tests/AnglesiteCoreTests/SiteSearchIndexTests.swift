@@ -3,6 +3,58 @@ import Testing
 import AnglesiteTestSupport
 @testable import AnglesiteCore
 
+@Suite("SiteSearchIndex submitted query")
+struct SiteSearchSubmissionTests {
+
+    private func hits(_ root: URL) async -> [SiteSearchIndex.Hit] {
+        let index = SiteKnowledgeIndex()
+        await index.rebuild(siteID: "s", projectRoot: root)
+        return await SiteSearchIndex.search(index, siteID: "s", query: "about", limit: 10)
+    }
+
+    private func fixture() throws -> URL {
+        try writeSiteTree(prefix: "sitesearchsubmit", [
+            "src/pages/about.astro": "---\ntitle: About\n---\n# About\nAbout the studio.",
+            "src/components/Card.astro": "<div>A card, about nothing in particular.</div>",
+        ])
+    }
+
+    /// Selecting a suggestion puts that hit's path in the field and submits — so an exact path
+    /// match means "the user picked this row", not "the user typed a path".
+    @Test("an exact path match resolves to that hit")
+    func exactPathMatchResolves() async throws {
+        let all = await hits(try fixture())
+        let target = try #require(all.first { $0.path == "src/components/Card.astro" })
+
+        let resolved = SiteSearchIndex.hit(forSubmittedQuery: target.path, in: all)
+        #expect(resolved?.path == target.path)
+    }
+
+    /// Return on typed text commits the search, and the top-ranked hit is the only sensible
+    /// destination when there's no results pane to fall back to (Spotlight's behavior).
+    @Test("free text resolves to the top-ranked hit")
+    func freeTextResolvesToTopHit() async throws {
+        let all = await hits(try fixture())
+        let resolved = SiteSearchIndex.hit(forSubmittedQuery: "about", in: all)
+        #expect(resolved?.path == all.first?.path)
+    }
+
+    @Test("no hits resolves to nothing")
+    func noHitsResolvesToNil() {
+        #expect(SiteSearchIndex.hit(forSubmittedQuery: "about", in: []) == nil)
+    }
+
+    /// Whitespace-only submissions (Return in an empty field) must not activate the top hit —
+    /// the user never typed a query.
+    @Test("a blank query resolves to nothing even with hits present")
+    func blankQueryResolvesToNil() async throws {
+        let all = await hits(try fixture())
+        #expect(!all.isEmpty)
+        #expect(SiteSearchIndex.hit(forSubmittedQuery: "   ", in: all) == nil)
+        #expect(SiteSearchIndex.hit(forSubmittedQuery: "", in: all) == nil)
+    }
+}
+
 @Suite("SiteSearchIndex")
 struct SiteSearchIndexTests {
 

@@ -68,6 +68,18 @@ public enum SiteSearchIndex {
         public let score: Double
     }
 
+    /// The hit a submitted search query refers to, or `nil` when the query is blank or nothing
+    /// matched.
+    ///
+    /// Selecting a suggestion row sets the field to that hit's `path` and submits, so an exact
+    /// path match means the user picked that row. Anything else is typed text committed with
+    /// Return, which activates the top-ranked hit — the only sensible destination when there is
+    /// no results pane behind the field.
+    public static func hit(forSubmittedQuery query: String, in hits: [Hit]) -> Hit? {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return hits.first { $0.path == query } ?? hits.first
+    }
+
     /// Searches the index for documents matching the query.
     /// - Parameter limit: Maximum number of results to return. Clamped to a minimum of 1 by
     ///   the underlying `SiteKnowledgeIndex.SearchOptions`, so `limit: 0` still returns one hit.

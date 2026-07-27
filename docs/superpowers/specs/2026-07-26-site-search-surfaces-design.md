@@ -109,6 +109,18 @@ route is served), so the file is the reliable destination.
 - `.searchSuggestions` — one row per hit: kind icon, title (falling back to the last path
   component), route or path as the subtitle, and the `matchContext` excerpt. An empty result
   set renders a single disabled "No matching content" row rather than an empty dropdown.
+
+  Rows are made selectable with `.searchCompletion(hit.path)`, **not** by wrapping each in a
+  `Button`. Two reasons: `.searchCompletion` is the mechanism that makes a suggestion row
+  respond to both a click and arrow-keys-then-Return (it wraps its content in a button itself,
+  which is why Apple's guidance is to apply it to non-interactive views), and since macOS 26 an
+  `NSGlassContainerView` intercepts mouse events for interactive SwiftUI views layered over the
+  title-bar/toolbar area — exactly where this popover sits — so a bare `Button` is unreliable
+  there. Selecting a row therefore puts the hit's path in the field and submits;
+  `onSubmit(of: .search)` turns that back into a hit via
+  `SiteSearchIndex.hit(forSubmittedQuery:in:)`, which resolves an exact path match to that row
+  and any other typed text to the top-ranked hit (Spotlight's Return behavior). The path is
+  visible in the field only for the instant before activation clears it.
 - `.searchFocused($searchFieldFocused)` so the menu command can focus the field.
 
 No `SiteToolbarItemID` change: `.searchable` mints its own toolbar item id, so no saved user
@@ -146,7 +158,8 @@ A hit whose file has been deleted since the last index pass resolves to `.file` 
 ### Testing
 
 - `swift test` — `SiteSearchScopeTests` (case freeze + kind mappings), `SiteSearchDestinationTests`
-  (navigator match, no match, every kind→group mapping, nil-route hits).
+  (navigator match, no match, every kind→group mapping, nil-route hits), and
+  `SiteSearchSubmissionTests` (exact-path vs. free-text vs. blank submissions).
 - `xcodebuild -scheme Anglesite -configuration Debug build`.
 - New user-visible strings mean an `xcstringstool sync` pass on `Localizable.xcstrings`,
   committed alongside (CONTRIBUTING ▸ Development setup).
