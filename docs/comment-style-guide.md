@@ -25,7 +25,7 @@ documented files predate this rule and won't be mass-edited to add them. If you'
 of those files for an unrelated reason, bringing its doc comments up to this standard is welcome
 opportunistic cleanup, not required.
 
-Example (`Sources/AnglesiteCore/WorkerComposition.swift:109-124`):
+Example (`Sources/AnglesiteCore/WorkerComposition.swift:109-142`):
 
 ```swift
 /// Generates a wrangler.toml for a site with the given workers enabled.

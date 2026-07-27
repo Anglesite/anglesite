@@ -123,9 +123,10 @@ public enum WorkerComposition {
     ///     while R2 and the queues are deterministic names, not ids (see
     ///     ``ProvisionedResources`` for the per-field rationale).
     ///   - inboxCaptureEnabled: Whether inbox-capture support is composed in: appends the
-    ///     inbox-capture route claim to `routeClaims`, and gates on the Worker's `main` entry
-    ///     point, the `[assets]` binding, the `[[kv_namespaces]]` block, and `[observability]`
-    ///     being emitted (alongside `hasSocialFeatures`, i.e. any active `workers`).
+    ///     inbox-capture route claim to `routeClaims`, and always gates the emitted
+    ///     `[[kv_namespaces]]` block. The Worker's `main` entry point, the `[assets]` binding,
+    ///     and `[observability]` are each gated on this flag *or* `hasSocialFeatures` (any
+    ///     active `workers`) — either one alone is enough to emit them.
     ///   - inboxKVNamespaceID: The inbox KV namespace ID. Optional even when
     ///     `inboxCaptureEnabled` is `true` — if `nil` or empty, the emitted
     ///     `[[kv_namespaces]]` block gets a placeholder empty `id` for provisioning to fill in
