@@ -310,7 +310,7 @@ var packageDependencies: [Package.Dependency] = []
 // pinning to anglesite/main's tip would silently pick up unreviewed future commits. Bump
 // deliberately.
 packageDependencies.append(
-    .package(url: "https://github.com/Anglesite/SwiftGit2.git", revision: "9fa2f72762ce327980649303460cd5cfd0b92979")
+    .package(url: "https://github.com/Anglesite/SwiftGit2.git", revision: "446d4777ae4413c2faaa88425693ff29981e4b07")
 )
 
 // Component Editor slice 4 (spec §7, §4.3): STTextView-backed code panes ("Props & Data",

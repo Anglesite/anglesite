@@ -21,23 +21,38 @@ public enum InProcessEditPersistence {
             throw SiteRuntimePersistenceError.syncFailed("canonical Source repository has uncommitted changes")
         }
         let head = try result(canonical.HEAD())
-        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("anglesite-import-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: temp) }
-        let exported = try result(Repository.clone(from: bundleURL, to: temp, localClone: true))
-        let exportedCommit = try result(exported.HEAD()).oid
+        // Unpack the guest's pack straight into this repository's object database. Cloning the
+        // bundle instead — which is what this did until #988 — could never work: libgit2 has no
+        // bundle support at all, so `Repository.clone(from:)` failed here every time with "could
+        // not find repository at …/x.bundle" and nothing below it had ever executed. Reading the
+        // bundle is a fork addition (Anglesite/SwiftGit2#4).
+        //
+        // The pack is thin (exported `^parent`), so it only resolves against a repository that
+        // already has that parent — which is exactly the fast-forward-only precondition asserted
+        // below, and `unbundle` reports a missing prerequisite as such rather than as a delta
+        // failure. The guest's objects stay unreferenced afterwards; its blobs and trees dedupe
+        // against the commit made below (identical content, identical OIDs), leaving only its
+        // commit object, which `git gc --auto` reaps on the user's next git command in Source/.
+        // The same holds when a guard below rejects the edit: unpacking necessarily precedes
+        // reading the commit's parent, so a refused import leaves those objects behind too —
+        // unreferenced, so HEAD, the index, and the worktree are all untouched by it.
+        let exported = try result(canonical.unbundle(at: bundleURL))
+        guard exported.references.count == 1, let exportedCommit = exported.references.values.first else {
+            throw SiteRuntimePersistenceError.syncFailed("exported bundle did not carry exactly one ref")
+        }
         guard exportedCommit.description == commit else {
             throw SiteRuntimePersistenceError.syncFailed("exported commit did not match the requested edit")
         }
-        let guestCommit = try result(exported.commit(exportedCommit))
+        let guestCommit = try result(canonical.commit(exportedCommit))
         guard guestCommit.parents.count == 1, guestCommit.parents[0].oid == head.oid else {
             throw SiteRuntimePersistenceError.syncFailed("overlay edit conflicts with newer Source changes")
         }
 
-        let sourceTree = try result(exported.object(from: guestCommit.tree)).asTree()
+        let sourceTree = try result(canonical.object(from: guestCommit.tree)).asTree()
         let hostTree = try result(canonical.commit(head.oid))
         let hostRoot = try result(canonical.object(from: hostTree.tree)).asTree()
         var sourcePaths: Set<String> = []
-        try materialize(tree: sourceTree, from: exported, into: sourceDirectory, prefix: "", paths: &sourcePaths)
+        try materialize(tree: sourceTree, from: canonical, into: sourceDirectory, prefix: "", paths: &sourcePaths)
         try removeMissing(tree: hostRoot, from: canonical, root: sourceDirectory, prefix: "", keeping: sourcePaths)
         _ = try result(canonical.addAll())
         // Resolved through `GitIdentity`, not `defaultSignature()` directly: under App Sandbox the
