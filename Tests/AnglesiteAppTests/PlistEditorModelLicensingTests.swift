@@ -109,4 +109,17 @@ struct PlistEditorModelLicensingTests {
         #expect(saved == false)
         #expect(model.licensingError != nil)
     }
+
+    @Test("a no-op save on an unedited model returns true and does not create licensing.json")
+    func saveNoOpsWhenClean() async throws {
+        let model = try makeModel()
+        await model.load()
+        #expect(model.isLicensingDirty == false)
+
+        let saved = await model.saveLicensing()
+
+        #expect(saved == true)
+        let licensingPath = model.sourceDirectory.appendingPathComponent("src/data/licensing.json")
+        #expect(!FileManager.default.fileExists(atPath: licensingPath.path))
+    }
 }

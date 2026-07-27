@@ -149,4 +149,18 @@ struct PlistEditorModelDirtyFacetsTests {
         #expect(sawSaving)
         #expect(model.isAnySaving == false)
     }
+
+    @Test("flushBeforeLeaving saves a dirty licensing facet instead of discarding it")
+    func flushBeforeLeavingSavesLicensing() async throws {
+        let model = try makeModel()
+        await model.load()
+        model.licensingPolicy.defaultLicense = LicenseRef(
+            url: "https://creativecommons.org/licenses/by/4.0/", name: "CC BY 4.0")
+        #expect(model.isLicensingDirty)
+        #expect(await model.flushBeforeLeaving())
+        #expect(!model.isLicensingDirty)
+        let onDisk = try LicensingStore(sourceDirectory: model.sourceDirectory).load()
+        #expect(onDisk.defaultLicense?.url == "https://creativecommons.org/licenses/by/4.0/")
+        #expect(onDisk.defaultLicense?.name == "CC BY 4.0")
+    }
 }
