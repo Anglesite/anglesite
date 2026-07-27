@@ -8,6 +8,7 @@ import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
+import LicenseLink from "../components/LicenseLink.astro";
 
 interface Props {
   entry: CollectionEntry<HentryCollection>;
@@ -73,6 +74,7 @@ const jsonLd = entrySchema(entry.collection, entry.data as HentryData, {
         {tags.map((t) => <li><a class="p-category" href={`/tags/${t}`}>{t}</a></li>)}
       </ul>
     )}
+    <LicenseLink license={license} />
     <SyndicationLinks urls={d.syndication} />
   </article>
 </BaseLayout>

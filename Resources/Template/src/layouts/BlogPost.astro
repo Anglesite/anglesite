@@ -11,6 +11,7 @@ import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
+import LicenseLink from "../components/LicenseLink.astro";
 
 interface Props {
   title: string;
@@ -47,6 +48,7 @@ const jsonLd = blogPostingSchema(
       {iso && <time class="dt-published" datetime={iso}>{human}</time>}
     </a>
     <div class="e-content"><slot /></div>
+    <LicenseLink license={license} />
     <SyndicationLinks urls={syndication} />
     <!-- anglesite:share -->
     <!-- anglesite:comments -->

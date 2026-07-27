@@ -114,3 +114,26 @@ test("entries carry a p-author h-card", { skip: "#388 — site identity model" }
 test("site-wide h-card is present", { skip: "#388 — site identity model" }, () => {
   // #388 emits the businessProfile h-card in BaseLayout; assert a root h-card then.
 });
+
+// --- #689 (content licensing: u-license) -----------------------------------
+test("findRoots: a u-license inside an h-entry parses as the entry's license property", () => {
+  const html = `
+    <article class="h-entry">
+      <a class="u-url" href="/notes/hi/"><time class="dt-published" datetime="2026-01-02">Jan 2</time></a>
+      <div class="e-content">Hi</div>
+      <a class="u-license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>
+    </article>`;
+  const roots = findRoots(html);
+  assert.equal(roots.length, 1);
+  assert.deepEqual(roots[0].properties.license, ["https://creativecommons.org/licenses/by/4.0/"]);
+});
+
+test("validateEntryHtml: a u-license does not make an otherwise valid entry invalid", () => {
+  const html = `
+    <article class="h-entry">
+      <a class="u-url" href="/notes/hi/"><time class="dt-published" datetime="2026-01-02">Jan 2</time></a>
+      <div class="e-content">Hi</div>
+      <a class="u-license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>
+    </article>`;
+  assert.deepEqual(validateEntryHtml(html, "notes/hi"), []);
+});
