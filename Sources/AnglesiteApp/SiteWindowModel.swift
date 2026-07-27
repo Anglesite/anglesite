@@ -3,6 +3,7 @@ import Foundation
 import Observation
 import AnglesiteCore
 import AnglesiteIntents
+import AnglesiteSiteModel
 
 /// Which content the main pane shows: the live preview, or the inline text editor
 /// for a specific file. Driven by navigator selection (`applyNavigatorSelection`).
@@ -80,6 +81,10 @@ final class SiteWindowModel {
     var publish = PublishModel()
     var backup = BackupModel()
     var audit = AuditModel()
+    /// Drives this site's iCloud git sync (#881): status surface, `NSMetadataQuery` bundle-change
+    /// observation, and the conflict banner/resolution sheet. No-ops entirely for a package that
+    /// doesn't live in iCloud Drive — see `SyncModel.start(package:)`.
+    var sync = SyncModel()
     // Chat is now on both targets and backed by the on-device `FoundationModelAssistant`;
     // the panel UI is target-agnostic.
     var chat: ChatModel?
@@ -229,6 +234,22 @@ final class SiteWindowModel {
         // and receive the run's site id from the model, so there is nothing to rebind on
         // window replay — see CompletionNotificationHub's own doc comment.
         CompletionNotificationHub.wire(deploy: deploy, backup: backup, audit: audit)
+        // Layered on top of (not inside) CompletionNotificationHub, which deliberately captures
+        // nothing from this model: a successful backup or deploy is one of #881's three debounced
+        // push triggers (design doc §2's "App wiring" paragraph). `[weak self]` mirrors the same
+        // "an abandoned window doesn't block the operation's own terminal notification" contract —
+        // if the window is already gone by the time this fires, there's no sync status surface
+        // left to update either, and the site's next open runs `siteOpened()` regardless.
+        let backupHook = backup.onPhaseTransition
+        backup.onPhaseTransition = { [weak self] siteID, phase in
+            backupHook?(siteID, phase)
+            if case .succeeded = phase { self?.sync.backupCompleted() }
+        }
+        let deployHook = deploy.onPhaseTransition
+        deploy.onPhaseTransition = { [weak self] siteID, phase in
+            deployHook?(siteID, phase)
+            if case .succeeded = phase { self?.sync.deployCompleted() }
+        }
     }
 
     var activeEditorFile: FileRef? {
@@ -451,6 +472,7 @@ final class SiteWindowModel {
 
     func close(suddenTerminationLease: SuddenTerminationController.Lease? = nil) {
         stopInvisiblePublishing()
+        sync.stop()
         preview.close()
         startup.stop()
         // Note: an in-flight Deploy/Backup/Audit is intentionally NOT cancelled or cleaned up
@@ -1413,6 +1435,9 @@ final class SiteWindowModel {
         let currentSite = CurrentSite(resolved)
         AppSettings.shared.lastOpenedSiteID = resolved.id
         try? await store.touch(id: resolved.id)
+        // #881: pull on site open. `SyncModel.start` no-ops entirely for a package that isn't in
+        // iCloud Drive, so a plain local site sees zero sync activity here.
+        sync.start(package: AnglesitePackage(url: resolved.packageURL))
 
         #if ANGLESITE_MAS
         await grantController.acquireGrant(for: resolved, in: store)

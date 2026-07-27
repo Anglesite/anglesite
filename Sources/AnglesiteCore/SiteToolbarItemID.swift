@@ -26,4 +26,6 @@ public enum SiteToolbarItemID: String, CaseIterable, Sendable {
     case chat
     case inspector
     case styleGuide
+    /// iCloud sync status badge (#881) — synced/syncing/waiting-for-iCloud/needs-attention.
+    case sync
 }

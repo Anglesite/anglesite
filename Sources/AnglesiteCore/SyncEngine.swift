@@ -684,7 +684,7 @@ public actor SyncEngine {
         }
         guard !quarantined.isEmpty else { return }
 
-        let quarantineDirectory = package.configURL.appendingPathComponent("conflicts", isDirectory: true)
+        let quarantineDirectory = package.conflictsDirectoryURL
         try? fileManager.createDirectory(at: quarantineDirectory, withIntermediateDirectories: true)
         for url in quarantined {
             let destination = quarantineDirectory.appendingPathComponent("\(UUID().uuidString)-\(url.lastPathComponent)")

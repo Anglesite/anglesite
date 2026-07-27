@@ -49,6 +49,12 @@ public struct AnglesitePackage: Sendable, Equatable {
     /// local repo — the bundle acts as an iCloud-mediated remote.
     public var syncBundleURL: URL { syncDirectoryURL.appendingPathComponent("source.bundle", isDirectory: false) }
 
+    /// Quarantine directory for files iCloud dropped as conflict-copies of `Source/`'s own
+    /// working tree (design doc §3, "Working-tree conflict copies") — swept there by
+    /// `SyncEngine.pull()` rather than left in place or silently deleted, and surfaced in the
+    /// sync conflict resolution sheet (#881) alongside the git-level `SyncConflict`.
+    public var conflictsDirectoryURL: URL { configURL.appendingPathComponent("conflicts", isDirectory: true) }
+
     /// Cached home-page thumbnail (nice-to-have, #621). Nothing writes this file yet — a future
     /// feature (e.g. captured on deploy) will populate it. The Quick Look preview and thumbnail
     /// extensions (`AnglesiteQuickLookPreview` / `AnglesiteQuickLookThumbnail`) read it if present
