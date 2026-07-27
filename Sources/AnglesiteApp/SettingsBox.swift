@@ -3,12 +3,22 @@ import SwiftUI
 /// A nested, bordered settings section — mirrors Xcode's Signing & Capabilities
 /// boxes (e.g. "Signing (Debug)", "App Sandbox"): bold header, no icon, subtle fill.
 struct SettingsBox<Content: View>: View {
-    let title: String
+    private let title: Text
     @ViewBuilder let content: () -> Content
+
+    init(title: LocalizedStringKey, @ViewBuilder content: @escaping () -> Content) {
+        self.title = Text(title)
+        self.content = content
+    }
+
+    init(verbatimTitle: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = Text(verbatim: verbatimTitle)
+        self.content = content
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.headline)
+            title.font(.headline)
             content()
         }
         .padding(10)
@@ -23,7 +33,7 @@ struct SettingsBox<Content: View>: View {
 
 #Preview {
     SettingsBox(title: "Preview Box") {
-        Text("Box content")
+        Text(verbatim: "Box content")
     }
     .padding()
 }

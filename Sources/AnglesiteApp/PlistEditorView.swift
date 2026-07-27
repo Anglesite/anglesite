@@ -87,20 +87,41 @@ struct PlistEditorView: View {
     }
 
     private var tabBar: some View {
+        ViewThatFits(in: .horizontal) {
+            tabBarButtons(showLabels: true)
+            tabBarButtons(showLabels: false)
+        }
+        .accessibilityRepresentation {
+            Picker("Settings", selection: $selectedTab) {
+                ForEach(SettingsTab.allCases) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+        }
+    }
+
+    private func tabBarButtons(showLabels: Bool) -> some View {
         HStack(spacing: 4) {
             ForEach(SettingsTab.allCases) { tab in
                 Button {
                     selectedTab = tab
                 } label: {
-                    Label(tab.rawValue, systemImage: tab.symbolName)
-                        .font(.callout)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(tab == selectedTab ? Color.accentColor.opacity(0.15) : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        .foregroundStyle(tab == selectedTab ? Color.accentColor : Color.primary)
+                    Group {
+                        if showLabels {
+                            Label(tab.rawValue, systemImage: tab.symbolName)
+                        } else {
+                            Image(systemName: tab.symbolName)
+                        }
+                    }
+                    .font(.callout)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(tab == selectedTab ? Color.accentColor : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .foregroundStyle(tab == selectedTab ? Color.white : Color.primary)
                 }
                 .buttonStyle(.plain)
+                .help(tab.rawValue)
                 .accessibilityAddTraits(tab == selectedTab ? [.isSelected] : [])
             }
         }
@@ -184,7 +205,7 @@ struct PlistEditorView: View {
 
     private var websiteTab: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SettingsBox(title: "Website") {
+            SettingsBox(title: "Site Details") {
                 Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
                     GridRow {
                         Text("Title")
@@ -230,7 +251,7 @@ struct PlistEditorView: View {
 
     private var analyticsTab: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SettingsBox(title: "Analytics") {
+            SettingsBox(title: "Providers") {
                 Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
                     GridRow {
                         Text("Cloudflare")
@@ -423,7 +444,7 @@ struct PlistEditorView: View {
 
     private var crawlersTab: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SettingsBox(title: "AI Training") {
+            SettingsBox(title: "Block AI Training Crawlers") {
                 VStack(alignment: .leading, spacing: 6) {
                     Toggle("Block AI Training Crawlers", isOn: $model.crawlerPolicySettings.blockAI)
                         .toggleStyle(.switch)
@@ -442,6 +463,7 @@ struct PlistEditorView: View {
                     Table(contentSignalRows) {
                         TableColumn("Purpose") { row in
                             Text(row.title)
+                                .help(row.help)
                         }
                         TableColumn("Setting") { row in
                             Picker(row.title, selection: row.value) {
@@ -451,11 +473,7 @@ struct PlistEditorView: View {
                             }
                             .labelsHidden()
                             .pickerStyle(.segmented)
-                        }
-                        TableColumn("Description") { row in
-                            Text(row.help)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            .frame(maxWidth: 260)
                         }
                     }
                     .frame(minHeight: 130)
@@ -728,7 +746,7 @@ struct PlistEditorView: View {
             ForEach(model.workerGroups) { group in
                 // Group keys are manifest-owned free text (design doc §3) — display-cased,
                 // never localized or enumerated here.
-                SettingsBox(title: group.name.capitalized) {
+                SettingsBox(verbatimTitle: group.name.capitalized) {
                     workersGroupTable(group.rows)
                 }
             }
