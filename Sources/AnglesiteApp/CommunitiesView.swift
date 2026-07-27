@@ -93,7 +93,9 @@ struct CommunitiesView: View {
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { Task { await communities.join() } }
                 Button("Join") { Task { await communities.join() } }
-                    .disabled(communities.joinHandleText.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(
+                        communities.joinHandleText.trimmingCharacters(in: .whitespaces).isEmpty
+                            || communities.isJoining)
             }
             .padding()
 
