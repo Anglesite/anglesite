@@ -69,7 +69,14 @@ struct LicensingStoreTests {
         var policy = LicensingPolicy()
         policy.usage = AIUsage(search: .unset, aiInput: .unset, aiTrain: .no, blockAICrawlers: true)
         try LicensingStore(sourceDirectory: dir).save(policy)
-        #expect(try LicensingStore(sourceDirectory: dir).load().usage.blockAICrawlers == false)
+        // Read the raw bytes `save()` wrote, not `load()`'s re-decoded result: `AIUsage.init(from:)`
+        // re-clamps on every decode, so asserting via `load()` would pass even if `encode` wrote a
+        // contradictory `blockAICrawlers: true` to disk — it would be entirely subsumed by
+        // `loadClamps`. This isolates the save path the way `saveOmitsUnset` does.
+        let data = try Data(contentsOf: dir.appendingPathComponent("src/data/licensing.json"))
+        let raw = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let usage = raw?["usage"] as? [String: Any]
+        #expect(usage?["blockAICrawlers"] as? Bool == false)
     }
 
     @Test("load() throws on a malformed document rather than silently discarding it")
@@ -109,6 +116,87 @@ struct LicensingStoreTests {
         #expect(!LicenseRef.isSafeLicenseURL("JavaScript:alert(1)"))
         #expect(!LicenseRef.isSafeLicenseURL("data:text/html,x"))
         #expect(!LicenseRef.isSafeLicenseURL(""))
+    }
+
+    @Test("isSafeLicenseURL rejects a scheme with no authority, matching new URL()'s throw")
+    func schemeGuardRejectsMissingAuthority() {
+        // `new URL("http://")` (and "https://", and the slash-less "http:") throws in WHATWG
+        // parsing — there is no host to point at — so hasSafeLicenseScheme returns false for all
+        // three. A bare scheme guard that only checks `.scheme` (not `.host`) is more permissive
+        // than the rule it claims to mirror.
+        #expect(!LicenseRef.isSafeLicenseURL("http://"))
+        #expect(!LicenseRef.isSafeLicenseURL("https://"))
+        #expect(!LicenseRef.isSafeLicenseURL("http:"))
+    }
+
+    @Test("isSafeLicenseURL accepts a URL WHATWG's new URL() would trim before parsing")
+    func schemeGuardAcceptsWhitespacePadding() {
+        // WHATWG's URL parser strips leading/trailing C0 control-or-space and removes internal
+        // tab/CR/LF before parsing, so `new URL()` accepts all three of these. Foundation's
+        // `URL(string:)` fails outright on any of them, so without matching sanitization Swift is
+        // *stricter* than the TS original — the opposite direction of a security bug, but still a
+        // behavioral divergence the review flagged.
+        #expect(LicenseRef.isSafeLicenseURL(" http://evil.com"))
+        #expect(LicenseRef.isSafeLicenseURL("http://example.com\t"))
+        #expect(LicenseRef.isSafeLicenseURL("\thttp://example.com"))
+    }
+
+    @Test("load() sanitizes an unsafe default URL instead of loading it verbatim")
+    func loadSanitizesUnsafeDefaultURL() throws {
+        // Self.validate (called only from save()) is not the only place an unsafe URL must be
+        // caught: a hand-edited document loads through decode, not through validate, so the
+        // sanitization has to live on the decode path too — matching toLicenseRef running on
+        // every parse in the TS original, not just on the app's own writes.
+        let dir = try makeDirectory()
+        try write(#"{"default":{"url":"javascript:alert(1)","name":"Evil"}}"#, to: dir)
+        let policy = try LicensingStore(sourceDirectory: dir).load()
+        #expect(policy.defaultLicense == nil)
+    }
+
+    @Test("load() degrades a garbage collection value to assertNothing, not inherit")
+    func loadDegradesGarbageCollectionValueToAssertNothing() throws {
+        // inherit falls through to the site default, asserting a license the document never
+        // granted; a value that is present but untrustworthy must land on assertNothing instead,
+        // matching normalizePolicy's `toLicenseRef(value)` returning null for a present key.
+        let dir = try makeDirectory()
+        try write(#"{"default":null,"collections":{"notes":{"garbage":true}}}"#, to: dir)
+        let policy = try LicensingStore(sourceDirectory: dir).load()
+        #expect(policy.collections[.notes] == .assertNothing)
+        #expect(policy.rule(for: .notes) != .inherit)
+    }
+
+    @Test("load() degrades a malformed default to nil instead of throwing")
+    func loadDegradesMalformedDefaultToNil() throws {
+        let dir = try makeDirectory()
+        try write(#"{"default":{"name":"No URL here"}}"#, to: dir)
+        let policy = try LicensingStore(sourceDirectory: dir).load()
+        #expect(policy.defaultLicense == nil)
+    }
+
+    @Test("load() treats collections: null as empty instead of throwing")
+    func loadTreatsNullCollectionsAsEmpty() throws {
+        let dir = try makeDirectory()
+        try write(#"{"default":null,"collections":null}"#, to: dir)
+        let policy = try LicensingStore(sourceDirectory: dir).load()
+        #expect(policy.collections.isEmpty)
+    }
+
+    @Test("load() falls back to the URL for a missing or empty license name")
+    func loadFallsBackToURLForMissingName() throws {
+        let dir = try makeDirectory()
+        try write(#"{"default":{"url":"https://example.com/l"},"collections":{"photos":{"url":"https://example.com/p","name":""}}}"#, to: dir)
+        let policy = try LicensingStore(sourceDirectory: dir).load()
+        #expect(policy.defaultLicense?.name == "https://example.com/l")
+        #expect(policy.rule(for: .photos) == .license(LicenseRef(url: "https://example.com/p", name: "https://example.com/p")))
+    }
+
+    @Test("a genuinely unparseable document still throws")
+    func loadStillThrowsOnUnparseableJSON() throws {
+        // The defensive-decode fixes above must not swallow a document that isn't JSON at all — a
+        // later task refuses to overwrite a file it couldn't read, and that depends on this throw.
+        let dir = try makeDirectory()
+        try write("{ not json", to: dir)
+        #expect(throws: (any Error).self) { try LicensingStore(sourceDirectory: dir).load() }
     }
 
     @Test("mayBlockAICrawlers requires both AI purposes denied")

@@ -2,7 +2,7 @@ import Foundation
 
 /// A license the site can point at: a canonical URL plus a human-readable label. Mirrors
 /// `LicenseRef` in `Resources/Template/src/lib/licensing.ts`.
-public struct LicenseRef: Sendable, Equatable, Hashable, Codable {
+public struct LicenseRef: Sendable, Equatable, Hashable {
     public var url: String
     public var name: String
 
@@ -16,15 +16,64 @@ public struct LicenseRef: Sendable, Equatable, Hashable, Codable {
     /// scheme is rejected by default, and additionally accept a root-relative path for a
     /// site-local license page. A protocol-relative URL is rejected because it hands an
     /// attacker-chosen host to `href`; a bare relative path is rejected because its resolution
-    /// depends on which page renders it.
+    /// depends on which page renders it. `hasSafeLicenseScheme` also requires a non-empty host
+    /// (`new URL("http://")` throws in WHATWG parsing — there is no authority to point at), so
+    /// this checks `parsed.host` too rather than stopping at the scheme.
     ///
     /// The template checks this too, at read time. This copy exists because the app is now a
     /// *writer* of `licensing.json`, and a write path that can store a `javascript:` URL is a
     /// worse failure than one that renders it — the file outlives the session that wrote it.
     public static func isSafeLicenseURL(_ url: String) -> Bool {
         if url.hasPrefix("/") && !url.hasPrefix("//") { return true }
-        guard let parsed = URL(string: url), let scheme = parsed.scheme?.lowercased() else { return false }
-        return scheme == "http" || scheme == "https"
+        let sanitized = whatwgTrim(url)
+        guard let parsed = URL(string: sanitized), let scheme = parsed.scheme?.lowercased() else { return false }
+        guard scheme == "http" || scheme == "https" else { return false }
+        guard let host = parsed.host, !host.isEmpty else { return false }
+        return true
+    }
+
+    /// Mirrors the input-sanitization step the WHATWG URL parser runs before parsing: strip every
+    /// ASCII tab/CR/LF wherever it occurs, then trim leading/trailing C0 control characters or
+    /// space. `new URL()` in the TS original tolerates (and silently cleans) `" http://evil.com"`
+    /// or a trailing tab; Foundation's `URL(string:)` just fails to parse a string carrying any of
+    /// these, so without this step Swift would be *stricter* than the rule it is meant to mirror.
+    private static func whatwgTrim(_ url: String) -> String {
+        let withoutTabsOrNewlines = url.unicodeScalars.filter { $0 != "\t" && $0 != "\n" && $0 != "\r" }
+        var scalars = Array(withoutTabsOrNewlines)
+        func isC0OrSpace(_ scalar: Unicode.Scalar) -> Bool { scalar.value <= 0x20 }
+        while let first = scalars.first, isC0OrSpace(first) { scalars.removeFirst() }
+        while let last = scalars.last, isC0OrSpace(last) { scalars.removeLast() }
+        return String(String.UnicodeScalarView(scalars))
+    }
+}
+
+/// Custom `Codable` conformance mirrors `toLicenseRef` in `licensing.ts`: `url` is required and
+/// must pass `isSafeLicenseURL`, and `name` falls back to `url` when absent or empty. A malformed
+/// or unsafe value throws here rather than silently producing an untrustworthy `LicenseRef` —
+/// callers (`LicensingPolicy`'s `default` and `collections` decoding) catch the throw and degrade
+/// to "assert nothing" instead of propagating it, which is what makes the sanitization apply on
+/// every parse (`load()` included), not only on the app's own `save()`/`validate()` write path.
+extension LicenseRef: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case url, name
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let url = try container.decode(String.self, forKey: .url)
+        guard !url.isEmpty, Self.isSafeLicenseURL(url) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .url, in: container, debugDescription: "license url is missing or unsafe")
+        }
+        let name = (try? container.decodeIfPresent(String.self, forKey: .name)) ?? nil
+        self.url = url
+        self.name = (name?.isEmpty == false) ? name! : url
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(url, forKey: .url)
+        try container.encode(name, forKey: .name)
     }
 }
 
@@ -179,10 +228,18 @@ extension LicensingPolicy: Codable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let defaultLicense = try container.decodeIfPresent(LicenseRef.self, forKey: .default)
+        // A malformed `default` (missing `url`, wrong shape, or a URL `LicenseRef`'s own decode
+        // rejects as unsafe) degrades to nil instead of failing the whole document — matching
+        // `toLicenseRef`'s null return in `normalizePolicy`. This is also what sanitizes a
+        // hand-edited unsafe URL at *load* time: `Self.validate`/`save()` cover the write path,
+        // this covers the read path, and they are deliberately different guarantees.
+        let defaultLicense = (try? container.decodeIfPresent(LicenseRef.self, forKey: .default)) ?? nil
         let usage = try container.decodeIfPresent(AIUsage.self, forKey: .usage) ?? AIUsage()
         var collections: [LicensableCollection: CollectionLicenseRule] = [:]
-        if container.contains(.collections) {
+        // `"collections": null` is present-but-null; `normalizePolicy`'s `rawCollections &&
+        // typeof rawCollections === "object"` check is falsy for `null` (short-circuiting before
+        // `typeof`), so it is treated as empty rather than a decode error.
+        if try container.contains(.collections) && !container.decodeNil(forKey: .collections) {
             let sub = try container.nestedContainer(keyedBy: CollectionKey.self, forKey: .collections)
             for key in sub.allKeys {
                 // Unrecognized collection keys are dropped rather than passed through, matching
@@ -192,6 +249,13 @@ extension LicensingPolicy: Codable {
                     collections[collection] = .assertNothing
                 } else if let ref = try? sub.decode(LicenseRef.self, forKey: key) {
                     collections[collection] = .license(ref)
+                } else {
+                    // A present value that is neither null nor a trustworthy license (garbage
+                    // shape, missing url, unsafe scheme) still asserts nothing — exactly like
+                    // `toLicenseRef` returning null for a present key in `normalizePolicy`. It
+                    // must NOT fall through to `.inherit`: `inherit` resolves to the site default,
+                    // which would assert a license this document never actually granted here.
+                    collections[collection] = .assertNothing
                 }
             }
         }
