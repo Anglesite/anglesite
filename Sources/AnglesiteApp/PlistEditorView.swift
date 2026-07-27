@@ -122,7 +122,6 @@ struct PlistEditorView: View {
                 }
                 .buttonStyle(.plain)
                 .help(tab.rawValue)
-                .accessibilityAddTraits(tab == selectedTab ? [.isSelected] : [])
             }
         }
     }
