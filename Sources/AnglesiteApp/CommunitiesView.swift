@@ -10,11 +10,20 @@ struct CommunitiesView: View {
     @Bindable var communities: CommunitiesModel
 
     var body: some View {
-        HSplitView {
-            sidebar
-                .frame(minWidth: 220, idealWidth: 260, maxWidth: 340)
-            timelinePane
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        Group {
+            switch communities.state {
+            case .noSiteURL:
+                message(
+                    "This site hasn't been published yet",
+                    detail: Text("Publish it at least once, then you can join communities."))
+            case .idle, .loading, .loaded:
+                HSplitView {
+                    sidebar
+                        .frame(minWidth: 220, idealWidth: 260, maxWidth: 340)
+                    timelinePane
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
         }
         .navigationSubtitle("Communities")
         .alert(
@@ -43,8 +52,37 @@ struct CommunitiesView: View {
             Button("Leave", role: .destructive) { Task { await communities.confirmLeave() } }
             Button("Cancel", role: .cancel) { communities.cancelLeave() }
         } message: { community in
-            Text("This site will stop receiving posts from \(community.displayName ?? community.id).")
+            // `community.displayName` is remote-supplied (a hostile Group's own actor-document
+            // `name`, already run through `DisplayString.safe` — which strips bidi/control
+            // scalars, not markdown syntax). The interpolated-`LocalizedStringKey` overload
+            // markdown-parses its content, so embedding it there directly would let a Group named
+            // e.g. `[Your Site](https://phish.example)` render as a live link inside a destructive
+            // confirmation. `Text(String)` binds to the plain-`StringProtocol` overload instead —
+            // verbatim, no markdown — matching `FollowersView`'s `Text(reason)` precedent.
+            Text("This site will stop receiving posts from ")
+                + Text(community.displayName ?? community.id)
+                + Text(".")
         }
+    }
+
+    /// `title` is static UI copy and localizes via the `LocalizedStringKey` overload. `detail` is
+    /// pre-built `Text` rather than `String` so the call site controls whether its content
+    /// localizes — mirrors `FollowersView.message(_:detail:)`. `.noSiteURL` is the only state this
+    /// pane can genuinely observe (`CommunitiesModel.configure`/`resolveSite` do no network I/O,
+    /// unlike `FollowersModel`'s Worker-backed `.notActivated`/`.unreachable`), so there's only
+    /// ever one message here, but the shape stays parallel in case that changes. Try Again calls
+    /// `retry()`, which re-resolves the site URL — what makes `.noSiteURL` recoverable without
+    /// closing and reopening the window once the owner publishes.
+    @ViewBuilder
+    private func message(_ title: LocalizedStringKey, detail: Text) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.title2)
+            detail.foregroundStyle(.secondary)
+            Button("Try Again") { Task { await communities.retry() } }
+                .padding(.top, 4)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     @ViewBuilder
