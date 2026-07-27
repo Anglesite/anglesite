@@ -272,8 +272,10 @@ without stranding earlier ones.
 1. **Licensing model + the three consumed projections.** `licensing.json`, per-collection
    resolution, schema.org `license`, mf2 `u-license`, `<link rel="license">`, footer rights
    statement. Ships real, read-today metadata; no RSL.
-2. **Unify the AI signals.** Fold `BLOCK_AI` and `CONTENT_SIGNALS` into the policy model as derived
-   projections; migrate the crawler-policy settings facet. Removes an existing footgun.
+2. **Unify the AI signals.** ✅ Shipped — `BLOCK_AI` and `CONTENT_SIGNALS` are folded into the
+   policy's `usage` block as derived projections, and the crawler-policy facet is absorbed into
+   Website Settings ▸ Licensing. See
+   [the phase 2 design](2026-07-27-ai-signal-unification-design.md).
 3. **RSL projection.** `rsl.xml` generator in `edge-artifacts.ts`, `License:` directive in
    `robots.txt`, `<link rel="license" type="application/rsl+xml">`, `Link:` header via `csp.ts`,
    `xmlns:rsl` module in the feed renderers. Conformance check in `pre-deploy-check.ts`.

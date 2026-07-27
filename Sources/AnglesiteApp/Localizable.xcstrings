@@ -27,6 +27,9 @@
         }
       }
     },
+    "%@ already permits this use. Crawlers reading both your license and these signals will see them disagree." : {
+
+    },
     "%@ changed on disk" : {
 
     },
@@ -196,6 +199,15 @@
     "ACP Agents" : {
 
     },
+    "AI Answers" : {
+
+    },
+    "AI Training" : {
+
+    },
+    "AI and Crawlers" : {
+
+    },
     "AI explanation" : {
 
     },
@@ -304,7 +316,13 @@
     "Add rule" : {
 
     },
+    "Address" : {
+
+    },
     "Adds View → Show Debug Pane (⌥⌘D), a live tail of every subprocess. Takes effect on the next launch. You can also hold ⌥ while launching Anglesite to reveal it once." : {
+
+    },
+    "Adds robots.txt rules refusing 17 known AI crawlers (GPTBot, ClaudeBot, and others). This reduces your site's visibility to AI assistants and AI-generated search summaries — it does not affect traditional search engines." : {
 
     },
     "Adds robots.txt rules refusing known AI-training crawlers (GPTBot, ClaudeBot, and others). This reduces your site's visibility to AI assistants and AI-generated search summaries — it does not affect traditional search engines." : {
@@ -314,6 +332,9 @@
 
     },
     "Agents" : {
+
+    },
+    "Albums" : {
 
     },
     "Align Center" : {
@@ -329,6 +350,9 @@
 
     },
     "All" : {
+
+    },
+    "All rights reserved" : {
 
     },
     "All types" : {
@@ -371,6 +395,9 @@
 
     },
     "Announce live updates to VoiceOver" : {
+
+    },
+    "Announcements" : {
 
     },
     "Another tool edited the website details while you had unsaved changes." : {
@@ -443,10 +470,19 @@
     "Article" : {
 
     },
+    "Articles" : {
+
+    },
     "Ask Assistant" : {
 
     },
     "Ask the assistant…" : {
+
+    },
+    "Assert nothing" : {
+
+    },
+    "Asserts nothing by default" : {
 
     },
     "Assistant" : {
@@ -488,6 +524,9 @@
     "Auto-suggest descriptions for new pages and posts" : {
 
     },
+    "Available once both AI Answers and AI Training are set to Disallow. Refusing a crawler while still permitting what it does would contradict itself." : {
+
+    },
     "Back" : {
 
     },
@@ -509,7 +548,13 @@
     "Blockquote" : {
 
     },
+    "Blog" : {
+
+    },
     "Body" : {
+
+    },
+    "Bookmarks" : {
 
     },
     "Bottom" : {
@@ -549,6 +594,9 @@
 
     },
     "Buy a domain" : {
+
+    },
+    "By Content Type" : {
 
     },
     "By default, Anglesite saves new and imported site packages under `~/Sites/`. Override this for development or testing." : {
@@ -914,6 +962,9 @@
     "Custom. Choose your own colors and add a logo." : {
 
     },
+    "Custom…" : {
+
+    },
     "Dashboard" : {
 
     },
@@ -1116,6 +1167,9 @@
 
     },
     "Error: %@" : {
+
+    },
+    "Events" : {
 
     },
     "Explain" : {
@@ -1481,10 +1535,19 @@
     "Lemon Squeezy" : {
 
     },
+    "Let AI assistants use this content to answer a live question." : {
+
+    },
+    "Let AI systems use this content to train models." : {
+
+    },
     "Lets Tor Browser users reach your site over the Tor network without exiting through a third-party relay. No changes to your site or URLs." : {
 
     },
     "Likely cause: %@" : {
+
+    },
+    "Likes" : {
 
     },
     "List" : {
@@ -1560,6 +1623,9 @@
 
     },
     "My Website" : {
+
+    },
+    "My license" : {
 
     },
     "MyComponent" : {
@@ -1709,6 +1775,9 @@
     "Not reviewed" : {
 
     },
+    "Notes" : {
+
+    },
     "Notifications" : {
 
     },
@@ -1823,6 +1892,9 @@
     "Other Mac" : {
 
     },
+    "Override the site license for one kind of content. Bookmarks, replies, likes, and reviews assert nothing by default — those entries are about someone else's work." : {
+
+    },
     "Overview of the whole graph — click to jump to a node" : {
 
     },
@@ -1863,6 +1935,9 @@
 
     },
     "Personal access token" : {
+
+    },
+    "Photos" : {
 
     },
     "Physical goods" : {
@@ -2027,6 +2102,9 @@
     "Refresh" : {
 
     },
+    "Refuse AI crawlers in robots.txt" : {
+
+    },
     "Regenerate" : {
 
     },
@@ -2097,6 +2175,9 @@
 
     },
     "Replace With" : {
+
+    },
+    "Replies" : {
 
     },
     "Reports go to %@/%@'s private advisory form." : {
@@ -2207,6 +2288,9 @@
 
     },
     "Reviewing your site's copy, page by page…" : {
+
+    },
+    "Reviews" : {
 
     },
     "Right" : {
@@ -2428,6 +2512,9 @@
     "Show related pages" : {
 
     },
+    "Show this content in traditional search results." : {
+
+    },
     "Shows the most recent pre-deploy scan results" : {
 
     },
@@ -2465,6 +2552,9 @@
 
     },
     "Site Graph" : {
+
+    },
+    "Site License" : {
 
     },
     "Site graph overview" : {
@@ -2525,6 +2615,9 @@
 
     },
     "Start a design interview for ${site}" : {
+
+    },
+    "States a usage preference per purpose in robots.txt, using Cloudflare's Content Signals Policy. It's a signal well-behaved crawlers honor, not an enforced block." : {
 
     },
     "Status of ${site}" : {
@@ -2615,6 +2708,9 @@
 
     },
     "The domain must be managed in Cloudflare. Your API token needs Zone DNS Read and Edit permissions." : {
+
+    },
+    "The license offered for your content. Anglesite never picks one for you — until you choose, your site says all rights reserved." : {
 
     },
     "The pre-deploy scan found issues that need fixing before this site can ship." : {
@@ -2798,6 +2894,9 @@
     "Use a temporary Cloudflare Workers domain later, such as %@." : {
 
     },
+    "Use site license" : {
+
+    },
     "Used to push backups and publish sites to GitHub over HTTPS (the sandboxed app can't run `git` or `gh`, so it pushes in-process with this token). Create a fine-grained token scoped to All repositories with Contents: Read and write and Administration: Read and write access (Administration is needed to create a new repo when publishing) at github.com/settings/tokens. Stored in the macOS Keychain under `io.dwk.anglesite` and never written to logs." : {
 
     },
@@ -2940,6 +3039,9 @@
 
     },
     "https://agent.example.com/acp" : {
+
+    },
+    "https://example.com/license" : {
 
     },
     "iCloud Sync" : {
