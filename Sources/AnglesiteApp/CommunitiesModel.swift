@@ -198,6 +198,10 @@ final class CommunitiesModel {
             if selectedCommunityID == community.id {
                 selectedCommunityID = nil
                 timeline = []
+                // Invalidates any in-flight loadTimeline() for the community just left, so it
+                // can't repopulate `timeline` after the selection has already moved on — same
+                // staleness guard `selectCommunity(_:)` uses.
+                timelineGeneration &+= 1
             }
         } catch {
             errorMessage = "Couldn't leave \(community.displayName ?? community.id): \(error)"
@@ -223,7 +227,13 @@ final class CommunitiesModel {
         guard let selectedCommunityID,
               let community = joined.first(where: { $0.id == selectedCommunityID }),
               let outboxURL = community.outboxURL
-        else { return }
+        else {
+            // A prior call may have left `isLoadingTimeline` set (e.g. still in flight for a
+            // community just switched away from); this call owns the current selection now, and
+            // it has nothing to load, so the spinner must not be left stuck on.
+            isLoadingTimeline = false
+            return
+        }
         let token = timelineGeneration
         errorMessage = nil
         isLoadingTimeline = true

@@ -514,6 +514,55 @@ struct CommunitiesModelTests {
         #expect(!requested.contains(aPage))
     }
 
+    @Test("selecting a community with no outbox clears a stuck loading spinner")
+    func selectingCommunityWithNoOutboxClearsStuckSpinner() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        secretStore.values[SecretAccounts.activityPubPublishToken(siteID: "site-1")] = "token"
+
+        var ledger = CommunitiesLedger()
+        let communityA = JoinedCommunity(
+            actorID: URL(string: "https://a.example/actor")!,
+            outboxURL: URL(string: "https://a.example/outbox")!,
+            handle: "@a@a.example", displayName: "A", joinedAt: Date(), followActivityID: nil)
+        // No `outboxURL` — the actor document this was resolved from didn't advertise one.
+        let communityB = JoinedCommunity(
+            actorID: URL(string: "https://b.example/actor")!,
+            outboxURL: nil,
+            handle: "@b@b.example", displayName: "B", joinedAt: Date(), followActivityID: nil)
+        ledger.record(communityA)
+        ledger.record(communityB)
+        try ledger.save(to: config)
+
+        let aOutbox = "https://a.example/outbox"
+        let fake = FakeTransport([
+            aOutbox: (200, """
+                {"id":"\(aOutbox)","type":"OrderedCollection","totalItems":0}
+                """),
+        ])
+        await fake.gate(aOutbox)
+
+        let model = Self.model(secretStore: secretStore, fake: fake)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+
+        // Select A: its load blocks on the gated outbox fetch, leaving `isLoadingTimeline` true.
+        model.selectCommunity(communityA.id)
+        await fake.waitUntilRequested(aOutbox)
+        #expect(model.isLoadingTimeline == true)
+
+        // Select B before A's load resolves. B has no outbox, so `loadTimeline()` bails at its
+        // entry guard — before this fix, that guard didn't touch `isLoadingTimeline`, leaving it
+        // stuck at A's `true` with nothing left to ever clear it.
+        model.selectCommunity(communityB.id)
+        await model.loadTimeline()
+
+        #expect(model.isLoadingTimeline == false)
+        #expect(model.timeline.isEmpty)
+
+        await fake.release(aOutbox)
+    }
+
     // MARK: - Finding 7: joining an already-joined community doesn't re-POST a Follow
 
     @Test("join is a no-op if the resolved actor is already joined")
