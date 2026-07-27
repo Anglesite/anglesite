@@ -105,6 +105,11 @@ public struct GroupTimelineClient: Sendable {
             throw GroupTimelineError.requestFailed(
                 status: http.statusCode, body: String(decoding: data.prefix(400), as: UTF8.self))
         }
+        // The default transport already aborts mid-stream past the cap; this re-check holds an
+        // injected transport to the same limit.
+        guard data.count <= Self.maximumResponseBytes else {
+            throw GroupTimelineError.requestFailed(status: 0, body: "response too large (\(data.count) bytes)")
+        }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw GroupTimelineError.decodingFailed("not a JSON object")
         }

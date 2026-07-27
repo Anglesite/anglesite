@@ -99,4 +99,15 @@ struct GroupTimelineClientTests {
             _ = try await GroupTimelineClient(transport: fake.transport).collection(at: url)
         }
     }
+
+    @Test("rejects an oversized response body")
+    func rejectsOversizedBody() async throws {
+        // Create a body larger than maximumResponseBytes (1 MB)
+        let oversizedBody = String(repeating: "x", count: GroupTimelineClient.maximumResponseBytes + 1)
+        let fake = FakeTransport(body: oversizedBody)
+        let url = try #require(URL(string: "https://lemmy.ml/c/birding/outbox"))
+        await #expect(throws: GroupTimelineError.self) {
+            _ = try await GroupTimelineClient(transport: fake.transport).collection(at: url)
+        }
+    }
 }
