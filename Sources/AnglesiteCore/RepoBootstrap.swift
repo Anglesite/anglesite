@@ -112,6 +112,10 @@ public actor RepoBootstrap {
         if case .success(let configuredSignature) = repo.defaultSignature() {
             signature = configuredSignature
         } else if let signatureFallback {
+            // Logged, not silent — same reasoning as `GitIdentity.signature(for:)`: substituting an
+            // identity changes what lands in the user's git history, and that's just as true of a
+            // new site's very first commit as of any later one (PR #983 review).
+            await GitIdentity.logSubstitution(signatureFallback)
             signature = signatureFallback
         } else {
             throw RepoBootstrapError(reason: "No git identity configured (user.name/user.email).")
@@ -201,8 +205,7 @@ public actor RepoBootstrap {
         // Preserve the user's configured identity when libgit2 can resolve one. The app identity
         // is only a fallback: a sandboxed build cannot necessarily read ~/.gitconfig even when
         // Terminal can, and a commit-less new site cannot be cloned into the container runtime.
-        let signature = Signature(name: "Anglesite", email: "noreply@anglesite.app")
-        try await ensureCommittable(source: source, signatureFallback: signature, emit: { _ in })
+        try await ensureCommittable(source: source, signatureFallback: GitIdentity.appFallback, emit: { _ in })
         #else
         try await ensureCommittable(source: source, emit: { _ in })
         #endif

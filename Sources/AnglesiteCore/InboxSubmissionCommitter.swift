@@ -125,7 +125,7 @@ public enum InboxSubmissionCommitter {
         for relPath in relPaths {
             guard case .success = repo.add(path: relPath) else { return nil }
         }
-        guard case .success(let signature) = repo.defaultSignature() else { return nil }
+        let signature = await GitIdentity.signature(for: repo)
         guard case .success(let commit) = repo.commit(message: message, signature: signature) else { return nil }
         return commit.oid.description
     }
