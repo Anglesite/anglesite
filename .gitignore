@@ -106,3 +106,7 @@ Resources/Anglesite.help/**/*.helpindex
 # Playwright MCP browser-session artifacts
 .playwright-mcp/
 build-smoke/
+
+# Personal signing override (see xcconfig/Signing-Debug.xcconfig) — machine-specific
+# Apple Developer Team, never shared.
+xcconfig/Signing-Debug.local.xcconfig

@@ -1,0 +1,13 @@
+// Shared Debug-config code-signing defaults, wired in via each target's `configFiles`
+// entry in project.yml. Tracked — keep these values CI-safe (ad-hoc, no team) so a
+// fresh clone or CI runner can build Debug without owning an Apple Developer Team.
+//
+// To run locally with your own Team (e.g. so "Automatically manage signing" in Xcode's
+// Signing & Capabilities tab survives `xcodegen generate` instead of being silently
+// reverted), copy Signing-Debug.local.xcconfig.example to Signing-Debug.local.xcconfig
+// (gitignored) next to this file and fill in your Team ID.
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+
+#include? "Signing-Debug.local.xcconfig"

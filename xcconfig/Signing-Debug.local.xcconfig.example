@@ -1,0 +1,7 @@
+// Copy this file to Signing-Debug.local.xcconfig (same directory) to pin your own
+// Apple Developer Team for local Debug builds. That filename is gitignored, so it
+// survives `xcodegen generate` without affecting CI or other contributors.
+//
+// Find your Team ID in Xcode: Settings > Accounts > (your Apple ID) > (team) > Team ID.
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
