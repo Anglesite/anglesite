@@ -374,7 +374,7 @@ test("renderRss falls back to the permalink for <description> when contentHtml a
     ],
   });
   const xml = await res.text();
-  assert.match(xml, new RegExp(`<description>${SITE.replace(/\./g, "\\.")}/likes/hello-like/</description>`));
+  assert.ok(xml.includes(`<description>${SITE}/likes/hello-like/</description>`));
 });
 
 // --- Plain text promoted into HTML-consuming fields must be HTML-escaped (Epic #1027 follow-up,
