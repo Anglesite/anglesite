@@ -77,6 +77,35 @@ const BLOCKED_SCRIPTS = [
 
 const BLOCKED_ROUTES = [/\/keystatic(?:\/|$)/i, /\/api\/keystatic/i];
 
+/**
+ * Media hosts belonging to the platforms the embed snapshotter supports (#682). A reference to
+ * one of these in built output means an embed is hotlinking rather than serving its snapshotted
+ * copy, which leaks every visitor's IP and Referer to the platform — the tracking ADR-0008
+ * exists to prevent. Anchor hrefs are excluded: a permalink back to the original post is the
+ * point of a citation.
+ *
+ * Invariant: no entry may be a domain suffix of another entry here (e.g. don't add back
+ * "scontent.cdninstagram.com" alongside "cdninstagram.com"). Matching is substring-based, and a
+ * generic host already substring-matches every subdomain of it — a redundant, more-specific pair
+ * doesn't catch anything extra, and previously caused a single hotlinked URL to be double-reported
+ * once per matching entry (see the checkEmbedMedia doc comment for how that's guarded against now).
+ *
+ * Invariant: every entry must stay lower-case — checkEmbedMedia lower-cases the matched URL
+ * value before comparing against this list (hostnames are case-insensitive by DNS definition,
+ * but JS string `includes` is not), so an upper-case entry here would never match.
+ */
+const EMBED_MEDIA_HOSTS = [
+  "pbs.twimg.com",
+  "video.twimg.com",
+  "abs.twimg.com",
+  "cdninstagram.com",
+  "cdn.bsky.app",
+  "i.ytimg.com",
+  "img.youtube.com",
+  /** Mastodon media is per-instance; files.* covers the common CDN shape. */
+  "files.mastodon.social",
+];
+
 async function* walk(dir: string): AsyncGenerator<string> {
   const entries = await readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
@@ -150,6 +179,40 @@ export function checkPII(content: string, file: string): Issue[] {
         severity: "error",
         category: `pii-${name.toLowerCase()}`,
         message: `Possible ${name} found`,
+        file,
+      });
+    }
+  }
+  return issues;
+}
+
+/**
+ * Hotlinked platform media in built output. Scans the resource-loading contexts a browser
+ * actually fetches from — `src`/`srcset` attributes (double-quoted, single-quoted, or unquoted,
+ * so hand-authored or pasted embed HTML is caught too, not just Astro's always-quoted compiled
+ * output; `\bsrc` also matches `data-src`, which is desirable — a lazy-loaded image still
+ * describes a real fetch) and CSS `url(...)` — for a value naming one of the
+ * `EMBED_MEDIA_HOSTS`. `href` is never matched, so a citation permalink to the original post
+ * passes even when it points at a listed host.
+ *
+ * Matching is per-occurrence, not per-host: each `src`/`srcset`/`url()` match is checked and
+ * reported independently, so two distinct hotlinks in the same file are two issues even when
+ * both happen to match the same generic host entry (e.g. two different `*.cdninstagram.com`
+ * subdomains) — a file-wide "did this host appear anywhere" pass would only catch one of them.
+ */
+export function checkEmbedMedia(content: string, file: string): Issue[] {
+  const issues: Issue[] = [];
+  const urlContextPattern =
+    /\b(?:src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))|url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = urlContextPattern.exec(content)) !== null) {
+    const value = m[1] ?? m[2] ?? m[3] ?? m[4] ?? m[5] ?? m[6] ?? "";
+    const host = EMBED_MEDIA_HOSTS.find((h) => value.toLowerCase().includes(h));
+    if (host) {
+      issues.push({
+        severity: "error",
+        category: "embed-media-hotlink",
+        message: `Embed media hotlinked from ${host} — run "npm run embed -- <url>" to snapshot it first-party.`,
         file,
       });
     }
@@ -496,6 +559,11 @@ async function scan(): Promise<Issue[]> {
 
     issues.push(...checkPII(content, rel));
 
+    const isHtmlOrCss = /\.(html?|css)$/i.test(file);
+    if (isHtmlOrCss) {
+      issues.push(...checkEmbedMedia(content, rel));
+    }
+
     for (const { name, pattern } of SECRET_PATTERNS) {
       pattern.lastIndex = 0;
       if (pattern.test(content)) {
@@ -503,7 +571,7 @@ async function scan(): Promise<Issue[]> {
       }
     }
 
-    if (/\.(html?|css)$/i.test(file)) {
+    if (isHtmlOrCss) {
       issues.push(...checkMixedContent(content, rel));
     }
 

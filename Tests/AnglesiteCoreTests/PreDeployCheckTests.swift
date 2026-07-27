@@ -53,7 +53,7 @@ struct PreDeployCheckTests {
         #expect(failures[0].remediation?.contains("PII_EMAIL_ALLOW") == true)
     }
 
-    @Test("Parses all seven concrete failure categories") func parsesAllSevenConcreteFailureCategories() async {
+    @Test("Parses all eight concrete failure categories") func parsesAllEightConcreteFailureCategories() async {
         let json = """
         {
           "version": 1,
@@ -65,7 +65,8 @@ struct PreDeployCheckTests {
             {"category": "exposed-token", "message": "m", "file": "a", "remediation": "r"},
             {"category": "third-party-script", "message": "m", "file": "a", "remediation": "r"},
             {"category": "keystatic-route", "message": "m", "file": "a", "remediation": "r"},
-            {"category": "csp-misconfigured", "message": "m", "file": "a", "remediation": "r"}
+            {"category": "csp-misconfigured", "message": "m", "file": "a", "remediation": "r"},
+            {"category": "embed-media-hotlink", "message": "m", "file": "a", "remediation": "r"}
           ],
           "warnings": []
         }
@@ -81,6 +82,7 @@ struct PreDeployCheckTests {
         #expect(
             Set(failures.map(\.category)) == Set([
                 .piiEmail, .piiPhone, .piiSSN, .exposedToken, .thirdPartyScript, .keystaticRoute, .cspMisconfigured,
+                .embedMediaHotlink,
             ])
         )
     }

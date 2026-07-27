@@ -1,0 +1,20 @@
+{
+  "id": "109252195886",
+  "created_at": "2026-02-01T09:00:00.000Z",
+  "url": "https://mastodon.social/@Gargron/109252195886",
+  "content": "<p>Hello <a href=\"https://mastodon.social/tags/fediverse\">#fediverse</a>&nbsp;&mdash; testing &amp; such.</p>",
+  "account": {
+    "display_name": "Eugen",
+    "acct": "Gargron",
+    "url": "https://mastodon.social/@Gargron",
+    "avatar": "https://files.mastodon.social/accounts/avatars/original.png"
+  },
+  "media_attachments": [
+    {
+      "type": "image",
+      "url": "https://files.mastodon.social/media_attachments/files/original.jpg",
+      "description": "A screenshot",
+      "meta": { "original": { "width": 1000, "height": 500 } }
+    }
+  ]
+}
