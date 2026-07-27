@@ -4,6 +4,7 @@ import {
   FEED_COLLECTIONS,
   toFeedItem,
   sortAndLimit,
+  escapeXml,
   type FeedEntry,
   type FeedItem,
   type FeedAuthor,
@@ -22,13 +23,16 @@ function getProcessor(): Promise<MarkdownRenderer> {
 }
 
 /// Render an entry's markdown body to full HTML for the feed's `contentHtml`. Photos with no
-/// body (caption-only) fall back to the caption text so an entry with *some* text to syndicate
-/// never ends up with empty content.
+/// body (caption-only) fall back to the caption text, HTML-escaped and wrapped as a paragraph
+/// (the caption is plain text, but `contentHtml` is consumed as HTML everywhere it's rendered —
+/// JSON Feed `content_html`, Atom `<content type="html">`, RSS description — so a caption
+/// containing `&`/`<`/etc. must not be promoted into HTML unescaped), so an entry with *some*
+/// text to syndicate never ends up with empty content.
 async function renderContentHtml(entry: FeedEntry): Promise<string> {
   const body = entry.body?.trim();
   if (!body) {
     const caption = entry.data.caption;
-    return caption ? String(caption) : "";
+    return caption ? `<p>${escapeXml(String(caption))}</p>` : "";
   }
   const renderer = await getProcessor();
   const { code } = await renderer.render(body);

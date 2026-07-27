@@ -191,8 +191,14 @@ export function renderRss(o: {
       // the short summary, then — for a pathological entry with no title, no content, and no
       // summary — the permalink itself, which is never empty. `fast-xml-parser`'s `XMLBuilder`
       // (used by `@astrojs/rss` under the hood) escapes text-node content automatically, so the
-      // raw `i.link` here doesn't need manual XML-escaping.
-      description: i.contentHtml || i.summary || i.link,
+      // raw `i.link` here doesn't need manual XML-escaping, and neither does `i.contentHtml`
+      // (already real HTML that needs exactly the one automatic escape pass to travel safely as
+      // XML text). `i.summary`, though, is plain text that readers still interpret as HTML once
+      // they XML-decode `<description>` — so when it's promoted to stand in for contentHtml it
+      // needs an *additional* HTML-escape pass first (`escapeXml` here) so that a literal "&" or
+      // "<" the author typed renders as that literal character rather than markup; the automatic
+      // XML-escape pass astro-rss applies on top only protects the transport encoding, not this.
+      description: i.contentHtml || escapeXml(i.summary) || i.link,
       // `@astrojs/rss` maps a `categories` array to one <category> element per tag; `undefined`
       // (no tags) is dropped, matching the title/description optionality above.
       categories: i.tags,
@@ -285,8 +291,12 @@ export function renderJsonFeed(o: {
       title: i.title,
       summary: i.summary,
       // JSON Feed 1.1 requires content_html or content_text on every item; fall back to the
-      // short summary when the body was empty.
-      content_html: i.contentHtml || i.summary,
+      // short summary when the body was empty. `i.summary` is plain text, but `content_html` is
+      // parsed as HTML by every consumer, so it needs HTML-escaping when it stands in for
+      // `contentHtml` (already real HTML, left untouched) — otherwise a literal "&"/"<" in the
+      // summary would be misread as an entity/tag instead of the literal character the author
+      // wrote.
+      content_html: i.contentHtml || escapeXml(i.summary),
       date_published: i.date.toISOString(),
       // Undefined (no tags) is dropped by JSON.stringify below.
       tags: i.tags,

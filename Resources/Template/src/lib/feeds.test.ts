@@ -377,6 +377,118 @@ test("renderRss falls back to the permalink for <description> when contentHtml a
   assert.match(xml, new RegExp(`<description>${SITE.replace(/\./g, "\\.")}/likes/hello-like/</description>`));
 });
 
+// --- Plain text promoted into HTML-consuming fields must be HTML-escaped (Epic #1027 follow-up,
+// contrast interactionContentFallback above which already escapes on the same text→HTML
+// promotion) -----------------------------------------------------------------------------------
+
+// What feed-data.ts's `renderContentHtml` now produces for a caption-only photo: the caption
+// HTML-escaped and wrapped in a paragraph, so a caption like "Berries & cream <b>not bold</b>"
+// can never be misread by a reader as real markup.
+const CAPTION = "Berries & cream <b>not bold</b>";
+const CAPTION_CONTENT_HTML = "<p>Berries &amp; cream &lt;b&gt;not bold&lt;/b&gt;</p>";
+
+test("toFeedItem carries an escaped caption-derived contentHtml through unchanged", () => {
+  const item = toFeedItem(
+    "photos",
+    entry("photos", { caption: CAPTION, publishDate: "2026-01-02" }),
+    SITE,
+    CAPTION_CONTENT_HTML,
+  );
+  assert.equal(item.contentHtml, CAPTION_CONTENT_HTML);
+});
+
+test("renderRss emits the escaped caption HTML intact in <description>", async () => {
+  const item = toFeedItem(
+    "photos",
+    entry("photos", { caption: CAPTION, publishDate: "2026-01-02" }),
+    SITE,
+    CAPTION_CONTENT_HTML,
+  );
+  const xml = await (
+    await renderRss({ title: "Photos", description: "Photos", site: SITE, items: [item] })
+  ).text();
+  // @astrojs/rss XML-escapes the whole description text node once more on top of our escaped
+  // HTML, so a reader's single XML-unescape recovers CAPTION_CONTENT_HTML exactly.
+  assert.match(
+    xml,
+    /<description>&lt;p&gt;Berries &amp;amp; cream &amp;lt;b&amp;gt;not bold&amp;lt;\/b&amp;gt;&lt;\/p&gt;<\/description>/,
+  );
+  assert.doesNotMatch(xml, /<b>not bold<\/b>/);
+});
+
+test("renderAtom emits the escaped caption HTML intact in <content type=\"html\">", async () => {
+  const item = toFeedItem(
+    "photos",
+    entry("photos", { caption: CAPTION, publishDate: "2026-01-02" }),
+    SITE,
+    CAPTION_CONTENT_HTML,
+  );
+  const xml = await renderAtom({
+    title: "Photos",
+    site: SITE,
+    feedUrl: `${SITE}/photos/atom.xml`,
+    items: [item],
+  }).text();
+  assert.match(
+    xml,
+    /<content type="html">&lt;p&gt;Berries &amp;amp; cream &amp;lt;b&amp;gt;not bold&amp;lt;\/b&amp;gt;&lt;\/p&gt;<\/content>/,
+  );
+  assert.doesNotMatch(xml, /<b>not bold<\/b>/);
+});
+
+test("renderJsonFeed emits the escaped caption HTML intact in content_html", async () => {
+  const item = toFeedItem(
+    "photos",
+    entry("photos", { caption: CAPTION, publishDate: "2026-01-02" }),
+    SITE,
+    CAPTION_CONTENT_HTML,
+  );
+  const res = await renderJsonFeed({
+    title: "Photos",
+    site: SITE,
+    feedUrl: `${SITE}/photos/feed.json`,
+    items: [item],
+  });
+  const feed = JSON.parse(await res.text());
+  assert.equal(feed.items[0].content_html, CAPTION_CONTENT_HTML);
+});
+
+test("renderJsonFeed HTML-escapes a plain-text summary used as the content_html fallback", async () => {
+  const res = await renderJsonFeed({
+    title: "Notes",
+    site: SITE,
+    feedUrl: `${SITE}/notes/feed.json`,
+    items: [
+      {
+        link: `${SITE}/notes/a/`,
+        date: new Date("2026-01-02"),
+        summary: "5 < 10 & true",
+        contentHtml: "",
+      },
+    ],
+  });
+  const feed = JSON.parse(await res.text());
+  assert.equal(feed.items[0].content_html, "5 &lt; 10 &amp; true");
+});
+
+test("renderRss HTML-escapes a plain-text summary used as the <description> fallback", async () => {
+  const res = await renderRss({
+    title: "Notes",
+    description: "Notes",
+    site: SITE,
+    items: [
+      {
+        link: `${SITE}/notes/a/`,
+        date: new Date("2026-01-02"),
+        summary: "5 < 10 & true",
+        contentHtml: "",
+      },
+    ],
+  });
+  const xml = await res.text();
+  assert.match(xml, /<description>5 &amp;lt; 10 &amp;amp; true<\/description>/);
+});
+
 // --- Tags/categories and author metadata (#1023) ---------------------------------------------
 
 test("renderRss emits a <category> element per tag and none when the item has no tags", async () => {
