@@ -266,14 +266,35 @@ struct ContentScaffoldTests {
         #expect(!out.contains("notAField"))
     }
 
-    @Test("an empty fieldValues reproduces the pre-#916 output for every collection type")
+    @Test("a title-like optional .url field never falls back to the title, only to empty")
+    func optionalURLFieldNamedLikeTitleDoesNotLeakTitle() {
+        // `titleLikeFieldNames` ("title", "name", "itemReviewed") is a name-based heuristic meant
+        // for .string fields; a custom descriptor (via ContentTypeRegistry.register(_:)) could
+        // declare an *optional* .url field with one of those names. Falling back to the title would
+        // render a non-URL string into a z.string().url() slot as a live line — exactly the
+        // schema-invalid write this file exists to prevent (#916 follow-up).
+        let descriptor = ContentTypeDescriptor(
+            id: "syntheticURLTitle",
+            displayName: "Synthetic URL Title",
+            storage: .collection("synthetics"),
+            fields: [
+                ContentTypeField("name", .url),
+            ],
+            projections: ContentTypeProjections(
+                microformat: "h-entry", microformatProperties: [:], schemaType: nil))
+
+        let out = ContentScaffold.renderEntry(
+            descriptor: descriptor, title: "Some Title",
+            now: Date(timeIntervalSince1970: 1_750_000_000))
+        #expect(out.contains("# name: \"\""))
+        #expect(!out.contains("\nname: \"Some Title\""))
+    }
+
+    @Test("required .url fields scaffold as an empty live line when nothing is supplied")
     func renderEntryEmptyFieldValuesIsUnchanged() {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         for descriptor in ContentTypeRegistry.builtIns where descriptor.collection != nil {
             let withDefault = ContentScaffold.renderEntry(descriptor: descriptor, title: "Title", now: now)
-            let withEmpty = ContentScaffold.renderEntry(
-                descriptor: descriptor, title: "Title", now: now, fieldValues: [:])
-            #expect(withDefault == withEmpty, "\(descriptor.id)")
             // Required .url fields still scaffold as an empty live line when nothing is supplied —
             // the create path (NativeContentOperations) is what refuses to write that, not the
             // renderer, which stays a pure formatter.

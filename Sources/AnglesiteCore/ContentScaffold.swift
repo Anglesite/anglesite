@@ -229,12 +229,22 @@ public enum ContentScaffold {
 
     /// The value for a scalar-string field: the caller's supplied value if there is one, otherwise
     /// the entry title for a title-like field, otherwise empty.
+    ///
+    /// The title fallback is deliberately skipped for `.url` fields: `titleLikeFieldNames` (`title`,
+    /// `name`, `itemReviewed`) is a name-based heuristic that assumes those names carry a
+    /// human-facing label, but a custom descriptor (via `ContentTypeRegistry.register(_:)`) could
+    /// declare an *optional* `.url` field named e.g. `name`. Falling back to the title there would
+    /// render a non-URL string into a `z.string().url()` slot as a *live* line — the field's
+    /// `isLive` rule in `renderEntry` treats any non-empty value as supplied — which is exactly the
+    /// kind of schema-invalid write this file exists to prevent. A caller-supplied `fieldValues`
+    /// entry still wins for `.url` fields; only the title fallback is suppressed.
     private static func scalarValue(
         _ field: ContentTypeField,
         title: String?,
         fieldValues: [String: String]
     ) -> String {
         if let supplied = fieldValues[field.name] { return supplied }
+        guard field.kind != .url else { return "" }
         return ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
     }
 
