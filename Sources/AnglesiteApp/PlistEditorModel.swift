@@ -47,6 +47,33 @@ final class PlistEditorModel {
     private(set) var isSavingMtaSts = false
     private(set) var isPublishingMtaStsDNS = false
     private let domainOperations: any DomainOperationsService
+    var securityReportingSettings = SecurityReportingAsset.Settings()
+    private(set) var savedSecurityReportingSettings = SecurityReportingAsset.Settings()
+    private(set) var securityReportingError: String?
+    private(set) var isSavingSecurityReporting = false
+    private(set) var isCheckingRepoSecurity = false
+    private(set) var isAdoptingAdvisoryForm = false
+    private(set) var securityReportingReadiness: SecurityReportingReadiness = .unknown
+    private(set) var securityReportingRepo: RemoteRepo?
+    /// Last known repo visibility. `.alreadyConfigured` doesn't distinguish public from private
+    /// (deliberately — the setup is done either way), so the view needs this to warn an owner who
+    /// published the advisory form and *then* made the repository private.
+    private(set) var securityReportingRepoIsPrivate = false
+    /// Last known private-vulnerability-reporting state. `.alreadyConfigured` doesn't distinguish
+    /// PVR on from off either (same reason as `securityReportingRepoIsPrivate`), so the view needs
+    /// this to warn an owner whose published contact routes to a form the repo can't receive —
+    /// e.g. PVR was never turned on, or was switched off on github.com after the contact was set.
+    private(set) var securityReportingPVREnabled = false
+    /// True once `securityReportingRepoIsPrivate`/`securityReportingPVREnabled` have actually been
+    /// populated by a successful check of the *current* repo. `recordCheckFailure(...)` can put
+    /// readiness at `.alreadyConfigured` from the local contacts list alone, with no network call
+    /// — so on a first-ever failed check (or after the remote changes), those two flags are still
+    /// their unpopulated `false` defaults. The view must not render either sub-warning from that
+    /// unpopulated data, which would assert PVR/visibility state nobody actually observed.
+    private(set) var securityReportingStateIsKnown = false
+    private let repoSecurity: any RepoSecurityReading & RepoSecurityWriting
+    private let gitRunner: BackupCommand.GitRunner
+    private let githubToken: @Sendable () throws -> String?
 
     // MARK: - Workers tab (#710)
 
@@ -87,6 +114,9 @@ final class PlistEditorModel {
     var isRedirectsDirty: Bool { redirectEntries != savedRedirectEntries && loadError == nil && !isLoading }
     var isCrawlerPolicyDirty: Bool { crawlerPolicySettings != savedCrawlerPolicySettings && loadError == nil && !isLoading }
     var isMtaStsDirty: Bool { mtaStsSettings != savedMtaStsSettings && loadError == nil && !isLoading }
+    var isSecurityReportingDirty: Bool {
+        securityReportingSettings != savedSecurityReportingSettings && loadError == nil && !isLoading
+    }
     var cloudflareAnalyticsEnabled: Bool { !analyticsSettings.cloudflareToken.isEmpty }
     var customAnalyticsValidationMessage: String? {
         WebsiteAnalyticsAsset.customHeadTagValidationMessage(analyticsSettings.customHeadTag)
@@ -120,7 +150,10 @@ final class PlistEditorModel {
          analyticsProvider: any CloudflareWebAnalyticsProviding = CloudflareWebAnalyticsClient(),
          customAnalyticsValidator: any CustomAnalyticsHTMLValidating = AstroHTMLValidator(),
          keychain: KeychainStore = KeychainStore(),
-         domainOperations: any DomainOperationsService = DomainOperations()) {
+         domainOperations: any DomainOperationsService = DomainOperations(),
+         repoSecurity: any RepoSecurityReading & RepoSecurityWriting = HTTPGitHubClient(),
+         gitRunner: @escaping BackupCommand.GitRunner = BackupCommand.defaultRunner,
+         githubToken: @escaping @Sendable () throws -> String? = { try KeychainStore().readGitHubToken() }) {
         self.file = file
         self.initialWebsiteTitle = websiteTitle
         self.sourceDirectory = sourceDirectory
@@ -136,6 +169,9 @@ final class PlistEditorModel {
         self.customAnalyticsValidator = customAnalyticsValidator
         self.keychain = keychain
         self.domainOperations = domainOperations
+        self.repoSecurity = repoSecurity
+        self.gitRunner = gitRunner
+        self.githubToken = githubToken
         self.hasWebsiteIcons = WebsiteIconInstaller.hasInstalledIcons(in: sourceDirectory)
     }
 
@@ -184,6 +220,10 @@ final class PlistEditorModel {
             mtaStsSettings = mtaSts
             savedMtaStsSettings = mtaSts
             mtaStsError = nil
+            let securityReporting = SecurityReportingAsset.parseSettings(from: config)
+            securityReportingSettings = securityReporting
+            savedSecurityReportingSettings = securityReporting
+            securityReportingError = nil
         } catch {
             loadError = error.localizedDescription
         }
@@ -237,7 +277,10 @@ final class PlistEditorModel {
         if isCrawlerPolicyDirty {
             guard await saveCrawlerPolicy() else { return false }
         }
-        if isMtaStsDirty { return await saveMtaSts() }
+        if isMtaStsDirty {
+            guard await saveMtaSts() else { return false }
+        }
+        if isSecurityReportingDirty { return await saveSecurityReporting() }
         return true
     }
 
@@ -387,6 +430,187 @@ final class PlistEditorModel {
         } catch {
             mtaStsError = "Couldn't save MTA-STS policy: \(error.localizedDescription)"
             return false
+        }
+    }
+
+    @discardableResult
+    func saveSecurityReporting() async -> Bool {
+        guard isSecurityReportingDirty else { return true }
+        guard !isSavingSecurityReporting else { return false }
+        isSavingSecurityReporting = true
+        securityReportingError = nil
+        defer { isSavingSecurityReporting = false }
+        let sourceDirectory = sourceDirectory
+        let settings = securityReportingSettings
+        do {
+            try await Task.detached(priority: .userInitiated) {
+                try SecurityReportingAsset.install(settings, siteDirectory: sourceDirectory)
+            }.value
+            let canonical = SecurityReportingAsset.Settings(
+                contacts: SecurityReportingAsset.normalizedContacts(settings.contacts).joined(separator: "\n"),
+                mode: settings.mode)
+            securityReportingSettings = canonical
+            savedSecurityReportingSettings = canonical
+            return true
+        } catch {
+            securityReportingError = "Couldn't save security reporting settings: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    /// Re-reads the site's GitHub remote and the repo settings that decide whether its private
+    /// advisory form is usable. Called when the tab loads and after a successful enable — never
+    /// on a timer, and never as a side effect of saving.
+    func refreshRepoSecurityState() async {
+        guard !isCheckingRepoSecurity else { return }
+        isCheckingRepoSecurity = true
+        defer { isCheckingRepoSecurity = false }
+        securityReportingError = nil
+
+        let repo = await currentRemoteRepo()
+        if repo != securityReportingRepo {
+            securityReportingStateIsKnown = false
+        }
+        securityReportingRepo = repo
+        guard let repo else {
+            securityReportingReadiness = .notGitHub
+            return
+        }
+
+        let token: String?
+        do {
+            token = try githubToken()
+        } catch {
+            securityReportingError = "Couldn't read the GitHub token from the Keychain: \(error.localizedDescription)"
+            recordCheckFailure(for: repo)
+            return
+        }
+        guard let token, !token.isEmpty else {
+            securityReportingError = "Connect a GitHub account in Settings to check this repository's reporting setup."
+            recordCheckFailure(for: repo)
+            return
+        }
+
+        do {
+            // A failure here must not fall through to `.notGitHub` — that would falsely claim the
+            // site has no GitHub remote when the truth is "we couldn't check".
+            let isPrivate = try await repoSecurity.isPrivate(owner: repo.owner, name: repo.name, token: token)
+            let pvrEnabled = try await repoSecurity.privateVulnerabilityReporting(
+                owner: repo.owner, name: repo.name, token: token)
+            securityReportingRepoIsPrivate = isPrivate
+            securityReportingPVREnabled = pvrEnabled
+            securityReportingStateIsKnown = true
+            securityReportingReadiness = .evaluate(
+                repo: repo, isPrivate: isPrivate, pvrEnabled: pvrEnabled,
+                contacts: securityReportingSettings.contacts)
+        } catch {
+            securityReportingError = repoSecurityMessage(for: error)
+            recordCheckFailure(for: repo)
+        }
+    }
+
+    /// Applies what a failed check can still determine without the network call that just
+    /// failed: whether `contacts` already lists this repo's advisory form is a local string
+    /// comparison, so a failure doesn't have to erase that fact. Otherwise this leaves
+    /// `securityReportingReadiness` alone — the previous value if one was ever successfully
+    /// determined, or the `.unknown` default if this is the first check and it never got there.
+    /// Either way, it must never collapse to `.notGitHub`, which would falsely claim the site has
+    /// no GitHub remote when the truth is "we couldn't check".
+    private func recordCheckFailure(for repo: RemoteRepo) {
+        if SecurityReportingAsset.usesAdvisoryForm(securityReportingSettings.contacts, repo: repo) {
+            securityReportingReadiness = .alreadyConfigured
+        }
+    }
+
+    /// Publishes the repo's advisory form as the most-preferred contact, enabling private
+    /// vulnerability reporting first when it's off. The view confirms before calling this —
+    /// enabling PVR changes a GitHub repository setting.
+    func adoptAdvisoryForm() async {
+        guard !isAdoptingAdvisoryForm else { return }
+        guard let repo = securityReportingRepo else { return }
+        // Manual mode: `planSecurityTxt` never generates security.txt for this site (the owner
+        // hand-maintains it), so publishing a contact — and enabling PVR to back it — would claim
+        // a routing that doesn't exist. The view already refuses to offer this action in manual
+        // mode; this guard is defense in depth so the write can't happen even if it's called
+        // directly.
+        guard securityReportingSettings.mode != .manual else { return }
+        isAdoptingAdvisoryForm = true
+        defer { isAdoptingAdvisoryForm = false }
+        securityReportingError = nil
+
+        if securityReportingReadiness == .needsPVR {
+            guard await enablePVR(owner: repo.owner, name: repo.name) else { return }
+            // PVR is now genuinely enabled on GitHub even if the save below fails — leaving
+            // readiness at `.needsPVR` here would lie to the view about the repo's real state.
+            securityReportingReadiness = .ready
+        }
+
+        securityReportingSettings.contacts = SecurityReportingAsset.prependingAdvisoryForm(
+            securityReportingSettings.contacts, repo: repo)
+        if securityReportingSettings.mode == .disabled { securityReportingSettings.mode = .generated }
+        guard await saveSecurityReporting() else { return }
+        securityReportingReadiness = .alreadyConfigured
+    }
+
+    /// Enables private vulnerability reporting for a repo whose advisory form is *already*
+    /// published as a contact (`.alreadyConfigured` with PVR off — e.g. it was never turned on,
+    /// or was switched off on github.com after the contact was set). The contact list needs no
+    /// change here, only the GitHub setting the tab is warning about. The view confirms before
+    /// calling this, same as the `.needsPVR` enable step inside `adoptAdvisoryForm()`.
+    @discardableResult
+    func enablePrivateVulnerabilityReportingForConfiguredRepo() async -> Bool {
+        guard !isAdoptingAdvisoryForm, let repo = securityReportingRepo else { return false }
+        isAdoptingAdvisoryForm = true
+        defer { isAdoptingAdvisoryForm = false }
+        securityReportingError = nil
+        return await enablePVR(owner: repo.owner, name: repo.name)
+    }
+
+    /// Shared PVR-enable request behind `adoptAdvisoryForm()`'s `.needsPVR` step and
+    /// `enablePrivateVulnerabilityReportingForConfiguredRepo()`. Updates
+    /// `securityReportingPVREnabled` on success so an `.alreadyConfigured` warning clears without
+    /// a full `refreshRepoSecurityState()` round-trip.
+    private func enablePVR(owner: String, name: String) async -> Bool {
+        let token: String?
+        do { token = try githubToken() } catch {
+            securityReportingError = "Couldn't read the GitHub token from the Keychain: \(error.localizedDescription)"
+            return false
+        }
+        guard let token, !token.isEmpty else {
+            securityReportingError = "Connect a GitHub account in Settings to enable private vulnerability reporting."
+            return false
+        }
+        do {
+            try await repoSecurity.enablePrivateVulnerabilityReporting(owner: owner, name: name, token: token)
+        } catch {
+            securityReportingError = repoSecurityMessage(for: error)
+            return false
+        }
+        securityReportingPVREnabled = true
+        return true
+    }
+
+    private func currentRemoteRepo() async -> RemoteRepo? {
+        guard let result = try? await gitRunner(sourceDirectory, ["remote", "get-url", "origin"]),
+              result.exitCode == 0 else { return nil }
+        return RemoteRepo.parse(remoteURL: result.stdout)
+    }
+
+    private func repoSecurityMessage(for error: any Error) -> String {
+        guard let apiError = error as? GitHubRepoAPIError else {
+            return "Couldn't check this repository's reporting setup: \(error.localizedDescription)"
+        }
+        switch apiError {
+        case .unauthorized:
+            return "Your GitHub token doesn't have admin access to this repository. Enable private vulnerability reporting in the repository's Settings ▸ Advanced Security, or use a token with Administration: Read and write."
+        case .network:
+            return "Couldn't reach GitHub. Check your connection and try again."
+        case .http(let status):
+            return "GitHub returned an unexpected response (HTTP \(status))."
+        case .api(let message):
+            return "GitHub rejected the request: \(message)"
+        case .malformedResponse, .nameAlreadyExists:
+            return "GitHub returned an unexpected response."
         }
     }
 
@@ -691,6 +915,7 @@ final class PlistEditorModel {
             DirtyFacet(isDirty: isRedirectsDirty, isSaving: isSavingRedirects) { await self.saveRedirects() },
             DirtyFacet(isDirty: isCrawlerPolicyDirty, isSaving: isSavingCrawlerPolicy) { await self.saveCrawlerPolicy() },
             DirtyFacet(isDirty: isMtaStsDirty, isSaving: isSavingMtaSts) { await self.saveMtaSts() },
+            DirtyFacet(isDirty: isSecurityReportingDirty, isSaving: isSavingSecurityReporting) { await self.saveSecurityReporting() },
         ]
     }
 

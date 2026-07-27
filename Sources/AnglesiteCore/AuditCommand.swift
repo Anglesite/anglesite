@@ -181,10 +181,11 @@ public actor AuditCommand {
         .unavailable(reason: HostNodeRetirement.reason("audit build"))
     }
 
-    /// Default runner set. Starts with just `A11yAuditRunner`; SEO / perf / link-check
-    /// runners are mechanical follow-ups that slot into this list without changing
+    /// Default runner set: `A11yAuditRunner` plus `SecurityTxtAuditRunner` (#843). SEO / perf /
+    /// link-check runners are mechanical follow-ups that slot into this list without changing
     /// the actor or sheet UI (#86 follow-ups).
     public static let defaultRunners: [any AuditRunner] = [
-        A11yAuditRunner()
+        A11yAuditRunner(),
+        SecurityTxtAuditRunner()
     ]
 }

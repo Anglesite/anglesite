@@ -9,6 +9,7 @@ import {
   aiCrawlers,
   normalizeContentSignal,
   normalizeSecurityContact,
+  normalizeSecurityContacts,
   resolveSecurityTxtMode,
   isSecurityTxtMarkerOwned,
   planSecurityTxt,
@@ -213,6 +214,74 @@ test("normalizeSecurityContact: rejects http:// but accepts https:// and mailto:
   assert.equal(normalizeSecurityContact(undefined), null);
 });
 
+test("normalizeSecurityContacts: preserves order, drops invalid entries, collapses duplicates", () => {
+  assert.deepEqual(
+    normalizeSecurityContacts("https://example.com/report, s@example.com, http://nope.example, s@example.com"),
+    ["https://example.com/report", "mailto:s@example.com"],
+  );
+});
+
+test("normalizeSecurityContacts: an empty, blank, or undefined value yields no contacts", () => {
+  assert.deepEqual(normalizeSecurityContacts(undefined), []);
+  assert.deepEqual(normalizeSecurityContacts(""), []);
+  assert.deepEqual(normalizeSecurityContacts("  ,  "), []);
+});
+
+test("normalizeSecurityContacts: a single value behaves exactly like the old scalar key", () => {
+  assert.deepEqual(normalizeSecurityContacts("security@example.com"), ["mailto:security@example.com"]);
+});
+
+test("normalizeSecurityContacts: %2C restores a comma inside one contact instead of splitting it", () => {
+  // Without the escape this truncates to https://example.com/report?ref=a and drops "b".
+  assert.deepEqual(normalizeSecurityContacts("https://example.com/report?ref=a%2Cb"), [
+    "https://example.com/report?ref=a,b",
+  ]);
+});
+
+test("normalizeSecurityContacts: an escaped comma survives alongside real list separators", () => {
+  assert.deepEqual(normalizeSecurityContacts("https://example.com/r?ref=a%2Cb,security@example.com"), [
+    "https://example.com/r?ref=a,b",
+    "mailto:security@example.com",
+  ]);
+});
+
+test("normalizeSecurityContacts: an ordinary percent sequence is left alone", () => {
+  // A general percent-decode would corrupt this to "https://example.com/a b".
+  assert.deepEqual(normalizeSecurityContacts("https://example.com/a%20b"), ["https://example.com/a%20b"]);
+});
+
+test("buildSecurityTxt: emits one Contact line per entry, in configured preference order", () => {
+  const out = buildSecurityTxt(
+    "https://github.com/acme/site/security/advisories/new,security@example.com",
+    "https://example.com",
+    NOW,
+  );
+  assert.ok(out !== null);
+  const contacts = out.split("\n").filter((l) => l.startsWith("Contact:"));
+  assert.deepEqual(contacts, [
+    "Contact: https://github.com/acme/site/security/advisories/new",
+    "Contact: mailto:security@example.com",
+  ]);
+});
+
+test("buildSecurityTxt: a single-contact list is byte-identical to the pre-list output", () => {
+  const expected = `${SECURITY_TXT_MARKER}\nContact: mailto:security@example.com\nExpires: 2026-12-25T12:00:00.000Z\nCanonical: https://example.com/.well-known/security.txt\n`;
+  assert.equal(buildSecurityTxt("security@example.com", "https://example.com", NOW), expected);
+});
+
+test("buildSecurityTxt: a list whose entries are all unusable returns null", () => {
+  assert.equal(buildSecurityTxt("http://a.example, not-a-uri", "https://example.com", NOW), null);
+});
+
+test("buildSecurityTxt: keeps the usable entries when only some are rejected", () => {
+  const out = buildSecurityTxt("http://a.example, security@example.com", "https://example.com", NOW);
+  assert.ok(out !== null);
+  assert.deepEqual(
+    out.split("\n").filter((l) => l.startsWith("Contact:")),
+    ["Contact: mailto:security@example.com"],
+  );
+});
+
 test("resolveSecurityTxtMode: an explicit mode always wins over SECURITY_CONTACT", () => {
   assert.equal(resolveSecurityTxtMode("manual", "s@example.com"), "manual");
   assert.equal(resolveSecurityTxtMode("disabled", "s@example.com"), "disabled");
@@ -238,7 +307,7 @@ test("isSecurityTxtMarkerOwned: true only for content whose first line is the ex
 test("planSecurityTxt: disabled + absent is silent", () => {
   const plan = planSecurityTxt({
     mode: "disabled",
-    contact: undefined,
+    contacts: undefined,
     siteUrl: undefined,
     now: NOW,
     existingContent: null,
@@ -250,7 +319,7 @@ test("planSecurityTxt: disabled + absent is silent", () => {
 test("planSecurityTxt: disabled + present is a contradiction that is not deleted", () => {
   const plan = planSecurityTxt({
     mode: "disabled",
-    contact: undefined,
+    contacts: undefined,
     siteUrl: undefined,
     now: NOW,
     existingContent: "Contact: mailto:s@example.com\n",
@@ -262,7 +331,7 @@ test("planSecurityTxt: disabled + present is a contradiction that is not deleted
 test("planSecurityTxt: manual mode never writes or deletes, present or absent", () => {
   const absent = planSecurityTxt({
     mode: "manual",
-    contact: "s@example.com",
+    contacts: "s@example.com",
     siteUrl: "https://example.com",
     now: NOW,
     existingContent: null,
@@ -270,7 +339,7 @@ test("planSecurityTxt: manual mode never writes or deletes, present or absent", 
   assert.deepEqual(absent.action, { kind: "none" });
   const present = planSecurityTxt({
     mode: "manual",
-    contact: undefined,
+    contacts: undefined,
     siteUrl: undefined,
     now: NOW,
     existingContent: "Contact: mailto:hand-authored@example.com\n",
@@ -281,7 +350,7 @@ test("planSecurityTxt: manual mode never writes or deletes, present or absent", 
 test("planSecurityTxt: generated mode with a valid contact writes when absent or marker-owned", () => {
   const absent = planSecurityTxt({
     mode: "generated",
-    contact: "s@example.com",
+    contacts: "s@example.com",
     siteUrl: "https://example.com",
     now: NOW,
     existingContent: null,
@@ -289,7 +358,7 @@ test("planSecurityTxt: generated mode with a valid contact writes when absent or
   assert.equal(absent.action.kind, "write");
   const markerOwned = planSecurityTxt({
     mode: "generated",
-    contact: "s@example.com",
+    contacts: "s@example.com",
     siteUrl: "https://example.com",
     now: NOW,
     existingContent: `${SECURITY_TXT_MARKER}\nContact: mailto:old@example.com\nExpires: 2020-01-01T00:00:00.000Z\n`,
@@ -300,7 +369,7 @@ test("planSecurityTxt: generated mode with a valid contact writes when absent or
 test("planSecurityTxt: generated mode refuses to overwrite an unmarked hand-authored file", () => {
   const plan = planSecurityTxt({
     mode: "generated",
-    contact: "s@example.com",
+    contacts: "s@example.com",
     siteUrl: "https://example.com",
     now: NOW,
     existingContent: "Contact: mailto:hand-authored@example.com\n",
@@ -312,7 +381,7 @@ test("planSecurityTxt: generated mode refuses to overwrite an unmarked hand-auth
 test("planSecurityTxt: generated mode with an invalid contact deletes only marker-owned stale output", () => {
   const deletesOwned = planSecurityTxt({
     mode: "generated",
-    contact: undefined,
+    contacts: undefined,
     siteUrl: "https://example.com",
     now: NOW,
     existingContent: `${SECURITY_TXT_MARKER}\nContact: mailto:old@example.com\n`,
@@ -320,7 +389,7 @@ test("planSecurityTxt: generated mode with an invalid contact deletes only marke
   assert.deepEqual(deletesOwned.action, { kind: "delete-stale" });
   const leavesUnmarkedAlone = planSecurityTxt({
     mode: "generated",
-    contact: undefined,
+    contacts: undefined,
     siteUrl: "https://example.com",
     now: NOW,
     existingContent: "Contact: mailto:hand-authored@example.com\n",
@@ -328,7 +397,7 @@ test("planSecurityTxt: generated mode with an invalid contact deletes only marke
   assert.deepEqual(leavesUnmarkedAlone.action, { kind: "none" });
   const noPriorFile = planSecurityTxt({
     mode: "generated",
-    contact: undefined,
+    contacts: undefined,
     siteUrl: "https://example.com",
     now: NOW,
     existingContent: null,
