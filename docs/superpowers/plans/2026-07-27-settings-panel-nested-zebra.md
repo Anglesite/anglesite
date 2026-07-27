@@ -186,7 +186,7 @@ changes land.
 - [ ] **Step 2: Build to verify it compiles**
 
   ```bash
-  swift build --package-path . --target AnglesiteApp 2>&1 | tail -30
+  swift build --package-path . --target AnglesiteAppCore 2>&1 | tail -30
   ```
 
   Expected: `Build complete!` with no errors.
@@ -324,7 +324,7 @@ changes land.
 - [ ] **Step 4: Build to verify it compiles**
 
   ```bash
-  swift build --package-path . --target AnglesiteApp 2>&1 | tail -30
+  swift build --package-path . --target AnglesiteAppCore 2>&1 | tail -30
   ```
 
   Expected: `Build complete!` with no errors.
@@ -446,7 +446,7 @@ changes land.
 - [ ] **Step 2: Build to verify it compiles**
 
   ```bash
-  swift build --package-path . --target AnglesiteApp 2>&1 | tail -30
+  swift build --package-path . --target AnglesiteAppCore 2>&1 | tail -30
   ```
 
   Expected: `Build complete!` with no errors.
@@ -624,7 +624,7 @@ changes land.
 - [ ] **Step 2: Build to verify it compiles**
 
   ```bash
-  swift build --package-path . --target AnglesiteApp 2>&1 | tail -30
+  swift build --package-path . --target AnglesiteAppCore 2>&1 | tail -30
   ```
 
   Expected: `Build complete!` with no errors.
@@ -746,7 +746,7 @@ changes land.
 - [ ] **Step 2: Build to verify it compiles**
 
   ```bash
-  swift build --package-path . --target AnglesiteApp 2>&1 | tail -30
+  swift build --package-path . --target AnglesiteAppCore 2>&1 | tail -30
   ```
 
   Expected: `Build complete!` with no errors.
@@ -932,7 +932,7 @@ changes land.
 - [ ] **Step 3: Build to verify it compiles**
 
   ```bash
-  swift build --package-path . --target AnglesiteApp 2>&1 | tail -30
+  swift build --package-path . --target AnglesiteAppCore 2>&1 | tail -30
   ```
 
   Expected: `Build complete!` with no errors.
@@ -1121,7 +1121,7 @@ changes land.
 - [ ] **Step 2: Build to verify it compiles**
 
   ```bash
-  swift build --package-path . --target AnglesiteApp 2>&1 | tail -30
+  swift build --package-path . --target AnglesiteAppCore 2>&1 | tail -30
   ```
 
   Expected: `Build complete!` with no errors.
@@ -1464,7 +1464,7 @@ changes land.
 - [ ] **Step 3: Build to verify it compiles**
 
   ```bash
-  swift build --package-path . --target AnglesiteApp 2>&1 | tail -30
+  swift build --package-path . --target AnglesiteAppCore 2>&1 | tail -30
   ```
 
   Expected: `Build complete!` with no errors.
@@ -1660,7 +1660,7 @@ changes land.
 - [ ] **Step 2: Build to verify it compiles**
 
   ```bash
-  swift build --package-path . --target AnglesiteApp 2>&1 | tail -30
+  swift build --package-path . --target AnglesiteAppCore 2>&1 | tail -30
   ```
 
   Expected: `Build complete!` with no errors.
