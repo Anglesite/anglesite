@@ -652,11 +652,18 @@ struct SiteWindow: View {
         } message: {
             Text("Unsaved changes in the editor and inspector will be discarded.")
         }
+        // The setter has NO side effect, and each button is solely responsible for clearing
+        // `deleteConfirmation` — the same rule (and the same reason) as `MainPaneEditorView`'s
+        // conflict alert. A clearing setter is what made every content delete a silent no-op
+        // (#968/#969): SwiftUI runs it as the dialog dismisses, which lands *after* the Delete
+        // button's synchronous action but *before* the `Task` it spawns gets to run, so
+        // `confirmDelete()`'s `guard let item = deleteConfirmation` always saw nil and returned —
+        // no delete, no commit, and no error to raise the alert below.
         .confirmationDialog(
             contentDeleteTitle,
             isPresented: Binding(
                 get: { bindableModel.deleteConfirmation != nil },
-                set: { if !$0 { model.deleteConfirmation = nil } }),
+                set: { _ in }),
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) { Task { await model.confirmDelete() } }
