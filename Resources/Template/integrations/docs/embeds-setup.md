@@ -67,9 +67,77 @@ your copy still shows what it said when you captured it. Re-run the same command
 
 ## Instagram
 
-Instagram requires a Meta app token for its API and blocks automated page requests, so it can't
-be snapshotted automatically. Snapshot the URL anyway to get a link card, then save a screenshot
-into `public/embeds/<slug>/` and add it to that snapshot's `media` array.
+Instagram has no dedicated adapter — an Instagram URL goes through the generic Open Graph
+adapter, the same one used for any site this template doesn't specifically recognize. Instagram
+doesn't refuse the request outright, though: it serves a generic page with no post-specific
+metadata at all. So running
+
+```sh
+npm run embed -- https://www.instagram.com/p/CxYZ123
+```
+
+against an Instagram URL reports success, but the snapshot it writes has none of the real post
+in it — the author is just the bare domain, the caption is the single word "Instagram," and
+there's no image. (The platform can also refuse the request outright and write nothing at all —
+the fix below covers that case too.)
+
+Either way, the command's own output tells you the slug for the file it did or didn't write. On
+success, the last line names it directly:
+
+```
+✓ wrote /path/to/your/site/src/embeds/a1b2c3d4e5f6.json
+```
+
+On failure, it's spelled out instead:
+
+```
+✗ https://www.instagram.com/p/CxYZ123 — no Open Graph metadata could be read.
+  If the platform blocks automated requests (Instagram does), snapshot succeeds nowhere:
+  save a screenshot to public/embeds/a1b2c3d4e5f6/ and add it to
+  that snapshot's media[] by hand.
+```
+
+`a1b2c3d4e5f6` there is your `<slug>` — copy the one from your own terminal output, not this
+example.
+
+1. Save a screenshot of the post into `public/embeds/<slug>/`, e.g.
+   `public/embeds/a1b2c3d4e5f6/screenshot.png`.
+2. Open (or, if nothing was written, create) `src/embeds/<slug>.json` and make sure it reads:
+
+   ```json
+   {
+     "version": 1,
+     "url": "https://www.instagram.com/p/CxYZ123",
+     "provider": "opengraph",
+     "author": {
+       "name": "Name as it appears on the post"
+     },
+     "content": "The post's caption, as plain text",
+     "capturedAt": "2026-07-26T00:00:00.000Z",
+     "media": [
+       {
+         "src": "/embeds/a1b2c3d4e5f6/screenshot.png",
+         "alt": "Describe what's in the screenshot"
+       }
+     ]
+   }
+   ```
+
+   If the command already wrote this file, `url`, `provider`, and `capturedAt` are already
+   right — leave them, and just fix `author.name` and `content`, and add the `media` entry.
+   If you don't have a screenshot, leave `media` as `[]`; the card still renders with the
+   author name, caption, and a link to the original post.
+
+   Three things have to be exactly right:
+
+   - `url` must match the URL you put on its own line in your Markdown (see "Adding an embed"
+     above) — that's how the page finds this file. A single trailing slash either way is fine.
+   - `provider` must be the string `"opengraph"` — there is no Instagram-specific value.
+   - `media[].src` must start with `/embeds/` and point at a file that actually exists under
+     `public/embeds/`. Anything else is dropped silently — that image just won't render, even
+     though the rest of the card does.
+
+3. Commit the JSON file and the screenshot together, same as any other snapshot.
 
 ## Playing videos inline (optional)
 
