@@ -155,18 +155,22 @@ struct NewPageSheet: View {
 
 struct NewCollectionEntrySheet: View {
     let descriptors: [ContentTypeDescriptor]
-    let onCreate: (String, String?, ContentTypeDescriptor) async -> ContentCreateResult
+    let onCreate: (String, String?, ContentTypeDescriptor, [String: String]) async -> ContentCreateResult
 
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var slug = ""
     @State private var selectedID: String
+    /// Values for the selected type's required `.url` fields, keyed by field name. A bookmark,
+    /// reply, or like is schema-invalid without one, so these are collected before the write rather
+    /// than scaffolded empty (#916).
+    @State private var urlValues: [String: String] = [:]
     @State private var isCreating = false
     @State private var errorMessage: String?
 
     init(
         descriptors: [ContentTypeDescriptor],
-        onCreate: @escaping (String, String?, ContentTypeDescriptor) async -> ContentCreateResult
+        onCreate: @escaping (String, String?, ContentTypeDescriptor, [String: String]) async -> ContentCreateResult
     ) {
         self.descriptors = descriptors
         self.onCreate = onCreate
@@ -189,9 +193,26 @@ struct NewCollectionEntrySheet: View {
                                 Text(descriptor.displayName).tag(descriptor.id)
                             }
                         }
-                        TextField("Title", text: $title)
+                        // A reply or like has no title field — it is identified by its target URL,
+                        // so asking for a title would collect a value the entry never stores (#916).
+                        if selectedDescriptor?.titleField != nil {
+                            TextField("Title", text: $title)
+                        }
+                        // Field names match the inspector's labels in `TypedEntryForm`.
+                        ForEach(requiredURLFields, id: \.name) { field in
+                            TextField(
+                                field.name,
+                                text: urlBinding(field.name),
+                                prompt: Text(verbatim: "https://example.com/post"))
+                        }
                         TextField("Slug", text: $slug, prompt: Text("optional"))
+                        if hasMalformedURL {
+                            Text("Enter an absolute URL, e.g. https://example.com/post")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .onChange(of: selectedID) { urlValues = [:] }
                     if let selectedCollection {
                         Section("Destination") {
                             LabeledContent("Collection", value: selectedCollection)
@@ -216,7 +237,7 @@ struct NewCollectionEntrySheet: View {
                     Button(isCreating ? "Creating…" : "Create") {
                         create()
                     }
-                    .disabled(isCreating || selectedCollection == nil || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(isCreating || selectedCollection == nil || !titleIsSatisfied || !urlFieldsAreValid)
                 }
             }
         }
@@ -230,14 +251,50 @@ struct NewCollectionEntrySheet: View {
         selectedDescriptor?.collection
     }
 
+    private var requiredURLFields: [ContentTypeField] {
+        selectedDescriptor?.requiredURLFields ?? []
+    }
+
+    private func urlBinding(_ name: String) -> Binding<String> {
+        Binding(get: { urlValues[name] ?? "" }, set: { urlValues[name] = $0 })
+    }
+
+    private func trimmedURL(_ name: String) -> String {
+        (urlValues[name] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Every required `.url` field holds a value the write boundary will accept.
+    private var urlFieldsAreValid: Bool {
+        requiredURLFields.allSatisfy { ContentFieldValidation.isAbsoluteURL(trimmedURL($0.name)) }
+    }
+
+    /// A field the user has started typing into that isn't a valid URL yet — drives the hint below
+    /// the fields. Empty fields don't nag; they just leave Create disabled.
+    private var hasMalformedURL: Bool {
+        requiredURLFields.contains {
+            let value = trimmedURL($0.name)
+            return !value.isEmpty && !ContentFieldValidation.isAbsoluteURL(value)
+        }
+    }
+
+    /// Types without a title field impose no title requirement.
+    private var titleIsSatisfied: Bool {
+        selectedDescriptor?.titleField == nil
+            || !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private func create() {
         guard let descriptor = selectedDescriptor, selectedCollection != nil else { return }
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSlug = slug.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanURLs = requiredURLFields.reduce(into: [String: String]()) { values, field in
+            values[field.name] = trimmedURL(field.name)
+        }
         isCreating = true
         errorMessage = nil
         Task {
-            let result = await onCreate(cleanTitle, cleanSlug.isEmpty ? nil : cleanSlug, descriptor)
+            let result = await onCreate(
+                cleanTitle, cleanSlug.isEmpty ? nil : cleanSlug, descriptor, cleanURLs)
             await MainActor.run {
                 isCreating = false
                 switch result {

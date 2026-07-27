@@ -1049,14 +1049,16 @@ final class SiteWindowModel {
     func createCollectionEntry(
         title: String,
         slug: String?,
-        descriptor: ContentTypeDescriptor
+        descriptor: ContentTypeDescriptor,
+        fieldValues: [String: String] = [:]
     ) async -> ContentCreateResult {
         guard let site else { return .siteNotFound }
         let result = await contentCreation.createTyped(
             siteID: site.id,
             typeID: descriptor.id,
             title: title,
-            slug: slug
+            slug: slug,
+            fieldValues: fieldValues
         )
         if case .created(let filePath, _) = result {
             await navigator?.refreshNow()
