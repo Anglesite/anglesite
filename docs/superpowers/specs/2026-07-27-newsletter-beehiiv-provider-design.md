@@ -29,9 +29,14 @@ concluded:
   requires minting short-lived JWTs; and members created via the Admin API
   bypass double opt-in entirely.
 - **Substack is rejected** (still no public subscribe API in 2026).
-- **Kit is deferred** — its 10,000-subscriber free tier is attractive, but
-  official docs contradict each other on whether free-plan accounts get API
-  keys; verify empirically before adding.
+- **Kit is deferred** — its 10,000-subscriber free tier is attractive. The
+  apparent documentation contradiction on free-plan API access resolved on
+  closer reading (2026-07-27): the developer docs' "eligible plan" caveat is
+  scoped to *sending broadcasts* via the API, while the help center states
+  API keys are available on any plan and the pricing matrix lists
+  subscriber-API access on the free Newsletter plan. A live check (free
+  signup → mint v4 key → `POST /v4/subscribers`) is still wanted before
+  adding the provider.
 - **MailerLite** (free tier cut to 250 subscribers in June 2026),
   **EmailOctopus** (no RSS-to-email), and **Listmonk** (self-hosted Postgres
   plus deliverability ownership — unrealistic for the audience) are not
