@@ -22,6 +22,10 @@ const isDev = isKeystaticDev(process.argv);
 export default defineConfig({
   site,
   integrations: [anglesiteHarness(), redirects(), ...(isDev ? [react(), keystatic()] : [])],
+  // Astro 7 note (#682): its default markdown processor no longer carries remark itself —
+  // `remarkPlugins` there requires adding `@astrojs/markdown-remark` as a dependency. That is a
+  // new dependency and therefore needs approval, so whoever does the Astro 7 bump has to decide
+  // it deliberately rather than discover it from a silently-inert embeds pipeline.
   markdown: {
     remarkPlugins: [remarkEmbeds],
   },

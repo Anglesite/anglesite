@@ -130,9 +130,10 @@ async function snapshot(cwd: string, rawURL: string, capturedAt: string): Promis
   if (request.provider === "opengraph") {
     console.error(`✗ ${request.canonicalURL} — no Open Graph metadata could be read.`);
     console.error(
-      "  If the platform blocks automated requests (Instagram does), snapshot succeeds nowhere:\n" +
-        `  save a screenshot to public/embeds/${embedSlug(request.canonicalURL)}/ and add it to\n` +
-        "  that snapshot's media[] by hand.",
+      "  If the platform blocks automated requests (Instagram does), snapshot succeeds nowhere.\n" +
+        `  Nothing was written, so create src/embeds/${embedSlug(request.canonicalURL)}.json by hand,\n` +
+        `  and reference any screenshot you save under public/embeds/${embedSlug(request.canonicalURL)}/\n` +
+        "  from its media[]. See integrations/docs/embeds-setup.md ▸ Instagram.",
     );
     return false;
   }

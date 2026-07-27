@@ -131,6 +131,45 @@ test("renderEmbedCard: youtube renders a thumbnail link, not an iframe, by defau
   assert.match(html, /embed-card__play/);
 });
 
+test("renderEmbedCard: the youtube thumbnail and play glyph are inside the permalink anchor", () => {
+  const html = renderEmbedCard(
+    snap({ provider: "youtube", url: "https://www.youtube.com/watch?v=abc", media: [{ src: "/embeds/a/asset-0.jpg", alt: "T" }] }),
+  );
+  const anchor = html.match(/<a class="embed-card__permalink[^"]*"[^>]*>([\s\S]*?)<\/a>/)?.[1] ?? "";
+  assert.match(anchor, /<img class="embed-card__media" src="\/embeds\/a\/asset-0\.jpg"/);
+  assert.match(anchor, /embed-card__play/);
+  assert.match(anchor, /<time/);
+  // Rendered exactly once — inside the anchor, not also beside it.
+  assert.equal(html.match(/embed-card__media/g)?.length, 1);
+});
+
+test("renderEmbedCard: a non-video card still renders its media outside the permalink", () => {
+  const html = renderEmbedCard(snap({ media: [{ src: "/embeds/a/asset-0.png", alt: "a photo" }] }));
+  const anchor = html.match(/<a class="embed-card__permalink[^"]*"[^>]*>([\s\S]*?)<\/a>/)?.[1] ?? "";
+  assert.ok(!anchor.includes("embed-card__media"));
+  assert.match(html, /embed-card__media/);
+  assert.ok(!html.includes("embed-card__permalink--thumbnail"));
+});
+
+test("renderEmbedCard: an unsafe youtube url still renders the thumbnail, just not as a link", () => {
+  const html = renderEmbedCard(
+    snap({ provider: "youtube", url: "javascript:alert(1)", media: [{ src: "/embeds/a/asset-0.jpg", alt: "T" }] }),
+  );
+  assert.ok(!html.includes("javascript:"));
+  assert.ok(!/<a[^>]*class="embed-card__permalink/.test(html));
+  assert.match(html, /embed-card__media/);
+});
+
+test("renderEmbedCard: inlineVideo replaces the thumbnail rather than rendering both", () => {
+  const html = renderEmbedCard(
+    snap({ provider: "youtube", url: "https://www.youtube.com/watch?v=abc", media: [{ src: "/embeds/a/asset-0.jpg", alt: "T" }] }),
+    { inlineVideo: true },
+  );
+  assert.match(html, /<iframe/);
+  assert.ok(!html.includes("embed-card__media"));
+  assert.ok(!html.includes("embed-card__play"));
+});
+
 test("renderEmbedCard: inlineVideo opts into a lazily-loaded youtube-nocookie iframe", () => {
   const html = renderEmbedCard(
     snap({ provider: "youtube", url: "https://www.youtube.com/watch?v=abc", media: [] }),

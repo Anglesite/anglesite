@@ -143,3 +143,12 @@ main {
   font-size: 0.875rem;
   color: var(--color-text-muted);
 }
+
+/* A video card's permalink wraps the thumbnail and the play glyph, so the whole thing is one
+   click target. It stacks its children the way the card itself does. */
+.embed-card__permalink--thumbnail {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing-unit) * 2);
+  text-decoration: none;
+}

@@ -26,10 +26,26 @@ talking to the platform. It does this by **snapshotting** the post into your own
 
 That's it. The URL renders as a card; everything it displays is served from your own domain.
 
-If your dev server is already running, restart it after capturing a snapshot. Snapshots are
-loaded once per process and cached, so `astro dev` keeps showing a bare link until it
-restarts — for both an in-body embed and a reply/bookmark/like card. Production builds
-always start a fresh process, so this only affects local preview.
+### After capturing or editing a snapshot, build with `--force`
+
+Two separate caches sit between a snapshot file and the page:
+
+- **Your dev server.** Snapshots are loaded once per process, so `astro dev` keeps showing a
+  bare link — for both an in-body embed and a reply/bookmark/like card — until you restart it.
+- **Astro's on-disk content cache** (`node_modules/.astro/`). It doesn't know a snapshot file
+  changed, so an **in-body** embed can keep rendering the old card across repeated production
+  builds. This is not just a local-preview problem: a container that keeps that directory
+  between deploys will publish the stale card.
+
+So whenever you capture a snapshot, hand-edit one, or change `EMBED_VIDEO_INLINE`, build with:
+
+```sh
+npx astro build --force
+```
+
+(Deleting `node_modules/.astro/` before an ordinary build does the same thing.) Reply, bookmark,
+and like cards come from the page layout rather than the Markdown pipeline, so they aren't
+affected — those pick up a changed snapshot on an ordinary build.
 
 To sweep a site you've already written, snapshot every bare URL at once:
 
@@ -63,7 +79,9 @@ so a platform being down, rate-limiting you, or deleting the post can never fail
 - **Fast pages.** No third-party scripts, no render-blocking requests.
 
 The trade-off: a snapshot is a point-in-time capture. If the original post is later edited,
-your copy still shows what it said when you captured it. Re-run the same command to refresh it.
+your copy still shows what it said when you captured it. Re-run the same command to refresh it,
+then rebuild with `npx astro build --force` so the cached Markdown render is thrown away too
+(see "After capturing or editing a snapshot, build with `--force`" above).
 
 ## Instagram
 
@@ -81,9 +99,10 @@ against an Instagram URL fails and writes nothing:
 
 ```
 ✗ https://www.instagram.com/p/CxYZ123 — no Open Graph metadata could be read.
-  If the platform blocks automated requests (Instagram does), snapshot succeeds nowhere:
-  save a screenshot to public/embeds/a1b2c3d4e5f6/ and add it to
-  that snapshot's media[] by hand.
+  If the platform blocks automated requests (Instagram does), snapshot succeeds nowhere.
+  Nothing was written, so create src/embeds/a1b2c3d4e5f6.json by hand,
+  and reference any screenshot you save under public/embeds/a1b2c3d4e5f6/
+  from its media[]. See integrations/docs/embeds-setup.md ▸ Instagram.
 ```
 
 (The platform can also refuse the request outright instead of serving that empty page — the

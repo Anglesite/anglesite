@@ -102,25 +102,35 @@ export function renderEmbedCard(snap: EmbedSnapshot, options: CardOptions = {}):
         `title="${escapeHTML(snap.content)}" loading="lazy" allowfullscreen ` +
         `referrerpolicy="no-referrer" frameborder="0"></iframe>`,
     );
-  } else {
+  }
+
+  // Media the card renders itself — everything except an inline player's own frame.
+  let mediaHTML = "";
+  if (!(options.inlineVideo && videoID)) {
     for (const asset of snap.media) {
       if (!isLocalAsset(asset.src)) continue;
       const dims = `${asset.width ? ` width="${asset.width}"` : ""}${asset.height ? ` height="${asset.height}"` : ""}`;
-      parts.push(
-        `<img class="embed-card__media" src="${escapeHTML(asset.src)}" alt="${escapeHTML(asset.alt)}"${dims} loading="lazy" decoding="async">`,
-      );
+      mediaHTML += `<img class="embed-card__media" src="${escapeHTML(asset.src)}" alt="${escapeHTML(asset.alt)}"${dims} loading="lazy" decoding="async">`;
     }
-    if (videoID) parts.push(`<span class="embed-card__play" aria-hidden="true">▶</span>`);
+    if (videoID) mediaHTML += `<span class="embed-card__play" aria-hidden="true">▶</span>`;
   }
+
+  // A default (non-inline) YouTube card's thumbnail and ▶ glyph go *inside* the permalink
+  // rather than beside it. Spec §5 asks for "a link to the video with a play affordance", and
+  // a thumbnail carrying a play glyph that isn't itself the link is precisely the obvious
+  // click target failing to be clickable. Every other card renders its media in place.
+  const thumbnail = videoID ? mediaHTML : "";
+  if (!thumbnail && mediaHTML) parts.push(mediaHTML);
 
   const time = snap.publishedAt
     ? `<time class="dt-published" datetime="${escapeHTML(snap.publishedAt)}">${escapeHTML(snap.publishedAt.slice(0, 10))}</time>`
     : "";
-  const permalinkInner = time || "View original";
+  const permalinkInner = `${thumbnail}${time || "View original"}`;
+  const permalinkClass = `embed-card__permalink${thumbnail ? " embed-card__permalink--thumbnail" : ""}${cite ? " u-url" : ""}`;
   parts.push(
     isSafeHref(snap.url)
-      ? `<a class="embed-card__permalink${cite ? " u-url" : ""}" href="${escapeHTML(snap.url)}" rel="noopener noreferrer">${permalinkInner}</a>`
-      : `<span class="embed-card__permalink${cite ? " u-url" : ""}">${permalinkInner}</span>`,
+      ? `<a class="${permalinkClass}" href="${escapeHTML(snap.url)}" rel="noopener noreferrer">${permalinkInner}</a>`
+      : `<span class="${permalinkClass}">${permalinkInner}</span>`,
   );
 
   return `<div class="${rootClass}">${parts.join("")}</div>`;
