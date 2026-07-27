@@ -5,14 +5,11 @@ import Testing
 /// The container edit-sync import path: a commit made by the MCP sidecar inside the container is
 /// handed back to the host and replayed onto the canonical `Source/` repository.
 ///
-/// These drive `importBundle` with the exported commit in a **repository directory** rather than
-/// the `.bundle` file `LocalContainerSiteRuntime.persistEdit` actually writes. That is not the
-/// scenario being dodged — it is the only one reachable: libgit2 has no bundle support whatsoever
-/// (#655's root cause, in this consumer #988), so `Repository.clone(from:)` fails with "could not
-/// find repository at …/x.bundle" for both a thin and a complete bundle, and `persistEdit` cannot
-/// complete today at all. Everything past that transport boundary — the divergence guards, the
-/// tree replay, and the commit under test here — is identical either way, so these should move
-/// onto the real artifact when #988 fixes the transport.
+/// The fixture exports a **real thin git bundle** — `git bundle create … refs/heads/anglesite-persist
+/// ^parent`, byte-for-byte what `LocalContainerSiteRuntime.persistEdit`'s guest script produces.
+/// These tests originally had to substitute a repository directory, because libgit2 has no bundle
+/// support and `Repository.clone(from:)` rejected every bundle; #988 closed that with
+/// `Repository.unbundle(at:)` in the fork, so they now exercise the real artifact end to end.
 struct InProcessEditPersistenceTests {
     @Test("importBundle commits the overlay edit with the app identity when none is configured")
     func importsWithAppFallbackIdentity() async throws {
@@ -33,7 +30,7 @@ struct InProcessEditPersistenceTests {
         defer { fixture.cleanUp() }
 
         try await InProcessEditPersistence.importBundle(
-            fixture.exported, commit: fixture.guestCommit, into: fixture.host)
+            fixture.bundle, commit: fixture.guestCommit, into: fixture.host)
 
         #expect(try String(contentsOf: fixture.host.appendingPathComponent("p.astro"), encoding: .utf8) == "two\n")
         #expect(try await fixture.hostAuthor() == "Anglesite <noreply@anglesite.app>")
@@ -50,20 +47,43 @@ struct InProcessEditPersistenceTests {
         defer { fixture.cleanUp() }
 
         try await InProcessEditPersistence.importBundle(
-            fixture.exported, commit: fixture.guestCommit, into: fixture.host)
+            fixture.bundle, commit: fixture.guestCommit, into: fixture.host)
 
         #expect(try await fixture.hostAuthor() == "host <host@t.io>")
     }
+
+    @Test("importBundle refuses an overlay edit that no longer sits on the host's HEAD")
+    func refusesDivergedHost() async throws {
+        // Fast-forward only, by design: a native host-side content operation committed after the
+        // runtime was hydrated must not be silently overwritten. Worth covering now because it
+        // was unreachable before #988 — every import died at the bundle clone, so no guard past
+        // that point had ever run against a real artifact.
+        let fixture = try await EditSyncFixture.make(hostIdentity: .configured)
+        defer { fixture.cleanUp() }
+        try await fixture.commitOnHost(file: "native.astro", contents: "native edit\n")
+        let divergedHead = try await fixture.hostHead()
+
+        await #expect(throws: SiteRuntimePersistenceError.self) {
+            try await InProcessEditPersistence.importBundle(
+                fixture.bundle, commit: fixture.guestCommit, into: fixture.host)
+        }
+
+        // Refused, not half-applied: HEAD is untouched and the worktree is clean, so the next
+        // import isn't wedged by the "uncommitted changes" guard on the way in.
+        #expect(try await fixture.hostHead() == divergedHead)
+        #expect(try await fixture.hostStatus() == "")
+    }
 }
 
-/// A host `Source/` repo plus the guest's export: one commit on top of the host's HEAD, on the
-/// `anglesite-persist` ref `LocalContainerSiteRuntime.persistEdit`'s guest script writes.
+/// A host `Source/` repo plus the guest's export: one commit on top of the host's HEAD, bundled
+/// exactly the way `LocalContainerSiteRuntime.persistEdit`'s guest script bundles it — onto a
+/// `refs/heads/anglesite-persist` ref, thin against the parent.
 private struct EditSyncFixture {
     enum HostIdentity { case none, configured }
 
     let root: URL
     let host: URL
-    let exported: URL
+    let bundle: URL
     let guestCommit: String
 
     /// Call from a `defer` in the test — the fixture is built and used across `await`s, so it
@@ -93,7 +113,12 @@ private struct EditSyncFixture {
         try await git(["add", "-A"], in: guest)
         try await git(["commit", "-m", "overlay edit"], in: guest)
         let guestCommit = try await git(["rev-parse", "HEAD"], in: guest)
+        let parent = try await git(["rev-parse", "HEAD^"], in: guest)
         try await git(["update-ref", "refs/heads/anglesite-persist", guestCommit], in: guest)
+        // Thin, against the parent — the same `git bundle create "$ref" "^$parent"` the guest
+        // script runs, so the fixture stands or falls on the real transport.
+        let bundle = root.appendingPathComponent("edit.bundle")
+        try await git(["bundle", "create", bundle.path, "refs/heads/anglesite-persist", "^\(parent)"], in: guest)
 
         // Set the host identity last, so the seed commit above could still be made.
         switch hostIdentity {
@@ -104,7 +129,17 @@ private struct EditSyncFixture {
             try await git(["config", "user.email", "host@t.io"], in: host)
             try await git(["config", "user.name", "host"], in: host)
         }
-        return EditSyncFixture(root: root, host: host, exported: guest, guestCommit: guestCommit)
+        return EditSyncFixture(root: root, host: host, bundle: bundle, guestCommit: guestCommit)
+    }
+
+    /// A native host-side commit landing after the guest's bundle was exported.
+    func commitOnHost(file: String, contents: String) async throws {
+        try contents.write(to: host.appendingPathComponent(file), atomically: true, encoding: .utf8)
+        try await Self.git(["add", "-A"], in: host)
+        // -c rather than config: the `.none` fixture blanks the repo identity, and this commit
+        // stands in for the user's own work, not the app's.
+        try await Self.git(
+            ["-c", "user.email=native@t.io", "-c", "user.name=native", "commit", "-m", "native"], in: host)
     }
 
     func hostHead() async throws -> String { try await Self.git(["rev-parse", "HEAD"], in: host) }
