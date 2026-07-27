@@ -60,14 +60,19 @@ Add a conditional `.draggable(url)` using a new accessor on `SiteNavigatorModel`
 
 ```swift
 func fileURL(for id: String) -> URL? {
-    guard let target = target(for: id) else { return nil }
-    switch target {
-    case .file(let ref): return ref.url
-    case .route: return routeFileURLs[id]
-    case .directory, .websiteSettings: return nil
-    }
+    guard case .route = target(for: id) else { return nil }
+    return routeFileURLs[id]
 }
 ```
+
+`NavigatorTarget` also has a `.file(FileRef)` case, but `URLTreeNode.Kind` has no
+case that currently produces it (components/styles moved out of the navigator
+tree in #714 slice 1 — see the `SiteNavigatorModelTests` comment on that), so
+`target(for:)` can never actually return `.file` today. Handling only `.route`
+here (rather than exhaustively naming the unreachable `.file`/`.directory`/
+`.websiteSettings` cases) avoids dead code for a case nothing can construct; when
+`.file` rows come back to the tree, this accessor gets a `case .file(let ref):
+return ref.url` branch alongside it.
 
 `routeFileURLs` is populated in `refresh(siteID:siteRoot:)` right where `pages`
 and `posts` are already fetched, mirroring how `postsByID` is built today:
