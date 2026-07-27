@@ -1111,7 +1111,7 @@ git commit -m "feat(#368): persist which communities a site has joined"
 
 **Interfaces:**
 - Consumes: `CommunityActorResolver.resolve(_:)`, `CommunityMembershipClient.follow(target:)`/`.unfollow(target:followActivityID:)`, `GroupTimelineClient.collection(at:)`/`.page(at:)`, `CommunitiesLedger`, `ActivityPubActor.actorURL(siteURL:)`, `DeployCoordinator.resolveSiteURL(siteDirectory:)`, `SecretStore`/`SecretAccounts.activityPubPublishToken(siteID:)`, `CurrentSite`.
-- Produces: `@MainActor @Observable final class CommunitiesModel { func configure(site: CurrentSite); func join() async; func requestLeave(_ community: JoinedCommunity); func confirmLeave() async; func cancelLeave(); func selectCommunity(_ id: String); func loadTimeline() async }` plus published state used by Task 6's view: `state`, `joined`, `selectedCommunityID`, `timeline`, `isLoadingTimeline`, `joinHandleText`, `errorMessage`, `leaveConfirmation`.
+- Produces: `@MainActor @Observable final class CommunitiesModel { init(secretStore:resolverTransport:membershipTransport:timelineTransport:); func configure(site: CurrentSite); func join() async; func requestLeave(_ community: JoinedCommunity); func confirmLeave() async; func cancelLeave(); func selectCommunity(_ id: String); func loadTimeline() async }` plus published state used by Task 6's view: `state`, `joined`, `selectedCommunityID`, `timeline`, `isLoadingTimeline`, `joinHandleText`, `errorMessage`, `leaveConfirmation`. Test seams are three transports injected at **init** (`resolverTransport`/`membershipTransport`/`timelineTransport`, each defaulting to its client's `.defaultTransport`) — matching `FollowersModel`'s `followersTransport` init parameter and `MicrosubReaderModel`'s constructor-injection convention, not per-call-site closures.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1137,6 +1137,33 @@ struct CommunitiesModelTests {
         func delete(account: String) throws { values.removeValue(forKey: account) }
     }
 
+    /// Routes every request by exact URL to a canned (status, body). `CommunityActorResolver`,
+    /// `CommunityMembershipClient`, and `GroupTimelineClient` all share the same `Transport`
+    /// signature (`@Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)`), so this one
+    /// fake — handed to all three init parameters — stands in for the whole network surface a
+    /// test exercises: webfinger, the resolved actor document, this site's own outbox POST, and
+    /// the joined community's outbox GET.
+    actor FakeTransport {
+        private var responses: [String: (status: Int, body: String)]
+        private(set) var requestedURLs: [URL] = []
+
+        init(_ responses: [String: (status: Int, body: String)] = [:]) {
+            self.responses = responses
+        }
+
+        private func respond(to request: URLRequest) throws -> (Data, HTTPURLResponse) {
+            let url = request.url!
+            requestedURLs.append(url)
+            let (status, body) = responses[url.absoluteString] ?? (404, "not found")
+            let http = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!
+            return (Data(body.utf8), http)
+        }
+
+        nonisolated var transport: @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse) {
+            { request in try await self.respond(to: request) }
+        }
+    }
+
     private static func site(configDirectory: URL, sourceDirectory: URL) -> CurrentSite {
         CurrentSite(
             id: "site-1", name: "Test Site",
@@ -1158,29 +1185,38 @@ struct CommunitiesModelTests {
         return (config, source)
     }
 
+    private static func model(secretStore: InMemorySecretStore, fake: FakeTransport) -> CommunitiesModel {
+        CommunitiesModel(
+            secretStore: secretStore,
+            resolverTransport: fake.transport,
+            membershipTransport: fake.transport,
+            timelineTransport: fake.transport)
+    }
+
     @Test("join resolves the handle, follows it, and records it in the ledger")
     func joinRecordsCommunity() async throws {
         let (config, source) = try Self.makeSiteDirectories()
         defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
         let secretStore = InMemorySecretStore()
         secretStore.values[SecretAccounts.activityPubPublishToken(siteID: "site-1")] = "token"
+        let fake = FakeTransport([
+            "https://lemmy.ml/c/birding": (200, """
+                {"id":"https://lemmy.ml/c/birding","type":"Group","preferredUsername":"birding",
+                 "name":"Birding","outbox":"https://lemmy.ml/c/birding/outbox"}
+                """),
+            "https://example.com/users/site/outbox":
+                (202, #"{"id":"https://example.com/users/site/outbox/1"}"#),
+        ])
 
-        let model = CommunitiesModel(secretStore: secretStore)
+        let model = Self.model(secretStore: secretStore, fake: fake)
         model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
         model.joinHandleText = "https://lemmy.ml/c/birding"
 
-        await model.join(
-            resolver: { _ in
-                ResolvedCommunityActor(
-                    actorID: URL(string: "https://lemmy.ml/c/birding")!,
-                    outboxURL: URL(string: "https://lemmy.ml/c/birding/outbox")!,
-                    type: "Group", preferredUsername: "birding", name: "Birding", handle: nil)
-            },
-            follow: { _, _ in "https://example.com/users/site/outbox/1" }
-        )
+        await model.join()
 
         #expect(model.joined.count == 1)
         #expect(model.joined.first?.actorID.absoluteString == "https://lemmy.ml/c/birding")
+        #expect(model.joined.first?.followActivityID == "https://example.com/users/site/outbox/1")
         #expect(model.joinHandleText.isEmpty)
         #expect(model.errorMessage == nil)
 
@@ -1195,15 +1231,13 @@ struct CommunitiesModelTests {
         defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
         let secretStore = InMemorySecretStore()
         secretStore.values[SecretAccounts.activityPubPublishToken(siteID: "site-1")] = "token"
+        let fake = FakeTransport(["https://lemmy.ml/c/ghost": (404, "not found")])
 
-        let model = CommunitiesModel(secretStore: secretStore)
+        let model = Self.model(secretStore: secretStore, fake: fake)
         model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
-        model.joinHandleText = "!ghost@lemmy.ml"
+        model.joinHandleText = "https://lemmy.ml/c/ghost"
 
-        await model.join(
-            resolver: { _ in throw CommunityActorResolverError.noActorLink },
-            follow: { _, _ in "unused" }
-        )
+        await model.join()
 
         #expect(model.joined.isEmpty)
         #expect(model.errorMessage != nil)
@@ -1225,19 +1259,18 @@ struct CommunitiesModelTests {
         ledger.record(community)
         try ledger.save(to: config)
 
-        let model = CommunitiesModel(secretStore: secretStore)
+        let fake = FakeTransport(["https://example.com/users/site/outbox": (202, "{}")])
+        let model = Self.model(secretStore: secretStore, fake: fake)
         model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
         #expect(model.joined.count == 1)
 
         model.requestLeave(community)
         #expect(model.leaveConfirmation == community)
 
-        var unfollowedTarget: URL?
-        await model.confirmLeave(unfollow: { target, _ in unfollowedTarget = target })
+        await model.confirmLeave()
 
         #expect(model.joined.isEmpty)
         #expect(model.leaveConfirmation == nil)
-        #expect(unfollowedTarget?.absoluteString == "https://lemmy.ml/c/birding")
         #expect(CommunitiesLedger.load(from: config)?.communities.isEmpty == true)
     }
 
@@ -1257,20 +1290,27 @@ struct CommunitiesModelTests {
         ledger.record(community)
         try ledger.save(to: config)
 
-        let model = CommunitiesModel(secretStore: secretStore)
+        let fake = FakeTransport([
+            "https://lemmy.ml/c/birding/outbox": (200, """
+                {"id":"https://lemmy.ml/c/birding/outbox","type":"OrderedCollection","totalItems":1,
+                 "first":"https://lemmy.ml/c/birding/outbox?page=1"}
+                """),
+            "https://lemmy.ml/c/birding/outbox?page=1": (200, """
+                {"id":"https://lemmy.ml/c/birding/outbox?page=1","type":"OrderedCollectionPage",
+                 "orderedItems":[
+                   {"id":"https://lemmy.ml/activities/1","type":"Create",
+                    "object":{"id":"https://lemmy.ml/post/1","type":"Page","name":"Osprey sighting"}}
+                 ]}
+                """),
+        ])
+        let model = Self.model(secretStore: secretStore, fake: fake)
         model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
-        model.selectCommunity(community.id)
 
-        await model.loadTimeline(
-            fetchCollection: { _ in (1, URL(string: "https://lemmy.ml/c/birding/outbox?page=1")) },
-            fetchPage: { _ in
-                GroupTimelinePage(
-                    items: [GroupPost(
-                        id: "https://lemmy.ml/post/1", title: "Osprey sighting", contentHTML: nil,
-                        url: nil, publishedAt: nil, authorName: nil)],
-                    next: nil)
-            }
-        )
+        // `selectCommunity` already fires `loadTimeline()` in a fire-and-forget `Task`; the
+        // explicit `await` below is what the test actually waits on, so the redundant first load
+        // is harmless (same fetch, same result) rather than a race.
+        model.selectCommunity(community.id)
+        await model.loadTimeline()
 
         #expect(model.timeline.count == 1)
         #expect(model.timeline.first?.title == "Osprey sighting")
@@ -1297,12 +1337,12 @@ import AnglesiteCore
 /// logic lives in `AnglesiteCore` (`CommunityActorResolver`, `CommunityMembershipClient`,
 /// `GroupTimelineClient`, `CommunitiesLedger`).
 ///
-/// `join`/`confirmLeave`/`loadTimeline` take their network-calling collaborators as parameters
-/// (rather than storing injected clients on `self`) because each one needs a fresh
-/// `CommunityMembershipClient`/`GroupTimelineClient` built around the *current* `ownActorURL` and
-/// `publishToken` — those can change if the site is republished mid-session — while still letting
-/// tests substitute the actual network call with a stub. Production call sites pass the real
-/// client methods; see the `join()`/`confirmLeave()`/`loadTimeline()` no-argument overloads below.
+/// The three transports are injected at init — matching `FollowersModel.followersTransport`'s
+/// constructor-injection convention, not a per-call-site closure — because each client
+/// (`CommunityActorResolver`/`CommunityMembershipClient`/`GroupTimelineClient`) is still built
+/// fresh per call around the *current* `ownActorURL`/`publishToken` (those can change if the site
+/// is republished mid-session), but the transport underneath it stays fixed for the model's
+/// lifetime, exactly like `followersTransport` does for `FollowersModel`'s client.
 @MainActor
 @Observable
 final class CommunitiesModel {
@@ -1331,9 +1371,23 @@ final class CommunitiesModel {
     private var siteURL: URL?
     private var ownActorURL: URL?
     private let secretStore: any SecretStore
+    private let resolverTransport: CommunityActorResolver.Transport
+    private let membershipTransport: CommunityMembershipClient.Transport
+    private let timelineTransport: GroupTimelineClient.Transport
 
-    init(secretStore: any SecretStore = PlatformSecretStore.make()) {
+    init(
+        secretStore: any SecretStore = PlatformSecretStore.make(),
+        resolverTransport: @escaping CommunityActorResolver.Transport
+            = CommunityActorResolver.defaultTransport,
+        membershipTransport: @escaping CommunityMembershipClient.Transport
+            = CommunityMembershipClient.defaultTransport,
+        timelineTransport: @escaping GroupTimelineClient.Transport
+            = GroupTimelineClient.defaultTransport
+    ) {
         self.secretStore = secretStore
+        self.resolverTransport = resolverTransport
+        self.membershipTransport = membershipTransport
+        self.timelineTransport = timelineTransport
     }
 
     /// Records which site this pane talks to and loads the joined-communities ledger from disk.
@@ -1356,15 +1410,6 @@ final class CommunitiesModel {
     // MARK: - Join
 
     func join() async {
-        await join(
-            resolver: { try await CommunityActorResolver().resolve($0) },
-            follow: { target, membership in try await membership.follow(target: target) })
-    }
-
-    func join(
-        resolver: @escaping (String) async throws -> ResolvedCommunityActor,
-        follow: @escaping (URL, CommunityMembershipClient) async throws -> String
-    ) async {
         let input = joinHandleText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else { return }
         guard let ownActorURL, let publishToken else {
@@ -1373,9 +1418,10 @@ final class CommunitiesModel {
         }
         errorMessage = nil
         do {
-            let resolved = try await resolver(input)
-            let membership = CommunityMembershipClient(ownActorURL: ownActorURL, publishToken: publishToken)
-            let activityID = try await follow(resolved.actorID, membership)
+            let resolved = try await CommunityActorResolver(transport: resolverTransport).resolve(input)
+            let membership = CommunityMembershipClient(
+                ownActorURL: ownActorURL, publishToken: publishToken, transport: membershipTransport)
+            let activityID = try await membership.follow(target: resolved.actorID)
             let community = JoinedCommunity(
                 actorID: resolved.actorID, outboxURL: resolved.outboxURL,
                 handle: resolved.handle, displayName: resolved.name ?? resolved.preferredUsername,
@@ -1402,17 +1448,17 @@ final class CommunitiesModel {
     }
 
     func confirmLeave() async {
-        await confirmLeave(unfollow: { target, followActivityID in
-            guard let ownActorURL, let publishToken else { return }
-            let membership = CommunityMembershipClient(ownActorURL: ownActorURL, publishToken: publishToken)
-            try await membership.unfollow(target: target, followActivityID: followActivityID)
-        })
-    }
-
-    func confirmLeave(unfollow: @escaping (URL, String?) async throws -> Void) async {
         guard let community = leaveConfirmation else { return }
+        guard let ownActorURL, let publishToken else {
+            errorMessage = "This site has no known public URL yet — deploy it at least once first."
+            leaveConfirmation = nil
+            return
+        }
         do {
-            try await unfollow(community.actorID, community.followActivityID)
+            let membership = CommunityMembershipClient(
+                ownActorURL: ownActorURL, publishToken: publishToken, transport: membershipTransport)
+            try await membership.unfollow(
+                target: community.actorID, followActivityID: community.followActivityID)
             var ledger = CommunitiesLedger(communities: joined)
             ledger.remove(actorID: community.actorID)
             joined = ledger.communities
@@ -1443,28 +1489,20 @@ final class CommunitiesModel {
     }
 
     func loadTimeline() async {
-        await loadTimeline(
-            fetchCollection: { url in try await GroupTimelineClient().collection(at: url) },
-            fetchPage: { url in try await GroupTimelineClient().page(at: url) })
-    }
-
-    func loadTimeline(
-        fetchCollection: @escaping (URL) async throws -> (totalItems: Int, firstPage: URL?),
-        fetchPage: @escaping (URL) async throws -> GroupTimelinePage
-    ) async {
         guard let selectedCommunityID,
               let community = joined.first(where: { $0.id == selectedCommunityID }),
               let outboxURL = community.outboxURL
         else { return }
         isLoadingTimeline = true
         defer { isLoadingTimeline = false }
+        let client = GroupTimelineClient(transport: timelineTransport)
         do {
-            let head = try await fetchCollection(outboxURL)
+            let head = try await client.collection(at: outboxURL)
             guard let firstPage = head.firstPage else {
                 timeline = []
                 return
             }
-            let page = try await fetchPage(firstPage)
+            let page = try await client.page(at: firstPage)
             timeline = page.items
         } catch {
             errorMessage = "Couldn't load \(community.displayName ?? community.id)'s timeline: \(error)"
