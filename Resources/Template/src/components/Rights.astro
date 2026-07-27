@@ -10,9 +10,15 @@
 // No `u-license` class here: this anchor sits outside every microformat root, where the class
 // would parse as nothing. `rel="license"` is the meaningful attribute at this position.
 //
-// Absent both a holder and a license this renders nothing at all — an empty <footer> would be
-// worse than no footer, and asserting rights on a user's behalf is exactly what §Q3 of the
+// Absent both a holder and a license this renders nothing at all — an empty wrapper would be
+// worse than no wrapper, and asserting rights on a user's behalf is exactly what §Q3 of the
 // design forbids.
+//
+// Wrapper is a plain <div>, not a <footer>: Hcard.astro already renders the page's one
+// body-level <footer class="site-identity">, which owns the page's single `contentinfo`
+// landmark. A second <footer> here (this renders immediately after it in BaseLayout) would be
+// a duplicate `contentinfo` landmark — exactly what Hcard.astro's own comment warns against.
+// The meaning lives in `rel="license"` on the anchor, not in the wrapping element.
 import { readConfig } from "../../scripts/config";
 import { ownerName } from "../lib/profile.ts";
 import type { LicenseRef } from "../lib/licensing.ts";
@@ -27,7 +33,7 @@ const year = new Date().getFullYear();
 ---
 
 {(holder || license) && (
-  <footer class="site-rights">
+  <div class="site-rights">
     {holder && <span>© {year} {holder}</span>}
     {license && (
       <span>
@@ -35,5 +41,5 @@ const year = new Date().getFullYear();
         Licensed <a href={license.url} rel="license">{license.name}</a>
       </span>
     )}
-  </footer>
+  </div>
 )}
