@@ -36,3 +36,8 @@ test("blogPostingSchema: carries the license URL", () => {
   const out = blogPostingSchema({ title: "Hi" }, ctx({ license: LICENSE }));
   assert.equal((out as unknown as Record<string, unknown>).license, LICENSE);
 });
+
+test("entrySchema: reviews carry the license URL when one is supplied", () => {
+  const out = entrySchema("reviews", { itemReviewed: "A Book", rating: 4 }, ctx({ license: LICENSE }));
+  assert.equal((out as unknown as Record<string, unknown>).license, LICENSE);
+});
