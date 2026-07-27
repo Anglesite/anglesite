@@ -41,8 +41,16 @@ final class PlistEditorModel {
         didSet {
             // The clamp lives here rather than in each picker's binding so there is exactly one
             // place a permit-and-block contradiction can be introduced, and it cannot survive.
-            // Assigning inside `didSet` does not re-enter it.
-            licensingPolicy.usage = licensingPolicy.usage.clamped
+            // Unlike a plain stored property, `@Observable`'s macro-generated setter for
+            // `licensingPolicy` routes *any* write to one of its fields — including this one to
+            // `.usage` — back through the whole property's own setter, re-entering `didSet`.
+            // `.clamped` is idempotent, so the guard here is what actually stops the recursion:
+            // without it, the reentrant `didSet` reassigns unconditionally, re-enters itself
+            // again, and blows the stack (confirmed with a real SIGSEGV/stack-overflow crash).
+            let clamped = licensingPolicy.usage.clamped
+            if clamped != licensingPolicy.usage {
+                licensingPolicy.usage = clamped
+            }
         }
     }
     private(set) var savedLicensingPolicy = LicensingPolicy()
