@@ -57,7 +57,7 @@ final class EditorFocusRegistry {
 
     enum Focus {
         case markdown(Weak<MarkdownEditorController>)
-        case codePane(Weak<NSTextView>)
+        case codePane(Weak<NSResponder>)
         case plainText(isPresented: Binding<Bool>)
     }
 
@@ -147,7 +147,7 @@ final class Coordinator: NSObject, STTextViewDelegate {
     var isProgrammaticUpdate = false
 
     func textDidBeginEditing(_ notification: Notification) {
-        guard let tv = notification.object as? NSTextView else { return }
+        guard let tv = notification.object as? NSResponder else { return }
         EditorFocusRegistry.shared.activate(.codePane(Weak(tv)), token: token)
     }
 
@@ -160,13 +160,15 @@ final class Coordinator: NSObject, STTextViewDelegate {
 Dispatch synthesizes a tagged `NSMenuItem` and calls STTextView's existing
 `performTextFinderAction(_:)` (public API, backed by a fully built-in `NSTextFinder` +
 find bar container — `textFinder`, `textFinderClient`, `textFinderBarContainer` are all
-already wired up in STTextView itself):
+already wired up in STTextView itself). The method is declared on `NSResponder` itself,
+not `NSTextView` — `STTextView` is `NSView`-rooted, not `NSTextView`-rooted (found during
+implementation review), so `codePane` and this helper are typed against `NSResponder`:
 
 ```swift
-private func sendFinderAction(_ action: NSTextFinder.Action, to textView: NSTextView) {
+private func sendFinderAction(_ action: NSTextFinder.Action, to responder: NSResponder) {
     let item = NSMenuItem()
     item.tag = action.rawValue
-    textView.performTextFinderAction(item)
+    responder.performTextFinderAction(item)
 }
 ```
 
