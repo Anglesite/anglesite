@@ -144,4 +144,54 @@ struct CommunityActorResolverTests {
             _ = try await resolver.resolve("!birding@lemmy.ml")
         }
     }
+
+    @Test("rejects a webfinger response that redirects to an insecure URL")
+    func webfingerRejectHTTPRedirect() async throws {
+        let webfingerURL = "https://lemmy.ml/.well-known/webfinger?resource=acct:birding@lemmy.ml"
+        // Create a transport that simulates a redirect by returning an HTTPURLResponse
+        // with a different (insecure) URL than the one that was requested.
+        actor RedirectingTransport {
+            private let body: String
+            private(set) var requestCount = 0
+
+            init(body: String) {
+                self.body = body
+            }
+
+            private func respond(to request: URLRequest) throws -> (Data, HTTPURLResponse) {
+                let url = request.url!
+                requestCount += 1
+                // For the webfinger URL, return a response that appears to come from http://
+                // (simulating a transparent redirect), which should be rejected.
+                let responseURL: URL
+                if url.absoluteString.contains("webfinger") {
+                    let httpURL = url.absoluteString.replacingOccurrences(of: "https://", with: "http://")
+                    responseURL = URL(string: httpURL)!
+                } else {
+                    // Actor fetch should not reach this point if webfinger check works
+                    throw CommunityActorResolverError.requestFailed(status: 500, body: "should not fetch actor")
+                }
+                let http = HTTPURLResponse(url: responseURL, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (Data(body.utf8), http)
+            }
+
+            nonisolated var transport: CommunityActorResolver.Transport {
+                { request in try await self.respond(to: request) }
+            }
+        }
+
+        let fake = RedirectingTransport(body: """
+            {"subject":"acct:birding@lemmy.ml","links":[
+              {"rel":"self","type":"application/activity+json","href":"https://lemmy.ml/c/birding"}
+            ]}
+            """)
+        let resolver = CommunityActorResolver(transport: fake.transport)
+
+        await #expect(throws: CommunityActorResolverError.insecureURL) {
+            _ = try await resolver.resolve("!birding@lemmy.ml")
+        }
+
+        // Verify that we only made the webfinger request, not the actor fetch
+        #expect(await fake.requestCount == 1)
+    }
 }
