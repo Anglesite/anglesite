@@ -1485,6 +1485,23 @@ final class SiteWindowModel {
         let contentGraphRefresh = Task {
             await refreshContentGraph(siteID: resolved.id, sourceDirectory: resolved.sourceDirectory)
         }
+        // Warm the knowledge index here for the same reason, and on the same terms (#980): it is
+        // a filesystem scan of Source/ that needs no container, no MCP, and no dev server. Until
+        // this, the only thing that populated it on the open path was the runtime — *after*
+        // `control.start` and `connect(...)` in `LocalContainerSiteRuntime` — so every index
+        // consumer (toolbar search #520, assistant retrieval, Related Pages) silently returned
+        // nothing for as long as the container took to boot, and forever on a machine where the
+        // runtime can't start at all. Searching a page by its own name and getting "No matching
+        // content" is indistinguishable from a real miss, which is what made it worth fixing here
+        // rather than leaving search to inherit it.
+        //
+        // The runtime still rebuilds when it comes up; `SiteKnowledgeIndex` is an actor and
+        // rebuild is idempotent, so the two serialize and the later one simply refreshes from the
+        // hydrated repo. Not awaited — nothing below needs it, and the assistant's tools read the
+        // index lazily at call time.
+        Task { [knowledgeIndex] in
+            await knowledgeIndex.rebuild(siteID: resolved.id, projectRoot: resolved.sourceDirectory)
+        }
         // Scan from the package ROOT (not Source/): SiteFileTree's adaptive layout detects the
         // `.anglesite` package here and resolves Source/ for Components/Styles plus the sibling
         // Config/ + Info.plist for the Metadata group. Handing it Source/ would hide Metadata.
