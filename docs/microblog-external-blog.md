@@ -7,15 +7,17 @@ the feed, verifying you own the site, optionally letting the Micro.blog apps
 post directly to your site via Micropub, and why Micro.blog doesn't need a
 dedicated POSSE client in Anglesite.
 
-It assumes a site that's already been deployed (`File ▸ Deploy…`, or the
-Deploy tab) with a working public URL.
+It assumes a site that's already been deployed — via the **Website ▸
+Publish…** menu command (⇧⌘P) or the toolbar's **Deploy** button — with a
+working public URL.
 
 ## 1. Register your feed
 
 Micro.blog treats "the feeds on your account" as the source of your own
-timeline — under **Account ▸ Edit Feeds & Cross-posting**, add your site's
-feed URL. Per Micro.blog's own docs: "adding feeds to your account on
-Micro.blog controls where *your own posts* come from" (see
+timeline — under **Account ▸ Edit Feeds & Cross-posting** (see
+[Connect an external blog](https://book.micro.blog/external-blogs-wordpress/)),
+add your site's feed URL. Per Micro.blog's own docs: "adding feeds to your
+account on Micro.blog controls where *your own posts* come from" (see
 [Micro.blog and feeds](https://book.micro.blog/microblog-and-feeds/)).
 
 Recommended: register the **JSON Feed**, `https://yoursite.example/feed.json`.
@@ -150,7 +152,8 @@ already pulls from the feed Anglesite publishes.
 
 ## References
 
-- [Micro.blog and feeds](https://book.micro.blog/microblog-and-feeds/) — Sources, cross-posting toggles, polling cadence
+- [Micro.blog and feeds](https://book.micro.blog/microblog-and-feeds/) — Sources section, cross-posting toggles, polling cadence
+- [Connect an external blog](https://book.micro.blog/external-blogs-wordpress/) — "Edit Feeds & Cross-posting" screen name/location
 - [RSS for microblogs](https://book.micro.blog/rss-for-microblogs/) — title-less items, full HTML in `<description>`
 - [JSON Feed](https://book.micro.blog/json-feed/) — `content_html`, title-less microblog posts
 - [IndieAuth](https://book.micro.blog/indieauth/) — `rel=me` verification, IndieAuth sign-in
