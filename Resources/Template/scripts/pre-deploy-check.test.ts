@@ -390,3 +390,33 @@ test("checkEmbedMedia: a permalink to the platform is not media and must pass", 
 test("checkEmbedMedia: the youtube-nocookie iframe is not a media hotlink", () => {
   assert.deepEqual(checkEmbedMedia('<iframe src="https://www.youtube-nocookie.com/embed/a"></iframe>', "f.html"), []);
 });
+
+// Regression guard for #682 finding 1: the dedup pass that used to sit on top of a per-host,
+// file-wide boolean test silently dropped a genuine second hotlink whenever it only matched via
+// the same generic host entry as an earlier, more-specific-looking match. This must fail against
+// that dedup implementation.
+test("checkEmbedMedia: two distinct hotlinks in one file both count, even via the same generic host", () => {
+  const issues = checkEmbedMedia(
+    '<img src="https://scontent.cdninstagram.com/a.jpg"><img src="https://scontent-lax3-2.cdninstagram.com/b.jpg">',
+    "f.html",
+  );
+  assert.equal(issues.length, 2);
+});
+
+test("checkEmbedMedia: an unquoted src attribute value is still flagged", () => {
+  const issues = checkEmbedMedia("<img src=https://pbs.twimg.com/a.jpg>", "f.html");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].category, "embed-media-hotlink");
+});
+
+test("checkEmbedMedia: an unquoted src value does not swallow a following href", () => {
+  const issues = checkEmbedMedia(
+    '<img src=/local/self-hosted.jpg href="https://pbs.twimg.com/media/x.jpg">',
+    "f.html",
+  );
+  assert.deepEqual(issues, []);
+});
+
+test("checkEmbedMedia: an href with a real listed host is never flagged", () => {
+  assert.deepEqual(checkEmbedMedia('<a href="https://pbs.twimg.com/media/x.jpg">original</a>', "f.html"), []);
+});
