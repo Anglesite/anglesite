@@ -366,6 +366,48 @@ struct SiteOperationsTests {
         ])
     }
 
+    @Test("headless deploy forwards active /.well-known/ route claims to the deployer (#934)")
+    func headlessDeployForwardsWellKnownDynamicClaimsToDeployer() async throws {
+        let package = try temporaryPackage()
+        defer { try? FileManager.default.removeItem(at: package) }
+        let site = makeSite(name: "Blue Bottle Cafe", packageURL: package)
+        let configStore = SiteConfigStore(configDirectory: site.configDirectory)
+        try await configStore.save(SiteSettings(activeWorkerIDs: ["webfinger"]))
+
+        let webfingerRoute = WorkerRouteClaim(
+            path: "/.well-known/webfinger", match: .exact, methods: ["GET"], handler: "webfinger")
+        let webfingerWorker = WorkerDescriptor(
+            id: "webfinger", displayName: "webfinger", description: "test fixture", group: "social",
+            binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false),
+            routes: [webfingerRoute]
+        )
+
+        let recorder = SocialWorkerRecorder()
+        let ops = SiteOperations(
+            factory: SocialWorkerFactory(recorder: recorder),
+            store: throwawayStore(),
+            socialWorkerAccess: { site, store, body in try await SiteAccess.withScopedAccess(to: site, in: store, body) },
+            cachedWorkerCatalog: { [webfingerWorker] }
+        )
+
+        let result = await ops.deploy(site: site)
+
+        guard case .succeeded = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        // Mirrors DeployModel.runDeploy's GUI-path wiring (#744/#746): the headless deploy path
+        // (App Intents/Shortcuts/Siri, #934) must see the same active dynamic /.well-known/
+        // route claims, or a static/dynamic collision that the GUI Deploy button would block
+        // could slip through here.
+        #expect(await recorder.deployCalls == [
+            .init(
+                token: "token", siteID: "s1", siteDirectory: site.sourceDirectory,
+                wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim(owner: "webfinger", claim: webfingerRoute)]
+            ),
+        ])
+    }
+
     @Test("headless deploy with no activated workers still deploys through the plain static path")
     func headlessDeployWithNoActiveWorkers() async throws {
         let package = try temporaryPackage()
@@ -421,8 +463,13 @@ private actor SocialWorkerRecorder {
         }
     }
 
-    func deploy(token: String, siteID: String, siteDirectory: URL) -> DeployCommand.Result {
-        seenDeployCalls.append(.init(token: token, siteID: siteID, siteDirectory: siteDirectory))
+    func deploy(
+        token: String, siteID: String, siteDirectory: URL,
+        wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim]
+    ) -> DeployCommand.Result {
+        seenDeployCalls.append(.init(
+            token: token, siteID: siteID, siteDirectory: siteDirectory,
+            wellKnownDynamicClaims: wellKnownDynamicClaims))
         return .succeeded(url: URL(string: "https://blue-bottle-cafe.example.workers.dev")!, duration: 1)
     }
 }
@@ -431,6 +478,7 @@ private struct DeployCall: Sendable, Equatable {
     let token: String
     let siteID: String
     let siteDirectory: URL
+    let wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim]
 }
 
 private struct TestAccessError: LocalizedError, Sendable {
@@ -454,7 +502,11 @@ private struct SocialWorkerFactory: CommandFactory {
         SocialWorkerProvisionCommand(
             tokenSource: { "token" },
             runner: { _, arguments, _, _ in await recorder.run(arguments: arguments) },
-            deployer: { token, siteID, siteDirectory in await recorder.deploy(token: token, siteID: siteID, siteDirectory: siteDirectory) }
+            deployer: { token, siteID, siteDirectory, wellKnownDynamicClaims in
+                await recorder.deploy(
+                    token: token, siteID: siteID, siteDirectory: siteDirectory,
+                    wellKnownDynamicClaims: wellKnownDynamicClaims)
+            }
         )
     }
 }

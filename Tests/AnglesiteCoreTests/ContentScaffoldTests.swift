@@ -93,12 +93,29 @@ struct ContentScaffoldTests {
         ---
         publishDate: 2025-06-15T15:06:40.000Z
         tags: []
+        # audience: ""
         draft: true
         ---
 
         Write your note here.
 
         """)
+    }
+
+    @Test("optional .url fields scaffold commented-out, so an empty default never breaks z.string().url()")
+    func optionalURLFieldsScaffoldCommented() {
+        let now = Date(timeIntervalSince1970: 0)
+        for descriptor in ContentTypeRegistry.builtIns where descriptor.collection != nil {
+            let out = ContentScaffold.renderEntry(descriptor: descriptor, title: "Title", now: now)
+            for field in descriptor.fields where field.kind == .url && !field.required {
+                #expect(out.contains("# \(field.name): \"\""),
+                        "\(descriptor.id).\(field.name): optional .url field must scaffold commented-out, not live")
+            }
+            for field in descriptor.fields where field.kind == .url && field.required {
+                #expect(!out.contains("# \(field.name): "),
+                        "\(descriptor.id).\(field.name): required .url field must stay live")
+            }
+        }
     }
 
     @Test("renderEntry emits business-type frontmatter from the registry descriptor")

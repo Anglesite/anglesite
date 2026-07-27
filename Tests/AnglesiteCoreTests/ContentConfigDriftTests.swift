@@ -11,6 +11,16 @@ struct ContentConfigDriftTests {
         get throws { try templateRoot().appendingPathComponent("src/content.config.ts") }
     }
 
+    /// Collections whose schema was extracted into `lib/content-schemas.ts` for standalone
+    /// `npx tsx --test` coverage (#369) rather than declared inline in `content.config.ts`. The
+    /// exported schema constant follows the `<collection>Schema` naming convention.
+    static let extractedSchemaCollections: Set<String> = ["notes", "articles"]
+
+    /// The file `extractedSchemaCollections`' schema bodies actually live in.
+    static var contentSchemasFile: URL {
+        get throws { try templateRoot().appendingPathComponent("src/lib/content-schemas.ts") }
+    }
+
     /// Canonical Zod expression for a field kind, or nil for the markdown body (excluded from frontmatter).
     static func zod(for kind: ContentTypeField.Kind) -> String? {
         switch kind {
@@ -24,26 +34,57 @@ struct ContentConfigDriftTests {
         }
     }
 
-    /// The single canonical `defineCollection` block for a collection-backed descriptor.
-    static func canonicalBlock(_ d: ContentTypeDescriptor) -> String? {
-        guard let collection = d.collection else { return nil }
-        var schemaLines: [String] = []
+    /// One `field: expr,` line per non-markdown field, in declaration order, at the given indent.
+    static func schemaLines(_ d: ContentTypeDescriptor, indent: String) -> [String] {
+        var lines: [String] = []
         for field in d.fields {
             guard let zod = zod(for: field.kind) else { continue }
             // Every `.bool` field ships with `.default(false)` (matching `blog`'s pre-existing
             // `draft` line) rather than `.optional()` — a defaulted field is never bare either way,
             // so `required` doesn't affect this branch.
             let expr = field.kind == .bool ? "\(zod).default(false)" : (field.required ? zod : "\(zod).optional()")
-            schemaLines.append("    \(field.name): \(expr),")
+            lines.append("\(indent)\(field.name): \(expr),")
         }
+        return lines
+    }
+
+    /// The single canonical `defineCollection` block for a collection-backed descriptor whose
+    /// schema is declared inline in `content.config.ts` (i.e. not in `extractedSchemaCollections`).
+    static func canonicalBlock(_ d: ContentTypeDescriptor) -> String? {
+        guard let collection = d.collection else { return nil }
+        let lines = schemaLines(d, indent: "    ")
         return """
         const \(collection) = defineCollection({
           loader: glob({ pattern: "**/*.md", base: "./src/content/\(collection)" }),
           schema: z.object({
             ...socialFields,
-        \(schemaLines.joined(separator: "\n"))
+        \(lines.joined(separator: "\n"))
           }).strict(),
         });
+        """
+    }
+
+    /// For an `extractedSchemaCollections` member: the short `content.config.ts` block that
+    /// references its schema by name instead of declaring it inline.
+    static func canonicalExtractedWrapper(_ collection: String) -> String {
+        """
+        const \(collection) = defineCollection({
+          loader: glob({ pattern: "**/*.md", base: "./src/content/\(collection)" }),
+          schema: \(collection)Schema,
+        });
+        """
+    }
+
+    /// For an `extractedSchemaCollections` member: the canonical schema body, as it appears in
+    /// `content-schemas.ts` (top-level `export const`, not nested inside `defineCollection`).
+    static func canonicalSchemaBody(_ d: ContentTypeDescriptor) -> String? {
+        guard let collection = d.collection else { return nil }
+        let lines = schemaLines(d, indent: "  ")
+        return """
+        export const \(collection)Schema = z.object({
+          ...socialFields,
+        \(lines.joined(separator: "\n"))
+        }).strict();
         """
     }
 
@@ -101,6 +142,7 @@ struct ContentConfigDriftTests {
     @Test("every collection-backed registry type appears verbatim in content.config.ts")
     func configMatchesRegistry() throws {
         let source = try String(contentsOf: Self.configFile, encoding: .utf8)
+        let schemasSource = try String(contentsOf: Self.contentSchemasFile, encoding: .utf8)
         let exportLine = source
             .split(separator: "\n", omittingEmptySubsequences: false)
             .first { $0.contains("export const collections") }
@@ -109,10 +151,20 @@ struct ContentConfigDriftTests {
         // Scope to the canonical builtin vocabulary, not a registry instance: a custom type
         // registered elsewhere must not make this guard demand a block in the committed template.
         for descriptor in ContentTypeRegistry.builtIns {
-            guard let collection = descriptor.collection,
-                  let block = Self.canonicalBlock(descriptor) else { continue }
-            #expect(source.contains(block),
-                    "content.config.ts is missing or has drifted from the canonical block for `\(collection)`:\n\(block)")
+            guard let collection = descriptor.collection else { continue }
+
+            if Self.extractedSchemaCollections.contains(collection) {
+                guard let wrapper = Self.canonicalExtractedWrapper(collection) as String?,
+                      let body = Self.canonicalSchemaBody(descriptor) else { continue }
+                #expect(source.contains(wrapper),
+                        "content.config.ts is missing or has drifted from the canonical wrapper for `\(collection)`:\n\(wrapper)")
+                #expect(schemasSource.contains(body),
+                        "content-schemas.ts is missing or has drifted from the canonical schema body for `\(collection)`:\n\(body)")
+            } else {
+                guard let block = Self.canonicalBlock(descriptor) else { continue }
+                #expect(source.contains(block),
+                        "content.config.ts is missing or has drifted from the canonical block for `\(collection)`:\n\(block)")
+            }
             #expect(exportLine.contains(collection),
                     "`\(collection)` is not listed in the `collections` export")
         }

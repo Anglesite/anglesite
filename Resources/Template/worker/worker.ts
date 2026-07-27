@@ -10,11 +10,38 @@ import {
   type WebmentionEnv,
   type WebmentionJob,
 } from "@dwk/webmention";
+import {
+  createMicropub,
+  type MicropubEnv,
+} from "@dwk/micropub";
+import { discoverCollection, generateSlug } from "./post-type-discovery.ts";
+import {
+  createActivityPub,
+  ActivityPubObject,
+  type ActivityPubConfig,
+  type ActivityPubEnv,
+} from "@dwk/activitypub";
+import {
+  createWebSub,
+  createWebSubQueueConsumer,
+  type WebSubConfig,
+  type WebSubEnv,
+  type WebSubJob,
+} from "@dwk/websub";
+import {
+  createMicrosub,
+  createMicrosubPoller,
+  createMicrosubQueueConsumer,
+  type MicrosubEnv,
+  type MicrosubJob,
+} from "@dwk/microsub";
+import { createWebfinger } from "@dwk/webfinger";
 
 /**
  * Per-site Cloudflare Worker entry point.
  *
- * Composes @dwk/* social endpoints behind the site's static assets, plus a runtime inbox-capture
+ * Composes @dwk/* social endpoints (IndieAuth, inbound Webmention, Micropub) behind the site's
+ * static assets, plus a runtime inbox-capture
  * endpoint (#587) that does NOT depend on any @dwk/* package — Webmention's link-verification
  * shape and Micropub's IndieAuth-gated shape don't fit a public "visitor sends us a message"
  * form, so this route is bespoke. It stages submissions into the `INBOX_KV` namespace for the
@@ -57,7 +84,62 @@ export interface WorkerEnv extends IndieAuthEnv {
   WEBMENTION_QUEUE?: Queue<WebmentionJob>;
   WEBMENTION_INBOX?: D1Database;
   SITE_URL?: string;
+  /**
+   * Micropub bindings (V-3.2, #360). Both optional: a site that hasn't provisioned Micropub has
+   * neither bound, and `/micropub`/`/media` degrade gracefully (503) rather than throwing.
+   * `AUTH_DB`/`TOKEN_SIGNING_KEY` are already required by `IndieAuthEnv` above — Micropub's
+   * catalog entry `requires: ["indieauth"]` (resolved by `WorkerActivation`) guarantees both are
+   * provisioned together, so this handler still explicitly checks all four before dispatching,
+   * matching `handleWebmentionReceive`'s defense-in-depth pattern rather than trusting reachability
+   * alone. See `WorkerComposition.generateWranglerToml` (Swift) for the binding generation.
+   */
+  MICROPUB_DB?: D1Database;
+  MEDIA?: R2Bucket;
+  /**
+   * ActivityPub actor bindings (V-4.1, #363). All optional: a site that hasn't provisioned
+   * ActivityPub has none of them bound, and every actor route degrades to 503 rather than
+   * letting @dwk/activitypub throw its own loud startup error. `ACTOR` is the per-actor Durable
+   * Object namespace the package ships (`ActivityPubObject`, re-exported below so wrangler can
+   * bind it). `AP_PRIVATE_KEY`/`AP_PUBLIC_KEY` are the actor's signing keypair (PKCS#8/SPKI PEM,
+   * app-generated — see `ActivityPubKeyProvisioning.swift`). `AP_PUBLISH_TOKEN` gates the
+   * owner-only publish endpoint the Micropub fan-out below calls internally.
+   * `AP_DISPLAY_NAME` is the actor's `Person.name`, threaded from `SiteSettings.displayName`;
+   * falls back to a generic name when unset. See `WorkerComposition.generateWranglerToml`
+   * (Swift) for the binding generation.
+   */
+  ACTOR?: DurableObjectNamespace<ActivityPubObject>;
+  AP_PRIVATE_KEY?: string;
+  AP_PUBLIC_KEY?: string;
+  AP_PUBLISH_TOKEN?: string;
+  AP_DISPLAY_NAME?: string;
+  /**
+   * WebSub hub bindings (V-3.3, #361). Optional like the Webmention set above: a site that
+   * hasn't provisioned the hub has none of them bound, and the `/websub` route + queue
+   * consumer degrade gracefully (503 / ack-without-work). Provisioning wires a D1 database
+   * for the strongly-consistent subscription store and a dedicated Cloudflare Queue for
+   * intent verification + per-subscriber delivery fan-out. `WEBSUB_CONTENT` (R2 staging for
+   * snapshots too large to inline in a queue message) is deliberately not provisioned yet —
+   * a feed that outgrows the ~64 KB inline limit fails the fan-out loudly rather than
+   * truncating, and wiring the staging bucket (with its lifecycle expiration rule) is the
+   * documented follow-up.
+   */
+  WEBSUB_DB?: D1Database;
+  WEBSUB_QUEUE?: Queue<WebSubJob>;
+  /**
+   * Microsub reader bindings (V-4.3, #365). Both optional: a site that hasn't provisioned
+   * Microsub has neither bound, and `/microsub` plus its scheduled poller/queue consumer degrade
+   * gracefully (503 / no-op) rather than throwing. `AUTH_DB`/`TOKEN_SIGNING_KEY` are already
+   * required by `IndieAuthEnv` above — Microsub's catalog entry `requires: ["indieauth"]`
+   * (resolved by `WorkerActivation`) guarantees both are provisioned together, so this handler
+   * still explicitly checks all four before dispatching, matching `handleMicropub`'s
+   * defense-in-depth pattern rather than trusting reachability alone. See
+   * `WorkerComposition.generateWranglerToml` (Swift) for the binding generation.
+   */
+  MICROSUB_DB?: D1Database;
+  MICROSUB_QUEUE?: Queue<MicrosubJob>;
 }
+
+export { ActivityPubObject };
 
 const RATE_LIMIT_WINDOW_SECONDS = 3600;
 const RATE_LIMIT_MAX_PER_WINDOW = 5;
@@ -327,7 +409,12 @@ function indieAuthHandler(request: Request, env: WorkerEnv) {
   const baseUrl = new URL(request.url).origin;
   return createIndieAuth({
     baseUrl,
-    scopesSupported: ["create", "update", "delete", "media"],
+    // Micropub's scopes ("create"/"update"/"delete"/"media") plus Microsub's ("follow"/
+    // "channels"/"read", V-4.3 #365) — @dwk/indieauth's constrainScopes drops any requested
+    // scope absent from this list, so a client authorizing for Microsub without "follow"/
+    // "channels" listed here would silently be granted an empty scope and then fail every
+    // Microsub action with `insufficient_scope`.
+    scopesSupported: ["create", "update", "delete", "media", "follow", "channels", "read"],
     resourceIndicatorPolicy(resource) {
       try {
         return new URL(resource).origin === baseUrl;
@@ -407,6 +494,406 @@ function handleWebmentionQueue(
     WEBMENTION_INBOX: env.WEBMENTION_INBOX,
   };
   return consumer(batch, webmentionEnv, ctx);
+}
+
+/**
+ * Extracts a plain-text value from an mf2 `content` property entry (V-4.1, #363 review fix).
+ * Microformats2-JSON — and `@dwk/micropub`'s own accepted input shape — allows `content` to be
+ * either a plain string or a rich-text object (`{ html, value }`); naively coercing the object
+ * form with `String(...)` produces the literal `"[object Object]"`, which would silently publish
+ * garbage to followers instead of skipping the fan-out. `undefined` (missing/unrecognized shape)
+ * is treated the same as an empty string by the caller, which already skips the fan-out rather
+ * than publish an empty Note.
+ */
+function extractMf2ContentString(raw: unknown): string {
+  if (typeof raw === "string") return raw;
+  if (raw && typeof raw === "object") {
+    const obj = raw as { value?: unknown; html?: unknown };
+    if (typeof obj.value === "string") return obj.value;
+    // Standard Micropub JSON *create* shape for HTML content: { html } with no `value` key at
+    // all — `value` only appears in mf2 read back off a rendered page, not in what a client
+    // posts — so `html` is checked as a fallback, not just `value`.
+    if (typeof obj.html === "string") return obj.html;
+  }
+  return "";
+}
+
+/**
+ * Micropub server (V-3.2, #360).
+ *
+ * Composes `@dwk/micropub`'s create/update/delete endpoint and its R2-backed media endpoint.
+ * Requires `@dwk/indieauth` to be active on the same site (catalog `requires`, resolved by
+ * `WorkerActivation`) — Micropub authorizes every request against `AUTH_DB`'s issued-token store
+ * using the same `TOKEN_SIGNING_KEY` IndieAuth signs tokens with.
+ *
+ * Returns `503` when Micropub isn't fully provisioned (`MICROPUB_DB`/`MEDIA` unbound, or
+ * IndieAuth's `AUTH_DB`/`TOKEN_SIGNING_KEY` unbound) rather than letting `@dwk/micropub` throw
+ * its own loud startup error.
+ */
+function handleMicropub(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  if (!env.MICROPUB_DB || !env.MEDIA || !env.AUTH_DB || !env.TOKEN_SIGNING_KEY) {
+    return Promise.resolve(new Response("Micropub is not configured", { status: 503 }));
+  }
+  const baseUrl = new URL(request.url).origin;
+  const micropub = createMicropub({
+    baseUrl,
+    me: `${baseUrl}/`,
+    // #912: assign a type-aware URL at create time so a synced git file (written under
+    // src/content/{collection}/, per MicropubContentSync) renders at the same URL this
+    // response's Location header already promised — see post-type-discovery.ts and
+    // docs/superpowers/specs/2026-07-24-micropub-content-sync-design.md §1.
+    generatePostUrl: (post, commands) => {
+      const slug = generateSlug(post, commands);
+      const collection = discoverCollection(post);
+      return collection ? `${baseUrl}/${collection}/${slug}` : `${baseUrl}/${slug}`;
+    },
+  });
+  const micropubEnv: MicropubEnv = {
+    MEDIA: env.MEDIA,
+    MICROPUB_DB: env.MICROPUB_DB,
+    AUTH_DB: env.AUTH_DB,
+    TOKEN_SIGNING_KEY: env.TOKEN_SIGNING_KEY,
+  };
+  // Extract the post content from a *clone taken before* `micropub()` ever reads the original
+  // request's body (V-4.1, #363). Cloning an unconsumed Request is always spec-safe; cloning
+  // one whose body a library has already read is not a documented-safe operation (workerd
+  // happens to tolerate it today, but a future `@dwk/micropub` release that reads the body via
+  // a locked stream reader could silently break the fan-out with no visible failure). Doing the
+  // extraction up front — before `micropub(request, ...)` is called — sidesteps that hazard
+  // entirely rather than relying on it.
+  const contentPromise: Promise<string> = (async () => {
+    if (!env.AP_PUBLISH_TOKEN || request.method !== "POST") return "";
+    const cloned = request.clone();
+    try {
+      const contentType = cloned.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const body = (await cloned.json()) as { properties?: { content?: unknown[] } };
+        return extractMf2ContentString(body.properties?.content?.[0]);
+      }
+      const form = await cloned.formData();
+      return String(form.get("content") ?? form.get("properties[content]") ?? "");
+    } catch {
+      return ""; // Can't recover the post content — skip the fan-out rather than publish an empty Note.
+    }
+  })();
+  return micropub(request, micropubEnv, ctx).then(async (response) => {
+    if (request.method === "POST" && response.status === 201) {
+      const content = await contentPromise;
+      ctx.waitUntil(fanOutMicropubCreateToActivityPub(content, baseUrl, response, env, ctx));
+    }
+    return response;
+  });
+}
+
+/**
+ * Micropub-to-ActivityPub fan-out (V-4.1, #363): a successful Micropub create becomes a `Note`
+ * activity, published through `@dwk/activitypub`'s owner-only publish endpoint
+ * (`POST <actor>/outbox`) so it lands in the outbox and fans out to followers. In-process —
+ * same Worker script, same invocation this request is already inside, no real network
+ * round-trip. Only runs when ActivityPub is provisioned (`AP_PUBLISH_TOKEN` set); activating
+ * Micropub alone never attempts to federate. Failure here must never fail the Micropub create
+ * response (the post is already saved) — logged and swallowed.
+ */
+async function fanOutMicropubCreateToActivityPub(
+  content: string,
+  baseUrl: string,
+  micropubResponse: Response,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<void> {
+  if (!env.AP_PUBLISH_TOKEN) return;
+  if (!content) return;
+  const location = micropubResponse.headers.get("location");
+  if (!location) return;
+
+  const actorIRI = `${baseUrl}/users/${ACTIVITYPUB_USERNAME}`;
+  const note = {
+    "@context": "https://www.w3.org/ns/activitystreams",
+    type: "Note",
+    attributedTo: actorIRI,
+    content,
+    url: location,
+    // No `cc` naming the followers collection: unlike the convention some AP implementations
+    // use for "public post, also cc followers" addressing, @dwk/activitypub's owner-publish
+    // outbox handler (`#publish` in its Durable Object) fans out to every current follower's
+    // inbox unconditionally — it never inspects `to`/`cc` to decide who receives delivery, only
+    // to shape what's displayed. Public-only addressing is sufficient here.
+    to: ["https://www.w3.org/ns/activitystreams#Public"],
+  };
+  const publishRequest = new Request(`${actorIRI}/outbox`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/activity+json",
+      authorization: `Bearer ${env.AP_PUBLISH_TOKEN}`,
+    },
+    body: JSON.stringify(note),
+  });
+  try {
+    await handleActivityPub(publishRequest, env, ctx);
+  } catch {
+    // Swallow: the Micropub post is already saved; a federation hiccup must not surface as a
+    // failure to the Micropub client.
+  }
+}
+
+/**
+ * Fixed identity for this app's single-actor-per-site model (V-4.1, #363) — no per-site
+ * Settings field for a custom handle; see the design doc §"Actor identity source". WebFinger
+ * (`.well-known/webfinger`, so `@site@domain` search resolves) is composed by
+ * `handleWebFinger` below (V-4.4, #366); Mastodon can still follow this actor by pasting its
+ * URL directly into search even where WebFinger isn't active.
+ */
+const ACTIVITYPUB_USERNAME = "site";
+
+function activityPubConfig(request: Request, env: WorkerEnv): ActivityPubConfig | null {
+  if (!env.ACTOR || !env.AP_PRIVATE_KEY || !env.AP_PUBLIC_KEY) return null;
+  const baseUrl = new URL(request.url).origin;
+  return {
+    baseUrl,
+    actor: {
+      username: ACTIVITYPUB_USERNAME,
+      name: env.AP_DISPLAY_NAME ?? new URL(baseUrl).hostname,
+      summary: `Posts from ${new URL(baseUrl).hostname}`,
+    },
+    publicKeyPem: env.AP_PUBLIC_KEY,
+    privateKeyPem: env.AP_PRIVATE_KEY,
+    publishToken: env.AP_PUBLISH_TOKEN,
+    // The package's shared-inbox route (POST /inbox at the origin root) collides with this
+    // app's existing inbox-capture feature (#587, a public "visitor sends a message" form —
+    // an unrelated concept already serving that exact path). Disabling it means inbound
+    // federated deliveries go to the actor-specific /users/site/inbox instead, which is
+    // equally valid ActivityPub — just without an optional batching optimization for
+    // high-volume peers, irrelevant for a single-actor personal site.
+    sharedInbox: false,
+  };
+}
+
+/**
+ * ActivityPub actor (V-4.1, #363).
+ *
+ * Composes `@dwk/activitypub`'s actor document, follower/following/outbox collections, and
+ * signed server-to-server inbox — the Fediverse-facing half of this site. Returns 503 when
+ * ActivityPub isn't fully provisioned (`ACTOR`/`AP_PRIVATE_KEY`/`AP_PUBLIC_KEY` unbound) rather
+ * than letting `@dwk/activitypub` throw its own loud startup error, matching every other
+ * composed handler in this file.
+ */
+function handleActivityPub(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = activityPubConfig(request, env);
+  if (!config) {
+    return Promise.resolve(new Response("ActivityPub is not configured", { status: 503 }));
+  }
+  const activitypub = createActivityPub(config);
+  return activitypub(request, env as unknown as ActivityPubEnv, ctx);
+}
+
+/**
+ * WebFinger discovery (V-4.4, #366): resolves `acct:<username>@<host>` to this site's
+ * ActivityPub actor, so `@site@domain` search works in Mastodon and other fediverse clients.
+ * `@dwk/webfinger`'s handler is RFC 7033-conformant on its own (query validation, CORS, JRD
+ * body, 400/404); this function only supplies the resource map. The actor is WebFinger's only
+ * controlled resource today, so — like every other composed handler in this file — this
+ * returns 503 when ActivityPub isn't provisioned rather than constructing an always-empty
+ * endpoint.
+ */
+function handleWebFinger(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = activityPubConfig(request, env);
+  if (!config) {
+    return Promise.resolve(new Response("WebFinger is not configured", { status: 503 }));
+  }
+  const baseUrl = new URL(request.url).origin;
+  const host = new URL(baseUrl).hostname;
+  const webfinger = createWebfinger({
+    resources: {
+      [`acct:${config.actor.username}@${host}`]: {
+        links: [
+          {
+            rel: "self",
+            type: "application/activity+json",
+            href: `${baseUrl}/users/${config.actor.username}`,
+          },
+        ],
+      },
+    },
+  });
+  return webfinger(request, {}, ctx);
+}
+
+/**
+ * Microsub reader (V-4.3, #365).
+ *
+ * Composes `@dwk/microsub`'s single endpoint: channel/feed subscriptions, following (with
+ * immediate timeline population from the discovery fetch), and the normalised JF2 timeline
+ * (mark read/unread, remove, per-channel unread counts). Requires `@dwk/indieauth` to be active
+ * on the same site (catalog `requires`, resolved by `WorkerActivation`) — Microsub authorizes
+ * every request against `AUTH_DB`'s issued-token store with a DPoP-bound access token, the same
+ * as `@dwk/micropub`.
+ *
+ * Returns `503` when Microsub isn't fully provisioned (`MICROSUB_DB`/`MICROSUB_QUEUE` unbound,
+ * or IndieAuth's `AUTH_DB`/`TOKEN_SIGNING_KEY` unbound) rather than letting `@dwk/microsub` throw
+ * its own loud startup error.
+ */
+function handleMicrosub(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  if (!env.MICROSUB_DB || !env.MICROSUB_QUEUE || !env.AUTH_DB || !env.TOKEN_SIGNING_KEY) {
+    return Promise.resolve(new Response("Microsub is not configured", { status: 503 }));
+  }
+  const baseUrl = new URL(request.url).origin;
+  const microsub = createMicrosub({ baseUrl, me: `${baseUrl}/` });
+  const microsubEnv: MicrosubEnv = {
+    MICROSUB_DB: env.MICROSUB_DB,
+    MICROSUB_QUEUE: env.MICROSUB_QUEUE,
+    AUTH_DB: env.AUTH_DB,
+    TOKEN_SIGNING_KEY: env.TOKEN_SIGNING_KEY,
+  };
+  return microsub(request, microsubEnv, ctx);
+}
+
+/**
+ * Cron-triggered feed poller for Microsub (V-4.3, #365): enqueues one poll job per followed
+ * feed onto `MICROSUB_QUEUE`. Runs off the read path — `handleMicrosub`'s timeline action only
+ * ever serves stored entries. No-ops when Microsub isn't provisioned.
+ */
+function handleMicrosubScheduled(
+  controller: ScheduledController,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<void> {
+  if (!env.MICROSUB_DB || !env.MICROSUB_QUEUE || !env.AUTH_DB || !env.TOKEN_SIGNING_KEY) {
+    return Promise.resolve();
+  }
+  const baseUrl = env.SITE_URL ?? "";
+  if (!baseUrl) return Promise.resolve();
+  const poll = createMicrosubPoller({ baseUrl, me: `${baseUrl}/` });
+  const microsubEnv: MicrosubEnv = {
+    MICROSUB_DB: env.MICROSUB_DB,
+    MICROSUB_QUEUE: env.MICROSUB_QUEUE,
+    AUTH_DB: env.AUTH_DB,
+    TOKEN_SIGNING_KEY: env.TOKEN_SIGNING_KEY,
+  };
+  return poll(controller, microsubEnv, ctx);
+}
+
+/**
+ * Queue consumer for Microsub's feed-poll fan-out (V-4.3, #365): fetches + parses each polled
+ * feed and appends new entries to the following channel's timeline. Acks-without-work when
+ * Microsub isn't provisioned — same contract as `handleWebmentionQueue`/`handleWebSubQueue`.
+ */
+function handleMicrosubQueue(
+  batch: MessageBatch<MicrosubJob>,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<void> {
+  if (!env.MICROSUB_DB || !env.MICROSUB_QUEUE || !env.AUTH_DB || !env.TOKEN_SIGNING_KEY || !env.SITE_URL) {
+    return Promise.resolve();
+  }
+  const consume = createMicrosubQueueConsumer({ baseUrl: env.SITE_URL, me: `${env.SITE_URL}/` });
+  const microsubEnv: MicrosubEnv = {
+    MICROSUB_DB: env.MICROSUB_DB,
+    MICROSUB_QUEUE: env.MICROSUB_QUEUE,
+    AUTH_DB: env.AUTH_DB,
+    TOKEN_SIGNING_KEY: env.TOKEN_SIGNING_KEY,
+  };
+  return consume(batch, microsubEnv, ctx);
+}
+
+/**
+ * The site's feed paths — the only topics the WebSub hub serves. These are the template's
+ * static root feeds (src/pages/{rss.xml,atom.xml,feed.json}.ts); they cover everything the
+ * site publishes, so a subscriber to any of them sees every update. The same list drives the
+ * `rel="hub"` advertisement in the generated feeds (src/lib/feeds.ts) and Anglesite's
+ * publish ping after a deploy — all three must agree or a discoverable topic would 400 on
+ * subscribe or never receive a push.
+ */
+export const WEBSUB_TOPIC_PATHS = ["/rss.xml", "/atom.xml", "/feed.json"] as const;
+
+/**
+ * WebSub hub configuration for a given canonical site origin. Topics are the root feeds on
+ * that origin; the hub endpoint itself is `/websub` on the same origin.
+ */
+function websubConfig(origin: string): WebSubConfig {
+  return {
+    baseUrl: origin,
+    hubUrl: `${origin}/websub`,
+    allowedTopics: WEBSUB_TOPIC_PATHS.map((path) => `${origin}${path}`),
+  };
+}
+
+/**
+ * The canonical origin WebSub topics are keyed on, or `null` when `SITE_URL` isn't provisioned
+ * or isn't a valid URL. Both the hub route and the queue consumer require this — subscriptions
+ * are keyed on exact topic URLs, and a hub that fell back to the request's origin could accept
+ * a subscription the queue consumer (which has no request to derive an origin from, and always
+ * requires `SITE_URL`) would then silently never fan out to. Failing the hub route closed here
+ * keeps both sides of the same feature agreeing on what "provisioned" means.
+ */
+function websubOrigin(env: WorkerEnv): string | null {
+  if (!env.SITE_URL) return null;
+  try {
+    return new URL(env.SITE_URL).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * WebSub hub endpoint (V-3.3, #361).
+ *
+ * Composes `@dwk/websub`'s hub: a form-encoded `POST` of `hub.mode=subscribe|unsubscribe`
+ * is validated synchronously and a verification-of-intent job enqueued (202);
+ * `hub.mode=publish` for one of this site's feeds enqueues a distribution job (202) — the
+ * consumer fetches the feed once and POSTs it to every verified subscriber, HMAC-signing
+ * the body (`X-Hub-Signature`) for subscribers that registered a secret. Returns 503 when
+ * the hub isn't provisioned for this site (no queue/store binding, or no canonical `SITE_URL`
+ * — see `websubOrigin`), mirroring `handleWebmentionReceive`'s degrade-gracefully contract.
+ */
+function handleWebSubHub(request: Request, env: WorkerEnv, ctx: ExecutionContext): Promise<Response> {
+  const origin = websubOrigin(env);
+  if (!env.WEBSUB_QUEUE || !env.WEBSUB_DB || !origin) {
+    return Promise.resolve(new Response("WebSub hub is not configured", { status: 503 }));
+  }
+  const hub = createWebSub(websubConfig(origin));
+  const websubEnv: WebSubEnv = {
+    WEBSUB_DB: env.WEBSUB_DB,
+    WEBSUB_QUEUE: env.WEBSUB_QUEUE,
+  };
+  return hub(request, websubEnv, ctx);
+}
+
+/**
+ * Queue consumer for WebSub verification + distribution + per-subscriber delivery (V-3.3,
+ * #361). Acks-without-work when the hub or the canonical site origin isn't provisioned —
+ * same contract as `handleWebmentionQueue`.
+ */
+function handleWebSubQueue(
+  batch: MessageBatch<WebSubJob>,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<void> {
+  const origin = websubOrigin(env);
+  if (!env.WEBSUB_QUEUE || !env.WEBSUB_DB || !origin) {
+    return Promise.resolve();
+  }
+  const consumer = createWebSubQueueConsumer(websubConfig(origin));
+  const websubEnv: WebSubEnv = {
+    WEBSUB_DB: env.WEBSUB_DB,
+    WEBSUB_QUEUE: env.WEBSUB_QUEUE,
+  };
+  return consumer(batch, websubEnv, ctx);
 }
 
 export interface InboxFields {
@@ -560,6 +1047,77 @@ export const ROUTES: readonly WorkerRoute[] = [
     methods: ["POST"],
     handler: (request, env, ctx) => handleWebmentionReceive(request, env, ctx),
   },
+  {
+    // Micropub create/update/delete + q=config/q=source/q=syndicate-to queries (V-3.2, #360).
+    path: "/micropub",
+    match: "exact",
+    methods: ["GET", "POST"],
+    handler: (request, env, ctx) => handleMicropub(request, env, ctx),
+  },
+  {
+    // Media endpoint upload (V-3.2, #360). GET-on-bare-/media is not served (matches
+    // @dwk/micropub's default extensions.proposed: false — GET is only the media *retrieval*
+    // path below, under /media/<key>, not the collection root).
+    path: "/media",
+    match: "exact",
+    methods: ["POST"],
+    handler: (request, env, ctx) => handleMicropub(request, env, ctx),
+  },
+  {
+    // Media retrieval by key (V-3.2, #360). NOTE: the catalog.json claim for this prefix route
+    // currently has no specificationURL, which WorkerRouteClaims.validate (Swift) requires for
+    // any prefix claim — until that's patched upstream, this route is unreachable in production
+    // (no run_worker_first entry gets generated for it), though it's still exercised directly by
+    // the miniflare test suite below.
+    path: "/media",
+    match: "prefix",
+    methods: ["GET", "HEAD"],
+    handler: (request, env, ctx) => handleMicropub(request, env, ctx),
+  },
+  {
+    // Actor document + outbox/followers/following collections (V-4.1, #363). No trailing slash:
+    // `matchRoute`'s prefix check appends its own `/` to `path` before comparing, so a `path` that
+    // already ends in `/` would build a double-slash prefix ("/users//") that never matches
+    // "/users/site" — see the other prefix entries above (e.g. "/media") for the same convention.
+    path: "/users",
+    match: "prefix",
+    methods: ["GET", "POST", "HEAD"],
+    handler: (request, env, ctx) => handleActivityPub(request, env, ctx),
+  },
+  {
+    path: "/.well-known/nodeinfo",
+    match: "exact",
+    methods: ["GET", "HEAD"],
+    handler: (request, env, ctx) => handleActivityPub(request, env, ctx),
+  },
+  {
+    // No trailing slash — see the "/users" comment above for why.
+    path: "/nodeinfo",
+    match: "prefix",
+    methods: ["GET", "HEAD"],
+    handler: (request, env, ctx) => handleActivityPub(request, env, ctx),
+  },
+  {
+    // WebSub hub (V-3.3, #361): POST hub.mode=subscribe|unsubscribe|publish, validate, enqueue, 202.
+    path: "/websub",
+    match: "exact",
+    methods: ["POST"],
+    handler: (request, env, ctx) => handleWebSubHub(request, env, ctx),
+  },
+  {
+    // Microsub reader (V-4.3, #365): action=channels|follow|unfollow|timeline|search|preview.
+    path: "/microsub",
+    match: "exact",
+    methods: ["GET", "POST"],
+    handler: (request, env, ctx) => handleMicrosub(request, env, ctx),
+  },
+  {
+    // WebFinger discovery (V-4.4, #366): resolve acct:site@<host> to the ActivityPub actor.
+    path: "/.well-known/webfinger",
+    match: "exact",
+    methods: ["GET", "HEAD"],
+    handler: (request, env, ctx) => handleWebFinger(request, env, ctx),
+  },
 ];
 
 export function matchRoute(pathname: string, routes: readonly WorkerRoute[] = ROUTES): WorkerRoute | null {
@@ -643,9 +1201,37 @@ export default {
     return assets.fetch(request);
   },
 
-  // Async Webmention verification (V-3.1, #359). Present unconditionally; no-ops for sites
-  // without inbound Webmention provisioned (see `handleWebmentionQueue`).
-  async queue(batch: MessageBatch<WebmentionJob>, env: WorkerEnv, ctx: ExecutionContext): Promise<void> {
-    return handleWebmentionQueue(batch, env, ctx);
+  // Async queue work, present unconditionally; no-ops for sites without the matching feature
+  // provisioned. Three queues deliver here — Webmention verification (V-3.1, #359), WebSub
+  // verification/distribution/delivery (V-3.3, #361), and Microsub feed-poll fan-out (V-4.3,
+  // #365) — dispatched on the queue's name: Anglesite provisions deterministic names
+  // (`<site>-webmention`, `<site>-websub`, `<site>-microsub`). All matches are positive (rather
+  // than "webmention = anything that isn't -websub") so a future queue-backed feature can't get
+  // silently misrouted into another's consumer.
+  async queue(
+    batch: MessageBatch<WebmentionJob | WebSubJob | MicrosubJob>,
+    env: WorkerEnv,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    if (batch.queue.endsWith("-websub")) {
+      return handleWebSubQueue(batch as MessageBatch<WebSubJob>, env, ctx);
+    }
+    if (batch.queue.endsWith("-webmention")) {
+      return handleWebmentionQueue(batch as MessageBatch<WebmentionJob>, env, ctx);
+    }
+    if (batch.queue.endsWith("-microsub")) {
+      return handleMicrosubQueue(batch as MessageBatch<MicrosubJob>, env, ctx);
+    }
+    return Promise.resolve();
   },
-} satisfies ExportedHandler<WorkerEnv, WebmentionJob>;
+
+  // Cron Trigger, present unconditionally; no-ops for a site without Microsub provisioned
+  // (V-4.3, #365) — the only feature that schedules work today.
+  async scheduled(
+    controller: ScheduledController,
+    env: WorkerEnv,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    return handleMicrosubScheduled(controller, env, ctx);
+  },
+} satisfies ExportedHandler<WorkerEnv, WebmentionJob | WebSubJob | MicrosubJob>;

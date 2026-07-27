@@ -52,7 +52,7 @@ public enum IntegrationCatalog {
         tracking, share, podcast,
         indieweb, menu,
         buyButton, lemonSqueezy, paddle, snipcart, shopifyBuyButton,
-        inbox, membership, carbonTxt,
+        inbox, membership, carbonTxt, greenHostCheck, co2Badge,
     ]
 
     public static func descriptor(for id: IntegrationID) -> IntegrationDescriptor {
@@ -91,8 +91,11 @@ public enum IntegrationCatalog {
                       when: .always),
             .copyFile(from: TemplateRef("integrations/pages/book.astro"),
                       to: "src/pages/book.astro", when: .fieldEquals(key: "style", value: "inline")),
+            // No readConfig re-import here: BaseLayout.astro already imports it unconditionally
+            // at the top of the file (added for WEBMENTION_RECEIVE_ENABLED), and astro check
+            // rejects a duplicate identifier — see the co2Badge fix (#686).
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "// anglesite:imports",
-                            snippet: "import BookingWidget from \"../components/BookingWidget.astro\";\nimport { readConfig } from \"../../scripts/config\";",
+                            snippet: "import BookingWidget from \"../components/BookingWidget.astro\";",
                             when: .fieldEquals(key: "style", value: "floating"), style: .line),
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "<!-- anglesite:body-end -->",
                             snippet: "{readConfig(\"BOOKING_STYLE\") === \"floating\" && (<BookingWidget provider={readConfig(\"BOOKING_PROVIDER\")} username={readConfig(\"BOOKING_USERNAME\")} eventSlug={readConfig(\"BOOKING_EVENT_SLUG\")} buttonText={readConfig(\"BOOKING_BUTTON_TEXT\")} style=\"floating\" />)}",
@@ -192,8 +195,11 @@ public enum IntegrationCatalog {
         operations: [
             .copyFile(from: TemplateRef("integrations/components/Comments.astro"),
                       to: "src/components/Comments.astro", when: .always),
+            // No readConfig re-import here: BlogPost.astro already imports it unconditionally at
+            // the top of the file (so giscus and share can share it without colliding), and astro
+            // check rejects a duplicate identifier — see the co2Badge fix (#686).
             .injectAtAnchor(file: "src/layouts/BlogPost.astro", anchor: "// anglesite:imports",
-                            snippet: "import Comments from \"../components/Comments.astro\";\nimport { readConfig } from \"../../scripts/config\";",
+                            snippet: "import Comments from \"../components/Comments.astro\";",
                             when: .always, style: .line),
             .injectAtAnchor(file: "src/layouts/BlogPost.astro", anchor: "<!-- anglesite:comments -->",
                             snippet: "{!!readConfig(\"GISCUS_REPO\") && (<Comments repo={readConfig(\"GISCUS_REPO\")} repoId={readConfig(\"GISCUS_REPO_ID\")} category={readConfig(\"GISCUS_CATEGORY\")} categoryId={readConfig(\"GISCUS_CATEGORY_ID\")} mapping={readConfig(\"GISCUS_MAPPING\")} />)}",
@@ -263,8 +269,11 @@ public enum IntegrationCatalog {
         operations: [
             .copyFile(from: TemplateRef("integrations/components/ConsentBanner.astro"),
                       to: "src/components/ConsentBanner.astro", when: .always),
+            // No readConfig re-import here: BaseLayout.astro already imports it unconditionally
+            // at the top of the file (added for WEBMENTION_RECEIVE_ENABLED), and astro check
+            // rejects a duplicate identifier — see the co2Badge fix (#686).
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "// anglesite:imports",
-                            snippet: "import ConsentBanner from \"../components/ConsentBanner.astro\";\nimport { readConfig } from \"../../scripts/config\";",
+                            snippet: "import ConsentBanner from \"../components/ConsentBanner.astro\";",
                             when: .always, style: .line),
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "<!-- anglesite:body-end -->",
                             snippet: "<ConsentBanner analytics={readConfig(\"CONSENT_ANALYTICS\") === \"true\"} embeds={readConfig(\"CONSENT_EMBEDS\") === \"true\"} ads={readConfig(\"CONSENT_ADS\") === \"true\"} defaultPolicy={readConfig(\"CONSENT_DEFAULT\")} version={readConfig(\"CONSENT_VERSION\")} />",
@@ -303,8 +312,11 @@ public enum IntegrationCatalog {
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "<!-- anglesite:head-end -->",
                             snippet: "<link rel=\"manifest\" href=\"/manifest.webmanifest\" />\n<meta name=\"theme-color\" content={readConfig(\"PWA_THEME_COLOR\")} />",
                             when: .always, style: .html),
+            // No readConfig re-import here: BaseLayout.astro already imports it unconditionally
+            // at the top of the file (added for WEBMENTION_RECEIVE_ENABLED), and astro check
+            // rejects a duplicate identifier — see the co2Badge fix (#686).
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "// anglesite:imports",
-                            snippet: "import InstallPrompt from \"../components/InstallPrompt.astro\";\nimport { readConfig } from \"../../scripts/config\";",
+                            snippet: "import InstallPrompt from \"../components/InstallPrompt.astro\";",
                             when: .always, style: .line),
             // The install prompt's install-prompt on/off toggle is resolved at Astro build time
             // via readConfig, the same way booking's floating-vs-button variants are — not by
@@ -374,8 +386,12 @@ public enum IntegrationCatalog {
         operations: [
             .copyFile(from: TemplateRef("integrations/components/TrackingScript.astro"),
                       to: "src/components/TrackingScript.astro", when: .always),
+            // readConfig itself isn't re-imported here: BaseLayout.astro already imports it
+            // unconditionally at the top of the file (added for WEBMENTION_RECEIVE_ENABLED), and
+            // astro check rejects a duplicate identifier — see the co2Badge fix (#686).
+            // asTrackingProvider is unique to this integration and still needs importing.
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "// anglesite:imports",
-                            snippet: "import TrackingScript from \"../components/TrackingScript.astro\";\nimport { readConfig, asTrackingProvider } from \"../../scripts/config\";",
+                            snippet: "import TrackingScript from \"../components/TrackingScript.astro\";\nimport { asTrackingProvider } from \"../../scripts/config\";",
                             when: .always, style: .line),
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "<!-- anglesite:head-end -->",
                             snippet: "{!!readConfig(\"TRACKING_PROVIDER\") && (<TrackingScript provider={asTrackingProvider(readConfig(\"TRACKING_PROVIDER\"))} domain={readConfig(\"TRACKING_DOMAIN\")} siteId={readConfig(\"TRACKING_SITE_ID\")} measurementId={readConfig(\"TRACKING_MEASUREMENT_ID\")} />)}",
@@ -404,8 +420,11 @@ public enum IntegrationCatalog {
         operations: [
             .copyFile(from: TemplateRef("integrations/components/ShareButtons.astro"),
                       to: "src/components/ShareButtons.astro", when: .always),
+            // No readConfig re-import here: BlogPost.astro already imports it unconditionally at
+            // the top of the file (so giscus and share can share it without colliding), and astro
+            // check rejects a duplicate identifier — see the co2Badge fix (#686).
             .injectAtAnchor(file: "src/layouts/BlogPost.astro", anchor: "// anglesite:imports",
-                            snippet: "import ShareButtons from \"../components/ShareButtons.astro\";\nimport { readConfig } from \"../../scripts/config\";",
+                            snippet: "import ShareButtons from \"../components/ShareButtons.astro\";",
                             when: .always, style: .line),
             .injectAtAnchor(file: "src/layouts/BlogPost.astro", anchor: "<!-- anglesite:share -->",
                             snippet: "<ShareButtons title={title} twitter={readConfig(\"SHARE_TWITTER\") === \"true\"} mastodon={readConfig(\"SHARE_MASTODON\") === \"true\"} linkedin={readConfig(\"SHARE_LINKEDIN\") === \"true\"} copyLink={readConfig(\"SHARE_COPY_LINK\") === \"true\"} />",
@@ -461,9 +480,9 @@ public enum IntegrationCatalog {
                   help: "Usually your domain, e.g. example.com — enables webmention/pingback discovery via webmention.io."),
         ],
         operations: [
-            .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "// anglesite:imports",
-                            snippet: "import { readConfig } from \"../../scripts/config\";",
-                            when: .always, style: .line),
+            // No imports-anchor injection needed: this integration adds no component, and
+            // BaseLayout.astro already imports readConfig unconditionally at the top of the file
+            // (added for WEBMENTION_RECEIVE_ENABLED) — see the co2Badge fix (#686).
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "<!-- anglesite:head-end -->",
                             snippet: "{!!readConfig(\"INDIEWEB_REL_ME_1\") && (<link rel=\"me\" href={readConfig(\"INDIEWEB_REL_ME_1\")} />)}\n{!!readConfig(\"INDIEWEB_REL_ME_2\") && (<link rel=\"me\" href={readConfig(\"INDIEWEB_REL_ME_2\")} />)}\n{!!readConfig(\"INDIEWEB_REL_ME_3\") && (<link rel=\"me\" href={readConfig(\"INDIEWEB_REL_ME_3\")} />)}\n{!!readConfig(\"INDIEWEB_WEBMENTION_USERNAME\") && (<link rel=\"webmention\" href={`https://webmention.io/${readConfig(\"INDIEWEB_WEBMENTION_USERNAME\")}/webmention`} />)}\n{!!readConfig(\"INDIEWEB_WEBMENTION_USERNAME\") && (<link rel=\"pingback\" href={`https://webmention.io/${readConfig(\"INDIEWEB_WEBMENTION_USERNAME\")}/xmlrpc`} />)}",
                             when: .always, style: .html),
@@ -494,8 +513,11 @@ public enum IntegrationCatalog {
         operations: [
             .copyFile(from: TemplateRef("integrations/components/Nav.astro"),
                       to: "src/components/Nav.astro", when: .always),
+            // No readConfig re-import here: BaseLayout.astro already imports it unconditionally
+            // at the top of the file (added for WEBMENTION_RECEIVE_ENABLED), and astro check
+            // rejects a duplicate identifier — see the co2Badge fix (#686).
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "// anglesite:imports",
-                            snippet: "import Nav from \"../components/Nav.astro\";\nimport { readConfig } from \"../../scripts/config\";",
+                            snippet: "import Nav from \"../components/Nav.astro\";",
                             when: .always, style: .line),
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "<!-- anglesite:nav -->",
                             snippet: "<Nav item1Label={readConfig(\"MENU_ITEM_1_LABEL\")} item1Path={readConfig(\"MENU_ITEM_1_PATH\")} item2Label={readConfig(\"MENU_ITEM_2_LABEL\")} item2Path={readConfig(\"MENU_ITEM_2_PATH\")} item3Label={readConfig(\"MENU_ITEM_3_LABEL\")} item3Path={readConfig(\"MENU_ITEM_3_PATH\")} item4Label={readConfig(\"MENU_ITEM_4_LABEL\")} item4Path={readConfig(\"MENU_ITEM_4_PATH\")} />",
@@ -606,9 +628,9 @@ public enum IntegrationCatalog {
                       to: "src/components/SnipcartButton.astro", when: .always),
             .copyFile(from: TemplateRef("integrations/pages/store.astro"),
                       to: "src/pages/store.astro", when: .always),
-            .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "// anglesite:imports",
-                            snippet: "import { readConfig } from \"../../scripts/config\";",
-                            when: .always, style: .line),
+            // No imports-anchor injection needed: this integration adds no component, and
+            // BaseLayout.astro already imports readConfig unconditionally at the top of the file
+            // (added for WEBMENTION_RECEIVE_ENABLED) — see the co2Badge fix (#686).
             .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "<!-- anglesite:body-end -->",
                             snippet: "{!!readConfig(\"SNIPCART_API_KEY\") && (<div hidden id=\"snipcart\" data-api-key={readConfig(\"SNIPCART_API_KEY\")} data-config-modal-style=\"side\"></div>)}\n{!!readConfig(\"SNIPCART_API_KEY\") && (<script async src=\"https://cdn.snipcart.com/themes/v3.7.3/default/snipcart.js\"></script>)}",
                             when: .always, style: .html),
@@ -708,5 +730,80 @@ public enum IntegrationCatalog {
         operations: [
             .copyTemplatedFile(from: TemplateRef("integrations/public/carbon.txt"),
                                to: "public/carbon.txt", when: .always),
+        ])
+
+    // MARK: greenHostCheck
+    // No user-facing fields: the check result (`green`/`hostname`/`checkedAt`) is resolved by an
+    // async Greencheck API call in IntegrationOperations.plan (Task 5) and folded into `answers`
+    // before this descriptor’s operations run — so `.wizard` visits `.fields` with zero fields
+    // and falls straight through to `.review` (IntegrationWizardModel.canContinue is vacuously
+    // true for an empty `visibleFields` list).
+    //
+    // The badge component and its render snippet are always applied (`when: .always`), mirroring
+    // PWA’s InstallPrompt/booking’s floating-widget precedent: the runtime `readConfig(...)
+    // === "true"` conditional inside the injected snippet does the gating, not the Operation
+    // itself — this avoids needing "green" declared as a Field (which validate() would otherwise
+    // require, and which would render as an editable GUI control, wrong for an app-computed value).
+    static let greenHostCheck = IntegrationDescriptor(
+        id: .greenHostCheck,
+        displayName: "Green Web Check",
+        summary: "Verify your deploy host is on the Green Web Foundation’s green hosting directory, and show a badge if it is.",
+        providers: [],
+        fields: [],
+        operations: [
+            .copyFile(from: TemplateRef("integrations/components/GreenHostBadge.astro"),
+                      to: "src/components/GreenHostBadge.astro", when: .always),
+            // No readConfig re-import here: BaseLayout.astro already imports it unconditionally
+            // at the top of the file (added for WEBMENTION_RECEIVE_ENABLED), and astro check
+            // rejects a duplicate identifier — see the co2Badge fix (#686).
+            .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "// anglesite:imports",
+                            snippet: "import GreenHostBadge from \"../components/GreenHostBadge.astro\";",
+                            when: .always, style: .line),
+            .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "<!-- anglesite:body-end -->",
+                            snippet: "{readConfig(\"GREEN_HOST_VERIFIED\") === \"true\" && (<GreenHostBadge hostname={readConfig(\"GREEN_HOST_NAME\")} checkedAt={readConfig(\"GREEN_HOST_CHECKED_AT\")} />)}",
+                            when: .always, style: .html),
+            .writeConfig([
+                ConfigEntry(key: "GREEN_HOST_VERIFIED", value: "{{green}}"),
+                ConfigEntry(key: "GREEN_HOST_NAME", value: "{{hostname}}"),
+                ConfigEntry(key: "GREEN_HOST_CHECKED_AT", value: "{{checkedAt}}"),
+            ], when: .always),
+        ])
+
+    // MARK: co2Badge
+    // No providers, no async check (contrast with greenHostCheck/#684): the estimate must be
+    // fresh on every build, not a one-time wizard-time snapshot, so all computation lives in the
+    // Astro-side co2-badge.ts integration (scripts/co2-badge.ts's astro:build:done hook) — this
+    // descriptor only ships the static plumbing (component, optional dedicated page, one config
+    // key for placement).
+    static let co2Badge = IntegrationDescriptor(
+        id: .co2Badge,
+        displayName: "Carbon Footprint Badge",
+        summary: "Show an estimated per-page CO2 footprint, computed at build time from each page's weight (CO2.js).",
+        providers: [],
+        fields: [
+            Field(key: "style", label: "Placement", kind: .choice([
+                Choice(value: "footer", label: "Footer (site-wide)"),
+                Choice(value: "page", label: "Dedicated page"),
+            ]), defaultValue: "footer"),
+        ],
+        operations: [
+            .copyFile(from: TemplateRef("integrations/components/CO2Badge.astro"),
+                      to: "src/components/CO2Badge.astro", when: .always),
+            .copyFile(from: TemplateRef("integrations/pages/carbon-footprint.astro"),
+                      to: "src/pages/carbon-footprint.astro", when: .fieldEquals(key: "style", value: "page")),
+            // No readConfig re-import here (contrast with booking/pwa/greenHostCheck's snippets):
+            // BaseLayout.astro already imports it unconditionally at the top of the file (added
+            // for WEBMENTION_RECEIVE_ENABLED), and a real deployed site's copy of that file is
+            // typed by `astro check`, which rejects a duplicate identifier — re-importing it here
+            // would break `npm run build` for any site with the footer placement installed.
+            .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "// anglesite:imports",
+                            snippet: "import CO2Badge from \"../components/CO2Badge.astro\";",
+                            when: .fieldEquals(key: "style", value: "footer"), style: .line),
+            .injectAtAnchor(file: "src/layouts/BaseLayout.astro", anchor: "<!-- anglesite:body-end -->",
+                            snippet: "{readConfig(\"CO2_BADGE_STYLE\") === \"footer\" && (<CO2Badge />)}",
+                            when: .fieldEquals(key: "style", value: "footer"), style: .html),
+            .writeConfig([
+                ConfigEntry(key: "CO2_BADGE_STYLE", value: "{{style}}"),
+            ], when: .always),
         ])
 }

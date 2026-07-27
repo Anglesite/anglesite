@@ -53,34 +53,7 @@ Operationally: **File ▸ Import** copies a plain Anglesite directory into a new
 
 ## Build target
 
-| Scheme | Bundle id | Distribution | Sandbox |
-|---|---|---|---|
-| `Anglesite` | `io.dwk.anglesite` | Mac App Store | App Sandbox |
-
 `Anglesite` is the only app target. It sets `ANGLESITE_MAS` via `SWIFT_ACTIVE_COMPILATION_CONDITIONS`, is sandboxed, holds a per-`SiteWindow` security-scoped bookmark grant, and links `AnglesiteContainer` for the local Apple Containerization runtime. Direct-download distribution is retired.
-
-## Module layout
-
-```
-Sources/
-├── AnglesiteApp/        SwiftUI views, app entry point, scenes, settings
-├── AnglesiteCore/       Subprocess supervision, MCP client, edit pipeline, Keychain
-├── AnglesiteSiteModel/  `.anglesite` site package model (AnglesitePackage, package layout)
-├── AnglesiteIntents/    App Intents: Siri/Shortcuts/Spotlight entities and intents
-├── AnglesiteContainer/  Apple Containerization local container runtime
-├── AnglesiteIOS/        iOS WKWebView preview shell for the remote-only runtime path (#71)
-├── AnglesiteMobile/     iOS thin-client app target (Xcode-only, not a SwiftPM target): remote session shell over RemoteSandboxSiteRuntime
-└── AnglesiteBridge/     WKWebView script messages + JS overlay injection
-JS/
-└── edit-overlay/        TypeScript edit overlay compiled and bundled into app resources
-Resources/
-├── Template/            Website template (themes, scaffold script, Astro source, pre-deploy check) — committed
-├── container-image/     (gitignored) Vendored arm64 OCI image, populated by scripts/vendor-container-image.sh
-├── container-kernel/    (gitignored) Vendored Linux kernel binary, populated by scripts/vendor-container-kernel.sh
-├── container-initfs/    (gitignored) Vendored vminit initfs OCI layout, populated by scripts/vendor-container-kernel.sh
-├── Anglesite.help/      Apple Help Book (HTML pages; hiutil index built by scripts/build-help-index.sh)
-└── *.entitlements       App sandbox/signing entitlements
-```
 
 ## Editing guidelines
 
@@ -130,25 +103,6 @@ Note: `swift test` runs on CI's older runners even though `Package.swift` declar
 
 ## Plan
 
-`gh issue list` is the source of truth for what to work on, with [`docs/build-plan.md`](docs/build-plan.md) for the phased roadmap. The inline issue numbers below are illustrative and may be stale (many are already closed) — confirm against gh before picking up work. Current phase: **Phase 10** — v2 polish (tracking: #34). Phases 0–9 are complete.
+`gh issue list` is the source of truth for what to work on, with [`docs/build-plan.md`](docs/build-plan.md) for the phased roadmap and the per-epic status snapshot (Containerization, Claude Code removal, Component Editor, Personal Publishing OS, cross-platform port, and the rest). Issue numbers in that snapshot are illustrative and may be stale (many are already closed) — confirm against gh before picking up work. Current phase: **Phase 10** — v2 polish (tracking: #34). Phases 0–9 are complete.
 
 **Issue-in-flight signaling.** Multiple agents work this repo concurrently (see "Worktrees" above), so before starting work on a tracked issue, check it isn't already claimed and mark that you're taking it: `gh issue list --label "🛠️ In Progress"` to check, then `gh issue edit <n> --add-label "🛠️ In Progress"` to claim it. Remove the label when a PR opens for it (`gh issue edit <n> --remove-label "🛠️ In Progress"`) — the PR itself is the up-to-date signal from then on. If you find an issue already fixed/merged before you could start (as happens — two agents can pick the same issue in the same window), don't silently redo the work: check for an existing PR/commit first, and if one already landed, close the issue referencing it rather than duplicating the fix.
-
-Within Phase 10, the **Apple Help Book** has shipped and the app is now a single sandboxed Mac App Store target. Remaining release work is real-signed write-heavy smoke, a `scripts/release.sh --validate-only` signing check, and App Store submission. (The `com.apple.security.virtualization` entitlement is **unrestricted** — no Apple approval or provisioning-profile grant is needed; ad-hoc Debug builds boot containers. Verified 2026-07-07, see the subspike notes addendum.)
-
-**Containerization epic (#59):** The `SiteRuntime` protocol (#65) and HTTP/Streamable MCP transport (#64) are landed and shipping. Apple Containerization is the macOS runtime direction: `LocalContainerSiteRuntime` imports the app-bundled OCI layout, boots it with Apple's Containerization framework, and exposes preview/MCP over vsock proxies. The image is built with Apple's `container` CLI (`scripts/vendor-container-image.sh`); building the app needs no Docker. The active macOS image source is `Containers/anglesite-dev/`, vendored by `scripts/vendor-container-image.sh` into `Resources/container-image/`. The lowercase `container/` directory is the Cloudflare Sandbox / remote-runtime image pipeline for `RemoteSandboxSiteRuntime` and iOS work (`scripts/build-container-image.sh`, the only remaining Docker/buildx consumer), not the app-bundled macOS image. Local-container selection is gated at runtime on the virtualization entitlement and provisioned image/kernel/initfs resources.
-
-**macOS 27 / Siri AI:** the platform wave has shipped and the Siri AI phases A–D (#132–135) are all closed (system-wide MCP, Spotlight App-Intents indexing, View Annotations, App Intents Testing, Foundation Models chat, SwiftUI 27 toolbars, the Xcode 27 migration audit). Follow-on intelligence work now lives under the Claude Code removal epic below.
-
-**Claude Code removal epic (#459):** the active migration driving current feature work — retire the `claude --print` subprocess, `ClaudeAgent`, and the markdown skills, replacing them with deterministic Swift/TypeScript plus Apple Intelligence (on-device Foundation Models, escalating to Private Cloud Compute). **LLM policy (revised 2026-07-08):** platform-native on-device AI is the default; external LLMs are supported **only as an explicit Settings opt-in** (user-configured endpoint + key, which also covers self-hosted servers like Ollama — supports less capable machines), and features that require a frontier-class model are **clearly labeled** BBEdit-style, never a silent degraded cloud call. See [`docs/superpowers/specs/2026-07-08-cross-platform-swift-port-design.md`](docs/superpowers/specs/2026-07-08-cross-platform-swift-port-design.md) §8. Spec: [`docs/superpowers/specs/2026-06-20-claude-code-removal-roadmap-design.md`](docs/superpowers/specs/2026-06-20-claude-code-removal-roadmap-design.md). Work lands as vertical slices (each ends "tool before brain": deterministic tool → FM Tool + App Intent + GUI → delete that journey's `claude --print` path). Slices 1–6 (#460–465) have all landed — Slice 3 closed 2026-07-09 with the Keystatic-backed integration catalog (its runtime inbox-capture follow-up is #587, blocked on `@dwk/workers`); Slice 6 (2026-07-10) shipped content help on FM (copy-edit / social-media / repurpose over the shared content-help kernel: `BrandVoiceGuidance` + interview, `SiteContentChunker`, `ContentAssistantFactory` tier seam — spec `docs/superpowers/specs/2026-07-10-slice6-content-help-fm-design.md`); Slice 7's app side (#466) landed 2026-07-16: the Claude-plugin bundling (`copy-plugin.sh`, `Resources/plugin/`, `PluginRuntime`, the Settings plugin-path override) is deleted, and the Bucket 6 journeys are simplified to deterministic cores (`ExperimentStats` for A/B analysis, `EmailSetupPlanner` for provider recommendation + DNS pre-fill; `creative-canvas` retired outright). The remaining piece of the epic is cross-repo: the sibling repo's conversion to a plain MCP sidecar (delete skill markdown + `hooks.json` + `.claude-plugin/` manifest) lands as the paired plugin-repo PR. There is no Claude-plugin path left to extend in this repo.
-
-**`.anglesite` package model (#242):** shipped — a site is a `.anglesite` package (see "Site identity" above). Design + phase plans: [`docs/superpowers/specs/2026-06-19-anglesite-package-model-design.md`](docs/superpowers/specs/2026-06-19-anglesite-package-model-design.md) and `docs/superpowers/plans/2026-06-19-anglesite-package-model-p{1..5}-*.md`. It dovetails with the container epics: the git-bootstrap (#68, shipped) and the container runtimes — #69 (shipped) and the deferred remote runtime (#66) — operate on the package's `Source/` repo, and `Config/` never enters a container. The `SiteConfigStore.displayName` override consumer (#266) has since shipped.
-
-**Other active tracks (status 2026-07-10):**
-
-- **Component Editor epic (#496):** Swift-native WYSIWYG for Astro components (spec: `docs/superpowers/specs/2026-07-05-component-editor-design.md`). Slice 1 (read-only editor, plugin v1.3.0), slice 2 (Styles panel write ops, plugin v1.4.0), and slice 3 (structure ops + palette, plugin v1.5.0) have landed; next is props/zone code editors (#494). Each slice ships a paired sidecar release (the old `MIN_PLUGIN_VERSION` build guard left with `copy-plugin.sh` in #466 — the container image vendors whatever sidecar the checkout provides).
-- **Personal Publishing OS pivot (#334):** V-1 (typed content objects + feeds, #335) shipped, including the content-type registry, mf2/JSON-LD projection, and per-type editors. V-2–V-5 (Webmention/POSSE, inbound interactions, ActivityPub + reader, communities) are **gated on a conformant `@dwk/workers` release**. Runtime inbox capture (#587) shipped independently of that gate — it doesn't depend on any `@dwk/*` package (Webmention/Micropub's shapes don't fit a public anonymous submission endpoint) — landing a bespoke `/inbox` Worker route + `INBOX_KV` staging + app-side git commit-back (`InboxSubmissionSync`). No Settings UI provisions it yet; `SiteSettings.inboxCaptureAccountID`/`inboxCaptureKVNamespaceID` are the storage slots a future wizard fills in.
-- **Menu bar / toolbar completeness (#518):** swept 2026-07-08/09 — Save/menus/customizable toolbar, macOS conventions (proxy icon, Dock menu, ShareLink, launcher drops, Settings tabs), preview navigation, dev-server controls, navigator content commands, Print, notifications, ⌘Z, String Catalog scaffolding all landed. Remaining: Edit ▸ Find + Format menu (#517), toolbar search (#520), manual GUI verification of the navigator commands (#586).
-- **Cross-platform Swift port (#571):** Anglesite v2 on Windows & Linux (spec: `docs/superpowers/specs/2026-07-08-cross-platform-swift-port-design.md`). Phased P1–P5 (#566–570), Linux first; P1 (Linux CI leg + portability seams) is the entry point. This epic is where the revised LLM policy's `ExternalLLMBackend` lands (P5).
-- **UTM-VM dev/test rig (#589):** validate `SiteRuntime` across macOS/Windows/Linux guests on the Mac Studio. Phase-1 (#601) landed in full — guest side (`LANControlClient` + factory/Settings wiring, PR #604) and the host-side `anglesite-lan-host` CLI (`Sources/AnglesiteLANHost`, one site per instance, ports 4321/4399) that runs a site's Astro dev server + MCP sidecar bound to the LAN interface.
-- **Site Graph Explorer (#308, shipped)** follow-ups: mini-map (#613) and AI node explanations (#614 — on-device FM first, per the LLM policy); the older free-form "explain my site" request (#314) should build on #614's grounding rather than a new path.

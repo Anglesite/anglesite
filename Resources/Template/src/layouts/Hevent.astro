@@ -6,6 +6,7 @@ import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import LicenseLink from "../components/LicenseLink.astro";
+import Interactions from "../components/Interactions.astro";
 
 interface Props {
   entry: CollectionEntry<"events">;
@@ -38,5 +39,6 @@ const endHuman = endDate?.toLocaleString("en-US");
     <div class="e-content"><slot /></div>
     <LicenseLink license={license} />
     <SyndicationLinks urls={d.syndication} />
+    <Interactions canonical={canonical} />
   </article>
 </BaseLayout>

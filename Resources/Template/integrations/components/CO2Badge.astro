@@ -1,0 +1,25 @@
+---
+// Static badge — no client-side fetch or third-party script (ADR-0008). The grams value below
+// starts as CO2_PLACEHOLDER; a post-build step (scripts/co2-badge.ts's astro:build:done hook)
+// measures this page's own final byte size and patches the real estimate in after Astro finishes
+// rendering. In `astro dev` (no build step runs), this renders the literal placeholder text —
+// expected, since the estimate is build-time-only by design.
+import { CO2_PLACEHOLDER } from "../../scripts/co2-badge";
+---
+<p class="co2-badge">
+  ~<span data-anglesite-co2>{CO2_PLACEHOLDER}</span>g CO2 estimated per page view
+</p>
+<style>
+  .co2-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    padding: 0.35em 0.75em;
+    border-radius: 999px;
+    background: #eef2f6;
+    color: #3a4a5a;
+    font-size: 0.85rem;
+    border: 1px solid #cfd9e3;
+    margin: 0;
+  }
+</style>

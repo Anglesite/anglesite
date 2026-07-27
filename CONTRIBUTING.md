@@ -8,7 +8,7 @@ Thanks for your interest in contributing! This repo is the native macOS app that
 - **Claim your issue.** Multiple contributors (and agents) work this repo concurrently. Before starting on a tracked issue, check it isn't already claimed (`gh issue list --label "🛠️ In Progress"`), then add the `🛠️ In Progress` label. Remove the label once your PR is open — the PR is the signal from then on.
 - **Discuss big changes first.** For anything beyond a bug fix or small improvement, open an issue before writing code. In particular, new features should not add `claude --print` / markdown-skill paths — that dependency is being retired under epic [#459](https://github.com/Anglesite/Anglesite-app/issues/459).
 
-For architecture, module layout, and project direction, read [`AGENTS.md`](AGENTS.md) — it's the canonical development-context document (mirrored as `CLAUDE.md` for Claude Code users).
+For architecture and project direction, read [`AGENTS.md`](AGENTS.md) — it's the canonical development-context document (mirrored as `CLAUDE.md` for Claude Code users). For the module layout, read [`Package.swift`](Package.swift) and `Sources/`.
 
 ## Development setup
 

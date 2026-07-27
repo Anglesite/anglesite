@@ -201,19 +201,71 @@ struct DeployCoordinatorTests {
         func record(_ name: String) { calls.append(name) }
     }
 
-    @Test("runs webmention-send fully before syndication starts, with a milestone immediately before each")
+    @Test("runs webmention-send, syndication, then subscriber notify in order, with a milestone immediately before each")
     func postDeploySequencingRunsInOrder() async {
+        let recorder = CallRecorder()
+        await DeployCoordinator.runPostDeploySequencing(
+            onMilestone: { progress in recorder.record("milestone:\(progress.phase)") },
+            sendWebmentions: { recorder.record("send") },
+            syndicate: { recorder.record("syndicate") },
+            notifySubscribers: { recorder.record("notify") }
+        )
+        #expect(recorder.calls == [
+            "milestone:webmentions", "send",
+            "milestone:syndicating", "syndicate",
+            "milestone:websubPing", "notify",
+            "milestone:activityPubBackfill",
+        ])
+    }
+
+    @Test("all passes still run even when the caller's onMilestone closure does nothing observable")
+    func postDeploySequencingRunsBothPassesRegardless() async {
+        let recorder = CallRecorder()
+        await DeployCoordinator.runPostDeploySequencing(
+            onMilestone: { _ in },
+            sendWebmentions: { recorder.record("send") },
+            syndicate: { recorder.record("syndicate") },
+            notifySubscribers: { recorder.record("notify") }
+        )
+        #expect(recorder.calls == ["send", "syndicate", "notify"])
+    }
+
+    @Test("notifySubscribers defaults to a no-op so callers without a hub change nothing")
+    func postDeploySequencingDefaultsNotifyToNoOp() async {
         let recorder = CallRecorder()
         await DeployCoordinator.runPostDeploySequencing(
             onMilestone: { progress in recorder.record("milestone:\(progress.phase)") },
             sendWebmentions: { recorder.record("send") },
             syndicate: { recorder.record("syndicate") }
         )
-        #expect(recorder.calls == ["milestone:webmentions", "send", "milestone:syndicating", "syndicate"])
+        #expect(recorder.calls == [
+            "milestone:webmentions", "send",
+            "milestone:syndicating", "syndicate",
+            "milestone:websubPing",
+            "milestone:activityPubBackfill",
+        ])
     }
 
-    @Test("both passes still run even when the caller's onMilestone closure does nothing observable")
-    func postDeploySequencingRunsBothPassesRegardless() async {
+    @Test("backfillActivityPubOutbox runs last, after webmention-send, syndication, and subscriber notify, with a milestone immediately before it")
+    func postDeploySequencingRunsBackfillLast() async {
+        let recorder = CallRecorder()
+        await DeployCoordinator.runPostDeploySequencing(
+            onMilestone: { progress in recorder.record("milestone:\(progress.phase)") },
+            sendWebmentions: { recorder.record("send") },
+            syndicate: { recorder.record("syndicate") },
+            notifySubscribers: { recorder.record("notify") },
+            backfillActivityPubOutbox: { recorder.record("backfill") }
+        )
+        #expect(recorder.calls == [
+            "milestone:webmentions", "send",
+            "milestone:syndicating", "syndicate",
+            "milestone:websubPing", "notify",
+            "milestone:activityPubBackfill", "backfill",
+        ])
+    }
+
+    @Test("backfillActivityPubOutbox defaults to a no-op, so existing call sites without it still compile and run")
+    func postDeploySequencingDefaultsBackfillToNoOp() async {
         let recorder = CallRecorder()
         await DeployCoordinator.runPostDeploySequencing(
             onMilestone: { _ in },

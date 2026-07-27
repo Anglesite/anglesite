@@ -1,0 +1,186 @@
+---
+// Interactions.astro — renders received-interaction snapshots (webmention/ActivityPub
+// replies, likes, reposts) for the entry whose canonical URL is passed in. The snapshots
+// are JSON files in `data/interactions/` (root-level, per ReceivedInteraction.gitPath);
+// this is the render half of V-3.4 — static, updated on rebuild.
+//
+// Sanitisation contract (ReceivedInteraction.swift): interaction `content` is rendered as
+// text via Astro's default escaping — never `set:html`.
+import { parseInteractions, interactionsFor, type ReceivedInteraction } from "../lib/interactions.ts";
+
+interface Props {
+  canonical: string;
+}
+
+const mods = import.meta.glob("../../data/interactions/*.json", { eager: true });
+const g = interactionsFor(Astro.props.canonical, parseInteractions(mods as Record<string, unknown>));
+
+function initial(i: ReceivedInteraction): string {
+  const name = i.author?.name ?? new URL(i.source).hostname;
+  return name.trim().charAt(0).toUpperCase() || "?";
+}
+// Pin locale + UTC so static output is deterministic (same convention as the layouts).
+function human(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+}
+---
+
+{
+  g.total > 0 && (
+    <section class="interactions">
+      {(g.facepile.likes.length > 0 || g.facepile.reposts.length > 0) && (
+        <div class="facepiles">
+          {[
+            { label: "like", items: g.facepile.likes },
+            { label: "repost", items: g.facepile.reposts },
+          ]
+            .filter(({ items }) => items.length > 0)
+            .map(({ label, items }) => (
+              <p class="facepile">
+                <span class="facepile-count">{`${items.length} ${label}${items.length === 1 ? "" : "s"}`}</span>
+                {items.map((i) => (
+                  <a
+                    class="h-cite avatar-link"
+                    href={i.author?.url ?? i.source}
+                    rel="nofollow ugc"
+                    title={i.author?.name ?? new URL(i.source).hostname}
+                  >
+                    {i.author?.photo ? (
+                      <img
+                        class="avatar u-photo"
+                        src={i.author.photo}
+                        alt={i.author?.name ?? ""}
+                        loading="lazy"
+                        referrerpolicy="no-referrer"
+                      />
+                    ) : (
+                      <span class="avatar avatar-fallback">{initial(i)}</span>
+                    )}
+                  </a>
+                ))}
+              </p>
+            ))}
+        </div>
+      )}
+      {g.comments.length > 0 && (
+        <div class="comments">
+          <h2>Replies</h2>
+          <ol>
+            {g.comments.map((c) => (
+              <li class="p-comment h-cite">
+                {c.author?.photo ? (
+                  <img
+                    class="avatar u-photo"
+                    src={c.author.photo}
+                    alt=""
+                    loading="lazy"
+                    referrerpolicy="no-referrer"
+                  />
+                ) : (
+                  <span class="avatar avatar-fallback">{initial(c)}</span>
+                )}
+                <div class="comment-body">
+                  <p class="comment-meta">
+                    {c.author?.url ? (
+                      <a class="u-author h-card" href={c.author.url} rel="nofollow ugc">
+                        {c.author?.name ?? new URL(c.author.url).hostname}
+                      </a>
+                    ) : (
+                      <span class="u-author h-card">{c.author?.name ?? new URL(c.source).hostname}</span>
+                    )}
+                    <a class="u-url" href={c.source} rel="nofollow ugc">
+                      <time class="dt-published" datetime={c.published}>
+                        {human(c.published)}
+                      </time>
+                    </a>
+                  </p>
+                  {c.content && <p class="p-content">{c.content}</p>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {g.mentions.length > 0 && (
+        <p class="mentions">
+          Mentioned by{" "}
+          {g.mentions.map((m, index) => (
+            <>
+              <a class="h-cite" href={m.source} rel="nofollow ugc">
+                {m.author?.name ?? new URL(m.source).hostname}
+              </a>
+              {index < g.mentions.length - 1 ? ", " : ""}
+            </>
+          ))}
+        </p>
+      )}
+    </section>
+  )
+}
+
+<style>
+  .interactions {
+    margin-top: 2rem;
+    border-top: 1px solid var(--color-surface, #f8fafc);
+    padding-top: 1rem;
+  }
+  .facepile {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+  }
+  .facepile-count {
+    color: var(--color-text-muted, #64748b);
+    margin-right: 0.5rem;
+    font-size: 0.9rem;
+  }
+  .avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    object-fit: cover;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .avatar-fallback {
+    background: var(--color-surface, #f8fafc);
+    color: var(--color-text-muted, #64748b);
+    font-family: var(--font-heading, system-ui);
+    font-size: 0.9rem;
+  }
+  .comments h2 {
+    font-size: 1.25rem;
+  }
+  .comments ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .p-comment {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .comment-body {
+    min-width: 0;
+  }
+  .comment-meta {
+    margin: 0 0 0.25rem;
+    font-size: 0.9rem;
+  }
+  .comment-meta .u-url {
+    color: var(--color-text-muted, #64748b);
+    margin-left: 0.5rem;
+  }
+  .p-content {
+    margin: 0;
+    overflow-wrap: break-word;
+  }
+  .mentions {
+    color: var(--color-text-muted, #64748b);
+    font-size: 0.9rem;
+  }
+</style>

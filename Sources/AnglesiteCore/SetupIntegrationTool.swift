@@ -44,6 +44,10 @@ public enum SetupIntegrationArguments {
             return "The site template is incomplete — a required component is missing. Please reinstall Anglesite."
         case .failure(.duplicateLine):
             return "That's already there — nothing to add."
+        case .failure(.deployRequired):
+            return "This site hasn't been deployed yet, so there's no host to check. Deploy it first, then try again."
+        case .failure(.externalCheckFailed(let message)):
+            return message
         }
     }
 

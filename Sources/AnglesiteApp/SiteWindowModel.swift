@@ -11,6 +11,8 @@ enum MainPaneMode: Equatable {
     case editor(FileRef)
     case graph
     case cleanup        // Site ▸ Cleanup… (#714 moved it out of the sidebar)
+    case reader         // Website ▸ Reader… (V-4.3, #365)
+    case followers      // Website ▸ Followers… (V-4.2, #364)
 }
 
 enum ActiveEditor {
@@ -25,15 +27,16 @@ enum ActiveEditor {
     }
 }
 
-/// A just-deleted page/post's contents, held so `SiteWindowModel.undoDelete()` can restore it
-/// (#586). `redirectRoute` carries the "Add Redirect?" offer through — deferred until the user
-/// declines to undo, see `dismissDeleteUndo()`.
-struct DeleteUndoOffer: Identifiable, Equatable {
-    let id: String
-    let title: String
-    let relativePath: String
-    let contents: String
-    let redirectRoute: String?
+/// Editor/inspector state that was open on a file when a delete closed it, held so a ⌘Z restore of
+/// that file reopens what the delete took away (#675) — "an undo that brings the file back but
+/// leaves the user staring at Preview would be only half a restore" (PR #608 review). Keyed by
+/// relative path in `SiteWindowModel.closedSurfaces`.
+struct ClosedFileSurfaces {
+    let mode: MainPaneMode
+    let editor: ActiveEditor?
+    let inspector: InspectorContext?
+
+    var isEmpty: Bool { editor == nil && inspector == nil }
 }
 
 /// Per-site coordinator for `SiteWindow`. Owns runtime startup, child model wiring,
@@ -106,14 +109,36 @@ final class SiteWindowModel {
     /// first set on cold open).
     @ObservationIgnored
     weak var windowUndoManager: UndoManager? {
-        didSet { chat?.editUndoCoordinator.undoManager = windowUndoManager }
+        didSet {
+            chat?.editUndoCoordinator.undoManager = windowUndoManager
+            contentUndoCoordinator.undoManager = windowUndoManager
+        }
+    }
+    /// Bridges structural content operations — New / Duplicate / Delete / Rename — into the
+    /// window's `UndoManager` so ⌘Z and ⇧⌘Z reverse and replay them (#675). Sibling of
+    /// `chat.editUndoCoordinator` (#527, assistant edits); both register into the same manager and
+    /// interleave LIFO. `lazy` only because the applier captures `self`; unlike the chat
+    /// coordinator it has no per-site construction to wait for, so the `didSet` above can attach
+    /// the manager to it on a cold open, before `loadAndStart()` has resolved a site.
+    @ObservationIgnored
+    private(set) lazy var contentUndoCoordinator = ContentUndoCoordinator { [weak self] mutation in
+        guard let self else { return .failed }
+        return await self.applyContentUndo(mutation)
     }
     var relatedPages: RelatedPagesModel
     var relatedPagesPresented = false
+    /// Drives the toolbar search field and its suggestions (#520).
+    var search: SiteSearchModel
     /// Drives the main-pane Cleanup view (Site ▸ Cleanup…, #714 moved it out of the sidebar).
     /// `scan()` runs once automatically when `ProjectCleanupView` first appears; the manual
     /// Rescan button re-runs it on demand afterward.
     var cleanup: ProjectCleanupModel
+    /// Drives the main-pane Reader view (Website ▸ Reader…, V-4.3 #365): Microsub sign-in, follow,
+    /// and timeline.
+    var reader = MicrosubReaderModel()
+    /// Drives the main-pane Followers view (Website ▸ Followers…, V-4.2 #364): the site's public
+    /// ActivityPub followers collection, with lazily-enriched display identities.
+    var followers = FollowersModel()
     var harden = HardenModel()
     var onionRouting = OnionRoutingModel()
     var domain = DomainModel()
@@ -147,20 +172,12 @@ final class SiteWindowModel {
     /// when the delete actually succeeded. Never break an inbound URL a user didn't choose to
     /// abandon (#584).
     var pendingRedirectOfferRoute: String?
-    /// Non-nil ⟺ the post-delete "Undo" affordance is showing (#586) — set by `confirmDelete()`
-    /// only when the delete actually succeeded and the deleted file's contents were captured before
-    /// the delete call. Deliberately app-level recovery (re-write + re-commit), not a "use git"
-    /// instruction: the delete dialog no longer mentions git at all, so this is the only way a user
-    /// gets the file back.
-    var pendingDeleteUndo: DeleteUndoOffer?
-    /// Editor/inspector state open on the file `pendingDeleteUndo` covers, snapshotted by
-    /// `confirmDelete()` at the same moment as the `.failed`-path snapshot below it. Consumed by
-    /// `undoDelete()` (restored, mirroring the `.failed` path) or discarded by
-    /// `dismissDeleteUndo()` (the file stays deleted, so there's nothing to reopen). Not stored on
-    /// `DeleteUndoOffer` itself: `ActiveEditor`/`InspectorContext` aren't `Equatable`, which
-    /// `DeleteUndoOffer` needs for the alert's `onChange(of:)` title capture.
-    private var pendingDeleteUndoEditor: (mode: MainPaneMode, editor: ActiveEditor)?
-    private var pendingDeleteUndoInspector: InspectorContext?
+    /// Editor/inspector state closed by a delete, keyed by the deleted file's relative path, so a
+    /// ⌘Z restore of that file can put it back (#675). Written by every path that closes surfaces
+    /// for a delete (`confirmDelete()` and `applyContentUndo`'s delete branch) and removed the
+    /// moment it's consumed — by the restore, by `confirmDelete()`'s own `.failed` rollback, or by
+    /// a site change — so it can't grow unbounded or outlive the site it belongs to.
+    private var closedSurfaces: [String: ClosedFileSurfaces] = [:]
     /// File ▸ Revert to Saved is destructive, so it routes through a confirmation alert hosted by
     /// `SiteWindow` (#509).
     var revertConfirmationPresented = false
@@ -206,6 +223,7 @@ final class SiteWindowModel {
         )
         self.graphExplorer = SiteGraphExplorerModel(graph: contentGraph)
         self.relatedPages = RelatedPagesModel(index: knowledgeIndex, ranker: semanticRanker)
+        self.search = SiteSearchModel(index: knowledgeIndex)
         self.cleanup = ProjectCleanupModel(knowledgeIndex: knowledgeIndex, contentGraph: contentGraph)
         // Wired once here (not per-site in loadAndStart): the hooks capture nothing from self
         // and receive the run's site id from the model, so there is nothing to rebind on
@@ -225,6 +243,9 @@ final class SiteWindowModel {
         // all correctly read as unselected instead of Cleanup falsely appearing as Preview (#723
         // review).
         if case .cleanup = mainPaneMode { return 3 }
+        // Same reasoning as Cleanup above: Reader has no toolbar/View-menu segment (Website ▸
+        // Reader… is the only way in).
+        if case .reader = mainPaneMode { return 4 }
         return 0
     }
 
@@ -260,6 +281,28 @@ final class SiteWindowModel {
             activeEditor = nil
             inspectorContext = nil
             mainPaneMode = .cleanup
+        }
+    }
+
+    /// Switches the main pane to Reader (Website ▸ Reader…, V-4.3 #365). Mirrors
+    /// `presentCleanup()`'s leave-current-surface-first guard.
+    func presentReader() {
+        Task {
+            guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
+            activeEditor = nil
+            inspectorContext = nil
+            mainPaneMode = .reader
+        }
+    }
+
+    /// Switches the main pane to Followers (Website ▸ Followers…, V-4.2 #364). Mirrors
+    /// `presentReader()`'s leave-current-surface-first guard.
+    func presentFollowers() {
+        Task {
+            guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
+            activeEditor = nil
+            inspectorContext = nil
+            mainPaneMode = .followers
         }
     }
 
@@ -390,6 +433,11 @@ final class SiteWindowModel {
     func handleSiteChanged() {
         stopInvisiblePublishing()
         siriReadinessModel = nil
+        // Undo records are site-relative paths plus captured contents — replaying a different
+        // site into this window makes every pending one meaningless, and applying one would write
+        // into the new site (#675).
+        contentUndoCoordinator.invalidateAll()
+        closedSurfaces.removeAll()
         // Persist any unsaved edits before dropping the old site's editor on replay (#188 reuse).
         persistEditorBufferBestEffort()
         activeEditor = nil
@@ -773,6 +821,32 @@ final class SiteWindowModel {
         }
     }
 
+    /// Routes an activated toolbar-search hit (#520). A hit whose route matches a live navigator
+    /// row goes through `applyNavigatorSelection` so the sidebar selection, preview, inspector,
+    /// and Related Pages panel all land where a sidebar click would have put them; everything
+    /// else opens its file. `SiteSearchDestination` owns that decision (and is tested in
+    /// AnglesiteCore) — this method only executes it.
+    @MainActor
+    func openSearchHit(_ hit: SiteSearchIndex.Hit) {
+        guard let site else { return }
+        let destination = SiteSearchDestination.resolve(
+            hit: hit, navigatorRouteIDs: navigator?.routeIDs ?? [:])
+        // Dismiss the suggestions list first: both branches below can suspend, and leaving the
+        // dropdown up over the destination reads as the navigation not having happened.
+        search.clear()
+
+        switch destination {
+        case .navigator(let id):
+            navigator?.selection = id
+            applyNavigatorSelection(id)
+        case .file(let path, let group):
+            let url = site.sourceDirectory.appendingPathComponent(path)
+            openFile(FileRef(
+                url: url, group: group,
+                name: hit.title ?? url.lastPathComponent))
+        }
+    }
+
     @MainActor
     func openGraphNode(_ node: SiteGraphNode, site: SiteStore.Site) {
         guard let filePath = node.filePath else { return }
@@ -811,10 +885,19 @@ final class SiteWindowModel {
                 // wired in at the call site — see `SiteWindow.mainPaneContent`.
                 activeEditor = .text(FileEditorModel(file: file))
             case .plist:
+                // Captures the per-window child models directly (both outlive any editor and are
+                // never replaced), not `self` — no ownership cycle: neither owns the editor model.
+                let graphExplorer = graphExplorer
+                let preview = preview
                 activeEditor = .plist(PlistEditorModel(
                     file: file,
                     websiteTitle: site?.name ?? file.name,
-                    sourceDirectory: site?.sourceDirectory ?? file.url.deletingLastPathComponent()
+                    sourceDirectory: site?.sourceDirectory ?? file.url.deletingLastPathComponent(),
+                    configDirectory: site?.configDirectory,
+                    graphSnapshotProvider: { graphExplorer.snapshot },
+                    onActiveWorkersChanged: { settings in
+                        await preview.activeWorkersChanged(settings)
+                    }
                 ))
             }
             mainPaneMode = .editor(file)
@@ -953,8 +1036,11 @@ final class SiteWindowModel {
             route: route,
             template: template
         )
-        if case .created = result {
+        if case .created(let filePath, _) = result {
             await navigator?.refreshNow()
+            registerContentUndo(
+                actionName: ContentUndoCoordinator.createActionName("Page"),
+                relativePath: filePath, before: nil, after: createdContents(at: filePath))
         }
         return result
     }
@@ -972,8 +1058,11 @@ final class SiteWindowModel {
             title: title,
             slug: slug
         )
-        if case .created = result {
+        if case .created(let filePath, _) = result {
             await navigator?.refreshNow()
+            registerContentUndo(
+                actionName: ContentUndoCoordinator.createActionName(descriptor.displayName),
+                relativePath: filePath, before: nil, after: createdContents(at: filePath))
         }
         return result
     }
@@ -982,8 +1071,11 @@ final class SiteWindowModel {
     func createPost(title: String) async -> ContentCreateResult {
         guard let site else { return .siteNotFound }
         let result = await contentCreation.createPost(siteID: site.id, title: title, collection: nil, slug: nil)
-        if case .created = result {
+        if case .created(let filePath, _) = result {
             await navigator?.refreshNow()
+            registerContentUndo(
+                actionName: ContentUndoCoordinator.createActionName("Post"),
+                relativePath: filePath, before: nil, after: createdContents(at: filePath))
         }
         return result
     }
@@ -994,8 +1086,11 @@ final class SiteWindowModel {
     func createComponent(name: String) async -> ContentCreateResult {
         guard let site else { return .siteNotFound }
         let result = await contentCreation.createComponent(siteID: site.id, name: name)
-        if case .created = result {
+        if case .created(let filePath, _) = result {
             await navigator?.refreshNow()
+            registerContentUndo(
+                actionName: ContentUndoCoordinator.createActionName("Component"),
+                relativePath: filePath, before: nil, after: createdContents(at: filePath))
         }
         return result
     }
@@ -1007,10 +1102,134 @@ final class SiteWindowModel {
     func duplicateComponent(relativePath: String) async -> ContentCreateResult {
         guard let site else { return .siteNotFound }
         let result = await contentCreation.duplicateComponent(siteID: site.id, relativePath: relativePath)
-        if case .created = result {
+        if case .created(let filePath, let identifier) = result {
             await navigator?.refreshNow()
+            registerContentUndo(
+                actionName: ContentUndoCoordinator.duplicateActionName(identifier),
+                relativePath: filePath, before: nil, after: createdContents(at: filePath))
         }
         return result
+    }
+
+    /// Registers a completed structural content operation for Edit ▸ Undo / Redo (#675). One line
+    /// per call site; everything about stack mechanics lives in `ContentUndoCoordinator`.
+    /// `before`/`after` are the file's contents on either side of the operation, `nil` meaning the
+    /// file did not exist. A `nil` contents read (unreadable encoding, permissions) simply means
+    /// no undo record — never a blocked operation.
+    private func registerContentUndo(
+        actionName: String, relativePath: String, before: String?, after: String?
+    ) {
+        guard before != nil || after != nil else { return }
+        // A create/duplicate: the file didn't exist a moment ago, so nothing can be owed to it.
+        // Drops any snapshot an earlier, never-undone delete of this same path left behind.
+        if before == nil { closedSurfaces[relativePath] = nil }
+        contentUndoCoordinator.register(ContentUndoCoordinator.Mutation(
+            relativePath: relativePath, before: before, after: after, actionName: actionName))
+    }
+
+    /// Reads the contents a create/duplicate just wrote, so the operation's redo side is captured.
+    /// Best-effort, per `registerContentUndo`.
+    private func createdContents(at relativePath: String) -> String? {
+        guard let site else { return nil }
+        return try? String(
+            contentsOf: site.sourceDirectory.appendingPathComponent(relativePath), encoding: .utf8)
+    }
+
+    /// Closes any editor/inspector open on `url` and snapshots what was closed under
+    /// `relativePath`, so a later restore of that file can reopen it. Shared by `confirmDelete()`
+    /// and `applyContentUndo`'s delete branch, which must both close surfaces *before* the delete
+    /// call — a suspended editor flush across the git calls would otherwise resurrect the file.
+    @discardableResult
+    private func closeSurfaces(for url: URL, relativePath: String) -> ClosedFileSurfaces {
+        var editor: ActiveEditor?
+        let mode = mainPaneMode
+        if activeEditorFile?.url == url, let open = activeEditor {
+            editor = open
+            activeEditor = nil
+            mainPaneMode = .preview
+        }
+        var inspector: InspectorContext?
+        if inspectorContext?.model.file.url == url {
+            inspector = inspectorContext
+            inspectorContext = nil
+        }
+        let closed = ClosedFileSurfaces(mode: mode, editor: editor, inspector: inspector)
+        // Assigned unconditionally, `nil` included: closing nothing has to *clear* any snapshot a
+        // previous delete of this same path left behind unconsumed, or a later restore would
+        // reopen an editor holding a long-dead buffer for a file that has since been recreated.
+        closedSurfaces[relativePath] = closed.isEmpty ? nil : closed
+        return closed
+    }
+
+    /// Reopens whatever `closeSurfaces(for:relativePath:)` snapshotted for `relativePath`, and
+    /// forgets it. No-op when nothing was open.
+    private func reopenSurfaces(for relativePath: String) {
+        guard let closed = closedSurfaces.removeValue(forKey: relativePath) else { return }
+        if let editor = closed.editor {
+            activeEditor = editor
+            mainPaneMode = closed.mode
+        }
+        if let inspector = closed.inspector {
+            inspectorContext = inspector
+        }
+    }
+
+    /// The `ContentUndoCoordinator` applier: realize `mutation.before` at its path — write those
+    /// exact bytes, or delete the file when `before` is nil. Both halves route through
+    /// `contentCreation`, so an undo commits and rescans the content graph exactly like the
+    /// operation it reverses; the Navigator is force-refreshed for the same reason the create and
+    /// delete paths do it (its observer task is decoupled from this call, #586).
+    /// Internal rather than private only so `SiteWindowModelTests` can drive it directly.
+    @MainActor
+    func applyContentUndo(
+        _ mutation: ContentUndoCoordinator.Mutation
+    ) async -> ContentUndoCoordinator.ApplyOutcome {
+        guard let site else { return .failed }
+        let url = site.sourceDirectory.appendingPathComponent(mutation.relativePath)
+
+        guard let contents = mutation.before else {
+            closeSurfaces(for: url, relativePath: mutation.relativePath)
+            switch await contentCreation.deleteContent(
+                siteID: site.id, relativePath: mutation.relativePath) {
+            case .deleted:
+                await navigator?.refreshNow()
+                // Resolved against the *rebuilt* tree rather than by comparing paths up front:
+                // whatever row backed this file is simply gone now, and a selection pointing at a
+                // node that no longer exists leaves the sidebar highlighting nothing openable.
+                if let selection = navigator?.selection, navigator?.item(for: selection) == nil {
+                    navigator?.selection = nil
+                }
+                return .applied
+            case .failed(let reason):
+                contentActionError = reason
+                // The delete never touched the file, so put back what closing it took away.
+                reopenSurfaces(for: mutation.relativePath)
+                return .failed
+            case .siteNotFound:
+                reopenSurfaces(for: mutation.relativePath)
+                return .failed
+            }
+        }
+
+        switch await contentCreation.restoreContent(
+            siteID: site.id, relativePath: mutation.relativePath, contents: contents) {
+        case .created:
+            await navigator?.refreshNow()
+            reopenSurfaces(for: mutation.relativePath)
+            return .applied
+        case .failed(let reason):
+            contentActionError = reason
+            // `restoreContent` reports `.failed` both when the write itself failed and when only
+            // its recommit did — reopen iff the file actually made it back to disk, matching the
+            // check the retired one-shot undo affordance used.
+            if FileManager.default.fileExists(atPath: url.path) {
+                await navigator?.refreshNow()
+                reopenSurfaces(for: mutation.relativePath)
+            }
+            return .failed
+        case .siteNotFound:
+            return .failed
+        }
     }
 
     /// Resolves `deleteConfirmation` to its page/post record, deletes via
@@ -1020,7 +1239,8 @@ final class SiteWindowModel {
     /// subprocess calls can't resurrect the file. Unlike `deleteCleanupCandidate` (dead assets,
     /// rarely under active edit), pages/posts routinely are — so the discarded state is snapshotted
     /// and restored on `.failed`, rather than silently dropped, since a failed delete never
-    /// actually touched the file (PR #585 review).
+    /// actually touched the file (PR #585 review); on success it's kept keyed by path so a ⌘Z
+    /// restore reopens it (#675).
     @MainActor
     func confirmDelete() async {
         guard let item = deleteConfirmation else { return }
@@ -1046,18 +1266,9 @@ final class SiteWindowModel {
         let deletedURL = site.sourceDirectory.appendingPathComponent(relPath)
         // Read before the delete call, not after: the file is gone from disk once the delete
         // succeeds. Best-effort — a read failure (unreadable encoding, permissions) just means no
-        // Undo offer, not a blocked delete.
+        // ⌘Z record, not a blocked delete.
         let savedContents = try? String(contentsOf: deletedURL, encoding: .utf8)
-        var savedEditor: (mode: MainPaneMode, editor: ActiveEditor)?
-        if activeEditorFile?.url == deletedURL, let editor = activeEditor {
-            savedEditor = (mainPaneMode, editor)
-            activeEditor = nil
-            mainPaneMode = .preview
-        }
-        let savedInspector = inspectorContext?.model.file.url == deletedURL ? inspectorContext : nil
-        if savedInspector != nil {
-            inspectorContext = nil
-        }
+        closeSurfaces(for: deletedURL, relativePath: relPath)
 
         let result = await contentCreation.deleteContent(siteID: site.id, relativePath: relPath)
         switch result {
@@ -1067,87 +1278,18 @@ final class SiteWindowModel {
             // that change is a decoupled async observer task, so nothing guarantees it has rebuilt
             // `sections` yet — force it, same race/fix as the create paths (#586).
             await navigator?.refreshNow()
-            // The Undo offer and the "Add Redirect?" offer are mutually exclusive at any one
-            // moment (both are presented as modal UI): Undo takes priority, and choosing not to
-            // undo (`dismissDeleteUndo()`) is what surfaces the redirect offer instead.
-            if let savedContents {
-                pendingDeleteUndo = DeleteUndoOffer(
-                    id: relPath, title: item.title, relativePath: relPath,
-                    contents: savedContents, redirectRoute: deletedRoute)
-                pendingDeleteUndoEditor = savedEditor
-                pendingDeleteUndoInspector = savedInspector
-            } else if let deletedRoute {
+            registerContentUndo(
+                actionName: ContentUndoCoordinator.deleteActionName(item.title),
+                relativePath: relPath, before: savedContents, after: nil)
+            if let deletedRoute {
                 pendingRedirectOfferRoute = deletedRoute
             }
         case .failed(let reason):
             contentActionError = reason
-            if let savedEditor {
-                activeEditor = savedEditor.editor
-                mainPaneMode = savedEditor.mode
-            }
-            if let savedInspector {
-                inspectorContext = savedInspector
-            }
+            // A failed delete never touched the file, so put back what closing it took away.
+            reopenSurfaces(for: relPath)
         case .siteNotFound:
-            break
-        }
-    }
-
-    /// Restores the file captured by `pendingDeleteUndo` — the app-level "recover the last version"
-    /// affordance (#586) the delete dialog's copy now points to instead of git. Re-writes the exact
-    /// captured contents and re-commits, mirroring every other content mutation in this model.
-    /// Also reopens the editor/inspector `confirmDelete()` snapshotted, same as its own `.failed`
-    /// path restores them — an undo that brings the file back but leaves the user staring at
-    /// Preview would be only half a restore (PR #608 review).
-    @MainActor
-    func undoDelete() async {
-        guard let offer = pendingDeleteUndo else { return }
-        pendingDeleteUndo = nil
-        let savedEditor = pendingDeleteUndoEditor
-        let savedInspector = pendingDeleteUndoInspector
-        pendingDeleteUndoEditor = nil
-        pendingDeleteUndoInspector = nil
-        // Cleared above regardless of `site`, mirroring `confirmDelete()`'s
-        // clear-before-guard ordering — an offer for a site that's since closed shouldn't linger.
-        guard let site else { return }
-
-        let result = await contentCreation.restoreContent(
-            siteID: site.id, relativePath: offer.relativePath, contents: offer.contents)
-        switch result {
-        case .created:
-            await navigator?.refreshNow()
-        case .failed(let reason):
-            contentActionError = reason
-        case .siteNotFound:
-            break
-        }
-
-        // Reopen iff the file is actually back on disk — true both when `restoreContent` fully
-        // succeeds and when only its best-effort recommit fails (the write itself still landed);
-        // not true if the write itself failed, in which case there's nothing to reopen.
-        let restoredURL = site.sourceDirectory.appendingPathComponent(offer.relativePath)
-        guard FileManager.default.fileExists(atPath: restoredURL.path) else { return }
-        if let savedEditor {
-            activeEditor = savedEditor.editor
-            mainPaneMode = savedEditor.mode
-        }
-        if let savedInspector {
-            inspectorContext = savedInspector
-        }
-    }
-
-    /// Dismisses the Undo offer without restoring — the deferred half of `confirmDelete()`'s
-    /// mutual-exclusion with the redirect offer: only now (Undo declined) does a deleted page/post
-    /// get its "Add Redirect?" prompt. The snapshotted editor/inspector state is discarded, not
-    /// restored: the file stays deleted, so there's nothing valid to reopen it onto.
-    @MainActor
-    func dismissDeleteUndo() {
-        guard let offer = pendingDeleteUndo else { return }
-        pendingDeleteUndo = nil
-        pendingDeleteUndoEditor = nil
-        pendingDeleteUndoInspector = nil
-        if let route = offer.redirectRoute {
-            pendingRedirectOfferRoute = route
+            reopenSurfaces(for: relPath)
         }
     }
 
@@ -1163,22 +1305,30 @@ final class SiteWindowModel {
 
         let result: ContentCreateResult
         let isPost: Bool
+        let sourceTitle: String
         if let page = await contentGraph.page(id: id) {
             isPost = false
+            sourceTitle = page.title ?? page.route
             result = await contentCreation.duplicatePage(
-                siteID: site.id, relativePath: page.filePath, title: page.title ?? page.route)
+                siteID: site.id, relativePath: page.filePath, title: sourceTitle)
         } else if let post = await contentGraph.post(id: id) {
             isPost = true
+            sourceTitle = post.title
             result = await contentCreation.duplicatePost(
-                siteID: site.id, relativePath: post.filePath, collection: post.collection, title: post.title)
+                siteID: site.id, relativePath: post.filePath, collection: post.collection, title: sourceTitle)
         } else {
             return
         }
 
         switch result {
-        case .created(_, let identifier):
+        case .created(let filePath, let identifier):
             await navigator?.refreshNow()
             navigator?.selection = isPost ? "\(site.id):post:\(identifier)" : "\(site.id):page:\(identifier)"
+            // Named for the *source* item, not the generated "About Copy" — "Undo Duplicate
+            // “About”" is what the user recognizes as the action they just took.
+            registerContentUndo(
+                actionName: ContentUndoCoordinator.duplicateActionName(sourceTitle),
+                relativePath: filePath, before: nil, after: createdContents(at: filePath))
         case .failed(let reason):
             contentActionError = reason
         case .siteNotFound:
@@ -1335,6 +1485,23 @@ final class SiteWindowModel {
         let contentGraphRefresh = Task {
             await refreshContentGraph(siteID: resolved.id, sourceDirectory: resolved.sourceDirectory)
         }
+        // Warm the knowledge index here for the same reason, and on the same terms (#980): it is
+        // a filesystem scan of Source/ that needs no container, no MCP, and no dev server. Until
+        // this, the only thing that populated it on the open path was the runtime — *after*
+        // `control.start` and `connect(...)` in `LocalContainerSiteRuntime` — so every index
+        // consumer (toolbar search #520, assistant retrieval, Related Pages) silently returned
+        // nothing for as long as the container took to boot, and forever on a machine where the
+        // runtime can't start at all. Searching a page by its own name and getting "No matching
+        // content" is indistinguishable from a real miss, which is what made it worth fixing here
+        // rather than leaving search to inherit it.
+        //
+        // The runtime still rebuilds when it comes up; `SiteKnowledgeIndex` is an actor and
+        // rebuild is idempotent, so the two serialize and the later one simply refreshes from the
+        // hydrated repo. Not awaited — nothing below needs it, and the assistant's tools read the
+        // index lazily at call time.
+        Task { [knowledgeIndex] in
+            await knowledgeIndex.rebuild(siteID: resolved.id, projectRoot: resolved.sourceDirectory)
+        }
         // Scan from the package ROOT (not Source/): SiteFileTree's adaptive layout detects the
         // `.anglesite` package here and resolves Source/ for Components/Styles plus the sibling
         // Config/ + Info.plist for the Metadata group. Handing it Source/ would hide Metadata.
@@ -1344,10 +1511,18 @@ final class SiteWindowModel {
         // this creation and stop the freshly-made navigator instead.
         navigator?.stop()
         let navModel = SiteNavigatorModel(graph: contentGraph)
+        // Rename is the one structural operation this model doesn't own (it's the navigator's
+        // inline edit, also reached from File ▸ Rename…), so the navigator registers its own ⌘Z
+        // record through this hook rather than duplicating the coordinator (#675).
+        navModel.registerUndo = { [weak self] mutation in
+            self?.contentUndoCoordinator.register(mutation)
+        }
         navModel.start(site: currentSite, websiteTitle: currentSite.name)
         navigator = navModel
         graphExplorer.start(site: currentSite)
         cleanup.configure(site: currentSite)
+        reader.configure(site: currentSite)
+        followers.configure(site: currentSite)
         // Cold-open path for any `PreviewSiteIntent` (#139) navigation; the already-open window
         // is handled reactively by `.onChange(of: router.pendingNavigation)` in `body`.
         applyPendingNavigation(for: resolved.id)

@@ -11,6 +11,26 @@ public struct NavigatorRenameService: Sendable {
         case io(String)
     }
 
+    /// A completed rename. Carries both content sides, not just the title, so the caller can
+    /// register the rename as a `ContentUndoCoordinator.Mutation` for ⌘Z (#675) — this method
+    /// already loads the file and computes the rewrite, so exposing them adds no work. A rename is
+    /// an in-place title rewrite (`PageTitleEditor`), never a file move, which is what lets a
+    /// single-file content snapshot describe it completely.
+    public struct RenameOutcome: Sendable, Equatable {
+        /// The trimmed title actually written.
+        public let title: String
+        /// File contents before the rewrite — the undo side.
+        public let previousContents: String
+        /// File contents after the rewrite — the redo side.
+        public let newContents: String
+
+        public init(title: String, previousContents: String, newContents: String) {
+            self.title = title
+            self.previousContents = previousContents
+            self.newContents = newContents
+        }
+    }
+
     public typealias GitCommit = NativeContentOperations.GitCommit
 
     private let loadContents: @Sendable (URL) throws -> String
@@ -33,7 +53,7 @@ public struct NavigatorRenameService: Sendable {
         projectRoot: URL,
         relativePath: String,
         newTitle: String
-    ) async -> Result<String, RenameError> {
+    ) async -> Result<RenameOutcome, RenameError> {
         let contents: String
         do { contents = try loadContents(fileURL) }
         catch { return .failure(.io("\(error)")) }
@@ -52,6 +72,7 @@ public struct NavigatorRenameService: Sendable {
         // Best-effort: a failed commit (not a repo, rejecting hook, git missing) is ignored —
         // the file is saved and is the source of truth. Mirrors NativeContentOperations.
         _ = await gitCommit(projectRoot, relativePath, "anglesite: rename title to \"\(trimmed)\"")
-        return .success(trimmed)
+        return .success(RenameOutcome(
+            title: trimmed, previousContents: contents, newContents: rewritten))
     }
 }

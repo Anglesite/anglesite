@@ -6,6 +6,7 @@ import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import LicenseLink from "../components/LicenseLink.astro";
+import Interactions from "../components/Interactions.astro";
 
 interface Props {
   entry: CollectionEntry<"reviews">;
@@ -39,5 +40,6 @@ const jsonLd = entrySchema("reviews", entry.data, { url: canonical, site: Astro.
     </a>
     <LicenseLink license={license} />
     <SyndicationLinks urls={d.syndication} />
+    <Interactions canonical={canonical} />
   </article>
 </BaseLayout>
