@@ -2,6 +2,7 @@ import Foundation
 import AnglesiteCore
 import AnglesiteContainer
 import Containerization
+import ContainerizationError
 
 // `anglesite-container-probe` — a standalone, entitled CLI for exercising
 // `ContainerizationControl`'s live vsock/boot path outside `swift test`.
@@ -23,8 +24,10 @@ import Containerization
 //           container, start local wrangler-dev for one active (fixture) worker, poll its URL
 //           for a live HTTP response. The #708 local-runtime feature's own decision gate.
 //   pause-resume — bare container + guest vsock echo listener, confirm a round trip, pause the
-//           VM, resume it, confirm a FRESH dial still reaches the listener, then confirm the
-//           resume-before-stop ordering. The decision gate for the suspend-on-window-close plan.
+//           VM, resume it, confirm a FRESH dial still reaches the listener, then EMPIRICALLY
+//           confirm the resume-before-stop ordering: a direct `container.stop()` call while still
+//           paused must throw, and a resume-then-stop must succeed cleanly. The decision gate for
+//           the suspend-on-window-close plan.
 
 @main
 struct AnglesiteContainerProbe {
@@ -149,10 +152,13 @@ struct AnglesiteContainerProbe {
     /// Decision gate for the suspend-on-window-close feature (docs/superpowers/plans/
     /// 2026-07-27-suspend-container-on-window-close.md): boot a bare container with a guest vsock
     /// echo listener, confirm a round trip, pause the VM, resume it, and confirm a FRESH dial still
-    /// reaches the (never-restarted) guest listener. Also confirms the resume-before-stop ordering
-    /// `PausedContainerRegistry.teardown` depends on: a VM must be resumed before `container.stop()`
-    /// can succeed (a still-paused VM's `VirtualMachineInstanceState` reads `.unknown`, not
-    /// `.running`, and `VZVirtualMachineInstance.stop()` guards on exactly that state).
+    /// reaches the (never-restarted) guest listener. Then EMPIRICALLY confirms the resume-before-stop
+    /// ordering `PausedContainerRegistry.teardown` depends on: pauses again and calls
+    /// `container.stop()` directly while still paused, confirming it actually throws (a still-paused
+    /// VM's `VirtualMachineInstanceState` reads `.unknown`, not `.running`, and
+    /// `VZVirtualMachineInstance.stop()` guards on exactly that state) — failing the gate if it does
+    /// NOT throw, since that would be a genuinely different finding — and then confirms the
+    /// resume-then-stop path production code will actually use succeeds cleanly.
     private static func runPauseResume() async -> Int32 {
         let siteID = "vsock-pause-resume-probe"
         let control = ContainerizationControl()
@@ -225,24 +231,80 @@ struct AnglesiteContainerProbe {
         }
         print("GATE: post-resume round-trip OK")
 
-        // Resume-before-stop ordering: pause again (no resume this time) and confirm stopping a
-        // still-paused container needs an explicit resume first — this is exactly what
+        // Resume-before-stop ordering: pause again (no resume this time), then EMPIRICALLY confirm
+        // stopping a still-paused container fails — this is the actual claim
         // `PausedContainerRegistry.teardown` (Task 2) and `ContainerizationControl`'s resume-failure
-        // fallback (Task 5) must do.
+        // fallback (Task 5) depend on, not just asserted in a comment. A still-paused VM's
+        // `VirtualMachineInstanceState` reads `.unknown` (not `.running`), and
+        // `VZVirtualMachineInstance.stop()` guards on exactly that state, so `container.stop()`
+        // should throw. Called directly (NOT through `stopBareContainer`, which swallows errors with
+        // `try?`) so a throw is actually observed here.
         do {
             try await container.withVirtualMachineInstance { vm in try await vm.pause() }
         } catch {
             return await fail("GATE: FAIL — second vm.pause() threw: \(error)")
         }
+        print("GATE: pause() succeeded (2nd time)")
+
+        do {
+            // Bounded: the Virtualization framework can hang rather than throw in some unentitled/
+            // unexpected states (see `ContainerizationControl.start`'s own `racingTimeout` use for the
+            // same caution) — don't let this probe block forever if a still-paused VM's guest-agent
+            // vsock dial never completes.
+            try await withTimeout(seconds: 15) { try await container.stop() }
+            return await fail(
+                "GATE: FAIL — container.stop() succeeded on a still-paused VM (expected it to throw "
+                + "'vm is not running'); the resume-before-stop ordering the plan assumes does NOT "
+                + "hold as predicted — this is a genuinely different finding, escalate before "
+                + "continuing the suspend-on-close plan")
+        } catch {
+            print("GATE: container.stop() correctly threw while still paused: \(error)")
+        }
+
+        // Resume-then-stop: the pattern all production code will actually use.
         do {
             try await container.withVirtualMachineInstance { vm in try await vm.resume() }
         } catch {
             return await fail("GATE: FAIL — resume-before-stop's resume() threw: \(error)")
         }
+        print("GATE: resume() succeeded (2nd time)")
+
+        do {
+            try await container.stop()
+        } catch {
+            return await fail(
+                "GATE: FAIL — container.stop() threw after resume (expected a clean stop): \(error)")
+        }
+        print("GATE: container.stop() succeeded after resume")
 
         print("GATE: PASS")
+        // `container.stop()` already succeeded above, so this repeats it — but `LinuxContainer.stop()`
+        // explicitly allows being called multiple times (it returns immediately once `state ==
+        // .stopped`), so this is a safe no-op for the stop call itself. Reused anyway (rather than
+        // hand-duplicating its other steps) so the vmnet allocation is released and the ext4
+        // rootfs/initfs artifacts are removed, matching every other exit path in this file.
         await control.stopBareContainer(container, siteID: siteID)
         return 0
+    }
+
+    /// Bounds a throwing async `operation` to `seconds`, racing it against a timeout task. Needed
+    /// because the Virtualization framework backing `LinuxContainer`/`VZVirtualMachineInstance` can
+    /// hang rather than throw in some unentitled/unexpected states (see
+    /// `ContainerizationControl.start`'s own `racingTimeout` helper for the same caution) — this
+    /// probe must not block indefinitely waiting on a call whose whole point is to observe whether
+    /// it throws.
+    private static func withTimeout<T: Sendable>(
+        seconds: Double, operation: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(for: .seconds(seconds))
+                throw ContainerizationError(.timeout, message: "operation timed out after \(seconds)s")
+            }
+            defer { group.cancelAll() }
+            return try await group.next()!
+        }
     }
 
     // MARK: - boot
