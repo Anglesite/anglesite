@@ -212,7 +212,16 @@ struct NewCollectionEntrySheet: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .onChange(of: selectedID) { urlValues = [:] }
+                    // Switching type changes which fields exist, so per-type input must not survive
+                    // the switch. `title` in particular becomes invisible after a switch to a
+                    // titleless type yet still wins slug precedence in NativeContentOperations — so
+                    // it has to be cleared here, not just hidden. `slug` is an explicit user override
+                    // and stays meaningful across types, so it is left alone.
+                    .onChange(of: selectedID) {
+                        title = ""
+                        urlValues = [:]
+                        errorMessage = nil
+                    }
                     if let selectedCollection {
                         Section("Destination") {
                             LabeledContent("Collection", value: selectedCollection)
