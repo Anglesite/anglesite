@@ -205,6 +205,16 @@ struct SiteWindow: View {
         } detail: {
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
+                    // Non-blocking conflict banner (#881): docked above the content, never a
+                    // sheet/alert, so the site stays fully editable while it's showing.
+                    if model.sync.bannerPresented {
+                        SyncConflictBannerView(
+                            fileCount: (model.sync.conflict?.conflictedPaths.count ?? 0) + model.sync.quarantinedFiles.count,
+                            onResolve: { model.sync.openResolutionSheet() },
+                            onDismiss: { model.sync.dismissBanner() }
+                        )
+                        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                    }
                     HStack(spacing: 0) {
                         mainPane(for: site)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -303,6 +313,13 @@ struct SiteWindow: View {
                     Label("Site Graph", systemImage: "point.3.connected.trianglepath.dotted")
                 }
                 .help("Explore pages, layouts, components, collections, and assets")
+            }
+
+            // iCloud sync status (#881): renders nothing for a package that isn't in iCloud
+            // Drive (`SyncStatusView` is an `EmptyView` when `!model.sync.isEligible`), so this
+            // item never widens a local-only site's toolbar.
+            ToolbarItem(id: SiteToolbarItemID.sync.rawValue, placement: .primaryAction) {
+                SyncStatusView(model: model.sync)
             }
 
             ToolbarItem(id: SiteToolbarItemID.backup.rawValue, placement: .primaryAction) {
@@ -544,6 +561,9 @@ struct SiteWindow: View {
                 siteName: site.name,
                 onRunAgain: { model.audit.audit(siteID: site.id, siteDirectory: site.sourceDirectory) }
             )
+        }
+        .sheet(isPresented: $bindableModel.sync.resolutionSheetPresented) {
+            SyncConflictResolutionSheetView(model: model.sync, siteName: site.name)
         }
         .sheet(isPresented: $bindableModel.harden.sheetPresented) {
             HardenSheetView(model: model.harden)

@@ -983,6 +983,12 @@
     "Disallow" : {
 
     },
+    "Discard" : {
+
+    },
+    "Discard %@" : {
+
+    },
     "Dismiss" : {
 
     },
@@ -1076,6 +1082,9 @@
     "Error" : {
 
     },
+    "Error: %@" : {
+
+    },
     "Explain" : {
 
     },
@@ -1125,6 +1134,12 @@
 
     },
     "File modified outside Anglesite" : {
+
+    },
+    "Files edited on both Macs" : {
+
+    },
+    "Files iCloud saved as separate conflict copies. Their content already exists in this site's history; you can discard them." : {
 
     },
     "Filter retrieval by content type" : {
@@ -1292,6 +1307,9 @@
     "Hide related pages" : {
 
     },
+    "Hide this banner — the site stays fully editable; reopen it from the sync status icon" : {
+
+    },
     "Highlight" : {
 
     },
@@ -1377,6 +1395,12 @@
 
     },
     "Keep My Changes" : {
+
+    },
+    "Keep which version" : {
+
+    },
+    "Keep which version of %@" : {
 
     },
     "Kind" : {
@@ -1658,6 +1682,9 @@
     "Open %@ in its own window" : {
 
     },
+    "Open Both…" : {
+
+    },
     "Open Cloudflare API tokens" : {
 
     },
@@ -1712,10 +1739,16 @@
     "Opens %@ in the default editor" : {
 
     },
+    "Opens both versions of %@ in Finder to compare before choosing" : {
+
+    },
     "Opens the live log of the running dev server and dependency installation." : {
 
     },
     "Opens the log of the failed dev server launch." : {
+
+    },
+    "Opens the sync conflict resolution sheet" : {
 
     },
     "Optional" : {
@@ -1725,6 +1758,9 @@
 
     },
     "Ordered" : {
+
+    },
+    "Other Mac" : {
 
     },
     "Overview of the whole graph — click to jump to a node" : {
@@ -1883,6 +1919,9 @@
     "Publish…" : {
 
     },
+    "Quarantined copies" : {
+
+    },
     "Re-check" : {
 
     },
@@ -2034,7 +2073,13 @@
     "Resolve" : {
 
     },
+    "Resolve Sync Conflict" : {
+
+    },
     "Resolve this annotation" : {
+
+    },
+    "Resolve…" : {
 
     },
     "Resolving zone and reading current state…" : {
@@ -2063,6 +2108,12 @@
       }
     },
     "Retry" : {
+
+    },
+    "Reveal" : {
+
+    },
+    "Reveal %@ in Finder" : {
 
     },
     "Reveal in Finder" : {
@@ -2314,6 +2365,9 @@
     "Shows the most recent pre-deploy scan results" : {
 
     },
+    "Shows this site's iCloud sync status" : {
+
+    },
     "Sign In…" : {
 
     },
@@ -2515,6 +2569,9 @@
     "Thinking…" : {
 
     },
+    "This Mac" : {
+
+    },
     "This can't be undone." : {
 
     },
@@ -2522,6 +2579,9 @@
 
     },
     "This component changed outside Anglesite — your edit wasn't applied, reloaded the latest version." : {
+
+    },
+    "This copy's content already exists in this site's git history" : {
 
     },
     "This file appears unused and will be permanently removed." : {
@@ -2811,6 +2871,12 @@
 
     },
     "https://agent.example.com/acp" : {
+
+    },
+    "iCloud Sync" : {
+
+    },
+    "iCloud sync status" : {
 
     },
     "low confidence" : {

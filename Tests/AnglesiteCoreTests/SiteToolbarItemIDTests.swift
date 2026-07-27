@@ -24,6 +24,7 @@ struct SiteToolbarItemIDTests {
             "chat",
             "inspector",
             "styleGuide",
+            "sync",
         ])
     }
 }
