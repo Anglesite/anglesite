@@ -105,9 +105,47 @@ private struct ComponentCodeEditorView: NSViewRepresentable {
         /// the resulting `textViewDidChangeText` notification doesn't bounce right back into
         /// `text` (a no-op, but one that would otherwise re-trigger `updateNSView` every frame).
         var isProgrammaticUpdate = false
+        /// `EditorFocusRegistry` activation token for this coordinator instance. `.id(codeZone)`
+        /// on the enclosing view (see the doc comment on `ComponentEditorCodePane`) recreates this
+        /// coordinator on every zone-tab switch, so each one needs its own token — reusing a
+        /// shared token across coordinators would let a later one's resign wrongly clear an
+        /// earlier one's still-active registration.
+        private let focusToken = UUID()
+        private var focusObservers: [NSObjectProtocol] = []
 
         init(text: Binding<String>) {
             self.text = text
+        }
+
+        /// STTextView posts the standard `NSText` focus notifications itself (confirmed in its
+        /// source: `becomeFirstResponder`/`resignFirstResponder` post them directly when
+        /// `isEditable`) — unlike the Markdown engine's custom text view, which #808 found does
+        /// NOT post these, requiring a KVO/geometry-based workaround instead. Scoped to this
+        /// specific `textView` via `object:` so unrelated text views elsewhere in the app don't
+        /// trigger it. Parameter is `NSResponder`, not `NSTextView`: `STTextView` is `NSView`-
+        /// rooted, not `NSTextView`-rooted (Task 3's review caught this — `EditorFocusRegistry`'s
+        /// `codePane` case is `Weak<NSResponder>` for the same reason).
+        func observeFocus(for textView: NSResponder) {
+            let center = NotificationCenter.default
+            focusObservers = [
+                center.addObserver(
+                    forName: NSText.didBeginEditingNotification, object: textView, queue: .main
+                ) { [weak self, weak textView] _ in
+                    guard let self, let textView else { return }
+                    EditorFocusRegistry.shared.activate(.codePane(Weak(textView)), token: self.focusToken)
+                },
+                center.addObserver(
+                    forName: NSText.didEndEditingNotification, object: textView, queue: .main
+                ) { [weak self] _ in
+                    guard let self else { return }
+                    EditorFocusRegistry.shared.resign(token: self.focusToken)
+                },
+            ]
+        }
+
+        deinit {
+            let center = NotificationCenter.default
+            focusObservers.forEach { center.removeObserver($0) }
         }
 
         func textViewDidChangeText(_ notification: Notification) {
@@ -123,6 +161,7 @@ private struct ComponentCodeEditorView: NSViewRepresentable {
         textView.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         textView.delegate = context.coordinator
         textView.addPlugin(NeonPlugin(theme: .default, language: language))
+        context.coordinator.observeFocus(for: textView)
         return scrollView
     }
 
