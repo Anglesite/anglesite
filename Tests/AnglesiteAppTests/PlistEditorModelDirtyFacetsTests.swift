@@ -104,29 +104,31 @@ struct PlistEditorModelDirtyFacetsTests {
         #expect(model.isDirty == false, "the Website facet should still have saved despite Redirects failing validation")
     }
 
-    @Test("hasAnyUnsavedEdits reflects crawler-policy dirty state alone — the #693 facet added after this seam existed")
-    func hasAnyUnsavedEditsReflectsCrawlerPolicyAlone() async throws {
+    @Test("hasAnyUnsavedEdits reflects content-licensing dirty state alone — the #991 facet added after this seam existed")
+    func hasAnyUnsavedEditsReflectsLicensingAlone() async throws {
         let model = try makeModel()
         await model.load()
-        model.crawlerPolicySettings.blockAI = true
+        model.licensingPolicy.defaultLicense = LicenseRef(
+            url: "https://creativecommons.org/licenses/by/4.0/", name: "CC BY 4.0")
         #expect(model.isDirty == false)
         #expect(model.isRedirectsDirty == false)
         #expect(model.isAnalyticsDirty == false)
         #expect(model.hasAnyUnsavedEdits == true)
     }
 
-    @Test("saveAllDirty saves a dirty crawler policy into .site-config")
-    func saveAllDirtySavesCrawlerPolicy() async throws {
+    @Test("saveAllDirty saves a dirty licensing policy into licensing.json")
+    func saveAllDirtySavesLicensing() async throws {
         let model = try makeModel()
         await model.load()
-        model.crawlerPolicySettings.blockAI = true
-        model.crawlerPolicySettings.search = .no
+        model.licensingPolicy.defaultLicense = LicenseRef(
+            url: "https://creativecommons.org/licenses/by/4.0/", name: "CC BY 4.0")
+        model.licensingPolicy.usage.aiTrain = .no
 
         await model.saveAllDirty()
 
-        #expect(model.isCrawlerPolicyDirty == false)
-        let config = try String(contentsOf: model.sourceDirectory.appendingPathComponent(".site-config"), encoding: .utf8)
-        #expect(CrawlerPolicyAsset.parseSettings(from: config) == model.crawlerPolicySettings)
+        #expect(model.isLicensingDirty == false)
+        let onDisk = try LicensingStore(sourceDirectory: model.sourceDirectory).load()
+        #expect(onDisk == model.licensingPolicy)
     }
 
     @Test("isAnySaving is true while saveRedirects is in flight")
