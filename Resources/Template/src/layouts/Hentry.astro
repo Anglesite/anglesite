@@ -52,7 +52,7 @@ const jsonLd = entrySchema(entry.collection, entry.data as HentryData, {
 });
 ---
 
-<BaseLayout title={title ?? "Post"} description={d.summary}>
+<BaseLayout title={title ?? "Post"} description={d.summary} license={license}>
   {jsonLd && <Schema slot="head" item={jsonLd} />}
   <article class="h-entry">
     <DraftBadge draft={d.draft} />

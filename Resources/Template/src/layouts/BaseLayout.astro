@@ -1,15 +1,24 @@
 ---
 import "../styles/global.css";
 import Hcard from "../components/Hcard.astro";
+import Rights from "../components/Rights.astro";
 import { readConfig } from "../../scripts/config";
+import { siteLicense } from "../lib/licensing-data.ts";
+import type { LicenseRef } from "../lib/licensing.ts";
 // anglesite:imports — integration component imports are injected here on setup
 
 interface Props {
   title: string;
   description?: string;
+  /**
+   * The license this page advertises in <head>. Omit the prop to inherit the site default
+   * (ordinary pages); pass null to advertise nothing (an entry in a non-asserting collection);
+   * pass a ref to override (an entry with its own license).
+   */
+  license?: LicenseRef | null;
 }
 
-const { title, description } = Astro.props;
+const { title, description, license = siteLicense() } = Astro.props;
 ---
 
 <!doctype html>
@@ -24,6 +33,7 @@ const { title, description } = Astro.props;
     <link rel="alternate" type="application/atom+xml" title="Atom" href="/atom.xml" />
     <link rel="alternate" type="application/feed+json" title="JSON Feed" href="/feed.json" />
     <link rel="indieauth-metadata" href="/.well-known/oauth-authorization-server" />
+    {license && <link rel="license" href={license.url} title={license.name} />}
     {readConfig("WEBMENTION_RECEIVE_ENABLED") === "true" && (
       <link rel="webmention" href="/webmention" />
     )}
@@ -34,6 +44,7 @@ const { title, description } = Astro.props;
     <!-- anglesite:nav -->
     <slot />
     <Hcard />
+    <Rights license={license} />
     <!-- anglesite:body-end -->
   </body>
 </html>

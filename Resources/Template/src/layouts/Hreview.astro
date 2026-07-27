@@ -26,7 +26,7 @@ const jsonLd = entrySchema("reviews", entry.data, { url: canonical, site: Astro.
 const license = licenseFor("reviews");
 ---
 
-<BaseLayout title={reviewName}>
+<BaseLayout title={reviewName} license={license}>
   {jsonLd && <Schema slot="head" item={jsonLd} />}
   <article class="h-review">
     <h1 class="p-name">{reviewName}</h1>
