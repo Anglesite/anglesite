@@ -1061,6 +1061,9 @@
     "Enter a valid mail domain and at least one MX host to prepare the DNS records." : {
 
     },
+    "Enter an absolute URL, e.g. https://example.com/post" : {
+
+    },
     "Enter the domain to harden" : {
 
     },
