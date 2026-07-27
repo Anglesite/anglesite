@@ -68,6 +68,41 @@ public struct HTTPGitHubClient: Sendable {
         return RemoteRepo(url: browse, owner: created.owner.login, name: created.name)
     }
 
+    /// Shared request builder for the repo-security calls — same headers and auth as `createRepo`.
+    private func repoRequest(method: String, path: String, token: String) throws -> URLRequest {
+        guard let url = URL(string: Self.base + path) else { throw GitHubRepoAPIError.malformedResponse }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+        return request
+    }
+
+    /// Sends `request`, mapping transport and status failures the same way `createRepo` does.
+    /// Returns the body for callers that need to decode one.
+    private func send(_ request: URLRequest) async throws -> Data {
+        let data: Data
+        let http: HTTPURLResponse
+        do {
+            (data, http) = try await transport(request)
+        } catch {
+            throw GitHubRepoAPIError.network
+        }
+        if http.statusCode == 401 || http.statusCode == 403 { throw GitHubRepoAPIError.unauthorized }
+        guard (200..<300).contains(http.statusCode) else { throw GitHubRepoAPIError.http(status: http.statusCode) }
+        return data
+    }
+
+    private struct RepositoryResponse: Decodable {
+        let isPrivate: Bool
+        enum CodingKeys: String, CodingKey { case isPrivate = "private" }
+    }
+
+    private struct PVRResponse: Decodable {
+        let enabled: Bool
+    }
+
     private struct CreateRepoBody: Encodable {
         let name: String
         let isPrivate: Bool
@@ -86,5 +121,30 @@ public struct HTTPGitHubClient: Sendable {
         let message: String
         let errors: [FieldError]?
         struct FieldError: Decodable { let message: String }
+    }
+}
+
+extension HTTPGitHubClient: RepoSecurityReading, RepoSecurityWriting {
+    public func isPrivate(owner: String, name: String, token: String) async throws -> Bool {
+        let data = try await send(repoRequest(method: "GET", path: "/repos/\(owner)/\(name)", token: token))
+        guard let repo = try? JSONDecoder().decode(RepositoryResponse.self, from: data) else {
+            throw GitHubRepoAPIError.malformedResponse
+        }
+        return repo.isPrivate
+    }
+
+    public func privateVulnerabilityReporting(owner: String, name: String, token: String) async throws -> Bool {
+        let data = try await send(repoRequest(
+            method: "GET", path: "/repos/\(owner)/\(name)/private-vulnerability-reporting", token: token))
+        guard let state = try? JSONDecoder().decode(PVRResponse.self, from: data) else {
+            throw GitHubRepoAPIError.malformedResponse
+        }
+        return state.enabled
+    }
+
+    public func enablePrivateVulnerabilityReporting(owner: String, name: String, token: String) async throws {
+        // A 204 with an empty body is the documented success response — nothing to decode.
+        _ = try await send(repoRequest(
+            method: "PUT", path: "/repos/\(owner)/\(name)/private-vulnerability-reporting", token: token))
     }
 }

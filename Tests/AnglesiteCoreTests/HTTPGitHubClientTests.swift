@@ -116,4 +116,80 @@ struct HTTPGitHubClientTests {
             }
         }
     }
+
+    /// Records the request the client built, so path/method/header assertions are possible.
+    private static func recordingTransport(
+        status: Int,
+        json: String,
+        into box: RequestBox
+    ) -> GitHubAPITokenVerifier.Transport {
+        { request in
+            await box.record(request)
+            let http = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+            return (Data(json.utf8), http)
+        }
+    }
+
+    actor RequestBox {
+        private(set) var last: URLRequest?
+        func record(_ request: URLRequest) { last = request }
+    }
+
+    @Test("isPrivate reads the repo's private flag")
+    func repoVisibility() async throws {
+        let box = RequestBox()
+        let client = HTTPGitHubClient(transport: Self.recordingTransport(
+            status: 200, json: #"{"private":true}"#, into: box))
+        #expect(try await client.isPrivate(owner: "acme", name: "site", token: "tok"))
+        let request = await box.last
+        #expect(request?.url?.path == "/repos/acme/site")
+        #expect(request?.httpMethod == "GET")
+    }
+
+    @Test("privateVulnerabilityReporting reads the enabled flag")
+    func pvrState() async throws {
+        let box = RequestBox()
+        let client = HTTPGitHubClient(transport: Self.recordingTransport(
+            status: 200, json: #"{"enabled":true}"#, into: box))
+        #expect(try await client.privateVulnerabilityReporting(owner: "acme", name: "site", token: "tok"))
+        let request = await box.last
+        #expect(request?.url?.path == "/repos/acme/site/private-vulnerability-reporting")
+        #expect(request?.httpMethod == "GET")
+    }
+
+    @Test("enablePrivateVulnerabilityReporting PUTs and accepts a 204 with no body")
+    func enablePVR() async throws {
+        let box = RequestBox()
+        let client = HTTPGitHubClient(transport: Self.recordingTransport(status: 204, json: "", into: box))
+        try await client.enablePrivateVulnerabilityReporting(owner: "acme", name: "site", token: "tok")
+        let request = await box.last
+        #expect(request?.url?.path == "/repos/acme/site/private-vulnerability-reporting")
+        #expect(request?.httpMethod == "PUT")
+        #expect(request?.value(forHTTPHeaderField: "X-GitHub-Api-Version") == "2022-11-28")
+    }
+
+    @Test("a 403 on the PVR write maps to .unauthorized — the token lacks repo admin")
+    func enablePVRWithoutAdmin() async {
+        let client = HTTPGitHubClient(transport: Self.transport(
+            status: 403, json: #"{"message":"Must have admin rights to Repository."}"#))
+        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+            try await client.enablePrivateVulnerabilityReporting(owner: "acme", name: "site", token: "tok")
+        }
+    }
+
+    @Test("a transport failure on a repo-security read maps to .network")
+    func repoSecurityTransportFailure() async {
+        let client = HTTPGitHubClient(transport: { _ in throw URLError(.notConnectedToInternet) })
+        await #expect(throws: GitHubRepoAPIError.network) {
+            _ = try await client.privateVulnerabilityReporting(owner: "acme", name: "site", token: "tok")
+        }
+    }
+
+    @Test("an undecodable body maps to .malformedResponse")
+    func repoSecurityMalformedBody() async {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 200, json: "not json"))
+        await #expect(throws: GitHubRepoAPIError.malformedResponse) {
+            _ = try await client.isPrivate(owner: "acme", name: "site", token: "tok")
+        }
+    }
 }
