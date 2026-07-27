@@ -14,6 +14,7 @@ struct MainPaneEditorView: View {
     /// wiring available, e.g. in previews).
     var componentContext: ComponentEditorContext? = nil
     @Environment(\.controlActiveState) private var controlActiveState
+    @FocusState private var isPlainTextEditorFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,6 +37,16 @@ struct MainPaneEditorView: View {
                         TextEditor(text: $model.text)
                             .font(.system(.body, design: .monospaced))
                             .scrollContentBackground(.hidden)
+                            .findNavigator(isPresented: $model.isFindPresented)
+                            .focused($isPlainTextEditorFocused)
+                            .onChange(of: isPlainTextEditorFocused) { _, focused in
+                                if focused {
+                                    EditorFocusRegistry.shared.activate(
+                                        .plainText(isPresented: $model.isFindPresented), token: model.file.id)
+                                } else {
+                                    EditorFocusRegistry.shared.resign(token: model.file.id)
+                                }
+                            }
                     case .markdown:
                         MarkdownTextView(
                             text: $model.text,
