@@ -430,6 +430,16 @@ public actor SocialWorkerProvisionCommand {
             // `<link rel="webmention">` at an endpoint the Worker no longer serves.
             let hasWebmentionReceive = workers.contains(where: { $0.id == WorkerComposition.webmentionWorkerID })
             let webmentionReceiveEnabled = hasWebmentionReceive && resources.queueName != nil
+            // Same "actually live" contract for Micropub: the flag gates BaseLayout.astro's
+            // `<link rel="micropub">` discovery tag (Micropub/Micro.blog clients — including the
+            // Micro.blog iOS/Mac apps — resolve the posting endpoint from that link, per
+            // https://book.micro.blog/micropub/). Micropub has no bespoke queue of its own — it
+            // rides the shared per-site D1 database (bound as MICROPUB_DB) and R2 bucket (bound
+            // as MEDIA), both generic `resources` fields — so "actually live" here means those
+            // two ids were actually assigned by provisioning, not just that the worker is in the
+            // active set.
+            let hasMicropub = workers.contains(where: { $0.id == WorkerComposition.micropubWorkerID })
+            let micropubEnabled = hasMicropub && resources.d1DatabaseID != nil && resources.r2BucketName != nil
             // Same "actually live" contract for the WebSub hub: the flag gates the feeds'
             // rel="hub" advertisement (src/lib/feeds.ts), which must never point at an endpoint
             // the Worker doesn't serve or a hub whose Queue doesn't exist.
@@ -440,6 +450,7 @@ public actor SocialWorkerProvisionCommand {
             let updated = SiteConfigFile.upsert(
                 [
                     ("WEBMENTION_RECEIVE_ENABLED", webmentionReceiveEnabled ? "true" : "false"),
+                    ("MICROPUB_ENABLED", micropubEnabled ? "true" : "false"),
                     ("WEBSUB_ENABLED", websubEnabled ? "true" : "false"),
                 ], into: existing
             )
