@@ -83,10 +83,33 @@ export function websubHub(
 }
 
 /**
+ * Fallback `contentHtml` for interaction posts (likes/replies/bookmarks) whose body rendered to
+ * nothing — a like/reply/bookmark with no commentary still has faithful content to syndicate:
+ * the target URL it points at. This is deliberately *not* prose ("Liked", "Re:", …) — a
+ * synthesized caption is exactly what #1021/#1022 removed; the target URL is the one piece of
+ * real content every interaction post has. Photos keep their existing caption fallback
+ * (`feed-data.ts`'s `renderContentHtml`) and are untouched here.
+ */
+function interactionContentFallback(collection: string, data: Record<string, any>): string {
+  const targetUrl =
+    collection === "likes"
+      ? data.likeOf
+      : collection === "replies"
+        ? data.inReplyTo
+        : collection === "bookmarks"
+          ? data.bookmarkOf
+          : undefined;
+  if (!targetUrl) return "";
+  const escaped = escapeXml(String(targetUrl));
+  return `<a href="${escaped}">${escaped}</a>`;
+}
+
+/**
  * Build a `FeedItem` from a content entry. `contentHtml` is the entry body already rendered to
  * HTML — rendering is async (`createMarkdownProcessor`) and lives in `feed-data.ts`, so it's
  * computed by the caller and passed in rather than made here, keeping this function synchronous
- * and easy to unit test.
+ * and easy to unit test. When the rendered body is empty, likes/replies/bookmarks fall back to
+ * a link to their target URL (`interactionContentFallback`) rather than shipping empty content.
  */
 export function toFeedItem(
   collection: string,
@@ -109,7 +132,7 @@ export function toFeedItem(
     link: new URL(`/${collection}/${entry.id}/`, site).href,
     date,
     summary: String(summary),
-    contentHtml,
+    contentHtml: contentHtml || interactionContentFallback(collection, entry.data),
   };
 }
 
@@ -144,9 +167,14 @@ export function renderRss(o: {
       title: i.title,
       link: i.link,
       pubDate: i.date,
-      // RSS 2.0 requires title *or* description on every item; description is always present,
-      // carrying the full HTML body when there is one and falling back to the short summary.
-      description: i.contentHtml || i.summary,
+      // Invariant: RSS 2.0 requires title *or* description on every item, so a title-less item
+      // must always have a non-empty description. `contentHtml` (full HTML body, or the
+      // interaction-post target-URL fallback from `toFeedItem`) carries it when present, then
+      // the short summary, then — for a pathological entry with no title, no content, and no
+      // summary — the permalink itself, which is never empty. `fast-xml-parser`'s `XMLBuilder`
+      // (used by `@astrojs/rss` under the hood) escapes text-node content automatically, so the
+      // raw `i.link` here doesn't need manual XML-escaping.
+      description: i.contentHtml || i.summary || i.link,
     })),
   });
 }

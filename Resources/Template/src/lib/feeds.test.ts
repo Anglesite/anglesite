@@ -275,6 +275,85 @@ test("renderRss, renderAtom, and renderJsonFeed never emit 'Untitled' for an emp
   assert.doesNotMatch(jsonFeed, /Untitled/);
 });
 
+// --- Target-URL content fallback for empty-body interaction posts (#1022 follow-up) ---------
+
+test("toFeedItem falls back to an escaped anchor to likeOf when the like has no body", () => {
+  const like = toFeedItem(
+    "likes",
+    entry("likes", { likeOf: "https://indieweb.org/post?a=1&b=2", publishDate: "2026-01-02" }, ""),
+    SITE,
+    "",
+  );
+  assert.equal(
+    like.contentHtml,
+    `<a href="https://indieweb.org/post?a=1&amp;b=2">https://indieweb.org/post?a=1&amp;b=2</a>`,
+  );
+});
+
+test("toFeedItem falls back to an escaped anchor to inReplyTo when the reply has no body", () => {
+  const reply = toFeedItem(
+    "replies",
+    entry("replies", { inReplyTo: "https://indieweb.org/post", publishDate: "2026-01-02" }, ""),
+    SITE,
+    "",
+  );
+  assert.equal(
+    reply.contentHtml,
+    `<a href="https://indieweb.org/post">https://indieweb.org/post</a>`,
+  );
+});
+
+test("toFeedItem falls back to an escaped anchor to bookmarkOf when the bookmark has no body", () => {
+  const bookmark = toFeedItem(
+    "bookmarks",
+    entry("bookmarks", { bookmarkOf: "https://indieweb.org/post", publishDate: "2026-01-02" }, ""),
+    SITE,
+    "",
+  );
+  assert.equal(
+    bookmark.contentHtml,
+    `<a href="https://indieweb.org/post">https://indieweb.org/post</a>`,
+  );
+});
+
+test("toFeedItem does not synthesize a target-URL fallback for collections without one", () => {
+  const note = toFeedItem(
+    "notes",
+    entry("notes", { publishDate: "2026-01-02" }, ""),
+    SITE,
+    "",
+  );
+  assert.equal(note.contentHtml, "");
+});
+
+test("toFeedItem leaves non-empty contentHtml untouched (no fallback applied)", () => {
+  const like = toFeedItem(
+    "likes",
+    entry("likes", { likeOf: "https://indieweb.org/post", publishDate: "2026-01-02" }, "some body"),
+    SITE,
+    "<p>rendered body</p>",
+  );
+  assert.equal(like.contentHtml, "<p>rendered body</p>");
+});
+
+test("renderRss falls back to the permalink for <description> when contentHtml and summary are both empty", async () => {
+  const res = await renderRss({
+    title: "Likes",
+    description: "Likes",
+    site: SITE,
+    items: [
+      {
+        link: `${SITE}/likes/hello-like/`,
+        date: new Date("2026-01-02"),
+        summary: "",
+        contentHtml: "",
+      },
+    ],
+  });
+  const xml = await res.text();
+  assert.match(xml, new RegExp(`<description>${SITE.replace(/\./g, "\\.")}/likes/hello-like/</description>`));
+});
+
 // --- WebSub discovery (V-3.3, #361) ---------------------------------------------------------
 
 test("websubHub returns hub + self URLs when enabled, undefined when not", () => {
