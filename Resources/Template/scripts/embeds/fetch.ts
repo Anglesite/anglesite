@@ -23,13 +23,15 @@ export function normalizeFor(
   raw: unknown,
   canonicalURL: string,
   capturedAt: string,
+  /** The URL the payload was actually fetched from — only consulted for opengraph. */
+  fetchedURL: string = canonicalURL,
 ): EmbedSnapshot {
   switch (provider) {
     case "x": return normalizeX(raw, canonicalURL, capturedAt);
     case "youtube": return normalizeYouTube(raw, canonicalURL, capturedAt);
     case "bluesky": return normalizeBluesky(raw, canonicalURL, capturedAt);
     case "mastodon": return normalizeMastodon(raw, canonicalURL, capturedAt);
-    case "opengraph": return normalizeOpenGraph(String(raw), canonicalURL, capturedAt);
+    case "opengraph": return normalizeOpenGraph(String(raw), canonicalURL, capturedAt, fetchedURL);
   }
 }
 
@@ -66,7 +68,12 @@ export async function fetchSnapshot(
   if (wantsHTML && !hasOpenGraphMetadata(raw as string)) {
     throw new Error(`no Open Graph metadata found at ${request.canonicalURL}`);
   }
-  return normalizeFor(request.provider, raw, request.canonicalURL, capturedAt);
+  // `response.url` is the page as actually retrieved (post-redirect) — e.g. a server that
+  // redirects the slash-less `request.apiURL` to a trailing-slash canonical form. Falls back
+  // to `apiURL` for a Response with no url (a hand-built Response in tests, or a runtime that
+  // doesn't populate it), which matches pre-fix behavior exactly.
+  const fetchedURL = response.url || request.apiURL;
+  return normalizeFor(request.provider, raw, request.canonicalURL, capturedAt, fetchedURL);
 }
 
 /**

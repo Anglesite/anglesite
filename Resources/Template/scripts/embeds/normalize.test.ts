@@ -90,6 +90,28 @@ test("normalizeOpenGraph: a relative og:image is resolved against the page URL",
   assert.deepEqual(s.media, [{ src: "https://example.com/img/hero.png", alt: "T" }]);
 });
 
+test("normalizeOpenGraph: a document-relative og:image resolves against the fetched URL, not the trailing-slash-stripped canonical one", () => {
+  // adapters.ts strips a trailing slash when building canonicalURL for keying purposes; the
+  // fetched page was actually at the slash-terminated URL, so a document-relative og:image must
+  // resolve as a sibling of the page, not of its parent directory.
+  const s = normalizeOpenGraph(
+    '<meta property="og:title" content="T"><meta property="og:image" content="img/hero.png">',
+    "https://example.com/blog/post",
+    AT,
+    "https://example.com/blog/post/",
+  );
+  assert.deepEqual(s.media, [{ src: "https://example.com/blog/post/img/hero.png", alt: "T" }]);
+});
+
+test("normalizeOpenGraph: omitting fetchedURL falls back to canonicalURL (pre-existing 3-arg callers keep working)", () => {
+  const s = normalizeOpenGraph(
+    '<meta property="og:title" content="T"><meta property="og:image" content="img/hero.png">',
+    "https://example.com/blog/post",
+    AT,
+  );
+  assert.deepEqual(s.media, [{ src: "https://example.com/blog/img/hero.png", alt: "T" }]);
+});
+
 test("normalizeOpenGraph: a protocol-relative og:image inherits the page's scheme", () => {
   const s = normalizeOpenGraph(
     '<meta property="og:title" content="T"><meta property="og:image" content="//cdn.example.com/hero.png">',

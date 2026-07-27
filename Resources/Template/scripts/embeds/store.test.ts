@@ -89,6 +89,25 @@ test("localizeAssets: a src that isn't a /embeds/ path is dropped and reported",
   assert.match(warnings[0], /\/uploads\/not-ours\.png/);
 });
 
+test("localizeAssets: an avatar that isn't a /embeds/ path is dropped and reported, same as media", () => {
+  const snap = sample();
+  snap.author.avatar = "/uploads/not-ours.png";
+
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (message: string) => void warnings.push(message);
+  let out;
+  try {
+    out = localizeAssets(snap, {});
+  } finally {
+    console.warn = original;
+  }
+
+  assert.equal(out.author.avatar, undefined);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /\/uploads\/not-ours\.png/);
+});
+
 test("localizeAssets: does not mutate its input", () => {
   const input = sample();
   localizeAssets(input, {});

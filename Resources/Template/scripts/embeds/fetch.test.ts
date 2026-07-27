@@ -42,6 +42,25 @@ test("fetchSnapshot: opengraph reads HTML, not JSON", async () => {
   assert.equal(snap.content, "Hello");
 });
 
+test("fetchSnapshot: opengraph resolves a document-relative og:image against the redirected (post-slash) URL", async () => {
+  // The requested apiURL is the trailing-slash-stripped canonicalURL (adapters.ts), but the
+  // server redirects it back to the trailing-slash form — fetch's real Response.url reflects
+  // that. A hand-built test Response defaults `.url` to "", so it's set explicitly here to
+  // stand in for that post-redirect value.
+  const req = resolveAdapter("https://example.com/blog/post/")!;
+  assert.equal(req.apiURL, "https://example.com/blog/post");
+
+  const snap = await fetchSnapshot(req, AT, async () => {
+    const res = new Response(
+      '<meta property="og:title" content="Hello"><meta property="og:image" content="img/hero.png">',
+      { status: 200, headers: { "content-type": "text/html" } },
+    );
+    Object.defineProperty(res, "url", { value: "https://example.com/blog/post/" });
+    return res;
+  });
+  assert.deepEqual(snap.media, [{ src: "https://example.com/blog/post/img/hero.png", alt: "Hello" }]);
+});
+
 test("fetchSnapshot: opengraph with no og: tags at all rejects instead of a junk snapshot", async () => {
   // The Instagram shape: HTTP 200, a <title>, and no og:* metadata. normalizeOpenGraph would
   // happily fall back to the title and "succeed" with junk — fetchSnapshot must not let that

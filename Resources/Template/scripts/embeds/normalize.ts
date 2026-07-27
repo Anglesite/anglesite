@@ -201,7 +201,12 @@ export function hasOpenGraphMetadata(html: string): boolean {
   return OG_METADATA_PROPERTIES.some((property) => (metaContent(html, property)?.length ?? 0) > 0);
 }
 
-export function normalizeOpenGraph(html: string, canonicalURL: string, capturedAt: string): EmbedSnapshot {
+export function normalizeOpenGraph(
+  html: string,
+  canonicalURL: string,
+  capturedAt: string,
+  fetchedURL: string = canonicalURL,
+): EmbedSnapshot {
   const snap = base("opengraph", canonicalURL, capturedAt);
   const title = metaContent(html, "og:title") ?? htmlToText(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "");
   const description = metaContent(html, "og:description") ?? "";
@@ -209,7 +214,10 @@ export function normalizeOpenGraph(html: string, canonicalURL: string, capturedA
   const siteName = metaContent(html, "og:site_name");
   if (siteName) snap.author.name = siteName;
   const image = metaContent(html, "og:image");
-  const imageURL = image ? absolutize(image, canonicalURL) : undefined;
+  // Resolve against `fetchedURL` (the page as actually retrieved), not `canonicalURL`: adapters.ts
+  // strips the trailing slash from the latter for keying purposes, which would silently truncate
+  // a document-relative `og:image` to the wrong sibling directory — see `absolutize` below.
+  const imageURL = image ? absolutize(image, fetchedURL) : undefined;
   if (imageURL) snap.media.push({ src: imageURL, alt: title });
   return snap;
 }
@@ -222,6 +230,11 @@ export function normalizeOpenGraph(html: string, canonicalURL: string, capturedA
  * `^https?://` remote test: it would never be collected, never downloaded, and would land in a
  * committed snapshot as a `media[].src` that is neither local nor fetchable — breaking both the
  * card (an image-less generic card, every time) and the invariant `types.ts` asserts.
+ *
+ * `baseURL` must be the URL the document was actually served from — not a canonicalized form
+ * that may have lost a trailing slash — since a document-relative reference like `img/hero.png`
+ * resolves differently against `.../post` (sibling of `post`) than `.../post/` (sibling of the
+ * page itself).
  *
  * Returns undefined rather than throwing on a malformed value; a card with no image beats a
  * failed capture.

@@ -49,15 +49,29 @@ export function assetFilename(remoteURL: string, index: number): string {
 export const LOCAL_MEDIA_PREFIX = `/${MEDIA_DIR.replace(/^public\//, "")}/`;
 
 /**
+ * Enforce `types.ts`'s invariant ("`author.avatar` and every `media[].src` are repo-relative
+ * paths, never a remote URL") on a single already-localized-or-passed-through value: a defined
+ * string that isn't under `LOCAL_MEDIA_PREFIX` is dropped *and reported*, because reaching here
+ * without being remote and without being a downloaded path means an upstream normalizer produced
+ * something nobody accounted for. `undefined` (no avatar, or an asset the map had no entry for)
+ * passes through silently — there's nothing wrong to report there.
+ */
+function enforceLocalPath(value: string | undefined, label: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (!value.startsWith(LOCAL_MEDIA_PREFIX)) {
+    console.warn(`⚠ dropped embed ${label} ${value} — not a ${LOCAL_MEDIA_PREFIX} path`);
+    return undefined;
+  }
+  return value;
+}
+
+/**
  * Replace every remote asset reference with its downloaded repo-relative path. An asset absent
  * from the map is **dropped**, never left remote — a half-localized snapshot would silently
  * reintroduce the third-party request this whole feature exists to remove.
  *
- * The final filter enforces `types.ts`'s invariant ("every `media[].src` is a repo-relative
- * path, never a remote URL") at the one place that can still make it true: anything that isn't
- * under `/embeds/` by now is dropped *and reported*, because a value that reached here without
- * being remote and without being a downloaded path means an upstream normalizer produced
- * something nobody accounted for.
+ * `enforceLocalPath` applies the same check to `author.avatar` and every `media[].src` — see its
+ * doc comment.
  */
 export function localizeAssets(snap: EmbedSnapshot, map: Record<string, string>): EmbedSnapshot {
   const avatar = snap.author.avatar;
@@ -65,18 +79,13 @@ export function localizeAssets(snap: EmbedSnapshot, map: Record<string, string>)
     ...snap,
     author: {
       ...snap.author,
-      avatar: isRemote(avatar) ? map[avatar] : avatar,
+      avatar: enforceLocalPath(isRemote(avatar) ? map[avatar] : avatar, "author.avatar"),
     },
     media: snap.media
       .map((asset) => (isRemote(asset.src) ? { ...asset, src: map[asset.src] } : asset))
-      .filter((asset): asset is EmbedSnapshot["media"][number] => {
-        if (typeof asset.src !== "string") return false;
-        if (!asset.src.startsWith(LOCAL_MEDIA_PREFIX)) {
-          console.warn(`⚠ dropped embed media ${asset.src} — not a ${LOCAL_MEDIA_PREFIX} path`);
-          return false;
-        }
-        return true;
-      }),
+      .filter((asset): asset is EmbedSnapshot["media"][number] =>
+        enforceLocalPath(typeof asset.src === "string" ? asset.src : undefined, "media") !== undefined,
+      ),
   };
 }
 
