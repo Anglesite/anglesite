@@ -9,6 +9,7 @@
  */
 import { renderEmbedCard } from "../src/lib/embed-card";
 import type { EmbedSnapshot } from "./embeds/types";
+import { snapshotKey } from "./embeds/adapters";
 import { loadAllSnapshots } from "./embeds/store";
 import { readConfig } from "./config";
 
@@ -20,6 +21,7 @@ export interface MdastNode {
   children?: MdastNode[];
 }
 
+/** Receives an already-canonicalized key — `transformEmbeds` normalizes before calling. */
 export type SnapshotResolver = (url: string) => EmbedSnapshot | null;
 
 /** The href a bare autolink produces: its single text child is the URL itself. */
@@ -42,7 +44,9 @@ export function transformEmbeds(
   for (let i = 0; i < children.length; i += 1) {
     const url = bareLinkURL(children[i]);
     if (!url) continue;
-    const snapshot = resolve(url) ?? resolve(url.replace(/\/+$/, ""));
+    // Canonicalize before looking up: the URL as written in content carries whatever the
+    // platform's "Copy link" button produced. See `snapshotKey`.
+    const snapshot = resolve(snapshotKey(url));
     if (!snapshot) continue;
     children[i] = { type: "html", value: renderEmbedCard(snapshot, { inlineVideo }) };
   }

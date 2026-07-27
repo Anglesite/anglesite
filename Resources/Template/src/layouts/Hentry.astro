@@ -8,6 +8,7 @@ import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
 import EmbedCard from "../components/EmbedCard.astro";
+import { snapshotKey } from "../../scripts/embeds/adapters";
 import { loadAllSnapshots } from "../../scripts/embeds/store";
 import { readConfig } from "../../scripts/config.ts";
 
@@ -54,7 +55,10 @@ const jsonLd = entrySchema(entry.collection, entry.data as HentryData, {
 // snapshot for a cited URL these fall through to the bare links this layout has always rendered.
 const snapshots = loadAllSnapshots(process.cwd());
 const inlineVideo = (readConfig("EMBED_VIDEO_INLINE") ?? "").trim().toLowerCase() === "true";
-const cited = (url: string | undefined) => (url ? (snapshots.get(url) ?? null) : null);
+// `snapshotKey` on both sides of the lookup, exactly as the remark plugin does it — a cited URL
+// pasted with tracking parameters, in a short form, or with a stray trailing slash must resolve
+// to the same snapshot as its canonical spelling.
+const cited = (url: string | undefined) => (url ? (snapshots.get(snapshotKey(url)) ?? null) : null);
 const bookmarkCite = cited(d.bookmarkOf);
 const replyCite = cited(d.inReplyTo);
 const likeCite = cited(d.likeOf);

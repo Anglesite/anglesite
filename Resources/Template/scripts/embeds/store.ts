@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { snapshotKey } from "./adapters";
 import type { EmbedSnapshot } from "./types";
 
 /** Snapshot records live in src/ (committed, not served); their media lives in public/ (served). */
@@ -87,8 +88,12 @@ export function writeSnapshot(cwd: string, snap: EmbedSnapshot): string {
 const _cache = new Map<string, Map<string, EmbedSnapshot>>();
 
 /**
- * Every committed snapshot, keyed by canonical URL. Called once per build by the remark plugin
- * and by Hentry.astro — reading the directory, never the network.
+ * Every committed snapshot, keyed by `snapshotKey(snap.url)`. Called once per build by the
+ * remark plugin and by Hentry.astro — reading the directory, never the network.
+ *
+ * The key is normalized rather than taken verbatim so that a hand-authored snapshot (which the
+ * Instagram escape hatch in `integrations/docs/embeds-setup.md` actively invites) still matches
+ * however the owner spelled the same URL in their Markdown. Lookups normalize identically.
  */
 export function loadAllSnapshots(cwd: string): Map<string, EmbedSnapshot> {
   const dir = resolve(cwd, SNAPSHOT_DIR);
@@ -101,9 +106,12 @@ export function loadAllSnapshots(cwd: string): Map<string, EmbedSnapshot> {
       if (!name.endsWith(".json")) continue;
       try {
         const snap = JSON.parse(readFileSync(join(dir, name), "utf-8")) as EmbedSnapshot;
-        if (snap.version === 1 && typeof snap.url === "string") out.set(snap.url, snap);
-      } catch {
-        // A corrupt snapshot degrades that one embed to a plain link; it must never fail a build.
+        if (snap.version === 1 && typeof snap.url === "string") out.set(snapshotKey(snap.url), snap);
+      } catch (error) {
+        // A corrupt snapshot degrades that one embed to a plain link; it must never fail a
+        // build. But it must not be *silent* either: owners are told to hand-author these
+        // files, so a stray trailing comma would otherwise cost them a bare link and no clue.
+        console.warn(`⚠ ignoring unreadable embed snapshot ${join(SNAPSHOT_DIR, name)} — ${(error as Error).message}`);
       }
     }
   }

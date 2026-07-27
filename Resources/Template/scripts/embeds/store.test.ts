@@ -102,6 +102,37 @@ test("loadAllSnapshots: a missing directory is empty, not an error", () => {
   assert.equal(loadAllSnapshots(cwd).size, 0);
 });
 
+test("loadAllSnapshots: a hand-authored url is keyed canonically, not verbatim", () => {
+  // The Instagram escape hatch tells owners to write this file themselves, so `url` arrives
+  // however they pasted it. Keying it through `snapshotKey` is what lets the renderers find it.
+  const cwd = mkdtempSync(join(tmpdir(), "embeds-"));
+  const snap = localizeAssets(sample(), {});
+  snap.url = "https://mobile.twitter.com/jack/status/20/?s=20&t=abc";
+  writeSnapshot(cwd, snap);
+
+  const all = loadAllSnapshots(cwd);
+  assert.deepEqual([...all.keys()], ["https://x.com/jack/status/20"]);
+});
+
+test("loadAllSnapshots: an unparseable snapshot is skipped with a warning, never thrown", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "embeds-"));
+  writeSnapshot(cwd, localizeAssets(sample(), {}));
+  // A trailing comma — the realistic hand-authoring mistake.
+  writeFileSync(join(resolve(cwd, SNAPSHOT_DIR), "broken.json"), `{"version": 1, "url": "https://e.example/x",}`, "utf-8");
+
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (message: string) => void warnings.push(message);
+  try {
+    const all = loadAllSnapshots(cwd);
+    assert.equal(all.size, 1);
+  } finally {
+    console.warn = original;
+  }
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /broken\.json/);
+});
+
 test("loadAllSnapshots: caches per directory, does not re-read the disk", () => {
   const cwd = mkdtempSync(join(tmpdir(), "embeds-"));
   writeSnapshot(cwd, localizeAssets(sample(), {}));

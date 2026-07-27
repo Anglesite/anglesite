@@ -13,7 +13,20 @@ const SNAP: EmbedSnapshot = {
   capturedAt: "2026-07-25T00:00:00.000Z",
 };
 
-const resolve = (url: string) => (url === SNAP.url ? SNAP : null);
+const VIDEO: EmbedSnapshot = {
+  version: 1,
+  url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  provider: "youtube",
+  author: { name: "Rick Astley" },
+  content: "Never Gonna Give You Up",
+  media: [],
+  capturedAt: "2026-07-25T00:00:00.000Z",
+};
+
+// Mirrors production: `loadAllSnapshots` keys by canonical URL and the resolver is a plain
+// map lookup, so anything that has to happen to the *content* URL happens in transformEmbeds.
+const SNAPSHOTS = new Map([SNAP, VIDEO].map((s) => [s.url, s]));
+const resolve = (url: string) => SNAPSHOTS.get(url) ?? null;
 
 function paragraph(...children: MdastNode[]): MdastNode {
   return { type: "paragraph", children };
@@ -56,6 +69,24 @@ test("transformEmbeds: link text differing from the href is a real link, not an 
 test("transformEmbeds: a trailing slash still matches the snapshot", () => {
   const tree = transformEmbeds(root(paragraph(link(`${SNAP.url}/`))), resolve);
   assert.equal(tree.children?.[0].type, "html");
+});
+
+test("transformEmbeds: the URL as a platform's Copy link button writes it still matches", () => {
+  // Every one of these is a spelling an owner realistically pastes; each canonicalizes to a
+  // key the snapshot map holds. Before the shared `snapshotKey` derivation these all rendered
+  // as bare links while `--all` insisted the URL was already snapshotted.
+  for (const spelling of [
+    `${SNAP.url}?s=20&t=abc`,
+    "https://twitter.com/jack/status/20",
+    "https://mobile.twitter.com/jack/status/20?s=20",
+    `${SNAP.url}/`,
+    "https://youtu.be/dQw4w9WgXcQ",
+    "https://youtu.be/dQw4w9WgXcQ?t=42",
+    "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLxyz",
+  ]) {
+    const tree = transformEmbeds(root(paragraph(link(spelling))), resolve);
+    assert.equal(tree.children?.[0].type, "html", spelling);
+  }
 });
 
 test("transformEmbeds: other content is untouched and order is preserved", () => {

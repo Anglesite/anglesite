@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveAdapter } from "./adapters";
+import { resolveAdapter, snapshotKey } from "./adapters";
 
 test("resolveAdapter: rejects non-http(s) input", () => {
   assert.equal(resolveAdapter("mailto:me@example.com"), null);
@@ -74,4 +74,51 @@ test("resolveAdapter: mastodon still resolves on an arbitrary instance host not 
   assert.equal(r?.provider, "mastodon");
   assert.equal(r?.canonicalURL, "https://fosstodon.org/@someone/987654321");
   assert.equal(r?.apiURL, "https://fosstodon.org/api/v1/statuses/987654321");
+});
+
+test("snapshotKey: every spelling a 'Copy link' button produces collapses to one key", () => {
+  const x = "https://x.com/jack/status/20";
+  for (const spelling of [
+    x,
+    `${x}/`,
+    `${x}?s=20&t=abc`,
+    "https://twitter.com/jack/status/20",
+    "https://mobile.twitter.com/jack/status/20?s=20",
+    "https://www.x.com/jack/statuses/20",
+  ]) {
+    assert.equal(snapshotKey(spelling), x, spelling);
+  }
+
+  const yt = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+  for (const spelling of [
+    yt,
+    "https://youtu.be/dQw4w9WgXcQ",
+    "https://youtu.be/dQw4w9WgXcQ?t=42",
+    "https://www.youtube.com/shorts/dQw4w9WgXcQ",
+    "https://m.youtube.com/watch?v=dQw4w9WgXcQ",
+  ]) {
+    assert.equal(snapshotKey(spelling), yt, spelling);
+  }
+});
+
+test("snapshotKey: a generic URL loses only its trailing slash, keeping its query", () => {
+  assert.equal(snapshotKey("https://example.com/some/post/"), "https://example.com/some/post");
+  assert.equal(snapshotKey("https://example.com/p?id=7"), "https://example.com/p?id=7");
+});
+
+test("snapshotKey: is idempotent — normalizing a key again is a no-op", () => {
+  for (const url of [
+    "https://x.com/jack/status/20?s=20",
+    "https://youtu.be/dQw4w9WgXcQ",
+    "https://bsky.app/profile/alice.example/post/3juvfg/",
+    "https://fosstodon.org/@someone/987654321",
+    "https://example.com/some/post/",
+  ]) {
+    assert.equal(snapshotKey(snapshotKey(url)), snapshotKey(url), url);
+  }
+});
+
+test("snapshotKey: input resolveAdapter rejects stays addressable by its exact spelling", () => {
+  assert.equal(snapshotKey("not a url"), "not a url");
+  assert.equal(snapshotKey("mailto:me@example.com"), "mailto:me@example.com");
 });

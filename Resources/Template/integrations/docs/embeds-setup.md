@@ -122,7 +122,9 @@ this example. You'll need it for both steps below.
    Three things have to be exactly right:
 
    - `url` must match the URL you put on its own line in your Markdown (see "Adding an embed"
-     above) — that's how the page finds this file. A single trailing slash either way is fine.
+     above) — that's how the page finds this file. Both sides are normalized first, so a single
+     trailing slash either way is fine, as are the `?s=…`/`?t=…`/`?utm_*` parameters a platform's
+     "Copy link" button appends and short forms like `youtu.be/…` or `twitter.com/…`.
    - `provider` must be the string `"opengraph"` — there is no Instagram-specific value.
    - `media[].src` must start with `/embeds/` and point at a file that actually exists under
      `public/embeds/`. Anything else is dropped silently — that image just won't render, even
