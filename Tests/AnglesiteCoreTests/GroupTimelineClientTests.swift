@@ -102,11 +102,21 @@ struct GroupTimelineClientTests {
 
     @Test("rejects an oversized response body")
     func rejectsOversizedBody() async throws {
-        // Create a body larger than maximumResponseBytes (1 MB)
-        let oversizedBody = String(repeating: "x", count: GroupTimelineClient.maximumResponseBytes + 1)
+        let maxBytes = GroupTimelineClient.maximumResponseBytes
+        // Build oversized valid JSON: {"padding":"xxxx..."}
+        // Overhead: {"padding":""} = 14 bytes, so padding needs maxBytes - 13 to total maxBytes + 1
+        let paddingLength = maxBytes - 13
+        let oversizedBody = "{\"padding\":\"\(String(repeating: "x", count: paddingLength))\"}"
+
+        let bodyBytes = Data(oversizedBody.utf8)
+        let byteCount = bodyBytes.count
+        // Confirm it's actually oversized
+        #expect(byteCount > maxBytes)
+
         let fake = FakeTransport(body: oversizedBody)
         let url = try #require(URL(string: "https://lemmy.ml/c/birding/outbox"))
-        await #expect(throws: GroupTimelineError.self) {
+
+        await #expect(throws: GroupTimelineError.requestFailed(status: 0, body: "response too large (\(byteCount) bytes)")) {
             _ = try await GroupTimelineClient(transport: fake.transport).collection(at: url)
         }
     }
