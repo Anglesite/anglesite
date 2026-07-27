@@ -663,7 +663,7 @@ git commit -m "feat(#368): send Follow/Undo(Follow) to join and leave a communit
 
 **Interfaces:**
 - Consumes: `ResolvedCommunityActor.outboxURL` (Task 1) as the collection to page.
-- Produces: `public struct GroupPost: Sendable, Equatable, Identifiable { public let id: String; public let title: String?; public let contentHTML: String?; public let url: URL?; public let publishedAt: Date?; public let authorName: String? }`, `public struct GroupTimelinePage: Sendable, Equatable { public let items: [GroupPost]; public let next: URL? }`, `public struct GroupTimelineClient: Sendable { public init(transport: Transport = .defaultTransport); public func collection(at outboxURL: URL) async throws -> (totalItems: Int, firstPage: URL?); public func page(at url: URL) async throws -> GroupTimelinePage }`, `public enum GroupTimelineError: Error, Equatable, Sendable { case requestFailed(status: Int, body: String), decodingFailed(String) }`.
+- Produces: `public struct GroupPost: Sendable, Equatable, Identifiable { public let id: String; public let title: String?; public let contentHTML: String?; public let url: URL?; public let publishedAt: Date?; public let authorName: String? }`, `public struct GroupTimelinePage: Sendable, Equatable { public let items: [GroupPost]; public let next: URL? }`, `public struct GroupTimelineClient: Sendable { public init(transport: Transport = .defaultTransport); public func collection(at outboxURL: URL) async throws -> (totalItems: Int, firstPage: URL?); public func page(at url: URL) async throws -> GroupTimelinePage }`, `public enum GroupTimelineError: Error, Equatable, Sendable { case insecureURL, requestFailed(status: Int, body: String), decodingFailed(String) }`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -758,6 +758,17 @@ struct GroupTimelineClientTests {
             _ = try await GroupTimelineClient(transport: fake.transport).collection(at: url)
         }
     }
+
+    /// The outbox belongs to an arbitrary remote Group, the same trust level as a follower's
+    /// actor document (`ActorProfileFetcher`) — this guard is load-bearing, not decorative.
+    @Test("rejects a plain http outbox URL")
+    func rejectsInsecureURL() async throws {
+        let fake = FakeTransport(body: "{}")
+        let url = try #require(URL(string: "http://lemmy.ml/c/birding/outbox"))
+        await #expect(throws: GroupTimelineError.insecureURL) {
+            _ = try await GroupTimelineClient(transport: fake.transport).collection(at: url)
+        }
+    }
 }
 ```
 
@@ -811,19 +822,28 @@ public struct GroupTimelinePage: Sendable, Equatable {
 }
 
 public enum GroupTimelineError: Error, Equatable, Sendable {
+    /// The outbox URL, or the URL a redirect actually landed on, wasn't `https`.
+    case insecureURL
     case requestFailed(status: Int, body: String)
     case decodingFailed(String)
 }
 
 /// Reads a Group actor's public outbox (V-5.1a, #368) — the per-group timeline. Same
-/// unauthenticated, capped, AS2-collection-paging shape as `ActivityPubFollowersClient`, but the
-/// collection belongs to an arbitrary *remote* Group rather than this site's own followers, and
-/// each item is a full (or partial) activity to render rather than a bare actor IRI. AS2 is loose
-/// about wire shape here (a bare activity-id string, or a fully embedded activity), so this parses
-/// with `JSONSerialization` — like `ActivityPubOutboxBackfill.activityID(from:)` — rather than
-/// fighting `Decodable` over a heterogeneous array.
+/// unauthenticated, HTTPS-only, capped, AS2-collection-paging shape as `ActivityPubFollowersClient`
+/// (the collection) and `ActorProfileFetcher` (the HTTPS/size guard — this outbox is exactly as
+/// attacker-influenced as a follower's actor document, just a bigger one), but the collection
+/// belongs to an arbitrary *remote* Group rather than this site's own followers, and each item is
+/// a full (or partial) activity to render rather than a bare actor IRI. AS2 is loose about wire
+/// shape here (a bare activity-id string, or a fully embedded activity), so this parses with
+/// `JSONSerialization` — like `ActivityPubOutboxBackfill.activityID(from:)` — rather than fighting
+/// `Decodable` over a heterogeneous array.
 public struct GroupTimelineClient: Sendable {
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
+
+    /// 1 MB. A single actor document (`ActorProfileFetcher`'s 256 KB cap) is a few KB, but an
+    /// outbox page embeds several full activities at once — generous enough for a real page of
+    /// posts while still rejecting a pathological response.
+    public static let maximumResponseBytes = 1024 * 1024
 
     private let transport: Transport
 
@@ -847,6 +867,8 @@ public struct GroupTimelineClient: Sendable {
     }
 
     private func fetch(_ url: URL) async throws -> [String: Any] {
+        try Self.requireHTTPS(url)
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue(ActivityPubFollowersClient.acceptHeader, forHTTPHeaderField: "Accept")
@@ -859,6 +881,9 @@ public struct GroupTimelineClient: Sendable {
         } catch {
             throw GroupTimelineError.requestFailed(status: 0, body: "\(error)")
         }
+        // URLSession follows redirects transparently, so this body may not have come from `url`
+        // at all — re-check where it actually landed, exactly like `ActorProfileFetcher`.
+        if let finalURL = http.url { try Self.requireHTTPS(finalURL) }
         guard (200..<300).contains(http.statusCode) else {
             throw GroupTimelineError.requestFailed(
                 status: http.statusCode, body: String(decoding: data.prefix(400), as: UTF8.self))
@@ -867,6 +892,10 @@ public struct GroupTimelineClient: Sendable {
             throw GroupTimelineError.decodingFailed("not a JSON object")
         }
         return json
+    }
+
+    static func requireHTTPS(_ url: URL) throws {
+        guard url.scheme?.lowercased() == "https" else { throw GroupTimelineError.insecureURL }
     }
 
     /// Unwraps one `Create`/`Announce` level to reach the actual post object; a bare-string item
@@ -893,10 +922,13 @@ public struct GroupTimelineClient: Sendable {
             authorName: (object["attributedTo"] as? String).map(DisplayString.safe))
     }
 
+    private static let session = CappedHTTPTransport.session(
+        requestTimeout: ActorProfileFetcher.timeout, resourceTimeout: ActorProfileFetcher.resourceTimeout)
+
     public static let defaultTransport: Transport = { request in
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
-        return (data, http)
+        try await CappedHTTPTransport.fetch(
+            request, session: session, cap: GroupTimelineClient.maximumResponseBytes,
+            tooLarge: { GroupTimelineError.requestFailed(status: 0, body: "response too large (\($0) bytes)") })
     }
 }
 ```
@@ -904,7 +936,7 @@ public struct GroupTimelineClient: Sendable {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `swift test --package-path . --filter GroupTimelineClientTests`
-Expected: PASS (4 tests)
+Expected: PASS (5 tests)
 
 - [ ] **Step 5: Commit**
 
