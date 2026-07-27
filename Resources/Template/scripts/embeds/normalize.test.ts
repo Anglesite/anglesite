@@ -179,3 +179,23 @@ test("normalizers never throw on a hostile payload", () => {
   assert.equal(s.content, "alert(1)");
   assert.equal(s.author.name, "<img src=x onerror=alert(1)>");
 });
+
+test("htmlToText: no tag-like residue survives nested or malformed markup", () => {
+  // The property that matters: nothing that could re-parse as a tag (a `<` followed by a
+  // name character) is left behind, however malformed the input.
+  const tagLike = /<[A-Za-z/!?]/;
+  for (const input of [
+    "<a<b>c>",
+    "<<script>script>alert(1)",
+    "<img src=x onerror=y>safe",
+    "<div><p>nested</p></div>",
+    "<scr<span>ipt>x",
+  ]) {
+    assert.ok(!tagLike.test(htmlToText(input)), `${input} -> ${htmlToText(input)}`);
+  }
+  assert.equal(htmlToText("<img src=x onerror=y>safe"), "safe");
+  // Known, pre-existing lossiness (not introduced by the tag-strip loop): an unescaped `<`
+  // in prose swallows everything up to the next `>`, so "2 < 3 and 4 > 1" becomes "2 1".
+  // Platform APIs escape these as &lt;/&gt;, which decode after stripping and survive intact.
+  assert.equal(htmlToText("2 &lt; 3 and 4 &gt; 1"), "2 < 3 and 4 > 1");
+});

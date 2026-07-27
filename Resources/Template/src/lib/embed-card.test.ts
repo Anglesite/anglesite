@@ -60,15 +60,41 @@ test("renderEmbedCard: local media renders; width/height are emitted to prevent 
   assert.match(html, /<img class="embed-card__media" src="\/embeds\/abc\/asset-0\.png" alt="a photo" width="1200" height="800" loading="lazy" decoding="async">/);
 });
 
+/**
+ * Every `src` the card emits. Asserting on these directly states the actual invariant — no
+ * subresource is loaded from anywhere but `/embeds/` — instead of sweeping the whole document
+ * for a hostname substring, which is both weaker (an encoded spelling would slip past) and
+ * indistinguishable from a broken host-allowlist check to a static analyser.
+ */
+function srcValues(html: string): string[] {
+  return [...html.matchAll(/\ssrc="([^"]*)"/g)].map((m) => m[1]);
+}
+
 test("renderEmbedCard: a remote media src is refused — the privacy invariant is enforced at render", () => {
   const html = renderEmbedCard(snap({ media: [{ src: "https://pbs.twimg.com/x.jpg", alt: "leak" }] }));
-  assert.ok(!html.includes("pbs.twimg.com"));
+  assert.deepEqual(srcValues(html), []);
 });
 
 test("renderEmbedCard: a remote avatar src is refused — mirrors the remote-media invariant", () => {
   const html = renderEmbedCard(snap({ author: { name: "jack", handle: "@jack", avatar: "https://pbs.twimg.com/avatar.jpg" } }));
-  assert.ok(!html.includes("pbs.twimg.com"));
+  assert.deepEqual(srcValues(html), []);
   assert.ok(!html.includes("embed-card__avatar"));
+});
+
+test("renderEmbedCard: every emitted src is repo-relative under /embeds/", () => {
+  const html = renderEmbedCard(
+    snap({
+      author: { name: "jack", handle: "@jack", avatar: "/embeds/abc/asset-0.png" },
+      media: [
+        { src: "/embeds/abc/asset-1.png", alt: "kept" },
+        { src: "https://pbs.twimg.com/x.jpg", alt: "dropped" },
+        { src: "//pbs.twimg.com/y.jpg", alt: "also dropped" },
+      ],
+    }),
+  );
+  const srcs = srcValues(html);
+  assert.equal(srcs.length, 2);
+  for (const src of srcs) assert.ok(src.startsWith("/embeds/"), src);
 });
 
 test("renderEmbedCard: a javascript: author.url renders no anchor and is scrubbed from output", () => {

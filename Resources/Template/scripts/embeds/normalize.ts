@@ -12,11 +12,28 @@ const ENTITIES: Record<string, string> = {
  * it would need issue approval. Block boundaries become blank lines so multi-paragraph posts
  * survive; everything else is dropped.
  */
+/**
+ * Strip tags until the string stops changing. A single pass over nested or malformed markup
+ * (`<a<b>c>`) can leave a partial tag behind, and this function is exported — a future caller
+ * might not escape its output. Escaping at render (`src/lib/embed-card.ts`) remains the actual
+ * security boundary; this is defence in depth. Terminates because each pass strictly shortens
+ * the string or leaves it unchanged.
+ */
+function stripTags(input: string): string {
+  let out = input;
+  for (let previous = ""; out !== previous; ) {
+    previous = out;
+    out = out.replace(/<[^>]*>/g, "");
+  }
+  return out;
+}
+
 export function htmlToText(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|blockquote)>/gi, "\n\n")
-    .replace(/<[^>]*>/g, "")
+  return stripTags(
+    html
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|blockquote)>/gi, "\n\n"),
+  )
     .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
     .replace(/&#x([0-9a-f]+);/gi, (_, n: string) => String.fromCodePoint(parseInt(n, 16)))
     .replace(/&([a-z]+);/gi, (m, name: string) => ENTITIES[name.toLowerCase()] ?? m)
