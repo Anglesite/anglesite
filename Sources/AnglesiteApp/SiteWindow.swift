@@ -501,6 +501,14 @@ struct SiteWindow: View {
                 .help("Show or hide the page inspector")
             }
         }
+        // Trailing search field (#520). Not a `.toolbar(id:)` item: `.searchable` mints its own
+        // toolbar item id, so it stays out of the frozen `SiteToolbarItemID` set and out of
+        // users' saved customizations.
+        .modifier(SiteSearchFieldModifier(
+            model: model.search,
+            siteID: site.id,
+            activate: { hit in model.openSearchHit(hit) }
+        ))
         .sheet(isPresented: $bindableModel.deploy.blockedPresented) {
             if case .blocked(let failures, let warnings) = model.deploy.phase {
                 BlockedDeploySheetView(failures: failures, warnings: warnings) {

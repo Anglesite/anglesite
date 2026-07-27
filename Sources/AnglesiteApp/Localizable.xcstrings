@@ -1513,6 +1513,9 @@
     "No matches" : {
 
     },
+    "No matching content" : {
+
+    },
     "No matching graph nodes" : {
 
     },
@@ -1642,6 +1645,9 @@
     "Page" : {
 
     },
+    "Pages" : {
+
+    },
     "Pages using this worker's components" : {
 
     },
@@ -1691,6 +1697,9 @@
 
     },
     "Post" : {
+
+    },
+    "Posts" : {
 
     },
     "Posts a notification when a Deploy, Backup, or Audit finishes while Anglesite is in the background — success or failure. Clicking the notification brings the site's window to the front. Delivery starts quietly; promote or silence Anglesite in System Settings › Notifications." : {
@@ -2058,6 +2067,9 @@
 
     },
     "Search ${site} for ${query}" : {
+
+    },
+    "Search Site" : {
 
     },
     "Search Site…" : {

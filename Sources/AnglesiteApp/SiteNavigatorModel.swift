@@ -12,6 +12,10 @@ final class SiteNavigatorModel {
     private(set) var nodes: [URLTreeNode] = []
     /// Flattened id → node lookup, rebuilt with `nodes` (selection, targets, titles).
     private var nodesByID: [String: URLTreeNode] = [:]
+    /// Route → node id for the rows actually on screen, rebuilt with `nodes`. Lets site search
+    /// (#520) resolve a hit's computed route to a real sidebar row — and only to a row that
+    /// exists, since `ContentRouteResolver`'s route is a convention-based guess.
+    private(set) var routeIDs: [String: String] = [:]
     var selection: String?
 
     // Inline re-titling (Finder-style). `editingItemID` non-nil → that row shows a TextField.
@@ -266,6 +270,7 @@ final class SiteNavigatorModel {
             websiteTitle: websiteTitle, pages: pages, posts: posts, feedCollections: feeds)
         nodes = tree
         nodesByID = Self.index(tree)
+        routeIDs = Self.indexRoutes(nodesByID)
     }
 
     private static func index(_ nodes: [URLTreeNode]) -> [String: URLTreeNode] {
@@ -275,6 +280,18 @@ final class SiteNavigatorModel {
             node.children?.forEach(walk)
         }
         nodes.forEach(walk)
+        return map
+    }
+
+    /// Only `.route` targets: a directory row previews its index page rather than the document a
+    /// search hit names, and the website-settings row opens `Info.plist` — neither is where
+    /// activating a content hit should land.
+    private static func indexRoutes(_ nodesByID: [String: URLTreeNode]) -> [String: String] {
+        var map: [String: String] = [:]
+        for node in nodesByID.values {
+            guard case .route(let route) = node.target else { continue }
+            map[route] = node.id
+        }
         return map
     }
 
