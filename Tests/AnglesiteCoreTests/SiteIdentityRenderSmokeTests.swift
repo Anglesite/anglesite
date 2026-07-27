@@ -36,14 +36,16 @@ struct SiteIdentityRenderSmokeTests {
         }
 
         try await TemplateBuildSerializer.shared.serialize {
-            // Keep the template ship-empty no matter how this test exits.
+            // Keep the template ship-empty no matter how this test exits. Remove only the
+            // file this test writes, not the whole src/data directory: src/data/ now also
+            // holds committed content (e.g. licensing.json, #689) that must survive a test run.
             defer {
-                try? FileManager.default.removeItem(at: dataDir)
+                try? FileManager.default.removeItem(at: profile)
                 try? FileManager.default.removeItem(at: dist)
             }
 
             // 1. Unconfigured: no profile.json → no h-card in the footer.
-            try? FileManager.default.removeItem(at: dataDir)
+            try? FileManager.default.removeItem(at: profile)
             try await build()
             #expect(!(try indexHTML().contains("h-card")))
 
