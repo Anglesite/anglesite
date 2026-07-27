@@ -13,13 +13,6 @@ import Testing
 /// complete today at all. Everything past that transport boundary — the divergence guards, the
 /// tree replay, and the commit under test here — is identical either way, so these should move
 /// onto the real artifact when #988 fixes the transport.
-///
-/// `.serialized` is load-bearing, not caution: run in parallel these two abort the whole test
-/// process (SIGABRT) inside libgit2's own error buffer — `git_error_set` → `git_str_grow` →
-/// `realloc` on a pointer libmalloc says was never allocated. The vendored libgit2 is built
-/// without `GIT_THREADS`, so its "thread-local" storage is a process-global array and its mutexes
-/// are no-ops (#994). Reproducible on demand by dropping this trait; remove it when #994 lands.
-@Suite(.serialized)
 struct InProcessEditPersistenceTests {
     @Test("importBundle commits the overlay edit with the app identity when none is configured")
     func importsWithAppFallbackIdentity() async throws {
