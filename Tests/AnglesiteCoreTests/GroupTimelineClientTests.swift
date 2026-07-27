@@ -66,6 +66,29 @@ struct GroupTimelineClientTests {
         #expect(page.next?.absoluteString == "https://lemmy.ml/c/birding/outbox?page=2")
     }
 
+    /// `content` is exactly as attacker-controlled as `name`/`attributedTo` (the remote Group's
+    /// own server writes it) and `CommunitiesView` falls back to rendering it verbatim
+    /// (`post.title ?? post.contentHTML ?? post.id`), so it needs the same
+    /// `DisplayString.safe` bidi/control-scalar stripping `title`/`authorName` already get right
+    /// next to it — otherwise a hostile post with no `name` can smuggle a
+    /// U+202E RIGHT-TO-LEFT OVERRIDE (or similar) into the timeline row to visually spoof it.
+    @Test("strips bidi-control scalars from contentHTML, matching title/authorName")
+    func sanitizesContentHTML() async throws {
+        let fake = FakeTransport(body: """
+        {"id":"https://lemmy.ml/c/birding/outbox?page=1","type":"OrderedCollectionPage",
+         "orderedItems":[
+           {"id":"https://lemmy.ml/activities/3","type":"Create",
+            "object":{"id":"https://lemmy.ml/post/3","type":"Note",
+                      "content":"safe\\u202Eevil"}}
+         ]}
+        """)
+        let url = try #require(URL(string: "https://lemmy.ml/c/birding/outbox?page=1"))
+        let page = try await GroupTimelineClient(transport: fake.transport).page(at: url)
+
+        #expect(page.items.count == 1)
+        #expect(page.items[0].contentHTML == "safeevil")
+    }
+
     @Test("falls back to a bare-id stub for an item with no embedded object")
     func decodesBareIDItem() async throws {
         let fake = FakeTransport(body: """

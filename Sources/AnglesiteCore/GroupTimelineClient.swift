@@ -138,7 +138,9 @@ public struct GroupTimelineClient: Sendable {
         return GroupPost(
             id: id,
             title: (object["name"] as? String).map(DisplayString.safe),
-            contentHTML: object["content"] as? String,
+            // `CommunitiesView` falls back to rendering this verbatim when there's no `title`,
+            // so it needs the same bidi/control-scalar stripping as `title`/`authorName`.
+            contentHTML: (object["content"] as? String).map(DisplayString.safe),
             url: (object["url"] as? String).flatMap(URL.init(string:)),
             publishedAt: publishedAt,
             authorName: (object["attributedTo"] as? String).map(DisplayString.safe))
