@@ -361,6 +361,15 @@
     "Animation" : {
 
     },
+    "Animations" : {
+
+    },
+    "Animations Unavailable" : {
+
+    },
+    "Animations…" : {
+
+    },
     "Announce live updates to VoiceOver" : {
 
     },
@@ -780,6 +789,9 @@
     "Continue" : {
 
     },
+    "Copied" : {
+
+    },
     "Copies %@ to the clipboard" : {
 
     },
@@ -799,6 +811,9 @@
 
     },
     "Copy SHA" : {
+
+    },
+    "Copy Snippet" : {
 
     },
     "Copy Style" : {
@@ -1424,6 +1439,9 @@
     "Keep which version of %@" : {
 
     },
+    "Key Props" : {
+
+    },
     "Kind" : {
 
     },
@@ -1491,6 +1509,9 @@
 
     },
     "Load records" : {
+
+    },
+    "Loading animations…" : {
 
     },
     "Loading site…" : {
@@ -1608,6 +1629,9 @@
 
     },
     "No Collection Types" : {
+
+    },
+    "No Component Selected" : {
 
     },
     "No DNS records found." : {
