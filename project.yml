@@ -61,6 +61,12 @@ targets:
       - name: Build Help index
         script: "\"${PROJECT_DIR}/scripts/build-help-index.sh\""
         basedOnDependencyAnalysis: false
+    # Debug signing (CODE_SIGN_STYLE/IDENTITY/TEAM) comes from xcconfig/Signing-Debug.xcconfig
+    # instead of inline settings below, so a personal Team set via Xcode's Signing &
+    # Capabilities tab can persist across `xcodegen generate` — see that file for how to
+    # override it locally without editing this tracked config.
+    configFiles:
+      Debug: xcconfig/Signing-Debug.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.dwk.anglesite
@@ -88,8 +94,6 @@ targets:
         OTHER_LDFLAGS: "$(inherited) -weak_framework FoundationModels"
       configs:
         Debug:
-          CODE_SIGN_STYLE: Manual
-          CODE_SIGN_IDENTITY: "-"
           # #775 workaround: punch the com.apple.NetworkSharing mach look-up back
           # through the sandbox so container boots survive macOS 27 seeds
           # 26A5378n–26A5388g. Debug-only — never ships to MAS.
@@ -133,6 +137,9 @@ targets:
       - name: Build edit overlay
         script: "\"${PROJECT_DIR}/scripts/build-overlay.sh\""
         basedOnDependencyAnalysis: false
+    # See the Anglesite target's matching comment on configFiles above.
+    configFiles:
+      Debug: xcconfig/Signing-Debug.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.dwk.anglesite.ios
@@ -151,9 +158,6 @@ targets:
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: "0.1.0"
       configs:
-        Debug:
-          CODE_SIGN_STYLE: Manual
-          CODE_SIGN_IDENTITY: "-"
         Release:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: "Apple Distribution"
@@ -170,6 +174,10 @@ targets:
     platform: macOS
     sources:
       - path: Sources/AnglesiteQuickLookPreview
+    # See the Anglesite target's matching comment on configFiles above. Extensions embedded
+    # in the host app need matching signing style/team for automatic signing to resolve.
+    configFiles:
+      Debug: xcconfig/Signing-Debug.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.dwk.anglesite.QuickLookPreview
@@ -184,9 +192,6 @@ targets:
         MARKETING_VERSION: "0.1.0"
         SKIP_INSTALL: YES
       configs:
-        Debug:
-          CODE_SIGN_STYLE: Manual
-          CODE_SIGN_IDENTITY: "-"
         Release:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: "Apple Distribution"
@@ -199,6 +204,10 @@ targets:
     platform: macOS
     sources:
       - path: Sources/AnglesiteQuickLookThumbnail
+    # See the Anglesite target's matching comment on configFiles above. Extensions embedded
+    # in the host app need matching signing style/team for automatic signing to resolve.
+    configFiles:
+      Debug: xcconfig/Signing-Debug.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.dwk.anglesite.QuickLookThumbnail
@@ -213,9 +222,6 @@ targets:
         MARKETING_VERSION: "0.1.0"
         SKIP_INSTALL: YES
       configs:
-        Debug:
-          CODE_SIGN_STYLE: Manual
-          CODE_SIGN_IDENTITY: "-"
         Release:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: "Apple Distribution"
