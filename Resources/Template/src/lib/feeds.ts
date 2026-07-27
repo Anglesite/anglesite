@@ -27,7 +27,7 @@ export interface FeedCollectionConfig {
 
 function excerpt(body: string | undefined, max = 80): string {
   const text = (body ?? "").replace(/\s+/g, " ").trim();
-  if (text.length <= max) return text || "Untitled";
+  if (text.length <= max) return text;
   return text.slice(0, max).trimEnd() + "…";
 }
 

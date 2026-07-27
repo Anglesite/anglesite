@@ -98,6 +98,17 @@ test("toFeedItem uses the bookmark's title when present, otherwise leaves it tit
   assert.equal(untitled.title, undefined);
 });
 
+test("toFeedItem gives an empty-body, title-less entry an empty summary rather than a synthesized 'Untitled'", () => {
+  const like = toFeedItem(
+    "likes",
+    entry("likes", { likeOf: "https://indieweb.org/post", publishDate: "2026-01-02" }, ""),
+    SITE,
+    "",
+  );
+  assert.equal(like.summary, "");
+  assert.equal(like.title, undefined);
+});
+
 test("toFeedItem throws on a missing or invalid date field", () => {
   assert.throws(
     () => toFeedItem("notes", entry("notes", {}), SITE, ""),
@@ -233,6 +244,35 @@ test("renderJsonFeed omits the title key for a title-less item and falls back to
   const feed = JSON.parse(await res.text());
   assert.equal("title" in feed.items[0], false);
   assert.equal(feed.items[0].content_html, "hi");
+});
+
+// --- Empty-body entries never synthesize "Untitled" text (#1021/#1022 follow-up) -----------
+
+test("renderRss, renderAtom, and renderJsonFeed never emit 'Untitled' for an empty-body, title-less item", async () => {
+  const like = toFeedItem(
+    "likes",
+    entry("likes", { likeOf: "https://indieweb.org/post", publishDate: "2026-01-02" }, ""),
+    SITE,
+    "",
+  );
+
+  const rssXml = await (
+    await renderRss({ title: "Likes", description: "Likes", site: SITE, items: [like] })
+  ).text();
+  assert.doesNotMatch(rssXml, /Untitled/);
+
+  const atomXml = await renderAtom({
+    title: "Likes",
+    site: SITE,
+    feedUrl: `${SITE}/likes/atom.xml`,
+    items: [like],
+  }).text();
+  assert.doesNotMatch(atomXml, /Untitled/);
+
+  const jsonFeed = await (
+    await renderJsonFeed({ title: "Likes", site: SITE, feedUrl: `${SITE}/likes/feed.json`, items: [like] })
+  ).text();
+  assert.doesNotMatch(jsonFeed, /Untitled/);
 });
 
 // --- WebSub discovery (V-3.3, #361) ---------------------------------------------------------
