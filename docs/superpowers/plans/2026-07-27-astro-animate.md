@@ -32,7 +32,7 @@
 **Interfaces:**
 - Produces: `node_modules/@astroanimate/core` present in the template; export-map imports `@astroanimate/core/<Name>` resolve.
 
-- [ ] **Step 1: Edit `package.json`.** In `dependencies` (alphabetical, after `"@astrojs/rss"`): add `"@astroanimate/core": "0.1.2",`. At top level (after `"devDependencies"`), add:
+- [x] **Step 1: Edit `package.json`.** In `dependencies` (alphabetical, after `"@astrojs/rss"`): add `"@astroanimate/core": "0.1.2",`. At top level (after `"devDependencies"`), add:
 
 ```json
 "overrides": {
@@ -42,17 +42,17 @@
 }
 ```
 
-- [ ] **Step 2: Install and verify resolution.**
+- [x] **Step 2: Install and verify resolution.**
 
 Run: `cd Resources/Template && npm install`
 Expected: exits 0, **no** `ERESOLVE` peer-dependency error; `ls node_modules/@astroanimate/core/dist/components | wc -l` prints ≥30.
 
-- [ ] **Step 3: Confirm existing template suites still pass.**
+- [x] **Step 3: Confirm existing template suites still pass.**
 
 Run (from `Resources/Template/`): `npm run test:scripts`
 Expected: PASS (no new failures).
 
-- [ ] **Step 4: Commit** (`package.json` + `package-lock.json` only):
+- [x] **Step 4: Commit** (`package.json` + `package-lock.json` only):
 
 ```bash
 git add Resources/Template/package.json Resources/Template/package-lock.json
@@ -90,7 +90,7 @@ git commit -m "feat(template): add @astroanimate/core 0.1.2 (#<ISSUE_A>)"
   `props` is the exact prop object used for rendering in tests and demos (usually `{}` = defaults; MUST NOT contain `enhance: true`). `category` ∈ `text | cards | buttons | backgrounds | navigation`.
 - Produces: `loadAnimationsCatalog(): AnimationsCatalog` from `scripts/animations-catalog.ts`.
 
-- [ ] **Step 1: Write the loader** `Resources/Template/scripts/animations-catalog.ts`:
+- [x] **Step 1: Write the loader** `Resources/Template/scripts/animations-catalog.ts`:
 
 ```ts
 import { readFileSync } from "node:fs";
@@ -123,7 +123,7 @@ export function loadAnimationsCatalog(): AnimationsCatalog {
 }
 ```
 
-- [ ] **Step 2: Write `vitest.astro.config.ts`** (Astro's Vite pipeline so `.astro` imports compile):
+- [x] **Step 2: Write `vitest.astro.config.ts`** (Astro's Vite pipeline so `.astro` imports compile):
 
 ```ts
 import { getViteConfig } from "astro/config";
@@ -135,7 +135,7 @@ export default getViteConfig({
 });
 ```
 
-- [ ] **Step 3: Write the failing rendering test** `Resources/Template/src/lib/animations-catalog.spec.ts`:
+- [x] **Step 3: Write the failing rendering test** `Resources/Template/src/lib/animations-catalog.spec.ts`:
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -182,21 +182,25 @@ describe("animations catalog", () => {
 });
 ```
 
-- [ ] **Step 4: Run it to make sure it fails** (no manifest yet).
+- [x] **Step 4: Run it to make sure it fails** (no manifest yet).
 
 Run (from `Resources/Template/`): `npx vitest run --config vitest.astro.config.ts`
 Expected: FAIL — `ENOENT … integrations/animations.json`.
 
-- [ ] **Step 5: Write `integrations/animations.json`.** Start from this candidate list and **let the test decide membership** — drop any component that emits `<script>` with default props or lacks a reduced-motion guard; keep the survivors: `FadeInText`, `ScaleIn`, `RevealImage`, `HighlightText`, `TypewriterText` (category `text`); `AnimatedCard`, `GlassCard`, `CardStack`, `ArticleCard` (category `cards`); `AnimatedButton`, `FillHoverButton`, `ArrowCTAButton`, `SlidingOverlayButton` (category `buttons`); `GridDotsBackground`, `InfiniteMarquee` (category `backgrounds`); `Loader`, `ProgressBar` (category `navigation`). Every entry follows the schema in **Interfaces** above, `props: {}` unless a prop is required to render, and a `snippet` in the exact import style shown there.
+- [x] **Step 5: Write `integrations/animations.json`.** Start from this candidate list and **let the test decide membership** — drop any component that emits `<script>` with default props or lacks a reduced-motion guard; keep the survivors: `FadeInText`, `ScaleIn`, `RevealImage`, `HighlightText`, `TypewriterText` (category `text`); `AnimatedCard`, `GlassCard`, `CardStack`, `ArticleCard` (category `cards`); `AnimatedButton`, `FillHoverButton`, `ArrowCTAButton`, `SlidingOverlayButton` (category `buttons`); `GridDotsBackground`, `InfiniteMarquee` (category `backgrounds`); `Loader`, `ProgressBar` (category `navigation`). Every entry follows the schema in **Interfaces** above, `props: {}` unless a prop is required to render, and a `snippet` in the exact import style shown there.
 
-- [ ] **Step 6: Run tests until green; prune failures.**
+  **Dropped: `GlassCard`.** Static inspection of `dist/components/GlassCard/GlassCard.astro` showed an unconditional `<script is:inline define:vars={{ cardId }}>` (tilt/glare JS) with no `enhance` gate at all — it always emits a script regardless of props, which fails the CSP zero-`<script>` rule. Excluded before writing the manifest rather than added-then-pruned. `CardStack` defaults `enhance` to `true` (unlike the other enhance-gated components); catalogued with `props: { enhance: false, ... }` and the snippet shows `enhance={false}` explicitly so copy-paste usage stays CSS-only. All other 15 candidates passed the rendering/script/reduced-motion test as originally proposed — final curated list is 16 components.
+
+- [x] **Step 6: Run tests until green; prune failures.**
 
 Run: `npx vitest run --config vitest.astro.config.ts`
 Expected: PASS with the final curated list (document dropped components in the commit body).
 
-- [ ] **Step 7: Wire the script into `package.json`** — add `"test:astro": "vitest run --config vitest.astro.config.ts"` to template scripts and extend the existing `"test"` script with ` && npm run test:astro`.
+  One test bug found and fixed along the way: the literal `expect(html).not.toContain("<script")` check false-failed on `FadeInText` — not because it emits a real `<script>` element, but because Astro preserves top-level template comments in compiled output, and `FadeInText`'s own comment ("Script emitted ONLY when enhance=true... Astro does NOT bundle `<script>` tags...") contains the literal substring `<script` inside an HTML comment. Fixed by stripping HTML comments (`html.replace(/<!--[\s\S]*?-->/g, "")`) before the containment check, so the assertion targets real `<script>` elements. All 16 curated components pass; no component was dropped by the render/script/reduced-motion assertion itself (only `GlassCard`, excluded up front per Step 5).
 
-- [ ] **Step 8: Commit:**
+- [x] **Step 7: Wire the script into `package.json`** — add `"test:astro": "vitest run --config vitest.astro.config.ts"` to template scripts and extend the existing `"test"` script with ` && npm run test:astro`.
+
+- [x] **Step 8: Commit:**
 
 ```bash
 git add Resources/Template/integrations/animations.json Resources/Template/scripts/animations-catalog.ts \

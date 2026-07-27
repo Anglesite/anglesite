@@ -11,9 +11,10 @@
     "check": "npx tsx scripts/pre-deploy-check.ts",
     "embed": "tsx scripts/embed-snapshot.ts",
     "build:ci": "npm run build && npx tsx scripts/pre-deploy-check.ts --json --strict",
-    "test": "tsx --test \"scripts/**/*.test.ts\" \"src/**/*.test.ts\"",
+    "test": "tsx --test \"scripts/**/*.test.ts\" \"src/**/*.test.ts\" && npm run test:astro",
     "test:worker": "vitest run --config vitest.config.ts",
-    "test:scripts": "npx tsx --test scripts/*.test.ts scripts/embeds/*.test.ts src/lib/*.test.ts"
+    "test:scripts": "npx tsx --test scripts/*.test.ts scripts/embeds/*.test.ts src/lib/*.test.ts",
+    "test:astro": "vitest run --config vitest.astro.config.ts"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.2.1",
