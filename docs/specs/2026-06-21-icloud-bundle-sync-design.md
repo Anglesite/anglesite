@@ -1,6 +1,10 @@
 # `.anglesite` iCloud sync via `git bundle`
 
-**Status:** Phase 1 landed (AnglesiteCore `BundleSync`); app wiring is the next increment.
+**Status:** Superseded by
+[`2026-07-21-icloud-git-sync-design.md`](../superpowers/specs/2026-07-21-icloud-git-sync-design.md) — its split-repo
+layout + `SyncEngine` design replaces the `BundleSync` actor described below outright. `BundleSync`
+shelled out to `/usr/bin/git`, which cannot execute at all under the MAS App Sandbox (#640), so it
+was never shippable; it was deleted in #879. This document is kept for history only.
 **Issue:** #283 — "the `.anglesite` package should use `git bundle` internally so it can sync via iCloud between Macs."
 **Date:** 2026-06-21
 
