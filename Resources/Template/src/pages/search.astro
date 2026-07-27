@@ -18,7 +18,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <link slot="head" rel="stylesheet" href="/pagefind/pagefind-component-ui.css" />
 
   <!-- Keeps the search page itself out of its own results, where it would be pure noise. -->
-  <main data-pagefind-ignore>
+  <div data-pagefind-ignore>
     <h1>Search</h1>
 
     <pagefind-searchbox></pagefind-searchbox>
@@ -35,7 +35,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <a href="/rss.xml">subscribe by feed</a>.
       </p>
     </noscript>
-  </main>
+  </div>
 </BaseLayout>
 
 <!--

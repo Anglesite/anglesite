@@ -100,40 +100,36 @@ public enum ContentScaffold {
         let description = description ?? "\(title)."
         let body: String
         switch template.id {
+        // No `<main>` wrapper: BaseLayout owns the page's single main landmark (#1012), so a
+        // scaffolded page contributes content only — a second `<main>` would nest invalidly.
         case PageTemplate.landing.id:
             body = """
-              <main>
-                <section>
-                  <p>Welcome</p>
-                  <h1>\(escapeHTML(title))</h1>
-                  <p>Add a short promise for this page.</p>
-                </section>
-                <section>
-                  <h2>Highlights</h2>
-                  <ul>
-                    <li>First thing visitors should know.</li>
-                    <li>Second thing visitors should know.</li>
-                    <li>Next step visitors can take.</li>
-                  </ul>
-                </section>
-              </main>
+              <section>
+                <p>Welcome</p>
+                <h1>\(escapeHTML(title))</h1>
+                <p>Add a short promise for this page.</p>
+              </section>
+              <section>
+                <h2>Highlights</h2>
+                <ul>
+                  <li>First thing visitors should know.</li>
+                  <li>Second thing visitors should know.</li>
+                  <li>Next step visitors can take.</li>
+                </ul>
+              </section>
             """
         case PageTemplate.contact.id:
             body = """
-              <main>
-                <h1>\(escapeHTML(title))</h1>
-                <p>Tell visitors how to reach you.</p>
-                <address>
-                  <a href="mailto:hello@example.com">hello@example.com</a>
-                </address>
-              </main>
+              <h1>\(escapeHTML(title))</h1>
+              <p>Tell visitors how to reach you.</p>
+              <address>
+                <a href="mailto:hello@example.com">hello@example.com</a>
+              </address>
             """
         default:
             body = """
-              <main>
-                <h1>\(escapeHTML(title))</h1>
-                <p>Add your content here.</p>
-              </main>
+              <h1>\(escapeHTML(title))</h1>
+              <p>Add your content here.</p>
             """
         }
         return """

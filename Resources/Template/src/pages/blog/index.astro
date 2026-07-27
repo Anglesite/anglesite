@@ -9,26 +9,24 @@ const posts = (
 ---
 
 <BaseLayout title="Blog" description="Read the latest posts and updates.">
-  <main>
-    <h1>Blog</h1>
-    <p><a href="/blog/rss.xml">Subscribe (RSS)</a> · <a href="/search/">Search the archive</a></p>
-    {
-      posts.length === 0 ? (
-        <p>No posts yet. Add a Markdown file in <code>src/content/blog/</code> to get started.</p>
-      ) : (
-        <ul>
-          {posts.map((post) => (
-            <li>
-              <DraftBadge draft={post.data.draft} />
-              <a href={`/blog/${post.id}/`}>{post.data.title}</a>
-              <time datetime={post.data.pubDate.toISOString()}>
-                {post.data.pubDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })}
-              </time>
-              {post.data.description && <p>{post.data.description}</p>}
-            </li>
-          ))}
-        </ul>
-      )
-    }
-  </main>
+  <h1>Blog</h1>
+  <p><a href="/blog/rss.xml">Subscribe (RSS)</a> · <a href="/search/">Search the archive</a></p>
+  {
+    posts.length === 0 ? (
+      <p>No posts yet. Add a Markdown file in <code>src/content/blog/</code> to get started.</p>
+    ) : (
+      <ul>
+        {posts.map((post) => (
+          <li>
+            <DraftBadge draft={post.data.draft} />
+            <a href={`/blog/${post.id}/`}>{post.data.title}</a>
+            <time datetime={post.data.pubDate.toISOString()}>
+              {post.data.pubDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })}
+            </time>
+            {post.data.description && <p>{post.data.description}</p>}
+          </li>
+        ))}
+      </ul>
+    )
+  }
 </BaseLayout>
