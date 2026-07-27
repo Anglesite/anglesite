@@ -18,6 +18,7 @@
   "dependencies": {
     "@astrojs/markdown-remark": "^7.2.1",
     "@astrojs/rss": "^4.0.0",
+    "@astroanimate/core": "0.1.2",
     "@dwk/activitypub": "0.1.0-beta.5",
     "@dwk/indieauth": "0.1.0-beta.3",
     "@dwk/micropub": "0.1.0-beta.4",
@@ -46,5 +47,10 @@
     "typescript": "^5.9.3",
     "vitest": "4.1.10",
     "wrangler": "4.114.0"
+  },
+  "overrides": {
+    "@astroanimate/core": {
+      "astro": "$astro"
+    }
   }
 }
