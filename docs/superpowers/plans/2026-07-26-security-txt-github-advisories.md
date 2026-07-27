@@ -1779,6 +1779,12 @@ Add near `emailSecurityTab`:
                 case .repoPrivate:
                     Text("\(repo.owner)/\(repo.name) is a private repository, so its advisory form isn’t reachable by anyone outside it. Make the repository public to route reports there.")
                         .font(.callout)
+                case .unknown:
+                    // The check hasn't completed, or it failed. `securityReportingError` (rendered
+                    // by the tab below) carries the reason; don't offer an action we can't back up.
+                    Text("Checking whether \(repo.owner)/\(repo.name) can accept private vulnerability reports…")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                 case .notGitHub:
                     EmptyView()
                 }

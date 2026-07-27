@@ -229,6 +229,7 @@ with no fakes at all:
 
 ```swift
 public enum SecurityReportingReadiness: Sendable, Equatable {
+    case unknown            // not yet checked, or a check failed before one ever succeeded
     case notGitHub          // no origin, or a non-GitHub origin
     case alreadyConfigured  // the advisory form is already a Contact
     case ready              // public + PVR on — offer to add it
@@ -239,7 +240,15 @@ public enum SecurityReportingReadiness: Sendable, Equatable {
 }
 ```
 
-Precedence, in order: `notGitHub` → `alreadyConfigured` → `repoPrivate` → `needsPVR` → `ready`.
+`unknown` is the initial state and the resting state of a failed check. `evaluate` never returns
+it — a caller assigns it when it cannot get far enough to call `evaluate` at all (no token, a
+Keychain error, an unreachable API). It exists because the alternative default, `notGitHub`,
+asserts something false: that the site has no GitHub remote, when the truth is that nobody has
+looked yet. A failed check therefore keeps whatever was last determined, or stays `unknown` —
+it never collapses to `notGitHub`.
+
+Precedence for `evaluate`, in order: `notGitHub` → `alreadyConfigured` → `repoPrivate` →
+`needsPVR` → `ready`.
 `alreadyConfigured` outranks `repoPrivate` deliberately: if the owner has already published the
 form and later makes the repo private, the tab should say the channel is configured and warn about
 visibility, not offer to configure something that is already there.
