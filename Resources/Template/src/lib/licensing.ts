@@ -21,6 +21,72 @@ export interface LicenseRef {
   name: string;
 }
 
+/**
+ * A per-purpose AI usage permission. `"unset"` means the site states no preference — it is the
+ * absence of a key in `licensing.json`, never a value written into it, matching how
+ * `edge-artifacts.ts` omits an unstated `Content-Signal` sub-directive rather than emitting
+ * `key=unset`.
+ */
+export type UsagePermission = "yes" | "no" | "unset";
+
+/**
+ * Site-wide AI usage permissions (#991). Two `robots.txt` projections derive from this and only
+ * this: the `Content-Signal` directive and the named-agent blocklist. Keeping them derived is what
+ * makes "permits AI training but Disallows GPTBot" unrepresentable rather than merely discouraged.
+ *
+ * Usage is deliberately site-wide, not per-collection: `robots.txt` addresses the whole origin, so
+ * a per-collection permission would have nothing to project onto until RSL's `<content url>`
+ * patterns land in phase 3.
+ */
+export interface AIUsage {
+  search: UsagePermission;
+  aiInput: UsagePermission;
+  aiTrain: UsagePermission;
+  /** Refuse the named AI agents outright in `robots.txt`. See `mayBlockAICrawlers`. */
+  blockAICrawlers: boolean;
+}
+
+export const NO_USAGE: AIUsage = {
+  search: "unset",
+  aiInput: "unset",
+  aiTrain: "unset",
+  blockAICrawlers: false,
+};
+
+/**
+ * Whether the blocklist is allowed to fire. Blocking is *stronger* than signalling, not
+ * contradictory — a site may coherently ask crawlers not to train without also refusing them at
+ * `robots.txt`. The one rule that must hold is that the blocklist never exceeds what the
+ * permissions deny, and the 17-agent list covers both AI answers and AI training, so both must be
+ * denied before it can be emitted.
+ */
+export function mayBlockAICrawlers(usage: Pick<AIUsage, "aiInput" | "aiTrain">): boolean {
+  return usage.aiInput === "no" && usage.aiTrain === "no";
+}
+
+function toPermission(raw: unknown): UsagePermission {
+  return raw === "yes" || raw === "no" ? raw : "unset";
+}
+
+/**
+ * Parse a hand-edited `usage` block defensively, on the same terms as `normalizePolicy`:
+ * unrecognized keys and values become "unset" rather than passing through. The cross-field clamp
+ * is applied here so both writers — this module and the app's `LicensingStore` — reject the same
+ * documents, and a hand-editor cannot produce a policy the UI could not have produced.
+ */
+export function normalizeUsage(raw: unknown): AIUsage {
+  if (!raw || typeof raw !== "object") return { ...NO_USAGE };
+  const { search, aiInput, aiTrain, blockAICrawlers } = raw as Record<string, unknown>;
+  const usage: AIUsage = {
+    search: toPermission(search),
+    aiInput: toPermission(aiInput),
+    aiTrain: toPermission(aiTrain),
+    blockAICrawlers: false,
+  };
+  usage.blockAICrawlers = blockAICrawlers === true && mayBlockAICrawlers(usage);
+  return usage;
+}
+
 /** Every collection that can carry a license — the routed collections plus `blog`. */
 export type LicensableCollection = EntryCollection | "blog";
 
@@ -32,6 +98,8 @@ export interface LicensingPolicy {
    * and beats the site default; a key that is absent falls through to the default rules.
    */
   collections: Partial<Record<LicensableCollection, LicenseRef | null>>;
+  /** Site-wide AI usage permissions. See `AIUsage`. */
+  usage: AIUsage;
 }
 
 /**
@@ -101,15 +169,17 @@ function toLicenseRef(raw: unknown): LicenseRef | null {
  * `edge-artifacts.ts`'s `normalizeContentSignal` treats a typo'd config value.
  */
 export function normalizePolicy(raw: unknown): LicensingPolicy {
-  const policy: LicensingPolicy = { default: null, collections: {} };
+  const policy: LicensingPolicy = { default: null, collections: {}, usage: { ...NO_USAGE } };
   if (!raw || typeof raw !== "object") return policy;
 
-  const { default: rawDefault, collections: rawCollections } = raw as {
+  const { default: rawDefault, collections: rawCollections, usage: rawUsage } = raw as {
     default?: unknown;
     collections?: unknown;
+    usage?: unknown;
   };
 
   policy.default = toLicenseRef(rawDefault);
+  policy.usage = normalizeUsage(rawUsage);
 
   if (rawCollections && typeof rawCollections === "object") {
     for (const [key, value] of Object.entries(rawCollections as Record<string, unknown>)) {

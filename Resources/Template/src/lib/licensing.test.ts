@@ -2,8 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   headLicense,
-  NON_ASSERTING_COLLECTIONS,
+  mayBlockAICrawlers,
+  NO_USAGE,
   normalizePolicy,
+  normalizeUsage,
+  NON_ASSERTING_COLLECTIONS,
   resolveLicense,
   type LicensingPolicy,
 } from "./licensing.ts";
@@ -14,34 +17,34 @@ const CC_BY: LicensingPolicy["default"] = {
 };
 
 test("resolveLicense: an asserting collection inherits the site default", () => {
-  const policy: LicensingPolicy = { default: CC_BY, collections: {} };
+  const policy: LicensingPolicy = { default: CC_BY, collections: {}, usage: NO_USAGE };
   assert.deepEqual(resolveLicense(policy, "notes"), CC_BY);
   assert.deepEqual(resolveLicense(policy, "blog"), CC_BY);
 });
 
 test("resolveLicense: non-asserting collections return null despite a site default", () => {
-  const policy: LicensingPolicy = { default: CC_BY, collections: {} };
+  const policy: LicensingPolicy = { default: CC_BY, collections: {}, usage: NO_USAGE };
   for (const collection of NON_ASSERTING_COLLECTIONS) {
     assert.equal(resolveLicense(policy, collection), null, `${collection} must not assert`);
   }
 });
 
 test("resolveLicense: an explicit override beats the non-asserting default", () => {
-  const policy: LicensingPolicy = { default: null, collections: { likes: CC_BY } };
+  const policy: LicensingPolicy = { default: null, collections: { likes: CC_BY }, usage: NO_USAGE };
   assert.deepEqual(resolveLicense(policy, "likes"), CC_BY);
 });
 
 test("resolveLicense: an explicit null override beats the site default", () => {
-  const policy: LicensingPolicy = { default: CC_BY, collections: { notes: null } };
+  const policy: LicensingPolicy = { default: CC_BY, collections: { notes: null }, usage: NO_USAGE };
   assert.equal(resolveLicense(policy, "notes"), null);
 });
 
 test("resolveLicense: no site default and no override yields null", () => {
-  assert.equal(resolveLicense({ default: null, collections: {} }, "articles"), null);
+  assert.equal(resolveLicense({ default: null, collections: {}, usage: NO_USAGE }, "articles"), null);
 });
 
 test("normalizePolicy: undefined input yields an empty policy", () => {
-  assert.deepEqual(normalizePolicy(undefined), { default: null, collections: {} });
+  assert.deepEqual(normalizePolicy(undefined), { default: null, collections: {}, usage: NO_USAGE });
 });
 
 test("normalizePolicy: reads a well-formed document", () => {
@@ -52,6 +55,7 @@ test("normalizePolicy: reads a well-formed document", () => {
   assert.deepEqual(normalizePolicy(raw), {
     default: { url: "https://example.com/l", name: "Example" },
     collections: { photos: { url: "https://example.com/p", name: "Photos" } },
+    usage: NO_USAGE,
   });
 });
 
@@ -144,8 +148,8 @@ test("resolveLicense: a bad-URL collection override resolves to null, not a leak
 });
 
 test("normalizePolicy: a non-object document yields an empty policy", () => {
-  assert.deepEqual(normalizePolicy("nope"), { default: null, collections: {} });
-  assert.deepEqual(normalizePolicy(null), { default: null, collections: {} });
+  assert.deepEqual(normalizePolicy("nope"), { default: null, collections: {}, usage: NO_USAGE });
+  assert.deepEqual(normalizePolicy(null), { default: null, collections: {}, usage: NO_USAGE });
 });
 
 test("headLicense: undefined prop falls through to the site default", () => {
@@ -168,4 +172,64 @@ test("headLicense: an explicit ref overrides the site default", () => {
 test("headLicense: an explicit ref applies even when the site default is null", () => {
   const override = { url: "https://example.com/override", name: "Override" };
   assert.deepEqual(headLicense(override, null), override);
+});
+
+test("normalizeUsage: a missing block yields every purpose unset and no blocklist", () => {
+  assert.deepEqual(normalizeUsage(undefined), NO_USAGE);
+  assert.deepEqual(normalizeUsage(null), NO_USAGE);
+  assert.deepEqual(normalizeUsage("nope"), NO_USAGE);
+});
+
+test("normalizeUsage: reads a well-formed block", () => {
+  assert.deepEqual(normalizeUsage({ search: "yes", aiInput: "no", aiTrain: "no", blockAICrawlers: true }), {
+    search: "yes",
+    aiInput: "no",
+    aiTrain: "no",
+    blockAICrawlers: true,
+  });
+});
+
+test("normalizeUsage: drops unrecognized values and unknown keys", () => {
+  assert.deepEqual(normalizeUsage({ search: "maybe", aiTrain: 42, bogus: "yes" }), NO_USAGE);
+});
+
+test("normalizeUsage: a non-boolean blockAICrawlers is false", () => {
+  const out = normalizeUsage({ aiInput: "no", aiTrain: "no", blockAICrawlers: "true" });
+  assert.equal(out.blockAICrawlers, false);
+});
+
+test("normalizeUsage: clamps blockAICrawlers unless both AI purposes are denied", () => {
+  const cases = [
+    { aiInput: "no", aiTrain: "yes" },
+    { aiInput: "yes", aiTrain: "no" },
+    { aiInput: "no" },
+  ];
+  for (const partial of cases) {
+    const out = normalizeUsage({ ...partial, blockAICrawlers: true });
+    assert.equal(out.blockAICrawlers, false, `${JSON.stringify(partial)} must not block`);
+  }
+});
+
+test("normalizeUsage: search alone never enables the blocklist", () => {
+  assert.equal(normalizeUsage({ search: "no", blockAICrawlers: true }).blockAICrawlers, false);
+});
+
+test("mayBlockAICrawlers: true only when both AI purposes are denied", () => {
+  assert.equal(mayBlockAICrawlers({ aiInput: "no", aiTrain: "no" }), true);
+  assert.equal(mayBlockAICrawlers({ aiInput: "no", aiTrain: "unset" }), false);
+  assert.equal(mayBlockAICrawlers({ aiInput: "yes", aiTrain: "no" }), false);
+});
+
+test("normalizePolicy: a document with no usage block yields NO_USAGE", () => {
+  assert.deepEqual(normalizePolicy({ default: null }).usage, NO_USAGE);
+});
+
+test("normalizePolicy: carries and clamps the usage block", () => {
+  const out = normalizePolicy({
+    default: null,
+    collections: {},
+    usage: { search: "yes", aiInput: "no", aiTrain: "no", blockAICrawlers: true },
+  });
+  assert.equal(out.usage.blockAICrawlers, true);
+  assert.equal(normalizePolicy({ usage: { aiTrain: "no", blockAICrawlers: true } }).usage.blockAICrawlers, false);
 });
