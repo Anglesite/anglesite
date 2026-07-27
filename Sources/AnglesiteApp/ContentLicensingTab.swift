@@ -121,9 +121,16 @@ struct ContentLicensingTab: View {
     var defaultChoice: Binding<LicenseChoice> {
         Binding(
             get: {
-                guard let ref = model.licensingPolicy.defaultLicense else {
-                    return customDraft.isPending ? .custom : .allRightsReserved
-                }
+                // `customDraft.isPending` is checked FIRST, ahead of the model: picking "Custom…"
+                // over an already-selected catalog license (or "All rights reserved") does not
+                // touch `model.licensingPolicy` (see the `.custom` setter branch below), so the
+                // model alone can't distinguish "Custom… is selected but not filled in yet" from
+                // whatever was selected before it. Consulting the draft here is what makes that
+                // distinguishable (#991 review finding 1: this used to derive selection from the
+                // model alone, so picking Custom… over a catalog license was a dead no-op — the
+                // picker just snapped back to the catalog entry).
+                if customDraft.isPending { return .custom }
+                guard let ref = model.licensingPolicy.defaultLicense else { return .allRightsReserved }
                 if let entry = LicenseCatalog.entry(for: ref) { return .catalog(entry.id) }
                 return .custom
             },
@@ -141,26 +148,47 @@ struct ContentLicensingTab: View {
                 case .custom:
                     // Reveal the URL/name fields only; leave the model untouched until a URL is
                     // typed (see `customURL` and `PendingCustomLicense`'s doc comment). A ref that
-                    // already exists (a saved custom license, or one already being edited) keeps
-                    // showing as `.custom` via the branch above, so there's nothing to do here in
-                    // that case.
-                    if model.licensingPolicy.defaultLicense == nil {
+                    // already exists AND is already non-catalog (a saved custom license, or one
+                    // already being edited) keeps showing as `.custom` via the getter above with
+                    // no draft needed, so there's nothing to do in that case. Otherwise — no
+                    // license at all, or a *catalog* license currently selected — go pending: the
+                    // getter's `customDraft.isPending` check runs ahead of the model, so this
+                    // reveals empty fields even while a catalog `defaultLicense` sits untouched in
+                    // the model underneath (#991 review finding 1).
+                    let alreadyCustom = model.licensingPolicy.defaultLicense.map {
+                        LicenseCatalog.entry(for: $0) == nil
+                    } ?? false
+                    if !alreadyCustom {
                         customDraft.select()
                     }
                 }
             })
     }
 
-    // Internal (not `private`) so tests can simulate typing into these fields directly.
+    // Internal (not `private`) so tests can drive these bindings directly — see
+    // `PlistEditorModelLicensingTests`'s "#991 review finding 1" section, which exercises
+    // `defaultChoice`, `customURL`, and `customName` (not just `PendingCustomLicense` in
+    // isolation).
     var customURL: Binding<String> {
         Binding(
-            get: { model.licensingPolicy.defaultLicense?.url ?? "" },
+            get: {
+                // While pending, the model may still hold whatever license was selected before
+                // Custom… was picked (a catalog ref, or nothing) — show empty, not that leftover
+                // value, until a URL is actually typed.
+                if customDraft.isPending { return "" }
+                return model.licensingPolicy.defaultLicense?.url ?? ""
+            },
             set: { newValue in
-                if model.licensingPolicy.defaultLicense != nil {
+                if customDraft.isPending {
+                    // The first keystroke is what actually creates (or replaces) the license —
+                    // see `PendingCustomLicense`'s doc comment. This discards whatever license
+                    // (catalog or none) was selected before Custom… was picked.
+                    guard !newValue.isEmpty else { return }
+                    model.licensingPolicy.defaultLicense = LicenseRef(
+                        url: newValue, name: customDraft.consumeForNewLicense())
+                } else if model.licensingPolicy.defaultLicense != nil {
                     model.licensingPolicy.defaultLicense?.url = newValue
                 } else if !newValue.isEmpty {
-                    // The first keystroke is what actually creates the license — see
-                    // `PendingCustomLicense`'s doc comment.
                     model.licensingPolicy.defaultLicense = LicenseRef(
                         url: newValue, name: customDraft.consumeForNewLicense())
                 }
@@ -169,13 +197,17 @@ struct ContentLicensingTab: View {
 
     var customName: Binding<String> {
         Binding(
-            get: { model.licensingPolicy.defaultLicense?.name ?? customDraft.pendingName },
+            get: {
+                customDraft.isPending
+                    ? customDraft.pendingName
+                    : (model.licensingPolicy.defaultLicense?.name ?? "")
+            },
             set: { newValue in
-                if model.licensingPolicy.defaultLicense != nil {
+                if !customDraft.isPending, model.licensingPolicy.defaultLicense != nil {
                     model.licensingPolicy.defaultLicense?.name = newValue
                 } else {
-                    // No license exists yet to attach the name to; hold it until `customURL`
-                    // creates one.
+                    // No license exists yet to attach the name to (or one does, but it's the
+                    // leftover pre-pending selection) — hold it until `customURL` creates one.
                     customDraft.recordName(newValue)
                 }
             })

@@ -31,7 +31,15 @@ public struct LicenseRef: Sendable, Equatable, Hashable {
         // attacker-chosen host to href. Sanitizing first is what makes this guard match the
         // protocol-relative rejection it claims to provide (#991 review finding 2).
         let sanitized = whatwgTrim(url)
-        if sanitized.hasPrefix("/") && !sanitized.hasPrefix("//") { return true }
+        // A backslash right after the leading slash must be rejected exactly like a second
+        // slash: WHATWG's relative-slash state treats `\` the same as `/` for special schemes, so
+        // `/\evil.com` and `/\/evil.com` both enter "special authority ignore slashes" and parse
+        // `evil.com` as the authority once a browser resolves them against an `http(s)` base —
+        // the same attacker-chosen-host hazard the `//` check exists for (#991 review finding 2).
+        let afterLeadingSlash = sanitized.hasPrefix("/") ? sanitized.dropFirst() : Substring()
+        let isUnambiguousRootRelative = sanitized.hasPrefix("/")
+            && !afterLeadingSlash.hasPrefix("/") && !afterLeadingSlash.hasPrefix("\\")
+        if isUnambiguousRootRelative { return true }
         guard let parsed = URL(string: sanitized), let scheme = parsed.scheme?.lowercased() else { return false }
         guard scheme == "http" || scheme == "https" else { return false }
         guard let host = parsed.host, !host.isEmpty else { return false }

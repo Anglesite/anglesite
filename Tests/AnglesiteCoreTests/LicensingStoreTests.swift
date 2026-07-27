@@ -291,6 +291,21 @@ struct LicensingStoreTests {
         #expect(!LicenseRef.isSafeLicenseURL("/\n/evil.com"))
     }
 
+    @Test("isSafeLicenseURL rejects a protocol-relative URL smuggled via a backslash")
+    func schemeGuardRejectsBackslashSmuggledProtocolRelative() {
+        // WHATWG's relative-slash state treats `\` the same as `/` for special schemes, so
+        // `new URL("/\\evil.com", "https://site.example/")` resolves to `https://evil.com/` — the
+        // leading-slash fast path must reject a backslash immediately after the leading slash the
+        // same way it already rejects a second slash (#991 review finding 2). Verified against
+        // Foundation's own `URL(string:)` resolution before writing this guard.
+        #expect(!LicenseRef.isSafeLicenseURL("/\\evil.com"))
+        #expect(!LicenseRef.isSafeLicenseURL("/\\/evil.com"))
+        // ...and the same smuggling still works after whatwgTrim strips a tab first.
+        #expect(!LicenseRef.isSafeLicenseURL("/\t\\evil.com"))
+        #expect(!LicenseRef.isSafeLicenseURL("/\r\\evil.com"))
+        #expect(!LicenseRef.isSafeLicenseURL("/\n\\evil.com"))
+    }
+
     @Test("mayBlockAICrawlers requires both AI purposes denied")
     func mayBlock() {
         #expect(AIUsage(search: .unset, aiInput: .no, aiTrain: .no, blockAICrawlers: false).mayBlockAICrawlers)

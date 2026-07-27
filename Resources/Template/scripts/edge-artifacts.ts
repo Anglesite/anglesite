@@ -64,8 +64,15 @@ export function readLicensingUsage(cwd: string): { usage: AIUsage; clamped: bool
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(path, "utf-8"));
-  } catch {
-    console.log("src/data/licensing.json is not valid JSON — no AI usage policy applied to robots.txt.");
+  } catch (error) {
+    // `readFileSync` and `JSON.parse` fail for different reasons — an unreadable file (EACCES, a
+    // path that is actually a directory, a dangling symlink) has nothing to do with syntax, and
+    // telling a user with a permissions problem to "fix the JSON" sends them looking in the wrong
+    // place. `JSON.parse` is the only step here that throws `SyntaxError`, so it distinguishes the
+    // two causes without needing to special-case every possible fs error code (#991 review finding
+    // 4).
+    const reason = error instanceof SyntaxError ? "is not valid JSON" : "could not be read";
+    console.log(`src/data/licensing.json ${reason} — no AI usage policy applied to robots.txt.`);
     return { usage: { ...NO_USAGE }, clamped: false };
   }
   const usage = normalizePolicy(raw).usage;

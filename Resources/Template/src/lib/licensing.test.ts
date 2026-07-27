@@ -149,6 +149,22 @@ test("normalizePolicy: rejects a protocol-relative URL smuggled via CR or LF", (
   assert.equal(normalizePolicy({ default: { url: "/\n/evil.com", name: "Evil" } }).default, null);
 });
 
+test("normalizePolicy: rejects a protocol-relative URL smuggled via a backslash", () => {
+  // WHATWG's relative-slash state treats `\` the same as `/` for special schemes, so
+  // `new URL("/\\evil.com", "https://site.example/page/")` resolves to `https://evil.com/` —
+  // the leading-slash fast path must reject a backslash immediately after the leading slash the
+  // same way it already rejects a second slash (#991 review finding 2). Verified against Node's
+  // own `new URL()` resolution before writing this guard.
+  assert.equal(normalizePolicy({ default: { url: "/\\evil.com", name: "Evil" } }).default, null);
+  assert.equal(normalizePolicy({ default: { url: "/\\/evil.com", name: "Evil" } }).default, null);
+});
+
+test("normalizePolicy: rejects a backslash-smuggled protocol-relative URL after tab/CR/LF stripping", () => {
+  assert.equal(normalizePolicy({ default: { url: "/\t\\evil.com", name: "Evil" } }).default, null);
+  assert.equal(normalizePolicy({ default: { url: "/\r\\evil.com", name: "Evil" } }).default, null);
+  assert.equal(normalizePolicy({ default: { url: "/\n\\evil.com", name: "Evil" } }).default, null);
+});
+
 test("resolveLicense: a bad-URL collection override resolves to null, not a leaked entry", () => {
   const policy = normalizePolicy({
     default: { url: "https://example.com/l", name: "Default" },

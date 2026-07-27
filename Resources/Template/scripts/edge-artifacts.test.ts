@@ -188,6 +188,40 @@ test("readLicensingUsage: an unreadable path (e.g. a directory) yields NO_USAGE 
   assert.deepEqual(readLicensingUsage(dir), { usage: NO_USAGE, clamped: false });
 });
 
+test("readLicensingUsage: logs a syntax-specific message for malformed JSON", (t) => {
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  mkdirSync(resolve(dir, "src/data"), { recursive: true });
+  writeFileSync(resolve(dir, "src/data/licensing.json"), "{ not json", "utf-8");
+  const logs: unknown[][] = [];
+  t.mock.method(console, "log", (...args: unknown[]) => {
+    logs.push(args);
+  });
+
+  readLicensingUsage(dir);
+
+  assert.equal(logs.length, 1);
+  assert.match(String(logs[0][0]), /is not valid JSON/);
+});
+
+test("readLicensingUsage: logs a read-failure message, not a syntax message, for an unreadable path", (t) => {
+  // #991 review finding 4: EACCES/EISDIR aren't a syntax problem, so the log a user sees for them
+  // must not say "is not valid JSON" — that sends someone with a permissions error looking for a
+  // typo that isn't there.
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  mkdirSync(resolve(dir, "src/data/licensing.json"), { recursive: true });
+  const logs: unknown[][] = [];
+  t.mock.method(console, "log", (...args: unknown[]) => {
+    logs.push(args);
+  });
+
+  readLicensingUsage(dir);
+
+  assert.equal(logs.length, 1);
+  const message = String(logs[0][0]);
+  assert.match(message, /could not be read/);
+  assert.doesNotMatch(message, /is not valid JSON/);
+});
+
 const NOW = new Date("2026-06-28T12:00:00Z");
 
 test("buildSecurityTxt: returns null when no contact configured", () => {

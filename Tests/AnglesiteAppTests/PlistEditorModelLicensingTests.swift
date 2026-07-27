@@ -151,12 +151,10 @@ struct PlistEditorModelLicensingTests {
         #expect(reloaded.defaultLicense == nil)
     }
 
-    /// The tab-level (first) defense, tested directly on `ContentLicensingTab.PendingCustomLicense`
-    /// rather than by driving the view's `@State` from outside a live SwiftUI hierarchy — `@State`
-    /// writes are silently dropped when a `View` value is constructed and manipulated directly
-    /// (as a unit test must) instead of hosted by SwiftUI's render pass, so a test spanning
-    /// separate statements can't observe its own writes through the view. Extracting the logic
-    /// into this plain value type is what makes it verifiable at all.
+    /// Pure-value-type coverage for `PendingCustomLicense` itself, independent of the view. These
+    /// stay useful alongside the binding-level tests below: they pin down `select`/`recordName`/
+    /// `consumeForNewLicense`/`clear`'s own behavior without needing a `ContentLicensingTab` at
+    /// all.
     @Test("selecting Custom reveals fields without creating a license")
     func pendingCustomLicenseSelectDoesNotCreateALicense() {
         var draft = ContentLicensingTab.PendingCustomLicense()
@@ -189,10 +187,149 @@ struct PlistEditorModelLicensingTests {
         #expect(draft == ContentLicensingTab.PendingCustomLicense())
     }
 
+    // MARK: - #991 review finding 1 (regression): driving the real `defaultChoice` binding
+    //
+    // `ContentLicensingTab`'s `@State var customDraft` genuinely cannot be *mutated* from outside
+    // a hosted SwiftUI render pass — a write made through a `Binding`'s setter (even via a
+    // mutating method on the wrapped value) on a directly-constructed view is silently dropped,
+    // confirmed empirically against this toolchain before writing these tests. So these tests
+    // never chain "call the setter, then read the same view's state back" — instead:
+    //   - each step of a flow is modeled by constructing a *fresh* `ContentLicensingTab` with the
+    //     `customDraft` value that step should already be in (the synthesized memberwise init
+    //     accepts it, and *reading* an `@State` property's constructor-supplied initial value
+    //     works fine outside hosting — only post-construction writes don't), and
+    //   - every setter call is verified through its effect on `model.licensingPolicy`, which is
+    //     backed by an `@Observable` class and so genuinely persists across statements.
+    // This still drives the real `defaultChoice`/`customURL`/`customName` bindings and the real
+    // getter/setter closures in `ContentLicensingTab` — nothing here reimplements their logic.
+
+    @Test("All rights reserved to Custom: fields appear, policy untouched, navigating away is clean")
+    func allRightsReservedToCustomRevealsFieldsWithoutMutating() async throws {
+        let model = try makeModel()
+        await model.load()
+        #expect(model.licensingPolicy.defaultLicense == nil)
+
+        // Drive the real setter from the "All rights reserved" state.
+        let view = ContentLicensingTab(model: model)
+        view.defaultChoice.wrappedValue = .custom
+
+        // The model is untouched by picking Custom… — the setter's `.custom` branch never writes
+        // `model.licensingPolicy` at all.
+        #expect(model.licensingPolicy.defaultLicense == nil)
+        #expect(model.isLicensingDirty == false)
+
+        // The getter reveals empty fields once pending — modeled by a fresh view constructed with
+        // the draft state `select()` produces, since that write can't be observed on `view` itself.
+        let pendingView = ContentLicensingTab(
+            model: model, customDraft: ContentLicensingTab.PendingCustomLicense(isPending: true))
+        #expect(pendingView.defaultChoice.wrappedValue == .custom)
+        #expect(pendingView.customURL.wrappedValue == "")
+        #expect(pendingView.customName.wrappedValue == "")
+
+        // Navigating away neither errors nor blocks: nothing was ever written to the model.
+        let flushed = await model.flushBeforeLeaving()
+        #expect(flushed == true)
+    }
+
+    @Test("CC BY 4.0 to Custom: fields appear empty, policy not mutated until a URL is typed")
+    func catalogToCustomRevealsEmptyFieldsWithoutMutating() async throws {
+        let model = try makeModel()
+        await model.load()
+        model.licensingPolicy.defaultLicense = ccBY
+
+        let view = ContentLicensingTab(model: model)
+        view.defaultChoice.wrappedValue = .custom
+
+        // Regression check for #991 finding 1: picking Custom… over a catalog license used to be
+        // a dead no-op (the setter only went pending when `defaultLicense == nil`), so the model
+        // still held `ccBY` and the getter kept reporting `.catalog`, snapping the picker back.
+        // The model must stay exactly as it was — untouched, not cleared either.
+        #expect(model.licensingPolicy.defaultLicense == ccBY)
+
+        let pendingView = ContentLicensingTab(
+            model: model, customDraft: ContentLicensingTab.PendingCustomLicense(isPending: true))
+        #expect(pendingView.defaultChoice.wrappedValue == .custom)
+        #expect(pendingView.customURL.wrappedValue == "")
+        #expect(pendingView.customName.wrappedValue == "")
+    }
+
+    @Test("CC BY 4.0 to Custom, then typing a URL, is what gets saved")
+    func catalogToCustomThenTypedURLIsWhatGetsWritten() async throws {
+        let model = try makeModel()
+        await model.load()
+        model.licensingPolicy.defaultLicense = ccBY
+
+        // Model the state right after `.custom` was selected over the catalog license and a name
+        // was typed into the (still-empty-URL) Name field: pending, with a name recorded but no
+        // license created yet. (A *second* write on the same view instance — e.g. calling
+        // `customURL` and then `customName` in sequence here — can't be used to build this state:
+        // per this file's "driving the real binding" note above, only the first write against a
+        // freshly-constructed instance is observable outside a hosted render pass.)
+        let pendingView = ContentLicensingTab(
+            model: model,
+            customDraft: ContentLicensingTab.PendingCustomLicense(isPending: true, pendingName: "My License"))
+
+        // Typing the URL is what actually creates the license, discarding whatever catalog ref was
+        // sitting underneath and attaching the already-recorded name.
+        pendingView.customURL.wrappedValue = "https://example.com/my-license"
+
+        #expect(model.licensingPolicy.defaultLicense
+            == LicenseRef(url: "https://example.com/my-license", name: "My License"))
+
+        let saved = await model.saveLicensing()
+        #expect(saved == true)
+        let reloaded = try LicensingStore(sourceDirectory: model.sourceDirectory).load()
+        #expect(reloaded.defaultLicense == LicenseRef(url: "https://example.com/my-license", name: "My License"))
+    }
+
+    @Test("Custom left empty, then a catalog license is picked: the catalog license is written")
+    func customLeftEmptyThenCatalogPickedWritesTheCatalogLicense() async throws {
+        let model = try makeModel()
+        await model.load()
+
+        // Model "selected Custom…, left the URL empty" — pending, with a half-typed name that
+        // must not survive the switch to a catalog choice.
+        let pendingView = ContentLicensingTab(
+            model: model,
+            customDraft: ContentLicensingTab.PendingCustomLicense(isPending: true, pendingName: "Half-typed"))
+
+        pendingView.defaultChoice.wrappedValue = .catalog("cc-by-4.0")
+
+        #expect(model.licensingPolicy.defaultLicense == ccBY)
+        #expect(model.isLicensingDirty == true)
+        // The draft's own discard-on-clear behavior is covered directly by
+        // `pendingCustomLicenseClearResetsEverything` above; `defaultChoice`'s `.catalog` branch
+        // calls the same `customDraft.clear()`.
+    }
+
+    @Test("a non-catalog license already in licensing.json loads showing Custom with fields populated")
+    func nonCatalogLicenseLoadsAsCustomWithFieldsPopulated() async throws {
+        let model = try makeModel(
+            licensingJSON: #"{"default":{"url":"https://mysite.example/license","name":"Site License"}}"#)
+        await model.load()
+
+        let view = ContentLicensingTab(model: model)
+
+        #expect(view.defaultChoice.wrappedValue == .custom)
+        #expect(view.customURL.wrappedValue == "https://mysite.example/license")
+        #expect(view.customName.wrappedValue == "Site License")
+    }
+
+    @Test("Custom left empty, then navigating away: no error, no blocked navigation")
+    func customLeftEmptyThenNavigatingAwayDoesNotBlock() async throws {
+        let model = try makeModel()
+        await model.load()
+
+        let view = ContentLicensingTab(model: model)
+        view.defaultChoice.wrappedValue = .custom
+
+        #expect(model.isLicensingDirty == false)
+        let flushed = await model.flushBeforeLeaving()
+        #expect(flushed == true)
+    }
+
     /// End-to-end confirmation that the tab-level fix does not regress ordinary use: a genuinely
-    /// typed custom license still saves. This drives `ContentLicensingTab`'s bindings within a
-    /// single statement each — the one shape of direct manipulation that does not depend on
-    /// `@State` persisting across statements outside a hosted view (see the tests above).
+    /// typed custom license still saves.
     @Test("choosing Custom… and typing a URL directly on the model still saves")
     func typingACustomURLDirectlyOnTheModelStillSaves() async throws {
         let model = try makeModel()

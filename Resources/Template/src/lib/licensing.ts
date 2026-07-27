@@ -158,10 +158,19 @@ function whatwgTrim(url: string): string {
  * slash to an unsanitized check (passing as root-relative) but resolves as `//evil.com` — a
  * protocol-relative URL — once the browser's own parser strips the tab. Checking the sanitized
  * string is what keeps this guard's protocol-relative rejection real (#991 review finding 2).
+ *
+ * A backslash immediately after the leading slash is rejected the same as a second slash:
+ * WHATWG's relative-slash state treats `\` as `/` for special schemes, so `/\evil.com` and
+ * `/\/evil.com` both enter "special authority ignore slashes" and resolve `evil.com` as the
+ * authority — the same attacker-chosen-host hazard the `//` check exists for (#991 review
+ * finding 2).
  */
 function hasSafeLicenseScheme(url: string): boolean {
   const sanitized = whatwgTrim(url);
-  if (sanitized.startsWith("/") && !sanitized.startsWith("//")) return true;
+  const afterLeadingSlash = sanitized.startsWith("/") ? sanitized.slice(1) : "";
+  const isUnambiguousRootRelative =
+    sanitized.startsWith("/") && !afterLeadingSlash.startsWith("/") && !afterLeadingSlash.startsWith("\\");
+  if (isUnambiguousRootRelative) return true;
   try {
     return ["http:", "https:"].includes(new URL(url).protocol);
   } catch {
