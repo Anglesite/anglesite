@@ -102,6 +102,7 @@ private struct FailureCard: View {
         case .thirdPartyScript: return "network"
         case .keystaticRoute: return "lock.shield"
         case .cspMisconfigured: return "shield.slash"
+        case .embedMediaHotlink: return "photo.badge.exclamationmark"
         case .other: return "exclamationmark.triangle"
         }
     }
@@ -115,6 +116,7 @@ private struct FailureCard: View {
         case .thirdPartyScript: return "Third-party script"
         case .keystaticRoute: return "Keystatic admin route"
         case .cspMisconfigured: return "CSP misconfigured"
+        case .embedMediaHotlink: return "Hotlinked embed media"
         case .other: return "Other"
         }
     }

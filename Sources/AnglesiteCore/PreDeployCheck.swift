@@ -32,6 +32,10 @@ public actor PreDeployCheck {
             case thirdPartyScript = "third-party-script"
             case keystaticRoute = "keystatic-route"
             case cspMisconfigured = "csp-misconfigured"
+            /// Built output references embed media on a platform CDN instead of the snapshot
+            /// copy under `public/embeds/`. See `checkEmbedMedia` in
+            /// `Resources/Template/scripts/pre-deploy-check.ts` (#682).
+            case embedMediaHotlink = "embed-media-hotlink"
             /// Any category code this build doesn't recognize yet — decoding falls back here
             /// instead of throwing, so a future/typo'd category can't crash the whole scan (#742).
             case other = "other"
