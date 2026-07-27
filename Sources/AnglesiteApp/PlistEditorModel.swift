@@ -218,7 +218,10 @@ final class PlistEditorModel {
         if isCrawlerPolicyDirty {
             guard await saveCrawlerPolicy() else { return false }
         }
-        if isMtaStsDirty { return await saveMtaSts() }
+        if isMtaStsDirty {
+            guard await saveMtaSts() else { return false }
+        }
+        if isSecurityReportingDirty { return await saveSecurityReporting() }
         return true
     }
 
@@ -391,7 +394,7 @@ final class PlistEditorModel {
             savedSecurityReportingSettings = canonical
             return true
         } catch {
-            securityReportingError = "Couldn’t save security reporting settings: \(error.localizedDescription)"
+            securityReportingError = "Couldn't save security reporting settings: \(error.localizedDescription)"
             return false
         }
     }
@@ -416,12 +419,12 @@ final class PlistEditorModel {
         do {
             token = try githubToken()
         } catch {
-            securityReportingError = "Couldn’t read the GitHub token from the Keychain: \(error.localizedDescription)"
+            securityReportingError = "Couldn't read the GitHub token from the Keychain: \(error.localizedDescription)"
             recordCheckFailure(for: repo)
             return
         }
         guard let token, !token.isEmpty else {
-            securityReportingError = "Connect a GitHub account in Settings to check this repository’s reporting setup."
+            securityReportingError = "Connect a GitHub account in Settings to check this repository's reporting setup."
             recordCheckFailure(for: repo)
             return
         }
@@ -465,7 +468,7 @@ final class PlistEditorModel {
         if securityReportingReadiness == .needsPVR {
             let token: String?
             do { token = try githubToken() } catch {
-                securityReportingError = "Couldn’t read the GitHub token from the Keychain: \(error.localizedDescription)"
+                securityReportingError = "Couldn't read the GitHub token from the Keychain: \(error.localizedDescription)"
                 return
             }
             guard let token, !token.isEmpty else {
@@ -479,6 +482,9 @@ final class PlistEditorModel {
                 securityReportingError = repoSecurityMessage(for: error)
                 return
             }
+            // PVR is now genuinely enabled on GitHub even if the save below fails — leaving
+            // readiness at `.needsPVR` here would lie to the view about the repo's real state.
+            securityReportingReadiness = .ready
         }
 
         securityReportingSettings.contacts = SecurityReportingAsset.prependingAdvisoryForm(
@@ -496,13 +502,13 @@ final class PlistEditorModel {
 
     private func repoSecurityMessage(for error: any Error) -> String {
         guard let apiError = error as? GitHubRepoAPIError else {
-            return "Couldn’t check this repository’s reporting setup: \(error.localizedDescription)"
+            return "Couldn't check this repository's reporting setup: \(error.localizedDescription)"
         }
         switch apiError {
         case .unauthorized:
-            return "Your GitHub token doesn’t have admin access to this repository. Enable private vulnerability reporting in the repository’s Settings ▸ Advanced Security, or use a token with Administration: Read and write."
+            return "Your GitHub token doesn't have admin access to this repository. Enable private vulnerability reporting in the repository's Settings ▸ Advanced Security, or use a token with Administration: Read and write."
         case .network:
-            return "Couldn’t reach GitHub. Check your connection and try again."
+            return "Couldn't reach GitHub. Check your connection and try again."
         case .http(let status):
             return "GitHub returned an unexpected response (HTTP \(status))."
         case .api(let message):

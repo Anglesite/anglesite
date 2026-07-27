@@ -217,4 +217,34 @@ struct PlistEditorModelSecurityReportsTests {
         #expect(model.securityReportingReadiness != .notGitHub)
         #expect(model.securityReportingError != nil)
     }
+
+    @Test("flushBeforeLeaving saves a dirty security-reporting facet instead of discarding it")
+    func flushBeforeLeavingSavesSecurityReporting() async throws {
+        let model = try makeModel()
+        await model.load()
+        model.securityReportingSettings.contacts = "a@example.com"
+        #expect(model.isSecurityReportingDirty)
+        #expect(await model.flushBeforeLeaving())
+        #expect(!model.isSecurityReportingDirty)
+        let config = try String(contentsOf: model.sourceDirectory.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(config.contains("SECURITY_CONTACT=a@example.com"))
+    }
+
+    @Test("a partial adopt failure (PVR enabled, save fails) still reports .ready, not .needsPVR")
+    func adoptPartialFailureReportsReadyNotNeedsPVR() async throws {
+        let fake = FakeRepoSecurity(pvr: false)
+        let model = try makeModel(config: "SECURITY_CONTACT=a@example.com\n", repoSecurity: fake)
+        await model.load()
+        await model.refreshRepoSecurityState()
+        #expect(model.securityReportingReadiness == .needsPVR)
+
+        // Force the subsequent save to fail deterministically: the site directory (and thus
+        // .site-config's parent) is gone by the time `saveSecurityReporting()` tries to write it.
+        try FileManager.default.removeItem(at: model.sourceDirectory)
+
+        await model.adoptAdvisoryForm()
+        #expect(await fake.enableCalls == 1)
+        #expect(model.securityReportingError != nil)
+        #expect(model.securityReportingReadiness == .ready)
+    }
 }
