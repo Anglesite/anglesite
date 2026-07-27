@@ -43,6 +43,8 @@ struct PlistEditorView: View {
                 Task { await model.saveCrawlerPolicy() }
             } else if oldValue == .emailSecurity {
                 Task { await model.saveMtaSts() }
+            } else if oldValue == .securityReports {
+                Task { await model.saveSecurityReporting() }
             }
         }
         .onChange(of: controlActiveState) { _, new in
@@ -535,12 +537,12 @@ struct PlistEditorView: View {
                     .font(.headline)
                 switch model.securityReportingReadiness {
                 case .alreadyConfigured:
-                    Text("Reports go to \(repo.owner)/\(repo.name)’s private advisory form.")
+                    Text("Reports go to \(repo.owner)/\(repo.name)'s private advisory form.")
                         .font(.callout)
                     Link("Open the advisory form", destination: SecurityReportingAsset.advisoryURL(for: repo))
                         .font(.callout)
                     if model.securityReportingRepoIsPrivate {
-                        Label("\(repo.owner)/\(repo.name) is now private, so researchers outside it can’t reach this form. Make the repository public, or publish a different contact.", systemImage: "exclamationmark.triangle.fill")
+                        Label("\(repo.owner)/\(repo.name) is now private, so researchers outside it can't reach this form. Make the repository public, or publish a different contact.", systemImage: "exclamationmark.triangle.fill")
                             .font(.callout)
                             .foregroundStyle(.orange)
                     }
@@ -549,15 +551,15 @@ struct PlistEditorView: View {
                         .font(.callout)
                     Button("Route Reports to GitHub") { Task { await model.adoptAdvisoryForm() } }
                         .buttonStyle(.borderedProminent)
-                        .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting)
+                        .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting || model.isAdoptingAdvisoryForm)
                 case .needsPVR:
-                    Text("\(repo.owner)/\(repo.name) has private vulnerability reporting turned off, so its advisory form can’t accept reports yet. Anglesite can turn it on for you.")
+                    Text("\(repo.owner)/\(repo.name) has private vulnerability reporting turned off, so its advisory form can't accept reports yet. Anglesite can turn it on for you.")
                         .font(.callout)
                     Button("Enable Private Reporting and Route Reports") { isConfirmingEnablePVR = true }
                         .buttonStyle(.borderedProminent)
-                        .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting)
+                        .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting || model.isAdoptingAdvisoryForm)
                 case .repoPrivate:
-                    Text("\(repo.owner)/\(repo.name) is a private repository, so its advisory form isn’t reachable by anyone outside it. Make the repository public to route reports there.")
+                    Text("\(repo.owner)/\(repo.name) is a private repository, so its advisory form isn't reachable by anyone outside it. Make the repository public to route reports there.")
                         .font(.callout)
                 case .unknown:
                     // The check hasn't completed, or it failed. `securityReportingError` (rendered

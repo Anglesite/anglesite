@@ -73,32 +73,32 @@
         }
       }
     },
-    "%@/%@ has private vulnerability reporting turned off, so its advisory form can’t accept reports yet. Anglesite can turn it on for you." : {
+    "%@/%@ has private vulnerability reporting turned off, so its advisory form can't accept reports yet. Anglesite can turn it on for you." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%1$@/%2$@ has private vulnerability reporting turned off, so its advisory form can’t accept reports yet. Anglesite can turn it on for you."
+            "value" : "%1$@/%2$@ has private vulnerability reporting turned off, so its advisory form can't accept reports yet. Anglesite can turn it on for you."
           }
         }
       }
     },
-    "%@/%@ is a private repository, so its advisory form isn’t reachable by anyone outside it. Make the repository public to route reports there." : {
+    "%@/%@ is a private repository, so its advisory form isn't reachable by anyone outside it. Make the repository public to route reports there." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%1$@/%2$@ is a private repository, so its advisory form isn’t reachable by anyone outside it. Make the repository public to route reports there."
+            "value" : "%1$@/%2$@ is a private repository, so its advisory form isn't reachable by anyone outside it. Make the repository public to route reports there."
           }
         }
       }
     },
-    "%@/%@ is now private, so researchers outside it can’t reach this form. Make the repository public, or publish a different contact." : {
+    "%@/%@ is now private, so researchers outside it can't reach this form. Make the repository public, or publish a different contact." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%1$@/%2$@ is now private, so researchers outside it can’t reach this form. Make the repository public, or publish a different contact."
+            "value" : "%1$@/%2$@ is now private, so researchers outside it can't reach this form. Make the repository public, or publish a different contact."
           }
         }
       }
@@ -1872,12 +1872,12 @@
     "Replace With" : {
 
     },
-    "Reports go to %@/%@’s private advisory form." : {
+    "Reports go to %@/%@'s private advisory form." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Reports go to %1$@/%2$@’s private advisory form."
+            "value" : "Reports go to %1$@/%2$@'s private advisory form."
           }
         }
       }

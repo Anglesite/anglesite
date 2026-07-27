@@ -230,6 +230,22 @@ struct PlistEditorModelSecurityReportsTests {
         #expect(config.contains("SECURITY_CONTACT=a@example.com"))
     }
 
+    @Test("a second concurrent adopt call does not duplicate the PVR write")
+    func concurrentAdoptDoesNotDuplicateWrite() async throws {
+        let fake = FakeRepoSecurity(pvr: false)
+        let model = try makeModel(config: "SECURITY_CONTACT=a@example.com\n", repoSecurity: fake)
+        await model.load()
+        await model.refreshRepoSecurityState()
+        #expect(model.securityReportingReadiness == .needsPVR)
+
+        async let first: Void = model.adoptAdvisoryForm()
+        async let second: Void = model.adoptAdvisoryForm()
+        _ = await (first, second)
+
+        #expect(await fake.enableCalls == 1)
+        #expect(model.securityReportingReadiness == .alreadyConfigured)
+    }
+
     @Test("a partial adopt failure (PVR enabled, save fails) still reports .ready, not .needsPVR")
     func adoptPartialFailureReportsReadyNotNeedsPVR() async throws {
         let fake = FakeRepoSecurity(pvr: false)

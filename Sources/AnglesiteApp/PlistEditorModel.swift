@@ -52,6 +52,7 @@ final class PlistEditorModel {
     private(set) var securityReportingError: String?
     private(set) var isSavingSecurityReporting = false
     private(set) var isCheckingRepoSecurity = false
+    private(set) var isAdoptingAdvisoryForm = false
     private(set) var securityReportingReadiness: SecurityReportingReadiness = .unknown
     private(set) var securityReportingRepo: RemoteRepo?
     /// Last known repo visibility. `.alreadyConfigured` doesn't distinguish public from private
@@ -462,7 +463,10 @@ final class PlistEditorModel {
     /// vulnerability reporting first when it's off. The view confirms before calling this —
     /// enabling PVR changes a GitHub repository setting.
     func adoptAdvisoryForm() async {
+        guard !isAdoptingAdvisoryForm else { return }
         guard let repo = securityReportingRepo else { return }
+        isAdoptingAdvisoryForm = true
+        defer { isAdoptingAdvisoryForm = false }
         securityReportingError = nil
 
         if securityReportingReadiness == .needsPVR {
