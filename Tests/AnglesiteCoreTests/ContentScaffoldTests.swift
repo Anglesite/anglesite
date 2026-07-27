@@ -224,4 +224,62 @@ struct ContentScaffoldTests {
         #expect(obj?["type"] as? String == "personalProfile")
         #expect(obj?["name"] as? String == tricky) // round-trips losslessly
     }
+
+    @Test("renderEntry renders a supplied required .url value live and valid")
+    func renderEntrySuppliedRequiredURL() throws {
+        let like = try #require(ContentTypeRegistry().descriptor(id: "like"))
+        let out = ContentScaffold.renderEntry(
+            descriptor: like,
+            title: nil,
+            now: Date(timeIntervalSince1970: 1_750_000_000),
+            fieldValues: ["likeOf": "https://example.com/post"])
+        #expect(out.contains("likeOf: \"https://example.com/post\""))
+        #expect(!out.contains("likeOf: \"\""))
+    }
+
+    @Test("a supplied optional .url value renders live instead of commented out")
+    func renderEntrySuppliedOptionalURL() throws {
+        let note = try #require(ContentTypeRegistry().descriptor(id: "note"))
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+
+        let withValue = ContentScaffold.renderEntry(
+            descriptor: note, title: nil, now: now,
+            fieldValues: ["audience": "https://example.com/friends"])
+        #expect(withValue.contains("\naudience: \"https://example.com/friends\""))
+        #expect(!withValue.contains("# audience:"))
+
+        // An explicitly empty value is treated the same as no value: commented out (#913).
+        let withEmpty = ContentScaffold.renderEntry(
+            descriptor: note, title: nil, now: now, fieldValues: ["audience": ""])
+        #expect(withEmpty.contains("# audience: \"\""))
+    }
+
+    @Test("renderEntry escapes a supplied value and ignores unknown field names")
+    func renderEntrySuppliedValueEscaping() throws {
+        let bookmark = try #require(ContentTypeRegistry().descriptor(id: "bookmark"))
+        let out = ContentScaffold.renderEntry(
+            descriptor: bookmark,
+            title: "Title",
+            now: Date(timeIntervalSince1970: 1_750_000_000),
+            fieldValues: ["bookmarkOf": "https://example.com/a\"b", "notAField": "ignored"])
+        #expect(out.contains("bookmarkOf: \"https://example.com/a\\\"b\""))
+        #expect(!out.contains("notAField"))
+    }
+
+    @Test("an empty fieldValues reproduces the pre-#916 output for every collection type")
+    func renderEntryEmptyFieldValuesIsUnchanged() {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        for descriptor in ContentTypeRegistry.builtIns where descriptor.collection != nil {
+            let withDefault = ContentScaffold.renderEntry(descriptor: descriptor, title: "Title", now: now)
+            let withEmpty = ContentScaffold.renderEntry(
+                descriptor: descriptor, title: "Title", now: now, fieldValues: [:])
+            #expect(withDefault == withEmpty, "\(descriptor.id)")
+            // Required .url fields still scaffold as an empty live line when nothing is supplied —
+            // the create path (NativeContentOperations) is what refuses to write that, not the
+            // renderer, which stays a pure formatter.
+            for field in descriptor.requiredURLFields {
+                #expect(withDefault.contains("\(field.name): \"\""), "\(descriptor.id).\(field.name)")
+            }
+        }
+    }
 }

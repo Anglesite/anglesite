@@ -137,7 +137,15 @@ public enum ContentScaffold {
     /// Render a new content entry's file contents from its descriptor: a YAML frontmatter block
     /// (one line per non-markdown field, in declaration order) followed by a placeholder body for
     /// the type's `markdown` field, if any. Pure; mirrors `renderPost`'s ISO8601 date format.
-    public static func renderEntry(descriptor: ContentTypeDescriptor, title: String?, now: Date) -> String {
+    /// `fieldValues` supplies caller-collected values by field name for the scalar-string kinds
+    /// (`.string`, `.text`, `.url`, `.image`); an absent key falls back to the title-like/empty
+    /// default. Still pure — an empty `fieldValues` renders exactly what it rendered before (#916).
+    public static func renderEntry(
+        descriptor: ContentTypeDescriptor,
+        title: String?,
+        now: Date,
+        fieldValues: [String: String] = [:]
+    ) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let dateTime = formatter.string(from: now)
@@ -165,16 +173,19 @@ public enum ContentScaffold {
             case .stringArray, .imageArray:
                 lines.append("\(field.name): []")
             case .string, .text, .image:
-                let value = ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
-                lines.append("\(field.name): \"\(escapeYAML(value))\"")
-            // Optional `.url` fields scaffold commented-out: an emitted `""` is not a valid URL
-            // under `z.string().url()`, unlike `.string`/`.text`/`.image`'s bare `z.string()`,
-            // which accepts an empty string. Mirrors the `.datetime`/`.date` comment-out rationale
-            // above. Required ones (bookmarkOf, inReplyTo, likeOf) stay live — those entries are
-            // already incomplete without them, same as every other required field.
+                lines.append("\(field.name): \"\(escapeYAML(scalarValue(field, title: title, fieldValues: fieldValues)))\"")
+            // A `.url` line is commented out only when the field is optional *and* nothing was
+            // supplied: an emitted `""` is not a valid URL under `z.string().url()`, unlike
+            // `.string`/`.text`/`.image`'s bare `z.string()`, which accepts an empty string.
+            // Mirrors the `.datetime`/`.date` comment-out rationale above (#913). A supplied value
+            // always renders live — that is how the create path pre-fills the required
+            // `bookmarkOf`/`inReplyTo`/`likeOf` so a new entry is schema-valid on first write
+            // (#916). Required fields with nothing supplied still render an empty live line; the
+            // create path refuses to write that, keeping this function a pure formatter.
             case .url:
-                let value = ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
-                lines.append("\(field.required ? "" : "# ")\(field.name): \"\(escapeYAML(value))\"")
+                let value = scalarValue(field, title: title, fieldValues: fieldValues)
+                let isLive = field.required || !value.isEmpty
+                lines.append("\(isLive ? "" : "# ")\(field.name): \"\(escapeYAML(value))\"")
             }
         }
         lines.append("---")
@@ -184,6 +195,17 @@ public enum ContentScaffold {
             output += "\n\(bodyPlaceholder)\n"
         }
         return output
+    }
+
+    /// The value for a scalar-string field: the caller's supplied value if there is one, otherwise
+    /// the entry title for a title-like field, otherwise empty.
+    private static func scalarValue(
+        _ field: ContentTypeField,
+        title: String?,
+        fieldValues: [String: String]
+    ) -> String {
+        if let supplied = fieldValues[field.name] { return supplied }
+        return ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
     }
 
     /// Render a per-site singleton (e.g. the representative h-card) as a JSON data module:
