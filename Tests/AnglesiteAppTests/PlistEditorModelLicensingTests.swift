@@ -187,6 +187,20 @@ struct PlistEditorModelLicensingTests {
         #expect(draft == ContentLicensingTab.PendingCustomLicense())
     }
 
+    /// Direct coverage of the `.custom` setter's decision, independent of the model or view. This
+    /// is the exact regression: the pre-fix guard was `license == nil`, so picking Custom… over an
+    /// already-selected catalog license (`ccBY` here) did not reveal draft fields and the picker
+    /// snapped back — reverting `shouldRevealCustomFields` to that guard must fail the middle
+    /// expectation below.
+    @Test("shouldRevealCustomFields is true for no license and any catalog license, false for an existing custom one")
+    func shouldRevealCustomFieldsDecidesFromThePriorLicenseAlone() {
+        #expect(ContentLicensingTab.shouldRevealCustomFields(over: nil) == true)
+        #expect(ContentLicensingTab.shouldRevealCustomFields(over: ccBY) == true)
+
+        let existingCustom = LicenseRef(url: "https://mysite.example/license", name: "Site License")
+        #expect(ContentLicensingTab.shouldRevealCustomFields(over: existingCustom) == false)
+    }
+
     // MARK: - #991 review finding 1 (regression): driving the real `defaultChoice` binding
     //
     // `ContentLicensingTab`'s `@State var customDraft` genuinely cannot be *mutated* from outside
@@ -203,19 +217,25 @@ struct PlistEditorModelLicensingTests {
     // This still drives the real `defaultChoice`/`customURL`/`customName` bindings and the real
     // getter/setter closures in `ContentLicensingTab` — nothing here reimplements their logic.
 
-    @Test("All rights reserved to Custom: fields appear, policy untouched, navigating away is clean")
+    // This flow used to start from "All rights reserved" (`defaultLicense == nil`), which only
+    // exercises the one guard clause ( `license == nil`) that the pre-fix code already got right —
+    // it would have passed under the original #991 regression too. Starting from a catalog
+    // license (`ccBY`) instead covers the path that actually broke: picking Custom… over an
+    // *already-selected* license.
+    @Test("Catalog license to Custom: fields appear, policy untouched, navigating away is clean")
     func allRightsReservedToCustomRevealsFieldsWithoutMutating() async throws {
-        let model = try makeModel()
+        let model = try makeModel(
+            licensingJSON: #"{"default":{"url":"https://creativecommons.org/licenses/by/4.0/","name":"CC BY 4.0"}}"#)
         await model.load()
-        #expect(model.licensingPolicy.defaultLicense == nil)
+        #expect(model.licensingPolicy.defaultLicense == ccBY)
 
-        // Drive the real setter from the "All rights reserved" state.
+        // Drive the real setter from the catalog-selected state.
         let view = ContentLicensingTab(model: model)
         view.defaultChoice.wrappedValue = .custom
 
         // The model is untouched by picking Custom… — the setter's `.custom` branch never writes
         // `model.licensingPolicy` at all.
-        #expect(model.licensingPolicy.defaultLicense == nil)
+        #expect(model.licensingPolicy.defaultLicense == ccBY)
         #expect(model.isLicensingDirty == false)
 
         // The getter reveals empty fields once pending — modeled by a fresh view constructed with
@@ -315,17 +335,43 @@ struct PlistEditorModelLicensingTests {
         #expect(view.customName.wrappedValue == "Site License")
     }
 
-    @Test("Custom left empty, then navigating away: no error, no blocked navigation")
+    // As above: starting from "All rights reserved" only exercises the guard clause the pre-fix
+    // code already handled correctly. Starting from a catalog license instead covers the path
+    // that actually broke.
+    @Test("Catalog license, Custom left empty, then navigating away: no error, no blocked navigation")
     func customLeftEmptyThenNavigatingAwayDoesNotBlock() async throws {
-        let model = try makeModel()
+        let model = try makeModel(
+            licensingJSON: #"{"default":{"url":"https://creativecommons.org/licenses/by/4.0/","name":"CC BY 4.0"}}"#)
         await model.load()
+        #expect(model.licensingPolicy.defaultLicense == ccBY)
 
         let view = ContentLicensingTab(model: model)
         view.defaultChoice.wrappedValue = .custom
 
+        #expect(model.licensingPolicy.defaultLicense == ccBY)
         #expect(model.isLicensingDirty == false)
         let flushed = await model.flushBeforeLeaving()
         #expect(flushed == true)
+    }
+
+    /// Regression coverage for the `customName` setter's `!customDraft.isPending` guard: while
+    /// pending (Custom… picked over a catalog license, no URL typed yet), typing into the Name
+    /// field must go to the draft, not rename the catalog ref still sitting in the model
+    /// underneath. Dropping that guard makes the setter fall through to
+    /// `model.licensingPolicy.defaultLicense?.name = newValue` whenever a license already exists,
+    /// pending or not — renaming `ccBY` in place and dirtying the model.
+    @Test("typing a name while pending records it in the draft, leaving a catalog license alone")
+    func customNameWhilePendingDoesNotRenameTheUnderlyingCatalogLicense() async throws {
+        let model = try makeModel(
+            licensingJSON: #"{"default":{"url":"https://creativecommons.org/licenses/by/4.0/","name":"CC BY 4.0"}}"#)
+        await model.load()
+        #expect(model.licensingPolicy.defaultLicense == ccBY)
+
+        let pendingView = ContentLicensingTab(
+            model: model, customDraft: ContentLicensingTab.PendingCustomLicense(isPending: true))
+        pendingView.customName.wrappedValue = "X"
+
+        #expect(model.licensingPolicy.defaultLicense == ccBY)
     }
 
     /// End-to-end confirmation that the tab-level fix does not regress ordinary use: a genuinely

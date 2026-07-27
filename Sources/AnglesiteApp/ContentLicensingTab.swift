@@ -147,22 +147,33 @@ struct ContentLicensingTab: View {
                         model.licensingPolicy.usage, for: entry.ref)
                 case .custom:
                     // Reveal the URL/name fields only; leave the model untouched until a URL is
-                    // typed (see `customURL` and `PendingCustomLicense`'s doc comment). A ref that
-                    // already exists AND is already non-catalog (a saved custom license, or one
-                    // already being edited) keeps showing as `.custom` via the getter above with
-                    // no draft needed, so there's nothing to do in that case. Otherwise — no
-                    // license at all, or a *catalog* license currently selected — go pending: the
-                    // getter's `customDraft.isPending` check runs ahead of the model, so this
-                    // reveals empty fields even while a catalog `defaultLicense` sits untouched in
-                    // the model underneath (#991 review finding 1).
-                    let alreadyCustom = model.licensingPolicy.defaultLicense.map {
-                        LicenseCatalog.entry(for: $0) == nil
-                    } ?? false
-                    if !alreadyCustom {
+                    // typed (see `customURL` and `PendingCustomLicense`'s doc comment). Whether to
+                    // go pending is a pure function of what's already selected — see
+                    // `shouldRevealCustomFields(over:)` — so this branch doesn't need to reason
+                    // about the model beyond reading that one value (#991 review finding 1).
+                    if Self.shouldRevealCustomFields(over: model.licensingPolicy.defaultLicense) {
                         customDraft.select()
                     }
                 }
             })
+    }
+
+    /// Whether picking "Custom…" over `license` should reveal empty draft fields
+    /// (`customDraft.select()`) rather than leaving the draft untouched.
+    ///
+    /// True for no license at all ("All rights reserved") and for any catalog license — both
+    /// leave stale data in the model that the draft must shadow with empty fields. False only
+    /// when `license` is already a non-catalog ("custom") ref: the getter already reports
+    /// `.custom` straight from the model in that case, so no draft is needed.
+    ///
+    /// Extracted as a pure function of `LicenseRef?` — like `PendingCustomLicense` above — so the
+    /// regression this guards (#991 review finding 1: the pre-fix guard was `license == nil`,
+    /// which left the picker snapping back to the catalog entry) is directly testable without a
+    /// hosted SwiftUI render pass. Internal (not `private`) so tests can call it directly — see
+    /// `PlistEditorModelLicensingTests`'s "#991 review finding 1" section.
+    static func shouldRevealCustomFields(over license: LicenseRef?) -> Bool {
+        guard let license else { return true }
+        return LicenseCatalog.entry(for: license) != nil
     }
 
     // Internal (not `private`) so tests can drive these bindings directly — see
