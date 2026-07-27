@@ -7,6 +7,7 @@
 import { Schema } from "astro-seo-schema";
 import { blogPostingSchema } from "../lib/schema.ts";
 import { ownerName } from "../lib/profile.ts";
+import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
@@ -26,9 +27,10 @@ const human = pubDate
   ? pubDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })
   : undefined;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
+const license = licenseFor("blog");
 const jsonLd = blogPostingSchema(
   { title, description, pubDate },
-  { url: canonical, site: Astro.site, authorName: ownerName() },
+  { url: canonical, site: Astro.site, authorName: ownerName(), license: license?.url },
 );
 // anglesite:imports — integration component imports are injected here on setup
 ---

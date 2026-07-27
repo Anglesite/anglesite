@@ -4,6 +4,7 @@ import { Schema } from "astro-seo-schema";
 import type { HentryCollection } from "../lib/collections.ts";
 import { entrySchema, type HentryData } from "../lib/schema.ts";
 import { ownerName } from "../lib/profile.ts";
+import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
@@ -41,10 +42,12 @@ const tags: string[] = Array.isArray(d.tags) ? d.tags : [];
 // schema.org JSON-LD twin of the mf2 markup (V-1.8). `entry.collection` discriminates which
 // h-entry vocabulary this is; `entrySchema` returns null for likes (no rich-result type).
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
+const license = licenseFor(entry.collection);
 const jsonLd = entrySchema(entry.collection, entry.data as HentryData, {
   url: canonical,
   site: Astro.site,
   authorName: ownerName(),
+  license: license?.url,
 });
 ---
 
