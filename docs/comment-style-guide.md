@@ -54,9 +54,21 @@ tags exist to add clarity a signature doesn't already give you, not to pad every
 ## DocC-specific syntax
 
 - **Symbol links:** double backticks (` ``TypeName`` `` or ` ``TypeName/member(_:)`` ``) create a
-  resolved, clickable link in the generated docset. Single backticks (`` `TypeName` ``) render as
-  plain code with no link — use those for code that isn't a real symbol in this package (a
-  parameter's literal value, a shell command, etc).
+  resolved, clickable link in the generated docset — but DocC only resolves them for a symbol that
+  is both (a) `public`+ access level, and (b) in the *same SwiftPM target* as the file referencing
+  it (or a symbol that target genuinely re-exports). Single backticks (`` `TypeName` ``) render as
+  plain code with no link — use those for:
+  - a cross-module reference: a symbol defined in a different SwiftPM target than the file
+    referencing it (e.g. `` `AnglesiteMessageDispatcher` `` and `` `AnglesiteOverlayBundle` ``,
+    both defined in `AnglesiteBridgeCore`, referenced from `AnglesiteBridge`'s
+    `WebViewBridge.swift` and `AnglesiteScriptHandler.swift`) — DocC's default symbol graph
+    doesn't resolve these without an experimental cross-module-links flag this repo doesn't use;
+  - a `private`/`internal` symbol — DocC's symbol graph only includes public API, so these never
+    resolve regardless of which target they're in;
+  - code that isn't a real symbol in this package at all (a parameter's literal value, a shell
+    command, etc);
+  - an Apple SDK framework symbol — outside this package's symbol graph entirely, so it can never
+    resolve to a link here.
 - **Callouts:** `- Important:`, `- Note:`, and `- Warning:` render as highlighted callout boxes in
   the docset. Use them sparingly, for things a reader could otherwise miss (a genuinely
   surprising constraint, not routine information already covered in prose).

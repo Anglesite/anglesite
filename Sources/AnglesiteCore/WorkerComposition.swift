@@ -118,9 +118,18 @@ public enum WorkerComposition {
     ///     patterns so *only* claimed routes bypass asset-first serving — a static asset can no
     ///     longer shadow an active dynamic route, while every unclaimed path keeps Cloudflare's
     ///     asset-first fallback. Omitted entirely when there are no active dynamic routes.
-    ///   - resources: The site's provisioned Cloudflare resource IDs (D1/KV/R2/queues).
-    ///   - inboxCaptureEnabled: Whether the inbox-capture route claim is appended to `routeClaims`.
-    ///   - inboxKVNamespaceID: The inbox KV namespace ID, required when `inboxCaptureEnabled`.
+    ///   - resources: The site's provisioned Cloudflare resource identifiers and names — D1 and KV
+    ///     are ids (``ProvisionedResources/d1DatabaseID``, ``ProvisionedResources/kvNamespaceID``),
+    ///     while R2 and the queues are deterministic names, not ids (see
+    ///     ``ProvisionedResources`` for the per-field rationale).
+    ///   - inboxCaptureEnabled: Whether inbox-capture support is composed in: appends the
+    ///     inbox-capture route claim to `routeClaims`, and gates on the Worker's `main` entry
+    ///     point, the `[assets]` binding, the `[[kv_namespaces]]` block, and `[observability]`
+    ///     being emitted (alongside `hasSocialFeatures`, i.e. any active `workers`).
+    ///   - inboxKVNamespaceID: The inbox KV namespace ID. Optional even when
+    ///     `inboxCaptureEnabled` is `true` — if `nil` or empty, the emitted
+    ///     `[[kv_namespaces]]` block gets a placeholder empty `id` for provisioning to fill in
+    ///     later, rather than throwing.
     ///   - siteURL: The site's public URL, threaded into the composed Worker's config.
     ///   - displayName: The site's display name (`SiteSettings.displayName`, already falling back
     ///     to the site name by the time a caller passes it in — this function stays pure and does
