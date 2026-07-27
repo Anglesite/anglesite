@@ -79,7 +79,12 @@ Anglesite today has two animation-adjacent lanes:
   up when it scrolls into view"), `category` (`text` | `cards` | `buttons` |
   `backgrounds` | `navigation`), `keyProps`, `snippet` (import + usage). Only
   components that pass a curation pass are listed: renders under Astro 7, respects
-  `prefers-reduced-motion`, slot content meaningful without JS.
+  `prefers-reduced-motion`, slot content meaningful without JS, **and emits zero
+  `<script>` tags under the cataloged props**. The last rule is load-bearing: the
+  template CSP is `script-src 'self' 'wasm-unsafe-eval' …` with no `'unsafe-inline'`
+  and no hashes, and the library's `enhance=true` mode emits `is:inline` scripts that
+  the CSP would block in production. v1 catalogs CSS-only usage (`enhance` stays
+  `false`); JS-requiring components are excluded.
 - **Docs** — `integrations/docs/animations.md` beside the existing setup docs: the
   human/agent-readable catalog (kept in sync with the manifest; a template test
   cross-checks the two).
@@ -99,17 +104,21 @@ Anglesite today has two animation-adjacent lanes:
   SwiftUI list (categories from `animations.json`) with a `WKWebView` rendering the
   selected demo — works offline, before any site container boots, and nothing can leak
   preview pages into a deployed site.
-- **Actions:** *Copy snippet* (from the manifest) and *Add with assistant* (pre-fills
-  the chat, e.g. "Add a CountUp animation to …"), keeping placement conversational.
+- **Actions:** *Copy snippet* (from the manifest) in v1. An *Add with assistant*
+  action (pre-filling the chat) is deferred: the app currently has no chat-prefill
+  API, and inventing one is out of scope here — tracked as a follow-up in the gallery
+  issue.
 - Gallery model code lives in `AnglesiteCore` (manifest decoding, snippet provision) so
   it's testable without the app host; the SwiftUI shell stays thin.
 
 ### 3. Sidecar changes (`Anglesite/anglesite`, separate PR)
 
-- **ADR-0008 amended** (recorded, not silently violated): "no third-party JavaScript"
-  becomes "no third-party *runtime* JS except capabilities vetted and baked into the
-  template (currently `@astroanimate/core`); external CDN scripts remain forbidden."
-  ADR-0004 gains a cross-reference note.
+- **ADR-0008 extended, not reversed.** The ADR already carves out npm-installed,
+  Astro-bundled libraries (p5.js, Three.js, GSAP, …) as *first-party* under
+  `script-src 'self'` ("Creative coding libraries (not third-party)"). The change is a
+  one-paragraph extension naming animation component libraries (`@astroanimate/core`)
+  under the same carve-out, plus a note that its `enhance` mode emits inline scripts
+  the template CSP blocks — CSS-only usage is the supported mode.
 - **`/animate` skill** gains an escalation section: vanilla CSS by default; for effects
   CSS can't do well, consult the site's `integrations/docs/animations.md` and use the
   cataloged components by name with their real props. The preview-before-apply and
@@ -140,6 +149,7 @@ not an MCP schema change, so no paired-PR requirement.
 | Advertised sub-packages never ship | Core-only design; sub-packages are an explicit later decision |
 | A11y regressions from library components | Curation gate requires reduced-motion + no-JS fallback per component |
 | Bundle bloat | CSS-first (~0.5 KB/component, JS only with `enhance`); no CSP/external domains |
+| `enhance=true` inline scripts blocked by strict CSP | Curation gate: catalog only zero-`<script>` usage; smoke test enforces |
 
 ## Rollout / process
 
