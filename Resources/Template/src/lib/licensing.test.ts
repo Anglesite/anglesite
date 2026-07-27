@@ -134,6 +134,21 @@ test("normalizePolicy: rejects a bare relative URL", () => {
   assert.equal(out.default, null);
 });
 
+test("normalizePolicy: rejects a protocol-relative URL smuggled past the leading-slash guard via a tab", () => {
+  // The leading-slash fast path used to run against the raw string: a single leading slash
+  // followed by a tab still reads as "starts with / but not //" before sanitization. A browser
+  // strips the tab before parsing and resolves this as `//evil.com` — a protocol-relative URL
+  // handing an attacker-chosen host to href — so it must be rejected, not accepted as
+  // root-relative (#991 review finding 2).
+  const out = normalizePolicy({ default: { url: "/\t/evil.com", name: "Evil" } });
+  assert.equal(out.default, null);
+});
+
+test("normalizePolicy: rejects a protocol-relative URL smuggled via CR or LF", () => {
+  assert.equal(normalizePolicy({ default: { url: "/\r/evil.com", name: "Evil" } }).default, null);
+  assert.equal(normalizePolicy({ default: { url: "/\n/evil.com", name: "Evil" } }).default, null);
+});
+
 test("resolveLicense: a bad-URL collection override resolves to null, not a leaked entry", () => {
   const policy = normalizePolicy({
     default: { url: "https://example.com/l", name: "Default" },

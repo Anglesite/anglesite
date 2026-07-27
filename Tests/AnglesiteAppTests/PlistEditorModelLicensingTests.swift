@@ -69,6 +69,12 @@ struct PlistEditorModelLicensingTests {
         #expect(reloaded.defaultLicense == ccBY)
     }
 
+    // This test is the only thing standing between the repo and a reintroduced infinite-recursion
+    // SIGSEGV: `model.licensingPolicy.usage.aiTrain = .yes` below writes through `@Observable`'s
+    // generated setter for `licensingPolicy`, which is exactly the reentrant path described in
+    // `PlistEditorModel`'s `licensingPolicy` `didSet` (`Sources/AnglesiteApp/PlistEditorModel.swift`)
+    // — deleting that `didSet`'s `if clamped != licensingPolicy.usage` guard crashes this whole test
+    // suite, not just this one test. Do not "simplify" either one without keeping the other in mind.
     @Test("permitting an AI purpose clears a blocklist toggle that is no longer allowed")
     func editingUsageClearsBlocklist() async throws {
         let model = try makeModel()
@@ -121,5 +127,83 @@ struct PlistEditorModelLicensingTests {
         #expect(saved == true)
         let licensingPath = model.sourceDirectory.appendingPathComponent("src/data/licensing.json")
         #expect(!FileManager.default.fileExists(atPath: licensingPath.path))
+    }
+
+    // MARK: - #991 review finding 1: "Custom…" without a typed URL
+
+    /// The store-level (second) defense: no matter how an empty-URL default license reaches
+    /// `saveLicensing`, it must save cleanly as "no license" instead of throwing
+    /// `unsafeLicenseURL("")` and blocking `flushBeforeLeaving`.
+    @Test("an empty-URL default license saves as no license instead of blocking the flush")
+    func emptyURLDefaultLicenseSavesAsNoLicense() async throws {
+        let model = try makeModel()
+        await model.load()
+        model.licensingPolicy.defaultLicense = LicenseRef(url: "", name: "")
+        #expect(model.isLicensingDirty == true)
+
+        let saved = await model.saveLicensing()
+
+        #expect(saved == true)
+        #expect(model.licensingError == nil)
+        #expect(model.licensingPolicy.defaultLicense == nil)
+        #expect(model.isLicensingDirty == false)
+        let reloaded = try LicensingStore(sourceDirectory: model.sourceDirectory).load()
+        #expect(reloaded.defaultLicense == nil)
+    }
+
+    /// The tab-level (first) defense, tested directly on `ContentLicensingTab.PendingCustomLicense`
+    /// rather than by driving the view's `@State` from outside a live SwiftUI hierarchy — `@State`
+    /// writes are silently dropped when a `View` value is constructed and manipulated directly
+    /// (as a unit test must) instead of hosted by SwiftUI's render pass, so a test spanning
+    /// separate statements can't observe its own writes through the view. Extracting the logic
+    /// into this plain value type is what makes it verifiable at all.
+    @Test("selecting Custom reveals fields without creating a license")
+    func pendingCustomLicenseSelectDoesNotCreateALicense() {
+        var draft = ContentLicensingTab.PendingCustomLicense()
+        draft.select()
+        #expect(draft.isPending == true)
+        #expect(draft.pendingName == "")
+    }
+
+    @Test("a name typed before the URL is preserved for the license the URL creates")
+    func pendingCustomLicenseCarriesTypedNameToTheNewLicense() {
+        var draft = ContentLicensingTab.PendingCustomLicense()
+        draft.select()
+        draft.recordName("My License")
+
+        let name = draft.consumeForNewLicense()
+
+        #expect(name == "My License")
+        #expect(draft.isPending == false)
+        #expect(draft.pendingName == "")
+    }
+
+    @Test("picking a different choice clears any pending custom state")
+    func pendingCustomLicenseClearResetsEverything() {
+        var draft = ContentLicensingTab.PendingCustomLicense()
+        draft.select()
+        draft.recordName("Half-typed")
+
+        draft.clear()
+
+        #expect(draft == ContentLicensingTab.PendingCustomLicense())
+    }
+
+    /// End-to-end confirmation that the tab-level fix does not regress ordinary use: a genuinely
+    /// typed custom license still saves. This drives `ContentLicensingTab`'s bindings within a
+    /// single statement each — the one shape of direct manipulation that does not depend on
+    /// `@State` persisting across statements outside a hosted view (see the tests above).
+    @Test("choosing Custom… and typing a URL directly on the model still saves")
+    func typingACustomURLDirectlyOnTheModelStillSaves() async throws {
+        let model = try makeModel()
+        await model.load()
+        model.licensingPolicy.defaultLicense = LicenseRef(url: "https://example.com/my-license", name: "My License")
+        #expect(model.isLicensingDirty == true)
+
+        let saved = await model.saveLicensing()
+
+        #expect(saved == true)
+        let reloaded = try LicensingStore(sourceDirectory: model.sourceDirectory).load()
+        #expect(reloaded.defaultLicense == LicenseRef(url: "https://example.com/my-license", name: "My License"))
     }
 }

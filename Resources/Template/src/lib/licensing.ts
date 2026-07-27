@@ -121,6 +121,23 @@ function isLicensable(key: string): key is LicensableCollection {
 }
 
 /**
+ * Mirrors the input-sanitization step the WHATWG URL parser runs before parsing: strip every
+ * ASCII tab/CR/LF wherever it occurs, then trim leading/trailing C0 control characters or space.
+ * `new URL()` performs this internally, so a manual string check run *before* handing the value
+ * to `new URL()` — like the leading-slash fast path below — has to replicate it, or it can
+ * disagree with what the browser actually resolves the URL to.
+ */
+function whatwgTrim(url: string): string {
+  const withoutTabsOrNewlines = url.replace(/[\t\r\n]/g, "");
+  const isC0OrSpace = (ch: string): boolean => ch.charCodeAt(0) <= 0x20;
+  let start = 0;
+  let end = withoutTabsOrNewlines.length;
+  while (start < end && isC0OrSpace(withoutTabsOrNewlines[start])) start++;
+  while (end > start && isC0OrSpace(withoutTabsOrNewlines[end - 1])) end--;
+  return withoutTabsOrNewlines.slice(start, end);
+}
+
+/**
  * Whether `url` is safe to emit unguarded into `href`/`rel="license"` (LicenseLink.astro,
  * BaseLayout.astro, Rights.astro). Matches the scheme-guard convention already used for
  * user-supplied URLs elsewhere in the template (`src/lib/interactions.ts`'s `httpUrl`,
@@ -135,9 +152,16 @@ function isLicensable(key: string): key is LicensableCollection {
  * URL (`//host/x`) is rejected because it hands an attacker-chosen host to href, and a bare
  * relative path (`license.html`) is rejected because its resolution depends on which page
  * renders it, which isn't the "site-local page" case this exists for.
+ *
+ * The leading-slash check runs against the *sanitized* string (`whatwgTrim`), not the raw one:
+ * a browser strips ASCII tab/CR/LF before parsing, so `"/\t/evil.com"` has only one leading
+ * slash to an unsanitized check (passing as root-relative) but resolves as `//evil.com` — a
+ * protocol-relative URL — once the browser's own parser strips the tab. Checking the sanitized
+ * string is what keeps this guard's protocol-relative rejection real (#991 review finding 2).
  */
 function hasSafeLicenseScheme(url: string): boolean {
-  if (url.startsWith("/") && !url.startsWith("//")) return true;
+  const sanitized = whatwgTrim(url);
+  if (sanitized.startsWith("/") && !sanitized.startsWith("//")) return true;
   try {
     return ["http:", "https:"].includes(new URL(url).protocol);
   } catch {

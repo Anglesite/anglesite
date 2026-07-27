@@ -82,6 +82,18 @@ test("buildRobotsTxt: a usage block that permits AI never emits the blocklist", 
   assert.doesNotMatch(out, /GPTBot/);
 });
 
+test("buildRobotsTxt: gates the blocklist on mayBlockAICrawlers even given an unclamped usage directly", () => {
+  // main() only ever passes output normalizeUsage has already clamped, but buildRobotsTxt is
+  // exported and must not trust its own argument — the blocklist-never-exceeds-permissions rule
+  // is the whole point of #991, so it has to hold even for a caller that skips normalizeUsage
+  // (#991 review finding 3).
+  const out = buildRobotsTxt({ search: "unset", aiInput: "yes", aiTrain: "no", blockAICrawlers: true });
+  assert.doesNotMatch(out, /GPTBot/);
+  for (const bot of aiCrawlers) {
+    assert.doesNotMatch(out, new RegExp(bot));
+  }
+});
+
 test("contentSignalDirective: one pair per stated purpose, undefined when none are stated", () => {
   assert.equal(contentSignalDirective(NO_USAGE), undefined);
   assert.equal(
@@ -164,6 +176,16 @@ test("readLicensingUsage: no clamp reported when the request was honored", () =>
   const out = readLicensingUsage(dir);
   assert.equal(out.usage.blockAICrawlers, true);
   assert.equal(out.clamped, false);
+});
+
+test("readLicensingUsage: an unreadable path (e.g. a directory) yields NO_USAGE rather than throwing", () => {
+  // existsSync passes for a directory, so readFileSync is what actually throws (EISDIR) — this
+  // exercises the same "file exists but can't be read" shape as a permissions error or a dangling
+  // symlink would, and must degrade the same way a JSON.parse failure does rather than escaping
+  // out of prebuild with a raw stack (#991 review finding 4).
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  mkdirSync(resolve(dir, "src/data/licensing.json"), { recursive: true });
+  assert.deepEqual(readLicensingUsage(dir), { usage: NO_USAGE, clamped: false });
 });
 
 const NOW = new Date("2026-06-28T12:00:00Z");

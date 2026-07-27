@@ -251,6 +251,46 @@ struct LicensingStoreTests {
         #expect(try LicensingStore(sourceDirectory: dir).load() == LicensingPolicy())
     }
 
+    @Test("save() treats an empty-URL default license as no license, not an unsafe URL")
+    func saveTreatsEmptyURLDefaultAsNoLicense() throws {
+        let dir = try makeDirectory()
+        var policy = LicensingPolicy()
+        policy.defaultLicense = LicenseRef(url: "", name: "")
+        try LicensingStore(sourceDirectory: dir).save(policy)
+        let reloaded = try LicensingStore(sourceDirectory: dir).load()
+        #expect(reloaded.defaultLicense == nil)
+    }
+
+    @Test("validate() does not reject an empty-URL default license")
+    func validateAllowsEmptyURLDefault() throws {
+        var policy = LicensingPolicy()
+        policy.defaultLicense = LicenseRef(url: "", name: "")
+        try LicensingStore.validate(policy)
+    }
+
+    @Test("normalized() nils out only an empty-URL default, leaving everything else untouched")
+    func normalizedOnlyTouchesEmptyURLDefault() {
+        var policy = LicensingPolicy()
+        policy.defaultLicense = ccBY
+        policy.collections[.notes] = .license(ccBY)
+        #expect(LicensingStore.normalized(policy) == policy)
+
+        policy.defaultLicense = LicenseRef(url: "", name: "")
+        #expect(LicensingStore.normalized(policy).defaultLicense == nil)
+    }
+
+    @Test("isSafeLicenseURL rejects a protocol-relative URL smuggled past the leading-slash guard via tab/CR/LF")
+    func schemeGuardRejectsTabSmuggledProtocolRelative() {
+        // The leading-slash fast path used to run against the raw string: "/\t/evil.com" has a
+        // single leading slash before sanitization, so it was (wrongly) accepted as root-relative.
+        // A browser strips the tab before parsing and resolves this as `//evil.com` — a
+        // protocol-relative URL handing an attacker-chosen host to href — so this must be rejected
+        // (#991 review finding 2).
+        #expect(!LicenseRef.isSafeLicenseURL("/\t/evil.com"))
+        #expect(!LicenseRef.isSafeLicenseURL("/\r/evil.com"))
+        #expect(!LicenseRef.isSafeLicenseURL("/\n/evil.com"))
+    }
+
     @Test("mayBlockAICrawlers requires both AI purposes denied")
     func mayBlock() {
         #expect(AIUsage(search: .unset, aiInput: .no, aiTrain: .no, blockAICrawlers: false).mayBlockAICrawlers)

@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfig } from "./config";
-import { normalizePolicy, NO_USAGE, type AIUsage } from "../src/lib/licensing.ts";
+import { mayBlockAICrawlers, normalizePolicy, NO_USAGE, type AIUsage } from "../src/lib/licensing.ts";
 
 // Maintained from https://darkvisitors.com/agents — check periodically for new entries.
 export const aiCrawlers = [
@@ -94,7 +94,12 @@ Disallow:
 Content-Signal: ${contentSignal}
 `;
   }
-  if (usage.blockAICrawlers) {
+  // Gated on mayBlockAICrawlers too, not just the raw flag: `main()` only ever passes a usage
+  // block `normalizeUsage` has already clamped, so this is currently redundant in practice, but
+  // `buildRobotsTxt` is exported and the whole point of #991 is that the blocklist never exceeds
+  // what the permissions deny — that invariant belongs to this function, not just to its one
+  // caller (#991 review finding 3).
+  if (usage.blockAICrawlers && mayBlockAICrawlers(usage)) {
     body += `\n# AI crawler / training bot directives (usage.blockAICrawlers in src/data/licensing.json)\n`;
     for (const bot of aiCrawlers) {
       body += `\nUser-agent: ${bot}\nDisallow: /\n`;

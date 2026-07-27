@@ -417,11 +417,18 @@ final class PlistEditorModel {
         licensingError = nil
         defer { isSavingLicensing = false }
         let sourceDirectory = sourceDirectory
-        let policy = licensingPolicy
+        // Canonicalize before persisting: an empty-URL default license (the transient "Custom…
+        // selected, nothing typed yet" state `ContentLicensingTab` can otherwise leave behind) is
+        // "no license", the same as nil (#991 review finding 1). Writing the canonical value back
+        // into both `licensingPolicy` and `savedLicensingPolicy` keeps the in-memory model
+        // matching what's actually on disk, the same way `saveMtaSts` writes back its normalized
+        // settings above.
+        let policy = LicensingStore.normalized(licensingPolicy)
         do {
             try await Task.detached(priority: .userInitiated) {
                 try LicensingStore(sourceDirectory: sourceDirectory).save(policy)
             }.value
+            licensingPolicy = policy
             savedLicensingPolicy = policy
             return true
         } catch LicensingStore.ValidationError.unsafeLicenseURL(let url) {

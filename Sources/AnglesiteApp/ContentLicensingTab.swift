@@ -11,9 +11,52 @@ import AnglesiteCore
 struct ContentLicensingTab: View {
     @Bindable var model: PlistEditorModel
 
+    /// Picking "Custom…" but not yet typing a URL, held as view-local state rather than in
+    /// `model.licensingPolicy`. Extracted as a plain value type (not held directly in `@State`
+    /// fields) so its logic is unit-testable without a live SwiftUI view hierarchy: `@State`'s
+    /// writes are silently dropped when a `View` value is constructed and driven directly (as a
+    /// unit test must, absent a hosted render pass) rather than mounted by SwiftUI, so a test that
+    /// mutates `@State` across separate statements can't observe its own writes. Testing this
+    /// struct's methods directly sidesteps that entirely. `LicensingStore` also treats an
+    /// empty-URL default license as "no license" as a second, independent line of defense, in case
+    /// any other path ever produces one (#991 review finding 1).
+    struct PendingCustomLicense: Equatable {
+        /// True once "Custom…" is picked but no URL has been typed yet.
+        var isPending = false
+        /// The name typed before a URL exists yet to attach it to.
+        var pendingName = ""
+
+        /// Reveals the URL/name fields without writing anything into the model — picking
+        /// "Custom…" is a navigational act, not an edit worth persisting on its own.
+        mutating func select() {
+            isPending = true
+        }
+
+        /// Clears pending state — used when the picker moves to "All rights reserved" or a
+        /// catalog entry instead.
+        mutating func clear() {
+            self = PendingCustomLicense()
+        }
+
+        /// Records name text typed before a URL exists to attach it to.
+        mutating func recordName(_ name: String) {
+            pendingName = name
+        }
+
+        /// Consumes the pending name for a license a typed URL is about to create, and resets —
+        /// the first keystroke into the URL field is what actually creates the license.
+        mutating func consumeForNewLicense() -> String {
+            defer { self = PendingCustomLicense() }
+            return pendingName
+        }
+    }
+
+    @State var customDraft = PendingCustomLicense()
+
     /// A site default license choice. Tagged by catalog id rather than by `LicenseRef` so a
-    /// hand-edited `name` still selects the right row.
-    private enum LicenseChoice: Hashable {
+    /// hand-edited `name` still selects the right row. Internal (not `private`) so tests can drive
+    /// the picker binding directly without a live view hierarchy.
+    enum LicenseChoice: Hashable {
         case allRightsReserved
         case catalog(String)
         case custom
@@ -75,40 +118,67 @@ struct ContentLicensingTab: View {
         }
     }
 
-    private var defaultChoice: Binding<LicenseChoice> {
+    var defaultChoice: Binding<LicenseChoice> {
         Binding(
             get: {
-                guard let ref = model.licensingPolicy.defaultLicense else { return .allRightsReserved }
+                guard let ref = model.licensingPolicy.defaultLicense else {
+                    return customDraft.isPending ? .custom : .allRightsReserved
+                }
                 if let entry = LicenseCatalog.entry(for: ref) { return .catalog(entry.id) }
                 return .custom
             },
             set: { choice in
                 switch choice {
                 case .allRightsReserved:
+                    customDraft.clear()
                     model.licensingPolicy.defaultLicense = nil
                 case .catalog(let id):
+                    customDraft.clear()
                     guard let entry = LicenseCatalog.entries.first(where: { $0.id == id }) else { return }
                     model.licensingPolicy.defaultLicense = entry.ref
                     model.licensingPolicy.usage = LicenseCatalog.prefilled(
                         model.licensingPolicy.usage, for: entry.ref)
                 case .custom:
-                    // An empty ref keeps `entry(for:)` returning nil, so the picker stays on
-                    // Custom while the fields are filled in. Save validates the URL.
-                    model.licensingPolicy.defaultLicense = LicenseRef(url: "", name: "")
+                    // Reveal the URL/name fields only; leave the model untouched until a URL is
+                    // typed (see `customURL` and `PendingCustomLicense`'s doc comment). A ref that
+                    // already exists (a saved custom license, or one already being edited) keeps
+                    // showing as `.custom` via the branch above, so there's nothing to do here in
+                    // that case.
+                    if model.licensingPolicy.defaultLicense == nil {
+                        customDraft.select()
+                    }
                 }
             })
     }
 
-    private var customURL: Binding<String> {
+    // Internal (not `private`) so tests can simulate typing into these fields directly.
+    var customURL: Binding<String> {
         Binding(
             get: { model.licensingPolicy.defaultLicense?.url ?? "" },
-            set: { model.licensingPolicy.defaultLicense?.url = $0 })
+            set: { newValue in
+                if model.licensingPolicy.defaultLicense != nil {
+                    model.licensingPolicy.defaultLicense?.url = newValue
+                } else if !newValue.isEmpty {
+                    // The first keystroke is what actually creates the license — see
+                    // `PendingCustomLicense`'s doc comment.
+                    model.licensingPolicy.defaultLicense = LicenseRef(
+                        url: newValue, name: customDraft.consumeForNewLicense())
+                }
+            })
     }
 
-    private var customName: Binding<String> {
+    var customName: Binding<String> {
         Binding(
-            get: { model.licensingPolicy.defaultLicense?.name ?? "" },
-            set: { model.licensingPolicy.defaultLicense?.name = $0 })
+            get: { model.licensingPolicy.defaultLicense?.name ?? customDraft.pendingName },
+            set: { newValue in
+                if model.licensingPolicy.defaultLicense != nil {
+                    model.licensingPolicy.defaultLicense?.name = newValue
+                } else {
+                    // No license exists yet to attach the name to; hold it until `customURL`
+                    // creates one.
+                    customDraft.recordName(newValue)
+                }
+            })
     }
 
     // MARK: Per collection

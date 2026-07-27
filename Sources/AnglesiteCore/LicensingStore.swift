@@ -24,8 +24,14 @@ public struct LicenseRef: Sendable, Equatable, Hashable {
     /// *writer* of `licensing.json`, and a write path that can store a `javascript:` URL is a
     /// worse failure than one that renders it — the file outlives the session that wrote it.
     public static func isSafeLicenseURL(_ url: String) -> Bool {
-        if url.hasPrefix("/") && !url.hasPrefix("//") { return true }
+        // The leading-slash fast path must run against the *sanitized* string, not the raw one:
+        // browsers strip ASCII tab/CR/LF before parsing a URL, so an unsanitized check on
+        // `"/\t/evil.com"` sees a single leading slash and (wrongly) accepts it as root-relative,
+        // while a browser resolves the sanitized `"//evil.com"` as protocol-relative — handing an
+        // attacker-chosen host to href. Sanitizing first is what makes this guard match the
+        // protocol-relative rejection it claims to provide (#991 review finding 2).
         let sanitized = whatwgTrim(url)
+        if sanitized.hasPrefix("/") && !sanitized.hasPrefix("//") { return true }
         guard let parsed = URL(string: sanitized), let scheme = parsed.scheme?.lowercased() else { return false }
         guard scheme == "http" || scheme == "https" else { return false }
         guard let host = parsed.host, !host.isEmpty else { return false }
@@ -242,6 +248,16 @@ extension LicensingPolicy: Codable {
         // `toLicenseRef`'s null return in `normalizePolicy`. This is also what sanitizes a
         // hand-edited unsafe URL at *load* time: `Self.validate`/`save()` cover the write path,
         // this covers the read path, and they are deliberately different guarantees.
+        //
+        // This degrade is silent by design — no `licensingError`, no `licensingLoadFailed` — and
+        // that has a real, if narrow, cost: a hand-edited `licensing.json` with a URL WHATWG's
+        // parser accepts but Foundation's `URL(string:)` does not (e.g. a single-slash
+        // `"http:/example.com/license"`) still builds and renders correctly on the site, but the
+        // app shows "All rights reserved" for it, and the next save of *any* licensing field
+        // re-encodes the in-memory (now-nil) `defaultLicense`, permanently dropping the license
+        // from the file. This is intentionally left as-is — failing safe (never asserting an
+        // unparseable license) matters more than surfacing every parser divergence — but a future
+        // reader should not be surprised by it (#991 review finding 5).
         let defaultLicense = (try? container.decodeIfPresent(LicenseRef.self, forKey: .default)) ?? nil
         // A wrong-typed `usage` (a string, number, or array rather than an object) degrades to the
         // all-unset default instead of throwing — matching `normalizeUsage`'s `typeof raw !==
@@ -328,7 +344,22 @@ public struct LicensingStore: Sendable {
         return try JSONDecoder().decode(LicensingPolicy.self, from: try Data(contentsOf: fileURL))
     }
 
+    /// `policy` with an empty-URL default license normalized to nil. `ContentLicensingTab`'s
+    /// "Custom…" picker choice reveals the URL/name fields without writing a `LicenseRef` into the
+    /// model until a URL is actually typed, but this is a second, independent line of defense: no
+    /// path through this store — save, validate, or a future caller — can persist or reject on an
+    /// empty-URL default, because an empty URL points nowhere and is indistinguishable from
+    /// "assert nothing" (#991 review finding 1).
+    public static func normalized(_ policy: LicensingPolicy) -> LicensingPolicy {
+        var policy = policy
+        if policy.defaultLicense?.url.isEmpty == true {
+            policy.defaultLicense = nil
+        }
+        return policy
+    }
+
     public func save(_ policy: LicensingPolicy) throws {
+        let policy = Self.normalized(policy)
         try Self.validate(policy)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -340,7 +371,13 @@ public struct LicensingStore: Sendable {
 
     public static func validate(_ policy: LicensingPolicy) throws {
         var refs: [LicenseRef] = []
-        if let defaultLicense = policy.defaultLicense { refs.append(defaultLicense) }
+        // An empty-URL default is "no license", the same as nil — not an unsafe URL to reject.
+        // `isSafeLicenseURL("")` already returns false, so without this guard `validate` would
+        // throw `unsafeLicenseURL("")` for a policy `save()` was about to normalize away anyway;
+        // this keeps that true for any other caller of `validate` too.
+        if let defaultLicense = policy.defaultLicense, !defaultLicense.url.isEmpty {
+            refs.append(defaultLicense)
+        }
         for rule in policy.collections.values {
             if case .license(let ref) = rule { refs.append(ref) }
         }
