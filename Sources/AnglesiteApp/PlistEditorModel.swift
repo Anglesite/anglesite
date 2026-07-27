@@ -59,6 +59,11 @@ final class PlistEditorModel {
     /// (deliberately — the setup is done either way), so the view needs this to warn an owner who
     /// published the advisory form and *then* made the repository private.
     private(set) var securityReportingRepoIsPrivate = false
+    /// Last known private-vulnerability-reporting state. `.alreadyConfigured` doesn't distinguish
+    /// PVR on from off either (same reason as `securityReportingRepoIsPrivate`), so the view needs
+    /// this to warn an owner whose published contact routes to a form the repo can't receive —
+    /// e.g. PVR was never turned on, or was switched off on github.com after the contact was set.
+    private(set) var securityReportingPVREnabled = false
     private let repoSecurity: any RepoSecurityReading & RepoSecurityWriting
     private let gitRunner: BackupCommand.GitRunner
     private let githubToken: @Sendable () throws -> String?
@@ -437,6 +442,7 @@ final class PlistEditorModel {
             let pvrEnabled = try await repoSecurity.privateVulnerabilityReporting(
                 owner: repo.owner, name: repo.name, token: token)
             securityReportingRepoIsPrivate = isPrivate
+            securityReportingPVREnabled = pvrEnabled
             securityReportingReadiness = .evaluate(
                 repo: repo, isPrivate: isPrivate, pvrEnabled: pvrEnabled,
                 contacts: securityReportingSettings.contacts)
@@ -465,27 +471,18 @@ final class PlistEditorModel {
     func adoptAdvisoryForm() async {
         guard !isAdoptingAdvisoryForm else { return }
         guard let repo = securityReportingRepo else { return }
+        // Manual mode: `planSecurityTxt` never generates security.txt for this site (the owner
+        // hand-maintains it), so publishing a contact — and enabling PVR to back it — would claim
+        // a routing that doesn't exist. The view already refuses to offer this action in manual
+        // mode; this guard is defense in depth so the write can't happen even if it's called
+        // directly.
+        guard securityReportingSettings.mode != .manual else { return }
         isAdoptingAdvisoryForm = true
         defer { isAdoptingAdvisoryForm = false }
         securityReportingError = nil
 
         if securityReportingReadiness == .needsPVR {
-            let token: String?
-            do { token = try githubToken() } catch {
-                securityReportingError = "Couldn't read the GitHub token from the Keychain: \(error.localizedDescription)"
-                return
-            }
-            guard let token, !token.isEmpty else {
-                securityReportingError = "Connect a GitHub account in Settings to enable private vulnerability reporting."
-                return
-            }
-            do {
-                try await repoSecurity.enablePrivateVulnerabilityReporting(
-                    owner: repo.owner, name: repo.name, token: token)
-            } catch {
-                securityReportingError = repoSecurityMessage(for: error)
-                return
-            }
+            guard await enablePVR(owner: repo.owner, name: repo.name) else { return }
             // PVR is now genuinely enabled on GitHub even if the save below fails — leaving
             // readiness at `.needsPVR` here would lie to the view about the repo's real state.
             securityReportingReadiness = .ready
@@ -496,6 +493,44 @@ final class PlistEditorModel {
         if securityReportingSettings.mode == .disabled { securityReportingSettings.mode = .generated }
         guard await saveSecurityReporting() else { return }
         securityReportingReadiness = .alreadyConfigured
+    }
+
+    /// Enables private vulnerability reporting for a repo whose advisory form is *already*
+    /// published as a contact (`.alreadyConfigured` with PVR off — e.g. it was never turned on,
+    /// or was switched off on github.com after the contact was set). The contact list needs no
+    /// change here, only the GitHub setting the tab is warning about. The view confirms before
+    /// calling this, same as the `.needsPVR` enable step inside `adoptAdvisoryForm()`.
+    @discardableResult
+    func enablePrivateVulnerabilityReportingForConfiguredRepo() async -> Bool {
+        guard !isAdoptingAdvisoryForm, let repo = securityReportingRepo else { return false }
+        isAdoptingAdvisoryForm = true
+        defer { isAdoptingAdvisoryForm = false }
+        securityReportingError = nil
+        return await enablePVR(owner: repo.owner, name: repo.name)
+    }
+
+    /// Shared PVR-enable request behind `adoptAdvisoryForm()`'s `.needsPVR` step and
+    /// `enablePrivateVulnerabilityReportingForConfiguredRepo()`. Updates
+    /// `securityReportingPVREnabled` on success so an `.alreadyConfigured` warning clears without
+    /// a full `refreshRepoSecurityState()` round-trip.
+    private func enablePVR(owner: String, name: String) async -> Bool {
+        let token: String?
+        do { token = try githubToken() } catch {
+            securityReportingError = "Couldn't read the GitHub token from the Keychain: \(error.localizedDescription)"
+            return false
+        }
+        guard let token, !token.isEmpty else {
+            securityReportingError = "Connect a GitHub account in Settings to enable private vulnerability reporting."
+            return false
+        }
+        do {
+            try await repoSecurity.enablePrivateVulnerabilityReporting(owner: owner, name: name, token: token)
+        } catch {
+            securityReportingError = repoSecurityMessage(for: error)
+            return false
+        }
+        securityReportingPVREnabled = true
+        return true
     }
 
     private func currentRemoteRepo() async -> RemoteRepo? {

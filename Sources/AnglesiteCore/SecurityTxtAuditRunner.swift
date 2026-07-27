@@ -31,8 +31,13 @@ public struct SecurityTxtAuditRunner: AuditRunner {
         guard let repo = await remoteRepo(in: siteDirectory) else { return [] }
         let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
-        let contacts = SecurityReportingAsset.parseSettings(from: config).contacts
-        guard !SecurityReportingAsset.usesAdvisoryForm(contacts, repo: repo) else { return [] }
+        let settings = SecurityReportingAsset.parseSettings(from: config)
+        // Manual mode: the owner hand-maintains security.txt themselves, so Anglesite has no file
+        // to route a contact through and the hint would be unfixable by following its own
+        // remediation. Disabled mode: the owner has opted out of publishing one at all. Either
+        // way the hint is wrong, not just unhelpful.
+        guard settings.mode == .generated else { return [] }
+        guard !SecurityReportingAsset.usesAdvisoryForm(settings.contacts, repo: repo) else { return [] }
 
         return [AuditReport.Finding(
             category: .security,

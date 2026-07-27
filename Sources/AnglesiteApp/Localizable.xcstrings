@@ -83,6 +83,16 @@
         }
       }
     },
+    "%@/%@ has private vulnerability reporting turned off, so this form can't accept reports yet. Turn it on, or publish a different contact." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@/%2$@ has private vulnerability reporting turned off, so this form can't accept reports yet. Turn it on, or publish a different contact."
+          }
+        }
+      }
+    },
     "%@/%@ is a private repository, so its advisory form isn't reachable by anyone outside it. Make the repository public to route reports there." : {
       "localizations" : {
         "en" : {
@@ -993,6 +1003,9 @@
     "Enable Onion Routing" : {
 
     },
+    "Enable Private Reporting" : {
+
+    },
     "Enable Private Reporting and Route Reports" : {
 
     },
@@ -1764,6 +1777,9 @@
     "Publishing" : {
 
     },
+    "Publishing is set to Hand-authored, so Anglesite isn't generating security.txt for this site. Add this address to your own file if you want to route reports to GitHub:" : {
+
+    },
     "Publishing needs a one-time personal access token. It takes about a minute." : {
 
     },
@@ -2430,6 +2446,9 @@
 
     },
     "Try again" : {
+
+    },
+    "Turn On" : {
 
     },
     "Turn On and Route Reports" : {

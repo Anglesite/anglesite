@@ -35,18 +35,45 @@ struct SecurityTxtAuditRunnerTests {
         #expect(findings[0].detail.contains("acme/site"))
     }
 
-    @Test("flags a GitHub-backed site with no contact configured at all")
+    @Test("flags a GitHub-backed site in generated mode with no contact configured at all")
     func flagsSiteWithNoContact() async throws {
+        let findings = try await Self.run(
+            config: "SECURITY_TXT_MODE=generated\n",
+            gitRunner: Self.gitRunner(remote: "git@github.com:acme/site.git\n"))
+        #expect(findings.count == 1)
+    }
+
+    @Test("says nothing for a site with no mode set and no contact configured (resolves to disabled)")
+    func silentWhenModeAndContactBothUnset() async throws {
+        // Mirrors resolveSecurityTxtMode/SecurityReportingAsset.parseSettings' inference: an
+        // unset mode with an empty contact resolves to `.disabled`, not `.generated` — so this
+        // is a `.disabled`-mode case, not a fresh "misconfigured" one.
         let findings = try await Self.run(
             config: "SITE_NAME=Acme\n",
             gitRunner: Self.gitRunner(remote: "git@github.com:acme/site.git\n"))
-        #expect(findings.count == 1)
+        #expect(findings.isEmpty)
     }
 
     @Test("says nothing when the advisory form is already a contact")
     func silentWhenConfigured() async throws {
         let findings = try await Self.run(
             config: "SECURITY_CONTACT=https://github.com/acme/site/security/advisories/new,s@example.com\n",
+            gitRunner: Self.gitRunner(remote: "https://github.com/acme/site.git\n"))
+        #expect(findings.isEmpty)
+    }
+
+    @Test("says nothing in manual mode, even with an unrouted contact configured")
+    func silentInManualMode() async throws {
+        let findings = try await Self.run(
+            config: "SECURITY_TXT_MODE=manual\nSECURITY_CONTACT=s@example.com\n",
+            gitRunner: Self.gitRunner(remote: "https://github.com/acme/site.git\n"))
+        #expect(findings.isEmpty)
+    }
+
+    @Test("says nothing in disabled mode, even with an unrouted contact configured")
+    func silentInDisabledMode() async throws {
+        let findings = try await Self.run(
+            config: "SECURITY_TXT_MODE=disabled\nSECURITY_CONTACT=s@example.com\n",
             gitRunner: Self.gitRunner(remote: "https://github.com/acme/site.git\n"))
         #expect(findings.isEmpty)
     }

@@ -142,6 +142,64 @@ struct PlistEditorModelSecurityReportsTests {
         #expect(model.securityReportingRepoIsPrivate)
     }
 
+    @Test("a configured repo with PVR off exposes the warning state")
+    func readinessConfiguredButPVROff() async throws {
+        let model = try makeModel(
+            config: "SECURITY_CONTACT=https://github.com/acme/site/security/advisories/new\n",
+            repoSecurity: FakeRepoSecurity(pvr: false))
+        await model.load()
+        await model.refreshRepoSecurityState()
+        #expect(model.securityReportingReadiness == .alreadyConfigured)
+        #expect(!model.securityReportingPVREnabled)
+    }
+
+    @Test("a configured repo with PVR on has no warning state")
+    func readinessConfiguredWithPVROn() async throws {
+        let model = try makeModel(
+            config: "SECURITY_CONTACT=https://github.com/acme/site/security/advisories/new\n",
+            repoSecurity: FakeRepoSecurity(pvr: true))
+        await model.load()
+        await model.refreshRepoSecurityState()
+        #expect(model.securityReportingReadiness == .alreadyConfigured)
+        #expect(model.securityReportingPVREnabled)
+    }
+
+    @Test("enabling PVR for an already-configured repo flips the tracked state without touching contacts")
+    func enablePVRForConfiguredRepo() async throws {
+        let fake = FakeRepoSecurity(pvr: false)
+        let model = try makeModel(
+            config: "SECURITY_CONTACT=https://github.com/acme/site/security/advisories/new\n",
+            repoSecurity: fake)
+        await model.load()
+        await model.refreshRepoSecurityState()
+        #expect(!model.securityReportingPVREnabled)
+        #expect(await model.enablePrivateVulnerabilityReportingForConfiguredRepo())
+        #expect(await fake.enableCalls == 1)
+        #expect(model.securityReportingPVREnabled)
+        #expect(model.securityReportingReadiness == .alreadyConfigured)
+        #expect(model.securityReportingSettings.contacts == "https://github.com/acme/site/security/advisories/new")
+    }
+
+    @Test("adopting the form in manual mode performs no PVR write and doesn't claim configured")
+    func adoptInManualModeIsNoOp() async throws {
+        let fake = FakeRepoSecurity(pvr: false)
+        let model = try makeModel(
+            config: "SECURITY_TXT_MODE=manual\nSECURITY_CONTACT=a@example.com\n",
+            repoSecurity: fake)
+        await model.load()
+        await model.refreshRepoSecurityState()
+        let readinessBefore = model.securityReportingReadiness
+        #expect(readinessBefore != .alreadyConfigured)
+
+        await model.adoptAdvisoryForm()
+
+        #expect(await fake.enableCalls == 0)
+        #expect(model.securityReportingReadiness != .alreadyConfigured)
+        #expect(model.securityReportingReadiness == readinessBefore)
+        #expect(model.securityReportingSettings.contacts == "a@example.com")
+        #expect(!model.isSecurityReportingDirty)
+    }
+
     @Test("a non-GitHub origin is notGitHub and makes no API call")
     func readinessNonGitHubOrigin() async throws {
         let fake = FakeRepoSecurity(readFailure: .network)

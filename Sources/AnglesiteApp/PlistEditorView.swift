@@ -20,6 +20,7 @@ struct PlistEditorView: View {
     @State private var selectedTab: SettingsTab = .website
     @State private var showingCustomAnalyticsHelp = false
     @State private var isConfirmingEnablePVR = false
+    @State private var isConfirmingEnablePVRForConfiguredRepo = false
     @FocusState private var titleFocused: Bool
 
     var body: some View {
@@ -535,40 +536,62 @@ struct PlistEditorView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label("GitHub", systemImage: "shield.lefthalf.filled")
                     .font(.headline)
-                switch model.securityReportingReadiness {
-                case .alreadyConfigured:
-                    Text("Reports go to \(repo.owner)/\(repo.name)'s private advisory form.")
+                if model.securityReportingSettings.mode == .manual {
+                    // Manual mode: `planSecurityTxt` never generates security.txt for this site
+                    // (the owner hand-maintains it), so offering to route reports here — and
+                    // enabling PVR to back a contact Anglesite won't publish — would tell the
+                    // owner reports go somewhere they don't. Show the address to copy into their
+                    // own file instead, and offer no action.
+                    Text("Publishing is set to Hand-authored, so Anglesite isn't generating security.txt for this site. Add this address to your own file if you want to route reports to GitHub:")
                         .font(.callout)
-                    Link("Open the advisory form", destination: SecurityReportingAsset.advisoryURL(for: repo))
-                        .font(.callout)
-                    if model.securityReportingRepoIsPrivate {
-                        Label("\(repo.owner)/\(repo.name) is now private, so researchers outside it can't reach this form. Make the repository public, or publish a different contact.", systemImage: "exclamationmark.triangle.fill")
+                    Text(SecurityReportingAsset.advisoryURL(for: repo).absoluteString)
+                        .font(.callout.monospaced())
+                        .textSelection(.enabled)
+                } else {
+                    switch model.securityReportingReadiness {
+                    case .alreadyConfigured:
+                        Text("Reports go to \(repo.owner)/\(repo.name)'s private advisory form.")
                             .font(.callout)
-                            .foregroundStyle(.orange)
+                        Link("Open the advisory form", destination: SecurityReportingAsset.advisoryURL(for: repo))
+                            .font(.callout)
+                        if model.securityReportingRepoIsPrivate {
+                            Label("\(repo.owner)/\(repo.name) is now private, so researchers outside it can't reach this form. Make the repository public, or publish a different contact.", systemImage: "exclamationmark.triangle.fill")
+                                .font(.callout)
+                                .foregroundStyle(.orange)
+                        }
+                        if !model.securityReportingPVREnabled {
+                            Label("\(repo.owner)/\(repo.name) has private vulnerability reporting turned off, so this form can't accept reports yet. Turn it on, or publish a different contact.", systemImage: "exclamationmark.triangle.fill")
+                                .font(.callout)
+                                .foregroundStyle(.orange)
+                            Button("Enable Private Reporting") { isConfirmingEnablePVRForConfiguredRepo = true }
+                                .buttonStyle(.bordered)
+                                .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting || model.isAdoptingAdvisoryForm)
+                        }
+                    case .ready:
+                        Text("\(repo.owner)/\(repo.name) accepts private vulnerability reports. Routing reports there keeps them out of public issues and off your inbox.")
+                            .font(.callout)
+                        Button("Route Reports to GitHub") { Task { await model.adoptAdvisoryForm() } }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting || model.isAdoptingAdvisoryForm)
+                    case .needsPVR:
+                        Text("\(repo.owner)/\(repo.name) has private vulnerability reporting turned off, so its advisory form can't accept reports yet. Anglesite can turn it on for you.")
+                            .font(.callout)
+                        Button("Enable Private Reporting and Route Reports") { isConfirmingEnablePVR = true }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting || model.isAdoptingAdvisoryForm)
+                    case .repoPrivate:
+                        Text("\(repo.owner)/\(repo.name) is a private repository, so its advisory form isn't reachable by anyone outside it. Make the repository public to route reports there.")
+                            .font(.callout)
+                    case .unknown:
+                        // The check hasn't completed, or it failed. `securityReportingError`
+                        // (rendered by the tab below) carries the reason; don't offer an action
+                        // we can't back up.
+                        Text("Checking whether \(repo.owner)/\(repo.name) can accept private vulnerability reports…")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    case .notGitHub:
+                        EmptyView()
                     }
-                case .ready:
-                    Text("\(repo.owner)/\(repo.name) accepts private vulnerability reports. Routing reports there keeps them out of public issues and off your inbox.")
-                        .font(.callout)
-                    Button("Route Reports to GitHub") { Task { await model.adoptAdvisoryForm() } }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting || model.isAdoptingAdvisoryForm)
-                case .needsPVR:
-                    Text("\(repo.owner)/\(repo.name) has private vulnerability reporting turned off, so its advisory form can't accept reports yet. Anglesite can turn it on for you.")
-                        .font(.callout)
-                    Button("Enable Private Reporting and Route Reports") { isConfirmingEnablePVR = true }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(model.isCheckingRepoSecurity || model.isSavingSecurityReporting || model.isAdoptingAdvisoryForm)
-                case .repoPrivate:
-                    Text("\(repo.owner)/\(repo.name) is a private repository, so its advisory form isn't reachable by anyone outside it. Make the repository public to route reports there.")
-                        .font(.callout)
-                case .unknown:
-                    // The check hasn't completed, or it failed. `securityReportingError` (rendered
-                    // by the tab below) carries the reason; don't offer an action we can't back up.
-                    Text("Checking whether \(repo.owner)/\(repo.name) can accept private vulnerability reports…")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                case .notGitHub:
-                    EmptyView()
                 }
             }
             .padding(10)
@@ -580,6 +603,16 @@ struct PlistEditorView: View {
                 titleVisibility: .visible
             ) {
                 Button("Turn On and Route Reports") { Task { await model.adoptAdvisoryForm() } }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This changes a setting on the GitHub repository. Anglesite never turns it back off.")
+            }
+            .confirmationDialog(
+                "Turn on private vulnerability reporting for \(repo.owner)/\(repo.name)?",
+                isPresented: $isConfirmingEnablePVRForConfiguredRepo,
+                titleVisibility: .visible
+            ) {
+                Button("Turn On") { Task { await model.enablePrivateVulnerabilityReportingForConfiguredRepo() } }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This changes a setting on the GitHub repository. Anglesite never turns it back off.")

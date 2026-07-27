@@ -207,8 +207,11 @@ mapping):
 ```swift
 public func repositoryIsPrivate(owner: String, name: String, token: String) async throws -> Bool
 public func privateVulnerabilityReporting(owner: String, name: String, token: String) async throws -> Bool
-public func setPrivateVulnerabilityReporting(owner: String, name: String, enabled: Bool, token: String) async throws
+public func enablePrivateVulnerabilityReporting(owner: String, name: String, token: String) async throws
 ```
+
+(No `enabled` flag — Anglesite never disables PVR, so the write method only ever turns it on; see
+below.)
 
 They sit behind a narrow protocol seam so the model layer can be tested without network, following
 the `CloudflareReading`/`CloudflareWriting` split:
@@ -267,11 +270,22 @@ The tab contains:
   states that order is preference order.
 - **Mode** — a `Picker` over `generated` / `manual` / `disabled`, with the same phrasing the
   pre-deploy findings use, so a mode/file contradiction reported at deploy time is fixable here.
-- **GitHub callout** — a state-driven section rendered only when an `origin` exists:
+- **GitHub callout** — a state-driven section rendered only when an `origin` exists. The callout is
+  gated on **mode** first, then on readiness:
+
+  - **`mode == .manual`** always short-circuits the offer, regardless of readiness: Anglesite
+    isn't generating `security.txt` for this site (`planSecurityTxt` returns `{kind:"none"}` in
+    manual mode — see "Background" above), so publishing a contact — and enabling PVR to back it —
+    would claim a routing that doesn't exist. The callout instead explains that publishing is
+    hand-authored and shows the advisory URL, `.textSelection(.enabled)` so the owner can copy it
+    into their own file, with **no action button**. `PlistEditorModel.adoptAdvisoryForm()` also
+    no-ops in manual mode (defense in depth — the view not offering the button isn't sufficient on
+    its own, since the model method is callable directly).
+  - Otherwise, the callout is driven by `securityReportingReadiness`:
 
 | Readiness | Callout |
 |---|---|
-| `alreadyConfigured` | Confirmation that reports route to the repo's advisory form, with a link to it. Adds a visibility warning when the repo is private. |
+| `alreadyConfigured` | Confirmation that reports route to the repo's advisory form, with a link to it. Adds a visibility warning when the repo is private, **and separately** a warning plus an "Enable Private Reporting" action when private vulnerability reporting is off — `.alreadyConfigured` says nothing about PVR state (an owner can configure the contact, then later have PVR disabled on github.com, or never had it on to begin with), so the tab tracks both `securityReportingRepoIsPrivate` and `securityReportingPVREnabled` and warns on either. |
 | `ready` | "Route vulnerability reports to GitHub" + a button that prepends the advisory URL to the contact list. |
 | `needsPVR` | Explains that the repo's private reporting is off, and a button that enables it and then prepends the URL. Confirmed before the write, since it changes a GitHub repo setting. |
 | `repoPrivate` | Explains that the advisory form isn't reachable by outside reporters on a private repo. No action offered. |
@@ -279,8 +293,16 @@ The tab contains:
 
 `PlistEditorModel` gains `securityReportingSettings` / `savedSecurityReportingSettings` /
 `isSecurityReportingDirty` / `securityReportingError`, exactly paralleling the `mtaSts*` members,
-plus a `securityReportingReadiness` computed after a `refreshRepoSecurityState()` call. Readiness
+plus `securityReportingReadiness`, `securityReportingRepoIsPrivate`, and
+`securityReportingPVREnabled` — all three refreshed together by `refreshRepoSecurityState()`. The
+latter two exist because `.alreadyConfigured` deliberately collapses both "public + PVR on" and
+every other combination into one case (see "Readiness" above): the view needs the underlying facts
+back to warn about visibility and PVR separately once the contact is already published. Readiness
 is refreshed when the tab is loaded and after a successful PVR enable — not on a timer.
+`enablePrivateVulnerabilityReportingForConfiguredRepo()` is the `.alreadyConfigured`-branch
+counterpart of the enable step inside `adoptAdvisoryForm()`: it flips
+`securityReportingPVREnabled` without touching the contact list, since the list is already
+correct.
 
 The new pane registers in `PlistEditorModel.dirtyFacets`, the generic aggregation added in #741, so
 unsaved-changes prompts and `saveAllDirty` pick it up without any per-pane branching.
@@ -310,7 +332,16 @@ runner is also how the tests avoid needing a real repository.
 The finding:
 
 - **`.info` — "Vulnerability reports aren't routed to GitHub"** when `RemoteRepo.parse` yields a
-  repo and `usesAdvisoryForm` is false. Remediation points at Website Settings ▸ Security Reports.
+  repo, the site's resolved `SECURITY_TXT_MODE` is `generated`, and `usesAdvisoryForm` is false.
+  Remediation points at Website Settings ▸ Security Reports.
+
+The mode check is deliberate, not just a filter of convenience: in **manual** mode the owner
+hand-maintains `security.txt` themselves, so Anglesite has no file to route a contact through, and
+"open Website Settings ▸ Security Reports" isn't a fix the owner can actually follow — the tab
+refuses the offer there too (see "Settings UI" above). In **disabled** mode the owner has opted out
+of publishing a `security.txt` at all. In both cases the hint would be firing "forever" on a site
+that's already in the state it means to be in — it isn't just noisy, it's wrong. Restricting to
+`generated` means the finding only ever asks something the owner can actually do.
 
 Keeping the runner **token-free and API-free** is deliberate: an audit shouldn't make authenticated
 network calls to decide whether to show an informational hint, and the expensive verification
@@ -343,9 +374,9 @@ never produces an entry the generator would drop.
 | Template | `Resources/Template/scripts/edge-artifacts.test.ts` (`npx tsx --test`) | `normalizeSecurityContacts` — order preserved, invalid dropped, dupes collapsed, empty → `[]`; `buildSecurityTxt` — one `Contact:` per entry in order, single-value output byte-identical to the pre-change file, `null` on empty; `resolveSecurityTxtMode` inference over a list |
 | Core | `Tests/AnglesiteCoreTests/SecurityReportingAssetTests.swift` (Swift Testing) | `parseSettings` round-trip, comma↔newline conversion, `install` idempotence (no write when unchanged), `advisoryURL`, `usesAdvisoryForm`, `prependingAdvisoryForm` (no duplicate, order preserved) |
 | Core | `Tests/AnglesiteCoreTests/SecurityReportingReadinessTests.swift` | Every `evaluate` branch and the stated precedence, including already-configured-but-private |
-| Core | `Tests/AnglesiteCoreTests/SecurityTxtAuditRunnerTests.swift` | Finding emitted for a GitHub origin without the form; no finding when already configured, when there's no origin, and when the origin is non-GitHub |
+| Core | `Tests/AnglesiteCoreTests/SecurityTxtAuditRunnerTests.swift` | Finding emitted for a GitHub origin without the form; no finding when already configured, when there's no origin, when the origin is non-GitHub, and when the resolved mode is `manual` or `disabled` |
 | Core | `Tests/AnglesiteCoreTests/HTTPGitHubClientTests.swift` (extend) | The three new calls over a stub transport: 200/204 success, `enabled` decoding, 403 → `.unauthorized`, transport throw → `.network` |
-| App | `Tests/AnglesiteAppTests/PlistEditorModelSecurityReportsTests.swift` | Dirty tracking, save normalization, readiness refresh over a fake reader, PVR-enable success and 403 messaging — mirroring `PlistEditorModelMTAStsTests` |
+| App | `Tests/AnglesiteAppTests/PlistEditorModelSecurityReportsTests.swift` | Dirty tracking, save normalization, readiness refresh over a fake reader, PVR-enable success and 403 messaging — mirroring `PlistEditorModelMTAStsTests`; already-configured with PVR off vs. on (`securityReportingPVREnabled`); `enablePrivateVulnerabilityReportingForConfiguredRepo()`; `adoptAdvisoryForm()` no-ops in manual mode (no PVR write, doesn't claim `.alreadyConfigured`) |
 
 Per `CONTRIBUTING.md`, touching `Resources/Template/` means `swift test --package-path .` runs too,
 not just the template's own tests — some Swift suites string-match template output. New
