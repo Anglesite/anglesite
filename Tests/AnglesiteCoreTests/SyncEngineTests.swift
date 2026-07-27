@@ -7,11 +7,11 @@ import SwiftGit2
 @testable import AnglesiteCore
 
 /// `SyncEngine` pushes/pulls a `.anglesite` package's git history through its single-file iCloud
-/// sync artifact (#879, design doc `2026-07-21-icloud-git-sync-design.md` §2/§4). Fixtures build
-/// real repos with subprocess git (tests run unsandboxed, matching `BundleArtifactTests`'/
+/// sync artifact (#879, #880; design doc `2026-07-21-icloud-git-sync-design.md` §2–§3). Fixtures
+/// build real repos with subprocess git (tests run unsandboxed, matching `BundleArtifactTests`'/
 /// `RepoRelocatorTests`' convention); "iCloud" is faked by literally copying the bundle file
-/// between two package trees, and `VersionStore` is faked so no real iCloud materialization is
-/// exercised.
+/// between two package trees, and `VersionStore` is faked so no real iCloud materialization or
+/// `NSFileVersion` conflict-version enumeration is exercised.
 ///
 /// .serialized: libgit2 isn't safe for uncoordinated concurrent use in this codebase.
 @Suite("SyncEngine", .serialized) struct SyncEngineTests {
@@ -26,9 +26,25 @@ import SwiftGit2
         var outcome: VersionMaterialization = .alreadyLocal
         private(set) var materializedURLs: [URL] = []
 
+        /// Manufactured "iCloud conflict versions" — bundle URLs to hand back as
+        /// `ConflictVersionHandle`s. Real `NSFileVersion` conflicts can't be created in CI, so
+        /// tests populate this directly with sibling package bundles standing in for a peer Mac's
+        /// concurrent write.
+        var conflictArtifactURLs: [URL] = []
+        private(set) var resolvedIDs: [String] = []
+
         func materialize(at url: URL, timeout: TimeInterval) async -> VersionMaterialization {
             materializedURLs.append(url)
             return outcome
+        }
+
+        func conflictVersions(of url: URL) async -> [ConflictVersionHandle] {
+            conflictArtifactURLs.enumerated().map { index, artifactURL in
+                let id = "peer-\(index)"
+                return ConflictVersionHandle(id: id, contentURL: artifactURL) { [weak self] in
+                    self?.resolvedIDs.append(id)
+                }
+            }
         }
     }
 
@@ -94,6 +110,34 @@ import SwiftGit2
             to: pkg.sourceURL.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
         try copyArtifact(from: source, to: pkg)
         return pkg
+    }
+
+    private struct FixtureFailure: Error, CustomStringConvertible {
+        let message: String
+        var description: String { message }
+    }
+
+    /// Builds a standalone package that bootstraps from `base`'s already-pushed history, applies
+    /// `edit`, commits, and pushes — returning its own sync-artifact file to hand a
+    /// `FakeVersionStore` as a manufactured NSFileVersion conflict version. Real conflict versions
+    /// can't be created in CI (#880 scope note); this stands in for "a peer Mac wrote
+    /// concurrently" the same way `makeFreshPeerPackage`/`copyArtifact` stand in for iCloud
+    /// transport elsewhere in this file.
+    private func makeConflictVersionBundle(
+        from base: AnglesitePackage, name: String, edit: @escaping (URL) throws -> Void
+    ) async throws -> URL {
+        let peer = try makeFreshPeerPackage(mirroring: base, name: name)
+        let engine = SyncEngine()
+        guard case .bootstrapped = await engine.pull(package: peer) else {
+            throw FixtureFailure(message: "bootstrap of conflict-version peer \(name) failed")
+        }
+        try edit(peer.sourceURL)
+        try await git(["add", "-A"], in: peer.sourceURL)
+        try await git(["commit", "-m", "conflict-version edit"], in: peer.sourceURL)
+        guard case .pushed = await engine.push(package: peer) else {
+            throw FixtureFailure(message: "push of conflict-version peer \(name) failed")
+        }
+        return peer.syncBundleURL
     }
 
     // MARK: - push(): no-op
@@ -215,8 +259,10 @@ import SwiftGit2
         #expect(branch == "main")
     }
 
-    @Test("pull reports diverged, without merging, when local and artifact history disagree")
-    func divergedPullIsReportedNotMerged() async throws {
+    // MARK: - pull(): divergence reconciliation (#880)
+
+    @Test("pull auto-merges non-overlapping divergent history and pushes the result")
+    func divergedPullMergesNonOverlappingEdits() async throws {
         let a = try await makeGitPackage(name: "A4", commits: 1)
         let engineA = SyncEngine()
         guard case .pushed = await engineA.push(package: a) else {
@@ -228,9 +274,8 @@ import SwiftGit2
         guard case .bootstrapped = await engineB.pull(package: b) else {
             Issue.record("fixture bootstrap failed"); return
         }
-        let commonAncestor = try await headOID(in: b.sourceURL)
 
-        // A and B each commit independently from the same base.
+        // A and B each commit independently from the same base, touching different files.
         try "a-edit".write(to: a.sourceURL.appendingPathComponent("a-only.txt"), atomically: true, encoding: .utf8)
         try await git(["add", "-A"], in: a.sourceURL)
         try await git(["commit", "-m", "a's work"], in: a.sourceURL)
@@ -242,23 +287,263 @@ import SwiftGit2
         try "b-edit".write(to: b.sourceURL.appendingPathComponent("b-only.txt"), atomically: true, encoding: .utf8)
         try await git(["add", "-A"], in: b.sourceURL)
         try await git(["commit", "-m", "b's work"], in: b.sourceURL)
+
+        let result = await engineB.pull(package: b)
+        guard case .merged(let branch, let mergedTips) = result else {
+            Issue.record("expected .merged, got \(result)"); return
+        }
+        #expect(branch == "main")
+        #expect(mergedTips == ["icloud"])
+
+        // Both sides' edits survived — nothing lost.
+        #expect(FileManager.default.fileExists(atPath: b.sourceURL.appendingPathComponent("a-only.txt").path))
+        #expect(FileManager.default.fileExists(atPath: b.sourceURL.appendingPathComponent("b-only.txt").path))
+
+        // Full convergence pushed the merged bundle back — a peer bootstrapping fresh now sees
+        // both edits.
+        SwiftGit2Bootstrap.ensureInitialized
+        guard case .success(let repo) = Repository.at(b.sourceURL), case .success(let head) = repo.HEAD(),
+              let headCommit = try? repo.commit(head.oid).get() else {
+            Issue.record("couldn't read B's merged HEAD"); return
+        }
+        #expect(headCommit.parents.count == 2)
+    }
+
+    @Test("pull surfaces overlapping edits as a typed SyncConflict, rewinding nothing")
+    func divergedPullReportsOverlappingConflict() async throws {
+        let a = try await makeGitPackage(name: "A9", commits: 1)
+        let engineA = SyncEngine()
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture push failed"); return
+        }
+
+        let b = try makeFreshPeerPackage(mirroring: a, name: "B9")
+        let engineB = SyncEngine()
+        guard case .bootstrapped = await engineB.pull(package: b) else {
+            Issue.record("fixture bootstrap failed"); return
+        }
+
+        // A and B both edit the SAME file from the same base — a genuine textual conflict.
+        try "a-version".write(to: a.sourceURL.appendingPathComponent("file0.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: a.sourceURL)
+        try await git(["commit", "-m", "a's conflicting edit"], in: a.sourceURL)
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture A push failed"); return
+        }
+        try copyArtifact(from: a, to: b)
+        let aHead = try await headOID(in: a.sourceURL)
+
+        try "b-version".write(to: b.sourceURL.appendingPathComponent("file0.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: b.sourceURL)
+        try await git(["commit", "-m", "b's conflicting edit"], in: b.sourceURL)
         let bHeadBeforePull = try await headOID(in: b.sourceURL)
 
         let result = await engineB.pull(package: b)
-        guard case .diverged(let branch) = result else {
-            Issue.record("expected .diverged, got \(result)"); return
+        guard case .conflicted(let conflict) = result else {
+            Issue.record("expected .conflicted, got \(result)"); return
         }
-        #expect(branch == "main")
-        // Not merged: B's checked-out HEAD is untouched by the diverged pull.
+        #expect(conflict.branch == "main")
+        #expect(conflict.conflictedPaths == ["file0.txt"])
+        #expect(conflict.ourOID == bHeadBeforePull)
+        #expect(conflict.theirOID == aHead)
+        #expect(conflict.theirSource == "icloud")
+
+        // Never auto-resolved, never rewound: B's local HEAD is exactly where it was.
         #expect(try await headOID(in: b.sourceURL) == bHeadBeforePull)
-        // But the fetch happened — A's history is sitting in the namespaced remote ref, ready for
-        // P4's three-way merge to pick up without re-fetching.
+        // Both tips intact: A's edit is still fully reachable from the namespaced remote ref.
         SwiftGit2Bootstrap.ensureInitialized
         guard case .success(let repo) = Repository.at(b.sourceURL),
               case .success(let icloudMain) = repo.reference(named: "refs/remotes/icloud/main") else {
-            Issue.record("expected refs/remotes/icloud/main to exist after a diverged pull"); return
+            Issue.record("expected refs/remotes/icloud/main to exist after a conflicted pull"); return
         }
-        #expect(icloudMain.oid.description != commonAncestor)
+        #expect(icloudMain.oid.description == aHead)
+    }
+
+    @Test("pull folds in multiple NSFileVersion conflict versions, fetching each into its own peer namespace")
+    func pullFetchesMultipleConflictVersions() async throws {
+        let a = try await makeGitPackage(name: "A10", commits: 1)
+        let engineA = SyncEngine()
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture push failed"); return
+        }
+        let peerBundle = try await makeConflictVersionBundle(from: a, name: "Peer10") { sourceURL in
+            try "peer-edit".write(to: sourceURL.appendingPathComponent("peer-only.txt"), atomically: true, encoding: .utf8)
+        }
+
+        let b = try makeFreshPeerPackage(mirroring: a, name: "B10")
+        let engineB = SyncEngine()
+        guard case .bootstrapped = await engineB.pull(package: b) else {
+            Issue.record("fixture bootstrap failed"); return
+        }
+
+        // A advances the icloud tip so B's own local edit below genuinely diverges from it
+        // (rather than merely being ahead) — the manufactured conflict version is folded in
+        // alongside that divergence.
+        try "a-edit".write(to: a.sourceURL.appendingPathComponent("a-only.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: a.sourceURL)
+        try await git(["commit", "-m", "a's work"], in: a.sourceURL)
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture A push failed"); return
+        }
+        try copyArtifact(from: a, to: b)
+
+        try "b-edit".write(to: b.sourceURL.appendingPathComponent("b-only.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: b.sourceURL)
+        try await git(["commit", "-m", "b's work"], in: b.sourceURL)
+
+        let versionStore = FakeVersionStore()
+        versionStore.conflictArtifactURLs = [peerBundle]
+        let engine = SyncEngine(versionStore: versionStore)
+        let result = await engine.pull(package: b)
+        guard case .merged(let branch, let mergedTips) = result else {
+            Issue.record("expected .merged, got \(result)"); return
+        }
+        #expect(branch == "main")
+        #expect(mergedTips == ["icloud", "peer-0"])
+        #expect(versionStore.resolvedIDs == ["peer-0"])
+
+        #expect(FileManager.default.fileExists(atPath: b.sourceURL.appendingPathComponent("a-only.txt").path))
+        #expect(FileManager.default.fileExists(atPath: b.sourceURL.appendingPathComponent("b-only.txt").path))
+        #expect(FileManager.default.fileExists(atPath: b.sourceURL.appendingPathComponent("peer-only.txt").path))
+
+        SwiftGit2Bootstrap.ensureInitialized
+        guard case .success(let repo) = Repository.at(b.sourceURL) else {
+            Issue.record("Repository.at failed after reconciliation"); return
+        }
+        #expect((try? repo.reference(named: "refs/remotes/peer-0/main").get()) != nil)
+    }
+
+    @Test("both peers converge to the same history after independently running reconciliation")
+    func bothPeersConverge() async throws {
+        let a = try await makeGitPackage(name: "A11", commits: 1)
+        let engineA = SyncEngine()
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture push failed"); return
+        }
+
+        let b = try makeFreshPeerPackage(mirroring: a, name: "B11")
+        let engineB = SyncEngine()
+        guard case .bootstrapped = await engineB.pull(package: b) else {
+            Issue.record("fixture bootstrap failed"); return
+        }
+
+        // A and B diverge with non-overlapping edits.
+        try "a-edit".write(to: a.sourceURL.appendingPathComponent("a-only.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: a.sourceURL)
+        try await git(["commit", "-m", "a's work"], in: a.sourceURL)
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture A push failed"); return
+        }
+        try copyArtifact(from: a, to: b)
+
+        try "b-edit".write(to: b.sourceURL.appendingPathComponent("b-only.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: b.sourceURL)
+        try await git(["commit", "-m", "b's work"], in: b.sourceURL)
+
+        // B reconciles and pushes the merge first.
+        guard case .merged = await engineB.pull(package: b) else {
+            Issue.record("expected B to merge cleanly"); return
+        }
+        let bHead = try await headOID(in: b.sourceURL)
+
+        // A pulls next: its own commit is already an ancestor of B's merge, so this is a plain
+        // fast-forward — both Macs run the same procedure and land on the same history without
+        // an arbiter.
+        try copyArtifact(from: b, to: a)
+        let result = await engineA.pull(package: a)
+        guard case .fastForwarded(_, _, let to) = result else {
+            Issue.record("expected A to fast-forward onto B's merge, got \(result)"); return
+        }
+        #expect(to == bHead)
+        #expect(try await headOID(in: a.sourceURL) == bHead)
+        #expect(FileManager.default.fileExists(atPath: a.sourceURL.appendingPathComponent("a-only.txt").path))
+        #expect(FileManager.default.fileExists(atPath: a.sourceURL.appendingPathComponent("b-only.txt").path))
+    }
+
+    // MARK: - Conflicted state: pause + resolution acknowledgement
+
+    @Test("push pauses while a conflict is pending, then proceeds once acknowledged")
+    func pushPausesWhileConflicted() async throws {
+        let a = try await makeGitPackage(name: "A12", commits: 1)
+        let engineA = SyncEngine()
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture push failed"); return
+        }
+
+        let b = try makeFreshPeerPackage(mirroring: a, name: "B12")
+        let engineB = SyncEngine()
+        guard case .bootstrapped = await engineB.pull(package: b) else {
+            Issue.record("fixture bootstrap failed"); return
+        }
+
+        try "a-version".write(to: a.sourceURL.appendingPathComponent("file0.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: a.sourceURL)
+        try await git(["commit", "-m", "a's conflicting edit"], in: a.sourceURL)
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture A push failed"); return
+        }
+        try copyArtifact(from: a, to: b)
+
+        try "b-version".write(to: b.sourceURL.appendingPathComponent("file0.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: b.sourceURL)
+        try await git(["commit", "-m", "b's conflicting edit"], in: b.sourceURL)
+
+        guard case .conflicted = await engineB.pull(package: b) else {
+            Issue.record("expected fixture pull to conflict"); return
+        }
+        #expect(await engineB.pendingConflict(package: b) != nil)
+
+        let pausedPush = await engineB.push(package: b)
+        guard case .pausedForConflict(let branch) = pausedPush else {
+            Issue.record("expected .pausedForConflict, got \(pausedPush)"); return
+        }
+        #expect(branch == "main")
+
+        await engineB.acknowledgeConflictResolved(package: b)
+        #expect(await engineB.pendingConflict(package: b) == nil)
+
+        // No longer paused — an ordinary push attempt proceeds (whatever its outcome).
+        let pushAfterAcknowledge = await engineB.push(package: b)
+        if case .pausedForConflict = pushAfterAcknowledge {
+            Issue.record("push should no longer be paused after acknowledging the conflict")
+        }
+    }
+
+    // MARK: - Working-tree conflict-copy quarantine
+
+    @Test("pull quarantines iCloud conflict-copy-named files in Source/ into Config/conflicts/")
+    func pullQuarantinesConflictCopies() async throws {
+        let pkg = try await makeGitPackage(name: "A13", commits: 1)
+        let engine = SyncEngine()
+        guard case .pushed = await engine.push(package: pkg) else {
+            Issue.record("fixture push failed"); return
+        }
+
+        let numberedDuplicateName = "file0 2.txt" // sibling "file0.txt" already exists from the fixture
+        let verboseConflictName = "notes (Some Mac's conflicted copy 2026-07-21).txt"
+        try "dup".write(to: pkg.sourceURL.appendingPathComponent(numberedDuplicateName), atomically: true, encoding: .utf8)
+        try "verbose-dup".write(to: pkg.sourceURL.appendingPathComponent(verboseConflictName), atomically: true, encoding: .utf8)
+        // Not a conflict copy: no sibling "season.txt" exists, so this must survive the sweep.
+        try "not-a-conflict".write(to: pkg.sourceURL.appendingPathComponent("season 2.txt"), atomically: true, encoding: .utf8)
+
+        // The quarantined files were never committed, so removing them leaves no trace — but the
+        // deliberately-surviving "season 2.txt" is still untracked afterward, so the snapshot step
+        // commits it, putting local ahead of the (unchanged) artifact.
+        let result = await engine.pull(package: pkg)
+        guard case .localAhead(let branch) = result else {
+            Issue.record("expected .localAhead, got \(result)"); return
+        }
+        #expect(branch == "main")
+
+        let fm = FileManager.default
+        #expect(!fm.fileExists(atPath: pkg.sourceURL.appendingPathComponent(numberedDuplicateName).path))
+        #expect(!fm.fileExists(atPath: pkg.sourceURL.appendingPathComponent(verboseConflictName).path))
+        #expect(fm.fileExists(atPath: pkg.sourceURL.appendingPathComponent("season 2.txt").path))
+
+        let quarantineDirectory = pkg.configURL.appendingPathComponent("conflicts", isDirectory: true)
+        let quarantined = (try? fm.contentsOfDirectory(at: quarantineDirectory, includingPropertiesForKeys: nil)) ?? []
+        #expect(quarantined.contains { $0.lastPathComponent.hasSuffix(numberedDuplicateName) })
+        #expect(quarantined.contains { $0.lastPathComponent.hasSuffix(verboseConflictName) })
     }
 
     // MARK: - Fresh peer / dangling-gitfile repair / corrupted-repo rebuild
