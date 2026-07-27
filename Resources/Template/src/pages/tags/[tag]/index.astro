@@ -1,35 +1,41 @@
 ---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { collectTaggedEntries } from "../../../lib/tags-astro.ts";
-import { groupByTag, labelFor, permalinkFor, type TaggedEntry } from "../../../lib/tags.ts";
+import { groupBySlug, labelFor, permalinkFor, type TaggedEntry } from "../../../lib/tags.ts";
 
 export async function getStaticPaths() {
   const entries = await collectTaggedEntries();
 
-  // `params.tag` is the raw tag text, not pre-encoded — Astro's own router does the
-  // percent-encoding/decoding at request time (it matches an incoming `/tags/hello%20world/`
-  // against this route by decoding the segment back to "hello world" first). Pre-encoding here
-  // instead makes the *param itself* `%20`, which the router then can't match against a decoded
-  // request path. `Hentry.astro`'s `href={`/tags/${encodeURIComponent(t)}/`}` link only needs to
-  // carry the same raw tag text through `encodeURIComponent` for the browser request to decode
-  // back to this same param.
-  const byTag = groupByTag(entries);
-  return [...byTag.entries()].map(([tag, taggedEntries]) => ({
-    params: { tag },
-    props: { tag, entries: taggedEntries },
+  // `params.tag` is a `tagSlug` (a plain `[a-z0-9-]+` string), not the verbatim tag text —
+  // tags are free text with no character restrictions, and routing on the raw text has two
+  // failure modes: a tag containing "/" is an illegal getStaticPaths param and crashes
+  // `astro build`; a tag containing "#" percent-encodes to an href that a standards-compliant
+  // static server can never match back to the literal directory Astro wrote (it percent-decodes
+  // the request before the filesystem lookup). Routing by slug sidesteps both. Two different
+  // spellings that collapse to the same slug (e.g. "Hello World" and "hello world") share this
+  // one page — `tags` carries every verbatim spelling for the heading below, and `entries` is
+  // already deduped/merged across them by `groupBySlug`. `Hentry.astro`'s tag links use the
+  // same `tagSlug` for their `href` so the two routers can't drift.
+  const bySlug = groupBySlug(entries);
+  return [...bySlug.entries()].map(([slug, group]) => ({
+    params: { tag: slug },
+    props: { tags: group.tags, entries: group.entries },
   }));
 }
 
 interface Props {
-  tag: string;
+  tags: string[];
   entries: TaggedEntry[];
 }
 
-const { tag, entries } = Astro.props as Props;
+const { tags, entries } = Astro.props as Props;
+// The heading always shows the verbatim tag text(s), never the slug — the slug is only a URL
+// segment. Most groups have exactly one spelling; a shared slug joins them for display.
+const heading = tags.join(" / ");
 ---
 
-<BaseLayout title={`Tagged “${tag}”`} description={`Posts tagged “${tag}”.`}>
-  <h1>Tagged &ldquo;{tag}&rdquo;</h1>
+<BaseLayout title={`Tagged “${heading}”`} description={`Posts tagged “${heading}”.`}>
+  <h1>Tagged &ldquo;{heading}&rdquo;</h1>
   <p><a href="/tags/">All tags</a></p>
   <ul>
     {entries.map((entry) => (

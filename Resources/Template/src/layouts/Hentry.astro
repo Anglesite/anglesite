@@ -5,6 +5,7 @@ import type { HentryCollection } from "../lib/collections.ts";
 import { entrySchema, type HentryData } from "../lib/schema.ts";
 import { ownerName } from "../lib/profile.ts";
 import { licenseFor } from "../lib/licensing-data.ts";
+import { tagSlug } from "../lib/tags.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
@@ -94,11 +95,13 @@ const likeCite = cited(d.likeOf);
     </a>
     {tags.length > 0 && (
       <ul class="tags">
-        {/* encodeURIComponent so a tag with a space (or other URL-unsafe character) still
-            resolves — must match `tags/[tag]/index.astro`'s `getStaticPaths` params exactly,
-            and the trailing slash matches this site's directory-style build output (see
-            `blog/index.astro`'s `/blog/${post.id}/` links). */}
-        {tags.map((t) => <li><a class="p-category" href={`/tags/${encodeURIComponent(t)}/`}>{t}</a></li>)}
+        {/* href uses `tagSlug`, not the verbatim tag — must match `tags/[tag]/index.astro`'s
+            `getStaticPaths` params exactly (see `tags.ts`'s `tagSlug` for why: a raw "/" or "#"
+            in the tag text either crashes the build or 404s). The link TEXT stays the verbatim
+            tag — it's the mf2 `p-category` value and must remain human-readable. The trailing
+            slash matches this site's directory-style build output (see `blog/index.astro`'s
+            `/blog/${post.id}/` links). */}
+        {tags.map((t) => <li><a class="p-category" href={`/tags/${tagSlug(t)}/`}>{t}</a></li>)}
       </ul>
     )}
     <LicenseLink license={license} />
