@@ -18,7 +18,8 @@ default plus optional per-collection overrides:
   "collections": {
     "photos": { "url": "https://creativecommons.org/licenses/by-nc/4.0/", "name": "CC BY-NC 4.0" },
     "notes": null
-  }
+  },
+  "usage": { "search": "yes", "aiInput": "no", "aiTrain": "no", "blockAICrawlers": true }
 }
 ```
 
@@ -26,6 +27,15 @@ default plus optional per-collection overrides:
 - A collection set to `null` asserts nothing, overriding the site default.
 - `bookmarks`, `replies`, `likes`, and `reviews` assert nothing **by default**, because those
   entries are about someone else's work. Set an explicit override if you want a license on them.
+
+The `usage` block states, site-wide, what AI systems may do with your content. Each of `search`,
+`aiInput`, and `aiTrain` is `"yes"` or `"no"`; omit a key to state no preference. `robots.txt`
+derives both of its crawler signals from this block and nothing else:
+
+- The `Content-Signal` directive gets one `key=value` pair per stated purpose.
+- `"blockAICrawlers": true` adds `Disallow: /` records for 17 named AI agents. It only takes effect
+  when `aiInput` and `aiTrain` are **both** `"no"` — blocking a crawler while permitting the use it
+  performs would be self-contradictory, so the build ignores it and says so.
 
 The resolved license is emitted three ways: `license` in the page's schema.org JSON-LD,
 `u-license` in the entry's Microformats2 markup, and `<link rel="license">` in `<head>`.
