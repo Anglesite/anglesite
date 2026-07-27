@@ -8,6 +8,7 @@ import {
   renderRss,
   renderAtom,
   renderJsonFeed,
+  websubHub,
   type FeedEntry,
 } from "./feeds.ts";
 
@@ -106,4 +107,65 @@ test("renderJsonFeed produces valid JSON Feed 1.1", async () => {
   assert.equal(feed.version, "https://jsonfeed.org/version/1.1");
   assert.equal(feed.feed_url, `${SITE}/feed.json`);
   assert.equal(feed.items[0].url, `${SITE}/blog/a/`);
+});
+
+// --- WebSub discovery (V-3.3, #361) ---------------------------------------------------------
+
+test("websubHub returns hub + self URLs when enabled, undefined when not", () => {
+  assert.deepEqual(websubHub(SITE, "/rss.xml", true), {
+    hubUrl: "https://example.com/websub",
+    selfUrl: "https://example.com/rss.xml",
+  });
+  assert.equal(websubHub(SITE, "/rss.xml", false), undefined);
+});
+
+test("renderRss advertises the hub via atom:link rel=hub and rel=self when enabled", async () => {
+  const hub = websubHub(SITE, "/rss.xml", true)!;
+  const res = await renderRss({
+    title: "All",
+    description: "Everything",
+    site: SITE,
+    items: [],
+    hub,
+  });
+  const xml = await res.text();
+  assert.match(xml, /xmlns:atom="http:\/\/www\.w3\.org\/2005\/Atom"/);
+  assert.match(xml, /<atom:link rel="hub" href="https:\/\/example\.com\/websub"\/>/);
+  assert.match(xml, /<atom:link rel="self" type="application\/rss\+xml" href="https:\/\/example\.com\/rss\.xml"\/>/);
+});
+
+test("renderRss emits no hub advertisement when the hub is not provisioned", async () => {
+  const res = await renderRss({ title: "All", description: "Everything", site: SITE, items: [] });
+  const xml = await res.text();
+  assert.doesNotMatch(xml, /rel="hub"/);
+});
+
+test("renderAtom emits a rel=hub link only when a hub URL is given", async () => {
+  const withHub = renderAtom({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/atom.xml`,
+    items: [],
+    hubUrl: `${SITE}/websub`,
+  });
+  assert.match(await withHub.text(), /<link rel="hub" href="https:\/\/example\.com\/websub"\/>/);
+
+  const withoutHub = renderAtom({ title: "All", site: SITE, feedUrl: `${SITE}/atom.xml`, items: [] });
+  assert.doesNotMatch(await withoutHub.text(), /rel="hub"/);
+});
+
+test("renderJsonFeed emits a WebSub hubs array only when a hub URL is given", async () => {
+  const withHub = renderJsonFeed({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/feed.json`,
+    items: [],
+    hubUrl: `${SITE}/websub`,
+  });
+  assert.deepEqual(JSON.parse(await withHub.text()).hubs, [
+    { type: "WebSub", url: `${SITE}/websub` },
+  ]);
+
+  const withoutHub = renderJsonFeed({ title: "All", site: SITE, feedUrl: `${SITE}/feed.json`, items: [] });
+  assert.equal(JSON.parse(await withoutHub.text()).hubs, undefined);
 });

@@ -12,6 +12,10 @@ final class SiteNavigatorModel {
     private(set) var nodes: [URLTreeNode] = []
     /// Flattened id → node lookup, rebuilt with `nodes` (selection, targets, titles).
     private var nodesByID: [String: URLTreeNode] = [:]
+    /// Route → node id for the rows actually on screen, rebuilt with `nodes`. Lets site search
+    /// (#520) resolve a hit's computed route to a real sidebar row — and only to a row that
+    /// exists, since `ContentRouteResolver`'s route is a convention-based guess.
+    private(set) var routeIDs: [String: String] = [:]
     var selection: String?
 
     // Inline re-titling (Finder-style). `editingItemID` non-nil → that row shows a TextField.
@@ -27,6 +31,12 @@ final class SiteNavigatorModel {
     private var siteID: String?
     private var siteRoot: URL?
     private let renameService = NavigatorRenameService()
+    /// Set by `SiteWindowModel` when it builds this model: hands a completed rename to the
+    /// window's `ContentUndoCoordinator` so ⌘Z reverses it (#675). Rename is the one structural
+    /// operation `SiteWindowModel` doesn't own, so it comes back out through this hook instead of
+    /// this model holding a coordinator of its own. `nil` in tests/previews — rename still works,
+    /// it just isn't undoable.
+    var registerUndo: ((ContentUndoCoordinator.Mutation) -> Void)?
     /// Post ids seen in the last `refresh()`, so `canRepurpose` can distinguish post rows from
     /// page rows without an extra actor hop — both are `.route` targets and `isContentRow` alone
     /// can't tell them apart (Task 16, #465).
@@ -184,10 +194,11 @@ final class SiteNavigatorModel {
                 relativePath: page.filePath,
                 newTitle: title)
             switch result {
-            case .success(let title):
+            case .success(let outcome):
+                registerRenameUndo(outcome, relativePath: page.filePath)
                 await graph.upsertPage(SiteContentGraph.Page(
                     id: page.id, siteID: page.siteID, route: page.route,
-                    filePath: page.filePath, title: title, lastModified: page.lastModified))
+                    filePath: page.filePath, title: outcome.title, lastModified: page.lastModified))
             case .failure(.emptyTitle):
                 break  // no write happened; keep the old title silently
             case .failure(.noEditableLocation):
@@ -204,10 +215,11 @@ final class SiteNavigatorModel {
                 relativePath: post.filePath,
                 newTitle: title)
             switch result {
-            case .success(let title):
+            case .success(let outcome):
+                registerRenameUndo(outcome, relativePath: post.filePath)
                 await graph.upsertPost(SiteContentGraph.Post(
                     id: post.id, siteID: post.siteID, collection: post.collection, slug: post.slug,
-                    title: title, draft: post.draft, publishDate: post.publishDate, tags: post.tags,
+                    title: outcome.title, draft: post.draft, publishDate: post.publishDate, tags: post.tags,
                     filePath: post.filePath, lastModified: post.lastModified))
             case .failure(.emptyTitle):
                 break
@@ -217,6 +229,20 @@ final class SiteNavigatorModel {
                 renameError = "Couldn't rename: \(msg)"
             }
         }
+    }
+
+    /// Hands a completed rename to `registerUndo` as a before/after content snapshot (#675). A
+    /// rename that changed nothing (same title re-committed) registers no record, so ⌘Z doesn't
+    /// collect no-op steps the user has to press through.
+    private func registerRenameUndo(
+        _ outcome: NavigatorRenameService.RenameOutcome, relativePath: String
+    ) {
+        guard outcome.previousContents != outcome.newContents else { return }
+        registerUndo?(ContentUndoCoordinator.Mutation(
+            relativePath: relativePath,
+            before: outcome.previousContents,
+            after: outcome.newContents,
+            actionName: ContentUndoCoordinator.renameActionName()))
     }
 
     /// Rebuilds `nodes` for the given site. Takes `siteID`/`siteRoot` as parameters (the values
@@ -244,6 +270,7 @@ final class SiteNavigatorModel {
             websiteTitle: websiteTitle, pages: pages, posts: posts, feedCollections: feeds)
         nodes = tree
         nodesByID = Self.index(tree)
+        routeIDs = Self.indexRoutes(nodesByID)
     }
 
     private static func index(_ nodes: [URLTreeNode]) -> [String: URLTreeNode] {
@@ -253,6 +280,18 @@ final class SiteNavigatorModel {
             node.children?.forEach(walk)
         }
         nodes.forEach(walk)
+        return map
+    }
+
+    /// Only `.route` targets: a directory row previews its index page rather than the document a
+    /// search hit names, and the website-settings row opens `Info.plist` — neither is where
+    /// activating a content hit should land.
+    private static func indexRoutes(_ nodesByID: [String: URLTreeNode]) -> [String: String] {
+        var map: [String: String] = [:]
+        for node in nodesByID.values {
+            guard case .route(let route) = node.target else { continue }
+            map[route] = node.id
+        }
         return map
     }
 

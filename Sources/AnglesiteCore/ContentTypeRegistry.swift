@@ -74,6 +74,23 @@ public struct ContentTypeProjections: Sendable, Equatable {
         self.microformatProperties = microformatProperties
         self.schemaType = schemaType
     }
+
+    /// The raw mf2 property name `@dwk/micropub` stores for `fieldName` — `microformatProperties`
+    /// with its mf2 prefix class (`p-`/`e-`/`u-`/`dt-`) stripped. `nil` if `fieldName` has no mf2
+    /// mapping (e.g. `draft`, which is derived from the Post Status extension's `post-status`
+    /// property rather than its own mf2 property). Used by the Micropub content-sync bridge
+    /// (#912) to read a post's raw property map — bare names, no prefix — for a given
+    /// `ContentTypeField`.
+    public func rawMf2Property(forField fieldName: String) -> String? {
+        microformatProperties[fieldName].map(Self.stripMf2Prefix)
+    }
+
+    private static func stripMf2Prefix(_ mfProperty: String) -> String {
+        for prefix in ["p-", "e-", "u-", "dt-"] where mfProperty.hasPrefix(prefix) {
+            return String(mfProperty.dropFirst(prefix.count))
+        }
+        return mfProperty
+    }
 }
 
 /// Where instances of a content type live on disk, mirroring the Astro layout `ContentScaffold`
@@ -209,6 +226,7 @@ extension ContentTypeRegistry {
             ContentTypeField("body", .markdown, required: true),
             ContentTypeField("publishDate", .datetime, required: true),
             ContentTypeField("tags", .stringArray),
+            ContentTypeField("audience", .url),
             ContentTypeField("draft", .bool),
         ],
         projections: ContentTypeProjections(
@@ -233,6 +251,7 @@ extension ContentTypeRegistry {
             ContentTypeField("publishDate", .datetime, required: true),
             ContentTypeField("updated", .datetime),
             ContentTypeField("tags", .stringArray),
+            ContentTypeField("audience", .url),
             ContentTypeField("draft", .bool),
         ],
         projections: ContentTypeProjections(

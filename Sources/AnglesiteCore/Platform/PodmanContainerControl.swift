@@ -93,7 +93,8 @@ public struct PodmanContainerControl: LocalContainerControl {
         ref: String,
         onOutput: @escaping @Sendable (String, LogCenter.Stream) -> Void
     ) async throws -> LocalContainerSession {
-        try SourceRepoPrecondition.requireGitRepo(at: sourceRepo)
+        // Resolves the split-repo gitfile layout (#888/#903) — see SourceRepoPrecondition.
+        let cloneSource = try SourceRepoPrecondition.cloneSource(for: sourceRepo)
         let name = Self.containerName(for: siteID)
 
         // 1. Boot a bare, long-lived container (podman's equivalent of Apple Containerization's
@@ -118,7 +119,7 @@ public struct PodmanContainerControl: LocalContainerControl {
                 podmanExecutable: podmanExecutable,
                 arguments: [
                     "run", "-d", "--rm", "--name", name,
-                    "-v", "\(sourceRepo.path):\(Self.repoSharePath):ro",
+                    "-v", "\(cloneSource.path):\(Self.repoSharePath):ro",
                     "-p", "127.0.0.1::\(Self.previewPort)",
                     "-p", "127.0.0.1::\(Self.mcpPort)",
                     image, "sleep", "infinity",

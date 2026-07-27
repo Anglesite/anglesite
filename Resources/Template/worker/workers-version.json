@@ -1,16 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Pinned @dwk/workers version range for this template. Read by Anglesite during scaffold and social-feature enablement. Updated when a new @dwk/workers release ships.",
-  "version": "0.1.0-beta.3",
-  "range": "0.1.0-beta.3",
-  "note": "IndieAuth and Webmention (inbound receive, V-3.1) are pinned to the exact published betas composed into worker.ts and verified by the template Worker integration suite; the remaining social packages remain gated on their conformance status until composed.",
+  "version": "0.1.0-beta.5",
+  "range": "0.1.0-beta.5",
+  "note": "IndieAuth, Webmention (inbound receive, V-3.1), Micropub (V-3.2), WebSub (hub, V-3.3), Microsub (reader, V-4.3), and ActivityPub (actor, V-4.1) are pinned to the exact published betas composed into worker.ts and verified by the template Worker integration suite; the remaining social packages remain gated on their conformance status until composed.",
   "packages": {
     "@dwk/indieauth": "0.1.0-beta.3",
     "@dwk/webmention": "0.1.0-beta.3",
-    "@dwk/micropub": "^0.0.0",
-    "@dwk/websub": "^0.0.0",
-    "@dwk/microsub": "^0.0.0",
-    "@dwk/webfinger": "^0.0.0",
-    "@dwk/activitypub": "^0.0.0"
+    "@dwk/micropub": "0.1.0-beta.4",
+    "@dwk/websub": "0.1.0-beta.4",
+    "@dwk/microsub": "0.1.0-beta.4",
+    "@dwk/activitypub": "0.1.0-beta.5",
+    "@dwk/webfinger": "^0.0.0"
   }
 }

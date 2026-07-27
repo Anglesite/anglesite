@@ -119,6 +119,25 @@ struct WorkerRouteClaimsTests {
         #expect(claims.count == 1)
     }
 
+    @Test("normalizes a published prefix claim's trailing slash (davidwkeith/workers catalog convention)")
+    func normalizesPrefixTrailingSlash() throws {
+        let claims = try WorkerRouteClaims.activeClaims(
+            catalog: [descriptor(id: "activitypub", routes: [
+                claim("/users/", match: .prefix, specificationURL: spec)
+            ])],
+            activeIDs: ["activitypub"])
+        #expect(claims.map(\.claim.path) == ["/users"])
+    }
+
+    @Test("an exact claim's trailing slash is still rejected — normalization is prefix-only")
+    func exactClaimTrailingSlashStillRejected() {
+        #expect(throws: WorkerRouteClaims.ValidationError.self) {
+            try WorkerRouteClaims.activeClaims(
+                catalog: [descriptor(id: "w", routes: [claim("/users/", match: .exact)])],
+                activeIDs: ["w"])
+        }
+    }
+
     // MARK: Overlap rejection
 
     @Test("rejects two exact claims for the same path, naming both owners")
@@ -227,6 +246,14 @@ struct WorkerRouteClaimsTests {
     @Test("no claims yields no patterns")
     func emptyPatterns() {
         #expect(WorkerRouteClaims.runWorkerFirstPatterns([]).isEmpty)
+    }
+
+    @Test("a catalog-style prefix claim with a trailing slash yields a clean glob, not a doubled slash")
+    func runWorkerFirstPatternsNormalizesCatalogPrefix() {
+        let patterns = WorkerRouteClaims.runWorkerFirstPatterns([
+            claim("/users/", match: .prefix, specificationURL: spec)
+        ])
+        #expect(patterns == ["/users", "/users/*"])
     }
 
     // MARK: #744 seam

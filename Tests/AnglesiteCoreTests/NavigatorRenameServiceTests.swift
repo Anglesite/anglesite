@@ -9,7 +9,7 @@ struct NavigatorRenameServiceTests {
     private let root = URL(fileURLWithPath: "/site")
 
     @Test("success: rewrites markdown title, saves, commits, returns trimmed title")
-    func success() async {
+    func success() async throws {
         let saved = Locked<String?>(nil)
         let committed = Locked<(String, String)?>(nil)
         let svc = NavigatorRenameService(
@@ -20,10 +20,33 @@ struct NavigatorRenameServiceTests {
         let result = await svc.rename(
             fileURL: url, fileExtension: "md", projectRoot: root,
             relativePath: "src/content/posts/p.md", newTitle: "  New  ")
-        #expect(result == .success("New"))
+        #expect(try result.get().title == "New")
         #expect(saved.get()?.contains("title: \"New\"") == true)
         #expect(committed.get()?.0 == "src/content/posts/p.md")
         #expect(committed.get()?.1.contains("New") == true)
+    }
+
+    /// The rename has to hand back both content sides so `SiteNavigatorModel` can register it as a
+    /// `ContentUndoCoordinator.Mutation` for ⌘Z (#675). `previousContents` is what was loaded,
+    /// verbatim; `newContents` is exactly what was written — asserted against the save spy so the
+    /// two can't drift apart.
+    @Test("success: carries the pre- and post-rewrite contents for ⌘Z")
+    func successCarriesBothContentSides() async throws {
+        let original = "---\ntitle: \"Old\"\n---\n\nBody\n"
+        let saved = Locked<String?>(nil)
+        let svc = NavigatorRenameService(
+            loadContents: { _ in original },
+            saveContents: { contents, _ in saved.set(contents) },
+            gitCommit: { _, _, _ in "deadbeef" }
+        )
+        let outcome = try await svc.rename(
+            fileURL: url, fileExtension: "md", projectRoot: root,
+            relativePath: "src/content/posts/p.md", newTitle: "New").get()
+
+        #expect(outcome.previousContents == original)
+        #expect(outcome.newContents == saved.get())
+        #expect(outcome.newContents.contains("title: \"New\""))
+        #expect(outcome.previousContents != outcome.newContents)
     }
 
     @Test("emptyTitle: never saves")
@@ -75,14 +98,14 @@ struct NavigatorRenameServiceTests {
     }
 
     @Test("git failure is best-effort: still success and the save happened")
-    func gitBestEffort() async {
+    func gitBestEffort() async throws {
         let saved = Locked<Bool>(false)
         let svc = NavigatorRenameService(
             loadContents: { _ in "---\ntitle: \"Old\"\n---\n" },
             saveContents: { _, _ in saved.set(true) },
             gitCommit: { _, _, _ in nil })
         let r = await svc.rename(fileURL: url, fileExtension: "md", projectRoot: root, relativePath: "p.md", newTitle: "New")
-        #expect(r == .success("New"))
+        #expect(try r.get().title == "New")
         #expect(saved.get() == true)
     }
 }

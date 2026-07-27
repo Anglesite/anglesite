@@ -6,6 +6,7 @@ import AnglesiteIntents
 private struct FocusedSiteIDKey: FocusedValueKey { typealias Value = String }
 private struct FocusedNewContentActionsKey: FocusedValueKey { typealias Value = NewContentActions }
 private struct FocusedNavigatorSelectionActionsKey: FocusedValueKey { typealias Value = NavigatorSelectionActions }
+private struct FocusedSiteSearchActionsKey: FocusedValueKey { typealias Value = SiteSearchActions }
 
 struct NewContentActions {
     let newPage: @MainActor () -> Void
@@ -25,7 +26,19 @@ struct NavigatorSelectionActions {
     let unpublish: (@MainActor () -> Void)?
 }
 
+/// Edit ▸ Find ▸ Search Site… acting on the focused window's toolbar search field (#520).
+/// The menu item can't reach `.searchFocused` itself — focus state is scene-local — so the
+/// window publishes the closure that flips it.
+struct SiteSearchActions {
+    let focusSearchField: @MainActor () -> Void
+}
+
 extension FocusedValues {
+    var siteSearchActions: SiteSearchActions? {
+        get { self[FocusedSiteSearchActionsKey.self] }
+        set { self[FocusedSiteSearchActionsKey.self] = newValue }
+    }
+
     var siteID: String? {
         get { self[FocusedSiteIDKey.self] }
         set { self[FocusedSiteIDKey.self] = newValue }

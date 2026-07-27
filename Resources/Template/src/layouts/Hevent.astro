@@ -2,8 +2,11 @@
 import type { CollectionEntry } from "astro:content";
 import { Schema } from "astro-seo-schema";
 import { entrySchema } from "../lib/schema.ts";
+import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
+import LicenseLink from "../components/LicenseLink.astro";
+import Interactions from "../components/Interactions.astro";
 
 interface Props {
   entry: CollectionEntry<"events">;
@@ -13,6 +16,7 @@ const { entry } = Astro.props;
 const d = entry.data;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
 const jsonLd = entrySchema("events", entry.data, { url: canonical, site: Astro.site });
+const license = licenseFor("events");
 // Compute each Date once; pin the locale so static output is deterministic across build hosts.
 const startDate = d.start ? new Date(d.start) : undefined;
 const startISO = startDate?.toISOString();
@@ -22,7 +26,7 @@ const endISO = endDate?.toISOString();
 const endHuman = endDate?.toLocaleString("en-US");
 ---
 
-<BaseLayout title={d.name ?? "Event"} description={d.location}>
+<BaseLayout title={d.name ?? "Event"} description={d.location} license={license}>
   {jsonLd && <Schema slot="head" item={jsonLd} />}
   <article class="h-event">
     <h1 class="p-name">{d.name}</h1>
@@ -33,6 +37,8 @@ const endHuman = endDate?.toLocaleString("en-US");
     {endISO && <time class="dt-end" datetime={endISO}>{endHuman}</time>}
     {d.location && <p class="p-location">{d.location}</p>}
     <div class="e-content"><slot /></div>
+    <LicenseLink license={license} />
     <SyndicationLinks urls={d.syndication} />
+    <Interactions canonical={canonical} />
   </article>
 </BaseLayout>

@@ -69,6 +69,39 @@ test("buildRobotsTxt: Content-Signal directive precedes any AI-blocking User-age
   assert.ok(signalIndex < secondUserAgentIndex, "Content-Signal must stay in the User-agent: * group");
 });
 
+test("buildRobotsTxt: advertises the sitemap for an https SITE_URL", () => {
+  const out = buildRobotsTxt(false, undefined, "https://example.com");
+  assert.match(out, /^Sitemap: https:\/\/example\.com\/sitemap\.xml$/m);
+});
+
+test("buildRobotsTxt: uses the origin, not a configured SITE_URL path", () => {
+  const out = buildRobotsTxt(false, undefined, "https://example.com/blog/");
+  assert.match(out, /^Sitemap: https:\/\/example\.com\/sitemap\.xml$/m);
+});
+
+test("buildRobotsTxt: omits Sitemap when SITE_URL is unset", () => {
+  assert.doesNotMatch(buildRobotsTxt(), /Sitemap:/);
+});
+
+test("buildRobotsTxt: omits Sitemap (no http fallback) when SITE_URL is insecure", () => {
+  assert.doesNotMatch(buildRobotsTxt(false, undefined, "http://example.com"), /Sitemap:/);
+});
+
+test("buildRobotsTxt: omits Sitemap when SITE_URL is unparseable", () => {
+  assert.doesNotMatch(buildRobotsTxt(false, undefined, "not a url"), /Sitemap:/);
+});
+
+test("buildRobotsTxt: Sitemap stands outside every User-agent group", () => {
+  const out = buildRobotsTxt(true, "search=yes", "https://example.com");
+  const before = out.slice(0, out.indexOf("Sitemap:"));
+  assert.match(
+    before,
+    /\n\n$/,
+    "a blank line must end the preceding record so Sitemap reads as a non-group field",
+  );
+  assert.match(out, /Sitemap: https:\/\/example\.com\/sitemap\.xml\n$/);
+});
+
 test("buildRobotsTxt: no blank line between Disallow: and Content-Signal (stays in the same group)", () => {
   const out = buildRobotsTxt(false, "search=yes, ai-train=no");
   const between = out.slice(out.indexOf("Disallow:"), out.indexOf("Content-Signal:"));

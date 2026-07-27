@@ -4,9 +4,16 @@ import { Schema } from "astro-seo-schema";
 import type { HentryCollection } from "../lib/collections.ts";
 import { entrySchema, type HentryData } from "../lib/schema.ts";
 import { ownerName } from "../lib/profile.ts";
+import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
+import LicenseLink from "../components/LicenseLink.astro";
+import EmbedCard from "../components/EmbedCard.astro";
+import { snapshotKey } from "../../scripts/embeds/adapters";
+import { loadAllSnapshots } from "../../scripts/embeds/store";
+import { readConfig } from "../../scripts/config.ts";
+import Interactions from "../components/Interactions.astro";
 
 interface Props {
   entry: CollectionEntry<HentryCollection>;
@@ -41,23 +48,43 @@ const tags: string[] = Array.isArray(d.tags) ? d.tags : [];
 // schema.org JSON-LD twin of the mf2 markup (V-1.8). `entry.collection` discriminates which
 // h-entry vocabulary this is; `entrySchema` returns null for likes (no rich-result type).
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
+const license = licenseFor(entry.collection);
 const jsonLd = entrySchema(entry.collection, entry.data as HentryData, {
   url: canonical,
   site: Astro.site,
   authorName: ownerName(),
+  license: license?.url,
 });
+
+// Reply context (#682). Snapshots are read from src/embeds/ — committed, never fetched. With no
+// snapshot for a cited URL these fall through to the bare links this layout has always rendered.
+const snapshots = loadAllSnapshots(process.cwd());
+const inlineVideo = (readConfig("EMBED_VIDEO_INLINE") ?? "").trim().toLowerCase() === "true";
+// `snapshotKey` on both sides of the lookup, exactly as the remark plugin does it — a cited URL
+// pasted with tracking parameters, in a short form, or with a stray trailing slash must resolve
+// to the same snapshot as its canonical spelling.
+const cited = (url: string | undefined) => (url ? (snapshots.get(snapshotKey(url)) ?? null) : null);
+const bookmarkCite = cited(d.bookmarkOf);
+const replyCite = cited(d.inReplyTo);
+const likeCite = cited(d.likeOf);
 ---
 
-<BaseLayout title={title ?? "Post"} description={d.summary}>
+<BaseLayout title={title ?? "Post"} description={d.summary} license={license}>
   {jsonLd && <Schema slot="head" item={jsonLd} />}
   <article class="h-entry">
     <DraftBadge draft={d.draft} />
     {title && <h1 class="p-name">{title}</h1>}
     {d.image && <img class="u-photo" src={d.image} alt={d.caption ?? ""} />}
     {images.map((src) => <img class="u-photo" src={src} alt="" />)}
-    {d.bookmarkOf && <a class="u-bookmark-of" href={d.bookmarkOf}>{d.bookmarkOf}</a>}
-    {d.inReplyTo && <a class="u-in-reply-to" href={d.inReplyTo}>In reply to</a>}
-    {d.likeOf && <a class="u-like-of" href={d.likeOf}>Liked this</a>}
+    {d.bookmarkOf && (bookmarkCite
+      ? <EmbedCard snapshot={bookmarkCite} citeClass="u-bookmark-of" inlineVideo={inlineVideo} />
+      : <a class="u-bookmark-of" href={d.bookmarkOf}>{d.bookmarkOf}</a>)}
+    {d.inReplyTo && (replyCite
+      ? <EmbedCard snapshot={replyCite} citeClass="u-in-reply-to" inlineVideo={inlineVideo} />
+      : <a class="u-in-reply-to" href={d.inReplyTo}>In reply to</a>)}
+    {d.likeOf && (likeCite
+      ? <EmbedCard snapshot={likeCite} citeClass="u-like-of" inlineVideo={inlineVideo} />
+      : <a class="u-like-of" href={d.likeOf}>Liked this</a>)}
     {(d.summary ?? d.caption) && <p class="p-summary">{d.summary ?? d.caption}</p>}
     <div class="e-content"><slot /></div>
     {/* The permalink (u-url) is unconditional — every entry has one regardless of whether
@@ -70,6 +97,8 @@ const jsonLd = entrySchema(entry.collection, entry.data as HentryData, {
         {tags.map((t) => <li><a class="p-category" href={`/tags/${t}`}>{t}</a></li>)}
       </ul>
     )}
+    <LicenseLink license={license} />
     <SyndicationLinks urls={d.syndication} />
+    <Interactions canonical={canonical} />
   </article>
 </BaseLayout>

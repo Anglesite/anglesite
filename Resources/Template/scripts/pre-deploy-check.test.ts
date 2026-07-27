@@ -9,6 +9,7 @@ import {
   checkPII,
   checkMTAStsPolicy,
   checkSecurityTxt,
+  checkEmbedMedia,
 } from "./pre-deploy-check";
 import { MTA_STS_MARKER, SECURITY_TXT_MARKER } from "./edge-artifacts";
 
@@ -95,6 +96,30 @@ test("checkPII: flags an SSN with the pii-ssn category", () => {
   const issues = checkPII("<p>SSN: 123-45-6789</p>", "dist/contact.html");
   assert.equal(issues.length, 1);
   assert.equal(issues[0].category, "pii-ssn");
+});
+
+// Pagefind's UI bundle embeds its translators' contact addresses as `thanks_to` credits. Those
+// are the dependency's own attribution, not the site owner's data escaping into the build, and
+// the owner authors nothing under dist/pagefind/ — so the email pattern would only ever fire
+// there as a false positive that blocks every deploy (#974).
+test("checkPII: does not flag emails inside a vendored search-index bundle", () => {
+  const bundle = 'var pa="Jan Claasen <jan@cloudcannon.com>",Ba="",ha="ltr"';
+  assert.deepEqual(checkPII(bundle, "dist/pagefind/pagefind-component-ui.js"), []);
+});
+
+test("checkPII: the vendored exemption covers emails only", () => {
+  const bundle = 'thanks_to="Jan Claasen <jan@cloudcannon.com>"; support="555-123-4567"';
+  const issues = checkPII(bundle, "dist/pagefind/pagefind-ui.js");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].category, "pii-phone");
+});
+
+// The exemption is anchored to the vendored directory, not matched loosely anywhere in the
+// path — an owner-authored page merely named "pagefind" stays fully scanned.
+test("checkPII: the vendored exemption does not leak to owner-authored paths", () => {
+  const issues = checkPII("<p>hello@example.com</p>", "dist/blog/pagefind/index.html");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].category, "pii-email");
 });
 
 test("checkMixedContent: flags an insecure src", () => {
@@ -352,4 +377,99 @@ test("checkMTAStsPolicy: reports missing, hand-authored, and malformed enabled p
   assert.ok(checkMTAStsPolicy(null, "MTA_STS_MODE=enforce\nMTA_STS_MX=mx.example.com").some((i) => /missing/.test(i.message)));
   assert.ok(checkMTAStsPolicy("version: STSv1\nmode: enforce\nmx: mx.example.com\nmax_age: 604800\n", "MTA_STS_MODE=enforce\nMTA_STS_MX=mx.example.com").some((i) => /not generated/.test(i.message)));
   assert.ok(checkMTAStsPolicy(validMTASts(), "MTA_STS_MODE=enforce\nMTA_STS_MX=not a host").some((i) => /no valid MX host/.test(i.message)));
+});
+
+test("checkEmbedMedia: a hotlinked platform image is an error", () => {
+  const issues = checkEmbedMedia('<img src="https://pbs.twimg.com/media/x.jpg">', "dist/index.html");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].severity, "error");
+  assert.equal(issues[0].category, "embed-media-hotlink");
+});
+
+test("checkEmbedMedia: every known platform media host is caught", () => {
+  for (const host of [
+    "pbs.twimg.com",
+    "scontent.cdninstagram.com",
+    "cdn.bsky.app",
+    "files.mastodon.social",
+    "i.ytimg.com",
+  ]) {
+    assert.equal(checkEmbedMedia(`<img src="https://${host}/a.jpg">`, "f.html").length, 1, host);
+  }
+});
+
+test("checkEmbedMedia: self-hosted embed media passes", () => {
+  assert.deepEqual(checkEmbedMedia('<img src="/embeds/abc123/asset-0.png">', "dist/index.html"), []);
+});
+
+test("checkEmbedMedia: srcset and CSS url() are caught too", () => {
+  assert.equal(checkEmbedMedia('<img srcset="https://pbs.twimg.com/a.jpg 2x">', "f.html").length, 1);
+  assert.equal(checkEmbedMedia("a{background:url(https://cdn.bsky.app/x.png)}", "f.css").length, 1);
+});
+
+test("checkEmbedMedia: a permalink to the platform is not media and must pass", () => {
+  assert.deepEqual(checkEmbedMedia('<a href="https://x.com/jack/status/20">View original</a>', "f.html"), []);
+});
+
+test("checkEmbedMedia: the youtube-nocookie iframe is not a media hotlink", () => {
+  assert.deepEqual(checkEmbedMedia('<iframe src="https://www.youtube-nocookie.com/embed/a"></iframe>', "f.html"), []);
+});
+
+// Regression guard for #682 finding 1: the dedup pass that used to sit on top of a per-host,
+// file-wide boolean test silently dropped a genuine second hotlink whenever it only matched via
+// the same generic host entry as an earlier, more-specific-looking match. This must fail against
+// that dedup implementation.
+test("checkEmbedMedia: two distinct hotlinks in one file both count, even via the same generic host", () => {
+  const issues = checkEmbedMedia(
+    '<img src="https://scontent.cdninstagram.com/a.jpg"><img src="https://scontent-lax3-2.cdninstagram.com/b.jpg">',
+    "f.html",
+  );
+  assert.equal(issues.length, 2);
+});
+
+test("checkEmbedMedia: an unquoted src attribute value is still flagged", () => {
+  const issues = checkEmbedMedia("<img src=https://pbs.twimg.com/a.jpg>", "f.html");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].category, "embed-media-hotlink");
+});
+
+test("checkEmbedMedia: an unquoted src value does not swallow a following href", () => {
+  const issues = checkEmbedMedia(
+    '<img src=/local/self-hosted.jpg href="https://pbs.twimg.com/media/x.jpg">',
+    "f.html",
+  );
+  assert.deepEqual(issues, []);
+});
+
+test("checkEmbedMedia: an href with a real listed host is never flagged", () => {
+  assert.deepEqual(checkEmbedMedia('<a href="https://pbs.twimg.com/media/x.jpg">original</a>', "f.html"), []);
+});
+
+// Regression guard for #682 finding (round 2): the per-occurrence rewrite's host check used
+// JS `includes`, which is case-sensitive, so an upper-cased hostname (accidental paste, or a CMS
+// that changes case) slipped through even though DNS hostnames are case-insensitive.
+test("checkEmbedMedia: an upper-case host in src is flagged", () => {
+  const issues = checkEmbedMedia('<img src="https://PBS.TWIMG.COM/media/x.jpg">', "f.html");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].category, "embed-media-hotlink");
+});
+
+test("checkEmbedMedia: a mixed-case host in src is flagged", () => {
+  const issues = checkEmbedMedia('<img src="https://Pbs.TwImg.CoM/media/x.jpg">', "f.html");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].category, "embed-media-hotlink");
+});
+
+test("checkEmbedMedia: an upper-case host in srcset is flagged", () => {
+  const issues = checkEmbedMedia('<img srcset="https://PBS.TWIMG.COM/a.jpg 1x">', "f.html");
+  assert.equal(issues.length, 1);
+});
+
+test("checkEmbedMedia: an upper-case host in a CSS url() is flagged", () => {
+  const issues = checkEmbedMedia("a{background:url(https://CDN.BSKY.APP/x.png)}", "f.css");
+  assert.equal(issues.length, 1);
+});
+
+test("checkEmbedMedia: an upper-case host in href is still not flagged", () => {
+  assert.deepEqual(checkEmbedMedia('<a href="https://PBS.TWIMG.COM/media/x.jpg">original</a>', "f.html"), []);
 });

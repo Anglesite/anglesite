@@ -178,11 +178,19 @@ struct POSSESyndicationTests {
     func templateContract() throws {
         let root = try templateRoot().appendingPathComponent("src", isDirectory: true)
         let config = try String(contentsOf: root.appendingPathComponent("content.config.ts"), encoding: .utf8)
+        let contentSchemas = try String(
+            contentsOf: root.appendingPathComponent("lib/content-schemas.ts"), encoding: .utf8)
         let links = try String(
             contentsOf: root.appendingPathComponent("components/SyndicationLinks.astro"), encoding: .utf8)
-        #expect(config.contains("const socialFields"))
-        #expect(config.components(separatedBy: "...socialFields,").count - 1 == 12)
-        #expect(config.contains("syndication: z.array(z.string().url()).optional()"))
+        // `socialFields` (and its `syndication` field) moved into lib/content-schemas.ts (#369) so
+        // it's unit-testable outside Astro's `astro:content` virtual module; every collection that
+        // spreads `...socialFields,` still does, just split across the two files now.
+        #expect(contentSchemas.contains("const socialFields"))
+        let spreadCount = [config, contentSchemas]
+            .map { $0.components(separatedBy: "...socialFields,").count - 1 }
+            .reduce(0, +)
+        #expect(spreadCount == 12)
+        #expect(contentSchemas.contains("syndication: z.array(z.string().url()).optional()"))
         #expect(links.contains("class=\"u-syndication\""))
         #expect(links.contains("rel=\"syndication\""))
     }

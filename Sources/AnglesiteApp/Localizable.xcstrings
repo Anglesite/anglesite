@@ -129,6 +129,9 @@
     "%lld chars" : {
 
     },
+    "%lld followers" : {
+
+    },
     "%lld incoming references" : {
 
     },
@@ -212,6 +215,12 @@
 
     },
     "Active Model" : {
+
+    },
+    "Active — used on ^[%lld page](inflect: true)" : {
+
+    },
+    "ActivityPub isn't turned on for this site" : {
 
     },
     "Actual Size" : {
@@ -325,6 +334,9 @@
     "Allowed MX hosts" : {
 
     },
+    "Analytics" : {
+
+    },
     "Analytics…" : {
 
     },
@@ -353,6 +365,9 @@
 
     },
     "Answer a couple of questions and we'll pick the right commerce integration." : {
+
+    },
+    "Anyone on Mastodon can follow this site by pasting its address into search:" : {
 
     },
     "Apple Intelligence (On-Device)" : {
@@ -399,6 +414,9 @@
 
     },
     "Apply…" : {
+
+    },
+    "Approve sign-in in your browser, then copy the final URL from the address bar (it will fail to load — that's expected) and paste it here." : {
 
     },
     "Arguments (space-separated)" : {
@@ -560,6 +578,9 @@
     "Change Logo…" : {
 
     },
+    "Channel" : {
+
+    },
     "Chat" : {
 
     },
@@ -595,9 +616,6 @@
 
     },
     "Choose Logo" : {
-
-    },
-    "Choose Undo now to bring it back, or OK to keep it deleted." : {
 
     },
     "Choose a provider" : {
@@ -687,6 +705,9 @@
     "Commit and push working-tree changes to your current branch" : {
 
     },
+    "Complete Sign In" : {
+
+    },
     "Component" : {
 
     },
@@ -750,6 +771,9 @@
     "Copy" : {
 
     },
+    "Copy Actor URL" : {
+
+    },
     "Copy Animation" : {
 
     },
@@ -806,6 +830,9 @@
     "Couldn't finish setup" : {
 
     },
+    "Couldn't load more followers" : {
+
+    },
     "Couldn't load sites" : {
 
     },
@@ -815,7 +842,13 @@
     "Couldn't publish" : {
 
     },
+    "Couldn't reach this site" : {
+
+    },
     "Couldn't run the check" : {
+
+    },
+    "Couldn't save the worker change: %@" : {
 
     },
     "Create" : {
@@ -1133,6 +1166,18 @@
     "Flip Vertically" : {
 
     },
+    "Follow" : {
+
+    },
+    "Follow a feed or site URL…" : {
+
+    },
+    "Followers" : {
+
+    },
+    "Followers…" : {
+
+    },
     "Font" : {
 
     },
@@ -1295,6 +1340,12 @@
     "Import from Phone" : {
 
     },
+    "Inactive — not used" : {
+
+    },
+    "Inbound Webmention and WebSub require the Workers Paid plan" : {
+
+    },
     "Inbound Webmention requires the Workers Paid plan" : {
 
     },
@@ -1379,6 +1430,9 @@
     "Load" : {
 
     },
+    "Load More" : {
+
+    },
     "Load Settings" : {
 
     },
@@ -1392,6 +1446,9 @@
 
     },
     "Lock" : {
+
+    },
+    "Logs and analytics become available after the first deploy that includes a worker." : {
 
     },
     "Logs…" : {
@@ -1526,6 +1583,12 @@
     "No copy issues found across %lld pages — nice work." : {
 
     },
+    "No entries yet — follow a feed above to get started." : {
+
+    },
+    "No followers yet" : {
+
+    },
     "No issues found in the most recent scan." : {
 
     },
@@ -1533,6 +1596,9 @@
 
     },
     "No matches" : {
+
+    },
+    "No matching content" : {
 
     },
     "No matching graph nodes" : {
@@ -1607,6 +1673,9 @@
     "Open GitHub personal access tokens" : {
 
     },
+    "Open Profile" : {
+
+    },
     "Open Recent" : {
 
     },
@@ -1667,6 +1736,12 @@
     "Page" : {
 
     },
+    "Pages" : {
+
+    },
+    "Pages using this worker's components" : {
+
+    },
     "Page…" : {
 
     },
@@ -1680,6 +1755,9 @@
 
     },
     "Paste the HTML code from another analytics provider here, such as Google Analytics, Plausible, Fathom, or a conversion tag." : {
+
+    },
+    "Pasted callback URL" : {
 
     },
     "Pause" : {
@@ -1710,6 +1788,9 @@
 
     },
     "Post" : {
+
+    },
+    "Posts" : {
 
     },
     "Posts a notification when a Deploy, Backup, or Audit finishes while Anglesite is in the background — success or failure. Clicking the notification brings the site's window to the front. Delivery starts quietly; promote or silence Anglesite in System Settings › Notifications." : {
@@ -1748,6 +1829,9 @@
     "Privacy & Analytics…" : {
 
     },
+    "Production Logs" : {
+
+    },
     "Project Style Guide" : {
 
     },
@@ -1764,6 +1848,9 @@
 
     },
     "Publish DNS Records" : {
+
+    },
+    "Publish it at least once, then followers will appear here." : {
 
     },
     "Publish to GitHub" : {
@@ -1799,7 +1886,19 @@
     "Re-check" : {
 
     },
+    "Reader" : {
+
+    },
+    "Reader error" : {
+
+    },
+    "Reader…" : {
+
+    },
     "Reading %@ zone settings from Cloudflare…" : {
+
+    },
+    "Receiving webmentions and pushing feed updates to subscribers both work asynchronously using Cloudflare Queues, which aren't available on the Workers Free plan. Continuing will create the Queues these features need on your connected Cloudflare account." : {
 
     },
     "Receiving webmentions verifies each one asynchronously using a Cloudflare Queue, which isn't available on the Workers Free plan. Continuing will create a Queue on your connected Cloudflare account." : {
@@ -2083,6 +2182,9 @@
     "Search ${site} for ${query}" : {
 
     },
+    "Search Site" : {
+
+    },
     "Search Site…" : {
 
     },
@@ -2210,6 +2312,15 @@
 
     },
     "Shows the most recent pre-deploy scan results" : {
+
+    },
+    "Sign In…" : {
+
+    },
+    "Sign Out" : {
+
+    },
+    "Sign in to read your feeds" : {
 
     },
     "Signed in as %@" : {
@@ -2374,6 +2485,9 @@
     "That's a different site — choose the original package folder instead." : {
 
     },
+    "The Reader follows feeds and stores your timeline on this site's own Microsub endpoint — sign in as this site's owner to use it." : {
+
+    },
     "The build produced no output." : {
 
     },
@@ -2387,6 +2501,9 @@
 
     },
     "The preview is paused for %@. Start the dev server to resume." : {
+
+    },
+    "The worker catalog couldn't be loaded. Check your network connection and reopen this tab." : {
 
     },
     "Theme applied." : {
@@ -2425,7 +2542,10 @@
     "This site does not have any collection-backed content types." : {
 
     },
-    "This will remove the file from your site. You can undo it right after deleting." : {
+    "This site hasn't been published yet" : {
+
+    },
+    "This will remove the file from your site. You can bring it back with Edit ▸ Undo." : {
 
     },
     "This zone already has all recommended hardening settings." : {
@@ -2462,6 +2582,9 @@
 
     },
     "Turn On and Route Reports" : {
+
+    },
+    "Turn on ActivityPub in Settings ▸ Workers, then publish again." : {
 
     },
     "Turn on private vulnerability reporting for %@/%@?" : {
@@ -2640,6 +2763,9 @@
 
     },
     "Worker name already in use" : {
+
+    },
+    "Workers are unavailable for this site — its package configuration folder couldn't be found." : {
 
     },
     "Writing" : {

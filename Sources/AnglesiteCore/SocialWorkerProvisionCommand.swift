@@ -17,12 +17,15 @@ public actor SocialWorkerProvisionCommand {
         /// this site has never deployed before — mirrors `DeployCommand.Result.workerNameConflict`
         /// rather than collapsing it, so callers can drive the same rename-and-retry UX (#740).
         case workerNameConflict(name: String, resources: WorkerComposition.ProvisionedResources)
-        /// Webmention receive is active but the site hasn't explicitly acknowledged that
-        /// Cloudflare Queues require the Workers Paid plan (#359). Returned *before any wrangler
-        /// call for the Queue* — earlier D1/KV/R2 wrangler calls (and their `persistConfig`
-        /// writes) may already have run in this same `provision()` invocation before this gate
-        /// is reached. `DeployModel` parks the deploy and presents a confirmation sheet;
-        /// retrying with `acknowledgesPaidPlan: true` proceeds to create the Queue.
+        /// A Queue-backed worker (inbound Webmention #359, or the WebSub hub #361) is active but
+        /// the site hasn't explicitly acknowledged that Cloudflare Queues require the Workers
+        /// Paid plan. Returned *before any wrangler call for a Queue* — earlier D1/KV/R2
+        /// wrangler calls (and their `persistConfig` writes) may already have run in this same
+        /// `provision()` invocation before this gate is reached. `DeployModel` parks the deploy
+        /// and presents a confirmation sheet; retrying with `acknowledgesPaidPlan: true`
+        /// proceeds to create the Queue(s). (The case keeps its original Webmention-era name;
+        /// one acknowledgment covers every Queue-backed feature — it's the same account-level
+        /// plan fact.)
         case webmentionPaidPlanConfirmationNeeded(resources: WorkerComposition.ProvisionedResources)
         case failed(reason: String, exitCode: Int32?, resources: WorkerComposition.ProvisionedResources)
     }
@@ -34,23 +37,48 @@ public actor SocialWorkerProvisionCommand {
         _ environment: [String: String],
         _ source: String
     ) async throws -> ProcessSupervisor.RunResult
+    /// Pushes one Cloudflare Worker secret whose value can't travel as a plain CLI argument
+    /// (`wrangler secret put <NAME>` reads its value from stdin). Unlike `CommandRunner`, which
+    /// always shapes a bare `wrangler <args>` call, this closure's production conformer
+    /// (`ContainerCommandRunner.secretRunner`) runs a small in-guest shell script that reads
+    /// `value` from an environment variable rather than stdin — the container-exec seam
+    /// (`LocalContainerControl.exec`) is one-shot with no stdin plumbing.
+    public typealias SecretRunner = @Sendable (
+        _ siteDirectory: URL,
+        _ name: String,
+        _ value: String,
+        _ environment: [String: String],
+        _ source: String
+    ) async throws -> ProcessSupervisor.RunResult
+    /// Produces (generating and persisting on first call, per site) the ActivityPub actor's
+    /// signing keypair and publish token. Defaults to the real Keychain via
+    /// `ActivityPubKeyProvisioning`; tests inject a fake to avoid touching the real login
+    /// keychain and to control the returned values deterministically.
+    public typealias KeyPairSource = @Sendable (_ siteID: String) throws -> ActivityPubKeyProvisioning.Secrets
     public typealias Deployer = @Sendable (
         _ token: String,
         _ siteID: String,
-        _ siteDirectory: URL
+        _ siteDirectory: URL,
+        _ wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim]
     ) async -> DeployCommand.Result
 
     public nonisolated let tokenSource: TokenSource
     private let runner: CommandRunner
+    private let keyPairSource: KeyPairSource
+    private let secretRunner: SecretRunner
     private let deployer: Deployer
 
     public init(
         tokenSource: @escaping TokenSource = DeployCommand.keychainTokenSource,
         runner: @escaping CommandRunner = SocialWorkerProvisionCommand.defaultRunner,
+        keyPairSource: @escaping KeyPairSource = SocialWorkerProvisionCommand.defaultKeyPairSource,
+        secretRunner: @escaping SecretRunner = SocialWorkerProvisionCommand.defaultSecretRunner,
         deployer: @escaping Deployer = SocialWorkerProvisionCommand.defaultDeployer
     ) {
         self.tokenSource = tokenSource
         self.runner = runner
+        self.keyPairSource = keyPairSource
+        self.secretRunner = secretRunner
         self.deployer = deployer
     }
 
@@ -74,11 +102,23 @@ public actor SocialWorkerProvisionCommand {
         /// var. `nil` on a first-ever deploy before any host is known — the composed Worker
         /// degrades gracefully (worker.ts no-ops the queue consumer without it).
         siteURL: String? = nil,
+        /// The site's display name (`SiteSettings.displayName`), threaded into the ActivityPub
+        /// actor's `AP_DISPLAY_NAME` var via `WorkerComposition.generateWranglerToml`. `nil` when
+        /// unknown — the composed Worker's actor document then falls back to a fixed generic
+        /// name (`worker.ts`'s concern, not this function's).
+        displayName: String? = nil,
         /// Explicit per-deploy opt-in that the user has acknowledged inbound Webmention requires
         /// the Cloudflare Workers Paid plan (#359) — `DeployModel` sets this from
         /// `SiteSettings.webmentionReceivePaidPlanAcknowledged` plus the in-flight confirmation
         /// sheet's "Enable & retry" action. Ignored unless a `webmention` worker is active.
-        acknowledgesPaidPlan: Bool = false
+        acknowledgesPaidPlan: Bool = false,
+        /// Effective active dynamic `/.well-known/` route claims (#746), with owner attribution —
+        /// forwarded verbatim to `deployer` for `DeployCommand.deploy`'s pre-build #744 collision
+        /// check, the same way `DeployModel.runDeploy`'s custom deployer closure already threads
+        /// `WorkerRouteClaims.wellKnownClaims(routeClaims)` for the GUI path (#934). Distinct from
+        /// `routeClaims` above (`[WorkerRouteClaim]`, used only to compose `wrangler.toml`)
+        /// because the collision check needs the `OwnedClaim` wrapper's owner attribution.
+        wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim] = []
     ) async -> Result {
         let token: String?
         do {
@@ -126,7 +166,7 @@ public actor SocialWorkerProvisionCommand {
                     return .failed(reason: "wrangler created D1 database \(name) but no database id was found", exitCode: 0, resources: resources)
                 }
                 resources.d1DatabaseID = id
-                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL) {
+                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName) {
                     return failure
                 }
             }
@@ -153,7 +193,7 @@ public actor SocialWorkerProvisionCommand {
                     return .failed(reason: "wrangler created KV namespace \(name) but no namespace id was found", exitCode: 0, resources: resources)
                 }
                 resources.kvNamespaceID = id
-                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL) {
+                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName) {
                     return failure
                 }
             }
@@ -173,17 +213,58 @@ public actor SocialWorkerProvisionCommand {
                     return failure
                 }
                 resources.r2BucketName = name
-                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL) {
+                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName) {
                     return failure
                 }
             }
         }
 
+        let hasActivityPub = workers.contains(where: { $0.id == WorkerComposition.activitypubWorkerID })
+        if hasActivityPub {
+            // ActivityPub's catalog resources are all needsD1/needsKV/needsR2 == false (it only
+            // needs a Durable Object, which those flags don't track), so if it's the only active
+            // worker none of the D1/KV/R2 blocks above ran and wrangler.toml may not exist yet.
+            // `wrangler secret put` (below) resolves the Worker's project name from
+            // wrangler.toml in the working directory — persist it here first so that lookup
+            // succeeds even on an ActivityPub-only first deploy.
+            if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName) {
+                return failure
+            }
+            let keys: ActivityPubKeyProvisioning.Secrets
+            do {
+                keys = try keyPairSource(siteID)
+            } catch {
+                return .failed(reason: "couldn't prepare ActivityPub signing key: \(error)", exitCode: nil, resources: resources)
+            }
+            for (name, value) in [
+                ("AP_PRIVATE_KEY", keys.privateKeyPem),
+                ("AP_PUBLIC_KEY", keys.publicKeyPem),
+                ("AP_PUBLISH_TOKEN", keys.publishToken),
+            ] {
+                do {
+                    let secretResult = try await secretRunner(siteDirectory, name, value, environment, source)
+                    guard secretResult.exitCode == 0 else {
+                        let output = secretResult.stdout.isEmpty ? secretResult.stderr : secretResult.stdout
+                        return .failed(reason: "couldn't push \(name): \(output)", exitCode: secretResult.exitCode, resources: resources)
+                    }
+                } catch {
+                    return .failed(reason: "couldn't push \(name): \(error)", exitCode: nil, resources: resources)
+                }
+            }
+        }
+
         let hasWebmentionReceive = workers.contains(where: { $0.id == WorkerComposition.webmentionWorkerID })
-        if hasWebmentionReceive, resources.queueName == nil {
+        let hasWebSub = workers.contains(where: { $0.id == WorkerComposition.websubWorkerID })
+        let hasMicrosub = workers.contains(where: { $0.id == WorkerComposition.microsubWorkerID })
+        let needsWebmentionQueue = hasWebmentionReceive && resources.queueName == nil
+        let needsWebSubQueue = hasWebSub && resources.websubQueueName == nil
+        let needsMicrosubQueue = hasMicrosub && resources.microsubQueueName == nil
+        if needsWebmentionQueue || needsWebSubQueue || needsMicrosubQueue {
             guard acknowledgesPaidPlan else {
                 return .webmentionPaidPlanConfirmationNeeded(resources: resources)
             }
+        }
+        if needsWebmentionQueue {
             let name = "\(siteName)-webmention"
             let result = await runWrangler(
                 siteDirectory: siteDirectory,
@@ -200,13 +281,59 @@ public actor SocialWorkerProvisionCommand {
             }
             if let failure = persistConfig(
                 siteDirectory: siteDirectory, siteName: siteName, workers: workers,
-                routeClaims: routeClaims, resources: resources, siteURL: siteURL
+                routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName
             ) {
                 return failure
             }
         }
 
-        if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL) {
+        if needsWebSubQueue {
+            let name = "\(siteName)-websub"
+            let result = await runWrangler(
+                siteDirectory: siteDirectory,
+                arguments: ["queues", "create", name, "--json"],
+                environment: environment,
+                source: source,
+                resources: resources
+            )
+            switch result {
+            case .success:
+                resources.websubQueueName = name
+            case .failure(let failure):
+                return failure
+            }
+            if let failure = persistConfig(
+                siteDirectory: siteDirectory, siteName: siteName, workers: workers,
+                routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName
+            ) {
+                return failure
+            }
+        }
+
+        if needsMicrosubQueue {
+            let name = "\(siteName)-microsub"
+            let result = await runWrangler(
+                siteDirectory: siteDirectory,
+                arguments: ["queues", "create", name, "--json"],
+                environment: environment,
+                source: source,
+                resources: resources
+            )
+            switch result {
+            case .success:
+                resources.microsubQueueName = name
+            case .failure(let failure):
+                return failure
+            }
+            if let failure = persistConfig(
+                siteDirectory: siteDirectory, siteName: siteName, workers: workers,
+                routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName
+            ) {
+                return failure
+            }
+        }
+
+        if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName) {
             return failure
         }
 
@@ -226,7 +353,7 @@ public actor SocialWorkerProvisionCommand {
             }
         }
 
-        switch await deployer(token, siteID, siteDirectory) {
+        switch await deployer(token, siteID, siteDirectory, wellKnownDynamicClaims) {
         case .succeeded(let url, _):
             return .succeeded(url: url, resources: resources, duration: Date().timeIntervalSince(started))
         case .blocked(let failures, let warnings):
@@ -272,7 +399,8 @@ public actor SocialWorkerProvisionCommand {
         workers: [WorkerDescriptor],
         routeClaims: [WorkerRouteClaim],
         resources: WorkerComposition.ProvisionedResources,
-        siteURL: String? = nil
+        siteURL: String? = nil,
+        displayName: String? = nil
     ) -> Result? {
         do {
             // Called without `inboxCaptureEnabled`/`inboxKVNamespaceID` — #587's inbox-capture
@@ -285,7 +413,8 @@ public actor SocialWorkerProvisionCommand {
                 workers: workers,
                 routeClaims: routeClaims,
                 resources: resources,
-                siteURL: siteURL
+                siteURL: siteURL,
+                displayName: displayName
             )
             try toml.write(
                 to: siteDirectory.appendingPathComponent("wrangler.toml"),
@@ -301,10 +430,18 @@ public actor SocialWorkerProvisionCommand {
             // `<link rel="webmention">` at an endpoint the Worker no longer serves.
             let hasWebmentionReceive = workers.contains(where: { $0.id == WorkerComposition.webmentionWorkerID })
             let webmentionReceiveEnabled = hasWebmentionReceive && resources.queueName != nil
+            // Same "actually live" contract for the WebSub hub: the flag gates the feeds'
+            // rel="hub" advertisement (src/lib/feeds.ts), which must never point at an endpoint
+            // the Worker doesn't serve or a hub whose Queue doesn't exist.
+            let hasWebSub = workers.contains(where: { $0.id == WorkerComposition.websubWorkerID })
+            let websubEnabled = hasWebSub && resources.websubQueueName != nil
             let configURL = siteDirectory.appendingPathComponent(".site-config")
             let existing = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
             let updated = SiteConfigFile.upsert(
-                [("WEBMENTION_RECEIVE_ENABLED", webmentionReceiveEnabled ? "true" : "false")], into: existing
+                [
+                    ("WEBMENTION_RECEIVE_ENABLED", webmentionReceiveEnabled ? "true" : "false"),
+                    ("WEBSUB_ENABLED", websubEnabled ? "true" : "false"),
+                ], into: existing
             )
             if updated != existing {
                 try updated.write(to: configURL, atomically: true, encoding: .utf8)
@@ -320,11 +457,21 @@ public actor SocialWorkerProvisionCommand {
         guard let toml = try? String(contentsOf: url, encoding: .utf8) else {
             return .init()
         }
+        // Three features each own a queue; the generated names are deterministic
+        // (`<site>-webmention` / `<site>-websub` / `<site>-microsub`), so classify every
+        // `queue = "…"` value by its suffix rather than taking the first match (which would
+        // mis-assign whichever block happened to be emitted first). All matches are positive
+        // (rather than "webmention = doesn't end in -websub") so a future queue-backed feature
+        // can't get silently misclassified as another's queue just because it doesn't end in
+        // that other feature's suffix.
+        let queueNames = extractAllTomlStrings(named: "queue", from: toml)
         return .init(
             d1DatabaseID: extractTomlString(named: "database_id", from: toml),
             kvNamespaceID: extractTomlString(named: "id", from: toml),
             r2BucketName: extractTomlString(named: "bucket_name", from: toml),
-            queueName: extractTomlString(named: "queue", from: toml)
+            queueName: queueNames.first(where: { $0.hasSuffix("-webmention") }),
+            websubQueueName: queueNames.first(where: { $0.hasSuffix("-websub") }),
+            microsubQueueName: queueNames.first(where: { $0.hasSuffix("-microsub") })
         )
     }
 
@@ -345,16 +492,18 @@ public actor SocialWorkerProvisionCommand {
     }
 
     private static func extractTomlString(named key: String, from toml: String) -> String? {
+        extractAllTomlStrings(named: key, from: toml).first
+    }
+
+    private static func extractAllTomlStrings(named key: String, from toml: String) -> [String] {
         let escaped = NSRegularExpression.escapedPattern(for: key)
         let pattern = #"(?m)^\s*#(KEY)\s*=\s*"([^"]+)""#.replacingOccurrences(of: "#(KEY)", with: escaped)
-        guard let regex = try? NSRegularExpression(pattern: pattern),
-              let match = regex.firstMatch(in: toml, range: NSRange(toml.startIndex..., in: toml)),
-              match.numberOfRanges > 1,
-              let range = Range(match.range(at: 1), in: toml) else {
-            return nil
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        return regex.matches(in: toml, range: NSRange(toml.startIndex..., in: toml)).compactMap { match in
+            guard match.numberOfRanges > 1, let range = Range(match.range(at: 1), in: toml) else { return nil }
+            let value = String(toml[range])
+            return value.isEmpty ? nil : value
         }
-        let value = String(toml[range])
-        return value.isEmpty ? nil : value
     }
 
     private static func findID(in value: Any) -> String? {
@@ -386,8 +535,25 @@ public actor SocialWorkerProvisionCommand {
         return ProcessSupervisor.RunResult(stdout: reason, stderr: "", exitCode: 127)
     }
 
-    public static let defaultDeployer: Deployer = { token, siteID, siteDirectory in
-        await DeployCommand(tokenSource: { token }).deploy(siteID: siteID, siteDirectory: siteDirectory)
+    public static let defaultSecretRunner: SecretRunner = { siteDirectory, name, value, environment, source in
+        let reason = HostNodeRetirement.reason("social worker secret provisioning")
+        await LogCenter.shared.append(source: source, stream: .stderr, text: reason)
+        return ProcessSupervisor.RunResult(stdout: reason, stderr: "", exitCode: 127)
+    }
+
+    public static let defaultKeyPairSource: KeyPairSource = { siteID in
+        try ActivityPubKeyProvisioning.secrets(siteID: siteID, secretStore: PlatformSecretStore.make())
+    }
+
+    // Calls `DeployCommand.deploy` with `configDirectory` still defaulted (route-coverage
+    // scanning skipped, #530), but now forwards `wellKnownDynamicClaims` through to #744's
+    // pre-build /.well-known/ collision check (#934) — `provision`'s caller supplies whatever
+    // active dynamic-route claims it computed (empty if it didn't, matching prior behavior).
+    // `DeployModel.runDeploy` still constructs its own deployer closure (for `configDirectory`/
+    // `onPreflight`/`onProgress`, which this default has no equivalent for).
+    public static let defaultDeployer: Deployer = { token, siteID, siteDirectory, wellKnownDynamicClaims in
+        await DeployCommand(tokenSource: { token }).deploy(
+            siteID: siteID, siteDirectory: siteDirectory, wellKnownDynamicClaims: wellKnownDynamicClaims)
     }
 }
 
@@ -409,7 +575,7 @@ extension SocialWorkerProvisionCommand.Result {
             // convenience mapping (rather than reading `SocialWorkerProvisionCommand.Result`
             // directly) see this as a plain failure until the confirmation-sheet wiring lands.
             return .failed(
-                reason: "Inbound Webmention requires the Cloudflare Workers Paid plan — confirm in Settings before deploying",
+                reason: "Inbound Webmention and WebSub require the Cloudflare Workers Paid plan — confirm in Settings before deploying",
                 exitCode: nil
             )
         case .failed(let reason, let exitCode, _):

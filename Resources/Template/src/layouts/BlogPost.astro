@@ -7,9 +7,16 @@
 import { Schema } from "astro-seo-schema";
 import { blogPostingSchema } from "../lib/schema.ts";
 import { ownerName } from "../lib/profile.ts";
+import { licenseFor } from "../lib/licensing-data.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
 import DraftBadge from "../components/DraftBadge.astro";
+import LicenseLink from "../components/LicenseLink.astro";
+import Interactions from "../components/Interactions.astro";
+// Imported unconditionally (like BaseLayout.astro) so the giscus and share
+// integrations, which both read config at this anchor, don't each need their
+// own copy — astro check rejects the resulting duplicate identifier.
+import { readConfig } from "../../scripts/config";
 
 interface Props {
   title: string;
@@ -26,14 +33,15 @@ const human = pubDate
   ? pubDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })
   : undefined;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
+const license = licenseFor("blog");
 const jsonLd = blogPostingSchema(
   { title, description, pubDate },
-  { url: canonical, site: Astro.site, authorName: ownerName() },
+  { url: canonical, site: Astro.site, authorName: ownerName(), license: license?.url },
 );
 // anglesite:imports — integration component imports are injected here on setup
 ---
 
-<BaseLayout title={title} description={description}>
+<BaseLayout title={title} description={description} license={license}>
   <Schema slot="head" item={jsonLd} />
   <p><a href="/blog/">← All posts</a></p>
   <article class="h-entry">
@@ -45,8 +53,10 @@ const jsonLd = blogPostingSchema(
       {iso && <time class="dt-published" datetime={iso}>{human}</time>}
     </a>
     <div class="e-content"><slot /></div>
+    <LicenseLink license={license} />
     <SyndicationLinks urls={syndication} />
     <!-- anglesite:share -->
+    <Interactions canonical={canonical} />
     <!-- anglesite:comments -->
   </article>
 </BaseLayout>

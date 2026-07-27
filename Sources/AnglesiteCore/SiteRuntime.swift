@@ -53,6 +53,10 @@ public protocol SiteRuntimeContainerCapability: AnyObject, Sendable {
     func resetNetworking() async
     /// Hands a guest-side edit commit back to the canonical `Source/` repo.
     func persistEdit(commit: String?) async throws
+    /// Recomputes the effective active-worker set from `settings` and restarts (or stops) the
+    /// local wrangler-dev session to match — the Workers tab (#710) calls this on toggle. See
+    /// `LocalContainerSiteRuntime.updateActiveWorkers`.
+    func updateActiveWorkers(_ settings: SiteSettings) async
 }
 
 /// One runtime = one site's live preview. This is the seam for swapping execution substrates

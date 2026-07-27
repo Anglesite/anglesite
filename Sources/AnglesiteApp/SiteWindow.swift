@@ -26,10 +26,6 @@ struct SiteWindow: View {
     /// `model.deleteConfirmation` so the title stays stable through the dismiss animation —
     /// mirrors `SiteNavigatorView`'s `candidateToDeleteTitle` for the same reason.
     @State private var contentDeleteTitle: String = ""
-    /// The title shown in the post-delete Undo alert. Held separately from
-    /// `model.pendingDeleteUndo` for the same dismiss-animation-stability reason as
-    /// `contentDeleteTitle` above.
-    @State private var deleteUndoTitle: String = ""
     @State private var unsavedEditsTerminationLease: SuddenTerminationController.Lease?
 
     @Environment(\.openWindow) private var openWindow
@@ -130,6 +126,11 @@ struct SiteWindow: View {
     /// function (rather than inlined into one long modifier chain) so the type checker solves it
     /// as an independent unit — `navigatorSelectionActions(for:)` pushed the combined `body`
     /// expression over Swift's type-check-in-reasonable-time budget once added inline (#516).
+    ///
+    /// One exception to "every focused value is published here": `siteSearchActions` is published
+    /// by `SiteSearchFieldModifier` (`SiteSearchField.swift`, #520), because it hands out a
+    /// closure over that modifier's own `@FocusState` — scene-local state this function has no
+    /// access to. Look there too when auditing the full set.
     @ViewBuilder
     private func focusedValues<Content: View>(for content: Content) -> some View {
         content
@@ -505,6 +506,14 @@ struct SiteWindow: View {
                 .help("Show or hide the page inspector")
             }
         }
+        // Trailing search field (#520). Not a `.toolbar(id:)` item: `.searchable` mints its own
+        // toolbar item id, so it stays out of the frozen `SiteToolbarItemID` set and out of
+        // users' saved customizations.
+        .modifier(SiteSearchFieldModifier(
+            model: model.search,
+            siteID: site.id,
+            activate: { hit in model.openSearchHit(hit) }
+        ))
         .sheet(isPresented: $bindableModel.deploy.blockedPresented) {
             if case .blocked(let failures, let warnings) = model.deploy.phase {
                 BlockedDeploySheetView(failures: failures, warnings: warnings) {
@@ -643,31 +652,24 @@ struct SiteWindow: View {
         } message: {
             Text("Unsaved changes in the editor and inspector will be discarded.")
         }
+        // The setter has NO side effect, and each button is solely responsible for clearing
+        // `deleteConfirmation` — the same rule (and the same reason) as `MainPaneEditorView`'s
+        // conflict alert. A clearing setter is what made every content delete a silent no-op
+        // (#968/#969): SwiftUI runs it as the dialog dismisses, which lands *after* the Delete
+        // button's synchronous action but *before* the `Task` it spawns gets to run, so
+        // `confirmDelete()`'s `guard let item = deleteConfirmation` always saw nil and returned —
+        // no delete, no commit, and no error to raise the alert below.
         .confirmationDialog(
             contentDeleteTitle,
             isPresented: Binding(
                 get: { bindableModel.deleteConfirmation != nil },
-                set: { if !$0 { model.deleteConfirmation = nil } }),
+                set: { _ in }),
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) { Task { await model.confirmDelete() } }
             Button("Cancel", role: .cancel) { model.deleteConfirmation = nil }
         } message: {
-            Text("This will remove the file from your site. You can undo it right after deleting.")
-        }
-        .onChange(of: bindableModel.pendingDeleteUndo) { _, offer in
-            if let offer { deleteUndoTitle = "Deleted \u{201C}\(offer.title)\u{201D}" }
-        }
-        .alert(
-            deleteUndoTitle,
-            isPresented: Binding(
-                get: { bindableModel.pendingDeleteUndo != nil },
-                set: { if !$0 { model.dismissDeleteUndo() } })
-        ) {
-            Button("Undo") { Task { await model.undoDelete() } }
-            Button("OK") { model.dismissDeleteUndo() }
-        } message: {
-            Text("Choose Undo now to bring it back, or OK to keep it deleted.")
+            Text("This will remove the file from your site. You can bring it back with Edit ▸ Undo.")
         }
         .alert(
             "Couldn't complete that action",
@@ -765,6 +767,10 @@ struct SiteWindow: View {
                 onOpen: { model.openCleanupCandidate($0) },
                 onDelete: { await model.deleteCleanupCandidate($0) }
             )
+        case .reader:
+            MicrosubReaderView(reader: model.reader)
+        case .followers:
+            FollowersView(followers: model.followers)
         case .preview:
             previewPane(for: site)
         }

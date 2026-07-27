@@ -181,6 +181,22 @@ struct ContentTypeRegistryTests {
         }
     }
 
+    @Test("note and article carry an optional, mf2-inert audience field (V-5.2a, #369)")
+    func audienceFieldIsInert() {
+        let registry = ContentTypeRegistry()
+        for id in ["note", "article"] {
+            let descriptor = try! #require(registry.descriptor(id: id))
+            let audience = try! #require(descriptor.fields.first { $0.name == "audience" },
+                                          "\(id): missing audience field")
+            #expect(audience.kind == .url, "\(id): audience should be .url")
+            #expect(!audience.required, "\(id): audience should be optional")
+            #expect(descriptor.projections.microformatProperties["audience"] == nil,
+                    "\(id): audience has no mf2 projection — federation only, per #369")
+            #expect(descriptor.fields.last?.name == "draft",
+                    "\(id): draft must stay the trailing field")
+        }
+    }
+
     // MARK: Reverse lookup
 
     @Test("descriptor(forCollection:) maps a collection name back to its type")
@@ -226,5 +242,28 @@ struct ContentTypeRegistryTests {
                 #expect(descriptor.collection == name)
             }
         }
+    }
+
+    // MARK: rawMf2Property reverse lookup
+
+    @Test("rawMf2Property strips the mf2 prefix class from a field's microformat mapping")
+    func rawMf2PropertyStripsPrefix() {
+        let article = ContentTypeRegistry.article
+        #expect(article.projections.rawMf2Property(forField: "body") == "content")        // e-content
+        #expect(article.projections.rawMf2Property(forField: "publishDate") == "published") // dt-published
+        #expect(article.projections.rawMf2Property(forField: "tags") == "category")        // p-category
+    }
+
+    @Test("rawMf2Property handles the u- prefix")
+    func rawMf2PropertyHandlesUPrefix() {
+        let bookmark = ContentTypeRegistry.bookmark
+        #expect(bookmark.projections.rawMf2Property(forField: "bookmarkOf") == "bookmark-of") // u-bookmark-of
+    }
+
+    @Test("rawMf2Property returns nil for a field with no mf2 mapping")
+    func rawMf2PropertyNilForUnmappedField() {
+        let article = ContentTypeRegistry.article
+        #expect(article.projections.rawMf2Property(forField: "draft") == nil)
+        #expect(article.projections.rawMf2Property(forField: "nonexistent") == nil)
     }
 }

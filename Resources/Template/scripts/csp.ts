@@ -16,7 +16,10 @@ const EMBED_DIRECTIVES = ["script-src", "frame-src", "connect-src", "img-src", "
 /** Baseline directive values (secure-by-default). */
 const BASE: Record<string, string[]> = {
   "default-src": ["'self'"],
-  "script-src": ["'self'", "static.cloudflareinsights.com"],
+  // 'wasm-unsafe-eval' is what lets the browser compile the WebAssembly module Pagefind's
+  // search index reader is built on (/search, #974). It permits WASM compilation only — not
+  // eval() or new Function() — so it doesn't widen the policy for ordinary script.
+  "script-src": ["'self'", "'wasm-unsafe-eval'", "static.cloudflareinsights.com"],
   "style-src": ["'self'", "'unsafe-inline'"],
   "img-src": ["'self'", "data:"],
   "font-src": ["'self'"],
@@ -52,6 +55,14 @@ export function buildCSP(configContent: string): string {
     for (const d of domains) {
       if (!directives[name].includes(d)) directives[name].push(d);
     }
+  }
+  // Inline video (#682) is opt-in and narrow: a lazily-loaded youtube-nocookie player only, and
+  // only frame-src. The player is requested when it scrolls into view, so a visitor who never
+  // reaches it makes no third-party request. The default card is a thumbnail link with no
+  // third-party request at all, so the baseline policy stays untouched.
+  // Exact "true" only — matching HSTS_PRELOAD's deliberate strictness above.
+  if ((readConfigFromString(configContent, "EMBED_VIDEO_INLINE") ?? "").trim().toLowerCase() === "true") {
+    directives["frame-src"].push("www.youtube-nocookie.com");
   }
   return DIRECTIVE_ORDER.map((name) =>
     directives[name].length ? `${name} ${directives[name].join(" ")}` : name,

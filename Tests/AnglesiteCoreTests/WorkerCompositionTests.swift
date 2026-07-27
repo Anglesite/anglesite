@@ -14,6 +14,7 @@ private let genericD1KVWorker = worker("generic-d1kv-fixture", d1: true, kv: tru
 private let indieauthWorker = worker("indieauth", d1: true, kv: true, r2: false)
 private let micropubWorker = worker("micropub", d1: true, kv: true, r2: true)
 private let websubWorker = worker("websub", d1: true, kv: true, r2: false)
+private let microsubWorker = worker(WorkerComposition.microsubWorkerID, d1: true, kv: false, r2: false)
 private let v2Workers = [genericD1KVWorker, indieauthWorker]
 private let v3Workers = [genericD1KVWorker, indieauthWorker, micropubWorker, websubWorker]
 private let webmentionWorker = worker(WorkerComposition.webmentionWorkerID, d1: false, kv: false, r2: false)
@@ -225,6 +226,52 @@ struct WorkerCompositionTests {
         #expect(toml.contains("queue = \"my-site-webmention\""))
     }
 
+    @Test("websub adds a WEBSUB_DB D1 binding on the shared database")
+    func websubAddsStoreBinding() throws {
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site",
+            workers: [websubWorker],
+            resources: .init(d1DatabaseID: "d1-id")
+        )
+        #expect(toml.contains("binding = \"WEBSUB_DB\""))
+        #expect(toml.contains("database_id = \"d1-id\""))
+    }
+
+    @Test("no websub worker means no WEBSUB_DB binding or websub queue")
+    func noWebsubOmitsHubBindings() throws {
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [webmentionWorker])
+        #expect(!toml.contains("WEBSUB_DB"))
+        #expect(!toml.contains("WEBSUB_QUEUE"))
+        #expect(!toml.contains("my-site-websub"))
+    }
+
+    @Test("websub adds its own queue producer/consumer blocks, separate from webmention's")
+    func websubAddsQueueBlocks() throws {
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site",
+            workers: [webmentionWorker, websubWorker],
+            resources: .init(queueName: "my-site-webmention", websubQueueName: "my-site-websub")
+        )
+        #expect(toml.contains("binding = \"WEBMENTION_QUEUE\""))
+        #expect(toml.contains("queue = \"my-site-webmention\""))
+        #expect(toml.contains("binding = \"WEBSUB_QUEUE\""))
+        #expect(toml.contains("queue = \"my-site-websub\""))
+    }
+
+    @Test("websub queue name defaults to a deterministic placeholder before provisioning")
+    func websubQueueDefaultsUnprovisioned() throws {
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [websubWorker])
+        #expect(toml.contains("queue = \"my-site-websub\""))
+    }
+
+    @Test("websub alone (no webmention) with a known site URL emits a SITE_URL var")
+    func websubEmitsSiteURL() throws {
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [websubWorker], siteURL: "https://my-site.example")
+        #expect(toml.contains("[vars]"))
+        #expect(toml.contains("SITE_URL = \"https://my-site.example\""))
+    }
+
     @Test("webmention receive with a known site URL emits a SITE_URL var")
     func webmentionEmitsSiteURL() throws {
         let toml = try WorkerComposition.generateWranglerToml(
@@ -238,6 +285,157 @@ struct WorkerCompositionTests {
         let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [webmentionWorker])
         #expect(!toml.contains("[vars]"))
         #expect(!toml.contains("SITE_URL"))
+    }
+
+    // MARK: - Microsub reader (V-4.3, #365)
+
+    @Test("microsub adds a MICROSUB_DB D1 binding on the shared database")
+    func microsubAddsStoreBinding() throws {
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site",
+            workers: [microsubWorker],
+            resources: .init(d1DatabaseID: "d1-id")
+        )
+        #expect(toml.contains("binding = \"MICROSUB_DB\""))
+        #expect(toml.contains("database_id = \"d1-id\""))
+    }
+
+    @Test("no microsub worker means no MICROSUB_DB binding or microsub queue")
+    func noMicrosubOmitsReaderBindings() throws {
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [webmentionWorker])
+        #expect(!toml.contains("MICROSUB_DB"))
+        #expect(!toml.contains("MICROSUB_QUEUE"))
+        #expect(!toml.contains("my-site-microsub"))
+    }
+
+    @Test("microsub adds its own queue producer/consumer blocks, separate from webmention's/websub's")
+    func microsubAddsQueueBlocks() throws {
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site",
+            workers: [webmentionWorker, websubWorker, microsubWorker],
+            resources: .init(
+                queueName: "my-site-webmention", websubQueueName: "my-site-websub",
+                microsubQueueName: "my-site-microsub"
+            )
+        )
+        #expect(toml.contains("binding = \"WEBMENTION_QUEUE\""))
+        #expect(toml.contains("binding = \"WEBSUB_QUEUE\""))
+        #expect(toml.contains("binding = \"MICROSUB_QUEUE\""))
+        #expect(toml.contains("queue = \"my-site-microsub\""))
+    }
+
+    @Test("microsub queue name defaults to a deterministic placeholder before provisioning")
+    func microsubQueueDefaultsUnprovisioned() throws {
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [microsubWorker])
+        #expect(toml.contains("queue = \"my-site-microsub\""))
+    }
+
+    @Test("microsub adds a Cron Trigger for the feed poller")
+    func microsubAddsCronTrigger() throws {
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [microsubWorker])
+        #expect(toml.contains("[triggers]"))
+        #expect(toml.contains("crons = [\"*/15 * * * *\"]"))
+    }
+
+    @Test("no microsub worker means no Cron Trigger")
+    func noMicrosubMeansNoCronTrigger() throws {
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [webmentionWorker])
+        #expect(!toml.contains("[triggers]"))
+    }
+
+    @Test("microsub alone (no webmention/websub) with a known site URL emits a SITE_URL var")
+    func microsubEmitsSiteURL() throws {
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [microsubWorker], siteURL: "https://my-site.example")
+        #expect(toml.contains("[vars]"))
+        #expect(toml.contains("SITE_URL = \"https://my-site.example\""))
+    }
+
+    @Test("micropub adds a MICROPUB_DB D1 binding on the shared database")
+    func micropubAddsDatabaseBinding() throws {
+        let micropub = worker(WorkerComposition.micropubWorkerID, d1: true, kv: false, r2: true)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [micropub])
+        #expect(toml.contains("binding = \"MICROPUB_DB\""))
+        #expect(toml.contains("database_name = \"my-site-social\""))
+    }
+
+    @Test("no micropub worker means no MICROPUB_DB binding")
+    func noMicropubMeansNoDatabaseBinding() throws {
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [])
+        #expect(!toml.contains("MICROPUB_DB"))
+    }
+
+    @Test("micropub's MICROPUB_DB binding uses the provisioned database id when known")
+    func micropubUsesProvisionedDatabaseID() throws {
+        let micropub = worker(WorkerComposition.micropubWorkerID, d1: true, kv: false, r2: true)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [micropub],
+            resources: .init(d1DatabaseID: "d1-existing"))
+        // Find the MICROPUB_DB block specifically, not just any database_id in the file (the
+        // generic DB block from needsD1 also emits one).
+        let micropubBlock = try #require(toml.range(of: "binding = \"MICROPUB_DB\""))
+        let tail = toml[micropubBlock.upperBound...]
+        #expect(tail.contains("database_id = \"d1-existing\""))
+    }
+
+    @Test("activitypub adds a durable_objects.bindings block and a migrations block")
+    func activitypubAddsDurableObjectBinding() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [activitypub])
+        #expect(toml.contains("[[durable_objects.bindings]]"))
+        #expect(toml.contains("name = \"ACTOR\""))
+        #expect(toml.contains("class_name = \"ActivityPubObject\""))
+        #expect(toml.contains("[[migrations]]"))
+        #expect(toml.contains("tag = \"v1\""))
+        #expect(toml.contains("new_sqlite_classes = [\"ActivityPubObject\"]"))
+    }
+
+    @Test("no activitypub worker means no durable_objects or migrations block")
+    func noActivitypubMeansNoDurableObjectBinding() throws {
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [])
+        #expect(!toml.contains("durable_objects"))
+        #expect(!toml.contains("[[migrations]]"))
+    }
+
+    @Test("activitypub with a known display name emits an AP_DISPLAY_NAME var")
+    func activitypubWithDisplayNameEmitsVar() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], displayName: "Alice's Blog"
+        )
+        #expect(toml.contains("[vars]"))
+        #expect(toml.contains("AP_DISPLAY_NAME = \"Alice's Blog\""))
+    }
+
+    @Test("activitypub with no known display name omits AP_DISPLAY_NAME but not other vars")
+    func activitypubWithoutDisplayNameOmitsVar() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [activitypub])
+        #expect(!toml.contains("AP_DISPLAY_NAME"))
+    }
+
+    @Test("displayName and siteURL vars coexist in one [vars] block when both are known")
+    func displayNameAndSiteURLCoexist() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let webmention = worker(WorkerComposition.webmentionWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub, webmention],
+            siteURL: "https://example.com", displayName: "Alice's Blog"
+        )
+        let varsRange = try #require(toml.range(of: "[vars]"))
+        let afterVars = toml[varsRange.upperBound...]
+        #expect(afterVars.contains("SITE_URL = \"https://example.com\""))
+        #expect(afterVars.contains("AP_DISPLAY_NAME = \"Alice's Blog\""))
+    }
+
+    @Test("a displayName containing a double quote is rejected, not interpolated raw into TOML")
+    func displayNameWithDoubleQuoteIsRejected() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], displayName: "Alice\" INJECTED"
+        )
+        #expect(!toml.contains("AP_DISPLAY_NAME"))
     }
 
     @Test("siteURL is ignored when webmention receive isn't active")

@@ -497,9 +497,10 @@ public struct NativeContentOperations: ContentOperationsService {
 
     #if canImport(Darwin)
     /// Stage and commit exactly `relPath` on the current branch. Returns the new HEAD SHA, or
-    /// nil on any failure (not a repo, no configured git identity) — best-effort, mirroring the
-    /// Node sidecar's `commitFile`. Via SwiftGit2 (in-process libgit2, #640): `/usr/bin/git`
-    /// cannot execute at all under App Sandbox.
+    /// nil on any failure (not a repo) — best-effort, mirroring the Node sidecar's `commitFile`.
+    /// Via SwiftGit2 (in-process libgit2, #640): `/usr/bin/git` cannot execute at all under App
+    /// Sandbox. A missing git identity is not a failure: it resolves through `GitIdentity`, which
+    /// falls back to the app's own identity rather than dropping the commit (#969).
     ///
     /// Two behavioral differences from the subprocess-git version this replaced, both judged
     /// acceptable for this app's single-user, one-operation-at-a-time usage:
@@ -516,7 +517,7 @@ public struct NativeContentOperations: ContentOperationsService {
         SwiftGit2Bootstrap.ensureInitialized
         guard case .success(let repo) = Repository.at(projectRoot) else { return nil }
         guard case .success = repo.add(path: relPath) else { return nil }
-        guard case .success(let signature) = repo.defaultSignature() else { return nil }
+        let signature = await GitIdentity.signature(for: repo)
         guard case .success(let commit) = repo.commit(message: message, signature: signature) else { return nil }
         return commit.oid.description
     }
@@ -568,8 +569,10 @@ public struct NativeContentOperations: ContentOperationsService {
 
     #if canImport(Darwin)
     /// Stage-delete and commit exactly `relPath` on the current branch (`git rm` + `git commit`
-    /// equivalent). Returns the new HEAD SHA, or nil on any failure (not a repo, no configured
-    /// git identity, no HEAD copy) — best-effort, mirroring `processGitCommit`'s shape exactly.
+    /// equivalent). Returns the new HEAD SHA, or nil on any failure (not a repo, no HEAD copy) —
+    /// best-effort, mirroring `processGitCommit`'s shape exactly. A missing git identity is not
+    /// one of those failures: it resolves through `GitIdentity`, which falls back to the app's own
+    /// identity rather than aborting the delete (#969).
     /// Git history is the sole undo/archive mechanism for this delete; there is no separate
     /// trash/archive path. Via SwiftGit2 (in-process libgit2, #640): `/usr/bin/git` cannot
     /// execute at all under App Sandbox. Uses three fork-specific additions —
@@ -586,15 +589,12 @@ public struct NativeContentOperations: ContentOperationsService {
         guard repo.headHasEntry(atPath: relPath) else { return nil }
         guard case .success = repo.remove(path: relPath) else { return nil }
 
-        let commitResult = repo.defaultSignature().flatMap { signature in
-            repo.commit(message: message, signature: signature)
-        }
-        guard case .success(let commit) = commitResult else {
+        let signature = await GitIdentity.signature(for: repo)
+        guard case .success(let commit) = repo.commit(message: message, signature: signature) else {
             // remove(path:) already removed the file from the index and working tree before the
-            // commit failed (no identity configured, etc.) — restore both from HEAD so a failed
-            // delete never leaves the file gone without a commit. Same "never a raw
-            // non-git-recoverable delete" safety property the happy path relies on, applied to
-            // the failure path too.
+            // commit failed — restore both from HEAD so a failed delete never leaves the file gone
+            // without a commit. Same "never a raw non-git-recoverable delete" safety property the
+            // happy path relies on, applied to the failure path too.
             // This second failure (the rollback itself also failing) has no regression test: by
             // this point the `headHasEntry` guard above has already confirmed HEAD has the file,
             // so the restore failing here means something environmental went wrong between that

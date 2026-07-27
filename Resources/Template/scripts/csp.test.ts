@@ -17,7 +17,7 @@ test("parseAllowedDomains: dedupes, trims, sorts, drops blanks", () => {
 test("buildCSP: baseline when no integrations configured", () => {
   assert.equal(
     buildCSP(""),
-    "default-src 'self'; script-src 'self' static.cloudflareinsights.com; " +
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' static.cloudflareinsights.com; " +
       "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; " +
       "connect-src 'self' cloudflareinsights.com; frame-src 'self'; object-src 'none'; " +
       "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests",
@@ -27,7 +27,7 @@ test("buildCSP: baseline when no integrations configured", () => {
 test("buildCSP: a configured domain lands in script/frame/connect/img/form-action only", () => {
   const csp = buildCSP("SCRIPT_ALLOW=giscus.app");
   // present in the five embed directives
-  assert.match(csp, /script-src 'self' static\.cloudflareinsights\.com giscus\.app;/);
+  assert.match(csp, /script-src 'self' 'wasm-unsafe-eval' static\.cloudflareinsights\.com giscus\.app;/);
   assert.match(csp, /img-src 'self' data: giscus\.app;/);
   assert.match(csp, /connect-src 'self' cloudflareinsights\.com giscus\.app;/);
   assert.match(csp, /frame-src 'self' giscus\.app;/);
@@ -110,4 +110,18 @@ test("committed public/_headers is byte-identical to buildHeaders(\"\")", () => 
     "utf-8",
   );
   assert.equal(buildHeaders(""), committed);
+});
+
+test("buildCSP: EMBED_VIDEO_INLINE=true allows youtube-nocookie in frame-src only", () => {
+  const csp = buildCSP("EMBED_VIDEO_INLINE=true");
+  assert.match(csp, /frame-src 'self' www\.youtube-nocookie\.com;/);
+  assert.ok(!/script-src[^;]*youtube/.test(csp));
+  assert.ok(!/img-src[^;]*youtube/.test(csp));
+  assert.ok(!/connect-src[^;]*youtube/.test(csp));
+});
+
+test("buildCSP: EMBED_VIDEO_INLINE defaults off, and only exact 'true' enables it", () => {
+  for (const cfg of ["", "EMBED_VIDEO_INLINE=false", "EMBED_VIDEO_INLINE=1", "EMBED_VIDEO_INLINE=yes"]) {
+    assert.match(buildCSP(cfg), /frame-src 'self';/, cfg);
+  }
 });

@@ -174,4 +174,107 @@ struct WorkerActivationTests {
         let status = WorkersConformanceStatus(packages: [:])
         #expect(WorkerActivation.conformanceAdvisory(activeIDs: ["solid-pod"], conformance: status) == nil)
     }
+
+    @Test("componentNodeIDs resolves a catalog componentID to a real prefixed component node by filename stem")
+    func componentNodeIDsResolvesRealGraphNode() {
+        let snapshot = SiteGraphExplorerSnapshot(
+            nodes: [
+                SiteGraphNode(
+                    id: "site1:file:src/components/WebmentionForm.astro", kind: .component,
+                    title: "WebmentionForm.astro", detail: nil,
+                    filePath: "src/components/WebmentionForm.astro", route: nil),
+                SiteGraphNode(
+                    id: "site1:file:src/components/Nav.astro", kind: .component,
+                    title: "Nav.astro", detail: nil,
+                    filePath: "src/components/Nav.astro", route: nil),
+                SiteGraphNode(
+                    id: "site1:page:index", kind: .page, title: "Home", detail: nil,
+                    filePath: "src/pages/index.astro", route: "/"),
+            ],
+            edges: [])
+
+        #expect(WorkerActivation.componentNodeIDs(for: "webmention-form", in: snapshot)
+            == ["site1:file:src/components/WebmentionForm.astro"])
+        // Exact-id matching still works (unprefixed fixture graphs, existing tests).
+        #expect(WorkerActivation.componentNodeIDs(for: "site1:page:index", in: snapshot)
+            == ["site1:page:index"])
+        #expect(WorkerActivation.componentNodeIDs(for: "no-such-component", in: snapshot).isEmpty)
+    }
+
+    @Test("componentTied activates through a stem-resolved node with an affected page")
+    func componentTiedActivatesThroughResolvedNode() {
+        let catalog = [descriptor(id: "webmention", binding: .componentTied(componentIDs: ["webmention-form"]))]
+        let snapshot = SiteGraphExplorerSnapshot(
+            nodes: [
+                SiteGraphNode(
+                    id: "site1:file:src/components/WebmentionForm.astro", kind: .component,
+                    title: "WebmentionForm.astro", detail: nil,
+                    filePath: "src/components/WebmentionForm.astro", route: nil),
+                SiteGraphNode(
+                    id: "site1:page:index", kind: .page, title: "Home", detail: nil,
+                    filePath: "src/pages/index.astro", route: "/"),
+            ],
+            edges: [
+                SiteGraphEdge(
+                    sourceID: "site1:page:index",
+                    targetID: "site1:file:src/components/WebmentionForm.astro",
+                    kind: .imports)
+            ])
+
+        let active = WorkerActivation.effectiveActiveIDs(
+            settings: SiteSettings(), catalog: catalog, graph: snapshot)
+        #expect(active == ["webmention"])
+    }
+
+    @Test("activating a worker with requires also activates the required id")
+    func requiresResolvesTransitively() {
+        let indieauth = WorkerDescriptor(
+            id: "indieauth", displayName: "IndieAuth", description: "test fixture", group: "identity",
+            binding: .settingsActivated, resources: .init(needsD1: true, needsKV: false, needsR2: false))
+        let micropub = WorkerDescriptor(
+            id: "micropub", displayName: "Micropub", description: "test fixture", group: "publishing",
+            binding: .settingsActivated, resources: .init(needsD1: true, needsKV: false, needsR2: true),
+            requires: ["indieauth"])
+        var settings = SiteSettings()
+        settings.activeWorkerIDs = ["micropub"]
+
+        let active = WorkerActivation.effectiveActiveIDs(
+            settings: settings, catalog: [indieauth, micropub], graph: nil)
+
+        #expect(active == ["micropub", "indieauth"])
+    }
+
+    @Test("a required id not present in the catalog is silently dropped, not invented")
+    func requiresIgnoresUnknownID() {
+        let micropub = WorkerDescriptor(
+            id: "micropub", displayName: "Micropub", description: "test fixture", group: "publishing",
+            binding: .settingsActivated, resources: .init(needsD1: true, needsKV: false, needsR2: true),
+            requires: ["indieauth"])
+        var settings = SiteSettings()
+        settings.activeWorkerIDs = ["micropub"]
+
+        let active = WorkerActivation.effectiveActiveIDs(
+            settings: settings, catalog: [micropub], graph: nil)
+
+        #expect(active == ["micropub"])
+    }
+
+    @Test("a requires cycle terminates instead of looping forever")
+    func requiresCycleTerminates() {
+        let a = WorkerDescriptor(
+            id: "a", displayName: "A", description: "test fixture", group: "test",
+            binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false),
+            requires: ["b"])
+        let b = WorkerDescriptor(
+            id: "b", displayName: "B", description: "test fixture", group: "test",
+            binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false),
+            requires: ["a"])
+        var settings = SiteSettings()
+        settings.activeWorkerIDs = ["a"]
+
+        let active = WorkerActivation.effectiveActiveIDs(
+            settings: settings, catalog: [a, b], graph: nil)
+
+        #expect(active == ["a", "b"])
+    }
 }
