@@ -1,0 +1,25 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { collectTaggedEntries } from "../../lib/tags-astro.ts";
+import { groupByTag, tagCounts } from "../../lib/tags.ts";
+
+const entries = await collectTaggedEntries();
+const counts = tagCounts(groupByTag(entries));
+---
+
+<BaseLayout title="Tags" description="Every tag used across this site's posts.">
+  <h1>Tags</h1>
+  {
+    counts.length === 0 ? (
+      <p>No tagged posts yet.</p>
+    ) : (
+      <ul>
+        {counts.map(({ tag, count }) => (
+          <li>
+            <a href={`/tags/${encodeURIComponent(tag)}/`}>{tag}</a> ({count})
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</BaseLayout>

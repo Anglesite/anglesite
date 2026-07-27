@@ -1,0 +1,41 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { collectTaggedEntries } from "../../../lib/tags-astro.ts";
+import { groupByTag, labelFor, permalinkFor, type TaggedEntry } from "../../../lib/tags.ts";
+
+export async function getStaticPaths() {
+  const entries = await collectTaggedEntries();
+
+  // `params.tag` is the raw tag text, not pre-encoded — Astro's own router does the
+  // percent-encoding/decoding at request time (it matches an incoming `/tags/hello%20world/`
+  // against this route by decoding the segment back to "hello world" first). Pre-encoding here
+  // instead makes the *param itself* `%20`, which the router then can't match against a decoded
+  // request path. `Hentry.astro`'s `href={`/tags/${encodeURIComponent(t)}/`}` link only needs to
+  // carry the same raw tag text through `encodeURIComponent` for the browser request to decode
+  // back to this same param.
+  const byTag = groupByTag(entries);
+  return [...byTag.entries()].map(([tag, taggedEntries]) => ({
+    params: { tag },
+    props: { tag, entries: taggedEntries },
+  }));
+}
+
+interface Props {
+  tag: string;
+  entries: TaggedEntry[];
+}
+
+const { tag, entries } = Astro.props as Props;
+---
+
+<BaseLayout title={`Tagged “${tag}”`} description={`Posts tagged “${tag}”.`}>
+  <h1>Tagged &ldquo;{tag}&rdquo;</h1>
+  <p><a href="/tags/">All tags</a></p>
+  <ul>
+    {entries.map((entry) => (
+      <li>
+        <a href={permalinkFor(entry.collection, entry.id)}>{labelFor(entry)}</a>
+      </li>
+    ))}
+  </ul>
+</BaseLayout>

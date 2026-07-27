@@ -94,7 +94,11 @@ const likeCite = cited(d.likeOf);
     </a>
     {tags.length > 0 && (
       <ul class="tags">
-        {tags.map((t) => <li><a class="p-category" href={`/tags/${t}`}>{t}</a></li>)}
+        {/* encodeURIComponent so a tag with a space (or other URL-unsafe character) still
+            resolves — must match `tags/[tag]/index.astro`'s `getStaticPaths` params exactly,
+            and the trailing slash matches this site's directory-style build output (see
+            `blog/index.astro`'s `/blog/${post.id}/` links). */}
+        {tags.map((t) => <li><a class="p-category" href={`/tags/${encodeURIComponent(t)}/`}>{t}</a></li>)}
       </ul>
     )}
     <LicenseLink license={license} />

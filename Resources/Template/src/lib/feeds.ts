@@ -33,7 +33,9 @@ export interface FeedCollectionConfig {
   deriveTitle(entry: FeedEntry): string | undefined;
 }
 
-function excerpt(body: string | undefined, max = 80): string {
+/** Exported for reuse by `/tags/[tag]/` (`tags.ts`), which needs the same title-less-entry
+ * fallback text as the feeds do. */
+export function excerpt(body: string | undefined, max = 80): string {
   const text = (body ?? "").replace(/\s+/g, " ").trim();
   if (text.length <= max) return text;
   return text.slice(0, max).trimEnd() + "…";
