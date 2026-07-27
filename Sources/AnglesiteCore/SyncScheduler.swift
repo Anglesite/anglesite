@@ -154,15 +154,15 @@ public actor SyncScheduler {
         pushPending = true
         pushDebounceTask?.cancel()
         pushDebounceTask = nil
-        guard !immediate else {
-            // Deliberately bypasses the Task+`sleep` debounce machinery below rather than
-            // routing through it with a zero delay: creating a `Task` that immediately awaits
-            // `sleep(.zero)` in the same beat as cancelling the *previous* debounce `Task`
-            // reproducibly crashed the Swift concurrency runtime's task-local allocator on
-            // macOS 26 CI runners ("freed pointer was not the last allocation" — the same crash
-            // class documented for PR #644/#646, which forced those lanes off macOS 15).
-            // `beginPush()` still spawns the one `Task` actually needed, for `engine.push()`
-            // itself — only the artificial zero-duration sleep is removed.
+        guard !immediate, pushDebounce > .zero else {
+            // Deliberately bypasses the Task+`sleep` debounce machinery below for both the
+            // immediate path and a non-positive debounce: a `Task` that awaits
+            // `Task.sleep(for: .zero)` reproducibly crashes the Swift concurrency runtime's
+            // task-local allocator on macOS 26 CI runners ("freed pointer was not the last
+            // allocation" — the same crash class documented for PR #644/#646, which forced
+            // those lanes off macOS 15), regardless of whether another debounce Task was just
+            // cancelled. `beginPush()` still spawns the one `Task` actually needed, for
+            // `engine.push()` itself — only the zero-duration sleep is removed.
             beginPush()
             return
         }
