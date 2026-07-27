@@ -470,76 +470,73 @@ struct PlistEditorView: View {
 
     private var emailSecurityTab: some View {
         VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("MTA-STS")
-                    .font(.headline)
-                Text("Require TLS for mail delivered to this domain. Start in testing mode and only switch to enforce after your mail provider is working cleanly.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
-                GridRow {
-                    Text("Mode").frame(minWidth: 160, alignment: .leading)
-                    Picker("Mode", selection: $model.mtaStsSettings.mode) {
-                        Text("Off").tag(MTAStsPolicyAsset.Mode.disabled)
-                        Text("Testing").tag(MTAStsPolicyAsset.Mode.testing)
-                        Text("Enforce").tag(MTAStsPolicyAsset.Mode.enforce)
-                    }
-                    .labelsHidden()
-                    .frame(width: 160, alignment: .leading)
-                }
-                GridRow {
-                    Text("Mail domain").frame(minWidth: 160, alignment: .leading)
-                    TextField("example.com", text: $model.mtaStsSettings.domain)
-                        .frame(minWidth: 260)
-                }
-                GridRow(alignment: .top) {
-                    Text("Allowed MX hosts").frame(minWidth: 160, alignment: .leading).padding(.top, 4)
-                    VStack(alignment: .leading, spacing: 6) {
-                        TextEditor(text: $model.mtaStsSettings.mxHosts)
-                            .font(.body.monospaced())
-                            .frame(minWidth: 260, minHeight: 72)
-                            .overlay { RoundedRectangle(cornerRadius: 5).stroke(.secondary.opacity(0.25)) }
-                            .accessibilityLabel("Allowed MX hosts")
-                        Button("Use MX Records from DNS") { Task { await model.detectMtaStsMXHosts() } }
-                            .disabled(MTAStsPolicyAsset.normalizedDomain(model.mtaStsSettings.domain).isEmpty || model.isPublishingMtaStsDNS)
-                    }
-                }
-                GridRow {
-                    Text("TLS report mailbox").frame(minWidth: 160, alignment: .leading)
-                    TextField("Optional: tls-reports@example.com", text: $model.mtaStsSettings.reportMailbox)
-                        .frame(minWidth: 260)
-                }
-            }
-            .textFieldStyle(.roundedBorder)
-
-            if model.mtaStsSettings.mode != .disabled {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("Required DNS records", systemImage: "dns")
-                        .font(.headline)
-                    Text("Point mta-sts.\(displayDomain) at this deployed site and ensure it has a valid HTTPS certificate. Add these TXT records automatically, or copy them into Website → Manage Domain. The MTA-STS ID changes automatically when this policy changes.")
+            SettingsBox(title: "MTA-STS") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Require TLS for mail delivered to this domain. Start in testing mode and only switch to enforce after your mail provider is working cleanly.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                    if mtaStsDNSRecords.isEmpty {
-                        Text("Enter a valid mail domain and at least one MX host to prepare the DNS records.")
-                            .font(.callout)
-                            .foregroundStyle(.orange)
-                    } else {
-                        ForEach(mtaStsDNSRecords, id: \.name) { record in
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text("TXT \(record.name)").font(.callout.monospaced().weight(.medium))
-                                Text(record.content).font(.callout.monospaced()).textSelection(.enabled)
+
+                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+                        GridRow {
+                            Text("Mode").frame(minWidth: 160, alignment: .leading)
+                            Picker("Mode", selection: $model.mtaStsSettings.mode) {
+                                Text("Off").tag(MTAStsPolicyAsset.Mode.disabled)
+                                Text("Testing").tag(MTAStsPolicyAsset.Mode.testing)
+                                Text("Enforce").tag(MTAStsPolicyAsset.Mode.enforce)
+                            }
+                            .labelsHidden()
+                            .frame(width: 160, alignment: .leading)
+                        }
+                        GridRow {
+                            Text("Mail domain").frame(minWidth: 160, alignment: .leading)
+                            TextField("example.com", text: $model.mtaStsSettings.domain)
+                                .frame(minWidth: 260)
+                        }
+                        GridRow(alignment: .top) {
+                            Text("Allowed MX hosts").frame(minWidth: 160, alignment: .leading).padding(.top, 4)
+                            VStack(alignment: .leading, spacing: 6) {
+                                TextEditor(text: $model.mtaStsSettings.mxHosts)
+                                    .font(.body.monospaced())
+                                    .frame(minWidth: 260, minHeight: 72)
+                                    .overlay { RoundedRectangle(cornerRadius: 5).stroke(.secondary.opacity(0.25)) }
+                                    .accessibilityLabel("Allowed MX hosts")
+                                Button("Use MX Records from DNS") { Task { await model.detectMtaStsMXHosts() } }
+                                    .disabled(MTAStsPolicyAsset.normalizedDomain(model.mtaStsSettings.domain).isEmpty || model.isPublishingMtaStsDNS)
                             }
                         }
-                        Button("Publish DNS Records") { Task { await model.publishMtaStsDNSRecords() } }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(model.isPublishingMtaStsDNS)
+                        GridRow {
+                            Text("TLS report mailbox").frame(minWidth: 160, alignment: .leading)
+                            TextField("Optional: tls-reports@example.com", text: $model.mtaStsSettings.reportMailbox)
+                                .frame(minWidth: 260)
+                        }
+                    }
+                    .textFieldStyle(.roundedBorder)
+                }
+            }
+
+            if model.mtaStsSettings.mode != .disabled {
+                SettingsBox(title: "Required DNS Records") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Point mta-sts.\(displayDomain) at this deployed site and ensure it has a valid HTTPS certificate. Add these TXT records automatically, or copy them into Website → Manage Domain. The MTA-STS ID changes automatically when this policy changes.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        if mtaStsDNSRecords.isEmpty {
+                            Text("Enter a valid mail domain and at least one MX host to prepare the DNS records.")
+                                .font(.callout)
+                                .foregroundStyle(.orange)
+                        } else {
+                            ForEach(mtaStsDNSRecords, id: \.name) { record in
+                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                    Text("TXT \(record.name)").font(.callout.monospaced().weight(.medium))
+                                    Text(record.content).font(.callout.monospaced()).textSelection(.enabled)
+                                }
+                            }
+                            Button("Publish DNS Records") { Task { await model.publishMtaStsDNSRecords() } }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(model.isPublishingMtaStsDNS)
+                        }
                     }
                 }
-                .padding(10)
-                .background(Color.secondary.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
 
             if model.isSavingMtaSts || model.isPublishingMtaStsDNS {
