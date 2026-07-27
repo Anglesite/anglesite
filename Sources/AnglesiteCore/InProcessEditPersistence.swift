@@ -10,11 +10,11 @@ import SwiftGit2
 public enum InProcessEditPersistence {
     public static func importBundle(_ bundleURL: URL, commit: String, into sourceDirectory: URL) async throws {
         try await Task.detached(priority: .userInitiated) {
-            try importBundleSync(bundleURL, commit: commit, into: sourceDirectory)
+            try await performImport(bundleURL, commit: commit, into: sourceDirectory)
         }.value
     }
 
-    private static func importBundleSync(_ bundleURL: URL, commit: String, into sourceDirectory: URL) throws {
+    private static func performImport(_ bundleURL: URL, commit: String, into sourceDirectory: URL) async throws {
         SwiftGit2Bootstrap.ensureInitialized
         let canonical = try result(Repository.at(sourceDirectory))
         guard case .success(let status) = canonical.status(), status.isEmpty else {
@@ -40,7 +40,15 @@ public enum InProcessEditPersistence {
         try materialize(tree: sourceTree, from: exported, into: sourceDirectory, prefix: "", paths: &sourcePaths)
         try removeMissing(tree: hostRoot, from: canonical, root: sourceDirectory, prefix: "", keeping: sourcePaths)
         _ = try result(canonical.addAll())
-        let signature = try result(canonical.defaultSignature())
+        // Resolved through `GitIdentity`, not `defaultSignature()` directly: under App Sandbox the
+        // user's ~/.gitconfig is unreadable, so on a stock machine (no *repo-local* identity) that
+        // call fails and takes the whole import with it — after `materialize`/`removeMissing` have
+        // already written the edit into the worktree. That leaves Source/ dirty with an uncommitted
+        // edit, which then trips this function's own `status.isEmpty` guard, so every subsequent
+        // overlay edit fails too until the user commits or resets by hand (#969). The host identity
+        // is what's recorded, as before — the guest's commit carries the container image's git
+        // identity, which is no closer to the user's than the app's own.
+        let signature = await GitIdentity.signature(for: canonical)
         _ = try result(canonical.commit(message: guestCommit.message, signature: signature))
     }
 
