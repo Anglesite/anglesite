@@ -230,51 +230,53 @@ struct PlistEditorView: View {
 
     private var analyticsTab: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
-                GridRow {
-                    Text("Cloudflare")
+            SettingsBox(title: "Analytics") {
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Cloudflare")
+                            .frame(minWidth: 160, alignment: .leading)
+                        HStack(spacing: 8) {
+                            Toggle("Cloudflare", isOn: cloudflareAnalyticsBinding)
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                                .disabled(model.isConfiguringCloudflareAnalytics)
+                            Text(model.cloudflareAnalyticsEnabled ? "On" : "Off")
+                                .foregroundStyle(.secondary)
+                                .frame(minWidth: 28, alignment: .leading)
+                            if model.isConfiguringCloudflareAnalytics {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                            Link(destination: WebsiteAnalyticsAsset.dashboardURL) {
+                                Label("Open Dashboard", systemImage: "arrow.up.right.square")
+                            }
+                        }
+                    }
+                    GridRow(alignment: .top) {
+                        HStack(spacing: 6) {
+                            Text("Custom")
+                            Button {
+                                showingCustomAnalyticsHelp = true
+                            } label: {
+                                Image(systemName: "questionmark.circle")
+                            }
+                            .buttonStyle(.plain)
+                            .help("About custom analytics")
+                        }
                         .frame(minWidth: 160, alignment: .leading)
-                    HStack(spacing: 8) {
-                        Toggle("Cloudflare", isOn: cloudflareAnalyticsBinding)
-                            .toggleStyle(.switch)
-                            .labelsHidden()
-                            .disabled(model.isConfiguringCloudflareAnalytics)
-                        Text(model.cloudflareAnalyticsEnabled ? "On" : "Off")
-                            .foregroundStyle(.secondary)
-                            .frame(minWidth: 28, alignment: .leading)
-                        if model.isConfiguringCloudflareAnalytics {
-                            ProgressView()
-                                .controlSize(.small)
+                        .padding(.top, 4)
+                        HTMLSnippetEditor(text: $model.analyticsSettings.customHeadTag) {
+                            Task { await model.saveAnalytics() }
                         }
-                        Link(destination: WebsiteAnalyticsAsset.dashboardURL) {
-                            Label("Open Dashboard", systemImage: "arrow.up.right.square")
-                        }
+                            .frame(minWidth: 360, minHeight: 90)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(customAnalyticsMessage == nil ? Color.secondary.opacity(0.25) : Color.orange)
+                            }
                     }
                 }
-                GridRow(alignment: .top) {
-                    HStack(spacing: 6) {
-                        Text("Custom")
-                        Button {
-                            showingCustomAnalyticsHelp = true
-                        } label: {
-                            Image(systemName: "questionmark.circle")
-                        }
-                        .buttonStyle(.plain)
-                        .help("About custom analytics")
-                    }
-                    .frame(minWidth: 160, alignment: .leading)
-                    .padding(.top, 4)
-                    HTMLSnippetEditor(text: $model.analyticsSettings.customHeadTag) {
-                        Task { await model.saveAnalytics() }
-                    }
-                        .frame(minWidth: 360, minHeight: 90)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(customAnalyticsMessage == nil ? Color.secondary.opacity(0.25) : Color.orange)
-                        }
-                }
+                .textFieldStyle(.roundedBorder)
             }
-            .textFieldStyle(.roundedBorder)
             HStack(spacing: 8) {
                 if model.isSavingAnalytics {
                     ProgressView()
