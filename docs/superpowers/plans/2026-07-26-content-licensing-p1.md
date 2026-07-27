@@ -35,7 +35,7 @@
 
 ### Task 1: Run the template's `node:test` suites in CI
 
-The template has 11 `node:test` files that nothing executes. `vitest.config.ts` sets `include: ["worker/**/*.test.ts"]`, and the CI template lane runs only `npm run test:worker` and `npm run build`. Every later task in this plan is TDD, so this must land first or those tests never run.
+The template has 16 `node:test` files that nothing executes. `vitest.config.ts` sets `include: ["worker/**/*.test.ts"]`, and the CI template lane runs only `npm run test:worker` and `npm run build`. Every later task in this plan is TDD, so this must land first or those tests never run.
 
 **Files:**
 - Modify: `Resources/Template/package.json` (the `scripts` block)
@@ -52,7 +52,7 @@ cd Resources/Template
 ls scripts/*.test.ts src/lib/*.test.ts
 ```
 
-Expected: 11 files — `scripts/{component-harness,config,csp,edge-artifacts,keystatic-gate,microformats,pre-deploy-check,redirects,themes}.test.ts` and `src/lib/{content-loader,feeds}.test.ts`.
+Expected: 16 files — `scripts/{component-harness,config,csp,edge-artifacts,keystatic-gate,microformats,pre-deploy-check,redirects,themes}.test.ts`, `src/lib/{content-loader,feeds}.test.ts`, and `src/components/esi/{esi-markup,esi-dev-shim,esi-components.build}.test.ts`.
 
 - [ ] **Step 2: Add the `test` script**
 
@@ -77,7 +77,7 @@ npm ci --no-audit --no-fund
 npm test
 ```
 
-Expected: the runner executes and prints a `pass`/`fail` tally for all 11 suites.
+Expected: the runner executes and prints a `pass`/`fail` tally for all 16 suites.
 
 **If any suite fails, fix it in this task.** These suites have been unexecuted for some time, so pre-existing breakage is plausible — that is exactly the information this task exists to surface. Do not skip, delete, or `--test-skip-pattern` a failing suite; a red suite here is a real defect in shipped template code. If a failure is genuinely unrelated to licensing and too large to fix inline, stop and report it rather than proceeding to Task 2 on a red baseline.
 
@@ -922,6 +922,14 @@ const year = new Date().getFullYear();
 
 - [ ] **Step 4: Wire the head link and footer into BaseLayout**
 
+> **Superseded during execution.** The Task 5 review found this destructuring-default form
+> correct but untested — a later "simplification" to `license ?? siteLicense()` would silently
+> collapse the `null`-vs-absent distinction. The shipped code instead calls a named, tested
+> `headLicense(prop, siteDefault)` from `licensing.ts` (commit `53c17347`). The behavior is
+> identical; the invariant is now explicit and guarded by tests. The import list shown below is
+> likewise superseded — the shipped `BaseLayout.astro` additionally imports `headLicense` from
+> `licensing.ts`, alongside the `siteLicense` and `type LicenseRef` imports shown here.
+
 In `Resources/Template/src/layouts/BaseLayout.astro`, extend the imports:
 
 ```ts
@@ -932,12 +940,6 @@ import { readConfig } from "../../scripts/config";
 import { siteLicense } from "../lib/licensing-data.ts";
 import type { LicenseRef } from "../lib/licensing.ts";
 ```
-
-> **Superseded during execution.** The Task 5 review found this destructuring-default form
-> correct but untested — a later "simplification" to `license ?? siteLicense()` would silently
-> collapse the `null`-vs-absent distinction. The shipped code instead calls a named, tested
-> `headLicense(prop, siteDefault)` from `licensing.ts` (commit `53c17347`). The behavior is
-> identical; the invariant is now explicit and guarded by tests.
 
 Extend `Props` and the destructuring:
 
