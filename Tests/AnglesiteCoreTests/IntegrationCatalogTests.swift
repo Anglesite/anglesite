@@ -197,7 +197,7 @@ import Testing
 
     @Test func newsletterHasPlatformChoice() {
         let newsletter = IntegrationCatalog.descriptor(for: .newsletter)
-        #expect(Set(newsletter.providers.map(\.id)) == Set(["buttondown", "mailchimp", "beehiiv"]))
+        #expect(Set(newsletter.providers.map(\.id)) == Set(["buttondown", "mailchimp", "beehiiv", "kit"]))
     }
 
     @Test func newsletterWritesPlatformWorkerUrlAndButtonText() {

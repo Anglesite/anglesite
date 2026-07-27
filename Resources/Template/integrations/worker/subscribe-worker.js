@@ -6,10 +6,11 @@
  * ../../../docs/newsletter-setup.md (staged to docs/newsletter-setup.md).
  *
  * Secrets (set via `wrangler secret put`):
- *   NEWSLETTER_API_KEY     — Buttondown, Mailchimp, or beehiiv API key
- *   NEWSLETTER_PLATFORM    — "buttondown", "mailchimp", or "beehiiv"
+ *   NEWSLETTER_API_KEY     — Buttondown, Mailchimp, beehiiv, or Kit API key
+ *   NEWSLETTER_PLATFORM    — "buttondown", "mailchimp", "beehiiv", or "kit"
  *   MAILCHIMP_LIST_ID      — Mailchimp audience/list ID (Mailchimp only)
  *   BEEHIIV_PUBLICATION_ID — beehiiv publication ID, "pub_…" (beehiiv only)
+ *   KIT_FORM_ID            — Kit form ID for double opt-in (Kit only)
  *   SITE_DOMAIN            — For CORS origin validation
  */
 
@@ -104,6 +105,37 @@ async function subscribeBeehiiv(email, apiKey, publicationId) {
   return { ok: false, errors: ["Subscribe failed. Please try again later."] };
 }
 
+async function subscribeKit(email, apiKey, formId) {
+  // Kit's double opt-in lives on forms, so a form ID is required: creating a
+  // subscriber alone would silently skip the confirmation email.
+  if (!formId) return { ok: false, errors: ["Newsletter service not configured."] };
+
+  const headers = {
+    "X-Kit-Api-Key": apiKey,
+    "Content-Type": "application/json",
+  };
+
+  // Upsert (200 update / 201 create) — the form endpoint below requires the
+  // subscriber to already exist.
+  const created = await fetch("https://api.kit.com/v4/subscribers", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ email_address: email }),
+  });
+  if (!created.ok) return { ok: false, errors: ["Subscribe failed. Please try again later."] };
+
+  // Adding to a double-opt-in form sends the confirmation email; 200 means
+  // already on the form, 201 means newly added.
+  const added = await fetch(`https://api.kit.com/v4/forms/${formId}/subscribers`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ email_address: email }),
+  });
+
+  if (added.ok) return { ok: true };
+  return { ok: false, errors: ["Subscribe failed. Please try again later."] };
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
@@ -157,6 +189,8 @@ export default {
       result = await subscribeMailchimp(email, env.NEWSLETTER_API_KEY, env.MAILCHIMP_LIST_ID);
     } else if (platform === "beehiiv") {
       result = await subscribeBeehiiv(email, env.NEWSLETTER_API_KEY, env.BEEHIIV_PUBLICATION_ID);
+    } else if (platform === "kit") {
+      result = await subscribeKit(email, env.NEWSLETTER_API_KEY, env.KIT_FORM_ID);
     } else {
       result = { ok: false, errors: ["Newsletter service not configured."] };
     }
