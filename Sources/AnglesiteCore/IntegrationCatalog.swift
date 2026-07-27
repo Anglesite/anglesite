@@ -218,10 +218,11 @@ public enum IntegrationCatalog {
     static let newsletter = IntegrationDescriptor(
         id: .newsletter,
         displayName: "Newsletter",
-        summary: "Let visitors subscribe to email updates (Buttondown or Mailchimp), via a Worker that keeps your API key off the client.",
+        summary: "Let visitors subscribe to email updates (Buttondown, Mailchimp, or beehiiv), via a Worker that keeps your API key off the client.",
         providers: [
             Provider(id: "buttondown", displayName: "Buttondown", cspDomains: []),
             Provider(id: "mailchimp", displayName: "Mailchimp", cspDomains: []),
+            Provider(id: "beehiiv", displayName: "beehiiv", cspDomains: []),
         ],
         fields: [
             Field(key: "workerUrl", label: "Subscribe Worker URL", kind: .url,

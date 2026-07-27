@@ -2,10 +2,11 @@
 # Receives subscribe form submissions and forwards them to your newsletter platform.
 #
 # Secrets are set via: npx wrangler secret put <NAME> --config worker/subscribe-wrangler.toml
-#   NEWSLETTER_API_KEY  — Buttondown or Mailchimp API key
-#   NEWSLETTER_PLATFORM — "buttondown" or "mailchimp"
-#   MAILCHIMP_LIST_ID   — Mailchimp audience/list ID (Mailchimp only)
-#   SITE_DOMAIN         — your site's domain, for CORS origin validation
+#   NEWSLETTER_API_KEY     — Buttondown, Mailchimp, or beehiiv API key
+#   NEWSLETTER_PLATFORM    — "buttondown", "mailchimp", or "beehiiv"
+#   MAILCHIMP_LIST_ID      — Mailchimp audience/list ID (Mailchimp only)
+#   BEEHIIV_PUBLICATION_ID — beehiiv publication ID, "pub_…" (beehiiv only)
+#   SITE_DOMAIN            — your site's domain, for CORS origin validation
 
 name = "newsletter-subscribe"
 main = "subscribe-worker.js"
