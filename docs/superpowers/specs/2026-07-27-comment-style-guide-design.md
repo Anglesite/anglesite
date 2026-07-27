@@ -4,6 +4,28 @@
 - **Status:** Proposed
 - **Issue:** [#1041 — Add comment style guide + DocC catalog + CI check](https://github.com/Anglesite/Anglesite-app/issues/1041)
 
+## Addendum (post-approval, before implementation)
+
+Actually running `swift package generate-documentation` against this repo (not a scratch package)
+surfaced two corrections to the plan below, made before writing the implementation plan:
+
+1. **No `--target` filter sweeps in dependencies.** Without an explicit `--target` list, the plugin
+   documents every target in the whole dependency graph, including vendored third-party packages
+   (`MarkdownEngine` has its own broken doc comments we don't control). The CI job must enumerate
+   our own targets explicitly.
+2. **A bare DocC build (regardless of `--warnings-as-errors`) already fails today.** ~15 files in
+   `AnglesiteCore`/`AnglesiteBridge` have doc comments with unconditionally-broken double-backtick
+   links (mostly to Apple FoundationModels types DocC can't resolve, a couple of wrong-syntax
+   `Type.member` links that should be `Type/member`, and a few links to `private`/`internal`
+   symbols), and ~7 functions have `- Parameters:` blocks that have drifted out of sync with their
+   real signatures (DocC's default parameter-validation flags this as a warning). This is a finite,
+   already-broken, unrelated-to-this-task list — not the ~500-file retrofit the Decision above
+   declines. Confirmed in chat: fix this specific list as part of this PR, rather than softening
+   the CI check or narrowing its initial scope. `AnglesiteLANHost` (an `executableTarget`) is
+   additionally excluded from the CI job's target list — its symbol-graph extraction fails with an
+   unrelated SwiftPM/DocC-plugin issue (`AnglesiteLANHost.symbolgraphs doesn't exist`), independent
+   of doc-comment content.
+
 ## Decision
 
 Add a written comment style guide (`docs/comment-style-guide.md`) that codifies the convention this
