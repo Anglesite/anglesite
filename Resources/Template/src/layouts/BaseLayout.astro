@@ -42,8 +42,11 @@ const license = headLicense(Astro.props.license, siteLicense());
     <!-- anglesite:head-end -->
   </head>
   <body>
+    <a class="skip-link" href="#main">Skip to content</a>
     <!-- anglesite:nav -->
-    <slot />
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
     <Hcard />
     <Rights license={license} />
     <!-- anglesite:body-end -->

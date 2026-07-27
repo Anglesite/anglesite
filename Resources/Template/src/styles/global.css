@@ -11,6 +11,23 @@
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 1rem;
+  color-scheme: light dark;
+}
+
+/* Dark palette (#1012). Applying a built-in theme rewrites these declarations too
+   (ThemeApplier replaces `--key:` values file-wide), so a themed site stays a single
+   consistent palette in both schemes; the design-apply flow upserts only the top-level
+   `:root` block above and leaves this one alone. All pairs meet WCAG AA on
+   --color-background: text 14.4:1, muted 6.0:1 (4.5:1 on surface), links 6.8:1. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #60a5fa;
+    --color-accent: #fbbf24;
+    --color-background: #0f172a;
+    --color-surface: #1e293b;
+    --color-text: #e2e8f0;
+    --color-text-muted: #94a3b8;
+  }
 }
 
 *,
@@ -50,12 +67,41 @@ a:hover {
   text-decoration: underline;
 }
 
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* First focusable element on every page (BaseLayout). Visually hidden until it receives
+   keyboard focus, then shown as a small pill over the top-left corner. */
+.skip-link {
+  position: absolute;
+  inset-block-start: calc(var(--spacing-unit) * 2);
+  inset-inline-start: calc(var(--spacing-unit) * 2);
+  z-index: 100;
+  padding: calc(var(--spacing-unit) * 2) calc(var(--spacing-unit) * 4);
+  background-color: var(--color-primary);
+  color: var(--color-background);
+  border-radius: var(--radius-sm);
+  transform: translateY(calc(-100% - var(--spacing-unit) * 4));
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
 main {
   flex: 1;
   width: 100%;
   max-width: 72rem;
   margin-inline: auto;
   padding-inline: calc(var(--spacing-unit) * 6);
+}
+
+/* The skip link's target: it takes programmatic focus (tabindex="-1") so assistive tech
+   follows the jump, but a focus ring around the whole content region is just noise. */
+main:focus {
+  outline: none;
 }
 
 .hero {
@@ -151,4 +197,18 @@ main {
   flex-direction: column;
   gap: calc(var(--spacing-unit) * 2);
   text-decoration: none;
+}
+
+/* Neutralize animation for visitors who ask for reduced motion — including anything
+   integrations or future components add on top of this sheet. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
