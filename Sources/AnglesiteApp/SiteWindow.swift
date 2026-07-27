@@ -126,6 +126,11 @@ struct SiteWindow: View {
     /// function (rather than inlined into one long modifier chain) so the type checker solves it
     /// as an independent unit — `navigatorSelectionActions(for:)` pushed the combined `body`
     /// expression over Swift's type-check-in-reasonable-time budget once added inline (#516).
+    ///
+    /// One exception to "every focused value is published here": `siteSearchActions` is published
+    /// by `SiteSearchFieldModifier` (`SiteSearchField.swift`, #520), because it hands out a
+    /// closure over that modifier's own `@FocusState` — scene-local state this function has no
+    /// access to. Look there too when auditing the full set.
     @ViewBuilder
     private func focusedValues<Content: View>(for content: Content) -> some View {
         content
