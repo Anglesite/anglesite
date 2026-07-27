@@ -35,6 +35,9 @@ final class CommunitiesModel {
     private(set) var selectedCommunityID: String?
     private(set) var timeline: [GroupPost] = []
     private(set) var isLoadingTimeline = false
+    /// Guards against a fast double-tap of Join firing two concurrent `follow()` POSTs for the
+    /// same target before the first call's result lands in `joined`.
+    private(set) var isJoining = false
     var joinHandleText = ""
     var errorMessage: String?
     /// Non-nil ⟺ the "Leave this community?" confirmation is showing — mirrors
@@ -118,6 +121,12 @@ final class CommunitiesModel {
     func join() async {
         let input = joinHandleText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else { return }
+        // Without this, a fast double-tap of the Join button before `joined` reflects the first
+        // call's result races two `follow()` POSTs for the same target: the already-joined check
+        // below only catches a *second* call once the *first* has actually landed in `joined`.
+        guard !isJoining else { return }
+        isJoining = true
+        defer { isJoining = false }
         guard let ownActorURL, let publishToken else {
             errorMessage = "This site has no known public URL yet — deploy it at least once first."
             return

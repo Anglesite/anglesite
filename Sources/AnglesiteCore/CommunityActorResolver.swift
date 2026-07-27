@@ -163,9 +163,20 @@ public struct CommunityActorResolver: Sendable {
             guard let actorID = URL(string: dto.id) else {
                 throw CommunityActorResolverError.decodingFailed("actor id is not a URL: \(dto.id)")
             }
+            // `id`/`outbox` are the remote server's own claims about itself, not the transport
+            // layer's — the fetch URL and any redirect were already validated above, but a
+            // hostile or misconfigured actor document can still self-declare an insecure `id`.
+            // `actorID` feeds straight into `CommunityMembershipClient`'s Follow/Undo payload
+            // (whose own doc comment assumes this resolver already enforced HTTPS), so it must
+            // hold to the same rule as every other IRI here. `outboxURL` is read-only and
+            // optional — the timeline pane already treats a missing one as "no timeline
+            // available" — so an insecure one degrades to `nil` instead of failing the resolve.
+            try Self.requireHTTPS(actorID)
+            let outboxURL = dto.outbox.flatMap(URL.init(string:))
+                .flatMap { ActorProfileFetcher.isHTTPS($0) ? $0 : nil }
             return ResolvedCommunityActor(
                 actorID: actorID,
-                outboxURL: dto.outbox.flatMap(URL.init(string:)),
+                outboxURL: outboxURL,
                 type: dto.type,
                 preferredUsername: dto.preferredUsername.map(DisplayString.safe),
                 name: dto.name.map(DisplayString.safe),

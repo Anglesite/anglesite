@@ -88,6 +88,43 @@ struct CommunityActorResolverTests {
         #expect(await fake.requestedURLs.count == 1)
     }
 
+    /// The actor document's `id` is attacker-controlled content (the remote server writes it, not
+    /// the transport layer), so an insecure self-declared `id` must be rejected exactly like an
+    /// insecure fetch URL or redirect — it's the same trust boundary, just expressed in the body
+    /// instead of the response's URL. `CommunityMembershipClient`'s own doc comment assumes every
+    /// IRI reaching it from this resolver has already been validated as HTTPS; this is where that
+    /// guarantee has to actually hold.
+    @Test("rejects a self-declared insecure actor id")
+    func rejectsSelfDeclaredInsecureActorID() async throws {
+        let fake = FakeTransport(["https://lemmy.ml/c/birding": (200, """
+            {"id":"http://lemmy.ml/c/birding","type":"Group","preferredUsername":"birding",
+             "name":"Birding","outbox":"https://lemmy.ml/c/birding/outbox"}
+            """)])
+        let resolver = CommunityActorResolver(transport: fake.transport)
+
+        await #expect(throws: CommunityActorResolverError.insecureURL) {
+            _ = try await resolver.resolve("https://lemmy.ml/c/birding")
+        }
+    }
+
+    /// `outboxURL` is best-effort (the timeline pane already treats a missing one as "no timeline
+    /// available") — so unlike `actorID`, a self-declared insecure `outbox` degrades to `nil`
+    /// rather than failing the whole resolve; the join/leave flow that only needs `actorID`
+    /// shouldn't break over a field it doesn't use.
+    @Test("drops a self-declared insecure outbox URL rather than trusting it")
+    func dropsSelfDeclaredInsecureOutboxURL() async throws {
+        let fake = FakeTransport(["https://lemmy.ml/c/birding": (200, """
+            {"id":"https://lemmy.ml/c/birding","type":"Group","preferredUsername":"birding",
+             "name":"Birding","outbox":"http://lemmy.ml/c/birding/outbox"}
+            """)])
+        let resolver = CommunityActorResolver(transport: fake.transport)
+
+        let resolved = try await resolver.resolve("https://lemmy.ml/c/birding")
+
+        #expect(resolved.actorID.absoluteString == "https://lemmy.ml/c/birding")
+        #expect(resolved.outboxURL == nil)
+    }
+
     @Test("sends the AS2 Accept header when fetching the actor document")
     func sendsAcceptHeader() async throws {
         let fake = FakeTransport(["https://lemmy.ml/c/birding": (200, Self.actorDocument)])
