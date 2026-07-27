@@ -299,22 +299,26 @@ git commit -m "feat(template): animation demos + owner docs (#<ISSUE_A>)"
 **Files:**
 - No new files; verification + PR.
 
-- [ ] **Step 1: Run the template-coupled Swift guards** (repo root; xcodegen not needed for SwiftPM tests):
+- [x] **Step 1: Run the template-coupled Swift guards** (repo root; xcodegen not needed for SwiftPM tests):
 
 Run: `swift test --filter IntegrationTemplateAssetsTests && swift test --filter ProjectValidator`
 Expected: PASS. If a guard hard-codes template file lists, extend it to cover `integrations/animations.json` rather than deleting assertions.
 
-- [ ] **Step 2: Full SwiftPM suite** (template changes can couple to Swift tests; capture full output to a file, never tail):
+  Both suites passed (10/10 and 6/6 tests). Neither guard enumerates `Resources/Template/` generically or hardcodes a template file inventory that would need extending for the new `integrations/animations.json`/`animations-demos/`/`docs/animations.md` files — `IntegrationTemplateAssetsTests` targets a specific, named subset of on-demand integration assets, and `ProjectValidator`'s sentinel set doesn't reference the animations catalog.
+
+- [x] **Step 2: Full SwiftPM suite** (template changes can couple to Swift tests; capture full output to a file, never tail):
 
 Run: `swift test --package-path . > /tmp/swift-test-astroanimate.log 2>&1; tail -5 /tmp/swift-test-astroanimate.log && grep -c " passed" /tmp/swift-test-astroanimate.log`
 Expected: suite passes (known flakes: AstroDevServerTests port/ready-URL — rerun once before debugging; FM "tokens exceeds 8192" is a live-model flake).
 
-- [ ] **Step 3: Re-vendor the container image** (it bakes template `node_modules`):
+- [x] **Step 3: Re-vendor the container image** (it bakes template `node_modules`):
 
 Run: `ANGLESITE_SIDECAR_SRC=$HOME/Developer/github.com/Anglesite/anglesite scripts/vendor-container-image.sh`
 Expected: exits 0. If the environment can't build images, say so in the PR's Test plan rather than skipping silently.
 
-- [ ] **Step 4: Push branch, open PR A** targeting `main`, body built from `.github/PULL_REQUEST_TEMPLATE.md` headings (**Summary**, **Paired PR check** — note: template-only, app-only, no MCP schema change; sidecar PR is coordinated but independent — and **Test plan** listing the commands above). Then `gh issue edit <ISSUE_A> --remove-label "🛠️ In Progress"`.
+  Exited 0. The `container` CLI (1.1.0) was available; the build staged the sidecar + template context, ran `npm ci` against the template's `package.json`/`package-lock.json` (786 packages, including `@astroanimate/core`), and exported the OCI layout to `Resources/container-image/` (gitignored — nothing to commit here).
+
+- [x] **Step 4: Push branch, open PR A** targeting `main`, body built from `.github/PULL_REQUEST_TEMPLATE.md` headings (**Summary**, **Paired PR check** — note: template-only, app-only, no MCP schema change; sidecar PR is coordinated but independent — and **Test plan** listing the commands above). Then `gh issue edit <ISSUE_A> --remove-label "🛠️ In Progress"`.
 
 ---
 
@@ -413,7 +417,7 @@ import Foundation
 **Files:**
 - Modify: `docs/decisions/0008-no-third-party-javascript.md` (sidecar checkout `~/Developer/github.com/Anglesite/anglesite`, in a fresh worktree/branch)
 
-- [ ] **Step 1: Append to the "Creative coding libraries (not third-party)" section:**
+- [x] **Step 1: Append to the "Creative coding libraries (not third-party)" section:** *(done in Anglesite/anglesite#427)*
 
 ```markdown
 The same reasoning covers npm-installed **animation component libraries**. The
@@ -426,7 +430,7 @@ first-party under `script-src 'self'`. One constraint applies: the library's
 `integrations/docs/animations.md`.
 ```
 
-- [ ] **Step 2: Commit** — `docs(adr): cover animation component libraries in ADR-0008 (#<ISSUE_C>)`.
+- [x] **Step 2: Commit** — `docs(adr): cover animation component libraries in ADR-0008 (#<ISSUE_C>)`. *(done in Anglesite/anglesite#427)*
 
 ### Task 8: `/animate` skill escalation section
 
@@ -434,7 +438,7 @@ first-party under `script-src 'self'`. One constraint applies: the library's
 - Modify: `skills/animate/SKILL.md`
 - Modify: `agent-skills/animate/…` — inspect this directory first; if it duplicates the same rule text, apply the same edit there.
 
-- [ ] **Step 1: Replace the absolute prohibition.** The current text: "**Never use JavaScript for animation.**" and the ADR list entry "no JavaScript animation libraries" stay, but gain the escalation carve-out. After the "Your CSS toolkit" section, add:
+- [x] **Step 1: Replace the absolute prohibition.** *(done in Anglesite/anglesite#427)* The current text: "**Never use JavaScript for animation.**" and the ADR list entry "no JavaScript animation libraries" stay, but gain the escalation carve-out. After the "Your CSS toolkit" section, add:
 
 ```markdown
 ## Escalation: the baked-in component library
@@ -455,8 +459,8 @@ typewriter/staggered text, card-stack effects, loaders — and then:
   `.astro` components).
 ```
 
-- [ ] **Step 2: Reconcile the ADR reference list** in the same file: change "no JavaScript animation libraries" to "no JavaScript animation *runtimes*; the baked-in CSS-first component library is the recorded exception (ADR-0008)".
-- [ ] **Step 3: Commit + PR C** in the sidecar repo — `feat(animate): escalate to baked-in @astroanimate components (#<ISSUE_C>)`. The sidecar has no PR template; use Summary / Test plan and link the app-repo spec. Note ordering: merge after app PR A.
+- [x] **Step 2: Reconcile the ADR reference list** in the same file: change "no JavaScript animation libraries" to "no JavaScript animation *runtimes*; the baked-in CSS-first component library is the recorded exception (ADR-0008)".
+- [x] **Step 3: Commit + PR C** in the sidecar repo *(Anglesite/anglesite#427)* — `feat(animate): escalate to baked-in @astroanimate components (#<ISSUE_C>)`. The sidecar has no PR template; use Summary / Test plan and link the app-repo spec. Note ordering: merge after app PR A.
 
 ---
 
