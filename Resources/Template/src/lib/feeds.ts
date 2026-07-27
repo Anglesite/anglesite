@@ -1,10 +1,15 @@
 import rss from "@astrojs/rss";
 
 export interface FeedItem {
-  title: string;
+  /** Absent for collections whose items have no natural title (notes, replies, likes, photos,
+   * and bookmarks without an explicit title) — a synthesized title (excerpt/"Re: host"/etc.) is
+   * not a real title, so we omit the field rather than fake one. */
+  title?: string;
   link: string; // absolute
   date: Date;
   summary: string;
+  /** Full entry body rendered to HTML at build time (see `feed-data.ts`). */
+  contentHtml: string;
 }
 
 export type FeedEntry = {
@@ -17,15 +22,7 @@ export type FeedEntry = {
 export interface FeedCollectionConfig {
   title: string;
   dateField: string;
-  deriveTitle(entry: FeedEntry): string;
-}
-
-function host(url: unknown): string {
-  try {
-    return new URL(String(url)).host;
-  } catch {
-    return String(url ?? "");
-  }
+  deriveTitle(entry: FeedEntry): string | undefined;
 }
 
 function excerpt(body: string | undefined, max = 80): string {
@@ -36,29 +33,13 @@ function excerpt(body: string | undefined, max = 80): string {
 
 export const FEED_COLLECTIONS: Record<string, FeedCollectionConfig> = {
   blog: { title: "Blog", dateField: "pubDate", deriveTitle: (e) => e.data.title },
-  notes: { title: "Notes", dateField: "publishDate", deriveTitle: (e) => excerpt(e.body) },
+  notes: { title: "Notes", dateField: "publishDate", deriveTitle: () => undefined },
   articles: { title: "Articles", dateField: "publishDate", deriveTitle: (e) => e.data.title },
-  photos: {
-    title: "Photos",
-    dateField: "publishDate",
-    deriveTitle: (e) => e.data.caption ?? "Photo",
-  },
+  photos: { title: "Photos", dateField: "publishDate", deriveTitle: () => undefined },
   albums: { title: "Albums", dateField: "publishDate", deriveTitle: (e) => e.data.title },
-  bookmarks: {
-    title: "Bookmarks",
-    dateField: "publishDate",
-    deriveTitle: (e) => e.data.title ?? host(e.data.bookmarkOf),
-  },
-  replies: {
-    title: "Replies",
-    dateField: "publishDate",
-    deriveTitle: (e) => "Re: " + host(e.data.inReplyTo),
-  },
-  likes: {
-    title: "Likes",
-    dateField: "publishDate",
-    deriveTitle: (e) => "Liked " + host(e.data.likeOf),
-  },
+  bookmarks: { title: "Bookmarks", dateField: "publishDate", deriveTitle: (e) => e.data.title },
+  replies: { title: "Replies", dateField: "publishDate", deriveTitle: () => undefined },
+  likes: { title: "Likes", dateField: "publishDate", deriveTitle: () => undefined },
 };
 
 /// Resolve the absolute site base URL from an Astro endpoint context, failing loudly when
@@ -101,7 +82,18 @@ export function websubHub(
   };
 }
 
-export function toFeedItem(collection: string, entry: FeedEntry, site: string): FeedItem {
+/**
+ * Build a `FeedItem` from a content entry. `contentHtml` is the entry body already rendered to
+ * HTML — rendering is async (`createMarkdownProcessor`) and lives in `feed-data.ts`, so it's
+ * computed by the caller and passed in rather than made here, keeping this function synchronous
+ * and easy to unit test.
+ */
+export function toFeedItem(
+  collection: string,
+  entry: FeedEntry,
+  site: string,
+  contentHtml: string,
+): FeedItem {
   const cfg = FEED_COLLECTIONS[collection];
   if (!cfg) throw new Error(`No feed config for collection "${collection}"`);
   const rawDate = entry.data[cfg.dateField];
@@ -113,10 +105,11 @@ export function toFeedItem(collection: string, entry: FeedEntry, site: string): 
   }
   const summary = (entry.data.summary ?? entry.data.caption ?? excerpt(entry.body, 280)) || "";
   return {
-    title: cfg.deriveTitle(entry) || "Untitled",
+    title: cfg.deriveTitle(entry) || undefined,
     link: new URL(`/${collection}/${entry.id}/`, site).href,
     date,
     summary: String(summary),
+    contentHtml,
   };
 }
 
@@ -146,10 +139,14 @@ export function renderRss(o: {
       ? { xmlns: { atom: "http://www.w3.org/2005/Atom" }, customData: hubData }
       : {}),
     items: o.items.map((i) => ({
+      // Zod's `title` field is optional and `@astrojs/rss` only emits <title> when truthy, so an
+      // absent `i.title` correctly drops the element rather than rendering it empty.
       title: i.title,
       link: i.link,
       pubDate: i.date,
-      description: i.summary,
+      // RSS 2.0 requires title *or* description on every item; description is always present,
+      // carrying the full HTML body when there is one and falling back to the short summary.
+      description: i.contentHtml || i.summary,
     })),
   });
 }
@@ -177,12 +174,15 @@ export function renderAtom(o: {
       // Known limitation: <id> uses the permalink rather than a permanent tag: IRI (RFC 4287
       // §4.2.6). Renaming a slug therefore reads as a new entry in readers that saw the old URL.
       // This matches most simple RSS libraries; a stable tag: URI is a future improvement.
+      // Atom requires <title> on every entry (unlike RSS/JSON Feed); title-less items emit an
+      // empty element rather than omitting the tag or faking a title.
       (i) => `  <entry>
-    <title>${escapeXml(i.title)}</title>
+    <title>${escapeXml(i.title ?? "")}</title>
     <link href="${escapeXml(i.link)}"/>
     <id>${escapeXml(i.link)}</id>
     <updated>${i.date.toISOString()}</updated>
     <summary>${escapeXml(i.summary)}</summary>
+    <content type="html">${escapeXml(i.contentHtml)}</content>
   </entry>`,
     )
     .join("\n");
@@ -218,8 +218,13 @@ export function renderJsonFeed(o: {
     items: o.items.map((i) => ({
       id: i.link,
       url: i.link,
+      // Undefined `title` is dropped by JSON.stringify below, matching JSON Feed's "title is
+      // optional" contract for items with no natural title.
       title: i.title,
       summary: i.summary,
+      // JSON Feed 1.1 requires content_html or content_text on every item; fall back to the
+      // short summary when the body was empty.
+      content_html: i.contentHtml || i.summary,
       date_published: i.date.toISOString(),
     })),
   };
