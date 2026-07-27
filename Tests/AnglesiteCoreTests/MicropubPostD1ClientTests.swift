@@ -75,24 +75,29 @@ struct MicropubPostD1ClientTests {
 
     @Test("skips a row whose properties column isn't valid JSON, and logs the skip")
     func skipsMalformedPropertiesRow() async throws {
+        // Unique to this test, so the filter below can't pick up another test's entry —
+        // `LogCenter.shared` is process-global and Swift Testing runs suites in parallel, so
+        // asserting on its total count or its `.last` entry is a race (#977).
+        let url = "https://me.example/notes/bad-properties-\(UUID().uuidString)"
         let body = Self.d1Body("""
-        {"url": "https://me.example/notes/bad", "type": "h-entry",
+        {"url": "\(url)", "type": "h-entry",
          "properties": "not json", "deleted": 0, "updated_at": 1753300000}
         """)
         let client = MicropubPostD1Client(
             accountID: "acct1", databaseID: "db1", apiToken: "token",
             transport: { _ in (body, Self.response(200)) })
 
-        let beforeCount = await LogCenter.shared.snapshot().count
         let posts = try await client.listAllPosts()
         #expect(posts.isEmpty)
 
-        let logged = await LogCenter.shared.snapshot()
-        #expect(logged.count == beforeCount + 1)
+        // Filter to the entries this call caused, then assert on those — the pattern
+        // `BackupCommandInProcessTests` already uses against the same shared log. Filtering on
+        // the marker alone (not the source) keeps the source assertion below meaningful.
+        let logged = await LogCenter.shared.snapshot().filter { $0.text.contains(url) }
+        #expect(logged.count == 1)
         let entry = try #require(logged.last)
         #expect(entry.source == "MicropubPostD1Client")
         #expect(entry.stream == .stderr)
-        #expect(entry.text.contains("https://me.example/notes/bad"))
     }
 
     @Test("throws unauthorized on 401")
