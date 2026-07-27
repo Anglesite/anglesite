@@ -33,9 +33,11 @@ struct SiteSearchFieldModifier: ViewModifier {
             }
             .searchSuggestions {
                 if model.hits.isEmpty {
-                    // Only once a search has actually settled — otherwise every first keystroke
-                    // flashes "no matches" during the debounce of a query that will match.
-                    if !model.isSearching {
+                    // Only for a query the user actually typed, and only once its search has
+                    // settled: an untouched field would otherwise greet ⇧⌘F with "no matches",
+                    // and every first keystroke would flash it during the debounce of a query
+                    // that will match.
+                    if model.hasQuery && !model.isSearching {
                         Text("No matching content")
                             .foregroundStyle(.secondary)
                     }

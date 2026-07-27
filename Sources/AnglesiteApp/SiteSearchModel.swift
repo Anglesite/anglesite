@@ -72,6 +72,13 @@ final class SiteSearchModel {
         isSearching = false
     }
 
+    /// Whether the field holds something worth searching for. Drives the empty-state row: an
+    /// untouched field has no hits and isn't searching, which would otherwise render "no matches"
+    /// at the moment the user opens search and before they've typed anything.
+    var hasQuery: Bool {
+        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     /// The hit to activate for the current field contents — a selected suggestion (whose
     /// completion put its path in the field) or, for typed text committed with Return, the
     /// top-ranked hit. `nil` when nothing matched.
