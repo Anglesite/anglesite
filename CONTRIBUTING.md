@@ -72,6 +72,7 @@ Notes:
 - **Git is the source of truth for sites** — the app must never become the only way to edit a site. A site's `Source/` repo stays clonable and editable outside the app.
 - **The app cannot bypass the template security gate** — `pre-deploy-check.ts` runs before every deploy; surface failures, don't add overrides.
 - **JS/TypeScript** (edit overlay) uses ES modules, vanilla APIs, and the existing oxlint/tsc/vitest toolchain.
+- **Comment and doc-comment conventions** are in [`docs/comment-style-guide.md`](docs/comment-style-guide.md) — read it before writing `///` doc comments on public API; CI fails on broken DocC symbol links or markup.
 
 ## Commits and pull requests
 
