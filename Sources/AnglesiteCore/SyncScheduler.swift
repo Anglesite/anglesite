@@ -106,11 +106,11 @@ public actor SyncScheduler {
     /// A deploy completed — same reasoning as `backupCompleted()`.
     public func deployCompleted() { schedulePush() }
 
-    /// The app is going to the background (`NSApplication.didResignActiveNotification`). Still a
-    /// debounced push (#881's wording), but with no delay: the window may not get another chance
-    /// to run before the user switches away for a while, so don't make it wait out the normal
-    /// quiescence window first. Still coalesces with any push already in flight or already
-    /// scheduled, so backgrounding immediately after a backup doesn't double-push.
+    /// The app is going to the background (`NSApplication.didResignActiveNotification`). Pushed
+    /// with no delay: the window may not get another chance to run before the user switches away
+    /// for a while, so don't make it wait out the normal quiescence window first. Still coalesces
+    /// with any push already in flight or already scheduled, so backgrounding immediately after a
+    /// backup doesn't double-push.
     public func appDidBackground() { schedulePush(immediate: true) }
 
     /// Cancels any pending debounce. An in-flight push (already past the debounce, actually
@@ -153,10 +153,22 @@ public actor SyncScheduler {
     private func schedulePush(immediate: Bool = false) {
         pushPending = true
         pushDebounceTask?.cancel()
-        let delay = immediate ? Duration.zero : pushDebounce
-        pushDebounceTask = Task { [weak self, sleep] in
+        pushDebounceTask = nil
+        guard !immediate else {
+            // Deliberately bypasses the Task+`sleep` debounce machinery below rather than
+            // routing through it with a zero delay: creating a `Task` that immediately awaits
+            // `sleep(.zero)` in the same beat as cancelling the *previous* debounce `Task`
+            // reproducibly crashed the Swift concurrency runtime's task-local allocator on
+            // macOS 26 CI runners ("freed pointer was not the last allocation" — the same crash
+            // class documented for PR #644/#646, which forced those lanes off macOS 15).
+            // `beginPush()` still spawns the one `Task` actually needed, for `engine.push()`
+            // itself — only the artificial zero-duration sleep is removed.
+            beginPush()
+            return
+        }
+        pushDebounceTask = Task { [weak self, sleep, pushDebounce] in
             do {
-                try await sleep(delay)
+                try await sleep(pushDebounce)
             } catch {
                 return
             }
