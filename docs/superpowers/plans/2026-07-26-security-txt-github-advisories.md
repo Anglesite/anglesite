@@ -79,6 +79,29 @@ test("normalizeSecurityContacts: a single value behaves exactly like the old sca
   assert.deepEqual(normalizeSecurityContacts("security@example.com"), ["mailto:security@example.com"]);
 });
 
+test("normalizeSecurityContacts: %2C restores a comma inside one contact instead of splitting it", () => {
+  // Without the escape this truncates to https://example.com/report?ref=a and drops "b".
+  assert.deepEqual(
+    normalizeSecurityContacts("https://example.com/report?ref=a%2Cb"),
+    ["https://example.com/report?ref=a,b"],
+  );
+});
+
+test("normalizeSecurityContacts: an escaped comma survives alongside real list separators", () => {
+  assert.deepEqual(
+    normalizeSecurityContacts("https://example.com/r?ref=a%2Cb,security@example.com"),
+    ["https://example.com/r?ref=a,b", "mailto:security@example.com"],
+  );
+});
+
+test("normalizeSecurityContacts: an ordinary percent sequence is left alone", () => {
+  // A general percent-decode would corrupt this to "https://example.com/a b".
+  assert.deepEqual(
+    normalizeSecurityContacts("https://example.com/a%20b"),
+    ["https://example.com/a%20b"],
+  );
+});
+
 test("buildSecurityTxt: emits one Contact line per entry, in configured preference order", () => {
   const out = buildSecurityTxt(
     "https://github.com/acme/site/security/advisories/new,security@example.com",
@@ -126,19 +149,30 @@ Insert immediately after `normalizeSecurityContact` in `Resources/Template/scrip
 
 ```ts
 /**
- * Normalizes a comma-separated `SECURITY_CONTACT` into RFC 9116 Contact URIs, preserving the
- * configured preference order (§2.5.3: earlier entries are more preferred). Each entry goes
- * through `normalizeSecurityContact`; unusable entries are dropped and duplicates collapsed,
- * mirroring `normalizeMTAStsMX`.
+ * Restores the one character the `SECURITY_CONTACT` list escapes.
  *
- * `.site-config` is a flat KEY=value format with no escaping, so a comma is a safe delimiter
- * here: a comma is only legal in an email address inside an RFC 5321 quoted local part, which
- * the single-value generator could not express either.
+ * The list is comma-separated, but a contact URI may legally contain a comma — RFC 3986 allows
+ * one unescaped in a path or query, and RFC 5321 allows one inside a quoted local part. The app
+ * writes such a comma as `%2C`; this puts it back, so splitting the list can never truncate a
+ * single contact.
+ *
+ * Only `%2C` is special. A general percent-decode would turn an ordinary `%20` in a URL into a
+ * space and corrupt every contact written before this escaping existed.
+ */
+function unescapeContactComma(entry: string): string {
+  return entry.replace(/%2C/gi, ",");
+}
+
+/**
+ * Normalizes a comma-separated `SECURITY_CONTACT` into RFC 9116 Contact URIs, preserving the
+ * configured preference order (§2.5.3: earlier entries are more preferred). Each entry is
+ * unescaped (see `unescapeContactComma`) and then passed through `normalizeSecurityContact`;
+ * unusable entries are dropped and duplicates collapsed, mirroring `normalizeMTAStsMX`.
  */
 export function normalizeSecurityContacts(raw: string | undefined): string[] {
   const result: string[] = [];
   for (const part of (raw ?? "").split(",")) {
-    const uri = normalizeSecurityContact(part);
+    const uri = normalizeSecurityContact(unescapeContactComma(part));
     if (uri !== null && !result.includes(uri)) result.push(uri);
   }
   return result;
@@ -262,7 +296,8 @@ git commit -m "feat(#843): SECURITY_CONTACT accepts an ordered contact list"
   - `SecurityReportingAsset.Settings { var contacts: String; var mode: Mode }` — `contacts` is newline-separated for the UI
   - `parseSettings(from config: String) -> Settings`
   - `install(_ settings: Settings, siteDirectory: URL) throws`
-  - `normalizedContacts(_ raw: String) -> [String]`
+  - `normalizedContacts(_ raw: String) -> [String]` — shape-only, newline-separated UI text
+  - `decodeStored(_ stored: String) -> [String]` / `encodeStored(_ entries: [String]) -> String` — the `.site-config` comma escape, matched pair with the template's `unescapeContactComma`
   - `advisoryURL(for repo: RemoteRepo) -> URL`
   - `usesAdvisoryForm(_ contacts: String, repo: RemoteRepo) -> Bool`
   - `prependingAdvisoryForm(_ contacts: String, repo: RemoteRepo) -> String`
@@ -274,6 +309,7 @@ git commit -m "feat(#843): SECURITY_CONTACT accepts an ordered contact list"
 - The UI presents one contact per line; `.site-config` stores them comma-joined. `MTAStsPolicyAsset.parseSettings` does the same comma→newline swap for `MTA_STS_MX`.
 - `RemoteRepo.parse` already rejects every non-`github.com` host, so a `RemoteRepo` value is GitHub-by-construction. `advisoryURL` needs no host check of its own.
 - **Do not re-implement the template's URI validation.** `normalizedContacts` trims, drops blanks, and dedupes — nothing else. An `http://` entry is written through, and the build/pre-deploy signal is what tells the owner.
+- **The comma escape is a matched pair with the template.** Task 1 added `unescapeContactComma` in `edge-artifacts.ts`, which replaces `%2C` (case-insensitive) with `,` after splitting and does nothing else. `encodeStored` here is its exact inverse. If you change one, the contract breaks silently — the file still parses, it just publishes a wrong contact.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -309,6 +345,30 @@ struct SecurityReportingAssetTests {
             == ["a@example.com", "b@example.com"])
         // Validity is the template's job: an http:// entry survives here and is reported by the build.
         #expect(SecurityReportingAsset.normalizedContacts("http://nope.example") == ["http://nope.example"])
+        // A comma is a .site-config list separator, not a UI one — an entry may contain one.
+        #expect(SecurityReportingAsset.normalizedContacts("https://example.com/r?ref=a,b")
+            == ["https://example.com/r?ref=a,b"])
+    }
+
+    @Test("a comma inside one contact round-trips through the stored escape")
+    func commaEscapeRoundTrip() {
+        let entries = ["https://example.com/r?ref=a,b", "s@example.com"]
+        let stored = SecurityReportingAsset.encodeStored(entries)
+        #expect(stored == "https://example.com/r?ref=a%2Cb,s@example.com")
+        #expect(SecurityReportingAsset.decodeStored(stored) == entries)
+    }
+
+    @Test("decodeStored leaves ordinary percent sequences alone")
+    func decodeStoredIsNotAGeneralPercentDecode() {
+        // A general percent-decode would corrupt this to "https://example.com/a b".
+        #expect(SecurityReportingAsset.decodeStored("https://example.com/a%20b")
+            == ["https://example.com/a%20b"])
+    }
+
+    @Test("a pre-escape single value round-trips byte-identically")
+    func legacyValueRoundTrips() {
+        #expect(SecurityReportingAsset.decodeStored("security@example.com") == ["security@example.com"])
+        #expect(SecurityReportingAsset.encodeStored(["security@example.com"]) == "security@example.com")
     }
 
     @Test("derives the repo's private advisory form")
@@ -412,36 +472,63 @@ public enum SecurityReportingAsset {
     }
 
     public static func parseSettings(from config: String) -> Settings {
-        let contacts = SiteConfigFile.value(forKey: "SECURITY_CONTACT", in: config) ?? ""
+        let stored = SiteConfigFile.value(forKey: "SECURITY_CONTACT", in: config) ?? ""
         // An unset or unrecognized mode mirrors the template's `resolveSecurityTxtMode`: infer
         // from whether a contact is configured at all, so a site scaffolded before the key
         // existed doesn't appear to have silently turned security.txt off.
         let mode = Mode(rawValue: SiteConfigFile.value(forKey: "SECURITY_TXT_MODE", in: config) ?? "")
-            ?? (contacts.trimmingCharacters(in: .whitespaces).isEmpty ? .disabled : .generated)
-        return Settings(contacts: normalizedContacts(contacts).joined(separator: "\n"), mode: mode)
+            ?? (stored.trimmingCharacters(in: .whitespaces).isEmpty ? .disabled : .generated)
+        return Settings(contacts: decodeStored(stored).joined(separator: "\n"), mode: mode)
     }
 
     public static func install(_ settings: Settings, siteDirectory: URL) throws {
         let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
         let updated = SiteConfigFile.upsert([
-            ("SECURITY_CONTACT", normalizedContacts(settings.contacts).joined(separator: ",")),
+            ("SECURITY_CONTACT", encodeStored(normalizedContacts(settings.contacts))),
             ("SECURITY_TXT_MODE", settings.mode.rawValue),
         ], into: config)
         guard updated != config else { return }
         try updated.write(to: configURL, atomically: true, encoding: .utf8)
     }
 
-    /// Shape normalization only: split on commas and newlines, trim, drop blanks, collapse
+    /// Shape normalization of the UI's newline-separated text: trim, drop blanks, collapse
     /// duplicates, preserve order. Deliberately does not judge whether an entry is a usable
     /// RFC 9116 contact URI — see this type's doc comment.
+    ///
+    /// Splits on newlines only. A comma is a list separator in `.site-config`, not in the UI,
+    /// and an entry may legitimately contain one — splitting here would break it apart.
     public static func normalizedContacts(_ raw: String) -> [String] {
         var result: [String] = []
-        for part in raw.split(whereSeparator: { $0 == "," || $0.isNewline }) {
+        for part in raw.split(whereSeparator: { $0.isNewline }) {
             let value = part.trimmingCharacters(in: .whitespaces)
             if !value.isEmpty, !result.contains(value) { result.append(value) }
         }
         return result
+    }
+
+    /// Splits the stored `.site-config` value into entries, restoring escaped commas.
+    ///
+    /// Only `%2C` is decoded — a general percent-decode would turn an ordinary `%20` in a URL
+    /// into a space and corrupt every contact written before this escaping existed. This is the
+    /// exact inverse of `encodeStored`, and matches the template's `unescapeContactComma`.
+    public static func decodeStored(_ stored: String) -> [String] {
+        var result: [String] = []
+        for part in stored.split(separator: ",", omittingEmptySubsequences: true) {
+            let value = part.trimmingCharacters(in: .whitespaces)
+                .replacingOccurrences(of: "%2C", with: ",", options: [.caseInsensitive])
+            if !value.isEmpty, !result.contains(value) { result.append(value) }
+        }
+        return result
+    }
+
+    /// Joins entries into the stored `.site-config` value, escaping any comma inside an entry so
+    /// the split can never truncate a contact URI. A comma is legal in a URI path or query
+    /// (RFC 3986) and inside a quoted local part (RFC 5321).
+    public static func encodeStored(_ entries: [String]) -> String {
+        entries
+            .map { $0.replacingOccurrences(of: ",", with: "%2C") }
+            .joined(separator: ",")
     }
 
     /// The repo's private advisory form. `RemoteRepo` is GitHub-by-construction

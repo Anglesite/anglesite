@@ -133,13 +133,25 @@ and only fails on zero, and its `Expires`/`Canonical` cardinality rules are unto
 work. Its "check `SECURITY_CONTACT` is set to a usable contact" remediation string stays accurate
 for a list.
 
-**Migration: none.** A `.site-config` holding one value produces a byte-identical file to today —
-comma-splitting a comma-free string yields the same single entry. A comma is legal inside an RFC
-5321 quoted local part (`"a,b"@example.com`), but such an address is already unusable here: the
-current single-value generator has no quoting rules either, and `.site-config` is a flat
-`KEY=value` format with no escaping. Comma-separation is the established house convention
-(`SCRIPT_ALLOW`, `MTA_STS_MX`), so this design follows it rather than inventing a delimiter for a
-case no existing site can have.
+Comma-separation is the established house convention (`SCRIPT_ALLOW`, `MTA_STS_MX`), so this
+design follows it — but a contact URI can legally contain a comma. RFC 3986 permits an unescaped
+comma in a path or query (`https://example.com/report?ref=a,b`), and RFC 5321 permits one inside a
+quoted local part (`"Doe, John"@example.com`). The single-value generator passed both through
+byte-for-byte. Splitting unconditionally would silently truncate them, publishing a wrong
+reporting address with no warning.
+
+So the stored value is **escaped**: a comma inside one contact is written `%2C`, and each entry is
+unescaped after the split.
+
+**Only `%2C` is special.** The escape is a single targeted substitution, not a general
+percent-decode — decoding arbitrary percent sequences would turn an ordinary `%20` in a URL into a
+space and corrupt every contact written before this escaping existed. The residual case is a
+contact that deliberately carries a literal `%2C` meaning an already-encoded comma; that decodes
+to a raw comma. It is a vanishing case, and unlike truncation it neither drops nor shortens
+anything.
+
+**Migration: none.** Existing single values contain no `%2C` and no comma, so they round-trip
+byte-identically.
 
 ### 2. `SecurityReportingAsset` (AnglesiteCore)
 
@@ -180,6 +192,11 @@ Mirroring the template, the Swift side normalizes on save: entries are trimmed, 
 dropped, duplicates collapsed. It does **not** re-implement the template's URI validation — the
 generator remains the single authority on what is a usable RFC 9116 contact, and the UI reports an
 unusable entry rather than silently rewriting it (see "Validation ownership" below).
+
+The Swift side owns the **write** half of the comma escape described above: `install` replaces any
+comma inside an entry with `%2C` before joining, and `parseSettings` restores it after splitting.
+The two halves are a matched pair — the template decodes exactly what Swift encodes, and neither
+performs a general percent-decode.
 
 ### 3. Readiness: reading and writing the GitHub state
 

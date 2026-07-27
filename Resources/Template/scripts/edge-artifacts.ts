@@ -132,19 +132,30 @@ export function normalizeSecurityContact(contact: string | undefined): string | 
 }
 
 /**
- * Normalizes a comma-separated `SECURITY_CONTACT` into RFC 9116 Contact URIs, preserving the
- * configured preference order (§2.5.3: earlier entries are more preferred). Each entry goes
- * through `normalizeSecurityContact`; unusable entries are dropped and duplicates collapsed,
- * mirroring `normalizeMTAStsMX`.
+ * Restores the one character the `SECURITY_CONTACT` list escapes.
  *
- * `.site-config` is a flat KEY=value format with no escaping, so a comma is a safe delimiter
- * here: a comma is only legal in an email address inside an RFC 5321 quoted local part, which
- * the single-value generator could not express either.
+ * The list is comma-separated, but a contact URI may legally contain a comma — RFC 3986 allows
+ * one unescaped in a path or query (`https://example.com/report?ref=a,b`), and RFC 5321 allows
+ * one inside a quoted local part (`"Doe, John"@example.com`). The app writes such a comma as
+ * `%2C`; this puts it back, so splitting the list can never truncate a single contact.
+ *
+ * Only `%2C` is special. A general percent-decode would turn an ordinary `%20` in a URL into a
+ * space and corrupt every contact written before this escaping existed.
+ */
+function unescapeContactComma(entry: string): string {
+  return entry.replace(/%2C/gi, ",");
+}
+
+/**
+ * Normalizes a comma-separated `SECURITY_CONTACT` into RFC 9116 Contact URIs, preserving the
+ * configured preference order (§2.5.3: earlier entries are more preferred). Each entry is
+ * unescaped (see `unescapeContactComma`) and then passed through `normalizeSecurityContact`;
+ * unusable entries are dropped and duplicates collapsed, mirroring `normalizeMTAStsMX`.
  */
 export function normalizeSecurityContacts(raw: string | undefined): string[] {
   const result: string[] = [];
   for (const part of (raw ?? "").split(",")) {
-    const uri = normalizeSecurityContact(part);
+    const uri = normalizeSecurityContact(unescapeContactComma(part));
     if (uri !== null && !result.includes(uri)) result.push(uri);
   }
   return result;

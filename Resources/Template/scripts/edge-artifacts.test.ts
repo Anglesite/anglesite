@@ -198,6 +198,25 @@ test("normalizeSecurityContacts: a single value behaves exactly like the old sca
   assert.deepEqual(normalizeSecurityContacts("security@example.com"), ["mailto:security@example.com"]);
 });
 
+test("normalizeSecurityContacts: %2C restores a comma inside one contact instead of splitting it", () => {
+  // Without the escape this truncates to https://example.com/report?ref=a and drops "b".
+  assert.deepEqual(normalizeSecurityContacts("https://example.com/report?ref=a%2Cb"), [
+    "https://example.com/report?ref=a,b",
+  ]);
+});
+
+test("normalizeSecurityContacts: an escaped comma survives alongside real list separators", () => {
+  assert.deepEqual(normalizeSecurityContacts("https://example.com/r?ref=a%2Cb,security@example.com"), [
+    "https://example.com/r?ref=a,b",
+    "mailto:security@example.com",
+  ]);
+});
+
+test("normalizeSecurityContacts: an ordinary percent sequence is left alone", () => {
+  // A general percent-decode would corrupt this to "https://example.com/a b".
+  assert.deepEqual(normalizeSecurityContacts("https://example.com/a%20b"), ["https://example.com/a%20b"]);
+});
+
 test("buildSecurityTxt: emits one Contact line per entry, in configured preference order", () => {
   const out = buildSecurityTxt(
     "https://github.com/acme/site/security/advisories/new,security@example.com",
