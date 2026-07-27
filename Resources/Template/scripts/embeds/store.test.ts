@@ -70,6 +70,25 @@ test("localizeAssets: an unmapped asset is dropped, never left pointing at the p
   assert.deepEqual(out.media, []);
 });
 
+test("localizeAssets: a src that isn't a /embeds/ path is dropped and reported", () => {
+  const snap = sample();
+  snap.media = [{ src: "/uploads/not-ours.png", alt: "x" }, { src: "/embeds/abc/asset-0.png", alt: "ok" }];
+
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (message: string) => void warnings.push(message);
+  let out;
+  try {
+    out = localizeAssets(snap, {});
+  } finally {
+    console.warn = original;
+  }
+
+  assert.deepEqual(out.media, [{ src: "/embeds/abc/asset-0.png", alt: "ok" }]);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /\/uploads\/not-ours\.png/);
+});
+
 test("localizeAssets: does not mutate its input", () => {
   const input = sample();
   localizeAssets(input, {});

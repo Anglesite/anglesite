@@ -45,10 +45,19 @@ export function assetFilename(remoteURL: string, index: number): string {
   return SAFE_EXTENSIONS.has(ext) ? `asset-${index}.${ext}` : `asset-${index}.img`;
 }
 
+/** The served prefix every localized asset path must carry — `public/embeds` minus `public`. */
+export const LOCAL_MEDIA_PREFIX = `/${MEDIA_DIR.replace(/^public\//, "")}/`;
+
 /**
  * Replace every remote asset reference with its downloaded repo-relative path. An asset absent
  * from the map is **dropped**, never left remote — a half-localized snapshot would silently
  * reintroduce the third-party request this whole feature exists to remove.
+ *
+ * The final filter enforces `types.ts`'s invariant ("every `media[].src` is a repo-relative
+ * path, never a remote URL") at the one place that can still make it true: anything that isn't
+ * under `/embeds/` by now is dropped *and reported*, because a value that reached here without
+ * being remote and without being a downloaded path means an upstream normalizer produced
+ * something nobody accounted for.
  */
 export function localizeAssets(snap: EmbedSnapshot, map: Record<string, string>): EmbedSnapshot {
   const avatar = snap.author.avatar;
@@ -60,7 +69,14 @@ export function localizeAssets(snap: EmbedSnapshot, map: Record<string, string>)
     },
     media: snap.media
       .map((asset) => (isRemote(asset.src) ? { ...asset, src: map[asset.src] } : asset))
-      .filter((asset): asset is EmbedSnapshot["media"][number] => typeof asset.src === "string"),
+      .filter((asset): asset is EmbedSnapshot["media"][number] => {
+        if (typeof asset.src !== "string") return false;
+        if (!asset.src.startsWith(LOCAL_MEDIA_PREFIX)) {
+          console.warn(`⚠ dropped embed media ${asset.src} — not a ${LOCAL_MEDIA_PREFIX} path`);
+          return false;
+        }
+        return true;
+      }),
   };
 }
 

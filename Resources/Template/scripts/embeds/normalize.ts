@@ -61,7 +61,11 @@ function base(
   };
 }
 
-/** ISO-8601 or undefined — never an Invalid Date, which would serialize as null. */
+/**
+ * ISO-8601 or undefined — never an Invalid Date, whose `toISOString()` throws a `RangeError`
+ * rather than producing anything writable. Platform payloads carry human-formatted dates
+ * (X's oEmbed blockquote in particular), so unparseable input is routine, not exceptional.
+ */
 function isoOrUndefined(input: string | undefined): string | undefined {
   if (!input) return undefined;
   const d = new Date(input);
@@ -205,6 +209,27 @@ export function normalizeOpenGraph(html: string, canonicalURL: string, capturedA
   const siteName = metaContent(html, "og:site_name");
   if (siteName) snap.author.name = siteName;
   const image = metaContent(html, "og:image");
-  if (image) snap.media.push({ src: image, alt: title });
+  const imageURL = image ? absolutize(image, canonicalURL) : undefined;
+  if (imageURL) snap.media.push({ src: imageURL, alt: title });
   return snap;
+}
+
+/**
+ * Resolve an `og:image` against the page it was read from. The Open Graph spec asks for an
+ * absolute URL, but plenty of sites publish `content="/img/hero.png"` or the protocol-relative
+ * `content="//cdn.example.com/hero.png"` — and this is the *universal fallback* adapter, so
+ * "plenty of sites" is the whole long tail. Left verbatim, neither form matches `store.ts`'s
+ * `^https?://` remote test: it would never be collected, never downloaded, and would land in a
+ * committed snapshot as a `media[].src` that is neither local nor fetchable — breaking both the
+ * card (an image-less generic card, every time) and the invariant `types.ts` asserts.
+ *
+ * Returns undefined rather than throwing on a malformed value; a card with no image beats a
+ * failed capture.
+ */
+function absolutize(value: string, baseURL: string): string | undefined {
+  try {
+    return new URL(value, baseURL).href;
+  } catch {
+    return undefined;
+  }
 }

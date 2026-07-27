@@ -81,6 +81,43 @@ test("normalizeOpenGraph: og:title beats <title>, og:image becomes media", () =>
   assert.deepEqual(s.media, [{ src: "https://example.com/card.png", alt: "A Post On Some Blog" }]);
 });
 
+test("normalizeOpenGraph: a relative og:image is resolved against the page URL", () => {
+  const s = normalizeOpenGraph(
+    '<meta property="og:title" content="T"><meta property="og:image" content="/img/hero.png">',
+    "https://example.com/blog/some/post",
+    AT,
+  );
+  assert.deepEqual(s.media, [{ src: "https://example.com/img/hero.png", alt: "T" }]);
+});
+
+test("normalizeOpenGraph: a protocol-relative og:image inherits the page's scheme", () => {
+  const s = normalizeOpenGraph(
+    '<meta property="og:title" content="T"><meta property="og:image" content="//cdn.example.com/hero.png">',
+    "https://example.com/blog/some/post",
+    AT,
+  );
+  assert.deepEqual(s.media, [{ src: "https://cdn.example.com/hero.png", alt: "T" }]);
+});
+
+test("normalizeOpenGraph: an absolute og:image is left exactly as published", () => {
+  const s = normalizeOpenGraph(
+    '<meta property="og:title" content="T"><meta property="og:image" content="https://cdn.other/x.png">',
+    "https://example.com/p",
+    AT,
+  );
+  assert.deepEqual(s.media, [{ src: "https://cdn.other/x.png", alt: "T" }]);
+});
+
+test("normalizeOpenGraph: a malformed og:image yields no media instead of throwing", () => {
+  const s = normalizeOpenGraph(
+    '<meta property="og:title" content="T"><meta property="og:image" content="http://[">',
+    "https://example.com/p",
+    AT,
+  );
+  assert.equal(s.content, "T");
+  assert.deepEqual(s.media, []);
+});
+
 test("normalizers degrade on partial payloads instead of throwing", () => {
   const empty = normalizeX({}, "https://x.com/a/status/1", AT);
   assert.equal(empty.content, "");
