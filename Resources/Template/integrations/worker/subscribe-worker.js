@@ -6,10 +6,11 @@
  * ../../../docs/newsletter-setup.md (staged to docs/newsletter-setup.md).
  *
  * Secrets (set via `wrangler secret put`):
- *   NEWSLETTER_API_KEY  — Buttondown or Mailchimp API key
- *   NEWSLETTER_PLATFORM — "buttondown" or "mailchimp"
- *   MAILCHIMP_LIST_ID   — Mailchimp audience/list ID (Mailchimp only)
- *   SITE_DOMAIN         — For CORS origin validation
+ *   NEWSLETTER_API_KEY     — Buttondown, Mailchimp, or beehiiv API key
+ *   NEWSLETTER_PLATFORM    — "buttondown", "mailchimp", or "beehiiv"
+ *   MAILCHIMP_LIST_ID      — Mailchimp audience/list ID (Mailchimp only)
+ *   BEEHIIV_PUBLICATION_ID — beehiiv publication ID, "pub_…" (beehiiv only)
+ *   SITE_DOMAIN            — For CORS origin validation
  */
 
 const RATE_LIMIT_SECONDS = 30;
@@ -84,6 +85,25 @@ async function subscribeMailchimp(email, apiKey, listId) {
   return { ok: false, errors: ["Subscribe failed. Please try again later."] };
 }
 
+async function subscribeBeehiiv(email, apiKey, publicationId) {
+  const response = await fetch(
+    `https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      // beehiiv treats an existing subscriber as an upsert (no distinct
+      // "already subscribed" error), so any 2xx is success.
+      body: JSON.stringify({ email, double_opt_override: "on" }), // double opt-in
+    },
+  );
+
+  if (response.ok) return { ok: true };
+  return { ok: false, errors: ["Subscribe failed. Please try again later."] };
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
@@ -135,6 +155,8 @@ export default {
       result = await subscribeButtondown(email, env.NEWSLETTER_API_KEY);
     } else if (platform === "mailchimp") {
       result = await subscribeMailchimp(email, env.NEWSLETTER_API_KEY, env.MAILCHIMP_LIST_ID);
+    } else if (platform === "beehiiv") {
+      result = await subscribeBeehiiv(email, env.NEWSLETTER_API_KEY, env.BEEHIIV_PUBLICATION_ID);
     } else {
       result = { ok: false, errors: ["Newsletter service not configured."] };
     }
