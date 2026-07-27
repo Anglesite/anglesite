@@ -12,7 +12,8 @@ public enum ContentFieldValidation {
     /// `new URL()` parses — including `mailto:` and other host-less schemes. A `.url` field feeds a
     /// `u-*` microformat property (`u-bookmark-of`, `u-in-reply-to`, `u-like-of`), which needs a
     /// dereferenceable target, so requiring a host is the useful rule. Anything accepted here is
-    /// accepted by `z.string().url()`, so a value that passes never fails `astro check`.
+    /// accepted by `z.string().url()` — including the port range, see below — so a value that
+    /// passes never fails `astro check`.
     ///
     /// Mirrors the same host-not-just-scheme rule `IntegrationPlanner` applies to its `.url` fields.
     public static func isAbsoluteURL(_ value: String) -> Bool {
@@ -20,7 +21,11 @@ public enum ContentFieldValidation {
         guard !trimmed.isEmpty,
               let components = URLComponents(string: trimmed),
               let scheme = components.scheme, !scheme.isEmpty,
-              let host = components.host, !host.isEmpty
+              let host = components.host, !host.isEmpty,
+              // `URLComponents` parses ports above 65535 (e.g. `:99999`) without complaint, but the
+              // WHATWG URL parser behind `z.string().url()` rejects anything outside 0...65535 — so
+              // this bound has to be enforced here to keep the two parsers' accept sets in sync.
+              components.port.map { (0...65_535).contains($0) } ?? true
         else { return false }
         return true
     }
