@@ -185,6 +185,7 @@ public actor AuditCommand {
     /// runners are mechanical follow-ups that slot into this list without changing
     /// the actor or sheet UI (#86 follow-ups).
     public static let defaultRunners: [any AuditRunner] = [
-        A11yAuditRunner()
+        A11yAuditRunner(),
+        SecurityTxtAuditRunner()
     ]
 }
