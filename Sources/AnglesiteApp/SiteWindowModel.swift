@@ -1260,6 +1260,10 @@ final class SiteWindowModel {
             relPath = post.filePath
             deletedRoute = postRoute(for: post)
         } else {
+            // Reachable whenever the row outlived the graph entry behind it (a page deleted
+            // outside the app, a rescan mid-dialog). Reported rather than returned silently:
+            // an unexplained no-op here is exactly what #968 was raised about.
+            contentActionError = "\(item.title) is no longer part of this site's content."
             return
         }
 
