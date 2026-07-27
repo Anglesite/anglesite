@@ -39,6 +39,7 @@ struct MainPaneEditorView: View {
                             .scrollContentBackground(.hidden)
                             .findNavigator(isPresented: $model.isFindPresented)
                             .focused($isPlainTextEditorFocused)
+                            .id(model.file.id)
                             .onChange(of: isPlainTextEditorFocused) { _, focused in
                                 if focused {
                                     EditorFocusRegistry.shared.activate(
