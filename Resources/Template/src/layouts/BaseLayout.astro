@@ -4,7 +4,7 @@ import Hcard from "../components/Hcard.astro";
 import Rights from "../components/Rights.astro";
 import { readConfig } from "../../scripts/config";
 import { siteLicense } from "../lib/licensing-data.ts";
-import type { LicenseRef } from "../lib/licensing.ts";
+import { headLicense, type LicenseRef } from "../lib/licensing.ts";
 // anglesite:imports — integration component imports are injected here on setup
 
 interface Props {
@@ -18,7 +18,8 @@ interface Props {
   license?: LicenseRef | null;
 }
 
-const { title, description, license = siteLicense() } = Astro.props;
+const { title, description } = Astro.props;
+const license = headLicense(Astro.props.license, siteLicense());
 ---
 
 <!doctype html>

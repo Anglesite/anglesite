@@ -1,3 +1,8 @@
+# Anglesite website template
+
+This directory is the Anglesite website template: an Astro project that gets scaffolded into
+a new site's `Source/` directory when you create a site in the app.
+
 ## Content licensing
 
 `src/data/licensing.json` declares the license applied to your content. It holds a site-wide

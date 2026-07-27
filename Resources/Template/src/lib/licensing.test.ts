@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  headLicense,
   NON_ASSERTING_COLLECTIONS,
   normalizePolicy,
   resolveLicense,
@@ -80,4 +81,26 @@ test("normalizePolicy: falls back to the url when name is absent", () => {
 test("normalizePolicy: a non-object document yields an empty policy", () => {
   assert.deepEqual(normalizePolicy("nope"), { default: null, collections: {} });
   assert.deepEqual(normalizePolicy(null), { default: null, collections: {} });
+});
+
+test("headLicense: undefined prop falls through to the site default", () => {
+  assert.deepEqual(headLicense(undefined, CC_BY), CC_BY);
+});
+
+test("headLicense: explicit null prop wins even when a site default exists", () => {
+  // This is the case `prop ?? siteDefault` gets wrong: `??` treats null the same as
+  // undefined and would fall back to CC_BY here, re-asserting a license the caller
+  // explicitly suppressed (e.g. a non-asserting collection entry). headLicense must
+  // return null, not CC_BY.
+  assert.equal(headLicense(null, CC_BY), null);
+});
+
+test("headLicense: an explicit ref overrides the site default", () => {
+  const override = { url: "https://example.com/override", name: "Override" };
+  assert.deepEqual(headLicense(override, CC_BY), override);
+});
+
+test("headLicense: an explicit ref applies even when the site default is null", () => {
+  const override = { url: "https://example.com/override", name: "Override" };
+  assert.deepEqual(headLicense(override, null), override);
 });

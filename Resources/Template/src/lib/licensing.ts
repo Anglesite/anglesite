@@ -108,3 +108,23 @@ export function resolveLicense(
   if (NON_ASSERTING_COLLECTIONS.includes(collection)) return null;
   return policy.default;
 }
+
+/**
+ * Resolve the `license` prop `BaseLayout.astro` receives against the site default, for the
+ * `<link rel="license">` head tag (and, via the shared `license` local, the footer rights
+ * statement too — that sharing is what keeps head and footer from disagreeing).
+ *
+ * `undefined` and `null` must stay distinct here: `undefined` means the caller didn't pass a
+ * `license` prop at all (an ordinary page, which should inherit the site default), while an
+ * explicit `null` means the caller — an entry in a non-asserting collection — deliberately
+ * suppressed the license. Collapsing that distinction with `prop ?? siteDefault` is WRONG: `??`
+ * treats `null` the same as `undefined` and would silently re-assert the site default on a page
+ * that explicitly opted out, reintroducing the two-different-licenses contradiction this function
+ * exists to prevent. Use `===` against `undefined`, not `??`, and do not "simplify" this later.
+ */
+export function headLicense(
+  prop: LicenseRef | null | undefined,
+  siteDefault: LicenseRef | null,
+): LicenseRef | null {
+  return prop === undefined ? siteDefault : prop;
+}
