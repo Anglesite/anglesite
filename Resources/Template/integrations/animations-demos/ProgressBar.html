@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Progress bar</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;
+font-family:-apple-system,system-ui,sans-serif;background:Canvas;color:CanvasText;color-scheme:light dark}</style>
+<style>
+  .progress-root {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .progress-label {
+    font-size: var(--label-size, 14px);
+    font-weight: 500;
+    color: #374151;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .progress-label {
+      color: #000;
+      font-family: sans-serif;
+    }
+  }
+
+  .progress-track {
+    width: 100%;
+    height: var(--track-height, 8px);
+    background: var(--track-color, #e5e7eb);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: var(--progress, 0%);
+    background: var(--fill-color, #3b82f6);
+    border-radius: 9999px;
+    transition: width 300ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .progress-fill {
+      transition: none;
+    }
+  }
+</style>
+</head><body>
+<div class="progress-root" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="
+    --progress: 60%;
+    --track-height: 8px;
+    --label-size: 14px;
+    --fill-color: #3b82f6;
+  " data-astro-cid-ii6bfh6j><div class="progress-track" style="background: #e5e7eb;" data-astro-cid-ii6bfh6j><div class="progress-fill" data-astro-cid-ii6bfh6j></div></div></div>
+</body></html>

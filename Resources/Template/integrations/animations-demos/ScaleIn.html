@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Scale in</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;
+font-family:-apple-system,system-ui,sans-serif;background:Canvas;color:CanvasText;color-scheme:light dark}</style>
+<style>
+  /**
+   * ✅ CRITERION 1: Visible Without JS
+   * The default state is fully visible with no transform.
+   */
+  [data-astro-scale-in] {
+    opacity: 1;
+    transform: scale(1);
+    will-change: transform, opacity;
+  }
+
+  /**
+   * ✅ CRITERION 7: CSS-First (States)
+   * Hidden state only applies if JS has marked the component as 'ready'.
+   */
+  [data-astro-scale-in][data-ready="true"][data-state="hidden"] {
+    opacity: 0;
+    transform: scale(var(--initial-scale));
+  }
+
+  /**
+   * ✅ CRITERION 7: Visible state handles the transition.
+   */
+  [data-astro-scale-in][data-ready="true"][data-state="visible"] {
+    opacity: 1;
+    transform: scale(1);
+    transition: 
+      opacity var(--duration) var(--easing) var(--delay),
+      transform var(--duration) var(--easing) var(--delay);
+  }
+
+  /**
+   * ✅ CRITERION 6: Reduced Motion Respected
+   * All animations disabled if the user prefers reduced motion.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    [data-astro-scale-in] {
+      opacity: 1 !important;
+      transform: scale(1) !important;
+      transition: none !important;
+    }
+  }
+</style>
+</head><body>
+<!-- ✅ CRITERION 1: Meaningful HTML content exists --><div data-astro-scale-in="true" data-enhance="false" data-once="true" data-margin="0px 0px -10% 0px" style="
+  --duration: 600ms;
+  --delay: 0ms;
+  --easing: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --initial-scale: 0.9;
+" data-astro-cid-juuuxy5z="true" class="astro-scale-in">Scale in demo</div><!-- ✅ CRITERION 2: Zero Hydration (Vanilla script) -->
+</body></html>

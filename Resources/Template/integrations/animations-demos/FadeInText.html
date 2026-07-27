@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fade-in text</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;
+font-family:-apple-system,system-ui,sans-serif;background:Canvas;color:CanvasText;color-scheme:light dark}</style>
+<style>
+  /*
+   * Separate CSS paths for enhance=false vs enhance=true.
+   *
+   * CSS animation ONLY fires on data-enhance="false" elements.
+   * enhance=true elements start statically hidden — JS owns their animation.
+   * A 2s CSS fallback animation on enhance=true ensures content is never
+   * permanently invisible if JS fails to load.
+   */
+
+  /* ✅ C1 + C7: CSS-only path for enhance=false.
+     Plays automatically on every page load and page refresh.
+     fill-mode "both": element starts in "from" state during delay,
+     and stays in "to" state permanently after the animation ends. */
+  [data-astro-fade-in-text][data-enhance="false"]:not([data-ready]) {
+    animation: fadeInText var(--fit-duration) var(--fit-easing) var(--fit-delay) both;
+  }
+
+  /* ✅ C1: Static hidden state for enhance=true, before JS runs.
+     CSS animation is intentionally suppressed here — JS will control it.
+     The 2s fallback animation is a safety net: if JS fails or is blocked,
+     content becomes visible after 2s instead of staying hidden forever. */
+  [data-astro-fade-in-text][data-enhance="true"]:not([data-ready]) {
+    opacity: 0;
+    filter: blur(var(--fit-blur));
+    transform: translateY(var(--fit-y-offset));
+    animation: fadeInText var(--fit-duration) var(--fit-easing) 2s both;
+  }
+
+  @keyframes fadeInText {
+    from {
+      opacity: 0;
+      filter: blur(var(--fit-blur));
+      transform: translateY(var(--fit-y-offset));
+    }
+    to {
+      opacity: 1;
+      filter: blur(0px);
+      transform: translateY(0);
+    }
+  }
+
+  /* ── JS-enhanced states ─────────────────────────────────────────────────
+     Activated once JS sets data-ready="true". All visual changes are
+     driven purely by data-state attribute — JS never writes element.style.
+     ──────────────────────────────────────────────────────────────────────── */
+
+  /* ✅ C7: Waiting for viewport entry */
+  [data-astro-fade-in-text][data-ready="true"][data-state="hidden"] {
+    opacity: 0;
+    filter: blur(var(--fit-blur));
+    transform: translateY(var(--fit-y-offset));
+  }
+
+  /* ✅ C7: Element is in viewport — CSS transition to fully visible */
+  [data-astro-fade-in-text][data-ready="true"][data-state="animate"] {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0);
+    transition:
+      opacity   var(--fit-duration) var(--fit-easing) var(--fit-delay),
+      filter    var(--fit-duration) var(--fit-easing) var(--fit-delay),
+      transform var(--fit-duration) var(--fit-easing) var(--fit-delay);
+  }
+
+  /* ✅ C6: ALL CSS motion neutralised for prefers-reduced-motion.
+     Covers both the CSS-only path and the JS-enhanced path.
+     Content is shown immediately regardless of animation state. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-astro-fade-in-text]:not([data-ready]) {
+      animation: none !important;
+      opacity: 1 !important;
+      filter: none !important;
+      transform: none !important;
+    }
+    [data-astro-fade-in-text][data-ready="true"] {
+      opacity: 1 !important;
+      filter: none !important;
+      transform: none !important;
+      transition: none !important;
+    }
+  }
+</style>
+</head><body>
+<!-- ✅ C1: Slot content always present in HTML — meaningful without JS.
+     ✅ C4: No import.meta.env.DEV — identical in dev, build, and preview.
+     ✅ C5: No astro:* events. Standard data attributes only.
+     {...rest} forwards id, aria-label, role, tabindex, data-*, etc.
+     Style is a single inline string — no stray newlines in HTML output. --><div data-astro-fade-in-text="true" data-enhance="false" data-once="true" data-margin="-50px" style="--fit-duration:0.6s;--fit-delay:0s;--fit-easing:cubic-bezier(0.4, 0, 0.2, 1);--fit-blur:6px;--fit-y-offset:20px" data-astro-cid-6l634ln7="true" class="astro-fade-in-text">Fade-in text demo</div><!-- ✅ C2: Script emitted ONLY when enhance=true. No unconditional scripts.
+     is:inline is required — Astro does NOT bundle <script> tags sourced
+     from node_modules. is:inline embeds the script verbatim in HTML output,
+     guaranteeing it ships regardless of the consumer's build configuration. -->
+</body></html>

@@ -219,7 +219,19 @@ git commit -m "feat(template): curated Astro Animate catalog + smoke tests (#<IS
 **Interfaces:**
 - Produces: `integrations/animations-demos/<Component>.html` — self-contained (inline `<style>` only) demo pages, loaded by the WS2 gallery's WKWebView via file URL.
 
-- [ ] **Step 1: Add demo-snapshot and docs tests** to `animations-catalog.spec.ts` (inside the per-entry `describe`):
+- [x] **Step 1: Add demo-snapshot and docs tests** to `animations-catalog.spec.ts` (inside the per-entry `describe`):
+
+  Deviation from the plan's literal test body: `AstroContainer#renderToString` does not bundle a
+  component's scoped `<style>` block (that extraction is normally a Vite/build-time asset step
+  the container API doesn't run), so the demo page as originally specified rendered with zero
+  CSS — no `@keyframes`, nothing — which would contradict the spec's "prerendered demos animate
+  for real" goal. Fixed by reading the component's raw source and inlining its `<style>` block
+  content (via `[...source.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)]`) into the demo page's
+  `<head>`. Verified safe: every curated component's CSS selectors are plain classes or
+  `[data-*]` attributes (not Astro's `:scope` hash), and each demo page renders exactly one
+  instance, so there's no scoping collision. Visually verified in the browser: `FadeInText.html`
+  renders the fade-in text visible after its animation completes, and `InfiniteMarquee.html`
+  shows the marquee track actually scrolling with edge fade.
 
 ```ts
       it("demo snapshot is fresh", async () => {
@@ -258,19 +270,23 @@ git commit -m "feat(template): curated Astro Animate catalog + smoke tests (#<IS
   });
 ```
 
-- [ ] **Step 2: Generate snapshots.**
+- [x] **Step 2: Generate snapshots.**
 
 Run: `npx vitest run --config vitest.astro.config.ts -u`
 Expected: PASS; one `.html` per curated component appears under `integrations/animations-demos/`. Open one in a browser and confirm the animation plays.
 
-- [ ] **Step 3: Write `integrations/docs/animations.md`.** Header explaining: baked-in `@astroanimate/core@0.1.2`, CSS-only policy (never `enhance={true}` — the site CSP blocks inline scripts), import style, and then one `## <Component>` section per curated entry containing the `ownerDescription`, key props table, and the manifest `snippet` in a fenced code block. The docs test from Step 1 enforces coverage.
+  Confirmed in the Browser pane: `FadeInText.html` and `InfiniteMarquee.html` both animate.
 
-- [ ] **Step 4: Run the full template test script.**
+- [x] **Step 3: Write `integrations/docs/animations.md`.** Header explaining: baked-in `@astroanimate/core@0.1.2`, CSS-only policy (never `enhance={true}` — the site CSP blocks inline scripts), import style, and then one `## <Component>` section per curated entry containing the `ownerDescription`, key props table, and the manifest `snippet` in a fenced code block. The docs test from Step 1 enforces coverage.
+
+- [x] **Step 4: Run the full template test script.**
 
 Run (from `Resources/Template/`): `npm test`
 Expected: PASS (tsx suites + worker vitest + astro vitest).
 
-- [ ] **Step 5: Commit:**
+  `npm test` (tsx suites, 452 passed/2 skipped, + astro vitest, 35 passed) and `npm run test:worker` (115 passed) both ran green; `npm test` as wired doesn't itself invoke `test:worker` (see CI's `template-worker` job, which runs `npm test` and `npm run test:worker` as two separate steps) — ran it separately for full coverage since this task touches template files under test.
+
+- [x] **Step 5: Commit:**
 
 ```bash
 git add Resources/Template/integrations/animations-demos Resources/Template/integrations/docs/animations.md \
