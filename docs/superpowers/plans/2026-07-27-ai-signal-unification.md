@@ -869,7 +869,7 @@ extension LicensingPolicy: Codable {
         var stringValue: String
         var intValue: Int? { nil }
         init?(stringValue: String) { self.stringValue = stringValue }
-        init?(intValue: Int) { nil }
+        init?(intValue: Int) { return nil }
     }
 
     public init(from decoder: any Decoder) throws {
