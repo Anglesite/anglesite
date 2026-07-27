@@ -19,6 +19,11 @@ struct SitesLauncherView: View {
     private static var didAutoOpenAttempt = false
 
     @State private var sites: [SiteStore.Site] = []
+    /// Drives a visible highlight while a file-URL drag hovers `siteList` (#676). Lights up for
+    /// any file-URL drag, not only valid `.anglesite` packages — see the design doc's "Drop-
+    /// highlight fidelity" decision. The drop itself still only accepts `.anglesite` packages,
+    /// unchanged below.
+    @State private var isDropTargeted = false
     @State private var loadError: String?
     @State private var deciding = true
     /// Guards `presentNewSite()` against a double-trigger while it is preparing (it `await`s
@@ -209,6 +214,17 @@ struct SitesLauncherView: View {
                 }
             }
             return true
+        } isTargeted: { targeted in
+            isDropTargeted = targeted
+        }
+        .overlay {
+            // Explicit targeted feedback (#676) — the system's default drag highlight is subtle
+            // enough that #524's drop target had no clearly visible accepted/rejected state.
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .allowsHitTesting(false)
+            }
         }
         .confirmationDialog(
             "Remove “\(siteToRemoveName)” from Anglesite?",
