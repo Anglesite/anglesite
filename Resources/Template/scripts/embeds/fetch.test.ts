@@ -42,6 +42,24 @@ test("fetchSnapshot: opengraph reads HTML, not JSON", async () => {
   assert.equal(snap.content, "Hello");
 });
 
+test("fetchSnapshot: opengraph with no og: tags at all rejects instead of a junk snapshot", async () => {
+  // The Instagram shape: HTTP 200, a <title>, and no og:* metadata. normalizeOpenGraph would
+  // happily fall back to the title and "succeed" with junk — fetchSnapshot must not let that
+  // reach the caller as success, so the CLI's existing "no Open Graph metadata" error path
+  // (scripts/embed-snapshot.ts) actually fires instead of a silent write.
+  const req = resolveAdapter("https://www.instagram.com/p/CxYZ123/")!;
+  await assert.rejects(
+    () =>
+      fetchSnapshot(req, AT, async () =>
+        new Response("<!doctype html><title>Instagram</title>", {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        }),
+      ),
+    /no Open Graph metadata/,
+  );
+});
+
 test("fetchSnapshot: a non-OK response throws with the status, not a silent empty card", async () => {
   const req = resolveAdapter("https://www.youtube.com/watch?v=a")!;
   await assert.rejects(

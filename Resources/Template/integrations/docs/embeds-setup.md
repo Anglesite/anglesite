@@ -68,27 +68,16 @@ your copy still shows what it said when you captured it. Re-run the same command
 ## Instagram
 
 Instagram has no dedicated adapter — an Instagram URL goes through the generic Open Graph
-adapter, the same one used for any site this template doesn't specifically recognize. Instagram
-doesn't refuse the request outright, though: it serves a generic page with no post-specific
-metadata at all. So running
+adapter, the same one used for any site this template doesn't specifically recognize.
+Instagram reliably returns HTTP 200 with no post-specific metadata at all (just a bare
+`<title>Instagram</title>`, no `og:` tags whatsoever), and the snapshotter treats that as a
+failure rather than writing a card with none of the real post in it. So running
 
 ```sh
 npm run embed -- https://www.instagram.com/p/CxYZ123
 ```
 
-against an Instagram URL reports success, but the snapshot it writes has none of the real post
-in it — the author is just the bare domain, the caption is the single word "Instagram," and
-there's no image. (The platform can also refuse the request outright and write nothing at all —
-the fix below covers that case too.)
-
-Either way, the command's own output tells you the slug for the file it did or didn't write. On
-success, the last line names it directly:
-
-```
-✓ wrote /path/to/your/site/src/embeds/a1b2c3d4e5f6.json
-```
-
-On failure, it's spelled out instead:
+against an Instagram URL fails and writes nothing:
 
 ```
 ✗ https://www.instagram.com/p/CxYZ123 — no Open Graph metadata could be read.
@@ -97,12 +86,16 @@ On failure, it's spelled out instead:
   that snapshot's media[] by hand.
 ```
 
-`a1b2c3d4e5f6` there is your `<slug>` — copy the one from your own terminal output, not this
-example.
+(The platform can also refuse the request outright instead of serving that empty page — the
+fix below covers that case too, and reports the same way.)
+
+`a1b2c3d4e5f6` there is your `<slug>` — the command derives it from the URL and prints it in
+this message even though it wrote nothing, so copy the one from your own terminal output, not
+this example. You'll need it for both steps below.
 
 1. Save a screenshot of the post into `public/embeds/<slug>/`, e.g.
    `public/embeds/a1b2c3d4e5f6/screenshot.png`.
-2. Open (or, if nothing was written, create) `src/embeds/<slug>.json` and make sure it reads:
+2. Since the command didn't write a snapshot, create `src/embeds/<slug>.json` by hand:
 
    ```json
    {
@@ -123,8 +116,6 @@ example.
    }
    ```
 
-   If the command already wrote this file, `url`, `provider`, and `capturedAt` are already
-   right — leave them, and just fix `author.name` and `content`, and add the `media` entry.
    If you don't have a screenshot, leave `media` as `[]`; the card still renders with the
    author name, caption, and a link to the original post.
 

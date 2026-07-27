@@ -181,6 +181,22 @@ function metaContent(html: string, property: string): string | undefined {
   return raw === undefined ? undefined : htmlToText(raw);
 }
 
+/** The `og:*` properties that count as "this page published Open Graph metadata". */
+const OG_METADATA_PROPERTIES = ["og:title", "og:description", "og:image"] as const;
+
+/**
+ * True when the page carries at least one real `og:*` meta tag. This is the seam callers
+ * need to distinguish "the page published Open Graph metadata" from `normalizeOpenGraph`'s
+ * own fallback behavior: that function falls back to the `<title>` element when no `og:*`
+ * tags are present, so it always yields non-empty `content` — even for a page like
+ * Instagram's, which returns HTTP 200 with a `<title>` of "Instagram" and no `og:` tags at
+ * all. `normalizeOpenGraph`'s output alone can't tell a caller which case happened; this
+ * function inspects the same HTML directly, with no normalization or fallback, so it can.
+ */
+export function hasOpenGraphMetadata(html: string): boolean {
+  return OG_METADATA_PROPERTIES.some((property) => (metaContent(html, property)?.length ?? 0) > 0);
+}
+
 export function normalizeOpenGraph(html: string, canonicalURL: string, capturedAt: string): EmbedSnapshot {
   const snap = base("opengraph", canonicalURL, capturedAt);
   const title = metaContent(html, "og:title") ?? htmlToText(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "");

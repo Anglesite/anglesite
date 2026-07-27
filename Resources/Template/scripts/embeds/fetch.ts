@@ -4,6 +4,7 @@ import type { AdapterRequest } from "./adapters";
 import type { EmbedProvider, EmbedSnapshot } from "./types";
 import { assetFilename, mediaDir, MEDIA_DIR } from "./store";
 import {
+  hasOpenGraphMetadata,
   normalizeBluesky,
   normalizeMastodon,
   normalizeOpenGraph,
@@ -58,6 +59,13 @@ export async function fetchSnapshot(
     wantsHTML ? "text/html,application/xhtml+xml" : "application/json",
   );
   const raw: unknown = wantsHTML ? await response.text() : await response.json();
+  // A 200 with no `og:*` tags at all (Instagram, reliably) never throws on its own, but
+  // `normalizeOpenGraph`'s <title>-fallback would still turn it into a "successful" snapshot
+  // with junk content. Treat "no Open Graph metadata published" as a failure here instead,
+  // so callers get the same failure path as any other unreadable response.
+  if (wantsHTML && !hasOpenGraphMetadata(raw as string)) {
+    throw new Error(`no Open Graph metadata found at ${request.canonicalURL}`);
+  }
   return normalizeFor(request.provider, raw, request.canonicalURL, capturedAt);
 }
 

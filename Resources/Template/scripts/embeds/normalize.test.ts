@@ -10,6 +10,7 @@ import {
   normalizeBluesky,
   normalizeMastodon,
   normalizeOpenGraph,
+  hasOpenGraphMetadata,
 } from "./normalize";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -87,6 +88,29 @@ test("normalizers degrade on partial payloads instead of throwing", () => {
   assert.deepEqual(normalizeBluesky({}, "https://bsky.app/x", AT).media, []);
   assert.equal(normalizeMastodon({ account: null }, "https://m.example/@a/1", AT).content, "");
   assert.equal(normalizeOpenGraph("<html></html>", "https://example.com/p", AT).content, "");
+});
+
+test("hasOpenGraphMetadata: a page with real og: tags has metadata", () => {
+  assert.equal(hasOpenGraphMetadata(fixture("opengraph.html")), true);
+});
+
+test("hasOpenGraphMetadata: a <title>-only page (the Instagram shape) has NO metadata", () => {
+  // Instagram returns HTTP 200 with a <title>Instagram</title> and no og: tags at all —
+  // normalizeOpenGraph would still fall back to that title, but there is no real metadata.
+  assert.equal(hasOpenGraphMetadata(fixture("instagram-title-only.html")), false);
+});
+
+test("hasOpenGraphMetadata: empty/garbage HTML has no metadata", () => {
+  assert.equal(hasOpenGraphMetadata(""), false);
+  assert.equal(hasOpenGraphMetadata("<html></html>"), false);
+  assert.equal(hasOpenGraphMetadata("not even html, just garbage text"), false);
+});
+
+test("hasOpenGraphMetadata: og:image alone (no title/description) still counts", () => {
+  assert.equal(
+    hasOpenGraphMetadata('<meta property="og:image" content="https://example.com/card.png">'),
+    true,
+  );
 });
 
 test("normalizers never throw on a hostile payload", () => {
