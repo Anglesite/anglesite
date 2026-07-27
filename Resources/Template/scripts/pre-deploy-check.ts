@@ -50,6 +50,17 @@ const PII_PATTERNS = [
   { name: "SSN", pattern: /\b\d{3}-\d{2}-\d{4}\b/g },
 ];
 
+// Directories whose every byte is emitted by a dependency, never authored by the site owner.
+// Only the email pattern is relaxed for these, and only because shipped library bundles carry
+// their contributors' addresses as attribution (Pagefind's `thanks_to` translator credits,
+// #974) — a match there says nothing about the owner's own data, which is what this scan exists
+// to catch. Every other check still runs on these files: phone/SSN, secrets and tokens, blocked
+// trackers, mixed content, and admin routes.
+//
+// Anchored at the start of the relative path, so an owner-authored page that merely has
+// "pagefind" somewhere in its route is scanned normally.
+const VENDORED_EMAIL_EXEMPT = [/^dist\/pagefind\//];
+
 const SECRET_PATTERNS = [
   { name: "API key", pattern: /(?:api[_-]?key|apikey)\s*[:=]\s*["']?[a-zA-Z0-9_-]{20,}/gi },
   { name: "AWS key", pattern: /AKIA[0-9A-Z]{16}/g },
@@ -118,8 +129,9 @@ export function checkHeaders(headersContent: string | null, configContent: strin
  * Scan built content for likely PII (email, phone, SSN). An email that appears only as a
  * `mailto:` link target is published intent — e.g. a contact-form fallback the site owner
  * deliberately configured — not accidental exposure, so it's stripped before the email check.
- * Phone/SSN patterns are unaffected. One issue per pattern per file, matching the prior inline
- * scan's behavior.
+ * Files under a `VENDORED_EMAIL_EXEMPT` directory skip the email check entirely, for the same
+ * reason at directory scale. Phone/SSN patterns are unaffected by either. One issue per pattern
+ * per file, matching the prior inline scan's behavior.
  */
 export function checkPII(content: string, file: string): Issue[] {
   const issues: Issue[] = [];
@@ -127,7 +139,10 @@ export function checkPII(content: string, file: string): Issue[] {
     /mailto:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
     "",
   );
+  const normalized = file.replace(/\\/g, "/");
+  const emailExempt = VENDORED_EMAIL_EXEMPT.some((dir) => dir.test(normalized));
   for (const { name, pattern } of PII_PATTERNS) {
+    if (name === "email" && emailExempt) continue;
     pattern.lastIndex = 0;
     const haystack = name === "email" ? withoutMailtoLinks : content;
     if (pattern.test(haystack)) {

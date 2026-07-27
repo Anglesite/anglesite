@@ -97,6 +97,30 @@ test("checkPII: flags an SSN with the pii-ssn category", () => {
   assert.equal(issues[0].category, "pii-ssn");
 });
 
+// Pagefind's UI bundle embeds its translators' contact addresses as `thanks_to` credits. Those
+// are the dependency's own attribution, not the site owner's data escaping into the build, and
+// the owner authors nothing under dist/pagefind/ — so the email pattern would only ever fire
+// there as a false positive that blocks every deploy (#974).
+test("checkPII: does not flag emails inside a vendored search-index bundle", () => {
+  const bundle = 'var pa="Jan Claasen <jan@cloudcannon.com>",Ba="",ha="ltr"';
+  assert.deepEqual(checkPII(bundle, "dist/pagefind/pagefind-component-ui.js"), []);
+});
+
+test("checkPII: the vendored exemption covers emails only", () => {
+  const bundle = 'thanks_to="Jan Claasen <jan@cloudcannon.com>"; support="555-123-4567"';
+  const issues = checkPII(bundle, "dist/pagefind/pagefind-ui.js");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].category, "pii-phone");
+});
+
+// The exemption is anchored to the vendored directory, not matched loosely anywhere in the
+// path — an owner-authored page merely named "pagefind" stays fully scanned.
+test("checkPII: the vendored exemption does not leak to owner-authored paths", () => {
+  const issues = checkPII("<p>hello@example.com</p>", "dist/blog/pagefind/index.html");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].category, "pii-email");
+});
+
 test("checkMixedContent: flags an insecure src", () => {
   const issues = checkMixedContent('<img src="http://example.com/a.png">', "dist/index.html");
   assert.equal(issues.length, 1);
