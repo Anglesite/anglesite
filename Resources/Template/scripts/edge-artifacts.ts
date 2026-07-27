@@ -131,6 +131,25 @@ export function normalizeSecurityContact(contact: string | undefined): string | 
   return null; // not a URI and not an email — skip rather than emit invalid RFC 9116
 }
 
+/**
+ * Normalizes a comma-separated `SECURITY_CONTACT` into RFC 9116 Contact URIs, preserving the
+ * configured preference order (§2.5.3: earlier entries are more preferred). Each entry goes
+ * through `normalizeSecurityContact`; unusable entries are dropped and duplicates collapsed,
+ * mirroring `normalizeMTAStsMX`.
+ *
+ * `.site-config` is a flat KEY=value format with no escaping, so a comma is a safe delimiter
+ * here: a comma is only legal in an email address inside an RFC 5321 quoted local part, which
+ * the single-value generator could not express either.
+ */
+export function normalizeSecurityContacts(raw: string | undefined): string[] {
+  const result: string[] = [];
+  for (const part of (raw ?? "").split(",")) {
+    const uri = normalizeSecurityContact(part);
+    if (uri !== null && !result.includes(uri)) result.push(uri);
+  }
+  return result;
+}
+
 /** A valid HTTPS absolute URL's origin, or null when `url` is unset, unparseable, or insecure. */
 function httpsOrigin(url: string | undefined): string | null {
   if (!url) return null;
@@ -144,23 +163,26 @@ function httpsOrigin(url: string | undefined): string | null {
 
 /**
  * RFC 9116 security.txt body, or null when no usable contact is configured (see
- * `normalizeSecurityContact`). `Expires` is 180 days from `now` — Anglesite product policy,
- * satisfying RFC 9116 §2.5.1's recommendation that it be under a year without treating that
- * recommendation as a MUST. `Canonical` is emitted only for a valid HTTPS `siteUrl`; an unset,
- * unparseable, or insecure `SITE_URL` omits the field rather than falling back to a placeholder
- * origin.
+ * `normalizeSecurityContacts`). `contacts` is the raw comma-separated `SECURITY_CONTACT` value;
+ * each usable entry becomes its own `Contact:` line, in configured preference order.
+ *
+ * `Expires` is 180 days from `now` — Anglesite product policy, satisfying RFC 9116 §2.5.1's
+ * recommendation that it be under a year without treating that recommendation as a MUST.
+ * `Canonical` is emitted only for a valid HTTPS `siteUrl`; an unset, unparseable, or insecure
+ * `SITE_URL` omits the field rather than falling back to a placeholder origin.
  */
 export function buildSecurityTxt(
-  contact: string | undefined,
+  contacts: string | undefined,
   siteUrl: string | undefined,
   now: Date,
 ): string | null {
-  const contactUri = normalizeSecurityContact(contact);
-  if (contactUri === null) return null;
+  const contactUris = normalizeSecurityContacts(contacts);
+  if (contactUris.length === 0) return null;
+  const contactLines = contactUris.map((uri) => `Contact: ${uri}`).join("\n");
   const expires = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000).toISOString();
   const origin = httpsOrigin(siteUrl);
   const canonicalLine = origin ? `\nCanonical: ${origin}/.well-known/security.txt` : "";
-  return `${SECURITY_TXT_MARKER}\nContact: ${contactUri}\nExpires: ${expires}${canonicalLine}\n`;
+  return `${SECURITY_TXT_MARKER}\n${contactLines}\nExpires: ${expires}${canonicalLine}\n`;
 }
 
 /** MTA-STS policy modes that Anglesite can publish. `disabled` means no generated policy. */
@@ -255,12 +277,12 @@ export interface SecurityTxtPlan {
  */
 export function planSecurityTxt(params: {
   mode: SecurityTxtMode;
-  contact: string | undefined;
+  contacts: string | undefined;
   siteUrl: string | undefined;
   now: Date;
   existingContent: string | null;
 }): SecurityTxtPlan {
-  const { mode, contact, siteUrl, now, existingContent } = params;
+  const { mode, contacts, siteUrl, now, existingContent } = params;
 
   if (mode === "disabled") {
     if (existingContent !== null) {
@@ -277,7 +299,7 @@ export function planSecurityTxt(params: {
   }
 
   // generated
-  const body = buildSecurityTxt(contact, siteUrl, now);
+  const body = buildSecurityTxt(contacts, siteUrl, now);
   const markerOwned = isSecurityTxtMarkerOwned(existingContent);
 
   if (body === null) {
@@ -309,7 +331,7 @@ function applySecurityTxtPlan(publicDir: string): void {
   const existingContent = existsSync(filePath) ? readFileSync(filePath, "utf-8") : null;
   const plan = planSecurityTxt({
     mode: resolveSecurityTxtMode(readConfig("SECURITY_TXT_MODE"), readConfig("SECURITY_CONTACT")),
-    contact: readConfig("SECURITY_CONTACT"),
+    contacts: readConfig("SECURITY_CONTACT"),
     siteUrl: readConfig("SITE_URL"),
     now: new Date(),
     existingContent,
