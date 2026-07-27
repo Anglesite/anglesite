@@ -65,6 +65,21 @@ Set `inReplyTo`, `bookmarkOf`, or `likeOf` in a post's frontmatter and snapshot 
 cited post renders as a card with correct `h-cite` microformats, which is what other IndieWeb
 sites read when they receive your Webmention.
 
+## Only public addresses are fetched
+
+The snapshotter refuses any URL that points at a private or internal address — your own
+machine, your local network, or a cloud provider's internal metadata service — and it
+re-checks after every redirect, so a public page can't bounce it somewhere private.
+
+This matters most for `--all`, which fetches every bare URL it finds without asking you about
+each one. If your site has content you didn't write yourself — an imported site, a guest post,
+anything pasted in — that sweep would otherwise happily fetch whatever those URLs point at and
+publish what came back.
+
+If you see `refusing to fetch a private or reserved address`, that's this guard. A URL on your
+own machine can't be snapshotted, which is intended: a snapshot gets committed and published,
+so it has to come from somewhere your visitors could reach too.
+
 ## What happens if you skip the snapshot
 
 Nothing breaks. An un-snapshotted URL stays an ordinary link. Builds never contact the network,

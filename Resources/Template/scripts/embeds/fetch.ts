@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import type { AdapterRequest } from "./adapters";
 import type { EmbedProvider, EmbedSnapshot } from "./types";
 import { assetFilename, mediaDir, MEDIA_DIR } from "./store";
+import { assertPublicURL, type HostLookup } from "./net-guard";
 import {
   hasOpenGraphMetadata,
   normalizeBluesky,
@@ -35,14 +36,40 @@ export function normalizeFor(
   }
 }
 
-async function get(url: string, fetchImpl: typeof fetch, accept: string): Promise<Response> {
-  const response = await fetchImpl(url, {
-    redirect: "follow",
-    headers: { accept, "user-agent": USER_AGENT },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText} for ${url}`);
-  return response;
+/** Redirect hops to follow before giving up. Matches the browser convention. */
+const MAX_REDIRECTS = 20;
+
+/**
+ * Fetch one URL, refusing any hop whose host is or resolves to a private address.
+ *
+ * Redirects are followed manually (`redirect: "manual"`) rather than by the runtime, because
+ * `redirect: "follow"` would validate only the URL we started with — a public page can redirect
+ * to `169.254.169.254`, and the guard has to see every hop to be worth anything.
+ */
+async function get(
+  url: string,
+  fetchImpl: typeof fetch,
+  accept: string,
+  lookup?: HostLookup,
+): Promise<Response> {
+  let current = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    await assertPublicURL(current, lookup);
+    const response = await fetchImpl(current, {
+      redirect: "manual",
+      headers: { accept, "user-agent": USER_AGENT },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+
+    const location = response.status >= 300 && response.status < 400 ? response.headers.get("location") : null;
+    if (location === null) {
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText} for ${current}`);
+      return response;
+    }
+    // Resolve relative redirect targets against the hop they came from.
+    current = new URL(location, current).href;
+  }
+  throw new Error(`too many redirects (>${MAX_REDIRECTS}) starting at ${url}`);
 }
 
 /**
@@ -53,12 +80,14 @@ export async function fetchSnapshot(
   request: AdapterRequest,
   capturedAt: string,
   fetchImpl: typeof fetch = fetch,
+  lookup?: HostLookup,
 ): Promise<EmbedSnapshot> {
   const wantsHTML = request.provider === "opengraph";
   const response = await get(
     request.apiURL,
     fetchImpl,
     wantsHTML ? "text/html,application/xhtml+xml" : "application/json",
+    lookup,
   );
   const raw: unknown = wantsHTML ? await response.text() : await response.json();
   // A 200 with no `og:*` tags at all (Instagram, reliably) never throws on its own, but
@@ -86,6 +115,7 @@ export async function downloadAssets(
   cwd: string,
   slug: string,
   fetchImpl: typeof fetch = fetch,
+  lookup?: HostLookup,
 ): Promise<Record<string, string>> {
   const map: Record<string, string> = {};
   if (urls.length === 0) return map;
@@ -95,7 +125,7 @@ export async function downloadAssets(
   for (const [index, url] of urls.entries()) {
     const filename = assetFilename(url, index);
     try {
-      const response = await get(url, fetchImpl, "image/*");
+      const response = await get(url, fetchImpl, "image/*", lookup);
       const bytes = new Uint8Array(await response.arrayBuffer());
       if (bytes.byteLength > MAX_ASSET_BYTES) {
         console.error(`  skipped ${url} — ${bytes.byteLength} bytes exceeds the ${MAX_ASSET_BYTES}-byte cap`);

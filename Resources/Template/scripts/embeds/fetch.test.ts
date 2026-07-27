@@ -8,6 +8,14 @@ import { fetchSnapshot, downloadAssets, normalizeFor, MAX_ASSET_BYTES } from "./
 
 const AT = "2026-07-25T00:00:00.000Z";
 
+/** Injected resolver — no test here touches DNS. */
+const publicLookup = async () => ["93.184.216.34"];
+
+function redirectTo(location: string) {
+  return new Response("", { status: 302, headers: { location } });
+}
+
+
 function jsonResponse(body: unknown, init: { status?: number; type?: string } = {}) {
   return new Response(JSON.stringify(body), {
     status: init.status ?? 200,
@@ -24,7 +32,7 @@ test("normalizeFor: dispatches to the right normalizer per provider", () => {
 test("fetchSnapshot: parses a platform JSON response into a snapshot", async () => {
   const req = resolveAdapter("https://www.youtube.com/watch?v=dQw4w9WgXcQ")!;
   const snap = await fetchSnapshot(req, AT, async () =>
-    jsonResponse({ title: "Never Gonna Give You Up", author_name: "Rick Astley" }),
+    jsonResponse({ title: "Never Gonna Give You Up", author_name: "Rick Astley" }), publicLookup,
   );
   assert.equal(snap.content, "Never Gonna Give You Up");
   assert.equal(snap.url, "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
@@ -36,7 +44,7 @@ test("fetchSnapshot: opengraph reads HTML, not JSON", async () => {
     new Response('<meta property="og:title" content="Hello">', {
       status: 200,
       headers: { "content-type": "text/html" },
-    }),
+    }), publicLookup,
   );
   assert.equal(snap.provider, "opengraph");
   assert.equal(snap.content, "Hello");
@@ -57,7 +65,7 @@ test("fetchSnapshot: opengraph resolves a document-relative og:image against the
     );
     Object.defineProperty(res, "url", { value: "https://example.com/blog/post/" });
     return res;
-  });
+  }, publicLookup);
   assert.deepEqual(snap.media, [{ src: "https://example.com/blog/post/img/hero.png", alt: "Hello" }]);
 });
 
@@ -73,7 +81,7 @@ test("fetchSnapshot: opengraph with no og: tags at all rejects instead of a junk
         new Response("<!doctype html><title>Instagram</title>", {
           status: 200,
           headers: { "content-type": "text/html" },
-        }),
+        }), publicLookup,
       ),
     /no Open Graph metadata/,
   );
@@ -82,7 +90,7 @@ test("fetchSnapshot: opengraph with no og: tags at all rejects instead of a junk
 test("fetchSnapshot: a non-OK response throws with the status, not a silent empty card", async () => {
   const req = resolveAdapter("https://www.youtube.com/watch?v=a")!;
   await assert.rejects(
-    () => fetchSnapshot(req, AT, async () => jsonResponse({}, { status: 404 })),
+    () => fetchSnapshot(req, AT, async () => jsonResponse({}, { status: 404 }), publicLookup),
     /404/,
   );
 });
@@ -94,6 +102,7 @@ test("downloadAssets: writes each asset and returns its repo-relative path", asy
     cwd,
     "slug123",
     async () => new Response(new Uint8Array([1, 2, 3]), { status: 200 }),
+    publicLookup,
   );
   assert.deepEqual(map, {
     "https://cdn.example/a.png": "/embeds/slug123/asset-0.png",
@@ -110,6 +119,7 @@ test("downloadAssets: a failed asset is omitted from the map, so localizeAssets 
     cwd,
     "slug123",
     async () => new Response("", { status: 404 }),
+    publicLookup,
   );
   assert.deepEqual(map, {});
 });
@@ -122,7 +132,61 @@ test("downloadAssets: an oversized asset is refused rather than committed to the
     cwd,
     "slug123",
     async () => new Response(huge, { status: 200 }),
+    publicLookup,
   );
   assert.deepEqual(map, {});
   assert.ok(!existsSync(join(cwd, "public/embeds/slug123/asset-0.png")));
+});
+
+
+test("fetchSnapshot: a public page that redirects to a private address is refused", async () => {
+  const req = resolveAdapter("https://example.com/post")!;
+  let calls = 0;
+  await assert.rejects(
+    () =>
+      fetchSnapshot(req, AT, async () => {
+        calls += 1;
+        return redirectTo("http://169.254.169.254/latest/meta-data/");
+      }, publicLookup),
+    /private or reserved address/,
+  );
+  // The first hop was fetched; the metadata endpoint never was.
+  assert.equal(calls, 1);
+});
+
+test("fetchSnapshot: a relative redirect is resolved and still checked", async () => {
+  const req = resolveAdapter("https://example.com/post")!;
+  const seen: string[] = [];
+  const snap = await fetchSnapshot(req, AT, async (input) => {
+    const url = String(input);
+    seen.push(url);
+    if (seen.length === 1) return redirectTo("/moved");
+    return new Response('<meta property="og:title" content="Moved">', {
+      status: 200,
+      headers: { "content-type": "text/html" },
+    });
+  }, publicLookup);
+  assert.deepEqual(seen, ["https://example.com/post", "https://example.com/moved"]);
+  assert.equal(snap.content, "Moved");
+});
+
+test("fetchSnapshot: a redirect loop terminates instead of hanging", async () => {
+  const req = resolveAdapter("https://example.com/post")!;
+  await assert.rejects(
+    () => fetchSnapshot(req, AT, async () => redirectTo("https://example.com/post"), publicLookup),
+    /too many redirects/,
+  );
+});
+
+test("downloadAssets: an og:image pointing at a private address is refused, not committed", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "embeds-"));
+  const map = await downloadAssets(
+    ["http://169.254.169.254/latest/meta-data/iam/security-credentials/"],
+    cwd,
+    "slug123",
+    async () => new Response(new Uint8Array([1, 2, 3]), { status: 200 }),
+    publicLookup,
+  );
+  assert.deepEqual(map, {});
+  assert.ok(!existsSync(join(cwd, "public/embeds/slug123/asset-0.img")));
 });
