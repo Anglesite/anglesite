@@ -144,6 +144,77 @@ struct SiteNavigatorModelTests {
 
         #expect(model.deletableSelection() == nil)
     }
+
+    @Test("fileURL(for:) resolves a route (page) target to its sourceDirectory-relative file")
+    func fileURLResolvesRouteTarget() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let graph = SiteContentGraph()
+        await graph.load(
+            siteID: "site-1",
+            pages: [SiteContentGraph.Page(
+                id: "site-1:page:/about", siteID: "site-1", route: "/about",
+                filePath: "src/pages/about.astro", title: "About", lastModified: Date())],
+            posts: [], images: []
+        )
+        let model = SiteNavigatorModel(graph: graph)
+        model.start(site: CurrentSite(id: "site-1", packageURL: root, sourceDirectory: root), websiteTitle: "Test")
+        while model.nodes.isEmpty { await Task.yield() }
+        let id = try #require(flatten(model.nodes).first { $0.title == "About" }?.id)
+
+        #expect(model.fileURL(for: id) == root.appendingPathComponent("src/pages/about.astro"))
+    }
+
+    @Test("fileURL(for:) resolves a route (post) target to its sourceDirectory-relative file")
+    func fileURLResolvesPostRouteTarget() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let graph = SiteContentGraph()
+        await graph.load(
+            siteID: "site-1",
+            pages: [],
+            posts: [SiteContentGraph.Post(
+                id: "site-1:post:hello", siteID: "site-1", collection: "blog", slug: "hello",
+                title: "Hello", draft: false, publishDate: Date(), tags: [],
+                filePath: "src/content/blog/hello.md", lastModified: Date())],
+            images: []
+        )
+        let model = SiteNavigatorModel(graph: graph)
+        model.start(site: CurrentSite(id: "site-1", packageURL: root, sourceDirectory: root), websiteTitle: "Test")
+        while model.nodes.isEmpty { await Task.yield() }
+        let id = try #require(flatten(model.nodes).first { $0.title == "Hello" }?.id)
+
+        #expect(model.fileURL(for: id) == root.appendingPathComponent("src/content/blog/hello.md"))
+    }
+
+    @Test("fileURL(for:) is nil for the website-settings row")
+    func fileURLNilForWebsiteSettingsRow() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let graph = SiteContentGraph()
+        await graph.load(
+            siteID: "site-1",
+            pages: [SiteContentGraph.Page(
+                id: "site-1:page:/about", siteID: "site-1", route: "/about",
+                filePath: "src/pages/about.astro", title: "About", lastModified: Date())],
+            posts: [], images: []
+        )
+        let model = SiteNavigatorModel(graph: graph)
+        model.start(site: CurrentSite(id: "site-1", packageURL: root, sourceDirectory: root), websiteTitle: "Test")
+        while model.nodes.isEmpty { await Task.yield() }
+        let id = try #require(model.nodes.first { $0.kind == .website }?.id)
+
+        #expect(model.fileURL(for: id) == nil)
+    }
+
+    @Test("fileURL(for:) is nil for an unknown id")
+    func fileURLNilForUnknownID() {
+        let model = SiteNavigatorModel(graph: SiteContentGraph())
+        #expect(model.fileURL(for: "nonexistent") == nil)
+    }
 }
 
 /// `saveRedirect` writes through `RedirectsStore` to `Source/redirects.json` (#530) — the
