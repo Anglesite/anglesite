@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Card stack</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;
+font-family:-apple-system,system-ui,sans-serif;background:Canvas;color:CanvasText;color-scheme:light dark}</style>
+<style>
+  /**
+   * ✅ CRITERION 7: CSS-First
+   * Stack layout is defined in CSS using nth-last-child.
+   */
+  .astro-card-stack-container {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    height: 320px;
+    margin: 4rem auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    perspective: 1000px;
+  }
+
+  .stack-card {
+    position: absolute;
+    width: 100%;
+    height: 260px;
+    padding: 1.5rem 2rem;
+    background: #ffffff;
+    color: #1a1a1a;
+    border-radius: 32px;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.05),
+      0 10px 30px -10px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    cursor: grab;
+    transform-origin: center bottom;
+    will-change: transform, opacity;
+    user-select: none;
+    touch-action: none;
+    transition:
+      transform 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+      opacity 0.6s ease;
+  }
+
+  /**
+   * ✅ CRITERION 6: Reduced Motion Respected
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .stack-card {
+      transition: none !important;
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .stack-card {
+      border-color: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  .stack-card:nth-last-child(1) {
+    z-index: 3;
+    transform: translate3d(0, 0, 0);
+  }
+  .stack-card:nth-last-child(2) {
+    z-index: 2;
+    transform: translate3d(0, 15px, -30px) scale(0.94);
+    opacity: 0.8;
+  }
+  .stack-card:nth-last-child(3) {
+    z-index: 1;
+    transform: translate3d(0, 30px, -60px) scale(0.88);
+    opacity: 0.4;
+  }
+  .stack-card:nth-last-child(n + 4) {
+    opacity: 0;
+    transform: translate3d(0, 45px, -90px) scale(0.82);
+  }
+
+  .stack-card.dragging {
+    cursor: grabbing;
+    transition: none;
+    z-index: 50;
+  }
+
+  .quote-icon {
+    width: 32px;
+    opacity: 0.1;
+    margin-bottom: 1.5rem;
+    color: #6366f1;
+  }
+
+  .card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: inherit;
+  }
+
+  .quote {
+    font-size: 1rem;
+    line-height: 1.6;
+    font-weight: 400;
+    color: inherit;
+    overflow-y: auto;
+    max-height: 80px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .quote::-webkit-scrollbar {
+    display: none;
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-top: 1.5rem;
+    margin-top: auto;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .card-footer {
+      border-top-color: rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  .avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+
+  .avatar-img {
+    object-fit: cover;
+  }
+
+  .info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .name {
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .role {
+    font-size: 0.8rem;
+    opacity: 0.5;
+  }
+</style>
+</head><body>
+<div class="astro-card-stack-container" data-astro-card-stack data-enhance="false" data-stack-size="3" data-threshold="120" data-rotation="20" data-duration="500" data-astro-cid-xhgh37dk><div class="stack-card" data-id="2" style="background-color: #ffffff; color: #1a1a1a;" data-astro-cid-xhgh37dk><div class="card-content" data-astro-cid-xhgh37dk><div class="quote-icon" data-astro-cid-xhgh37dk><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" data-astro-cid-xhgh37dk><path d="M10 3H4V11C4 15.4183 7.58172 19 12 19V15C9.79086 15 8 13.2091 8 11V9H10V3ZM20 3H14V11C14 15.4183 17.5817 19 22 19V15C19.7909 15 18 13.2091 18 11V9H20V3Z" fill="currentColor" data-astro-cid-xhgh37dk></path></svg></div><h3 class="card-title" data-astro-cid-xhgh37dk>Priya</h3><p class="quote" data-astro-cid-xhgh37dk>Support was fast and friendly.</p></div><div class="card-footer" data-astro-cid-xhgh37dk><div class="avatar" style="background: #6366f1" data-astro-cid-xhgh37dk></div><div class="info" data-astro-cid-xhgh37dk><span class="name" data-astro-cid-xhgh37dk>Anonymous</span><span class="role" data-astro-cid-xhgh37dk></span></div></div></div><div class="stack-card" data-id="1" style="background-color: #ffffff; color: #1a1a1a;" data-astro-cid-xhgh37dk><div class="card-content" data-astro-cid-xhgh37dk><div class="quote-icon" data-astro-cid-xhgh37dk><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" data-astro-cid-xhgh37dk><path d="M10 3H4V11C4 15.4183 7.58172 19 12 19V15C9.79086 15 8 13.2091 8 11V9H10V3ZM20 3H14V11C14 15.4183 17.5817 19 22 19V15C19.7909 15 18 13.2091 18 11V9H20V3Z" fill="currentColor" data-astro-cid-xhgh37dk></path></svg></div><h3 class="card-title" data-astro-cid-xhgh37dk>Sam</h3><p class="quote" data-astro-cid-xhgh37dk>Setup took five minutes.</p></div><div class="card-footer" data-astro-cid-xhgh37dk><div class="avatar" style="background: #6366f1" data-astro-cid-xhgh37dk></div><div class="info" data-astro-cid-xhgh37dk><span class="name" data-astro-cid-xhgh37dk>Anonymous</span><span class="role" data-astro-cid-xhgh37dk></span></div></div></div><div class="stack-card" data-id="0" style="background-color: #ffffff; color: #1a1a1a;" data-astro-cid-xhgh37dk><div class="card-content" data-astro-cid-xhgh37dk><div class="quote-icon" data-astro-cid-xhgh37dk><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" data-astro-cid-xhgh37dk><path d="M10 3H4V11C4 15.4183 7.58172 19 12 19V15C9.79086 15 8 13.2091 8 11V9H10V3ZM20 3H14V11C14 15.4183 17.5817 19 22 19V15C19.7909 15 18 13.2091 18 11V9H20V3Z" fill="currentColor" data-astro-cid-xhgh37dk></path></svg></div><h3 class="card-title" data-astro-cid-xhgh37dk>Alex</h3><p class="quote" data-astro-cid-xhgh37dk>Loved the onboarding flow.</p></div><div class="card-footer" data-astro-cid-xhgh37dk><div class="avatar" style="background: #6366f1" data-astro-cid-xhgh37dk></div><div class="info" data-astro-cid-xhgh37dk><span class="name" data-astro-cid-xhgh37dk>Anonymous</span><span class="role" data-astro-cid-xhgh37dk></span></div></div></div></div><!-- ✅ CRITERION 8: JS Only Enhances -->
+</body></html>

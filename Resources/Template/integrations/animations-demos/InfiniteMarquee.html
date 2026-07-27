@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Infinite marquee</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;
+font-family:-apple-system,system-ui,sans-serif;background:Canvas;color:CanvasText;color-scheme:light dark}</style>
+<style>
+    .marquee-container {
+        position: relative;
+        display: flex;
+        overflow: hidden;
+        user-select: none;
+        width: 100%;
+        background: transparent;
+    }
+
+    /* Horizontal layouts */
+    .marquee-left,
+    .marquee-right {
+        flex-direction: row;
+    }
+
+    /* Vertical layouts */
+    .marquee-up,
+    .marquee-down {
+        flex-direction: column;
+        height: 400px; /* Constrain height so it clips properly and doesn't reveal empty space */
+        max-height: 100vh;
+        width: fit-content;
+    }
+
+    .marquee-track {
+        display: flex;
+        flex-shrink: 0;
+        gap: var(--gap);
+        width: max-content;
+    }
+
+    .marquee-up .marquee-track,
+    .marquee-down .marquee-track {
+        flex-direction: column;
+        width: max-content; /* Changed from 100% so track only spans the width of the cards */
+        height: max-content;
+    }
+
+    .marquee-content {
+        flex-shrink: 0;
+        display: flex;
+        gap: var(--gap);
+        padding: 10px 0; /* Only top/bottom padding to not affect horizontal scroll width */
+    }
+
+    .marquee-up .marquee-content,
+    .marquee-down .marquee-content {
+        flex-direction: column;
+        min-width: auto;
+        padding: 0 10px; /* Only left/right padding to not affect vertical scroll height */
+    }
+
+    /* Horizontal Animations applied to individual content blocks */
+    .marquee-left .marquee-content {
+        animation: scroll-left var(--speed) linear infinite;
+    }
+
+    .marquee-right .marquee-content {
+        animation: scroll-right var(--speed) linear infinite;
+    }
+
+    /* Vertical Animations applied to individual content blocks */
+    .marquee-up .marquee-content {
+        animation: scroll-up var(--speed) linear infinite;
+    }
+
+    .marquee-down .marquee-content {
+        animation: scroll-down var(--speed) linear infinite;
+    }
+
+    /* Only pause when hovering the actual track (items), not the empty space in the container */
+    .pause-hover .marquee-track:hover .marquee-content {
+        animation-play-state: paused;
+    }
+
+    @keyframes scroll-left {
+        to {
+            transform: translateX(calc(-100% - var(--gap)));
+        }
+    }
+
+    @keyframes scroll-right {
+        from {
+            transform: translateX(calc(-100% - var(--gap)));
+        }
+        to {
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes scroll-up {
+        to {
+            transform: translateY(calc(-100% - var(--gap)));
+        }
+    }
+
+    @keyframes scroll-down {
+        from {
+            transform: translateY(calc(-100% - var(--gap)));
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
+
+    /* Edge Fading */
+    .fade-mask.marquee-left,
+    .fade-mask.marquee-right {
+        mask-image: linear-gradient(
+            to right,
+            transparent,
+            black 10%,
+            black 90%,
+            transparent
+        );
+    }
+
+    .fade-mask.marquee-up,
+    .fade-mask.marquee-down {
+        mask-image: linear-gradient(
+            to bottom,
+            transparent,
+            black 10%,
+            black 90%,
+            transparent
+        );
+    }
+
+    /* Premium item styles (can be overridden by slots) */
+    :global(.marquee-item) {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    :global(.marquee-item:hover) {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Card Styles */
+    .marquee-card {
+        flex-shrink: 0;
+        width: var(--card-width);
+        background: var(--card-bg);
+        border: 1px solid var(--card-border-color);
+        border-radius: var(--card-radius);
+        padding: var(--card-padding);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .marquee-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .marquee-card-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e5e5e5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+
+    .marquee-card-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .marquee-card-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .marquee-card-name {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--name-color);
+        margin: 0;
+    }
+
+    .marquee-card-handle {
+        font-size: 0.85rem;
+        color: var(--handle-color);
+        margin: 0;
+    }
+
+    .marquee-card-content {
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: var(--text-color);
+        margin: 0;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .marquee-track, .marquee-content {
+            animation: none !important;
+            transform: none !important;
+        }
+    }
+</style>
+</head><body>
+<div class="marquee-container marquee-left pause-hover fade-mask" style="
+        --speed: 30s; 
+        --gap: 2rem;
+        --card-width: 320px;
+        --card-bg: white;
+        --card-border-color: #e5e5e5;
+        --card-radius: 16px;
+        --card-padding: 1.5rem;
+        --text-color: #333;
+        --name-color: #111;
+        --handle-color: #666;
+    " data-astro-cid-i4rc6qvh><div class="marquee-track" data-astro-cid-i4rc6qvh><div class="marquee-content" data-marquee-part="1" data-astro-cid-i4rc6qvh>Infinite marquee demo</div><div class="marquee-content" data-marquee-part="2" aria-hidden="true" data-astro-cid-i4rc6qvh>Infinite marquee demo</div><div class="marquee-content" data-marquee-part="3" aria-hidden="true" data-astro-cid-i4rc6qvh>Infinite marquee demo</div><div class="marquee-content" data-marquee-part="4" aria-hidden="true" data-astro-cid-i4rc6qvh>Infinite marquee demo</div><div class="marquee-content" data-marquee-part="5" aria-hidden="true" data-astro-cid-i4rc6qvh>Infinite marquee demo</div><div class="marquee-content" data-marquee-part="6" aria-hidden="true" data-astro-cid-i4rc6qvh>Infinite marquee demo</div></div></div>
+</body></html>

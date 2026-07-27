@@ -1,0 +1,234 @@
+{
+  "version": 1,
+  "components": [
+    {
+      "component": "FadeInText",
+      "title": "Fade-in text",
+      "ownerDescription": "Text that fades in with a soft blur when the page loads.",
+      "category": "text",
+      "keyProps": {
+        "duration": "seconds (default 0.6)",
+        "delay": "seconds (default 0)",
+        "as": "wrapper tag, e.g. \"h1\""
+      },
+      "props": {},
+      "snippet": "---\nimport FadeInText from \"@astroanimate/core/FadeInText\";\n---\n<FadeInText as=\"h1\">Welcome</FadeInText>"
+    },
+    {
+      "component": "ScaleIn",
+      "title": "Scale in",
+      "ownerDescription": "Text or content that grows into place from a slightly smaller size.",
+      "category": "text",
+      "keyProps": {
+        "initialScale": "starting scale (default 0.9)",
+        "duration": "milliseconds (default 600)",
+        "as": "wrapper tag, e.g. \"h2\""
+      },
+      "props": {},
+      "snippet": "---\nimport ScaleIn from \"@astroanimate/core/ScaleIn\";\n---\n<ScaleIn as=\"h2\">Grows into place</ScaleIn>"
+    },
+    {
+      "component": "RevealImage",
+      "title": "Reveal image",
+      "ownerDescription": "A headline where the letters reveal a background image as you scroll past.",
+      "category": "text",
+      "keyProps": {
+        "text": "overlay text (required)",
+        "image1": "first image URL (required)",
+        "image2": "second image URL (required)"
+      },
+      "props": {
+        "text": "REVEAL",
+        "image1": "/images/before.jpg",
+        "image2": "/images/after.jpg"
+      },
+      "snippet": "---\nimport RevealImage from \"@astroanimate/core/RevealImage\";\n---\n<RevealImage text=\"REVEAL\" image1=\"/images/before.jpg\" image2=\"/images/after.jpg\" />"
+    },
+    {
+      "component": "HighlightText",
+      "title": "Highlight text",
+      "ownerDescription": "A highlighter-style underline or background sweep behind a phrase.",
+      "category": "text",
+      "keyProps": {
+        "variant": "\"underline\" | \"background\" (default \"background\")",
+        "color": "highlight color (default \"#FFD700\")",
+        "trigger": "\"load\" | \"hover\" (default \"load\")"
+      },
+      "props": {},
+      "snippet": "---\nimport HighlightText from \"@astroanimate/core/HighlightText\";\n---\n<p>This is <HighlightText>important</HighlightText> text.</p>"
+    },
+    {
+      "component": "TypewriterText",
+      "title": "Typewriter text",
+      "ownerDescription": "A line of text that types itself out, one character at a time.",
+      "category": "text",
+      "keyProps": {
+        "texts": "array of strings to cycle through (required)",
+        "showCursor": "boolean (default true)",
+        "cursor": "cursor character (default \"|\")"
+      },
+      "props": {
+        "texts": ["Design.", "Build.", "Ship."]
+      },
+      "snippet": "---\nimport TypewriterText from \"@astroanimate/core/TypewriterText\";\n---\n<TypewriterText texts={[\"Design.\", \"Build.\", \"Ship.\"]} />"
+    },
+    {
+      "component": "AnimatedCard",
+      "title": "Animated card",
+      "ownerDescription": "A card that lifts, scales, or shines on hover.",
+      "category": "cards",
+      "keyProps": {
+        "title": "card title (required)",
+        "description": "card description (required)",
+        "variant": "\"lift\" | \"scale\" | \"flip\" | \"shine\" (default \"lift\")"
+      },
+      "props": {
+        "title": "Feature",
+        "description": "A short description of the feature."
+      },
+      "snippet": "---\nimport AnimatedCard from \"@astroanimate/core/AnimatedCard\";\n---\n<AnimatedCard title=\"Feature\" description=\"A short description of the feature.\" />"
+    },
+    {
+      "component": "CardStack",
+      "title": "Card stack",
+      "ownerDescription": "A stack of testimonial or feature cards, one in front of the other.",
+      "category": "cards",
+      "keyProps": {
+        "cards": "array of { title, content } cards (required)",
+        "stackSize": "visible cards (default 3)",
+        "enhance": "keep false — CSS-only mode (site CSP blocks enhance=true)"
+      },
+      "props": {
+        "enhance": false,
+        "cards": [
+          { "title": "Alex", "content": "Loved the onboarding flow." },
+          { "title": "Sam", "content": "Setup took five minutes." },
+          { "title": "Priya", "content": "Support was fast and friendly." }
+        ]
+      },
+      "snippet": "---\nimport CardStack from \"@astroanimate/core/CardStack\";\n---\n<CardStack\n  enhance={false}\n  cards={[\n    { title: \"Alex\", content: \"Loved the onboarding flow.\" },\n    { title: \"Sam\", content: \"Setup took five minutes.\" },\n  ]}\n/>"
+    },
+    {
+      "component": "ArticleCard",
+      "title": "Article card",
+      "ownerDescription": "A blog-post or article preview card with a title, summary, and link.",
+      "category": "cards",
+      "keyProps": {
+        "title": "article title (required)",
+        "description": "summary text (required)",
+        "href": "link target (default \"#\")"
+      },
+      "props": {
+        "title": "Article title",
+        "description": "A short summary of the article."
+      },
+      "snippet": "---\nimport ArticleCard from \"@astroanimate/core/ArticleCard\";\n---\n<ArticleCard title=\"Article title\" description=\"A short summary of the article.\" href=\"/blog/post\" />"
+    },
+    {
+      "component": "AnimatedButton",
+      "title": "Animated button",
+      "ownerDescription": "A button with a shimmer, fill, or border sweep on hover.",
+      "category": "buttons",
+      "keyProps": {
+        "variant": "\"shimmer\" | \"fill\" | \"border\" | \"none\" (default \"none\")",
+        "href": "renders as a link when set",
+        "disabled": "boolean (default false)"
+      },
+      "props": {},
+      "snippet": "---\nimport AnimatedButton from \"@astroanimate/core/AnimatedButton\";\n---\n<AnimatedButton variant=\"shimmer\">Get started</AnimatedButton>"
+    },
+    {
+      "component": "FillHoverButton",
+      "title": "Fill hover button",
+      "ownerDescription": "A button whose background fills in from one edge on hover.",
+      "category": "buttons",
+      "keyProps": {
+        "as": "\"button\" | \"a\" (default \"button\")",
+        "href": "link target when as=\"a\""
+      },
+      "props": {},
+      "snippet": "---\nimport FillHoverButton from \"@astroanimate/core/FillHoverButton\";\n---\n<FillHoverButton>Subscribe</FillHoverButton>"
+    },
+    {
+      "component": "ArrowCTAButton",
+      "title": "Arrow CTA button",
+      "ownerDescription": "A call-to-action link whose arrow slides forward on hover.",
+      "category": "buttons",
+      "keyProps": {
+        "label": "button text (required)",
+        "as": "\"button\" | \"a\" (default \"button\")",
+        "href": "link target when as=\"a\""
+      },
+      "props": {
+        "label": "Learn more"
+      },
+      "snippet": "---\nimport ArrowCTAButton from \"@astroanimate/core/ArrowCTAButton\";\n---\n<ArrowCTAButton label=\"Learn more\" href=\"/about\" as=\"a\" />"
+    },
+    {
+      "component": "SlidingOverlayButton",
+      "title": "Sliding overlay button",
+      "ownerDescription": "A button with a color overlay that slides in on hover.",
+      "category": "buttons",
+      "keyProps": {
+        "as": "\"button\" | \"a\" (default \"button\")",
+        "href": "link target when as=\"a\""
+      },
+      "props": {},
+      "snippet": "---\nimport SlidingOverlayButton from \"@astroanimate/core/SlidingOverlayButton\";\n---\n<SlidingOverlayButton>Contact us</SlidingOverlayButton>"
+    },
+    {
+      "component": "GridDotsBackground",
+      "title": "Grid dots background",
+      "ownerDescription": "A subtle dot-grid or line-grid backdrop for a section.",
+      "category": "backgrounds",
+      "keyProps": {
+        "variant": "\"dots\" | \"grid\" (default \"dots\")",
+        "dotColor": "CSS color (default \"rgba(255,255,255,0.25)\")",
+        "height": "CSS height (default \"300px\")"
+      },
+      "props": {},
+      "snippet": "---\nimport GridDotsBackground from \"@astroanimate/core/GridDotsBackground\";\n---\n<GridDotsBackground variant=\"grid\" height=\"200px\" />"
+    },
+    {
+      "component": "InfiniteMarquee",
+      "title": "Infinite marquee",
+      "ownerDescription": "A row of logos, text, or cards that scrolls continuously and loops.",
+      "category": "backgrounds",
+      "keyProps": {
+        "direction": "\"left\" | \"right\" | \"up\" | \"down\" (default \"left\")",
+        "speed": "CSS duration (default \"30s\")",
+        "pauseOnHover": "boolean (default true)"
+      },
+      "props": {},
+      "snippet": "---\nimport InfiniteMarquee from \"@astroanimate/core/InfiniteMarquee\";\n---\n<InfiniteMarquee>\n  <span>Trusted by teams everywhere</span>\n</InfiniteMarquee>"
+    },
+    {
+      "component": "Loader",
+      "title": "Loader",
+      "ownerDescription": "A spinning, dotted, or pulsing loading indicator.",
+      "category": "navigation",
+      "keyProps": {
+        "type": "\"spinner\" | \"dots\" | \"pulse\" (default \"spinner\")",
+        "size": "pixels (default 40)",
+        "color": "CSS color (default \"#3b82f6\")"
+      },
+      "props": {},
+      "snippet": "---\nimport Loader from \"@astroanimate/core/Loader\";\n---\n<Loader type=\"dots\" />"
+    },
+    {
+      "component": "ProgressBar",
+      "title": "Progress bar",
+      "ownerDescription": "A labeled progress bar that fills to a given value.",
+      "category": "navigation",
+      "keyProps": {
+        "value": "current value 0-max (required)",
+        "max": "maximum value (default 100)",
+        "label": "optional label text"
+      },
+      "props": {
+        "value": 60
+      },
+      "snippet": "---\nimport ProgressBar from \"@astroanimate/core/ProgressBar\";\n---\n<ProgressBar value={60} label=\"Upload progress\" />"
+    }
+  ]
+}
