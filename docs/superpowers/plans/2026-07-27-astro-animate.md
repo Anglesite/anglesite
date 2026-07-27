@@ -385,10 +385,10 @@ import Foundation
 }
 ```
 
-- [ ] **Step 2: Run to verify failure.** `swift test --filter AnimationCatalogTests` → FAIL (type not defined).
-- [ ] **Step 3: Implement `AnimationCatalog.swift`** — decode a private `ManifestFile { version: Int; components: [AnimationCatalogEntry] }` from `templateDirectory/integrations/animations.json`; `demoURL` appends `integrations/animations-demos/\(component).html`.
-- [ ] **Step 4: Run to verify pass.** `swift test --filter AnimationCatalogTests` → PASS.
-- [ ] **Step 5: Commit** — `feat(core): AnimationCatalog model for template catalog (#<ISSUE_B>)`.
+- [x] **Step 2: Run to verify failure.** `swift test --filter AnimationCatalogTests` → FAIL (type not defined).
+- [x] **Step 3: Implement `AnimationCatalog.swift`** — decode a private `ManifestFile { version: Int; components: [AnimationCatalogEntry] }` from `templateDirectory/integrations/animations.json`; `demoURL` appends `integrations/animations-demos/\(component).html`.
+- [x] **Step 4: Run to verify pass.** `swift test --filter AnimationCatalogTests` → PASS.
+- [x] **Step 5: Commit** — `feat(core): AnimationCatalog model for template catalog (#<ISSUE_B>)`.
 
 ### Task 6: Gallery sheet + Website menu item
 
