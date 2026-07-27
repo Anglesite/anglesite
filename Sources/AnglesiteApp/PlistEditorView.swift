@@ -316,44 +316,46 @@ struct PlistEditorView: View {
     }
 
     private var redirectsTab: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if model.redirectEntries.isEmpty {
-                Text("No redirects yet. Add one below.")
-                    .foregroundStyle(.secondary)
-            } else {
-                Table(redirectRows) {
-                    TableColumn("Source") { row in
-                        TextField("/old-path", text: sourceBinding(at: row.id))
-                    }
-                    TableColumn("Destination") { row in
-                        TextField("/new-path", text: destinationBinding(at: row.id))
-                    }
-                    TableColumn("Type") { row in
-                        Picker("Type", selection: codeBinding(at: row.id)) {
-                            Text("301").tag(RedirectsStore.RedirectEntry.Code.permanent)
-                            Text("302").tag(RedirectsStore.RedirectEntry.Code.temporary)
+        SettingsBox(title: "Redirects") {
+            VStack(alignment: .leading, spacing: 10) {
+                if model.redirectEntries.isEmpty {
+                    Text("No redirects yet. Add one below.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Table(redirectRows) {
+                        TableColumn("Source") { row in
+                            TextField("/old-path", text: sourceBinding(at: row.id))
                         }
-                        .labelsHidden()
-                    }
-                    TableColumn("") { row in
-                        Button(role: .destructive) {
-                            model.redirectEntries.remove(at: row.id)
-                        } label: {
-                            Image(systemName: "trash")
+                        TableColumn("Destination") { row in
+                            TextField("/new-path", text: destinationBinding(at: row.id))
                         }
-                        .buttonStyle(.plain)
+                        TableColumn("Type") { row in
+                            Picker("Type", selection: codeBinding(at: row.id)) {
+                                Text("301").tag(RedirectsStore.RedirectEntry.Code.permanent)
+                                Text("302").tag(RedirectsStore.RedirectEntry.Code.temporary)
+                            }
+                            .labelsHidden()
+                        }
+                        TableColumn("") { row in
+                            Button(role: .destructive) {
+                                model.redirectEntries.remove(at: row.id)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
+                    .frame(minHeight: 120)
                 }
-                .frame(minHeight: 120)
-            }
-            HStack(spacing: 8) {
-                Button {
-                    model.redirectEntries.append(RedirectsStore.RedirectEntry(source: "", destination: "", code: .permanent))
-                } label: {
-                    Label("Add Redirect", systemImage: "plus")
-                }
-                if model.isSavingRedirects {
-                    ProgressView().controlSize(.small)
+                HStack(spacing: 8) {
+                    Button {
+                        model.redirectEntries.append(RedirectsStore.RedirectEntry(source: "", destination: "", code: .permanent))
+                    } label: {
+                        Label("Add Redirect", systemImage: "plus")
+                    }
+                    if model.isSavingRedirects {
+                        ProgressView().controlSize(.small)
+                    }
                 }
             }
         }
