@@ -15,6 +15,18 @@ struct PlistEditorView: View {
         case securityReports = "Security Reports"
         case workers = "Workers"
         var id: Self { self }
+
+        var symbolName: String {
+            switch self {
+            case .website: return "globe"
+            case .analytics: return "chart.bar.xaxis"
+            case .redirects: return "arrow.triangle.turn.up.right.diamond.fill"
+            case .crawlers: return "text.magnifyingglass"
+            case .emailSecurity: return "envelope.badge.shield.half.filled"
+            case .securityReports: return "doc.text.magnifyingglass"
+            case .workers: return "bolt.fill"
+            }
+        }
     }
 
     @Environment(\.controlActiveState) private var controlActiveState
@@ -74,6 +86,26 @@ struct PlistEditorView: View {
         .padding(.vertical, 8)
     }
 
+    private var tabBar: some View {
+        HStack(spacing: 4) {
+            ForEach(SettingsTab.allCases) { tab in
+                Button {
+                    selectedTab = tab
+                } label: {
+                    Label(tab.rawValue, systemImage: tab.symbolName)
+                        .font(.callout)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(tab == selectedTab ? Color.accentColor.opacity(0.15) : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .foregroundStyle(tab == selectedTab ? Color.accentColor : Color.primary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(tab == selectedTab ? [.isSelected] : [])
+            }
+        }
+    }
+
     @ViewBuilder
     private var content: some View {
         if let loadError = model.loadError {
@@ -94,14 +126,7 @@ struct PlistEditorView: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    Picker("Settings", selection: $selectedTab) {
-                        ForEach(SettingsTab.allCases) { tab in
-                            Text(tab.rawValue).tag(tab)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(maxWidth: 520)
+                    tabBar
 
                     if let validationMessage = model.validationMessage {
                         Label(validationMessage, systemImage: "exclamationmark.triangle.fill")
