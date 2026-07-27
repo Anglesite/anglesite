@@ -34,8 +34,14 @@ describe("animations catalog", () => {
         // and several components' comments describe their conditional
         // <script> paths (e.g. "Script emitted ONLY when enhance=true") —
         // strip comments first so the check targets real <script> elements,
-        // not comment prose that happens to mention the tag.
-        const htmlWithoutComments = html.replace(/<!--[\s\S]*?-->/g, "");
+        // not comment prose that happens to mention the tag. Stripping loops
+        // until stable so nested/overlapping "<!--" remnants can't survive a
+        // single pass (CodeQL js/incomplete-multi-character-sanitization).
+        let htmlWithoutComments = html;
+        for (let previous = ""; previous !== htmlWithoutComments; ) {
+          previous = htmlWithoutComments;
+          htmlWithoutComments = htmlWithoutComments.replace(/<!--[\s\S]*?-->/g, "");
+        }
         expect(htmlWithoutComments).not.toContain("<script");
         const source = readFileSync(
           `node_modules/@astroanimate/core/dist/components/${entry.component}/${entry.component}.astro`,
@@ -69,6 +75,11 @@ describe("animations catalog", () => {
         const componentCss = [...componentSource.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)]
           .map((match) => match[1])
           .join("\n");
+        // Some upstream component sources (e.g. ArticleCard) carry CRLF line
+        // endings, which this pipeline would otherwise copy verbatim into the
+        // page. Git's `eol=lf` normalization strips the CRs from the committed
+        // snapshot blob, so a CI checkout could never match a fresh render —
+        // normalize here so the snapshot is byte-stable on every platform.
         const page = [
           "<!doctype html>",
           `<html lang="en"><head><meta charset="utf-8"><title>${entry.title}</title>`,
@@ -79,7 +90,7 @@ describe("animations catalog", () => {
           inner,
           "</body></html>",
           "",
-        ].join("\n");
+        ].join("\n").replace(/\r\n/g, "\n");
         await expect(page).toMatchFileSnapshot(
           `../../integrations/animations-demos/${entry.component}.html`,
         );
