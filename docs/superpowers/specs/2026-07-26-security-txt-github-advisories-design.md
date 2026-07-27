@@ -114,8 +114,14 @@ export function buildSecurityTxt(contacts: string | undefined, siteUrl: string |
 ```
 
 `buildSecurityTxt` returns `null` when the list normalizes to empty, exactly as it returns `null`
-for a single unusable contact today. `resolveSecurityTxtMode` keeps its signature and its
-inference rule, reading "a usable contact is configured" as "the list normalizes to ≥ 1 entry".
+for a single unusable contact today.
+
+`resolveSecurityTxtMode` is **unchanged**, deliberately. It infers `generated` from a non-empty
+raw string, not from a successfully-normalized one. Tightening it to "≥ 1 usable entry" would be
+the more obvious reading, but it would silently reclassify a site whose contact is set-but-garbage
+from `generated` to `disabled` — turning today's "SECURITY_CONTACT is unset or unusable" build note
+and pre-deploy warning into silence, exactly when the owner most needs the signal. The looser rule
+keeps the diagnostic.
 
 Everything else in the generated file is unchanged: the `SECURITY_TXT_MARKER` first line (matched
 byte-exact by `isSecurityTxtMarkerOwned` and by the pre-deploy check), the single `Expires:`, the
@@ -266,9 +272,16 @@ performed as a side effect of saving the contact list.
 A new `SecurityTxtAuditRunner: AuditRunner` with `category: .security`, added to
 `AuditCommand.defaultRunners` (today: `A11yAuditRunner` alone).
 
-It spawns nothing and needs no token. It reads `.site-config` from `siteDirectory` and asks
-`InProcessGit.run(siteDirectory:arguments: ["remote", "get-url", "origin"])` for the remote, then
-emits at most one finding:
+It spawns nothing and needs no token. It reads `.site-config` from `siteDirectory` and asks for the
+remote via `git remote get-url origin`, then emits at most one finding.
+
+The git call reuses the existing `BackupCommand.GitRunner` typealias and `BackupCommand.defaultRunner`
+rather than introducing a seam of its own. That matters for portability: `InProcessGit` is
+`#if canImport(Darwin)`-gated because SwiftGit2 has no Linux platform, and `defaultRunner` already
+carries the Darwin (in-process SwiftGit2) / non-Darwin (subprocess `git`) split. Injecting the
+runner is also how the tests avoid needing a real repository.
+
+The finding:
 
 - **`.info` — "Vulnerability reports aren't routed to GitHub"** when `RemoteRepo.parse` yields a
   repo and `usesAdvisoryForm` is false. Remediation points at Website Settings ▸ Security Reports.
