@@ -1,12 +1,14 @@
 import SwiftUI
+import AppKit
 
 /// Edit-menu skeleton items (menu-bar spec §2.3): selection walkers and annotations after
-/// the pasteboard block, Find ▸ in the text-editing block. The Find items are live against
-/// the focused Markdown editor (#797/#517) via `MarkdownEditorFocusRegistry`, and Search Site…
-/// against the focused window's toolbar search field (#520); the rest are editor/subsystem-gated
-/// PlannedItems. NavigatorEditCommands owns the live Delete/Duplicate next to them.
+/// the pasteboard block, Find ▸ in the text-editing block. The Find items dispatch through
+/// `EditorFocusRegistry` (#797/#517) to whichever of the three editor surfaces (Markdown, plain
+/// text, Component Editor code pane) currently has focus, and Search Site… against the focused
+/// window's toolbar search field (#520); the rest are editor/subsystem-gated PlannedItems.
+/// NavigatorEditCommands owns the live Delete/Duplicate next to them.
 struct EditMenuSkeletonCommands: Commands {
-    private let registry = MarkdownEditorFocusRegistry.shared
+    private let registry = EditorFocusRegistry.shared
     @FocusedValue(\.siteSearchActions) private var searchActions
 
     var body: some Commands {
@@ -22,29 +24,86 @@ struct EditMenuSkeletonCommands: Commands {
 
         CommandGroup(before: .textEditing) {
             Menu("Find") {
-                Button("Find…") { registry.active?.showFind() }
+                Button("Find…") { performFind() }
                     .keyboardShortcut("f")
                     .disabled(registry.active == nil)
-                Button("Find Next") { registry.active?.findNext() }
+                Button("Find Next") { performFindNext() }
                     .keyboardShortcut("g")
-                    .disabled(registry.active == nil)
-                Button("Find Previous") { registry.active?.findPrevious() }
+                    .disabled(!supportsNextPrevious)
+                Button("Find Previous") { performFindPrevious() }
                     .keyboardShortcut("g", modifiers: [.command, .shift])
-                    .disabled(registry.active == nil)
-                Button("Find & Replace…") { registry.active?.showFind(withReplace: true) }
+                    .disabled(!supportsNextPrevious)
+                Button("Find & Replace…") { performFindReplace() }
                     .keyboardShortcut("f", modifiers: [.command, .option])
-                    .disabled(registry.active == nil)
+                    .disabled(!supportsNextPrevious)
                 PlannedItem("Use Selection for Find", shortcut: "e")
 
                 Divider()
 
                 // ⇧⌘F, not one of the standard find keys: ⌘F/⌘G/⇧⌘G/⌥⌘F all belong to the
-                // in-editor find bar above (#797/#517). ⇧⌘F is Xcode's Find-in-Project key, and
+                // in-editor find UI above (#797/#517). ⇧⌘F is Xcode's Find-in-Project key, and
                 // this is the same relationship — document find vs. whole-project find.
                 Button("Search Site…") { searchActions?.focusSearchField() }
                     .keyboardShortcut("f", modifiers: [.command, .shift])
                     .disabled(searchActions == nil)
             }
         }
+    }
+
+    /// `Find Next`/`Find Previous`/`Find & Replace…` need imperative navigation, which only
+    /// `.markdown` and `.codePane` support — `.plainText`'s `.findNavigator` exposes no such hook;
+    /// once shown, its own UI (arrow buttons, ⌘G inside its field) drives navigation outside this
+    /// menu's control (see the design spec's "Risks needing a manual spike" — Task 6 confirms or
+    /// revises this).
+    private var supportsNextPrevious: Bool {
+        switch registry.active {
+        case .markdown, .codePane: true
+        case .plainText, nil: false
+        }
+    }
+
+    private func performFind() {
+        switch registry.active {
+        case .markdown(let box): box.value?.showFind()
+        case .codePane(let box): box.value.map { sendFinderAction(.showFindInterface, to: $0) }
+        case .plainText(let isPresented): isPresented.wrappedValue = true
+        case nil: break
+        }
+    }
+
+    private func performFindNext() {
+        switch registry.active {
+        case .markdown(let box): box.value?.findNext()
+        case .codePane(let box): box.value.map { sendFinderAction(.nextMatch, to: $0) }
+        case .plainText, nil: break
+        }
+    }
+
+    private func performFindPrevious() {
+        switch registry.active {
+        case .markdown(let box): box.value?.findPrevious()
+        case .codePane(let box): box.value.map { sendFinderAction(.previousMatch, to: $0) }
+        case .plainText, nil: break
+        }
+    }
+
+    private func performFindReplace() {
+        switch registry.active {
+        case .markdown(let box): box.value?.showFind(withReplace: true)
+        case .codePane(let box): box.value.map { sendFinderAction(.showFindInterface, to: $0) }
+        case .plainText, nil: break
+        }
+    }
+
+    /// Synthesizes a tagged `NSMenuItem` and forwards to the standard AppKit
+    /// `performTextFinderAction(_:)` responder action (declared on `NSResponder`, overridden by
+    /// STTextView — `STTextView+Find.swift` — to read the sender's `.tag` as an
+    /// `NSTextFinder.Action` and drive its already-built-in `NSTextFinder` + find bar). Dynamic
+    /// dispatch resolves to STTextView's override even though the registry stores this as a plain
+    /// `NSTextView`, so this file doesn't need to import STTextView.
+    private func sendFinderAction(_ action: NSTextFinder.Action, to textView: NSTextView) {
+        let item = NSMenuItem()
+        item.tag = action.rawValue
+        textView.performTextFinderAction(item)
     }
 }
