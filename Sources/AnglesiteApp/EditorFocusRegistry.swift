@@ -24,7 +24,7 @@ final class EditorFocusRegistry {
 
     enum Focus {
         case markdown(Weak<MarkdownEditorController>)
-        case codePane(Weak<NSTextView>)
+        case codePane(Weak<NSResponder>)
         case plainText(isPresented: Binding<Bool>)
     }
 

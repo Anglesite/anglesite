@@ -96,14 +96,16 @@ struct EditMenuSkeletonCommands: Commands {
     }
 
     /// Synthesizes a tagged `NSMenuItem` and forwards to the standard AppKit
-    /// `performTextFinderAction(_:)` responder action (declared on `NSResponder`, overridden by
-    /// STTextView — `STTextView+Find.swift` — to read the sender's `.tag` as an
-    /// `NSTextFinder.Action` and drive its already-built-in `NSTextFinder` + find bar). Dynamic
-    /// dispatch resolves to STTextView's override even though the registry stores this as a plain
-    /// `NSTextView`, so this file doesn't need to import STTextView.
-    private func sendFinderAction(_ action: NSTextFinder.Action, to textView: NSTextView) {
+    /// `performTextFinderAction(_:)` responder action — declared on `NSResponder` itself (not
+    /// `NSTextView`), overridden by STTextView — `STTextView+Find.swift` — to read the sender's
+    /// `.tag` as an `NSTextFinder.Action` and drive its already-built-in `NSTextFinder` + find bar).
+    /// STTextView is an `NSView`/`NSResponder` subclass, not an `NSTextView` subclass, so the
+    /// registry stores the connection at the `NSResponder` level rather than the narrower
+    /// `NSTextView` type; dynamic dispatch still resolves to STTextView's override, so this file
+    /// doesn't need to import STTextView.
+    private func sendFinderAction(_ action: NSTextFinder.Action, to responder: NSResponder) {
         let item = NSMenuItem()
         item.tag = action.rawValue
-        textView.performTextFinderAction(item)
+        responder.performTextFinderAction(item)
     }
 }
