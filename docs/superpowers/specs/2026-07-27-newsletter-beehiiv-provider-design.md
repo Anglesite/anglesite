@@ -81,10 +81,26 @@ concluded:
 - Verification: `swift test` (template-coupled suites included) — the Worker
   itself has no JS test harness today and this change does not introduce one.
 
+## Addendum: Kit provider (#1034, same day)
+
+With the free-plan question resolved, Kit is added as a fourth provider in a
+stacked follow-up:
+
+- `subscribeKit(email, apiKey, formId)` in the Worker: upsert the subscriber
+  (`POST /v4/subscribers`, `X-Kit-Api-Key` auth, 200 update / 201 create),
+  then add them to a form by email (`POST /v4/forms/{formId}/subscribers`,
+  200 already-on-form / 201 added). Kit's double opt-in lives on forms — the
+  form step is what sends the confirmation email — so `KIT_FORM_ID` is a
+  required secret and the Worker refuses to subscribe without it rather than
+  silently creating unconfirmed-by-policy subscribers.
+- Catalog gains `Provider(id: "kit", displayName: "Kit")`; setup docs tell
+  owners to create the form with double opt-in enabled.
+- Same non-goals as beehiiv: no send-via-API, no distinct already-subscribed
+  message (both Kit calls are idempotent upserts).
+
 ## Out of scope
 
-- Kit/EmailOctopus providers (revisit if requested; Kit needs the free-plan
-  API-key check first).
+- EmailOctopus provider (revisit if requested).
 - Any "send via API" ambition (beehiiv gates its Send API to Enterprise).
 - Wizard-driven Worker deployment (deploying the subscribe Worker remains
   the documented manual `wrangler` step).
