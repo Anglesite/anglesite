@@ -19,6 +19,14 @@ public enum ContentFieldValidation {
     public static func isAbsoluteURL(_ value: String) -> Bool {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
+              // `URLComponents` rejects an interior space but happily parses an interior or
+              // trailing newline (unlike `new URL()`/WHATWG, which reject both) — and
+              // `ContentScaffold.escapeYAML` only escapes `\` and `"`, not newlines. A value with a
+              // raw newline would therefore pass this check but split the YAML frontmatter line it's
+              // written into (e.g. `bookmarkOf: "https://example.com/post\nevil: true"` becomes two
+              // YAML lines). No legitimate absolute URL contains raw whitespace, so reject any that
+              // does, after trimming, rather than relying on the parser to catch it.
+              trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
               let components = URLComponents(string: trimmed),
               let scheme = components.scheme, !scheme.isEmpty,
               let host = components.host, !host.isEmpty,

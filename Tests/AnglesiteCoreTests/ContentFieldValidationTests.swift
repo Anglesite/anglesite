@@ -34,4 +34,23 @@ struct ContentFieldValidationTests {
         #expect(!ContentFieldValidation.isAbsoluteURL("http://example.com:65536"))
         #expect(!ContentFieldValidation.isAbsoluteURL("http://example.com:99999"))
     }
+
+    @Test("isAbsoluteURL rejects an interior newline or space URLComponents would otherwise let through")
+    func rejectsInteriorWhitespaceAndNewlines() {
+        // `URLComponents` parses an interior newline without complaint (unlike an interior space,
+        // which it already rejects on its own), but a raw newline would split the YAML frontmatter
+        // line it's written into (escapeYAML doesn't escape newlines) — so this has to be caught
+        // explicitly rather than left to the parser.
+        #expect(!ContentFieldValidation.isAbsoluteURL("https://example.com/post\nevil: true"))
+        #expect(!ContentFieldValidation.isAbsoluteURL("https://exa mple.com"))
+    }
+
+    @Test("isAbsoluteURL accepts a value with only leading/trailing whitespace, trimming it away")
+    func acceptsSurroundingWhitespace() {
+        // A trailing/leading newline or space is not an *interior* character once trimmed, so it's
+        // approved here — the caller (NativeContentOperations.createTyped) is responsible for
+        // persisting the same trimmed value it validated, not the raw one (#916 follow-up).
+        #expect(ContentFieldValidation.isAbsoluteURL("https://example.com/post\n"))
+        #expect(ContentFieldValidation.isAbsoluteURL("  https://example.com/post  "))
+    }
 }
