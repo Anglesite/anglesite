@@ -111,9 +111,21 @@ deleted outright — from `scripts/scaffold.sh`'s documented keys, from `edge-ar
 `CrawlerPolicyAsset.swift` (the file is removed), and from their tests. No fallback read, no
 dual-source path, no stale keys that silently still work.
 
-A site whose `.site-config` still carries the keys keeps building; the keys are simply inert, and
-its `robots.txt` reverts to the default allow-all until the owner sets a policy in the new facet.
-This is a behavior change to shipped settings and belongs in the PR body.
+**What happens to a site scaffolded before this change.** Not what "the keys become inert" would
+suggest, because `scripts/scaffold.sh` copies the template **once, at site creation**, and no
+update path refreshes it afterward — `DependencySyncChecker` compares `package.json` and nothing
+else. So an existing site keeps its *old* `edge-artifacts.ts`, in which `BLOCK_AI` and
+`CONTENT_SIGNALS` are still live. Concretely, for such a site:
+
+- Its `robots.txt` keeps honoring the two keys, exactly as before.
+- The new Licensing facet writes a `usage` block that its build script does not read, so the
+  facet's AI-usage controls have no effect on its output.
+- The old Crawlers facet is gone, so the keys can only be changed by hand-editing `.site-config`.
+
+The upgrade path is therefore a template refresh (re-scaffold, or copy the new `scripts/` in), not
+a config migration — the same as for any other template change. Pre-1.0, the affected population is
+expected to be zero. This is a behavior change to shipped settings and the PR body must describe it
+in these terms rather than claiming the keys go inert on their own.
 
 ## Components
 
