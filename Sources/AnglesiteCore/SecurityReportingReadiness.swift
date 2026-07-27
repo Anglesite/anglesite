@@ -5,6 +5,11 @@ import Foundation
 /// Pure by design: the network reads (repo visibility, private-vulnerability-reporting state)
 /// happen in the model layer, and every branch of the decision is unit-testable without fakes.
 public enum SecurityReportingReadiness: Sendable, Equatable {
+    /// Not yet determined: before a check has ever completed, or a check failed before one ever
+    /// succeeded. Deliberately distinct from `notGitHub` — the site may well have a GitHub
+    /// remote, the caller just doesn't know its state yet. `evaluate` never returns this case; a
+    /// caller assigns it directly when it cannot get as far as calling `evaluate` at all.
+    case unknown
     /// No `origin`, or an origin that isn't GitHub.
     case notGitHub
     /// The repo's advisory form is already one of the published contacts.
