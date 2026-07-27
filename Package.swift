@@ -304,6 +304,14 @@ var packageProducts: [Product] = [
 
 var packageDependencies: [Package.Dependency] = []
 
+// Apple's official DocC generation plugin (#1041) — build-time only, never linked into the
+// shipped app. Pinned to tag 1.5.0's commit, matching the revision-pin policy below (SwiftGit2 /
+// STTextView): a floating `from:` requirement previously shipped an unreviewed breaking change
+// (#774/#781/#783), so every dependency here is bumped deliberately.
+packageDependencies.append(
+    .package(url: "https://github.com/swiftlang/swift-docc-plugin.git", revision: "647c708be89f834fa6a6d4945442793a77ddf5b6")
+)
+
 #if canImport(Darwin)
 // Anglesite's patched fork of mbernson/SwiftGit2 — see #640 and Spikes/GitPackageSpike. Pinned
 // to a commit rather than a tag or branch: SwiftGit2 upstream has no tagged SPM release yet, and
