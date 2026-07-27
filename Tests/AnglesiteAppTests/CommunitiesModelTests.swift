@@ -156,6 +156,149 @@ struct CommunitiesModelTests {
         #expect(CommunitiesLedger.load(from: config)?.communities.isEmpty == true)
     }
 
+    @Test("a ledger-persistence failure after a successful join surfaces errorMessage without losing the join")
+    func joinSurfacesErrorWhenLedgerPersistFails() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("communities-model-test-\(UUID().uuidString)")
+        let source = root.appendingPathComponent("Source")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try "DOMAIN=example.com\n".write(
+            to: source.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        // `configDirectory` itself is a plain FILE, not a directory, so `CommunitiesLedger.save`'s
+        // `createDirectory(at:)` throws — simulating a local disk-write failure after the remote
+        // Follow has already succeeded.
+        let config = root.appendingPathComponent("Config")
+        try Data().write(to: config)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let secretStore = InMemorySecretStore()
+        secretStore.values[SecretAccounts.activityPubPublishToken(siteID: "site-1")] = "token"
+        let fake = FakeTransport([
+            "https://lemmy.ml/c/birding": (200, """
+                {"id":"https://lemmy.ml/c/birding","type":"Group","preferredUsername":"birding",
+                 "name":"Birding","outbox":"https://lemmy.ml/c/birding/outbox"}
+                """),
+            "https://example.com/users/site/outbox":
+                (202, #"{"id":"https://example.com/users/site/outbox/1"}"#),
+        ])
+
+        let model = Self.model(secretStore: secretStore, fake: fake)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+        model.joinHandleText = "https://lemmy.ml/c/birding"
+
+        await model.join()
+
+        // The remote Follow succeeded and in-memory state reflects it...
+        #expect(model.joined.count == 1)
+        #expect(model.joinHandleText.isEmpty)
+        // ...but the local write failed, and that must not be silent.
+        #expect(model.errorMessage != nil)
+    }
+
+    @Test("a ledger-persistence failure after a successful leave surfaces errorMessage without losing the leave")
+    func confirmLeaveSurfacesErrorWhenLedgerPersistFails() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        secretStore.values[SecretAccounts.activityPubPublishToken(siteID: "site-1")] = "token"
+
+        var ledger = CommunitiesLedger()
+        let community = JoinedCommunity(
+            actorID: URL(string: "https://lemmy.ml/c/birding")!,
+            outboxURL: URL(string: "https://lemmy.ml/c/birding/outbox")!,
+            handle: "@birding@lemmy.ml", displayName: "Birding", joinedAt: Date(),
+            followActivityID: "https://example.com/users/site/outbox/1")
+        ledger.record(community)
+        try ledger.save(to: config)
+
+        let fake = FakeTransport(["https://example.com/users/site/outbox": (202, "{}")])
+        let model = Self.model(secretStore: secretStore, fake: fake)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+        #expect(model.joined.count == 1)
+
+        // Simulate the local disk becoming unwritable between `configure()` and `confirmLeave()`:
+        // replace the config directory with a plain file, so `CommunitiesLedger.save`'s
+        // `createDirectory` throws even though the remote Undo will still succeed.
+        try FileManager.default.removeItem(at: config)
+        try Data().write(to: config)
+
+        model.requestLeave(community)
+        await model.confirmLeave()
+
+        // The remote Undo succeeded and in-memory state reflects it...
+        #expect(model.joined.isEmpty)
+        #expect(model.leaveConfirmation == nil)
+        // ...but the local write failed, and that must not be silent.
+        #expect(model.errorMessage != nil)
+    }
+
+    @Test("confirmLeave clears a stale errorMessage on success")
+    func confirmLeaveClearsStaleError() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        secretStore.values[SecretAccounts.activityPubPublishToken(siteID: "site-1")] = "token"
+
+        var ledger = CommunitiesLedger()
+        let community = JoinedCommunity(
+            actorID: URL(string: "https://lemmy.ml/c/birding")!,
+            outboxURL: URL(string: "https://lemmy.ml/c/birding/outbox")!,
+            handle: "@birding@lemmy.ml", displayName: "Birding", joinedAt: Date(),
+            followActivityID: "https://example.com/users/site/outbox/1")
+        ledger.record(community)
+        try ledger.save(to: config)
+
+        let fake = FakeTransport(["https://example.com/users/site/outbox": (202, "{}")])
+        let model = Self.model(secretStore: secretStore, fake: fake)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+        model.errorMessage = "stale error from an earlier failure"
+
+        model.requestLeave(community)
+        await model.confirmLeave()
+
+        #expect(model.errorMessage == nil)
+    }
+
+    @Test("loadTimeline clears a stale errorMessage on success")
+    func loadTimelineClearsStaleError() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        secretStore.values[SecretAccounts.activityPubPublishToken(siteID: "site-1")] = "token"
+
+        var ledger = CommunitiesLedger()
+        let community = JoinedCommunity(
+            actorID: URL(string: "https://lemmy.ml/c/birding")!,
+            outboxURL: URL(string: "https://lemmy.ml/c/birding/outbox")!,
+            handle: "@birding@lemmy.ml", displayName: "Birding", joinedAt: Date(),
+            followActivityID: nil)
+        ledger.record(community)
+        try ledger.save(to: config)
+
+        let fake = FakeTransport([
+            "https://lemmy.ml/c/birding/outbox": (200, """
+                {"id":"https://lemmy.ml/c/birding/outbox","type":"OrderedCollection","totalItems":1,
+                 "first":"https://lemmy.ml/c/birding/outbox?page=1"}
+                """),
+            "https://lemmy.ml/c/birding/outbox?page=1": (200, """
+                {"id":"https://lemmy.ml/c/birding/outbox?page=1","type":"OrderedCollectionPage",
+                 "orderedItems":[]}
+                """),
+        ])
+        let model = Self.model(secretStore: secretStore, fake: fake)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+
+        // `selectCommunity` already fires `loadTimeline()` in a fire-and-forget `Task`; the
+        // explicit `await` below is what the test actually waits on, so the redundant first load
+        // is harmless (same fetch, same result) rather than a race — same pattern as
+        // `loadTimelinePopulates` above.
+        model.selectCommunity(community.id)
+        model.errorMessage = "stale error from an earlier failure"
+        await model.loadTimeline()
+
+        #expect(model.errorMessage == nil)
+    }
+
     @Test("loadTimeline populates from the selected community's outbox")
     func loadTimelinePopulates() async throws {
         let (config, source) = try Self.makeSiteDirectories()

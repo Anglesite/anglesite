@@ -100,7 +100,13 @@ final class CommunitiesModel {
             var ledger = CommunitiesLedger(communities: joined)
             ledger.record(community)
             joined = ledger.communities
-            try? persist(ledger)
+            do {
+                try persist(ledger)
+            } catch {
+                errorMessage =
+                    "Joined \(community.displayName ?? input), but couldn't save it locally: "
+                    + "\(error). It may not appear after restarting the app."
+            }
             joinHandleText = ""
             state = .loaded
         } catch {
@@ -120,6 +126,7 @@ final class CommunitiesModel {
 
     func confirmLeave() async {
         guard let community = leaveConfirmation else { return }
+        errorMessage = nil
         guard let ownActorURL, let publishToken else {
             errorMessage = "This site has no known public URL yet — deploy it at least once first."
             leaveConfirmation = nil
@@ -133,7 +140,13 @@ final class CommunitiesModel {
             var ledger = CommunitiesLedger(communities: joined)
             ledger.remove(actorID: community.actorID)
             joined = ledger.communities
-            try? persist(ledger)
+            do {
+                try persist(ledger)
+            } catch {
+                errorMessage =
+                    "Left \(community.displayName ?? community.id), but couldn't update the local "
+                    + "record: \(error). It may still appear after restarting the app."
+            }
             if selectedCommunityID == community.id {
                 selectedCommunityID = nil
                 timeline = []
@@ -164,6 +177,7 @@ final class CommunitiesModel {
               let community = joined.first(where: { $0.id == selectedCommunityID }),
               let outboxURL = community.outboxURL
         else { return }
+        errorMessage = nil
         isLoadingTimeline = true
         defer { isLoadingTimeline = false }
         let client = GroupTimelineClient(transport: timelineTransport)
