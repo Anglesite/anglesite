@@ -69,7 +69,7 @@ public enum MicropubContentSync {
     /// opposed to `itemReviewed`, which is also "title-like" for `ContentScaffold`'s placeholder-
     /// fill purposes but names the *reviewed item*, not the post — a slug-derived fallback would
     /// be nonsensical there).
-    private static let slugFallbackFieldNames = ContentScaffold.titleLikeFieldNames.subtracting(["itemReviewed"])
+    private static let slugFallbackFieldNames = ContentTypeDescriptor.titleLikeFieldNames.subtracting(["itemReviewed"])
 
     /// "my-trip-2026" → "My Trip 2026": the slug-derived title fallback for a required title-like
     /// field (`title`/`name`) a Micropub client didn't send (e.g. a nameless multi-photo post that

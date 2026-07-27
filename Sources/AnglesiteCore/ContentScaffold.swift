@@ -165,7 +165,7 @@ public enum ContentScaffold {
             case .stringArray, .imageArray:
                 lines.append("\(field.name): []")
             case .string, .text, .image:
-                let value = titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
+                let value = ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
                 lines.append("\(field.name): \"\(escapeYAML(value))\"")
             // Optional `.url` fields scaffold commented-out: an emitted `""` is not a valid URL
             // under `z.string().url()`, unlike `.string`/`.text`/`.image`'s bare `z.string()`,
@@ -173,7 +173,7 @@ public enum ContentScaffold {
             // above. Required ones (bookmarkOf, inReplyTo, likeOf) stay live — those entries are
             // already incomplete without them, same as every other required field.
             case .url:
-                let value = titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
+                let value = ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
                 lines.append("\(field.required ? "" : "# ")\(field.name): \"\(escapeYAML(value))\"")
             }
         }
@@ -204,7 +204,7 @@ public enum ContentScaffold {
             case .stringArray, .imageArray:
                 value = "[]"
             case .string, .text, .url, .image, .date, .datetime:
-                let filled = titleLikeFieldNames.contains(field.name) ? (name ?? "") : ""
+                let filled = ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (name ?? "") : ""
                 value = "\"\(escapeJSON(filled))\""
             }
             entries.append("\"\(field.name)\": \(value)")
@@ -272,8 +272,4 @@ public enum ContentScaffold {
         }
         return out
     }
-
-    // Not `private`: `MicropubContentSync` (#912) also reads this to fall back to a slug-derived
-    // title for a required title-like field a Micropub client didn't send.
-    static let titleLikeFieldNames: Set<String> = ["title", "name", "itemReviewed"]
 }
