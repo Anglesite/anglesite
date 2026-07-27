@@ -28,11 +28,16 @@ struct CommunitiesView: View {
         } message: { message in
             Text(message)
         }
+        // The setter has NO side effect, and each button is solely responsible for clearing
+        // `leaveConfirmation` — matching `SiteWindow`'s `deleteConfirmation` dialog (#968/#969).
+        // A clearing setter runs *after* Leave's synchronous action but *before* the `Task` it
+        // spawns gets to run, so `confirmLeave()`'s `guard let community = leaveConfirmation`
+        // would always see nil and silently return — no unfollow, ever.
         .alert(
             "Leave this community?",
             isPresented: Binding(
                 get: { communities.leaveConfirmation != nil },
-                set: { if !$0 { communities.cancelLeave() } }),
+                set: { _ in }),
             presenting: communities.leaveConfirmation
         ) { community in
             Button("Leave", role: .destructive) { Task { await communities.confirmLeave() } }
@@ -119,7 +124,7 @@ struct CommunitiesView: View {
         }
         .padding(.vertical, 4)
         .contextMenu {
-            if let url = post.url {
+            if let url = post.url, ActorProfileFetcher.isHTTPS(url) {
                 Button("Open in Browser") { NSWorkspace.shared.open(url) }
             }
         }
