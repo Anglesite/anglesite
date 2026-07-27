@@ -391,40 +391,75 @@ struct PlistEditorView: View {
             })
     }
 
+    private struct ContentSignalRow: Identifiable {
+        let id: String
+        let title: String
+        let help: String
+        let value: Binding<CrawlerPolicyAsset.ContentSignalValue>
+    }
+
+    private var contentSignalRows: [ContentSignalRow] {
+        [
+            ContentSignalRow(
+                id: "search",
+                title: "Search",
+                help: "Show this content in traditional search results.",
+                value: $model.crawlerPolicySettings.search
+            ),
+            ContentSignalRow(
+                id: "aiInput",
+                title: "AI Answers",
+                help: "Let AI assistants use this content to answer a live question (e.g. retrieval-augmented generation).",
+                value: $model.crawlerPolicySettings.aiInput
+            ),
+            ContentSignalRow(
+                id: "aiTrain",
+                title: "AI Training",
+                help: "Let AI systems use this content to train models.",
+                value: $model.crawlerPolicySettings.aiTrain
+            ),
+        ]
+    }
+
     private var crawlersTab: some View {
         VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 6) {
-                Toggle("Block AI Training Crawlers", isOn: $model.crawlerPolicySettings.blockAI)
-                    .toggleStyle(.switch)
-                Text("Adds robots.txt rules refusing known AI-training crawlers (GPTBot, ClaudeBot, and others). This reduces your site's visibility to AI assistants and AI-generated search summaries — it does not affect traditional search engines.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+            SettingsBox(title: "AI Training") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle("Block AI Training Crawlers", isOn: $model.crawlerPolicySettings.blockAI)
+                        .toggleStyle(.switch)
+                    Text("Adds robots.txt rules refusing known AI-training crawlers (GPTBot, ClaudeBot, and others). This reduces your site's visibility to AI assistants and AI-generated search summaries — it does not affect traditional search engines.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             }
 
-            Divider()
+            SettingsBox(title: "Content Signals") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Cloudflare's Content Signals Policy states a usage preference per purpose in robots.txt. It's a signal that well-behaved crawlers honor, not an enforced block.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Content Signals")
-                    .font(.headline)
-                Text("Cloudflare's Content Signals Policy states a usage preference per purpose in robots.txt. It's a signal that well-behaved crawlers honor, not an enforced block.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-
-                contentSignalRow(
-                    title: "Search",
-                    help: "Show this content in traditional search results.",
-                    value: $model.crawlerPolicySettings.search
-                )
-                contentSignalRow(
-                    title: "AI Answers",
-                    help: "Let AI assistants use this content to answer a live question (e.g. retrieval-augmented generation).",
-                    value: $model.crawlerPolicySettings.aiInput
-                )
-                contentSignalRow(
-                    title: "AI Training",
-                    help: "Let AI systems use this content to train models.",
-                    value: $model.crawlerPolicySettings.aiTrain
-                )
+                    Table(contentSignalRows) {
+                        TableColumn("Purpose") { row in
+                            Text(row.title)
+                        }
+                        TableColumn("Setting") { row in
+                            Picker(row.title, selection: row.value) {
+                                Text("Unspecified").tag(CrawlerPolicyAsset.ContentSignalValue.unset)
+                                Text("Allow").tag(CrawlerPolicyAsset.ContentSignalValue.yes)
+                                Text("Disallow").tag(CrawlerPolicyAsset.ContentSignalValue.no)
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.segmented)
+                        }
+                        TableColumn("Description") { row in
+                            Text(row.help)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(minHeight: 130)
+                }
             }
 
             if model.isSavingCrawlerPolicy {
@@ -748,30 +783,6 @@ struct PlistEditorView: View {
         let domain = MTAStsPolicyAsset.normalizedDomain(model.mtaStsSettings.domain)
         guard !domain.isEmpty else { return [] }
         return MTAStsPolicyAsset.dnsRecords(for: domain, settings: model.mtaStsSettings)
-    }
-
-    private func contentSignalRow(
-        title: String,
-        help: String,
-        value: Binding<CrawlerPolicyAsset.ContentSignalValue>
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(title)
-                    .frame(minWidth: 160, alignment: .leading)
-                Picker(title, selection: value) {
-                    Text("Unspecified").tag(CrawlerPolicyAsset.ContentSignalValue.unset)
-                    Text("Allow").tag(CrawlerPolicyAsset.ContentSignalValue.yes)
-                    Text("Disallow").tag(CrawlerPolicyAsset.ContentSignalValue.no)
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 260)
-            }
-            Text(help)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
     }
 
     private var conflictBinding: Binding<Bool> {
