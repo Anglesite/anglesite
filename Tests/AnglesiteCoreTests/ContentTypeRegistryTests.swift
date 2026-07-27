@@ -266,4 +266,36 @@ struct ContentTypeRegistryTests {
         #expect(article.projections.rawMf2Property(forField: "draft") == nil)
         #expect(article.projections.rawMf2Property(forField: "nonexistent") == nil)
     }
+
+    @Test("titleField finds the type's human-facing title field, or nil")
+    func titleFieldPerType() throws {
+        let registry = ContentTypeRegistry()
+        let bookmark = try #require(registry.descriptor(id: "bookmark"))
+        let event = try #require(registry.descriptor(id: "event"))
+        let review = try #require(registry.descriptor(id: "review"))
+        let reply = try #require(registry.descriptor(id: "reply"))
+        let like = try #require(registry.descriptor(id: "like"))
+
+        #expect(bookmark.titleField?.name == "title")
+        #expect(event.titleField?.name == "name")
+        #expect(review.titleField?.name == "itemReviewed")
+        // reply and like are identified by their target URL, not by a name (#916).
+        #expect(reply.titleField == nil)
+        #expect(like.titleField == nil)
+    }
+
+    @Test("requiredURLFields lists required .url fields in declaration order")
+    func requiredURLFieldsPerType() throws {
+        let registry = ContentTypeRegistry()
+        let bookmark = try #require(registry.descriptor(id: "bookmark"))
+        let reply = try #require(registry.descriptor(id: "reply"))
+        let like = try #require(registry.descriptor(id: "like"))
+        let note = try #require(registry.descriptor(id: "note"))
+
+        #expect(bookmark.requiredURLFields.map(\.name) == ["bookmarkOf"])
+        #expect(reply.requiredURLFields.map(\.name) == ["inReplyTo"])
+        #expect(like.requiredURLFields.map(\.name) == ["likeOf"])
+        // `audience` is an optional .url, so it must not appear here.
+        #expect(note.requiredURLFields.isEmpty)
+    }
 }

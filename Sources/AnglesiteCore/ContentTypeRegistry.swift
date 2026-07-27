@@ -141,6 +141,25 @@ public struct ContentTypeDescriptor: Sendable, Equatable, Identifiable {
         if case let .singleton(name) = storage { return name }
         return nil
     }
+
+    /// Field names treated as a type's human-facing title, in no particular order. A descriptor
+    /// declares at most one of these; `ContentScaffold` fills whichever it declares from the
+    /// caller-supplied title (#386).
+    static let titleLikeFieldNames: Set<String> = ["title", "name", "itemReviewed"]
+
+    /// The field carrying this type's human-facing title, or `nil` when it has none. `reply` and
+    /// `like` have none — they are identified by their target URL, not by a name — so the create
+    /// UI hides the Title row for them and derives a slug from that URL instead (#916).
+    public var titleField: ContentTypeField? {
+        fields.first { Self.titleLikeFieldNames.contains($0.name) }
+    }
+
+    /// Required `.url` fields, in declaration order. The template schemas these project to are
+    /// `z.string().url()`, which rejects an empty string, so the create path must collect a value
+    /// for each one before writing rather than scaffolding a placeholder (#916).
+    public var requiredURLFields: [ContentTypeField] {
+        fields.filter { $0.kind == .url && $0.required }
+    }
 }
 
 /// An ordered, lookup-by-id catalog of content types. Value type so it composes cleanly into the

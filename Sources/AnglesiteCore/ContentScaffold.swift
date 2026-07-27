@@ -50,6 +50,36 @@ public enum ContentScaffold {
         "src/content/\(collection)/\(slug).md"
     }
 
+    /// Derive a slug from a target URL, for content types with no title field to slugify — `reply`
+    /// and `like` are identified by what they point at, not by a name (#916).
+    ///
+    /// `yyyy-MM-dd` (UTC, same clock and formatter family `renderEntry` uses) + the host with a
+    /// leading `www.` dropped + the last non-empty path component, all through `slugify`. Query and
+    /// fragment are ignored. The date prefix keeps entries chronologically sortable and makes
+    /// collisions practically impossible — two replies to the same URL on the same day — while
+    /// keeping the permalink descriptive; it matches the IndieWeb convention for replies and likes.
+    ///
+    /// Returns `""` when `value` has no host, so callers fall back to their own default rather than
+    /// producing a date-only slug that says nothing about the entry.
+    public static func slugFromURL(_ value: String, now: Date) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: trimmed),
+              let host = components.host, !host.isEmpty
+        else { return "" }
+
+        let bareHost = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        let lastSegment = components.path
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .last
+            .map(String.init) ?? ""
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let day = String(formatter.string(from: now).prefix(10))
+
+        return slugify([day, bareHost, lastSegment].filter { !$0.isEmpty }.joined(separator: "-"))
+    }
+
     public static func singletonRelativePath(slot: String) -> String {
         "src/data/\(slot).json"
     }
@@ -137,7 +167,15 @@ public enum ContentScaffold {
     /// Render a new content entry's file contents from its descriptor: a YAML frontmatter block
     /// (one line per non-markdown field, in declaration order) followed by a placeholder body for
     /// the type's `markdown` field, if any. Pure; mirrors `renderPost`'s ISO8601 date format.
-    public static func renderEntry(descriptor: ContentTypeDescriptor, title: String?, now: Date) -> String {
+    /// `fieldValues` supplies caller-collected values by field name for the scalar-string kinds
+    /// (`.string`, `.text`, `.url`, `.image`); an absent key falls back to the title-like/empty
+    /// default. Still pure — an empty `fieldValues` renders exactly what it rendered before (#916).
+    public static func renderEntry(
+        descriptor: ContentTypeDescriptor,
+        title: String?,
+        now: Date,
+        fieldValues: [String: String] = [:]
+    ) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let dateTime = formatter.string(from: now)
@@ -165,16 +203,19 @@ public enum ContentScaffold {
             case .stringArray, .imageArray:
                 lines.append("\(field.name): []")
             case .string, .text, .image:
-                let value = titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
-                lines.append("\(field.name): \"\(escapeYAML(value))\"")
-            // Optional `.url` fields scaffold commented-out: an emitted `""` is not a valid URL
-            // under `z.string().url()`, unlike `.string`/`.text`/`.image`'s bare `z.string()`,
-            // which accepts an empty string. Mirrors the `.datetime`/`.date` comment-out rationale
-            // above. Required ones (bookmarkOf, inReplyTo, likeOf) stay live — those entries are
-            // already incomplete without them, same as every other required field.
+                lines.append("\(field.name): \"\(escapeYAML(scalarValue(field, title: title, fieldValues: fieldValues)))\"")
+            // A `.url` line is commented out only when the field is optional *and* nothing was
+            // supplied: an emitted `""` is not a valid URL under `z.string().url()`, unlike
+            // `.string`/`.text`/`.image`'s bare `z.string()`, which accepts an empty string.
+            // Mirrors the `.datetime`/`.date` comment-out rationale above (#913). A supplied value
+            // always renders live — that is how the create path pre-fills the required
+            // `bookmarkOf`/`inReplyTo`/`likeOf` so a new entry is schema-valid on first write
+            // (#916). Required fields with nothing supplied still render an empty live line; the
+            // create path refuses to write that, keeping this function a pure formatter.
             case .url:
-                let value = titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
-                lines.append("\(field.required ? "" : "# ")\(field.name): \"\(escapeYAML(value))\"")
+                let value = scalarValue(field, title: title, fieldValues: fieldValues)
+                let isLive = field.required || !value.isEmpty
+                lines.append("\(isLive ? "" : "# ")\(field.name): \"\(escapeYAML(value))\"")
             }
         }
         lines.append("---")
@@ -184,6 +225,27 @@ public enum ContentScaffold {
             output += "\n\(bodyPlaceholder)\n"
         }
         return output
+    }
+
+    /// The value for a scalar-string field: the caller's supplied value if there is one, otherwise
+    /// the entry title for a title-like field, otherwise empty.
+    ///
+    /// The title fallback is deliberately skipped for `.url` fields: `titleLikeFieldNames` (`title`,
+    /// `name`, `itemReviewed`) is a name-based heuristic that assumes those names carry a
+    /// human-facing label, but a custom descriptor (via `ContentTypeRegistry.register(_:)`) could
+    /// declare an *optional* `.url` field named e.g. `name`. Falling back to the title there would
+    /// render a non-URL string into a `z.string().url()` slot as a *live* line — the field's
+    /// `isLive` rule in `renderEntry` treats any non-empty value as supplied — which is exactly the
+    /// kind of schema-invalid write this file exists to prevent. A caller-supplied `fieldValues`
+    /// entry still wins for `.url` fields; only the title fallback is suppressed.
+    private static func scalarValue(
+        _ field: ContentTypeField,
+        title: String?,
+        fieldValues: [String: String]
+    ) -> String {
+        if let supplied = fieldValues[field.name] { return supplied }
+        guard field.kind != .url else { return "" }
+        return ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (title ?? "") : ""
     }
 
     /// Render a per-site singleton (e.g. the representative h-card) as a JSON data module:
@@ -204,7 +266,7 @@ public enum ContentScaffold {
             case .stringArray, .imageArray:
                 value = "[]"
             case .string, .text, .url, .image, .date, .datetime:
-                let filled = titleLikeFieldNames.contains(field.name) ? (name ?? "") : ""
+                let filled = ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (name ?? "") : ""
                 value = "\"\(escapeJSON(filled))\""
             }
             entries.append("\"\(field.name)\": \(value)")
@@ -272,8 +334,4 @@ public enum ContentScaffold {
         }
         return out
     }
-
-    // Not `private`: `MicropubContentSync` (#912) also reads this to fall back to a slug-derived
-    // title for a required title-like field a Micropub client didn't send.
-    static let titleLikeFieldNames: Set<String> = ["title", "name", "itemReviewed"]
 }

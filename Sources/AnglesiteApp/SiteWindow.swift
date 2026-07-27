@@ -701,8 +701,9 @@ struct SiteWindow: View {
         .sheet(isPresented: $bindableModel.newCollectionPresented) {
             NewCollectionEntrySheet(
                 descriptors: contentTypeRegistry.all.filter { $0.collection != nil }
-            ) { title, slug, descriptor in
-                await model.createCollectionEntry(title: title, slug: slug, descriptor: descriptor)
+            ) { title, slug, descriptor, fieldValues in
+                await model.createCollectionEntry(
+                    title: title, slug: slug, descriptor: descriptor, fieldValues: fieldValues)
             }
         }
         .sheet(isPresented: $bindableModel.newPostPresented) {

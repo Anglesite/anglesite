@@ -136,11 +136,13 @@ struct NativeContentOperationsTests {
     @Test("createTyped writes a like to its collection and commits")
     func createTypedLike() async throws {
         let (ops, root, spy) = makeOps()
-        let result = await ops.createTyped(siteID: "s1", typeID: "like", title: "Cool post")
+        let result = await ops.createTyped(
+            siteID: "s1", typeID: "like", title: "Cool post", slug: nil,
+            fieldValues: ["likeOf": "https://example.com/post"])
         #expect(result == .created(filePath: "src/content/likes/cool-post.md", identifier: "cool-post"))
         let written = try String(
             contentsOf: root.appendingPathComponent("src/content/likes/cool-post.md"), encoding: .utf8)
-        #expect(written.contains("likeOf: \"\""))
+        #expect(written.contains("likeOf: \"https://example.com/post\""))
         #expect(written.contains("publishDate:"))
         let calls = await spy.calls
         #expect(calls.count == 1)
@@ -160,6 +162,92 @@ struct NativeContentOperationsTests {
         let (ops, _, _) = makeOps()
         let result = await ops.createTyped(siteID: "s1", typeID: "businessProfile", title: "x")
         #expect(result == .failed(reason: "businessProfile is not a collection type; use createTypedSingleton"))
+    }
+
+    @Test("createTyped refuses to write an entry missing a required .url value")
+    func createTypedRejectsMissingRequiredURL() async {
+        let (ops, root, spy) = makeOps()
+        // The #916 regression guard: this is what the New Collection sheet used to do.
+        let result = await ops.createTyped(siteID: "s1", typeID: "like", title: "Cool post", slug: nil)
+        guard case let .failed(reason) = result else { Issue.record("expected .failed"); return }
+        #expect(reason.contains("likeOf"))
+        #expect(!FileManager.default.fileExists(
+            atPath: root.appendingPathComponent("src/content/likes/cool-post.md").path))
+        let calls = await spy.calls
+        #expect(calls.isEmpty)
+    }
+
+    @Test("createTyped refuses a required .url value that isn't an absolute URL")
+    func createTypedRejectsMalformedRequiredURL() async {
+        let (ops, root, _) = makeOps()
+        let result = await ops.createTyped(
+            siteID: "s1", typeID: "bookmark", title: "Cool post", slug: nil,
+            fieldValues: ["bookmarkOf": "example.com/post"])
+        guard case let .failed(reason) = result else { Issue.record("expected .failed"); return }
+        #expect(reason.contains("bookmarkOf"))
+        #expect(!FileManager.default.fileExists(
+            atPath: root.appendingPathComponent("src/content/bookmarks/cool-post.md").path))
+    }
+
+    @Test("createTyped refuses a supplied optional .url value that isn't an absolute URL")
+    func createTypedRejectsMalformedOptionalURL() async {
+        let (ops, _, _) = makeOps()
+        let result = await ops.createTyped(
+            siteID: "s1", typeID: "note", title: "Hello", slug: nil,
+            fieldValues: ["audience": "nope"])
+        guard case let .failed(reason) = result else { Issue.record("expected .failed"); return }
+        #expect(reason.contains("audience"))
+    }
+
+    @Test("createTyped writes a bookmark with its target URL live in the frontmatter")
+    func createTypedBookmarkWritesURL() async throws {
+        let (ops, root, _) = makeOps()
+        let result = await ops.createTyped(
+            siteID: "s1", typeID: "bookmark", title: "Cool post", slug: nil,
+            fieldValues: ["bookmarkOf": "https://example.com/blog/hello-world"])
+        #expect(result == .created(filePath: "src/content/bookmarks/cool-post.md", identifier: "cool-post"))
+        let written = try String(
+            contentsOf: root.appendingPathComponent("src/content/bookmarks/cool-post.md"), encoding: .utf8)
+        #expect(written.contains("bookmarkOf: \"https://example.com/blog/hello-world\""))
+        #expect(written.contains("title: \"Cool post\""))
+    }
+
+    @Test("createTyped persists a required URL trimmed, not the raw supplied value")
+    func createTypedPersistsTrimmedRequiredURL() async throws {
+        let (ops, root, _) = makeOps()
+        // Surrounding whitespace (including a trailing newline) passes ContentFieldValidation's
+        // trimmed check, but the raw value must never reach disk: escapeYAML doesn't escape
+        // newlines, so persisting the untrimmed original would split the frontmatter (#916
+        // follow-up). The written line must be exactly the clean, trimmed URL.
+        let result = await ops.createTyped(
+            siteID: "s1", typeID: "bookmark", title: "Cool post", slug: nil,
+            fieldValues: ["bookmarkOf": "  https://example.com/post\n"])
+        #expect(result == .created(filePath: "src/content/bookmarks/cool-post.md", identifier: "cool-post"))
+        let written = try String(
+            contentsOf: root.appendingPathComponent("src/content/bookmarks/cool-post.md"), encoding: .utf8)
+        #expect(written.contains("bookmarkOf: \"https://example.com/post\"\n"))
+    }
+
+    @Test("a titleless type with no title derives its slug from the target URL")
+    func createTypedDerivesSlugFromURL() async {
+        let (ops, _, spy) = makeOps()   // now == 2025-06-15T15:06:40Z
+        let result = await ops.createTyped(
+            siteID: "s1", typeID: "reply", title: "", slug: nil,
+            fieldValues: ["inReplyTo": "https://example.com/blog/hello-world"])
+        #expect(result == .created(
+            filePath: "src/content/replies/2025-06-15-example-com-hello-world.md",
+            identifier: "2025-06-15-example-com-hello-world"))
+        let calls = await spy.calls
+        #expect(calls.first?.2 == "anglesite: add replies 2025-06-15-example-com-hello-world")
+    }
+
+    @Test("an explicit slug still beats both the title and the URL")
+    func createTypedExplicitSlugWins() async {
+        let (ops, _, _) = makeOps()
+        let result = await ops.createTyped(
+            siteID: "s1", typeID: "reply", title: "", slug: "my-reply",
+            fieldValues: ["inReplyTo": "https://example.com/blog/hello-world"])
+        #expect(result == .created(filePath: "src/content/replies/my-reply.md", identifier: "my-reply"))
     }
 
     @Test("createTypedSingleton writes the slot data file and commits")
