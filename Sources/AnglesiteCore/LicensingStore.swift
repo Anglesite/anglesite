@@ -227,35 +227,54 @@ extension LicensingPolicy: Codable {
     }
 
     public init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // A syntactically valid JSON document that isn't an object at the top level (a bare
+        // string, number, bool, or array) degrades to the empty policy rather than throwing —
+        // matching `normalizePolicy`'s `typeof raw !== "object"` guard (and, for the array case
+        // specifically, its natural degrade via destructuring properties that don't exist on an
+        // array). Only a `decoder.container(keyedBy:)` failure lands here; a document that isn't
+        // JSON at all fails earlier, inside `JSONDecoder`'s own parse, and still throws.
+        guard let container = try? decoder.container(keyedBy: CodingKeys.self) else {
+            self.init()
+            return
+        }
         // A malformed `default` (missing `url`, wrong shape, or a URL `LicenseRef`'s own decode
         // rejects as unsafe) degrades to nil instead of failing the whole document — matching
         // `toLicenseRef`'s null return in `normalizePolicy`. This is also what sanitizes a
         // hand-edited unsafe URL at *load* time: `Self.validate`/`save()` cover the write path,
         // this covers the read path, and they are deliberately different guarantees.
         let defaultLicense = (try? container.decodeIfPresent(LicenseRef.self, forKey: .default)) ?? nil
-        let usage = try container.decodeIfPresent(AIUsage.self, forKey: .usage) ?? AIUsage()
+        // A wrong-typed `usage` (a string, number, or array rather than an object) degrades to the
+        // all-unset default instead of throwing — matching `normalizeUsage`'s `typeof raw !==
+        // "object"` guard (and the array case's equivalent natural degrade via destructuring).
+        // `try?` around the whole call is required, not just around the inner decode: the failure
+        // happens inside `AIUsage.init(from:)`'s own `decoder.container(keyedBy:)` call.
+        let usage = ((try? container.decodeIfPresent(AIUsage.self, forKey: .usage)) ?? nil) ?? AIUsage()
         var collections: [LicensableCollection: CollectionLicenseRule] = [:]
         // `"collections": null` is present-but-null; `normalizePolicy`'s `rawCollections &&
         // typeof rawCollections === "object"` check is falsy for `null` (short-circuiting before
         // `typeof`), so it is treated as empty rather than a decode error.
         if try container.contains(.collections) && !container.decodeNil(forKey: .collections) {
-            let sub = try container.nestedContainer(keyedBy: CollectionKey.self, forKey: .collections)
-            for key in sub.allKeys {
-                // Unrecognized collection keys are dropped rather than passed through, matching
-                // normalizePolicy's treatment of a typo'd key.
-                guard let collection = LicensableCollection(rawValue: key.stringValue) else { continue }
-                if try sub.decodeNil(forKey: key) {
-                    collections[collection] = .assertNothing
-                } else if let ref = try? sub.decode(LicenseRef.self, forKey: key) {
-                    collections[collection] = .license(ref)
-                } else {
-                    // A present value that is neither null nor a trustworthy license (garbage
-                    // shape, missing url, unsafe scheme) still asserts nothing — exactly like
-                    // `toLicenseRef` returning null for a present key in `normalizePolicy`. It
-                    // must NOT fall through to `.inherit`: `inherit` resolves to the site default,
-                    // which would assert a license this document never actually granted here.
-                    collections[collection] = .assertNothing
+            // A wrong-typed `collections` (a string, number, or array rather than an object)
+            // degrades to empty instead of throwing — matching `normalizePolicy`'s `typeof
+            // rawCollections === "object"` guard for a string/number, and, for an array, its
+            // natural degrade (every numeric-index key fails `isLicensable`).
+            if let sub = try? container.nestedContainer(keyedBy: CollectionKey.self, forKey: .collections) {
+                for key in sub.allKeys {
+                    // Unrecognized collection keys are dropped rather than passed through, matching
+                    // normalizePolicy's treatment of a typo'd key.
+                    guard let collection = LicensableCollection(rawValue: key.stringValue) else { continue }
+                    if try sub.decodeNil(forKey: key) {
+                        collections[collection] = .assertNothing
+                    } else if let ref = try? sub.decode(LicenseRef.self, forKey: key) {
+                        collections[collection] = .license(ref)
+                    } else {
+                        // A present value that is neither null nor a trustworthy license (garbage
+                        // shape, missing url, unsafe scheme) still asserts nothing — exactly like
+                        // `toLicenseRef` returning null for a present key in `normalizePolicy`. It
+                        // must NOT fall through to `.inherit`: `inherit` resolves to the site default,
+                        // which would assert a license this document never actually granted here.
+                        collections[collection] = .assertNothing
+                    }
                 }
             }
         }

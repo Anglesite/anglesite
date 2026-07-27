@@ -199,6 +199,58 @@ struct LicensingStoreTests {
         #expect(throws: (any Error).self) { try LicensingStore(sourceDirectory: dir).load() }
     }
 
+    @Test(
+        "load() degrades a wrong-typed usage container instead of throwing",
+        arguments: [
+            #"{"usage":"x"}"#,
+            #"{"usage":42}"#,
+            #"{"usage":[1,2]}"#,
+        ]
+    )
+    func loadDegradesWrongTypedUsage(_ json: String) throws {
+        // normalizeUsage's `!raw || typeof raw !== "object"` guard returns the all-unset default
+        // for a string/number; an array is typeof "object" in JS, so it falls through to
+        // destructuring, but every property comes back undefined and toPermission(undefined) is
+        // "unset" too — so all three shapes land on the same all-unset result.
+        let dir = try makeDirectory()
+        try write(json, to: dir)
+        #expect(try LicensingStore(sourceDirectory: dir).load().usage == AIUsage())
+    }
+
+    @Test(
+        "load() degrades a wrong-typed collections container instead of throwing",
+        arguments: [
+            #"{"collections":"x"}"#,
+            #"{"collections":42}"#,
+            #"{"collections":[1,2]}"#,
+        ]
+    )
+    func loadDegradesWrongTypedCollections(_ json: String) throws {
+        // normalizePolicy's `rawCollections && typeof rawCollections === "object"` guard skips the
+        // loop entirely for a string/number; an array passes the typeof check and is iterated, but
+        // every numeric-index key ("0", "1", ...) fails isLicensable, so it also ends up empty.
+        let dir = try makeDirectory()
+        try write(json, to: dir)
+        #expect(try LicensingStore(sourceDirectory: dir).load().collections.isEmpty)
+    }
+
+    @Test(
+        "load() degrades a non-object top-level document instead of throwing",
+        arguments: [
+            #""nope""#,
+            "[1,2]",
+        ]
+    )
+    func loadDegradesNonObjectTopLevelDocument(_ json: String) throws {
+        // normalizePolicy's `!raw || typeof raw !== "object"` guard returns the empty policy
+        // outright for a bare string; a bare array is typeof "object" in JS, so it isn't caught by
+        // that check, but destructuring `default`/`collections`/`usage` off an array with no such
+        // properties yields undefined for all three, which resolves to the same empty policy.
+        let dir = try makeDirectory()
+        try write(json, to: dir)
+        #expect(try LicensingStore(sourceDirectory: dir).load() == LicensingPolicy())
+    }
+
     @Test("mayBlockAICrawlers requires both AI purposes denied")
     func mayBlock() {
         #expect(AIUsage(search: .unset, aiInput: .no, aiTrain: .no, blockAICrawlers: false).mayBlockAICrawlers)
