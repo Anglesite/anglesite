@@ -4,6 +4,7 @@ import { Schema } from "astro-seo-schema";
 import { entrySchema } from "../lib/schema.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
+import Interactions from "../components/Interactions.astro";
 
 interface Props {
   entry: CollectionEntry<"events">;
@@ -34,5 +35,6 @@ const endHuman = endDate?.toLocaleString("en-US");
     {d.location && <p class="p-location">{d.location}</p>}
     <div class="e-content"><slot /></div>
     <SyndicationLinks urls={d.syndication} />
+    <Interactions canonical={canonical} />
   </article>
 </BaseLayout>

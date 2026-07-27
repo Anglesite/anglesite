@@ -5,6 +5,7 @@ import { readConfig } from "./scripts/config.ts";
 import anglesiteHarness from "./scripts/anglesite-harness.ts";
 import redirects from "./scripts/redirects.ts";
 import remarkEmbeds from "./scripts/remark-embeds.ts";
+import co2Badge from "./scripts/co2-badge.ts";
 import { isKeystaticDev } from "./scripts/keystatic-gate.ts";
 
 // The deploy step writes the real domain into `.site-config` (SITE_URL=…) before build.
@@ -21,11 +22,11 @@ const isDev = isKeystaticDev(process.argv);
 
 export default defineConfig({
   site,
-  integrations: [anglesiteHarness(), redirects(), ...(isDev ? [react(), keystatic()] : [])],
-  // Astro 7 note (#682): its default markdown processor no longer carries remark itself —
-  // `remarkPlugins` there requires adding `@astrojs/markdown-remark` as a dependency. That is a
-  // new dependency and therefore needs approval, so whoever does the Astro 7 bump has to decide
-  // it deliberately rather than discover it from a silently-inert embeds pipeline.
+  integrations: [anglesiteHarness(), redirects(), co2Badge(), ...(isDev ? [react(), keystatic()] : [])],
+  // Astro 7's default markdown processor (Sätteri) no longer carries remark itself, so
+  // `remarkPlugins` requires `@astrojs/markdown-remark` as an explicit dependency (#682).
+  // Without it Astro fails config validation outright rather than silently skipping the
+  // plugin — so if the embeds pipeline ever goes inert, check that dependency first.
   markdown: {
     remarkPlugins: [remarkEmbeds],
   },

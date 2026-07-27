@@ -103,6 +103,7 @@ private struct FailureCard: View {
         case .keystaticRoute: return "lock.shield"
         case .cspMisconfigured: return "shield.slash"
         case .embedMediaHotlink: return "photo.badge.exclamationmark"
+        case .wellKnownCollision: return "exclamationmark.lock"
         case .other: return "exclamationmark.triangle"
         }
     }
@@ -117,6 +118,7 @@ private struct FailureCard: View {
         case .keystaticRoute: return "Keystatic admin route"
         case .cspMisconfigured: return "CSP misconfigured"
         case .embedMediaHotlink: return "Hotlinked embed media"
+        case .wellKnownCollision: return "/.well-known/ collision"
         case .other: return "Other"
         }
     }
@@ -161,6 +163,7 @@ private struct WarningCard: View {
         case .securityTxtIssue: return "security.txt issue"
         case .mtaStsIssue: return "MTA-STS issue"
         case .thirdPartyScript: return "Third-party script"
+        case .wellKnownArtifact: return "/.well-known/ file excluded"
         case .other: return "Other"
         }
     }

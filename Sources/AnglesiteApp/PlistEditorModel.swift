@@ -48,6 +48,40 @@ final class PlistEditorModel {
     private(set) var isPublishingMtaStsDNS = false
     private let domainOperations: any DomainOperationsService
 
+    // MARK: - Workers tab (#710)
+
+    /// One catalog `group` section of the Workers tab, sorted by group key.
+    struct WorkerGroup: Identifiable {
+        let id: String
+        let name: String
+        var rows: [WorkerRow]
+    }
+
+    /// One catalog worker row. Component-tied rows are read-only status (design doc §8 — their
+    /// active state is always recomputed from the site graph, never toggled); settings-activated
+    /// rows carry the toggle state mirrored from `SiteSettings.activeWorkerIDs`.
+    struct WorkerRow: Identifiable {
+        let descriptor: WorkerDescriptor
+        var status: Status
+        var id: String { descriptor.id }
+
+        enum Status: Equatable {
+            case componentTied(affectedPages: [SiteGraphNode])
+            case settingsActivated(isOn: Bool)
+        }
+    }
+
+    private(set) var workerGroups: [WorkerGroup] = []
+    private(set) var workersError: String?
+    private(set) var isLoadingWorkers = false
+    private(set) var workerLastDeployedIDs: [String] = []
+    /// The most recently loaded `SiteSettings`, the base for toggle read-modify-write saves.
+    private var workerSettings = SiteSettings()
+    private let configDirectory: URL?
+    private let workerCatalogProvider: @Sendable () async -> [WorkerDescriptor]
+    private let graphSnapshotProvider: @MainActor () -> SiteGraphExplorerSnapshot?
+    private let onActiveWorkersChanged: (SiteSettings) async -> Void
+
     var isDirty: Bool { entries != savedEntries && loadError == nil && !isLoading }
     var isAnalyticsDirty: Bool { analyticsSettings != savedAnalyticsSettings && loadError == nil && !isLoading }
     var isRedirectsDirty: Bool { redirectEntries != savedRedirectEntries && loadError == nil && !isLoading }
@@ -79,6 +113,10 @@ final class PlistEditorModel {
     }
 
     init(file: FileRef, websiteTitle: String, sourceDirectory: URL,
+         configDirectory: URL? = nil,
+         workerCatalogProvider: (@Sendable () async -> [WorkerDescriptor])? = nil,
+         graphSnapshotProvider: @escaping @MainActor () -> SiteGraphExplorerSnapshot? = { nil },
+         onActiveWorkersChanged: @escaping (SiteSettings) async -> Void = { _ in },
          analyticsProvider: any CloudflareWebAnalyticsProviding = CloudflareWebAnalyticsClient(),
          customAnalyticsValidator: any CustomAnalyticsHTMLValidating = AstroHTMLValidator(),
          keychain: KeychainStore = KeychainStore(),
@@ -86,6 +124,14 @@ final class PlistEditorModel {
         self.file = file
         self.initialWebsiteTitle = websiteTitle
         self.sourceDirectory = sourceDirectory
+        self.configDirectory = configDirectory
+        // Resolved here rather than as a default argument: a closure creating and awaiting an
+        // actor can't be a default value in this @MainActor initializer under strict concurrency.
+        self.workerCatalogProvider = workerCatalogProvider ?? {
+            await WorkerCatalogFetcher(catalogURL: WorkerCatalogFetcher.productionCatalogURL).catalog()
+        }
+        self.graphSnapshotProvider = graphSnapshotProvider
+        self.onActiveWorkersChanged = onActiveWorkersChanged
         self.analyticsProvider = analyticsProvider
         self.customAnalyticsValidator = customAnalyticsValidator
         self.keychain = keychain
@@ -500,6 +546,128 @@ final class PlistEditorModel {
         var merged = allEntries.filter { !Self.isWebsiteTitleEntry($0) }
         merged.append(contentsOf: entries)
         return merged
+    }
+
+    // MARK: - Workers tab actions (#710)
+    //
+    // Deliberately NOT a `DirtyFacet` below: worker toggles save at interaction time
+    // (`setWorkerActive`), so this facet is never dirty and never participates in the
+    // save-on-leave/⌘S aggregation.
+
+    /// Loads everything the Workers tab shows: persisted `SiteSettings`, the worker catalog
+    /// (network fetch with cache/empty degradation inside `WorkerCatalogFetcher`), and per-
+    /// component-tied-worker affected pages via `ImpactAnalysis` over the Site Graph snapshot.
+    /// Called from the tab's `.task`, so it re-runs (and re-fetches) on each tab open.
+    func loadWorkers() async {
+        guard let configDirectory else {
+            workerGroups = []
+            workersError = String(
+                localized: "Workers are unavailable for this site — its package configuration folder couldn't be found.")
+            return
+        }
+        isLoadingWorkers = true
+        defer { isLoadingWorkers = false }
+        let settings = (try? await SiteConfigStore(configDirectory: configDirectory).load()) ?? SiteSettings()
+        workerSettings = settings
+        workerLastDeployedIDs = settings.lastDeployedWorkerIDs ?? []
+        let catalog = await workerCatalogProvider()
+        let snapshot = graphSnapshotProvider()
+        workerGroups = Self.workerGroups(catalog: catalog, settings: settings, snapshot: snapshot)
+        workersError = catalog.isEmpty
+            ? String(localized: "The worker catalog couldn't be loaded. Check your network connection and reopen this tab.")
+            : nil
+    }
+
+    /// Persists a settings-activated worker toggle immediately (design doc §8): read-modify-write
+    /// of `Config/settings.plist` so concurrently written fields (e.g. a deploy updating
+    /// `lastDeployedWorkerIDs`) aren't clobbered, then notifies the runtime so a live local
+    /// wrangler-dev session restarts with the new active set (§7).
+    func setWorkerActive(_ workerID: String, isOn: Bool) async {
+        guard let configDirectory else { return }
+        let store = SiteConfigStore(configDirectory: configDirectory)
+        var settings = (try? await store.load()) ?? workerSettings
+        var ids = Set(settings.activeWorkerIDs ?? [])
+        if isOn { ids.insert(workerID) } else { ids.remove(workerID) }
+        settings.activeWorkerIDs = ids.sorted()
+        do {
+            try await store.save(settings)
+        } catch {
+            workersError = String(localized: "Couldn't save the worker change: \(error.localizedDescription)")
+            return
+        }
+        workerSettings = settings
+        workersError = nil
+        for groupIndex in workerGroups.indices {
+            for rowIndex in workerGroups[groupIndex].rows.indices
+            where workerGroups[groupIndex].rows[rowIndex].id == workerID {
+                workerGroups[groupIndex].rows[rowIndex].status = .settingsActivated(isOn: isOn)
+            }
+        }
+        await onActiveWorkersChanged(settings)
+    }
+
+    /// Dashboard deep-links are enabled only after the first deploy that included a worker
+    /// (design doc §8) — before that there is nothing on Cloudflare to look at.
+    var workerDashboardEnabled: Bool { !workerLastDeployedIDs.isEmpty }
+
+    /// The deployed worker script is named after the site slug — the same derivation the deploy
+    /// path uses (`SiteOperations`/`DeployModel`: `SiteSlug.derive(from: site.name)`).
+    var workerDashboardLogsURL: URL {
+        WorkerDashboardLinks.productionLogsURL(workerName: SiteSlug.derive(from: initialWebsiteTitle))
+    }
+
+    var workerDashboardAnalyticsURL: URL {
+        WorkerDashboardLinks.analyticsURL(workerName: SiteSlug.derive(from: initialWebsiteTitle))
+    }
+
+    private static func workerGroups(
+        catalog: [WorkerDescriptor],
+        settings: SiteSettings,
+        snapshot: SiteGraphExplorerSnapshot?
+    ) -> [WorkerGroup] {
+        let activeIDs = Set(settings.activeWorkerIDs ?? [])
+        let rows = catalog.map { descriptor -> (group: String, row: WorkerRow) in
+            let status: WorkerRow.Status
+            switch descriptor.binding {
+            case .componentTied(let componentIDs):
+                status = .componentTied(affectedPages: affectedPages(
+                    componentIDs: componentIDs, snapshot: snapshot))
+            case .settingsActivated:
+                status = .settingsActivated(isOn: activeIDs.contains(descriptor.id))
+            }
+            return (descriptor.group, WorkerRow(descriptor: descriptor, status: status))
+        }
+        return Dictionary(grouping: rows, by: \.group)
+            .map { key, members in
+                WorkerGroup(
+                    id: key, name: key,
+                    rows: members.map(\.row).sorted {
+                        let byName = $0.descriptor.displayName.localizedStandardCompare($1.descriptor.displayName)
+                        if byName != .orderedSame { return byName == .orderedAscending }
+                        return $0.id < $1.id
+                    })
+            }
+            .sorted { $0.id < $1.id }
+    }
+
+    /// Union of `ImpactAnalysis.affectedPages` across every graph node a worker's componentIDs
+    /// resolve to, deduplicated by node id and title-sorted (id tiebreak) for stable display.
+    private static func affectedPages(
+        componentIDs: [String], snapshot: SiteGraphExplorerSnapshot?
+    ) -> [SiteGraphNode] {
+        guard let snapshot else { return [] }
+        var byID: [String: SiteGraphNode] = [:]
+        for componentID in componentIDs {
+            for nodeID in WorkerActivation.componentNodeIDs(for: componentID, in: snapshot) {
+                guard let report = ImpactAnalysis.analyze(snapshot: snapshot, targetID: nodeID) else { continue }
+                for page in report.affectedPages { byID[page.id] = page }
+            }
+        }
+        return byID.values.sorted {
+            let byTitle = $0.title.localizedStandardCompare($1.title)
+            if byTitle != .orderedSame { return byTitle == .orderedAscending }
+            return $0.id < $1.id
+        }
     }
 
     // MARK: - Aggregate dirty/save seam (#741)

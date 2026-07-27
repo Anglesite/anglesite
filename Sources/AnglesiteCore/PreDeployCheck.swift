@@ -36,6 +36,11 @@ public actor PreDeployCheck {
             /// copy under `public/embeds/`. See `checkEmbedMedia` in
             /// `Resources/Template/scripts/pre-deploy-check.ts` (#682).
             case embedMediaHotlink = "embed-media-hotlink"
+            /// Two or more owners claim the same effective `/.well-known/` path (or an
+            /// exact/prefix pair overlaps) — `WellKnownInventory.merge` (#744) computed this
+            /// Swift-side before build, the same way `RouteCoverageScanner`'s `.orphanedRoute`
+            /// is computed Swift-side rather than emitted by the TS scan script.
+            case wellKnownCollision = "well-known-collision"
             /// Any category code this build doesn't recognize yet — decoding falls back here
             /// instead of throwing, so a future/typo'd category can't crash the whole scan (#742).
             case other = "other"
@@ -89,6 +94,11 @@ public actor PreDeployCheck {
             /// An RFC 8461 MTA-STS configuration or generated-policy defect.
             case mtaStsIssue = "mta-sts-issue"
             case thirdPartyScript = "third-party-script"
+            /// A `/.well-known/` file `WellKnownInventory.scanUserStatic` (#744) excluded from
+            /// the inventory — a symlink, a percent-encoded-looking name, an oversized file, or a
+            /// path that resolves outside the scanned root. Advisory: the file is simply left out
+            /// of the effective inventory, not itself a collision.
+            case wellKnownArtifact = "well-known-artifact"
             /// Any category code this build doesn't recognize yet — decoding falls back here
             /// instead of throwing, so a future/typo'd category can't crash the whole scan (#742).
             case other = "other"

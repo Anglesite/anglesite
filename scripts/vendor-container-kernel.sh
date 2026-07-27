@@ -222,11 +222,23 @@ if missing="$(missing_initfs_entry)"; then
 fi
 
 # The locally saved OCI layout may reformat/repackage index.json relative to what the registry
-# served, so don't hash the file directly — confirm the pinned manifest digest is referenced
-# somewhere in the layout's own index instead (a plain sha256 hex string is unique enough that a
-# textual search is a reliable, layout-shape-agnostic check).
-if ! grep -q "${VMINIT_ARM64_DIGEST#sha256:}" "$INITFS_OUT/index.json"; then
-    echo "ERROR: locally saved OCI layout ($INITFS_OUT/index.json) does not reference the verified manifest digest $VMINIT_ARM64_DIGEST — 'container image save' may have produced something unexpected." >&2
+# served, so don't hash the file directly — confirm the pinned manifest digest is reachable from
+# the layout's own index instead (a plain sha256 hex string is unique enough that a
+# textual search is a reliable, layout-shape-agnostic check). container CLI ≥1.1.0 writes a
+# nested layout whose top-level index references the multi-arch index blob rather than the
+# platform manifest directly, so also accept the lock-verified chain
+# index.json → index blob (VMINIT_INDEX_DIGEST) → manifest (VMINIT_ARM64_DIGEST).
+initfs_references_pinned_manifest() {
+    local manifest_hex="${VMINIT_ARM64_DIGEST#sha256:}"
+    local index_hex="${VMINIT_INDEX_DIGEST#sha256:}"
+    local index_blob="$INITFS_OUT/blobs/sha256/$index_hex"
+    grep -q "$manifest_hex" "$INITFS_OUT/index.json" && return 0
+    grep -q "$index_hex" "$INITFS_OUT/index.json" \
+        && [[ -f "$index_blob" ]] \
+        && grep -q "$manifest_hex" "$index_blob"
+}
+if ! initfs_references_pinned_manifest; then
+    echo "ERROR: locally saved OCI layout ($INITFS_OUT/index.json) does not reference the verified manifest digest $VMINIT_ARM64_DIGEST (directly or via the verified index blob $VMINIT_INDEX_DIGEST) — 'container image save' may have produced something unexpected." >&2
     exit 1
 fi
 echo "Local OCI layout references the verified manifest digest."

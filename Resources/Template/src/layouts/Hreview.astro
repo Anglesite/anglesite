@@ -4,6 +4,7 @@ import { Schema } from "astro-seo-schema";
 import { entrySchema } from "../lib/schema.ts";
 import BaseLayout from "./BaseLayout.astro";
 import SyndicationLinks from "../components/SyndicationLinks.astro";
+import Interactions from "../components/Interactions.astro";
 
 interface Props {
   entry: CollectionEntry<"reviews">;
@@ -35,5 +36,6 @@ const jsonLd = entrySchema("reviews", entry.data, { url: canonical, site: Astro.
       {iso && <time class="dt-published" datetime={iso}>{human}</time>}
     </a>
     <SyndicationLinks urls={d.syndication} />
+    <Interactions canonical={canonical} />
   </article>
 </BaseLayout>

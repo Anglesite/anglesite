@@ -11,6 +11,7 @@ import EmbedCard from "../components/EmbedCard.astro";
 import { snapshotKey } from "../../scripts/embeds/adapters";
 import { loadAllSnapshots } from "../../scripts/embeds/store";
 import { readConfig } from "../../scripts/config.ts";
+import Interactions from "../components/Interactions.astro";
 
 interface Props {
   entry: CollectionEntry<HentryCollection>;
@@ -93,5 +94,6 @@ const likeCite = cited(d.likeOf);
       </ul>
     )}
     <SyndicationLinks urls={d.syndication} />
+    <Interactions canonical={canonical} />
   </article>
 </BaseLayout>

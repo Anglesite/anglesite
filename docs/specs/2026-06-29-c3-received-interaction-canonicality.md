@@ -1,9 +1,19 @@
 # C.3: Received-Interaction Data Canonicality
 
 **Date:** 2026-06-29
-**Status:** Decided
+**Status:** Decided; snapshot step implemented (#362, 2026-07-24)
 **Part of:** #340 (cross-cutting decisions), #334 (pivot epic)
 **Prerequisite for:** V-3.4 (#362, render + snapshot received interactions)
+
+**Note on the mf2-enrichment gap:** `@dwk/webmention`'s D1 rows only carry
+`interactionType`/`author`/`content`/`publishedAt` once its inbox is enriched
+via `@dwk/mf2` — that enrichment pass merged to the sibling `davidwkeith/workers`
+monorepo's `main` on 2026-07-24 but was not yet published to npm when #362
+shipped. `WebmentionInboxD1Client` reads those columns as fully optional, so a
+site running the older published package still snapshots (as plain
+`"mention"`-typed interactions, no author/content) rather than breaking; the
+richer data appears automatically once the site redeploys against a released
+version that populates them — no further app-side change needed.
 
 ---
 
@@ -104,24 +114,39 @@ External site → Webmention/AP → Worker inbox (D1)
    live-updated — if the sender changes their name/photo, the old values persist
    in the snapshot. This is standard IndieWeb practice.
 
-### How the snapshot enters git
+### How the snapshot enters git (implemented, V-3.4 / #362)
 
-The Worker's snapshot step (V-3.4, #362):
-1. Queries D1 for interactions verified since the last snapshot timestamp
-2. Serializes each to `Source/data/interactions/{id}.json`
-3. Commits: `chore: snapshot {n} received interactions`
-4. Pushes to the site's repo
+As built, the pull runs app-side rather than Worker-side — the Worker never
+gains git credentials or push access; it stays a read-only D1 store, matching
+every other `Source/`-writing path in this app (#72: the app's local working
+copy is hydrated from the repo and pushed back to it, not the container). This
+mirrors #587's `InboxSubmissionSync`/`InboxKVClient` precedent exactly, swapping
+KV for D1:
 
-The app can trigger this on-demand (from the UI or via an App Intent), or the
-Worker can run it on a cron schedule. The commit is a normal git commit — the
-user can inspect, revert, or cherry-pick interaction snapshots like any other
-content change.
+1. `WebmentionInboxD1Client` queries the Worker's shared per-site D1 database
+   (`SiteSettings.provisionedWorkerResources.d1DatabaseID`) directly over
+   Cloudflare's D1 HTTP API — `SELECT … FROM webmentions ORDER BY verified_at
+   DESC`, the *full current inbox*, not just what's new since last time.
+2. `ReceivedInteractionSync.makeInteraction` maps each row to `ReceivedInteraction`.
+3. `ReceivedInteractionCommitter` reconciles `Source/data/interactions/` against
+   that set: writes new/changed files, deletes files whose interaction is no
+   longer present, and is a true no-op (no git call at all) when nothing
+   changed — full-set reconciliation is what makes deletion (see below) work
+   without a separate "since last snapshot" cursor.
+4. Commits in one batch: `chore: snapshot {n} received interactions` (or
+   `chore: remove {n} received interactions` for a deletion-only reconcile).
+
+Triggered once per site-open (`PreviewModel.open(site:)`), alongside
+`InboxSubmissionSync` — not a cron job, not yet exposed as an on-demand UI/App
+Intent action (both remain open follow-ups if a longer gap between opens turns
+out to matter in practice).
 
 ### What about deletion?
 
 If a sender deletes their webmention (sends a 410/404 on re-verification), the
-Worker marks the interaction as deleted in D1, and the next snapshot removes the
-file from git. This is a normal file deletion + commit.
+Worker's `InboxStore.remove` drops the D1 row, and the next reconcile removes
+the corresponding file from git (full-set reconciliation, not a soft-delete
+marker: the file's id simply stops appearing in the queried set).
 
 If the site *owner* wants to hide an interaction (moderation), they delete the
 JSON file from their repo. The Worker's D1 record is unaffected (it's operational

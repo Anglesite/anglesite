@@ -197,6 +197,16 @@ final class PreviewModel {
                 .appendingPathComponent("Config", isDirectory: true)
             _ = await InboxSubmissionSync.pullAndCommitIfConfigured(
                 siteDirectory: siteDirectory, configDirectory: configDirectory)
+            // #362: pull the webmention Worker's verified inbox from D1 and snapshot it into the
+            // git working copy. No-ops for sites without a provisioned D1 database
+            // (SiteSettings.provisionedWorkerResources.d1DatabaseID unset).
+            _ = await ReceivedInteractionSync.pullAndCommitIfConfigured(
+                siteDirectory: siteDirectory, configDirectory: configDirectory)
+            // #912: pull Micropub-created posts from MICROPUB_DB and sync each into a typed
+            // content file under src/content/. No-ops for sites without a provisioned D1
+            // database (same gate as ReceivedInteractionSync — Micropub shares the database).
+            _ = await MicropubContentSync.pullAndCommitIfConfigured(
+                siteDirectory: siteDirectory, configDirectory: configDirectory)
             clearDevServerCommandInFlight(token: token)
         }
     }
@@ -490,6 +500,13 @@ final class PreviewModel {
     func resetNetworking() async {
         guard let capability = runtime.containerCapability else { return }
         await capability.resetNetworking()
+    }
+
+    /// Forwards a Workers-tab toggle (#710) to the running runtime so a live local wrangler-dev
+    /// session restarts with the new active set. No-op for non-container runtimes — the local
+    /// workers dev server is a local-container-only capability (#708).
+    func activeWorkersChanged(_ settings: SiteSettings) async {
+        await runtime.containerCapability?.updateActiveWorkers(settings)
     }
 
     /// True when the preview runtime is ready — used to gate the Deploy button so a user

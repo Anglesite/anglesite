@@ -3,6 +3,7 @@ import { glob } from "astro/loaders";
 import { z } from "astro/zod";
 import { readConfig } from "../scripts/config.ts";
 import { createContentAPILoader } from "./lib/content-loader";
+import { socialFields, notesSchema, articlesSchema } from "./lib/content-schemas.ts";
 
 /**
  * Picks the CMS content-API loader when `.site-config`'s `CMS_CONTENT_API_URL` is set (CMS mode,
@@ -13,17 +14,6 @@ function collectionLoader(name: string) {
   const apiURL = readConfig("CMS_CONTENT_API_URL");
   return apiURL ? createContentAPILoader(name, { apiURL }) : glob({ pattern: "**/*.md", base: `./src/content/${name}` });
 }
-
-// Shared outbound-social metadata. POSSE is explicit per entry; `syndication` is written back by
-// Anglesite after the remote APIs return and is projected as u-syndication by the layouts.
-const socialFields = {
-  posse: z.array(z.string()).optional(),
-  syndicateTo: z.array(z.string()).optional(),
-  "syndicate-to": z.array(z.string()).optional(),
-  posseText: z.string().optional(),
-  socialText: z.string().optional(),
-  syndication: z.array(z.string().url()).optional(),
-};
 
 // Blog posts live as Markdown in src/content/blog/. The glob loader derives each
 // entry's `id` from its filename (e.g. welcome-to-your-blog.md -> "welcome-to-your-blog"),
@@ -41,25 +31,12 @@ const blog = defineCollection({
 
 const notes = defineCollection({
   loader: glob({ pattern: "**/*.md", base: "./src/content/notes" }),
-  schema: z.object({
-    ...socialFields,
-    publishDate: z.coerce.date(),
-    tags: z.array(z.string()).optional(),
-    draft: z.boolean().default(false),
-  }).strict(),
+  schema: notesSchema,
 });
 
 const articles = defineCollection({
   loader: glob({ pattern: "**/*.md", base: "./src/content/articles" }),
-  schema: z.object({
-    ...socialFields,
-    title: z.string(),
-    summary: z.string().optional(),
-    publishDate: z.coerce.date(),
-    updated: z.coerce.date().optional(),
-    tags: z.array(z.string()).optional(),
-    draft: z.boolean().default(false),
-  }).strict(),
+  schema: articlesSchema,
 });
 
 const photos = defineCollection({

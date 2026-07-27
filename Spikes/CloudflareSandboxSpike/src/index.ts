@@ -217,7 +217,8 @@ export default {
           return json({ error: "not found", try: "/" }, 404);
       }
     } catch (e) {
-      return json({ error: String(e), stack: e instanceof Error ? e.stack : undefined }, 500);
+      console.error("Sandbox spike request failed", e);
+      return json({ error: "internal server error" }, 500);
     }
   },
 };

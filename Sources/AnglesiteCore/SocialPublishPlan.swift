@@ -41,7 +41,7 @@ public enum SocialPublishPlan {
         case invalidSiteBase(String)
     }
 
-    private static let entryExtensions: Set<String> = ["md", "mdx", "mdoc", "markdown"]
+    static let entryExtensions: Set<String> = ["md", "mdx", "mdoc", "markdown"]
     private static let outboundURLPattern: NSRegularExpression = {
         do {
             return try NSRegularExpression(
@@ -171,7 +171,7 @@ public enum SocialPublishPlan {
         return out
     }
 
-    private static func isDraft(_ value: FrontmatterValue?) -> Bool {
+    static func isDraft(_ value: FrontmatterValue?) -> Bool {
         switch value {
         case .bool(true):
             return true
@@ -192,7 +192,7 @@ public enum SocialPublishPlan {
         return publishDate > referenceDate
     }
 
-    private static func parseDate(_ raw: String?) -> Date? {
+    static func parseDate(_ raw: String?) -> Date? {
         guard let raw, !raw.isEmpty else { return nil }
         if let date = ISO8601DateFormatter().date(from: raw) {
             return date
@@ -208,7 +208,7 @@ public enum SocialPublishPlan {
         return calendar.date(from: DateComponents(year: year, month: month, day: day))
     }
 
-    private static func string(_ value: FrontmatterValue?) -> String? {
+    static func string(_ value: FrontmatterValue?) -> String? {
         if case let .string(s)? = value, !s.isEmpty { return s }
         return nil
     }
@@ -218,7 +218,7 @@ public enum SocialPublishPlan {
         return String(fileName[..<dot])
     }
 
-    private static func walk(_ dir: URL) -> [URL] {
+    static func walk(_ dir: URL) -> [URL] {
         let fm = FileManager.default
         guard let entries = try? fm.contentsOfDirectory(
             at: dir, includingPropertiesForKeys: [.isDirectoryKey], options: []
@@ -235,7 +235,7 @@ public enum SocialPublishPlan {
         return files
     }
 
-    private static func relativePosix(_ url: URL, from base: URL) -> String {
+    static func relativePosix(_ url: URL, from base: URL) -> String {
         let urlComponents = url.standardizedFileURL.pathComponents
         let baseComponents = base.standardizedFileURL.pathComponents
         guard urlComponents.starts(with: baseComponents) else { return url.path }

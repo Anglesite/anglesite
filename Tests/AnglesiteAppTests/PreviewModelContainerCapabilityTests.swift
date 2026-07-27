@@ -74,6 +74,12 @@ private actor FakeContainerCapableSiteRuntime: SiteRuntime, SiteRuntimeContainer
         persistedCommits.append(commit)
     }
 
+    private(set) var updatedActiveWorkerSettings: [SiteSettings] = []
+
+    func updateActiveWorkers(_ settings: SiteSettings) async {
+        updatedActiveWorkerSettings.append(settings)
+    }
+
     func resetNetworkingCallCount() async -> Int { await control.resetNetworkingCallCount }
 }
 
@@ -105,6 +111,18 @@ struct PreviewModelContainerCapabilityTests {
         await model.resetNetworking()
 
         #expect(await runtime.resetNetworkingCallCount() == 1)
+    }
+
+    @Test("activeWorkersChanged reaches the runtime through containerCapability")
+    func activeWorkersChangedReachesCapability() async {
+        let runtime = FakeContainerCapableSiteRuntime()
+        let model = PreviewModel(runtime: runtime)
+
+        var settings = SiteSettings()
+        settings.activeWorkerIDs = ["solid-pod"]
+        await model.activeWorkersChanged(settings)
+
+        #expect(await runtime.updatedActiveWorkerSettings == [settings])
     }
 
     @Test("activeContainerControl() and resetNetworking() are no-ops for a runtime with no container capability")

@@ -210,43 +210,84 @@ extension SiteWindowModelTests {
         #expect(model.contentActionError == nil)
     }
 
-    @Test("dismissDeleteUndo declines the restore and surfaces the deferred redirect offer")
-    func dismissDeleteUndoSurfacesRedirectOffer() {
+    // MARK: - ⌘Z for structural content operations (#675)
+    //
+    // The one-shot post-delete "Undo" alert (#586) was retired here in favour of the window
+    // `UndoManager`, so its `pendingDeleteUndo`/`dismissDeleteUndo` tests are replaced by the
+    // coverage below. The same seam limit called out on `confirmDeletePostRouteResolvesCleanly`
+    // applies: `ContentCreationWorkflow.native`'s resolver is hardwired to `SiteStore.shared`, so
+    // no test here can drive a *successful* delete or restore. What is reachable — and what these
+    // cover — is the guard/rollback wiring around them; the write paths themselves are covered by
+    // `ContentUndoCoordinatorTests` and `NativeContentOperationsTests`.
+
+    @Test("applyContentUndo reports failure rather than crashing when there is no open site")
+    func applyContentUndoNoSiteFails() async {
         let model = makeModel()
-        model.pendingDeleteUndo = DeleteUndoOffer(
-            id: "src/pages/about.astro", title: "About", relativePath: "src/pages/about.astro",
-            contents: "stub", redirectRoute: "/about/")
 
-        model.dismissDeleteUndo()
+        let outcome = await model.applyContentUndo(ContentUndoCoordinator.Mutation(
+            relativePath: "src/pages/about.astro", before: "restored", after: nil,
+            actionName: "Delete \u{201C}About\u{201D}"))
 
-        #expect(model.pendingDeleteUndo == nil)
-        #expect(model.pendingRedirectOfferRoute == "/about/")
-    }
-
-    @Test("dismissDeleteUndo with no redirect route just clears the offer")
-    func dismissDeleteUndoWithoutRedirectRoute() {
-        let model = makeModel()
-        model.pendingDeleteUndo = DeleteUndoOffer(
-            id: "src/components/Widget.astro", title: "Widget", relativePath: "src/components/Widget.astro",
-            contents: "stub", redirectRoute: nil)
-
-        model.dismissDeleteUndo()
-
-        #expect(model.pendingDeleteUndo == nil)
-        #expect(model.pendingRedirectOfferRoute == nil)
-    }
-
-    @Test("undoDelete no-ops safely when there is no open site, clearing the offer rather than leaving it stale")
-    func undoDeleteNoSiteClearsOffer() async {
-        let model = makeModel()
-        model.pendingDeleteUndo = DeleteUndoOffer(
-            id: "src/pages/about.astro", title: "About", relativePath: "src/pages/about.astro",
-            contents: "stub", redirectRoute: nil)
-
-        await model.undoDelete()
-
-        #expect(model.pendingDeleteUndo == nil)
+        // `.failed` (not a silent `.applied`) is what makes the coordinator re-arm the record, so
+        // a ⌘Z fired at a window whose site went away stays retryable instead of being consumed.
+        #expect(outcome == .failed)
         #expect(model.contentActionError == nil)
+    }
+
+    @Test("handleSiteChanged drops pending content-undo records")
+    func siteChangeInvalidatesContentUndo() {
+        let model = makeModel()
+        let undoManager = UndoManager()
+        undoManager.groupsByEvent = false
+        model.windowUndoManager = undoManager
+        model.contentUndoCoordinator.register(ContentUndoCoordinator.Mutation(
+            relativePath: "src/pages/about.astro", before: "old", after: "new",
+            actionName: "Rename"))
+        #expect(undoManager.canUndo)
+
+        model.handleSiteChanged()
+
+        // Records are site-relative paths plus captured contents — applying one after a site
+        // replay would write the old site's bytes into the new site.
+        #expect(!undoManager.canUndo)
+    }
+
+    @Test("a failed delete reopens the editor it closed")
+    func failedDeleteReopensEditor() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("site-window-undo-\(UUID().uuidString)")
+        let sourceDirectory = root.appendingPathComponent("Test.anglesite/Source/src/pages")
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fileURL = sourceDirectory.appendingPathComponent("about.astro")
+        try Data("<h1>About</h1>".utf8).write(to: fileURL)
+
+        let graph = SiteContentGraph()
+        let model = makeModel(contentGraph: graph)
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: root.appendingPathComponent("Test.anglesite"),
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let page = SiteContentGraph.Page(
+            id: "site-a:page:/about", siteID: "site-a", route: "/about",
+            filePath: "src/pages/about.astro", title: "About", lastModified: Date())
+        await graph.upsertPage(page)
+
+        let editor = FileEditorModel(file: FileRef(url: fileURL, group: .pages, name: "about.astro"))
+        model.activeEditor = .text(editor)
+        model.mainPaneMode = .editor(editor.file)
+        model.deleteConfirmation = NavigatorItem(id: page.id, title: "About", target: .route("/about"))
+
+        await model.confirmDelete()
+
+        // `SiteStore.shared` doesn't know "site-a", so the delete resolves `.siteNotFound` and
+        // never touches the file. The editor was closed *before* the delete call (so a suspended
+        // flush couldn't resurrect the file), which means the model owes it back — leaving the
+        // user on Preview with their buffer discarded for a delete that didn't happen would be a
+        // silent data loss.
+        #expect(model.activeEditor != nil)
+        #expect(model.mainPaneMode == .editor(editor.file))
+        #expect(FileManager.default.fileExists(atPath: fileURL.path))
     }
 }
 
@@ -606,6 +647,70 @@ extension SiteWindowModelTests {
         // deferred Task has finished running and aborted (same bounded-poll reasoning as
         // `revealCitationInGraphSkipsRevealWhenShowGraphAborts`, since on the abort path there's
         // no discriminating state change other than the editor's own conflict flag to poll on).
+        var iterations = 0
+        while editorModel.conflictDiskContents == nil, iterations < 10_000 {
+            await Task.yield()
+            iterations += 1
+        }
+        guard editorModel.conflictDiskContents != nil else {
+            Issue.record("flushBeforeLeaving never surfaced the external conflict")
+            return
+        }
+
+        #expect(model.mainPaneMode == .editor(fileRef))
+        #expect(model.activeEditor != nil)
+    }
+
+    /// Mirrors `presentCleanupSwitchesPane` for `presentReader()` (V-4.3, #365) — same
+    /// leave-current-surface-first guard, same out-of-range `paneSelection` reasoning.
+    @Test("presentReader switches the main pane to Reader, clearing any open editor/inspector")
+    func presentReaderSwitchesPane() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let model = makeModel()
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let priorFile = FileRef(url: root.appendingPathComponent("dummy.astro"), group: .components, name: "dummy.astro")
+        model.activeEditor = .text(FileEditorModel(file: priorFile))
+        model.mainPaneMode = .editor(priorFile)
+        model.inspectorContext = .page(PageMetadataModel(file: priorFile, sourceDirectory: package.sourceURL))
+
+        model.presentReader()
+
+        while model.mainPaneMode != .reader { await Task.yield() }
+        #expect(model.activeEditor == nil)
+        #expect(model.inspectorContext == nil)
+        // Same "out of the Picker's 0–2 range" reasoning as Cleanup's 3 (#723) — Reader has no
+        // toolbar/View-menu segment of its own either.
+        #expect(model.paneSelection == 4)
+    }
+
+    /// Mirrors `presentCleanupAbortsOnEditorConflict` for `presentReader()`.
+    @Test("presentReader doesn't switch panes when leaveCurrentEditor aborts on an editor conflict")
+    func presentReaderAbortsOnEditorConflict() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let model = makeModel()
+        let editedFile = root.appendingPathComponent("conflict.txt")
+        try Data("original".utf8).write(to: editedFile)
+        let fileRef = FileRef(url: editedFile, group: .components, name: "conflict.txt")
+        let editorModel = FileEditorModel(file: fileRef)
+        await editorModel.load()
+        editorModel.text = "dirty edit"
+        try Data("changed on disk".utf8).write(to: editedFile)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(2)], ofItemAtPath: editedFile.path
+        )
+        model.mainPaneMode = .editor(fileRef)
+        model.activeEditor = .text(editorModel)
+
+        model.presentReader()
+
         var iterations = 0
         while editorModel.conflictDiskContents == nil, iterations < 10_000 {
             await Task.yield()

@@ -1,0 +1,37 @@
+---
+// Static, build-time-only badge — no client-side fetch or third-party script (ADR-0008).
+// GREEN_HOST_VERIFIED/GREEN_HOST_NAME/GREEN_HOST_CHECKED_AT are written by the greenHostCheck
+// integration wizard at setup time; the caller only renders this when GREEN_HOST_VERIFIED === "true".
+interface Props {
+  hostname?: string;
+  checkedAt?: string;
+}
+const { hostname = "", checkedAt } = Astro.props;
+const checkURL = `https://www.thegreenwebfoundation.org/green-web-check/?url=${hostname}`;
+---
+<a
+  href={checkURL}
+  class="green-host-badge"
+  target="_blank"
+  rel="noopener noreferrer"
+  title={checkedAt ? `Verified green hosting as of ${checkedAt}` : "Verified green hosting"}
+>
+  🌱 Green Hosting Verified
+</a>
+<style>
+  .green-host-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    padding: 0.35em 0.75em;
+    border-radius: 999px;
+    background: #e6f4ea;
+    color: #1e4620;
+    font-size: 0.85rem;
+    text-decoration: none;
+    border: 1px solid #b7dfc0;
+  }
+  .green-host-badge:hover {
+    background: #d5ecd9;
+  }
+</style>

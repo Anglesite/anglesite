@@ -12,6 +12,7 @@ struct PlistEditorView: View {
         case redirects = "Redirects"
         case crawlers = "Crawlers"
         case emailSecurity = "Email Security"
+        case workers = "Workers"
         var id: Self { self }
     }
 
@@ -134,6 +135,8 @@ struct PlistEditorView: View {
                         crawlersTab
                     case .emailSecurity:
                         emailSecurityTab
+                    case .workers:
+                        workersTab
                     }
                 }
                 .padding()
@@ -467,6 +470,80 @@ struct PlistEditorView: View {
         }
     }
 
+    private var workersTab: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Button {
+                    NSWorkspace.shared.open(model.workerDashboardLogsURL)
+                } label: {
+                    Label("Production Logs", systemImage: "text.alignleft")
+                }
+                .disabled(!model.workerDashboardEnabled)
+                Button {
+                    NSWorkspace.shared.open(model.workerDashboardAnalyticsURL)
+                } label: {
+                    Label("Analytics", systemImage: "chart.bar.xaxis")
+                }
+                .disabled(!model.workerDashboardEnabled)
+                if model.isLoadingWorkers {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            if !model.workerDashboardEnabled {
+                Text("Logs and analytics become available after the first deploy that includes a worker.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let workersError = model.workersError {
+                Label(workersError, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.callout)
+            }
+
+            ForEach(model.workerGroups) { group in
+                VStack(alignment: .leading, spacing: 8) {
+                    // Group keys are manifest-owned free text (design doc §3) — display-cased,
+                    // never localized or enumerated here.
+                    Text(group.name.capitalized)
+                        .font(.headline)
+                    ForEach(group.rows) { row in
+                        workerRow(row)
+                    }
+                }
+            }
+        }
+        .task { await model.loadWorkers() }
+    }
+
+    private func workerRow(_ row: PlistEditorModel.WorkerRow) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(row.descriptor.displayName)
+                .frame(minWidth: 160, alignment: .leading)
+                .help(row.descriptor.description)
+            switch row.status {
+            case .componentTied(let affectedPages):
+                if affectedPages.isEmpty {
+                    Text("Inactive — not used")
+                        .foregroundStyle(.secondary)
+                } else {
+                    WorkerAffectedPagesButton(pages: affectedPages)
+                }
+            case .settingsActivated(let isOn):
+                Toggle(row.descriptor.displayName, isOn: Binding(
+                    get: { isOn },
+                    set: { newValue in
+                        Task { await model.setWorkerActive(row.id, isOn: newValue) }
+                    }))
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                Text(isOn ? "On" : "Off")
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 28, alignment: .leading)
+            }
+        }
+    }
+
     private var displayDomain: String {
         let domain = MTAStsPolicyAsset.normalizedDomain(model.mtaStsSettings.domain)
         return domain.isEmpty ? "your-domain" : domain
@@ -535,5 +612,42 @@ struct PlistEditorView: View {
         panel.prompt = model.hasWebsiteIcons ? String(localized: "Change") : String(localized: "Choose")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task { await model.installWebsiteIcons(from: url) }
+    }
+}
+
+/// "Active — used on N pages" with the page list in a popover — the read-only status for a
+/// component-tied worker (design doc §8; popover chosen over Navigator selection as the
+/// implementation-time UI call the spec left open).
+private struct WorkerAffectedPagesButton: View {
+    let pages: [SiteGraphNode]
+    @State private var showingPages = false
+
+    var body: some View {
+        Button {
+            showingPages = true
+        } label: {
+            Text("Active — used on ^[\(pages.count) page](inflect: true)")
+        }
+        .buttonStyle(.link)
+        .popover(isPresented: $showingPages, arrowEdge: .trailing) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Pages using this worker's components")
+                    .font(.headline)
+                ForEach(pages) { page in
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.text")
+                            .foregroundStyle(.secondary)
+                        Text(page.title)
+                        if let route = page.route {
+                            Text(route)
+                                .font(.callout.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .frame(minWidth: 220, alignment: .leading)
+        }
     }
 }

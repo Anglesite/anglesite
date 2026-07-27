@@ -9,13 +9,51 @@ import Testing
             .tracking, .share, .podcast,
             .indieweb, .menu,
             .buyButton, .lemonSqueezy, .paddle, .snipcart, .shopifyBuyButton,
-            .inbox, .membership, .carbonTxt,
+            .inbox, .membership, .carbonTxt, .greenHostCheck, .co2Badge,
         ]))
     }
 
     @Test(arguments: IntegrationCatalog.all)
     func eachDescriptorIsStructurallyValid(_ descriptor: IntegrationDescriptor) {
         #expect(descriptor.validate() == [], "\(descriptor.id) has problems: \(descriptor.validate())")
+    }
+
+    @Test func co2BadgeHasNoProvidersOnePlacementFieldNoCSP() {
+        let d = IntegrationCatalog.descriptor(for: .co2Badge)
+        #expect(d.providers.isEmpty)
+        #expect(d.fields.map(\.key) == ["style"])
+        #expect(!d.operations.contains { if case .addCSPDomains = $0 { return true }; return false })
+        #expect(d.operations.contains {
+            if case .copyFile(let from, let to, let when) = $0 {
+                return from.path == "integrations/components/CO2Badge.astro"
+                    && to.raw == "src/components/CO2Badge.astro" && when == .always
+            }
+            return false
+        })
+        #expect(d.operations.contains {
+            if case .copyFile(let from, let to, let when) = $0 {
+                return from.path == "integrations/pages/carbon-footprint.astro"
+                    && to.raw == "src/pages/carbon-footprint.astro"
+                    && when == .fieldEquals(key: "style", value: "page")
+            }
+            return false
+        })
+        #expect(d.operations.contains {
+            if case .injectAtAnchor(let file, let anchor, _, let when, _) = $0 {
+                return file.raw == "src/layouts/BaseLayout.astro"
+                    && anchor == "// anglesite:imports"
+                    && when == .fieldEquals(key: "style", value: "footer")
+            }
+            return false
+        })
+        #expect(d.operations.contains {
+            if case .injectAtAnchor(let file, let anchor, _, let when, _) = $0 {
+                return file.raw == "src/layouts/BaseLayout.astro"
+                    && anchor == "<!-- anglesite:body-end -->"
+                    && when == .fieldEquals(key: "style", value: "footer")
+            }
+            return false
+        })
     }
 
     @Test func bookingHasStyleChoiceDrivingPlacement() {
@@ -99,6 +137,25 @@ import Testing
             let signature = "\(file.raw)|\(anchor)|\(style)"
             #expect(!seen.contains(signature), "\(descriptor.id) has two always-on injects at \(signature)")
             seen.insert(signature)
+        }
+    }
+
+    /// BaseLayout.astro and BlogPost.astro both import `readConfig` unconditionally at the top of
+    /// the file — a descriptor whose "// anglesite:imports" snippet re-imports it into either of
+    /// them produces a duplicate identifier that `astro check` rejects, breaking `npm run build`
+    /// for any real site with that integration installed (the template's own `astro check` never
+    /// runs against a scaffolded copy, so this is invisible until someone builds an actual site).
+    /// See the co2Badge fix (#686) for the reference case this guards against regressing on again.
+    @Test(arguments: IntegrationCatalog.all)
+    func noDescriptorReimportsReadConfigIntoALayoutThatAlreadyProvidesIt(_ descriptor: IntegrationDescriptor) {
+        let layoutsWithUnconditionalReadConfig: Set<String> = [
+            "src/layouts/BaseLayout.astro", "src/layouts/BlogPost.astro",
+        ]
+        let pattern = #/import\s*\{[^}]*\breadConfig\b[^}]*\}\s*from\s*"\.\./\.\./scripts/config"/#
+        for case .injectAtAnchor(let file, let anchor, let snippet, _, _) in descriptor.operations
+        where layoutsWithUnconditionalReadConfig.contains(file.raw) && anchor == "// anglesite:imports" {
+            #expect(snippet.raw.firstMatch(of: pattern) == nil,
+                "\(descriptor.id) re-imports readConfig into \(file.raw), which already provides it: \(snippet.raw)")
         }
     }
 
@@ -299,6 +356,20 @@ import Testing
             return false
         })
         #expect(!carbon.operations.contains { if case .addCSPDomains = $0 { return true }; return false })
+    }
+
+    @Test func greenHostCheckHasNoProvidersNoFieldsNoCSP() {
+        let d = IntegrationCatalog.descriptor(for: .greenHostCheck)
+        #expect(d.providers.isEmpty)
+        #expect(d.fields.isEmpty)
+        #expect(!d.operations.contains { if case .addCSPDomains = $0 { return true }; return false })
+        #expect(d.operations.contains {
+            if case .copyFile(let from, let to, let when) = $0 {
+                return from.path == "integrations/components/GreenHostBadge.astro"
+                    && to.raw == "src/components/GreenHostBadge.astro" && when == .always
+            }
+            return false
+        })
     }
 
     @Test func redirectsHasNoProvidersAndAppendsToRedirectsFile() {

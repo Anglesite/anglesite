@@ -54,8 +54,12 @@ struct SitesLauncherView: View {
         Group {
             if deciding {
                 // Render nothing while we decide whether to autoopen — avoids a
-                // visible flash of the picker before we dismiss ourselves.
+                // visible flash of the picker before we dismiss ourselves. Also stays up
+                // (instead of the full picker) while a requested New Site wizard is
+                // preparing/showing — see onFirstAppear(). Same frame as `launcherUI` so
+                // the window doesn't resize when this flips.
                 Color(NSColor.windowBackgroundColor)
+                    .frame(minWidth: 480, idealWidth: 520, minHeight: 360, idealHeight: 480)
             } else {
                 launcherUI
             }
@@ -66,6 +70,34 @@ struct SitesLauncherView: View {
             guard requested else { return }
             router.clearNewSiteRequest()
             Task { await presentNewSite() }
+        }
+        // Attached here (not inside `launcherUI`) so it still presents while `deciding`
+        // is showing the blank placeholder above — a File ▸ New Site launch keeps
+        // `deciding` true so only the wizard sheet is visible, not the full Sites picker
+        // opening behind it (#928).
+        .sheet(item: $newSiteSession) { session in
+            NewSiteWizard(
+                model: session.model,
+                scaffolder: session.scaffolder,
+                onComplete: { siteID in
+                    newSiteSession = nil
+                    Task {
+                        await refreshSites()
+                        openWindow(value: siteID)
+                        dismissWindow()
+                    }
+                },
+                onCancel: {
+                    newSiteSession = nil
+                    // Reveal the picker now that the wizard is gone — mirrors the
+                    // presentNewSite()-failed path in onFirstAppear() below.
+                    deciding = false
+                }
+            )
+            .onDisappear {
+                sitesRootScopedURL?.stopAccessingSecurityScopedResource()
+                sitesRootScopedURL = nil
+            }
         }
         .navigationTitle("Sites")
     }
@@ -85,25 +117,6 @@ struct SitesLauncherView: View {
             footer
         }
         .frame(minWidth: 480, idealWidth: 520, minHeight: 360, idealHeight: 480)
-        .sheet(item: $newSiteSession) { session in
-            NewSiteWizard(
-                model: session.model,
-                scaffolder: session.scaffolder,
-                onComplete: { siteID in
-                    newSiteSession = nil
-                    Task {
-                        await refreshSites()
-                        openWindow(value: siteID)
-                        dismissWindow()
-                    }
-                },
-                onCancel: { newSiteSession = nil }
-            )
-            .onDisappear {
-                sitesRootScopedURL?.stopAccessingSecurityScopedResource()
-                sitesRootScopedURL = nil
-            }
-        }
     }
 
     private var header: some View {
@@ -468,8 +481,16 @@ struct SitesLauncherView: View {
         // `.onChange` won't fire for that initial value, so consume it here.
         if router.newSiteRequested {
             router.clearNewSiteRequest()
-            deciding = false
             await presentNewSite()
+            // Leave `deciding` true when presentNewSite() succeeded — the wizard sheet
+            // (attached at the body level) then appears over a blank window instead of
+            // flashing the full Sites picker first (#928). If it didn't produce a session
+            // (template/theme load failure, or the MAS sites-root access panel was
+            // cancelled), fall through to the picker so the resulting error/list is
+            // visible instead of a dead blank window.
+            if newSiteSession == nil {
+                deciding = false
+            }
             return
         }
 

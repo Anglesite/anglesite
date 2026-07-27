@@ -125,24 +125,40 @@ public enum DeployCoordinator {
         try? await configStore.save(updated)
     }
 
-    /// Runs the post-deploy webmention-send and POSSE-syndication passes in the fixed order the
-    /// deploy pipeline has always used: Astro's build (already complete by the time this runs)
-    /// regenerates the site's RSS/Atom/JSON feeds, so webmention discovery is ordered after the
-    /// deployed canonical pages exist, and syndication is ordered after that. `onMilestone` fires
-    /// immediately before each pass so a UI caller can surface progress (`DeployModel` wires it to
-    /// the Dock-tile progress bar, #526) — the milestone always fires even if the caller-supplied
-    /// closure for that pass turns out to be a no-op (e.g. no pending webmention targets). Both
-    /// passes are awaited sequentially, never concurrently, matching the historical behavior;
-    /// neither closure is expected to throw (the real `WebmentionSendCommand`/
-    /// `POSSESyndicationCommand` calls they wrap are documented best-effort and never throw).
+    /// Runs the four post-deploy passes — webmention-send, POSSE-syndication, WebSub publish-ping,
+    /// and ActivityPub outbox backfill (`sendWebmentions`, `syndicate`, `notifySubscribers`, and
+    /// `backfillActivityPubOutbox` below) — in the fixed order the deploy pipeline has always used:
+    /// Astro's build (already complete by the time this runs) regenerates the site's RSS/Atom/JSON
+    /// feeds, so webmention discovery is ordered after the deployed canonical pages exist, and each
+    /// subsequent pass is ordered after the ones before it (see each parameter's own doc comment for
+    /// why). `onMilestone` fires immediately before each pass so a UI caller can surface progress
+    /// (`DeployModel` wires it to the Dock-tile progress bar, #526) — the milestone always fires even
+    /// if the caller-supplied closure for that pass turns out to be a no-op (e.g. no pending
+    /// webmention targets). All four passes are awaited sequentially, never concurrently, matching
+    /// the historical behavior; none of the four closures is expected to throw (the real commands
+    /// they wrap are documented best-effort and never throw).
     public static func runPostDeploySequencing(
         onMilestone: (OperationProgress) -> Void,
         sendWebmentions: () async -> Void,
-        syndicate: () async -> Void
+        syndicate: () async -> Void,
+        /// WebSub publish pings (#361): tells the site's own hub the feeds changed so it fans
+        /// the update out to subscribers. Ordered before the ActivityPub backfill below — the
+        /// deployed feeds must exist before the hub fetches them, and (like the other passes)
+        /// it's best-effort and never throws. Callers without the hub provisioned pass a no-op.
+        notifySubscribers: () async -> Void = {},
+        /// ActivityPub outbox backfill (#926): syncs existing content into the site's actor's
+        /// outbox. Ordered last — after `syndicate()`, since POSSE write-back can change post
+        /// frontmatter a backfill pass might otherwise read stale. Best-effort and never throws,
+        /// like every other step here. Callers without ActivityPub provisioned pass a no-op.
+        backfillActivityPubOutbox: () async -> Void = {}
     ) async {
         onMilestone(.deployWebmentions)
         await sendWebmentions()
         onMilestone(.deploySyndicating)
         await syndicate()
+        onMilestone(.deployNotifyingSubscribers)
+        await notifySubscribers()
+        onMilestone(.deployBackfillingActivityPub)
+        await backfillActivityPubOutbox()
     }
 }

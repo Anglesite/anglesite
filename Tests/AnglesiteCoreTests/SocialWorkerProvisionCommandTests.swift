@@ -51,13 +51,43 @@ struct SocialWorkerProvisionCommandTests {
             ["d1", "migrations", "apply", "AUTH_DB", "--remote"],
         ])
         #expect(await recorder.environments.allSatisfy { $0["CLOUDFLARE_API_TOKEN"] == "token" })
-        #expect(await deployer.calls == [.init(token: "token", siteID: "site-1", siteDirectory: site)])
+        #expect(await deployer.calls == [
+            .init(token: "token", siteID: "site-1", siteDirectory: site, wellKnownDynamicClaims: []),
+        ])
 
         let toml = try String(contentsOf: site.appendingPathComponent("wrangler.toml"), encoding: .utf8)
         #expect(toml.contains("main = \"worker/worker.ts\""))
         #expect(toml.contains("database_id = \"d1-id\""))
         #expect(toml.contains("id = \"kv-id\""))
         #expect(!toml.contains("[[r2_buckets]]"))
+    }
+
+    @Test("forwards wellKnownDynamicClaims to the deployer so #744's collision check sees them (#934)")
+    func forwardsWellKnownDynamicClaimsToDeployer() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([
+            ["d1", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"uuid":"d1-id"}}"#, stderr: "", exitCode: 0),
+            ["kv", "namespace", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"id":"kv-id"}}"#, stderr: "", exitCode: 0),
+            ["queues", "create", "my-site-webmention", "--json"]: .init(stdout: #"{"result":{"queue_name":"my-site-webmention"}}"#, stderr: "", exitCode: 0),
+            ["d1", "migrations", "apply", "AUTH_DB", "--remote"]: .init(stdout: "Migrations applied", stderr: "", exitCode: 0),
+        ])
+        let deployer = DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1))
+        let command = SocialWorkerProvisionCommand(tokenSource: { "token" }, runner: recorder.runner, deployer: deployer.deployer)
+        let claims = [
+            WorkerRouteClaims.OwnedClaim(
+                owner: "webfinger",
+                claim: WorkerRouteClaim(path: "/.well-known/webfinger", match: .exact, methods: ["GET"], handler: "webfinger")
+            ),
+        ]
+
+        _ = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: v2Workers,
+            acknowledgesPaidPlan: true, wellKnownDynamicClaims: claims
+        )
+
+        #expect(await deployer.calls == [
+            .init(token: "token", siteID: "site-1", siteDirectory: site, wellKnownDynamicClaims: claims),
+        ])
     }
 
     @Test("provisions R2 only when a selected feature needs media")
@@ -68,6 +98,7 @@ struct SocialWorkerProvisionCommandTests {
             ["kv", "namespace", "create", "my-site-social", "--json"]: .init(stdout: #"{"id":"kv-id"}"#, stderr: "", exitCode: 0),
             ["r2", "bucket", "create", "my-site-media"]: .init(stdout: "Created bucket my-site-media", stderr: "", exitCode: 0),
             ["queues", "create", "my-site-webmention", "--json"]: .init(stdout: #"{"result":{"queue_name":"my-site-webmention"}}"#, stderr: "", exitCode: 0),
+            ["queues", "create", "my-site-websub", "--json"]: .init(stdout: #"{"result":{"queue_name":"my-site-websub"}}"#, stderr: "", exitCode: 0),
             ["d1", "migrations", "apply", "AUTH_DB", "--remote"]: .init(stdout: "Migrations applied", stderr: "", exitCode: 0),
         ])
         let command = SocialWorkerProvisionCommand(
@@ -93,6 +124,178 @@ struct SocialWorkerProvisionCommandTests {
         let toml = try String(contentsOf: site.appendingPathComponent("wrangler.toml"), encoding: .utf8)
         #expect(toml.contains("[[r2_buckets]]"))
         #expect(toml.contains("bucket_name = \"my-site-media\""))
+    }
+
+    @Test("provisions Micropub (real catalog id, requires indieauth) end-to-end")
+    func provisionsMicropubWithIndieauth() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([
+            ["d1", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"uuid":"d1-id"}}"#, stderr: "", exitCode: 0),
+            ["r2", "bucket", "create", "my-site-media"]: .init(stdout: "Created bucket my-site-media", stderr: "", exitCode: 0),
+            ["d1", "migrations", "apply", "AUTH_DB", "--remote"]: .init(stdout: "Migrations applied", stderr: "", exitCode: 0),
+        ])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer
+        )
+        let indieauth = worker(WorkerComposition.indieauthWorkerID, d1: true, kv: false, r2: false)
+        let micropub = worker(WorkerComposition.micropubWorkerID, d1: true, kv: false, r2: true)
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [indieauth, micropub], acknowledgesPaidPlan: true
+        )
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(resources.d1DatabaseID == "d1-id")
+        #expect(resources.r2BucketName == "my-site-media")
+
+        let toml = try String(contentsOf: site.appendingPathComponent("wrangler.toml"), encoding: .utf8)
+        #expect(toml.contains("binding = \"MICROPUB_DB\""))
+        #expect(toml.contains("binding = \"AUTH_DB\""))
+        #expect(toml.contains("[[r2_buckets]]"))
+        #expect(toml.contains("bucket_name = \"my-site-media\""))
+    }
+
+    @Test("provisions ActivityPub: generates keys once, pushes secrets, writes the DO binding")
+    func provisionsActivityPub() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        var pushedSecrets: [(name: String, value: String)] = []
+        let secretRunnerLock = NSLock()
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            keyPairSource: { _ in
+                .init(privateKeyPem: "PRIVATE-PEM", publicKeyPem: "PUBLIC-PEM", publishToken: "TOKEN-VALUE")
+            },
+            secretRunner: { _, name, value, _, _ in
+                secretRunnerLock.lock()
+                pushedSecrets.append((name, value))
+                secretRunnerLock.unlock()
+                return .init(stdout: "Success!", stderr: "", exitCode: 0)
+            },
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer
+        )
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+
+        let result = await command.provision(siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [activitypub])
+
+        guard case .succeeded = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(pushedSecrets.contains { $0.name == "AP_PRIVATE_KEY" && $0.value == "PRIVATE-PEM" })
+        #expect(pushedSecrets.contains { $0.name == "AP_PUBLIC_KEY" && $0.value == "PUBLIC-PEM" })
+        #expect(pushedSecrets.contains { $0.name == "AP_PUBLISH_TOKEN" && $0.value == "TOKEN-VALUE" })
+
+        let toml = try String(contentsOf: site.appendingPathComponent("wrangler.toml"), encoding: .utf8)
+        #expect(toml.contains("[[durable_objects.bindings]]"))
+    }
+
+    @Test("ActivityPub-only (no D1/KV/R2 worker active) has wrangler.toml on disk before the first secret push")
+    func activitypubOnlyPersistsConfigBeforeSecrets() async throws {
+        // ActivityPub's catalog resources are all needsD1/needsKV/needsR2 == false (it only needs
+        // a Durable Object, which isn't tracked by those flags), so when it's the only active
+        // worker none of the D1/KV/R2 blocks in `provision()` run. Regression coverage for #363:
+        // `wrangler secret put` resolves its target Worker's name from `wrangler.toml` in the
+        // working directory, so that file must already exist by the time the first secretRunner
+        // call happens — checking only the final on-disk state (as `provisionsActivityPub` above
+        // does) wouldn't catch an ordering bug, since the unconditional `persistConfig` call at
+        // the very end of `provision()` would paper over it in a passing test even with the bug
+        // present. So this secretRunner closure itself reads and asserts on `wrangler.toml`
+        // *before* returning success — that's exactly the moment a real `wrangler secret put`
+        // subprocess would need the file to already be resolvable.
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        var secretRunnerCallCount = 0
+        var tomlContentsAtFirstSecretCall: String?
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            keyPairSource: { _ in
+                .init(privateKeyPem: "PRIVATE-PEM", publicKeyPem: "PUBLIC-PEM", publishToken: "TOKEN-VALUE")
+            },
+            secretRunner: { siteDirectory, _, _, _, _ in
+                secretRunnerCallCount += 1
+                if secretRunnerCallCount == 1 {
+                    tomlContentsAtFirstSecretCall = try? String(
+                        contentsOf: siteDirectory.appendingPathComponent("wrangler.toml"), encoding: .utf8
+                    )
+                }
+                return .init(stdout: "Success!", stderr: "", exitCode: 0)
+            },
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer
+        )
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+
+        let result = await command.provision(siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [activitypub])
+
+        guard case .succeeded = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(secretRunnerCallCount == 3)
+        let toml = try #require(tomlContentsAtFirstSecretCall, "wrangler.toml must exist before the first secretRunner call")
+        #expect(toml.contains("[[durable_objects.bindings]]"))
+    }
+
+    @Test("no activitypub worker means keyPairSource and the ActivityPub secretRunner calls never run")
+    func noActivitypubSkipsKeyGeneration() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        var keyPairSourceCalled = false
+        var secretRunnerCalled = false
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            keyPairSource: { _ in
+                keyPairSourceCalled = true
+                return .init(privateKeyPem: "x", publicKeyPem: "y", publishToken: "z")
+            },
+            secretRunner: { _, _, _, _, _ in
+                secretRunnerCalled = true
+                return .init(stdout: "", stderr: "", exitCode: 0)
+            },
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer
+        )
+
+        _ = await command.provision(siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [])
+
+        #expect(!keyPairSourceCalled)
+        #expect(!secretRunnerCalled)
+    }
+
+    @Test("a secretRunner failure fails provisioning before deploy")
+    func secretPushFailureFailsProvisioning() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        let deployer = DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1))
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            keyPairSource: { _ in .init(privateKeyPem: "PRIVATE-PEM", publicKeyPem: "PUBLIC-PEM", publishToken: "TOKEN-VALUE") },
+            secretRunner: { _, name, _, _, _ in
+                if name == "AP_PUBLIC_KEY" {
+                    return .init(stdout: "", stderr: "authentication error", exitCode: 1)
+                }
+                return .init(stdout: "Success!", stderr: "", exitCode: 0)
+            },
+            deployer: deployer.deployer
+        )
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+
+        let result = await command.provision(siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [activitypub])
+
+        guard case .failed = result else {
+            Issue.record("expected failure, got \(result)")
+            return
+        }
+        #expect(await deployer.calls.isEmpty)
     }
 
     @Test("fails before running wrangler when no token is available")
@@ -379,7 +582,7 @@ struct SocialWorkerProvisionCommandTests {
                 calledArguments.append(arguments)
                 return .init(stdout: "", stderr: "unexpected call", exitCode: 1)
             },
-            deployer: { _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
         )
         let webmention = WorkerDescriptor(
             id: "webmention", displayName: "Webmentions", description: "test", group: "social",
@@ -409,7 +612,7 @@ struct SocialWorkerProvisionCommandTests {
                 }
                 return .init(stdout: "", stderr: "", exitCode: 0)
             },
-            deployer: { _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
         )
         let webmention = WorkerDescriptor(
             id: "webmention", displayName: "Webmentions", description: "test", group: "social",
@@ -437,7 +640,7 @@ struct SocialWorkerProvisionCommandTests {
                 calledArguments.append(arguments)
                 return .init(stdout: "", stderr: "", exitCode: 0)
             },
-            deployer: { _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
         )
         let webmention = WorkerDescriptor(
             id: "webmention", displayName: "Webmentions", description: "test", group: "social",
@@ -466,7 +669,7 @@ struct SocialWorkerProvisionCommandTests {
                 }
                 return .init(stdout: "", stderr: "", exitCode: 0)
             },
-            deployer: { _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
         )
         let webmention = WorkerDescriptor(
             id: "webmention", displayName: "Webmentions", description: "test", group: "social",
@@ -491,7 +694,7 @@ struct SocialWorkerProvisionCommandTests {
                 }
                 return .init(stdout: "", stderr: "", exitCode: 0)
             },
-            deployer: { _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
         )
         let webmention = WorkerDescriptor(
             id: "webmention", displayName: "Webmentions", description: "test", group: "social",
@@ -524,7 +727,7 @@ struct SocialWorkerProvisionCommandTests {
                 }
                 return .init(stdout: "", stderr: "", exitCode: 0)
             },
-            deployer: { _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
         )
         // needsD1: true so the D1 block's persistConfig call runs (and reconciles the flag to
         // "false") before the code reaches the paid-plan gate below it — mirrors production,
@@ -545,6 +748,289 @@ struct SocialWorkerProvisionCommandTests {
         #expect(SiteConfigFile.value(forKey: "WEBMENTION_RECEIVE_ENABLED", in: config) == "false")
     }
 
+    @Test("websub worker without paid-plan acknowledgment returns the confirmation-needed gate, no wrangler call")
+    func websubWithoutAcknowledgmentBlocksBeforeAnyCall() async throws {
+        let site = try temporaryDirectory()
+        var calledArguments: [[String]] = []
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "tok" },
+            runner: { _, arguments, _, _ in
+                calledArguments.append(arguments)
+                return .init(stdout: "", stderr: "unexpected call", exitCode: 1)
+            },
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let websub = WorkerDescriptor(
+            id: "websub", displayName: "WebSub", description: "test", group: "social",
+            binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false))
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [websub], acknowledgesPaidPlan: false)
+
+        guard case .webmentionPaidPlanConfirmationNeeded = result else {
+            Issue.record("expected .webmentionPaidPlanConfirmationNeeded, got \(result)")
+            return
+        }
+        #expect(calledArguments.isEmpty, "must not call wrangler before the user acknowledges the paid-plan requirement")
+    }
+
+    @Test("websub worker with acknowledgment creates its own queue")
+    func websubWithAcknowledgmentCreatesQueue() async throws {
+        let site = try temporaryDirectory()
+        var calledArguments: [[String]] = []
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "tok" },
+            runner: { _, arguments, _, _ in
+                calledArguments.append(arguments)
+                if arguments.first == "queues" {
+                    return .init(stdout: #"{"result":{"queue_name":"my-site-websub"}}"#, stderr: "", exitCode: 0)
+                }
+                return .init(stdout: "", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let websub = WorkerDescriptor(
+            id: "websub", displayName: "WebSub", description: "test", group: "social",
+            binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false))
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [websub], acknowledgesPaidPlan: true)
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected .succeeded, got \(result)")
+            return
+        }
+        #expect(resources.websubQueueName == "my-site-websub")
+        #expect(resources.queueName == nil, "no webmention worker, so no webmention queue")
+        #expect(calledArguments.contains(["queues", "create", "my-site-websub", "--json"]))
+        #expect(!calledArguments.contains(["queues", "create", "my-site-webmention", "--json"]))
+    }
+
+    @Test("webmention and websub active together create both queues under one acknowledgment")
+    func webmentionAndWebsubCreateBothQueues() async throws {
+        let site = try temporaryDirectory()
+        var calledArguments: [[String]] = []
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "tok" },
+            runner: { _, arguments, _, _ in
+                calledArguments.append(arguments)
+                if arguments == ["queues", "create", "my-site-webmention", "--json"] {
+                    return .init(stdout: #"{"result":{"queue_name":"my-site-webmention"}}"#, stderr: "", exitCode: 0)
+                }
+                if arguments == ["queues", "create", "my-site-websub", "--json"] {
+                    return .init(stdout: #"{"result":{"queue_name":"my-site-websub"}}"#, stderr: "", exitCode: 0)
+                }
+                return .init(stdout: "", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let plain = { (id: String) in
+            WorkerDescriptor(
+                id: id, displayName: id, description: "test", group: "social",
+                binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false))
+        }
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [plain("webmention"), plain("websub")], acknowledgesPaidPlan: true)
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected .succeeded, got \(result)")
+            return
+        }
+        #expect(resources.queueName == "my-site-webmention")
+        #expect(resources.websubQueueName == "my-site-websub")
+    }
+
+    @Test("an already-provisioned websub queue is not re-created")
+    func alreadyProvisionedWebsubQueueSkipsCreation() async throws {
+        let site = try temporaryDirectory()
+        var calledArguments: [[String]] = []
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "tok" },
+            runner: { _, arguments, _, _ in
+                calledArguments.append(arguments)
+                return .init(stdout: "", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let websub = WorkerDescriptor(
+            id: "websub", displayName: "WebSub", description: "test", group: "social",
+            binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false))
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [websub], knownResources: .init(websubQueueName: "my-site-websub"),
+            acknowledgesPaidPlan: true)
+
+        guard case .succeeded = result else {
+            Issue.record("expected .succeeded, got \(result)")
+            return
+        }
+        #expect(!calledArguments.contains(where: { $0.first == "queues" }))
+    }
+
+    @Test("websub writes WEBSUB_ENABLED into .site-config, and deactivation reconciles it to false")
+    func websubWritesEnabledFlagAndReconciles() async throws {
+        let siteDirectory = try temporaryDirectory()
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "tok" },
+            runner: { _, arguments, _, _ in
+                if arguments.first == "queues" {
+                    return .init(stdout: #"{"result":{"queue_name":"my-site-websub"}}"#, stderr: "", exitCode: 0)
+                }
+                return .init(stdout: "", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let websub = WorkerDescriptor(
+            id: "websub", displayName: "WebSub", description: "test", group: "social",
+            binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false))
+
+        _ = await command.provision(
+            siteID: "site-1", siteDirectory: siteDirectory, siteName: "my-site",
+            workers: [websub], acknowledgesPaidPlan: true)
+
+        let enabledConfig = try String(contentsOf: siteDirectory.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "WEBSUB_ENABLED", in: enabledConfig) == "true")
+
+        _ = await command.provision(
+            siteID: "site-1", siteDirectory: siteDirectory, siteName: "my-site",
+            workers: [], acknowledgesPaidPlan: true)
+
+        let disabledConfig = try String(contentsOf: siteDirectory.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "WEBSUB_ENABLED", in: disabledConfig) == "false")
+    }
+
+    @Test("microsub worker without paid-plan acknowledgment returns the confirmation-needed gate, no wrangler call")
+    func microsubWithoutAcknowledgmentBlocksBeforeAnyCall() async throws {
+        let site = try temporaryDirectory()
+        var calledArguments: [[String]] = []
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "tok" },
+            runner: { _, arguments, _, _ in
+                calledArguments.append(arguments)
+                return .init(stdout: "", stderr: "unexpected call", exitCode: 1)
+            },
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let microsub = WorkerDescriptor(
+            id: "microsub", displayName: "Microsub", description: "test", group: "publishing",
+            binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false))
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [microsub], acknowledgesPaidPlan: false)
+
+        guard case .webmentionPaidPlanConfirmationNeeded = result else {
+            Issue.record("expected .webmentionPaidPlanConfirmationNeeded, got \(result)")
+            return
+        }
+        #expect(calledArguments.isEmpty, "must not call wrangler before the user acknowledges the paid-plan requirement")
+    }
+
+    @Test("microsub worker with acknowledgment creates its own queue")
+    func microsubWithAcknowledgmentCreatesQueue() async throws {
+        let site = try temporaryDirectory()
+        var calledArguments: [[String]] = []
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "tok" },
+            runner: { _, arguments, _, _ in
+                calledArguments.append(arguments)
+                if arguments.first == "queues" {
+                    return .init(stdout: #"{"result":{"queue_name":"my-site-microsub"}}"#, stderr: "", exitCode: 0)
+                }
+                return .init(stdout: "", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let microsub = WorkerDescriptor(
+            id: "microsub", displayName: "Microsub", description: "test", group: "publishing",
+            binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false))
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [microsub], acknowledgesPaidPlan: true)
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected .succeeded, got \(result)")
+            return
+        }
+        #expect(resources.microsubQueueName == "my-site-microsub")
+        #expect(calledArguments.contains(["queues", "create", "my-site-microsub", "--json"]))
+    }
+
+    @Test("an already-provisioned microsub queue is not re-created")
+    func alreadyProvisionedMicrosubQueueSkipsCreation() async throws {
+        let site = try temporaryDirectory()
+        var calledArguments: [[String]] = []
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "tok" },
+            runner: { _, arguments, _, _ in
+                calledArguments.append(arguments)
+                return .init(stdout: "", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let microsub = WorkerDescriptor(
+            id: "microsub", displayName: "Microsub", description: "test", group: "publishing",
+            binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: false))
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [microsub], knownResources: .init(microsubQueueName: "my-site-microsub"),
+            acknowledgesPaidPlan: true)
+
+        guard case .succeeded = result else {
+            Issue.record("expected .succeeded, got \(result)")
+            return
+        }
+        #expect(!calledArguments.contains(where: { $0.first == "queues" }))
+    }
+
+    @Test("readPersistedResources classifies webmention, websub, and microsub queues by suffix")
+    func persistedQueueClassification() throws {
+        let site = try temporaryDirectory()
+        let toml = """
+        name = "my-site"
+        [[queues.producers]]
+        queue = "my-site-webmention"
+        binding = "WEBMENTION_QUEUE"
+        [[queues.producers]]
+        queue = "my-site-websub"
+        binding = "WEBSUB_QUEUE"
+        [[queues.producers]]
+        queue = "my-site-microsub"
+        binding = "MICROSUB_QUEUE"
+        """
+        try toml.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+
+        let resources = SocialWorkerProvisionCommand.readPersistedResources(from: site)
+
+        #expect(resources.queueName == "my-site-webmention")
+        #expect(resources.websubQueueName == "my-site-websub")
+        #expect(resources.microsubQueueName == "my-site-microsub")
+    }
+
+    @Test("readPersistedResources with only a websub queue leaves the webmention queue nil")
+    func persistedWebsubOnlyQueue() throws {
+        let site = try temporaryDirectory()
+        let toml = """
+        name = "my-site"
+        [[queues.producers]]
+        queue = "my-site-websub"
+        binding = "WEBSUB_QUEUE"
+        """
+        try toml.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+
+        let resources = SocialWorkerProvisionCommand.readPersistedResources(from: site)
+
+        #expect(resources.queueName == nil)
+        #expect(resources.websubQueueName == "my-site-websub")
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("SocialWorkerProvisionCommandTests-\(UUID().uuidString)", isDirectory: true)
@@ -557,6 +1043,7 @@ private struct DeployCall: Sendable, Equatable {
     let token: String
     let siteID: String
     let siteDirectory: URL
+    let wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim]
 }
 
 private actor DeployRecorder {
@@ -570,13 +1057,20 @@ private actor DeployRecorder {
     var calls: [DeployCall] { seenCalls }
 
     nonisolated var deployer: SocialWorkerProvisionCommand.Deployer {
-        { token, siteID, siteDirectory in
-            await self.deploy(token: token, siteID: siteID, siteDirectory: siteDirectory)
+        { token, siteID, siteDirectory, wellKnownDynamicClaims in
+            await self.deploy(
+                token: token, siteID: siteID, siteDirectory: siteDirectory,
+                wellKnownDynamicClaims: wellKnownDynamicClaims)
         }
     }
 
-    private func deploy(token: String, siteID: String, siteDirectory: URL) -> DeployCommand.Result {
-        seenCalls.append(DeployCall(token: token, siteID: siteID, siteDirectory: siteDirectory))
+    private func deploy(
+        token: String, siteID: String, siteDirectory: URL,
+        wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim]
+    ) -> DeployCommand.Result {
+        seenCalls.append(DeployCall(
+            token: token, siteID: siteID, siteDirectory: siteDirectory,
+            wellKnownDynamicClaims: wellKnownDynamicClaims))
         return result
     }
 }

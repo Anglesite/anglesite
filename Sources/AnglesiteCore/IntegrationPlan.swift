@@ -57,4 +57,11 @@ public enum IntegrationError: Error, Equatable, Sendable {
     /// (idempotent by construction — same content in, same content out), `.appendLine`
     /// accumulates, so without this check a repeat run would duplicate the line.
     case duplicateLine(file: String)
+    /// The site has never been deployed and has no known deploy host yet (`DeployCoordinator
+    /// .resolveSiteURL` returned nil) — greenHostCheck needs a live host to query.
+    case deployRequired
+    /// An external API call an integration depends on during planning (greenHostCheck's TGWF
+    /// lookup) failed — network failure or a non-2xx/unparseable response. The message is
+    /// already user-facing, classified by the caller (e.g. `GreenHostChecker`).
+    case externalCheckFailed(String)
 }
