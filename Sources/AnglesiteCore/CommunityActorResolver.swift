@@ -98,13 +98,13 @@ public struct CommunityActorResolver: Sendable {
         request.httpMethod = "GET"
         request.timeoutInterval = ActorProfileFetcher.timeout
         let (data, http) = try await send(request)
+        // URLSession follows redirects transparently, so this body may not have come from
+        // the webfinger endpoint at all. Re-check where it actually landed before trusting it.
+        if let finalURL = http.url { try Self.requireHTTPS(finalURL) }
         guard (200..<300).contains(http.statusCode) else {
             throw CommunityActorResolverError.webfingerFailed(
                 status: http.statusCode, body: String(decoding: data.prefix(400), as: UTF8.self))
         }
-        // URLSession follows redirects transparently, so this body may not have come from
-        // the webfinger endpoint at all. Re-check where it actually landed before trusting it.
-        if let finalURL = http.url { try Self.requireHTTPS(finalURL) }
         struct Link: Decodable { let rel: String?; let type: String?; let href: String? }
         struct DTO: Decodable { let links: [Link]? }
         let dto: DTO

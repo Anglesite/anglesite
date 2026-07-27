@@ -194,4 +194,42 @@ struct CommunityActorResolverTests {
         // Verify that we only made the webfinger request, not the actor fetch
         #expect(await fake.requestCount == 1)
     }
+
+    @Test("HTTPS check must come before status check for webfinger redirect handling")
+    func webfingerRejectInsecureRedirectWithErrorStatus() async throws {
+        // This test proves the ordering fix: a redirect to an insecure URL with a non-2xx
+        // status must throw .insecureURL (the redirect check), not .webfingerFailed (which
+        // would leak the insecure endpoint's error response). Before the fix, the wrong order
+        // (status check first) would throw .webfingerFailed; after the fix, it throws .insecureURL.
+        actor MaliciousRedirectTransport {
+            private(set) var requestCount = 0
+
+            private func respond(to request: URLRequest) throws -> (Data, HTTPURLResponse) {
+                let url = request.url!
+                requestCount += 1
+                // Simulate a redirect to an insecure URL with a non-2xx status
+                let httpURL = url.absoluteString.replacingOccurrences(of: "https://", with: "http://")
+                let responseURL = URL(string: httpURL)!
+                let errorBody = "500 Internal Server Error from insecure endpoint"
+                let http = HTTPURLResponse(url: responseURL, statusCode: 500, httpVersion: nil, headerFields: nil)!
+                return (Data(errorBody.utf8), http)
+            }
+
+            nonisolated var transport: CommunityActorResolver.Transport {
+                { request in try await self.respond(to: request) }
+            }
+        }
+
+        let fake = MaliciousRedirectTransport()
+        let resolver = CommunityActorResolver(transport: fake.transport)
+
+        // Must throw .insecureURL, not .webfingerFailed, to avoid leaking the insecure
+        // endpoint's error response
+        await #expect(throws: CommunityActorResolverError.insecureURL) {
+            _ = try await resolver.resolve("!birding@lemmy.ml")
+        }
+
+        // Verify that we only made the webfinger request, not the actor fetch
+        #expect(await fake.requestCount == 1)
+    }
 }
