@@ -195,6 +195,54 @@ struct CommunityActorResolverTests {
         #expect(await fake.requestCount == 1)
     }
 
+    /// Defense-in-depth: `defaultTransport` is already capped via `CappedHTTPTransport`, but a
+    /// caller-injected `Transport` (like this test's `FakeTransport`) might not be. The padding
+    /// keeps the body *valid* JSON that decodes cleanly but for the size — an invalid/garbage
+    /// oversized body would throw `.decodingFailed` regardless of whether the byte-cap guard
+    /// exists, making the test vacuous (this exact mistake was already made and caught once for
+    /// `GroupTimelineClientTests.rejectsOversizedBody`).
+    @Test("rejects an oversized actor document")
+    func rejectsOversizedActorDocument() async throws {
+        let maxBytes = CommunityActorResolver.maximumResponseBytes
+        let prefix = #"{"id":"https://lemmy.ml/c/birding","type":"Group","padding":""#
+        let suffix = "\"}"
+        let paddingLength = maxBytes - prefix.utf8.count - suffix.utf8.count + 1
+        let oversizedBody = prefix + String(repeating: "x", count: paddingLength) + suffix
+        let byteCount = Data(oversizedBody.utf8).count
+        #expect(byteCount > maxBytes)
+
+        let fake = FakeTransport(["https://lemmy.ml/c/birding": (200, oversizedBody)])
+        let resolver = CommunityActorResolver(transport: fake.transport)
+
+        await #expect(throws: CommunityActorResolverError.requestFailed(
+            status: 0, body: "response too large (\(byteCount) bytes)")) {
+            _ = try await resolver.resolve("https://lemmy.ml/c/birding")
+        }
+    }
+
+    /// Same guard, exercised through the webfinger call site rather than the actor-document one —
+    /// `webfingerResolve` and `fetchActor` each need their own check since neither funnels through
+    /// a single shared post-status point.
+    @Test("rejects an oversized webfinger response")
+    func rejectsOversizedWebfingerResponse() async throws {
+        let maxBytes = CommunityActorResolver.maximumResponseBytes
+        let prefix = #"{"subject":"acct:birding@lemmy.ml","links":[],"padding":""#
+        let suffix = "\"}"
+        let paddingLength = maxBytes - prefix.utf8.count - suffix.utf8.count + 1
+        let oversizedBody = prefix + String(repeating: "x", count: paddingLength) + suffix
+        let byteCount = Data(oversizedBody.utf8).count
+        #expect(byteCount > maxBytes)
+
+        let webfingerURL = "https://lemmy.ml/.well-known/webfinger?resource=acct:birding@lemmy.ml"
+        let fake = FakeTransport([webfingerURL: (200, oversizedBody)])
+        let resolver = CommunityActorResolver(transport: fake.transport)
+
+        await #expect(throws: CommunityActorResolverError.requestFailed(
+            status: 0, body: "response too large (\(byteCount) bytes)")) {
+            _ = try await resolver.resolve("!birding@lemmy.ml")
+        }
+    }
+
     @Test("HTTPS check must come before status check for webfinger redirect handling")
     func webfingerRejectInsecureRedirectWithErrorStatus() async throws {
         // This test proves the ordering fix: a redirect to an insecure URL with a non-2xx

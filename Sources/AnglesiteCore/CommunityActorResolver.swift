@@ -52,6 +52,12 @@ public enum CommunityActorResolverError: Error, Equatable, Sendable {
 public struct CommunityActorResolver: Sendable {
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
+    /// Defense-in-depth for a caller-injected `Transport` that might not itself be capped — the
+    /// `defaultTransport` already enforces this via `CappedHTTPTransport`, but a webfinger document
+    /// and an actor document are both similarly small, so this reuses `ActorProfileFetcher`'s cap
+    /// rather than `GroupTimelineClient`'s larger one (outbox pages embed multiple activities).
+    public static let maximumResponseBytes = ActorProfileFetcher.maximumResponseBytes
+
     private let transport: Transport
 
     public init(transport: @escaping Transport = CommunityActorResolver.defaultTransport) {
@@ -105,6 +111,12 @@ public struct CommunityActorResolver: Sendable {
             throw CommunityActorResolverError.webfingerFailed(
                 status: http.statusCode, body: String(decoding: data.prefix(400), as: UTF8.self))
         }
+        // The default transport already aborts mid-stream past the cap; this re-check holds an
+        // injected transport to the same limit, mirroring `GroupTimelineClient.fetch`.
+        guard data.count <= Self.maximumResponseBytes else {
+            throw CommunityActorResolverError.requestFailed(
+                status: 0, body: "response too large (\(data.count) bytes)")
+        }
         struct Link: Decodable { let rel: String?; let type: String?; let href: String? }
         struct DTO: Decodable { let links: [Link]? }
         let dto: DTO
@@ -132,6 +144,12 @@ public struct CommunityActorResolver: Sendable {
         guard (200..<300).contains(http.statusCode) else {
             throw CommunityActorResolverError.requestFailed(
                 status: http.statusCode, body: String(decoding: data.prefix(400), as: UTF8.self))
+        }
+        // The default transport already aborts mid-stream past the cap; this re-check holds an
+        // injected transport to the same limit, mirroring `GroupTimelineClient.fetch`.
+        guard data.count <= Self.maximumResponseBytes else {
+            throw CommunityActorResolverError.requestFailed(
+                status: 0, body: "response too large (\(data.count) bytes)")
         }
         struct DTO: Decodable {
             let id: String
