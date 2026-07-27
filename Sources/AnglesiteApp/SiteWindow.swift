@@ -792,6 +792,8 @@ struct SiteWindow: View {
             MicrosubReaderView(reader: model.reader)
         case .followers:
             FollowersView(followers: model.followers)
+        case .communities:
+            CommunitiesView(communities: model.communities)
         case .preview:
             previewPane(for: site)
         }

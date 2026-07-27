@@ -4,6 +4,9 @@
     "" : {
 
     },
+    "!community@instance or URL" : {
+
+    },
     "%@ %@" : {
       "localizations" : {
         "en" : {
@@ -152,6 +155,9 @@
 
     },
     "%lld%%" : {
+
+    },
+    "." : {
 
     },
     "/" : {
@@ -703,6 +709,15 @@
 
     },
     "Commit and push working-tree changes to your current branch" : {
+
+    },
+    "Communities" : {
+
+    },
+    "Communities error" : {
+
+    },
+    "Communities…" : {
 
     },
     "Complete Sign In" : {
@@ -1391,6 +1406,9 @@
     "Installed" : {
 
     },
+    "Join" : {
+
+    },
     "Just a few" : {
 
     },
@@ -1428,6 +1446,15 @@
 
     },
     "Learning %@’s conventions…" : {
+
+    },
+    "Leave" : {
+
+    },
+    "Leave this community?" : {
+
+    },
+    "Leave…" : {
 
     },
     "Left" : {
@@ -1598,6 +1625,9 @@
     "No changes needed." : {
 
     },
+    "No communities joined yet — enter a handle above, like !birding@lemmy.ml." : {
+
+    },
     "No component usage learned yet." : {
 
     },
@@ -1629,6 +1659,9 @@
 
     },
     "No matching graph nodes" : {
+
+    },
+    "No posts yet." : {
 
     },
     "No redirects yet. Add one below." : {
@@ -1890,6 +1923,9 @@
 
     },
     "Publish it at least once, then followers will appear here." : {
+
+    },
+    "Publish it at least once, then you can join communities." : {
 
     },
     "Publish to GitHub" : {
@@ -2263,6 +2299,9 @@
     "Select Parent" : {
 
     },
+    "Select a community to see its timeline." : {
+
+    },
     "Select a node" : {
 
     },
@@ -2606,6 +2645,9 @@
 
     },
     "This site hasn't been published yet" : {
+
+    },
+    "This site will stop receiving posts from " : {
 
     },
     "This will remove the file from your site. You can bring it back with Edit ▸ Undo." : {
