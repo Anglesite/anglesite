@@ -13,6 +13,7 @@ enum MainPaneMode: Equatable {
     case cleanup        // Site ▸ Cleanup… (#714 moved it out of the sidebar)
     case reader         // Website ▸ Reader… (V-4.3, #365)
     case followers      // Website ▸ Followers… (V-4.2, #364)
+    case communities    // Website ▸ Communities… (V-5.1a, #368)
 }
 
 enum ActiveEditor {
@@ -139,6 +140,9 @@ final class SiteWindowModel {
     /// Drives the main-pane Followers view (Website ▸ Followers…, V-4.2 #364): the site's public
     /// ActivityPub followers collection, with lazily-enriched display identities.
     var followers = FollowersModel()
+    /// Drives the main-pane Communities view (Website ▸ Communities…, V-5.1a #368): join/leave
+    /// fediverse Group actors and read a per-group timeline.
+    var communities = CommunitiesModel()
     var harden = HardenModel()
     var onionRouting = OnionRoutingModel()
     var domain = DomainModel()
@@ -303,6 +307,17 @@ final class SiteWindowModel {
             activeEditor = nil
             inspectorContext = nil
             mainPaneMode = .followers
+        }
+    }
+
+    /// Switches the main pane to Communities (Website ▸ Communities…, V-5.1a #368). Mirrors
+    /// `presentFollowers()`'s leave-current-surface-first guard.
+    func presentCommunities() {
+        Task {
+            guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
+            activeEditor = nil
+            inspectorContext = nil
+            mainPaneMode = .communities
         }
     }
 
@@ -1527,6 +1542,7 @@ final class SiteWindowModel {
         cleanup.configure(site: currentSite)
         reader.configure(site: currentSite)
         followers.configure(site: currentSite)
+        communities.configure(site: currentSite)
         // Cold-open path for any `PreviewSiteIntent` (#139) navigation; the already-open window
         // is handled reactively by `.onChange(of: router.pendingNavigation)` in `body`.
         applyPendingNavigation(for: resolved.id)
