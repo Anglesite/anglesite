@@ -21,7 +21,7 @@ This closes both gaps:
 | Decision | Choice |
 |---|---|
 | Drop-highlight fidelity | Simple hover highlight — reuse `.dropDestination(for: URL.self)`'s existing `isTargeted:` closure. Highlights for any file-URL drag over the list, not just valid `.anglesite` packages. The drop-accept logic (filter to `.anglesite` extension) is unchanged. |
-| Navigator drag scope | Only `.route` (page/post) and `.file` (component/style/metadata) targets are draggable. `.directory` and `.websiteSettings` targets are not — no single backing file, and navigator reordering is an explicit non-goal (content order is filesystem/frontmatter-derived). |
+| Navigator drag scope | Only `.route` (page/post) targets are draggable today. `.file` (component/style/metadata) is unreachable — components/styles moved out of the navigator tree in #714 slice 1 — and `.directory`/`.websiteSettings` are not draggable (no single backing file, and navigator reordering is an explicit non-goal). |
 | Navigator route→file resolution | Add a synchronous `routeFileURLs: [String: URL]` cache built during `SiteNavigatorModel.refresh()` (alongside the existing `postsByID`/`postIDs` caches), since `.draggable`'s payload closure runs synchronously at drag-start and can't await the graph actor. |
 
 ## 1. Launcher rows draggable

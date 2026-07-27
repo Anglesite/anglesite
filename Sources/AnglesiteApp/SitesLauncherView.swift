@@ -164,13 +164,16 @@ struct SitesLauncherView: View {
                 .padding(.vertical, 2)
             }
             .buttonStyle(.plain)
-            // Draggable out to Finder/Terminal/another app (#676) — offers the package URL
-            // regardless of validity (a dead bookmark is still a real path on disk).
-            .draggable(site.packageURL)
             // A dead bookmark (needsReauthorization) still lets the row respond to a click — it
             // routes to the same "Locate…" recovery as the context-menu action — rather than
             // going fully dead with no way to fix it in place (#776).
             .disabled(!site.isValid && !site.needsReauthorization)
+            // Draggable out to Finder/Terminal/another app (#676) — offers the package URL
+            // regardless of validity (a dead bookmark is still a real path on disk), and must
+            // come AFTER .disabled(...) above so the drag isn't scoped inside that disabled
+            // subtree — otherwise a row with missing files couldn't be dragged out at all,
+            // contradicting this comment.
+            .draggable(site.packageURL)
             .accessibilityValue(site.isValid
                                  ? "Valid"
                                  : (site.needsReauthorization ? "Needs re-authorization" : "Missing required files"))
