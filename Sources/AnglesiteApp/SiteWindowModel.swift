@@ -127,6 +127,8 @@ final class SiteWindowModel {
     }
     var relatedPages: RelatedPagesModel
     var relatedPagesPresented = false
+    /// Drives the toolbar search field and its suggestions (#520).
+    var search: SiteSearchModel
     /// Drives the main-pane Cleanup view (Site ▸ Cleanup…, #714 moved it out of the sidebar).
     /// `scan()` runs once automatically when `ProjectCleanupView` first appears; the manual
     /// Rescan button re-runs it on demand afterward.
@@ -221,6 +223,7 @@ final class SiteWindowModel {
         )
         self.graphExplorer = SiteGraphExplorerModel(graph: contentGraph)
         self.relatedPages = RelatedPagesModel(index: knowledgeIndex, ranker: semanticRanker)
+        self.search = SiteSearchModel(index: knowledgeIndex)
         self.cleanup = ProjectCleanupModel(knowledgeIndex: knowledgeIndex, contentGraph: contentGraph)
         // Wired once here (not per-site in loadAndStart): the hooks capture nothing from self
         // and receive the run's site id from the model, so there is nothing to rebind on
@@ -815,6 +818,32 @@ final class SiteWindowModel {
                 mainPaneMode = .preview
                 preview.navigate(toRoute: route)
             }
+        }
+    }
+
+    /// Routes an activated toolbar-search hit (#520). A hit whose route matches a live navigator
+    /// row goes through `applyNavigatorSelection` so the sidebar selection, preview, inspector,
+    /// and Related Pages panel all land where a sidebar click would have put them; everything
+    /// else opens its file. `SiteSearchDestination` owns that decision (and is tested in
+    /// AnglesiteCore) — this method only executes it.
+    @MainActor
+    func openSearchHit(_ hit: SiteSearchIndex.Hit) {
+        guard let site else { return }
+        let destination = SiteSearchDestination.resolve(
+            hit: hit, navigatorRouteIDs: navigator?.routeIDs ?? [:])
+        // Dismiss the suggestions list first: both branches below can suspend, and leaving the
+        // dropdown up over the destination reads as the navigation not having happened.
+        search.clear()
+
+        switch destination {
+        case .navigator(let id):
+            navigator?.selection = id
+            applyNavigatorSelection(id)
+        case .file(let path, let group):
+            let url = site.sourceDirectory.appendingPathComponent(path)
+            openFile(FileRef(
+                url: url, group: group,
+                name: hit.title ?? url.lastPathComponent))
         }
     }
 
@@ -1455,6 +1484,23 @@ final class SiteWindowModel {
         // is available.
         let contentGraphRefresh = Task {
             await refreshContentGraph(siteID: resolved.id, sourceDirectory: resolved.sourceDirectory)
+        }
+        // Warm the knowledge index here for the same reason, and on the same terms (#980): it is
+        // a filesystem scan of Source/ that needs no container, no MCP, and no dev server. Until
+        // this, the only thing that populated it on the open path was the runtime — *after*
+        // `control.start` and `connect(...)` in `LocalContainerSiteRuntime` — so every index
+        // consumer (toolbar search #520, assistant retrieval, Related Pages) silently returned
+        // nothing for as long as the container took to boot, and forever on a machine where the
+        // runtime can't start at all. Searching a page by its own name and getting "No matching
+        // content" is indistinguishable from a real miss, which is what made it worth fixing here
+        // rather than leaving search to inherit it.
+        //
+        // The runtime still rebuilds when it comes up; `SiteKnowledgeIndex` is an actor and
+        // rebuild is idempotent, so the two serialize and the later one simply refreshes from the
+        // hydrated repo. Not awaited — nothing below needs it, and the assistant's tools read the
+        // index lazily at call time.
+        Task { [knowledgeIndex] in
+            await knowledgeIndex.rebuild(siteID: resolved.id, projectRoot: resolved.sourceDirectory)
         }
         // Scan from the package ROOT (not Source/): SiteFileTree's adaptive layout detects the
         // `.anglesite` package here and resolves Source/ for Components/Styles plus the sibling

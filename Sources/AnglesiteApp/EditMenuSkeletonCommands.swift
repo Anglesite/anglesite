@@ -2,11 +2,12 @@ import SwiftUI
 
 /// Edit-menu skeleton items (menu-bar spec §2.3): selection walkers and annotations after
 /// the pasteboard block, Find ▸ in the text-editing block. The Find items are live against
-/// the focused Markdown editor (#797/#517) via `MarkdownEditorFocusRegistry`; the rest are
-/// editor/subsystem-gated PlannedItems. NavigatorEditCommands owns the live Delete/Duplicate
-/// next to them.
+/// the focused Markdown editor (#797/#517) via `MarkdownEditorFocusRegistry`, and Search Site…
+/// against the focused window's toolbar search field (#520); the rest are editor/subsystem-gated
+/// PlannedItems. NavigatorEditCommands owns the live Delete/Duplicate next to them.
 struct EditMenuSkeletonCommands: Commands {
     private let registry = MarkdownEditorFocusRegistry.shared
+    @FocusedValue(\.siteSearchActions) private var searchActions
 
     var body: some Commands {
         CommandGroup(after: .pasteboard) {
@@ -37,8 +38,12 @@ struct EditMenuSkeletonCommands: Commands {
 
                 Divider()
 
-                // Shares the #520 site-search backend when it lands.
-                PlannedItem("Search Site…")
+                // ⇧⌘F, not one of the standard find keys: ⌘F/⌘G/⇧⌘G/⌥⌘F all belong to the
+                // in-editor find bar above (#797/#517). ⇧⌘F is Xcode's Find-in-Project key, and
+                // this is the same relationship — document find vs. whole-project find.
+                Button("Search Site…") { searchActions?.focusSearchField() }
+                    .keyboardShortcut("f", modifiers: [.command, .shift])
+                    .disabled(searchActions == nil)
             }
         }
     }
