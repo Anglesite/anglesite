@@ -184,40 +184,42 @@ struct PlistEditorView: View {
 
     private var websiteTab: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
-                GridRow {
-                    Text("Title")
-                        .frame(minWidth: 160, alignment: .leading)
-                    TextField("Title", text: $model.websiteTitle)
-                        .focused($titleFocused)
-                        .onSubmit { Task { await saveWebsiteTitle() } }
-                        .frame(minWidth: 220)
-                }
-                GridRow {
-                    Text("Icons")
-                        .frame(minWidth: 160, alignment: .leading)
-                    HStack(spacing: 8) {
-                        Image(systemName: model.hasWebsiteIcons ? "checkmark.circle.fill" : "globe")
-                            .foregroundStyle(model.hasWebsiteIcons ? .green : .secondary)
-                            .frame(width: 18)
-                        Text(model.hasWebsiteIcons ? "Installed" : "Not Set")
-                            .foregroundStyle(.secondary)
-                            .frame(minWidth: 72, alignment: .leading)
-                        Button {
-                            chooseWebsiteIcon()
-                        } label: {
-                            Label(model.hasWebsiteIcons ? "Change Image" : "Choose Image",
-                                  systemImage: "photo.badge.plus")
-                        }
-                        .disabled(model.isInstallingIcons)
-                        if model.isInstallingIcons {
-                            ProgressView()
-                                .controlSize(.small)
+            SettingsBox(title: "Website") {
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Title")
+                            .frame(minWidth: 160, alignment: .leading)
+                        TextField("Title", text: $model.websiteTitle)
+                            .focused($titleFocused)
+                            .onSubmit { Task { await saveWebsiteTitle() } }
+                            .frame(minWidth: 220)
+                    }
+                    GridRow {
+                        Text("Icons")
+                            .frame(minWidth: 160, alignment: .leading)
+                        HStack(spacing: 8) {
+                            Image(systemName: model.hasWebsiteIcons ? "checkmark.circle.fill" : "globe")
+                                .foregroundStyle(model.hasWebsiteIcons ? .green : .secondary)
+                                .frame(width: 18)
+                            Text(model.hasWebsiteIcons ? "Installed" : "Not Set")
+                                .foregroundStyle(.secondary)
+                                .frame(minWidth: 72, alignment: .leading)
+                            Button {
+                                chooseWebsiteIcon()
+                            } label: {
+                                Label(model.hasWebsiteIcons ? "Change Image" : "Choose Image",
+                                      systemImage: "photo.badge.plus")
+                            }
+                            .disabled(model.isInstallingIcons)
+                            if model.isInstallingIcons {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
                         }
                     }
                 }
+                .textFieldStyle(.roundedBorder)
             }
-            .textFieldStyle(.roundedBorder)
             if let iconError = model.iconError {
                 Label(iconError, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
