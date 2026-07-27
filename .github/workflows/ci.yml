@@ -123,7 +123,7 @@ jobs:
       - run: npm test
 
   template-worker:
-    name: Template Worker (build/test)
+    name: Template (build/test)
     needs: changes
     if: needs.changes.outputs.template == 'true'
     runs-on: ubuntu-latest
@@ -139,6 +139,7 @@ jobs:
           cache: npm
           cache-dependency-path: Resources/Template/package-lock.json
       - run: npm ci --no-audit --no-fund
+      - run: npm test
       - run: npm run test:worker
       - run: npm run build
 
