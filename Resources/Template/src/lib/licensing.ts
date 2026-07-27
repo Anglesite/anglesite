@@ -53,14 +53,45 @@ function isLicensable(key: string): key is LicensableCollection {
 }
 
 /**
+ * Whether `url` is safe to emit unguarded into `href`/`rel="license"` (LicenseLink.astro,
+ * BaseLayout.astro, Rights.astro). Matches the scheme-guard convention already used for
+ * user-supplied URLs elsewhere in the template (`src/lib/interactions.ts`'s `httpUrl`,
+ * `scripts/edge-artifacts.ts`'s `httpsOrigin`): parse with `new URL()` and allow-list the
+ * scheme rather than deny-list dangerous ones, so an unanticipated scheme (`vbscript:`, a
+ * future browser quirk) is rejected by default instead of needing its own denial rule.
+ *
+ * A root-relative URL (`/license/`) is also accepted — a site-local license page is a
+ * legitimate thing to point at, and `licensing.json` is intended to support that, not just
+ * external license URLs. `new URL()` can't parse a bare path without a base, so that case is
+ * checked separately and deliberately narrowed to a *leading single slash*: a protocol-relative
+ * URL (`//host/x`) is rejected because it hands an attacker-chosen host to href, and a bare
+ * relative path (`license.html`) is rejected because its resolution depends on which page
+ * renders it, which isn't the "site-local page" case this exists for.
+ */
+function hasSafeLicenseScheme(url: string): boolean {
+  if (url.startsWith("/") && !url.startsWith("//")) return true;
+  try {
+    return ["http:", "https:"].includes(new URL(url).protocol);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Coerce one raw JSON value into a LicenseRef, or null when it can't be trusted.
  * `url` is mandatory — a license reference with no URL points nowhere and would emit an
  * empty href. `name` falls back to the URL so there is always something to render.
+ *
+ * `url`'s scheme is checked here (not left to the caller) so every consumer — the site
+ * default, every per-collection override — gets the guard for free. `licensing.json` is
+ * hand-authored today, but a planned Settings UI will write it, so a `javascript:`/`data:`
+ * value must degrade to "assert nothing" (null), never reach `href`/`rel="license"` unguarded.
  */
 function toLicenseRef(raw: unknown): LicenseRef | null {
   if (!raw || typeof raw !== "object") return null;
   const { url, name } = raw as { url?: unknown; name?: unknown };
   if (typeof url !== "string" || url.length === 0) return null;
+  if (!hasSafeLicenseScheme(url)) return null;
   return { url, name: typeof name === "string" && name.length > 0 ? name : url };
 }
 

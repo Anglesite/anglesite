@@ -78,6 +78,71 @@ test("normalizePolicy: falls back to the url when name is absent", () => {
   assert.deepEqual(out.default, { url: "https://example.com/l", name: "https://example.com/l" });
 });
 
+test("normalizePolicy: rejects a javascript: URL", () => {
+  const out = normalizePolicy({ default: { url: "javascript:alert(1)", name: "Evil" } });
+  assert.equal(out.default, null);
+});
+
+test("normalizePolicy: rejects a javascript: URL case-insensitively", () => {
+  const out = normalizePolicy({ default: { url: "JavaScript:alert(1)", name: "Evil" } });
+  assert.equal(out.default, null);
+});
+
+test("normalizePolicy: rejects a data: URL", () => {
+  const out = normalizePolicy({
+    default: { url: "data:text/html,<script>alert(1)</script>", name: "Evil" },
+  });
+  assert.equal(out.default, null);
+});
+
+test("normalizePolicy: rejects a vbscript: URL", () => {
+  const out = normalizePolicy({ default: { url: "vbscript:msgbox(1)", name: "Evil" } });
+  assert.equal(out.default, null);
+});
+
+test("normalizePolicy: accepts an https: URL", () => {
+  const out = normalizePolicy({ default: { url: "https://example.com/l", name: "Example" } });
+  assert.deepEqual(out.default, { url: "https://example.com/l", name: "Example" });
+});
+
+test("normalizePolicy: accepts an http: URL", () => {
+  const out = normalizePolicy({ default: { url: "http://example.com/l", name: "Example" } });
+  assert.deepEqual(out.default, { url: "http://example.com/l", name: "Example" });
+});
+
+test("normalizePolicy: accepts a root-relative URL (site-local license page)", () => {
+  const out = normalizePolicy({ default: { url: "/license/", name: "Site License" } });
+  assert.deepEqual(out.default, { url: "/license/", name: "Site License" });
+});
+
+test("normalizePolicy: rejects a protocol-relative URL", () => {
+  // `//evil.example/x` inherits whatever scheme the page is served over, but it still hands an
+  // attacker-chosen host to href/rel="license" — not the "site-local page" case the root-relative
+  // allowance exists for, so it is rejected rather than silently treated as same-origin.
+  const out = normalizePolicy({ default: { url: "//evil.example/x", name: "Evil" } });
+  assert.equal(out.default, null);
+});
+
+test("normalizePolicy: rejects a bare relative URL", () => {
+  // Only root-relative ("/...") is accepted; a bare relative path is ambiguous about which
+  // directory it resolves against once linked from arbitrary pages, so it is out of scope.
+  const out = normalizePolicy({ default: { url: "license.html", name: "Evil" } });
+  assert.equal(out.default, null);
+});
+
+test("resolveLicense: a bad-URL collection override resolves to null, not a leaked entry", () => {
+  const policy = normalizePolicy({
+    default: { url: "https://example.com/l", name: "Default" },
+    collections: { photos: { url: "javascript:alert(1)", name: "Evil" } },
+  });
+  // A malformed override is indistinguishable from an explicit "assert nothing" override — same
+  // as an entry with a missing/non-string url already behaved before this change — so the key is
+  // present with a null value, and resolution must yield null rather than the bad href leaking
+  // through in any form.
+  assert.equal(Object.hasOwn(policy.collections, "photos"), true);
+  assert.equal(resolveLicense(policy, "photos"), null);
+});
+
 test("normalizePolicy: a non-object document yields an empty policy", () => {
   assert.deepEqual(normalizePolicy("nope"), { default: null, collections: {} });
   assert.deepEqual(normalizePolicy(null), { default: null, collections: {} });

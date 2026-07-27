@@ -38,7 +38,10 @@ const LICENSING_FIXTURE = {
 };
 
 const DEFAULT_LICENSE_URL = LICENSING_FIXTURE.default.url;
+const DEFAULT_LICENSE_NAME = LICENSING_FIXTURE.default.name;
 const REVIEWS_LICENSE_URL = LICENSING_FIXTURE.collections.reviews.url;
+
+const COPYRIGHT_HOLDER = "Jane Q. Author";
 
 /** Pull the JSON-LD object out of a page, or undefined if the page emits none (e.g. likes). */
 function jsonLdOf(html: string): Record<string, unknown> | undefined {
@@ -63,6 +66,11 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** The inner HTML of the footer's `<div class="site-rights">` block, or undefined if absent. */
+function siteRightsBlock(html: string): string | undefined {
+  return html.match(/<div class="site-rights">([\s\S]*?)<\/div>/)?.[1];
+}
+
 test("licensing: JSON-LD, u-license, and <link rel=license> agree on every page", async () => {
   const fixtureDir = await mkdtemp(join(tmpdir(), "anglesite-licensing-fixture-"));
   try {
@@ -81,6 +89,9 @@ test("licensing: JSON-LD, u-license, and <link rel=license> agree on every page"
       JSON.stringify(LICENSING_FIXTURE, null, 2),
       "utf8",
     );
+    // Exercises the COPYRIGHT_HOLDER path of Rights.astro's footer statement (the ownerName()
+    // h-card fallback is a distinct config combination — see the second build below).
+    await writeFile(join(fixtureDir, ".site-config"), `COPYRIGHT_HOLDER=${COPYRIGHT_HOLDER}\n`, "utf8");
 
     execFileSync("npm", ["install", "--no-audit", "--no-fund", "--prefer-offline"], {
       cwd: fixtureDir,
@@ -134,6 +145,26 @@ test("licensing: JSON-LD, u-license, and <link rel=license> agree on every page"
         hasRelLicenseLink(html, DEFAULT_LICENSE_URL),
         `notes page <head> must carry <link rel="license" href="${DEFAULT_LICENSE_URL}">`,
       );
+
+      // --- footer rights text (Rights.astro) — the reviewer-flagged gap ---------------------
+      // licensing.test.ts and the JSON-LD/u-license/rel=license assertions above never touch
+      // this human-readable statement, so a regression here (wrong holder, license href used as
+      // link text instead of the name, a dropped " · " separator) would ship unnoticed.
+      const rights = siteRightsBlock(html);
+      assert.ok(rights, "notes page must render a <div class=\"site-rights\"> footer block");
+      assert.ok(
+        rights!.includes(COPYRIGHT_HOLDER),
+        `site-rights must show the copyright holder "${COPYRIGHT_HOLDER}", got: ${rights}`,
+      );
+      assert.match(
+        rights!,
+        new RegExp(`<a href="${escapeRegExp(DEFAULT_LICENSE_URL)}" rel="license">${escapeRegExp(DEFAULT_LICENSE_NAME)}</a>`),
+        `site-rights must link the license *name* "${DEFAULT_LICENSE_NAME}" as the anchor's visible text, not its href, got: ${rights}`,
+      );
+      assert.ok(
+        rights!.includes(" · "),
+        `site-rights must separate the holder and license with " · " when both are present, got: ${rights}`,
+      );
     }
 
     // --- likes: non-asserting collection -> nothing, despite a site default being set ------
@@ -155,6 +186,33 @@ test("licensing: JSON-LD, u-license, and <link rel=license> agree on every page"
       assert.ok(
         !html.includes('rel="license"'),
         'likes page must not carry a <link rel="license"> despite a site default license being set',
+      );
+    }
+
+    // --- negative case: no license and no holder -> no site-rights element at all ----------
+    // Rebuild the same fixture (node_modules already installed, so this is just another
+    // `astro build`, not a second full install) with the committed licensing.json default
+    // (`{ "default": null, "collections": {} }`) and no `.site-config`/COPYRIGHT_HOLDER, and no
+    // `src/data/profile.json` (absent by default in the template, so ownerName() also yields
+    // undefined). Rights.astro must render nothing — not an empty `<div class="site-rights">` —
+    // when both inputs are falsy; a stray empty wrapper would be worse than no wrapper at all.
+    await writeFile(
+      join(fixtureDir, "src/data/licensing.json"),
+      JSON.stringify({ default: null, collections: {} }, null, 2),
+      "utf8",
+    );
+    await rm(join(fixtureDir, ".site-config"), { force: true });
+    execFileSync("npx", ["astro", "build"], { cwd: fixtureDir, stdio: "inherit" });
+    {
+      const html = await readFile(join(fixtureDir, "dist/notes/hello-note/index.html"), "utf8");
+      assert.equal(
+        siteRightsBlock(html),
+        undefined,
+        "a page with no license and no copyright holder must render no site-rights element at all",
+      );
+      assert.ok(
+        !html.includes("site-rights"),
+        'a page with no license and no copyright holder must not mention "site-rights" anywhere in the output',
       );
     }
   } finally {
