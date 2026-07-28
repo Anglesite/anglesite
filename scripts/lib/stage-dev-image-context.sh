@@ -24,7 +24,7 @@ stage_dev_image_context() {
 
     if [[ ! -d "$sidecar_src" ]]; then
         echo "ERROR: MCP sidecar source not found at $sidecar_src" >&2
-        echo "       Set ANGLESITE_SIDECAR_SRC or clone github.com/Anglesite/anglesite as a sibling." >&2
+        echo "       Set ANGLESITE_SIDECAR_SRC or clone github.com/Anglesite/anglesite-skills as a sibling." >&2
         exit 1
     fi
     if [[ ! -f "$sidecar_src/server/index.mjs" || ! -f "$sidecar_src/package.json" ]]; then
