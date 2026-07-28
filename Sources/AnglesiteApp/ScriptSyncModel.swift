@@ -34,6 +34,7 @@ final class ScriptSyncModel: Identifiable {
     }
 
     private func remove(_ divergence: TemplateScriptsDivergence) {
+        guard !pending.isEmpty else { return }
         pending.removeAll { $0.id == divergence.id }
         if pending.isEmpty { onFinished() }
     }

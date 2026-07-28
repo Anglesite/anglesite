@@ -40,4 +40,20 @@ import AnglesiteCore
         #expect(finishedCount == 1)
         #expect(model.pending.isEmpty)
     }
+
+    @Test func resolvingAfterAlreadyEmptyDoesNotRefireOnFinished() {
+        var finishedCount = 0
+        let model = ScriptSyncModel(
+            divergences: [fileA],
+            onResolve: { _, _ in },
+            onFinished: { finishedCount += 1 }
+        )
+
+        model.update(fileA)
+        #expect(finishedCount == 1)
+
+        // Redundant resolve after pending is already empty must not re-fire onFinished.
+        model.update(fileA)
+        #expect(finishedCount == 1)
+    }
 }
