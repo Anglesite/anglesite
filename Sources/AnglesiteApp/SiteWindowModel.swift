@@ -254,9 +254,11 @@ final class SiteWindowModel {
             if case .succeeded = phase { self?.sync.backupCompleted() }
         }
         let deployHook = deploy.onPhaseTransition
+        let deploySound: DialupSoundEffectPlaying = DialupSoundEffectPlayer()
         deploy.onPhaseTransition = { [weak self] siteID, phase in
             deployHook?(siteID, phase)
             if case .succeeded = phase { self?.sync.deployCompleted() }
+            if case .running = phase { deploySound.play() } else { deploySound.stop() }
         }
     }
 
