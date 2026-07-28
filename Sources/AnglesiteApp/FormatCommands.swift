@@ -2,34 +2,40 @@ import SwiftUI
 
 /// The Format menu (menu-bar spec §2.6). Font items are semantic elements (strong/em/u/s/code),
 /// not visual styling. The Markdown items are live against the focused Markdown editor
-/// (#797/#517) via `MarkdownEditorFocusRegistry` — a focused-value can't disambiguate two
-/// editors in one window (main pane + inspector), so the registry is the deliberate departure
-/// from the PlannedItem→focused-value convention. Remaining items stay PlannedItems until
-/// their editors land (the Component Editor #496 owns the non-Markdown surfaces).
+/// (#797/#517) via `EditorFocusRegistry` — a focused-value can't disambiguate two editors in one
+/// window (main pane + inspector body), so the registry is the deliberate departure from the
+/// PlannedItem→focused-value convention. Format doesn't apply to the registry's other two cases
+/// (plain text, component code panes) — those stay PlannedItems here. Remaining items stay
+/// PlannedItems until their editors land.
 struct FormatCommands: Commands {
-    private let registry = MarkdownEditorFocusRegistry.shared
+    private let registry = EditorFocusRegistry.shared
+
+    private var markdownController: MarkdownEditorController? {
+        if case .markdown(let box) = registry.active { return box.value }
+        return nil
+    }
 
     var body: some Commands {
         CommandMenu("Format") {
             Menu("Font") {
-                Button("Strong") { registry.active?.perform(.bold) }
+                Button("Strong") { markdownController?.perform(.bold) }
                     .keyboardShortcut("b")
-                    .disabled(registry.active == nil)
-                Button("Emphasis") { registry.active?.perform(.italic) }
+                    .disabled(markdownController == nil)
+                Button("Emphasis") { markdownController?.perform(.italic) }
                     .keyboardShortcut("i")
-                    .disabled(registry.active == nil)
+                    .disabled(markdownController == nil)
                 PlannedItem("Underline", shortcut: "u")
-                Button("Strikethrough") { registry.active?.perform(.strikethrough) }
-                    .disabled(registry.active == nil)
-                Button("Code") { registry.active?.perform(.inlineCode) }
-                    .disabled(registry.active == nil)
+                Button("Strikethrough") { markdownController?.perform(.strikethrough) }
+                    .disabled(markdownController == nil)
+                Button("Code") { markdownController?.perform(.inlineCode) }
+                    .disabled(markdownController == nil)
             }
 
             Menu("Heading") {
                 ForEach(1...6, id: \.self) { level in
-                    Button("Heading \(level)") { registry.active?.perform(.heading(level)) }
+                    Button("Heading \(level)") { markdownController?.perform(.heading(level)) }
                         .keyboardShortcut(KeyEquivalent(Character("\(level)")), modifiers: [.command, .option])
-                        .disabled(registry.active == nil)
+                        .disabled(markdownController == nil)
                 }
             }
 
@@ -62,9 +68,9 @@ struct FormatCommands: Commands {
 
             Divider()
 
-            Button("Add Link…") { registry.active?.perform(.link) }
+            Button("Add Link…") { markdownController?.perform(.link) }
                 .keyboardShortcut("k")
-                .disabled(registry.active == nil)
+                .disabled(markdownController == nil)
             PlannedItem("Remove Link")
         }
     }

@@ -22,6 +22,11 @@ final class FileEditorModel {
     /// constants, one `NotificationCenter` observer) is small enough not to warrant fighting the
     /// macro for it.
     let markdownController = MarkdownEditorController()
+    /// Drives `.findNavigator` for the plain-text editor surface (`.text`/`.plist`, #517); unused
+    /// for `.markdown`/`.component` files. Lives on the model (not view `@State`) so the find
+    /// navigator's open/closed state survives `MainPaneEditorView` being torn down and rebuilt
+    /// when `model.file.id` changes (`.task(id: model.file.id)`).
+    var isFindPresented = false
     private var fileSession = EditableFileSession()
     var savedText: String { fileSession.savedContents }
     var lastModified: Date? { fileSession.lastModified }
