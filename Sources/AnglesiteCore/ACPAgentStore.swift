@@ -11,6 +11,7 @@ public final class ACPAgentStore: @unchecked Sendable {
     /// - Parameters:
     ///   - persistenceURL: where to read/write `acp-agents.json`. Defaults to
     ///     `~/Library/Application Support/Anglesite/acp-agents.json`. Tests should pass a temp URL.
+    ///   - fileManager: Injectable for tests; defaults to `.default`.
     public init(persistenceURL: URL? = nil, fileManager: FileManager = .default) {
         self.fileManager = fileManager
         self.persistenceURL = persistenceURL ?? Self.defaultPersistenceURL(fileManager: fileManager)

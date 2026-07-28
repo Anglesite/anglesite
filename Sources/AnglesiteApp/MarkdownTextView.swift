@@ -90,7 +90,7 @@ struct MarkdownTextView: View {
 
 /// Invisible background view sharing the editor's exact frame. Watches the window's first
 /// responder and reports whether it lies within this editor's bounds — the seam that lets
-/// `MarkdownEditorFocusRegistry` know WHICH markdown editor owns keyboard focus (two can share
+/// `EditorFocusRegistry` know WHICH markdown editor owns keyboard focus (two can share
 /// a window: main pane + inspector body). Field-editor responders are attributed to their
 /// owning control, so focus in the find bar or an inspector text field reads as "outside".
 private struct EditorFocusSentinel: NSViewRepresentable {
@@ -103,9 +103,9 @@ private struct EditorFocusSentinel: NSViewRepresentable {
             guard let controller else { return }
             if focused {
                 controller.adoptBusNames(busNames)
-                MarkdownEditorFocusRegistry.shared.activate(controller)
+                EditorFocusRegistry.shared.activate(.markdown(Weak(controller)), token: controller.id)
             } else {
-                MarkdownEditorFocusRegistry.shared.resign(controller)
+                EditorFocusRegistry.shared.resign(token: controller.id)
             }
         }
         controller.focusEditor = { [weak view] in

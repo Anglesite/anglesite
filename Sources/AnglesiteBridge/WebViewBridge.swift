@@ -10,7 +10,7 @@ import AnglesiteBridgeCore
 /// receive edit messages from the injected JS overlay.
 public enum WebViewBridge {
     /// The script-message namespace, shared with every platform adapter — see
-    /// ``AnglesiteMessageDispatcher/scriptMessageNamespace``.
+    /// `AnglesiteMessageDispatcher.scriptMessageNamespace`.
     public static let scriptMessageNamespace = AnglesiteMessageDispatcher.scriptMessageNamespace
 
     /// A `WKWebViewConfiguration` tuned for previewing a local Astro dev server. In Debug builds it
@@ -46,7 +46,7 @@ public enum WebViewBridge {
     /// Loads the bundled edit overlay (built by `scripts/build-overlay.sh`) as a `WKUserScript`,
     /// or returns `nil` when the bundle hasn't been produced (e.g. `swift test`, or a build where
     /// the prebuild script was skipped). The lookup + read is shared with every platform adapter
-    /// via ``AnglesiteOverlayBundle``; only the `WKUserScript` wrapping is WKWebView-specific.
+    /// via `AnglesiteOverlayBundle`; only the `WKUserScript` wrapping is WKWebView-specific.
     @MainActor
     public static func makeOverlayUserScript(in bundle: Bundle = .main) -> WKUserScript? {
         guard let source = AnglesiteOverlayBundle.source(in: bundle) else { return nil }

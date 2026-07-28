@@ -26,7 +26,7 @@ This smoke intentionally exercises the real substrate. It is not expected to run
 - A build signed with `Resources/Anglesite.entitlements` (any identity — the default ad-hoc
   Debug signing carries `com.apple.security.virtualization` and boots VMs; the entitlement is
   unrestricted).
-- The sibling plugin checkout exists at `/Users/dwk/Developer/github.com/Anglesite/anglesite`, or `ANGLESITE_PLUGIN_SRC` points at it.
+- The sibling plugin checkout exists at `/Users/dwk/Developer/github.com/Anglesite/anglesite-skills`, or `ANGLESITE_PLUGIN_SRC` points at it.
 - A test `.anglesite` package whose `Source/` directory is a git repo.
 
 Docker is a build-time dependency only. `scripts/vendor-container-image.sh` uses Docker buildx to
@@ -50,7 +50,7 @@ unpacks it to an ext4 rootfs, and boots it through `VZVirtualMachineManager`.
 ### Build The App Image
 
 ```sh
-ANGLESITE_PLUGIN_SRC=/Users/dwk/Developer/github.com/Anglesite/anglesite \
+ANGLESITE_PLUGIN_SRC=/Users/dwk/Developer/github.com/Anglesite/anglesite-skills \
   ./scripts/vendor-container-image.sh
 ```
 
@@ -88,7 +88,7 @@ Regenerate the project and build the app with the real plugin source:
 
 ```sh
 xcodegen generate
-env ANGLESITE_PLUGIN_SRC=/Users/dwk/Developer/github.com/Anglesite/anglesite \
+env ANGLESITE_PLUGIN_SRC=/Users/dwk/Developer/github.com/Anglesite/anglesite-skills \
   xcodebuild -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
 ```
 

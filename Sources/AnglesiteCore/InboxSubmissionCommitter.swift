@@ -78,8 +78,12 @@ public enum InboxSubmissionCommitter {
     /// (safe for the caller to delete from KV staging). Returns an empty array — never throws —
     /// if there was nothing to write or the commit failed, so callers leave undeleted ids staged
     /// for the next site-open's pull rather than losing them.
-    /// - Parameter fileManager: Used only to create the `src/content/inbox` directory; per-submission
-    ///   file writes go through `Data.write(to:options:)` directly and do not go through this.
+    /// - Parameters:
+    ///   - submissions: The inbox submissions to write and commit.
+    ///   - siteDirectory: The site's `Source/` directory the submissions are written under.
+    ///   - fileManager: Used only to create the `src/content/inbox` directory; per-submission
+    ///     file writes go through `Data.write(to:options:)` directly and do not go through this.
+    ///   - gitCommitBatch: Injectable for tests; defaults to the real git commit implementation.
     public static func commit(
         submissions: [InboxKVClient.Submission],
         into siteDirectory: URL,

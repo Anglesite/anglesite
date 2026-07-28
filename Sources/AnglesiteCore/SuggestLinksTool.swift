@@ -7,7 +7,7 @@ import FoundationModels
 import os
 
 /// Foundation Models tool that suggests internal pages to link to from a given page. Uses
-/// semantic similarity (``SemanticRanker.related``) filtered by existing links (``LinkGraph``).
+/// semantic similarity (``SemanticRanker/related(siteID:toDocID:limit:)``) filtered by existing links (``LinkGraph``).
 public struct SuggestLinksTool: Tool, Sendable {
     public static let toolName = "suggestLinks"
     public let name = SuggestLinksTool.toolName

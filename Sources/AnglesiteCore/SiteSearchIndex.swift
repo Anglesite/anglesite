@@ -81,8 +81,13 @@ public enum SiteSearchIndex {
     }
 
     /// Searches the index for documents matching the query.
-    /// - Parameter limit: Maximum number of results to return. Clamped to a minimum of 1 by
-    ///   the underlying `SiteKnowledgeIndex.SearchOptions`, so `limit: 0` still returns one hit.
+    /// - Parameters:
+    ///   - index: The site's knowledge index to search.
+    ///   - siteID: The site whose documents are searched.
+    ///   - query: The search text.
+    ///   - limit: Maximum number of results to return. Clamped to a minimum of 1 by
+    ///     the underlying `SiteKnowledgeIndex.SearchOptions`, so `limit: 0` still returns one hit.
+    ///   - kinds: Restricts results to these document kinds, or all kinds when `nil`.
     public static func search(
         _ index: SiteKnowledgeIndex,
         siteID: String,

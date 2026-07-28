@@ -60,6 +60,11 @@ final class MarkdownEditorController {
     /// (used when the find bar dismisses).
     var focusEditor: (() -> Void)?
 
+    /// Stable per-instance identity used as the `EditorFocusRegistry` activation token (#517) — an
+    /// enum case can't be `weak`, so the registry can't use `===` identity the way the pre-#517
+    /// single-purpose registry did; every `Focus` case needs an explicit token instead.
+    let id = UUID()
+
     /// Called by the hosting view when its engine instance gains keyboard focus (and once at
     /// creation, so a sole instance is commandable before first focus).
     func adoptBusNames(_ names: BusNames) {
@@ -192,28 +197,5 @@ final class MarkdownEditorController {
         NotificationCenter.default.post(
             name: busNames.findQuery, object: nil,
             userInfo: ["query": query, "currentIndex": currentMatchIndex])
-    }
-}
-
-/// Which markdown editor currently owns keyboard focus, app-wide. Two editors can share one
-/// window (main-pane file editor + inspector body field), so a per-window `focusedSceneValue`
-/// can't disambiguate; `MarkdownTextView`'s first-responder sentinel drives this instead.
-@MainActor @Observable
-final class MarkdownEditorFocusRegistry {
-    static let shared = MarkdownEditorFocusRegistry()
-    // `weak` (#808 review): a window closed via a path that skips the normal
-    // dismantleNSView/resign handshake (e.g. an abrupt teardown) must not pin the last-focused
-    // controller — and its live NotificationCenter observer — alive indefinitely. A dangling
-    // strong reference here would simply auto-nil instead of leaking.
-    private(set) weak var active: MarkdownEditorController?
-
-    func activate(_ controller: MarkdownEditorController) {
-        if active !== controller { active = controller }
-    }
-
-    /// Clears `active` only while `controller` still owns it — a later `activate` from another
-    /// editor must not be clobbered by a stale resign.
-    func resign(_ controller: MarkdownEditorController) {
-        if active === controller { active = nil }
     }
 }

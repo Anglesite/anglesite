@@ -5,7 +5,7 @@ import Foundation
 #if compiler(>=6.4) && canImport(FoundationModels)
 import FoundationModels
 
-/// A FoundationModels ``Tool`` that lets the on-device model search the current site's pages and
+/// A FoundationModels `Tool` that lets the on-device model search the current site's pages and
 /// posts (by title, route, slug, collection, or tag) via ``SiteContentGraph`` — local RAG with no
 /// network call.
 public struct SearchContentTool: Tool, Sendable {

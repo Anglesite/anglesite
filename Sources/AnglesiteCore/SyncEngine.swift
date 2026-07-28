@@ -203,7 +203,7 @@ public actor SyncEngine {
     /// peer / integrity-check repair) — that already performs the equivalent of a pull, so this
     /// returns `.bootstrapped` without a separate fetch.
     ///
-    /// On genuine divergence, hands off to ``reconcileDivergence(repo:package:branchName:branchRefName:localOID:icloudOID:)``
+    /// On genuine divergence, hands off to `reconcileDivergence(repo:package:branchName:branchRefName:localOID:icloudOID:)`
     /// (#880, design doc §3) for full reconciliation — fast-forward/merge every NSFileVersion
     /// conflict version of the artifact alongside the current one, rather than just reporting the
     /// divergence.

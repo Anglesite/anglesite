@@ -118,6 +118,25 @@ public enum WorkerComposition {
     ///     patterns so *only* claimed routes bypass asset-first serving — a static asset can no
     ///     longer shadow an active dynamic route, while every unclaimed path keeps Cloudflare's
     ///     asset-first fallback. Omitted entirely when there are no active dynamic routes.
+    ///   - resources: The site's provisioned Cloudflare resource identifiers and names — D1 and KV
+    ///     are ids (``ProvisionedResources/d1DatabaseID``, ``ProvisionedResources/kvNamespaceID``),
+    ///     while R2 and the queues are deterministic names, not ids (see
+    ///     ``ProvisionedResources`` for the per-field rationale).
+    ///   - inboxCaptureEnabled: Whether inbox-capture support is composed in: appends the
+    ///     inbox-capture route claim to `routeClaims`, and always gates the emitted
+    ///     `[[kv_namespaces]]` block. The Worker's `main` entry point, the `[assets]` binding,
+    ///     and `[observability]` are each gated on this flag *or* `hasSocialFeatures` (any
+    ///     active `workers`) — either one alone is enough to emit them.
+    ///   - inboxKVNamespaceID: The inbox KV namespace ID. Optional even when
+    ///     `inboxCaptureEnabled` is `true` — if `nil` or empty, the emitted
+    ///     `[[kv_namespaces]]` block gets a placeholder empty `id` for provisioning to fill in
+    ///     later, rather than throwing.
+    ///   - siteURL: The site's public URL, threaded into the composed Worker's config.
+    ///   - displayName: The site's display name (`SiteSettings.displayName`, already falling back
+    ///     to the site name by the time a caller passes it in — this function stays pure and does
+    ///     no fallback of its own), threaded into the ActivityPub actor's `AP_DISPLAY_NAME` var.
+    ///     `nil` when unknown; the composed Worker's actor document then falls back to a fixed
+    ///     generic name (`worker.ts`'s concern, not this function's).
     /// - Returns: A complete wrangler.toml string.
     /// - Throws: ``ConfigError/invalidSiteName(_:)`` if `siteName` contains
     ///   characters outside `[A-Za-z0-9_-]`, or ``ConfigError/invalidRouteClaim(path:reason:)``
@@ -130,11 +149,6 @@ public enum WorkerComposition {
         inboxCaptureEnabled: Bool = false,
         inboxKVNamespaceID: String? = nil,
         siteURL: String? = nil,
-        /// The site's display name (`SiteSettings.displayName`, already falling back to the site
-        /// name by the time a caller passes it in — this function stays pure and does no
-        /// fallback of its own), threaded into the ActivityPub actor's `AP_DISPLAY_NAME` var.
-        /// `nil` when unknown; the composed Worker's actor document then falls back to a fixed
-        /// generic name (`worker.ts`'s concern, not this function's).
         displayName: String? = nil
     ) throws -> String {
         guard isValidSiteName(siteName) else {

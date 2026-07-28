@@ -65,17 +65,4 @@ struct MarkdownEditorControllerTests {
             name: controller.busNames.findResults, object: nil, userInfo: ["count": 2])
         #expect(controller.currentMatchIndex == 1)
     }
-
-    @Test("registry resign only clears its own controller")
-    func registryResignIsOwnershipChecked() {
-        let registry = MarkdownEditorFocusRegistry()
-        let a = MarkdownEditorController()
-        let b = MarkdownEditorController()
-        registry.activate(a)
-        registry.activate(b)
-        registry.resign(a)   // stale resign from a must not clobber b
-        #expect(registry.active === b)
-        registry.resign(b)
-        #expect(registry.active == nil)
-    }
 }

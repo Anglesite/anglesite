@@ -4,14 +4,14 @@ import AnglesiteCore
 import AnglesiteBridgeCore
 
 /// `WKScriptMessageHandler` adapter for the `anglesite` namespace — the WKWebView-specific thin
-/// layer over ``AnglesiteMessageDispatcher`` (cross-platform port design §6 "AnglesiteBridgeCore
+/// layer over `AnglesiteMessageDispatcher` (cross-platform port design §6 "AnglesiteBridgeCore
 /// split"). All the message schema, decoding, and routing logic lives in the portable core; this
 /// class's own job is exactly two things `WKScriptMessage` requires: unwrap `message.body`/
 /// `.webView`, and evaluate the reply script back into the page.
 ///
 /// **API change vs prior versions:** the primary entry point is now
 /// `dispatch(body:via:onVisibleElements:onCanvasSelection:onComputedStyles:)` (forwarding to
-/// ``AnglesiteMessageDispatcher/dispatch(body:via:onVisibleElements:onCanvasSelection:onComputedStyles:)``).
+/// `AnglesiteMessageDispatcher.dispatch(body:via:onVisibleElements:onCanvasSelection:onComputedStyles:)`).
 /// All current callers are internal to this repo (the `WKScriptMessageHandler` impl below, the
 /// unit tests — now in `AnglesiteBridgeCoreTests`, testing `AnglesiteMessageDispatcher` directly
 /// — and `PreviewView`'s production init) and use `dispatch` directly. The old `handle(body:via:)`
@@ -47,7 +47,7 @@ public final class AnglesiteScriptHandler: NSObject, WKScriptMessageHandler {
         super.init()
     }
 
-    /// Forwards to ``AnglesiteMessageDispatcher/dispatch(body:via:onVisibleElements:onCanvasSelection:onComputedStyles:)``
+    /// Forwards to `AnglesiteMessageDispatcher.dispatch(body:via:onVisibleElements:onCanvasSelection:onComputedStyles:)`
     /// — kept here so existing call sites (this class's own `userContentController`, and any
     /// code written against the pre-split API) don't need to change.
     public static func dispatch(
