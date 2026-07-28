@@ -14,9 +14,14 @@ public enum SiteSearchDestination: Equatable, Sendable {
     /// Open this file (path relative to the site's `Source/`) in the editor.
     case file(path: String, group: FileGroup)
 
-    /// - Parameter navigatorRouteIDs: route → navigator node id for the rows currently on
-    ///   screen. Empty while a window's tree is still loading, which resolves everything to
-    ///   `.file` — a usable destination rather than a dropped hit.
+    /// - Parameters:
+    ///   - kind: The matched document's kind, used to pick the destination's `FileGroup` when it
+    ///     falls back to `.file`.
+    ///   - route: The matched document's route, if it has one. `nil` always falls back to `.file`.
+    ///   - path: The matched document's path relative to the site's `Source/`, used for `.file`.
+    ///   - navigatorRouteIDs: route → navigator node id for the rows currently on
+    ///     screen. Empty while a window's tree is still loading, which resolves everything to
+    ///     `.file` — a usable destination rather than a dropped hit.
     public static func resolve(
         kind: SiteKnowledgeIndex.Document.Kind,
         route: String?,

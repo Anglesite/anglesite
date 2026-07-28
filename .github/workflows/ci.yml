@@ -357,6 +357,84 @@ jobs:
       - name: Run concurrency suites under ThreadSanitizer
         run: scripts/test-concurrency-tsan.sh
 
+  docs-docc:
+    name: DocC build (comment/doc-comment health check)
+    # No xcodegen/xcodebuild here — this job never touches the Xcode project. It exercises the
+    # SwiftPM library targets directly via `swift package generate-documentation`. The --target
+    # list below is deliberate and explicit, not "every target" — verified two things: (1) a
+    # target-less run sweeps in every dependency package too, including MarkdownEngine's own
+    # broken doc comments, which we don't own; (2) AnglesiteLANHost (an executableTarget) fails
+    # symbol-graph extraction with an unrelated tooling issue ("AnglesiteLANHost.symbolgraphs
+    # doesn't exist"), so it's left out here. AnglesiteContainer/AnglesiteContainerProbe are
+    # excluded the same way every other lane excludes them: the workflow-level
+    # ANGLESITE_SKIP_CONTAINER=1 already drops those targets from the manifest entirely.
+    #
+    # AnglesiteAppCore is a separate, two-stage story: Package.swift gates that target behind
+    # `#if compiler(>=6.4) && canImport(Darwin)`, so on a runner whose active Xcode predates
+    # Xcode 27 (Swift 6.4), the target simply doesn't exist in the manifest — and
+    # `generate-documentation --target AnglesiteAppCore` doesn't skip gracefully in that case,
+    # it hard-errors ("no target named …"). So, same ARMED-but-skips-gracefully idiom as the
+    # appintents-schema job below: the 8 non-gated targets always build in one unconditional
+    # step, and AnglesiteAppCore gets its own step gated on the same `has27` detection, green
+    # with a ::warning:: until a runner ships Xcode 27, at which point it auto-activates.
+    needs: changes
+    if: needs.changes.outputs.swift == 'true'
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select latest available Xcode
+        # Same rationale as build-test: this package needs Swift 6.4 (compiler(>=6.4) gates on
+        # AnglesiteAppCore), which the runner's default active Xcode may predate.
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app 2>/dev/null | sort -V
+          LATEST=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | grep -vE '/Xcode_26\.3(\.app|\.[0-9]+\.app)$' | tail -1)
+          echo "Selecting: $LATEST"
+          sudo xcode-select -s "$LATEST"
+
+      - name: Show toolchain versions
+        run: swift --version
+
+      - name: Detect Xcode 27 (AnglesiteAppCore needs Swift 6.4)
+        id: xcode
+        # AnglesiteAppCore is compiler(>=6.4)-gated in Package.swift, so it's simply absent from
+        # the manifest on an older toolchain — this lane is ARMED but skips that target
+        # gracefully (green, with a ::warning::) until a runner provides Xcode 27, then
+        # auto-activates and enforces, no edit needed.
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          MAJOR=$(xcodebuild -version | sed -n 's/^Xcode \([0-9]*\).*/\1/p')
+          if [ "${MAJOR:-0}" -ge 27 ]; then
+            echo "has27=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has27=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=AnglesiteAppCore docs skipped::Needs Xcode 27+, runner has ${MAJOR:-unknown}. Lane auto-activates once a runner provides Xcode 27."
+            echo "SKIPPED: AnglesiteAppCore is compiler(>=6.4)-gated and absent from the manifest on Xcode ${MAJOR:-unknown}; skipping its doc build."
+          fi
+
+      - name: Build documentation for the CI-buildable target subset (fails on any DocC error or warning)
+        run: |
+          swift package generate-documentation \
+            --target AnglesiteSiteModel \
+            --target AnglesiteQuickLookSupport \
+            --target AnglesiteCore \
+            --target AnglesiteBridgeCore \
+            --target AnglesiteBridge \
+            --target AnglesiteIOS \
+            --target AnglesiteIntents \
+            --target AnglesiteTestSupport \
+            --warnings-as-errors
+
+      - name: Build documentation for AnglesiteAppCore (Swift 6.4+ only)
+        if: steps.xcode.outputs.has27 == 'true'
+        run: |
+          swift package generate-documentation \
+            --target AnglesiteAppCore \
+            --warnings-as-errors
+
   xcodeproj-sync:
     name: Anglesite.xcodeproj ↔ project.yml in sync
     needs: changes
@@ -509,6 +587,7 @@ jobs:
       - linux-build-test
       - build-test
       - concurrency-tsan
+      - docs-docc
       - xcodeproj-sync
       - localization-catalog
       - appintents-schema

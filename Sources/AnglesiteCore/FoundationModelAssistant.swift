@@ -1,6 +1,6 @@
 import Foundation
 
-/// Which Apple model substrate a ``FoundationModelAssistant`` targets.
+/// Which Apple model substrate a `FoundationModelAssistant` targets.
 ///
 /// Declared *outside* the `#if compiler(>=6.4)` gate because it has no `FoundationModels`
 /// dependency and can be referenced from package code compiled on older CI toolchains.
@@ -25,7 +25,7 @@ public enum FoundationModelTier: String, Sendable, Equatable, CaseIterable {
 }
 
 /// Deterministic context-budget helpers, usable without `FoundationModels`. Declared as a
-/// standalone type (not an extension on ``FoundationModelAssistant``) because that actor is
+/// standalone type (not an extension on `FoundationModelAssistant`) because that actor is
 /// declared inside the `#if compiler(>=6.4)` gate below and is therefore unavailable at this
 /// point in the file on older toolchains — extending it here would break compilation on CI's
 /// pre-6.4 `swift test` runners (#128).
@@ -67,7 +67,7 @@ import CoreSpotlight
 import OSLog
 
 /// A ``ContentAssistant`` backed by Apple's on-device `FoundationModels`. Streams free-form text
-/// and produces ``Generable`` structured output via guided generation.
+/// and produces `Generable` structured output via guided generation.
 ///
 /// Compiled into AnglesiteCore on both build targets; it needs no subprocess, so it is the
 /// on-device path usable from the sandboxed MAS build.
@@ -142,7 +142,7 @@ public actor FoundationModelAssistant: ConversationalAssistant {
     /// (budget-fit `.focused(.items)`/`.compact` config) for local RAG over indexed site content,
     /// so ``capabilities`` always advertises `supportsTools` (C.8, #158). When **both** `editBridge`
     /// and `contentGraph` are supplied, ``ApplyEditTool`` + ``SearchContentTool`` are added too. The
-    /// one-shot ``generate``/``generateStructured`` paths carry no Spotlight tool, preserving their
+    /// one-shot `generate`/`generateStructured` paths carry no Spotlight tool, preserving their
     /// full context budget for generation.
     public init(
         tier: FoundationModelTier = .onDevice,
@@ -296,7 +296,7 @@ public actor FoundationModelAssistant: ConversationalAssistant {
     /// becomes `.cancelled`. Setup failure (model unavailable) propagates as a thrown error *before*
     /// the turn opens.
     ///
-    /// Unlike ``generate(prompt:context:)``, this reuses a **cached** ``LanguageModelSession`` across
+    /// Unlike ``generate(prompt:context:)``, this reuses a **cached** `LanguageModelSession` across
     /// turns so the on-device model remembers the conversation — without it, every message would hit
     /// a memoryless session and the chat would be a one-shot query box. The first turn fixes the
     /// session's instructions from its `context`; later context changes don't retroactively rewrite
@@ -371,7 +371,7 @@ public actor FoundationModelAssistant: ConversationalAssistant {
         activeRelay = nil
     }
 
-    /// Discards the cached ``LanguageModelSession`` (and winds down any in-flight turn) so the next
+    /// Discards the cached `LanguageModelSession` (and winds down any in-flight turn) so the next
     /// ``converse(prompt:context:)`` opens a fresh conversation with no memory of prior turns. A
     /// still-running background drain holds its own session reference and finishes harmlessly.
     public func resetSession() async {
