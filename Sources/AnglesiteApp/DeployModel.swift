@@ -435,7 +435,7 @@ final class DeployModel {
         drawerPresented = presentation == .foreground
         blockedPresented = false
 
-        let sources = Set(["deploy:\(siteID)", "deploy:\(siteID):build"])
+        let sources = DeployCoordinator.deployLogSources(siteID: siteID)
 
         // Subscribe BEFORE the deploy starts so we can't miss early build lines.
         let subscription = await logCenter.subscribe()

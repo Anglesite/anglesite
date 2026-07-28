@@ -18,6 +18,49 @@ private let v3Workers = [webmentionWorker, indieauthWorker, micropubWorker, webs
 
 @Suite("SocialWorkerProvisionCommand")
 struct SocialWorkerProvisionCommandTests {
+    @Test("first-ever deploy (no existing wrangler.toml/CF_PROJECT_NAME) sends a non-empty database name as the d1 create positional argument")
+    func firstDeployD1CreateArgumentsAreWellFormed() async throws {
+        // Regression coverage for a suspected first-deploy D1-provisioning bug: a brand-new site
+        // (empty `siteDirectory`, so `readPersistedResources` finds no wrangler.toml and
+        // `knownResources` defaults to `.init()`) with a D1-needing worker active. The concern was
+        // that `wrangler d1 create <name> --json` might reach the real subprocess with an empty/
+        // missing name positional (reproducing wrangler's own "Not enough non-option arguments"
+        // usage synopsis) — this asserts the exact argv `runWrangler` hands to the `CommandRunner`
+        // seam contains a well-formed, non-empty name in the correct position, so any future
+        // refactor that drops or empties it fails this test immediately.
+        let site = try temporaryDirectory()
+        #expect(!FileManager.default.fileExists(atPath: site.appendingPathComponent("wrangler.toml").path))
+        var capturedArguments: [[String]] = []
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: { _, arguments, _, _ in
+                capturedArguments.append(arguments)
+                if arguments.first == "d1" {
+                    return .init(stdout: #"{"result":{"uuid":"d1-id"}}"#, stderr: "", exitCode: 0)
+                }
+                return .init(stdout: "", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in .succeeded(url: URL(string: "https://example.com")!, duration: 0) }
+        )
+        let indieauth = worker(WorkerComposition.indieauthWorkerID, d1: true, kv: false, r2: false)
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [indieauth], knownResources: .init()
+        )
+
+        guard case .succeeded = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        let d1CreateCall = try #require(capturedArguments.first { $0.first == "d1" && $0.dropFirst().first == "create" })
+        #expect(d1CreateCall.count == 4, "expected exactly [\"d1\", \"create\", <name>, \"--json\"], got \(d1CreateCall)")
+        let name = d1CreateCall[2]
+        #expect(!name.isEmpty, "the database name positional must never be empty")
+        #expect(name == "my-site-social")
+        #expect(d1CreateCall == ["d1", "create", "my-site-social", "--json"])
+    }
+
     @Test("provisions V-2 D1 and KV, writes wrangler.toml, then deploys through DeployCommand seam")
     func provisionsV2Worker() async throws {
         let site = try temporaryDirectory()
