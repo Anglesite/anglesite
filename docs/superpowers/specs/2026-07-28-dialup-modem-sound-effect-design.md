@@ -32,7 +32,9 @@ approximation of a real handshake, not a reproduction of any specific existing
 recording:
 
 - Dial tone (350 Hz + 440 Hz)
-- A few DTMF-style digit blips
+- Real DTMF tones (standard low/high frequency pairs) dialing **802-748-1210**
+  — the number for [The Kingdom Connection](https://web.archive.org/web/19971021061542/http://www.kingcon.com/),
+  a BBS the user was once sysop of
 - The real ITU V.25 2100 Hz answer tone, including its periodic phase reversal
 - A couple of ascending chirp sweeps standing in for the negotiation tones
 - A filtered-noise burst standing in for the training sequence
