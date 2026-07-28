@@ -15,11 +15,11 @@ Before handing work off, re-check the changed files against `CONTRIBUTING.md`, r
 | Repo | Role |
 |---|---|
 | `Anglesite/anglesite-skills` | MCP sidecar server (`server/`) — the app's edit/content backend inside the container |
-| `Anglesite/Anglesite-app` *(this repo)* | macOS app: SwiftUI shell, website template, WKWebView preview, edit overlay |
+| `Anglesite/Anglesite` *(this repo)* | macOS app: SwiftUI shell, website template, WKWebView preview, edit overlay |
 
 The **website template** (Astro project skeleton, themes, scaffold script, pre-deploy check) lives in this repo at `Resources/Template/`. It is a committed, first-class app resource. `TemplateRuntime` resolves it from the app bundle (with a Settings override for development).
 
-The sibling `Anglesite/anglesite-skills` repo continues to publish Anglesite as a Claude Skill and standalone project. Its Claude-plugin machinery (markdown skills, `hooks.json`, `.claude-plugin/` manifest) is retired **on the app side** (#466): the app no longer bundles or loads it — `scripts/copy-plugin.sh`, `Resources/plugin/`, and `PluginRuntime` are gone. What the app consumes from that checkout is only `server/` (+ its npm manifests), staged into the container image by `scripts/lib/stage-dev-image-context.sh`. The staging scripts identify that MCP-server boundary by `server/index.mjs` and `package.json`, rather than by the plugin manifest.
+The sibling `Anglesite/anglesite-skills` repo (renamed from `Anglesite/anglesite`; the old slug now redirects to *this* repo instead — see #1059) continues to publish Anglesite as a Claude Skill and standalone project. Its Claude-plugin machinery (markdown skills, `hooks.json`, `.claude-plugin/` manifest) is retired **on the app side** (#466): the app no longer bundles or loads it — `scripts/copy-plugin.sh`, `Resources/plugin/`, and `PluginRuntime` are gone. What the app consumes from that checkout is only `server/` (+ its npm manifests), staged into the container image by `scripts/lib/stage-dev-image-context.sh`. The staging scripts identify that MCP-server boundary by `server/index.mjs` and `package.json`, rather than by the plugin manifest.
 
 Cross-cutting work (e.g. extending the MCP server with new messages) still lands as paired PRs:
 
@@ -80,7 +80,7 @@ When shared-core constraints conflict with a platform convention, keep the share
 Do feature work — and **all** dispatched-agent work — in a git worktree, never directly on the main checkout. Multiple agents run in parallel here, so the main tree must stay clean. Worktrees live under `.claude/worktrees/<name>/`.
 
 - **Run `xcodegen generate` first** — `Anglesite.xcodeproj` is gitignored and regenerated from `project.yml`, so a fresh worktree has no project file until you generate it.
-- **Set `ANGLESITE_SIDECAR_SRC`** — its default (`../anglesite`) resolves wrong from inside a worktree; point it at the real sidecar checkout (`…/github.com/Anglesite/anglesite-skills`) so the container-image scripts (`vendor-container-image.sh` / `build-podman-image.sh` / `build-container-image.sh`) can stage the MCP sidecar. `ANGLESITE_PLUGIN_SRC` remains a compatibility alias.
+- **Set `ANGLESITE_SIDECAR_SRC`** — its default (`../anglesite`) resolves wrong from inside a worktree; point it at the real sidecar checkout (`…/github.com/Anglesite/anglesite`) so the container-image scripts (`vendor-container-image.sh` / `build-podman-image.sh` / `build-container-image.sh`) can stage the MCP sidecar. `ANGLESITE_PLUGIN_SRC` remains a compatibility alias.
 - **Dispatched subagents must `cd` to the worktree** — give them a hard `cd <worktree>` guard before any git op, or they run against the main checkout.
 
 ## Build
