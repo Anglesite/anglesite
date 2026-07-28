@@ -602,6 +602,49 @@ struct CommunitiesModelTests {
         #expect(followRequestsAfterFirstJoin >= 1)
     }
 
+    /// The already-joined check above only helps once the *first* `join()` has actually landed in
+    /// `joined` — it can't stop a second call that starts while the first is still awaiting the
+    /// resolve/follow round-trip. `isJoining` closes that gap directly.
+    @Test("a second concurrent join() call is a no-op while the first is still in flight")
+    func joinIgnoresConcurrentCallWhileInFlight() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        secretStore.values[SecretAccounts.activityPubPublishToken(siteID: "site-1")] = "token"
+        let actorURL = "https://lemmy.ml/c/birding"
+        let fake = FakeTransport([
+            actorURL: (200, """
+                {"id":"\(actorURL)","type":"Group","preferredUsername":"birding",
+                 "name":"Birding","outbox":"https://lemmy.ml/c/birding/outbox"}
+                """),
+            "https://example.com/users/site/outbox":
+                (202, #"{"id":"https://example.com/users/site/outbox/1"}"#),
+        ])
+        await fake.gate(actorURL)
+
+        let model = Self.model(secretStore: secretStore, fake: fake)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+        model.joinHandleText = actorURL
+
+        // Fire the first join and let it block on the gated actor-document fetch — `isJoining`
+        // should already be set by the time this call is observably in flight.
+        let firstJoin = Task { await model.join() }
+        await fake.waitUntilRequested(actorURL)
+        #expect(model.isJoining == true)
+
+        // A second call while the first hasn't resolved yet must bail immediately, before ever
+        // touching the network.
+        await model.join()
+        let requestCountAfterSecondCall = await fake.requestedURLs.count
+
+        await fake.release(actorURL)
+        await firstJoin.value
+
+        #expect(model.joined.count == 1)
+        #expect(model.isJoining == false)
+        #expect(requestCountAfterSecondCall == 1)
+    }
+
     // MARK: - Finding 5: .noSiteURL is real and retry() recovers it
 
     @Test("configure sets state to .noSiteURL when the site has never been published")

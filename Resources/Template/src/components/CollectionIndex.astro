@@ -1,0 +1,40 @@
+---
+// Shared page body for a single micropost/titled collection's `/<collection>/` index — the
+// `<collection>/index.astro` files are thin wrappers around this so the seven of them (notes,
+// photos, articles, albums, bookmarks, replies, likes) can't drift on structure. Mirrors
+// `blog/index.astro`'s shape (title, RSS subscribe link, empty-state hint naming the content
+// directory) but lists h-entry items inside an h-feed via `IndexEntry.astro`.
+import BaseLayout from "../layouts/BaseLayout.astro";
+import IndexEntry from "./IndexEntry.astro";
+import { getIndexItems } from "../lib/collection-index-astro.ts";
+import { FEED_COLLECTIONS } from "../lib/feeds.ts";
+
+interface Props {
+  collection: string;
+}
+
+const { collection } = Astro.props;
+const cfg = FEED_COLLECTIONS[collection];
+if (!cfg) throw new Error(`CollectionIndex: no feed config for collection "${collection}"`);
+const title = cfg.title;
+const lowerTitle = title.toLowerCase();
+const items = await getIndexItems(collection);
+---
+
+<BaseLayout title={title} description={`Read the latest ${lowerTitle}.`}>
+  <div class="h-feed">
+    <h1 class="p-name">{title}</h1>
+    <p><a href={`/${collection}/rss.xml`}>Subscribe (RSS)</a></p>
+    {
+      items.length === 0 ? (
+        <p>
+          No {lowerTitle} yet. Add a Markdown file in <code>src/content/{collection}/</code> to get started.
+        </p>
+      ) : (
+        <ul>
+          {items.map((item) => <IndexEntry item={item} />)}
+        </ul>
+      )
+    }
+  </div>
+</BaseLayout>

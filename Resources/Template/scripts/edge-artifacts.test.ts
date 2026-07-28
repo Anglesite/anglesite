@@ -1,13 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildRobotsTxt,
   buildSecurityTxt,
   aiCrawlers,
-  normalizeContentSignal,
+  contentSignalDirective,
+  readLicensingUsage,
   normalizeSecurityContact,
   normalizeSecurityContacts,
   resolveSecurityTxtMode,
@@ -21,6 +23,7 @@ import {
   planMTAStsPolicy,
   resolveMTAStsMode,
 } from "./edge-artifacts";
+import { NO_USAGE, type AIUsage } from "../src/lib/licensing.ts";
 
 test("buildRobotsTxt: allows all crawlers by default and ends with a newline", () => {
   const out = buildRobotsTxt();
@@ -38,44 +41,74 @@ test("committed public/robots.txt is byte-identical to buildRobotsTxt()", () => 
   assert.equal(buildRobotsTxt(), committed);
 });
 
-test("buildRobotsTxt(blockAI=true): blocks every crawler in aiCrawlers", () => {
-  const out = buildRobotsTxt(true);
+const BLOCKING: AIUsage = { search: "yes", aiInput: "no", aiTrain: "no", blockAICrawlers: true };
+
+test("buildRobotsTxt(blocking usage): blocks every crawler in aiCrawlers", () => {
+  const out = buildRobotsTxt(BLOCKING);
   assert.match(out, /^User-agent: \*$/m, "still has the allow-all baseline");
   for (const bot of aiCrawlers) {
     assert.match(out, new RegExp(`User-agent: ${bot}\\nDisallow: /`), `${bot} has Disallow: /`);
   }
 });
 
-test("buildRobotsTxt(blockAI=true): includes BLOCK_AI comment", () => {
-  const out = buildRobotsTxt(true);
-  assert.match(out, /# AI crawler \/ training bot directives \(BLOCK_AI=true in \.site-config\)/);
+test("buildRobotsTxt(blocking usage): names licensing.json in the section comment", () => {
+  assert.match(
+    buildRobotsTxt(BLOCKING),
+    /# AI crawler \/ training bot directives \(usage\.blockAICrawlers in src\/data\/licensing\.json\)/,
+  );
 });
 
-test("buildRobotsTxt: omits Content-Signal when contentSignal is undefined", () => {
+test("buildRobotsTxt: omits Content-Signal when no purpose is stated", () => {
   assert.doesNotMatch(buildRobotsTxt(), /Content-Signal/);
+  assert.doesNotMatch(buildRobotsTxt(NO_USAGE), /Content-Signal/);
 });
 
-test("buildRobotsTxt: emits Content-Signal directive in the default group", () => {
-  const out = buildRobotsTxt(false, "search=yes, ai-train=no");
+test("buildRobotsTxt: emits Content-Signal in the default group, in canonical order", () => {
+  const out = buildRobotsTxt({ search: "yes", aiInput: "unset", aiTrain: "no", blockAICrawlers: false });
   assert.match(out, /^User-agent: \*$/m);
   assert.match(out, /^Content-Signal: search=yes, ai-train=no$/m);
 });
 
-test("buildRobotsTxt: Content-Signal directive precedes any AI-blocking User-agent groups", () => {
-  const out = buildRobotsTxt(true, "search=yes, ai-train=no");
+test("buildRobotsTxt: Content-Signal precedes any AI-blocking User-agent groups", () => {
+  const out = buildRobotsTxt(BLOCKING);
   const signalIndex = out.indexOf("Content-Signal:");
   const secondUserAgentIndex = out.indexOf("User-agent:", out.indexOf("User-agent:") + 1);
   assert.ok(signalIndex > -1 && secondUserAgentIndex > -1);
   assert.ok(signalIndex < secondUserAgentIndex, "Content-Signal must stay in the User-agent: * group");
 });
 
+test("buildRobotsTxt: a usage block that permits AI never emits the blocklist", () => {
+  const out = buildRobotsTxt({ search: "yes", aiInput: "yes", aiTrain: "yes", blockAICrawlers: false });
+  assert.doesNotMatch(out, /GPTBot/);
+});
+
+test("buildRobotsTxt: gates the blocklist on mayBlockAICrawlers even given an unclamped usage directly", () => {
+  // main() only ever passes output normalizeUsage has already clamped, but buildRobotsTxt is
+  // exported and must not trust its own argument — the blocklist-never-exceeds-permissions rule
+  // is the whole point of #991, so it has to hold even for a caller that skips normalizeUsage
+  // (#991 review finding 3).
+  const out = buildRobotsTxt({ search: "unset", aiInput: "yes", aiTrain: "no", blockAICrawlers: true });
+  assert.doesNotMatch(out, /GPTBot/);
+  for (const bot of aiCrawlers) {
+    assert.doesNotMatch(out, new RegExp(bot));
+  }
+});
+
+test("contentSignalDirective: one pair per stated purpose, undefined when none are stated", () => {
+  assert.equal(contentSignalDirective(NO_USAGE), undefined);
+  assert.equal(
+    contentSignalDirective({ search: "no", aiInput: "yes", aiTrain: "no", blockAICrawlers: false }),
+    "search=no, ai-input=yes, ai-train=no",
+  );
+});
+
 test("buildRobotsTxt: advertises the sitemap for an https SITE_URL", () => {
-  const out = buildRobotsTxt(false, undefined, "https://example.com");
+  const out = buildRobotsTxt(undefined, "https://example.com");
   assert.match(out, /^Sitemap: https:\/\/example\.com\/sitemap\.xml$/m);
 });
 
 test("buildRobotsTxt: uses the origin, not a configured SITE_URL path", () => {
-  const out = buildRobotsTxt(false, undefined, "https://example.com/blog/");
+  const out = buildRobotsTxt(undefined, "https://example.com/blog/");
   assert.match(out, /^Sitemap: https:\/\/example\.com\/sitemap\.xml$/m);
 });
 
@@ -84,15 +117,15 @@ test("buildRobotsTxt: omits Sitemap when SITE_URL is unset", () => {
 });
 
 test("buildRobotsTxt: omits Sitemap (no http fallback) when SITE_URL is insecure", () => {
-  assert.doesNotMatch(buildRobotsTxt(false, undefined, "http://example.com"), /Sitemap:/);
+  assert.doesNotMatch(buildRobotsTxt(undefined, "http://example.com"), /Sitemap:/);
 });
 
 test("buildRobotsTxt: omits Sitemap when SITE_URL is unparseable", () => {
-  assert.doesNotMatch(buildRobotsTxt(false, undefined, "not a url"), /Sitemap:/);
+  assert.doesNotMatch(buildRobotsTxt(undefined, "not a url"), /Sitemap:/);
 });
 
 test("buildRobotsTxt: Sitemap stands outside every User-agent group", () => {
-  const out = buildRobotsTxt(true, "search=yes", "https://example.com");
+  const out = buildRobotsTxt(BLOCKING, "https://example.com");
   const before = out.slice(0, out.indexOf("Sitemap:"));
   assert.match(
     before,
@@ -103,7 +136,7 @@ test("buildRobotsTxt: Sitemap stands outside every User-agent group", () => {
 });
 
 test("buildRobotsTxt: no blank line between Disallow: and Content-Signal (stays in the same group)", () => {
-  const out = buildRobotsTxt(false, "search=yes, ai-train=no");
+  const out = buildRobotsTxt({ search: "yes", aiInput: "unset", aiTrain: "no", blockAICrawlers: false });
   const between = out.slice(out.indexOf("Disallow:"), out.indexOf("Content-Signal:"));
   assert.doesNotMatch(
     between,
@@ -112,33 +145,81 @@ test("buildRobotsTxt: no blank line between Disallow: and Content-Signal (stays 
   );
 });
 
-test("normalizeContentSignal: undefined/empty input yields undefined", () => {
-  assert.equal(normalizeContentSignal(undefined), undefined);
-  assert.equal(normalizeContentSignal(""), undefined);
-  assert.equal(normalizeContentSignal("   "), undefined);
+function withLicensingDoc(doc: unknown): string {
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  mkdirSync(resolve(dir, "src/data"), { recursive: true });
+  writeFileSync(resolve(dir, "src/data/licensing.json"), JSON.stringify(doc), "utf-8");
+  return dir;
+}
+
+test("readLicensingUsage: an absent document yields NO_USAGE and no clamp", () => {
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  assert.deepEqual(readLicensingUsage(dir), { usage: NO_USAGE, clamped: false });
 });
 
-test("normalizeContentSignal: normalizes whitespace around valid pairs", () => {
-  assert.equal(
-    normalizeContentSignal(" search=yes ,  ai-input=no,ai-train=no "),
-    "search=yes, ai-input=no, ai-train=no",
-  );
+test("readLicensingUsage: malformed JSON yields NO_USAGE rather than throwing", () => {
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  mkdirSync(resolve(dir, "src/data"), { recursive: true });
+  writeFileSync(resolve(dir, "src/data/licensing.json"), "{ not json", "utf-8");
+  assert.deepEqual(readLicensingUsage(dir), { usage: NO_USAGE, clamped: false });
 });
 
-test("normalizeContentSignal: drops unrecognized keys and values", () => {
-  assert.equal(normalizeContentSignal("search=yes, bogus=no, ai-train=maybe"), "search=yes");
+test("readLicensingUsage: reports a clamp when blockAICrawlers was requested but denied", () => {
+  const dir = withLicensingDoc({ usage: { aiTrain: "no", blockAICrawlers: true } });
+  const out = readLicensingUsage(dir);
+  assert.equal(out.usage.blockAICrawlers, false);
+  assert.equal(out.clamped, true);
 });
 
-test("normalizeContentSignal: all-invalid input yields undefined", () => {
-  assert.equal(normalizeContentSignal("bogus=yes, ai-train=maybe"), undefined);
+test("readLicensingUsage: no clamp reported when the request was honored", () => {
+  const dir = withLicensingDoc({ usage: { aiInput: "no", aiTrain: "no", blockAICrawlers: true } });
+  const out = readLicensingUsage(dir);
+  assert.equal(out.usage.blockAICrawlers, true);
+  assert.equal(out.clamped, false);
 });
 
-test("normalizeContentSignal: a later duplicate key wins, keeping first-seen key order", () => {
-  assert.equal(normalizeContentSignal("search=yes, search=no"), "search=no");
-  assert.equal(
-    normalizeContentSignal("search=yes, ai-train=no, search=no"),
-    "search=no, ai-train=no",
-  );
+test("readLicensingUsage: an unreadable path (e.g. a directory) yields NO_USAGE rather than throwing", () => {
+  // existsSync passes for a directory, so readFileSync is what actually throws (EISDIR) — this
+  // exercises the same "file exists but can't be read" shape as a permissions error or a dangling
+  // symlink would, and must degrade the same way a JSON.parse failure does rather than escaping
+  // out of prebuild with a raw stack (#991 review finding 4).
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  mkdirSync(resolve(dir, "src/data/licensing.json"), { recursive: true });
+  assert.deepEqual(readLicensingUsage(dir), { usage: NO_USAGE, clamped: false });
+});
+
+test("readLicensingUsage: logs a syntax-specific message for malformed JSON", (t) => {
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  mkdirSync(resolve(dir, "src/data"), { recursive: true });
+  writeFileSync(resolve(dir, "src/data/licensing.json"), "{ not json", "utf-8");
+  const logs: unknown[][] = [];
+  t.mock.method(console, "log", (...args: unknown[]) => {
+    logs.push(args);
+  });
+
+  readLicensingUsage(dir);
+
+  assert.equal(logs.length, 1);
+  assert.match(String(logs[0][0]), /is not valid JSON/);
+});
+
+test("readLicensingUsage: logs a read-failure message, not a syntax message, for an unreadable path", (t) => {
+  // #991 review finding 4: EACCES/EISDIR aren't a syntax problem, so the log a user sees for them
+  // must not say "is not valid JSON" — that sends someone with a permissions error looking for a
+  // typo that isn't there.
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  mkdirSync(resolve(dir, "src/data/licensing.json"), { recursive: true });
+  const logs: unknown[][] = [];
+  t.mock.method(console, "log", (...args: unknown[]) => {
+    logs.push(args);
+  });
+
+  readLicensingUsage(dir);
+
+  assert.equal(logs.length, 1);
+  const message = String(logs[0][0]);
+  assert.match(message, /could not be read/);
+  assert.doesNotMatch(message, /is not valid JSON/);
 });
 
 const NOW = new Date("2026-06-28T12:00:00Z");

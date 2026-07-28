@@ -276,7 +276,6 @@ final class SiteScaffolderTests: XCTestCase {
         let cfg = try String(contentsOf: target.appendingPathComponent(".site-config"), encoding: .utf8)
         XCTAssertTrue(cfg.contains("ANGLESITE_VERSION=1.0.0"))
         XCTAssertTrue(cfg.contains("# SITE_URL=https://example.com"))
-        XCTAssertTrue(cfg.contains("# BLOCK_AI=true"))
     }
 
     func testGitInitFailureIsNonFatalAndStillRegisters() async throws {

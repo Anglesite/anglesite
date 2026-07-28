@@ -38,6 +38,9 @@ const license = headLicense(Astro.props.license, siteLicense());
     {readConfig("WEBMENTION_RECEIVE_ENABLED") === "true" && (
       <link rel="webmention" href="/webmention" />
     )}
+    {readConfig("MICROPUB_ENABLED") === "true" && (
+      <link rel="micropub" href="/micropub" />
+    )}
     <slot name="head" />
     <!-- anglesite:head-end -->
   </head>

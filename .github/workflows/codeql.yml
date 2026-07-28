@@ -39,14 +39,14 @@ jobs:
             build-mode: none
             runs-on: ubuntu-latest
           # Swift needs an actual compile to build the CodeQL database. `build-mode: manual`
-          # (below) replaces autobuild's build-strategy guessing with the one build we already
-          # know is correct and minimal: the same `Anglesite` scheme/Debug config `build-test`
-          # in ci.yml uses — no release build, no test targets, no sibling-plugin checkout.
+          # (below) replaces autobuild's build-strategy guessing with the SwiftPM portable-target
+          # build ci.yml's build-test lane already completes reliably (#1052) — see the build
+          # step for what that covers and deliberately excludes.
           - language: swift
             build-mode: manual
             runs-on: macos-26
     runs-on: ${{ matrix.runs-on }}
-    timeout-minutes: ${{ matrix.language == 'swift' && 30 || 10 }}
+    timeout-minutes: ${{ matrix.language == 'swift' && 45 || 10 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -60,40 +60,33 @@ jobs:
           echo "Selecting: $LATEST"
           sudo xcode-select -s "$LATEST"
 
-      - name: Install XcodeGen (pinned)
-        if: matrix.language == 'swift'
-        env:
-          # Keep in sync with ci.yml's xcodeproj-sync/appintents-schema jobs.
-          XCODEGEN_VERSION: 2.45.4
-          XCODEGEN_SHA256: 090ec29491aad50aec10631bf6e62253fed733c50f3aab0f5ffc86bc170bdbef
-        run: |
-          set -euo pipefail
-          curl -fsSL "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip" -o /tmp/xcodegen.zip
-          echo "${XCODEGEN_SHA256}  /tmp/xcodegen.zip" | shasum -a 256 --check
-          unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen-dist
-          test -x /tmp/xcodegen-dist/xcodegen/bin/xcodegen \
-            || { echo "error: xcodegen binary not found at expected path after unzip — check zip layout" >&2; exit 1; }
-          echo "/tmp/xcodegen-dist/xcodegen/bin" >> "$GITHUB_PATH"
-
-      - name: Generate Xcode project
-        if: matrix.language == 'swift'
-        run: xcodegen generate
-
       - name: Initialize CodeQL
         uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
-      - name: Build (Swift, Debug — deliberately no cache)
+      - name: Build (SwiftPM portable targets, deliberately no cache)
         if: matrix.language == 'swift'
+        # SwiftPM build with ANGLESITE_SKIP_CONTAINER=1, mirroring ci.yml's build-test lane —
+        # NOT the full `xcodebuild -scheme Anglesite` app build this job originally ran (#1031).
+        # That build cannot skip the apple/containerization dependency graph (project.yml
+        # references the AnglesiteContainer product unconditionally), and CodeQL's Swift
+        # extractor traces it through Rosetta (all-x86_64 compiles on the arm64 runner), so it
+        # blew past the 30-minute cap mid-BoringSSL on every run (#1052). This covers the
+        # portable first-party targets (AnglesiteSiteModel/Core/Bridge/Intents and friends);
+        # the thin SwiftUI app shell (Sources/AnglesiteApp) and AnglesiteContainer are NOT
+        # analyzed — revisit if an app-build CI lane ever lands (#69 Task 8).
+        #
         # No DerivedData/SwiftPM cache here on purpose: CodeQL's Swift extractor only sees
         # source files that actually get *compiled* during this step. An incremental build
         # restored from cache can skip recompiling unchanged files, so they'd silently drop
         # out of the CodeQL database (under-analysis, not a build failure) instead of
         # producing a stale-but-complete scan. ci.yml's own SwiftPM cache is for its
         # build/test lanes, not this one — don't copy it here without checking that tradeoff.
-        run: xcodebuild -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
+        env:
+          ANGLESITE_SKIP_CONTAINER: '1'
+        run: swift build --package-path .
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3

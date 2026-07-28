@@ -37,10 +37,26 @@ final class PlistEditorModel {
     private(set) var isSavingRedirects = false
     private(set) var redirectsLoadFailed = false
     var conflictDiskContents: String?
-    var crawlerPolicySettings = CrawlerPolicyAsset.Settings()
-    private(set) var savedCrawlerPolicySettings = CrawlerPolicyAsset.Settings()
-    private(set) var crawlerPolicyError: String?
-    private(set) var isSavingCrawlerPolicy = false
+    var licensingPolicy = LicensingPolicy() {
+        didSet {
+            // The clamp lives here rather than in each picker's binding so there is exactly one
+            // place a permit-and-block contradiction can be introduced, and it cannot survive.
+            // Unlike a plain stored property, `@Observable`'s macro-generated setter for
+            // `licensingPolicy` routes *any* write to one of its fields — including this one to
+            // `.usage` — back through the whole property's own setter, re-entering `didSet`.
+            // `.clamped` is idempotent, so the guard here is what actually stops the recursion:
+            // without it, the reentrant `didSet` reassigns unconditionally, re-enters itself
+            // again, and blows the stack (confirmed with a real SIGSEGV/stack-overflow crash).
+            let clamped = licensingPolicy.usage.clamped
+            if clamped != licensingPolicy.usage {
+                licensingPolicy.usage = clamped
+            }
+        }
+    }
+    private(set) var savedLicensingPolicy = LicensingPolicy()
+    private(set) var licensingError: String?
+    private(set) var isSavingLicensing = false
+    private(set) var licensingLoadFailed = false
     var mtaStsSettings = MTAStsPolicyAsset.Settings()
     private(set) var savedMtaStsSettings = MTAStsPolicyAsset.Settings()
     private(set) var mtaStsError: String?
@@ -112,7 +128,7 @@ final class PlistEditorModel {
     var isDirty: Bool { entries != savedEntries && loadError == nil && !isLoading }
     var isAnalyticsDirty: Bool { analyticsSettings != savedAnalyticsSettings && loadError == nil && !isLoading }
     var isRedirectsDirty: Bool { redirectEntries != savedRedirectEntries && loadError == nil && !isLoading }
-    var isCrawlerPolicyDirty: Bool { crawlerPolicySettings != savedCrawlerPolicySettings && loadError == nil && !isLoading }
+    var isLicensingDirty: Bool { licensingPolicy != savedLicensingPolicy && loadError == nil && !isLoading }
     var isMtaStsDirty: Bool { mtaStsSettings != savedMtaStsSettings && loadError == nil && !isLoading }
     var isSecurityReportingDirty: Bool {
         securityReportingSettings != savedSecurityReportingSettings && loadError == nil && !isLoading
@@ -209,13 +225,18 @@ final class PlistEditorModel {
                 redirectsError = "Couldn't load existing redirects.json — it may be corrupted or hand-edited with invalid entries. Fix it externally or your next save will discard it. (\(error.localizedDescription))"
                 redirectsLoadFailed = true
             }
-            // Reuses the `.site-config` contents `loadAnalyticsSettings` already read — a load
-            // failure there already aborts this whole `load()` via the outer `catch` below, so
-            // there's no separate failure mode here to handle.
-            let policy = CrawlerPolicyAsset.parseSettings(from: config)
-            crawlerPolicySettings = policy
-            savedCrawlerPolicySettings = policy
-            crawlerPolicyError = nil
+            do {
+                let policy = try LicensingStore(sourceDirectory: sourceDirectory).load()
+                licensingPolicy = policy
+                savedLicensingPolicy = policy
+                licensingError = nil
+                licensingLoadFailed = false
+            } catch {
+                licensingPolicy = LicensingPolicy()
+                savedLicensingPolicy = LicensingPolicy()
+                licensingError = "Couldn't load existing licensing.json — it may be corrupted or hand-edited. Fix it externally or your next save will discard it. (\(error.localizedDescription))"
+                licensingLoadFailed = true
+            }
             let mtaSts = MTAStsPolicyAsset.parseSettings(from: config)
             mtaStsSettings = mtaSts
             savedMtaStsSettings = mtaSts
@@ -274,8 +295,8 @@ final class PlistEditorModel {
         if isRedirectsDirty {
             guard await saveRedirects() else { return false }
         }
-        if isCrawlerPolicyDirty {
-            guard await saveCrawlerPolicy() else { return false }
+        if isLicensingDirty {
+            guard await saveLicensing() else { return false }
         }
         if isMtaStsDirty {
             guard await saveMtaSts() else { return false }
@@ -385,22 +406,36 @@ final class PlistEditorModel {
     }
 
     @discardableResult
-    func saveCrawlerPolicy() async -> Bool {
-        guard isCrawlerPolicyDirty else { return true }
-        guard !isSavingCrawlerPolicy else { return false }
-        isSavingCrawlerPolicy = true
-        crawlerPolicyError = nil
-        defer { isSavingCrawlerPolicy = false }
+    func saveLicensing() async -> Bool {
+        guard isLicensingDirty else { return true }
+        guard !isSavingLicensing else { return false }
+        guard !licensingLoadFailed else {
+            licensingError = "Refusing to save: the existing licensing.json failed to load and may contain rules this save would discard. Fix or back up the file, then reload this site's settings."
+            return false
+        }
+        isSavingLicensing = true
+        licensingError = nil
+        defer { isSavingLicensing = false }
         let sourceDirectory = sourceDirectory
-        let settings = crawlerPolicySettings
+        // Canonicalize before persisting: an empty-URL default license (the transient "Custom…
+        // selected, nothing typed yet" state `ContentLicensingTab` can otherwise leave behind) is
+        // "no license", the same as nil (#991 review finding 1). Writing the canonical value back
+        // into both `licensingPolicy` and `savedLicensingPolicy` keeps the in-memory model
+        // matching what's actually on disk, the same way `saveMtaSts` writes back its normalized
+        // settings above.
+        let policy = LicensingStore.normalized(licensingPolicy)
         do {
             try await Task.detached(priority: .userInitiated) {
-                try CrawlerPolicyAsset.install(settings, siteDirectory: sourceDirectory)
+                try LicensingStore(sourceDirectory: sourceDirectory).save(policy)
             }.value
-            savedCrawlerPolicySettings = settings
+            licensingPolicy = policy
+            savedLicensingPolicy = policy
             return true
+        } catch LicensingStore.ValidationError.unsafeLicenseURL(let url) {
+            licensingError = "\"\(url)\" isn't a usable license address. Use an https:// URL or a path on this site starting with /."
+            return false
         } catch {
-            crawlerPolicyError = "Couldn't save crawler policy: \(error.localizedDescription)"
+            licensingError = "Couldn't save content licensing: \(error.localizedDescription)"
             return false
         }
     }
@@ -715,8 +750,8 @@ final class PlistEditorModel {
     }
 
     /// Also returns the raw `.site-config` contents alongside the parsed analytics settings, so
-    /// `load()` can reuse them for `CrawlerPolicyAsset.parseSettings` instead of reading the file
-    /// from disk a second time.
+    /// `load()` can reuse them for `MTAStsPolicyAsset.parseSettings`/`SecurityReportingAsset.parseSettings`
+    /// instead of reading the file from disk a second time.
     private static func loadAnalyticsSettings(
         sourceDirectory: URL
     ) throws -> (settings: WebsiteAnalyticsAsset.Settings, config: String) {
@@ -913,7 +948,7 @@ final class PlistEditorModel {
             DirtyFacet(isDirty: isDirty, isSaving: isSaving) { await self.save() },
             DirtyFacet(isDirty: isAnalyticsDirty, isSaving: isSavingAnalytics) { await self.saveAnalytics() },
             DirtyFacet(isDirty: isRedirectsDirty, isSaving: isSavingRedirects) { await self.saveRedirects() },
-            DirtyFacet(isDirty: isCrawlerPolicyDirty, isSaving: isSavingCrawlerPolicy) { await self.saveCrawlerPolicy() },
+            DirtyFacet(isDirty: isLicensingDirty, isSaving: isSavingLicensing) { await self.saveLicensing() },
             DirtyFacet(isDirty: isMtaStsDirty, isSaving: isSavingMtaSts) { await self.saveMtaSts() },
             DirtyFacet(isDirty: isSecurityReportingDirty, isSaving: isSavingSecurityReporting) { await self.saveSecurityReporting() },
         ]

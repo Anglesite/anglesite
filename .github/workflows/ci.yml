@@ -190,21 +190,20 @@ jobs:
       # handles the rest — a partial-match restore never produces wrong output, only a
       # partially-warm cache.
       #
-      # Also keyed on github.repository (#1061): the runner workspace path is
-      # /__w/<owner>/<repo>, and Swift's precompiled module cache (.pcm files) bakes in that
-      # absolute path at compile time. Anglesite/Anglesite-app was renamed to Anglesite/Anglesite
-      # mid-stream, which changed the workspace path without changing Package.resolved's hash —
-      # every run since restored a pre-rename .build whose .pcm files pointed at the now-gone
-      # path, failing every build with "missing required module 'SwiftShims'". Repository name
-      # is part of the key so a future rename busts the cache instead of silently poisoning it.
+      # The `v2` segment isn't a real version bump — it exists to stop restoring caches
+      # written before the Anglesite-app → Anglesite repo rename. Those caches' precompiled
+      # .pcm module files embed the old `/__w/Anglesite-app/Anglesite-app/...` workspace
+      # path, and SwiftPM refuses to reuse a module cache whose baked-in path doesn't match
+      # the current one ("missing required module 'SwiftShims'"). Bump again if this ever
+      # recurs after another workspace-path change.
       - name: Cache SwiftPM build
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build
-          key: swiftpm-linux-6.3.3-noble-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
+          key: swiftpm-linux-6.3.3-noble-v2-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
           restore-keys: |
-            swiftpm-linux-6.3.3-noble-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-
-            swiftpm-linux-6.3.3-noble-${{ github.repository }}-
+            swiftpm-linux-6.3.3-noble-v2-${{ hashFiles('Package.resolved') }}-
+            swiftpm-linux-6.3.3-noble-v2-
 
       - name: Build (debug)
         run: swift build -c debug
@@ -233,7 +232,11 @@ jobs:
       - name: Checkout sibling Anglesite plugin
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: Anglesite/anglesite
+          # The sidecar repo was renamed Anglesite/anglesite -> Anglesite/anglesite-skills.
+          # `Anglesite/anglesite` now resolves (case-insensitively) back to *this* app repo
+          # (renamed Anglesite-app -> Anglesite), so it silently checks out the wrong repo
+          # and then fails fetching a tag that only exists in the real sidecar.
+          repository: Anglesite/anglesite-skills
           # Pinned to the plugin release the app currently exercises. get_component_model
           # (plugin #410, used by the Component Editor) shipped in v1.3.0 — bump this
           # pin again the next time a newer plugin feature becomes load-bearing for CI.
@@ -280,17 +283,17 @@ jobs:
           xcodebuild -version
           node --version
 
-      # See the linux-build-test cache step for the key-scheme rationale (including the
-      # github.repository segment, #1061). Namespaced by the selected Xcode build so a
-      # runner-image toolchain bump can't restore incompatible object files.
+      # See the linux-build-test cache step for the key-scheme rationale, including the `v2`
+      # segment that stops restoring pre-repo-rename caches. Namespaced by the selected Xcode
+      # build so a runner-image toolchain bump can't restore incompatible object files.
       - name: Cache SwiftPM build
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build
-          key: swiftpm-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
+          key: swiftpm-macos-v2-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
           restore-keys: |
-            swiftpm-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-
-            swiftpm-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-
+            swiftpm-macos-v2-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-
+            swiftpm-macos-v2-${{ steps.xcode.outputs.version }}-
 
       - name: Build (debug)
         run: swift build -c debug
@@ -341,15 +344,15 @@ jobs:
       # A distinct key namespace (`swiftpm-tsan-...`, not `swiftpm-macos-...`) — `--sanitize
       # thread` recompiles every unit with different flags, so sharing a cache with the plain
       # debug build would mean this lane can never hit and just pays the upload for nothing.
-      # See the linux-build-test cache step for the github.repository segment's rationale (#1061).
+      # `v2`: see the linux-build-test cache step — stops restoring pre-repo-rename caches.
       - name: Cache SwiftPM build (ThreadSanitizer)
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build
-          key: swiftpm-tsan-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
+          key: swiftpm-tsan-macos-v2-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
           restore-keys: |
-            swiftpm-tsan-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-
-            swiftpm-tsan-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-
+            swiftpm-tsan-macos-v2-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-
+            swiftpm-tsan-macos-v2-${{ steps.xcode.outputs.version }}-
 
       - name: Run concurrency suites under ThreadSanitizer
         run: scripts/test-concurrency-tsan.sh

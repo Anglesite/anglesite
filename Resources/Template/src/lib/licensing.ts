@@ -21,6 +21,72 @@ export interface LicenseRef {
   name: string;
 }
 
+/**
+ * A per-purpose AI usage permission. `"unset"` means the site states no preference — it is the
+ * absence of a key in `licensing.json`, never a value written into it, matching how
+ * `edge-artifacts.ts` omits an unstated `Content-Signal` sub-directive rather than emitting
+ * `key=unset`.
+ */
+export type UsagePermission = "yes" | "no" | "unset";
+
+/**
+ * Site-wide AI usage permissions (#991). Two `robots.txt` projections derive from this and only
+ * this: the `Content-Signal` directive and the named-agent blocklist. Keeping them derived is what
+ * makes "permits AI training but Disallows GPTBot" unrepresentable rather than merely discouraged.
+ *
+ * Usage is deliberately site-wide, not per-collection: `robots.txt` addresses the whole origin, so
+ * a per-collection permission would have nothing to project onto until RSL's `<content url>`
+ * patterns land in phase 3.
+ */
+export interface AIUsage {
+  search: UsagePermission;
+  aiInput: UsagePermission;
+  aiTrain: UsagePermission;
+  /** Refuse the named AI agents outright in `robots.txt`. See `mayBlockAICrawlers`. */
+  blockAICrawlers: boolean;
+}
+
+export const NO_USAGE: AIUsage = {
+  search: "unset",
+  aiInput: "unset",
+  aiTrain: "unset",
+  blockAICrawlers: false,
+};
+
+/**
+ * Whether the blocklist is allowed to fire. Blocking is *stronger* than signalling, not
+ * contradictory — a site may coherently ask crawlers not to train without also refusing them at
+ * `robots.txt`. The one rule that must hold is that the blocklist never exceeds what the
+ * permissions deny, and the 17-agent list covers both AI answers and AI training, so both must be
+ * denied before it can be emitted.
+ */
+export function mayBlockAICrawlers(usage: Pick<AIUsage, "aiInput" | "aiTrain">): boolean {
+  return usage.aiInput === "no" && usage.aiTrain === "no";
+}
+
+function toPermission(raw: unknown): UsagePermission {
+  return raw === "yes" || raw === "no" ? raw : "unset";
+}
+
+/**
+ * Parse a hand-edited `usage` block defensively, on the same terms as `normalizePolicy`:
+ * unrecognized keys and values become "unset" rather than passing through. The cross-field clamp
+ * is applied here so both writers — this module and the app's `LicensingStore` — reject the same
+ * documents, and a hand-editor cannot produce a policy the UI could not have produced.
+ */
+export function normalizeUsage(raw: unknown): AIUsage {
+  if (!raw || typeof raw !== "object") return { ...NO_USAGE };
+  const { search, aiInput, aiTrain, blockAICrawlers } = raw as Record<string, unknown>;
+  const usage: AIUsage = {
+    search: toPermission(search),
+    aiInput: toPermission(aiInput),
+    aiTrain: toPermission(aiTrain),
+    blockAICrawlers: false,
+  };
+  usage.blockAICrawlers = blockAICrawlers === true && mayBlockAICrawlers(usage);
+  return usage;
+}
+
 /** Every collection that can carry a license — the routed collections plus `blog`. */
 export type LicensableCollection = EntryCollection | "blog";
 
@@ -32,6 +98,8 @@ export interface LicensingPolicy {
    * and beats the site default; a key that is absent falls through to the default rules.
    */
   collections: Partial<Record<LicensableCollection, LicenseRef | null>>;
+  /** Site-wide AI usage permissions. See `AIUsage`. */
+  usage: AIUsage;
 }
 
 /**
@@ -53,6 +121,23 @@ function isLicensable(key: string): key is LicensableCollection {
 }
 
 /**
+ * Mirrors the input-sanitization step the WHATWG URL parser runs before parsing: strip every
+ * ASCII tab/CR/LF wherever it occurs, then trim leading/trailing C0 control characters or space.
+ * `new URL()` performs this internally, so a manual string check run *before* handing the value
+ * to `new URL()` — like the leading-slash fast path below — has to replicate it, or it can
+ * disagree with what the browser actually resolves the URL to.
+ */
+function whatwgTrim(url: string): string {
+  const withoutTabsOrNewlines = url.replace(/[\t\r\n]/g, "");
+  const isC0OrSpace = (ch: string): boolean => ch.charCodeAt(0) <= 0x20;
+  let start = 0;
+  let end = withoutTabsOrNewlines.length;
+  while (start < end && isC0OrSpace(withoutTabsOrNewlines[start])) start++;
+  while (end > start && isC0OrSpace(withoutTabsOrNewlines[end - 1])) end--;
+  return withoutTabsOrNewlines.slice(start, end);
+}
+
+/**
  * Whether `url` is safe to emit unguarded into `href`/`rel="license"` (LicenseLink.astro,
  * BaseLayout.astro, Rights.astro). Matches the scheme-guard convention already used for
  * user-supplied URLs elsewhere in the template (`src/lib/interactions.ts`'s `httpUrl`,
@@ -67,9 +152,25 @@ function isLicensable(key: string): key is LicensableCollection {
  * URL (`//host/x`) is rejected because it hands an attacker-chosen host to href, and a bare
  * relative path (`license.html`) is rejected because its resolution depends on which page
  * renders it, which isn't the "site-local page" case this exists for.
+ *
+ * The leading-slash check runs against the *sanitized* string (`whatwgTrim`), not the raw one:
+ * a browser strips ASCII tab/CR/LF before parsing, so `"/\t/evil.com"` has only one leading
+ * slash to an unsanitized check (passing as root-relative) but resolves as `//evil.com` — a
+ * protocol-relative URL — once the browser's own parser strips the tab. Checking the sanitized
+ * string is what keeps this guard's protocol-relative rejection real (#991 review finding 2).
+ *
+ * A backslash immediately after the leading slash is rejected the same as a second slash:
+ * WHATWG's relative-slash state treats `\` as `/` for special schemes, so `/\evil.com` and
+ * `/\/evil.com` both enter "special authority ignore slashes" and resolve `evil.com` as the
+ * authority — the same attacker-chosen-host hazard the `//` check exists for (#991 review
+ * finding 2).
  */
 function hasSafeLicenseScheme(url: string): boolean {
-  if (url.startsWith("/") && !url.startsWith("//")) return true;
+  const sanitized = whatwgTrim(url);
+  const afterLeadingSlash = sanitized.startsWith("/") ? sanitized.slice(1) : "";
+  const isUnambiguousRootRelative =
+    sanitized.startsWith("/") && !afterLeadingSlash.startsWith("/") && !afterLeadingSlash.startsWith("\\");
+  if (isUnambiguousRootRelative) return true;
   try {
     return ["http:", "https:"].includes(new URL(url).protocol);
   } catch {
@@ -98,18 +199,20 @@ function toLicenseRef(raw: unknown): LicenseRef | null {
 /**
  * Parse a hand-edited `licensing.json` defensively. Unrecognized collection keys and
  * malformed license refs are dropped rather than passed through, matching how
- * `edge-artifacts.ts`'s `normalizeContentSignal` treats a typo'd config value.
+ * `normalizeUsage` and `edge-artifacts.ts`'s `readLicensingUsage` treat typo'd config values.
  */
 export function normalizePolicy(raw: unknown): LicensingPolicy {
-  const policy: LicensingPolicy = { default: null, collections: {} };
+  const policy: LicensingPolicy = { default: null, collections: {}, usage: { ...NO_USAGE } };
   if (!raw || typeof raw !== "object") return policy;
 
-  const { default: rawDefault, collections: rawCollections } = raw as {
+  const { default: rawDefault, collections: rawCollections, usage: rawUsage } = raw as {
     default?: unknown;
     collections?: unknown;
+    usage?: unknown;
   };
 
   policy.default = toLicenseRef(rawDefault);
+  policy.usage = normalizeUsage(rawUsage);
 
   if (rawCollections && typeof rawCollections === "object") {
     for (const [key, value] of Object.entries(rawCollections as Record<string, unknown>)) {
