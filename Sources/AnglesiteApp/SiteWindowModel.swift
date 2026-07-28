@@ -165,6 +165,10 @@ final class SiteWindowModel {
     /// Non-nil ⟺ the dependency-update-offer sheet is presented (`.sheet(item:)`), set by the
     /// detection hook in `loadAndStart()` when `DependencySyncChecker` finds offers to show.
     var dependencyUpdateModel: DependencyUpdateModel?
+    /// Non-nil ⟺ the scripts/-divergence sheet is presented (`.sheet(item:)`), set by the
+    /// detection hook in `loadAndStart()` when `TemplateScriptsSyncChecker` finds files the owner
+    /// customized that the template has also moved on past (#1053).
+    var scriptSyncModel: ScriptSyncModel?
     var newPagePresented = false
     var newCollectionPresented = false
     var newPostPresented = false
@@ -1518,6 +1522,42 @@ final class SiteWindowModel {
                         self.dependencyUpdateModel = nil
                         continuation.resume()
                     }
+                }
+            }
+        }
+        if let templateURL = TemplateRuntime.bundledURL() {
+            let plan = TemplateScriptsSyncChecker.check(
+                sourceDirectory: resolved.sourceDirectory,
+                configDirectory: resolved.configDirectory,
+                templateDirectory: templateURL
+            )
+            if !plan.toApply.isEmpty {
+                try? TemplateScriptsSyncApplier.applyQueued(
+                    plan.toApply,
+                    sourceDirectory: resolved.sourceDirectory,
+                    configDirectory: resolved.configDirectory,
+                    templateDirectory: templateURL
+                )
+            }
+            if !plan.divergences.isEmpty {
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    scriptSyncModel = ScriptSyncModel(
+                        divergences: plan.divergences,
+                        onResolve: { [weak self] divergence, decision in
+                            guard let self else { return }
+                            try? TemplateScriptsSyncApplier.resolve(
+                                divergence,
+                                decision: decision,
+                                sourceDirectory: resolved.sourceDirectory,
+                                configDirectory: resolved.configDirectory,
+                                templateDirectory: templateURL
+                            )
+                        },
+                        onFinished: { [weak self] in
+                            self?.scriptSyncModel = nil
+                            continuation.resume()
+                        }
+                    )
                 }
             }
         }

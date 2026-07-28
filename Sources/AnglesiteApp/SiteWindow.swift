@@ -634,6 +634,33 @@ struct SiteWindow: View {
             // and `preview.open()` would never run.
             .interactiveDismissDisabled()
         }
+        .sheet(item: $bindableModel.scriptSyncModel) { syncModel in
+            NavigationStack {
+                List(syncModel.pending) { divergence in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(divergence.relativePath)
+                            .font(.system(.body, design: .monospaced))
+                        Text("This file has been customized. An update is available with changes it doesn't include yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        HStack {
+                            Button("Keep My Version") { syncModel.keepMine(divergence) }
+                            Spacer()
+                            Button("Update This File") { syncModel.update(divergence) }
+                                .buttonStyle(.borderedProminent)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .navigationTitle("Site Scripts Customized")
+            }
+            .frame(minWidth: 420, minHeight: 260)
+            // Mirrors the dependency-update sheet immediately above: `loadAndStart()` suspends on
+            // a `CheckedContinuation` that only resumes once every row is resolved (see
+            // `ScriptSyncModel.remove`/`SiteWindowModel.loadAndStart`). Block outside-tap/swipe
+            // dismissal so per-row buttons are structurally the only way out.
+            .interactiveDismissDisabled()
+        }
         .sheet(item: $bindableModel.copyEditModel) { reportModel in
             CopyEditReportView(model: reportModel)
         }
