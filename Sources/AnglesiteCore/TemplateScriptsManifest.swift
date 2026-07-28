@@ -20,10 +20,14 @@ public enum TemplateScriptsManifest {
     /// exist or can't be enumerated.
     public static func appOwnedRelativePaths(templateRoot: URL) -> [String] {
         let scriptsRoot = templateRoot.appendingPathComponent("scripts")
+        // No `.skipsHiddenFiles`: rsync's `--exclude='.DS_Store'` has no slash, so per rsync's own
+        // anchoring rules it matches at *any* depth, not just top-level — but it names only that
+        // one file. `.skipsHiddenFiles` would instead drop every dotfile at every depth, which is
+        // a wider exclusion than `scaffold.sh` actually applies. `.DS_Store` is matched by name
+        // below instead, keeping this manifest exact rather than incidentally broader.
         guard let enumerator = FileManager.default.enumerator(
             at: scriptsRoot,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
+            includingPropertiesForKeys: [.isDirectoryKey]
         ) else { return [] }
 
         let scriptsRootPath = scriptsRoot.standardizedFileURL.path
@@ -31,6 +35,7 @@ public enum TemplateScriptsManifest {
         for case let fileURL as URL in enumerator {
             let isDirectory = (try? fileURL.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
             if isDirectory { continue }
+            if fileURL.lastPathComponent == ".DS_Store" { continue }
 
             let standardizedPath = fileURL.standardizedFileURL.path
             guard standardizedPath.hasPrefix(scriptsRootPath + "/") else { continue }

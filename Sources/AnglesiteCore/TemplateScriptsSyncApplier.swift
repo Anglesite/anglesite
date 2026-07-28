@@ -45,8 +45,11 @@ public enum TemplateScriptsSyncApplier {
             baseline.files[relativePath] = TemplateScriptsBaseline.Entry(
                 baselineHash: VectorMath.stableHash(templateContent)
             )
+            // Persisted after each successful write, not once at the end — if a later action in
+            // this same batch throws, everything already written here keeps its matching baseline
+            // entry rather than losing it.
+            try? baseline.save(to: configDirectory)
         }
-        try? baseline.save(to: configDirectory)
     }
 
     public static func resolve(

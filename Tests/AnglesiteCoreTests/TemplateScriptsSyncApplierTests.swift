@@ -88,6 +88,27 @@ import Foundation
         }
     }
 
+    @Test func applyQueuedPersistsEachActionsBaselineIndividuallyOnPartialFailure() throws {
+        let template = tmpDir()
+        try writeFile("template content A", to: template.appendingPathComponent("scripts/a.ts"))
+        // Deliberately no scripts/b.ts in the template — the second action's read will fail.
+        let (source, config) = makeSite()
+
+        #expect(throws: TemplateScriptsSyncApplier.ApplyError.templateReadFailed(relativePath: "scripts/b.ts")) {
+            try TemplateScriptsSyncApplier.applyQueued(
+                [.create(relativePath: "scripts/a.ts"), .create(relativePath: "scripts/b.ts")],
+                sourceDirectory: source, configDirectory: config, templateDirectory: template
+            )
+        }
+
+        // The first action wrote its file and its baseline entry before the second action threw —
+        // neither is lost just because a later action in the same batch failed.
+        let written = try String(contentsOf: source.appendingPathComponent("scripts/a.ts"), encoding: .utf8)
+        #expect(written == "template content A")
+        let baseline = TemplateScriptsBaseline.load(from: config)
+        #expect(baseline.files["scripts/a.ts"]?.baselineHash == VectorMath.stableHash("template content A"))
+    }
+
     @Test func resolveUpdateOverwritesTheOwnersVersion() throws {
         let template = try makeTemplate("template content")
         let (source, config) = makeSite()

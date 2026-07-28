@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Detects which app-owned `scripts/` files a site needs refreshed, and which have been
 /// customized in a way the app can't silently resolve (design doc, #1053). Unlike
@@ -7,6 +8,8 @@ import Foundation
 /// design doc's "Note on checker purity." It never writes anything under `Source/`; only
 /// `TemplateScriptsSyncApplier` does that.
 public enum TemplateScriptsSyncChecker {
+    private static let logger = Logger(subsystem: "io.dwk.anglesite", category: "TemplateScriptsSyncChecker")
+
     public static func check(
         sourceDirectory: URL,
         configDirectory: URL,
@@ -24,8 +27,20 @@ public enum TemplateScriptsSyncChecker {
             let templateHash = VectorMath.stableHash(templateContent)
 
             let siteURL = sourceDirectory.appendingPathComponent(relativePath)
-            guard let siteContent = try? String(contentsOf: siteURL, encoding: .utf8) else {
+            guard FileManager.default.fileExists(atPath: siteURL.path) else {
+                // Genuinely absent — the template added this file since the site scaffolded.
+                // Nothing of the owner's to lose, so this is safe to create silently.
                 toApply.append(.create(relativePath: relativePath))
+                continue
+            }
+            guard let siteContent = try? String(contentsOf: siteURL, encoding: .utf8) else {
+                // The file exists but couldn't be read as UTF-8 — permissions, a transient I/O
+                // error, or genuinely non-UTF-8 content. Unlike "doesn't exist," this is NOT safe
+                // to silently overwrite (there may be something of the owner's to lose), so skip
+                // it entirely rather than guessing; logged so it isn't invisible.
+                logger.error(
+                    "Skipping \(relativePath, privacy: .public): exists but couldn't be read as UTF-8"
+                )
                 continue
             }
             let siteHash = VectorMath.stableHash(siteContent)

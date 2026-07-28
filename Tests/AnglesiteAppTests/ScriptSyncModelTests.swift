@@ -13,7 +13,7 @@ import AnglesiteCore
         var finished = false
         let model = ScriptSyncModel(
             divergences: [fileA, fileB],
-            onResolve: { resolved.append(($0, $1)) },
+            onResolve: { resolved.append(($0, $1)); return true },
             onFinished: { finished = true }
         )
 
@@ -30,7 +30,7 @@ import AnglesiteCore
         var finishedCount = 0
         let model = ScriptSyncModel(
             divergences: [fileA, fileB],
-            onResolve: { _, _ in },
+            onResolve: { _, _ in true },
             onFinished: { finishedCount += 1 }
         )
 
@@ -45,7 +45,7 @@ import AnglesiteCore
         var finishedCount = 0
         let model = ScriptSyncModel(
             divergences: [fileA],
-            onResolve: { _, _ in },
+            onResolve: { _, _ in true },
             onFinished: { finishedCount += 1 }
         )
 
@@ -61,7 +61,7 @@ import AnglesiteCore
         var resolvedCount = 0
         let model = ScriptSyncModel(
             divergences: [fileA],
-            onResolve: { _, _ in resolvedCount += 1 },
+            onResolve: { _, _ in resolvedCount += 1; return true },
             onFinished: {}
         )
 
@@ -72,5 +72,40 @@ import AnglesiteCore
         // forward a second, possibly contradictory decision.
         model.keepMine(fileA)
         #expect(resolvedCount == 1)
+    }
+
+    @Test func aFailedResolveKeepsTheRowPendingMarksItFailedAndDoesNotFinish() {
+        var finished = false
+        let model = ScriptSyncModel(
+            divergences: [fileA],
+            onResolve: { _, _ in false },  // simulates TemplateScriptsSyncApplier.resolve throwing
+            onFinished: { finished = true }
+        )
+
+        model.update(fileA)
+
+        #expect(model.pending == [fileA])
+        #expect(model.failedRelativePaths == ["scripts/a.ts"])
+        #expect(finished == false)
+    }
+
+    @Test func aSubsequentSuccessfulResolveClearsThePriorFailureMarker() {
+        var shouldSucceed = false
+        var finished = false
+        let model = ScriptSyncModel(
+            divergences: [fileA],
+            onResolve: { _, _ in shouldSucceed },
+            onFinished: { finished = true }
+        )
+
+        model.update(fileA)
+        #expect(model.failedRelativePaths == ["scripts/a.ts"])
+
+        shouldSucceed = true
+        model.update(fileA)
+
+        #expect(model.failedRelativePaths.isEmpty)
+        #expect(model.pending.isEmpty)
+        #expect(finished == true)
     }
 }

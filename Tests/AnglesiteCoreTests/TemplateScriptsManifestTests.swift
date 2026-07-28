@@ -42,4 +42,22 @@ import Foundation
         let root = tmpDir()
         #expect(TemplateScriptsManifest.appOwnedRelativePaths(templateRoot: root).isEmpty)
     }
+
+    @Test func excludesDSStoreAtAnyDepthButNoOtherDotfiles() throws {
+        let root = tmpDir()
+        let scripts = root.appendingPathComponent("scripts")
+        try writeFile("keep", to: scripts.appendingPathComponent("keep.ts"))
+        try writeFile("ds1", to: scripts.appendingPathComponent(".DS_Store"))
+        try writeFile("ds2", to: scripts.appendingPathComponent("embeds/.DS_Store"))
+        // Not `.DS_Store` — a real dotfile that `scaffold.sh`'s rsync would still copy, and that
+        // `.skipsHiddenFiles` would have wrongly dropped.
+        try writeFile("dotfile", to: scripts.appendingPathComponent(".env.example"))
+
+        let result = TemplateScriptsManifest.appOwnedRelativePaths(templateRoot: root)
+
+        #expect(result == [
+            "scripts/.env.example",
+            "scripts/keep.ts",
+        ])
+    }
 }

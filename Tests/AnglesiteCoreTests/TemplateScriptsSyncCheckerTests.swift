@@ -31,6 +31,24 @@ import Foundation
         return (source, config)
     }
 
+    @Test func existingButUnreadableSiteFileIsSkippedNotSilentlyOverwritten() throws {
+        let template = try makeTemplate("new template content")
+        let (source, config) = makeSite()
+        // A file that genuinely exists but can't be decoded as UTF-8 — distinct from "doesn't
+        // exist," and must not be silently queued for `.create` (which would unconditionally
+        // overwrite whatever's actually there).
+        let siteURL = source.appendingPathComponent("scripts/pre-deploy-check.ts")
+        try FileManager.default.createDirectory(at: siteURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data([0xFF, 0xFE, 0xFD]).write(to: siteURL)
+
+        let plan = TemplateScriptsSyncChecker.check(
+            sourceDirectory: source, configDirectory: config, templateDirectory: template
+        )
+        #expect(plan.toApply.isEmpty)
+        #expect(plan.divergences.isEmpty)
+        #expect(TemplateScriptsBaseline.load(from: config).files["scripts/pre-deploy-check.ts"] == nil)
+    }
+
     @Test func newTemplateFileNotOnSiteIsQueuedForSilentCreate() throws {
         let template = try makeTemplate("template content")
         let (source, config) = makeSite()

@@ -637,12 +637,21 @@ struct SiteWindow: View {
         .sheet(item: $bindableModel.scriptSyncModel) { syncModel in
             NavigationStack {
                 List(syncModel.pending) { divergence in
+                    let copy = ScriptSyncModel.rowCopy(for: divergence.relativePath)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(divergence.relativePath)
-                            .font(.system(.body, design: .monospaced))
-                        Text("This file has been customized. An update is available with changes it doesn't include yet.")
+                        Text(copy.title)
+                            .font(.headline)
+                        Text(copy.consequence)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        Text(divergence.relativePath)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                        if syncModel.failedRelativePaths.contains(divergence.relativePath) {
+                            Label("Couldn't update this file — see the debug log for details.", systemImage: "exclamationmark.triangle")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
                         HStack {
                             Button("Keep My Version") { syncModel.keepMine(divergence) }
                             Spacer()

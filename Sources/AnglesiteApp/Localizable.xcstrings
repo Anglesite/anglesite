@@ -929,6 +929,9 @@
     "Couldn't save the worker change: %@" : {
 
     },
+    "Couldn't update this file — see the debug log for details." : {
+
+    },
     "Create" : {
 
     },

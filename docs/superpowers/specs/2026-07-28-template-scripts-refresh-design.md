@@ -198,6 +198,14 @@ stamp at all, per the baseline note above), as an independent step:
   `AGENTS.md`/`CLAUDE.md` (the issue discussion calls this out as broader than #1053 and worth
   capturing there) — a small, low-risk documentation addition alongside this PR's code, not a
   design decision in its own right.
+- **File removals/renames on the template side.** `TemplateScriptsSyncChecker` only iterates paths
+  currently present in `TemplateScriptsManifest.appOwnedRelativePaths`, so a future template
+  release that deletes or renames an app-owned script (e.g. retiring one of today's `scripts/*.ts`
+  files) leaves the orphaned file — and its baseline entry — on every existing site indefinitely.
+  This is the same staleness problem #1053 exists to close, just in the direction this design
+  doesn't cover: called out explicitly here as a known gap rather than an oversight, since fixing
+  it needs its own answer (a per-file "retired" list the checker also deletes, at minimum) and
+  isn't free to bundle into detection logic built around "does the template still have this file."
 
 ## Testing
 
