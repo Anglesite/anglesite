@@ -1,0 +1,27 @@
+---
+// Combined reverse-chronological stream across all eight feed collections (blog, notes,
+// articles, photos, albums, bookmarks, replies, likes) — the browsable page-side equivalent of
+// the combined `/rss.xml` / `/atom.xml` / `/feed.json` feeds (`feed-data.ts`'s
+// `getCombinedItems`), capped at the same 50-item limit.
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import IndexEntry from "../../components/IndexEntry.astro";
+import { getTimelineItems } from "../../lib/collection-index-astro.ts";
+
+const items = await getTimelineItems();
+---
+
+<BaseLayout title="Timeline" description="Every post across this site, newest first.">
+  <div class="h-feed">
+    <h1 class="p-name">Timeline</h1>
+    <p><a href="/rss.xml">Subscribe (RSS)</a></p>
+    {
+      items.length === 0 ? (
+        <p>Nothing published yet.</p>
+      ) : (
+        <ul>
+          {items.map((item) => <IndexEntry item={item} />)}
+        </ul>
+      )
+    }
+  </div>
+</BaseLayout>

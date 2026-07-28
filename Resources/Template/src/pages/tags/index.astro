@@ -1,0 +1,27 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { collectTaggedEntries } from "../../lib/tags-astro.ts";
+import { groupBySlug, tagGroupCounts } from "../../lib/tags.ts";
+
+const entries = await collectTaggedEntries();
+// Linked by slug (see tags.ts's `tagSlug` — free-text tags can't safely be used as a URL
+// segment as-is), displayed by verbatim tag text; counts merge across spellings sharing a slug.
+const counts = tagGroupCounts(groupBySlug(entries));
+---
+
+<BaseLayout title="Tags" description="Every tag used across this site's posts.">
+  <h1>Tags</h1>
+  {
+    counts.length === 0 ? (
+      <p>No tagged posts yet.</p>
+    ) : (
+      <ul>
+        {counts.map(({ slug, tags, count }) => (
+          <li>
+            <a href={`/tags/${slug}/`}>{tags.join(" / ")}</a> ({count})
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</BaseLayout>

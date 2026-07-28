@@ -57,10 +57,22 @@ struct FeedsRenderSmokeTests {
             #expect(try text("feed.json").contains("https://example.com/"))
             #expect(try text("blog/rss.xml").contains("<rss"))
 
-            // A title-less type (likes) still produces a non-empty title.
-            let likesJson = try text("likes/feed.json")
-            #expect(likesJson.contains("\"title\""))
-            #expect(!likesJson.contains("\"title\": \"\""))
+            // A title-less type (likes) carries no title key on its items at all — likes never
+            // had a real title, so #1021 drops the synthesized "Liked host" placeholder rather
+            // than emitting an empty or fake one. Parse JSON rather than substring-match, since
+            // the feed's own top-level `"title"` ("Likes") would otherwise false-positive.
+            func items(_ rel: String) throws -> [[String: Any]] {
+                let content = try text(rel)
+                let data = try #require(content.data(using: .utf8))
+                let feed = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+                return try #require(feed["items"] as? [[String: Any]])
+            }
+            let likesItems = try items("likes/feed.json")
+            #expect(likesItems.allSatisfy { $0["title"] == nil }, "likes items must not carry a title key")
+
+            // #1022: full body content lands in content_html, not just the short summary.
+            let notesContentHtml = try #require(items("notes/feed.json").first?["content_html"] as? String)
+            #expect(notesContentHtml.contains("This is your first note."))
         }
     }
 }
