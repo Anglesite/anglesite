@@ -58,6 +58,25 @@ public enum WorkerComposition {
     /// alongside this one — the `AUTH_DB`/`TOKEN_SIGNING_KEY` bindings below fall out for free.
     public static let microsubWorkerID = "microsub"
 
+    /// `@dwk/solid-oidc`'s catalog id — its `AUTH_DB` binding name is hardcoded in its own
+    /// public contract (its README's bindings table), identical to `@dwk/indieauth`'s. The
+    /// catalog declares `requires: ["indieauth"]`, so `WorkerActivation` always activates
+    /// indieauth alongside this one and the shared `AUTH_DB` block below satisfies both —
+    /// solid-oidc's own `solid_oidc_codes` table coexists there under its own name, no second
+    /// D1 database, no binding collision.
+    public static let solidOidcWorkerID = "solid-oidc"
+
+    /// `@dwk/solid-pod`'s catalog id — composition keys off this directly for its bespoke
+    /// `POD` Durable Object (class `SolidPodObject`) and its own `BLOBS` R2 bucket, which is
+    /// deliberately distinct from Micropub's `MEDIA` bucket even though solid-pod's catalog
+    /// `resources` also declares an `r2` entry (the generic `needsR2` flag can't distinguish
+    /// binding names — see the `hasMicropub`-scoped MEDIA block below).
+    public static let solidPodWorkerID = "solid-pod"
+
+    /// `@dwk/webdav`'s catalog id — reuses `solid-pod`'s `POD`/`BLOBS` bindings (its catalog
+    /// `requires: ["solid-pod"]`) and adds only its own `WEBDAV_PEPPER` secret.
+    public static let webdavWorkerID = "webdav"
+
     /// The bespoke app-side inbox-capture route (#587) — not a `@dwk/workers` catalog worker, so
     /// its claim lives here rather than in `catalog.json`. Appended automatically when
     /// `generateWranglerToml` is called with `inboxCaptureEnabled`.
@@ -92,10 +111,15 @@ public enum WorkerComposition {
         /// every other field: `nil` decodes cleanly from settings persisted before this field
         /// existed.
         public var microsubQueueName: String?
+        /// The Cloudflare R2 bucket name backing `@dwk/solid-pod`'s blob storage (binding
+        /// `BLOBS`) — deterministic (`\(siteName)-pod-blobs`), distinct from `r2BucketName`
+        /// (Micropub's `MEDIA` bucket) since the two hold semantically different content.
+        public var podBlobsR2BucketName: String?
 
         public init(
             d1DatabaseID: String? = nil, kvNamespaceID: String? = nil, r2BucketName: String? = nil,
-            queueName: String? = nil, websubQueueName: String? = nil, microsubQueueName: String? = nil
+            queueName: String? = nil, websubQueueName: String? = nil, microsubQueueName: String? = nil,
+            podBlobsR2BucketName: String? = nil
         ) {
             self.d1DatabaseID = d1DatabaseID
             self.kvNamespaceID = kvNamespaceID
@@ -103,6 +127,7 @@ public enum WorkerComposition {
             self.queueName = queueName
             self.websubQueueName = websubQueueName
             self.microsubQueueName = microsubQueueName
+            self.podBlobsR2BucketName = podBlobsR2BucketName
         }
     }
 
@@ -178,6 +203,9 @@ public enum WorkerComposition {
         let hasActivityPub = workers.contains(where: { $0.id == activitypubWorkerID })
         let hasWebSub = workers.contains(where: { $0.id == websubWorkerID })
         let hasMicrosub = workers.contains(where: { $0.id == microsubWorkerID })
+        let hasSolidOidc = workers.contains(where: { $0.id == solidOidcWorkerID })
+        let hasSolidPod = workers.contains(where: { $0.id == solidPodWorkerID })
+        let hasWebdav = workers.contains(where: { $0.id == webdavWorkerID })
 
         var lines: [String] = []
         lines.append("name = \"\(siteName)\"")
@@ -342,10 +370,18 @@ public enum WorkerComposition {
         // @dwk/microsub's poller runs off the read path on a Cron Trigger, enqueuing one poll job
         // per followed feed (see `createMicrosubPoller` in the package README) — the read path
         // itself only ever serves stored entries.
-        if hasMicrosub {
+        // @dwk/microsub's poller (feed-poll fan-out) and @dwk/solid-pod's GC (orphaned R2 blob
+        // reclamation) each run off their own Cron Trigger schedule; `worker.ts`'s `scheduled()`
+        // dispatches on `controller.cron` to tell them apart, mirroring how `queue()` dispatches
+        // on the queue-name suffix.
+        var cronSchedules: [String] = []
+        if hasMicrosub { cronSchedules.append("*/15 * * * *") }
+        if hasSolidPod { cronSchedules.append("*/5 * * * *") }
+        if !cronSchedules.isEmpty {
             lines.append("")
             lines.append("[triggers]")
-            lines.append("crons = [\"*/15 * * * *\"]")
+            let list = cronSchedules.map { "\"\($0)\"" }.joined(separator: ", ")
+            lines.append("crons = [\(list)]")
         }
 
         if workers.contains(where: { $0.resources.needsKV }) {
@@ -359,11 +395,21 @@ public enum WorkerComposition {
             }
         }
 
-        if workers.contains(where: { $0.resources.needsR2 }) {
+        if hasMicropub {
             lines.append("")
             lines.append("[[r2_buckets]]")
             lines.append("binding = \"MEDIA\"")
             lines.append("bucket_name = \"\(resources.r2BucketName ?? "\(siteName)-media")\"")
+        }
+
+        // @dwk/solid-pod's own R2 bucket for blob bodies (binding BLOBS) — a distinct bucket
+        // from Micropub's MEDIA, since they hold semantically different content. @dwk/webdav
+        // reuses this same bucket (its catalog requires solid-pod), so it's gated on either.
+        if hasSolidPod || hasWebdav {
+            lines.append("")
+            lines.append("[[r2_buckets]]")
+            lines.append("binding = \"BLOBS\"")
+            lines.append("bucket_name = \"\(resources.podBlobsR2BucketName ?? "\(siteName)-pod-blobs")\"")
         }
 
         if hasActivityPub {
@@ -375,6 +421,22 @@ public enum WorkerComposition {
             lines.append("[[migrations]]")
             lines.append("tag = \"v1\"")
             lines.append("new_sqlite_classes = [\"ActivityPubObject\"]")
+        }
+
+        // @dwk/solid-pod's per-pod Durable Object. @dwk/webdav reuses this same object (its
+        // catalog requires solid-pod), so it's gated on either. A separate migration tag ("v2")
+        // from ActivityPub's ("v1") — Cloudflare migration tags are immutable once applied to a
+        // deployed Worker, so a site that already deployed ActivityPub under "v1" must never see
+        // that tag's class list change; SolidPodObject is a new tag, not an edit to an old one.
+        if hasSolidPod || hasWebdav {
+            lines.append("")
+            lines.append("[[durable_objects.bindings]]")
+            lines.append("name = \"POD\"")
+            lines.append("class_name = \"SolidPodObject\"")
+            lines.append("")
+            lines.append("[[migrations]]")
+            lines.append("tag = \"v2\"")
+            lines.append("new_sqlite_classes = [\"SolidPodObject\"]")
         }
 
         if inboxCaptureEnabled {
@@ -413,6 +475,16 @@ public enum WorkerComposition {
             // wrangler validates or fail on.
             lines.append("# Secrets required for IndieAuth (set with `wrangler secret put <NAME>`):")
             lines.append("# TOKEN_SIGNING_KEY, INDIEAUTH_OWNER_PASSWORD")
+        }
+        if hasSolidOidc {
+            lines.append("")
+            lines.append("# Secrets required for Solid-OIDC (set with `wrangler secret put <NAME>`):")
+            lines.append("# OIDC_SIGNING_KEY")
+        }
+        if hasWebdav {
+            lines.append("")
+            lines.append("# Secrets required for WebDAV (set with `wrangler secret put <NAME>`):")
+            lines.append("# WEBDAV_PEPPER")
         }
 
         if hasSocialFeatures || inboxCaptureEnabled {

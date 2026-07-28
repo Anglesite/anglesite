@@ -18,6 +18,9 @@ private let microsubWorker = worker(WorkerComposition.microsubWorkerID, d1: true
 private let v2Workers = [genericD1KVWorker, indieauthWorker]
 private let v3Workers = [genericD1KVWorker, indieauthWorker, micropubWorker, websubWorker]
 private let webmentionWorker = worker(WorkerComposition.webmentionWorkerID, d1: false, kv: false, r2: false)
+private let solidOidcWorker = worker(WorkerComposition.solidOidcWorkerID, d1: true, kv: false, r2: false)
+private let solidPodWorker = worker(WorkerComposition.solidPodWorkerID, d1: false, kv: false, r2: true)
+private let webdavWorker = worker(WorkerComposition.webdavWorkerID, d1: false, kv: false, r2: true)
 
 @Suite("WorkerComposition")
 struct WorkerCompositionTests {
@@ -486,5 +489,75 @@ struct WorkerCompositionTests {
         let data = try JSONEncoder().encode(resources)
         let decoded = try JSONDecoder().decode(WorkerComposition.ProvisionedResources.self, from: data)
         #expect(decoded == resources)
+    }
+
+    // MARK: - Solid-OIDC / Solid Pod / WebDAV (#1055 slice)
+
+    @Test("solid-oidc emits its OIDC_SIGNING_KEY secret comment, reusing indieauth's AUTH_DB")
+    func solidOidcBindings() throws {
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [indieauthWorker, solidOidcWorker]
+        )
+        #expect(toml.contains("binding = \"AUTH_DB\""))
+        #expect(toml.contains("OIDC_SIGNING_KEY"))
+        // Only one AUTH_DB block — solid-oidc must not emit a second, differently-keyed one.
+        #expect(toml.components(separatedBy: "binding = \"AUTH_DB\"").count == 2)
+    }
+
+    @Test("solid-pod emits its own Durable Object, R2 bucket, and GC cron trigger")
+    func solidPodBindings() throws {
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [solidPodWorker]
+        )
+        #expect(toml.contains("name = \"POD\""))
+        #expect(toml.contains("class_name = \"SolidPodObject\""))
+        #expect(toml.contains("new_sqlite_classes = [\"SolidPodObject\"]"))
+        #expect(toml.contains("binding = \"BLOBS\""))
+        #expect(toml.contains("bucket_name = \"my-site-pod-blobs\""))
+        #expect(toml.contains("crons = [\"*/5 * * * *\"]"))
+        // Solid Pod's own R2 bucket must never be confused with Micropub's MEDIA bucket.
+        #expect(!toml.contains("binding = \"MEDIA\""))
+    }
+
+    @Test("solid-pod's R2 bucket coexists with micropub's MEDIA bucket, distinctly named")
+    func solidPodAndMicropubR2DontCollide() throws {
+        let micropub = worker(WorkerComposition.micropubWorkerID, d1: true, kv: false, r2: true)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [solidPodWorker, micropub]
+        )
+        #expect(toml.contains("binding = \"BLOBS\""))
+        #expect(toml.contains("bucket_name = \"my-site-pod-blobs\""))
+        #expect(toml.contains("binding = \"MEDIA\""))
+        #expect(toml.contains("bucket_name = \"my-site-media\""))
+    }
+
+    @Test("webdav emits its WEBDAV_PEPPER secret comment and reuses solid-pod's DO/R2, no duplicates")
+    func webdavBindings() throws {
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [solidPodWorker, webdavWorker]
+        )
+        #expect(toml.contains("WEBDAV_PEPPER"))
+        #expect(toml.components(separatedBy: "name = \"POD\"").count == 2)
+        #expect(toml.components(separatedBy: "binding = \"BLOBS\"").count == 2)
+    }
+
+    @Test("solid-pod and activitypub Durable Objects each get their own migration tag")
+    func solidPodAndActivityPubMigrationTagsDontCollide() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub, solidPodWorker]
+        )
+        #expect(toml.contains("tag = \"v1\""))
+        #expect(toml.contains("new_sqlite_classes = [\"ActivityPubObject\"]"))
+        #expect(toml.contains("tag = \"v2\""))
+        #expect(toml.contains("new_sqlite_classes = [\"SolidPodObject\"]"))
+    }
+
+    @Test("no solid-pod worker means no POD/BLOBS bindings or GC cron")
+    func noSolidPodMeansNoBindings() throws {
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [indieauthWorker])
+        #expect(!toml.contains("SolidPodObject"))
+        #expect(!toml.contains("BLOBS"))
+        #expect(!toml.contains("*/5 * * * *"))
     }
 }
