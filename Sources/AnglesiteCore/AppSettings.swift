@@ -25,6 +25,7 @@ public final class AppSettings: @unchecked Sendable {
         public static let autoGeneratePageCopy = "anglesite.autoGeneratePageCopy"
         public static let announcesLiveUpdates = "anglesite.announcesLiveUpdates"
         public static let notifiesOnCompletion = "anglesite.notifiesOnCompletion"
+        public static let playsDialupSoundEffect = "anglesite.playsDialupSoundEffect"
         public static let didCleanLegacyChatBackendDefaults = "anglesite.didCleanLegacyChatBackendDefaults"
         public static let gitHubAccountLogin = "anglesite.gitHubAccount.login"
         public static let gitHubAccountName = "anglesite.gitHubAccount.name"
@@ -191,6 +192,14 @@ public final class AppSettings: @unchecked Sendable {
             return defaults.bool(forKey: Key.notifiesOnCompletion)
         }
         set { defaults.set(newValue, forKey: Key.notifiesOnCompletion) }
+    }
+
+    /// Whether Anglesite plays a synthesized dial-up modem handshake sound while the dev server
+    /// starts up (`StartupProgressModel`) or a deploy runs (`DeployModel`). Purely decorative —
+    /// off by default, so `false` when absent needs no inversion trick.
+    public var playsDialupSoundEffect: Bool {
+        get { defaults.bool(forKey: Key.playsDialupSoundEffect) }
+        set { defaults.set(newValue, forKey: Key.playsDialupSoundEffect) }
     }
 
     /// The site that was most-recently focused. Used by the Sites launcher to auto-open

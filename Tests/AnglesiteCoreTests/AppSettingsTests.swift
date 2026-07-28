@@ -101,6 +101,19 @@ final class AppSettingsTests {
         #expect(settings.notifiesOnCompletion)
     }
 
+    @Test("playsDialupSoundEffect defaults to false") func playsDialupSoundEffectDefaultsToFalse() {
+        let settings = AppSettings(defaults: defaults)
+        #expect(!settings.playsDialupSoundEffect)
+    }
+
+    @Test("playsDialupSoundEffect round trip") func playsDialupSoundEffectRoundTrip() {
+        let settings = AppSettings(defaults: defaults)
+        settings.playsDialupSoundEffect = true
+        #expect(settings.playsDialupSoundEffect)
+        settings.playsDialupSoundEffect = false
+        #expect(!settings.playsDialupSoundEffect)
+    }
+
     @Test("legacy chat backend defaults are cleaned once") func legacyChatBackendDefaultsCleanedOnce() {
         defaults.set(false, forKey: "anglesite.preferFoundationModels")
         defaults.set(true, forKey: "anglesite.didMigrateAssistantDefault")
