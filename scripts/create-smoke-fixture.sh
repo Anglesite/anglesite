@@ -37,6 +37,24 @@ rsync -a \
     --exclude='.wrangler/' \
     "$TEMPLATE_SRC/" "$FIXTURE_DIR/"
 
+# scaffold.sh normally stamps this at site-creation time; Import Site requires it
+# (ProjectValidator flags a Source/ missing .site-config as an incomplete site).
+if [[ ! -f "$FIXTURE_DIR/.site-config" ]]; then
+    echo "==> stamping missing .site-config (mirrors scaffold.sh)"
+    printf '%s\n' \
+        "ANGLESITE_VERSION=1.0.0" \
+        "# SITE_URL=https://example.com        — site domain (used in feeds, sitemap, security.txt)" \
+        "# SECURITY_CONTACT=security@example.com — RFC 9116 security.txt contact (email or URI)" \
+        "# SECURITY_TXT_MODE=generated          — generated|manual|disabled (default: inferred from SECURITY_CONTACT)" \
+        "# MTA_STS_MODE=testing                 — disabled|testing|enforce (start with testing)" \
+        "# MTA_STS_DOMAIN=example.com           — recipient domain (not necessarily the website host)" \
+        "# MTA_STS_MX=mx1.example.com,mx2.example.com — allowed receiving MX hosts (RFC 8461)" \
+        "# TLS_RPT_RUA=tls-reports@example.com  — optional RFC 8460 report mailbox" \
+        "# HSTS_PRELOAD=true                    — opt-in HSTS preload submission (hard to reverse)" \
+        "# SCRIPT_ALLOW=example.com             — additional CSP script-src domains (comma-separated)" \
+        > "$FIXTURE_DIR/.site-config"
+fi
+
 cd "$FIXTURE_DIR"
 echo "==> npm install --no-audit --no-fund --prefer-offline"
 npm install --no-audit --no-fund --prefer-offline
