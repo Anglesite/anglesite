@@ -56,11 +56,13 @@ Reuses each surface's existing named phases rather than inventing generic fracti
 - `filledCount = 3` at `.ready`
 - `filledCount = 0` at `.idle`/`.failed`
 
-**Deploy** (`DeployModel.Phase`, via the existing `DeployDockProgress.fraction(forPhase:)` milestone mapping — `Sources/AnglesiteCore/CompletionNotice.swift:164-178` — reused rather than duplicated):
-- `filledCount = 1` once `.running` starts (any milestone reported)
-- `filledCount = 2` at the `"deploying"` milestone (the actual upload-to-Cloudflare step, `fraction == 0.55` in the existing mapping)
-- `filledCount = 3` only at `.succeeded`
+**Deploy** (`DeployModel.Phase`, via a new `DeployPanelProgress.filledCount(currentMilestonePhase:succeeded:)` in `AnglesiteCore`):
+- `filledCount = 1` once `.running` starts, while the milestone phase is `"preflightScan"` or `"building"`
+- `filledCount = 2` from the `"deploying"` milestone onward (every later milestone — `finalizing`, `webmentions`, `syndicating`, `websubPing`, `activityPubBackfill` — also reads as 2, since they're all past the "actual upload" step)
+- `filledCount = 3` only when `succeeded` is `true`
 - `.failed`/`.blocked`/`.workerNameConflict`/`.webmentionPaidPlanConfirmationNeeded` keep their existing icon treatment in `DeployDrawerView`'s `statusIcon` — the strip is not shown for these terminal/parked states, only for `.running`
+
+Deliberately **not** built on top of `DeployDockProgress.fraction(forPhase:)` (`Sources/AnglesiteCore/CompletionNotice.swift:164-178`): that table has no entry for `websubPing`/`activityPubBackfill` (returns `nil`, meant for "don't move the Dock tile" semantics), which would make this panel count regress from 2 back to 1 on those two milestones. `DeployPanelProgress` is a small, self-contained switch over the eight known milestone-phase strings instead — no shared dependency, no gap.
 
 ## 3. Status text
 
