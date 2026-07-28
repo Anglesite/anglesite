@@ -14,4 +14,4 @@ Include as much detail as you can: affected version/commit, reproduction steps, 
 
 This repo is the native macOS app (SwiftUI shell, website template, WKWebView preview, edit overlay). It ships sandboxed for the Mac App Store and runs site builds/deploys inside a container runtime.
 
-If the vulnerability is in the MCP sidecar server instead, please report it against [`Anglesite/anglesite`](https://github.com/Anglesite/anglesite/security/advisories/new) — see `CLAUDE.md` ▸ "Two-repo coordination" for how the two repos relate.
+If the vulnerability is in the MCP sidecar server instead, please report it against [`Anglesite/anglesite-skills`](https://github.com/Anglesite/anglesite-skills/security/advisories/new) — see `CLAUDE.md` ▸ "Two-repo coordination" for how the two repos relate.

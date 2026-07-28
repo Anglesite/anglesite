@@ -1,6 +1,6 @@
 # Contributing to Anglesite (Mac app)
 
-Thanks for your interest in contributing! This repo is the native macOS app that consumes the MCP server from the published [Anglesite Claude Skill](https://github.com/Anglesite/anglesite). It's pre-release and moving fast, so a quick read of this page will save you time.
+Thanks for your interest in contributing! This repo is the native macOS app that consumes the MCP server from the published [Anglesite Claude Skill](https://github.com/Anglesite/anglesite-skills). It's pre-release and moving fast, so a quick read of this page will save you time.
 
 ## Before you start
 
@@ -77,7 +77,7 @@ Notes:
 
 - **Conventional commits** — `feat(scope): …`, `fix(scope): …`, `ci: …`, etc. Reference the issue number in the subject when there is one (see `git log` for examples). Keep the whole subject line to **72 characters or fewer** (aim for ~50) — `type(scope): summary (#123)` adds up faster than it looks, and an over-length subject gets silently wrapped or split across `git log --oneline`, GitHub's commit/PR views, and `gh`'s own output. If it doesn't fit, shorten the summary and put the extra detail in the commit body, not the subject.
 - **Use the [PR template](.github/PULL_REQUEST_TEMPLATE.md) as-is.** Open the file and copy its exact section headings into the PR body — **Summary**, **Paired PR check**, and **Test plan** — even for a trivial change. Don't substitute a generic "Summary / Test plan" body from a different tool's default PR format: that shape silently drops the Paired PR check. Extra sections (Design notes, screenshots, etc.) are welcome appended after the template's own sections — never in place of them.
-- **Paired PRs.** Changes to the MCP message schema need a paired PR in [`Anglesite/anglesite`](https://github.com/Anglesite/anglesite): the sidecar PR ships first in a tagged release, then the app PR consumes it. Template changes (`Resources/Template/`) are app-only. See `AGENTS.md` ▸ "Two-repo coordination".
+- **Paired PRs.** Changes to the MCP message schema need a paired PR in [`Anglesite/anglesite-skills`](https://github.com/Anglesite/anglesite-skills): the sidecar PR ships first in a tagged release, then the app PR consumes it. Template changes (`Resources/Template/`) are app-only. See `AGENTS.md` ▸ "Two-repo coordination".
 - **`@dwk/workers` catalog coordination.** The Worker catalog (`WorkerCatalog.swift` and friends) consumes `catalog.json` published by the separate [`davidwkeith/workers`](https://github.com/davidwkeith/workers) monorepo — a third repo outside the `Anglesite/anglesite` pairing above. Schema extensions there land the same way: keep the app-side decoding **backward-compatible** (new manifest fields optional, feature inert until the catalog publishes them) so the app PR can merge first, and note the pending catalog change in the PR body. Example: the #746 route-claims PR ([#829](https://github.com/Anglesite/Anglesite-app/pull/829)) shipped an optional `routes` field the catalog can adopt later.
 - Keep PRs focused; opportunistic cleanup near the code you're touching is fine, drive-by refactors of unrelated code are not.
 

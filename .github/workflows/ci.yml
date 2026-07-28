@@ -225,7 +225,12 @@ jobs:
       - name: Checkout sibling Anglesite plugin
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: Anglesite/anglesite
+          # Anglesite/anglesite was renamed to Anglesite/anglesite-skills. The old
+          # "anglesite" slug now redirects to *this* repo (Anglesite/Anglesite-app was
+          # separately renamed to Anglesite/Anglesite, reclaiming the freed name), so
+          # `repository: Anglesite/anglesite` silently checked out the app against
+          # itself instead of the sidecar (#1059) — use the current slug explicitly.
+          repository: Anglesite/anglesite-skills
           # Pinned to the plugin release the app currently exercises. get_component_model
           # (plugin #410, used by the Component Editor) shipped in v1.3.0 — bump this
           # pin again the next time a newer plugin feature becomes load-bearing for CI.
