@@ -64,11 +64,9 @@ struct ContentLicensingTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            siteDefaultSection
-            Divider()
-            perCollectionSection
-            Divider()
-            aiUsageSection
+            SettingsBox(title: "Site License") { siteDefaultSection }
+            SettingsBox(title: "By Content Type") { perCollectionSection }
+            SettingsBox(title: "AI and Crawlers") { aiUsageSection }
             if model.isSavingLicensing {
                 ProgressView().controlSize(.small)
             }
@@ -79,8 +77,6 @@ struct ContentLicensingTab: View {
 
     private var siteDefaultSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Site License")
-                .font(.headline)
             Text("The license offered for your content. Anglesite never picks one for you — until you choose, your site says all rights reserved.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -228,8 +224,6 @@ struct ContentLicensingTab: View {
 
     private var perCollectionSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("By Content Type")
-                .font(.headline)
             Text("Override the site license for one kind of content. Bookmarks, replies, likes, and reviews assert nothing by default — those entries are about someone else's work.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -290,8 +284,6 @@ struct ContentLicensingTab: View {
 
     private var aiUsageSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("AI and Crawlers")
-                .font(.headline)
             Text("States a usage preference per purpose in robots.txt, using Cloudflare's Content Signals Policy. It's a signal well-behaved crawlers honor, not an enforced block.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
