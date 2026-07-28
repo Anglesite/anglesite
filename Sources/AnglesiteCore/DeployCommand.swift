@@ -74,7 +74,12 @@ public actor DeployCommand {
     public typealias WorkerScriptNamesSource = @Sendable (_ apiToken: String) async throws -> [String]
 
     public nonisolated let tokenSource: TokenSource
-    private let workerScriptNamesSource: WorkerScriptNamesSource
+    /// Exposed (like `tokenSource`) so callers that build a parallel `SocialWorkerProvisionCommand`
+    /// alongside this `DeployCommand` — `DeployModel.runDeploy` — can forward the exact same seam
+    /// into its own pre-provisioning conflict check (#1075) instead of silently defaulting to the
+    /// real network implementation and diverging from whatever this `DeployCommand` was built with
+    /// (production default or a test's injected fake).
+    public nonisolated let workerScriptNamesSource: WorkerScriptNamesSource
     private let executor: any DeployExecutor
 
     public init(
@@ -424,6 +429,27 @@ public actor DeployCommand {
         try? updated.write(to: configURL, atomically: true, encoding: .utf8)
     }
 
+    /// Marks this site's candidate Worker name as confirmed-ours, via `.site-config`'s
+    /// `CF_WORKER_PROVISIONED` — a second, earlier-firing signal `checkWorkerNameConflict` treats
+    /// the same as `CF_WORKER_DEPLOYED` (#1075). `CF_WORKER_DEPLOYED` alone only covers a *fully
+    /// succeeded* deploy, but `SocialWorkerProvisionCommand.provision()` can already have pushed
+    /// live Cloudflare state under this candidate name (`wrangler secret put` for ActivityPub, run
+    /// before the final `wrangler deploy`, auto-vivifies an empty Worker script under the target
+    /// name as a side effect) in an attempt that then failed for an unrelated reason before
+    /// `persistWorkerDeployed` ever ran. Without this second signal, a retry of that same site
+    /// would see its own auto-vivified script on the account and misreport it as a foreign
+    /// conflict. Called once, immediately after a fresh `checkWorkerNameConflict` pass at the very
+    /// start of provisioning — before any wrangler call that could touch the name — so a *genuine*
+    /// foreign collision is still caught before this site's own provisioning ever runs. Written
+    /// unconditionally like `persistWorkerDeployed`; best-effort, matching `persistSiteURL`.
+    static func persistWorkerProvisioned(siteDirectory: URL) {
+        let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
+        let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        guard SiteConfigFile.value(forKey: "CF_WORKER_PROVISIONED", in: config) == nil else { return }
+        let updated = SiteConfigFile.upsert([("CF_WORKER_PROVISIONED", "true")], into: config)
+        try? updated.write(to: configURL, atomically: true, encoding: .utf8)
+    }
+
     /// Uploads `Source/`'s snapshot to R2 (`DeployStep.bundleUpload`) when `.site-config`'s
     /// `CF_SOURCE_BUCKET` is set, then persists the uploaded commit SHA into `Config/settings.plist`
     /// (#799, spec §C.4 — the code side of a future Worker-triggered bake). A no-op today for every
@@ -462,9 +488,11 @@ public actor DeployCommand {
     }
 
     /// Checks whether `.site-config`'s `CF_PROJECT_NAME` collides with an existing Worker on the
-    /// connected Cloudflare account, but only on a site's first deploy (`CF_WORKER_DEPLOYED` not
-    /// yet set). Returns `.workerNameConflict` on a confirmed collision, or `nil` when the check
-    /// doesn't apply (redeploy, no candidate name) or can't be confirmed — a Cloudflare API
+    /// connected Cloudflare account, but only when neither `CF_WORKER_DEPLOYED` (a full deploy has
+    /// already succeeded under this name) nor `CF_WORKER_PROVISIONED` (this site's own earlier
+    /// provisioning already confirmed the name as ours, #1075) is set yet. Returns
+    /// `.workerNameConflict` on a confirmed collision, or `nil` when the check doesn't apply
+    /// (redeploy, already-provisioned, no candidate name) or can't be confirmed — a Cloudflare API
     /// failure here must never block a deploy that would otherwise succeed (fail open).
     static func checkWorkerNameConflict(
         siteDirectory: URL,
@@ -474,6 +502,7 @@ public actor DeployCommand {
         let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
         guard SiteConfigFile.value(forKey: "CF_WORKER_DEPLOYED", in: config) == nil,
+              SiteConfigFile.value(forKey: "CF_WORKER_PROVISIONED", in: config) == nil,
               let candidateName = SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config)
         else { return nil }
         guard let names = try? await workerScriptNamesSource(apiToken) else { return nil }
