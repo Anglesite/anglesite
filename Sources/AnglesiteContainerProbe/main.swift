@@ -3,6 +3,12 @@ import AnglesiteCore
 import AnglesiteContainer
 import Containerization
 
+/// Distinct sentinel error thrown by `ContainerizationControl.racingTimeout`'s `timeoutError`
+/// autoclosure in `runPauseResume`'s still-paused `container.stop()` check — lets that `catch`
+/// tell "our own bound gave up because the call hung" apart from whatever `container.stop()`
+/// itself throws (the expected VZ-level rejection), which a shared/generic error type couldn't.
+private struct PauseResumeProbeTimeout: Error {}
+
 // `anglesite-container-probe` — a standalone, entitled CLI for exercising
 // `ContainerizationControl`'s live vsock/boot path outside `swift test`.
 //
@@ -22,13 +28,18 @@ import Containerization
 //   workers-dev — mirrors ContainerizationControlTests.startsWorkersDevForActiveWorker: boot a
 //           container, start local wrangler-dev for one active (fixture) worker, poll its URL
 //           for a live HTTP response. The #708 local-runtime feature's own decision gate.
+//   pause-resume — bare container + guest vsock echo listener, confirm a round trip, pause the
+//           VM, resume it, confirm a FRESH dial still reaches the listener, then EMPIRICALLY
+//           confirm the resume-before-stop ordering: a direct `container.stop()` call while still
+//           paused must throw, and a resume-then-stop must succeed cleanly. The decision gate for
+//           the suspend-on-window-close plan.
 
 @main
 struct AnglesiteContainerProbe {
     static func main() async {
         let args = CommandLine.arguments.dropFirst()
         guard let subcommand = args.first else {
-            FileHandle.standardError.write(Data("usage: anglesite-container-probe <echo|boot|workers-dev>\n".utf8))
+            FileHandle.standardError.write(Data("usage: anglesite-container-probe <echo|boot|workers-dev|pause-resume>\n".utf8))
             exit(2)
         }
 
@@ -40,9 +51,11 @@ struct AnglesiteContainerProbe {
             exitCode = await runBoot()
         case "workers-dev":
             exitCode = await runWorkersDev()
+        case "pause-resume":
+            exitCode = await runPauseResume()
         default:
             FileHandle.standardError.write(
-                Data("unknown subcommand '\(subcommand)' (expected echo|boot|workers-dev)\n".utf8))
+                Data("unknown subcommand '\(subcommand)' (expected echo|boot|workers-dev|pause-resume)\n".utf8))
             exitCode = 2
         }
         exit(exitCode)
@@ -135,6 +148,163 @@ struct AnglesiteContainerProbe {
         }
 
         print("GATE: PASS")
+        await control.stopBareContainer(container, siteID: siteID)
+        return 0
+    }
+
+    // MARK: - pause-resume
+
+    /// Decision gate for the suspend-on-window-close feature (docs/superpowers/plans/
+    /// 2026-07-27-suspend-container-on-window-close.md): boot a bare container with a guest vsock
+    /// echo listener, confirm a round trip, pause the VM, resume it, and confirm a FRESH dial still
+    /// reaches the (never-restarted) guest listener. Then EMPIRICALLY confirms the resume-before-stop
+    /// ordering `PausedContainerRegistry.teardown` depends on: pauses again and calls
+    /// `container.stop()` directly while still paused, confirming it actually throws (a still-paused
+    /// VM's `VirtualMachineInstanceState` reads `.unknown`, not `.running`, and
+    /// `VZVirtualMachineInstance.stop()` guards on exactly that state) — failing the gate if it does
+    /// NOT throw, since that would be a genuinely different finding — and then confirms the
+    /// resume-then-stop path production code will actually use succeeds cleanly.
+    private static func runPauseResume() async -> Int32 {
+        let siteID = "vsock-pause-resume-probe"
+        let control = ContainerizationControl()
+
+        let container: LinuxContainer
+        do {
+            container = try await control.makeBareContainer(siteID: siteID)
+        } catch {
+            print("GATE: FAIL — makeBareContainer threw: \(error)")
+            return 1
+        }
+
+        func fail(_ message: String) async -> Int32 {
+            print(message)
+            await control.stopBareContainer(container, siteID: siteID)
+            return 1
+        }
+
+        do {
+            try await control.runDetached(
+                container, id: "echo", label: "echo", onOutput: logLine,
+                ["/usr/bin/socat", "VSOCK-LISTEN:9999,reuseaddr,fork", "EXEC:cat"])
+        } catch {
+            return await fail("GATE: FAIL — failed to launch guest socat echo listener: \(error)")
+        }
+
+        func roundTrip() async -> Bool {
+            var handle: FileHandle?
+            for _ in 0..<40 {
+                if let h = try? await container.dialVsock(port: 9999) { handle = h; break }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            guard let fh = handle else { return false }
+            let payload = Data("ping-vsock-echo\n".utf8)
+            guard (try? fh.write(contentsOf: payload)) != nil else { return false }
+            var received = Data()
+            let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+            while received.count < payload.count, ContinuousClock.now < deadline {
+                let chunk = fh.availableData
+                if chunk.isEmpty { try? await Task.sleep(for: .milliseconds(100)) } else { received.append(chunk) }
+            }
+            try? fh.close()
+            return received == payload
+        }
+
+        guard await roundTrip() else {
+            return await fail("GATE: FAIL — pre-pause echo round-trip failed")
+        }
+        print("GATE: pre-pause round-trip OK")
+
+        do {
+            try await container.withVirtualMachineInstance { vm in try await vm.pause() }
+        } catch {
+            return await fail("GATE: FAIL — vm.pause() threw: \(error)")
+        }
+        print("GATE: pause() succeeded")
+
+        do {
+            try await container.withVirtualMachineInstance { vm in try await vm.resume() }
+        } catch {
+            return await fail("GATE: FAIL — vm.resume() threw: \(error)")
+        }
+        print("GATE: resume() succeeded")
+
+        guard await roundTrip() else {
+            return await fail(
+                "GATE: FAIL — post-resume echo round-trip failed (fresh dial after resume) — vsock "
+                + "connections/listeners may not survive pause/resume; suspend-on-close is not viable "
+                + "as designed, escalate to the user before continuing this plan")
+        }
+        print("GATE: post-resume round-trip OK")
+
+        // Resume-before-stop ordering: pause again (no resume this time), then EMPIRICALLY confirm
+        // stopping a still-paused container fails — this is the actual claim
+        // `PausedContainerRegistry.teardown` (Task 2) and `ContainerizationControl`'s resume-failure
+        // fallback (Task 5) depend on, not just asserted in a comment. A still-paused VM's
+        // `VirtualMachineInstanceState` reads `.unknown` (not `.running`), and
+        // `VZVirtualMachineInstance.stop()` guards on exactly that state, so `container.stop()`
+        // should throw. Called directly (NOT through `stopBareContainer`, which swallows errors with
+        // `try?`) so a throw is actually observed here.
+        do {
+            try await container.withVirtualMachineInstance { vm in try await vm.pause() }
+        } catch {
+            return await fail("GATE: FAIL — second vm.pause() threw: \(error)")
+        }
+        print("GATE: pause() succeeded (2nd time)")
+
+        do {
+            // Bounded via `ContainerizationControl.racingTimeout` — NOT a `withThrowingTaskGroup`-based
+            // race. A structured race still awaits every child task (even a cancelled one) before
+            // returning, so if `container.stop()` doesn't itself observe cancellation and hangs (e.g.
+            // issuing guest-agent RPCs over vsock to a frozen guest before ever reaching the VZ-level
+            // state guard that's supposed to throw), a group-based race would hang right along with it.
+            // `racingTimeout` instead races an unstructured `Task` against a timeout `Task` and abandons
+            // the loser, so a genuine hang here can't block this probe forever.
+            try await ContainerizationControl.racingTimeout(
+                timeout: .seconds(15),
+                timeoutError: PauseResumeProbeTimeout()
+            ) {
+                try await container.stop()
+            }
+            return await fail(
+                "GATE: FAIL — container.stop() succeeded on a still-paused VM (expected it to throw "
+                + "'vm is not running'); the resume-before-stop ordering the plan assumes does NOT "
+                + "hold as predicted — this is a genuinely different finding, escalate before "
+                + "continuing the suspend-on-close plan")
+        } catch is PauseResumeProbeTimeout {
+            // Distinguish a real hang from the expected VZ-level rejection: this is `racingTimeout`'s
+            // own synthetic timeout error, meaning `container.stop()` never returned at all within 15s
+            // — NOT the VZ state guard throwing as predicted. Folding this into the same success message
+            // would misreport a hang as if it had confirmed the expected rejection.
+            return await fail(
+                "GATE: FAIL — container.stop() hung on a still-paused VM instead of throwing within 15s "
+                + "(timed out) — this is a different finding than the expected VZ state-guard rejection, "
+                + "escalate before continuing the suspend-on-close plan")
+        } catch {
+            print("GATE: container.stop() correctly threw while still paused: \(error)")
+        }
+
+        // Resume-then-stop: the pattern all production code will actually use.
+        do {
+            try await container.withVirtualMachineInstance { vm in try await vm.resume() }
+        } catch {
+            return await fail("GATE: FAIL — resume-before-stop's resume() threw: \(error)")
+        }
+        print("GATE: resume() succeeded (2nd time)")
+
+        do {
+            try await container.stop()
+        } catch {
+            return await fail(
+                "GATE: FAIL — container.stop() threw after resume (expected a clean stop): \(error)")
+        }
+        print("GATE: container.stop() succeeded after resume")
+
+        print("GATE: PASS")
+        // `container.stop()` already succeeded above, so this repeats it — but `LinuxContainer.stop()`
+        // explicitly allows being called multiple times (it returns immediately once `state ==
+        // .stopped`), so this is a safe no-op for the stop call itself. Reused anyway (rather than
+        // hand-duplicating its other steps) so the vmnet allocation is released and the ext4
+        // rootfs/initfs artifacts are removed, matching every other exit path in this file.
         await control.stopBareContainer(container, siteID: siteID)
         return 0
     }

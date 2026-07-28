@@ -594,12 +594,18 @@ public struct ContainerizationControl: LocalContainerControl {
     /// already resolved this call with an error. `onLateSuccess` is the caller's chance to react to
     /// that value — e.g. tear down a resource `operation` produced that nothing else now references —
     /// since the returned/thrown result from this function only ever reflects whichever side won.
-    /// `internal` (not `private`) so `RacingTimeoutTests` can exercise it directly via `@testable
-    /// import` — it's a pure, generic async primitive with no Virtualization/entitlement dependency,
-    /// so it doesn't need `ANGLESITE_CONTAINER_E2E`'s real-hardware gate, just this target's normal
-    /// `ANGLESITE_CONTAINER_TESTS` build gate (this whole target only builds locally/opt-in — see the
-    /// file-level doc comment on `ContainerizationControlTests`).
-    static func racingTimeout<T: Sendable>(
+    /// `package` (not `private`/`internal`) for two reasons: `RacingTimeoutTests` exercises it
+    /// directly via `@testable import` (that alone would only need `internal`) — it's a pure,
+    /// generic async primitive with no Virtualization/entitlement dependency, so it doesn't need
+    /// `ANGLESITE_CONTAINER_E2E`'s real-hardware gate, just this target's normal
+    /// `ANGLESITE_CONTAINER_TESTS` build gate (this whole target only builds locally/opt-in — see
+    /// the file-level doc comment on `ContainerizationControlTests`); and `anglesite-container-probe`
+    /// (`Sources/AnglesiteContainerProbe/main.swift`), a sibling target in this same package that
+    /// imports `AnglesiteContainer` normally (not `@testable`), calls it directly for the same
+    /// hang-vs-throw race it needs when bounding its own live VZ calls — `internal` alone is
+    /// invisible across that module boundary; `package` is the minimum that reaches both callers
+    /// without going fully `public`.
+    package static func racingTimeout<T: Sendable>(
         timeout: Duration,
         timeoutError: @autoclosure @escaping @Sendable () -> Error,
         onLateSuccess: @escaping @Sendable (T) -> Void = { _ in },
