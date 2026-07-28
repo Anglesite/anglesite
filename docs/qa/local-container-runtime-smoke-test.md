@@ -1,6 +1,6 @@
 # Local Container Runtime Manual Smoke Test
 
-**Issues:** [#59](https://github.com/Anglesite/Anglesite-app/issues/59), [#69](https://github.com/Anglesite/Anglesite-app/issues/69)  
+**Issues:** [#59](https://github.com/Anglesite/Anglesite/issues/59), [#69](https://github.com/Anglesite/Anglesite/issues/69)  
 **Scope:** Phase 1 author smoke for `LocalContainerSiteRuntime` on macOS with Apple Containerization.  
 **Target:** the `Anglesite` scheme — the single sandboxed Mac App Store target.
 

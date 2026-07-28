@@ -6,7 +6,7 @@ Anglesite is pre-release and moving fast — only the latest release (and `main`
 
 ## Reporting a vulnerability
 
-Please report security vulnerabilities privately using [GitHub Security Advisories](https://github.com/Anglesite/Anglesite-app/security/advisories/new) ("Report a vulnerability" under the Security tab) rather than filing a public issue.
+Please report security vulnerabilities privately using [GitHub Security Advisories](https://github.com/Anglesite/Anglesite/security/advisories/new) ("Report a vulnerability" under the Security tab) rather than filing a public issue.
 
 Include as much detail as you can: affected version/commit, reproduction steps, and impact. This is a solo-maintained project, so response times are best-effort, but reports are taken seriously and will be acknowledged as soon as possible.
 

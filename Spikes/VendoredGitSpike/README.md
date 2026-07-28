@@ -1,6 +1,6 @@
 # VendoredGitSpike
 
-Empirical harness for [#640](https://github.com/Anglesite/Anglesite-app/issues/640)'s Option 1:
+Empirical harness for [#640](https://github.com/Anglesite/Anglesite/issues/640)'s Option 1:
 does a **vendored, non-Apple** git binary (no Xcode Command Line Tools license-gate) execute as a
 subprocess from inside a real App Sandbox container, where Apple's own `/usr/bin/git` refuses to
 run at all (`xcrun: error: cannot be used within an App Sandbox.`)?

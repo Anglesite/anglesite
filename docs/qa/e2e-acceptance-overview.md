@@ -1,6 +1,6 @@
 # End-to-End QA Acceptance Run — Overview
 
-**Tracking issue:** [#706](https://github.com/Anglesite/Anglesite-app/issues/706) — record all evidence there.
+**Tracking issue:** [#706](https://github.com/Anglesite/Anglesite/issues/706) — record all evidence there.
 **Scope:** the core owner journey, first launch through first publish, as four sequential parts:
 
 | Part | Doc | Journey |

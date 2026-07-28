@@ -1,6 +1,6 @@
 # App Store Container Runtime Smoke Test
 
-**Issue:** [#81](https://github.com/Anglesite/Anglesite-app/issues/81)  
+**Issue:** [#81](https://github.com/Anglesite/Anglesite/issues/81)  
 **Scope:** real-signed, write-heavy smoke for the single sandboxed `Anglesite` App Store target.  
 **Target runtime:** `LocalContainerSiteRuntime` through Apple Containerization.
 

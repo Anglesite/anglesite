@@ -1,7 +1,7 @@
 # iCloud Git Sync Manual QA Checklist
 
-**Issue:** [#881](https://github.com/Anglesite/Anglesite-app/issues/881) — iCloud sync P5: app wiring, conflict UX, manual QA doc
-**Epic:** [#876](https://github.com/Anglesite/Anglesite-app/issues/876)
+**Issue:** [#881](https://github.com/Anglesite/Anglesite/issues/881) — iCloud sync P5: app wiring, conflict UX, manual QA doc
+**Epic:** [#876](https://github.com/Anglesite/Anglesite/issues/876)
 **Design:** [`docs/superpowers/specs/2026-07-21-icloud-git-sync-design.md`](../superpowers/specs/2026-07-21-icloud-git-sync-design.md)
 **Status:** **NOT YET RUN.** CI and `swift test` exercise `SyncEngine`, `SyncScheduler`, and
 `SyncConflictResolver` against local fixtures and a faked `VersionStore` (real `NSFileVersion`

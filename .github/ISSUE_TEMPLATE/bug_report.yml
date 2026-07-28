@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a bug. Please check [open issues](https://github.com/Anglesite/Anglesite-app/issues) first to avoid duplicates — if one already exists, add a comment there instead.
+        Thanks for taking the time to report a bug. Please check [open issues](https://github.com/Anglesite/Anglesite/issues) first to avoid duplicates — if one already exists, add a comment there instead.
 
         This repo is the native macOS app. If the bug is actually in the MCP sidecar server, file it in [`Anglesite/anglesite-skills`](https://github.com/Anglesite/anglesite-skills) instead — use the "Which repo" field below if you're not sure.
   - type: textarea
@@ -43,8 +43,8 @@ body:
     attributes:
       label: Which repo does this affect?
       options:
-        - Anglesite-app (this repo — SwiftUI shell, template, preview, edit overlay)
-        - anglesite (MCP sidecar server)
+        - Anglesite (this repo — SwiftUI shell, template, preview, edit overlay)
+        - anglesite-skills (MCP sidecar server)
         - Not sure
     validations:
       required: true

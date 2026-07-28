@@ -41,8 +41,8 @@ On either platform, `scripts/setup-dev-env.sh` checks the prerequisites below, f
 
 ```sh
 # Clone alongside the sidecar repo
-git clone https://github.com/Anglesite/Anglesite-app.git
-cd Anglesite-app
+git clone https://github.com/Anglesite/Anglesite.git
+cd Anglesite
 
 # One-shot environment check/bootstrap (generates the Xcode project, enables the
 # git hooks below, and reports anything missing) — or follow the steps manually:
@@ -84,8 +84,8 @@ The Debug configuration uses ad-hoc signing so contributors can build and run lo
 The app shell is macOS-only today, but Anglesite is going multi-platform — Linux first — per the [cross-platform port design](docs/superpowers/specs/2026-07-08-cross-platform-swift-port-design.md). On Linux, `Package.swift` exposes only the **portable SwiftPM targets** (currently `AnglesiteSiteModel`; the set grows as the "purity phase" lands seam by seam), and CI runs `swift build && swift test` on Ubuntu to enforce that boundary.
 
 ```sh
-git clone https://github.com/Anglesite/Anglesite-app.git
-cd Anglesite-app
+git clone https://github.com/Anglesite/Anglesite.git
+cd Anglesite
 
 # Checks for a Swift 6.3+ toolchain (installable via swiftly: https://www.swift.org/install/linux/),
 # creates the libxml2 soname shim if your distro needs it (see below), enables git hooks,

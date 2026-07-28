@@ -1,4 +1,4 @@
-# Anglesite-app — Development Context
+# Anglesite — Development Context
 
 This is the **native macOS app**. The sibling repo at `../anglesite` supplies the **MCP sidecar** (`server/`), which is staged into the container image at build time. Both repos are under the same `github.com/Anglesite/` parent directory.
 

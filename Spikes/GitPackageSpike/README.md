@@ -1,6 +1,6 @@
 # GitPackageSpike
 
-Empirical harness for [#640](https://github.com/Anglesite/Anglesite-app/issues/640): does a
+Empirical harness for [#640](https://github.com/Anglesite/Anglesite/issues/640): does a
 Swift-native, in-process libgit2 binding work from inside a real App Sandbox container, where
 `/usr/bin/git` refuses to execute at all (`xcrun: error: cannot be used within an App Sandbox.`)?
 
@@ -55,7 +55,7 @@ this gap only exists in SwiftGit2's *public* API surface, not in the app's desig
 
 **Pre-baking a `.git` into `Resources/Template/` (the "repo already initialized in the template"
 idea) doesn't fix this and adds a real footgun**: `Resources/Template/` is itself tracked inside
-Anglesite-app's own git repo, and a nested `.git/` directory under a tracked tree is a gitlink/
+Anglesite's own git repo, and a nested `.git/` directory under a tracked tree is a gitlink/
 submodule boundary — clones, CI, and diff tooling won't reproduce it the way a plain file would.
 It also wouldn't remove the need for an unborn-HEAD-safe commit: `gitInit` runs *before* the
 theme/homepage/logo/config writes, so even with a pre-baked initial commit, that first real
