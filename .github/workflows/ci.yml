@@ -189,14 +189,22 @@ jobs:
       # match instead of requiring an exact one). SwiftPM's own incremental build tracking
       # handles the rest — a partial-match restore never produces wrong output, only a
       # partially-warm cache.
+      #
+      # Also keyed on github.repository (#1061): the runner workspace path is
+      # /__w/<owner>/<repo>, and Swift's precompiled module cache (.pcm files) bakes in that
+      # absolute path at compile time. Anglesite/Anglesite-app was renamed to Anglesite/Anglesite
+      # mid-stream, which changed the workspace path without changing Package.resolved's hash —
+      # every run since restored a pre-rename .build whose .pcm files pointed at the now-gone
+      # path, failing every build with "missing required module 'SwiftShims'". Repository name
+      # is part of the key so a future rename busts the cache instead of silently poisoning it.
       - name: Cache SwiftPM build
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build
-          key: swiftpm-linux-6.3.3-noble-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
+          key: swiftpm-linux-6.3.3-noble-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
           restore-keys: |
-            swiftpm-linux-6.3.3-noble-${{ hashFiles('Package.resolved') }}-
-            swiftpm-linux-6.3.3-noble-
+            swiftpm-linux-6.3.3-noble-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-
+            swiftpm-linux-6.3.3-noble-${{ github.repository }}-
 
       - name: Build (debug)
         run: swift build -c debug
@@ -272,17 +280,17 @@ jobs:
           xcodebuild -version
           node --version
 
-      # See the linux-build-test cache step for the key-scheme rationale. Namespaced by the
-      # selected Xcode build so a runner-image toolchain bump can't restore incompatible
-      # object files.
+      # See the linux-build-test cache step for the key-scheme rationale (including the
+      # github.repository segment, #1061). Namespaced by the selected Xcode build so a
+      # runner-image toolchain bump can't restore incompatible object files.
       - name: Cache SwiftPM build
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build
-          key: swiftpm-macos-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
+          key: swiftpm-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
           restore-keys: |
-            swiftpm-macos-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-
-            swiftpm-macos-${{ steps.xcode.outputs.version }}-
+            swiftpm-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-
+            swiftpm-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-
 
       - name: Build (debug)
         run: swift build -c debug
@@ -333,14 +341,15 @@ jobs:
       # A distinct key namespace (`swiftpm-tsan-...`, not `swiftpm-macos-...`) — `--sanitize
       # thread` recompiles every unit with different flags, so sharing a cache with the plain
       # debug build would mean this lane can never hit and just pays the upload for nothing.
+      # See the linux-build-test cache step for the github.repository segment's rationale (#1061).
       - name: Cache SwiftPM build (ThreadSanitizer)
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build
-          key: swiftpm-tsan-macos-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
+          key: swiftpm-tsan-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
           restore-keys: |
-            swiftpm-tsan-macos-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-
-            swiftpm-tsan-macos-${{ steps.xcode.outputs.version }}-
+            swiftpm-tsan-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-${{ hashFiles('Package.resolved') }}-
+            swiftpm-tsan-macos-${{ steps.xcode.outputs.version }}-${{ github.repository }}-
 
       - name: Run concurrency suites under ThreadSanitizer
         run: scripts/test-concurrency-tsan.sh
