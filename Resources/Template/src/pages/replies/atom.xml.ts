@@ -1,5 +1,5 @@
 import type { APIContext } from "astro";
-import { getCollectionItems } from "../../lib/feed-data.ts";
+import { getCollectionItems, feedAuthor } from "../../lib/feed-data.ts";
 import { renderAtom, FEED_COLLECTIONS, siteFrom } from "../../lib/feeds.ts";
 
 const COLLECTION = "replies";
@@ -11,5 +11,6 @@ export async function GET(context: APIContext) {
     site,
     feedUrl: new URL(`/${COLLECTION}/atom.xml`, site).href,
     items: await getCollectionItems(COLLECTION, site),
+    author: feedAuthor(),
   });
 }

@@ -1,10 +1,23 @@
 import rss from "@astrojs/rss";
 
 export interface FeedItem {
-  title: string;
+  /** Absent for collections whose items have no natural title (notes, replies, likes, photos,
+   * and bookmarks without an explicit title) — a synthesized title (excerpt/"Re: host"/etc.) is
+   * not a real title, so we omit the field rather than fake one. */
+  title?: string;
   link: string; // absolute
   date: Date;
   summary: string;
+  /** Full entry body rendered to HTML at build time (see `feed-data.ts`). */
+  contentHtml: string;
+  /** `entry.data.tags`, when the collection's schema has the field and the entry set it. */
+  tags?: string[];
+}
+
+/** Feed-level (RSS channel / Atom feed / JSON Feed) attribution, sourced from `siteProfile()`. */
+export interface FeedAuthor {
+  name: string;
+  url?: string;
 }
 
 export type FeedEntry = {
@@ -17,48 +30,26 @@ export type FeedEntry = {
 export interface FeedCollectionConfig {
   title: string;
   dateField: string;
-  deriveTitle(entry: FeedEntry): string;
+  deriveTitle(entry: FeedEntry): string | undefined;
 }
 
-function host(url: unknown): string {
-  try {
-    return new URL(String(url)).host;
-  } catch {
-    return String(url ?? "");
-  }
-}
-
-function excerpt(body: string | undefined, max = 80): string {
+/** Exported for reuse by `/tags/[tag]/` (`tags.ts`), which needs the same title-less-entry
+ * fallback text as the feeds do. */
+export function excerpt(body: string | undefined, max = 80): string {
   const text = (body ?? "").replace(/\s+/g, " ").trim();
-  if (text.length <= max) return text || "Untitled";
+  if (text.length <= max) return text;
   return text.slice(0, max).trimEnd() + "…";
 }
 
 export const FEED_COLLECTIONS: Record<string, FeedCollectionConfig> = {
   blog: { title: "Blog", dateField: "pubDate", deriveTitle: (e) => e.data.title },
-  notes: { title: "Notes", dateField: "publishDate", deriveTitle: (e) => excerpt(e.body) },
+  notes: { title: "Notes", dateField: "publishDate", deriveTitle: () => undefined },
   articles: { title: "Articles", dateField: "publishDate", deriveTitle: (e) => e.data.title },
-  photos: {
-    title: "Photos",
-    dateField: "publishDate",
-    deriveTitle: (e) => e.data.caption ?? "Photo",
-  },
+  photos: { title: "Photos", dateField: "publishDate", deriveTitle: () => undefined },
   albums: { title: "Albums", dateField: "publishDate", deriveTitle: (e) => e.data.title },
-  bookmarks: {
-    title: "Bookmarks",
-    dateField: "publishDate",
-    deriveTitle: (e) => e.data.title ?? host(e.data.bookmarkOf),
-  },
-  replies: {
-    title: "Replies",
-    dateField: "publishDate",
-    deriveTitle: (e) => "Re: " + host(e.data.inReplyTo),
-  },
-  likes: {
-    title: "Likes",
-    dateField: "publishDate",
-    deriveTitle: (e) => "Liked " + host(e.data.likeOf),
-  },
+  bookmarks: { title: "Bookmarks", dateField: "publishDate", deriveTitle: (e) => e.data.title },
+  replies: { title: "Replies", dateField: "publishDate", deriveTitle: () => undefined },
+  likes: { title: "Likes", dateField: "publishDate", deriveTitle: () => undefined },
 };
 
 /// Resolve the absolute site base URL from an Astro endpoint context, failing loudly when
@@ -101,7 +92,41 @@ export function websubHub(
   };
 }
 
-export function toFeedItem(collection: string, entry: FeedEntry, site: string): FeedItem {
+/**
+ * Fallback `contentHtml` for interaction posts (likes/replies/bookmarks) whose body rendered to
+ * nothing — a like/reply/bookmark with no commentary still has faithful content to syndicate:
+ * the target URL it points at. This is deliberately *not* prose ("Liked", "Re:", …) — a
+ * synthesized caption is exactly what #1021/#1022 removed; the target URL is the one piece of
+ * real content every interaction post has. Photos keep their existing caption fallback
+ * (`feed-data.ts`'s `renderContentHtml`) and are untouched here.
+ */
+function interactionContentFallback(collection: string, data: Record<string, any>): string {
+  const targetUrl =
+    collection === "likes"
+      ? data.likeOf
+      : collection === "replies"
+        ? data.inReplyTo
+        : collection === "bookmarks"
+          ? data.bookmarkOf
+          : undefined;
+  if (!targetUrl) return "";
+  const escaped = escapeXml(String(targetUrl));
+  return `<a href="${escaped}">${escaped}</a>`;
+}
+
+/**
+ * Build a `FeedItem` from a content entry. `contentHtml` is the entry body already rendered to
+ * HTML — rendering is async (`createMarkdownProcessor`) and lives in `feed-data.ts`, so it's
+ * computed by the caller and passed in rather than made here, keeping this function synchronous
+ * and easy to unit test. When the rendered body is empty, likes/replies/bookmarks fall back to
+ * a link to their target URL (`interactionContentFallback`) rather than shipping empty content.
+ */
+export function toFeedItem(
+  collection: string,
+  entry: FeedEntry,
+  site: string,
+  contentHtml: string,
+): FeedItem {
   const cfg = FEED_COLLECTIONS[collection];
   if (!cfg) throw new Error(`No feed config for collection "${collection}"`);
   const rawDate = entry.data[cfg.dateField];
@@ -112,11 +137,14 @@ export function toFeedItem(collection: string, entry: FeedEntry, site: string): 
     throw new Error(`[feeds] entry "${entry.id}" has a missing or invalid ${cfg.dateField}`);
   }
   const summary = (entry.data.summary ?? entry.data.caption ?? excerpt(entry.body, 280)) || "";
+  const tags = Array.isArray(entry.data.tags) && entry.data.tags.length > 0 ? entry.data.tags : undefined;
   return {
-    title: cfg.deriveTitle(entry) || "Untitled",
+    title: cfg.deriveTitle(entry) || undefined,
     link: new URL(`/${collection}/${entry.id}/`, site).href,
     date,
     summary: String(summary),
+    contentHtml: contentHtml || interactionContentFallback(collection, entry.data),
+    tags,
   };
 }
 
@@ -131,6 +159,8 @@ export function renderRss(o: {
   site: string;
   items: FeedItem[];
   hub?: WebSubHubAdvertisement;
+  /** Channel-level attribution, rendered as `<dc:creator>` (RSS 2.0 has no native author element). */
+  author?: FeedAuthor;
 }): Promise<Response> {
   // RSS 2.0 has no native link relations; WebSub discovery in RSS uses Atom link elements
   // inside <channel> (the convention websub.rocks and every major reader check).
@@ -138,18 +168,40 @@ export function renderRss(o: {
     ? `<atom:link rel="hub" href="${escapeXml(o.hub.hubUrl)}"/>` +
       `<atom:link rel="self" type="application/rss+xml" href="${escapeXml(o.hub.selfUrl)}"/>`
     : undefined;
+  const authorData = o.author ? `<dc:creator>${escapeXml(o.author.name)}</dc:creator>` : undefined;
+  const customData = [hubData, authorData].filter((s): s is string => Boolean(s)).join("") || undefined;
+  const xmlns: Record<string, string> = {};
+  if (o.hub) xmlns.atom = "http://www.w3.org/2005/Atom";
+  if (o.author) xmlns.dc = "http://purl.org/dc/elements/1.1/";
   return rss({
     title: o.title,
     description: o.description,
     site: o.site,
-    ...(hubData
-      ? { xmlns: { atom: "http://www.w3.org/2005/Atom" }, customData: hubData }
-      : {}),
+    ...(Object.keys(xmlns).length ? { xmlns } : {}),
+    ...(customData ? { customData } : {}),
     items: o.items.map((i) => ({
+      // Zod's `title` field is optional and `@astrojs/rss` only emits <title> when truthy, so an
+      // absent `i.title` correctly drops the element rather than rendering it empty.
       title: i.title,
       link: i.link,
       pubDate: i.date,
-      description: i.summary,
+      // Invariant: RSS 2.0 requires title *or* description on every item, so a title-less item
+      // must always have a non-empty description. `contentHtml` (full HTML body, or the
+      // interaction-post target-URL fallback from `toFeedItem`) carries it when present, then
+      // the short summary, then — for a pathological entry with no title, no content, and no
+      // summary — the permalink itself, which is never empty. `fast-xml-parser`'s `XMLBuilder`
+      // (used by `@astrojs/rss` under the hood) escapes text-node content automatically, so the
+      // raw `i.link` here doesn't need manual XML-escaping, and neither does `i.contentHtml`
+      // (already real HTML that needs exactly the one automatic escape pass to travel safely as
+      // XML text). `i.summary`, though, is plain text that readers still interpret as HTML once
+      // they XML-decode `<description>` — so when it's promoted to stand in for contentHtml it
+      // needs an *additional* HTML-escape pass first (`escapeXml` here) so that a literal "&" or
+      // "<" the author typed renders as that literal character rather than markup; the automatic
+      // XML-escape pass astro-rss applies on top only protects the transport encoding, not this.
+      description: i.contentHtml || escapeXml(i.summary) || i.link,
+      // `@astrojs/rss` maps a `categories` array to one <category> element per tag; `undefined`
+      // (no tags) is dropped, matching the title/description optionality above.
+      categories: i.tags,
     })),
   });
 }
@@ -170,29 +222,42 @@ export function renderAtom(o: {
   items: FeedItem[];
   /** WebSub hub URL; emits a `rel="hub"` link when set (`rel="self"` is always present). */
   hubUrl?: string;
+  /** Feed-level attribution, rendered as a top-level `<author>`. */
+  author?: FeedAuthor;
 }): Response {
   const updated = o.items[0]?.date ?? new Date(0);
   const entries = o.items
-    .map(
+    .map((i) => {
+      // One <category term="…"/> per tag; entries without tags emit none.
+      const categories = (i.tags ?? []).map((t) => `    <category term="${escapeXml(t)}"/>\n`).join("");
       // Known limitation: <id> uses the permalink rather than a permanent tag: IRI (RFC 4287
       // §4.2.6). Renaming a slug therefore reads as a new entry in readers that saw the old URL.
       // This matches most simple RSS libraries; a stable tag: URI is a future improvement.
-      (i) => `  <entry>
-    <title>${escapeXml(i.title)}</title>
+      // Atom requires <title> on every entry (unlike RSS/JSON Feed); title-less items emit an
+      // empty element rather than omitting the tag or faking a title.
+      return `  <entry>
+    <title>${escapeXml(i.title ?? "")}</title>
     <link href="${escapeXml(i.link)}"/>
     <id>${escapeXml(i.link)}</id>
     <updated>${i.date.toISOString()}</updated>
-    <summary>${escapeXml(i.summary)}</summary>
-  </entry>`,
-    )
+${categories}    <summary>${escapeXml(i.summary)}</summary>
+    <content type="html">${escapeXml(i.contentHtml)}</content>
+  </entry>`;
+    })
     .join("\n");
+  const authorXml = o.author
+    ? `  <author>
+    <name>${escapeXml(o.author.name)}</name>
+${o.author.url ? `    <uri>${escapeXml(o.author.url)}</uri>\n` : ""}  </author>
+`
+    : "";
   const xml = `<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>${escapeXml(o.title)}</title>
   <id>${escapeXml(o.site)}</id>
   <link href="${escapeXml(o.site)}"/>
   <link rel="self" href="${escapeXml(o.feedUrl)}"/>
-${o.hubUrl ? `  <link rel="hub" href="${escapeXml(o.hubUrl)}"/>\n` : ""}  <updated>${updated.toISOString()}</updated>
+${o.hubUrl ? `  <link rel="hub" href="${escapeXml(o.hubUrl)}"/>\n` : ""}${authorXml}  <updated>${updated.toISOString()}</updated>
 ${entries}
 </feed>
 `;
@@ -208,6 +273,8 @@ export function renderJsonFeed(o: {
   items: FeedItem[];
   /** WebSub hub URL; emits the JSON Feed `hubs` array when set. */
   hubUrl?: string;
+  /** Feed-level attribution, rendered as the top-level `authors` array. */
+  author?: FeedAuthor;
 }): Response {
   const feed = {
     version: "https://jsonfeed.org/version/1.1",
@@ -215,12 +282,24 @@ export function renderJsonFeed(o: {
     home_page_url: o.site,
     feed_url: o.feedUrl,
     ...(o.hubUrl ? { hubs: [{ type: "WebSub", url: o.hubUrl }] } : {}),
+    ...(o.author ? { authors: [{ name: o.author.name, url: o.author.url }] } : {}),
     items: o.items.map((i) => ({
       id: i.link,
       url: i.link,
+      // Undefined `title` is dropped by JSON.stringify below, matching JSON Feed's "title is
+      // optional" contract for items with no natural title.
       title: i.title,
       summary: i.summary,
+      // JSON Feed 1.1 requires content_html or content_text on every item; fall back to the
+      // short summary when the body was empty. `i.summary` is plain text, but `content_html` is
+      // parsed as HTML by every consumer, so it needs HTML-escaping when it stands in for
+      // `contentHtml` (already real HTML, left untouched) — otherwise a literal "&"/"<" in the
+      // summary would be misread as an entity/tag instead of the literal character the author
+      // wrote.
+      content_html: i.contentHtml || escapeXml(i.summary),
       date_published: i.date.toISOString(),
+      // Undefined (no tags) is dropped by JSON.stringify below.
+      tags: i.tags,
     })),
   };
   return new Response(JSON.stringify(feed, null, 2), {

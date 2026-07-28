@@ -1,6 +1,6 @@
 import type { APIContext } from "astro";
 import { readConfig } from "../../scripts/config";
-import { getCombinedItems } from "../lib/feed-data.ts";
+import { getCombinedItems, feedAuthor } from "../lib/feed-data.ts";
 import { renderRss, siteFrom, websubHub } from "../lib/feeds.ts";
 
 export async function GET(context: APIContext) {
@@ -11,5 +11,6 @@ export async function GET(context: APIContext) {
     site,
     items: await getCombinedItems(site),
     hub: websubHub(site, "/rss.xml", readConfig("WEBSUB_ENABLED") === "true"),
+    author: feedAuthor(),
   });
 }
