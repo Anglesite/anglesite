@@ -53,7 +53,7 @@ from this repo:
 
 1. Locally, make sure the project generates cleanly: `xcodegen generate && open Anglesite.xcodeproj`.
 2. In Xcode: **Product ▸ Xcode Cloud ▸ Create Workflow**. Sign in with the Apple Developer account
-   for this app's team and grant Xcode Cloud access to the `Anglesite/Anglesite-app` GitHub repo
+   for this app's team and grant Xcode Cloud access to the `Anglesite/Anglesite` GitHub repo
    if prompted.
 3. Configure the workflow:
    - **Scheme:** `Anglesite`.

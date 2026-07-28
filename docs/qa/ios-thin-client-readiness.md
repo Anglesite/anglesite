@@ -1,6 +1,6 @@
 # iOS Thin Client Readiness Audit
 
-**Issues:** [#59](https://github.com/Anglesite/Anglesite-app/issues/59), [#71](https://github.com/Anglesite/Anglesite-app/issues/71)  
+**Issues:** [#59](https://github.com/Anglesite/Anglesite/issues/59), [#71](https://github.com/Anglesite/Anglesite/issues/71)  
 **Scope:** Phase 5 preflight for the remote-only iOS/iPadOS app target.
 
 ## Purpose

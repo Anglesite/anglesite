@@ -10,7 +10,7 @@ Docker/buildx is used there only to manufacture an OCI root filesystem; macOS
 runtime execution is Apple's Containerization framework, not Docker.
 
 This directory is retained for the Cloudflare Sandbox / remote-runtime image
-pipeline from issue [#62](https://github.com/Anglesite/Anglesite-app/issues/62):
+pipeline from issue [#62](https://github.com/Anglesite/Anglesite/issues/62):
 a canonical dev-server image plus the Cloudflare-specific wrapper
 [`Dockerfile.cloudflare`](Dockerfile.cloudflare). It is future-facing for
 `RemoteSandboxSiteRuntime` / iOS and spike work, not the source of

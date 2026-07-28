@@ -16,7 +16,7 @@ import {
 /** Refuse to commit anything larger than this into the owner's site repo. */
 export const MAX_ASSET_BYTES = 5_000_000;
 
-const USER_AGENT = "Anglesite-EmbedSnapshot/1.0 (+https://github.com/Anglesite/Anglesite-app)";
+const USER_AGENT = "Anglesite-EmbedSnapshot/1.0 (+https://github.com/Anglesite/Anglesite)";
 const TIMEOUT_MS = 15_000;
 
 export function normalizeFor(

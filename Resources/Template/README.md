@@ -1,6 +1,6 @@
 # Anglesite site
 
-An Astro project managed by [Anglesite](https://github.com/Anglesite/Anglesite-app). This is
+An Astro project managed by [Anglesite](https://github.com/Anglesite/Anglesite). This is
 the canonical, externally-editable copy of your site: it is a plain git repository, so you can
 clone it, edit it in any editor, and build it without the app.
 

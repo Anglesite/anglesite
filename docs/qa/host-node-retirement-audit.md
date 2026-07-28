@@ -1,6 +1,6 @@
 # Host Node Retirement Audit
 
-**Issues:** [#59](https://github.com/Anglesite/Anglesite-app/issues/59), [#70](https://github.com/Anglesite/Anglesite-app/issues/70)  
+**Issues:** [#59](https://github.com/Anglesite/Anglesite/issues/59), [#70](https://github.com/Anglesite/Anglesite/issues/70)  
 **Scope:** #70 retirement checklist for the embedded host Node path.
 
 ## Purpose

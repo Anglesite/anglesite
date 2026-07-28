@@ -1,7 +1,7 @@
 # Siri Onscreen Awareness Manual Smoke Test
 
-**Issue:** [#150](https://github.com/Anglesite/Anglesite-app/issues/150) - B.6, Siri + preview pane onscreen awareness  
-**Parent:** [#133](https://github.com/Anglesite/Anglesite-app/issues/133) - View Annotations for onscreen awareness  
+**Issue:** [#150](https://github.com/Anglesite/Anglesite/issues/150) - B.6, Siri + preview pane onscreen awareness  
+**Parent:** [#133](https://github.com/Anglesite/Anglesite/issues/133) - View Annotations for onscreen awareness  
 **Scope:** Manual product smoke for the live Siri/App Intents handoff that cannot be proven by `swift test`.
 
 ## Purpose

@@ -17,7 +17,7 @@ from your contact form provider, a question someone asked in person, a reminder 
 
 ## What this doesn't do yet
 
-The infrastructure for capturing visitor messages into this Inbox exists ([#587](https://github.com/Anglesite/Anglesite-app/issues/587)): a
+The infrastructure for capturing visitor messages into this Inbox exists ([#587](https://github.com/Anglesite/Anglesite/issues/587)): a
 Worker route (`/inbox`) stages submissions to a KV store, and on each site open, the app automatically
 pulls and commits them into your repo's Inbox collection as new entries. To use it, you need to set up
 a Cloudflare KV namespace for staging and configure your site with its ID and your account ID — this
