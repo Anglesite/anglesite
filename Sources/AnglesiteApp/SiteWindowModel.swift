@@ -1525,7 +1525,13 @@ final class SiteWindowModel {
                 }
             }
         }
-        if let templateURL = TemplateRuntime.bundledURL() {
+        // Give SwiftUI a run-loop turn to fully settle the dependency-sync sheet's dismissal
+        // before the scripts-sync sheet below requests its own presentation — back-to-back
+        // `.sheet(item:)` presentations in the same synchronous continuation-resumption stack
+        // risk a silently-failed second presentation, which (with `.interactiveDismissDisabled()`
+        // on both sheets) would leave this method's `CheckedContinuation` unresumed forever.
+        await Task.yield()
+        if let templateURL = TemplateRuntime.resolve().url {
             let plan = TemplateScriptsSyncChecker.check(
                 sourceDirectory: resolved.sourceDirectory,
                 configDirectory: resolved.configDirectory,

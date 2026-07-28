@@ -56,4 +56,21 @@ import AnglesiteCore
         model.update(fileA)
         #expect(finishedCount == 1)
     }
+
+    @Test func redundantResolveOfAnAlreadyResolvedDivergenceForwardsNoSecondDecision() {
+        var resolvedCount = 0
+        let model = ScriptSyncModel(
+            divergences: [fileA],
+            onResolve: { _, _ in resolvedCount += 1 },
+            onFinished: {}
+        )
+
+        model.update(fileA)
+        #expect(resolvedCount == 1)
+
+        // fileA is no longer in `pending` — a second tap (e.g. a stale UI callback) must not
+        // forward a second, possibly contradictory decision.
+        model.keepMine(fileA)
+        #expect(resolvedCount == 1)
+    }
 }
