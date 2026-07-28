@@ -71,22 +71,28 @@ The script prints the built app path and the interactive steps. Copy the built a
 
 ## Smoke Matrix
 
+Re-run 2026-07-27, real-signed Debug build of `main` @ `13131027`, Apple Development team `UX3L9R8RSL` (`codesign -dv` confirmed non-ad-hoc), on Xcode 27 / macOS with `container` CLI 1.1.0.
+
 | Case | Result | Evidence |
 |---|---|---|
-| Real-signed app launches from `~/Applications` |  |  |
-| App signature has expected Team ID |  |  |
-| App signature carries `com.apple.security.virtualization` |  |  |
-| Imported fixture package opens with a security-scoped grant |  |  |
-| Runtime selection logs `LocalContainerSiteRuntime` |  |  |
-| No host Node preview fallback starts |  |  |
-| Preview loads through loopback proxy |  |  |
-| MCP/edit path applies a text edit through the in-container sidecar |  |  |
-| Example photo highlights as an image drop target; dropping a Finder image writes optimized assets under `Source/public/images/` |  |  |
-| Build/preflight/deploy path reaches the expected Cloudflare token or wrangler result |  |  |
-| Foundation Models chat is present |  |  |
-| GitHub `gh` settings/auth UI is absent in App Store build |  |  |
-| Window close tears down VM/proxies |  |  |
-| No relevant sandbox denials appear during the run |  |  |
+| Real-signed app launches from `~/Applications` | PASS | `codesign -dv` on the copied app: `Authority=Apple Development…`, `TeamIdentifier=UX3L9R8RSL` (not ad-hoc). Launched via `open -n`. |
+| App signature has expected Team ID | PASS | Same as above. |
+| App signature carries `com.apple.security.virtualization` | PASS | `codesign -d --entitlements :-` shows `com.apple.security.virtualization = true`, plus `app-sandbox`, `files.user-selected.read-write`, `files.bookmarks.app-scope`. |
+| Imported fixture package opens with a security-scoped grant | PASS | File ▸ Import Site… → save panel Powerbox grant on `anglesite-smoke.anglesite`; package readable/writable across relaunch and reopen. |
+| Runtime selection logs `LocalContainerSiteRuntime` | PASS | Debug pane `runtime` source: repeated `selected LocalContainerSiteRuntime`. |
+| No host Node preview fallback starts | PASS | Debug pane search for `LocalSiteRuntime`: zero matches. |
+| Preview loads through loopback proxy | PASS | `http://127.0.0.1:<port>` preview loads and live-reloads (Astro HMR) on edit. |
+| MCP/edit path applies a text edit through the in-container sidecar | **FAIL** (regression) | Heading edit committed in preview + container (MCP `accepted`/`dial-ok`, Astro HMR reload). But host `Source/index.astro` never changed: `git status --short` clean immediately, after an 8s wait, and after ⌘S. Reopening the site (fresh container clone from host) reverted the heading to its original text; `git log --all` has zero mentions of the edited text anywhere. Reproduces #718 despite merged #737. Filed as [#1066](https://github.com/Anglesite/Anglesite/issues/1066). |
+| Example photo highlights as an image drop target; dropping a Finder image writes optimized assets under `Source/public/images/` | **INCONCLUSIVE** | The drop-zone highlight + "Drop onto a highlighted image to replace it" tooltip fires reproducibly on a synthetic Finder-desktop-icon drag (`left_click_drag`, tried 2x, plus a manual multi-step press/move/release, 2x). But no in-preview image change and no host `public/images/` write occurred either way — can't tell whether that's the same persistence bug as the text-edit case or whether the synthetic drag simply doesn't carry a real file payload (CGEventPost-based drags are a known-hard case for Finder→WebView file promises). Still needs a literal human hand to resolve, as originally noted. |
+| Build/preflight/deploy path reaches the expected Cloudflare token or wrangler result | PASS (partial) | Deploy button correctly opens the "Connect to Cloudflare" one-time API token dialog (link to Cloudflare API tokens page, paste-token field, disabled "Connect & deploy" until filled). Stopped there — entering/creating a Cloudflare API token is credential entry an agent should not perform; a full real `wrangler deploy` round-trip needs a human to paste their own token. |
+| Foundation Models chat is present | PASS | Chat toolbar icon opens a working "Ask the assistant…" panel. |
+| GitHub `gh` settings/auth UI is absent in App Store build | PASS (clarified) | No `gh`-CLI-based auth UI anywhere. Settings ▸ Advanced ▸ Credentials does have a manual "GitHub personal access token" paste field — that's the deterministic git-push credential (#653), unrelated to and not a reappearance of the retired `gh` CLI/Claude Code auth flow. |
+| Window close tears down VM/proxies | PASS | Closing the site window dropped its loopback proxy ports (`lsof` before/after); main app process stayed alive with no orphaned listeners. |
+| No relevant sandbox denials appear during the run | PASS | `log stream --predicate 'eventMessage CONTAINS "deny"'` captured for the full run, filtered to our PID: only benign `system-info net.link.addr` and `mach-lookup com.apple.Safari.SafeBrowsing.Service` noise (common to any sandboxed/WebKit-using app) — nothing touching `Source/`, container mounts, MCP, or deploy paths. |
+
+### #715 regression gate + probes
+
+Also re-verified before the app build: `scripts/run-container-probe.sh echo` → `GATE: PASS`. `scripts/run-container-probe.sh boot` run concurrently with a second `container network create` (mirroring another vmnet consumer) → guest allocated `192.168.69.0/24` while the concurrent network held `192.168.68.0/24` (no overlap), and `BOOT: PASS` (the probe's `npm install` retained outbound DNS/HTTPS throughout). #715 stays fixed.
 
 Use `PASS`, `FAIL`, or `N/A`, and record exact failure logs for every non-pass.
 
@@ -161,9 +167,34 @@ This is a **focused re-run**, not a full matrix from scratch:
    cleanliness) needs no re-execution — nothing on those paths changed since
    07-14.
 
-### Execution blocker
+### Re-run results (2026-07-27)
 
-This scoping pass was written from a session with no Xcode/macOS access, so
-it cannot execute the matrix itself. The re-run needs the same preconditions
-as the original: an Apple Silicon Mac, a real signing identity, and
-hands-on GUI time — the image-drop case specifically cannot be automated.
+Executed on an Apple Silicon Mac with a real Apple Development signing
+identity — see the Smoke Matrix above for full per-row evidence. Summary:
+
+1. **Case 8 — MCP edit persistence: still FAILS.** Reproduced #718 despite
+   merged #737 — see [#1066](https://github.com/Anglesite/Anglesite/issues/1066)
+   for the fresh repro. This remains the reason #81 stays open.
+2. **Image drop: still inconclusive**, now for a possibly different reason —
+   synthetic drag tooling (`left_click_drag`, manual press/move/release) gets
+   the drop-zone highlight to fire but produces no observable write on either
+   side (container or host), so it's unclear whether this is the same
+   persistence bug or a synthetic-drag limitation. Still needs a human hand.
+3. **Wrangler round-trip: reaches the token dialog, stops there by design.**
+   Deploy correctly opens the "Connect to Cloudflare" one-time-token flow.
+   Completing a real deploy needs a human to paste their own Cloudflare API
+   token — that's not something to automate.
+4. **Spot-checks:** `create-smoke-fixture.sh` needed one additional fix not
+   in the #722 list — it never stamped `.site-config` (scaffold.sh's job,
+   skipped by the rsync-based fixture script), so Import Site rejected the
+   fixture as "missing required files". Fixed in this same pass. Import →
+   git-bootstrap and `.gitignore` both confirmed working as part of the
+   normal fixture flow.
+5. **Previously-passing rows:** all re-confirmed (see matrix) — sandbox/
+   entitlement, runtime selection, no host fallback, chat presence, `gh`
+   absence (clarified: a GitHub PAT field exists for git push, unrelated to
+   the retired `gh` CLI flow), teardown, and log cleanliness.
+
+#81 stays open on the strength of case 8 (tracked at
+[#1066](https://github.com/Anglesite/Anglesite/issues/1066)) and the
+still-unresolved image-drop row.
