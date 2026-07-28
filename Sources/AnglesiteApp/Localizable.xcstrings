@@ -1949,6 +1949,12 @@
     "Plan social media for ${site}" : {
 
     },
+    "Play dial-up sound while loading" : {
+
+    },
+    "Plays a nostalgic dial-up modem sound while the dev server starts up or a deploy is running. Purely decorative — off by default." : {
+
+    },
     "Point at a checkout of the plugin (e.g. `../anglesite`) to iterate without rebuilding the app." : {
 
     },
@@ -2612,6 +2618,9 @@
 
     },
     "Software or SaaS" : {
+
+    },
+    "Sound" : {
 
     },
     "Source" : {

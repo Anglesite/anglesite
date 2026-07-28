@@ -25,6 +25,7 @@ private struct GeneralSettingsView: View {
     @AppStorage(AppSettings.Key.autoGeneratePageCopy) private var autoGeneratePageCopy: Bool = true
     @AppStorage(AppSettings.Key.announcesLiveUpdates) private var announcesLiveUpdates: Bool = true
     @AppStorage(AppSettings.Key.notifiesOnCompletion) private var notifiesOnCompletion: Bool = true
+    @AppStorage(AppSettings.Key.playsDialupSoundEffect) private var playsDialupSoundEffect: Bool = false
 
     var body: some View {
         Form {
@@ -42,6 +43,13 @@ private struct GeneralSettingsView: View {
             Section("Notifications") {
                 Toggle("Notify when site operations finish", isOn: $notifiesOnCompletion)
                 Text("Posts a notification when a Deploy, Backup, or Audit finishes while Anglesite is in the background — success or failure. Clicking the notification brings the site's window to the front. Delivery starts quietly; promote or silence Anglesite in System Settings › Notifications.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Sound") {
+                Toggle("Play dial-up sound while loading", isOn: $playsDialupSoundEffect)
+                Text("Plays a nostalgic dial-up modem sound while the dev server starts up or a deploy is running. Purely decorative — off by default.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
