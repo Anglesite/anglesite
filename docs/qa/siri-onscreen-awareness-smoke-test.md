@@ -28,7 +28,7 @@ Suggested build commands:
 
 ```sh
 xcodegen generate
-env ANGLESITE_PLUGIN_SRC=/Users/dwk/Developer/github.com/Anglesite/anglesite \
+env ANGLESITE_PLUGIN_SRC=/Users/dwk/Developer/github.com/Anglesite/anglesite-skills \
   xcodebuild -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
 ```
 

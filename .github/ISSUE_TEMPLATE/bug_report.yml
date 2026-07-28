@@ -7,7 +7,7 @@ body:
       value: |
         Thanks for taking the time to report a bug. Please check [open issues](https://github.com/Anglesite/Anglesite-app/issues) first to avoid duplicates — if one already exists, add a comment there instead.
 
-        This repo is the native macOS app. If the bug is actually in the MCP sidecar server, file it in [`Anglesite/anglesite`](https://github.com/Anglesite/anglesite) instead — use the "Which repo" field below if you're not sure.
+        This repo is the native macOS app. If the bug is actually in the MCP sidecar server, file it in [`Anglesite/anglesite-skills`](https://github.com/Anglesite/anglesite-skills) instead — use the "Which repo" field below if you're not sure.
   - type: textarea
     id: summary
     attributes:
