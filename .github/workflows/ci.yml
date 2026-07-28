@@ -237,11 +237,11 @@ jobs:
           # (renamed Anglesite-app -> Anglesite), so it silently checks out the wrong repo
           # and then fails fetching a tag that only exists in the real sidecar.
           repository: Anglesite/anglesite-skills
-          # Pinned to the plugin release the app currently exercises. v1.8.0 carries
+          # Pinned to the sidecar release the app currently exercises. v1.8.0 carries
           # the recordEdit git-identity fix (sidecar #429/#431) that this e2e lane's
           # overlay -> patcher -> file-on-disk round-trip needs to actually exercise
           # the apply-edit persistence path fixed for #1066 — bump this pin again the
-          # next time a newer plugin feature becomes load-bearing for CI.
+          # next time a newer sidecar feature becomes load-bearing for CI.
           ref: v1.8.0
           path: anglesite-plugin
 
