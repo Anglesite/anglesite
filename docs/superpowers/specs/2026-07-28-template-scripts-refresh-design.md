@@ -74,12 +74,19 @@ relative path:
 {
   "files": {
     "scripts/pre-deploy-check.ts": {
-      "baselineHash": "sha256:<hash of the template content this file was last synced from>",
-      "acknowledgedTemplateHash": "sha256:<hash the owner explicitly chose to skip, if any>"
+      "baselineHash": "<hash of the template content this file was last synced from>",
+      "acknowledgedTemplateHash": "<hash the owner explicitly chose to skip, if any>"
     }
   }
 }
 ```
+
+Hashes are computed with the existing `VectorMath.stableHashValue`/`stableHash` (FNV-1a 64-bit,
+`Sources/AnglesiteCore/VectorMath.swift:19-29`) rather than `CryptoKit.SHA256` — `AnglesiteCore`
+builds on Linux CI, where `CryptoKit` isn't available and this repo has no `swift-crypto`
+dependency to fall back to. FNV-1a is already used elsewhere in this codebase for
+non-security change-detection hashing (`POSSEClients.swift`, `MTAStsPolicyAsset.swift`), which is
+exactly this use case: detecting whether file content changed, not authenticating it.
 
 `baselineHash` is what the site's file looked like the last time this mechanism successfully
 reconciled it (either at scaffold time, retroactively backfilled, or after a refresh/acknowledged
@@ -165,8 +172,9 @@ shape — holds the queued items and a completion continuation the caller awaits
 ## Wiring
 
 Runs from the same place `DependencySyncChecker` runs today — `SiteWindowModel.loadAndStart()` —
-guarded the same way (`TemplateRuntime.bundledURL()` and `AppVersion.current()` both present), as
-an independent step:
+guarded only by `TemplateRuntime.bundledURL()` being present (unlike `DependencySyncChecker`, this
+mechanism has no use for `AppVersion.current()` — it deliberately doesn't key off the app-version
+stamp at all, per the baseline note above), as an independent step:
 
 1. Silent creates/refreshes (detection steps 1 and 4) are applied immediately, unconditionally, no
    UI.
@@ -204,6 +212,18 @@ mocking, asserting on resulting file/JSON contents.
 - `Tests/AnglesiteCoreTests/TemplateScriptsSyncApplierTests.swift` — writes template content over
   site file, creates missing file, updates baseline entry, records `acknowledgedTemplateHash` on
   "keep my version".
-- A `SiteWindowModel`-level wiring test for the new hook, since the survey found no existing
-  dedicated test for the analogous `DependencySyncChecker` call site either — this design adds one
-  rather than leaving both hooks untested at that layer.
+- `Tests/AnglesiteAppTests/ScriptSyncModelTests.swift` — the new presentation-layer model's own
+  logic (pending list shrinks per decision, `onFinished` fires exactly when it empties) — this one
+  has actual state beyond a pass-through, unlike `DependencyUpdateModel`, which has no test file of
+  its own.
+- **No new `SiteWindowModel.loadAndStart()` wiring test.** Checked first: the existing
+  `DependencySyncChecker` call site in the same method has no dedicated test either (confirmed —
+  `Tests/AnglesiteAppTests/SiteWindowModelTests.swift:114` notes explicitly that its tests don't
+  run `loadAndStart()`, since exercising it needs a real `SiteStore`-backed site resolution the
+  existing suite deliberately avoids building). Adding a first-of-its-kind harness just for this
+  hook, when the precedent it mirrors has never needed one, isn't worth the weight — the checker,
+  applier, and model are each fully covered on their own, and the glue in `loadAndStart()` is a
+  direct, uncomplicated call of already-tested functions. Verified instead by manual QA: open a
+  site whose `scripts/pre-deploy-check.ts` has been hand-edited against a template build with a
+  changed `pre-deploy-check.ts`, confirm the sheet appears with the right copy, and confirm
+  "Update"/"Keep My Version" do what they say.
