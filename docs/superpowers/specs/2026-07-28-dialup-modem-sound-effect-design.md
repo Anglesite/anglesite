@@ -16,6 +16,7 @@ operation: the dev server starting up, and a deploy running. Purely decorative
 | Decision | Choice |
 |---|---|
 | Audio source | Synthesized procedurally in Swift (no bundled recording, no licensing question) |
+| Handshake flavor | K56flex — the standard Hayes' 56K modems actually spoke (Hayes/Rockwell/Lucent alliance), not the competing USR-backed x2 standard |
 | Triggers | Dev-server startup (`StartupProgressModel`) **and** deploy (`DeployModel.onPhaseTransition`) |
 | Overlap across windows | Per-window; two windows loading at once can play independently (no app-wide coordination) |
 | Overlap within one window | Not coordinated either — two independent `DialupSoundEffectPlayer` instances (one for startup, one for deploy); a rare simultaneous case would layer, not break |
@@ -36,8 +37,20 @@ recording:
   — the number for [The Kingdom Connection](https://web.archive.org/web/19971021061542/http://www.kingcon.com/),
   a BBS the user was once sysop of
 - The real ITU V.25 2100 Hz answer tone, including its periodic phase reversal
-- A couple of ascending chirp sweeps standing in for the negotiation tones
-- A filtered-noise burst standing in for the training sequence
+  (the V.8/V.8bis call-setup exchange every 56K-era handshake still opens with)
+- A short digital-probe-style tone burst standing in for the line-probing step
+  that's specific to 56K (K56flex/x2/V.90) handshakes and absent from a plain
+  V.34 33.6K handshake — the detail that actually marks this as a *56K* modem
+  rather than a generic dial-up one
+- A couple of ascending chirp sweeps standing in for the rest of the K56flex
+  negotiation tones
+- A filtered-noise burst standing in for the scrambled carrier-training sequence
+
+K56flex's exact proprietary bit-level training sequence was never publicly
+documented in enough acoustic detail to reproduce precisely, so this stays a
+stylized approximation shaped like a 56K handshake (probe step + the longer
+overall negotiation 56K added over 33.6K V.34) rather than a literal decode of
+the K56flex spec.
 
 All sample values stay within `[-1, 1]`. Deterministic given the same inputs —
 no randomness seeded from wall-clock time.
