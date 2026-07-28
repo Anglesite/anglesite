@@ -2,7 +2,12 @@ import Foundation
 import AnglesiteCore
 import AnglesiteContainer
 import Containerization
-import ContainerizationError
+
+/// Distinct sentinel error thrown by `ContainerizationControl.racingTimeout`'s `timeoutError`
+/// autoclosure in `runPauseResume`'s still-paused `container.stop()` check — lets that `catch`
+/// tell "our own bound gave up because the call hung" apart from whatever `container.stop()`
+/// itself throws (the expected VZ-level rejection), which a shared/generic error type couldn't.
+private struct PauseResumeProbeTimeout: Error {}
 
 // `anglesite-container-probe` — a standalone, entitled CLI for exercising
 // `ContainerizationControl`'s live vsock/boot path outside `swift test`.
@@ -247,16 +252,33 @@ struct AnglesiteContainerProbe {
         print("GATE: pause() succeeded (2nd time)")
 
         do {
-            // Bounded: the Virtualization framework can hang rather than throw in some unentitled/
-            // unexpected states (see `ContainerizationControl.start`'s own `racingTimeout` use for the
-            // same caution) — don't let this probe block forever if a still-paused VM's guest-agent
-            // vsock dial never completes.
-            try await withTimeout(seconds: 15) { try await container.stop() }
+            // Bounded via `ContainerizationControl.racingTimeout` — NOT a `withThrowingTaskGroup`-based
+            // race. A structured race still awaits every child task (even a cancelled one) before
+            // returning, so if `container.stop()` doesn't itself observe cancellation and hangs (e.g.
+            // issuing guest-agent RPCs over vsock to a frozen guest before ever reaching the VZ-level
+            // state guard that's supposed to throw), a group-based race would hang right along with it.
+            // `racingTimeout` instead races an unstructured `Task` against a timeout `Task` and abandons
+            // the loser, so a genuine hang here can't block this probe forever.
+            try await ContainerizationControl.racingTimeout(
+                timeout: .seconds(15),
+                timeoutError: PauseResumeProbeTimeout()
+            ) {
+                try await container.stop()
+            }
             return await fail(
                 "GATE: FAIL — container.stop() succeeded on a still-paused VM (expected it to throw "
                 + "'vm is not running'); the resume-before-stop ordering the plan assumes does NOT "
                 + "hold as predicted — this is a genuinely different finding, escalate before "
                 + "continuing the suspend-on-close plan")
+        } catch is PauseResumeProbeTimeout {
+            // Distinguish a real hang from the expected VZ-level rejection: this is `racingTimeout`'s
+            // own synthetic timeout error, meaning `container.stop()` never returned at all within 15s
+            // — NOT the VZ state guard throwing as predicted. Folding this into the same success message
+            // would misreport a hang as if it had confirmed the expected rejection.
+            return await fail(
+                "GATE: FAIL — container.stop() hung on a still-paused VM instead of throwing within 15s "
+                + "(timed out) — this is a different finding than the expected VZ state-guard rejection, "
+                + "escalate before continuing the suspend-on-close plan")
         } catch {
             print("GATE: container.stop() correctly threw while still paused: \(error)")
         }
@@ -285,26 +307,6 @@ struct AnglesiteContainerProbe {
         // rootfs/initfs artifacts are removed, matching every other exit path in this file.
         await control.stopBareContainer(container, siteID: siteID)
         return 0
-    }
-
-    /// Bounds a throwing async `operation` to `seconds`, racing it against a timeout task. Needed
-    /// because the Virtualization framework backing `LinuxContainer`/`VZVirtualMachineInstance` can
-    /// hang rather than throw in some unentitled/unexpected states (see
-    /// `ContainerizationControl.start`'s own `racingTimeout` helper for the same caution) — this
-    /// probe must not block indefinitely waiting on a call whose whole point is to observe whether
-    /// it throws.
-    private static func withTimeout<T: Sendable>(
-        seconds: Double, operation: @escaping @Sendable () async throws -> T
-    ) async throws -> T {
-        try await withThrowingTaskGroup(of: T.self) { group in
-            group.addTask { try await operation() }
-            group.addTask {
-                try await Task.sleep(for: .seconds(seconds))
-                throw ContainerizationError(.timeout, message: "operation timed out after \(seconds)s")
-            }
-            defer { group.cancelAll() }
-            return try await group.next()!
-        }
     }
 
     // MARK: - boot
