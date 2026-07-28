@@ -1,5 +1,10 @@
 import Foundation
-import os
+// OSLog is Darwin-only; AnglesiteCore is part of the Linux-portable target set (Package.swift,
+// cross-platform port design §9/§10), so logging falls back to stderr off-Darwin — same pattern
+// as WorkerCatalogFetcher.swift/WorkersConformanceFetcher.swift.
+#if canImport(OSLog)
+import OSLog
+#endif
 
 /// Detects which app-owned `scripts/` files a site needs refreshed, and which have been
 /// customized in a way the app can't silently resolve (design doc, #1053). Unlike
@@ -8,7 +13,18 @@ import os
 /// design doc's "Note on checker purity." It never writes anything under `Source/`; only
 /// `TemplateScriptsSyncApplier` does that.
 public enum TemplateScriptsSyncChecker {
+    #if canImport(OSLog)
     private static let logger = Logger(subsystem: "io.dwk.anglesite", category: "TemplateScriptsSyncChecker")
+    #endif
+
+    /// Portable off-Darwin (no OSLog on Linux — cross-platform port design §9/§10).
+    private static func logUnreadableSiteFile(_ relativePath: String) {
+        #if canImport(OSLog)
+        logger.error("Skipping \(relativePath, privacy: .public): exists but couldn't be read as UTF-8")
+        #else
+        FileHandle.standardError.write(Data("[TemplateScriptsSyncChecker] Skipping \(relativePath): exists but couldn't be read as UTF-8\n".utf8))
+        #endif
+    }
 
     public static func check(
         sourceDirectory: URL,
@@ -38,9 +54,7 @@ public enum TemplateScriptsSyncChecker {
                 // error, or genuinely non-UTF-8 content. Unlike "doesn't exist," this is NOT safe
                 // to silently overwrite (there may be something of the owner's to lose), so skip
                 // it entirely rather than guessing; logged so it isn't invisible.
-                logger.error(
-                    "Skipping \(relativePath, privacy: .public): exists but couldn't be read as UTF-8"
-                )
+                logUnreadableSiteFile(relativePath)
                 continue
             }
             let siteHash = VectorMath.stableHash(siteContent)

@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 import Observation
-import os
+import OSLog
 import AnglesiteCore
 import AnglesiteIntents
 import AnglesiteSiteModel
