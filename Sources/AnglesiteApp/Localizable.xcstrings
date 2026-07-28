@@ -1487,6 +1487,9 @@
     "Keep My Changes" : {
 
     },
+    "Keep My Version" : {
+
+    },
     "Keep which version" : {
 
     },
@@ -2578,6 +2581,9 @@
     "Site License" : {
 
     },
+    "Site Scripts Customized" : {
+
+    },
     "Site graph overview" : {
 
     },
@@ -2773,6 +2779,9 @@
     "This file appears unused and will be permanently removed." : {
 
     },
+    "This file has been customized. An update is available with changes it doesn't include yet." : {
+
+    },
     "This page already links to all related content." : {
 
     },
@@ -2898,6 +2907,9 @@
 
     },
     "Update" : {
+
+    },
+    "Update This File" : {
 
     },
     "Updating %@ zone settings in Cloudflare…" : {
