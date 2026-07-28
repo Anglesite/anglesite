@@ -138,12 +138,29 @@ public enum WorkerRouteClaims {
             }
         }
 
-        var ownersByPath: [String: [String]] = [:]
-        for entry in owned {
-            ownersByPath[entry.claim.path, default: []].append(entry.owner)
+        // Keyed by (path, match) rather than path alone: an exact claim and a prefix claim that
+        // normalize to the same path are not a collision — a prefix claim covers only its
+        // descendants (see the overlap loop below), never the path itself. Two claims of the
+        // *same* match kind at the same path always collide, since exact-exact and prefix-prefix
+        // both claim identical coverage. A single worker legitimately declares both kinds at the
+        // same path (e.g. an exact POST plus a prefix GET for descendants), which the old
+        // path-only key falsely flagged as a duplicate.
+        struct DuplicateKey: Hashable, Comparable {
+            let path: String
+            let matchRawValue: String
+
+            static func < (lhs: Self, rhs: Self) -> Bool {
+                (lhs.path, lhs.matchRawValue) < (rhs.path, rhs.matchRawValue)
+            }
         }
-        if let (path, owners) = ownersByPath.sorted(by: { $0.key < $1.key }).first(where: { $0.value.count > 1 }) {
-            throw ValidationError.duplicateClaim(path: path, owners: owners.sorted())
+        var ownersByPathAndMatch: [DuplicateKey: [String]] = [:]
+        for entry in owned {
+            let key = DuplicateKey(path: entry.claim.path, matchRawValue: entry.claim.match.rawValue)
+            ownersByPathAndMatch[key, default: []].append(entry.owner)
+        }
+        if let (key, owners) = ownersByPathAndMatch.sorted(by: { $0.key < $1.key })
+            .first(where: { $0.value.count > 1 }) {
+            throw ValidationError.duplicateClaim(path: key.path, owners: owners.sorted())
         }
 
         let sorted = owned.sorted {
