@@ -245,14 +245,10 @@ struct AuditSheetView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Skipped").font(.subheadline.weight(.semibold))
             ForEach(skipped, id: \.category) { entry in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.category.rawValue.capitalized).font(.callout.weight(.medium))
+                SettingsBox(verbatimTitle: entry.category.rawValue.capitalized) {
                     Text(entry.reason).font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(10)
-                .background(Color.secondary.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }
     }
