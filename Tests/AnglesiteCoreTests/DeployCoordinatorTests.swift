@@ -141,6 +141,25 @@ struct DeployCoordinatorTests {
         #expect(name == SiteSlug.derive(from: "site-1"))
     }
 
+    // MARK: - deployLogSources
+
+    @Test("deployLogSources includes worker-provision:<siteID> so SocialWorkerProvisionCommand's wrangler output reaches the drawer")
+    func deployLogSourcesIncludesWorkerProvision() {
+        let sources = DeployCoordinator.deployLogSources(siteID: "site-1")
+
+        #expect(sources.contains("worker-provision:site-1"))
+        #expect(sources.contains("deploy:site-1"))
+        #expect(sources.contains("deploy:site-1:build"))
+    }
+
+    @Test("deployLogSources scopes each source to the given siteID, not a different one")
+    func deployLogSourcesScopedToSiteID() {
+        let sources = DeployCoordinator.deployLogSources(siteID: "site-1")
+
+        #expect(!sources.contains("worker-provision:site-2"))
+        #expect(!sources.contains("deploy:site-2"))
+    }
+
     // MARK: - resolveSiteURL
 
     @Test("resolveSiteURL prefers DOMAIN over everything else")
