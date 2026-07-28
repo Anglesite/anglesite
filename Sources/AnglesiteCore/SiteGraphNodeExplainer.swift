@@ -5,7 +5,7 @@ import Foundation
 /// short plain-language summary of the node's role on the site.
 ///
 /// Per the LLM policy (#459), this is on-device-only: the default backend is Apple's
-/// FoundationModels via ``FoundationModelAssistant``, there is no network fallback, and hosts
+/// FoundationModels via `FoundationModelAssistant`, there is no network fallback, and hosts
 /// without a usable model surface ``AssistantError/unavailable(_:)`` instead of degrading to a
 /// cloud call.
 public protocol SiteGraphNodeExplaining: Sendable {

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Which Apple model substrate a ``FoundationModelAssistant`` targets.
+/// Which Apple model substrate a `FoundationModelAssistant` targets.
 ///
 /// Declared *outside* the `#if compiler(>=6.4)` gate because it has no `FoundationModels`
 /// dependency and can be referenced from package code compiled on older CI toolchains.
@@ -25,7 +25,7 @@ public enum FoundationModelTier: String, Sendable, Equatable, CaseIterable {
 }
 
 /// Deterministic context-budget helpers, usable without `FoundationModels`. Declared as a
-/// standalone type (not an extension on ``FoundationModelAssistant``) because that actor is
+/// standalone type (not an extension on `FoundationModelAssistant`) because that actor is
 /// declared inside the `#if compiler(>=6.4)` gate below and is therefore unavailable at this
 /// point in the file on older toolchains — extending it here would break compilation on CI's
 /// pre-6.4 `swift test` runners (#128).

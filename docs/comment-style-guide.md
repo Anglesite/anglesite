@@ -68,7 +68,15 @@ tags exist to add clarity a signature doesn't already give you, not to pad every
   - code that isn't a real symbol in this package at all (a parameter's literal value, a shell
     command, etc);
   - an Apple SDK framework symbol — outside this package's symbol graph entirely, so it can never
-    resolve to a link here.
+    resolve to a link here;
+  - a symbol declared inside a `#if compiler(>=6.4)` (or similar toolchain-version) gate,
+    referenced from code *outside* that gate — CI builds this repo's own targets on whatever
+    Swift version its runners currently ship, which can be older than your local toolchain, so a
+    gated symbol simply isn't in the symbol graph there. This bit `FoundationModelAssistant`: two
+    doc comments in the same file, and one in `SiteGraphNodeExplainer.swift`, referenced it with
+    double backticks from code deliberately declared *outside* its `#if compiler(>=6.4)` gate (so
+    that code itself would still compile on an older toolchain) — the link resolved locally but
+    broke in CI, which runs an older Swift version than most contributors' machines.
 - **Callouts:** `- Important:`, `- Note:`, and `- Warning:` render as highlighted callout boxes in
   the docset. Use them sparingly, for things a reader could otherwise miss (a genuinely
   surprising constraint, not routine information already covered in prose).
