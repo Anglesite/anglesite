@@ -100,7 +100,7 @@ struct CommunitiesView: View {
             .padding()
 
             if communities.joined.isEmpty {
-                Text("No communities joined yet — enter a handle above, like !birding@lemmy.ml.")
+                Text("No communities joined yet — enter a handle above, like !sandbox@lemmy.sdf.org.")
                     .foregroundStyle(.secondary)
                     .padding()
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
