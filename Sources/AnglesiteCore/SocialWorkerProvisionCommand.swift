@@ -13,9 +13,13 @@ public actor SocialWorkerProvisionCommand {
     public enum Result: Sendable, Equatable {
         case succeeded(url: URL, resources: WorkerComposition.ProvisionedResources, duration: TimeInterval)
         case blocked(failures: [PreDeployCheck.ScanFailure], warnings: [PreDeployCheck.ScanWarning], resources: WorkerComposition.ProvisionedResources)
-        /// The candidate Worker name is already in use on the connected Cloudflare account and
-        /// this site has never deployed before — mirrors `DeployCommand.Result.workerNameConflict`
-        /// rather than collapsing it, so callers can drive the same rename-and-retry UX (#740).
+        /// The candidate Worker name is already in use on the connected Cloudflare account by a
+        /// project this site's own local config doesn't already claim as its own (`.site-config`'s
+        /// `CF_WORKER_DEPLOYED`/`CF_WORKER_PROVISIONED`) — mirrors
+        /// `DeployCommand.Result.workerNameConflict` rather than collapsing it, so callers can
+        /// drive the same rename-and-retry UX (#740). Checked at the very start of `provision()`,
+        /// before any wrangler call runs against the name, so a genuine collision is caught before
+        /// this site's own D1/KV/R2/secret provisioning could touch a foreign project (#1075).
         case workerNameConflict(name: String, resources: WorkerComposition.ProvisionedResources)
         /// A Queue-backed worker (inbound Webmention #359, or the WebSub hub #361) is active but
         /// the site hasn't explicitly acknowledged that Cloudflare Queues require the Workers
@@ -67,19 +71,26 @@ public actor SocialWorkerProvisionCommand {
     private let keyPairSource: KeyPairSource
     private let secretRunner: SecretRunner
     private let deployer: Deployer
+    private let workerScriptNamesSource: DeployCommand.WorkerScriptNamesSource
 
     public init(
         tokenSource: @escaping TokenSource = DeployCommand.keychainTokenSource,
         runner: @escaping CommandRunner = SocialWorkerProvisionCommand.defaultRunner,
         keyPairSource: @escaping KeyPairSource = SocialWorkerProvisionCommand.defaultKeyPairSource,
         secretRunner: @escaping SecretRunner = SocialWorkerProvisionCommand.defaultSecretRunner,
-        deployer: @escaping Deployer = SocialWorkerProvisionCommand.defaultDeployer
+        deployer: @escaping Deployer = SocialWorkerProvisionCommand.defaultDeployer,
+        /// Same seam `DeployCommand` uses for its own end-of-pipeline conflict check
+        /// (`DeployCommand.defaultWorkerScriptNames` in production); injected here too so
+        /// `provision()` can run that same check *before* any wrangler call touches the
+        /// candidate name (#1075) instead of only after D1/KV/R2/secrets have already run.
+        workerScriptNamesSource: @escaping DeployCommand.WorkerScriptNamesSource = DeployCommand.defaultWorkerScriptNames
     ) {
         self.tokenSource = tokenSource
         self.runner = runner
         self.keyPairSource = keyPairSource
         self.secretRunner = secretRunner
         self.deployer = deployer
+        self.workerScriptNamesSource = workerScriptNamesSource
     }
 
     public func provision(
@@ -144,6 +155,24 @@ public actor SocialWorkerProvisionCommand {
         let started = Date()
 
         var resources = knownResources == .init() ? Self.readPersistedResources(from: siteDirectory) : knownResources
+
+        // #1075: confirm the candidate Worker name before any wrangler call can touch it. Left
+        // solely to `deployer`'s own end-of-pipeline check (`DeployCommand.deploy` →
+        // `checkWorkerNameConflict`), a genuine foreign collision would go undetected until AFTER
+        // the D1/KV/R2/secret calls below already ran against that name — and the ActivityPub
+        // secret push in particular (`wrangler secret put`) auto-vivifies an empty Worker script
+        // under the target name as a side effect, which would then make a later retry of THIS
+        // site's own provisioning misreport its own prior attempt as a foreign conflict.
+        // Persisting `CF_WORKER_PROVISIONED` immediately on a pass (name free, or already
+        // confirmed ours by an earlier attempt) closes both gaps: a genuinely foreign name is
+        // still caught here, before any resource creation runs, while a retry of this site never
+        // re-flags its own provisioning history.
+        if case .workerNameConflict(let name)? = await DeployCommand.checkWorkerNameConflict(
+            siteDirectory: siteDirectory, apiToken: token, workerScriptNamesSource: workerScriptNamesSource
+        ) {
+            return .workerNameConflict(name: name, resources: resources)
+        }
+        DeployCommand.persistWorkerProvisioned(siteDirectory: siteDirectory)
 
         if workers.contains(where: { $0.resources.needsD1 }) {
             if resources.d1DatabaseID == nil {

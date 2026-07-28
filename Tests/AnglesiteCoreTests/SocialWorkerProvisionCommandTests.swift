@@ -298,6 +298,99 @@ struct SocialWorkerProvisionCommandTests {
         #expect(await deployer.calls.isEmpty)
     }
 
+    @Test("A retry after an earlier attempt's own secret push isn't mistaken for a foreign Worker-name conflict (#1075)")
+    func retryAfterOwnSecretPushDoesNotFalselyConflict() async throws {
+        let site = try temporaryDirectory()
+        // Mirrors the reported repro: `.site-config` already carries this site's own established
+        // project name from an earlier (partially-failed) attempt.
+        try "CF_PROJECT_NAME=my-site\n".write(to: site.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        let remoteNames = ToggleableWorkerNames()
+        let deployCallCount = CallCounter()
+        let recorder = WranglerRecorder([:])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            keyPairSource: { _ in
+                .init(privateKeyPem: "PRIVATE-PEM", publicKeyPem: "PUBLIC-PEM", publishToken: "TOKEN-VALUE")
+            },
+            secretRunner: { _, _, _, _, _ in
+                // Mirrors the real `wrangler secret put` side effect described in the bug report:
+                // once our own secret push succeeds, the account reports this name as an existing
+                // Worker script from then on.
+                await remoteNames.set(["my-site"])
+                return .init(stdout: "Success!", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in
+                let call = await deployCallCount.increment()
+                if call == 1 {
+                    // Attempt 1 fails for an unrelated reason AFTER secrets have already pushed.
+                    return .failed(reason: "pre-deploy scan could not run", exitCode: nil)
+                }
+                return .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)
+            },
+            workerScriptNamesSource: { _ in await remoteNames.current }
+        )
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+
+        let firstResult = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [activitypub]
+        )
+        guard case .failed = firstResult else {
+            Issue.record("expected the first attempt to fail for the unrelated reason, got \(firstResult)")
+            return
+        }
+
+        let secondResult = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [activitypub]
+        )
+        guard case .succeeded = secondResult else {
+            Issue.record("expected the retry to succeed instead of reporting a false worker-name conflict, got \(secondResult)")
+            return
+        }
+    }
+
+    @Test("A genuinely foreign name collision is caught before any wrangler call touches it (#1075)")
+    func foreignConflictCaughtBeforeAnyProvisioning() async throws {
+        let site = try temporaryDirectory()
+        try "CF_PROJECT_NAME=my-site\n".write(to: site.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        var d1CallHappened = false
+        var secretRunnerCalled = false
+        var deployerCalled = false
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: { _, _, _, _ in
+                d1CallHappened = true
+                return .init(stdout: "", stderr: "unexpected call", exitCode: 1)
+            },
+            keyPairSource: { _ in .init(privateKeyPem: "x", publicKeyPem: "y", publishToken: "z") },
+            secretRunner: { _, _, _, _, _ in
+                secretRunnerCalled = true
+                return .init(stdout: "Success!", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in
+                deployerCalled = true
+                return .succeeded(url: URL(string: "https://example.com")!, duration: 0)
+            },
+            // The account already has a script under this exact name — a genuinely foreign
+            // project this site's local config has no history with.
+            workerScriptNamesSource: { _ in ["my-site"] }
+        )
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: true, kv: false, r2: false)
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [activitypub]
+        )
+
+        guard case .workerNameConflict(let name, _) = result else {
+            Issue.record("expected .workerNameConflict, got \(result)")
+            return
+        }
+        #expect(name == "my-site")
+        #expect(!d1CallHappened, "must not create D1 resources against a name that isn't confirmed ours")
+        #expect(!secretRunnerCalled, "must not push ActivityPub secrets into a Worker name that isn't confirmed ours")
+        #expect(!deployerCalled, "must not reach the deployer once the pre-check finds a genuine conflict")
+    }
+
     @Test("fails before running wrangler when no token is available")
     func missingToken() async throws {
         let site = try temporaryDirectory()
@@ -1152,5 +1245,24 @@ private actor WranglerRecorder {
         seenArguments.append(arguments)
         seenEnvironments.append(environment)
         return responses[arguments] ?? .init(stdout: "unexpected arguments \(arguments)", stderr: "", exitCode: 127)
+    }
+}
+
+/// A mutable account-wide Worker-script-name list, so a test can simulate `wrangler secret put`'s
+/// side effect of auto-vivifying a script under the target name partway through a `provision()`
+/// call (#1075).
+private actor ToggleableWorkerNames {
+    private var names: [String] = []
+    func set(_ new: [String]) { names = new }
+    var current: [String] { names }
+}
+
+/// Thread-safe invocation counter for a fake `Deployer`, so a test can vary its response across
+/// successive `provision()` calls (e.g. fail the first attempt, succeed on retry).
+private actor CallCounter {
+    private var count = 0
+    func increment() -> Int {
+        count += 1
+        return count
     }
 }
