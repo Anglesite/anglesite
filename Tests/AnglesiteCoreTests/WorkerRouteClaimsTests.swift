@@ -180,6 +180,33 @@ struct WorkerRouteClaimsTests {
         }
     }
 
+    @Test("a worker's own exact and prefix claims at the same normalized path don't collide (micropub-shaped)")
+    func exactAndPrefixSameOwnerSamePathCoexist() throws {
+        let claims = try WorkerRouteClaims.activeClaims(
+            catalog: [descriptor(id: "micropub", routes: [
+                claim("/media", match: .exact, methods: ["POST"]),
+                claim("/media/", match: .prefix, methods: ["GET"], specificationURL: spec),
+            ])],
+            activeIDs: ["micropub"])
+        #expect(claims.count == 2)
+        #expect(claims.map(\.claim.path) == ["/media", "/media"])
+        #expect(claims.map(\.claim.match) == [.exact, .prefix])
+    }
+
+    @Test("rejects two prefix claims for the same path, naming both owners")
+    func rejectsDuplicatePrefix() {
+        #expect(throws: WorkerRouteClaims.ValidationError.duplicateClaim(
+            path: "/api", owners: ["a", "b"])
+        ) {
+            try WorkerRouteClaims.activeClaims(
+                catalog: [
+                    descriptor(id: "b", routes: [claim("/api", match: .prefix, specificationURL: spec)]),
+                    descriptor(id: "a", routes: [claim("/api", match: .prefix, specificationURL: spec)]),
+                ],
+                activeIDs: ["a", "b"])
+        }
+    }
+
     @Test("disjoint sibling claims from different workers coexist")
     func acceptsDisjointClaims() throws {
         let claims = try WorkerRouteClaims.activeClaims(
