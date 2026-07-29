@@ -31,7 +31,8 @@ final class DeployModel {
     private(set) var phase: Phase = .idle
     /// Captured deploy + build log lines for the current/most-recent run.
     private(set) var logLines: [LogCenter.LogLine] = []
-    /// The latest milestone label from the running deploy (drives a status line above the log).
+    /// The latest milestone label from the running deploy (drives `DeployDrawerView`'s header
+    /// caption, below the title).
     private(set) var currentMilestone: String?
     /// The stable milestone-phase id (`OperationProgress.phase`, e.g. `"deploying"`) behind
     /// `currentMilestone`'s human-readable label — kept in lockstep with it everywhere it's set
@@ -654,7 +655,6 @@ final class DeployModel {
         _ = await logTask.value
 
         currentMilestone = nil
-        currentMilestonePhase = nil
         switch result {
         case .succeeded(let url, let duration):
             // Astro's build above regenerates RSS/Atom/JSON feeds. Social delivery is ordered
@@ -689,7 +689,6 @@ final class DeployModel {
                 }
             )
             currentMilestone = nil
-            currentMilestonePhase = nil
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false
             if let settings = try? await SiteConfigStore(configDirectory: configDirectory).load() {
