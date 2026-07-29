@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { createIndieAuthStore, type AuthorizationRequest } from "@dwk/indieauth";
-import type { SolidOidcAuthorizationRequest } from "@dwk/solid-oidc";
+import { generateSigningJwk, type SolidOidcAuthorizationRequest } from "@dwk/solid-oidc";
 import { beforeEach, expect, test } from "vitest";
 import {
   validateInboxFields,
@@ -661,6 +661,96 @@ test("handleSolidOidcConsent: rejects the wrong owner password", async () => {
   });
   const response = await handleSolidOidcConsent(request, testEnv);
   expect(response.status).toBe(401);
+});
+
+/**
+ * Extracts every `<input type="hidden" name="..." value="...">` field from a rendered
+ * consent page, unescaping the handful of entities `escapeHTML` (worker.ts) produces.
+ */
+function extractHiddenFields(html: string): Record<string, string> {
+  const unescapeHTML = (value: string): string =>
+    value
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;/g, "'")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&");
+  const fields: Record<string, string> = {};
+  const pattern = /<input type="hidden" name="([^"]*)" value="([^"]*)">/g;
+  for (const match of html.matchAll(pattern)) {
+    fields[unescapeHTML(match[1] ?? "")] = unescapeHTML(match[2] ?? "");
+  }
+  return fields;
+}
+
+test("Solid-OIDC consent round trip: normalizes redirect_uri and defaults scope so mint and verify agree (#1071 final review)", async () => {
+  // Reproduces the exact failure mode the final review flagged: a bare-origin `redirect_uri`
+  // (no trailing slash) and no `scope` at all in the authorization request — the shape
+  // `@dwk/solid-oidc`'s own `handleAuthorize` normalizes (`new URL(...).toString()` adds a
+  // trailing slash) and defaults (`?? "openid webid"`) before invoking the approval hook.
+  // Before the fix, the consent page's hidden fields echoed the *raw* query string, so the
+  // grant minted from the consent POST never matched what the live request's normalized/
+  // defaulted `authorizationRequest` expected at verify time — bouncing the owner back to this
+  // same consent page forever, even with the correct password.
+  const jwk = await generateSigningJwk();
+  const oidcEnv = { ...testEnv, OIDC_SIGNING_KEY: JSON.stringify(jwk) };
+  const ctx = createExecutionContext();
+
+  const verifier = "anglesite-oidc-round-trip-verifier-with-more-than-forty-three-characters";
+  const challenge = await pkceChallenge(verifier);
+
+  const authorizeUrl = new URL("https://owner.example/oidc/authorize");
+  authorizeUrl.search = new URLSearchParams({
+    client_id: "https://client.example/app",
+    redirect_uri: "http://localhost:3000",
+    response_type: "code",
+    state: "round-trip-state",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    // Deliberately no `scope` — exercises the library's default.
+  }).toString();
+
+  const consentPageResponse = await handleSolidOidc(new Request(authorizeUrl), oidcEnv, ctx);
+  expect(consentPageResponse.status).toBe(200);
+  const hidden = extractHiddenFields(await consentPageResponse.text());
+
+  // The fix: hidden fields carry the library's normalized/defaulted values, not a raw echo.
+  expect(hidden.redirect_uri).toBe("http://localhost:3000/");
+  expect(hidden.scope).toBe("openid webid");
+
+  const consentBody = new URLSearchParams(hidden);
+  consentBody.set("password", "correct horse battery staple");
+  const consentResponse = await handleSolidOidcConsent(
+    new Request("https://owner.example/oidc/consent", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "CF-Connecting-IP": "192.0.2.71" },
+      body: consentBody.toString(),
+    }),
+    oidcEnv,
+  );
+  expect(consentResponse.status).toBe(303);
+  const location = consentResponse.headers.get("location");
+  expect(location).not.toBeNull();
+
+  // Replay the same bare-origin/omitted-scope request against the live authorize endpoint. A
+  // 302 with a `code` proves verification succeeded; the pre-fix behavior was a 200 back to the
+  // consent page (an infinite loop for this client shape), never a successful redirect.
+  const finalResponse = await handleSolidOidc(new Request(location as string), oidcEnv, ctx);
+  expect(finalResponse.status).toBe(302);
+  const finalLocation = new URL(finalResponse.headers.get("location") ?? "");
+  expect(finalLocation.origin + finalLocation.pathname).toBe("http://localhost:3000/");
+  expect(finalLocation.searchParams.get("code")).toBeTruthy();
+  expect(finalLocation.searchParams.get("state")).toBe("round-trip-state");
+});
+
+test("handleSolidOidc: 503s when OIDC_SIGNING_KEY is a parseable object missing required JWK members", async () => {
+  const request = new Request("https://example.com/oidc/jwks");
+  const response = await handleSolidOidc(
+    request,
+    { ...testEnv, OIDC_SIGNING_KEY: JSON.stringify({ kty: "nonsense" }) },
+    createExecutionContext(),
+  );
+  expect(response.status).toBe(503);
 });
 
 // --- Inbound Webmention receive (V-3.1, #359) ----------------------------------------------

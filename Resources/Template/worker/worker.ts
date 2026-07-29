@@ -423,7 +423,7 @@ export async function verifySolidOidcConsentToken(
   } catch {
     return null;
   }
-  if (!isSolidOidcConsentGrant(parsed) || parsed.exp < now) return null;
+  if (!isSolidOidcConsentGrant(parsed) || parsed.exp <= now) return null;
   const expected = solidOidcGrantFor(request, parsed.webid, parsed.exp);
   return JSON.stringify(parsed) === JSON.stringify(expected) ? parsed : null;
 }
@@ -615,7 +615,7 @@ export async function handleSolidOidcConsent(request: Request, env: WorkerEnv): 
  * `TOKEN_SIGNING_KEY` secrets absent, `AUTH_DB` unbound (required by `SolidOidcEnv`, but checked
  * explicitly here too — `createSolidOidc`'s returned handler throws if it's missing, matching
  * `handleMicropub`'s defense-in-depth pattern rather than trusting the type alone), or
- * `OIDC_SIGNING_KEY` not parseable as JSON.
+ * `OIDC_SIGNING_KEY` not parseable as JSON or not shaped like a usable EC P-256 private JWK.
  */
 function solidOidcConfig(request: Request, env: WorkerEnv): SolidOidcConfig | null {
   if (!env.OIDC_SIGNING_KEY || !env.INDIEAUTH_OWNER_PASSWORD || !env.TOKEN_SIGNING_KEY || !env.AUTH_DB) return null;
@@ -623,11 +623,24 @@ function solidOidcConfig(request: Request, env: WorkerEnv): SolidOidcConfig | nu
   try {
     const parsed: unknown = JSON.parse(env.OIDC_SIGNING_KEY);
     // `JSON.parse` succeeds on any valid JSON value, not just objects — `"null"`, `"3"`, and
-    // `"\"x\""` all parse without throwing but aren't a usable JWK, and would otherwise reach
-    // `@dwk/solid-oidc`'s key-import step and throw uncaught there, breaking this file's
-    // guarantee that an unconfigured/malformed signing key degrades to 503, never a 500.
+    // `"\"x\""` all parse without throwing but aren't a usable JWK. A bare object check isn't
+    // enough either: `{}` and `{"kty":"nonsense"}` both pass `typeof === "object"` but would
+    // still reach `@dwk/solid-oidc`'s `importSigningKey` and throw uncaught there (it requires
+    // `kty: "EC"`, `crv: "P-256"`, and a private `d`, plus the public `x`/`y` coordinates). This
+    // mirrors those same checks so a malformed/incomplete key degrades to 503 here, never a 500
+    // inside the library.
     if (typeof parsed !== "object" || parsed === null) return null;
-    signingKey = parsed as Jwk;
+    const candidate = parsed as Record<string, unknown>;
+    if (
+      candidate.kty !== "EC"
+      || candidate.crv !== "P-256"
+      || typeof candidate.d !== "string"
+      || typeof candidate.x !== "string"
+      || typeof candidate.y !== "string"
+    ) {
+      return null;
+    }
+    signingKey = candidate as Jwk;
   } catch {
     return null;
   }
@@ -653,12 +666,32 @@ function solidOidcConfig(request: Request, env: WorkerEnv): SolidOidcConfig | nu
       // prompt `handleIndieAuthConsent`'s form posts to, targeting `/oidc/consent` instead. The
       // client_id/redirect_uri are shown as visible text (not just hidden inputs) so the owner
       // can actually see what they're approving before submitting.
-      const params = new URLSearchParams(new URL(httpRequest.url).search);
-      const fields = ["client_id", "redirect_uri", "state", "response_type", "code_challenge", "code_challenge_method", "scope", "nonce"]
-        .map((name) => {
-          const value = params.get(name);
-          return value !== null ? `<input type="hidden" name="${name}" value="${escapeHTML(value)}">` : "";
-        })
+      //
+      // The hidden fields are rendered from `authorizationRequest` — the library's own parsed
+      // object — rather than from the raw query string. `@dwk/solid-oidc`'s `handleAuthorize`
+      // normalizes `redirectUri` (`new URL(...).toString()`, which e.g. adds a trailing slash to
+      // a bare origin) and defaults `scope` when absent (`"openid webid"`) before calling this
+      // hook; `handleSolidOidcConsent` mints the consent grant from whatever comes back in these
+      // form fields, and `verifySolidOidcConsentToken` checks it against the *next* request's
+      // freshly-normalized `authorizationRequest`. If the hidden fields echoed the raw query
+      // values instead, mint time and verify time would build the grant from different
+      // `redirectUri`/`scope` strings and never match — bouncing the owner back to this page
+      // forever for any bare-origin `redirect_uri` or request that omits `scope`. Sourcing both
+      // from `authorizationRequest` keeps mint and verify derived from the same normalization by
+      // construction. `response_type`/`code_challenge_method` are hardcoded rather than echoed:
+      // by the time this hook runs, `@dwk/solid-oidc` has already required them to be exactly
+      // `"code"`/`"S256"`, so there's no raw value left to disagree with.
+      const fields = [
+        ["client_id", authorizationRequest.clientId],
+        ["redirect_uri", authorizationRequest.redirectUri],
+        ["response_type", "code"],
+        ["code_challenge", authorizationRequest.codeChallenge],
+        ["code_challenge_method", "S256"],
+        ["scope", authorizationRequest.scope],
+        ...(authorizationRequest.state !== undefined ? [["state", authorizationRequest.state]] : []),
+        ...(authorizationRequest.nonce !== undefined ? [["nonce", authorizationRequest.nonce]] : []),
+      ]
+        .map(([name, value]) => `<input type="hidden" name="${escapeHTML(name)}" value="${escapeHTML(value)}">`)
         .join("\n");
       const body = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
