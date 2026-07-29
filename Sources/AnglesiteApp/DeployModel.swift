@@ -33,6 +33,10 @@ final class DeployModel {
     private(set) var logLines: [LogCenter.LogLine] = []
     /// The latest milestone label from the running deploy (drives a status line above the log).
     private(set) var currentMilestone: String?
+    /// The stable milestone-phase id (`OperationProgress.phase`, e.g. `"deploying"`) behind
+    /// `currentMilestone`'s human-readable label — kept in lockstep with it everywhere it's set
+    /// or cleared. `DeployDrawerView` feeds this to `DeployPanelProgress.filledCount(...)`.
+    private(set) var currentMilestonePhase: String?
     /// On-device summary of the most recent *failed* deploy, or nil if none/unavailable.
     private(set) var failureSummary: DeployFailureSummary?
     /// "Code changes not yet deployed" status for the deployed-source bundle (#799). Refreshed
@@ -441,6 +445,7 @@ final class DeployModel {
         transition(siteID: siteID, to: .running(siteID: siteID, since: Date()))
         logLines = []
         currentMilestone = nil
+        currentMilestonePhase = nil
         failureSummary = nil
         summarizing = false
         summarizationGeneration &+= 1   // invalidate any still-in-flight summary from a prior deploy
@@ -548,6 +553,7 @@ final class DeployModel {
             subscription.cancel()
             _ = await logTask.value
             currentMilestone = nil
+            currentMilestonePhase = nil
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false
             transition(siteID: siteID, to: .failed(reason: reason, exitCode: nil))
@@ -573,6 +579,7 @@ final class DeployModel {
                     onProgress: { [weak self] progress in
                         Task { @MainActor in
                             self?.currentMilestone = progress.label
+                            self?.currentMilestonePhase = progress.phase
                             self?.onMilestone?(siteID, progress)
                         }
                     }
@@ -615,6 +622,7 @@ final class DeployModel {
             subscription.cancel()
             _ = await logTask.value
             currentMilestone = nil
+            currentMilestonePhase = nil
             workerNameConflictPresented = false
             transition(siteID: siteID, to: .webmentionPaidPlanConfirmationNeeded)
             drawerPresented = false
@@ -646,6 +654,7 @@ final class DeployModel {
         _ = await logTask.value
 
         currentMilestone = nil
+        currentMilestonePhase = nil
         switch result {
         case .succeeded(let url, let duration):
             // Astro's build above regenerates RSS/Atom/JSON feeds. Social delivery is ordered
@@ -680,6 +689,7 @@ final class DeployModel {
                 }
             )
             currentMilestone = nil
+            currentMilestonePhase = nil
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false
             if let settings = try? await SiteConfigStore(configDirectory: configDirectory).load() {
@@ -727,6 +737,7 @@ final class DeployModel {
 
     private func emitPostDeployMilestone(_ progress: OperationProgress, siteID: String) {
         currentMilestone = progress.label
+        currentMilestonePhase = progress.phase
         onMilestone?(siteID, progress)
     }
 }
