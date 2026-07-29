@@ -48,8 +48,13 @@ public enum WorkerRouteClaims {
     }
 
     /// HTTP methods a claim may declare. A closed set: anything else in a catalog is a manifest
-    /// error, not a forward-compatibility case — new methods need app-side dispatch support anyway.
-    static let allowedMethods: Set<String> = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    /// error, not a forward-compatibility case — new methods need app-side dispatch support
+    /// anyway. The WebDAV Class 2 verbs (PROPFIND/PROPPATCH/MKCOL/COPY/MOVE/LOCK/UNLOCK, RFC 4918)
+    /// were added once that dispatch existed (`createSolidPodWebdav` in `worker.ts`).
+    static let allowedMethods: Set<String> = [
+        "GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS",
+        "PROPFIND", "PROPPATCH", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK",
+    ]
 
     private static let maxPathLength = 512
 

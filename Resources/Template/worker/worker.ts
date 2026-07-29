@@ -36,6 +36,23 @@ import {
   type MicrosubJob,
 } from "@dwk/microsub";
 import { createWebfinger } from "@dwk/webfinger";
+import {
+  createSolidOidc,
+  type SolidOidcConfig,
+  type SolidOidcEnv,
+  type SolidOidcAuthorizationRequest,
+  type Jwk,
+} from "@dwk/solid-oidc";
+import {
+  createSolidPod,
+  createSolidPodGc,
+  createSolidPodWebdav,
+  createSolidPodWebdavCredentials,
+  SolidPodObject,
+  type SolidPodConfig,
+  type SolidPodEnv,
+  type SolidPodGcEnv,
+} from "@dwk/solid-pod";
 
 /**
  * Per-site Cloudflare Worker entry point.
@@ -113,6 +130,41 @@ export interface WorkerEnv extends IndieAuthEnv {
   AP_PUBLISH_TOKEN?: string;
   AP_DISPLAY_NAME?: string;
   /**
+   * Solid-OIDC signing key (V-storage, identity layer for `@dwk/solid-pod`). Optional: a site
+   * that hasn't provisioned Solid-OIDC has none of it bound, and every `/oidc/*` route degrades
+   * to 503 rather than letting `@dwk/solid-oidc` throw its own loud startup error. A JSON-
+   * serialized private EC P-256 JWK (RFC 7518 §6.2.2) — see
+   * `SolidOidcKeyProvisioning.signingKeyJWK` (Swift) for generation, and
+   * `WorkerComposition.generateWranglerToml` for the binding.
+   */
+  OIDC_SIGNING_KEY?: string;
+  /**
+   * Solid Pod bindings (V-storage). All optional: a site that hasn't provisioned solid-pod has
+   * none of them bound, and every `/pod`/`/dav`/`/dav-credentials` route degrades to 503 rather
+   * than letting `@dwk/solid-pod` throw its own loud startup error. `POD` is the per-pod Durable
+   * Object namespace the package ships (`SolidPodObject`, re-exported below so wrangler can bind
+   * it); `BLOBS` is its R2 bucket for oversized/binary bodies. See
+   * `WorkerComposition.generateWranglerToml` (Swift) for the binding generation.
+   */
+  POD?: DurableObjectNamespace<SolidPodObject>;
+  BLOBS?: R2Bucket;
+  /**
+   * `@dwk/webdav`'s app-password hashing pepper. Optional: a site with solid-pod active but not
+   * webdav has this unbound, and `/dav`/`/dav-credentials` degrade to 503.
+   */
+  WEBDAV_PEPPER?: string;
+  /**
+   * D1 database tracking orphaned R2 blob keys for solid-pod's out-of-band garbage-collection
+   * cron (`@dwk/solid-pod`'s `SolidPodGcEnv.GC_DB`). That package's own `createSolidPodGc`
+   * handler declares this binding *required*, not optional, and throws the moment it runs
+   * without it — but `WorkerComposition.generateWranglerToml` (Swift) does not currently
+   * provision a GC_DB binding for solid-pod (only `POD`/`BLOBS`/`WEBDAV_PEPPER` are wired today).
+   * Kept optional here so `handleSolidPodGcScheduled` below can guard on its absence and no-op
+   * on every five-minute GC cron tick until that provisioning gap is closed, instead of throwing
+   * an unhandled exception in every site with solid-pod active.
+   */
+  GC_DB?: D1Database;
+  /**
    * WebSub hub bindings (V-3.3, #361). Optional like the Webmention set above: a site that
    * hasn't provisioned the hub has none of them bound, and the `/websub` route + queue
    * consumer degrade gracefully (503 / ack-without-work). Provisioning wires a D1 database
@@ -140,6 +192,7 @@ export interface WorkerEnv extends IndieAuthEnv {
 }
 
 export { ActivityPubObject };
+export { SolidPodObject };
 
 const RATE_LIMIT_WINDOW_SECONDS = 3600;
 const RATE_LIMIT_MAX_PER_WINDOW = 5;
@@ -264,6 +317,115 @@ export async function verifyConsentToken(
   if (!isConsentGrant(decoded) || decoded.exp <= now) return false;
   const expected = grantFor(request, decoded.exp);
   return JSON.stringify(decoded) === JSON.stringify(expected);
+}
+
+/**
+ * Mirrors `ConsentGrant` above: binds the approved `webid` to the *entire* authorization request
+ * (client, redirect target, PKCE challenge, scope, state, nonce), not just the webid. Without
+ * this, a consent token minted for one `client_id`/`redirect_uri` could be replayed against a
+ * different `client_id`/`redirect_uri` in the live query string — the pod owner only ever sees
+ * and approves one authorization request, so the token must not be honorable for any other.
+ */
+interface SolidOidcConsentGrant {
+  v: 1;
+  exp: number;
+  webid: string;
+  clientId: string;
+  redirectUri: string;
+  scope: string;
+  codeChallenge: string;
+  state: string;
+  nonce: string;
+}
+
+function isSolidOidcConsentGrant(value: unknown): value is SolidOidcConsentGrant {
+  if (typeof value !== "object" || value === null) return false;
+  const grant = value as Record<string, unknown>;
+  return grant.v === 1
+    && typeof grant.exp === "number"
+    && typeof grant.webid === "string"
+    && typeof grant.clientId === "string"
+    && typeof grant.redirectUri === "string"
+    && typeof grant.scope === "string"
+    && typeof grant.codeChallenge === "string"
+    && typeof grant.state === "string"
+    && typeof grant.nonce === "string";
+}
+
+function solidOidcGrantFor(
+  request: SolidOidcAuthorizationRequest,
+  webid: string,
+  expiresAt: number,
+): SolidOidcConsentGrant {
+  return {
+    v: 1,
+    exp: expiresAt,
+    webid,
+    clientId: request.clientId,
+    redirectUri: request.redirectUri,
+    scope: request.scope,
+    codeChallenge: request.codeChallenge,
+    state: request.state ?? "",
+    nonce: request.nonce ?? "",
+  };
+}
+
+/**
+ * Signs a short-lived proof that the site owner approved a specific Solid-OIDC authorization
+ * request (client, redirect target, PKCE challenge, scope, state, nonce) as `webid` — the same
+ * "owner password gates this" bridge `@dwk/indieauth`'s consent flow uses (`createConsentToken`
+ * above), adapted for Solid-OIDC's own (differently-shaped) `approveAuthorization` hook. Reuses
+ * this file's `deriveKey`/HKDF pattern with its own purpose string so the two consent tokens'
+ * derived keys are independent even though both start from `TOKEN_SIGNING_KEY`.
+ */
+export async function createSolidOidcConsentToken(
+  request: SolidOidcAuthorizationRequest,
+  webid: string,
+  signingKey: string,
+  now = Math.floor(Date.now() / 1000),
+): Promise<string> {
+  const payload = new TextEncoder().encode(
+    JSON.stringify(solidOidcGrantFor(request, webid, now + CONSENT_TTL_SECONDS)),
+  );
+  const signature = await crypto.subtle.sign("HMAC", await deriveKey(signingKey, "solid-oidc-consent-token"), payload);
+  return `${base64url(payload)}.${base64url(new Uint8Array(signature))}`;
+}
+
+/**
+ * Verifies a token from `createSolidOidcConsentToken` against the *current* `request`, returning
+ * the full verified grant (never just the webid) — mirroring `verifyConsentToken`'s whole-grant
+ * comparison above. Returns `null` when the signature doesn't verify, the token is expired, or
+ * any field of the live `request` (client, redirect, scope, PKCE challenge, state, nonce) doesn't
+ * match what was actually approved, so a token can't be replayed against a different request.
+ */
+export async function verifySolidOidcConsentToken(
+  token: string,
+  request: SolidOidcAuthorizationRequest,
+  signingKey: string,
+  now = Math.floor(Date.now() / 1000),
+): Promise<SolidOidcConsentGrant | null> {
+  if (token.length > 8_192) return null;
+  const [payloadSegment, signatureSegment, extra] = token.split(".");
+  if (!payloadSegment || !signatureSegment || extra !== undefined) return null;
+  const payloadBytes = decodeBase64url(payloadSegment);
+  const signatureBytes = decodeBase64url(signatureSegment);
+  if (!payloadBytes || !signatureBytes) return null;
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    await deriveKey(signingKey, "solid-oidc-consent-token"),
+    signatureBytes,
+    payloadBytes,
+  );
+  if (!valid) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(payloadBytes));
+  } catch {
+    return null;
+  }
+  if (!isSolidOidcConsentGrant(parsed) || parsed.exp <= now) return null;
+  const expected = solidOidcGrantFor(request, parsed.webid, parsed.exp);
+  return JSON.stringify(parsed) === JSON.stringify(expected) ? parsed : null;
 }
 
 async function secretsMatch(provided: string, expected: string, comparisonSecret: string): Promise<boolean> {
@@ -403,6 +565,272 @@ export async function handleIndieAuthConsent(request: Request, env: WorkerEnv): 
   };
   authorize.searchParams.set("consent", await createConsentToken(grant, env.TOKEN_SIGNING_KEY));
   return Response.redirect(authorize.toString(), 303);
+}
+
+/**
+ * Solid-OIDC's login/consent bridge — reuses the exact same owner-password check
+ * `handleIndieAuthConsent` gates on (`secretsMatch` against `INDIEAUTH_OWNER_PASSWORD`), so the
+ * pod's owner authenticates with the same one credential IndieAuth already uses. On success,
+ * redirects back to `/oidc/authorize` with a signed consent token `approveAuthorization` (below)
+ * verifies — mirroring `handleIndieAuthConsent`'s redirect-with-a-signed-token shape, adapted for
+ * Solid-OIDC's simpler (webid-only) grant.
+ */
+export async function handleSolidOidcConsent(request: Request, env: WorkerEnv): Promise<Response> {
+  if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST" } });
+  if (!env.INDIEAUTH_OWNER_PASSWORD || !env.TOKEN_SIGNING_KEY || !env.SOCIAL_KV) {
+    return new Response("Solid-OIDC secrets are not configured", { status: 503 });
+  }
+  if (await isConsentRateLimited(request, env)) return new Response("Too Many Requests", { status: 429 });
+  const form = await readBoundedForm(request);
+  if (!form) return new Response("Invalid consent form", { status: 400 });
+  if (!(await secretsMatch(form.get("password") ?? "", env.INDIEAUTH_OWNER_PASSWORD, env.TOKEN_SIGNING_KEY))) {
+    console.warn(JSON.stringify({ event: "solid_oidc.consent_rejected", reason: "password_invalid" }));
+    return new Response("Invalid site owner password", { status: 401 });
+  }
+  const webid = form.get("webid") ?? "";
+  const authorizationRequest: SolidOidcAuthorizationRequest = {
+    clientId: form.get("client_id") ?? "",
+    redirectUri: form.get("redirect_uri") ?? "",
+    scope: form.get("scope") ?? "",
+    codeChallenge: form.get("code_challenge") ?? "",
+    ...(form.get("state") !== null ? { state: form.get("state") as string } : {}),
+    ...(form.get("nonce") !== null ? { nonce: form.get("nonce") as string } : {}),
+  };
+  const origin = new URL(request.url).origin;
+  const authorize = new URL("/oidc/authorize", origin);
+  for (const name of ["client_id", "redirect_uri", "state", "response_type", "code_challenge", "code_challenge_method", "scope", "nonce"]) {
+    const value = form.get(name);
+    if (value !== null) authorize.searchParams.set(name, value);
+  }
+  authorize.searchParams.set(
+    "consent",
+    await createSolidOidcConsentToken(authorizationRequest, webid, env.TOKEN_SIGNING_KEY),
+  );
+  return Response.redirect(authorize.toString(), 303);
+}
+
+/**
+ * Builds `@dwk/solid-oidc`'s config from `env`, or `null` when Solid-OIDC isn't fully
+ * provisioned — `OIDC_SIGNING_KEY` unbound, the shared `INDIEAUTH_OWNER_PASSWORD`/
+ * `TOKEN_SIGNING_KEY` secrets absent, `AUTH_DB` unbound (required by `SolidOidcEnv`, but checked
+ * explicitly here too — `createSolidOidc`'s returned handler throws if it's missing, matching
+ * `handleMicropub`'s defense-in-depth pattern rather than trusting the type alone), or
+ * `OIDC_SIGNING_KEY` not parseable as JSON or not shaped like a usable EC P-256 private JWK.
+ */
+function solidOidcConfig(request: Request, env: WorkerEnv): SolidOidcConfig | null {
+  if (!env.OIDC_SIGNING_KEY || !env.INDIEAUTH_OWNER_PASSWORD || !env.TOKEN_SIGNING_KEY || !env.AUTH_DB) return null;
+  let signingKey: Jwk;
+  try {
+    const parsed: unknown = JSON.parse(env.OIDC_SIGNING_KEY);
+    // `JSON.parse` succeeds on any valid JSON value, not just objects — `"null"`, `"3"`, and
+    // `"\"x\""` all parse without throwing but aren't a usable JWK. A bare object check isn't
+    // enough either: `{}` and `{"kty":"nonsense"}` both pass `typeof === "object"` but would
+    // still reach `@dwk/solid-oidc`'s `importSigningKey` and throw uncaught there (it requires
+    // `kty: "EC"`, `crv: "P-256"`, and a private `d`, plus the public `x`/`y` coordinates). This
+    // mirrors those same checks so a malformed/incomplete key degrades to 503 here, never a 500
+    // inside the library.
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const candidate = parsed as Record<string, unknown>;
+    if (
+      candidate.kty !== "EC"
+      || candidate.crv !== "P-256"
+      || typeof candidate.d !== "string"
+      || typeof candidate.x !== "string"
+      || typeof candidate.y !== "string"
+    ) {
+      return null;
+    }
+    signingKey = candidate as Jwk;
+  } catch {
+    return null;
+  }
+  const baseUrl = new URL(request.url).origin;
+  const webid = `${baseUrl}/profile/card#me`;
+  return {
+    issuer: baseUrl,
+    signingKey,
+    mountPath: "/oidc",
+    audience: ["solid", baseUrl],
+    async approveAuthorization(authorizationRequest: SolidOidcAuthorizationRequest, httpRequest: Request) {
+      const consent = new URL(httpRequest.url).searchParams.get("consent");
+      if (consent) {
+        // Verified against the *live* `authorizationRequest` — a token minted for one
+        // client_id/redirect_uri/scope/PKCE-challenge/state/nonce combination is rejected here
+        // if replayed against a request with any field changed (Solid-OIDC consent-binding fix).
+        const grant = await verifySolidOidcConsentToken(consent, authorizationRequest, env.TOKEN_SIGNING_KEY!);
+        if (grant && grant.webid === webid) {
+          return { webid: grant.webid, scope: grant.scope };
+        }
+      }
+      // No (or invalid/expired/mismatched) consent proof yet — render the same owner-password
+      // prompt `handleIndieAuthConsent`'s form posts to, targeting `/oidc/consent` instead. The
+      // client_id/redirect_uri are shown as visible text (not just hidden inputs) so the owner
+      // can actually see what they're approving before submitting.
+      //
+      // The hidden fields are rendered from `authorizationRequest` — the library's own parsed
+      // object — rather than from the raw query string. `@dwk/solid-oidc`'s `handleAuthorize`
+      // normalizes `redirectUri` (`new URL(...).toString()`, which e.g. adds a trailing slash to
+      // a bare origin) and defaults `scope` when absent (`"openid webid"`) before calling this
+      // hook; `handleSolidOidcConsent` mints the consent grant from whatever comes back in these
+      // form fields, and `verifySolidOidcConsentToken` checks it against the *next* request's
+      // freshly-normalized `authorizationRequest`. If the hidden fields echoed the raw query
+      // values instead, mint time and verify time would build the grant from different
+      // `redirectUri`/`scope` strings and never match — bouncing the owner back to this page
+      // forever for any bare-origin `redirect_uri` or request that omits `scope`. Sourcing both
+      // from `authorizationRequest` keeps mint and verify derived from the same normalization by
+      // construction. `response_type`/`code_challenge_method` are hardcoded rather than echoed:
+      // by the time this hook runs, `@dwk/solid-oidc` has already required them to be exactly
+      // `"code"`/`"S256"`, so there's no raw value left to disagree with.
+      const fields = [
+        ["client_id", authorizationRequest.clientId],
+        ["redirect_uri", authorizationRequest.redirectUri],
+        ["response_type", "code"],
+        ["code_challenge", authorizationRequest.codeChallenge],
+        ["code_challenge_method", "S256"],
+        ["scope", authorizationRequest.scope],
+        ...(authorizationRequest.state !== undefined ? [["state", authorizationRequest.state]] : []),
+        ...(authorizationRequest.nonce !== undefined ? [["nonce", authorizationRequest.nonce]] : []),
+      ]
+        .map(([name, value]) => `<input type="hidden" name="${escapeHTML(name)}" value="${escapeHTML(value)}">`)
+        .join("\n");
+      const body = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Approve sign-in</title></head><body><main>
+<h1>Approve sign-in</h1>
+<p><strong>${escapeHTML(authorizationRequest.clientId)}</strong> wants to sign in as this pod's owner.</p>
+<p>Redirect target: <strong>${escapeHTML(authorizationRequest.redirectUri)}</strong></p>
+<form method="post" action="/oidc/consent">
+${fields}
+<input type="hidden" name="webid" value="${escapeHTML(webid)}">
+<label>Site owner password <input name="password" type="password" required autocomplete="current-password" maxlength="512"></label>
+<button type="submit">Approve</button>
+</form></main></body></html>`;
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+        },
+      });
+    },
+  };
+}
+
+/**
+ * Solid-OIDC OpenID Provider (identity layer for `@dwk/solid-pod`). Returns 503 when it isn't
+ * fully provisioned (`OIDC_SIGNING_KEY` unbound, or the shared `INDIEAUTH_OWNER_PASSWORD`/
+ * `TOKEN_SIGNING_KEY`/`AUTH_DB` bindings absent) rather than letting `@dwk/solid-oidc` throw its
+ * own loud startup error, matching every other composed handler in this file.
+ */
+export function handleSolidOidc(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = solidOidcConfig(request, env);
+  if (!config) {
+    return Promise.resolve(new Response("Solid-OIDC is not configured", { status: 503 }));
+  }
+  const solidOidc = createSolidOidc(config);
+  return solidOidc(request, env as unknown as SolidOidcEnv, ctx);
+}
+
+/**
+ * Builds `@dwk/solid-pod`'s config from `env`, or `null` when solid-pod isn't fully provisioned
+ * (`POD`/`BLOBS` unbound). `issuer`/`jwksUri` trust this same origin's Solid-OIDC identity
+ * endpoint (`handleSolidOidc` above, Task 5's `/oidc/jwks`) — no separate cross-service secret,
+ * just a URL string pointing back at this same Worker.
+ */
+function solidPodConfig(request: Request, env: WorkerEnv): SolidPodConfig | null {
+  if (!env.POD || !env.BLOBS) return null;
+  const baseUrl = new URL(request.url).origin;
+  return {
+    baseUrl,
+    issuer: baseUrl,
+    jwksUri: `${baseUrl}/oidc/jwks`,
+    owner: `${baseUrl}/profile/card#me`,
+  };
+}
+
+/**
+ * Solid Pod (identity storage layer). Returns 503 when it isn't fully provisioned (`POD`/`BLOBS`
+ * unbound) rather than letting `@dwk/solid-pod` throw its own loud startup error, matching every
+ * other composed handler in this file.
+ */
+export function handleSolidPod(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = solidPodConfig(request, env);
+  if (!config) {
+    return Promise.resolve(new Response("Solid Pod is not configured", { status: 503 }));
+  }
+  const pod = createSolidPod(config);
+  return pod(request, env as unknown as SolidPodEnv, ctx);
+}
+
+/**
+ * WebDAV façade over the same Solid Pod (RFC 4918 Class 2 — mount as a network drive). Returns
+ * 503 when solid-pod isn't provisioned or `WEBDAV_PEPPER` is unbound, matching every other
+ * composed handler in this file.
+ *
+ * `@dwk/solid-pod`'s `SolidPodConfig` has no `pepper` field — unlike the app-password hashing
+ * pepper's env-secret shape you might expect from other composed handlers, `WEBDAV_PEPPER` is
+ * read directly by the per-pod Durable Object from its own bound `env` (a plain Cloudflare
+ * Worker secret binding, visible to the DO regardless of what this front door passes through),
+ * not threaded through `createSolidPodWebdav`'s config object. The check below still gates the
+ * route on it being set: leaving it unbound is a valid (if weaker) runtime configuration for the
+ * package itself, but this composition requires it before exposing `/dav` at all.
+ */
+export function handleWebdav(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = solidPodConfig(request, env);
+  if (!config || !env.WEBDAV_PEPPER) {
+    return Promise.resolve(new Response("WebDAV is not configured", { status: 503 }));
+  }
+  const webdav = createSolidPodWebdav(config);
+  return webdav(request, env as unknown as SolidPodEnv, ctx);
+}
+
+/**
+ * Owner-gated WebDAV app-password mint/list/revoke endpoint (`/dav-credentials`). Same 503
+ * contract as `handleWebdav` above.
+ */
+export function handleWebdavCredentials(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = solidPodConfig(request, env);
+  if (!config || !env.WEBDAV_PEPPER) {
+    return Promise.resolve(new Response("WebDAV is not configured", { status: 503 }));
+  }
+  const credentials = createSolidPodWebdavCredentials(config);
+  return credentials(request, env as unknown as SolidPodEnv, ctx);
+}
+
+/**
+ * Solid Pod's R2 garbage-collection Cron Trigger — reclaims blobs orphaned by copy-on-write.
+ * No-ops (rather than letting `@dwk/solid-pod`'s handler throw) when `BLOBS` or `GC_DB` is
+ * unbound — see the `GC_DB` doc comment on `WorkerEnv` above for why the latter check exists
+ * even though it isn't provisioned by anything yet.
+ */
+function handleSolidPodGcScheduled(
+  controller: ScheduledController,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<void> {
+  if (!env.BLOBS || !env.GC_DB) return Promise.resolve();
+  const baseUrl = env.SITE_URL ?? "https://example.invalid";
+  const gc = createSolidPodGc({ baseUrl, gcSafetyWindowMs: 300_000 });
+  return gc(controller, env as unknown as SolidPodGcEnv, ctx);
 }
 
 function indieAuthHandler(request: Request, env: WorkerEnv) {
@@ -1035,6 +1463,61 @@ export const ROUTES: readonly WorkerRoute[] = [
     handler: (request, env) => handleIndieAuthConsent(request, env),
   },
   {
+    // Solid-OIDC discovery (identity layer for `@dwk/solid-pod`). Authority-bound to this fixed
+    // path regardless of `mountPath` — see `resolveConfig` in `@dwk/solid-oidc`.
+    path: "/.well-known/openid-configuration",
+    match: "exact",
+    methods: ["GET", "HEAD"],
+    handler: (request, env, ctx) => handleSolidOidc(request, env, ctx),
+  },
+  {
+    path: "/oidc/jwks",
+    match: "exact",
+    methods: ["GET", "HEAD"],
+    handler: (request, env, ctx) => handleSolidOidc(request, env, ctx),
+  },
+  {
+    path: "/oidc/authorize",
+    match: "exact",
+    methods: ["GET"],
+    handler: (request, env, ctx) => handleSolidOidc(request, env, ctx),
+  },
+  {
+    path: "/oidc/token",
+    match: "exact",
+    methods: ["POST"],
+    handler: (request, env, ctx) => handleSolidOidc(request, env, ctx),
+  },
+  {
+    path: "/oidc/consent",
+    match: "exact",
+    methods: ["POST"],
+    handler: (request, env) => handleSolidOidcConsent(request, env),
+  },
+  {
+    // Solid Pod LDP storage (identity storage layer). No separate exact entry — a single
+    // `prefix` entry already matches the bare path too, per `matchRoute`'s
+    // `pathname === route.path` check.
+    path: "/pod",
+    match: "prefix",
+    methods: ["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    handler: (request, env, ctx) => handleSolidPod(request, env, ctx),
+  },
+  {
+    // WebDAV façade over the same pod (RFC 4918 Class 2 — mount as a network drive).
+    path: "/dav",
+    match: "prefix",
+    methods: ["GET", "PUT", "DELETE", "PROPFIND", "PROPPATCH", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK", "OPTIONS", "HEAD"],
+    handler: (request, env, ctx) => handleWebdav(request, env, ctx),
+  },
+  {
+    // Owner-gated WebDAV app-password mint/list/revoke endpoint.
+    path: "/dav-credentials",
+    match: "exact",
+    methods: ["GET", "POST", "DELETE"],
+    handler: (request, env, ctx) => handleWebdavCredentials(request, env, ctx),
+  },
+  {
     path: "/inbox",
     match: "exact",
     methods: ["POST"],
@@ -1225,13 +1708,18 @@ export default {
     return Promise.resolve();
   },
 
-  // Cron Trigger, present unconditionally; no-ops for a site without Microsub provisioned
-  // (V-4.3, #365) — the only feature that schedules work today.
+  // Cron Trigger, present unconditionally; dispatched by `controller.cron`, mirroring how
+  // `queue()` above dispatches on the queue-name suffix. Two schedules land here today:
+  // Microsub's feed poller (V-4.3, #365, "*/15 * * * *") and solid-pod's R2 garbage-collection
+  // cron ("*/5 * * * *"). Both no-op for a site without the matching feature provisioned.
   async scheduled(
     controller: ScheduledController,
     env: WorkerEnv,
     ctx: ExecutionContext,
   ): Promise<void> {
+    if (controller.cron === "*/5 * * * *") {
+      return handleSolidPodGcScheduled(controller, env, ctx);
+    }
     return handleMicrosubScheduled(controller, env, ctx);
   },
 } satisfies ExportedHandler<WorkerEnv, WebmentionJob | WebSubJob | MicrosubJob>;

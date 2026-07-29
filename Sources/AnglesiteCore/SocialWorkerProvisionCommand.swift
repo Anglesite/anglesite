@@ -59,6 +59,15 @@ public actor SocialWorkerProvisionCommand {
     /// `ActivityPubKeyProvisioning`; tests inject a fake to avoid touching the real login
     /// keychain and to control the returned values deterministically.
     public typealias KeyPairSource = @Sendable (_ siteID: String) throws -> ActivityPubKeyProvisioning.Secrets
+    /// Produces (generating and persisting on first call, per site) the Solid-OIDC OP's ES256
+    /// signing key as a JSON private JWK. Defaults to the real Keychain via
+    /// `SolidOidcKeyProvisioning`; tests inject a fake to avoid touching the real login keychain
+    /// and to control the returned value deterministically — mirrors `KeyPairSource` exactly.
+    public typealias SolidOidcSigningKeySource = @Sendable (_ siteID: String) throws -> String
+    /// Produces (generating and persisting on first call, per site) `@dwk/webdav`'s app-password
+    /// hashing pepper. Defaults to the real Keychain via `SolidOidcKeyProvisioning`; tests inject
+    /// a fake, mirroring `KeyPairSource`/`SolidOidcSigningKeySource`.
+    public typealias WebdavPepperSource = @Sendable (_ siteID: String) throws -> String
     public typealias Deployer = @Sendable (
         _ token: String,
         _ siteID: String,
@@ -69,6 +78,8 @@ public actor SocialWorkerProvisionCommand {
     public nonisolated let tokenSource: TokenSource
     private let runner: CommandRunner
     private let keyPairSource: KeyPairSource
+    private let solidOidcSigningKeySource: SolidOidcSigningKeySource
+    private let webdavPepperSource: WebdavPepperSource
     private let secretRunner: SecretRunner
     private let deployer: Deployer
     private let workerScriptNamesSource: DeployCommand.WorkerScriptNamesSource
@@ -77,6 +88,8 @@ public actor SocialWorkerProvisionCommand {
         tokenSource: @escaping TokenSource = DeployCommand.keychainTokenSource,
         runner: @escaping CommandRunner = SocialWorkerProvisionCommand.defaultRunner,
         keyPairSource: @escaping KeyPairSource = SocialWorkerProvisionCommand.defaultKeyPairSource,
+        solidOidcSigningKeySource: @escaping SolidOidcSigningKeySource = SocialWorkerProvisionCommand.defaultSolidOidcSigningKeySource,
+        webdavPepperSource: @escaping WebdavPepperSource = SocialWorkerProvisionCommand.defaultWebdavPepperSource,
         secretRunner: @escaping SecretRunner = SocialWorkerProvisionCommand.defaultSecretRunner,
         deployer: @escaping Deployer = SocialWorkerProvisionCommand.defaultDeployer,
         /// Same seam `DeployCommand` uses for its own end-of-pipeline conflict check
@@ -88,6 +101,8 @@ public actor SocialWorkerProvisionCommand {
         self.tokenSource = tokenSource
         self.runner = runner
         self.keyPairSource = keyPairSource
+        self.solidOidcSigningKeySource = solidOidcSigningKeySource
+        self.webdavPepperSource = webdavPepperSource
         self.secretRunner = secretRunner
         self.deployer = deployer
         self.workerScriptNamesSource = workerScriptNamesSource
@@ -228,7 +243,7 @@ public actor SocialWorkerProvisionCommand {
             }
         }
 
-        if workers.contains(where: { $0.resources.needsR2 }) {
+        if workers.contains(where: { $0.id == WorkerComposition.micropubWorkerID }) {
             if resources.r2BucketName == nil {
                 let name = "\(siteName)-media"
                 let result = await runWrangler(
@@ -242,6 +257,29 @@ public actor SocialWorkerProvisionCommand {
                     return failure
                 }
                 resources.r2BucketName = name
+                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName) {
+                    return failure
+                }
+            }
+        }
+
+        let hasSolidPodOrWebdav = workers.contains(where: {
+            $0.id == WorkerComposition.solidPodWorkerID || $0.id == WorkerComposition.webdavWorkerID
+        })
+        if hasSolidPodOrWebdav {
+            if resources.podBlobsR2BucketName == nil {
+                let name = "\(siteName)-pod-blobs"
+                let result = await runWrangler(
+                    siteDirectory: siteDirectory,
+                    arguments: ["r2", "bucket", "create", name],
+                    environment: environment,
+                    source: source,
+                    resources: resources
+                )
+                if case .failure(let failure) = result {
+                    return failure
+                }
+                resources.podBlobsR2BucketName = name
                 if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName) {
                     return failure
                 }
@@ -279,6 +317,44 @@ public actor SocialWorkerProvisionCommand {
                 } catch {
                     return .failed(reason: "couldn't push \(name): \(error)", exitCode: nil, resources: resources)
                 }
+            }
+        }
+
+        let hasSolidOidc = workers.contains(where: { $0.id == WorkerComposition.solidOidcWorkerID })
+        if hasSolidOidc {
+            let signingKeyJWK: String
+            do {
+                signingKeyJWK = try solidOidcSigningKeySource(siteID)
+            } catch {
+                return .failed(reason: "couldn't prepare Solid-OIDC signing key: \(error)", exitCode: nil, resources: resources)
+            }
+            do {
+                let secretResult = try await secretRunner(siteDirectory, "OIDC_SIGNING_KEY", signingKeyJWK, environment, source)
+                guard secretResult.exitCode == 0 else {
+                    let output = secretResult.stdout.isEmpty ? secretResult.stderr : secretResult.stdout
+                    return .failed(reason: "couldn't push OIDC_SIGNING_KEY: \(output)", exitCode: secretResult.exitCode, resources: resources)
+                }
+            } catch {
+                return .failed(reason: "couldn't push OIDC_SIGNING_KEY: \(error)", exitCode: nil, resources: resources)
+            }
+        }
+
+        let hasWebdav = workers.contains(where: { $0.id == WorkerComposition.webdavWorkerID })
+        if hasWebdav {
+            let pepper: String
+            do {
+                pepper = try webdavPepperSource(siteID)
+            } catch {
+                return .failed(reason: "couldn't prepare WebDAV pepper: \(error)", exitCode: nil, resources: resources)
+            }
+            do {
+                let secretResult = try await secretRunner(siteDirectory, "WEBDAV_PEPPER", pepper, environment, source)
+                guard secretResult.exitCode == 0 else {
+                    let output = secretResult.stdout.isEmpty ? secretResult.stderr : secretResult.stdout
+                    return .failed(reason: "couldn't push WEBDAV_PEPPER: \(output)", exitCode: secretResult.exitCode, resources: resources)
+                }
+            } catch {
+                return .failed(reason: "couldn't push WEBDAV_PEPPER: \(error)", exitCode: nil, resources: resources)
             }
         }
 
@@ -505,13 +581,21 @@ public actor SocialWorkerProvisionCommand {
         // can't get silently misclassified as another's queue just because it doesn't end in
         // that other feature's suffix.
         let queueNames = extractAllTomlStrings(named: "queue", from: toml)
+        // Same reasoning applies to R2 bucket names: Micropub's `MEDIA` bucket
+        // (`<site>-media`) and solid-pod/webdav's `BLOBS` bucket (`<site>-pod-blobs`) can both
+        // be present as separate `[[r2_buckets]]` blocks, so classify every `bucket_name = "…"`
+        // value by its suffix rather than taking the first match — otherwise a redeploy with
+        // both buckets provisioned would read back only one, and the other would look
+        // unprovisioned and get re-created against wrangler on every deploy.
+        let bucketNames = extractAllTomlStrings(named: "bucket_name", from: toml)
         return .init(
             d1DatabaseID: extractTomlString(named: "database_id", from: toml),
             kvNamespaceID: extractTomlString(named: "id", from: toml),
-            r2BucketName: extractTomlString(named: "bucket_name", from: toml),
+            r2BucketName: bucketNames.first(where: { $0.hasSuffix("-media") }),
             queueName: queueNames.first(where: { $0.hasSuffix("-webmention") }),
             websubQueueName: queueNames.first(where: { $0.hasSuffix("-websub") }),
-            microsubQueueName: queueNames.first(where: { $0.hasSuffix("-microsub") })
+            microsubQueueName: queueNames.first(where: { $0.hasSuffix("-microsub") }),
+            podBlobsR2BucketName: bucketNames.first(where: { $0.hasSuffix("-pod-blobs") })
         )
     }
 
@@ -583,6 +667,14 @@ public actor SocialWorkerProvisionCommand {
 
     public static let defaultKeyPairSource: KeyPairSource = { siteID in
         try ActivityPubKeyProvisioning.secrets(siteID: siteID, secretStore: PlatformSecretStore.make())
+    }
+
+    public static let defaultSolidOidcSigningKeySource: SolidOidcSigningKeySource = { siteID in
+        try SolidOidcKeyProvisioning.signingKeyJWK(siteID: siteID, secretStore: PlatformSecretStore.make())
+    }
+
+    public static let defaultWebdavPepperSource: WebdavPepperSource = { siteID in
+        try SolidOidcKeyProvisioning.webdavPepper(siteID: siteID, secretStore: PlatformSecretStore.make())
     }
 
     // Calls `DeployCommand.deploy` with `configDirectory` still defaulted (route-coverage

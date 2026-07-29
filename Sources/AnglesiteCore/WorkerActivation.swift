@@ -144,7 +144,7 @@ public enum WorkerActivation {
         activeIDs: Set<String>, conformance: WorkersConformanceStatus
     ) -> String? {
         var messages: [String] = []
-        for phase in [WorkersConformanceStatus.Phase.v2, .v3, .v4] {
+        for phase in [WorkersConformanceStatus.Phase.v2, .v3, .v4, .storage] {
             let required = WorkersConformanceStatus.phaseRequirements[phase] ?? []
             // Only advise about a phase if one of its required packages corresponds to an
             // active worker id — npm package names are "@dwk/<id>", matching WorkerDescriptor.id.
