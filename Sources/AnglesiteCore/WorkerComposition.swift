@@ -34,9 +34,9 @@ public enum WorkerComposition {
     /// `@dwk/micropub`'s catalog id — like `webmentionWorkerID`, composition keys off this
     /// directly for the create/update/delete endpoint's bespoke `MICROPUB_DB` binding, since that
     /// binding name is part of `@dwk/micropub`'s public composition contract, not something a
-    /// generic `resources` flag can express. `MEDIA` (R2) is covered by the existing generic
-    /// `needsR2` branch below — Micropub's catalog entry declares an `r2` resource, so it falls
-    /// out for free once `WorkerDescriptor.Resources` decodes that entry correctly.
+    /// generic `resources` flag can express. `MEDIA` (R2) is emitted by the `hasMicropub`-scoped
+    /// block below (not the generic `needsR2` flag), because that flag can't distinguish binding
+    /// names and would also fire for `solid-pod`/`webdav` (which also declare an `r2` resource).
     public static let micropubWorkerID = "micropub"
 
     /// `@dwk/activitypub`'s catalog id — like `webmentionWorkerID`/`micropubWorkerID`, composition
