@@ -119,13 +119,13 @@ struct WorkerRouteClaimsTests {
     }
 
     @Test("documents the upstream catalog bug: same-owner exact + prefix claims to the same base path collide as duplicates")
-    func sameOwnerExactPlusPrefixCollide() {
-        // Mirrors the *current* (unfixed) catalog.json shape for solid-pod/webdav: an exact "/pod"
-        // claim and a prefix "/pod/" claim from the same owner. The prefix claim alone already covers
-        // the bare path (see WorkerRouteClaims.runWorkerFirstPatterns), so the exact claim is
-        // redundant — but activeClaims doesn't know that, and both claims normalize to path "/pod".
-        // This test exists so a future catalog fix (drop the redundant exact claim) has a red-to-green
-        // signal, and so nobody "fixes" this by loosening duplicate detection instead.
+    func sameOwnerExactPlusPrefixCollide() throws {
+        // solid-pod/webdav's actual catalog.json shape: an exact "/pod" claim and a prefix "/pod/"
+        // claim from the same owner, both normalizing to path "/pod". This used to falsely throw
+        // duplicateClaim (fixed upstream in #1072/45d75d49, which keys dedup by (path, match)
+        // rather than path alone — the general case is covered by that commit's own
+        // `exactAndPrefixSameOwnerSamePathCoexist` test, using micropub's identical shape). This
+        // test pins the specific solid-pod/webdav shape this feature depends on.
         let exact = WorkerRouteClaim(path: "/pod", match: .exact, methods: ["GET"], handler: "createSolidPod")
         let prefix = WorkerRouteClaim(
             path: "/pod/", match: .prefix, methods: ["GET"], handler: "createSolidPod",
@@ -138,9 +138,9 @@ struct WorkerRouteClaimsTests {
                 routes: [exact, prefix]
             ),
         ]
-        #expect(throws: WorkerRouteClaims.ValidationError.duplicateClaim(path: "/pod", owners: ["solid-pod", "solid-pod"])) {
-            try WorkerRouteClaims.activeClaims(catalog: catalog, activeIDs: ["solid-pod"])
-        }
+        let claims = try WorkerRouteClaims.activeClaims(catalog: catalog, activeIDs: ["solid-pod"])
+        #expect(claims.count == 2)
+        #expect(claims.map(\.claim.match) == [.exact, .prefix])
     }
 
     // MARK: Prefix claims
@@ -224,6 +224,33 @@ struct WorkerRouteClaimsTests {
                     descriptor(id: "inner", routes: [claim("/api/v1", match: .prefix, specificationURL: spec)]),
                 ],
                 activeIDs: ["outer", "inner"])
+        }
+    }
+
+    @Test("a worker's own exact and prefix claims at the same normalized path don't collide (micropub-shaped)")
+    func exactAndPrefixSameOwnerSamePathCoexist() throws {
+        let claims = try WorkerRouteClaims.activeClaims(
+            catalog: [descriptor(id: "micropub", routes: [
+                claim("/media", match: .exact, methods: ["POST"]),
+                claim("/media/", match: .prefix, methods: ["GET"], specificationURL: spec),
+            ])],
+            activeIDs: ["micropub"])
+        #expect(claims.count == 2)
+        #expect(claims.map(\.claim.path) == ["/media", "/media"])
+        #expect(claims.map(\.claim.match) == [.exact, .prefix])
+    }
+
+    @Test("rejects two prefix claims for the same path, naming both owners")
+    func rejectsDuplicatePrefix() {
+        #expect(throws: WorkerRouteClaims.ValidationError.duplicateClaim(
+            path: "/api", owners: ["a", "b"])
+        ) {
+            try WorkerRouteClaims.activeClaims(
+                catalog: [
+                    descriptor(id: "b", routes: [claim("/api", match: .prefix, specificationURL: spec)]),
+                    descriptor(id: "a", routes: [claim("/api", match: .prefix, specificationURL: spec)]),
+                ],
+                activeIDs: ["a", "b"])
         }
     }
 

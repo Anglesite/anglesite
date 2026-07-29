@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import OSLog
 import AnglesiteCore
 import AnglesiteIntents
 import AnglesiteSiteModel
@@ -47,6 +48,7 @@ struct ClosedFileSurfaces {
 @MainActor
 @Observable
 final class SiteWindowModel {
+    private static let logger = Logger(subsystem: "io.dwk.anglesite", category: "SiteWindowModel")
     private let contentGraph: SiteContentGraph
     private let knowledgeIndex: SiteKnowledgeIndex
     private let semanticRanker: SemanticRanker?
@@ -165,6 +167,10 @@ final class SiteWindowModel {
     /// Non-nil ⟺ the dependency-update-offer sheet is presented (`.sheet(item:)`), set by the
     /// detection hook in `loadAndStart()` when `DependencySyncChecker` finds offers to show.
     var dependencyUpdateModel: DependencyUpdateModel?
+    /// Non-nil ⟺ the scripts/-divergence sheet is presented (`.sheet(item:)`), set by the
+    /// detection hook in `loadAndStart()` when `TemplateScriptsSyncChecker` finds files the owner
+    /// customized that the template has also moved on past (#1053).
+    var scriptSyncModel: ScriptSyncModel?
     var newPagePresented = false
     var newCollectionPresented = false
     var newPostPresented = false
@@ -254,9 +260,11 @@ final class SiteWindowModel {
             if case .succeeded = phase { self?.sync.backupCompleted() }
         }
         let deployHook = deploy.onPhaseTransition
+        let deploySound: DialupSoundEffectPlaying = DialupSoundEffectPlayer()
         deploy.onPhaseTransition = { [weak self] siteID, phase in
             deployHook?(siteID, phase)
             if case .succeeded = phase { self?.sync.deployCompleted() }
+            if case .running = phase { deploySound.play() } else { deploySound.stop() }
         }
     }
 
@@ -1518,6 +1526,74 @@ final class SiteWindowModel {
                         self.dependencyUpdateModel = nil
                         continuation.resume()
                     }
+                }
+            }
+        }
+        // Give SwiftUI a moment to fully settle the dependency-sync sheet's dismissal (including
+        // its dismiss *animation*, not just the state change) before the scripts-sync sheet below
+        // requests its own presentation — back-to-back `.sheet(item:)` presentations in the same
+        // synchronous continuation-resumption stack risk a silently-failed second presentation,
+        // which (with `.interactiveDismissDisabled()` on both sheets) would leave this method's
+        // `CheckedContinuation` unresumed forever. This is a best-effort mitigation, not a
+        // structural guarantee — a single `Task.yield()` only defers to the next run-loop tick,
+        // which is enough for the state change but not necessarily for AppKit's own dismiss
+        // animation, so a short sleep is used instead. A real guarantee would mean gating on the
+        // first sheet's actual `onDisappear`, which isn't done here; accepted as low-risk because
+        // this path only triggers when a single site-open queues both a dependency offer and a
+        // script divergence at once (an app-upgrade edge case) — narrow enough that a manual QA
+        // pass covering it (see this PR's test plan) is the practical verification, not a proof.
+        try? await Task.sleep(for: .milliseconds(300))
+        if let templateURL = TemplateRuntime.resolve().url {
+            let plan = TemplateScriptsSyncChecker.check(
+                sourceDirectory: resolved.sourceDirectory,
+                configDirectory: resolved.configDirectory,
+                templateDirectory: templateURL
+            )
+            if !plan.toApply.isEmpty {
+                do {
+                    try TemplateScriptsSyncApplier.applyQueued(
+                        plan.toApply,
+                        sourceDirectory: resolved.sourceDirectory,
+                        configDirectory: resolved.configDirectory,
+                        templateDirectory: templateURL
+                    )
+                } catch {
+                    Self.logger.error(
+                        "scripts/ silent refresh failed for \(resolved.id, privacy: .public): \(String(describing: error), privacy: .public)"
+                    )
+                }
+            }
+            if !plan.divergences.isEmpty {
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    scriptSyncModel = ScriptSyncModel(
+                        divergences: plan.divergences,
+                        onResolve: { [weak self] divergence, decision in
+                            guard let self else { return false }
+                            do {
+                                try TemplateScriptsSyncApplier.resolve(
+                                    divergence,
+                                    decision: decision,
+                                    sourceDirectory: resolved.sourceDirectory,
+                                    configDirectory: resolved.configDirectory,
+                                    templateDirectory: templateURL
+                                )
+                                return true
+                            } catch {
+                                // Logged, and the row stays in `ScriptSyncModel.pending` rather than
+                                // being silently marked resolved — a failed write must not read to
+                                // the owner as a successful one (that's the exact failure mode
+                                // #1053 exists to close, just moved one layer down).
+                                Self.logger.error(
+                                    "scripts/ divergence resolve failed for \(divergence.relativePath, privacy: .public): \(String(describing: error), privacy: .public)"
+                                )
+                                return false
+                            }
+                        },
+                        onFinished: { [weak self] in
+                            self?.scriptSyncModel = nil
+                            continuation.resume()
+                        }
+                    )
                 }
             }
         }

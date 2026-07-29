@@ -81,7 +81,7 @@ Open Settings (⌘,).
 
 Expected — fixed-size window with three tabs:
 
-- **General**: "Auto-generate alt text for dropped images" **ON**; "Auto-suggest descriptions for new pages and posts" **ON**; "Notify when site operations finish" **ON**; "Announce live updates to VoiceOver" **ON**.
+- **General**: "Auto-generate alt text for dropped images" **ON**; "Auto-suggest descriptions for new pages and posts" **ON**; "Notify when site operations finish" **ON**; "Play dial-up sound while loading" **OFF**; "Announce live updates to VoiceOver" **ON**.
 - **Advanced**: plugin path override empty (placeholder "(use bundled plugin)"); Sites root empty (placeholder `~/Sites/`); Credentials section shows the Cloudflare API token row with **no stored token**; "Show Debug Pane menu item" **OFF**; LAN runtime section hidden in Release (no diagnostics opt-in yet).
 - No runtime-selection toggle exists anywhere (runtime choice is automatic).
 

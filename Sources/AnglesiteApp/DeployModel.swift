@@ -167,6 +167,21 @@ final class DeployModel {
         return false
     }
 
+    /// True while a foreground sheet is presented and awaiting the user's response to a prior
+    /// deploy's outcome — a worker-name-conflict rename, a paid-plan confirmation, or the
+    /// no-override security-block modal. `phase` leaves `.running` as soon as one of these is
+    /// presented, so `isRunning` alone doesn't guard against a second deploy starting concurrently:
+    /// `runDeploy` unconditionally resets `blockedPresented` to `false` at the very start of every
+    /// run (foreground or background), and every terminal case in its result switch unconditionally
+    /// writes `workerNameConflictPresented`/`webmentionPaidPlanConfirmationPresented` for *its own*
+    /// outcome — so a second run's start or resolution would silently clobber a foreground sheet
+    /// the user is still looking at (#1076). Most visibly, `deployAutomatically`'s invisible publish
+    /// queue (#357) firing moments after a manual deploy parks on one of these dismisses it before
+    /// the user can act, since the background run's own reset/outcome always presents as `false`.
+    private var awaitingUserAction: Bool {
+        workerNameConflictPresented || webmentionPaidPlanConfirmationPresented || blockedPresented
+    }
+
     /// Renders the captured log lines as plain text for the "Copy log" affordance on failure.
     var logText: String {
         logLines.map(\.text).joined(separator: "\n")
@@ -229,6 +244,7 @@ final class DeployModel {
         siteName: String? = nil
     ) async -> InvisiblePublishQueue.Result {
         guard !isRunning else { return .deferred(reason: "another site operation is running") }
+        guard !awaitingUserAction else { return .deferred(reason: "a deploy prompt is waiting for a response") }
         guard hasUsableToken() else { return .deferred(reason: "Cloudflare credentials are not configured") }
         // Resolved once (there's no user-facing prompt gap on this background path to make a
         // second resolution meaningfully fresher) and reused both for the readiness guard and the
@@ -435,7 +451,7 @@ final class DeployModel {
         drawerPresented = presentation == .foreground
         blockedPresented = false
 
-        let sources = Set(["deploy:\(siteID)", "deploy:\(siteID):build"])
+        let sources = DeployCoordinator.deployLogSources(siteID: siteID)
 
         // Subscribe BEFORE the deploy starts so we can't miss early build lines.
         let subscription = await logCenter.subscribe()
@@ -461,6 +477,7 @@ final class DeployModel {
         if let cc = containerControl {
             activeCommand = DeployCommand(
                 tokenSource: command.tokenSource,
+                workerScriptNamesSource: command.workerScriptNamesSource,
                 executor: ContainerDeployExecutor(
                     control: cc.control,
                     siteID: cc.siteID,
@@ -560,6 +577,15 @@ final class DeployModel {
                         }
                     }
                 )
+            },
+            // Forwards the same seam `activeCommand` uses for its own end-of-pipeline check (both
+            // are built from `command.workerScriptNamesSource` above), so `provision()`'s new
+            // pre-provisioning check (#1075) agrees with `deployer`'s — and so a test's injected
+            // fake `DeployCommand` governs both instead of this defaulting to the real network
+            // implementation.
+            workerScriptNamesSource: { [weak self] token in
+                guard let self else { return [] }
+                return try await self.command.workerScriptNamesSource(token)
             }
         )
 

@@ -85,6 +85,24 @@ public enum DeployCoordinator {
     /// original (still-taken) name basis after a rename-and-retry, defeating the rename. Only a
     /// genuinely first-ever deploy (no candidate name recorded yet) falls through to the derived
     /// slug of `siteName ?? siteID`.
+    /// The `LogCenter` source tags whose lines feed the Deploy drawer's visible/copyable log
+    /// (`DeployModel.logLines`, filtered from the shared subscription by `sources.contains`).
+    /// Must list every source a deploy-time subprocess can log under, or its output is silently
+    /// dropped from the debug pane — a `LogCenter.append` call still happens, it just never
+    /// reaches this filtered view, which reads as "nothing was logged" (CLAUDE.md's "every
+    /// spawned subprocess streams stdout+stderr into the debug pane" rule, violated by omission
+    /// rather than a missing `append` call). `"worker-provision:<siteID>"` is
+    /// `SocialWorkerProvisionCommand.provision`'s own `source` local — distinct from
+    /// `DeployCommand`'s `"deploy:<siteID>"` family — tagging every wrangler call it makes (D1/KV/
+    /// R2/Queue create, `d1 migrations apply`, ActivityPub secret pushes). Before this was added
+    /// here, a D1/KV/R2/Queue provisioning failure's real wrangler stderr never appeared in the
+    /// drawer even though `ContainerCommandRunner`/`defaultRunner` both already stream it into
+    /// `LogCenter` correctly — only unrelated `"deploy:<siteID>"`-tagged lines (e.g. the
+    /// conformance advisory) were visible.
+    public static func deployLogSources(siteID: String) -> Set<String> {
+        ["deploy:\(siteID)", "deploy:\(siteID):build", "worker-provision:\(siteID)"]
+    }
+
     public static func resolveWorkerSiteName(siteDirectory: URL, siteID: String, siteName: String?) -> String {
         let existingConfig = (try? WebsiteAnalyticsAsset.loadConfig(siteDirectory: siteDirectory)) ?? ""
         return SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: existingConfig)
