@@ -172,7 +172,9 @@ struct WorkerActivationTests {
     @Test("conformanceAdvisory is nil when nothing phase-gated is active")
     func advisoryNilWithoutRelevantWorkers() {
         let status = WorkersConformanceStatus(packages: [:])
-        #expect(WorkerActivation.conformanceAdvisory(activeIDs: ["solid-pod"], conformance: status) == nil)
+        // "solid-pod" is deliberately not used here anymore — it's phase-gated (.storage) as of
+        // this test file's own change; "remotestorage" is a real catalog id with no phase mapping.
+        #expect(WorkerActivation.conformanceAdvisory(activeIDs: ["remotestorage"], conformance: status) == nil)
     }
 
     @Test("componentNodeIDs resolves a catalog componentID to a real prefixed component node by filename stem")
@@ -276,5 +278,15 @@ struct WorkerActivationTests {
             settings: settings, catalog: [a, b], graph: nil)
 
         #expect(active == ["a", "b"])
+    }
+
+    @Test("conformanceAdvisory reports blocked storage packages when webdav is active and pending")
+    func advisoryReportsStorageBlocked() {
+        let status = try! WorkersConformanceReader.parse("""
+        { "packages": { "@dwk/webdav": { "standard": "WebDAV", "suites": {}, "integration": { "status": "pending" } } } }
+        """.data(using: .utf8)!)
+        let advisory = WorkerActivation.conformanceAdvisory(activeIDs: ["webdav"], conformance: status)
+        #expect(advisory != nil)
+        #expect(advisory!.contains("@dwk/webdav"))
     }
 }
