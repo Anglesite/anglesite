@@ -43,6 +43,21 @@ OQIDAQAB
 `;
 
 export default defineConfig({
+  // @dwk/solid-pod pulls in the RDF parser `n3`, which vendors its own copy of Node's stream
+  // internals via the `readable-stream` npm package rather than using `node:stream` directly.
+  // Under this pool's workerd runtime (nodejs_compat), loading that vendored copy crashes with
+  // "Cannot redefine property: Symbol(nodejs.util.promisify.custom)" — workerd's own `node:stream`
+  // polyfill and the vendored `readable-stream/lib/ours/browser.js` both try to define the same
+  // well-known Symbol on the same shared Readable prototype, and the second defineProperty loses.
+  // Aliasing `readable-stream` to workerd's own `node:stream` sidesteps the double-definition
+  // entirely (n3 only needs the ordinary Readable/Writable surface). This is purely a test-pool
+  // quirk, not a production bundling issue: `wrangler deploy --dry-run` builds worker.ts fine
+  // without it (esbuild's bundling doesn't hit this code path).
+  resolve: {
+    alias: {
+      "readable-stream": "node:stream",
+    },
+  },
   plugins: [
     cloudflareTest({
       main: "./worker/worker.ts",

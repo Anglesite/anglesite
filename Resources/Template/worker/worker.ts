@@ -43,6 +43,16 @@ import {
   type SolidOidcAuthorizationRequest,
   type Jwk,
 } from "@dwk/solid-oidc";
+import {
+  createSolidPod,
+  createSolidPodGc,
+  createSolidPodWebdav,
+  createSolidPodWebdavCredentials,
+  SolidPodObject,
+  type SolidPodConfig,
+  type SolidPodEnv,
+  type SolidPodGcEnv,
+} from "@dwk/solid-pod";
 
 /**
  * Per-site Cloudflare Worker entry point.
@@ -129,6 +139,32 @@ export interface WorkerEnv extends IndieAuthEnv {
    */
   OIDC_SIGNING_KEY?: string;
   /**
+   * Solid Pod bindings (V-storage). All optional: a site that hasn't provisioned solid-pod has
+   * none of them bound, and every `/pod`/`/dav`/`/dav-credentials` route degrades to 503 rather
+   * than letting `@dwk/solid-pod` throw its own loud startup error. `POD` is the per-pod Durable
+   * Object namespace the package ships (`SolidPodObject`, re-exported below so wrangler can bind
+   * it); `BLOBS` is its R2 bucket for oversized/binary bodies. See
+   * `WorkerComposition.generateWranglerToml` (Swift) for the binding generation.
+   */
+  POD?: DurableObjectNamespace<SolidPodObject>;
+  BLOBS?: R2Bucket;
+  /**
+   * `@dwk/webdav`'s app-password hashing pepper. Optional: a site with solid-pod active but not
+   * webdav has this unbound, and `/dav`/`/dav-credentials` degrade to 503.
+   */
+  WEBDAV_PEPPER?: string;
+  /**
+   * D1 database tracking orphaned R2 blob keys for solid-pod's out-of-band garbage-collection
+   * cron (`@dwk/solid-pod`'s `SolidPodGcEnv.GC_DB`). That package's own `createSolidPodGc`
+   * handler declares this binding *required*, not optional, and throws the moment it runs
+   * without it — but `WorkerComposition.generateWranglerToml` (Swift) does not currently
+   * provision a GC_DB binding for solid-pod (only `POD`/`BLOBS`/`WEBDAV_PEPPER` are wired today).
+   * Kept optional here so `handleSolidPodGcScheduled` below can guard on its absence and no-op
+   * on every five-minute GC cron tick until that provisioning gap is closed, instead of throwing
+   * an unhandled exception in every site with solid-pod active.
+   */
+  GC_DB?: D1Database;
+  /**
    * WebSub hub bindings (V-3.3, #361). Optional like the Webmention set above: a site that
    * hasn't provisioned the hub has none of them bound, and the `/websub` route + queue
    * consumer degrade gracefully (503 / ack-without-work). Provisioning wires a D1 database
@@ -156,6 +192,7 @@ export interface WorkerEnv extends IndieAuthEnv {
 }
 
 export { ActivityPubObject };
+export { SolidPodObject };
 
 const RATE_LIMIT_WINDOW_SECONDS = 3600;
 const RATE_LIMIT_MAX_PER_WINDOW = 5;
@@ -579,6 +616,101 @@ export function handleSolidOidc(
   }
   const solidOidc = createSolidOidc(config);
   return solidOidc(request, env as unknown as SolidOidcEnv, ctx);
+}
+
+/**
+ * Builds `@dwk/solid-pod`'s config from `env`, or `null` when solid-pod isn't fully provisioned
+ * (`POD`/`BLOBS` unbound). `issuer`/`jwksUri` trust this same origin's Solid-OIDC identity
+ * endpoint (`handleSolidOidc` above, Task 5's `/oidc/jwks`) — no separate cross-service secret,
+ * just a URL string pointing back at this same Worker.
+ */
+function solidPodConfig(request: Request, env: WorkerEnv): SolidPodConfig | null {
+  if (!env.POD || !env.BLOBS) return null;
+  const baseUrl = new URL(request.url).origin;
+  return {
+    baseUrl,
+    issuer: baseUrl,
+    jwksUri: `${baseUrl}/oidc/jwks`,
+    owner: `${baseUrl}/profile/card#me`,
+  };
+}
+
+/**
+ * Solid Pod (identity storage layer). Returns 503 when it isn't fully provisioned (`POD`/`BLOBS`
+ * unbound) rather than letting `@dwk/solid-pod` throw its own loud startup error, matching every
+ * other composed handler in this file.
+ */
+export function handleSolidPod(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = solidPodConfig(request, env);
+  if (!config) {
+    return Promise.resolve(new Response("Solid Pod is not configured", { status: 503 }));
+  }
+  const pod = createSolidPod(config);
+  return pod(request, env as unknown as SolidPodEnv, ctx);
+}
+
+/**
+ * WebDAV façade over the same Solid Pod (RFC 4918 Class 2 — mount as a network drive). Returns
+ * 503 when solid-pod isn't provisioned or `WEBDAV_PEPPER` is unbound, matching every other
+ * composed handler in this file.
+ *
+ * `@dwk/solid-pod`'s `SolidPodConfig` has no `pepper` field — unlike the app-password hashing
+ * pepper's env-secret shape you might expect from other composed handlers, `WEBDAV_PEPPER` is
+ * read directly by the per-pod Durable Object from its own bound `env` (a plain Cloudflare
+ * Worker secret binding, visible to the DO regardless of what this front door passes through),
+ * not threaded through `createSolidPodWebdav`'s config object. The check below still gates the
+ * route on it being set: leaving it unbound is a valid (if weaker) runtime configuration for the
+ * package itself, but this composition requires it before exposing `/dav` at all.
+ */
+export function handleWebdav(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = solidPodConfig(request, env);
+  if (!config || !env.WEBDAV_PEPPER) {
+    return Promise.resolve(new Response("WebDAV is not configured", { status: 503 }));
+  }
+  const webdav = createSolidPodWebdav(config);
+  return webdav(request, env as unknown as SolidPodEnv, ctx);
+}
+
+/**
+ * Owner-gated WebDAV app-password mint/list/revoke endpoint (`/dav-credentials`). Same 503
+ * contract as `handleWebdav` above.
+ */
+export function handleWebdavCredentials(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = solidPodConfig(request, env);
+  if (!config || !env.WEBDAV_PEPPER) {
+    return Promise.resolve(new Response("WebDAV is not configured", { status: 503 }));
+  }
+  const credentials = createSolidPodWebdavCredentials(config);
+  return credentials(request, env as unknown as SolidPodEnv, ctx);
+}
+
+/**
+ * Solid Pod's R2 garbage-collection Cron Trigger — reclaims blobs orphaned by copy-on-write.
+ * No-ops (rather than letting `@dwk/solid-pod`'s handler throw) when `BLOBS` or `GC_DB` is
+ * unbound — see the `GC_DB` doc comment on `WorkerEnv` above for why the latter check exists
+ * even though it isn't provisioned by anything yet.
+ */
+function handleSolidPodGcScheduled(
+  controller: ScheduledController,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<void> {
+  if (!env.BLOBS || !env.GC_DB) return Promise.resolve();
+  const baseUrl = env.SITE_URL ?? "https://example.invalid";
+  const gc = createSolidPodGc({ baseUrl, gcSafetyWindowMs: 300_000 });
+  return gc(controller, env as unknown as SolidPodGcEnv, ctx);
 }
 
 function indieAuthHandler(request: Request, env: WorkerEnv) {
@@ -1243,6 +1375,29 @@ export const ROUTES: readonly WorkerRoute[] = [
     handler: (request, env) => handleSolidOidcConsent(request, env),
   },
   {
+    // Solid Pod LDP storage (identity storage layer). No separate exact entry — a single
+    // `prefix` entry already matches the bare path too, per `matchRoute`'s
+    // `pathname === route.path` check.
+    path: "/pod",
+    match: "prefix",
+    methods: ["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    handler: (request, env, ctx) => handleSolidPod(request, env, ctx),
+  },
+  {
+    // WebDAV façade over the same pod (RFC 4918 Class 2 — mount as a network drive).
+    path: "/dav",
+    match: "prefix",
+    methods: ["GET", "PUT", "DELETE", "PROPFIND", "PROPPATCH", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK", "OPTIONS", "HEAD"],
+    handler: (request, env, ctx) => handleWebdav(request, env, ctx),
+  },
+  {
+    // Owner-gated WebDAV app-password mint/list/revoke endpoint.
+    path: "/dav-credentials",
+    match: "exact",
+    methods: ["GET", "POST", "DELETE"],
+    handler: (request, env, ctx) => handleWebdavCredentials(request, env, ctx),
+  },
+  {
     path: "/inbox",
     match: "exact",
     methods: ["POST"],
@@ -1433,13 +1588,18 @@ export default {
     return Promise.resolve();
   },
 
-  // Cron Trigger, present unconditionally; no-ops for a site without Microsub provisioned
-  // (V-4.3, #365) — the only feature that schedules work today.
+  // Cron Trigger, present unconditionally; dispatched by `controller.cron`, mirroring how
+  // `queue()` above dispatches on the queue-name suffix. Two schedules land here today:
+  // Microsub's feed poller (V-4.3, #365, "*/15 * * * *") and solid-pod's R2 garbage-collection
+  // cron ("*/5 * * * *"). Both no-op for a site without the matching feature provisioned.
   async scheduled(
     controller: ScheduledController,
     env: WorkerEnv,
     ctx: ExecutionContext,
   ): Promise<void> {
+    if (controller.cron === "*/5 * * * *") {
+      return handleSolidPodGcScheduled(controller, env, ctx);
+    }
     return handleMicrosubScheduled(controller, env, ctx);
   },
 } satisfies ExportedHandler<WorkerEnv, WebmentionJob | WebSubJob | MicrosubJob>;

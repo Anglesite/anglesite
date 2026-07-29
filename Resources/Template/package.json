@@ -25,6 +25,7 @@
     "@dwk/micropub": "0.1.0-beta.4",
     "@dwk/microsub": "0.1.0-beta.4",
     "@dwk/solid-oidc": "0.1.0-beta.1",
+    "@dwk/solid-pod": "0.1.0-beta.5",
     "@dwk/webfinger": "0.1.0-beta.4",
     "@dwk/webmention": "0.1.0-beta.3",
     "@dwk/websub": "0.1.0-beta.4",

@@ -13,6 +13,9 @@ import {
   verifySolidOidcConsentToken,
   handleSolidOidc,
   handleSolidOidcConsent,
+  handleSolidPod,
+  handleWebdav,
+  handleWebdavCredentials,
   type InboxKV,
   type WorkerEnv,
 } from "./worker";
@@ -1377,5 +1380,72 @@ test("queue dispatch: an unrecognized queue name is a no-op, not misrouted to th
   >[0];
   await expect(
     worker.queue!(emptyBatch, testEnv, createExecutionContext()),
+  ).resolves.toBeUndefined();
+});
+
+// --- Solid Pod + WebDAV (V-storage) ---------------------------------------------------------
+// @dwk/solid-pod's LDP resource storage (Durable Object + R2) and its WebDAV façade over the
+// same pod. Neither POD/BLOBS/WEBDAV_PEPPER/GC_DB is bound in vitest.config.ts's miniflare
+// fixture (no site here provisions solid-pod), so the explicit `{ ...testEnv, X: undefined }`
+// overrides below just make the unbound-ness an explicit assertion rather than an accident of
+// the fixture — matching handleSolidOidc's 503 test above.
+
+test("handleSolidPod: 503s when POD/BLOBS are unbound", async () => {
+  const request = new Request("https://example.com/pod/");
+  const response = await handleSolidPod(request, { ...testEnv, POD: undefined, BLOBS: undefined }, createExecutionContext());
+  expect(response.status).toBe(503);
+});
+
+test("handleWebdav: 503s when WEBDAV_PEPPER is unbound", async () => {
+  const request = new Request("https://example.com/dav/");
+  const response = await handleWebdav(request, { ...testEnv, WEBDAV_PEPPER: undefined }, createExecutionContext());
+  expect(response.status).toBe(503);
+});
+
+test("handleWebdavCredentials: 503s when WEBDAV_PEPPER is unbound", async () => {
+  const request = new Request("https://example.com/dav-credentials", { method: "GET" });
+  const response = await handleWebdavCredentials(request, { ...testEnv, WEBDAV_PEPPER: undefined }, createExecutionContext());
+  expect(response.status).toBe(503);
+});
+
+test("handleWebdav: 503s when POD/BLOBS are unbound even with WEBDAV_PEPPER set", async () => {
+  const request = new Request("https://example.com/dav/");
+  const response = await handleWebdav(
+    request,
+    { ...testEnv, POD: undefined, BLOBS: undefined, WEBDAV_PEPPER: "pepper" },
+    createExecutionContext(),
+  );
+  expect(response.status).toBe(503);
+});
+
+test("solid-pod GC scheduled: no-ops (does not throw) when GC_DB/BLOBS are unbound", async () => {
+  // @dwk/solid-pod's createSolidPodGc throws when GC_DB (or BLOBS) is missing — its
+  // SolidPodGcEnv requires both, unlike this Worker's optional WorkerEnv.GC_DB/BLOBS.
+  // WorkerComposition.swift doesn't provision a GC_DB binding yet, so the "*/5 * * * *" cron
+  // tick must degrade gracefully rather than crash every site with solid-pod active.
+  const controller = { cron: "*/5 * * * *", scheduledTime: Date.now() } as unknown as Parameters<
+    NonNullable<typeof worker.scheduled>
+  >[0];
+  await expect(
+    worker.scheduled!(controller, { ...testEnv, BLOBS: undefined, GC_DB: undefined }, createExecutionContext()),
+  ).resolves.toBeUndefined();
+});
+
+test("scheduled dispatch: \"*/5 * * * *\" routes to solid-pod GC, \"*/15 * * * *\" still routes to Microsub's poller", async () => {
+  // Locks in the scheduled() dispatch extension: it must branch on controller.cron rather than
+  // always calling Microsub's poller (the pre-existing behavior every "*/15 * * * *" tick still
+  // needs). Neither solid-pod nor Microsub is provisioned in this fixture, so both branches
+  // no-op — this test exercises the branch selection itself, not either handler's inner logic.
+  const gcController = { cron: "*/5 * * * *", scheduledTime: Date.now() } as unknown as Parameters<
+    NonNullable<typeof worker.scheduled>
+  >[0];
+  const microsubController = { cron: "*/15 * * * *", scheduledTime: Date.now() } as unknown as Parameters<
+    NonNullable<typeof worker.scheduled>
+  >[0];
+  await expect(
+    worker.scheduled!(gcController, { ...testEnv, BLOBS: undefined, GC_DB: undefined }, createExecutionContext()),
+  ).resolves.toBeUndefined();
+  await expect(
+    worker.scheduled!(microsubController, testEnv, createExecutionContext()),
   ).resolves.toBeUndefined();
 });
