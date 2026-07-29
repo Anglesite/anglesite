@@ -9,6 +9,10 @@ import {
   handleIndieAuthConsent,
   createConsentToken,
   verifyConsentToken,
+  createSolidOidcConsentToken,
+  verifySolidOidcConsentToken,
+  handleSolidOidc,
+  handleSolidOidcConsent,
   type InboxKV,
   type WorkerEnv,
 } from "./worker";
@@ -533,6 +537,43 @@ test("handleIndieAuthConsent: 429s once the per-IP login attempt limit is exceed
   }
   const limited = await handleIndieAuthConsent(makeRequest(), testEnv);
   expect(limited.status).toBe(429);
+});
+
+// --- Solid-OIDC identity endpoint + consent bridge (#1071) ---------------------------------
+
+test("createSolidOidcConsentToken / verifySolidOidcConsentToken: round-trips a webid within the TTL", async () => {
+  const token = await createSolidOidcConsentToken("https://example.com/profile/card#me", "signing-key", 1000);
+  const webid = await verifySolidOidcConsentToken(token, "signing-key", 1050);
+  expect(webid).toBe("https://example.com/profile/card#me");
+});
+
+test("verifySolidOidcConsentToken: rejects an expired token", async () => {
+  const token = await createSolidOidcConsentToken("https://example.com/profile/card#me", "signing-key", 1000);
+  const webid = await verifySolidOidcConsentToken(token, "signing-key", 10_000);
+  expect(webid).toBeNull();
+});
+
+test("verifySolidOidcConsentToken: rejects a token signed with a different key", async () => {
+  const token = await createSolidOidcConsentToken("https://example.com/profile/card#me", "signing-key", 1000);
+  const webid = await verifySolidOidcConsentToken(token, "wrong-key", 1050);
+  expect(webid).toBeNull();
+});
+
+test("handleSolidOidc: 503s when OIDC_SIGNING_KEY is unbound", async () => {
+  const request = new Request("https://example.com/oidc/jwks");
+  const response = await handleSolidOidc(request, { ...testEnv, OIDC_SIGNING_KEY: undefined }, createExecutionContext());
+  expect(response.status).toBe(503);
+});
+
+test("handleSolidOidcConsent: rejects the wrong owner password", async () => {
+  const body = new URLSearchParams({ password: "wrong", webid: "https://example.com/profile/card#me" });
+  const request = new Request("https://example.com/oidc/consent", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  const response = await handleSolidOidcConsent(request, testEnv);
+  expect(response.status).toBe(401);
 });
 
 // --- Inbound Webmention receive (V-3.1, #359) ----------------------------------------------

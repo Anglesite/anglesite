@@ -36,6 +36,13 @@ import {
   type MicrosubJob,
 } from "@dwk/microsub";
 import { createWebfinger } from "@dwk/webfinger";
+import {
+  createSolidOidc,
+  type SolidOidcConfig,
+  type SolidOidcEnv,
+  type SolidOidcAuthorizationRequest,
+  type Jwk,
+} from "@dwk/solid-oidc";
 
 /**
  * Per-site Cloudflare Worker entry point.
@@ -112,6 +119,15 @@ export interface WorkerEnv extends IndieAuthEnv {
   AP_PUBLIC_KEY?: string;
   AP_PUBLISH_TOKEN?: string;
   AP_DISPLAY_NAME?: string;
+  /**
+   * Solid-OIDC signing key (V-storage, identity layer for `@dwk/solid-pod`). Optional: a site
+   * that hasn't provisioned Solid-OIDC has none of it bound, and every `/oidc/*` route degrades
+   * to 503 rather than letting `@dwk/solid-oidc` throw its own loud startup error. A JSON-
+   * serialized private EC P-256 JWK (RFC 7518 §6.2.2) — see
+   * `SolidOidcKeyProvisioning.signingKeyJWK` (Swift) for generation, and
+   * `WorkerComposition.generateWranglerToml` for the binding.
+   */
+  OIDC_SIGNING_KEY?: string;
   /**
    * WebSub hub bindings (V-3.3, #361). Optional like the Webmention set above: a site that
    * hasn't provisioned the hub has none of them bound, and the `/websub` route + queue
@@ -266,6 +282,65 @@ export async function verifyConsentToken(
   return JSON.stringify(decoded) === JSON.stringify(expected);
 }
 
+interface SolidOidcConsentGrant {
+  v: 1;
+  exp: number;
+  webid: string;
+}
+
+function isSolidOidcConsentGrant(value: unknown): value is SolidOidcConsentGrant {
+  if (typeof value !== "object" || value === null) return false;
+  const grant = value as Record<string, unknown>;
+  return grant.v === 1 && typeof grant.exp === "number" && typeof grant.webid === "string";
+}
+
+/**
+ * Signs a short-lived proof that the site owner approved a Solid-OIDC authorization request for
+ * `webid` — the same "owner password gates this" bridge `@dwk/indieauth`'s consent flow uses,
+ * adapted for Solid-OIDC's own (differently-shaped) `approveAuthorization` hook. Reuses this
+ * file's `deriveKey`/HKDF pattern with its own purpose string so the two consent tokens' derived
+ * keys are independent even though both start from `TOKEN_SIGNING_KEY`.
+ */
+export async function createSolidOidcConsentToken(
+  webid: string,
+  signingKey: string,
+  now = Math.floor(Date.now() / 1000),
+): Promise<string> {
+  const grant: SolidOidcConsentGrant = { v: 1, exp: now + CONSENT_TTL_SECONDS, webid };
+  const payload = new TextEncoder().encode(JSON.stringify(grant));
+  const signature = await crypto.subtle.sign("HMAC", await deriveKey(signingKey, "solid-oidc-consent-token"), payload);
+  return `${base64url(payload)}.${base64url(new Uint8Array(signature))}`;
+}
+
+/** Verifies a token from `createSolidOidcConsentToken`, returning the approved `webid` or `null`. */
+export async function verifySolidOidcConsentToken(
+  token: string,
+  signingKey: string,
+  now = Math.floor(Date.now() / 1000),
+): Promise<string | null> {
+  if (token.length > 8_192) return null;
+  const [payloadSegment, signatureSegment] = token.split(".");
+  if (!payloadSegment || !signatureSegment) return null;
+  const payloadBytes = decodeBase64url(payloadSegment);
+  const signatureBytes = decodeBase64url(signatureSegment);
+  if (!payloadBytes || !signatureBytes) return null;
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    await deriveKey(signingKey, "solid-oidc-consent-token"),
+    signatureBytes,
+    payloadBytes,
+  );
+  if (!valid) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(payloadBytes));
+  } catch {
+    return null;
+  }
+  if (!isSolidOidcConsentGrant(parsed) || parsed.exp < now) return null;
+  return parsed.webid;
+}
+
 async function secretsMatch(provided: string, expected: string, comparisonSecret: string): Promise<boolean> {
   const key = await deriveKey(comparisonSecret, "owner-password-compare");
   const encoder = new TextEncoder();
@@ -403,6 +478,107 @@ export async function handleIndieAuthConsent(request: Request, env: WorkerEnv): 
   };
   authorize.searchParams.set("consent", await createConsentToken(grant, env.TOKEN_SIGNING_KEY));
   return Response.redirect(authorize.toString(), 303);
+}
+
+/**
+ * Solid-OIDC's login/consent bridge — reuses the exact same owner-password check
+ * `handleIndieAuthConsent` gates on (`secretsMatch` against `INDIEAUTH_OWNER_PASSWORD`), so the
+ * pod's owner authenticates with the same one credential IndieAuth already uses. On success,
+ * redirects back to `/oidc/authorize` with a signed consent token `approveAuthorization` (below)
+ * verifies — mirroring `handleIndieAuthConsent`'s redirect-with-a-signed-token shape, adapted for
+ * Solid-OIDC's simpler (webid-only) grant.
+ */
+export async function handleSolidOidcConsent(request: Request, env: WorkerEnv): Promise<Response> {
+  if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST" } });
+  if (!env.INDIEAUTH_OWNER_PASSWORD || !env.TOKEN_SIGNING_KEY) {
+    return new Response("Solid-OIDC secrets are not configured", { status: 503 });
+  }
+  if (await isConsentRateLimited(request, env)) return new Response("Too Many Requests", { status: 429 });
+  const form = await readBoundedForm(request);
+  if (!form) return new Response("Invalid consent form", { status: 400 });
+  if (!(await secretsMatch(form.get("password") ?? "", env.INDIEAUTH_OWNER_PASSWORD, env.TOKEN_SIGNING_KEY))) {
+    console.warn(JSON.stringify({ event: "solid_oidc.consent_rejected", reason: "password_invalid" }));
+    return new Response("Invalid site owner password", { status: 401 });
+  }
+  const webid = form.get("webid") ?? "";
+  const origin = new URL(request.url).origin;
+  const authorize = new URL("/oidc/authorize", origin);
+  for (const name of ["client_id", "redirect_uri", "state", "response_type", "code_challenge", "code_challenge_method", "scope"]) {
+    const value = form.get(name);
+    if (value !== null) authorize.searchParams.set(name, value);
+  }
+  authorize.searchParams.set("consent", await createSolidOidcConsentToken(webid, env.TOKEN_SIGNING_KEY));
+  return Response.redirect(authorize.toString(), 303);
+}
+
+/**
+ * Builds `@dwk/solid-oidc`'s config from `env`, or `null` when Solid-OIDC isn't fully
+ * provisioned — `OIDC_SIGNING_KEY` unbound, the shared `INDIEAUTH_OWNER_PASSWORD`/
+ * `TOKEN_SIGNING_KEY` secrets absent, `AUTH_DB` unbound (required by `SolidOidcEnv`, but checked
+ * explicitly here too — `createSolidOidc`'s returned handler throws if it's missing, matching
+ * `handleMicropub`'s defense-in-depth pattern rather than trusting the type alone), or
+ * `OIDC_SIGNING_KEY` not parseable as JSON.
+ */
+function solidOidcConfig(request: Request, env: WorkerEnv): SolidOidcConfig | null {
+  if (!env.OIDC_SIGNING_KEY || !env.INDIEAUTH_OWNER_PASSWORD || !env.TOKEN_SIGNING_KEY || !env.AUTH_DB) return null;
+  let signingKey: Jwk;
+  try {
+    signingKey = JSON.parse(env.OIDC_SIGNING_KEY) as Jwk;
+  } catch {
+    return null;
+  }
+  const baseUrl = new URL(request.url).origin;
+  const webid = `${baseUrl}/profile/card#me`;
+  return {
+    issuer: baseUrl,
+    signingKey,
+    mountPath: "/oidc",
+    audience: ["solid", baseUrl],
+    async approveAuthorization(_request: SolidOidcAuthorizationRequest, httpRequest: Request) {
+      const consent = new URL(httpRequest.url).searchParams.get("consent");
+      if (consent) {
+        const approvedWebid = await verifySolidOidcConsentToken(consent, env.TOKEN_SIGNING_KEY!);
+        if (approvedWebid === webid) {
+          return { webid };
+        }
+      }
+      // No (or invalid/expired) consent proof yet — render the same owner-password prompt
+      // `handleIndieAuthConsent`'s form posts to, targeting `/oidc/consent` instead.
+      const params = new URLSearchParams(new URL(httpRequest.url).search);
+      const fields = ["client_id", "redirect_uri", "state", "response_type", "code_challenge", "code_challenge_method", "scope"]
+        .map((name) => {
+          const value = params.get(name);
+          return value !== null ? `<input type="hidden" name="${name}" value="${escapeHTML(value)}">` : "";
+        })
+        .join("");
+      return new Response(
+        `<!doctype html><form method="post" action="/oidc/consent">${fields}` +
+          `<input type="hidden" name="webid" value="${escapeHTML(webid)}">` +
+          `<input type="password" name="password" placeholder="Site owner password" required>` +
+          `<button type="submit">Approve</button></form>`,
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    },
+  };
+}
+
+/**
+ * Solid-OIDC OpenID Provider (identity layer for `@dwk/solid-pod`). Returns 503 when it isn't
+ * fully provisioned (`OIDC_SIGNING_KEY` unbound, or the shared `INDIEAUTH_OWNER_PASSWORD`/
+ * `TOKEN_SIGNING_KEY`/`AUTH_DB` bindings absent) rather than letting `@dwk/solid-oidc` throw its
+ * own loud startup error, matching every other composed handler in this file.
+ */
+export function handleSolidOidc(
+  request: Request,
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const config = solidOidcConfig(request, env);
+  if (!config) {
+    return Promise.resolve(new Response("Solid-OIDC is not configured", { status: 503 }));
+  }
+  const solidOidc = createSolidOidc(config);
+  return solidOidc(request, env as unknown as SolidOidcEnv, ctx);
 }
 
 function indieAuthHandler(request: Request, env: WorkerEnv) {
@@ -1033,6 +1209,38 @@ export const ROUTES: readonly WorkerRoute[] = [
     match: "exact",
     methods: ["POST"],
     handler: (request, env) => handleIndieAuthConsent(request, env),
+  },
+  {
+    // Solid-OIDC discovery (identity layer for `@dwk/solid-pod`). Authority-bound to this fixed
+    // path regardless of `mountPath` — see `resolveConfig` in `@dwk/solid-oidc`.
+    path: "/.well-known/openid-configuration",
+    match: "exact",
+    methods: ["GET", "HEAD"],
+    handler: (request, env, ctx) => handleSolidOidc(request, env, ctx),
+  },
+  {
+    path: "/oidc/jwks",
+    match: "exact",
+    methods: ["GET", "HEAD"],
+    handler: (request, env, ctx) => handleSolidOidc(request, env, ctx),
+  },
+  {
+    path: "/oidc/authorize",
+    match: "exact",
+    methods: ["GET"],
+    handler: (request, env, ctx) => handleSolidOidc(request, env, ctx),
+  },
+  {
+    path: "/oidc/token",
+    match: "exact",
+    methods: ["POST"],
+    handler: (request, env, ctx) => handleSolidOidc(request, env, ctx),
+  },
+  {
+    path: "/oidc/consent",
+    match: "exact",
+    methods: ["POST"],
+    handler: (request, env) => handleSolidOidcConsent(request, env),
   },
   {
     path: "/inbox",
