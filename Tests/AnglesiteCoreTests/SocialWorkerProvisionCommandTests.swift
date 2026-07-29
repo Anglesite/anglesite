@@ -15,6 +15,9 @@ private let micropubWorker = worker("micropub", d1: true, kv: true, r2: true)
 private let websubWorker = worker("websub", d1: true, kv: true, r2: false)
 private let v2Workers = [webmentionWorker, indieauthWorker]
 private let v3Workers = [webmentionWorker, indieauthWorker, micropubWorker, websubWorker]
+private let solidOidcWorker = worker(WorkerComposition.solidOidcWorkerID, d1: true, kv: false, r2: false)
+private let solidPodWorker = worker(WorkerComposition.solidPodWorkerID, d1: false, kv: false, r2: true)
+private let webdavWorker = worker(WorkerComposition.webdavWorkerID, d1: false, kv: false, r2: true)
 
 @Suite("SocialWorkerProvisionCommand")
 struct SocialWorkerProvisionCommandTests {
@@ -1082,6 +1085,110 @@ struct SocialWorkerProvisionCommandTests {
 
         #expect(resources.queueName == nil)
         #expect(resources.websubQueueName == "my-site-websub")
+    }
+
+    @Test("provisions solid-pod's own BLOBS bucket, distinct from micropub's MEDIA bucket")
+    func provisionsSolidPodBlobsBucket() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([
+            ["d1", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"uuid":"d1-id"}}"#, stderr: "", exitCode: 0),
+            ["kv", "namespace", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"id":"kv-id"}}"#, stderr: "", exitCode: 0),
+            ["r2", "bucket", "create", "my-site-media"]: .init(stdout: "Created bucket my-site-media", stderr: "", exitCode: 0),
+            ["r2", "bucket", "create", "my-site-pod-blobs"]: .init(stdout: "Created bucket my-site-pod-blobs", stderr: "", exitCode: 0),
+            ["queues", "create", "my-site-webmention", "--json"]: .init(stdout: #"{"result":{"queue_name":"my-site-webmention"}}"#, stderr: "", exitCode: 0),
+            ["d1", "migrations", "apply", "AUTH_DB", "--remote"]: .init(stdout: "Migrations applied", stderr: "", exitCode: 0),
+        ])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer
+        )
+        let micropubWorker = worker(WorkerComposition.micropubWorkerID, d1: true, kv: false, r2: true)
+        let indieauthWorker = worker(WorkerComposition.indieauthWorkerID, d1: true, kv: false, r2: false)
+        let webmentionWorker = worker(WorkerComposition.webmentionWorkerID, d1: true, kv: false, r2: false)
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [indieauthWorker, webmentionWorker, micropubWorker, solidPodWorker],
+            acknowledgesPaidPlan: true
+        )
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(resources.r2BucketName == "my-site-media")
+        #expect(resources.podBlobsR2BucketName == "my-site-pod-blobs")
+        #expect(await recorder.arguments.contains(["r2", "bucket", "create", "my-site-media"]))
+        #expect(await recorder.arguments.contains(["r2", "bucket", "create", "my-site-pod-blobs"]))
+
+        let toml = try String(contentsOf: site.appendingPathComponent("wrangler.toml"), encoding: .utf8)
+        #expect(toml.contains("binding = \"MEDIA\""))
+        #expect(toml.contains("binding = \"BLOBS\""))
+    }
+
+    @Test("solid-oidc and webdav push their secrets via the injected key/pepper sources")
+    func pushesSolidOidcAndWebdavSecrets() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([
+            ["d1", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"uuid":"d1-id"}}"#, stderr: "", exitCode: 0),
+            ["r2", "bucket", "create", "my-site-pod-blobs"]: .init(stdout: "Created bucket my-site-pod-blobs", stderr: "", exitCode: 0),
+            ["d1", "migrations", "apply", "AUTH_DB", "--remote"]: .init(stdout: "Migrations applied", stderr: "", exitCode: 0),
+        ])
+        var pushedSecrets: [(name: String, value: String)] = []
+        let secretRunnerLock = NSLock()
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            solidOidcSigningKeySource: { _ in #"{"kty":"EC","crv":"P-256","x":"X","y":"Y","d":"D"}"# },
+            webdavPepperSource: { _ in "PEPPER-VALUE" },
+            secretRunner: { _, name, value, _, _ in
+                secretRunnerLock.lock()
+                pushedSecrets.append((name, value))
+                secretRunnerLock.unlock()
+                return .init(stdout: "Success!", stderr: "", exitCode: 0)
+            },
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer
+        )
+        let indieauthWorker = worker(WorkerComposition.indieauthWorkerID, d1: true, kv: false, r2: false)
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [indieauthWorker, solidOidcWorker, solidPodWorker, webdavWorker]
+        )
+
+        guard case .succeeded = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(pushedSecrets.contains { $0.name == "OIDC_SIGNING_KEY" && $0.value.contains("P-256") })
+        #expect(pushedSecrets.contains { $0.name == "WEBDAV_PEPPER" && $0.value == "PEPPER-VALUE" })
+    }
+
+    @Test("no solid-oidc/webdav worker means their sources and secret pushes never run")
+    func noSolidOidcOrWebdavMeansNoSecretPush() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        var solidOidcSourceCalled = false
+        var webdavSourceCalled = false
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            solidOidcSigningKeySource: { _ in
+                solidOidcSourceCalled = true
+                return "unused"
+            },
+            webdavPepperSource: { _ in
+                webdavSourceCalled = true
+                return "unused"
+            },
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer
+        )
+
+        _ = await command.provision(siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [])
+
+        #expect(!solidOidcSourceCalled)
+        #expect(!webdavSourceCalled)
     }
 
     private func temporaryDirectory() throws -> URL {
