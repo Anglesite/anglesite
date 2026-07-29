@@ -58,13 +58,18 @@ final class StartupProgressModel {
         case .starting(let id):
             begin(siteID: id)
         case .ready(let id, _, _):
+            // Only hold-and-swap on a genuine first arrival at `.ready` — a site can re-settle to
+            // `.ready` with an unchanged phase but a different payload (e.g. an active-workers
+            // change updating `workersDevURL`), and re-arming the hold then would tear an
+            // already-visible `PreviewView` back down to the startup screen for no reason.
+            let wasActive = estimator.isActive
             estimator.ingest(runtimeState: state, at: clock())
             if let profile = estimator.completedProfile {
                 timingStore.record(profile, for: id)
             }
             publish()
             stop()
-            beginCompletionHold()
+            if wasActive { beginCompletionHold() }
         case .failed, .idle:
             estimator.ingest(runtimeState: state, at: clock())
             publish()

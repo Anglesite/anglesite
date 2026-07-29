@@ -35,8 +35,11 @@ final class DeployModel {
     /// caption, below the title).
     private(set) var currentMilestone: String?
     /// The stable milestone-phase id (`OperationProgress.phase`, e.g. `"deploying"`) behind
-    /// `currentMilestone`'s human-readable label — kept in lockstep with it everywhere it's set
-    /// or cleared. `DeployDrawerView` feeds this to `DeployPanelProgress.filledCount(...)`.
+    /// `currentMilestone`'s human-readable label — set alongside it at every milestone.
+    /// Deliberately NOT cleared at every site `currentMilestone` is: two mid-`.running` resets
+    /// (after the build/deploy phase, and after the last post-deploy milestone) clear only the
+    /// label, not the phase, so `DeployPanelProgress.filledCount(...)` — which `DeployDrawerView`
+    /// feeds this to — never regresses the phase-progress strip while a deploy is still running.
     private(set) var currentMilestonePhase: String?
     /// On-device summary of the most recent *failed* deploy, or nil if none/unavailable.
     private(set) var failureSummary: DeployFailureSummary?
