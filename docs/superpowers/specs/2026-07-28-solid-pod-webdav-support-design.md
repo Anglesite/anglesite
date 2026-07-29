@@ -81,6 +81,16 @@ Also needed upstream: `solid-pod.requires: ["solid-oidc"]`, so activating `webda
 cascades `solid-pod` → `solid-oidc` → `indieauth` automatically, matching how `webdav.requires:
 ["solid-pod"]` already cascades today.
 
+A third catalog fix is needed, found during implementation: `solid-pod`/`webdav`'s current
+`catalog.json` entries each declare both an exact claim (`/pod`, `/dav`) and a prefix claim
+(`/pod/`, `/dav/`) for the same base path. `WorkerRouteClaims.activeClaims`'s duplicate-claim
+check groups by normalized path, and both entries normalize to the same path from the same
+owner — this throws `duplicateClaim`, not a validation pass. The prefix claim alone already
+covers the bare path (`runWorkerFirstPatterns` inserts `claim.path` unconditionally, prefix or
+not), so the fix is to drop the redundant exact claims, keeping only the prefix ones. See
+`WorkerRouteClaimsTests.sameOwnerExactPlusPrefixCollide` for a regression test against the
+current (unfixed) shape.
+
 ### 2. Composition (`WorkerComposition.swift`)
 
 New bespoke bindings, following the existing `indieauthWorkerID`/`webmentionWorkerID`/etc. pattern
