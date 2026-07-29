@@ -16,6 +16,7 @@ final class StartupProgressModel {
 
     private let timingStore: StartupTimingStore
     private let logCenter: LogCenter
+    private let soundEffect: DialupSoundEffectPlaying
     private let clock: @Sendable () -> TimeInterval
 
     private var estimator = StartupProgressEstimator()
@@ -26,10 +27,19 @@ final class StartupProgressModel {
     init(
         timingStore: StartupTimingStore = .shared,
         logCenter: LogCenter = .shared,
+        // `soundEffect` can't default directly to `DialupSoundEffectPlayer()` here: under this
+        // project's Swift 5.10 language mode (project.yml's SWIFT_VERSION, not Swift 6 mode),
+        // a default-argument expression that calls a `@MainActor`-isolated initializer is
+        // rejected as a call "in a synchronous nonisolated context," even though this
+        // initializer's enclosing type (and thus the init itself) is `@MainActor`. Defaulting
+        // to `nil` and constructing the real player in the (actor-isolated) init body sidesteps
+        // that restriction while keeping the same effective default and injectability for tests.
+        soundEffect: DialupSoundEffectPlaying? = nil,
         clock: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     ) {
         self.timingStore = timingStore
         self.logCenter = logCenter
+        self.soundEffect = soundEffect ?? DialupSoundEffectPlayer()
         self.clock = clock
     }
 
@@ -57,6 +67,7 @@ final class StartupProgressModel {
     func stop() {
         logTask?.cancel(); logTask = nil
         tickTask?.cancel(); tickTask = nil
+        soundEffect.stop()
     }
 
     // MARK: - Internals
@@ -67,6 +78,7 @@ final class StartupProgressModel {
         self.siteID = siteID
         estimator = StartupProgressEstimator(profile: timingStore.profile(for: siteID))
         estimator.ingest(runtimeState: .starting(siteID: siteID), at: clock())
+        soundEffect.play()
         publish()
         subscribeToLogs(siteID: siteID)
         startTicker()
