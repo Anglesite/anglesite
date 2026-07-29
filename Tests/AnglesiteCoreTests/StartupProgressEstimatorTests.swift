@@ -175,4 +175,14 @@ struct StartupProgressEstimatorTests {
         #expect(est.phase == .ready)
         #expect(est.fraction == 1.0)
     }
+
+    @Test("panelFillCount maps each phase to the three-panel strip's fill count")
+    func panelFillCountMapsPhases() {
+        #expect(StartupPhase.idle.panelFillCount == 0)
+        #expect(StartupPhase.launching.panelFillCount == 1)
+        #expect(StartupPhase.building.panelFillCount == 1)
+        #expect(StartupPhase.connecting.panelFillCount == 2)
+        #expect(StartupPhase.ready.panelFillCount == 3)
+        #expect(StartupPhase.failed.panelFillCount == 0)
+    }
 }

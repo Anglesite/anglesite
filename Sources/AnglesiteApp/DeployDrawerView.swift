@@ -5,7 +5,7 @@ import AnglesiteCore
 /// Slide-up drawer that hosts a deploy in progress and its terminal result.
 ///
 /// Three states drive the body:
-///   - `.running`  → spinner + streaming log
+///   - `.running`  → phase progress strip + streaming log
 ///   - `.succeeded` → deployed URL with Copy / Open buttons + log
 ///   - `.failed`   → reason banner + log + Copy-log
 ///
@@ -43,6 +43,9 @@ struct DeployDrawerView: View {
                 if let subtitle = headerSubtitle {
                     Text(subtitle).font(.caption).foregroundStyle(.secondary)
                 }
+                if case .running = model.phase, let milestone = model.currentMilestone {
+                    Text(milestone).font(.caption).foregroundStyle(.secondary)
+                }
                 if case .succeeded = model.phase, case .dirty = model.sourceBundleStatus {
                     Text("Code changes not yet deployed to the CMS bundle.")
                         .font(.caption)
@@ -77,8 +80,13 @@ struct DeployDrawerView: View {
     private var statusIcon: some View {
         switch model.phase {
         case .running:
-            ProgressView().controlSize(.small)
-                .accessibilityLabel("Deploying")
+            PhaseProgressStrip(
+                filledCount: DeployPanelProgress.filledCount(
+                    currentMilestonePhase: model.currentMilestonePhase, succeeded: false
+                ),
+                size: .compact
+            )
+            .accessibilityLabel("Deploying")
         case .succeeded:
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(.green).font(.title3)

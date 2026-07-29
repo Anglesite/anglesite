@@ -31,8 +31,16 @@ final class DeployModel {
     private(set) var phase: Phase = .idle
     /// Captured deploy + build log lines for the current/most-recent run.
     private(set) var logLines: [LogCenter.LogLine] = []
-    /// The latest milestone label from the running deploy (drives a status line above the log).
+    /// The latest milestone label from the running deploy (drives `DeployDrawerView`'s header
+    /// caption, below the title).
     private(set) var currentMilestone: String?
+    /// The stable milestone-phase id (`OperationProgress.phase`, e.g. `"deploying"`) behind
+    /// `currentMilestone`'s human-readable label — set alongside it at every milestone.
+    /// Deliberately NOT cleared at every site `currentMilestone` is: two mid-`.running` resets
+    /// (after the build/deploy phase, and after the last post-deploy milestone) clear only the
+    /// label, not the phase, so `DeployPanelProgress.filledCount(...)` — which `DeployDrawerView`
+    /// feeds this to — never regresses the phase-progress strip while a deploy is still running.
+    private(set) var currentMilestonePhase: String?
     /// On-device summary of the most recent *failed* deploy, or nil if none/unavailable.
     private(set) var failureSummary: DeployFailureSummary?
     /// "Code changes not yet deployed" status for the deployed-source bundle (#799). Refreshed
@@ -441,6 +449,7 @@ final class DeployModel {
         transition(siteID: siteID, to: .running(siteID: siteID, since: Date()))
         logLines = []
         currentMilestone = nil
+        currentMilestonePhase = nil
         failureSummary = nil
         summarizing = false
         summarizationGeneration &+= 1   // invalidate any still-in-flight summary from a prior deploy
@@ -548,6 +557,7 @@ final class DeployModel {
             subscription.cancel()
             _ = await logTask.value
             currentMilestone = nil
+            currentMilestonePhase = nil
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false
             transition(siteID: siteID, to: .failed(reason: reason, exitCode: nil))
@@ -573,6 +583,7 @@ final class DeployModel {
                     onProgress: { [weak self] progress in
                         Task { @MainActor in
                             self?.currentMilestone = progress.label
+                            self?.currentMilestonePhase = progress.phase
                             self?.onMilestone?(siteID, progress)
                         }
                     }
@@ -615,6 +626,7 @@ final class DeployModel {
             subscription.cancel()
             _ = await logTask.value
             currentMilestone = nil
+            currentMilestonePhase = nil
             workerNameConflictPresented = false
             transition(siteID: siteID, to: .webmentionPaidPlanConfirmationNeeded)
             drawerPresented = false
@@ -727,6 +739,7 @@ final class DeployModel {
 
     private func emitPostDeployMilestone(_ progress: OperationProgress, siteID: String) {
         currentMilestone = progress.label
+        currentMilestonePhase = progress.phase
         onMilestone?(siteID, progress)
     }
 }
