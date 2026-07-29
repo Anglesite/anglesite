@@ -86,7 +86,11 @@ struct DeployDrawerView: View {
                 ),
                 size: .compact
             )
-            .accessibilityLabel("Deploying")
+            // `.accessibilityValue`, not `.accessibilityLabel` — the strip already sets its own
+            // label ("Progress: N of 3 steps complete") via `.accessibilityElement(children:
+            // .ignore)`; a second `.accessibilityLabel` here would replace it outright instead of
+            // adding context, silently dropping the step count from VoiceOver in this drawer only.
+            .accessibilityValue("Deploying")
         case .succeeded:
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(.green).font(.title3)

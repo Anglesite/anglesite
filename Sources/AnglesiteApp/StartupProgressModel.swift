@@ -61,15 +61,22 @@ final class StartupProgressModel {
             // Only hold-and-swap on a genuine first arrival at `.ready` — a site can re-settle to
             // `.ready` with an unchanged phase but a different payload (e.g. an active-workers
             // change updating `workersDevURL`), and re-arming the hold then would tear an
-            // already-visible `PreviewView` back down to the startup screen for no reason.
+            // already-visible `PreviewView` back down to the startup screen for no reason. But if
+            // a second `.ready` arrives *while a hold from the first one is still counting down*,
+            // extend it rather than letting `stop()` (below) cut it short — the site is still (or
+            // again) ready, so the strip should stay up for the full window, not truncate to
+            // whatever's already elapsed. Once a hold has already finished naturally (the user is
+            // already looking at the live preview), a later re-settle does NOT resurrect it — that
+            // would reproduce the exact "no reason" teardown this guard exists to avoid.
             let wasActive = estimator.isActive
+            let wasHolding = isShowingCompletionHold
             estimator.ingest(runtimeState: state, at: clock())
             if let profile = estimator.completedProfile {
                 timingStore.record(profile, for: id)
             }
             publish()
             stop()
-            if wasActive { beginCompletionHold() }
+            if wasActive || wasHolding { beginCompletionHold() }
         case .failed, .idle:
             estimator.ingest(runtimeState: state, at: clock())
             publish()
