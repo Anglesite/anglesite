@@ -552,13 +552,21 @@ public actor SocialWorkerProvisionCommand {
         // can't get silently misclassified as another's queue just because it doesn't end in
         // that other feature's suffix.
         let queueNames = extractAllTomlStrings(named: "queue", from: toml)
+        // Same reasoning applies to R2 bucket names: Micropub's `MEDIA` bucket
+        // (`<site>-media`) and solid-pod/webdav's `BLOBS` bucket (`<site>-pod-blobs`) can both
+        // be present as separate `[[r2_buckets]]` blocks, so classify every `bucket_name = "…"`
+        // value by its suffix rather than taking the first match — otherwise a redeploy with
+        // both buckets provisioned would read back only one, and the other would look
+        // unprovisioned and get re-created against wrangler on every deploy.
+        let bucketNames = extractAllTomlStrings(named: "bucket_name", from: toml)
         return .init(
             d1DatabaseID: extractTomlString(named: "database_id", from: toml),
             kvNamespaceID: extractTomlString(named: "id", from: toml),
-            r2BucketName: extractTomlString(named: "bucket_name", from: toml),
+            r2BucketName: bucketNames.first(where: { $0.hasSuffix("-media") }),
             queueName: queueNames.first(where: { $0.hasSuffix("-webmention") }),
             websubQueueName: queueNames.first(where: { $0.hasSuffix("-websub") }),
-            microsubQueueName: queueNames.first(where: { $0.hasSuffix("-microsub") })
+            microsubQueueName: queueNames.first(where: { $0.hasSuffix("-microsub") }),
+            podBlobsR2BucketName: bucketNames.first(where: { $0.hasSuffix("-pod-blobs") })
         )
     }
 

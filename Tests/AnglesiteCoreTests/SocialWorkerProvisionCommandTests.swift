@@ -324,7 +324,10 @@ struct SocialWorkerProvisionCommandTests {
         let existing = try WorkerComposition.generateWranglerToml(
             siteName: "my-site",
             workers: v3Workers,
-            resources: .init(d1DatabaseID: "d1-existing", kvNamespaceID: "kv-existing", r2BucketName: "media-existing")
+            // r2BucketName must follow the deterministic `<site>-media` suffix that
+            // readPersistedResources classifies on, unlike the d1/kv ids which are
+            // read back via first-match and can be arbitrary.
+            resources: .init(d1DatabaseID: "d1-existing", kvNamespaceID: "kv-existing", r2BucketName: "my-site-media")
         )
         try existing.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
 
@@ -350,7 +353,7 @@ struct SocialWorkerProvisionCommandTests {
         }
         #expect(resources.d1DatabaseID == "d1-existing")
         #expect(resources.kvNamespaceID == "kv-existing")
-        #expect(resources.r2BucketName == "media-existing")
+        #expect(resources.r2BucketName == "my-site-media")
         #expect(await recorder.arguments == [
             ["d1", "migrations", "apply", "AUTH_DB", "--remote"],
         ])
@@ -487,7 +490,7 @@ struct SocialWorkerProvisionCommandTests {
         [[kv_namespaces]]
         id = "kv-id"
         [[r2_buckets]]
-        bucket_name = "media-bucket"
+        bucket_name = "my-site-media"
         """
         try toml.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
 
@@ -495,7 +498,7 @@ struct SocialWorkerProvisionCommandTests {
 
         #expect(resources.d1DatabaseID == "d1-id")
         #expect(resources.kvNamespaceID == "kv-id")
-        #expect(resources.r2BucketName == "media-bucket")
+        #expect(resources.r2BucketName == "my-site-media")
     }
 
     @Test("knownResources is reused instead of re-scraping wrangler.toml, so a deactivated-then-reactivated worker doesn't recreate its Cloudflare resource")
@@ -1085,6 +1088,26 @@ struct SocialWorkerProvisionCommandTests {
 
         #expect(resources.queueName == nil)
         #expect(resources.websubQueueName == "my-site-websub")
+    }
+
+    @Test("readPersistedResources classifies micropub's MEDIA and solid-pod's BLOBS buckets by suffix")
+    func persistedR2BucketClassification() throws {
+        let site = try temporaryDirectory()
+        let toml = """
+        name = "my-site"
+        [[r2_buckets]]
+        bucket_name = "my-site-media"
+        binding = "MEDIA"
+        [[r2_buckets]]
+        bucket_name = "my-site-pod-blobs"
+        binding = "BLOBS"
+        """
+        try toml.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+
+        let resources = SocialWorkerProvisionCommand.readPersistedResources(from: site)
+
+        #expect(resources.r2BucketName == "my-site-media")
+        #expect(resources.podBlobsR2BucketName == "my-site-pod-blobs")
     }
 
     @Test("provisions solid-pod's own BLOBS bucket, distinct from micropub's MEDIA bucket")
