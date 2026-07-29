@@ -15,6 +15,7 @@ struct StartupProgressView: View {
             Text(title)
                 .font(.headline)
                 .multilineTextAlignment(.center)
+            PhaseProgressStrip(filledCount: model.phase.panelFillCount)
             ProgressView(value: model.fraction)
                 .progressViewStyle(.linear)
                 .frame(maxWidth: 320)
