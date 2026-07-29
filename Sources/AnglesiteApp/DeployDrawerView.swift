@@ -5,7 +5,7 @@ import AnglesiteCore
 /// Slide-up drawer that hosts a deploy in progress and its terminal result.
 ///
 /// Three states drive the body:
-///   - `.running`  → spinner + streaming log
+///   - `.running`  → phase progress strip + streaming log
 ///   - `.succeeded` → deployed URL with Copy / Open buttons + log
 ///   - `.failed`   → reason banner + log + Copy-log
 ///
