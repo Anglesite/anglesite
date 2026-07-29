@@ -841,7 +841,7 @@ struct SiteWindow: View {
     @ViewBuilder
     private func previewPane(for site: SiteStore.Site) -> some View {
         switch model.preview.state {
-        case .ready(_, let url, _):
+        case .ready(_, let url, _) where !model.startup.isShowingCompletionHold:
             PreviewView(
                 url: model.preview.displayURL ?? url,
                 router: model.preview.editRouter,
@@ -852,7 +852,10 @@ struct SiteWindow: View {
                 // server restarts or fails (see PreviewModel.detachWebView).
                 onWebViewDismantled: { [preview = model.preview] webView in preview.detachWebView(webView) }
             )
-        case .starting:
+        case .starting, .ready:
+            // `.ready` reaches here only while `isShowingCompletionHold` is true (see the guarded
+            // case above) — a brief window so the fully-filled phase progress strip is actually
+            // visible before swapping to the live preview.
             centeredStatus {
                 StartupProgressView(
                     title: model.preview.isUpdatingDependencies

@@ -13,6 +13,13 @@ final class StartupProgressModel {
     private(set) var phase: StartupPhase = .idle
     private(set) var fraction: Double = 0
     private(set) var message: String = ""
+    /// True for a brief window after reaching `.ready`, so `SiteWindow` can hold the fully-filled
+    /// phase progress strip on screen for a moment before swapping to the live preview — without
+    /// this, reaching `.ready` and the pane swap happen in the same update and the completed
+    /// strip (`StartupPhase.ready.panelFillCount == 3`) renders for ~0 frames. Doesn't affect
+    /// `phase`/`fraction`/`message`, which still report `.ready` immediately — only the view's
+    /// swap decision is delayed.
+    private(set) var isShowingCompletionHold = false
 
     private let timingStore: StartupTimingStore
     private let logCenter: LogCenter
@@ -23,6 +30,7 @@ final class StartupProgressModel {
     private var siteID: String?
     private var logTask: Task<Void, Never>?
     private var tickTask: Task<Void, Never>?
+    private var holdTask: Task<Void, Never>?
 
     init(
         timingStore: StartupTimingStore = .shared,
@@ -56,6 +64,7 @@ final class StartupProgressModel {
             }
             publish()
             stop()
+            beginCompletionHold()
         case .failed, .idle:
             estimator.ingest(runtimeState: state, at: clock())
             publish()
@@ -67,6 +76,8 @@ final class StartupProgressModel {
     func stop() {
         logTask?.cancel(); logTask = nil
         tickTask?.cancel(); tickTask = nil
+        holdTask?.cancel(); holdTask = nil
+        isShowingCompletionHold = false
         soundEffect.stop()
     }
 
@@ -103,6 +114,18 @@ final class StartupProgressModel {
                 self.publish()
             }
             subscription.cancel()
+        }
+    }
+
+    /// Keeps `isShowingCompletionHold` true for ~0.5s after `.ready`, then clears it. `stop()`
+    /// (called for every terminal/reset transition, including this one just before this method
+    /// runs) always cancels any prior hold first, so this never overlaps a stale one.
+    private func beginCompletionHold() {
+        isShowingCompletionHold = true
+        holdTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            self?.isShowingCompletionHold = false
         }
     }
 
