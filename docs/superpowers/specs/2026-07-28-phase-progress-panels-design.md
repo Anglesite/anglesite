@@ -57,7 +57,7 @@ Reuses each surface's existing named phases rather than inventing generic fracti
 - `filledCount = 0` at `.idle`/`.failed`
 
 **Deploy** (`DeployModel.Phase`, via a new `DeployPanelProgress.filledCount(currentMilestonePhase:succeeded:)` in `AnglesiteCore`):
-- `filledCount = 1` once `.running` starts, while the milestone phase is `"preflightScan"` or `"building"`
+- `filledCount = 1` once `.running` starts, while the milestone phase is `"building"` or `"preflightScan"` (the actual emission order in `DeployCommand.swift` is `building` → `preflightScan` → `deploying` → `finalizing`; the two early milestones map to the same count either way, so the order doesn't affect behavior)
 - `filledCount = 2` from the `"deploying"` milestone onward (every later milestone — `finalizing`, `webmentions`, `syndicating`, `websubPing`, `activityPubBackfill` — also reads as 2, since they're all past the "actual upload" step)
 - `filledCount = 3` only when `succeeded` is `true`
 - `.failed`/`.blocked`/`.workerNameConflict`/`.webmentionPaidPlanConfirmationNeeded` keep their existing icon treatment in `DeployDrawerView`'s `statusIcon` — the strip is not shown for these terminal/parked states, only for `.running`

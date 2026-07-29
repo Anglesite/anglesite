@@ -19,7 +19,7 @@ public enum DeployPanelProgress {
         if succeeded { return 3 }
         switch phase {
         case nil: return 0
-        case "preflightScan", "building": return 1
+        case OperationProgress.deployPreflight.phase, OperationProgress.deployBuilding.phase: return 1
         default: return 2
         }
     }
