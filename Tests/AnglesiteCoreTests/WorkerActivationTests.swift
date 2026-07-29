@@ -172,9 +172,10 @@ struct WorkerActivationTests {
     @Test("conformanceAdvisory is nil when nothing phase-gated is active")
     func advisoryNilWithoutRelevantWorkers() {
         let status = WorkersConformanceStatus(packages: [:])
-        // "solid-pod" is deliberately not used here anymore — it's phase-gated (.storage) as of
-        // this test file's own change; "remotestorage" is a real catalog id with no phase mapping.
-        #expect(WorkerActivation.conformanceAdvisory(activeIDs: ["remotestorage"], conformance: status) == nil)
+        // solid-oidc is a real, already-active worker id in this codebase (WorkerComposition.solidOidcWorkerID)
+        // that isn't listed under any phase's requirements, unlike solid-pod which is phase-gated (.storage) as of
+        // this test file's own change.
+        #expect(WorkerActivation.conformanceAdvisory(activeIDs: ["solid-oidc"], conformance: status) == nil)
     }
 
     @Test("componentNodeIDs resolves a catalog componentID to a real prefixed component node by filename stem")
