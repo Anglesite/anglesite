@@ -51,7 +51,7 @@ public struct WorkersConformanceStatus: Sendable, Equatable {
         .v2: ["@dwk/webmention", "@dwk/indieauth"],
         .v3: ["@dwk/micropub", "@dwk/webmention", "@dwk/websub"],
         .v4: ["@dwk/activitypub", "@dwk/microsub", "@dwk/webfinger"],
-        .storage: ["@dwk/solid-pod", "@dwk/webdav"],
+        .storage: ["@dwk/solid-pod", "@dwk/webdav", "@dwk/solid-oidc"],
     ]
 
     /// Result of evaluating whether a phase's required packages are all release-ready.

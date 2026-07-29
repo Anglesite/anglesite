@@ -172,10 +172,14 @@ struct WorkerActivationTests {
     @Test("conformanceAdvisory is nil when nothing phase-gated is active")
     func advisoryNilWithoutRelevantWorkers() {
         let status = WorkersConformanceStatus(packages: [:])
-        // solid-oidc is a real, already-active worker id in this codebase (WorkerComposition.solidOidcWorkerID)
-        // that isn't listed under any phase's requirements, unlike solid-pod which is phase-gated (.storage) as of
-        // this test file's own change.
-        #expect(WorkerActivation.conformanceAdvisory(activeIDs: ["solid-oidc"], conformance: status) == nil)
+        // "remotestorage" is a real, live upstream catalog id (confirmed present in
+        // github.com/davidwkeith/workers' catalog.json's worker list) with no local
+        // `WorkerDescriptor` fixture or test reference anywhere in this codebase, and it isn't
+        // listed under any of .v2/.v3/.v4/.storage's phaseRequirements — unlike "solid-oidc",
+        // which this fix pass (#1071 final review, finding 4) added to `.storage` so a site
+        // activating solid-oidc alone now gets a conformance advisory too. That made solid-oidc
+        // unusable as this test's "nothing phase-gated is active" fixture, hence the swap.
+        #expect(WorkerActivation.conformanceAdvisory(activeIDs: ["remotestorage"], conformance: status) == nil)
     }
 
     @Test("componentNodeIDs resolves a catalog componentID to a real prefixed component node by filename stem")

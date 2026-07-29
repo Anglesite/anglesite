@@ -102,7 +102,7 @@ struct WorkersConformanceTests {
         #expect(indieauth.isReleaseReady)
     }
 
-    @Test("gateStatus reports storage blocked when webdav is pending, unblocked when both pass")
+    @Test("gateStatus reports storage blocked when webdav or solid-oidc is pending, unblocked when all three pass")
     func storagePhaseGate() throws {
         let pendingJSON = """
         {
@@ -114,6 +114,10 @@ struct WorkersConformanceTests {
             "@dwk/solid-pod": {
               "standard": "Solid Protocol", "suites": {},
               "integration": { "status": "passing", "cases": [] }
+            },
+            "@dwk/solid-oidc": {
+              "standard": "Solid-OIDC", "suites": {},
+              "integration": { "status": "pending", "cases": [] }
             }
           }
         }
@@ -121,6 +125,7 @@ struct WorkersConformanceTests {
         let pendingStatus = try WorkersConformanceReader.parse(pendingJSON)
         let blockedGate = pendingStatus.gateStatus(for: .storage)
         #expect(blockedGate.blocked.contains("@dwk/webdav"))
+        #expect(blockedGate.blocked.contains("@dwk/solid-oidc"))
         #expect(blockedGate.ready.contains("@dwk/solid-pod"))
         #expect(!blockedGate.isUnblocked)
 
@@ -133,6 +138,10 @@ struct WorkersConformanceTests {
             },
             "@dwk/solid-pod": {
               "standard": "Solid Protocol", "suites": {},
+              "integration": { "status": "passing", "cases": [] }
+            },
+            "@dwk/solid-oidc": {
+              "standard": "Solid-OIDC", "suites": {},
               "integration": { "status": "passing", "cases": [] }
             }
           }
