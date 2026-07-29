@@ -50,9 +50,30 @@ export default defineConfig({
   // polyfill and the vendored `readable-stream/lib/ours/browser.js` both try to define the same
   // well-known Symbol on the same shared Readable prototype, and the second defineProperty loses.
   // Aliasing `readable-stream` to workerd's own `node:stream` sidesteps the double-definition
-  // entirely (n3 only needs the ordinary Readable/Writable surface). This is purely a test-pool
-  // quirk, not a production bundling issue: `wrangler deploy --dry-run` builds worker.ts fine
-  // without it (esbuild's bundling doesn't hit this code path).
+  // entirely (n3 only needs the ordinary Readable/Writable surface).
+  //
+  // Verified test-pool-only, not a production bundling/runtime issue (2026-07-28, #1071 final
+  // review finding 5 — a prior version of this comment cited only `wrangler deploy --dry-run`,
+  // which just confirms bundling succeeds, not that the module evaluates cleanly at runtime, so
+  // this was re-checked against a real running Worker):
+  //  1. Removing this alias reproduces the crash exactly as described above when running
+  //     `npm run test:worker` — confirms the bug is real in this pool, not a stale comment.
+  //  2. `npx wrangler dev` (real workerd, the same binary/runtime a production deploy uses, not
+  //     an emulation) against a minimal wrangler.toml with `worker.ts` as `main` starts cleanly
+  //     ("Ready on http://localhost:18787") and serves requests through routes that transitively
+  //     import the same solid-pod → @dwk/rdf → n3 → readable-stream chain at module load — no
+  //     crash, no error in the logs, for either module evaluation (cold start) or a live request.
+  //  3. Root cause of the divergence: `readable-stream`'s own `package.json` has a `"browser"`
+  //     field remapping `lib/ours/index.js` → `lib/ours/browser.js` (confirmed by reading that
+  //     package.json directly). This Vitest pool's module resolution honors that `browser`
+  //     condition and loads the problematic `browser.js` variant; Wrangler's own esbuild-based
+  //     Workers bundler evidently does not (per point 2 — the exact same dependency chain loads
+  //     without incident under it). So the crash is an artifact of this test pool's resolution
+  //     conditions, not of workerd or of how a deployed Worker actually loads the module.
+  // This was checked directly rather than re-asserted from the prior comment's `--dry-run` claim,
+  // per the review finding's request for real verification. If a future dependency bump changes
+  // `readable-stream` or `n3`'s resolution behavior, re-verify with the same `wrangler dev` check
+  // before assuming this alias is still just a test-pool nicety.
   resolve: {
     alias: {
       "readable-stream": "node:stream",

@@ -319,45 +319,94 @@ export async function verifyConsentToken(
   return JSON.stringify(decoded) === JSON.stringify(expected);
 }
 
+/**
+ * Mirrors `ConsentGrant` above: binds the approved `webid` to the *entire* authorization request
+ * (client, redirect target, PKCE challenge, scope, state, nonce), not just the webid. Without
+ * this, a consent token minted for one `client_id`/`redirect_uri` could be replayed against a
+ * different `client_id`/`redirect_uri` in the live query string — the pod owner only ever sees
+ * and approves one authorization request, so the token must not be honorable for any other.
+ */
 interface SolidOidcConsentGrant {
   v: 1;
   exp: number;
   webid: string;
+  clientId: string;
+  redirectUri: string;
+  scope: string;
+  codeChallenge: string;
+  state: string;
+  nonce: string;
 }
 
 function isSolidOidcConsentGrant(value: unknown): value is SolidOidcConsentGrant {
   if (typeof value !== "object" || value === null) return false;
   const grant = value as Record<string, unknown>;
-  return grant.v === 1 && typeof grant.exp === "number" && typeof grant.webid === "string";
+  return grant.v === 1
+    && typeof grant.exp === "number"
+    && typeof grant.webid === "string"
+    && typeof grant.clientId === "string"
+    && typeof grant.redirectUri === "string"
+    && typeof grant.scope === "string"
+    && typeof grant.codeChallenge === "string"
+    && typeof grant.state === "string"
+    && typeof grant.nonce === "string";
+}
+
+function solidOidcGrantFor(
+  request: SolidOidcAuthorizationRequest,
+  webid: string,
+  expiresAt: number,
+): SolidOidcConsentGrant {
+  return {
+    v: 1,
+    exp: expiresAt,
+    webid,
+    clientId: request.clientId,
+    redirectUri: request.redirectUri,
+    scope: request.scope,
+    codeChallenge: request.codeChallenge,
+    state: request.state ?? "",
+    nonce: request.nonce ?? "",
+  };
 }
 
 /**
- * Signs a short-lived proof that the site owner approved a Solid-OIDC authorization request for
- * `webid` — the same "owner password gates this" bridge `@dwk/indieauth`'s consent flow uses,
- * adapted for Solid-OIDC's own (differently-shaped) `approveAuthorization` hook. Reuses this
- * file's `deriveKey`/HKDF pattern with its own purpose string so the two consent tokens' derived
- * keys are independent even though both start from `TOKEN_SIGNING_KEY`.
+ * Signs a short-lived proof that the site owner approved a specific Solid-OIDC authorization
+ * request (client, redirect target, PKCE challenge, scope, state, nonce) as `webid` — the same
+ * "owner password gates this" bridge `@dwk/indieauth`'s consent flow uses (`createConsentToken`
+ * above), adapted for Solid-OIDC's own (differently-shaped) `approveAuthorization` hook. Reuses
+ * this file's `deriveKey`/HKDF pattern with its own purpose string so the two consent tokens'
+ * derived keys are independent even though both start from `TOKEN_SIGNING_KEY`.
  */
 export async function createSolidOidcConsentToken(
+  request: SolidOidcAuthorizationRequest,
   webid: string,
   signingKey: string,
   now = Math.floor(Date.now() / 1000),
 ): Promise<string> {
-  const grant: SolidOidcConsentGrant = { v: 1, exp: now + CONSENT_TTL_SECONDS, webid };
-  const payload = new TextEncoder().encode(JSON.stringify(grant));
+  const payload = new TextEncoder().encode(
+    JSON.stringify(solidOidcGrantFor(request, webid, now + CONSENT_TTL_SECONDS)),
+  );
   const signature = await crypto.subtle.sign("HMAC", await deriveKey(signingKey, "solid-oidc-consent-token"), payload);
   return `${base64url(payload)}.${base64url(new Uint8Array(signature))}`;
 }
 
-/** Verifies a token from `createSolidOidcConsentToken`, returning the approved `webid` or `null`. */
+/**
+ * Verifies a token from `createSolidOidcConsentToken` against the *current* `request`, returning
+ * the full verified grant (never just the webid) — mirroring `verifyConsentToken`'s whole-grant
+ * comparison above. Returns `null` when the signature doesn't verify, the token is expired, or
+ * any field of the live `request` (client, redirect, scope, PKCE challenge, state, nonce) doesn't
+ * match what was actually approved, so a token can't be replayed against a different request.
+ */
 export async function verifySolidOidcConsentToken(
   token: string,
+  request: SolidOidcAuthorizationRequest,
   signingKey: string,
   now = Math.floor(Date.now() / 1000),
-): Promise<string | null> {
+): Promise<SolidOidcConsentGrant | null> {
   if (token.length > 8_192) return null;
-  const [payloadSegment, signatureSegment] = token.split(".");
-  if (!payloadSegment || !signatureSegment) return null;
+  const [payloadSegment, signatureSegment, extra] = token.split(".");
+  if (!payloadSegment || !signatureSegment || extra !== undefined) return null;
   const payloadBytes = decodeBase64url(payloadSegment);
   const signatureBytes = decodeBase64url(signatureSegment);
   if (!payloadBytes || !signatureBytes) return null;
@@ -375,7 +424,8 @@ export async function verifySolidOidcConsentToken(
     return null;
   }
   if (!isSolidOidcConsentGrant(parsed) || parsed.exp < now) return null;
-  return parsed.webid;
+  const expected = solidOidcGrantFor(request, parsed.webid, parsed.exp);
+  return JSON.stringify(parsed) === JSON.stringify(expected) ? parsed : null;
 }
 
 async function secretsMatch(provided: string, expected: string, comparisonSecret: string): Promise<boolean> {
@@ -527,7 +577,7 @@ export async function handleIndieAuthConsent(request: Request, env: WorkerEnv): 
  */
 export async function handleSolidOidcConsent(request: Request, env: WorkerEnv): Promise<Response> {
   if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST" } });
-  if (!env.INDIEAUTH_OWNER_PASSWORD || !env.TOKEN_SIGNING_KEY) {
+  if (!env.INDIEAUTH_OWNER_PASSWORD || !env.TOKEN_SIGNING_KEY || !env.SOCIAL_KV) {
     return new Response("Solid-OIDC secrets are not configured", { status: 503 });
   }
   if (await isConsentRateLimited(request, env)) return new Response("Too Many Requests", { status: 429 });
@@ -538,13 +588,24 @@ export async function handleSolidOidcConsent(request: Request, env: WorkerEnv): 
     return new Response("Invalid site owner password", { status: 401 });
   }
   const webid = form.get("webid") ?? "";
+  const authorizationRequest: SolidOidcAuthorizationRequest = {
+    clientId: form.get("client_id") ?? "",
+    redirectUri: form.get("redirect_uri") ?? "",
+    scope: form.get("scope") ?? "",
+    codeChallenge: form.get("code_challenge") ?? "",
+    ...(form.get("state") !== null ? { state: form.get("state") as string } : {}),
+    ...(form.get("nonce") !== null ? { nonce: form.get("nonce") as string } : {}),
+  };
   const origin = new URL(request.url).origin;
   const authorize = new URL("/oidc/authorize", origin);
-  for (const name of ["client_id", "redirect_uri", "state", "response_type", "code_challenge", "code_challenge_method", "scope"]) {
+  for (const name of ["client_id", "redirect_uri", "state", "response_type", "code_challenge", "code_challenge_method", "scope", "nonce"]) {
     const value = form.get(name);
     if (value !== null) authorize.searchParams.set(name, value);
   }
-  authorize.searchParams.set("consent", await createSolidOidcConsentToken(webid, env.TOKEN_SIGNING_KEY));
+  authorize.searchParams.set(
+    "consent",
+    await createSolidOidcConsentToken(authorizationRequest, webid, env.TOKEN_SIGNING_KEY),
+  );
   return Response.redirect(authorize.toString(), 303);
 }
 
@@ -560,7 +621,13 @@ function solidOidcConfig(request: Request, env: WorkerEnv): SolidOidcConfig | nu
   if (!env.OIDC_SIGNING_KEY || !env.INDIEAUTH_OWNER_PASSWORD || !env.TOKEN_SIGNING_KEY || !env.AUTH_DB) return null;
   let signingKey: Jwk;
   try {
-    signingKey = JSON.parse(env.OIDC_SIGNING_KEY) as Jwk;
+    const parsed: unknown = JSON.parse(env.OIDC_SIGNING_KEY);
+    // `JSON.parse` succeeds on any valid JSON value, not just objects — `"null"`, `"3"`, and
+    // `"\"x\""` all parse without throwing but aren't a usable JWK, and would otherwise reach
+    // `@dwk/solid-oidc`'s key-import step and throw uncaught there, breaking this file's
+    // guarantee that an unconfigured/malformed signing key degrades to 503, never a 500.
+    if (typeof parsed !== "object" || parsed === null) return null;
+    signingKey = parsed as Jwk;
   } catch {
     return null;
   }
@@ -571,30 +638,50 @@ function solidOidcConfig(request: Request, env: WorkerEnv): SolidOidcConfig | nu
     signingKey,
     mountPath: "/oidc",
     audience: ["solid", baseUrl],
-    async approveAuthorization(_request: SolidOidcAuthorizationRequest, httpRequest: Request) {
+    async approveAuthorization(authorizationRequest: SolidOidcAuthorizationRequest, httpRequest: Request) {
       const consent = new URL(httpRequest.url).searchParams.get("consent");
       if (consent) {
-        const approvedWebid = await verifySolidOidcConsentToken(consent, env.TOKEN_SIGNING_KEY!);
-        if (approvedWebid === webid) {
-          return { webid };
+        // Verified against the *live* `authorizationRequest` — a token minted for one
+        // client_id/redirect_uri/scope/PKCE-challenge/state/nonce combination is rejected here
+        // if replayed against a request with any field changed (Solid-OIDC consent-binding fix).
+        const grant = await verifySolidOidcConsentToken(consent, authorizationRequest, env.TOKEN_SIGNING_KEY!);
+        if (grant && grant.webid === webid) {
+          return { webid: grant.webid, scope: grant.scope };
         }
       }
-      // No (or invalid/expired) consent proof yet — render the same owner-password prompt
-      // `handleIndieAuthConsent`'s form posts to, targeting `/oidc/consent` instead.
+      // No (or invalid/expired/mismatched) consent proof yet — render the same owner-password
+      // prompt `handleIndieAuthConsent`'s form posts to, targeting `/oidc/consent` instead. The
+      // client_id/redirect_uri are shown as visible text (not just hidden inputs) so the owner
+      // can actually see what they're approving before submitting.
       const params = new URLSearchParams(new URL(httpRequest.url).search);
-      const fields = ["client_id", "redirect_uri", "state", "response_type", "code_challenge", "code_challenge_method", "scope"]
+      const fields = ["client_id", "redirect_uri", "state", "response_type", "code_challenge", "code_challenge_method", "scope", "nonce"]
         .map((name) => {
           const value = params.get(name);
           return value !== null ? `<input type="hidden" name="${name}" value="${escapeHTML(value)}">` : "";
         })
-        .join("");
-      return new Response(
-        `<!doctype html><form method="post" action="/oidc/consent">${fields}` +
-          `<input type="hidden" name="webid" value="${escapeHTML(webid)}">` +
-          `<input type="password" name="password" placeholder="Site owner password" required>` +
-          `<button type="submit">Approve</button></form>`,
-        { headers: { "content-type": "text/html; charset=utf-8" } },
-      );
+        .join("\n");
+      const body = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Approve sign-in</title></head><body><main>
+<h1>Approve sign-in</h1>
+<p><strong>${escapeHTML(authorizationRequest.clientId)}</strong> wants to sign in as this pod's owner.</p>
+<p>Redirect target: <strong>${escapeHTML(authorizationRequest.redirectUri)}</strong></p>
+<form method="post" action="/oidc/consent">
+${fields}
+<input type="hidden" name="webid" value="${escapeHTML(webid)}">
+<label>Site owner password <input name="password" type="password" required autocomplete="current-password" maxlength="512"></label>
+<button type="submit">Approve</button>
+</form></main></body></html>`;
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+        },
+      });
     },
   };
 }

@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { createIndieAuthStore, type AuthorizationRequest } from "@dwk/indieauth";
+import type { SolidOidcAuthorizationRequest } from "@dwk/solid-oidc";
 import { beforeEach, expect, test } from "vitest";
 import {
   validateInboxFields,
@@ -544,22 +545,75 @@ test("handleIndieAuthConsent: 429s once the per-IP login attempt limit is exceed
 
 // --- Solid-OIDC identity endpoint + consent bridge (#1071) ---------------------------------
 
+function sampleSolidOidcAuthorizationRequest(
+  overrides: Partial<SolidOidcAuthorizationRequest> = {},
+): SolidOidcAuthorizationRequest {
+  return {
+    clientId: "https://client.example/app",
+    redirectUri: "https://client.example/callback",
+    scope: "webid",
+    codeChallenge: "challenge",
+    state: "state-355",
+    nonce: "nonce-123",
+    ...overrides,
+  };
+}
+
+const OWNER_WEBID = "https://example.com/profile/card#me";
+
 test("createSolidOidcConsentToken / verifySolidOidcConsentToken: round-trips a webid within the TTL", async () => {
-  const token = await createSolidOidcConsentToken("https://example.com/profile/card#me", "signing-key", 1000);
-  const webid = await verifySolidOidcConsentToken(token, "signing-key", 1050);
-  expect(webid).toBe("https://example.com/profile/card#me");
+  const request = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(request, OWNER_WEBID, "signing-key", 1000);
+  const grant = await verifySolidOidcConsentToken(token, request, "signing-key", 1050);
+  expect(grant?.webid).toBe(OWNER_WEBID);
 });
 
 test("verifySolidOidcConsentToken: rejects an expired token", async () => {
-  const token = await createSolidOidcConsentToken("https://example.com/profile/card#me", "signing-key", 1000);
-  const webid = await verifySolidOidcConsentToken(token, "signing-key", 10_000);
-  expect(webid).toBeNull();
+  const request = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(request, OWNER_WEBID, "signing-key", 1000);
+  const grant = await verifySolidOidcConsentToken(token, request, "signing-key", 10_000);
+  expect(grant).toBeNull();
 });
 
 test("verifySolidOidcConsentToken: rejects a token signed with a different key", async () => {
-  const token = await createSolidOidcConsentToken("https://example.com/profile/card#me", "signing-key", 1000);
-  const webid = await verifySolidOidcConsentToken(token, "wrong-key", 1050);
-  expect(webid).toBeNull();
+  const request = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(request, OWNER_WEBID, "signing-key", 1000);
+  const grant = await verifySolidOidcConsentToken(token, request, "wrong-key", 1050);
+  expect(grant).toBeNull();
+});
+
+test("verifySolidOidcConsentToken: accepts a token replayed against the exact request it was issued for", async () => {
+  const request = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(request, OWNER_WEBID, "signing-key", 1000);
+  const grant = await verifySolidOidcConsentToken(token, request, "signing-key", 1050);
+  expect(grant).not.toBeNull();
+  expect(grant?.clientId).toBe(request.clientId);
+  expect(grant?.redirectUri).toBe(request.redirectUri);
+  expect(grant?.webid).toBe(OWNER_WEBID);
+});
+
+test("verifySolidOidcConsentToken: rejects a token replayed against a different client_id", async () => {
+  const granted = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(granted, OWNER_WEBID, "signing-key", 1000);
+  const tampered = sampleSolidOidcAuthorizationRequest({ clientId: "https://attacker.example/app" });
+  const grant = await verifySolidOidcConsentToken(token, tampered, "signing-key", 1050);
+  expect(grant).toBeNull();
+});
+
+test("verifySolidOidcConsentToken: rejects a token replayed against a different redirect_uri", async () => {
+  const granted = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(granted, OWNER_WEBID, "signing-key", 1000);
+  const tampered = sampleSolidOidcAuthorizationRequest({ redirectUri: "https://attacker.example/callback" });
+  const grant = await verifySolidOidcConsentToken(token, tampered, "signing-key", 1050);
+  expect(grant).toBeNull();
+});
+
+test("verifySolidOidcConsentToken: rejects a token replayed with an escalated scope", async () => {
+  const granted = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(granted, OWNER_WEBID, "signing-key", 1000);
+  const tampered = sampleSolidOidcAuthorizationRequest({ scope: "webid offline_access" });
+  const grant = await verifySolidOidcConsentToken(token, tampered, "signing-key", 1050);
+  expect(grant).toBeNull();
 });
 
 test("handleSolidOidc: 503s when OIDC_SIGNING_KEY is unbound", async () => {
@@ -568,11 +622,41 @@ test("handleSolidOidc: 503s when OIDC_SIGNING_KEY is unbound", async () => {
   expect(response.status).toBe(503);
 });
 
-test("handleSolidOidcConsent: rejects the wrong owner password", async () => {
-  const body = new URLSearchParams({ password: "wrong", webid: "https://example.com/profile/card#me" });
+test("handleSolidOidc: 503s when OIDC_SIGNING_KEY is a parseable-but-non-object JSON value", async () => {
+  const request = new Request("https://example.com/oidc/jwks");
+  const response = await handleSolidOidc(request, { ...testEnv, OIDC_SIGNING_KEY: "null" }, createExecutionContext());
+  expect(response.status).toBe(503);
+});
+
+test("handleSolidOidcConsent: 503s when a required secret isn't configured", async () => {
+  const { TOKEN_SIGNING_KEY: _unusedSigningKey, ...envWithoutSigningKey } = testEnv;
+  const body = new URLSearchParams({ password: "correct horse battery staple", webid: OWNER_WEBID });
   const request = new Request("https://example.com/oidc/consent", {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: { "content-type": "application/x-www-form-urlencoded", "CF-Connecting-IP": "192.0.2.60" },
+    body: body.toString(),
+  });
+  const response = await handleSolidOidcConsent(request, envWithoutSigningKey as unknown as WorkerEnv);
+  expect(response.status).toBe(503);
+});
+
+test("handleSolidOidcConsent: 503s when the rate-limit KV isn't bound (fails closed, not open)", async () => {
+  const { SOCIAL_KV: _unusedSocialKV, ...envWithoutKV } = testEnv;
+  const body = new URLSearchParams({ password: "correct horse battery staple", webid: OWNER_WEBID });
+  const request = new Request("https://example.com/oidc/consent", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", "CF-Connecting-IP": "192.0.2.61" },
+    body: body.toString(),
+  });
+  const response = await handleSolidOidcConsent(request, envWithoutKV as unknown as WorkerEnv);
+  expect(response.status).toBe(503);
+});
+
+test("handleSolidOidcConsent: rejects the wrong owner password", async () => {
+  const body = new URLSearchParams({ password: "wrong", webid: OWNER_WEBID });
+  const request = new Request("https://example.com/oidc/consent", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", "CF-Connecting-IP": "192.0.2.62" },
     body: body.toString(),
   });
   const response = await handleSolidOidcConsent(request, testEnv);
