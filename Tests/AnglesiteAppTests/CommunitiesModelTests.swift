@@ -108,12 +108,23 @@ struct CommunitiesModelTests {
         return (config, source)
     }
 
-    private static func model(secretStore: InMemorySecretStore, fake: FakeTransport) -> CommunitiesModel {
+    private static func model(
+        secretStore: InMemorySecretStore, fake: FakeTransport, appSettings: AppSettings = .shared
+    ) -> CommunitiesModel {
         CommunitiesModel(
             secretStore: secretStore,
+            appSettings: appSettings,
             resolverTransport: fake.transport,
             membershipTransport: fake.transport,
-            timelineTransport: fake.transport)
+            timelineTransport: fake.transport,
+            searchTransport: fake.transport)
+    }
+
+    /// A scratch `UserDefaults` suite, not `.standard` — discovery tests need to control
+    /// `communitySearchInstance` without leaking state into, or racing, every other test in the
+    /// process (Swift Testing runs `@Suite`s concurrently by default).
+    private static func scratchAppSettings() -> AppSettings {
+        AppSettings(defaults: UserDefaults(suiteName: "communities-model-test-\(UUID().uuidString)")!)
     }
 
     @Test("join resolves the handle, follows it, and records it in the ledger")
@@ -680,5 +691,189 @@ struct CommunitiesModelTests {
         await model.retry()
 
         #expect(model.state == .idle)
+    }
+
+    // MARK: - Discovery (V-5.4, #371)
+
+    @Test("searchDiscovery populates results from the configured instance")
+    func searchDiscoveryPopulatesResults() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        let appSettings = Self.scratchAppSettings()
+        appSettings.communitySearchInstance = "lemmy.example"
+        let searchURL = "https://lemmy.example/api/v3/search"
+            + "?q=birding&type_=Communities&listing_type=All&sort=TopAll&limit=20"
+        let fake = FakeTransport([
+            searchURL: (200, """
+                {"communities":[
+                  {"community":{"name":"birding","title":"Birding",
+                    "actor_id":"https://lemmy.example/c/birding"},
+                   "counts":{"subscribers":42}}
+                ]}
+                """),
+        ])
+
+        let model = Self.model(secretStore: secretStore, fake: fake, appSettings: appSettings)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+        model.discoveryQuery = "birding"
+
+        await model.searchDiscovery()
+
+        #expect(model.discoveryResults.count == 1)
+        #expect(model.discoveryResults.first?.name == "birding")
+        #expect(model.discoveryResults.first?.subscriberCount == 42)
+        #expect(model.discoveryErrorMessage == nil)
+        #expect(model.isSearchingDiscovery == false)
+    }
+
+    @Test("searchDiscovery surfaces a discoveryErrorMessage without touching the blocking alert")
+    func searchDiscoveryFailureSurfacesInlineError() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        let appSettings = Self.scratchAppSettings()
+        appSettings.communitySearchInstance = "lemmy.example"
+        let searchURL = "https://lemmy.example/api/v3/search"
+            + "?q=birding&type_=Communities&listing_type=All&sort=TopAll&limit=20"
+        let fake = FakeTransport([searchURL: (500, "internal error")])
+
+        let model = Self.model(secretStore: secretStore, fake: fake, appSettings: appSettings)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+        model.discoveryQuery = "birding"
+
+        await model.searchDiscovery()
+
+        #expect(model.discoveryResults.isEmpty)
+        #expect(model.discoveryErrorMessage != nil)
+        // A search hiccup is recoverable in-panel (try again), not the alert-worthy failure
+        // `errorMessage`'s `.alert` binds to.
+        #expect(model.errorMessage == nil)
+    }
+
+    @Test("searchDiscovery clears results for a blank query without making a request")
+    func searchDiscoveryBlankQueryClears() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        let fake = FakeTransport()
+
+        let model = Self.model(secretStore: secretStore, fake: fake)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+        model.discoveryQuery = "   "
+
+        await model.searchDiscovery()
+
+        #expect(model.discoveryResults.isEmpty)
+        #expect(await fake.requestedURLs.isEmpty)
+    }
+
+    /// Before the generation guard, a slow response to an earlier, now-stale query could land
+    /// after a newer one and silently overwrite its results — mirrors
+    /// `selectCommunityDiscardsStaleTimeline`'s proof for `loadTimeline()`'s own guard.
+    @Test("a slower response to an earlier search doesn't overwrite a newer search's results")
+    func searchDiscoveryDiscardsStaleResponse() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        let appSettings = Self.scratchAppSettings()
+        appSettings.communitySearchInstance = "lemmy.example"
+        let firstURL = "https://lemmy.example/api/v3/search"
+            + "?q=first&type_=Communities&listing_type=All&sort=TopAll&limit=20"
+        let secondURL = "https://lemmy.example/api/v3/search"
+            + "?q=second&type_=Communities&listing_type=All&sort=TopAll&limit=20"
+        let fake = FakeTransport([
+            firstURL: (200, """
+                {"communities":[
+                  {"community":{"name":"first","title":"First",
+                    "actor_id":"https://lemmy.example/c/first"}}
+                ]}
+                """),
+            secondURL: (200, """
+                {"communities":[
+                  {"community":{"name":"second","title":"Second",
+                    "actor_id":"https://lemmy.example/c/second"}}
+                ]}
+                """),
+        ])
+        await fake.gate(firstURL)
+
+        let model = Self.model(secretStore: secretStore, fake: fake, appSettings: appSettings)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+
+        model.discoveryQuery = "first"
+        let firstSearch = Task { await model.searchDiscovery() }
+        await fake.waitUntilRequested(firstURL)
+
+        // Search "second" before "first"'s gated response resolves — bumps the generation.
+        model.discoveryQuery = "second"
+        await model.searchDiscovery()
+
+        #expect(model.discoveryResults.map(\.name) == ["second"])
+        #expect(model.isSearchingDiscovery == false)
+
+        // Release "first"'s gate and let its stale response resume. It should discover its token
+        // is stale and return without touching `discoveryResults`/`isSearchingDiscovery`.
+        await fake.release(firstURL)
+        await firstSearch.value
+
+        #expect(model.discoveryResults.map(\.name) == ["second"])
+        #expect(model.isSearchingDiscovery == false)
+    }
+
+    @Test("joinFromDiscovery routes a search result through the same join() path as a typed handle")
+    func joinFromDiscoveryUsesJoinPath() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        secretStore.values[SecretAccounts.activityPubPublishToken(siteID: "site-1")] = "token"
+        let fake = FakeTransport([
+            "https://lemmy.ml/c/birding": (200, """
+                {"id":"https://lemmy.ml/c/birding","type":"Group","preferredUsername":"birding",
+                 "name":"Birding","outbox":"https://lemmy.ml/c/birding/outbox"}
+                """),
+            "https://example.com/users/site/outbox":
+                (202, #"{"id":"https://example.com/users/site/outbox/1"}"#),
+        ])
+
+        let model = Self.model(secretStore: secretStore, fake: fake)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+        model.discoveryPresented = true
+        model.discoveryQuery = "birding"
+        let result = CommunitySearchResult(
+            actorID: URL(string: "https://lemmy.ml/c/birding")!, name: "birding", title: "Birding",
+            instance: "lemmy.ml", subscriberCount: 10)
+
+        await model.joinFromDiscovery(result)
+
+        #expect(model.joined.count == 1)
+        #expect(model.joined.first?.actorID.absoluteString == "https://lemmy.ml/c/birding")
+        #expect(model.errorMessage == nil)
+        // A successful join closes the sheet and resets its search state.
+        #expect(model.discoveryPresented == false)
+        #expect(model.discoveryQuery.isEmpty)
+        #expect(model.discoveryResults.isEmpty)
+    }
+
+    @Test("joinFromDiscovery leaves the sheet open when the join fails")
+    func joinFromDiscoveryKeepsSheetOpenOnFailure() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        secretStore.values[SecretAccounts.activityPubPublishToken(siteID: "site-1")] = "token"
+        let fake = FakeTransport(["https://lemmy.ml/c/ghost": (404, "not found")])
+
+        let model = Self.model(secretStore: secretStore, fake: fake)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+        model.discoveryPresented = true
+        let result = CommunitySearchResult(
+            actorID: URL(string: "https://lemmy.ml/c/ghost")!, name: "ghost", title: nil,
+            instance: "lemmy.ml", subscriberCount: nil)
+
+        await model.joinFromDiscovery(result)
+
+        #expect(model.joined.isEmpty)
+        #expect(model.errorMessage != nil)
+        #expect(model.discoveryPresented == true)
     }
 }
