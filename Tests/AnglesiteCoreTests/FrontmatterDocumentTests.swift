@@ -275,6 +275,52 @@ struct FrontmatterDocumentTests {
                 == .array(["Monday: 9:00-17:00", "Tuesday: 9:00-17:00"]))
     }
 
+    @Test("a short FIRST record doesn't hide a later record's continuation")
+    func objectArrayDetectedWhenOnlyLaterRecordHasContinuation() {
+        // Records need not be uniform, and a hand-edited list is very likely to be filled in
+        // unevenly. Detection reads the whole block, so evidence in the *second* record counts:
+        // judging from the first record alone would call this flat and strand `org: "Acme"` as an
+        // orphaned raw line detached from `experience` (zero rows in the editor, on read).
+        let src = """
+        ---
+        experience:
+          - title: "Engineer"
+          - title: "Intern"
+            org: "Acme"
+        ---
+        Body.
+        """ + "\n"
+        let doc = FrontmatterDocument.parse(src)
+        #expect(doc.value(for: "experience") == .objectArray([
+            [FrontmatterRecordField("title", .string("Engineer"))],
+            [FrontmatterRecordField("title", .string("Intern")),
+             FrontmatterRecordField("org", .string("Acme"))],
+        ]))
+        #expect(doc.serialized() == src)   // every line still belongs to `experience`
+    }
+
+    @Test("a short LAST record is still part of the object array")
+    func objectArrayDetectedWhenOnlyEarlierRecordHasContinuation() {
+        // The mirror image of the case above — the same whole-block rule has to cover both
+        // orderings, so pin the direction the detection peek used to get right by luck.
+        let src = """
+        ---
+        experience:
+          - title: "Engineer"
+            org: "Acme"
+          - title: "Intern"
+        ---
+        Body.
+        """ + "\n"
+        let doc = FrontmatterDocument.parse(src)
+        #expect(doc.value(for: "experience") == .objectArray([
+            [FrontmatterRecordField("title", .string("Engineer")),
+             FrontmatterRecordField("org", .string("Acme"))],
+            [FrontmatterRecordField("title", .string("Intern"))],
+        ]))
+        #expect(doc.serialized() == src)
+    }
+
     @Test("a single-field record is read as a flat list (documented detection trade-off)")
     func singleFieldRecordReadsAsFlatList() {
         let src = """
@@ -286,8 +332,10 @@ struct FrontmatterDocumentTests {
         Body.
         """ + "\n"
         let doc = FrontmatterDocument.parse(src)
-        // No continuation line ⟹ not enough evidence to call this an object array. Every planned
-        // real use of `.objectArray` has multi-field records, so this costs nothing in practice.
+        // No continuation line *anywhere in the block* ⟹ nothing in the source distinguishes this
+        // from a flat list of `key: value`-shaped strings, so it reads as one. Every planned real
+        // use of `.objectArray` has multiple fields in at least one record (see the case above),
+        // so this costs nothing in practice.
         #expect(doc.value(for: "experience") == .array(["title: \"Engineer\"", "title: \"Intern\""]))
         #expect(doc.serialized() == src)   // still verbatim when untouched
     }

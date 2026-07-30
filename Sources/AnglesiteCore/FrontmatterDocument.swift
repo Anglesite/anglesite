@@ -117,66 +117,72 @@ public struct FrontmatterDocument: Equatable, Sendable {
             var verbatim = [line]
             let value: FrontmatterValue
             if rawValue.isEmpty {
-                if j + 1 < block.count,
-                   let firstItemText = Frontmatter.blockArrayItem(block[j + 1]),
-                   Frontmatter.splitKeyValue(firstItemText) != nil,
-                   j + 2 < block.count,
-                   recordContinuation(block[j + 2],
-                                      dashIndent: dashIndent(of: block[j + 1])) != nil {
-                    // Block array of records: `  - field: value` starts a record; deeper-indented
-                    // `field: value` lines continue it.
-                    //
-                    // Detection deliberately demands *two* pieces of evidence — the first item
-                    // parses as `key: value` **and** the very next line is a deeper-indented
-                    // continuation field. "The first item contains a colon" alone is far too weak:
-                    // `Frontmatter.splitKeyValue` splits on the first colon with no space required,
-                    // so unquoted flat-array items like `- https://example.com` (key "https") or
-                    // `- Monday: 9:00-17:00` (key "Monday") match it. Those are exactly the shapes
-                    // of two shipped `.stringArray` fields — `member.links` and
-                    // `businessProfile.hours` — and misreading one as an object array makes
-                    // `TypedContentEditor.decode` yield an empty list, which the next save writes
-                    // back over the author's real data. Requiring a continuation line rules those
-                    // out, because a flat item is always followed by another `-` item or the end
-                    // of the block.
-                    //
-                    // Documented trade-off: a *single-field* record (`- title: X` with nothing
-                    // indented under it) is read as a flat string list, not an object array. That
-                    // is acceptable — every planned use of this primitive (h-resume
-                    // `experience`/`education`: title/org/start/end/description) has several fields
-                    // per record, so a continuation line is always present. Losing real data is
-                    // not an acceptable price for supporting the degenerate one-field case.
-                    var records: [[FrontmatterRecordField]] = []
-                    var k = j + 1
-                    while k < block.count, let itemText = Frontmatter.blockArrayItem(block[k]) {
-                        let itemIndent = dashIndent(of: block[k])
-                        var record: [FrontmatterRecordField] = []
-                        if let (fieldKey, fieldRaw) = Frontmatter.splitKeyValue(itemText) {
-                            record.append(FrontmatterRecordField(fieldKey, Frontmatter.parseScalarOrArray(fieldRaw)))
-                        }
-                        verbatim.append(block[k])
-                        k += 1
-                        while k < block.count,
-                              let (fieldKey, fieldRaw) = recordContinuation(block[k], dashIndent: itemIndent) {
-                            record.append(FrontmatterRecordField(fieldKey, Frontmatter.parseScalarOrArray(fieldRaw)))
-                            verbatim.append(block[k])
-                            k += 1
-                        }
-                        records.append(record)
+                // A bare `key:` header followed by `- …` lines is either a flat string list or a
+                // list of records (`  - field: value` starts a record; deeper-indented
+                // `field: value` lines continue it). Walk the block **once**, building both
+                // readings, then let what the whole block actually contained decide.
+                //
+                // The rule: it is an object array iff at least one record anywhere in the block
+                // consumed a continuation line.
+                //
+                // Why not "the first item parses as `key: value`" — that alone is far too weak.
+                // `Frontmatter.splitKeyValue` splits on the first colon with no space required, so
+                // unquoted flat-array items like `- https://example.com` (key "https") or
+                // `- Monday: 9:00-17:00` (key "Monday") match it. Those are exactly the shapes of
+                // two shipped `.stringArray` fields — `member.links` and `businessProfile.hours` —
+                // and misreading one as an object array makes `TypedContentEditor.decode` yield an
+                // empty list, which the next save writes back over the author's real data.
+                //
+                // Why the evidence must come from the *whole* block, not a peek at the first
+                // record: records need not be uniform. A hand-edited, incrementally filled-in list
+                // can easily put the short record first —
+                //
+                //     experience:
+                //       - title: "Engineer"
+                //       - title: "Intern"
+                //         org: "Acme"
+                //
+                // — and judging from the first record alone would call that flat, stranding
+                // `org: "Acme"` as an orphaned raw line detached from `experience` and showing the
+                // editor zero rows. Scanning the whole block gets both orderings right.
+                //
+                // Documented trade-off: a block whose records are *all* single-field (nothing
+                // indented under any dash) is read as a flat string list. Nothing in the source
+                // distinguishes it from a flat list of `key: value`-shaped strings, and every
+                // planned use of this primitive (h-resume `experience`/`education`:
+                // title/org/start/end/description) has several fields in at least one record.
+                // Losing real data is not an acceptable price for the degenerate case.
+                var records: [[FrontmatterRecordField]] = []
+                var items: [String] = []
+                var sawContinuation = false
+                var k = j + 1
+                while k < block.count, let itemText = Frontmatter.blockArrayItem(block[k]) {
+                    let itemIndent = dashIndent(of: block[k])
+                    var record: [FrontmatterRecordField] = []
+                    if let (fieldKey, fieldRaw) = Frontmatter.splitKeyValue(itemText) {
+                        record.append(FrontmatterRecordField(fieldKey, Frontmatter.parseScalarOrArray(fieldRaw)))
                     }
-                    value = .objectArray(records)
-                    j = k
-                } else {
-                    // Possible block array on following `- item` lines.
-                    var items: [String] = []
-                    var k = j + 1
-                    while k < block.count, let item = Frontmatter.blockArrayItem(block[k]) {
-                        items.append(Frontmatter.unquote(item))
+                    items.append(Frontmatter.unquote(itemText))
+                    verbatim.append(block[k])
+                    k += 1
+                    while k < block.count,
+                          let (fieldKey, fieldRaw) = recordContinuation(block[k], dashIndent: itemIndent) {
+                        record.append(FrontmatterRecordField(fieldKey, Frontmatter.parseScalarOrArray(fieldRaw)))
                         verbatim.append(block[k])
+                        sawContinuation = true
                         k += 1
                     }
-                    value = items.isEmpty ? .string("") : .array(items)
-                    j = k
+                    records.append(record)
                 }
+                // With no continuation anywhere, the inner loop consumed nothing, so `k` and
+                // `verbatim` are exactly what a flat-only walk would have produced — the two
+                // readings only diverge once there is record evidence.
+                if sawContinuation {
+                    value = .objectArray(records)
+                } else {
+                    value = items.isEmpty ? .string("") : .array(items)
+                }
+                j = k
             } else {
                 value = Frontmatter.parseScalarOrArray(rawValue)
                 j += 1
