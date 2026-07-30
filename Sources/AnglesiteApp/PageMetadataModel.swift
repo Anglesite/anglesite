@@ -4,18 +4,24 @@ import SwiftUI
 import Observation
 import AnglesiteCore
 
-/// Editor state for a plain (non-typed) page's title + description. Parallels
-/// `TypedEntryEditorModel`: loads/saves through `FileDocumentIO`, writes via `PageMetadataEditor`
-/// (round-trip-safe), and commits each save. All disk IO runs off the main actor.
+/// Editor state for a plain (non-typed) page's title + description, plus the two shared
+/// search/crawling toggles (#1093 — backed by `RobotsConfigFile`, not this page's own frontmatter).
+/// Parallels `TypedEntryEditorModel`: loads/saves through `FileDocumentIO`, writes via
+/// `PageMetadataEditor` (round-trip-safe), and commits each save. All disk IO runs off the main actor.
 @MainActor
 @Observable
 final class PageMetadataModel: InspectorEditorModel {
     let file: FileRef
+    let route: String
     private let sourceDirectory: URL
     private let gitCommit: NativeContentOperations.GitCommit
 
     var metadata = PageMetadata(title: "", description: "")
     private var savedMetadata = PageMetadata(title: "", description: "")
+    var noindexEnabled = false
+    private var savedNoindexEnabled = false
+    var disallowCrawlEnabled = false
+    private var savedDisallowCrawlEnabled = false
     private var fileSession = EditableFileSession()
     private var contents: String { fileSession.savedContents }
     /// Guards against a concurrent second `save()` capturing a stale `contents` base. `private(set)`
@@ -28,12 +34,17 @@ final class PageMetadataModel: InspectorEditorModel {
         set { fileSession.conflictDiskContents = newValue }
     }
 
-    var isDirty: Bool { metadata != savedMetadata && loadError == nil && !isLoading }
+    var isDirty: Bool {
+        (metadata != savedMetadata || noindexEnabled != savedNoindexEnabled || disallowCrawlEnabled != savedDisallowCrawlEnabled)
+            && loadError == nil && !isLoading
+    }
 
     init(file: FileRef,
+         route: String,
          sourceDirectory: URL,
          gitCommit: @escaping NativeContentOperations.GitCommit = NativeContentOperations.processGitCommit) {
         self.file = file
+        self.route = route
         self.sourceDirectory = sourceDirectory
         self.gitCommit = gitCommit
     }
@@ -52,6 +63,11 @@ final class PageMetadataModel: InspectorEditorModel {
         } catch {
             loadError = error.localizedDescription
         }
+        let flags = RobotsConfigFile.flags(for: robotsSource, under: sourceDirectory)
+        noindexEnabled = flags.noindex
+        savedNoindexEnabled = flags.noindex
+        disallowCrawlEnabled = flags.disallowCrawl
+        savedDisallowCrawlEnabled = flags.disallowCrawl
     }
 
     @discardableResult
@@ -67,6 +83,12 @@ final class PageMetadataModel: InspectorEditorModel {
             fileSession = session
             savedMetadata = metadata
             warnIfNoModificationDate(after: "save")
+            try RobotsConfigFile.apply(
+                source: robotsSource, noindex: noindexEnabled, disallowCrawl: disallowCrawlEnabled,
+                path: route, under: sourceDirectory
+            )
+            savedNoindexEnabled = noindexEnabled
+            savedDisallowCrawlEnabled = disallowCrawlEnabled
             await commit()
             return true
         } catch {
@@ -121,6 +143,18 @@ final class PageMetadataModel: InspectorEditorModel {
     func descriptionBinding() -> Binding<String> {
         Binding(get: { [weak self] in self?.metadata.description ?? "" },
                 set: { [weak self] in self?.metadata.description = $0 })
+    }
+    func noindexBinding() -> Binding<Bool> {
+        Binding(get: { [weak self] in self?.noindexEnabled ?? false },
+                set: { [weak self] in self?.noindexEnabled = $0 })
+    }
+    func disallowCrawlBinding() -> Binding<Bool> {
+        Binding(get: { [weak self] in self?.disallowCrawlEnabled ?? false },
+                set: { [weak self] in self?.disallowCrawlEnabled = $0 })
+    }
+
+    private var robotsSource: RobotsConfigSource {
+        .page(file: relativePath(of: file.url, under: sourceDirectory))
     }
 
     private func adopt(_ text: String) {

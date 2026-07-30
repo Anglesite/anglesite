@@ -1188,7 +1188,7 @@ final class SiteWindowModel {
             return .typed(TypedEntryEditorModel(file: file, descriptor: descriptor, sourceDirectory: source))
         }
         if isFrontmatterPage(relPath) {
-            return .page(PageMetadataModel(file: file, sourceDirectory: source))
+            return .page(PageMetadataModel(file: file, route: route, sourceDirectory: source))
         }
         // Plain .astro / other: no safe generic way to parse or rewrite its frontmatter (JS, not
         // YAML), so the panel stays read-only rather than staying unavailable (#1100).

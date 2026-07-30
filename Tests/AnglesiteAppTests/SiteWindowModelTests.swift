@@ -679,7 +679,7 @@ extension SiteWindowModelTests {
         let priorFile = FileRef(url: root.appendingPathComponent("dummy.astro"), group: .components, name: "dummy.astro")
         model.activeEditor = .text(FileEditorModel(file: priorFile))
         model.mainPaneMode = .editor(priorFile)
-        model.inspectorContext = .page(PageMetadataModel(file: priorFile, sourceDirectory: package.sourceURL))
+        model.inspectorContext = .page(PageMetadataModel(file: priorFile, route: "/dummy/", sourceDirectory: package.sourceURL))
 
         let navModel = SiteNavigatorModel(graph: graph)
         navModel.start(site: CurrentSite(id: "site-a", packageURL: packageURL, sourceDirectory: package.sourceURL), websiteTitle: "Test")
@@ -987,7 +987,7 @@ extension SiteWindowModelTests {
         let priorFile = FileRef(url: root.appendingPathComponent("dummy.astro"), group: .components, name: "dummy.astro")
         model.activeEditor = .text(FileEditorModel(file: priorFile))
         model.mainPaneMode = .editor(priorFile)
-        model.inspectorContext = .page(PageMetadataModel(file: priorFile, sourceDirectory: package.sourceURL))
+        model.inspectorContext = .page(PageMetadataModel(file: priorFile, route: "/dummy/", sourceDirectory: package.sourceURL))
 
         model.presentCleanup()
 
@@ -1065,7 +1065,7 @@ extension SiteWindowModelTests {
         let priorFile = FileRef(url: root.appendingPathComponent("dummy.astro"), group: .components, name: "dummy.astro")
         model.activeEditor = .text(FileEditorModel(file: priorFile))
         model.mainPaneMode = .editor(priorFile)
-        model.inspectorContext = .page(PageMetadataModel(file: priorFile, sourceDirectory: package.sourceURL))
+        model.inspectorContext = .page(PageMetadataModel(file: priorFile, route: "/dummy/", sourceDirectory: package.sourceURL))
 
         model.presentReader()
 
