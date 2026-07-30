@@ -51,6 +51,11 @@ struct DeployDrawerView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                if case .succeeded = model.phase, case .notConnected(let hostname) = model.domainAttachStatus {
+                    Text("\(hostname) isn't connected yet — add it to Cloudflare and point its nameservers there, then redeploy.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer()
             if case .succeeded(let url, _) = model.phase {
