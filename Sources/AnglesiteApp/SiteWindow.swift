@@ -814,6 +814,12 @@ struct SiteWindow: View {
                         baseURL: model.preview.readyURL?.absoluteString,
                         fileID: editorModel.file.id
                     )) {
+                        // A new file/baseURL identity means any previously captured canvas
+                        // webview belongs to the outgoing component — drop it until the new
+                        // canvas reports in via `onCanvasWebView`, so the Style pane's ColorPicker
+                        // scrub preview never pairs component B's model with component A's
+                        // (possibly torn-down) webview during the rebuild (#714 review).
+                        componentCanvasWebView = nil
                         await model.ensureComponentEditorLoaded()
                     }
             } else if case .plist(let plistEditorModel) = model.activeEditor {
