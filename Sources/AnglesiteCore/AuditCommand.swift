@@ -175,10 +175,18 @@ public actor AuditCommand {
 
     // MARK: - Default seams
 
-    /// Host Node is retired (#70). Audits must run through the container runtime once validation
-    /// lands; until then the command fails explicitly instead of spawning embedded Node.
+    /// Host Node is retired (#70). Audits must run through the container runtime — see
+    /// `ContainerAuditExecutor`. `HostAuditExecutor.defaultResolver` uses this for the `.build`
+    /// step so the command fails explicitly instead of spawning embedded Node.
     public static let resolveBuildCommand: CommandResolver = { siteDirectory in
         .unavailable(reason: HostNodeRetirement.reason("audit build"))
+    }
+
+    /// Same as `resolveBuildCommand`, for the `.a11y` step. `A11yAuditRunner` used to spawn
+    /// `npx tsx` on the host directly (bypassing this convention entirely); it now goes through
+    /// `HostAuditExecutor.defaultResolver` like every other step.
+    public static let resolveA11yCommand: CommandResolver = { siteDirectory in
+        .unavailable(reason: HostNodeRetirement.reason("accessibility audit"))
     }
 
     /// Default runner set: `A11yAuditRunner` plus `SecurityTxtAuditRunner` (#843). SEO / perf /
