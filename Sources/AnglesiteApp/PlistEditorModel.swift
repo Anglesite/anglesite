@@ -164,7 +164,8 @@ final class PlistEditorModel {
          graphSnapshotProvider: @escaping @MainActor () -> SiteGraphExplorerSnapshot? = { nil },
          onActiveWorkersChanged: @escaping (SiteSettings) async -> Void = { _ in },
          analyticsProvider: any CloudflareWebAnalyticsProviding = CloudflareWebAnalyticsClient(),
-         customAnalyticsValidator: any CustomAnalyticsHTMLValidating = AstroHTMLValidator(),
+         customAnalyticsValidator: (any CustomAnalyticsHTMLValidating)? = nil,
+         containerControlProvider: @escaping AstroHTMLValidator.ContainerControlProvider = { nil },
          keychain: KeychainStore = KeychainStore(),
          domainOperations: any DomainOperationsService = DomainOperations(),
          repoSecurity: any RepoSecurityReading & RepoSecurityWriting = HTTPGitHubClient(),
@@ -182,7 +183,11 @@ final class PlistEditorModel {
         self.graphSnapshotProvider = graphSnapshotProvider
         self.onActiveWorkersChanged = onActiveWorkersChanged
         self.analyticsProvider = analyticsProvider
+        // `customAnalyticsValidator` lets tests inject a fake directly; production leaves it nil
+        // and instead wires `containerControlProvider` through to the real `AstroHTMLValidator`,
+        // resolved lazily at validation time (#961).
         self.customAnalyticsValidator = customAnalyticsValidator
+            ?? AstroHTMLValidator(containerControlProvider: containerControlProvider)
         self.keychain = keychain
         self.domainOperations = domainOperations
         self.repoSecurity = repoSecurity

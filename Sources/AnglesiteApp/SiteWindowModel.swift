@@ -957,7 +957,8 @@ final class SiteWindowModel {
                     graphSnapshotProvider: { graphExplorer.snapshot },
                     onActiveWorkersChanged: { settings in
                         await preview.activeWorkersChanged(settings)
-                    }
+                    },
+                    containerControlProvider: { [preview] in await preview.activeContainerControl() }
                 ))
             }
             mainPaneMode = .editor(file)
