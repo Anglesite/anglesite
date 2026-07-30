@@ -82,6 +82,24 @@ const GENERIC_LINK_PATTERNS = [
 ];
 
 /**
+ * Strip HTML tags to their plain-text content. A single `.replace(/<[^>]*>/g, "")`
+ * pass is an incomplete sanitizer — malformed/overlapping input like
+ * `<scr<script>ipt>` still contains a live `<script>` tag after one pass. Repeating
+ * the replace to a fixpoint closes that gap. Only used to extract link text for
+ * pattern matching and diagnostic messages, never re-injected into rendered HTML,
+ * but the loop keeps the helper safe regardless of how a caller uses its output.
+ */
+function stripTags(html: string): string {
+  let text = html;
+  let previous: string;
+  do {
+    previous = text;
+    text = text.replace(/<[^>]*>/g, "");
+  } while (text !== previous);
+  return text;
+}
+
+/**
  * Validate link text quality.
  * html-validate catches empty links (wcag/h30).
  * Heuristic catches generic phrases ("click here", "read more").
@@ -98,7 +116,7 @@ export function validateLinkText(html: string): A11yIssue[] {
 
   while ((match = linkRegex.exec(html)) !== null) {
     const attrs = match[1];
-    const text = match[2].replace(/<[^>]*>/g, "").trim();
+    const text = stripTags(match[2]).trim();
     if (!text || /aria-label\s*=/.test(attrs)) continue;
 
     for (const pattern of GENERIC_LINK_PATTERNS) {

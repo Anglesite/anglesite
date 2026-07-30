@@ -222,3 +222,18 @@ test("html-validate integration: recognizes img role=presentation as not needing
   const html = '<img src="spacer.gif" role="presentation" />';
   assert.deepEqual(validateImageAlt(html), []);
 });
+
+// ---------------------------------------------------------------------------
+// stripTags safety (CodeQL js/incomplete-multi-character-sanitization) — a
+// single-pass `.replace(/<[^>]*>/g, "")` is an incomplete sanitizer for
+// malformed/overlapping markup; validateLinkText's tag-stripping must fully
+// remove nested/overlapping tag fragments, not just well-formed ones.
+// ---------------------------------------------------------------------------
+
+test("validateLinkText: fully strips overlapping/malformed tag fragments, leaving no tag residue", () => {
+  const html = '<a href="/x"><scr<script>ipt>click here</scr<script>ipt></a>';
+  const issues = validateLinkText(html);
+  for (const issue of issues) {
+    assert.doesNotMatch(issue.message, /<[a-z!/]/i, `message retained a tag fragment: ${issue.message}`);
+  }
+});
