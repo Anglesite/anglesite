@@ -30,7 +30,7 @@ export const EMPTY_ROBOTS_CONFIG: RobotsConfig = { noindex: [], disallow: [], ex
 /** Reads and validates the shape loosely — malformed/missing input reads as empty, never throws. */
 export function readRobotsConfig(cwd: string): RobotsConfig {
   const path = resolve(cwd, "src/data/robots-config.json");
-  if (!existsSync(path)) return { ...EMPTY_ROBOTS_CONFIG };
+  if (!existsSync(path)) return { noindex: [], disallow: [], extra: [] };
   try {
     const raw = JSON.parse(readFileSync(path, "utf-8"));
     return {
@@ -39,7 +39,7 @@ export function readRobotsConfig(cwd: string): RobotsConfig {
       extra: Array.isArray(raw.extra) ? raw.extra : [],
     };
   } catch {
-    return { ...EMPTY_ROBOTS_CONFIG };
+    return { noindex: [], disallow: [], extra: [] };
   }
 }
 
