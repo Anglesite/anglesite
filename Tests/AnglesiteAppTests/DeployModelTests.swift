@@ -188,6 +188,48 @@ struct DeployModelTests {
         #expect(model.workerNameConflictPresented)
     }
 
+    @Test("An automatic background deploy defers instead of clobbering a foreground worker-name-conflict sheet (#1076)")
+    func backgroundDeployDefersWhileConflictSheetIsPresented() async {
+        let executor = GatedDeployExecutor()
+        await executor.resumeBuild()
+        let command = DeployCommand(
+            tokenSource: { "test-token" },
+            workerScriptNamesSource: { _ in ["my-site"] },
+            executor: executor
+        )
+        let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
+        let siteDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try! FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+        try! "CF_PROJECT_NAME=my-site\n".write(to: siteDir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        // A manual (foreground) deploy parks on the conflict sheet, same as
+        // `workerNameConflictParksAndPresents`.
+        model.deploy(siteID: "s", siteDirectory: siteDir, configDirectory: siteDir, currentRoutes: [])
+        while model.isRunning { await Task.yield() }
+        guard case .workerNameConflict = model.phase else {
+            Issue.record("expected .workerNameConflict, got \(model.phase)"); return
+        }
+        #expect(model.workerNameConflictPresented)
+
+        // The invisible-publish queue (#357) fires an automatic background deploy for the same
+        // site while the sheet is still up — resolved via a non-nil container control so it isn't
+        // deferred for the unrelated "runtime not ready" reason.
+        let fakeControl = RecordingLocalContainerControl()
+        let result = await model.deployAutomatically(
+            siteID: "s", siteDirectory: siteDir, configDirectory: siteDir, currentRoutes: [],
+            containerControlProvider: { (siteID: "s", control: fakeControl) }
+        )
+
+        guard case .deferred = result else {
+            Issue.record("expected the automatic deploy to defer while the conflict sheet is up, got \(result)")
+            return
+        }
+        #expect(model.workerNameConflictPresented, "the foreground conflict sheet must still be showing, not silently dismissed")
+        guard case .workerNameConflict = model.phase else {
+            Issue.record("expected phase to still be .workerNameConflict, got \(model.phase)"); return
+        }
+    }
+
     @Test("An invalid rename target surfaces a plain-language error instead of the raw error enum")
     func renameWithInvalidNameSurfacesPlainLanguageError() async {
         let executor = GatedDeployExecutor()

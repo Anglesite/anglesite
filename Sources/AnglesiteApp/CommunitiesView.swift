@@ -100,7 +100,7 @@ struct CommunitiesView: View {
             .padding()
 
             if communities.joined.isEmpty {
-                // `!birding@lemmy.ml` is example copy, not a real address, but the
+                // The example handle is example copy, not a real address, but the
                 // `LocalizedStringKey` overload's Markdown/data-detection parsing auto-links any
                 // email-shaped substring into a `mailto:` link regardless. Resolving the
                 // localized value ourselves and handing it to the plain-`StringProtocol`
@@ -108,7 +108,7 @@ struct CommunitiesView: View {
                 // `Text(reason)`/`Text(community.displayName …)` precedents above and in
                 // `FollowersView`, just applied to avoid an unwanted autolink instead of a
                 // markdown-injection risk.
-                Text(String(localized: "No communities joined yet — enter a handle above, like !birding@lemmy.ml."))
+                Text(String(localized: "No communities joined yet — enter a handle above, like !sandbox@lemmy.sdf.org."))
                     .foregroundStyle(.secondary)
                     .padding()
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

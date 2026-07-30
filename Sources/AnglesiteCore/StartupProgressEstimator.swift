@@ -45,6 +45,20 @@ public enum StartupPhase: String, Sendable, Equatable, CaseIterable {
         case .connecting: return "Connecting to preview…"
         }
     }
+
+    /// How many of the three phase-progress-strip panels (see
+    /// docs/superpowers/specs/2026-07-28-phase-progress-panels-design.md) should read as filled
+    /// for this phase. Cumulative: once a panel fills at an earlier phase it stays filled at every
+    /// later phase — this only ever needs to name the count for the *current* phase because the
+    /// view renders "filled" as "index < filledCount", not a stateful toggle.
+    public var panelFillCount: Int {
+        switch self {
+        case .idle, .failed:        return 0
+        case .launching, .building: return 1
+        case .connecting:           return 2
+        case .ready:                return 3
+        }
+    }
 }
 
 /// Pure, time-base-agnostic state machine that turns startup signals into a determinate progress

@@ -13,23 +13,41 @@ final class StartupProgressModel {
     private(set) var phase: StartupPhase = .idle
     private(set) var fraction: Double = 0
     private(set) var message: String = ""
+    /// True for a brief window after reaching `.ready`, so `SiteWindow` can hold the fully-filled
+    /// phase progress strip on screen for a moment before swapping to the live preview — without
+    /// this, reaching `.ready` and the pane swap happen in the same update and the completed
+    /// strip (`StartupPhase.ready.panelFillCount == 3`) renders for ~0 frames. Doesn't affect
+    /// `phase`/`fraction`/`message`, which still report `.ready` immediately — only the view's
+    /// swap decision is delayed.
+    private(set) var isShowingCompletionHold = false
 
     private let timingStore: StartupTimingStore
     private let logCenter: LogCenter
+    private let soundEffect: DialupSoundEffectPlaying
     private let clock: @Sendable () -> TimeInterval
 
     private var estimator = StartupProgressEstimator()
     private var siteID: String?
     private var logTask: Task<Void, Never>?
     private var tickTask: Task<Void, Never>?
+    private var holdTask: Task<Void, Never>?
 
     init(
         timingStore: StartupTimingStore = .shared,
         logCenter: LogCenter = .shared,
+        // `soundEffect` can't default directly to `DialupSoundEffectPlayer()` here: under this
+        // project's Swift 5.10 language mode (project.yml's SWIFT_VERSION, not Swift 6 mode),
+        // a default-argument expression that calls a `@MainActor`-isolated initializer is
+        // rejected as a call "in a synchronous nonisolated context," even though this
+        // initializer's enclosing type (and thus the init itself) is `@MainActor`. Defaulting
+        // to `nil` and constructing the real player in the (actor-isolated) init body sidesteps
+        // that restriction while keeping the same effective default and injectability for tests.
+        soundEffect: DialupSoundEffectPlaying? = nil,
         clock: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     ) {
         self.timingStore = timingStore
         self.logCenter = logCenter
+        self.soundEffect = soundEffect ?? DialupSoundEffectPlayer()
         self.clock = clock
     }
 
@@ -40,12 +58,18 @@ final class StartupProgressModel {
         case .starting(let id):
             begin(siteID: id)
         case .ready(let id, _, _):
+            // Only hold-and-swap on a genuine first arrival at `.ready` — a site can re-settle to
+            // `.ready` with an unchanged phase but a different payload (e.g. an active-workers
+            // change updating `workersDevURL`), and re-arming the hold then would tear an
+            // already-visible `PreviewView` back down to the startup screen for no reason.
+            let wasActive = estimator.isActive
             estimator.ingest(runtimeState: state, at: clock())
             if let profile = estimator.completedProfile {
                 timingStore.record(profile, for: id)
             }
             publish()
             stop()
+            if wasActive { beginCompletionHold() }
         case .failed, .idle:
             estimator.ingest(runtimeState: state, at: clock())
             publish()
@@ -57,6 +81,9 @@ final class StartupProgressModel {
     func stop() {
         logTask?.cancel(); logTask = nil
         tickTask?.cancel(); tickTask = nil
+        holdTask?.cancel(); holdTask = nil
+        isShowingCompletionHold = false
+        soundEffect.stop()
     }
 
     // MARK: - Internals
@@ -67,6 +94,7 @@ final class StartupProgressModel {
         self.siteID = siteID
         estimator = StartupProgressEstimator(profile: timingStore.profile(for: siteID))
         estimator.ingest(runtimeState: .starting(siteID: siteID), at: clock())
+        soundEffect.play()
         publish()
         subscribeToLogs(siteID: siteID)
         startTicker()
@@ -91,6 +119,18 @@ final class StartupProgressModel {
                 self.publish()
             }
             subscription.cancel()
+        }
+    }
+
+    /// Keeps `isShowingCompletionHold` true for ~0.5s after `.ready`, then clears it. `stop()`
+    /// (called for every terminal/reset transition, including this one just before this method
+    /// runs) always cancels any prior hold first, so this never overlaps a stale one.
+    private func beginCompletionHold() {
+        isShowingCompletionHold = true
+        holdTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            self?.isShowingCompletionHold = false
         }
     }
 

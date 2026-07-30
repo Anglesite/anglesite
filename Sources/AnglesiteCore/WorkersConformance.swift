@@ -42,12 +42,16 @@ public struct WorkersConformanceStatus: Sendable, Equatable {
         case v3
         /// V-4: ActivityPub, Microsub, WebFinger.
         case v4
+        /// Storage: Solid Pod + its WebDAV façade (not part of the V-2/V-3/V-4 social-phase
+        /// numbering — a separate "storage" vertical, gated the same way).
+        case storage
     }
 
     public static let phaseRequirements: [Phase: [String]] = [
         .v2: ["@dwk/webmention", "@dwk/indieauth"],
         .v3: ["@dwk/micropub", "@dwk/webmention", "@dwk/websub"],
         .v4: ["@dwk/activitypub", "@dwk/microsub", "@dwk/webfinger"],
+        .storage: ["@dwk/solid-pod", "@dwk/webdav", "@dwk/solid-oidc"],
     ]
 
     /// Result of evaluating whether a phase's required packages are all release-ready.

@@ -929,6 +929,9 @@
     "Couldn't save the worker change: %@" : {
 
     },
+    "Couldn't update this file — see the debug log for details." : {
+
+    },
     "Create" : {
 
     },
@@ -1487,6 +1490,9 @@
     "Keep My Changes" : {
 
     },
+    "Keep My Version" : {
+
+    },
     "Keep which version" : {
 
     },
@@ -1715,7 +1721,7 @@
     "No changes needed." : {
 
     },
-    "No communities joined yet — enter a handle above, like !birding@lemmy.ml." : {
+    "No communities joined yet — enter a handle above, like !sandbox@lemmy.sdf.org." : {
 
     },
     "No component usage learned yet." : {
@@ -1949,6 +1955,12 @@
     "Plan social media for ${site}" : {
 
     },
+    "Play dial-up sound while loading" : {
+
+    },
+    "Plays a nostalgic dial-up modem sound while the dev server starts up or a deploy is running. Purely decorative — off by default." : {
+
+    },
     "Point at a checkout of the plugin (e.g. `../anglesite`) to iterate without rebuilding the app." : {
 
     },
@@ -2004,6 +2016,9 @@
 
     },
     "Production Logs" : {
+
+    },
+    "Progress: %lld of 3 steps complete" : {
 
     },
     "Project Style Guide" : {
@@ -2578,6 +2593,9 @@
     "Site License" : {
 
     },
+    "Site Scripts Customized" : {
+
+    },
     "Site graph overview" : {
 
     },
@@ -2612,6 +2630,9 @@
 
     },
     "Software or SaaS" : {
+
+    },
+    "Sound" : {
 
     },
     "Source" : {
@@ -2773,6 +2794,9 @@
     "This file appears unused and will be permanently removed." : {
 
     },
+    "This file has been customized. An update is available with changes it doesn't include yet." : {
+
+    },
     "This page already links to all related content." : {
 
     },
@@ -2898,6 +2922,9 @@
 
     },
     "Update" : {
+
+    },
+    "Update This File" : {
 
     },
     "Updating %@ zone settings in Cloudflare…" : {
@@ -3129,6 +3156,9 @@
           }
         }
       }
+    },
+    "👥" : {
+
     }
   },
   "version" : "1.0"

@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { createIndieAuthStore, type AuthorizationRequest } from "@dwk/indieauth";
+import { generateSigningJwk, type SolidOidcAuthorizationRequest } from "@dwk/solid-oidc";
 import { beforeEach, expect, test } from "vitest";
 import {
   validateInboxFields,
@@ -9,6 +10,13 @@ import {
   handleIndieAuthConsent,
   createConsentToken,
   verifyConsentToken,
+  createSolidOidcConsentToken,
+  verifySolidOidcConsentToken,
+  handleSolidOidc,
+  handleSolidOidcConsent,
+  handleSolidPod,
+  handleWebdav,
+  handleWebdavCredentials,
   type InboxKV,
   type WorkerEnv,
 } from "./worker";
@@ -533,6 +541,216 @@ test("handleIndieAuthConsent: 429s once the per-IP login attempt limit is exceed
   }
   const limited = await handleIndieAuthConsent(makeRequest(), testEnv);
   expect(limited.status).toBe(429);
+});
+
+// --- Solid-OIDC identity endpoint + consent bridge (#1071) ---------------------------------
+
+function sampleSolidOidcAuthorizationRequest(
+  overrides: Partial<SolidOidcAuthorizationRequest> = {},
+): SolidOidcAuthorizationRequest {
+  return {
+    clientId: "https://client.example/app",
+    redirectUri: "https://client.example/callback",
+    scope: "webid",
+    codeChallenge: "challenge",
+    state: "state-355",
+    nonce: "nonce-123",
+    ...overrides,
+  };
+}
+
+const OWNER_WEBID = "https://example.com/profile/card#me";
+
+test("createSolidOidcConsentToken / verifySolidOidcConsentToken: round-trips a webid within the TTL", async () => {
+  const request = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(request, OWNER_WEBID, "signing-key", 1000);
+  const grant = await verifySolidOidcConsentToken(token, request, "signing-key", 1050);
+  expect(grant?.webid).toBe(OWNER_WEBID);
+});
+
+test("verifySolidOidcConsentToken: rejects an expired token", async () => {
+  const request = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(request, OWNER_WEBID, "signing-key", 1000);
+  const grant = await verifySolidOidcConsentToken(token, request, "signing-key", 10_000);
+  expect(grant).toBeNull();
+});
+
+test("verifySolidOidcConsentToken: rejects a token signed with a different key", async () => {
+  const request = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(request, OWNER_WEBID, "signing-key", 1000);
+  const grant = await verifySolidOidcConsentToken(token, request, "wrong-key", 1050);
+  expect(grant).toBeNull();
+});
+
+test("verifySolidOidcConsentToken: accepts a token replayed against the exact request it was issued for", async () => {
+  const request = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(request, OWNER_WEBID, "signing-key", 1000);
+  const grant = await verifySolidOidcConsentToken(token, request, "signing-key", 1050);
+  expect(grant).not.toBeNull();
+  expect(grant?.clientId).toBe(request.clientId);
+  expect(grant?.redirectUri).toBe(request.redirectUri);
+  expect(grant?.webid).toBe(OWNER_WEBID);
+});
+
+test("verifySolidOidcConsentToken: rejects a token replayed against a different client_id", async () => {
+  const granted = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(granted, OWNER_WEBID, "signing-key", 1000);
+  const tampered = sampleSolidOidcAuthorizationRequest({ clientId: "https://attacker.example/app" });
+  const grant = await verifySolidOidcConsentToken(token, tampered, "signing-key", 1050);
+  expect(grant).toBeNull();
+});
+
+test("verifySolidOidcConsentToken: rejects a token replayed against a different redirect_uri", async () => {
+  const granted = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(granted, OWNER_WEBID, "signing-key", 1000);
+  const tampered = sampleSolidOidcAuthorizationRequest({ redirectUri: "https://attacker.example/callback" });
+  const grant = await verifySolidOidcConsentToken(token, tampered, "signing-key", 1050);
+  expect(grant).toBeNull();
+});
+
+test("verifySolidOidcConsentToken: rejects a token replayed with an escalated scope", async () => {
+  const granted = sampleSolidOidcAuthorizationRequest();
+  const token = await createSolidOidcConsentToken(granted, OWNER_WEBID, "signing-key", 1000);
+  const tampered = sampleSolidOidcAuthorizationRequest({ scope: "webid offline_access" });
+  const grant = await verifySolidOidcConsentToken(token, tampered, "signing-key", 1050);
+  expect(grant).toBeNull();
+});
+
+test("handleSolidOidc: 503s when OIDC_SIGNING_KEY is unbound", async () => {
+  const request = new Request("https://example.com/oidc/jwks");
+  const response = await handleSolidOidc(request, { ...testEnv, OIDC_SIGNING_KEY: undefined }, createExecutionContext());
+  expect(response.status).toBe(503);
+});
+
+test("handleSolidOidc: 503s when OIDC_SIGNING_KEY is a parseable-but-non-object JSON value", async () => {
+  const request = new Request("https://example.com/oidc/jwks");
+  const response = await handleSolidOidc(request, { ...testEnv, OIDC_SIGNING_KEY: "null" }, createExecutionContext());
+  expect(response.status).toBe(503);
+});
+
+test("handleSolidOidcConsent: 503s when a required secret isn't configured", async () => {
+  const { TOKEN_SIGNING_KEY: _unusedSigningKey, ...envWithoutSigningKey } = testEnv;
+  const body = new URLSearchParams({ password: "correct horse battery staple", webid: OWNER_WEBID });
+  const request = new Request("https://example.com/oidc/consent", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", "CF-Connecting-IP": "192.0.2.60" },
+    body: body.toString(),
+  });
+  const response = await handleSolidOidcConsent(request, envWithoutSigningKey as unknown as WorkerEnv);
+  expect(response.status).toBe(503);
+});
+
+test("handleSolidOidcConsent: 503s when the rate-limit KV isn't bound (fails closed, not open)", async () => {
+  const { SOCIAL_KV: _unusedSocialKV, ...envWithoutKV } = testEnv;
+  const body = new URLSearchParams({ password: "correct horse battery staple", webid: OWNER_WEBID });
+  const request = new Request("https://example.com/oidc/consent", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", "CF-Connecting-IP": "192.0.2.61" },
+    body: body.toString(),
+  });
+  const response = await handleSolidOidcConsent(request, envWithoutKV as unknown as WorkerEnv);
+  expect(response.status).toBe(503);
+});
+
+test("handleSolidOidcConsent: rejects the wrong owner password", async () => {
+  const body = new URLSearchParams({ password: "wrong", webid: OWNER_WEBID });
+  const request = new Request("https://example.com/oidc/consent", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", "CF-Connecting-IP": "192.0.2.62" },
+    body: body.toString(),
+  });
+  const response = await handleSolidOidcConsent(request, testEnv);
+  expect(response.status).toBe(401);
+});
+
+/**
+ * Extracts every `<input type="hidden" name="..." value="...">` field from a rendered
+ * consent page, unescaping the handful of entities `escapeHTML` (worker.ts) produces.
+ */
+function extractHiddenFields(html: string): Record<string, string> {
+  const unescapeHTML = (value: string): string =>
+    value
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;/g, "'")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&");
+  const fields: Record<string, string> = {};
+  const pattern = /<input type="hidden" name="([^"]*)" value="([^"]*)">/g;
+  for (const match of html.matchAll(pattern)) {
+    fields[unescapeHTML(match[1] ?? "")] = unescapeHTML(match[2] ?? "");
+  }
+  return fields;
+}
+
+test("Solid-OIDC consent round trip: normalizes redirect_uri and defaults scope so mint and verify agree (#1071 final review)", async () => {
+  // Reproduces the exact failure mode the final review flagged: a bare-origin `redirect_uri`
+  // (no trailing slash) and no `scope` at all in the authorization request — the shape
+  // `@dwk/solid-oidc`'s own `handleAuthorize` normalizes (`new URL(...).toString()` adds a
+  // trailing slash) and defaults (`?? "openid webid"`) before invoking the approval hook.
+  // Before the fix, the consent page's hidden fields echoed the *raw* query string, so the
+  // grant minted from the consent POST never matched what the live request's normalized/
+  // defaulted `authorizationRequest` expected at verify time — bouncing the owner back to this
+  // same consent page forever, even with the correct password.
+  const jwk = await generateSigningJwk();
+  const oidcEnv = { ...testEnv, OIDC_SIGNING_KEY: JSON.stringify(jwk) };
+  const ctx = createExecutionContext();
+
+  const verifier = "anglesite-oidc-round-trip-verifier-with-more-than-forty-three-characters";
+  const challenge = await pkceChallenge(verifier);
+
+  const authorizeUrl = new URL("https://owner.example/oidc/authorize");
+  authorizeUrl.search = new URLSearchParams({
+    client_id: "https://client.example/app",
+    redirect_uri: "http://localhost:3000",
+    response_type: "code",
+    state: "round-trip-state",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    // Deliberately no `scope` — exercises the library's default.
+  }).toString();
+
+  const consentPageResponse = await handleSolidOidc(new Request(authorizeUrl), oidcEnv, ctx);
+  expect(consentPageResponse.status).toBe(200);
+  const hidden = extractHiddenFields(await consentPageResponse.text());
+
+  // The fix: hidden fields carry the library's normalized/defaulted values, not a raw echo.
+  expect(hidden.redirect_uri).toBe("http://localhost:3000/");
+  expect(hidden.scope).toBe("openid webid");
+
+  const consentBody = new URLSearchParams(hidden);
+  consentBody.set("password", "correct horse battery staple");
+  const consentResponse = await handleSolidOidcConsent(
+    new Request("https://owner.example/oidc/consent", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "CF-Connecting-IP": "192.0.2.71" },
+      body: consentBody.toString(),
+    }),
+    oidcEnv,
+  );
+  expect(consentResponse.status).toBe(303);
+  const location = consentResponse.headers.get("location");
+  expect(location).not.toBeNull();
+
+  // Replay the same bare-origin/omitted-scope request against the live authorize endpoint. A
+  // 302 with a `code` proves verification succeeded; the pre-fix behavior was a 200 back to the
+  // consent page (an infinite loop for this client shape), never a successful redirect.
+  const finalResponse = await handleSolidOidc(new Request(location as string), oidcEnv, ctx);
+  expect(finalResponse.status).toBe(302);
+  const finalLocation = new URL(finalResponse.headers.get("location") ?? "");
+  expect(finalLocation.origin + finalLocation.pathname).toBe("http://localhost:3000/");
+  expect(finalLocation.searchParams.get("code")).toBeTruthy();
+  expect(finalLocation.searchParams.get("state")).toBe("round-trip-state");
+});
+
+test("handleSolidOidc: 503s when OIDC_SIGNING_KEY is a parseable object missing required JWK members", async () => {
+  const request = new Request("https://example.com/oidc/jwks");
+  const response = await handleSolidOidc(
+    request,
+    { ...testEnv, OIDC_SIGNING_KEY: JSON.stringify({ kty: "nonsense" }) },
+    createExecutionContext(),
+  );
+  expect(response.status).toBe(503);
 });
 
 // --- Inbound Webmention receive (V-3.1, #359) ----------------------------------------------
@@ -1336,5 +1554,72 @@ test("queue dispatch: an unrecognized queue name is a no-op, not misrouted to th
   >[0];
   await expect(
     worker.queue!(emptyBatch, testEnv, createExecutionContext()),
+  ).resolves.toBeUndefined();
+});
+
+// --- Solid Pod + WebDAV (V-storage) ---------------------------------------------------------
+// @dwk/solid-pod's LDP resource storage (Durable Object + R2) and its WebDAV façade over the
+// same pod. Neither POD/BLOBS/WEBDAV_PEPPER/GC_DB is bound in vitest.config.ts's miniflare
+// fixture (no site here provisions solid-pod), so the explicit `{ ...testEnv, X: undefined }`
+// overrides below just make the unbound-ness an explicit assertion rather than an accident of
+// the fixture — matching handleSolidOidc's 503 test above.
+
+test("handleSolidPod: 503s when POD/BLOBS are unbound", async () => {
+  const request = new Request("https://example.com/pod/");
+  const response = await handleSolidPod(request, { ...testEnv, POD: undefined, BLOBS: undefined }, createExecutionContext());
+  expect(response.status).toBe(503);
+});
+
+test("handleWebdav: 503s when WEBDAV_PEPPER is unbound", async () => {
+  const request = new Request("https://example.com/dav/");
+  const response = await handleWebdav(request, { ...testEnv, WEBDAV_PEPPER: undefined }, createExecutionContext());
+  expect(response.status).toBe(503);
+});
+
+test("handleWebdavCredentials: 503s when WEBDAV_PEPPER is unbound", async () => {
+  const request = new Request("https://example.com/dav-credentials", { method: "GET" });
+  const response = await handleWebdavCredentials(request, { ...testEnv, WEBDAV_PEPPER: undefined }, createExecutionContext());
+  expect(response.status).toBe(503);
+});
+
+test("handleWebdav: 503s when POD/BLOBS are unbound even with WEBDAV_PEPPER set", async () => {
+  const request = new Request("https://example.com/dav/");
+  const response = await handleWebdav(
+    request,
+    { ...testEnv, POD: undefined, BLOBS: undefined, WEBDAV_PEPPER: "pepper" },
+    createExecutionContext(),
+  );
+  expect(response.status).toBe(503);
+});
+
+test("solid-pod GC scheduled: no-ops (does not throw) when GC_DB/BLOBS are unbound", async () => {
+  // @dwk/solid-pod's createSolidPodGc throws when GC_DB (or BLOBS) is missing — its
+  // SolidPodGcEnv requires both, unlike this Worker's optional WorkerEnv.GC_DB/BLOBS.
+  // WorkerComposition.swift doesn't provision a GC_DB binding yet, so the "*/5 * * * *" cron
+  // tick must degrade gracefully rather than crash every site with solid-pod active.
+  const controller = { cron: "*/5 * * * *", scheduledTime: Date.now() } as unknown as Parameters<
+    NonNullable<typeof worker.scheduled>
+  >[0];
+  await expect(
+    worker.scheduled!(controller, { ...testEnv, BLOBS: undefined, GC_DB: undefined }, createExecutionContext()),
+  ).resolves.toBeUndefined();
+});
+
+test("scheduled dispatch: \"*/5 * * * *\" routes to solid-pod GC, \"*/15 * * * *\" still routes to Microsub's poller", async () => {
+  // Locks in the scheduled() dispatch extension: it must branch on controller.cron rather than
+  // always calling Microsub's poller (the pre-existing behavior every "*/15 * * * *" tick still
+  // needs). Neither solid-pod nor Microsub is provisioned in this fixture, so both branches
+  // no-op — this test exercises the branch selection itself, not either handler's inner logic.
+  const gcController = { cron: "*/5 * * * *", scheduledTime: Date.now() } as unknown as Parameters<
+    NonNullable<typeof worker.scheduled>
+  >[0];
+  const microsubController = { cron: "*/15 * * * *", scheduledTime: Date.now() } as unknown as Parameters<
+    NonNullable<typeof worker.scheduled>
+  >[0];
+  await expect(
+    worker.scheduled!(gcController, { ...testEnv, BLOBS: undefined, GC_DB: undefined }, createExecutionContext()),
+  ).resolves.toBeUndefined();
+  await expect(
+    worker.scheduled!(microsubController, testEnv, createExecutionContext()),
   ).resolves.toBeUndefined();
 });

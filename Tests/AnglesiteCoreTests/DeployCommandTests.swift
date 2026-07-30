@@ -725,6 +725,37 @@ struct DeployCommandTests {
         guard case .succeeded = result else { Issue.record("expected .succeeded, got \(result)"); return }
     }
 
+    @Test("CF_WORKER_PROVISIONED already set skips the check regardless of remote state (#1075)")
+    func alreadyProvisionedSkipsCheck() async {
+        let siteDir = makeSiteDirectory(projectName: "my-site", deployedBefore: false)
+        // Marks the name as confirmed-ours without a full deploy ever having succeeded — the
+        // signal `SocialWorkerProvisionCommand.provision()` persists once its own pre-provisioning
+        // check passes, even if that attempt then fails for an unrelated reason.
+        DeployCommand.persistWorkerProvisioned(siteDirectory: siteDir)
+        let exec = FakeExecutor()
+            .set(.build, exitCode: 0, output: "")
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+            .set(.wrangler, exitCode: 0, output: "Published x (0.1 sec)\n  https://x.workers.dev")
+        let cmd = DeployCommand(
+            tokenSource: { "tok" },
+            // Even though the name is "taken" by this same call, a retry of this site's own
+            // provisioning must not be blocked.
+            workerScriptNamesSource: { _ in ["my-site"] },
+            executor: exec
+        )
+        let result = await cmd.deploy(siteID: "s", siteDirectory: siteDir)
+        guard case .succeeded = result else { Issue.record("expected .succeeded, got \(result)"); return }
+    }
+
+    @Test("persistWorkerProvisioned is idempotent and never clears an already-set flag")
+    func persistWorkerProvisionedIsIdempotent() {
+        let siteDir = makeSiteDirectory()
+        DeployCommand.persistWorkerProvisioned(siteDirectory: siteDir)
+        DeployCommand.persistWorkerProvisioned(siteDirectory: siteDir)
+        let config = try! String(contentsOf: siteDir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "CF_WORKER_PROVISIONED", in: config) == "true")
+    }
+
     @Test("A thrown error from workerScriptNamesSource fails open and proceeds to build")
     func availabilityCheckErrorFailsOpen() async {
         let siteDir = makeSiteDirectory(projectName: "my-new-site", deployedBefore: false)

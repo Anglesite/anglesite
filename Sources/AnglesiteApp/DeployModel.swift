@@ -31,8 +31,16 @@ final class DeployModel {
     private(set) var phase: Phase = .idle
     /// Captured deploy + build log lines for the current/most-recent run.
     private(set) var logLines: [LogCenter.LogLine] = []
-    /// The latest milestone label from the running deploy (drives a status line above the log).
+    /// The latest milestone label from the running deploy (drives `DeployDrawerView`'s header
+    /// caption, below the title).
     private(set) var currentMilestone: String?
+    /// The stable milestone-phase id (`OperationProgress.phase`, e.g. `"deploying"`) behind
+    /// `currentMilestone`'s human-readable label — set alongside it at every milestone.
+    /// Deliberately NOT cleared at every site `currentMilestone` is: two mid-`.running` resets
+    /// (after the build/deploy phase, and after the last post-deploy milestone) clear only the
+    /// label, not the phase, so `DeployPanelProgress.filledCount(...)` — which `DeployDrawerView`
+    /// feeds this to — never regresses the phase-progress strip while a deploy is still running.
+    private(set) var currentMilestonePhase: String?
     /// On-device summary of the most recent *failed* deploy, or nil if none/unavailable.
     private(set) var failureSummary: DeployFailureSummary?
     /// "Code changes not yet deployed" status for the deployed-source bundle (#799). Refreshed
@@ -167,6 +175,21 @@ final class DeployModel {
         return false
     }
 
+    /// True while a foreground sheet is presented and awaiting the user's response to a prior
+    /// deploy's outcome — a worker-name-conflict rename, a paid-plan confirmation, or the
+    /// no-override security-block modal. `phase` leaves `.running` as soon as one of these is
+    /// presented, so `isRunning` alone doesn't guard against a second deploy starting concurrently:
+    /// `runDeploy` unconditionally resets `blockedPresented` to `false` at the very start of every
+    /// run (foreground or background), and every terminal case in its result switch unconditionally
+    /// writes `workerNameConflictPresented`/`webmentionPaidPlanConfirmationPresented` for *its own*
+    /// outcome — so a second run's start or resolution would silently clobber a foreground sheet
+    /// the user is still looking at (#1076). Most visibly, `deployAutomatically`'s invisible publish
+    /// queue (#357) firing moments after a manual deploy parks on one of these dismisses it before
+    /// the user can act, since the background run's own reset/outcome always presents as `false`.
+    private var awaitingUserAction: Bool {
+        workerNameConflictPresented || webmentionPaidPlanConfirmationPresented || blockedPresented
+    }
+
     /// Renders the captured log lines as plain text for the "Copy log" affordance on failure.
     var logText: String {
         logLines.map(\.text).joined(separator: "\n")
@@ -229,6 +252,7 @@ final class DeployModel {
         siteName: String? = nil
     ) async -> InvisiblePublishQueue.Result {
         guard !isRunning else { return .deferred(reason: "another site operation is running") }
+        guard !awaitingUserAction else { return .deferred(reason: "a deploy prompt is waiting for a response") }
         guard hasUsableToken() else { return .deferred(reason: "Cloudflare credentials are not configured") }
         // Resolved once (there's no user-facing prompt gap on this background path to make a
         // second resolution meaningfully fresher) and reused both for the readiness guard and the
@@ -425,6 +449,7 @@ final class DeployModel {
         transition(siteID: siteID, to: .running(siteID: siteID, since: Date()))
         logLines = []
         currentMilestone = nil
+        currentMilestonePhase = nil
         failureSummary = nil
         summarizing = false
         summarizationGeneration &+= 1   // invalidate any still-in-flight summary from a prior deploy
@@ -461,6 +486,7 @@ final class DeployModel {
         if let cc = containerControl {
             activeCommand = DeployCommand(
                 tokenSource: command.tokenSource,
+                workerScriptNamesSource: command.workerScriptNamesSource,
                 executor: ContainerDeployExecutor(
                     control: cc.control,
                     siteID: cc.siteID,
@@ -531,6 +557,7 @@ final class DeployModel {
             subscription.cancel()
             _ = await logTask.value
             currentMilestone = nil
+            currentMilestonePhase = nil
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false
             transition(siteID: siteID, to: .failed(reason: reason, exitCode: nil))
@@ -556,10 +583,20 @@ final class DeployModel {
                     onProgress: { [weak self] progress in
                         Task { @MainActor in
                             self?.currentMilestone = progress.label
+                            self?.currentMilestonePhase = progress.phase
                             self?.onMilestone?(siteID, progress)
                         }
                     }
                 )
+            },
+            // Forwards the same seam `activeCommand` uses for its own end-of-pipeline check (both
+            // are built from `command.workerScriptNamesSource` above), so `provision()`'s new
+            // pre-provisioning check (#1075) agrees with `deployer`'s — and so a test's injected
+            // fake `DeployCommand` governs both instead of this defaulting to the real network
+            // implementation.
+            workerScriptNamesSource: { [weak self] token in
+                guard let self else { return [] }
+                return try await self.command.workerScriptNamesSource(token)
             }
         )
 
@@ -589,6 +626,7 @@ final class DeployModel {
             subscription.cancel()
             _ = await logTask.value
             currentMilestone = nil
+            currentMilestonePhase = nil
             workerNameConflictPresented = false
             transition(siteID: siteID, to: .webmentionPaidPlanConfirmationNeeded)
             drawerPresented = false
@@ -701,6 +739,7 @@ final class DeployModel {
 
     private func emitPostDeployMilestone(_ progress: OperationProgress, siteID: String) {
         currentMilestone = progress.label
+        currentMilestonePhase = progress.phase
         onMilestone?(siteID, progress)
     }
 }

@@ -634,6 +634,42 @@ struct SiteWindow: View {
             // and `preview.open()` would never run.
             .interactiveDismissDisabled()
         }
+        .sheet(item: $bindableModel.scriptSyncModel) { syncModel in
+            NavigationStack {
+                List(syncModel.pending) { divergence in
+                    let copy = ScriptSyncModel.rowCopy(for: divergence.relativePath)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(copy.title)
+                            .font(.headline)
+                        Text(copy.consequence)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(divergence.relativePath)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                        if syncModel.failedRelativePaths.contains(divergence.relativePath) {
+                            Label("Couldn't update this file — see the debug log for details.", systemImage: "exclamationmark.triangle")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                        HStack {
+                            Button("Keep My Version") { syncModel.keepMine(divergence) }
+                            Spacer()
+                            Button("Update This File") { syncModel.update(divergence) }
+                                .buttonStyle(.borderedProminent)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .navigationTitle("Site Scripts Customized")
+            }
+            .frame(minWidth: 420, minHeight: 260)
+            // Mirrors the dependency-update sheet immediately above: `loadAndStart()` suspends on
+            // a `CheckedContinuation` that only resumes once every row is resolved (see
+            // `ScriptSyncModel.remove`/`SiteWindowModel.loadAndStart`). Block outside-tap/swipe
+            // dismissal so per-row buttons are structurally the only way out.
+            .interactiveDismissDisabled()
+        }
         .sheet(item: $bindableModel.copyEditModel) { reportModel in
             CopyEditReportView(model: reportModel)
         }
@@ -805,7 +841,7 @@ struct SiteWindow: View {
     @ViewBuilder
     private func previewPane(for site: SiteStore.Site) -> some View {
         switch model.preview.state {
-        case .ready(_, let url, _):
+        case .ready(_, let url, _) where !model.startup.isShowingCompletionHold:
             PreviewView(
                 url: model.preview.displayURL ?? url,
                 router: model.preview.editRouter,
@@ -816,7 +852,10 @@ struct SiteWindow: View {
                 // server restarts or fails (see PreviewModel.detachWebView).
                 onWebViewDismantled: { [preview = model.preview] webView in preview.detachWebView(webView) }
             )
-        case .starting:
+        case .starting, .ready:
+            // `.ready` reaches here only while `isShowingCompletionHold` is true (see the guarded
+            // case above) — a brief window so the fully-filled phase progress strip is actually
+            // visible before swapping to the live preview.
             centeredStatus {
                 StartupProgressView(
                     title: model.preview.isUpdatingDependencies

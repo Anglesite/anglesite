@@ -15,6 +15,9 @@ private let micropubWorker = worker("micropub", d1: true, kv: true, r2: true)
 private let websubWorker = worker("websub", d1: true, kv: true, r2: false)
 private let v2Workers = [webmentionWorker, indieauthWorker]
 private let v3Workers = [webmentionWorker, indieauthWorker, micropubWorker, websubWorker]
+private let solidOidcWorker = worker(WorkerComposition.solidOidcWorkerID, d1: true, kv: false, r2: false)
+private let solidPodWorker = worker(WorkerComposition.solidPodWorkerID, d1: false, kv: false, r2: true)
+private let webdavWorker = worker(WorkerComposition.webdavWorkerID, d1: false, kv: false, r2: true)
 
 @Suite("SocialWorkerProvisionCommand")
 struct SocialWorkerProvisionCommandTests {
@@ -341,6 +344,99 @@ struct SocialWorkerProvisionCommandTests {
         #expect(await deployer.calls.isEmpty)
     }
 
+    @Test("A retry after an earlier attempt's own secret push isn't mistaken for a foreign Worker-name conflict (#1075)")
+    func retryAfterOwnSecretPushDoesNotFalselyConflict() async throws {
+        let site = try temporaryDirectory()
+        // Mirrors the reported repro: `.site-config` already carries this site's own established
+        // project name from an earlier (partially-failed) attempt.
+        try "CF_PROJECT_NAME=my-site\n".write(to: site.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        let remoteNames = ToggleableWorkerNames()
+        let deployCallCount = CallCounter()
+        let recorder = WranglerRecorder([:])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            keyPairSource: { _ in
+                .init(privateKeyPem: "PRIVATE-PEM", publicKeyPem: "PUBLIC-PEM", publishToken: "TOKEN-VALUE")
+            },
+            secretRunner: { _, _, _, _, _ in
+                // Mirrors the real `wrangler secret put` side effect described in the bug report:
+                // once our own secret push succeeds, the account reports this name as an existing
+                // Worker script from then on.
+                await remoteNames.set(["my-site"])
+                return .init(stdout: "Success!", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in
+                let call = await deployCallCount.increment()
+                if call == 1 {
+                    // Attempt 1 fails for an unrelated reason AFTER secrets have already pushed.
+                    return .failed(reason: "pre-deploy scan could not run", exitCode: nil)
+                }
+                return .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)
+            },
+            workerScriptNamesSource: { _ in await remoteNames.current }
+        )
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+
+        let firstResult = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [activitypub]
+        )
+        guard case .failed = firstResult else {
+            Issue.record("expected the first attempt to fail for the unrelated reason, got \(firstResult)")
+            return
+        }
+
+        let secondResult = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [activitypub]
+        )
+        guard case .succeeded = secondResult else {
+            Issue.record("expected the retry to succeed instead of reporting a false worker-name conflict, got \(secondResult)")
+            return
+        }
+    }
+
+    @Test("A genuinely foreign name collision is caught before any wrangler call touches it (#1075)")
+    func foreignConflictCaughtBeforeAnyProvisioning() async throws {
+        let site = try temporaryDirectory()
+        try "CF_PROJECT_NAME=my-site\n".write(to: site.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        var d1CallHappened = false
+        var secretRunnerCalled = false
+        var deployerCalled = false
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: { _, _, _, _ in
+                d1CallHappened = true
+                return .init(stdout: "", stderr: "unexpected call", exitCode: 1)
+            },
+            keyPairSource: { _ in .init(privateKeyPem: "x", publicKeyPem: "y", publishToken: "z") },
+            secretRunner: { _, _, _, _, _ in
+                secretRunnerCalled = true
+                return .init(stdout: "Success!", stderr: "", exitCode: 0)
+            },
+            deployer: { _, _, _, _ in
+                deployerCalled = true
+                return .succeeded(url: URL(string: "https://example.com")!, duration: 0)
+            },
+            // The account already has a script under this exact name — a genuinely foreign
+            // project this site's local config has no history with.
+            workerScriptNamesSource: { _ in ["my-site"] }
+        )
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: true, kv: false, r2: false)
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [activitypub]
+        )
+
+        guard case .workerNameConflict(let name, _) = result else {
+            Issue.record("expected .workerNameConflict, got \(result)")
+            return
+        }
+        #expect(name == "my-site")
+        #expect(!d1CallHappened, "must not create D1 resources against a name that isn't confirmed ours")
+        #expect(!secretRunnerCalled, "must not push ActivityPub secrets into a Worker name that isn't confirmed ours")
+        #expect(!deployerCalled, "must not reach the deployer once the pre-check finds a genuine conflict")
+    }
+
     @Test("fails before running wrangler when no token is available")
     func missingToken() async throws {
         let site = try temporaryDirectory()
@@ -364,7 +460,10 @@ struct SocialWorkerProvisionCommandTests {
         let existing = try WorkerComposition.generateWranglerToml(
             siteName: "my-site",
             workers: v3Workers,
-            resources: .init(d1DatabaseID: "d1-existing", kvNamespaceID: "kv-existing", r2BucketName: "media-existing")
+            // r2BucketName must follow the deterministic `<site>-media` suffix that
+            // readPersistedResources classifies on, unlike the d1/kv ids which are
+            // read back via first-match and can be arbitrary.
+            resources: .init(d1DatabaseID: "d1-existing", kvNamespaceID: "kv-existing", r2BucketName: "my-site-media")
         )
         try existing.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
 
@@ -390,7 +489,7 @@ struct SocialWorkerProvisionCommandTests {
         }
         #expect(resources.d1DatabaseID == "d1-existing")
         #expect(resources.kvNamespaceID == "kv-existing")
-        #expect(resources.r2BucketName == "media-existing")
+        #expect(resources.r2BucketName == "my-site-media")
         #expect(await recorder.arguments == [
             ["d1", "migrations", "apply", "AUTH_DB", "--remote"],
         ])
@@ -527,7 +626,7 @@ struct SocialWorkerProvisionCommandTests {
         [[kv_namespaces]]
         id = "kv-id"
         [[r2_buckets]]
-        bucket_name = "media-bucket"
+        bucket_name = "my-site-media"
         """
         try toml.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
 
@@ -535,7 +634,7 @@ struct SocialWorkerProvisionCommandTests {
 
         #expect(resources.d1DatabaseID == "d1-id")
         #expect(resources.kvNamespaceID == "kv-id")
-        #expect(resources.r2BucketName == "media-bucket")
+        #expect(resources.r2BucketName == "my-site-media")
     }
 
     @Test("knownResources is reused instead of re-scraping wrangler.toml, so a deactivated-then-reactivated worker doesn't recreate its Cloudflare resource")
@@ -1127,6 +1226,130 @@ struct SocialWorkerProvisionCommandTests {
         #expect(resources.websubQueueName == "my-site-websub")
     }
 
+    @Test("readPersistedResources classifies micropub's MEDIA and solid-pod's BLOBS buckets by suffix")
+    func persistedR2BucketClassification() throws {
+        let site = try temporaryDirectory()
+        let toml = """
+        name = "my-site"
+        [[r2_buckets]]
+        bucket_name = "my-site-media"
+        binding = "MEDIA"
+        [[r2_buckets]]
+        bucket_name = "my-site-pod-blobs"
+        binding = "BLOBS"
+        """
+        try toml.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+
+        let resources = SocialWorkerProvisionCommand.readPersistedResources(from: site)
+
+        #expect(resources.r2BucketName == "my-site-media")
+        #expect(resources.podBlobsR2BucketName == "my-site-pod-blobs")
+    }
+
+    @Test("provisions solid-pod's own BLOBS bucket, distinct from micropub's MEDIA bucket")
+    func provisionsSolidPodBlobsBucket() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([
+            ["d1", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"uuid":"d1-id"}}"#, stderr: "", exitCode: 0),
+            ["kv", "namespace", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"id":"kv-id"}}"#, stderr: "", exitCode: 0),
+            ["r2", "bucket", "create", "my-site-media"]: .init(stdout: "Created bucket my-site-media", stderr: "", exitCode: 0),
+            ["r2", "bucket", "create", "my-site-pod-blobs"]: .init(stdout: "Created bucket my-site-pod-blobs", stderr: "", exitCode: 0),
+            ["queues", "create", "my-site-webmention", "--json"]: .init(stdout: #"{"result":{"queue_name":"my-site-webmention"}}"#, stderr: "", exitCode: 0),
+            ["d1", "migrations", "apply", "AUTH_DB", "--remote"]: .init(stdout: "Migrations applied", stderr: "", exitCode: 0),
+        ])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer
+        )
+        let micropubWorker = worker(WorkerComposition.micropubWorkerID, d1: true, kv: false, r2: true)
+        let indieauthWorker = worker(WorkerComposition.indieauthWorkerID, d1: true, kv: false, r2: false)
+        let webmentionWorker = worker(WorkerComposition.webmentionWorkerID, d1: true, kv: false, r2: false)
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [indieauthWorker, webmentionWorker, micropubWorker, solidPodWorker],
+            acknowledgesPaidPlan: true
+        )
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(resources.r2BucketName == "my-site-media")
+        #expect(resources.podBlobsR2BucketName == "my-site-pod-blobs")
+        #expect(await recorder.arguments.contains(["r2", "bucket", "create", "my-site-media"]))
+        #expect(await recorder.arguments.contains(["r2", "bucket", "create", "my-site-pod-blobs"]))
+
+        let toml = try String(contentsOf: site.appendingPathComponent("wrangler.toml"), encoding: .utf8)
+        #expect(toml.contains("binding = \"MEDIA\""))
+        #expect(toml.contains("binding = \"BLOBS\""))
+    }
+
+    @Test("solid-oidc and webdav push their secrets via the injected key/pepper sources")
+    func pushesSolidOidcAndWebdavSecrets() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([
+            ["d1", "create", "my-site-social", "--json"]: .init(stdout: #"{"result":{"uuid":"d1-id"}}"#, stderr: "", exitCode: 0),
+            ["r2", "bucket", "create", "my-site-pod-blobs"]: .init(stdout: "Created bucket my-site-pod-blobs", stderr: "", exitCode: 0),
+            ["d1", "migrations", "apply", "AUTH_DB", "--remote"]: .init(stdout: "Migrations applied", stderr: "", exitCode: 0),
+        ])
+        var pushedSecrets: [(name: String, value: String)] = []
+        let secretRunnerLock = NSLock()
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            solidOidcSigningKeySource: { _ in #"{"kty":"EC","crv":"P-256","x":"X","y":"Y","d":"D"}"# },
+            webdavPepperSource: { _ in "PEPPER-VALUE" },
+            secretRunner: { _, name, value, _, _ in
+                secretRunnerLock.lock()
+                pushedSecrets.append((name, value))
+                secretRunnerLock.unlock()
+                return .init(stdout: "Success!", stderr: "", exitCode: 0)
+            },
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer
+        )
+        let indieauthWorker = worker(WorkerComposition.indieauthWorkerID, d1: true, kv: false, r2: false)
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site",
+            workers: [indieauthWorker, solidOidcWorker, solidPodWorker, webdavWorker]
+        )
+
+        guard case .succeeded = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(pushedSecrets.contains { $0.name == "OIDC_SIGNING_KEY" && $0.value.contains("P-256") })
+        #expect(pushedSecrets.contains { $0.name == "WEBDAV_PEPPER" && $0.value == "PEPPER-VALUE" })
+    }
+
+    @Test("no solid-oidc/webdav worker means their sources and secret pushes never run")
+    func noSolidOidcOrWebdavMeansNoSecretPush() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        var solidOidcSourceCalled = false
+        var webdavSourceCalled = false
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            solidOidcSigningKeySource: { _ in
+                solidOidcSourceCalled = true
+                return "unused"
+            },
+            webdavPepperSource: { _ in
+                webdavSourceCalled = true
+                return "unused"
+            },
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer
+        )
+
+        _ = await command.provision(siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [])
+
+        #expect(!solidOidcSourceCalled)
+        #expect(!webdavSourceCalled)
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("SocialWorkerProvisionCommandTests-\(UUID().uuidString)", isDirectory: true)
@@ -1195,5 +1418,24 @@ private actor WranglerRecorder {
         seenArguments.append(arguments)
         seenEnvironments.append(environment)
         return responses[arguments] ?? .init(stdout: "unexpected arguments \(arguments)", stderr: "", exitCode: 127)
+    }
+}
+
+/// A mutable account-wide Worker-script-name list, so a test can simulate `wrangler secret put`'s
+/// side effect of auto-vivifying a script under the target name partway through a `provision()`
+/// call (#1075).
+private actor ToggleableWorkerNames {
+    private var names: [String] = []
+    func set(_ new: [String]) { names = new }
+    var current: [String] { names }
+}
+
+/// Thread-safe invocation counter for a fake `Deployer`, so a test can vary its response across
+/// successive `provision()` calls (e.g. fail the first attempt, succeed on retry).
+private actor CallCounter {
+    private var count = 0
+    func increment() -> Int {
+        count += 1
+        return count
     }
 }

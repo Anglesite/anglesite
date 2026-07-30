@@ -101,4 +101,53 @@ struct WorkersConformanceTests {
         #expect(indieauth.areAllSuitesPassing)
         #expect(indieauth.isReleaseReady)
     }
+
+    @Test("gateStatus reports storage blocked when webdav or solid-oidc is pending, unblocked when all three pass")
+    func storagePhaseGate() throws {
+        let pendingJSON = """
+        {
+          "packages": {
+            "@dwk/webdav": {
+              "standard": "WebDAV", "suites": { "litmus": { "status": "failing" } },
+              "integration": { "status": "pending", "cases": [] }
+            },
+            "@dwk/solid-pod": {
+              "standard": "Solid Protocol", "suites": {},
+              "integration": { "status": "passing", "cases": [] }
+            },
+            "@dwk/solid-oidc": {
+              "standard": "Solid-OIDC", "suites": {},
+              "integration": { "status": "pending", "cases": [] }
+            }
+          }
+        }
+        """.data(using: .utf8)!
+        let pendingStatus = try WorkersConformanceReader.parse(pendingJSON)
+        let blockedGate = pendingStatus.gateStatus(for: .storage)
+        #expect(blockedGate.blocked.contains("@dwk/webdav"))
+        #expect(blockedGate.blocked.contains("@dwk/solid-oidc"))
+        #expect(blockedGate.ready.contains("@dwk/solid-pod"))
+        #expect(!blockedGate.isUnblocked)
+
+        let passingJSON = """
+        {
+          "packages": {
+            "@dwk/webdav": {
+              "standard": "WebDAV", "suites": { "litmus": { "status": "passing" } },
+              "integration": { "status": "passing", "cases": [] }
+            },
+            "@dwk/solid-pod": {
+              "standard": "Solid Protocol", "suites": {},
+              "integration": { "status": "passing", "cases": [] }
+            },
+            "@dwk/solid-oidc": {
+              "standard": "Solid-OIDC", "suites": {},
+              "integration": { "status": "passing", "cases": [] }
+            }
+          }
+        }
+        """.data(using: .utf8)!
+        let passingStatus = try WorkersConformanceReader.parse(passingJSON)
+        #expect(passingStatus.gateStatus(for: .storage).isUnblocked)
+    }
 }

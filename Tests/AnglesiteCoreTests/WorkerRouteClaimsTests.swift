@@ -96,6 +96,53 @@ struct WorkerRouteClaimsTests {
         }
     }
 
+    @Test("accepts the full WebDAV Class 2 method set")
+    func acceptsWebDavMethods() throws {
+        let claim = WorkerRouteClaim(
+            path: "/dav",
+            match: .exact,
+            methods: ["GET", "PUT", "DELETE", "PROPFIND", "PROPPATCH", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK", "OPTIONS"],
+            handler: "createSolidPodWebdav",
+            specificationURL: URL(string: "https://www.rfc-editor.org/rfc/rfc4918")
+        )
+        try WorkerRouteClaims.validate(claim, owner: "webdav")
+    }
+
+    @Test("still rejects a genuinely unknown method after the WebDAV widening")
+    func stillRejectsUnknownMethod() {
+        let claim = WorkerRouteClaim(path: "/dav", match: .exact, methods: ["TRACE"], handler: "createSolidPodWebdav")
+        #expect(throws: WorkerRouteClaims.ValidationError.invalidMethods(
+            owner: "webdav", path: "/dav", reason: "unknown or non-uppercase method \"TRACE\""
+        )) {
+            try WorkerRouteClaims.validate(claim, owner: "webdav")
+        }
+    }
+
+    @Test("documents the upstream catalog bug: same-owner exact + prefix claims to the same base path collide as duplicates")
+    func sameOwnerExactPlusPrefixCollide() throws {
+        // solid-pod/webdav's actual catalog.json shape: an exact "/pod" claim and a prefix "/pod/"
+        // claim from the same owner, both normalizing to path "/pod". This used to falsely throw
+        // duplicateClaim (fixed upstream in #1072/45d75d49, which keys dedup by (path, match)
+        // rather than path alone — the general case is covered by that commit's own
+        // `exactAndPrefixSameOwnerSamePathCoexist` test, using micropub's identical shape). This
+        // test pins the specific solid-pod/webdav shape this feature depends on.
+        let exact = WorkerRouteClaim(path: "/pod", match: .exact, methods: ["GET"], handler: "createSolidPod")
+        let prefix = WorkerRouteClaim(
+            path: "/pod/", match: .prefix, methods: ["GET"], handler: "createSolidPod",
+            specificationURL: URL(string: "https://solidproject.org/TR/protocol")
+        )
+        let catalog = [
+            WorkerDescriptor(
+                id: "solid-pod", displayName: "Solid Pod", description: "test fixture", group: "storage",
+                binding: .settingsActivated, resources: .init(needsD1: false, needsKV: false, needsR2: true),
+                routes: [exact, prefix]
+            ),
+        ]
+        let claims = try WorkerRouteClaims.activeClaims(catalog: catalog, activeIDs: ["solid-pod"])
+        #expect(claims.count == 2)
+        #expect(claims.map(\.claim.match) == [.exact, .prefix])
+    }
+
     // MARK: Prefix claims
 
     @Test("rejects a prefix claim with no governing specification (undeclared prefix)")

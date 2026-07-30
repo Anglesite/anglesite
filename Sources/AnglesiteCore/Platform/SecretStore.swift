@@ -67,6 +67,21 @@ public enum SecretAccounts {
         "activitypub:\(siteID):publish-token"
     }
 
+    /// The Solid-OIDC OP's ES256 signing key (a private JWK, RFC 7518 §6.2.2), generated once per
+    /// site by `SolidOidcKeyProvisioning` and never regenerated: rotating it would invalidate
+    /// every access token `@dwk/solid-pod` has already accepted the corresponding JWKS entry for.
+    public static func solidOidcSigningKeyJWK(siteID: String) -> String {
+        "solid-oidc:\(siteID):signing-key-jwk"
+    }
+
+    /// The pepper `@dwk/webdav` mixes into its app-password hashing (`WEBDAV_PEPPER`). App-
+    /// generated random bytes; unlike the signing key above, rotating this only invalidates
+    /// existing app passwords (the user re-mints them), not a federation-trust relationship, but
+    /// it's still generated once and persisted rather than regenerated per deploy.
+    public static func webdavPepper(siteID: String) -> String {
+        "webdav:\(siteID):pepper"
+    }
+
     /// The site's own IndieAuth-issued DPoP-bound access token (V-4.3, #365) — what
     /// `MicrosubClient` presents to the site's deployed `/microsub` endpoint. Deliberately
     /// separate from `cloudflareToken`: this credential is minted by the site itself during
