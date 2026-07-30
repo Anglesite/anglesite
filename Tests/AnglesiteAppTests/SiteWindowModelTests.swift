@@ -572,6 +572,65 @@ extension SiteWindowModelTests {
         #expect(model.activeEditor == nil)
         #expect(model.inspectorContext == nil)
         #expect(model.preview.activeRoute == "/notes/")
+
+        // #714 slice 3: a directory selection populates the collection context.
+        while model.collectionInspection == nil { await Task.yield() }
+        let inspection = try #require(model.collectionInspection)
+        #expect(inspection.collection == "notes")
+        #expect(inspection.route == "/notes/")
+        #expect(inspection.entryCount == 1)
+        #expect(inspection.contentTypeName
+            == ContentTypeRegistry.default.descriptor(forCollection: "notes")?.displayName)
+    }
+
+    @Test("the collection context carries probed feed routes, and a route selection clears it")
+    func collectionInspectionFeedsAndClearing() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let graph = SiteContentGraph()
+        await graph.load(
+            siteID: "site-a",
+            pages: [SiteContentGraph.Page(
+                id: "site-a:page:/about", siteID: "site-a", route: "/about",
+                filePath: "src/pages/about.md", title: "About", lastModified: Date()
+            )],
+            posts: [SiteContentGraph.Post(
+                id: "site-a:post:hello", siteID: "site-a", collection: "notes", slug: "hello",
+                title: "Hello", draft: false, publishDate: nil, tags: [],
+                filePath: "src/content/notes/hello.md", lastModified: Date()
+            )],
+            images: []
+        )
+        let model = makeModel(contentGraph: graph)
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        // Materialize two of the three feed route modules the probe looks for.
+        let notesPages = package.sourceURL.appendingPathComponent("src/pages/notes")
+        try FileManager.default.createDirectory(at: notesPages, withIntermediateDirectories: true)
+        try Data().write(to: notesPages.appendingPathComponent("rss.xml.ts"))
+        try Data().write(to: notesPages.appendingPathComponent("atom.xml.ts"))
+
+        let navModel = SiteNavigatorModel(graph: graph)
+        navModel.start(
+            site: CurrentSite(id: "site-a", packageURL: packageURL, sourceDirectory: package.sourceURL),
+            websiteTitle: "Test")
+        while navModel.nodes.isEmpty { await Task.yield() }
+        model.navigator = navModel
+        let dirID = try #require(navModel.nodes.first(where: {
+            if case .directory = $0.kind { return true } else { return false }
+        })?.id)
+
+        model.applyNavigatorSelection(dirID)
+        while model.collectionInspection == nil { await Task.yield() }
+        #expect(model.collectionInspection?.feeds.map(\.kind) == [.rss, .atom])
+
+        // Selecting a routed page again clears the collection context.
+        model.applyNavigatorSelection("site-a:page:/about")
+        while model.collectionInspection != nil { await Task.yield() }
+        #expect(model.collectionInspection == nil)
     }
 
     @Test("applyNavigatorSelection populates a read-only inspector for a plain .astro page (#1100)")

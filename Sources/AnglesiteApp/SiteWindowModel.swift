@@ -210,6 +210,10 @@ final class SiteWindowModel {
     /// The right-hand inspector's current target (typed entry or plain page), or nil when the
     /// selection has no editable metadata. Set by `applyNavigatorSelection`.
     var inspectorContext: InspectorContext?
+    /// The inspector's collection context — set by a `.directory` navigator selection, cleared by
+    /// every other selection/pane transition. Only surfaces while the main pane shows the preview
+    /// (see `inspectorSelection`, added with the component case in this slice).
+    var collectionInspection: CollectionInspection?
 
     init(
         contentGraph: SiteContentGraph,
@@ -306,6 +310,7 @@ final class SiteWindowModel {
     func showGraph() async -> Bool {
         guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return false }
         inspectorContext = nil
+        collectionInspection = nil
         mainPaneMode = .graph
         return true
     }
@@ -317,6 +322,7 @@ final class SiteWindowModel {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
             inspectorContext = nil
+            collectionInspection = nil
             mainPaneMode = .cleanup
         }
     }
@@ -328,6 +334,7 @@ final class SiteWindowModel {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
             inspectorContext = nil
+            collectionInspection = nil
             mainPaneMode = .reader
         }
     }
@@ -339,6 +346,7 @@ final class SiteWindowModel {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
             inspectorContext = nil
+            collectionInspection = nil
             mainPaneMode = .followers
         }
     }
@@ -350,6 +358,7 @@ final class SiteWindowModel {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
             inspectorContext = nil
+            collectionInspection = nil
             mainPaneMode = .communities
         }
     }
@@ -505,6 +514,7 @@ final class SiteWindowModel {
         // the edits. Last-writer-wins, matching the .text/.plist teardown above.
         if let model = inspectorContext?.model { Task { await model.save() } }
         inspectorContext = nil
+        collectionInspection = nil
         mainPaneMode = .preview
     }
 
@@ -547,6 +557,7 @@ final class SiteWindowModel {
             Task { await model.save() }
         }
         inspectorContext = nil
+        collectionInspection = nil
         let closeTerminationLease = suddenTerminationLease
             ?? ((editorSaveTask != nil || inspectorWasDirty) ? SuddenTerminationController.shared.acquire() : nil)
         #if ANGLESITE_MAS
@@ -845,6 +856,7 @@ final class SiteWindowModel {
                 mainPaneMode = .preview
                 if route.isEmpty || route == "/" { preview.clearRoute() } else { preview.navigate(toRoute: route) }
                 inspectorContext = await makeInspectorContext(forNavigatorID: id)
+                collectionInspection = nil
                 // Load related-page suggestions for the newly selected page.
                 if let siteID = site?.id {
                     let filePath: String?
@@ -870,15 +882,17 @@ final class SiteWindowModel {
             let layout = SiteFileTree.layout(for: site.packageURL)
             guard let infoPlist = layout.infoPlist else { return }
             openFile(FileRef(url: infoPlist, group: .metadata, name: "Info.plist"))
-        case .directory(_, let route):
-            // Slice-1 interim: show the directory in the preview (its index page if one exists).
-            // Slice 2 replaces this with the Collection Settings surface (spec §6).
+        case .directory(let collection, let route):
+            // #714 slice 3 (§6): a directory shows its route in the preview and its properties
+            // (type, entries, feeds, template) in the inspector's collection context.
             Task {
                 guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
                 activeEditor = nil
                 inspectorContext = nil
                 mainPaneMode = .preview
                 preview.navigate(toRoute: route)
+                collectionInspection = await makeCollectionInspection(
+                    collection: collection, route: route, navigatorID: id)
             }
         }
     }
@@ -939,6 +953,7 @@ final class SiteWindowModel {
         Task {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             inspectorContext = nil
+            collectionInspection = nil
             switch EditorKind.resolve(for: file) {
             case .text, .component, .markdown:
                 // `.component` also builds a plain `FileEditorModel`: `MainPaneEditorView` re-resolves
@@ -1061,6 +1076,38 @@ final class SiteWindowModel {
         // Plain .astro / other: no safe generic way to parse or rewrite its frontmatter (JS, not
         // YAML), so the panel stays read-only rather than staying unavailable (#1100).
         return .generic(GenericPageInspectorModel(file: file, route: route))
+    }
+
+    /// Assembles the collection context for a `.directory` selection: title/children from the
+    /// navigator node, entry count from the graph, feed routes from the (off-main) probe, and
+    /// type/template identity from the registry. Read-mostly v1 (#714 §6).
+    private func makeCollectionInspection(
+        collection: String?, route: String, navigatorID: String
+    ) async -> CollectionInspection? {
+        guard let site else { return nil }
+        let node = navigator?.node(for: navigatorID)
+        let entryCount: Int
+        if let collection {
+            entryCount = await contentGraph.posts(for: site.id)
+                .filter { $0.collection == collection }.count
+        } else {
+            entryCount = node?.children?.count ?? 0
+        }
+        let feeds: [SiteFileTree.DetectedFeed]
+        if let collection {
+            let packageURL = site.packageURL
+            feeds = await Task.detached {
+                SiteFileTree.detectedFeeds(siteRoot: packageURL, collection: collection)
+            }.value
+        } else {
+            feeds = []
+        }
+        let descriptor = collection.flatMap { ContentTypeRegistry.default.descriptor(forCollection: $0) }
+        return CollectionInspection(
+            title: node?.title ?? route, route: route, collection: collection,
+            entryCount: entryCount, feeds: feeds,
+            contentTypeName: descriptor?.displayName,
+            microformat: descriptor?.projections.microformat)
     }
 
     private func isFrontmatterPage(_ relPath: String) -> Bool {
