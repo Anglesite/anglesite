@@ -30,7 +30,7 @@ private struct GenericPageInfoForm: View {
     var body: some View {
         Form {
             LabeledContent("Route", value: model.route)
-            RobotsSettingsSection(noindex: model.noindexBinding(), disallowCrawl: model.disallowCrawlBinding())
+            RobotsSettingsSection(route: model.route, noindex: model.noindexBinding(), disallowCrawl: model.disallowCrawlBinding())
             Section {
                 Text("Title, description, and body can't be edited for this page type yet.")
                     .font(.caption)
@@ -53,7 +53,7 @@ private struct PageMetadataForm: View {
                 Text("Description").font(.caption).foregroundStyle(.secondary)
                 TextField("", text: model.descriptionBinding(), axis: .vertical).lineLimit(2...6)
             }
-            RobotsSettingsSection(noindex: model.noindexBinding(), disallowCrawl: model.disallowCrawlBinding())
+            RobotsSettingsSection(route: model.route, noindex: model.noindexBinding(), disallowCrawl: model.disallowCrawlBinding())
         }
         .formStyle(.grouped)
     }
@@ -63,15 +63,46 @@ private struct PageMetadataForm: View {
 /// `noindex` and `disallowCrawl` are intentionally separate toggles, not one checkbox — see
 /// docs/superpowers/specs/2026-07-30-robots-noindex-design.md for why combining them is a known
 /// SEO anti-pattern (a crawler blocked by `disallowCrawl` never sees a `noindex` tag it can't fetch).
+///
+/// `route` exists for one reason: on the home page, "Block crawling entirely" emits `Disallow: /`,
+/// which blocks the *whole site*, not one page. That consequence is invisible in an ordinary
+/// checkbox, so it gets a confirmation phrased about what happens to the owner's site (AGENTS.md ▸
+/// "The app advises; it does not delegate the decision").
 struct RobotsSettingsSection: View {
+    let route: String
     @Binding var noindex: Bool
     @Binding var disallowCrawl: Bool
+    @State private var confirmingWholeSiteBlock = false
+
+    /// Only the home page's route makes `Disallow:` site-wide; every other route disallows itself.
+    private var blocksWholeSite: Bool { route == "/" }
+
+    /// Intercepts only the off → on transition on the home page. Until the alert is confirmed the
+    /// getter still reports the unchanged value, so the toggle snaps back to off on cancel.
+    private var disallowCrawlProxy: Binding<Bool> {
+        Binding(
+            get: { disallowCrawl },
+            set: { wants in
+                if wants, blocksWholeSite {
+                    confirmingWholeSiteBlock = true
+                } else {
+                    disallowCrawl = wants
+                }
+            }
+        )
+    }
 
     var body: some View {
         Section("Search & Crawling") {
             Toggle("Hide from search results", isOn: $noindex)
-            Toggle("Block crawling entirely", isOn: $disallowCrawl)
+            Toggle("Block crawling entirely", isOn: disallowCrawlProxy)
                 .help("Stronger than \"Hide from search results\" — well-behaved crawlers won't fetch this page at all, so a noindex tag on it would never be seen.")
+        }
+        .alert("Block crawling entirely for your whole site?", isPresented: $confirmingWholeSiteBlock) {
+            Button("Cancel", role: .cancel) { }
+            Button("Block Crawling", role: .destructive) { disallowCrawl = true }
+        } message: {
+            Text("This is your home page — search engines won't be able to crawl any page reachable only through it.")
         }
     }
 }

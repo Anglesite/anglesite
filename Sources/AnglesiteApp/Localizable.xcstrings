@@ -555,7 +555,13 @@
     "Block AI Training Crawlers" : {
 
     },
+    "Block Crawling" : {
+
+    },
     "Block crawling entirely" : {
+
+    },
+    "Block crawling entirely for your whole site?" : {
 
     },
     "Blocking (%lld)" : {
@@ -2880,6 +2886,9 @@
 
     },
     "This file has been customized. An update is available with changes it doesn't include yet." : {
+
+    },
+    "This is your home page — search engines won't be able to crawl any page reachable only through it." : {
 
     },
     "This page already links to all related content." : {
