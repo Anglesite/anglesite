@@ -494,6 +494,9 @@
     "Astro Website…" : {
 
     },
+    "Atom" : {
+
+    },
     "Attributes" : {
 
     },
@@ -799,6 +802,9 @@
 
     },
     "Condition, e.g. (min-width: 768px)" : {
+
+    },
+    "Configured" : {
 
     },
     "Config…" : {
@@ -1490,6 +1496,9 @@
     "Installed" : {
 
     },
+    "JSON Feed" : {
+
+    },
     "Join" : {
 
     },
@@ -1794,6 +1803,9 @@
 
     },
     "Not Set" : {
+
+    },
+    "Not configured" : {
 
     },
     "Not reviewed" : {
@@ -2105,6 +2117,9 @@
     "Quarantined copies" : {
 
     },
+    "RSS" : {
+
+    },
     "Re-check" : {
 
     },
@@ -2183,10 +2198,19 @@
     "Remove" : {
 
     },
+    "Remove Attribute" : {
+
+    },
+    "Remove Declaration" : {
+
+    },
     "Remove Highlights and Comments" : {
 
     },
     "Remove Link" : {
+
+    },
+    "Remove Prop" : {
 
     },
     "Remove RSS Feed" : {
