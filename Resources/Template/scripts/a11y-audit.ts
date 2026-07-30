@@ -83,7 +83,7 @@ const SUGGESTIONS: Record<string, string> = {
   "WCAG2AA.Principle1.Guideline1_1.1_1_1.H37": "Add an alt attribute to every img. Decorative images get alt=\"\".",
   "WCAG2AA.Principle1.Guideline1_3.1_3_1.H42": "Use heading tags (h1–h6) in document order so the page outline is clear.",
   "WCAG2AA.Principle1.Guideline1_3.1_3_1.F68": "Associate each form input with a <label for=\"id\"> or wrap it in a label.",
-  "WCAG2AA.Principle1.Guideline1_4.1_4_3": "Increase color contrast to at least 4.5:1 for body text or 3:1 for large text. Use scripts/contrast.ts to find a passing shade.",
+  "WCAG2AA.Principle1.Guideline1_4.1_4_3": "Increase color contrast to at least 4.5:1 for body text or 3:1 for large text.",
   "WCAG2AA.Principle2.Guideline2_4.2_4_1.H64.1": "Provide a unique title attribute on iframes, or use aria-label, so screen readers announce them.",
   "WCAG2AA.Principle2.Guideline2_4.2_4_4.H77,H78,H79,H80,H81": "Make link text describe the destination on its own — no 'click here' or 'read more'.",
   "WCAG2AA.Principle3.Guideline3_1.3_1_1.H57": "Set the lang attribute on the <html> element.",
