@@ -29,4 +29,19 @@ final class SecurityScopedBookmarkTests: XCTestCase {
         let garbage = Data([0x01, 0x02, 0x03, 0x04])
         XCTAssertThrowsError(try SecurityScopedBookmark.resolve(garbage))
     }
+
+    /// #1068: without `LocalizedError` conformance, `.localizedDescription` on this enum bridges
+    /// to a generic NSError ("The operation couldn't be completed. (AnglesiteCore.
+    /// SecurityScopedBookmarkError error 0.)") and silently drops the actual underlying reason —
+    /// exactly the message users saw in the bug report, on both the recovery ("Locate…") and
+    /// brand-new-site paths.
+    func test_createFailed_localizedDescription_surfacesUnderlyingMessage() {
+        let error: Error = SecurityScopedBookmarkError.createFailed("the real underlying reason")
+        XCTAssertEqual(error.localizedDescription, "the real underlying reason")
+    }
+
+    func test_resolveFailed_localizedDescription_surfacesUnderlyingMessage() {
+        let error: Error = SecurityScopedBookmarkError.resolveFailed("the real underlying reason")
+        XCTAssertEqual(error.localizedDescription, "the real underlying reason")
+    }
 }
