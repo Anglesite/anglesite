@@ -1,8 +1,8 @@
 import Foundation
 
 /// Pluggable seam for one audit category (accessibility, SEO, performance, security).
-/// Production implementations shell out to the plugin's audit scripts and parse their
-/// `--json` output; tests inject closures or fakes that return canned `[Finding]`.
+/// Production implementations run against the container-executed build (see `AuditExecutor`);
+/// tests inject closures or fakes that return canned `[Finding]`.
 ///
 /// `source` is the `LogCenter` tag the runner should use for any subprocess output
 /// (`audit:<siteID>:<runner>`), so the drawer/sheet can distinguish phases.
@@ -10,7 +10,7 @@ public protocol AuditRunner: Sendable {
     var category: AuditReport.Finding.Category { get }
     func run(
         siteDirectory: URL,
-        supervisor: ProcessSupervisor,
+        executor: any AuditExecutor,
         logCenter: LogCenter,
         source: String
     ) async throws -> [AuditReport.Finding]
@@ -22,9 +22,10 @@ public protocol AuditRunner: Sendable {
 /// Cloudflare doc lookups, drafting fixes).
 ///
 /// Steps:
-///   1. `npm run build` so `dist/` is fresh (the audit scripts walk built HTML).
-///      Streams to `LogCenter` under `audit:<siteID>:build`. A non-zero exit
-///      short-circuits to `.failed` — runners can't audit what didn't build.
+///   1. `executor.run(step: .build, ...)` so `dist/` is fresh (the audit scripts walk built
+///      HTML). Streams to `LogCenter` under `audit:<siteID>:build`. A non-zero exit (or a
+///      pre-spawn refusal / cancellation) short-circuits to `.failed` — runners can't audit
+///      what didn't build.
 ///   2. For each `AuditRunner`, call its `run(...)`. Successful runs add their
 ///      findings + record the category in `runnersExecuted`. Throwing runs are
 ///      recorded in `runnersSkipped` — one runner's missing tooling shouldn't
@@ -43,8 +44,10 @@ public actor AuditCommand {
         case failed(reason: String, exitCode: Int32?, logTail: [LogCenter.LogLine])
     }
 
-    /// How to run a subprocess for a site directory — or why it can't be run.
-    /// Reused from `DeployCommand` shape so both actors share the resolver pattern.
+    /// How to run a subprocess for a site directory — or why it can't be run. Consumed by
+    /// `HostAuditExecutor`'s injectable resolver; the default `resolveBuildCommand`/
+    /// `resolveA11yCommand` values below live here for the same reason `DeployCommand` keeps
+    /// `LaunchPlan`/`CommandResolver` even though only `HostDeployExecutor` uses them now.
     public enum LaunchPlan: Sendable, Equatable {
         case run(executable: URL, arguments: [String])
         case unavailable(reason: String)
@@ -52,20 +55,17 @@ public actor AuditCommand {
 
     public typealias CommandResolver = @Sendable (_ siteDirectory: URL) -> LaunchPlan
 
-    private let supervisor: ProcessSupervisor
     private let logCenter: LogCenter
-    private let resolveBuildCommand: CommandResolver
+    private let executor: any AuditExecutor
     private let runners: [any AuditRunner]
 
     public init(
-        supervisor: ProcessSupervisor = .shared,
         logCenter: LogCenter = .shared,
-        resolveBuildCommand: @escaping CommandResolver = AuditCommand.resolveBuildCommand,
+        executor: any AuditExecutor = HostAuditExecutor(),
         runners: [any AuditRunner] = AuditCommand.defaultRunners
     ) {
-        self.supervisor = supervisor
         self.logCenter = logCenter
-        self.resolveBuildCommand = resolveBuildCommand
+        self.executor = executor
         self.runners = runners
     }
 
@@ -93,7 +93,7 @@ public actor AuditCommand {
             do {
                 let runnerFindings = try await runner.run(
                     siteDirectory: siteDirectory,
-                    supervisor: supervisor,
+                    executor: executor,
                     logCenter: logCenter,
                     source: source
                 )
@@ -124,61 +124,37 @@ public actor AuditCommand {
     private enum BuildOutcome { case success; case failure(Result) }
 
     private func runBuild(siteID: String, siteDirectory: URL) async -> BuildOutcome {
-        let plan = resolveBuildCommand(siteDirectory)
-        let executable: URL
-        let arguments: [String]
-        switch plan {
-        case .unavailable(let reason):
-            return .failure(.failed(reason: reason, exitCode: nil, logTail: []))
-        case .run(let exe, let args):
-            executable = exe
-            arguments = args
-        }
-
         let source = "audit:\(siteID):build"
-        let handle: ProcessSupervisor.Handle
-        do {
-            handle = try await supervisor.launch(
-                source: source,
-                executable: executable,
-                arguments: arguments,
-                currentDirectoryURL: siteDirectory,
-                logCenter: logCenter
-            )
-        } catch {
-            return .failure(.failed(reason: "couldn't spawn build: \(error)", exitCode: nil, logTail: []))
-        }
-
-        let reason = await withTaskCancellationHandler {
-            await supervisor.waitForExit(handle)
-        } onCancel: {
-            // The audit was cancelled (e.g. a Shortcuts/Siri CancellableIntent). The backend
-            // resumes our wait as `.terminated`, but the OS build process would otherwise keep
-            // running — actually SIGTERM it so it doesn't finish after we've reported cancellation.
-            Task { await supervisor.terminate(handle) }
-        }
-        // `waitForExit` only returns after the supervisor's per-pipe drain Tasks have finished,
-        // so every byte the build wrote is already in `LogCenter` — filtering the snapshot by
-        // source gives us the complete captured output for this build run.
+        let result = await executor.run(step: .build, siteDirectory: siteDirectory, source: source)
         let tail = await logCenter.snapshot().filter { $0.source == source }
-        switch reason {
-        case .exited(let code) where code == 0:
-            return .success
-        case .exited(let code):
-            return .failure(.failed(reason: "build failed", exitCode: code, logTail: tail))
-        case .terminated:
-            return .failure(.failed(reason: "build was terminated", exitCode: nil, logTail: tail))
-        case .retriesExhausted(let lastCode):
-            return .failure(.failed(reason: "build retries exhausted", exitCode: lastCode, logTail: tail))
+
+        guard let code = result.exitCode else {
+            // nil exit code → unavailable resolver, spawn failure, or termination (cancellation).
+            if Task.isCancelled {
+                return .failure(.failed(reason: "build was terminated", exitCode: nil, logTail: tail))
+            }
+            return .failure(.failed(reason: result.output, exitCode: nil, logTail: tail))
         }
+        guard code == 0 else {
+            return .failure(.failed(reason: "build failed", exitCode: code, logTail: tail))
+        }
+        return .success
     }
 
     // MARK: - Default seams
 
-    /// Host Node is retired (#70). Audits must run through the container runtime once validation
-    /// lands; until then the command fails explicitly instead of spawning embedded Node.
+    /// Host Node is retired (#70). Audits must run through the container runtime — see
+    /// `ContainerAuditExecutor`. `HostAuditExecutor.defaultResolver` uses this for the `.build`
+    /// step so the command fails explicitly instead of spawning embedded Node.
     public static let resolveBuildCommand: CommandResolver = { siteDirectory in
         .unavailable(reason: HostNodeRetirement.reason("audit build"))
+    }
+
+    /// Same as `resolveBuildCommand`, for the `.a11y` step. `A11yAuditRunner` used to spawn
+    /// `npx tsx` on the host directly (bypassing this convention entirely); it now goes through
+    /// `HostAuditExecutor.defaultResolver` like every other step.
+    public static let resolveA11yCommand: CommandResolver = { siteDirectory in
+        .unavailable(reason: HostNodeRetirement.reason("accessibility audit"))
     }
 
     /// Default runner set: `A11yAuditRunner` plus `SecurityTxtAuditRunner` (#843). SEO / perf /

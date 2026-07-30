@@ -62,4 +62,32 @@ struct A11yAuditRunnerTests {
         #expect(findings.count == 1)
         #expect(findings[0].remediation == nil)
     }
+
+    @Test("run() parses successful executor output into findings")
+    func runParsesExecutorOutput() async throws {
+        let raw = #"{"issues": [{"page": "/", "rule": "img-alt-missing", "severity": "error", "message": "m", "suggestion": "s"}]}"#
+        let executor = FakeAuditExecutor(result: AuditStepResult(exitCode: 0, output: raw))
+        let runner = A11yAuditRunner()
+        let findings = try await runner.run(
+            siteDirectory: URL(fileURLWithPath: "/site"), executor: executor, logCenter: LogCenter(), source: "audit:s:accessibility"
+        )
+        #expect(findings.count == 1)
+        #expect(findings[0].title == "img-alt-missing")
+    }
+
+    @Test("run() throws scriptFailed when the executor reports no exit code (container unavailable)")
+    func runThrowsWhenExecutorUnavailable() async {
+        let executor = FakeAuditExecutor(result: AuditStepResult(exitCode: nil, output: "container isn't running"))
+        let runner = A11yAuditRunner()
+        await #expect(throws: A11yAuditRunner.Error.self) {
+            _ = try await runner.run(
+                siteDirectory: URL(fileURLWithPath: "/site"), executor: executor, logCenter: LogCenter(), source: "audit:s:accessibility"
+            )
+        }
+    }
+}
+
+private struct FakeAuditExecutor: AuditExecutor {
+    let result: AuditStepResult
+    func run(step: AuditStep, siteDirectory: URL, source: String) async -> AuditStepResult { result }
 }

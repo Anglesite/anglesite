@@ -20,7 +20,7 @@ struct SecurityTxtAuditRunnerTests {
         let root = try siteDirectory(config: config)
         defer { try? FileManager.default.removeItem(at: root) }
         return try await SecurityTxtAuditRunner(gitRunner: gitRunner).run(
-            siteDirectory: root, supervisor: .shared, logCenter: .shared, source: "test")
+            siteDirectory: root, executor: HostAuditExecutor(), logCenter: .shared, source: "test")
     }
 
     @Test("flags a GitHub-backed site that isn't routing reports to its advisory form")

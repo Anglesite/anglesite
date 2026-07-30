@@ -18,16 +18,19 @@ struct AuditCommandTests {
         build: @escaping AuditCommand.CommandResolver = { _ in
             .run(executable: URL(fileURLWithPath: "/usr/bin/true"), arguments: [])
         }
-    ) -> (AuditCommand, ProcessSupervisor, LogCenter) {
-        let supervisor = ProcessSupervisor()
+    ) -> (AuditCommand, LogCenter) {
         let center = LogCenter()
-        let cmd = AuditCommand(
-            supervisor: supervisor,
+        let hostExecutor = HostAuditExecutor(
             logCenter: center,
-            resolveBuildCommand: build,
-            runners: runners
+            resolveCommand: { step in
+                switch step {
+                case .build: return build
+                case .a11y: return { _ in .unavailable(reason: "a11y step not used by this fixture") }
+                }
+            }
         )
-        return (cmd, supervisor, center)
+        let cmd = AuditCommand(logCenter: center, executor: hostExecutor, runners: runners)
+        return (cmd, center)
     }
 
     private func shFixture(_ script: String) -> AuditCommand.LaunchPlan {
@@ -40,6 +43,25 @@ struct AuditCommandTests {
             AuditCommand.resolveBuildCommand(tmpDir)
                 == .unavailable(reason: "audit build must run in the container runtime; host Node has been retired")
         )
+    }
+
+    @Test("default a11y resolver fails explicitly after host Node retirement")
+    func defaultA11yResolverUnavailable() {
+        #expect(
+            AuditCommand.resolveA11yCommand(tmpDir)
+                == .unavailable(reason: "accessibility audit must run in the container runtime; host Node has been retired")
+        )
+    }
+
+    @Test("HostAuditExecutor's default resolver fails explicitly for both steps")
+    func hostExecutorDefaultUnavailableForBothSteps() async {
+        let executor = HostAuditExecutor()
+        let buildResult = await executor.run(step: .build, siteDirectory: tmpDir, source: "test")
+        let a11yResult = await executor.run(step: .a11y, siteDirectory: tmpDir, source: "test")
+        #expect(buildResult.exitCode == nil)
+        #expect(buildResult.output == "audit build must run in the container runtime; host Node has been retired")
+        #expect(a11yResult.exitCode == nil)
+        #expect(a11yResult.output == "accessibility audit must run in the container runtime; host Node has been retired")
     }
 
     // MARK: Cancellation
@@ -60,7 +82,7 @@ struct AuditCommandTests {
         // the build is running (synchronized on __STARTED__, not a fixed delay), and assert the
         // result is `.failed(terminated)` AND the process reports the SIGTERM trap — proving it was
         // actually killed, not orphaned.
-        let (cmd, _, center) = makeCommand(
+        let (cmd, center) = makeCommand(
             runners: [FakeAuditRunner(category: .accessibility, result: .success([]))],
             build: { _ in self.shFixture("trap 'echo __SIGTERM__; exit 143' TERM; echo __STARTED__; sleep 20; echo __COMPLETED__") }
         )
@@ -80,7 +102,7 @@ struct AuditCommandTests {
 
     @Test("Fails when the build step exits non-zero")
     func failsWhenBuildExitsNonZero() async {
-        let (cmd, _, _) = makeCommand(
+        let (cmd, _) = makeCommand(
             runners: [FakeAuditRunner(category: .accessibility, result: .success([]))],
             build: { _ in self.shFixture("exit 1") }
         )
@@ -96,7 +118,7 @@ struct AuditCommandTests {
 
     @Test("Failed build carries its captured stdout+stderr as logTail so the failure sheet can show why")
     func failedBuildCapturesLogTail() async {
-        let (cmd, _, _) = makeCommand(
+        let (cmd, _) = makeCommand(
             runners: [FakeAuditRunner(category: .accessibility, result: .success([]))],
             build: { _ in self.shFixture("echo build-started; echo build-broke >&2; exit 1") }
         )
@@ -116,7 +138,7 @@ struct AuditCommandTests {
 
     @Test("Fails when the build resolver reports unavailable")
     func failsWhenBuildResolverReportsUnavailable() async {
-        let (cmd, _, _) = makeCommand(
+        let (cmd, _) = makeCommand(
             runners: [FakeAuditRunner(category: .accessibility, result: .success([]))],
             build: { _ in .unavailable(reason: "vendored npm not found — rebuild the app") }
         )
@@ -134,7 +156,7 @@ struct AuditCommandTests {
 
     @Test("Empty runners list returns a success with no findings")
     func emptyRunnersListReturnsSuccessWithNoFindings() async {
-        let (cmd, _, _) = makeCommand(runners: [])
+        let (cmd, _) = makeCommand(runners: [])
         let result = await cmd.audit(siteID: "site", siteDirectory: tmpDir)
         guard case .succeeded(let report, _) = result else {
             Issue.record("expected .succeeded, got \(result)")
@@ -157,7 +179,7 @@ struct AuditCommandTests {
             remediation: "Add a one-sentence description",
             location: "src/pages/about.astro"
         )
-        let (cmd, _, _) = makeCommand(
+        let (cmd, _) = makeCommand(
             runners: [FakeAuditRunner(category: .accessibility, result: .success([finding]))]
         )
         let result = await cmd.audit(siteID: "site", siteDirectory: tmpDir)
@@ -178,7 +200,7 @@ struct AuditCommandTests {
         let accessibilityFinding = AuditReport.Finding(
             category: .accessibility, severity: .info, title: "fine", detail: "", remediation: nil, location: nil
         )
-        let (cmd, _, _) = makeCommand(runners: [
+        let (cmd, _) = makeCommand(runners: [
             FakeAuditRunner(category: .accessibility, result: .success([accessibilityFinding])),
             FakeAuditRunner(category: .performance, result: .failure(BoomError()))
         ])
@@ -200,7 +222,7 @@ struct AuditCommandTests {
         let a = AuditReport.Finding(category: .accessibility, severity: .critical, title: "a", detail: "", remediation: nil, location: nil)
         let s = AuditReport.Finding(category: .seo, severity: .warning, title: "s", detail: "", remediation: nil, location: nil)
         let p = AuditReport.Finding(category: .performance, severity: .info, title: "p", detail: "", remediation: nil, location: nil)
-        let (cmd, _, _) = makeCommand(runners: [
+        let (cmd, _) = makeCommand(runners: [
             FakeAuditRunner(category: .accessibility, result: .success([a])),
             FakeAuditRunner(category: .seo, result: .success([s])),
             FakeAuditRunner(category: .performance, result: .success([p]))
@@ -221,7 +243,7 @@ private struct FakeAuditRunner: AuditRunner {
     let category: AuditReport.Finding.Category
     let result: Result<[AuditReport.Finding], Error>
 
-    func run(siteDirectory: URL, supervisor: ProcessSupervisor, logCenter: LogCenter, source: String) async throws -> [AuditReport.Finding] {
+    func run(siteDirectory: URL, executor: any AuditExecutor, logCenter: LogCenter, source: String) async throws -> [AuditReport.Finding] {
         switch result {
         case .success(let findings): return findings
         case .failure(let error):    throw error

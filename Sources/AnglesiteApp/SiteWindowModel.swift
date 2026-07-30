@@ -576,7 +576,7 @@ final class SiteWindowModel {
 
     var canRunDeploy: Bool { site?.isValid == true && !siteOperationRunning && preview.canDeploy }
     var canRunBackup: Bool { site?.isValid == true && !siteOperationRunning }
-    var canRunAudit: Bool { site?.isValid == true && !siteOperationRunning }
+    var canRunAudit: Bool { site?.isValid == true && !siteOperationRunning && preview.canDeploy }
     var canRunHarden: Bool { site?.isValid == true && !harden.isRunning }
     var canRunOnionRouting: Bool { site?.isValid == true && !onionRouting.isRunning }
     var canRecheckHealth: Bool { site != nil }
@@ -611,7 +611,9 @@ final class SiteWindowModel {
 
     func auditSite() {
         guard let site, canRunAudit else { return }
-        audit.audit(siteID: site.id, siteDirectory: site.sourceDirectory)
+        audit.audit(
+            siteID: site.id, siteDirectory: site.sourceDirectory,
+            containerControlProvider: { [preview] in await preview.activeContainerControl() })
     }
 
     func recheckHealth() {

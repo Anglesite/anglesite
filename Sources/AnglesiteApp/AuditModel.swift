@@ -11,6 +11,11 @@ import AnglesiteCore
 @MainActor
 @Observable
 final class AuditModel {
+    /// Resolves the local-container capability at the moment an audit actually runs, mirroring
+    /// `DeployModel.ContainerControlProvider` — a container started after the model was wired up
+    /// (or restarted since) is still picked up.
+    typealias ContainerControlProvider = @Sendable () async -> (siteID: String, control: any LocalContainerControl)?
+
     enum Phase: Equatable {
         case idle
         case running(siteID: String, since: Date)
@@ -33,10 +38,15 @@ final class AuditModel {
     @ObservationIgnored var onPhaseTransition: ((_ siteID: String, _ phase: Phase) -> Void)?
 
     private let command: AuditCommand
+    /// Shared with whatever `AuditCommand` this model builds for the container path (see
+    /// `runAudit`), so the runner-skip log line and the build/a11y-step output land under the
+    /// same `LogCenter` instance instead of silently splitting across two.
+    private let logCenter: LogCenter
     private var inFlight: Task<Void, Never>?
 
-    init(command: AuditCommand = AuditCommand()) {
+    init(command: AuditCommand = AuditCommand(), logCenter: LogCenter = .shared) {
         self.command = command
+        self.logCenter = logCenter
     }
 
     var isRunning: Bool {
@@ -52,11 +62,17 @@ final class AuditModel {
         return tail.map(\.text).joined(separator: "\n")
     }
 
-    /// Kicks off an audit. No-op if one is already running.
-    func audit(siteID: String, siteDirectory: URL) {
+    /// Kicks off an audit. No-op if one is already running. `containerControlProvider` is
+    /// resolved inside `runAudit`, at the moment the audit actually runs — mirrors
+    /// `DeployModel.deploy`'s identical seam.
+    func audit(
+        siteID: String,
+        siteDirectory: URL,
+        containerControlProvider: @escaping ContainerControlProvider = { nil }
+    ) {
         guard !isRunning else { return }
         inFlight = Task { @MainActor [weak self] in
-            await self?.runAudit(siteID: siteID, siteDirectory: siteDirectory)
+            await self?.runAudit(siteID: siteID, siteDirectory: siteDirectory, containerControlProvider: containerControlProvider)
         }
     }
 
@@ -70,14 +86,32 @@ final class AuditModel {
         onPhaseTransition?(siteID, newPhase)
     }
 
-    private func runAudit(siteID: String, siteDirectory: URL) async {
+    private func runAudit(
+        siteID: String,
+        siteDirectory: URL,
+        containerControlProvider: @escaping ContainerControlProvider
+    ) async {
         let started = Date()
         transition(siteID: siteID, to: .running(siteID: siteID, since: started))
         // Don't open the sheet during the build/audit — the running spinner lives in the
         // toolbar button. Sheet opens on terminal state so the owner sees the result.
         sheetPresented = false
 
-        let result = await command.audit(siteID: siteID, siteDirectory: siteDirectory)
+        // Select the executor: in-container when the runtime is a started container; the
+        // injected default (host, explicit failure) otherwise. Mirrors
+        // `DeployModel.runDeploy`'s `activeCommand` selection.
+        let containerControl = await containerControlProvider()
+        let activeCommand: AuditCommand
+        if let cc = containerControl {
+            activeCommand = AuditCommand(
+                logCenter: logCenter,
+                executor: ContainerAuditExecutor(control: cc.control, siteID: cc.siteID, logCenter: logCenter)
+            )
+        } else {
+            activeCommand = command
+        }
+
+        let result = await activeCommand.audit(siteID: siteID, siteDirectory: siteDirectory)
         switch result {
         case .succeeded(let report, let duration):
             transition(siteID: siteID, to: .succeeded(report: report, duration: duration))

@@ -11,12 +11,16 @@ struct AuditCommandCancellationTests {
         let holder = AuditTaskHolder()
         let first = ClosureRunner(category: .accessibility) { await counter.bump(); await holder.cancel(); return [] }
         let second = ClosureRunner(category: .seo) { await counter.bump(); return [] }
-        // resolveBuildCommand returns .unavailable so runBuild is skipped? No — .unavailable fails the
-        // audit. Instead inject a build command that exits 0 immediately via `true`.
-        let cmd = AuditCommand(
-            resolveBuildCommand: { _ in .run(executable: URL(fileURLWithPath: "/usr/bin/true"), arguments: []) },
-            runners: [first, second]
+        // The build must succeed (exit 0 via `true`) so the runner loop is reached at all.
+        let executor = HostAuditExecutor(
+            resolveCommand: { step in
+                switch step {
+                case .build: return { _ in .run(executable: URL(fileURLWithPath: "/usr/bin/true"), arguments: []) }
+                case .a11y: return { _ in .unavailable(reason: "not used by this fixture") }
+                }
+            }
         )
+        let cmd = AuditCommand(executor: executor, runners: [first, second])
         let task = Task { await cmd.audit(siteID: "s", siteDirectory: URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)) }
         await holder.hold(task)
         let result = await task.value
@@ -36,7 +40,7 @@ private actor AuditTaskHolder {
 private struct ClosureRunner: AuditRunner {
     let category: AuditReport.Finding.Category
     let body: @Sendable () async -> [AuditReport.Finding]
-    func run(siteDirectory: URL, supervisor: ProcessSupervisor, logCenter: LogCenter, source: String) async throws -> [AuditReport.Finding] {
+    func run(siteDirectory: URL, executor: any AuditExecutor, logCenter: LogCenter, source: String) async throws -> [AuditReport.Finding] {
         await body()
     }
 }
