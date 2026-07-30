@@ -42,9 +42,8 @@ final class PreviewModel {
 
     /// The live preview `WKWebView`, registered by `PreviewView` when it's created and detached
     /// via `detachWebView(_:)` when SwiftUI dismantles it. Weak: SwiftUI's `NSViewRepresentable`
-    /// owns the web view's lifetime; the model only borrows it for the View-menu commands — Show
-    /// Web Inspector (`showWebInspector()`) and the preview navigation commands (#514: reload,
-    /// back/forward, zoom). Setting it (re)installs the KVO mirrors for `canGoBack`/`canGoForward`
+    /// owns the web view's lifetime; the model only borrows it for the preview navigation commands
+    /// (#514: reload, back/forward, zoom). Setting it (re)installs the KVO mirrors for `canGoBack`/`canGoForward`
     /// and re-applies the persisted `zoomLevel`, so a web view recreated across a dev-server
     /// restart keeps the user's zoom.
     ///
@@ -351,14 +350,6 @@ final class PreviewModel {
         guard let base = readyURL else { return nil }
         let target = activeRoute.map { PreviewNavigation.targetURL(base: base, route: $0) } ?? base
         return PreviewNavigation.applyingEsiPreviewMode(target, unprocessed: EsiPreviewMode.shared.unprocessed)
-    }
-
-    /// Open the Web Inspector for the live preview. No-ops when the weak `webView` is nil
-    /// (preview not yet created / torn down), so this is always safe to call.
-    @MainActor
-    func showWebInspector() {
-        guard let webView else { return }
-        PreviewWebInspector.show(webView)
     }
 
     // MARK: Preview navigation (#514)

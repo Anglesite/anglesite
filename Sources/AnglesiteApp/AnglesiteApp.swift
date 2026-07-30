@@ -271,17 +271,17 @@ struct AnglesiteApp: App {
             // Website menu: the site window's operations, regrouped (menu-bar spec §2.9).
             WebsiteCommands()
             // View ▸ pane switching ⌘1–3 + panel toggles (Chat ⌘K, Related Pages, Inspector ⌥⌘I) —
-            // declared before WebInspectorCommands so they sit above the developer tools (#512).
+            // declared before PreviewNavigationCommands so they sit above it (#512).
             // NOTE the anchor asymmetry (verified in the running app): `after:` groups render in
-            // DECLARATION order (this one above Web Inspector/Debug Pane), while `before:` groups
-            // render in REVERSE declaration order (see FileItemCommands/SaveCommands above).
+            // DECLARATION order (this one above Preview navigation/Debug Pane), while `before:`
+            // groups render in REVERSE declaration order (see FileItemCommands/SaveCommands above).
             ViewMenuCommands()
             // Preview navigation — Reload ⌘R, Back/Forward, zoom (#514) — between the pane/panel
-            // toggles above and the developer tools below (`after:` groups render in declaration
-            // order, see the note above).
+            // toggles above and the Debug Pane below (`after:` groups render in declaration order,
+            // see the note above). "Show Web Inspector" used to live here too (#305) but was removed
+            // in #1099: it only worked through private WebKit API that's compiled out in every build
+            // once direct-download distribution was retired, leaving the command permanently dead.
             PreviewNavigationCommands()
-            // "Show Web Inspector" in the View menu — its own Commands type for the same focus reason.
-            WebInspectorCommands()
             // Debug pane lives off the View menu — `⌥⌘D` keeps it discoverable without crowding
             // the primary commands. Hidden in Release unless explicitly enabled (see init()).
             CommandGroup(after: .toolbar) {
