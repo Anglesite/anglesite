@@ -293,3 +293,61 @@ func httpErrorMaps() async {
         _ = try await client.resolveZoneID(domain: "example.com", apiToken: "t")
     }
 }
+
+@Test("attachWorkersCustomDomain returns .zoneNotFound when the domain has no zone on this account")
+func attachCustomDomainZoneNotFound() async throws {
+    let routes: [String: (Int, String)] = [
+        "/zones?": (200, #"{"success":true,"errors":[],"messages":[],"result":[]}"#),
+    ]
+    let client = HTTPCloudflareClient(transport: fakeTransport(routes))
+    let result = try await client.attachWorkersCustomDomain(
+        hostname: "example.com", workerScriptName: "my-site", apiToken: "t")
+    #expect(result == .zoneNotFound)
+}
+
+@Test("attachWorkersCustomDomain creates a fresh attachment when none exists yet")
+func attachCustomDomainCreatesFresh() async throws {
+    let routes: [String: (Int, String)] = [
+        "/zones?": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"zone1","name":"example.com","status":"active"}]}"#),
+        "/accounts?per_page=1": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"acct1"}]}"#),
+        "/workers/domains?hostname=": (200, #"{"success":true,"errors":[],"messages":[],"result":[]}"#),
+    ]
+    let spy = TransportSpy()
+    let client = HTTPCloudflareClient(transport: spyTransport(routes, spy: spy))
+    let result = try await client.attachWorkersCustomDomain(
+        hostname: "example.com", workerScriptName: "my-site", apiToken: "t")
+    #expect(result == .attached)
+    let putRequest = spy.requests.first { $0.httpMethod == "PUT" }
+    #expect(putRequest != nil)
+    #expect(putRequest?.url?.absoluteString.contains("/accounts/acct1/workers/domains") == true)
+}
+
+@Test("attachWorkersCustomDomain returns .alreadyAttached without writing when this site's own Worker already owns it")
+func attachCustomDomainAlreadyAttached() async throws {
+    let routes: [String: (Int, String)] = [
+        "/zones?": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"zone1","name":"example.com","status":"active"}]}"#),
+        "/accounts?per_page=1": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"acct1"}]}"#),
+        "/workers/domains?hostname=": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"dom1","hostname":"example.com","service":"my-site"}]}"#),
+    ]
+    let spy = TransportSpy()
+    let client = HTTPCloudflareClient(transport: spyTransport(routes, spy: spy))
+    let result = try await client.attachWorkersCustomDomain(
+        hostname: "example.com", workerScriptName: "my-site", apiToken: "t")
+    #expect(result == .alreadyAttached)
+    #expect(spy.requests.contains { $0.httpMethod == "PUT" } == false)
+}
+
+@Test("attachWorkersCustomDomain returns .conflict without writing when a different Worker owns it")
+func attachCustomDomainConflict() async throws {
+    let routes: [String: (Int, String)] = [
+        "/zones?": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"zone1","name":"example.com","status":"active"}]}"#),
+        "/accounts?per_page=1": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"acct1"}]}"#),
+        "/workers/domains?hostname=": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"dom1","hostname":"example.com","service":"other-site"}]}"#),
+    ]
+    let spy = TransportSpy()
+    let client = HTTPCloudflareClient(transport: spyTransport(routes, spy: spy))
+    let result = try await client.attachWorkersCustomDomain(
+        hostname: "example.com", workerScriptName: "my-site", apiToken: "t")
+    #expect(result == .conflict(ownedBy: "other-site"))
+    #expect(spy.requests.contains { $0.httpMethod == "PUT" } == false)
+}

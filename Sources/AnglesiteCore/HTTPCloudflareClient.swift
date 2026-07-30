@@ -58,6 +58,7 @@ private struct CFFullDNSRecord: Decodable, Sendable {
 }
 private struct CFAccount: Decodable, Sendable { let id: String }
 private struct CFWorkerScript: Decodable, Sendable { let id: String }
+private struct CFWorkerDomain: Decodable, Sendable { let hostname: String; let service: String }
 
 /// Body for DELETE requests, which Cloudflare's API doesn't require but tolerates.
 private struct CFEmptyBody: Encodable, Sendable {}
@@ -397,6 +398,40 @@ extension HTTPCloudflareClient: CloudflareWriting {
     public func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {
         try await mutate(method: "PATCH", "/zones/\(zoneID)/settings/opportunistic_onion",
                          body: ["value": enabled ? "on" : "off"], apiToken: apiToken)
+    }
+
+    public func attachWorkersCustomDomain(
+        hostname: String, workerScriptName: String, apiToken: String
+    ) async throws -> CustomDomainAttachResult {
+        // Zone lookup first (cheap, account-agnostic) so the common "not delegated to Cloudflare
+        // yet" case short-circuits without an extra account-id round trip.
+        guard let zoneID = try await resolveZoneID(domain: hostname, apiToken: apiToken) else {
+            return .zoneNotFound
+        }
+        let accounts = try await get("/accounts?per_page=1", apiToken: apiToken, as: [CFAccount].self)
+        guard let accountID = accounts.first?.id else {
+            throw CloudflareError.api(message: "no Cloudflare account visible to this token")
+        }
+        let escapedHostname = hostname.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? hostname
+        let existing = try await get(
+            "/accounts/\(accountID)/workers/domains?hostname=\(escapedHostname)",
+            apiToken: apiToken, as: [CFWorkerDomain].self
+        )
+        if let match = existing.first(where: { $0.hostname.lowercased() == hostname.lowercased() }) {
+            return match.service == workerScriptName ? .alreadyAttached : .conflict(ownedBy: match.service)
+        }
+        struct AttachBody: Encodable, Sendable {
+            let zone_id: String
+            let hostname: String
+            let service: String
+            let environment: String
+        }
+        try await mutate(
+            method: "PUT", "/accounts/\(accountID)/workers/domains",
+            body: AttachBody(zone_id: zoneID, hostname: hostname, service: workerScriptName, environment: "production"),
+            apiToken: apiToken
+        )
+        return .attached
     }
 
     public func enableZstandardCompression(zoneID: String, apiToken: String) async throws {

@@ -48,6 +48,10 @@ final class DeployModel {
     /// the check couldn't be performed. `.notConfigured` (no `CF_SOURCE_BUCKET`) is the expected
     /// value for every site today — the drawer only renders a line for `.dirty`.
     private(set) var sourceBundleStatus: SourceBundleStatus?
+    /// Outcome of attempting to attach this site's configured "Transfer an existing domain" host
+    /// as a Workers Custom Domain (#1077), captured from the deploy's `onDomainAttach` observer.
+    /// `nil` before any deploy has completed this session; only ever set on a `.succeeded` deploy.
+    private(set) var domainAttachStatus: CustomDomainAttachCommand.Result?
     /// True while the failure summary is being generated (drives a spinner in the drawer).
     private(set) var summarizing: Bool = false
 
@@ -73,6 +77,10 @@ final class DeployModel {
     /// plan. Reuses `pendingDeploy` to park and retry, same as the token-prompt and
     /// worker-name-conflict flows.
     var webmentionPaidPlanConfirmationPresented: Bool = false
+    /// Bound to a `.sheet` in `SiteWindow` for a `.conflict` domain-attach outcome (#1077) — the
+    /// transfer domain is already attached to a *different* Worker. Dismiss-only; doesn't block
+    /// the drawer or further deploys, since wrangler already succeeded by the time this runs.
+    var domainConflictPresented: Bool = false
 
     /// Progress of verifying a pasted token, consumed by `CloudflareTokenPromptView`'s status line
     /// and button-enabled logic. A token is only written to the Keychain once verification reaches
@@ -378,6 +386,12 @@ final class DeployModel {
         workerNameConflictError = nil
     }
 
+    /// Dismisses the domain-conflict sheet (#1077). The deploy already succeeded — this only
+    /// clears the informational sheet, it doesn't retry or change anything.
+    func dismissDomainConflict() {
+        domainConflictPresented = false
+    }
+
     /// Called by the paid-plan confirmation sheet's "Enable & retry" button. Persists the
     /// acknowledgment into `SiteSettings` (so future deploys never re-prompt) and retries the
     /// parked deploy — `runDeploy` re-reads settings and passes `acknowledgesPaidPlan: true`
@@ -459,6 +473,7 @@ final class DeployModel {
         let myGeneration = summarizationGeneration
         drawerPresented = presentation == .foreground
         blockedPresented = false
+        domainConflictPresented = false
 
         let sources = DeployCoordinator.deployLogSources(siteID: siteID)
 
@@ -487,6 +502,7 @@ final class DeployModel {
             activeCommand = DeployCommand(
                 tokenSource: command.tokenSource,
                 workerScriptNamesSource: command.workerScriptNamesSource,
+                customDomainAttachCommand: command.customDomainAttachCommand,
                 executor: ContainerDeployExecutor(
                     control: cc.control,
                     siteID: cc.siteID,
@@ -579,6 +595,18 @@ final class DeployModel {
                     wellKnownDynamicClaims: WorkerRouteClaims.wellKnownClaims(routeClaims),
                     onPreflight: { [weak self] outcome in
                         Task { @MainActor in self?.onScanComplete?(outcome) }
+                    },
+                    // Unlike `onPreflight`/`onProgress` (fire-and-forget display state), this
+                    // value is read back synchronously in the `.succeeded` case below to decide
+                    // the URL swap and the conflict sheet — so the MainActor hop here has an
+                    // implicit happens-before dependency, not just a display one. It holds today
+                    // only because MainActor drains equal-priority jobs FIFO and several real
+                    // `await`s (`uploadSourceBundleIfConfigured`, `runPostDeploySequencing`, the
+                    // `SiteConfigStore` load) sit between this closure firing and that read — there
+                    // is no structural guarantee. If those intervening `await`s are ever shortened
+                    // or removed, this needs an explicit wait instead of relying on scheduling.
+                    onDomainAttach: { [weak self] outcome in
+                        Task { @MainActor in self?.domainAttachStatus = outcome }
                     },
                     onProgress: { [weak self] progress in
                         Task { @MainActor in
@@ -697,7 +725,29 @@ final class DeployModel {
             if let settings = try? await SiteConfigStore(configDirectory: configDirectory).load() {
                 sourceBundleStatus = await SourceBundleStatus.check(siteDirectory: siteDirectory, settings: settings)
             }
-            transition(siteID: siteID, to: .succeeded(url: url, duration: duration))
+            // #1077: once the custom domain is actually attached, the deployed workers.dev URL is
+            // no longer the "real" address — swap what the drawer shows/shares/opens to the domain
+            // instead. `resolveSiteURL` already prefers `.site-config`'s DOMAIN unconditionally
+            // (it's written at scaffold time regardless of attach status), so this must stay gated
+            // on `domainAttachStatus == .confirmed` — otherwise a not-yet-connected domain would be
+            // presented as if it were already live. This read relies on the `onDomainAttach`
+            // ordering note above (its MainActor hop having already landed by the time execution
+            // reaches here).
+            var displayURL = url
+            if case .confirmed = domainAttachStatus,
+               let customHost = DeployCoordinator.resolveSiteURL(siteDirectory: siteDirectory),
+               let customURL = URL(string: customHost) {
+                displayURL = customURL
+            }
+            // `domainConflictPresented` only drives the one-time sheet, gated to foreground
+            // deploys like `workerNameConflictPresented`. A background/automatic deploy's conflict
+            // still needs to reach the user, though — `DeployDrawerView`'s `.conflict` caption
+            // (mirroring the `.notConnected` one) reads `domainAttachStatus` directly and isn't
+            // gated on `presentation`, so the outcome survives even when this sheet never fires.
+            if case .conflict = domainAttachStatus {
+                domainConflictPresented = presentation == .foreground
+            }
+            transition(siteID: siteID, to: .succeeded(url: displayURL, duration: duration))
         case .failed(let reason, let exit):
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false

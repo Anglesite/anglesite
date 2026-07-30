@@ -552,6 +552,13 @@ struct SiteWindow: View {
                 }
             }
         }
+        .sheet(isPresented: $bindableModel.deploy.domainConflictPresented) {
+            if case .conflict(let hostname, let ownedBy) = model.deploy.domainAttachStatus {
+                DomainConflictSheetView(hostname: hostname, ownedBy: ownedBy) {
+                    model.deploy.dismissDomainConflict()
+                }
+            }
+        }
         .sheet(isPresented: $bindableModel.deploy.webmentionPaidPlanConfirmationPresented) {
             WebmentionPaidPlanConfirmationSheetView(model: model.deploy) {
                 model.deploy.cancelWebmentionPaidPlanConfirmation()

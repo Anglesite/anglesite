@@ -49,6 +49,9 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
         lastZoneID = zoneID
         lastEnabled = enabled
     }
+    func attachWorkersCustomDomain(hostname: String, workerScriptName: String, apiToken: String) async throws -> CustomDomainAttachResult {
+        return .attached
+    }
 }
 
 @Suite(.serialized)

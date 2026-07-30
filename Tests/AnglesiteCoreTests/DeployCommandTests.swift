@@ -1247,6 +1247,104 @@ struct DeployCommandTests {
             "shell metacharacters in CF_SOURCE_BUCKET executed as commands — injection is not blocked")
     }
 
+    // MARK: Domain-attach orchestration (#1077)
+
+    @Test("a successful deploy reports .skipped via onDomainAttach when no transfer domain is configured")
+    func successfulDeployReportsSkippedWithoutTransferDomain() async throws {
+        let siteDir = tmpDir.appendingPathComponent("domain-attach-deploy-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: siteDir) }
+
+        let executor = FakeExecutor()
+            .set(.build, exitCode: 0, output: "")
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+            .set(.wrangler, exitCode: 0, output: "Deployed my-site (1.2 sec)\n https://my-site.example.workers.dev")
+        let writer = FakeCloudflareWriting()
+        let command = DeployCommand(
+            tokenSource: { "test-token" },
+            customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            executor: executor
+        )
+
+        var observed: CustomDomainAttachCommand.Result?
+        let result = await command.deploy(
+            siteID: "test", siteDirectory: siteDir,
+            onDomainAttach: { observed = $0 }
+        )
+        guard case .succeeded = result else {
+            Issue.record("expected .succeeded, got \(result)")
+            return
+        }
+        #expect(observed == .skipped)
+        #expect(writer.calls.isEmpty)
+    }
+
+    @Test("a successful deploy reports .confirmed via onDomainAttach and persists CF_DOMAIN_ATTACHED")
+    func successfulDeployReportsConfirmedDomainAttach() async throws {
+        let siteDir = tmpDir.appendingPathComponent("domain-attach-deploy-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: siteDir) }
+        try "DOMAIN_CHOICE=transfer\nDOMAIN=example.com\nCF_PROJECT_NAME=my-site\n".write(
+            to: siteDir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        let executor = FakeExecutor()
+            .set(.build, exitCode: 0, output: "")
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+            .set(.wrangler, exitCode: 0, output: "Deployed my-site (1.2 sec)\n https://my-site.example.workers.dev")
+        let writer = FakeCloudflareWriting()
+        writer.result = .success(.attached)
+        let command = DeployCommand(
+            tokenSource: { "test-token" },
+            customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            executor: executor
+        )
+
+        var observed: CustomDomainAttachCommand.Result?
+        let result = await command.deploy(
+            siteID: "test", siteDirectory: siteDir,
+            onDomainAttach: { observed = $0 }
+        )
+        guard case .succeeded = result else {
+            Issue.record("expected .succeeded, got \(result)")
+            return
+        }
+        #expect(observed == .confirmed(hostname: "example.com"))
+        let config = try String(contentsOf: siteDir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(config.contains("CF_DOMAIN_ATTACHED=example.com"))
+    }
+
+    @Test("a domain-attach outcome of .notConnected doesn't block the deploy from succeeding")
+    func domainNotConnectedDoesNotBlockDeploy() async throws {
+        let siteDir = tmpDir.appendingPathComponent("domain-attach-deploy-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: siteDir) }
+        try "DOMAIN_CHOICE=transfer\nDOMAIN=example.com\nCF_PROJECT_NAME=my-site\n".write(
+            to: siteDir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        let executor = FakeExecutor()
+            .set(.build, exitCode: 0, output: "")
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+            .set(.wrangler, exitCode: 0, output: "Deployed my-site (1.2 sec)\n https://my-site.example.workers.dev")
+        let writer = FakeCloudflareWriting()
+        writer.result = .success(.zoneNotFound)
+        let command = DeployCommand(
+            tokenSource: { "test-token" },
+            customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            executor: executor
+        )
+
+        var observed: CustomDomainAttachCommand.Result?
+        let result = await command.deploy(
+            siteID: "test", siteDirectory: siteDir,
+            onDomainAttach: { observed = $0 }
+        )
+        guard case .succeeded = result else {
+            Issue.record("expected .succeeded even when the domain isn't connected yet, got \(result)")
+            return
+        }
+        #expect(observed == .notConnected(hostname: "example.com"))
+    }
+
     /// Minimal thread-safe box for recording values appended from `@Sendable` closures.
     private final class Locked<T>: @unchecked Sendable {
         private let lock = NSLock(); private var value: T

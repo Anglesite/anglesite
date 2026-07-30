@@ -36,6 +36,19 @@
     "%@ has been changed since this edit. Undoing will overwrite those changes." : {
 
     },
+    "%@ is already connected to another site (%@) — not used for this deploy." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is already connected to another site (%2$@) — not used for this deploy."
+          }
+        }
+      }
+    },
+    "%@ isn't connected yet — add it to Cloudflare and point its nameservers there, then redeploy." : {
+
+    },
     "%@ tool" : {
 
     },
@@ -963,6 +976,9 @@
 
     },
     "Custom Element…" : {
+
+    },
+    "Custom domain already in use" : {
 
     },
     "Custom. Choose your own colors and add a logo." : {
@@ -3182,6 +3198,16 @@
     },
     "“%@” already exists on your connected Cloudflare account. Choose a different name to deploy this site under." : {
 
+    },
+    "“%@” is already connected to another site (%@). This deploy succeeded at its workers.dev address, but won't use %@ until that's resolved in your Cloudflare dashboard." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” is already connected to another site (%2$@). This deploy succeeded at its workers.dev address, but won't use %3$@ until that's resolved in your Cloudflare dashboard."
+          }
+        }
+      }
     },
     "“%@” → “%@”" : {
       "localizations" : {

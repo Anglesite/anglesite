@@ -57,6 +57,20 @@ struct DeployDrawerView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                if case .succeeded = model.phase, case .notConnected(let hostname) = model.domainAttachStatus {
+                    Text("\(hostname) isn't connected yet — add it to Cloudflare and point its nameservers there, then redeploy.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                // Mirrors the `.notConnected` caption above. The conflict sheet
+                // (`domainConflictPresented`) only fires for a foreground deploy, so a conflict
+                // discovered during a background/automatic deploy would otherwise never reach the
+                // user at all — this caption is the fallback that survives past that gate.
+                if case .succeeded = model.phase, case .conflict(let hostname, let ownedBy) = model.domainAttachStatus {
+                    Text("\(hostname) is already connected to another site (\(ownedBy)) — not used for this deploy.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer()
             if case .succeeded(let url, _) = model.phase {
