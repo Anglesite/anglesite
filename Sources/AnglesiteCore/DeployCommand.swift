@@ -330,7 +330,7 @@ public actor DeployCommand {
                 Self.persistSiteURL(url, siteDirectory: siteDirectory)
                 Self.persistWorkerDeployed(siteDirectory: siteDirectory)
                 let domainAttachOutcome = await customDomainAttachCommand.attach(
-                    siteDirectory: siteDirectory, apiToken: token)
+                    siteDirectory: siteDirectory, apiToken: token, source: "deploy:\(siteID)")
                 onDomainAttach?(domainAttachOutcome)
                 if let configDirectory {
                     await Self.uploadSourceBundleIfConfigured(

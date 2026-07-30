@@ -58,7 +58,7 @@ private struct CFFullDNSRecord: Decodable, Sendable {
 }
 private struct CFAccount: Decodable, Sendable { let id: String }
 private struct CFWorkerScript: Decodable, Sendable { let id: String }
-private struct CFWorkerDomain: Decodable, Sendable { let service: String }
+private struct CFWorkerDomain: Decodable, Sendable { let hostname: String; let service: String }
 
 /// Body for DELETE requests, which Cloudflare's API doesn't require but tolerates.
 private struct CFEmptyBody: Encodable, Sendable {}
@@ -417,7 +417,7 @@ extension HTTPCloudflareClient: CloudflareWriting {
             "/accounts/\(accountID)/workers/domains?hostname=\(escapedHostname)",
             apiToken: apiToken, as: [CFWorkerDomain].self
         )
-        if let match = existing.first {
+        if let match = existing.first(where: { $0.hostname.lowercased() == hostname.lowercased() }) {
             return match.service == workerScriptName ? .alreadyAttached : .conflict(ownedBy: match.service)
         }
         struct AttachBody: Encodable, Sendable {

@@ -15,7 +15,7 @@ struct DomainConflictSheetView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Custom domain already in use")
                     .font(.headline)
-                Text("\"\(hostname)\" is already connected to another site (\(ownedBy)). This deploy succeeded at its workers.dev address, but won't use \(hostname) until that's resolved in your Cloudflare dashboard.")
+                Text("“\(hostname)” is already connected to another site (\(ownedBy)). This deploy succeeded at its workers.dev address, but won't use \(hostname) until that's resolved in your Cloudflare dashboard.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

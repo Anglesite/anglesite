@@ -1304,7 +1304,7 @@ struct DeployCommandTests {
         }
         #expect(observed == .confirmed(hostname: "example.com"))
         let config = try String(contentsOf: siteDir.appendingPathComponent(".site-config"), encoding: .utf8)
-        #expect(config.contains("CF_DOMAIN_ATTACHED=true"))
+        #expect(config.contains("CF_DOMAIN_ATTACHED=example.com"))
     }
 
     @Test("a domain-attach outcome of .notConnected doesn't block the deploy from succeeding")

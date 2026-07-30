@@ -45,11 +45,15 @@ private actor GatedDeployExecutor: DeployExecutor {
 
 private final class FakeDomainAttachWriter: CloudflareWriting, @unchecked Sendable {
     let outcome: CustomDomainAttachResult
+    private(set) var attachCallCount = 0
     init(outcome: CustomDomainAttachResult) { self.outcome = outcome }
 
     func attachWorkersCustomDomain(
         hostname: String, workerScriptName: String, apiToken: String
-    ) async throws -> CustomDomainAttachResult { outcome }
+    ) async throws -> CustomDomainAttachResult {
+        attachCallCount += 1
+        return outcome
+    }
 
     func enableDNSSEC(zoneID: String, apiToken: String) async throws {}
     func setAlwaysUseHTTPS(zoneID: String, enabled: Bool, apiToken: String) async throws {}
@@ -236,6 +240,38 @@ struct DeployModelTests {
         #expect(url.absoluteString == "https://example.com")
         #expect(model.domainAttachStatus == .confirmed(hostname: "example.com"))
         #expect(!model.domainConflictPresented)
+    }
+
+    @Test("A second deploy after a successful attach still shows the custom domain, with no network call (#1077)")
+    func secondDeployAfterAttachStillShowsCustomDomain() async {
+        let executor = GatedDeployExecutor()
+        // Would fail the test if attachWorkersCustomDomain were called — a deploy whose
+        // `.site-config` already records CF_DOMAIN_ATTACHED matching the current DOMAIN must
+        // resolve locally, with zero network calls, exactly like the first deploy's zero-network
+        // "nothing configured" skip path.
+        let writer = FakeDomainAttachWriter(outcome: .attached)
+        let command = DeployCommand(
+            tokenSource: { "test-token" },
+            customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            executor: executor
+        )
+        let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
+        let siteDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try! FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+        try! "CF_PROJECT_NAME=my-site\nDOMAIN_CHOICE=transfer\nDOMAIN=example.com\nCF_DOMAIN_ATTACHED=example.com\n".write(
+            to: siteDir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        model.deploy(siteID: "s", siteDirectory: siteDir, configDirectory: siteDir, currentRoutes: [])
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
+        while model.isRunning { await Task.yield() }
+
+        guard case .succeeded(let url, _) = model.phase else {
+            Issue.record("expected .succeeded, got \(model.phase)"); return
+        }
+        #expect(url.absoluteString == "https://example.com")
+        #expect(model.domainAttachStatus == .confirmed(hostname: "example.com"))
+        #expect(writer.attachCallCount == 0)
     }
 
     @Test("A not-connected domain attach leaves the workers.dev URL in place")

@@ -61,15 +61,30 @@ struct CustomDomainAttachCommandTests {
         #expect(writer.calls.isEmpty)
     }
 
-    @Test("skips when already attached")
+    @Test("returns .confirmed with no network call when already attached to the current DOMAIN")
     func skipsWhenAlreadyPersisted() async throws {
-        let dir = try makeSiteDir(config: "DOMAIN_CHOICE=transfer\nDOMAIN=example.com\nCF_PROJECT_NAME=my-site\nCF_DOMAIN_ATTACHED=true\n")
+        let dir = try makeSiteDir(config: "DOMAIN_CHOICE=transfer\nDOMAIN=example.com\nCF_PROJECT_NAME=my-site\nCF_DOMAIN_ATTACHED=example.com\n")
         defer { try? FileManager.default.removeItem(at: dir) }
         let writer = FakeCloudflareWriting()
         let command = CustomDomainAttachCommand(client: writer)
         let result = await command.attach(siteDirectory: dir, apiToken: "t")
-        #expect(result == .skipped)
+        #expect(result == .confirmed(hostname: "example.com"))
         #expect(writer.calls.isEmpty)
+    }
+
+    @Test("re-checks and re-attaches when DOMAIN changed since a prior confirmed attach")
+    func reattachesWhenDomainChangedSincePriorAttach() async throws {
+        let dir = try makeSiteDir(config: "DOMAIN_CHOICE=transfer\nDOMAIN=new.example.com\nCF_PROJECT_NAME=my-site\nCF_DOMAIN_ATTACHED=old.example.com\n")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let writer = FakeCloudflareWriting()
+        writer.result = .success(.attached)
+        let command = CustomDomainAttachCommand(client: writer)
+        let result = await command.attach(siteDirectory: dir, apiToken: "t")
+        #expect(result == .confirmed(hostname: "new.example.com"))
+        #expect(writer.calls.first?.hostname == "new.example.com")
+        let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(config.contains("CF_DOMAIN_ATTACHED=new.example.com"))
+        #expect(!config.contains("CF_DOMAIN_ATTACHED=old.example.com"))
     }
 
     @Test("skips without calling out when CF_PROJECT_NAME is missing")
@@ -95,7 +110,7 @@ struct CustomDomainAttachCommandTests {
         #expect(writer.calls.first?.hostname == "example.com")
         #expect(writer.calls.first?.workerScriptName == "my-site")
         let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
-        #expect(config.contains("CF_DOMAIN_ATTACHED=true"))
+        #expect(config.contains("CF_DOMAIN_ATTACHED=example.com"))
     }
 
     @Test("confirms and persists when already attached to this site's own Worker")
@@ -108,7 +123,7 @@ struct CustomDomainAttachCommandTests {
         let result = await command.attach(siteDirectory: dir, apiToken: "t")
         #expect(result == .confirmed(hostname: "example.com"))
         let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
-        #expect(config.contains("CF_DOMAIN_ATTACHED=true"))
+        #expect(config.contains("CF_DOMAIN_ATTACHED=example.com"))
     }
 
     @Test("reports not connected with no persistence when the zone isn't found yet")

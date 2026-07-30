@@ -69,22 +69,31 @@ New `CustomDomainAttachCommand` in `AnglesiteCore`, shaped like `SocialWorkerPro
 method:
 
 ```swift
-func attach(siteDirectory: URL, workerScriptName: String) async -> CustomDomainAttachCommand.Result
+func attach(siteDirectory: URL, apiToken: String, source: String = "custom-domain-attach") async -> CustomDomainAttachCommand.Result
 ```
 
-which reads `.site-config` itself (`DOMAIN_CHOICE`, `DOMAIN`, `CF_DOMAIN_ATTACHED`) and:
+which reads `.site-config` itself (`DOMAIN_CHOICE`, `DOMAIN`, `CF_PROJECT_NAME`,
+`CF_DOMAIN_ATTACHED`) and:
 
 - Returns `.skipped` immediately when `DOMAIN_CHOICE != transfer`, `DOMAIN` is empty, or
-  `CF_DOMAIN_ATTACHED` is already `"true"` — no network call in the common "later"/"buy"/
-  already-attached cases.
+  `CF_PROJECT_NAME` is missing/empty — no network call in the common "later"/"buy" cases.
+- Returns `.confirmed(hostname:)` immediately, with no network call, when `CF_DOMAIN_ATTACHED`
+  already equals the *current* `DOMAIN` exactly — this is what keeps every deploy after the first
+  cheap. `CF_DOMAIN_ATTACHED` stores the attached hostname itself, not a boolean: if the owner
+  later changes `DOMAIN` to a different host, the stored value no longer matches, so the command
+  falls through to a real check/attach against the new hostname instead of staying stuck on the
+  old one forever.
 - Otherwise calls `attachWorkersCustomDomain` and maps the result:
-  - `.attached` or `.alreadyAttached` → persist `CF_DOMAIN_ATTACHED=true` into `.site-config`
+  - `.attached` or `.alreadyAttached` → persist `CF_DOMAIN_ATTACHED=<hostname>` into `.site-config`
     (best-effort write, matching `DeployCommand.persistWorkerDeployed`'s pattern) → return
     `.confirmed(hostname:)`.
   - `.zoneNotFound` → return `.notConnected(hostname:)`. No persistence — every future deploy
     re-checks for free (cheap zone lookup), so delegation finishing mid-flight is picked up on the
     very next deploy with no user action.
   - `.conflict(ownedBy:)` → return `.conflict(hostname:, ownedBy:)`. No persistence.
+  - A thrown Cloudflare API error is logged to `LogCenter` (tagged with `source`) before degrading
+    to the same `.notConnected(hostname:)` outcome as a genuine not-yet-delegated zone — best
+    effort, but not silent.
 
 `DeployCommand.deploy()` calls `CustomDomainAttachCommand.attach` right after a successful
 `wrangler` step, in the same best-effort spot as today's `uploadSourceBundleIfConfigured` — a

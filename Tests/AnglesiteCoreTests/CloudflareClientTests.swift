@@ -327,7 +327,7 @@ func attachCustomDomainAlreadyAttached() async throws {
     let routes: [String: (Int, String)] = [
         "/zones?": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"zone1","name":"example.com","status":"active"}]}"#),
         "/accounts?per_page=1": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"acct1"}]}"#),
-        "/workers/domains?hostname=": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"dom1","service":"my-site"}]}"#),
+        "/workers/domains?hostname=": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"dom1","hostname":"example.com","service":"my-site"}]}"#),
     ]
     let spy = TransportSpy()
     let client = HTTPCloudflareClient(transport: spyTransport(routes, spy: spy))
@@ -342,7 +342,7 @@ func attachCustomDomainConflict() async throws {
     let routes: [String: (Int, String)] = [
         "/zones?": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"zone1","name":"example.com","status":"active"}]}"#),
         "/accounts?per_page=1": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"acct1"}]}"#),
-        "/workers/domains?hostname=": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"dom1","service":"other-site"}]}"#),
+        "/workers/domains?hostname=": (200, #"{"success":true,"errors":[],"messages":[],"result":[{"id":"dom1","hostname":"example.com","service":"other-site"}]}"#),
     ]
     let spy = TransportSpy()
     let client = HTTPCloudflareClient(transport: spyTransport(routes, spy: spy))
