@@ -1,4 +1,4 @@
-Closes #<!-- issue number(s) this PR resolves, e.g. "123" or "123, 456". Use a GitHub closing keyword (Closes/Fixes/Resolves) so the issue auto-closes on merge — a bare mention in prose does not link or close it. Delete this line only if the PR has no issue to close. -->
+Closes #<!-- issue number this PR resolves, e.g. "123". Use a GitHub closing keyword (Closes/Fixes/Resolves) so the issue auto-closes on merge — a bare mention in prose does not link or close it. For more than one issue, repeat the keyword before each number, e.g. "Closes #123, closes #456" — a single keyword before a comma-separated list only closes the first. Delete this line only if the PR has no issue to close. -->
 
 ## Summary
 
