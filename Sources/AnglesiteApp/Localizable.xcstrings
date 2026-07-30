@@ -870,6 +870,9 @@
     "Copy URL" : {
 
     },
+    "Copy local worker URL" : {
+
+    },
     "Copy log" : {
 
     },
@@ -2289,6 +2292,9 @@
     "Restart Networking & Retry" : {
 
     },
+    "Restarting (attempt %lld)" : {
+
+    },
     "Result" : {
 
     },
@@ -2678,6 +2684,9 @@
 
     },
     "Start a design interview for ${site}" : {
+
+    },
+    "Starting…" : {
 
     },
     "States a usage preference per purpose in robots.txt, using Cloudflare's Content Signals Policy. It's a signal well-behaved crawlers honor, not an enforced block." : {
