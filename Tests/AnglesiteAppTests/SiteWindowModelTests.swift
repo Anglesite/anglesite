@@ -204,10 +204,10 @@ extension SiteWindowModelTests {
 
         #expect(model.deleteConfirmation == nil)
         // `SiteStore.shared` doesn't know "site-a" — `deleteContent` resolves `.siteNotFound`, so no
-        // redirect offer (correctly: nothing was actually deleted) and no error surfaced (`.siteNotFound`
-        // is a silent no-op in confirmDelete, matching `duplicateNoSiteIsNoOp`'s established expectation).
+        // redirect offer (correctly: nothing was actually deleted) and `contentActionError` reports
+        // it (#987 — this used to be a silent no-op here too).
         #expect(model.pendingRedirectOfferRoute == nil)
-        #expect(model.contentActionError == nil)
+        #expect(model.contentActionError == "This site is no longer available.")
     }
 
     // MARK: - ⌘Z for structural content operations (#675)
@@ -288,6 +288,130 @@ extension SiteWindowModelTests {
         #expect(model.activeEditor != nil)
         #expect(model.mainPaneMode == .editor(editor.file))
         #expect(FileManager.default.fileExists(atPath: fileURL.path))
+        #expect(model.contentActionError == "This site is no longer available.")
+    }
+}
+
+extension SiteWindowModelTests {
+    // MARK: - #987: content-action failure paths must surface `contentActionError`
+    //
+    // Distinct from the "no open site" no-op already covered above (`duplicateNoSiteIsNoOp`,
+    // `applyContentUndoNoSiteFails`) — that one stays a silent no-op by design (nothing to act
+    // on). These cover the two classes #987 flagged as actually reachable: a Navigator row that
+    // outlived its `SiteContentGraph` entry, and `contentCreation`'s own `.siteNotFound` (the
+    // site left `SiteStore.shared` mid-session).
+
+    private func makeUnregisteredSite() -> SiteStore.Site {
+        SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: URL(fileURLWithPath: "/tmp/nonexistent.anglesite"),
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+    }
+
+    @Test("duplicate reports an error when the row has no matching page or post")
+    func duplicateUnresolvedRowReportsError() async {
+        let model = makeModel()
+        model.site = makeUnregisteredSite()
+
+        await model.duplicate(id: "site-a:page:/ghost")
+
+        #expect(model.contentActionError == "This item is no longer part of this site's content.")
+    }
+
+    @Test("publish reports an error when the row has no matching post")
+    func publishUnresolvedRowReportsError() async {
+        let model = makeModel()
+        model.site = makeUnregisteredSite()
+
+        await model.publish(id: "site-a:post:ghost")
+
+        #expect(model.contentActionError == "This item is no longer part of this site's content.")
+    }
+
+    @Test("unpublish reports an error when the row has no matching post")
+    func unpublishUnresolvedRowReportsError() async {
+        let model = makeModel()
+        model.site = makeUnregisteredSite()
+
+        await model.unpublish(id: "site-a:post:ghost")
+
+        #expect(model.contentActionError == "This item is no longer part of this site's content.")
+    }
+
+    @Test("duplicate reports an error when contentCreation resolves .siteNotFound")
+    func duplicateSiteNotFoundReportsError() async {
+        let graph = SiteContentGraph()
+        let model = makeModel(contentGraph: graph)
+        model.site = makeUnregisteredSite()
+        let page = SiteContentGraph.Page(
+            id: "site-a:page:/about", siteID: "site-a", route: "/about",
+            filePath: "src/pages/about.astro", title: "About", lastModified: Date())
+        await graph.upsertPage(page)
+
+        await model.duplicate(id: page.id)
+
+        // `SiteStore.shared` doesn't know "site-a" — `duplicatePage` resolves `.siteNotFound`.
+        #expect(model.contentActionError == "This site is no longer available.")
+    }
+
+    @Test("publish reports an error when contentCreation resolves .siteNotFound")
+    func publishSiteNotFoundReportsError() async {
+        let graph = SiteContentGraph()
+        let model = makeModel(contentGraph: graph)
+        model.site = makeUnregisteredSite()
+        let post = SiteContentGraph.Post(
+            id: "site-a:post:hello-world", siteID: "site-a", collection: "blog", slug: "hello-world",
+            title: "Hello World", draft: true, publishDate: nil, tags: [],
+            filePath: "src/content/blog/hello-world.md", lastModified: Date()
+        )
+        await graph.upsertPost(post)
+
+        await model.publish(id: post.id)
+
+        #expect(model.contentActionError == "This site is no longer available.")
+    }
+
+    @Test("unpublish reports an error when contentCreation resolves .siteNotFound")
+    func unpublishSiteNotFoundReportsError() async {
+        let graph = SiteContentGraph()
+        let model = makeModel(contentGraph: graph)
+        model.site = makeUnregisteredSite()
+        let post = SiteContentGraph.Post(
+            id: "site-a:post:hello-world", siteID: "site-a", collection: "blog", slug: "hello-world",
+            title: "Hello World", draft: false, publishDate: nil, tags: [],
+            filePath: "src/content/blog/hello-world.md", lastModified: Date()
+        )
+        await graph.upsertPost(post)
+
+        await model.unpublish(id: post.id)
+
+        #expect(model.contentActionError == "This site is no longer available.")
+    }
+
+    @Test("applyContentUndo's delete branch reports an error when contentCreation resolves .siteNotFound")
+    func applyContentUndoDeleteBranchSiteNotFoundReportsError() async {
+        let model = makeModel()
+        model.site = makeUnregisteredSite()
+
+        let outcome = await model.applyContentUndo(ContentUndoCoordinator.Mutation(
+            relativePath: "src/pages/about.astro", before: nil, after: "<h1>About</h1>",
+            actionName: "Create \u{201C}About\u{201D}"))
+
+        #expect(outcome == .failed)
+        #expect(model.contentActionError == "This site is no longer available.")
+    }
+
+    @Test("applyContentUndo's restore branch reports an error when contentCreation resolves .siteNotFound")
+    func applyContentUndoRestoreBranchSiteNotFoundReportsError() async {
+        let model = makeModel()
+        model.site = makeUnregisteredSite()
+
+        let outcome = await model.applyContentUndo(ContentUndoCoordinator.Mutation(
+            relativePath: "src/pages/about.astro", before: "<h1>About</h1>", after: nil,
+            actionName: "Delete \u{201C}About\u{201D}"))
+
+        #expect(outcome == .failed)
+        #expect(model.contentActionError == "This site is no longer available.")
     }
 }
 

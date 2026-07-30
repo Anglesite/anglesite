@@ -1242,6 +1242,19 @@ final class SiteWindowModel {
         }
     }
 
+    /// Shared by every content-action failure path below whose `contentCreation` call resolves
+    /// `.siteNotFound` (#987) — matches `NewContentSheets`' wording for the same case, so a user
+    /// who hits this from a create flow and a content-action flow sees consistent text.
+    private static let siteNotFoundMessage = "This site is no longer available."
+
+    /// Reports a Navigator row that outlived its `SiteContentGraph` entry (#987) — a page/post
+    /// deleted outside the app, or a rescan racing the action. Falls back to a generic phrase
+    /// when `navigator` itself no longer has the row either (e.g. no `loadAndStart()` ran, as in
+    /// most of this file's own tests).
+    private func reportUnresolvedRow(id: String) {
+        contentActionError = "\(navigator?.item(for: id)?.title ?? "This item") is no longer part of this site's content."
+    }
+
     /// The `ContentUndoCoordinator` applier: realize `mutation.before` at its path — write those
     /// exact bytes, or delete the file when `before` is nil. Both halves route through
     /// `contentCreation`, so an undo commits and rescans the content graph exactly like the
@@ -1274,6 +1287,7 @@ final class SiteWindowModel {
                 reopenSurfaces(for: mutation.relativePath)
                 return .failed
             case .siteNotFound:
+                contentActionError = Self.siteNotFoundMessage
                 reopenSurfaces(for: mutation.relativePath)
                 return .failed
             }
@@ -1296,6 +1310,7 @@ final class SiteWindowModel {
             }
             return .failed
         case .siteNotFound:
+            contentActionError = Self.siteNotFoundMessage
             return .failed
         }
     }
@@ -1361,6 +1376,7 @@ final class SiteWindowModel {
             // A failed delete never touched the file, so put back what closing it took away.
             reopenSurfaces(for: relPath)
         case .siteNotFound:
+            contentActionError = Self.siteNotFoundMessage
             reopenSurfaces(for: relPath)
         }
     }
@@ -1389,6 +1405,7 @@ final class SiteWindowModel {
             result = await contentCreation.duplicatePost(
                 siteID: site.id, relativePath: post.filePath, collection: post.collection, title: sourceTitle)
         } else {
+            reportUnresolvedRow(id: id)
             return
         }
 
@@ -1404,7 +1421,7 @@ final class SiteWindowModel {
         case .failed(let reason):
             contentActionError = reason
         case .siteNotFound:
-            break
+            contentActionError = Self.siteNotFoundMessage
         }
     }
 
@@ -1413,7 +1430,11 @@ final class SiteWindowModel {
     /// no-confirmation precedent as `duplicate(id:)`.
     @MainActor
     func publish(id: String) async {
-        guard let site, let post = await contentGraph.post(id: id) else { return }
+        guard let site else { return }
+        guard let post = await contentGraph.post(id: id) else {
+            reportUnresolvedRow(id: id)
+            return
+        }
         let result = await contentCreation.publish(
             siteID: site.id, relativePath: post.filePath, collection: post.collection)
         switch result {
@@ -1422,14 +1443,18 @@ final class SiteWindowModel {
         case .failed(let reason):
             contentActionError = reason
         case .siteNotFound:
-            break
+            contentActionError = Self.siteNotFoundMessage
         }
     }
 
     /// Unpublishes the post at `id` (#798): sets `draft: true`, leaving `publishDate` untouched.
     @MainActor
     func unpublish(id: String) async {
-        guard let site, let post = await contentGraph.post(id: id) else { return }
+        guard let site else { return }
+        guard let post = await contentGraph.post(id: id) else {
+            reportUnresolvedRow(id: id)
+            return
+        }
         let result = await contentCreation.unpublish(
             siteID: site.id, relativePath: post.filePath, collection: post.collection)
         switch result {
@@ -1438,7 +1463,7 @@ final class SiteWindowModel {
         case .failed(let reason):
             contentActionError = reason
         case .siteNotFound:
-            break
+            contentActionError = Self.siteNotFoundMessage
         }
     }
 
