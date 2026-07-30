@@ -273,6 +273,115 @@ struct ContainerDeployExecutorTests {
         #expect(calls[0].siteID == "my-special-site")
     }
 
+    // MARK: - #1084: wrangler.toml re-sync before `wrangler deploy`
+
+    /// A real host directory with a `wrangler.toml` on disk, modelling the site's `Source/`
+    /// working tree after `SocialWorkerProvisionCommand.persistConfig` has written a
+    /// features-enabled config there.
+    private func makeHostSiteDirectory(wranglerToml: String) throws -> URL {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try wranglerToml.write(to: dir.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+        return dir
+    }
+
+    @Test("wrangler step re-syncs the host's current wrangler.toml into the guest before deploying")
+    func wranglerStepResyncsTomlBeforeDeploy() async throws {
+        // Models the exact #1084 scenario: the guest's /workspace/site clone is stale (it was
+        // cloned before the site turned on a social feature), but the HOST wrangler.toml — just
+        // written by SocialWorkerProvisionCommand.persistConfig — already has `main` and the
+        // worker's bindings. Without a re-sync, `wrangler deploy` would run against the guest's
+        // stale, assets-only copy and publish a Worker with no script attached at all.
+        let freshToml = "name = \"my-site\"\nmain = \"worker/worker.ts\"\n\n[assets]\ndirectory = \"dist\"\n"
+        let hostSiteDirectory = try makeHostSiteDirectory(wranglerToml: freshToml)
+        let fake = fakePassing()
+        let executor = makeExecutor(fake: fake)
+
+        let result = await executor.run(
+            step: .wrangler,
+            siteDirectory: hostSiteDirectory,
+            environment: ["CLOUDFLARE_API_TOKEN": "tok123"],
+            source: "deploy:site-abc"
+        )
+
+        let calls = await fake.execCalls
+        #expect(calls.count == 2, "expected a sync exec followed by the deploy exec")
+
+        // First call: writes the fresh host content into the guest's wrangler.toml, never
+        // interpolating the content directly into the shell string.
+        #expect(calls[0].argv[0] == "sh")
+        #expect(calls[0].argv[1] == "-c")
+        #expect(calls[0].argv[2].contains("base64 -d > wrangler.toml"))
+        #expect(!calls[0].argv[2].contains("main = "), "content must travel base64-encoded, never spliced in literally")
+        #expect(calls[0].cwd == "/workspace/site")
+
+        // Decode what was actually sent and confirm it's the fresh host content.
+        let script = calls[0].argv[2]
+        let base64Part = script
+            .replacingOccurrences(of: "echo ", with: "")
+            .replacingOccurrences(of: " | base64 -d > wrangler.toml", with: "")
+        let decoded = Data(base64Encoded: base64Part).flatMap { String(data: $0, encoding: .utf8) }
+        #expect(decoded == freshToml)
+
+        // Second call: the actual deploy, unchanged.
+        #expect(calls[1].argv == ["npx", "wrangler", "deploy"])
+        #expect(result.exitCode == 0)
+    }
+
+    @Test("build and preflight steps do not re-sync wrangler.toml (neither reads it)")
+    func nonWranglerStepsSkipResync() async throws {
+        let hostSiteDirectory = try makeHostSiteDirectory(wranglerToml: "name = \"my-site\"\n")
+        let fake = fakePassing()
+        let executor = makeExecutor(fake: fake)
+
+        _ = await executor.run(step: .build, siteDirectory: hostSiteDirectory, environment: [:], source: "src")
+        _ = await executor.run(step: .preflight, siteDirectory: hostSiteDirectory, environment: [:], source: "src")
+
+        let calls = await fake.execCalls
+        #expect(calls.count == 2, "no sync call for either step")
+        #expect(calls[0].argv == ["npm", "run", "build"])
+        #expect(calls[1].argv == ["npx", "tsx", "scripts/pre-deploy-check.ts", "--json"])
+    }
+
+    @Test("wrangler step skips the sync when the host has no wrangler.toml yet")
+    func wranglerStepSkipsSyncWhenHostFileMissing() async {
+        let fake = fakePassing()
+        let executor = makeExecutor(fake: fake)
+
+        _ = await executor.run(
+            step: .wrangler,
+            siteDirectory: URL(fileURLWithPath: "/host/does-not-exist-\(UUID().uuidString)"),
+            environment: ["CLOUDFLARE_API_TOKEN": "tok"],
+            source: "deploy:site-abc"
+        )
+
+        let calls = await fake.execCalls
+        #expect(calls.count == 1)
+        #expect(calls[0].argv == ["npx", "wrangler", "deploy"])
+    }
+
+    @Test("a failed wrangler.toml sync fails the step without ever attempting `wrangler deploy`")
+    func failedSyncPreventsDeploy() async throws {
+        let hostSiteDirectory = try makeHostSiteDirectory(wranglerToml: "name = \"my-site\"\n")
+        let fake = FakeLocalContainerControl(
+            startResult: .failure(.virtualizationUnavailable),
+            execResult: ContainerExecResult(exitCode: 1, stdout: "", stderr: "disk full")
+        )
+        let executor = makeExecutor(fake: fake)
+
+        let result = await executor.run(
+            step: .wrangler,
+            siteDirectory: hostSiteDirectory,
+            environment: ["CLOUDFLARE_API_TOKEN": "tok"],
+            source: "deploy:site-abc"
+        )
+
+        let calls = await fake.execCalls
+        #expect(calls.count == 1, "must not fall through to `wrangler deploy` after a failed sync")
+        #expect(result.exitCode == nil)
+        #expect(result.output.contains("sync"))
+    }
+
     // MARK: - #748 capability defaults
 
     @Test("HostDeployExecutor reports no owned path claims by default")
