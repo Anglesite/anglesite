@@ -345,9 +345,11 @@ struct SiteWindow: View {
                     }
                 }
                 .disabled(!model.canRunAudit)
-                .help(site.isValid
+                .help(site.isValid && model.preview.canDeploy
                       ? "Run the structured accessibility audit against this site"
-                      : "Site is missing required files")
+                      : site.isValid
+                        ? "Open the preview first to start the runtime before auditing"
+                        : "Site is missing required files")
             }
 
             ToolbarItem(id: SiteToolbarItemID.openInBrowser.rawValue, placement: .primaryAction) {
