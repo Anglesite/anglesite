@@ -1,4 +1,5 @@
 import { defineConfig } from "astro/config";
+import { unified } from "@astrojs/markdown-remark";
 import keystatic from "@keystatic/astro";
 import react from "@astrojs/react";
 import { readConfig } from "./scripts/config.ts";
@@ -23,11 +24,10 @@ const isDev = isKeystaticDev(process.argv);
 export default defineConfig({
   site,
   integrations: [anglesiteHarness(), redirects(), co2Badge(), ...(isDev ? [react(), keystatic()] : [])],
-  // Astro 7's default markdown processor (Sätteri) no longer carries remark itself, so
-  // `remarkPlugins` requires `@astrojs/markdown-remark` as an explicit dependency (#682).
-  // Without it Astro fails config validation outright rather than silently skipping the
-  // plugin — so if the embeds pipeline ever goes inert, check that dependency first.
+  // Astro 7's default markdown processor (Sätteri) no longer carries remark itself, so custom
+  // remark plugins go through `unified()` from `@astrojs/markdown-remark`, an explicit
+  // dependency (#682) — the top-level `markdown.remarkPlugins` shorthand is deprecated (#1079).
   markdown: {
-    remarkPlugins: [remarkEmbeds],
+    processor: unified({ remarkPlugins: [remarkEmbeds] }),
   },
 });
