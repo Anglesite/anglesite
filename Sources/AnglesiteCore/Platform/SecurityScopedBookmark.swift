@@ -38,9 +38,21 @@ public struct SecurityScopedBookmarkResolution: Sendable, Equatable {
     }
 }
 
-public enum SecurityScopedBookmarkError: Error, Sendable {
+public enum SecurityScopedBookmarkError: Error, Sendable, LocalizedError {
     case createFailed(String)
     case resolveFailed(String)
+
+    /// Without this conformance, `.localizedDescription` bridges to a generic NSError
+    /// ("The operation couldn't be completed. (AnglesiteCore.SecurityScopedBookmarkError error
+    /// 0.)") and silently drops the underlying reason carried in the associated `String` — see
+    /// #1068, where that's exactly the message users saw at every call site that surfaces this
+    /// error (`SiteActions.ImportError`, the new-site "Registering" step).
+    public var errorDescription: String? {
+        switch self {
+        case .createFailed(let message), .resolveFailed(let message):
+            message
+        }
+    }
 }
 
 /// Placeholder for platforms without App Sandbox bookmarks (Linux/Windows). `create`/`resolve`
