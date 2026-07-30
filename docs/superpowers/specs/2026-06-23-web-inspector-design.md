@@ -1,7 +1,10 @@
 # Open Web Inspector — Design
 
 **Date:** 2026-06-23
-**Status:** Approved (design)
+**Status:** Superseded by #1099 — direct-download distribution was retired, leaving the
+`Developer ID`-only code path this design relied on permanently unreachable in the
+shipping (MAS-only) target. The feature was removed rather than reworked, since there's
+no public WebKit API for an embedded inspector. Kept here as historical record.
 
 ## Goal
 
