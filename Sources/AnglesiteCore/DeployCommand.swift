@@ -327,11 +327,14 @@ public actor DeployCommand {
                 if let configDirectory {
                     try? DeployedRoutesSnapshot.save(currentRoutes, to: configDirectory)
                 }
-                Self.persistSiteURL(url, siteDirectory: siteDirectory)
-                Self.persistWorkerDeployed(siteDirectory: siteDirectory)
+                // Runs before `persistSiteURL` (#1077/#1124): a fresh confirmation from *this*
+                // deploy persists `CF_DOMAIN_ATTACHED` as a side effect, which `persistSiteURL`
+                // checks to decide whether to leave `SITE_URL` alone.
                 let domainAttachOutcome = await customDomainAttachCommand.attach(
                     siteDirectory: siteDirectory, apiToken: token, source: "deploy:\(siteID)")
                 onDomainAttach?(domainAttachOutcome)
+                Self.persistSiteURL(url, siteDirectory: siteDirectory)
+                Self.persistWorkerDeployed(siteDirectory: siteDirectory)
                 if let configDirectory {
                     await Self.uploadSourceBundleIfConfigured(
                         siteDirectory: siteDirectory, configDirectory: configDirectory,
@@ -415,15 +418,26 @@ public actor DeployCommand {
     /// built before the URL was known, so the placeholder still ships on a site's first deploy —
     /// every deploy after that carries the real host.
     ///
-    /// Written unconditionally, even when a custom domain (`DOMAIN`/`SITE_DOMAIN`) is already
-    /// configured (#1085): nothing in the deploy pipeline actually attaches a custom domain yet
-    /// (#1077), so that value is never verified to be live. `SITE_URL` is the one field guaranteed
-    /// to be the site's real, reachable address — `DeployCoordinator.resolveSiteURL` prefers it
-    /// over the possibly-dead custom domain for exactly that reason. Best-effort — a write failure
-    /// must never turn a successful deploy into a failed one.
+    /// Written even when a custom domain (`DOMAIN`/`SITE_DOMAIN`) is configured but not yet
+    /// confirmed live (#1085): before #1077, nothing in the deploy pipeline attached a custom
+    /// domain, so an unverified `DOMAIN` was never trustworthy and `SITE_URL` — the site's real,
+    /// reachable address — had to win `DeployCoordinator.resolveSiteURL`'s precedence regardless.
+    ///
+    /// Skipped once `CF_DOMAIN_ATTACHED` matches `DOMAIN` — the same "confirmed" signal
+    /// `CustomDomainAttachCommand.attach` itself checks (#1077) — because at that point `DOMAIN`
+    /// *is* verified live, and overwriting `SITE_URL` with the workers.dev host would shadow it in
+    /// `resolveSiteURL`'s precedence forever after, silently undoing every confirmed domain attach
+    /// on its very next deploy. Callers must call `customDomainAttachCommand.attach` (and let it
+    /// persist `CF_DOMAIN_ATTACHED`) before this, so a domain confirmed *in this same deploy* is
+    /// already visible to the check. Best-effort — a write failure must never turn a successful
+    /// deploy into a failed one.
     static func persistSiteURL(_ url: URL, siteDirectory: URL) {
         let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        if let domain = SiteConfigFile.value(forKey: "DOMAIN", in: config),
+           SiteConfigFile.value(forKey: "CF_DOMAIN_ATTACHED", in: config) == domain {
+            return
+        }
         let updated = SiteConfigFile.upsert([("SITE_URL", url.absoluteString)], into: config)
         guard updated != config else { return }
         try? updated.write(to: configURL, atomically: true, encoding: .utf8)
