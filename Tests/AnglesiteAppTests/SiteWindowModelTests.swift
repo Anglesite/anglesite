@@ -633,6 +633,52 @@ extension SiteWindowModelTests {
         #expect(model.collectionInspection == nil)
     }
 
+    @Test("the collection context for a plain nested-page folder (no collection) counts child pages, not graph posts")
+    func collectionInspectionPlainFolderHasNoCollectionOrFeeds() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let graph = SiteContentGraph()
+        await graph.load(
+            siteID: "site-a",
+            pages: [
+                SiteContentGraph.Page(
+                    id: "site-a:page:/blog", siteID: "site-a", route: "/blog",
+                    filePath: "src/pages/blog/index.astro", title: "Blog", lastModified: Date()
+                ),
+                SiteContentGraph.Page(
+                    id: "site-a:page:/blog/hello", siteID: "site-a", route: "/blog/hello",
+                    filePath: "src/pages/blog/hello.astro", title: "Hello", lastModified: Date()
+                ),
+            ],
+            posts: [], images: []
+        )
+        let model = makeModel(contentGraph: graph)
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+
+        let navModel = SiteNavigatorModel(graph: graph)
+        navModel.start(
+            site: CurrentSite(id: "site-a", packageURL: packageURL, sourceDirectory: package.sourceURL),
+            websiteTitle: "Test")
+        while navModel.nodes.isEmpty { await Task.yield() }
+        model.navigator = navModel
+        let dirID = "dir:/blog/"
+        #expect(navModel.target(for: dirID) == .directory(collection: nil, route: "/blog/"))
+        let expectedEntryCount = navModel.node(for: dirID)?.children?.count ?? 0
+
+        model.applyNavigatorSelection(dirID)
+        while model.collectionInspection == nil { await Task.yield() }
+        let inspection = try #require(model.collectionInspection)
+        #expect(inspection.collection == nil)
+        #expect(inspection.feeds.isEmpty)
+        #expect(inspection.contentTypeName == nil)
+        #expect(inspection.microformat == nil)
+        #expect(inspection.entryCount == expectedEntryCount)
+    }
+
     @Test("applyNavigatorSelection populates a read-only inspector for a plain .astro page (#1100)")
     func applyNavigatorSelectionPlainAstroPageGetsGenericInspector() async throws {
         let (root, packageURL, package) = try makeSitePackage()
