@@ -136,3 +136,11 @@ test("buildHeaders: adds an X-Robots-Tag block per noindex entry", () => {
 test("buildHeaders: no noindex entries leaves output unchanged from today", () => {
   assert.equal(buildHeaders(""), buildHeaders("", false, []));
 });
+
+test("buildHeaders: a newline in a path can't open an extra header block", () => {
+  const entries: RobotsConfigEntry[] = [{ path: "/evil/\n/*\n  X-Frame-Options: ALLOWALL" }];
+  const out = buildHeaders("", false, entries);
+  // The whole path collapses onto the single route line it was meant to be.
+  assert.match(out, /\n\/evil\/\/\*  X-Frame-Options: ALLOWALL\n  X-Robots-Tag: noindex\n/);
+  assert.doesNotMatch(out, /^ {2}X-Frame-Options: ALLOWALL$/m);
+});

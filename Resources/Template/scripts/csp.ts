@@ -9,7 +9,11 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfigFromString } from "./config";
-import { readRobotsConfig, type RobotsConfigEntry } from "../src/lib/robots-config.ts";
+import {
+  readRobotsConfig,
+  sanitizeForHeaderLine,
+  type RobotsConfigEntry,
+} from "../src/lib/robots-config.ts";
 
 /** Directives each configured integration domain is added to. */
 const EMBED_DIRECTIVES = ["script-src", "frame-src", "connect-src", "img-src", "form-action"];
@@ -116,9 +120,11 @@ export function buildHeaders(
 /.well-known/mta-sts.txt
   Content-Type: text/plain; charset=utf-8
 `;
+  // Sanitized: `_headers` is newline-delimited, so a path containing one would open an extra
+  // header block for a route the site owner never chose.
   for (const entry of noindexEntries) {
     out += `
-${entry.path}
+${sanitizeForHeaderLine(entry.path)}
   X-Robots-Tag: noindex
 `;
   }

@@ -28,7 +28,10 @@ enum InspectorContext: Identifiable {
     case typed(TypedEntryEditorModel)
     case page(PageMetadataModel)
     /// A routed page/entry with no typed descriptor or frontmatter form — e.g. a plain `.astro`
-    /// page. Read-only identity only; see `GenericPageInspectorModel` (#1100).
+    /// page. Title, description, and body stay permanently read-only (#1100); the two
+    /// search/crawling toggles are the one editable exception, since they're backed by the shared
+    /// `RobotsConfigFile` rather than the page's own file (#1093). See
+    /// `GenericPageInspectorModel`.
     case generic(GenericPageInspectorModel)
 
     var model: any InspectorEditorModel {

@@ -25,7 +25,16 @@ export interface RobotsConfig {
   extra: string[];
 }
 
-export const EMPTY_ROBOTS_CONFIG: RobotsConfig = { noindex: [], disallow: [], extra: [] };
+/**
+ * Shared empty config. Frozen (object *and* arrays) so a caller that spreads it without overriding
+ * every field — `{ ...EMPTY_ROBOTS_CONFIG }` — can't push into the arrays it now shares with every
+ * other such caller. Reading and spreading still work; only in-place mutation is blocked.
+ */
+export const EMPTY_ROBOTS_CONFIG: RobotsConfig = Object.freeze({
+  noindex: Object.freeze([]) as RobotsConfigEntry[],
+  disallow: Object.freeze([]) as RobotsConfigEntry[],
+  extra: Object.freeze([]) as string[],
+});
 
 /** Reads and validates the shape loosely — malformed/missing input reads as empty, never throws. */
 export function readRobotsConfig(cwd: string): RobotsConfig {
@@ -48,9 +57,25 @@ export function isNoindexed(pathname: string, config: RobotsConfig): boolean {
   return config.noindex.some((entry) => entry.path === pathname);
 }
 
-/** A short human-readable label for a `Disallow` line's `# from …` back-reference comment. */
+/**
+ * Strips CR/LF from a string that is about to be interpolated into `robots.txt` or `_headers`.
+ * Both formats are newline-delimited, so a path or label containing one would inject an extra
+ * directive or header block — defense in depth against a pathological filename (#1093).
+ */
+export function sanitizeForHeaderLine(s: string): string {
+  return s.replace(/[\r\n]/g, "");
+}
+
+/**
+ * A short human-readable label for a `Disallow` line's `# from …` back-reference comment, or
+ * `null` for no comment. A `{kind: "collection"}` entry missing `collection`/`id` — only reachable
+ * via a malformed hand-edit — returns `null` rather than rendering `"undefined/undefined"`.
+ */
 export function sourceLabel(source: RobotsConfigSource | null | undefined): string | null {
   if (!source) return null;
-  if (source.kind === "collection") return `${source.collection}/${source.id}`;
-  return source.file ?? null;
+  if (source.kind === "collection") {
+    if (!source.collection || !source.id) return null;
+    return sanitizeForHeaderLine(`${source.collection}/${source.id}`);
+  }
+  return source.file ? sanitizeForHeaderLine(source.file) : null;
 }

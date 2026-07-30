@@ -555,6 +555,20 @@ test("buildRobotsTxt: a collection source's back-reference is collection/id", ()
   assert.match(out, /# blog\/private\nDisallow: \/blog\/private\/\n/);
 });
 
+test("buildRobotsTxt: a malformed collection source gets no back-reference comment", () => {
+  const entries: RobotsConfigEntry[] = [{ path: "/orphan/", source: { kind: "collection" } }];
+  const out = buildRobotsTxt(undefined, undefined, entries);
+  assert.match(out, /Disallow: \/orphan\/\n/);
+  assert.doesNotMatch(out, /undefined/);
+});
+
+test("buildRobotsTxt: a newline in a path can't inject an extra directive", () => {
+  const entries: RobotsConfigEntry[] = [{ path: "/evil/\nAllow: /" }];
+  const out = buildRobotsTxt(undefined, undefined, entries);
+  assert.match(out, /Disallow: \/evil\/Allow: \/\n/);
+  assert.doesNotMatch(out, /^Allow: \/$/m);
+});
+
 test("buildRobotsTxt: extra lines are appended verbatim after a blank line", () => {
   const out = buildRobotsTxt(undefined, undefined, [], ["User-agent: SomeBot", "Disallow: /"]);
   assert.match(out, /\n\nUser-agent: SomeBot\nDisallow: \/\n$/);

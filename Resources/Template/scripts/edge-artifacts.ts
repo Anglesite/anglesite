@@ -13,7 +13,12 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfig } from "./config";
 import { mayBlockAICrawlers, normalizePolicy, NO_USAGE, type AIUsage } from "../src/lib/licensing.ts";
-import { readRobotsConfig, sourceLabel, type RobotsConfigEntry } from "../src/lib/robots-config.ts";
+import {
+  readRobotsConfig,
+  sanitizeForHeaderLine,
+  sourceLabel,
+  type RobotsConfigEntry,
+} from "../src/lib/robots-config.ts";
 
 // Maintained from https://darkvisitors.com/agents — check periodically for new entries.
 export const aiCrawlers = [
@@ -86,6 +91,10 @@ export function readLicensingUsage(cwd: string): { usage: AIUsage; clamped: bool
  * `src/data/licensing.json`; its `Content-Signal` directive and its named-agent blocklist are both
  * derived from it, so they cannot disagree (#991). `siteUrl` adds the `Sitemap:` discovery line
  * (#982), emitted only for a valid HTTPS origin on the same terms as security.txt's `Canonical`.
+ * `disallowEntries` and `extra` come from `src/data/robots-config.json` (#1093): each entry emits
+ * one `Disallow:` line inside the `User-agent: *` group, preceded by a `# <source>` back-reference
+ * comment naming the page or collection entry the app wrote it for, while `extra` is appended
+ * verbatim at the end for hand-authored rules that don't fit the single-path shape.
  */
 export function buildRobotsTxt(
   usage: AIUsage = NO_USAGE,
@@ -102,7 +111,9 @@ Disallow:
   for (const entry of disallowEntries) {
     const label = sourceLabel(entry.source);
     if (label) body += `# ${label}\n`;
-    body += `Disallow: ${entry.path}\n`;
+    // Sanitized: robots.txt is newline-delimited, so a path containing one would inject an extra
+    // directive into the `User-agent: *` group.
+    body += `Disallow: ${sanitizeForHeaderLine(entry.path)}\n`;
   }
   const contentSignal = contentSignalDirective(usage);
   if (contentSignal) {
