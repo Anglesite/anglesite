@@ -1253,6 +1253,12 @@
     "Find Previous" : {
 
     },
+    "Find a Community" : {
+
+    },
+    "Find a community by keyword" : {
+
+    },
     "Find…" : {
 
     },
@@ -1478,6 +1484,9 @@
     "Installed" : {
 
     },
+    "Instance, e.g. lemmy.world" : {
+
+    },
     "Join" : {
 
     },
@@ -1500,6 +1509,9 @@
 
     },
     "Key Props" : {
+
+    },
+    "Keyword" : {
 
     },
     "Kind" : {
@@ -1721,6 +1733,9 @@
     "No changes needed." : {
 
     },
+    "No communities found." : {
+
+    },
     "No communities joined yet — enter a handle above, like !sandbox@lemmy.sdf.org." : {
 
     },
@@ -1860,6 +1875,9 @@
 
     },
     "Open the live preview in your default browser" : {
+
+    },
+    "Open the preview first to start the runtime before auditing" : {
 
     },
     "Open the preview first to start the runtime before deploying" : {
@@ -2419,6 +2437,9 @@
     "Search graph" : {
 
     },
+    "Searches only the instance above. Anglesite doesn't run or query a directory of its own." : {
+
+    },
     "Searching freedesignmd.com…" : {
 
     },
@@ -2871,6 +2892,9 @@
       }
     },
     "Type" : {
+
+    },
+    "Type a keyword and press Return to search." : {
 
     },
     "URL" : {

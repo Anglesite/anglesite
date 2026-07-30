@@ -1,0 +1,179 @@
+import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
+/// One community returned by a keyword search — the Discovery step's result row (V-5.4, #371).
+/// `actorID` is ready to feed straight into `CommunityActorResolver.resolve(_:)` (as a pasted-URL
+/// input, skipping webfinger) and from there into `CommunityMembershipClient.follow(target:)` —
+/// the same join path #368 already ships, just fed from a search result instead of a typed handle.
+public struct CommunitySearchResult: Sendable, Equatable, Identifiable {
+    public var id: String { actorID.absoluteString }
+    public let actorID: URL
+    public let name: String
+    public let title: String?
+    /// The host the community actually lives on — read from `actorID`, not the instance that was
+    /// queried: Lemmy's federated search can surface communities from other instances than the
+    /// one asked, and the join flow's confirmation should say where the community really is.
+    public let instance: String
+    public let subscriberCount: Int?
+
+    public init(actorID: URL, name: String, title: String?, instance: String, subscriberCount: Int?) {
+        self.actorID = actorID
+        self.name = name
+        self.title = title
+        self.instance = instance
+        self.subscriberCount = subscriberCount
+    }
+}
+
+public enum CommunitySearchError: Error, Equatable, Sendable {
+    case emptyQuery
+    case invalidInstance
+    case insecureURL
+    case requestFailed(status: Int, body: String)
+    case decodingFailed(String)
+}
+
+/// Searches a fediverse instance's own community directory by keyword (V-5.4, #371) — the
+/// Discovery step feeding #368's join flow, per the plan's constraint to consume an existing open
+/// network rather than host a new directory.
+///
+/// Queries Lemmy's own `GET /api/v3/search` (documented at
+/// https://join-lemmy.org/docs/contributors/04-api.html /
+/// https://mv-gh.github.io/lemmy_openapi_spec/; verified 2026-07-30 unauthenticated against
+/// `lemmy.world`, which returns `actor_id`/`counts.subscribers` with no auth header at all) —
+/// picked over lemmyverse.net's aggregate JSON dump (a static bulk export meant for offline
+/// analysis, not a live query API — using it as a search source would mean the app downloading,
+/// caching, and indexing a directory itself) and third-party fediverse search services (no stable
+/// public spec comparable to Lemmy's own API; see issue #371's source-selection comment for the
+/// full comparison). `instance` is caller-supplied and not defaulted here — the join sheet is
+/// where the user picks/edits it, matching the issue's "source is configurable in the sheet"
+/// requirement; this client only enforces that whatever instance it's given is queried securely.
+///
+/// This searches Lemmy communities specifically. It doesn't narrow what the join flow can join —
+/// `CommunityActorResolver` already resolves a handle or URL for any FEP-1b12 software (Mastodon,
+/// PieFed, Mbin, Friendica, Hubzilla, PeerTube); search is an additive discovery aid on top of
+/// that, not a replacement for it.
+public struct CommunitySearchClient: Sendable {
+    public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
+
+    /// A search response is a short list of communities, not an outbox page of activities — reuses
+    /// `ActorProfileFetcher`'s cap/timeouts rather than defining its own, same reuse `CommunityActorResolver`
+    /// already does for the same reason.
+    public static let maximumResponseBytes = ActorProfileFetcher.maximumResponseBytes
+    public static let defaultInstance = "lemmy.world"
+
+    private let transport: Transport
+
+    public init(transport: @escaping Transport = CommunitySearchClient.defaultTransport) {
+        self.transport = transport
+    }
+
+    public func search(query: String, instance: String) async throws -> [CommunitySearchResult] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { throw CommunitySearchError.emptyQuery }
+        guard let url = Self.searchURL(instance: instance, query: trimmedQuery) else {
+            throw CommunitySearchError.invalidInstance
+        }
+        try Self.requireHTTPS(url)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = ActorProfileFetcher.timeout
+        let data: Data
+        let http: HTTPURLResponse
+        do {
+            (data, http) = try await transport(request)
+        } catch {
+            throw CommunitySearchError.requestFailed(status: 0, body: "\(error)")
+        }
+        // URLSession follows redirects transparently, so this body may not have come from the
+        // instance that was asked — re-check where it actually landed, mirroring
+        // `CommunityActorResolver`'s same guard on its own webfinger/actor fetches.
+        if let finalURL = http.url { try Self.requireHTTPS(finalURL) }
+        guard (200..<300).contains(http.statusCode) else {
+            throw CommunitySearchError.requestFailed(
+                status: http.statusCode, body: String(decoding: data.prefix(400), as: UTF8.self))
+        }
+        // The default transport already aborts mid-stream past the cap; this re-check holds an
+        // injected transport to the same limit, mirroring `CommunityActorResolver`.
+        guard data.count <= Self.maximumResponseBytes else {
+            throw CommunitySearchError.requestFailed(
+                status: 0, body: "response too large (\(data.count) bytes)")
+        }
+
+        struct CommunityDTO: Decodable {
+            let name: String
+            let title: String?
+            let actor_id: String
+        }
+        struct CountsDTO: Decodable { let subscribers: Int? }
+        struct CommunityViewDTO: Decodable {
+            let community: CommunityDTO
+            let counts: CountsDTO?
+        }
+        struct SearchResponseDTO: Decodable { let communities: [CommunityViewDTO]? }
+
+        let dto: SearchResponseDTO
+        do {
+            dto = try JSONDecoder().decode(SearchResponseDTO.self, from: data)
+        } catch {
+            throw CommunitySearchError.decodingFailed("\(error)")
+        }
+        return (dto.communities ?? []).compactMap { view in
+            // A result whose own `actor_id` isn't a secure URL can't be joined through
+            // `CommunityActorResolver` anyway (it enforces HTTPS on exactly this field) — drop it
+            // here rather than surfacing a row that fails the moment it's tapped.
+            guard let actorID = URL(string: view.community.actor_id),
+                  actorID.scheme?.lowercased() == "https", let host = actorID.host
+            else { return nil }
+            return CommunitySearchResult(
+                actorID: actorID,
+                name: DisplayString.safe(view.community.name),
+                title: view.community.title.map(DisplayString.safe),
+                instance: host,
+                subscriberCount: view.counts?.subscribers)
+        }
+    }
+
+    /// Accepts a bare host (`lemmy.world`) or a pasted `https://lemmy.world` URL — the join
+    /// sheet's search-instance field is free text, and users copy instance addresses from
+    /// anywhere (a link, an app's "about" page) that may or may not include the scheme.
+    private static func searchURL(instance: String, query: String) -> URL? {
+        let trimmed = instance.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let host: String
+        if let parsed = URL(string: trimmed), let parsedHost = parsed.host,
+           ["http", "https"].contains(parsed.scheme?.lowercased() ?? "") {
+            host = parsedHost
+        } else {
+            host = trimmed
+        }
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = host
+        components.path = "/api/v3/search"
+        components.queryItems = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "type_", value: "Communities"),
+            URLQueryItem(name: "listing_type", value: "All"),
+            URLQueryItem(name: "sort", value: "TopAll"),
+            URLQueryItem(name: "limit", value: "20"),
+        ]
+        return components.url
+    }
+
+    private static func requireHTTPS(_ url: URL) throws {
+        guard url.scheme?.lowercased() == "https" else { throw CommunitySearchError.insecureURL }
+    }
+
+    private static let session = CappedHTTPTransport.session(
+        requestTimeout: ActorProfileFetcher.timeout, resourceTimeout: ActorProfileFetcher.resourceTimeout)
+
+    public static let defaultTransport: Transport = { request in
+        try await CappedHTTPTransport.fetch(
+            request, session: session, cap: maximumResponseBytes,
+            tooLarge: { CommunitySearchError.requestFailed(status: 0, body: "response too large (\($0) bytes)") })
+    }
+}

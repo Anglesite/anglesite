@@ -34,6 +34,7 @@ public final class AppSettings: @unchecked Sendable {
         public static let cloudflareAccountName = "anglesite.cloudflareAccount.name"
         public static let cloudflareAccountEmail = "anglesite.cloudflareAccount.email"
         public static let activeAssistantBackend = "anglesite.activeAssistantBackend"
+        public static let communitySearchInstance = "anglesite.communitySearchInstance"
     }
 
     private enum LegacyKey {
@@ -132,6 +133,21 @@ public final class AppSettings: @unchecked Sendable {
     public var activeAssistantBackend: String {
         get { defaults.string(forKey: Key.activeAssistantBackend) ?? "foundationModels" }
         set { defaults.set(newValue, forKey: Key.activeAssistantBackend) }
+    }
+
+    /// Which instance's own `/api/v3/search` the Communities join flow's Discovery step
+    /// (`CommunitySearchClient`, V-5.4 #371) queries. Global, user-editable in the join sheet — not
+    /// a fixed Anglesite-run directory, so the query only ever goes to a source the owner chose.
+    /// Falls back to `CommunitySearchClient.defaultInstance` for both an absent *and* a
+    /// blanked-out override, so clearing the field in the sheet can't leave search silently
+    /// broken — mirrors `activeAssistantBackend`'s string-with-fallback shape.
+    public var communitySearchInstance: String {
+        get {
+            let stored = defaults.string(forKey: Key.communitySearchInstance)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return (stored?.isEmpty == false ? stored : nil) ?? CommunitySearchClient.defaultInstance
+        }
+        set { defaults.set(newValue, forKey: Key.communitySearchInstance) }
     }
 
     /// Security-scoped bookmark for the sites root, persisted so the sandboxed (MAS) build only

@@ -40,6 +40,16 @@ final class CommunitiesModel {
     private(set) var isJoining = false
     var joinHandleText = ""
     var errorMessage: String?
+    /// Drives the Discovery sheet (V-5.4, #371) — the join flow's "Find a community" browse/search
+    /// step, opened from a button beside the existing handle/URL join bar.
+    var discoveryPresented = false
+    var discoveryQuery = ""
+    private(set) var discoveryResults: [CommunitySearchResult] = []
+    private(set) var isSearchingDiscovery = false
+    /// Separate from `errorMessage`: a failed search is a recoverable, in-panel state (try a
+    /// different query or instance), not the alert-worthy failure `errorMessage`'s `.alert` binds
+    /// to — the owner is still mid-search, not stuck on a blocking dialog.
+    var discoveryErrorMessage: String?
     /// Non-nil ⟺ the "Leave this community?" confirmation is showing — mirrors
     /// `SiteWindowModel.deleteConfirmation`'s item-based-confirmation pattern.
     var leaveConfirmation: JoinedCommunity?
@@ -55,23 +65,37 @@ final class CommunitiesModel {
     /// `isLoadingTimeline`) once it finally lands — mirrors `FollowersModel.generation`.
     private var timelineGeneration = 0
     private let secretStore: any SecretStore
+    /// Injected (default `.shared`) purely so `searchDiscovery()` is testable without touching the
+    /// real `UserDefaults.standard` — every other read/write in this file talks to `.shared`
+    /// directly (matching `ChatView`/`EsiPreviewMode`'s convention), but nothing else in this class
+    /// needed a settings value a test would want to control, so this is the first seam of its kind
+    /// here. The join sheet's own `@AppStorage(AppSettings.Key.communitySearchInstance)` field
+    /// still targets `.standard` unconditionally (SwiftUI's property wrapper has no injection
+    /// point), which is fine in production since `AppSettings.shared` wraps that same store.
+    private let appSettings: AppSettings
     private let resolverTransport: CommunityActorResolver.Transport
     private let membershipTransport: CommunityMembershipClient.Transport
     private let timelineTransport: GroupTimelineClient.Transport
+    private let searchTransport: CommunitySearchClient.Transport
 
     init(
         secretStore: any SecretStore = PlatformSecretStore.make(),
+        appSettings: AppSettings = .shared,
         resolverTransport: @escaping CommunityActorResolver.Transport
             = CommunityActorResolver.defaultTransport,
         membershipTransport: @escaping CommunityMembershipClient.Transport
             = CommunityMembershipClient.defaultTransport,
         timelineTransport: @escaping GroupTimelineClient.Transport
-            = GroupTimelineClient.defaultTransport
+            = GroupTimelineClient.defaultTransport,
+        searchTransport: @escaping CommunitySearchClient.Transport
+            = CommunitySearchClient.defaultTransport
     ) {
         self.secretStore = secretStore
+        self.appSettings = appSettings
         self.resolverTransport = resolverTransport
         self.membershipTransport = membershipTransport
         self.timelineTransport = timelineTransport
+        self.searchTransport = searchTransport
     }
 
     /// Records which site this pane talks to and loads the joined-communities ledger from disk.
@@ -164,6 +188,48 @@ final class CommunitiesModel {
         } catch {
             errorMessage = "Couldn't join \(input): \(error)"
         }
+    }
+
+    // MARK: - Discovery (V-5.4, #371)
+
+    /// Reads `appSettings.communitySearchInstance` directly rather than caching it in model state
+    /// — the join sheet's instance field binds to the same `UserDefaults` key via `@AppStorage`,
+    /// so (in production, where `appSettings` is `.shared`) a change there is visible here on the
+    /// very next search with no extra plumbing.
+    var discoveryInstance: String { appSettings.communitySearchInstance }
+
+    func searchDiscovery() async {
+        let query = discoveryQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            discoveryResults = []
+            discoveryErrorMessage = nil
+            return
+        }
+        isSearchingDiscovery = true
+        discoveryErrorMessage = nil
+        defer { isSearchingDiscovery = false }
+        do {
+            let client = CommunitySearchClient(transport: searchTransport)
+            discoveryResults = try await client.search(query: query, instance: discoveryInstance)
+        } catch {
+            discoveryResults = []
+            discoveryErrorMessage = "Couldn't search \(discoveryInstance): \(error)"
+        }
+    }
+
+    /// One-tap join from a search result — routes through the exact same `join()` (and therefore
+    /// `CommunityActorResolver`/`CommunityMembershipClient.follow(target:)`) path #368 already
+    /// ships for a typed handle, just pre-filled from the result's `actorID` instead. Re-resolving
+    /// through `join()` (rather than constructing a `JoinedCommunity` straight from the search
+    /// result) keeps this on the one code path that enforces HTTPS and re-fetches the actor
+    /// document as ground truth, instead of trusting a second, independent copy of that logic.
+    func joinFromDiscovery(_ result: CommunitySearchResult) async {
+        joinHandleText = result.actorID.absoluteString
+        await join()
+        guard errorMessage == nil else { return }
+        discoveryPresented = false
+        discoveryQuery = ""
+        discoveryResults = []
     }
 
     // MARK: - Leave
