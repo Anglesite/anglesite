@@ -214,6 +214,26 @@ final class SiteWindowModel {
     /// every other selection/pane transition. Only surfaces while the main pane shows the preview
     /// (see `inspectorSelection`, added with the component case in this slice).
     var collectionInspection: CollectionInspection?
+    /// The hoisted Component Editor model (#714 slice 3) — created by `ensureComponentEditorLoaded()`
+    /// when the active editor file is an `.astro` component, so the window inspector can host its
+    /// Metadata/Style panes. Survives the Preview/Editor toggle (same lifetime as `activeEditor`'s
+    /// buffer) but only *surfaces* while its file is the open editor pane — see `inspectorSelection`.
+    private(set) var componentEditor: ComponentEditorModel?
+
+    /// What the window inspector is inspecting, in precedence order. Component and collection are
+    /// gated on the pane mode they belong to, so a stale value from an earlier selection can never
+    /// shadow the current one after a pane toggle.
+    var inspectorSelection: InspectorSelection? {
+        if case .editor(let file) = mainPaneMode, let componentEditor,
+           componentEditor.file.id == file.id {
+            return .component(componentEditor)
+        }
+        if case .preview = mainPaneMode, let collectionInspection {
+            return .collection(collectionInspection)
+        }
+        if let inspectorContext { return .page(inspectorContext) }
+        return nil
+    }
 
     init(
         contentGraph: SiteContentGraph,
@@ -515,6 +535,7 @@ final class SiteWindowModel {
         if let model = inspectorContext?.model { Task { await model.save() } }
         inspectorContext = nil
         collectionInspection = nil
+        componentEditor = nil
         mainPaneMode = .preview
     }
 
@@ -558,6 +579,7 @@ final class SiteWindowModel {
         }
         inspectorContext = nil
         collectionInspection = nil
+        componentEditor = nil
         let closeTerminationLease = suddenTerminationLease
             ?? ((editorSaveTask != nil || inspectorWasDirty) ? SuddenTerminationController.shared.acquire() : nil)
         #if ANGLESITE_MAS
@@ -1044,6 +1066,9 @@ final class SiteWindowModel {
         if inspectorContext?.model.file.url == deletedURL {
             inspectorContext = nil
         }
+        if componentEditor?.file.url == deletedURL {
+            componentEditor = nil
+        }
         guard await cleanup.delete(candidate) else { return }
         await navigator?.refreshNow()
         await graphExplorer.refreshNow()
@@ -1108,6 +1133,44 @@ final class SiteWindowModel {
             entryCount: entryCount, feeds: feeds,
             contentTypeName: descriptor?.displayName,
             microformat: descriptor?.projections.microformat)
+    }
+
+    /// Builds the Component Editor's context from current preview state. Mirrors what
+    /// `SiteWindow.mainPaneContent` used to construct inline: `editRouter` is deliberately
+    /// `preview.editRouter` — the registered, chat-history-wired router the preview canvas uses —
+    /// so edits made through either canvas behave identically.
+    private func makeComponentEditorContext(site: SiteStore.Site) -> ComponentEditorContext {
+        ComponentEditorContext(
+            baseURL: preview.readyURL,
+            modelClient: ComponentModelClient(mcpClient: { [preview] in await preview.mcpClient() }),
+            sourceRoot: site.sourceDirectory,
+            site: CurrentSite(site),
+            editRouter: preview.editRouter,
+            onOpenFile: { [weak self] file in self?.openFile(file) },
+            duplicateComponent: { [weak self] relativePath in
+                await self?.duplicateComponent(relativePath: relativePath) ?? .siteNotFound
+            }
+        )
+    }
+
+    /// (Re)builds the hoisted component editor for the active editor file when it is an `.astro`
+    /// component — keyed on (file, dev-server baseURL) exactly like `ComponentEditorView`'s old
+    /// view-local `LoadKey`: a nil→non-nil `readyURL` transition rebuilds the model so the harness
+    /// canvas can load; anything else is idempotent. Clears the editor for non-component files.
+    @MainActor
+    func ensureComponentEditorLoaded() async {
+        guard let site, let file = activeEditorFile,
+              EditorKind.resolve(for: file) == .component else {
+            componentEditor = nil
+            return
+        }
+        if let existing = componentEditor, existing.file.id == file.id,
+           existing.context.baseURL == preview.readyURL {
+            return
+        }
+        let editor = ComponentEditorModel(file: file, context: makeComponentEditorContext(site: site))
+        componentEditor = editor
+        await editor.load()
     }
 
     private func isFrontmatterPage(_ relPath: String) -> Bool {

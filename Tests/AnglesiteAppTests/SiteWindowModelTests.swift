@@ -868,4 +868,89 @@ extension SiteWindowModelTests {
         #expect(model.mainPaneMode == .editor(fileRef))
         #expect(model.activeEditor != nil)
     }
+
+    @Test("ensureComponentEditorLoaded creates the hoisted editor for a component file, idempotently, and rebuilds for a different file")
+    func ensureComponentEditorLifecycle() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = makeModel()
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let card = FileRef(
+            url: package.sourceURL.appendingPathComponent("src/components/Card.astro"),
+            group: .components, name: "Card.astro")
+        model.activeEditor = .text(FileEditorModel(file: card))
+        model.mainPaneMode = .editor(card)
+
+        await model.ensureComponentEditorLoaded()
+        let first = try #require(model.componentEditor)
+        #expect(first.file.id == card.id)
+
+        await model.ensureComponentEditorLoaded()
+        #expect(model.componentEditor === first)
+
+        let badge = FileRef(
+            url: package.sourceURL.appendingPathComponent("src/components/Badge.astro"),
+            group: .components, name: "Badge.astro")
+        model.activeEditor = .text(FileEditorModel(file: badge))
+        model.mainPaneMode = .editor(badge)
+        await model.ensureComponentEditorLoaded()
+        #expect(model.componentEditor !== first)
+        #expect(model.componentEditor?.file.id == badge.id)
+    }
+
+    @Test("ensureComponentEditorLoaded clears the hoisted editor for a non-component file")
+    func ensureComponentEditorClearsForNonComponent() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = makeModel()
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let card = FileRef(
+            url: package.sourceURL.appendingPathComponent("src/components/Card.astro"),
+            group: .components, name: "Card.astro")
+        model.activeEditor = .text(FileEditorModel(file: card))
+        model.mainPaneMode = .editor(card)
+        await model.ensureComponentEditorLoaded()
+        #expect(model.componentEditor != nil)
+
+        let style = FileRef(
+            url: package.sourceURL.appendingPathComponent("src/styles/global.css"),
+            group: .styles, name: "global.css")
+        model.activeEditor = .text(FileEditorModel(file: style))
+        model.mainPaneMode = .editor(style)
+        await model.ensureComponentEditorLoaded()
+        #expect(model.componentEditor == nil)
+    }
+
+    @Test("inspectorSelection surfaces the component editor only while its file is the open editor pane")
+    func inspectorSelectionComponentGating() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = makeModel()
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let card = FileRef(
+            url: package.sourceURL.appendingPathComponent("src/components/Card.astro"),
+            group: .components, name: "Card.astro")
+        model.activeEditor = .text(FileEditorModel(file: card))
+        model.mainPaneMode = .editor(card)
+        await model.ensureComponentEditorLoaded()
+
+        guard case .component = model.inspectorSelection else {
+            Issue.record("expected .component while the component file is the open editor")
+            return
+        }
+        // The model survives the Preview toggle (same lifetime as the editor buffer) but stops
+        // surfacing as the inspector's subject.
+        model.mainPaneMode = .preview
+        #expect(model.componentEditor != nil)
+        #expect(model.inspectorSelection == nil)
+    }
 }

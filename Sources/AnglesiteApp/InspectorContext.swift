@@ -40,3 +40,13 @@ enum InspectorContext: Identifiable {
     }
     var id: String { model.file.id }
 }
+
+/// The unified inspector's current subject (#714 slice 3): the page selected in the navigator,
+/// the component open in the main pane, or the collection (directory) row selected in the
+/// sidebar. Derived on `SiteWindowModel` (`inspectorSelection`) from the three stored sources.
+@MainActor
+enum InspectorSelection {
+    case page(InspectorContext)
+    case component(ComponentEditorModel)
+    case collection(CollectionInspection)
+}
