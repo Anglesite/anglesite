@@ -1,0 +1,78 @@
+---
+import { Schema } from "astro-seo-schema";
+import BaseLayout from "./BaseLayout.astro";
+import { resumeSchema, type ResumeData } from "../lib/schema.ts";
+
+interface Props {
+  resume: ResumeData;
+}
+
+const { resume } = Astro.props;
+const experience = resume.experience ?? [];
+const education = resume.education ?? [];
+const skills = resume.skills ?? [];
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
+const jsonLd = resumeSchema(resume, { url: canonical, site: Astro.site });
+---
+
+<BaseLayout
+  title={resume.name ? `${resume.name} — Resume` : "Resume"}
+  description={resume.summary}
+>
+  <Schema slot="head" item={jsonLd} />
+  <article class="h-resume">
+    {resume.name && <h1 class="p-name">{resume.name}</h1>}
+    {resume.summary && <p class="p-summary">{resume.summary}</p>}
+
+    {experience.length > 0 && (
+      <section aria-labelledby="resume-experience-heading">
+        <h2 id="resume-experience-heading">Experience</h2>
+        <ul>
+          {experience.map((entry) => (
+            <li class="p-experience h-event">
+              {entry.title && <span class="p-name">{entry.title}</span>}
+              {entry.organization && (
+                <>
+                  {" at "}
+                  <span class="p-org h-card"><span class="p-name">{entry.organization}</span></span>
+                </>
+              )}
+              {entry.startDate && <time class="dt-start" datetime={entry.startDate}>{entry.startDate}</time>}
+              {entry.endDate && <time class="dt-end" datetime={entry.endDate}>{entry.endDate}</time>}
+              {entry.description && <p class="p-summary">{entry.description}</p>}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    {education.length > 0 && (
+      <section aria-labelledby="resume-education-heading">
+        <h2 id="resume-education-heading">Education</h2>
+        <ul>
+          {education.map((entry) => (
+            <li class="p-education h-event">
+              {entry.degree && <span class="p-name">{entry.degree}</span>}
+              {entry.institution && (
+                <>
+                  {" at "}
+                  <span class="p-org h-card"><span class="p-name">{entry.institution}</span></span>
+                </>
+              )}
+              {entry.startDate && <time class="dt-start" datetime={entry.startDate}>{entry.startDate}</time>}
+              {entry.endDate && <time class="dt-end" datetime={entry.endDate}>{entry.endDate}</time>}
+              {entry.description && <p class="p-summary">{entry.description}</p>}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    {skills.length > 0 && (
+      <section aria-labelledby="resume-skills-heading">
+        <h2 id="resume-skills-heading">Skills</h2>
+        <ul>{skills.map((skill) => <li class="p-skill">{skill}</li>)}</ul>
+      </section>
+    )}
+  </article>
+</BaseLayout>
