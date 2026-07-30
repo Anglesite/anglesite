@@ -596,6 +596,15 @@ final class DeployModel {
                     onPreflight: { [weak self] outcome in
                         Task { @MainActor in self?.onScanComplete?(outcome) }
                     },
+                    // Unlike `onPreflight`/`onProgress` (fire-and-forget display state), this
+                    // value is read back synchronously in the `.succeeded` case below to decide
+                    // the URL swap and the conflict sheet — so the MainActor hop here has an
+                    // implicit happens-before dependency, not just a display one. It holds today
+                    // only because MainActor drains equal-priority jobs FIFO and several real
+                    // `await`s (`uploadSourceBundleIfConfigured`, `runPostDeploySequencing`, the
+                    // `SiteConfigStore` load) sit between this closure firing and that read — there
+                    // is no structural guarantee. If those intervening `await`s are ever shortened
+                    // or removed, this needs an explicit wait instead of relying on scheduling.
                     onDomainAttach: { [weak self] outcome in
                         Task { @MainActor in self?.domainAttachStatus = outcome }
                     },
@@ -721,13 +730,20 @@ final class DeployModel {
             // instead. `resolveSiteURL` already prefers `.site-config`'s DOMAIN unconditionally
             // (it's written at scaffold time regardless of attach status), so this must stay gated
             // on `domainAttachStatus == .confirmed` — otherwise a not-yet-connected domain would be
-            // presented as if it were already live.
+            // presented as if it were already live. This read relies on the `onDomainAttach`
+            // ordering note above (its MainActor hop having already landed by the time execution
+            // reaches here).
             var displayURL = url
             if case .confirmed = domainAttachStatus,
                let customHost = DeployCoordinator.resolveSiteURL(siteDirectory: siteDirectory),
                let customURL = URL(string: customHost) {
                 displayURL = customURL
             }
+            // `domainConflictPresented` only drives the one-time sheet, gated to foreground
+            // deploys like `workerNameConflictPresented`. A background/automatic deploy's conflict
+            // still needs to reach the user, though — `DeployDrawerView`'s `.conflict` caption
+            // (mirroring the `.notConnected` one) reads `domainAttachStatus` directly and isn't
+            // gated on `presentation`, so the outcome survives even when this sheet never fires.
             if case .conflict = domainAttachStatus {
                 domainConflictPresented = presentation == .foreground
             }
