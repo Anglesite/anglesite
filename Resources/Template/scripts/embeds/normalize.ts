@@ -18,12 +18,17 @@ const ENTITIES: Record<string, string> = {
  * might not escape its output. Escaping at render (`src/lib/embed-card.ts`) remains the actual
  * security boundary; this is defence in depth. Terminates because each pass strictly shortens
  * the string or leaves it unchanged.
+ *
+ * Only treats `<` as a tag opener when followed by a name character, `/`, `!`, or `?` — a bare
+ * `<` in prose (`2 < 3`, `5<10`) has no tag-shaped follower, so it's left alone instead of
+ * swallowing everything up to the next unrelated `>` (#986). This can't distinguish every case
+ * (`<b >` with a space, or an attribute value containing `>`) — that would need a real parser.
  */
 function stripTags(input: string): string {
   let out = input;
   for (let previous = ""; out !== previous; ) {
     previous = out;
-    out = out.replace(/<[^>]*>/g, "");
+    out = out.replace(/<[A-Za-z/!?][^>]*>/g, "");
   }
   return out;
 }

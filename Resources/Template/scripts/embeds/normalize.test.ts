@@ -194,8 +194,17 @@ test("htmlToText: no tag-like residue survives nested or malformed markup", () =
     assert.ok(!tagLike.test(htmlToText(input)), `${input} -> ${htmlToText(input)}`);
   }
   assert.equal(htmlToText("<img src=x onerror=y>safe"), "safe");
-  // Known, pre-existing lossiness (not introduced by the tag-strip loop): an unescaped `<`
-  // in prose swallows everything up to the next `>`, so "2 < 3 and 4 > 1" becomes "2 1".
-  // Platform APIs escape these as &lt;/&gt;, which decode after stripping and survive intact.
   assert.equal(htmlToText("2 &lt; 3 and 4 &gt; 1"), "2 < 3 and 4 > 1");
+});
+
+test("htmlToText: a bare < in prose is not mistaken for a tag opener (#986)", () => {
+  // A `<` not followed by a tag-shaped character (a name, `/`, `!`, or `?`) is prose, not
+  // markup — it must survive along with the text after it, instead of swallowing everything
+  // up to the next unrelated `>`.
+  assert.equal(htmlToText("2 < 3 and 4 > 1"), "2 < 3 and 4 > 1");
+  assert.equal(htmlToText("5<10 but 20>15"), "5<10 but 20>15");
+  assert.equal(htmlToText("a < b"), "a < b");
+  // A `<` immediately followed by a letter still reads as a (fake) tag and is stripped —
+  // this heuristic can't perfectly distinguish prose from markup, only improve on it.
+  assert.equal(htmlToText("x <y> z"), "x z");
 });
