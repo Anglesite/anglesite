@@ -2,185 +2,34 @@ import SwiftUI
 import WebKit
 import AnglesiteCore
 
-/// Right pane: the selected node's attributes, the Props form, the Code pane
-/// (`ComponentEditorCodePane`), conflict/write-error banners, the Styles panel (grouped-by-media
-/// declaration editing), and Computed values.
+/// Style tab of the unified inspector while a component is open (#714 slice 3): the component's
+/// scoped style rules (grouped by media, editable) and the selected element's computed values.
+/// Extracted from the retired in-pane `ComponentEditorInspectorPane`; the transient add-rule and
+/// collapse state is owned here.
 ///
-/// The draft dictionaries backing every editable field here (selector/property/value/attribute
-/// drafts, the props/code drafts), the dirty checks that gate the Save buttons, and the
-/// `ColorPicker` commit debounce all live on `ComponentEditorModel` (#824) — this view only reads
-/// them through the model's `…Draft(for:)` accessors, writes keystrokes back through the matching
-/// `set…Draft` calls, and triggers a commit on submit/blur/explicit Save.
-///
-/// `webView` is read-only here (threaded down from `ComponentEditorCanvasPane` via the parent
-/// view) — used only to push a live scrub preview while a `ColorPicker` drags; the model has no
-/// webview handle of its own.
-struct ComponentEditorInspectorPane: View {
+/// `webView` is read-only — the harness canvas's live handle, used only to push a live scrub
+/// preview while a `ColorPicker` drags; the model has no webview handle of its own.
+struct ComponentStyleInspectorPane: View {
     @Bindable var model: ComponentEditorModel
     var webView: WKWebView?
-    @Binding var codeZone: ComponentEditorModel.CodeZone
-    @Binding var newRuleSelector: String
-    @Binding var newRuleMedia: String
-    @Binding var collapsedMediaKeys: Set<String>
-    @Binding var newAttrName: String
-    @Binding var newAttrValue: String
+    @State private var newRuleSelector: String = ""
+    @State private var newRuleMedia: String = ""
+    @State private var collapsedMediaKeys: Set<String> = []
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                if let node = model.selectedNode {
-                    selectionGroup(node: node)
-                }
-                propsForm
-                ComponentEditorCodePane(model: model, codeZone: $codeZone)
                 if model.conflict {
-                    conflictBanner
+                    ComponentConflictBanner(model: model)
                 }
                 if let writeError = model.writeError {
-                    writeErrorBanner(message: writeError)
+                    ComponentWriteErrorBanner(model: model, message: writeError)
                 }
                 stylesGroup
                 computedGroup
             }
             .padding(10)
         }
-    }
-
-    // MARK: - Selection / attributes
-
-    private func selectionGroup(node: ComponentModel.Node) -> some View {
-        GroupBox("Selection") {
-            LabeledContent("Kind", value: node.kind.rawValue)
-            if let tag = node.tag { LabeledContent("Tag", value: tag) }
-            ForEach(node.attrs, id: \.name) { attr in
-                HStack(spacing: 4) {
-                    Text(attr.name).font(.system(.caption, design: .monospaced)).frame(width: 90, alignment: .leading)
-                    TextField("value", text: attrValueBinding(node: node, name: attr.name))
-                        .font(.system(.caption, design: .monospaced))
-                        .textFieldStyle(.plain)
-                        .onSubmit { model.commitAttr(node: node, name: attr.name) }
-                    Button(role: .destructive) {
-                        model.removeAttr(node: node, name: attr.name)
-                    } label: {
-                        Image(systemName: "minus.circle")
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            HStack {
-                TextField("New attribute name", text: $newAttrName)
-                    .font(.system(.caption, design: .monospaced))
-                TextField("value", text: $newAttrValue)
-                    .font(.system(.caption, design: .monospaced))
-                Button("Add") {
-                    let name = newAttrName.trimmingCharacters(in: .whitespaces)
-                    guard !name.isEmpty else { return }
-                    Task {
-                        await model.setAttr(nodeId: node.id, name: name, value: newAttrValue)
-                        newAttrName = ""
-                        newAttrValue = ""
-                    }
-                }
-                .disabled(newAttrName.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-        }
-    }
-
-    private func attrValueBinding(node: ComponentModel.Node, name: String) -> Binding<String> {
-        Binding(
-            get: { model.attrValueDraft(node: node, name: name) },
-            set: { model.setAttrValueDraft($0, node: node, name: name) }
-        )
-    }
-
-    // MARK: - Props form
-
-    /// Structured Props form (design spec §4.3): the component's `Props` interface as
-    /// name/type/optional/default rows, independent of outline selection — props belong to the
-    /// component as a whole, not to any one template node. Edits accumulate in
-    /// `model.propsDraft` and commit together via "Save Props".
-    private var propsForm: some View {
-        GroupBox("Props") {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach($model.propsDraft) { $prop in
-                    HStack(spacing: 4) {
-                        TextField("name", text: $prop.name)
-                            .font(.system(.caption, design: .monospaced))
-                            .frame(width: 80)
-                        TextField("type", text: $prop.type)
-                            .font(.system(.caption, design: .monospaced))
-                            .frame(width: 70)
-                        Toggle("optional", isOn: $prop.optional)
-                            .labelsHidden()
-                            .help("Optional")
-                        TextField("default", text: $prop.defaultValue)
-                            .font(.system(.caption, design: .monospaced))
-                        Button(role: .destructive) {
-                            model.propsDraft.removeAll { $0.id == prop.id }
-                        } label: {
-                            Image(systemName: "minus.circle")
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                HStack {
-                    Button("Add Prop") {
-                        model.propsDraft.append(ComponentEditorModel.PropDraft(name: "", type: "string", optional: false, defaultValue: ""))
-                    }
-                    .font(.caption2)
-                    .buttonStyle(.plain)
-                    Spacer()
-                    Button("Save Props") {
-                        Task { await model.savePropsDraft() }
-                    }
-                    .disabled(!model.propsDraftDirty)
-                }
-            }
-        }
-    }
-
-    // MARK: - Banners
-
-    /// "This component changed outside Anglesite" banner — the edit that triggered a stale-write
-    /// refusal was never applied; `ComponentEditorModel.applyComponentStyleEdit` already reloaded
-    /// the latest version, so this just informs the user why their change didn't stick.
-    private var conflictBanner: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(.orange)
-            Text("This component changed outside Anglesite — your edit wasn't applied, reloaded the latest version.")
-                .font(.caption)
-            Spacer()
-            Button {
-                model.conflict = false
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-        }
-        .padding(8)
-        .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
-    }
-
-    /// Transient, non-fatal banner for a style write op that failed for a reason other than
-    /// staleness (invalid value, drifted `ruleSpan`, transient MCP error). Scoped to this pane so
-    /// a routine write failure never takes over the whole editor (see `ComponentEditorModel
-    /// .writeError`'s doc comment).
-    private func writeErrorBanner(message: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle").foregroundStyle(.red)
-            Text(message).font(.caption)
-            Spacer()
-            Button {
-                model.writeError = nil
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-        }
-        .padding(8)
-        .background(.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
     }
 
     // MARK: - Styles panel

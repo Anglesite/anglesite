@@ -2,7 +2,11 @@
 
 **Date:** 2026-07-13
 **Issue:** [#714](https://github.com/Anglesite/Anglesite-app/issues/714)
-**Status:** Approved by DWK 2026-07-13
+**Status:** Approved by DWK 2026-07-13. Amended 2026-07-30 (approved by DWK):
+§4 redesigned as the *unified* inspector — the window inspector becomes the only
+inspector, following the selection (element, page, or collection); §6's
+main-pane Collection Settings surface is dropped in favor of an inspector
+collection context, shrinking slice 2 to Website Settings only.
 
 ## Goal
 
@@ -14,7 +18,9 @@ Reshape the per-site window toward the Apple Pages model the issue references:
   main editor (§7); below it, `index.html` pinned first, then other HTML pages,
   then subdirectories. Differentiated icons for directories with an RSS feed
   (collections) vs. without, and for HTML files. Images, CSS, and JS are hidden.
-- **Right inspector** — tabbed **Metadata | Style** for the current selection.
+- **Right inspector** — tabbed **Metadata | Style** for the current selection,
+  where "selection" is an HTML element on the page, the page itself, or a
+  collection (a feed-bearing directory such as the blog).
 - **Toolbar** — common editing tools by default; site operations recede to the
   customization palette and menus.
 - **Icons** — SF Symbols wherever a fitting one exists; where none does, an art
@@ -32,11 +38,11 @@ Explicitly out of scope here, by decision on 2026-07-13:
   entry (§7), so removing the Components / Styles / Metadata sidebar sections no
   longer strands them — but richer, selection-driven entry (click an element,
   land in its owning component) remains a next-phase design.
-- **Editable directory settings.** §6's settings surface is read-mostly in v1;
-  making template, feed, and sitemap configuration *writable* requires template
-  code changes and lands with the deferred phase.
-- **Sitemap generation.** The template generates no sitemap today; the settings
-  surface reports "Not configured".
+- **Editable collection settings.** §6's inspector collection context is
+  read-mostly in v1; making template, feed, and sitemap configuration
+  *writable* requires template code changes and lands with the deferred phase.
+- **Sitemap generation.** The template generates no sitemap today; the
+  collection context reports "Not configured".
 - **Style-tab write operations.** Gated on Component Editor slice 2 (#492), which
   is itself gated on plugin zone-filter fixtures (Anglesite/anglesite#411).
 
@@ -108,9 +114,11 @@ Rules:
 
 - `.route(String)` — unchanged: pages and entries navigate the preview and
   populate the inspector.
-- `.directory(collection: String?, route: String)` — new: opens the directory
-  settings surface in the main pane (§6). `collection` is set for
-  `src/content`-backed directories, nil for plain nested page folders.
+- `.directory(collection: String?, route: String)` — new: navigates the
+  preview to the directory's route and populates the inspector with the
+  collection context (§6). `collection` is set for `src/content`-backed
+  directories, nil for plain nested page folders. *(Amended 2026-07-30 — the
+  original design opened a main-pane settings surface instead.)*
 - `.websiteSettings` — new: the website-title row; opens the Website Settings
   surface in the main pane (§7).
 - `.file(FileRef)` — retained for the editor pipeline; no sidebar row produces
@@ -154,19 +162,49 @@ briefs a custom SF Symbol: a `folder` silhouette carrying an RSS badge
 (quarter-arcs + dot) at bottom-trailing, drawn on the SF Symbols app template so
 it tracks weights and the three scales, in monochrome + hierarchical renditions.
 
-## 4. Inspector: Metadata | Style tabs
+## 4. Inspector: one unified inspector, Metadata | Style tabs
 
-- `PageInspectorView` gains a Pages-style segmented control (**Metadata | Style**)
-  above the existing chrome. Selected tab persists per window via
-  `@SceneStorage("siteInspector.tab")`.
-- **Metadata tab** — exactly today's content: `InspectorChrome` wrapping
-  `TypedEntryForm`, `PageMetadataForm`, or (since #1100) the read-only
-  `GenericPageInfoForm` fallback for a routed page with neither, including
-  dirty/Save, off-main load, and the external-change conflict alert.
-- **Style tab (v1)** — a "styles for the current selection" surface: hosts the
-  Component Editor's styles panel when an element selection exists, otherwise a
-  `ContentUnavailableView` ("Select something on the page"). Write operations
-  deepen with #492; this slice ships the tab shell and selection plumbing only.
+*(Amended 2026-07-30 — supersedes the original "tab shell only" §4.)*
+
+The window `.inspector` becomes the **only** inspector, always answering
+"what's selected?". A selection is one of three kinds: an **HTML element** on
+the page, the **page** itself, or a **collection** (feed-bearing directory).
+A Pages-style segmented control (**Metadata | Style**) sits above the content;
+the selected tab persists per window via `@SceneStorage("siteInspector.tab")`.
+
+Per selection kind:
+
+| Selection | Metadata tab | Style tab |
+|---|---|---|
+| HTML element (Component Editor canvas today; preview later) | selection summary + Props form | Styles + Computed groups, with the style-write conflict/error banners |
+| Page (routed page in the navigator) | today's content: `InspectorChrome` wrapping `TypedEntryForm`, `PageMetadataForm`, or the read-only `GenericPageInfoForm` fallback (#1100), incl. dirty/Save, off-main load, and the external-change conflict alert | `ContentUnavailableView` ("Select something on the page") until preview-page element selection lands (next phase) |
+| Collection (directory row) | content type, entry count, detected feeds, template, sitemap status (§6) | `ContentUnavailableView` |
+
+Structural changes this requires:
+
+- **Component Editor inspector unification.** The in-pane `HSplitView`
+  inspector column (`ComponentEditorInspectorPane`) is removed; outline and
+  canvas absorb the space. Its sections are extracted into standalone views
+  (owning their own transient form state) and hosted by the window inspector:
+  Props under Metadata, Styles + Computed under Style. The per-selection code
+  zone is dropped from the inspector — the Design/Source mode picker already
+  covers source editing.
+- **Model hoisting.** `ComponentEditorModel` moves from `ComponentEditorView`'s
+  view-local `@State` to `SiteWindowModel` ownership: the editor-pane's
+  activation task creates/rebuilds it keyed on (file, dev-server URL) — the
+  same identity the old view-local load key watched (its context dependencies
+  — preview `readyURL`, MCP client, shared edit router — are already reachable
+  on the window model). It survives Preview/Editor mode toggles (same lifetime
+  as the editor buffer's usefulness, not `activeEditor` itself) and is torn
+  down only on site change, window close, or the open component being
+  deleted. `ComponentEditorView` receives the model.
+- **Presentation gate.** The inspector shows when *any* selection context
+  exists (page inspector context, component editor model, or collection
+  context) instead of clearing on `openFile`; the toolbar toggle enables
+  accordingly.
+
+Style-tab write operations beyond what the Component Editor styles panel does
+today deepen with #492.
 
 ## 5. Toolbar: editing tools default, ops recede
 
@@ -184,10 +222,15 @@ changes — plus one new frozen ID:
 
 `SiteToolbarItemIDTests` extends to cover the new ID and the new default set.
 
-## 6. Directory settings (main pane)
+## 6. Collection properties (inspector)
 
-Selecting a directory row opens a **Collection Settings** surface in the main
-pane (a new `mainPaneMode`-adjacent editor view, like `PlistEditorView`):
+*(Amended 2026-07-30 — the original design put these in a main-pane
+"Collection Settings" surface; they are inspector-shaped selection properties,
+so they live in the inspector's collection context instead. There is no
+main-pane surface.)*
+
+Selecting a directory row navigates the preview to the directory's route and
+populates the inspector's **Metadata** tab with:
 
 - Content type (registry `displayName`) and entry count.
 - Detected feeds — RSS / Atom / JSON, probed from
@@ -198,9 +241,10 @@ pane (a new `mainPaneMode`-adjacent editor view, like `PlistEditorView`):
 - Sitemap status ("Not configured" until the template gains one).
 
 v1 is read-mostly; editability is deferred (see Non-goals). Plain nested page
-folders (no collection) show the page list and route only. A directory
-selection clears the inspector context (as non-route selections do today) —
-directory configuration lives in this main-pane surface, not the inspector.
+folders (no collection) show route and entry count, plus the always-present
+Feeds section (empty, so "No feeds") and Sitemap row ("Not configured") — no
+content-type or template row, since those are only shown when the directory
+resolves to a registered collection.
 
 ## 7. Website Settings (main pane)
 
@@ -219,8 +263,9 @@ site-wide. Three sections:
 
 This is where the content of the removed Components / Styles / Metadata sidebar
 sections lands: browsing moves out of the navigator into a settings surface,
-while the editors themselves are unchanged. Like a directory selection, the
-website row clears the inspector context.
+while the editors themselves are unchanged. The website row clears the
+inspector context — it is a browsing hub, not a selection. (Directory rows, by
+contrast, populate the inspector per the amended §6.)
 
 Slice 1 wires the row to the existing `PlistEditorView` (exactly what the old
 metadata row opened) so nothing is stranded; the full three-section surface
@@ -232,15 +277,18 @@ ships in slice 2.
    AnglesiteCore; `SiteNavigatorView`/`SiteNavigatorModel` swap to the tree;
    website-title row (interim: opens `PlistEditorView`); icons + composite feed
    badge; Cleanup moves to Site menu; art brief committed.
-2. **Settings surfaces** — the full Website Settings surface (§7) and the
-   Collection Settings surface (§6) behind the `.websiteSettings` and
-   `.directory` targets.
-3. **Inspector tabs** — segmented Metadata | Style, Style-tab shell.
+2. **Website Settings surface** — the full main-pane Website Settings surface
+   (§7) behind the `.websiteSettings` target. *(Amended 2026-07-30: the
+   Collection Settings surface moved to slice 3's inspector collection
+   context.)*
+3. **Unified inspector** — segmented Metadata | Style tabs; Component Editor
+   inspector unification (model hoisting, in-pane column removal, section
+   extraction); collection context for `.directory` selections (§6).
 4. **Toolbar re-curation** — `insert` item, default set change, demotions.
 
-Each slice is independently shippable. Slice 2 depends on slice 1 (its
-selection targets exist only in the new tree); slices 3 and 4 are fully
-independent of the others and of each other.
+Each slice is independently shippable. Slices 2 and 3 depend on slice 1
+(their selection targets exist only in the new tree); slice 4 is fully
+independent of the others.
 
 ## Testing
 
@@ -251,6 +299,12 @@ independent of the others and of each other.
   collection/slug routes, empty site.
 - Feed-probe tests against fixture directory layouts.
 - `SiteNavigatorModel` tests updated for tree output and `.directory` selection.
+- `SiteWindowModel` tests for the unified-inspector gate and
+  `ComponentEditorModel` lifecycle: opening a component creates the model;
+  toggling to Preview and back keeps it (only the inspector's *surfacing* of
+  it toggles); `.directory` selection populates the collection context; route selection
+  restores the page context. Existing `ComponentEditorModel` behavior tests
+  survive the hoisting unchanged.
 - `SiteToolbarItemIDTests` updated for `insert` + new defaults.
 - Full `swift test` before push (several suites string-match template markup).
 
@@ -264,6 +318,14 @@ independent of the others and of each other.
   routes, badges silently vanish. The probe is one function with fixture tests,
   so the coupling is cheap to update; a registry-level feed flag is the likely
   next-phase home.
+- **`ComponentEditorModel` hoisting is the load-bearing refactor (slice 3):**
+  moving the model from view-local `@State` to `SiteWindowModel` changes its
+  lifecycle owner; the canvas/outline wiring must keep working across
+  main-pane mode changes and window teardown. Mitigated by keeping the
+  existing model behavior tests green and adding lifecycle tests.
+- **Inspector width shift:** the window inspector is 260–420 pt where the
+  in-pane column was 220–260 pt; the extracted sections were built for narrow
+  widths, so this is cosmetic only.
 - **Slug-keyed Post IDs:** `SiteContentGraph.Post.id` is keyed by slug only;
   identical slugs across collections would collide in the tree exactly as they
   do in today's navigator — no new exposure, noted for the next-phase registry

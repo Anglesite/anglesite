@@ -91,6 +91,41 @@ public enum SiteFileTree {
         return result
     }
 
+    /// One feed route a collection ships — `/notes/rss.xml` etc. `Kind.rawValue` is the route's
+    /// filename so probe path and preview route can't drift apart.
+    public struct DetectedFeed: Sendable, Equatable, Identifiable {
+        public enum Kind: String, Sendable, CaseIterable {
+            case rss = "rss.xml"
+            case atom = "atom.xml"
+            case json = "feed.json"
+        }
+        public let kind: Kind
+        public let collection: String
+        public var route: String { "/\(collection)/\(kind.rawValue)" }
+        public var id: String { route }
+
+        public init(kind: Kind, collection: String) {
+            self.kind = kind
+            self.collection = collection
+        }
+    }
+
+    /// All feed routes one collection ships, probed the way `feedCollections` probes RSS: the
+    /// template materializes `src/pages/<collection>/{rss.xml,atom.xml,feed.json}.ts` per
+    /// feed-bearing collection, so existence of the `.ts` route module is the signal (#714 §6).
+    public static func detectedFeeds(
+        siteRoot: URL, collection: String, fileManager: FileManager = .default
+    ) -> [DetectedFeed] {
+        let dir = layout(for: siteRoot, fileManager: fileManager)
+            .sourceDir.appendingPathComponent("src/pages").appendingPathComponent(collection)
+        return DetectedFeed.Kind.allCases.compactMap { kind in
+            let module = dir.appendingPathComponent("\(kind.rawValue).ts")
+            return fileManager.fileExists(atPath: module.path(percentEncoded: false))
+                ? DetectedFeed(kind: kind, collection: collection)
+                : nil
+        }
+    }
+
     /// Recursively lists files under `dir`, skipping excluded dirs/files. Returns [] if `dir` is absent.
     private static func files(in dir: URL, group: FileGroup, fileManager: FileManager) -> [FileRef] {
         guard let enumerator = fileManager.enumerator(

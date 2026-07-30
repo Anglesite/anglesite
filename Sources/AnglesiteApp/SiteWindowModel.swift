@@ -210,6 +210,34 @@ final class SiteWindowModel {
     /// The right-hand inspector's current target (typed entry or plain page), or nil when the
     /// selection has no editable metadata. Set by `applyNavigatorSelection`.
     var inspectorContext: InspectorContext?
+    /// The inspector's collection context — set by a `.directory` navigator selection, cleared by
+    /// every other selection/pane transition. Only surfaces while the main pane shows the preview
+    /// (see `inspectorSelection`, added with the component case in this slice).
+    var collectionInspection: CollectionInspection?
+    /// The hoisted Component Editor model (#714 slice 3) — created/rebuilt by
+    /// `ensureComponentEditorLoaded()` when the active editor file is an `.astro` component, so
+    /// the window inspector can host its Metadata/Style panes. It does NOT share `activeEditor`'s
+    /// lifetime: route/pane transitions `nil` `activeEditor` (e.g. switching to Preview or to a
+    /// non-component file) while this is retained, so it survives those round-trips and only
+    /// *surfaces* while its file is the open editor pane — see `inspectorSelection`. It's replaced
+    /// when a different component opens or the dev-server URL changes, and torn down on site
+    /// change, window close, or the open component being deleted out from under it.
+    private(set) var componentEditor: ComponentEditorModel?
+
+    /// What the window inspector is inspecting, in precedence order. Component and collection are
+    /// gated on the pane mode they belong to, so a stale value from an earlier selection can never
+    /// shadow the current one after a pane toggle.
+    var inspectorSelection: InspectorSelection? {
+        if case .editor(let file) = mainPaneMode, let componentEditor,
+           componentEditor.file.id == file.id {
+            return .component(componentEditor)
+        }
+        if case .preview = mainPaneMode, let collectionInspection {
+            return .collection(collectionInspection)
+        }
+        if let inspectorContext { return .page(inspectorContext) }
+        return nil
+    }
 
     init(
         contentGraph: SiteContentGraph,
@@ -306,6 +334,7 @@ final class SiteWindowModel {
     func showGraph() async -> Bool {
         guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return false }
         inspectorContext = nil
+        collectionInspection = nil
         mainPaneMode = .graph
         return true
     }
@@ -317,6 +346,7 @@ final class SiteWindowModel {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
             inspectorContext = nil
+            collectionInspection = nil
             mainPaneMode = .cleanup
         }
     }
@@ -328,6 +358,7 @@ final class SiteWindowModel {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
             inspectorContext = nil
+            collectionInspection = nil
             mainPaneMode = .reader
         }
     }
@@ -339,6 +370,7 @@ final class SiteWindowModel {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
             inspectorContext = nil
+            collectionInspection = nil
             mainPaneMode = .followers
         }
     }
@@ -350,6 +382,7 @@ final class SiteWindowModel {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
             inspectorContext = nil
+            collectionInspection = nil
             mainPaneMode = .communities
         }
     }
@@ -505,6 +538,8 @@ final class SiteWindowModel {
         // the edits. Last-writer-wins, matching the .text/.plist teardown above.
         if let model = inspectorContext?.model { Task { await model.save() } }
         inspectorContext = nil
+        collectionInspection = nil
+        componentEditor = nil
         mainPaneMode = .preview
     }
 
@@ -547,6 +582,8 @@ final class SiteWindowModel {
             Task { await model.save() }
         }
         inspectorContext = nil
+        collectionInspection = nil
+        componentEditor = nil
         let closeTerminationLease = suddenTerminationLease
             ?? ((editorSaveTask != nil || inspectorWasDirty) ? SuddenTerminationController.shared.acquire() : nil)
         #if ANGLESITE_MAS
@@ -839,12 +876,40 @@ final class SiteWindowModel {
         switch target {
         case .route(let route):
             Task {
+                // Captured before any `await` below, so a faster subsequent selection changing
+                // `navigator.selection` in the meantime can't be mistaken for this task's own
+                // request — same reasoning as the `.directory` branch below (#714 final review,
+                // Important 3 follow-up).
+                let requestedID = id
                 guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
-                // Content entry → preview in the center; its metadata in the inspector.
+                let context = await makeInspectorContext(forNavigatorID: id)
+                // `makeInspectorContext` awaits real work, a suspension point a faster subsequent
+                // selection (e.g. a `.directory` pick) can land in during. That branch's own guard
+                // stops IT from clobbering a newer selection, but this branch's unconditional
+                // `collectionInspection = nil` was the unguarded mirror image: `.route` outranks
+                // nothing, but its stale `nil` would still wipe out a newer `.directory`
+                // selection's just-assigned `collectionInspection` once this task resumed. Bail
+                // unless this is still the live selection (same `navigator?.selection` liveness
+                // check as `.directory`), and skip the related-pages load below too — a stale
+                // selection shouldn't populate that either.
+                guard navigator?.selection == requestedID else { return }
+                // One synchronous transaction — every flip below lands together, AFTER the awaits
+                // above, so `inspectorSelection` never passes through a transient nil between the
+                // old context and this one. `activeEditor`/`mainPaneMode` used to flip to Preview
+                // *before* awaiting `makeInspectorContext`, which (with a component inspector
+                // showing in editor mode) opened exactly that nil window: `inspectorSelection`
+                // reads nil while the old `.component` context is gone and the new page context
+                // hasn't landed yet, the live `.inspector` panel's presentation gate reads that as
+                // "nothing to show" and auto-dismisses, and SwiftUI's asynchronous write-back of
+                // `isPresented = false` can land AFTER this task resumes — permanently persisting
+                // `inspectorShown = false` even though the page context ends up correct (the
+                // presentation-binding setter race, #968/#969; found here in #714 slice-3 GUI
+                // smoke). See the `.directory` branch below for the mirror case.
                 activeEditor = nil
                 mainPaneMode = .preview
                 if route.isEmpty || route == "/" { preview.clearRoute() } else { preview.navigate(toRoute: route) }
-                inspectorContext = await makeInspectorContext(forNavigatorID: id)
+                inspectorContext = context
+                collectionInspection = nil
                 // Load related-page suggestions for the newly selected page.
                 if let siteID = site?.id {
                     let filePath: String?
@@ -870,15 +935,45 @@ final class SiteWindowModel {
             let layout = SiteFileTree.layout(for: site.packageURL)
             guard let infoPlist = layout.infoPlist else { return }
             openFile(FileRef(url: infoPlist, group: .metadata, name: "Info.plist"))
-        case .directory(_, let route):
-            // Slice-1 interim: show the directory in the preview (its index page if one exists).
-            // Slice 2 replaces this with the Collection Settings surface (spec §6).
+        case .directory(let collection, let route):
+            // #714 slice 3 (§6): a directory shows its route in the preview and its properties
+            // (type, entries, feeds, template) in the inspector's collection context.
             Task {
+                // Captured before any `await` below, so a faster subsequent selection changing
+                // `navigator.selection` in the meantime can't be mistaken for this task's own
+                // request (#714 final review, Important 3).
+                let requestedID = id
                 guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
+                let inspection = await makeCollectionInspection(
+                    collection: collection, route: route, navigatorID: id)
+                // `makeCollectionInspection` awaits the content-graph actor and, for a real
+                // collection, a detached feed probe — real suspension points a faster subsequent
+                // selection (e.g. a `.route` pick) can land in between. `.collection` outranks
+                // `.page` in `inspectorSelection`, so an unguarded assignment here would silently
+                // shadow that newer selection's page context once this stale task resumes. Bail
+                // unless this is still the live selection — `navigator?.selection` is the same
+                // signal `SiteNavigatorView`'s List binding drives and `SiteWindow`'s
+                // `.onChange(of: navigator.selection)` reacts to, so it always reflects the
+                // current selection by the time we get here.
+                guard navigator?.selection == requestedID else { return }
+                // One synchronous transaction — every flip below lands together, AFTER the awaits
+                // above, so `inspectorSelection` never passes through a transient nil between the
+                // old context and `.collection`. These used to flip to Preview (nil-ing
+                // `inspectorContext`) *before* awaiting `makeCollectionInspection`, which opened
+                // exactly that nil window: `inspectorSelection` reads nil while the old context is
+                // gone and `collectionInspection` hasn't landed yet, the live `.inspector` panel's
+                // presentation gate reads that as "nothing to show" and auto-dismisses, and
+                // SwiftUI's asynchronous write-back of `isPresented = false` can land AFTER this
+                // task resumes — permanently persisting `inspectorShown = false` even though the
+                // collection context ends up correct (the presentation-binding setter race,
+                // #968/#969; found here in #714 slice-3 GUI smoke). See the `.route` branch above
+                // for the mirror case. Accepted tradeoff: preview navigation now happens a
+                // probe-latency later than before (imperceptible in practice).
                 activeEditor = nil
                 inspectorContext = nil
                 mainPaneMode = .preview
                 preview.navigate(toRoute: route)
+                collectionInspection = inspection
             }
         }
     }
@@ -939,6 +1034,7 @@ final class SiteWindowModel {
         Task {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             inspectorContext = nil
+            collectionInspection = nil
             switch EditorKind.resolve(for: file) {
             case .text, .component, .markdown:
                 // `.component` also builds a plain `FileEditorModel`: `MainPaneEditorView` re-resolves
@@ -964,6 +1060,20 @@ final class SiteWindowModel {
                 ))
             }
             mainPaneMode = .editor(file)
+            // `inspectorContext`/`collectionInspection` were just nil'd above; if `file` is a
+            // component, `inspectorSelection` would otherwise read nil until the view's own
+            // activation `.task` gets around to running `ensureComponentEditorLoaded()` — another
+            // transient-nil window a live `.inspector` panel reads as "nothing to show" and
+            // auto-dismisses, with the same asynchronous write-back race described on the
+            // `.route`/`.directory` branches above (#968/#969; #714 slice-3 GUI smoke). Calling it
+            // here too closes that window: `ensureComponentEditorLoaded`'s synchronous prefix (the
+            // `componentEditor = editor` assignment) runs in this same Task before its own
+            // `await editor.load()` suspends, so `.component` is already available the instant
+            // `mainPaneMode` lands above. The view's `.task` activation still runs afterward (same
+            // key, so it's a no-op rebuild) — it's still needed for the baseURL-change rebuild.
+            // For a non-component file this call just clears `componentEditor` again — a no-op,
+            // matching today's behavior.
+            await ensureComponentEditorLoaded()
         }
     }
 
@@ -1029,6 +1139,9 @@ final class SiteWindowModel {
         if inspectorContext?.model.file.url == deletedURL {
             inspectorContext = nil
         }
+        if componentEditor?.file.url == deletedURL {
+            componentEditor = nil
+        }
         guard await cleanup.delete(candidate) else { return }
         await navigator?.refreshNow()
         await graphExplorer.refreshNow()
@@ -1061,6 +1174,85 @@ final class SiteWindowModel {
         // Plain .astro / other: no safe generic way to parse or rewrite its frontmatter (JS, not
         // YAML), so the panel stays read-only rather than staying unavailable (#1100).
         return .generic(GenericPageInspectorModel(file: file, route: route))
+    }
+
+    /// Assembles the collection context for a `.directory` selection: title/children from the
+    /// navigator node, entry count from the graph, feed routes from the (off-main) probe, and
+    /// type/template identity from the registry. Read-mostly v1 (#714 §6).
+    private func makeCollectionInspection(
+        collection: String?, route: String, navigatorID: String
+    ) async -> CollectionInspection? {
+        guard let site else { return nil }
+        let node = navigator?.node(for: navigatorID)
+        let entryCount: Int
+        if let collection {
+            entryCount = await contentGraph.posts(for: site.id)
+                .filter { $0.collection == collection }.count
+        } else {
+            entryCount = node?.children?.count ?? 0
+        }
+        let feeds: [SiteFileTree.DetectedFeed]
+        if let collection {
+            let packageURL = site.packageURL
+            feeds = await Task.detached {
+                SiteFileTree.detectedFeeds(siteRoot: packageURL, collection: collection)
+            }.value
+        } else {
+            feeds = []
+        }
+        let descriptor = collection.flatMap { ContentTypeRegistry.default.descriptor(forCollection: $0) }
+        return CollectionInspection(
+            title: node?.title ?? route, route: route, collection: collection,
+            entryCount: entryCount, feeds: feeds,
+            contentTypeName: descriptor?.displayName,
+            microformat: descriptor?.projections.microformat)
+    }
+
+    /// Builds the Component Editor's context from current preview state. Mirrors what
+    /// `SiteWindow.mainPaneContent` used to construct inline: `editRouter` is deliberately
+    /// `preview.editRouter` — the registered, chat-history-wired router the preview canvas uses —
+    /// so edits made through either canvas behave identically.
+    private func makeComponentEditorContext(site: SiteStore.Site) -> ComponentEditorContext {
+        ComponentEditorContext(
+            baseURL: preview.readyURL,
+            modelClient: ComponentModelClient(mcpClient: { [preview] in await preview.mcpClient() }),
+            sourceRoot: site.sourceDirectory,
+            site: CurrentSite(site),
+            editRouter: preview.editRouter,
+            onOpenFile: { [weak self] file in self?.openFile(file) },
+            duplicateComponent: { [weak self] relativePath in
+                await self?.duplicateComponent(relativePath: relativePath) ?? .siteNotFound
+            }
+        )
+    }
+
+    /// (Re)builds the hoisted component editor for the active editor file when it is an `.astro`
+    /// component — keyed on (file, dev-server baseURL) exactly like `ComponentEditorView`'s old
+    /// view-local `LoadKey`: a nil→non-nil `readyURL` transition rebuilds the model so the harness
+    /// canvas can load; a repeat call for the same (file, baseURL) is idempotent only while the
+    /// existing model is healthy — an unhealthy one (a failed or cancelled `load()`) is rebuilt
+    /// instead, never returned as-is (#714 final review, Important 2). Clears the editor for
+    /// non-component files.
+    @MainActor
+    func ensureComponentEditorLoaded() async {
+        guard let site, let file = activeEditorFile,
+              EditorKind.resolve(for: file) == .component else {
+            componentEditor = nil
+            return
+        }
+        // Only skip the rebuild when the existing model is actually healthy — a prior `load()`
+        // that failed (including a `CancellationError` from a pane toggle mid-load, which lands
+        // in `load()`'s generic `catch` as `.other`) must not wedge this file on a permanently
+        // broken instance forever (#714 final review, Important 2). `.notConnected` recovery is
+        // already handled above by the `baseURL` key changing once the dev server comes up.
+        if let existing = componentEditor, existing.file.id == file.id,
+           existing.context.baseURL == preview.readyURL,
+           existing.loadError == nil, existing.model != nil {
+            return
+        }
+        let editor = ComponentEditorModel(file: file, context: makeComponentEditorContext(site: site))
+        componentEditor = editor
+        await editor.load()
     }
 
     private func isFrontmatterPage(_ relPath: String) -> Bool {

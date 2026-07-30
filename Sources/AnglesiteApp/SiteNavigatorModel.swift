@@ -100,6 +100,10 @@ final class SiteNavigatorModel {
 
     func target(for id: String) -> NavigatorTarget? { nodesByID[id]?.target }
 
+    /// The tree node for a row id — the `.directory` selection path reads its title/children to
+    /// assemble the inspector's collection context (#714 slice 3).
+    func node(for id: String) -> URLTreeNode? { nodesByID[id] }
+
     /// The `Source/`-relative file URL backing a draggable row, or nil when the row has no single
     /// backing file (directories, website settings) or isn't a `.route` row. `NavigatorTarget` also
     /// has a `.file(FileRef)` case, but no `URLTreeNode.Kind` currently produces it — components and

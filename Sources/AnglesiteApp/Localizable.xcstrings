@@ -844,6 +844,9 @@
     "Content Signals" : {
 
     },
+    "Content Type" : {
+
+    },
     "Content type filter" : {
 
     },
@@ -1185,6 +1188,9 @@
     "Enter the domain you already own." : {
 
     },
+    "Entries" : {
+
+    },
     "Equation…" : {
 
     },
@@ -1237,6 +1243,9 @@
 
     },
     "Failed to load zone settings" : {
+
+    },
+    "Feeds" : {
 
     },
     "Figure" : {
@@ -1503,6 +1512,9 @@
     "Inspector" : {
 
     },
+    "Inspector Tab" : {
+
+    },
     "Installed" : {
 
     },
@@ -1644,6 +1656,9 @@
     "Mail domain" : {
 
     },
+    "Metadata" : {
+
+    },
     "Middle" : {
 
     },
@@ -1774,6 +1789,9 @@
 
     },
     "No entries yet — follow a feed above to get started." : {
+
+    },
+    "No feeds" : {
 
     },
     "No followers yet" : {
@@ -2492,6 +2510,9 @@
     "Select an element in the canvas" : {
 
     },
+    "Select something on the page" : {
+
+    },
     "Selected" : {
 
     },
@@ -2582,6 +2603,9 @@
     "Show or hide %@" : {
 
     },
+    "Show or hide the inspector" : {
+
+    },
     "Show or hide the page inspector" : {
 
     },
@@ -2649,6 +2673,9 @@
 
     },
     "Site name" : {
+
+    },
+    "Sitemap" : {
 
     },
     "Sites" : {
