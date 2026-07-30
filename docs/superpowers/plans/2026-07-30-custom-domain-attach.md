@@ -1,5 +1,18 @@
 # Attaching a transferred custom domain during deploy — Implementation Plan
 
+> **Status: executed and superseded — do not re-execute as-is.** All 6 tasks below shipped in
+> [#1119](https://github.com/Anglesite/Anglesite/pull/1119). A final whole-branch review found
+> and fixed a bug in Task 2's `CF_DOMAIN_ATTACHED` design (the boolean-latch snippets in Task 2
+> below made the custom-domain URL swap revert to workers.dev after exactly one deploy): the
+> shipped `CustomDomainAttachCommand` stores the **attached hostname** in `CF_DOMAIN_ATTACHED`
+> (not the literal string `"true"`) and compares it against the *current* `DOMAIN` on every
+> deploy, so a later `DOMAIN` change is detected and re-verified instead of staying stuck. See
+> `docs/superpowers/specs/2026-07-30-custom-domain-attach-design.md` (updated to match) and
+> `Sources/AnglesiteCore/CustomDomainAttachCommand.swift` for the actual shipped behavior — the
+> code snippets under Task 2 (and any `CF_DOMAIN_ATTACHED=true`/`!= "true"` snippet elsewhere in
+> this file) reflect the plan as originally written, not what's on `main`. Read this file for
+> historical task decomposition only; do not copy its `CF_DOMAIN_ATTACHED` snippets into new code.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** When a site was created via the New Site wizard's "Transfer an existing domain" option, deploy actually attaches that domain as a Cloudflare Workers Custom Domain instead of silently leaving the site on its `*.workers.dev` fallback with no indication anything is missing.
