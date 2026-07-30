@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseAllowedDomains, buildCSP, buildHeaders } from "./csp";
+import type { RobotsConfigEntry } from "../src/lib/robots-config.ts";
 
 test("parseAllowedDomains: empty config yields no domains", () => {
   assert.deepEqual(parseAllowedDomains(""), []);
@@ -124,4 +125,14 @@ test("buildCSP: EMBED_VIDEO_INLINE defaults off, and only exact 'true' enables i
   for (const cfg of ["", "EMBED_VIDEO_INLINE=false", "EMBED_VIDEO_INLINE=1", "EMBED_VIDEO_INLINE=yes"]) {
     assert.match(buildCSP(cfg), /frame-src 'self';/, cfg);
   }
+});
+
+test("buildHeaders: adds an X-Robots-Tag block per noindex entry", () => {
+  const entries: RobotsConfigEntry[] = [{ path: "/blog/private/" }];
+  const out = buildHeaders("", false, entries);
+  assert.match(out, /\n\/blog\/private\/\n  X-Robots-Tag: noindex\n/);
+});
+
+test("buildHeaders: no noindex entries leaves output unchanged from today", () => {
+  assert.equal(buildHeaders(""), buildHeaders("", false, []));
 });

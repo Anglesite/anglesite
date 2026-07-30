@@ -9,6 +9,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfigFromString } from "./config";
+import { readRobotsConfig, type RobotsConfigEntry } from "../src/lib/robots-config.ts";
 
 /** Directives each configured integration domain is added to. */
 const EMBED_DIRECTIVES = ["script-src", "frame-src", "connect-src", "img-src", "form-action"];
@@ -79,7 +80,11 @@ export function buildCSP(configContent: string): string {
  * rule here from the file's presence means it survives every rebuild without pwa needing to touch
  * `_headers` at all.
  */
-export function buildHeaders(configContent: string, serviceWorkerPresent = false): string {
+export function buildHeaders(
+  configContent: string,
+  serviceWorkerPresent = false,
+  noindexEntries: RobotsConfigEntry[] = [],
+): string {
   const csp = buildCSP(configContent);
   // Only the exact (case-insensitive) string "true" enables preload — submission to
   // the browser preload lists is hard to reverse, so "1"/"yes"/"on" deliberately do not.
@@ -111,6 +116,12 @@ export function buildHeaders(configContent: string, serviceWorkerPresent = false
 /.well-known/mta-sts.txt
   Content-Type: text/plain; charset=utf-8
 `;
+  for (const entry of noindexEntries) {
+    out += `
+${entry.path}
+  X-Robots-Tag: noindex
+`;
+  }
   if (serviceWorkerPresent) {
     out += `
 /sw.js
@@ -126,8 +137,9 @@ function main(): void {
   const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
   const outPath = resolve(process.cwd(), "public", "_headers");
   const serviceWorkerPresent = existsSync(resolve(process.cwd(), "public", "sw.js"));
+  const robotsConfig = readRobotsConfig(process.cwd());
   mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, buildHeaders(config, serviceWorkerPresent), "utf-8");
+  writeFileSync(outPath, buildHeaders(config, serviceWorkerPresent, robotsConfig.noindex), "utf-8");
   console.log(`Wrote ${outPath}`);
 }
 
