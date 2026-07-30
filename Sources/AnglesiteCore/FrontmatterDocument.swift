@@ -117,16 +117,50 @@ public struct FrontmatterDocument: Equatable, Sendable {
             var verbatim = [line]
             let value: FrontmatterValue
             if rawValue.isEmpty {
-                // Possible block array on following `- item` lines.
-                var items: [String] = []
-                var k = j + 1
-                while k < block.count, let item = Frontmatter.blockArrayItem(block[k]) {
-                    items.append(Frontmatter.unquote(item))
-                    verbatim.append(block[k])
-                    k += 1
+                if j + 1 < block.count,
+                   let firstItemText = Frontmatter.blockArrayItem(block[j + 1]),
+                   Frontmatter.splitKeyValue(firstItemText) != nil {
+                    // Block array of records: `  - field: value` starts a record; deeper-indented
+                    // `field: value` lines continue it. Heuristic: a flat string array item that
+                    // itself looks like `word: value` would be misread as a record start — not a
+                    // shape this codebase's flat arrays (tags/hours/image paths) ever produce.
+                    var records: [[FrontmatterRecordField]] = []
+                    var k = j + 1
+                    while k < block.count, let itemText = Frontmatter.blockArrayItem(block[k]) {
+                        let dashIndent = block[k].prefix(while: { $0 == " " }).count
+                        var record: [FrontmatterRecordField] = []
+                        if let (fieldKey, fieldRaw) = Frontmatter.splitKeyValue(itemText) {
+                            record.append(FrontmatterRecordField(fieldKey, Frontmatter.parseScalarOrArray(fieldRaw)))
+                        }
+                        verbatim.append(block[k])
+                        k += 1
+                        while k < block.count {
+                            let contLine = block[k]
+                            let contIndent = contLine.prefix(while: { $0 == " " }).count
+                            let trimmed = contLine.trimmingCharacters(in: .whitespaces)
+                            guard contIndent > dashIndent, !trimmed.hasPrefix("-"),
+                                  let (fieldKey, fieldRaw) = Frontmatter.splitKeyValue(trimmed)
+                            else { break }
+                            record.append(FrontmatterRecordField(fieldKey, Frontmatter.parseScalarOrArray(fieldRaw)))
+                            verbatim.append(contLine)
+                            k += 1
+                        }
+                        records.append(record)
+                    }
+                    value = .objectArray(records)
+                    j = k
+                } else {
+                    // Possible block array on following `- item` lines.
+                    var items: [String] = []
+                    var k = j + 1
+                    while k < block.count, let item = Frontmatter.blockArrayItem(block[k]) {
+                        items.append(Frontmatter.unquote(item))
+                        verbatim.append(block[k])
+                        k += 1
+                    }
+                    value = items.isEmpty ? .string("") : .array(items)
+                    j = k
                 }
-                value = items.isEmpty ? .string("") : .array(items)
-                j = k
             } else {
                 value = Frontmatter.parseScalarOrArray(rawValue)
                 j += 1

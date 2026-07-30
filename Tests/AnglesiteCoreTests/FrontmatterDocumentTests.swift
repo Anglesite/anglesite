@@ -159,4 +159,57 @@ struct FrontmatterDocumentTests {
         doc.set(.objectArray([[]]), for: "experience")
         #expect(doc.serialized().contains("experience:\n  - {}"))
     }
+
+    @Test("reads a block object-array into ordered records")
+    func readsObjectArray() {
+        let src = """
+        ---
+        title: "Resume"
+        experience:
+          - title: "Engineer"
+            org: "Acme"
+            start: 2020-01-01
+          - title: "Intern"
+            org: "Other Co"
+            start: 2018-06-01
+        ---
+        Body.
+        """ + "\n"
+        let doc = FrontmatterDocument.parse(src)
+        #expect(doc.value(for: "experience") == .objectArray([
+            [FrontmatterRecordField("title", .string("Engineer")),
+             FrontmatterRecordField("org", .string("Acme")),
+             FrontmatterRecordField("start", .string("2020-01-01"))],
+            [FrontmatterRecordField("title", .string("Intern")),
+             FrontmatterRecordField("org", .string("Other Co")),
+             FrontmatterRecordField("start", .string("2018-06-01"))],
+        ]))
+    }
+
+    @Test("unedited object-array round-trip is the identity")
+    func objectArrayIdentity() {
+        let src = """
+        ---
+        title: "Resume"
+        experience:
+          - title: "Engineer"
+            org: "Acme"
+        ---
+        Body.
+        """ + "\n"
+        #expect(FrontmatterDocument.parse(src).serialized() == src)
+    }
+
+    @Test("editing an object-array field re-renders only that field")
+    func objectArrayEditRoundTrips() {
+        let src = "---\ntitle: \"Resume\"\nexperience:\n  - title: \"Engineer\"\n    org: \"Acme\"\n---\nBody.\n"
+        var doc = FrontmatterDocument.parse(src)
+        doc.set(.objectArray([[FrontmatterRecordField("title", .string("Senior Engineer")),
+                                FrontmatterRecordField("org", .string("Acme"))]]), for: "experience")
+        let out = doc.serialized()
+        #expect(out.contains("title: \"Senior Engineer\""))
+        #expect(FrontmatterDocument.parse(out).value(for: "experience")
+                == .objectArray([[FrontmatterRecordField("title", .string("Senior Engineer")),
+                                   FrontmatterRecordField("org", .string("Acme"))]]))
+    }
 }

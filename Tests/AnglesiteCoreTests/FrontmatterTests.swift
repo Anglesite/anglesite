@@ -149,4 +149,20 @@ struct FrontmatterTests {
             #expect(fm["title"] == .string(original), "round-trip failed for \(original.debugDescription)")
         }
     }
+
+    @Test("an object-array field doesn't corrupt sibling top-level fields (Frontmatter.parse is not record-aware by design)")
+    func objectArrayFieldDoesNotCorruptSiblings() {
+        let src = """
+        ---
+        title: "Resume"
+        experience:
+          - title: "Engineer"
+            org: "Acme"
+        draft: true
+        ---
+        """
+        let fm = Frontmatter.parse(src)
+        #expect(fm["title"] == .string("Resume"))
+        #expect(fm["draft"] == .bool(true))
+    }
 }
