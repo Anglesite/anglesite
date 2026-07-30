@@ -95,10 +95,14 @@ with active workers" — single digits — and full snapshots keep the SwiftUI s
 `ForEach`. Latest-state-per-site; `remove` on intentional stop, while `.failed` rows
 persist until the session ends (a crash-give-up must stay visible, not vanish).
 
-**Getting supervisor state out of the container layer:** `LocalContainerControl.
-startWorkersDev` gains an `onState:` callback (a required parameter, not an overload — the
-compiler then enumerates every conformer, and the Linux CI lane compiles the `#if`-gated
-ones a macOS build can't see):
+**Getting supervisor state out of the container layer:** `LocalContainerControl` gains a
+second `startWorkersDev` requirement carrying an `onState:` callback, with a protocol-
+extension default that forwards to the existing three-parameter requirement and ignores
+`onState`. The protocol has **15 conformers** (2 production + 13 test fakes across 6 test
+files); a changed required signature would churn all of them mechanically, and this
+protocol already established the default-in-extension pattern for exactly that situation
+with `resetNetworking`. Only `ContainerizationControl` (real states) and
+`FakeLocalContainerControl` (capture for tests) implement the new requirement:
 
 ```swift
 func startWorkersDev(
@@ -113,10 +117,11 @@ with a Core-level `WorkersDevProcessState` enum (`running` / `restarting(attempt
 `stopped` / `failed(reason:)`) mirroring `GuestProcessSupervisor.State`, which stays
 `internal` to AnglesiteContainer. `ContainerizationControl.startWorkersDev` spawns one
 consumer task over `supervisor.observe()` that maps and forwards; the task ends when the
-supervisor's stream finishes at teardown, and `LiveContainers.storeWorkersDev` keeps it
-alongside the supervisor it watches. Conformers to update: `ContainerizationControl`,
-`PodmanContainerControl` (ignores it; still throws unsupported), `FakeLocalContainerControl`,
-plus the `AnglesiteContainerProbe` call site.
+supervisor's terminal states (`.stopped`/`.failed`) end its stream loop, and
+`LiveContainers.storeWorkersDev` keeps it alongside the supervisor it watches (cancelled as
+a backstop in `teardownWorkersDev`). `PodmanContainerControl`, the remaining test fakes, and
+the `AnglesiteContainerProbe` call site are untouched — they keep the three-parameter entry
+point, which `ContainerizationControl` retains as a forwarder.
 
 **Composition in the runtime:** `LocalContainerSiteRuntime.startWorkersDevIfActive` is the
 sole publisher — it's the one place that knows the siteID, the package (for the marker's
@@ -168,5 +173,6 @@ CLI-sync step.
   the app links — repo rule), plus the String Catalog sync for the new strings.
 - **Container e2e** — the existing opt-in `ContainerizationControlTests` workers-dev case
   gains an `onState` assertion (first event `.running`); the human-run
-  `scripts/run-container-probe.sh workers-dev` subcommand keeps working via its updated
-  call site. No new e2e scope (the toggle-restart e2e gap is already tracked as #919).
+  `scripts/run-container-probe.sh workers-dev` subcommand keeps working unchanged on the
+  retained three-parameter entry point. No new e2e scope (the toggle-restart e2e gap is
+  already tracked as #919).
