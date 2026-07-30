@@ -16,6 +16,7 @@ final class GenericPageInspectorModel: InspectorEditorModel {
     let file: FileRef
     let route: String
     private let sourceDirectory: URL
+    private let gitCommit: NativeContentOperations.GitCommit
 
     var noindexEnabled = false
     private var savedNoindexEnabled = false
@@ -34,10 +35,14 @@ final class GenericPageInspectorModel: InspectorEditorModel {
         noindexEnabled != savedNoindexEnabled || disallowCrawlEnabled != savedDisallowCrawlEnabled
     }
 
-    init(file: FileRef, route: String, sourceDirectory: URL) {
+    init(file: FileRef,
+         route: String,
+         sourceDirectory: URL,
+         gitCommit: @escaping NativeContentOperations.GitCommit = NativeContentOperations.processGitCommit) {
         self.file = file
         self.route = route
         self.sourceDirectory = sourceDirectory
+        self.gitCommit = gitCommit
     }
 
     func load() async {
@@ -56,12 +61,15 @@ final class GenericPageInspectorModel: InspectorEditorModel {
         isSaving = true
         defer { isSaving = false }
         do {
-            try RobotsConfigFile.apply(
+            let robotsChanged = try RobotsConfigFile.apply(
                 source: robotsSource, noindex: noindexEnabled, disallowCrawl: disallowCrawlEnabled,
                 path: route, under: sourceDirectory
             )
             savedNoindexEnabled = noindexEnabled
             savedDisallowCrawlEnabled = disallowCrawlEnabled
+            if robotsChanged {
+                _ = await gitCommit(sourceDirectory, RobotsConfigFile.relativePath, "anglesite: update robots-config.json")
+            }
             return true
         } catch {
             return false

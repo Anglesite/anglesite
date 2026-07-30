@@ -83,13 +83,14 @@ final class PageMetadataModel: InspectorEditorModel {
             fileSession = session
             savedMetadata = metadata
             warnIfNoModificationDate(after: "save")
-            try RobotsConfigFile.apply(
+            let robotsChanged = try RobotsConfigFile.apply(
                 source: robotsSource, noindex: noindexEnabled, disallowCrawl: disallowCrawlEnabled,
                 path: route, under: sourceDirectory
             )
             savedNoindexEnabled = noindexEnabled
             savedDisallowCrawlEnabled = disallowCrawlEnabled
             await commit()
+            if robotsChanged { await commitRobotsConfig() }
             return true
         } catch {
             loadError = "Save failed: \(error.localizedDescription)"
@@ -178,6 +179,13 @@ final class PageMetadataModel: InspectorEditorModel {
         let rel = relativePath(of: file.url, under: sourceDirectory)
         let slug = file.url.deletingPathExtension().lastPathComponent
         _ = await gitCommit(sourceDirectory, rel, "anglesite: edit page \(slug)")
+    }
+
+    /// `gitCommit` stages exactly one path, so the shared robots config needs its own commit
+    /// alongside the page's — otherwise a toggle leaves the site repo permanently dirty and never
+    /// reaches the container build, which clones from committed history (#1093).
+    private func commitRobotsConfig() async {
+        _ = await gitCommit(sourceDirectory, RobotsConfigFile.relativePath, "anglesite: update robots-config.json")
     }
 
     private func relativePath(of url: URL, under root: URL) -> String {

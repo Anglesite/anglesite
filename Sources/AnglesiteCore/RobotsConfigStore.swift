@@ -183,13 +183,19 @@ public enum RobotsConfigFile {
     /// Applies the desired noindex/disallowCrawl state for `source`, writing back only if an entry
     /// was actually added or removed. Re-reads fresh rather than trusting a caller's stale snapshot
     /// — narrows (doesn't eliminate) the window between two saves.
+    ///
+    /// - Returns: `true` when the file was actually rewritten, `false` for a no-op. Callers use this
+    ///   to decide whether to git-commit the config alongside their own file — a robots toggle that
+    ///   only lands on disk leaves the site's `Source/` repo permanently dirty and never reaches the
+    ///   container build, which clones from committed history (#1093).
+    @discardableResult
     public static func apply(
         source: RobotsConfigSource,
         noindex: Bool,
         disallowCrawl: Bool,
         path: String,
         under sourceDirectory: URL
-    ) throws {
+    ) throws -> Bool {
         let path = normalizedRoutePath(path)
         var config = read(under: sourceDirectory)
         var changed = false
@@ -203,7 +209,8 @@ public enum RobotsConfigFile {
                 changed = true
             }
         }
-        guard changed else { return }
+        guard changed else { return false }
         try write(config, under: sourceDirectory)
+        return true
     }
 }
