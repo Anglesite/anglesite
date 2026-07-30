@@ -17,13 +17,17 @@ struct DebugPaneView: View {
     @State private var searchQuery: String = ""
     @State private var autoScroll: Bool = true
     @State private var subscriberTask: Task<Void, Never>?
+    @State private var workerSessions: [WorkersDevSession] = []
+    @State private var workersSubscriberTask: Task<Void, Never>?
     @Bindable private var esiPreviewMode = EsiPreviewMode.shared
 
     private static let allSourcesTag = "All"
     private let center: LogCenter
+    private let workersCenter: WorkersDevStatusCenter
 
-    init(center: LogCenter = .shared) {
+    init(center: LogCenter = .shared, workersCenter: WorkersDevStatusCenter = .shared) {
         self.center = center
+        self.workersCenter = workersCenter
     }
 
     private var isPaused: Bool { frozenLines != nil }
@@ -59,7 +63,11 @@ struct DebugPaneView: View {
         }
         .frame(minWidth: 680, minHeight: 400)
         .task { await startStreaming() }
-        .onDisappear { subscriberTask?.cancel() }
+        .task { await streamWorkerSessions() }
+        .onDisappear {
+            subscriberTask?.cancel()
+            workersSubscriberTask?.cancel()
+        }
     }
 
     private var toolbar: some View {
@@ -106,19 +114,79 @@ struct DebugPaneView: View {
     }
 
     /// Production-behavior controls, distinct from the log-filtering toolbar above. ESI's
-    /// Live/Unprocessed toggle is the first control here — see
-    /// docs/superpowers/specs/2026-07-13-esi-astro-component-design.md §4a; broader controls
-    /// (running a composed Worker locally, viewing worker/analytics logs) are tracked in #699.
+    /// Live/Unprocessed toggle is the first control here (see
+    /// docs/superpowers/specs/2026-07-13-esi-astro-component-design.md §4a); the Local Workers
+    /// rows surface each open site's wrangler-dev session (#699,
+    /// docs/superpowers/specs/2026-07-30-server-debug-panel-design.md §5).
     private var serverSection: some View {
-        HStack(spacing: 12) {
-            Text("Server").font(.headline)
-            Picker("ESI Fragments", selection: $esiPreviewMode.unprocessed) {
-                Text("Live").tag(false)
-                Text("Unprocessed (show fallbacks)").tag(true)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                Text("Server").font(.headline)
+                Picker("ESI Fragments", selection: $esiPreviewMode.unprocessed) {
+                    Text("Live").tag(false)
+                    Text("Unprocessed (show fallbacks)").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 320)
+                Spacer()
             }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 320)
+            ForEach(workerSessions) { session in
+                workerRow(session)
+            }
+        }
+    }
+
+    private func workerRow(_ session: WorkersDevSession) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Circle()
+                .fill(statusColor(session.status))
+                .frame(width: 8, height: 8)
+                .accessibilityHidden(true)  // the status text carries the meaning
+            Text(session.displayName)
+                .font(.system(size: 12, weight: .medium))
+            statusText(session.status)
+                .font(.system(size: 12))
+            if case .running(.some(let url)) = session.status {
+                Link(url.absoluteString, destination: url)
+                    .font(.system(size: 12, design: .monospaced))
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(url.absoluteString, forType: .string)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(.borderless)
+                .help("Copy local worker URL")
+                .accessibilityLabel("Copy local worker URL")
+            }
+            if case .failed(let reason) = session.status {
+                Text(reason)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help(reason)
+            }
             Spacer()
+        }
+        .padding(.leading, 4)
+    }
+
+    private func statusColor(_ status: WorkersDevStatus) -> Color {
+        switch status {
+        case .starting: return Color(NSColor.secondaryLabelColor).opacity(0.5)
+        case .running: return .green
+        case .restarting: return .orange
+        case .failed: return .red
+        }
+    }
+
+    private func statusText(_ status: WorkersDevStatus) -> Text {
+        switch status {
+        case .starting: return Text("Starting…").foregroundStyle(.secondary)
+        case .running: return Text("Running").foregroundStyle(.secondary)
+        case .restarting(let attempt): return Text("Restarting (attempt \(attempt))").foregroundStyle(.orange)
+        case .failed: return Text("Failed").foregroundStyle(.red)
         }
     }
 
@@ -169,6 +237,20 @@ struct DebugPaneView: View {
         }
         subscriberTask = task
         // Wait so the task is cleaned up when this scope ends; never returns under normal use.
+        _ = await task.value
+    }
+
+    private func streamWorkerSessions() async {
+        // subscribe() replays the current snapshot as its first element, so a pane opened
+        // mid-session shows existing rows immediately.
+        let subscription = await workersCenter.subscribe()
+        let task = Task { @MainActor in
+            for await sessions in subscription.stream {
+                if Task.isCancelled { break }
+                workerSessions = sessions
+            }
+        }
+        workersSubscriberTask = task
         _ = await task.value
     }
 

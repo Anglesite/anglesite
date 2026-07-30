@@ -84,10 +84,24 @@ struct ContainerizationControlTests {
         let workers = [WorkerDescriptor(
             id: "indieauth", displayName: "IndieAuth", description: "d", group: "identity",
             binding: .settingsActivated, resources: .init(needsD1: true, needsKV: true, needsR2: false))]
-        let workersDevURL = try await control.startWorkersDev(siteID: siteID, workers: workers, onOutput: { _, _ in })
+        let collector = StateCollector()
+        let workersDevURL = try await control.startWorkersDev(
+            siteID: siteID, workers: workers,
+            onOutput: { _, _ in },
+            onState: { state in await collector.append(state) })
 
         let ok = await pollForHTTPResponse(workersDevURL, timeout: .seconds(60))
         #expect(ok, "wrangler dev --local never answered within the timeout")
+
+        // observe() replays the current state on subscribe, so `.running` must have been
+        // delivered by the time the endpoint answers HTTP (#699).
+        var states = await collector.states
+        for _ in 0..<50 {
+            if !states.isEmpty { break }
+            try? await Task.sleep(for: .milliseconds(100))
+            states = await collector.states
+        }
+        #expect(states.first == .running)
 
         try? await control.stop(siteID: siteID)
     }
@@ -153,4 +167,11 @@ struct ContainerizationControlTests {
         try git(["commit", "-q", "-m", "initial"])
         return dir
     }
+}
+
+/// Collects `onState` deliveries for assertion (#699) — actor-isolated because the callback
+/// fires from the control's state-forwarding task, not the test's own task.
+private actor StateCollector {
+    private(set) var states: [WorkersDevProcessState] = []
+    func append(_ state: WorkersDevProcessState) { states.append(state) }
 }
