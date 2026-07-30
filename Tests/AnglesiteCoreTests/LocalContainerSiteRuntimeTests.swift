@@ -534,6 +534,163 @@ struct LocalContainerSiteRuntimeTests {
         #expect(await control.stopped == ["s1"])
     }
 
+    // MARK: - Workers-dev status publishing (#699)
+
+    /// The catalog every #699 test uses: one settings-activated worker, mirroring the #708 cases.
+    private static let indieAuthCatalog: @Sendable () async -> [WorkerDescriptor] = {
+        [WorkerDescriptor(
+            id: "indieauth", displayName: "IndieAuth", description: "d", group: "identity",
+            binding: .settingsActivated, resources: .init(needsD1: true, needsKV: true, needsR2: false))]
+    }
+
+    @Test("workers-dev success publishes .running(url:) and logs under worker:<siteID> (#699)")
+    func workersDevPublishesRunningAndWorkerSource() async throws {
+        let control = FakeLocalContainerControl(startResult: .success(Self.ok))
+        await control.setStartWorkersDevStdoutLines(["Ready on http://localhost:8787"])
+        let statusCenter = WorkersDevStatusCenter()
+        let logCenter = LogCenter()
+        let package = try temporaryPackage()
+        let configStore = SiteConfigStore(configDirectory: AnglesitePackage(url: package).configURL)
+        try await configStore.save(SiteSettings(activeWorkerIDs: ["indieauth"]))
+        let rt = LocalContainerSiteRuntime(
+            ref: "HEAD", control: control, mcpClient: MCPClient(supervisor: .shared),
+            logCenter: logCenter,
+            connect: { _, _ in },
+            workerCatalog: Self.indieAuthCatalog,
+            statusCenter: statusCenter)
+
+        await rt.start(siteID: "s1", siteDirectory: AnglesitePackage(url: package).sourceURL)
+
+        // temporaryPackage() writes no Info.plist marker, so displayName falls back to siteID.
+        #expect(await statusCenter.snapshot() == [WorkersDevSession(
+            siteID: "s1", displayName: "s1",
+            status: .running(url: URL(string: "http://127.0.0.1:51003")!))])
+        // The fake replays its onOutput lines synchronously inside startWorkersDev, but the
+        // runtime's sink hops through a Task per line — poll briefly for arrival.
+        var workerLines: [LogCenter.LogLine] = []
+        for _ in 0..<50 {
+            workerLines = await logCenter.snapshot().filter { $0.source == "worker:s1" }
+            if !workerLines.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(workerLines.map(\.text) == ["Ready on http://localhost:8787"])
+    }
+
+    @Test("workers-dev start failure publishes .failed (#699)")
+    func workersDevFailurePublishesFailed() async throws {
+        let control = FakeLocalContainerControl(startResult: .success(Self.ok))
+        await control.setStartWorkersDevResult(.failure(.bootFailed("no wrangler in image")))
+        let statusCenter = WorkersDevStatusCenter()
+        let package = try temporaryPackage()
+        let configStore = SiteConfigStore(configDirectory: AnglesitePackage(url: package).configURL)
+        try await configStore.save(SiteSettings(activeWorkerIDs: ["indieauth"]))
+        let rt = LocalContainerSiteRuntime(
+            ref: "HEAD", control: control, mcpClient: MCPClient(supervisor: .shared),
+            connect: { _, _ in },
+            workerCatalog: Self.indieAuthCatalog,
+            statusCenter: statusCenter)
+
+        await rt.start(siteID: "s1", siteDirectory: AnglesitePackage(url: package).sourceURL)
+
+        let sessions = await statusCenter.snapshot()
+        #expect(sessions.count == 1)
+        guard case .failed(let reason)? = sessions.first?.status else {
+            Issue.record("expected .failed, got \(String(describing: sessions.first?.status))")
+            return
+        }
+        #expect(reason.contains("no wrangler in image"))
+    }
+
+    @Test("supervisor transitions via onState re-publish, and .stopped removes the row (#699)")
+    func workersDevOnStateTransitions() async throws {
+        let control = FakeLocalContainerControl(startResult: .success(Self.ok))
+        let statusCenter = WorkersDevStatusCenter()
+        let package = try temporaryPackage()
+        let configStore = SiteConfigStore(configDirectory: AnglesitePackage(url: package).configURL)
+        try await configStore.save(SiteSettings(activeWorkerIDs: ["indieauth"]))
+        let rt = LocalContainerSiteRuntime(
+            ref: "HEAD", control: control, mcpClient: MCPClient(supervisor: .shared),
+            connect: { _, _ in },
+            workerCatalog: Self.indieAuthCatalog,
+            statusCenter: statusCenter)
+        await rt.start(siteID: "s1", siteDirectory: AnglesitePackage(url: package).sourceURL)
+        let onState = try #require(await control.lastWorkersDevOnState)
+
+        onState(.restarting(attempt: 1))
+        var status = await pollStatus(statusCenter, siteID: "s1") {
+            if case .restarting = $0 { true } else { false }
+        }
+        #expect(status == .restarting(attempt: 1))
+
+        onState(.running)
+        status = await pollStatus(statusCenter, siteID: "s1") {
+            if case .running(.some) = $0 { true } else { false }
+        }
+        // A post-restart .running re-attaches the URL the runtime learned at start.
+        #expect(status == .running(url: URL(string: "http://127.0.0.1:51003")!))
+
+        onState(.stopped)
+        for _ in 0..<50 {
+            if await statusCenter.snapshot().isEmpty { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await statusCenter.snapshot().isEmpty)
+    }
+
+    /// Polls until `siteID`'s status satisfies `predicate` (the runtime publishes via detached
+    /// Tasks, so arrival is async), returning the matched status or the last seen one on timeout.
+    private func pollStatus(
+        _ center: WorkersDevStatusCenter, siteID: String,
+        until predicate: (WorkersDevStatus) -> Bool
+    ) async -> WorkersDevStatus? {
+        var last: WorkersDevStatus?
+        for _ in 0..<50 {
+            last = await center.snapshot().first { $0.siteID == siteID }?.status
+            if let last, predicate(last) { return last }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return last
+    }
+
+    @Test("runtime stop() removes the status row (#699)")
+    func workersDevStopRemovesRow() async throws {
+        let control = FakeLocalContainerControl(startResult: .success(Self.ok))
+        let statusCenter = WorkersDevStatusCenter()
+        let package = try temporaryPackage()
+        let configStore = SiteConfigStore(configDirectory: AnglesitePackage(url: package).configURL)
+        try await configStore.save(SiteSettings(activeWorkerIDs: ["indieauth"]))
+        let rt = LocalContainerSiteRuntime(
+            ref: "HEAD", control: control, mcpClient: MCPClient(supervisor: .shared),
+            connect: { _, _ in },
+            workerCatalog: Self.indieAuthCatalog,
+            statusCenter: statusCenter)
+        await rt.start(siteID: "s1", siteDirectory: AnglesitePackage(url: package).sourceURL)
+        #expect(await !statusCenter.snapshot().isEmpty)
+
+        await rt.stop()
+        #expect(await statusCenter.snapshot().isEmpty)
+    }
+
+    @Test("updateActiveWorkers with an empty effective set stops and removes the row (#699)")
+    func updateActiveWorkersEmptySetRemovesRow() async throws {
+        let control = FakeLocalContainerControl(startResult: .success(Self.ok))
+        let statusCenter = WorkersDevStatusCenter()
+        let package = try temporaryPackage()
+        let configStore = SiteConfigStore(configDirectory: AnglesitePackage(url: package).configURL)
+        try await configStore.save(SiteSettings(activeWorkerIDs: ["indieauth"]))
+        let rt = LocalContainerSiteRuntime(
+            ref: "HEAD", control: control, mcpClient: MCPClient(supervisor: .shared),
+            connect: { _, _ in },
+            workerCatalog: Self.indieAuthCatalog,
+            statusCenter: statusCenter)
+        await rt.start(siteID: "s1", siteDirectory: AnglesitePackage(url: package).sourceURL)
+
+        await rt.updateActiveWorkers(SiteSettings())  // no activeWorkerIDs → empty effective set
+
+        #expect(await control.stopWorkersDevCalls == ["s1"])
+        #expect(await statusCenter.snapshot().isEmpty)
+    }
+
     @Test("observe delivers .starting to a live observer while runtime is mid-start")
     func observeDeliversStartingToLiveObserver() async throws {
         let gated = GatedFakeLocalContainerControl(result: .success(Self.ok))

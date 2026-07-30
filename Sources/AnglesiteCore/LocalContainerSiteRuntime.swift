@@ -26,6 +26,10 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
     private let suddenTerminationController: SuddenTerminationController
     private let beginActivity: @Sendable (String) -> ActivityAssertion.Lease
     private let workerCatalog: @Sendable () async -> [WorkerDescriptor]
+    private let statusCenter: WorkersDevStatusCenter
+    /// Local wrangler-dev URLs learned per site — lets a supervisor-driven post-restart
+    /// `.running` re-attach the URL `startWorkersDev` returned (#699).
+    private var workersDevURLs: [String: URL] = [:]
     private var fileWatcher: (any SiteFileWatching)?
     private var containerTerminationLease: SuddenTerminationController.Lease?
 
@@ -66,7 +70,8 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
         beginActivity: @escaping @Sendable (String) -> ActivityAssertion.Lease = ActivityAssertion.begin,
         workerCatalog: @escaping @Sendable () async -> [WorkerDescriptor] = {
             await WorkerCatalogFetcher(catalogURL: WorkerCatalogFetcher.productionCatalogURL).catalog()
-        }
+        },
+        statusCenter: WorkersDevStatusCenter = .shared
     ) {
         self.ref = ref
         self.control = control
@@ -81,6 +86,7 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
         self.suddenTerminationController = suddenTerminationController
         self.beginActivity = beginActivity
         self.workerCatalog = workerCatalog
+        self.statusCenter = statusCenter
     }
 
     public var state: SiteRuntimeState { stateMachine.state }
@@ -138,26 +144,58 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
     /// can keep emitting long after this call returns — is always attributed to the `siteID` this
     /// call started it for, even if this runtime has since been reused for a different site (its
     /// `activeSiteID` would otherwise have moved on by the time a late line arrives).
+    /// Output lands under its own `worker:<siteID>` source (not the container's shared
+    /// `container:<siteID>`) so the Debug Pane's Source picker can isolate it, and status
+    /// transitions are published to `statusCenter` under the package's display name (#699).
     private func startWorkersDevIfActive(siteID: String, siteDirectory: URL) async -> URL? {
-        let configDirectory = AnglesitePackage(url: AnglesitePackage.packageRoot(fromSourceURL: siteDirectory)).configURL
+        let packageURL = AnglesitePackage.packageRoot(fromSourceURL: siteDirectory)
+        let configDirectory = AnglesitePackage(url: packageURL).configURL
         let settings = (try? await SiteConfigStore(configDirectory: configDirectory).load()) ?? SiteSettings()
         let catalog = await workerCatalog()
         let effectiveActiveIDs = WorkerActivation.effectiveActiveIDs(settings: settings, catalog: catalog, graph: nil)
         let workers = WorkerActivation.activeDescriptors(catalog: catalog, activeIDs: effectiveActiveIDs)
         guard !workers.isEmpty else { return nil }
         let logCenter = self.logCenter
-        let source = "container:\(siteID)"
+        let statusCenter = self.statusCenter
+        let source = "worker:\(siteID)"
+        let displayName = (try? AnglesitePackage(url: packageURL).readMarker().displayName) ?? siteID
+        await statusCenter.update(siteID: siteID, displayName: displayName, status: .starting)
         do {
-            return try await control.startWorkersDev(
+            let url = try await control.startWorkersDev(
                 siteID: siteID, workers: workers,
                 onOutput: { line, stream in
                     Task { await logCenter.append(source: source, stream: stream, text: line) }
+                },
+                onState: { [weak self] state in
+                    Task { await self?.handleWorkersDevState(state, siteID: siteID, displayName: displayName) }
                 })
+            workersDevURLs[siteID] = url
+            await statusCenter.update(siteID: siteID, displayName: displayName, status: .running(url: url))
+            return url
         } catch {
             await logCenter.append(
                 source: source, stream: .stderr,
                 text: "local wrangler-dev failed to start: \(error) — active workers will have no local dev endpoint this session")
+            await statusCenter.update(siteID: siteID, displayName: displayName, status: .failed(reason: "\(error)"))
             return nil
+        }
+    }
+
+    /// Maps supervisor-driven transitions (#699) into `statusCenter` rows. `.running` re-attaches
+    /// the URL learned at `startWorkersDev`-return time (nil in the brief pre-return window);
+    /// `.stopped` removes the row — an intentional stop isn't an error state worth a lingering row.
+    /// Captured `siteID`/`displayName` (not `activeSiteID`) keep late supervisor events attributed
+    /// to the session that produced them, mirroring `startWorkersDevIfActive`'s log-source capture.
+    private func handleWorkersDevState(_ state: WorkersDevProcessState, siteID: String, displayName: String) async {
+        switch state {
+        case .running:
+            await statusCenter.update(siteID: siteID, displayName: displayName, status: .running(url: workersDevURLs[siteID]))
+        case .restarting(let attempt):
+            await statusCenter.update(siteID: siteID, displayName: displayName, status: .restarting(attempt: attempt))
+        case .failed(let reason):
+            await statusCenter.update(siteID: siteID, displayName: displayName, status: .failed(reason: reason))
+        case .stopped:
+            await statusCenter.remove(siteID: siteID)
         }
     }
 
@@ -185,6 +223,8 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
         let workersDevURL: URL?
         if workers.isEmpty {
             try? await control.stopWorkersDev(siteID: siteID)
+            workersDevURLs[siteID] = nil
+            await statusCenter.remove(siteID: siteID)
             workersDevURL = nil
         } else {
             workersDevURL = await startWorkersDevIfActive(siteID: siteID, siteDirectory: siteDirectory)
@@ -478,6 +518,10 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
         }
         if let id = containerSiteID {
             try? await control.stop(siteID: id)
+            // Explicit, not just supervisor-event-driven: the fake controls in tests never emit
+            // .stopped, and a real teardown must never leave a stale row either way (#699).
+            workersDevURLs[id] = nil
+            await statusCenter.remove(siteID: id)
         }
         containerTerminationLease?.release()
         // Stop the container first (above) so no more guest output can arrive, then finish the
