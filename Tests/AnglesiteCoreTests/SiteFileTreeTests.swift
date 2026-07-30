@@ -83,4 +83,31 @@ struct SiteFileTreeTests {
             .appendingPathComponent("anglesite-filetree-absent-\(UUID().uuidString)", isDirectory: true)
         #expect(SiteFileTree.feedCollections(siteRoot: root) == [])
     }
+
+    @Test("detectedFeeds reports each feed route the collection ships, in rss/atom/json order")
+    func detectedFeeds() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sft-feeds-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let notes = root.appendingPathComponent("src/pages/notes")
+        try FileManager.default.createDirectory(at: notes, withIntermediateDirectories: true)
+        try Data().write(to: notes.appendingPathComponent("rss.xml.ts"))
+        try Data().write(to: notes.appendingPathComponent("feed.json.ts"))
+
+        let feeds = SiteFileTree.detectedFeeds(siteRoot: root, collection: "notes")
+        #expect(feeds.map(\.kind) == [.rss, .json])
+        #expect(feeds.map(\.route) == ["/notes/rss.xml", "/notes/feed.json"])
+    }
+
+    @Test("detectedFeeds is empty for a collection with no feed routes or a missing directory")
+    func detectedFeedsEmpty() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sft-feeds-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("src/pages/plain"), withIntermediateDirectories: true)
+
+        #expect(SiteFileTree.detectedFeeds(siteRoot: root, collection: "plain").isEmpty)
+        #expect(SiteFileTree.detectedFeeds(siteRoot: root, collection: "absent").isEmpty)
+    }
 }
