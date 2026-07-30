@@ -68,6 +68,11 @@ public actor DeployCommand {
     /// cases where deploy() returns .failed afterwards.
     public typealias PreflightObserver = @Sendable (PreDeployCheck.Outcome) -> Void
 
+    /// Fires once the domain-attach step resolves (#1077), for a "Transfer an existing domain"
+    /// site — or immediately with `.skipped` for every other site. Runs only after a successful
+    /// `wrangler` step; never fires on a failed/blocked deploy.
+    public typealias DomainAttachObserver = @Sendable (CustomDomainAttachCommand.Result) -> Void
+
     /// Returns the account's existing Worker script names for the given token. Production
     /// callers use `DeployCommand.defaultWorkerScriptNames` (`HTTPCloudflareClient`); tests
     /// inject a fake list or a throwing closure.
@@ -80,15 +85,20 @@ public actor DeployCommand {
     /// real network implementation and diverging from whatever this `DeployCommand` was built with
     /// (production default or a test's injected fake).
     public nonisolated let workerScriptNamesSource: WorkerScriptNamesSource
+    /// Exposed like `tokenSource`/`workerScriptNamesSource` so `DeployModel.runDeploy` can forward
+    /// the exact same seam into a container-path `DeployCommand` it constructs on the fly (#1077).
+    public nonisolated let customDomainAttachCommand: CustomDomainAttachCommand
     private let executor: any DeployExecutor
 
     public init(
         tokenSource: @escaping TokenSource = DeployCommand.keychainTokenSource,
         workerScriptNamesSource: @escaping WorkerScriptNamesSource = DeployCommand.defaultWorkerScriptNames,
+        customDomainAttachCommand: CustomDomainAttachCommand = CustomDomainAttachCommand(),
         executor: any DeployExecutor = HostDeployExecutor()
     ) {
         self.tokenSource = tokenSource
         self.workerScriptNamesSource = workerScriptNamesSource
+        self.customDomainAttachCommand = customDomainAttachCommand
         self.executor = executor
     }
 
@@ -113,6 +123,7 @@ public actor DeployCommand {
         /// report.
         wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim] = [],
         onPreflight: PreflightObserver? = nil,
+        onDomainAttach: DomainAttachObserver? = nil,
         onProgress: ProgressHandler? = nil
     ) async -> Result {
         // Pre-spawn checks. The token comes first so we never spend time on a build or scan
@@ -318,6 +329,9 @@ public actor DeployCommand {
                 }
                 Self.persistSiteURL(url, siteDirectory: siteDirectory)
                 Self.persistWorkerDeployed(siteDirectory: siteDirectory)
+                let domainAttachOutcome = await customDomainAttachCommand.attach(
+                    siteDirectory: siteDirectory, apiToken: token)
+                onDomainAttach?(domainAttachOutcome)
                 if let configDirectory {
                     await Self.uploadSourceBundleIfConfigured(
                         siteDirectory: siteDirectory, configDirectory: configDirectory,
