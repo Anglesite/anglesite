@@ -882,21 +882,32 @@ final class SiteWindowModel {
                 // Important 3 follow-up).
                 let requestedID = id
                 guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
-                // Content entry → preview in the center; its metadata in the inspector.
-                activeEditor = nil
-                mainPaneMode = .preview
-                if route.isEmpty || route == "/" { preview.clearRoute() } else { preview.navigate(toRoute: route) }
                 let context = await makeInspectorContext(forNavigatorID: id)
                 // `makeInspectorContext` awaits real work, a suspension point a faster subsequent
                 // selection (e.g. a `.directory` pick) can land in during. That branch's own guard
                 // stops IT from clobbering a newer selection, but this branch's unconditional
-                // `collectionInspection = nil` right below was the unguarded mirror image: `.route`
-                // outranks nothing, but its stale `nil` would still wipe out a newer `.directory`
+                // `collectionInspection = nil` was the unguarded mirror image: `.route` outranks
+                // nothing, but its stale `nil` would still wipe out a newer `.directory`
                 // selection's just-assigned `collectionInspection` once this task resumed. Bail
                 // unless this is still the live selection (same `navigator?.selection` liveness
                 // check as `.directory`), and skip the related-pages load below too — a stale
                 // selection shouldn't populate that either.
                 guard navigator?.selection == requestedID else { return }
+                // One synchronous transaction — every flip below lands together, AFTER the awaits
+                // above, so `inspectorSelection` never passes through a transient nil between the
+                // old context and this one. `activeEditor`/`mainPaneMode` used to flip to Preview
+                // *before* awaiting `makeInspectorContext`, which (with a component inspector
+                // showing in editor mode) opened exactly that nil window: `inspectorSelection`
+                // reads nil while the old `.component` context is gone and the new page context
+                // hasn't landed yet, the live `.inspector` panel's presentation gate reads that as
+                // "nothing to show" and auto-dismisses, and SwiftUI's asynchronous write-back of
+                // `isPresented = false` can land AFTER this task resumes — permanently persisting
+                // `inspectorShown = false` even though the page context ends up correct (the
+                // presentation-binding setter race, #968/#969; found here in #714 slice-3 GUI
+                // smoke). See the `.directory` branch below for the mirror case.
+                activeEditor = nil
+                mainPaneMode = .preview
+                if route.isEmpty || route == "/" { preview.clearRoute() } else { preview.navigate(toRoute: route) }
                 inspectorContext = context
                 collectionInspection = nil
                 // Load related-page suggestions for the newly selected page.
@@ -933,10 +944,6 @@ final class SiteWindowModel {
                 // request (#714 final review, Important 3).
                 let requestedID = id
                 guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
-                activeEditor = nil
-                inspectorContext = nil
-                mainPaneMode = .preview
-                preview.navigate(toRoute: route)
                 let inspection = await makeCollectionInspection(
                     collection: collection, route: route, navigatorID: id)
                 // `makeCollectionInspection` awaits the content-graph actor and, for a real
@@ -949,6 +956,23 @@ final class SiteWindowModel {
                 // `.onChange(of: navigator.selection)` reacts to, so it always reflects the
                 // current selection by the time we get here.
                 guard navigator?.selection == requestedID else { return }
+                // One synchronous transaction — every flip below lands together, AFTER the awaits
+                // above, so `inspectorSelection` never passes through a transient nil between the
+                // old context and `.collection`. These used to flip to Preview (nil-ing
+                // `inspectorContext`) *before* awaiting `makeCollectionInspection`, which opened
+                // exactly that nil window: `inspectorSelection` reads nil while the old context is
+                // gone and `collectionInspection` hasn't landed yet, the live `.inspector` panel's
+                // presentation gate reads that as "nothing to show" and auto-dismisses, and
+                // SwiftUI's asynchronous write-back of `isPresented = false` can land AFTER this
+                // task resumes — permanently persisting `inspectorShown = false` even though the
+                // collection context ends up correct (the presentation-binding setter race,
+                // #968/#969; found here in #714 slice-3 GUI smoke). See the `.route` branch above
+                // for the mirror case. Accepted tradeoff: preview navigation now happens a
+                // probe-latency later than before (imperceptible in practice).
+                activeEditor = nil
+                inspectorContext = nil
+                mainPaneMode = .preview
+                preview.navigate(toRoute: route)
                 collectionInspection = inspection
             }
         }
@@ -1036,6 +1060,20 @@ final class SiteWindowModel {
                 ))
             }
             mainPaneMode = .editor(file)
+            // `inspectorContext`/`collectionInspection` were just nil'd above; if `file` is a
+            // component, `inspectorSelection` would otherwise read nil until the view's own
+            // activation `.task` gets around to running `ensureComponentEditorLoaded()` — another
+            // transient-nil window a live `.inspector` panel reads as "nothing to show" and
+            // auto-dismisses, with the same asynchronous write-back race described on the
+            // `.route`/`.directory` branches above (#968/#969; #714 slice-3 GUI smoke). Calling it
+            // here too closes that window: `ensureComponentEditorLoaded`'s synchronous prefix (the
+            // `componentEditor = editor` assignment) runs in this same Task before its own
+            // `await editor.load()` suspends, so `.component` is already available the instant
+            // `mainPaneMode` lands above. The view's `.task` activation still runs afterward (same
+            // key, so it's a no-op rebuild) — it's still needed for the baseURL-change rebuild.
+            // For a non-component file this call just clears `componentEditor` again — a no-op,
+            // matching today's behavior.
+            await ensureComponentEditorLoaded()
         }
     }
 
