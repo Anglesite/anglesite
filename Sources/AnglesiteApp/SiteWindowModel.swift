@@ -1040,10 +1040,11 @@ final class SiteWindowModel {
         let relPath: String
         let group: FileGroup
         let displayName: String
+        let route: String
         if let page = await contentGraph.page(id: id) {
-            relPath = page.filePath; group = .pages; displayName = page.title ?? page.route
+            relPath = page.filePath; group = .pages; displayName = page.title ?? page.route; route = page.route
         } else if let post = await contentGraph.post(id: id) {
-            relPath = post.filePath; group = .posts; displayName = post.title
+            relPath = post.filePath; group = .posts; displayName = post.title; route = postRoute(for: post)
         } else {
             return nil
         }
@@ -1055,7 +1056,9 @@ final class SiteWindowModel {
         if isFrontmatterPage(relPath) {
             return .page(PageMetadataModel(file: file, sourceDirectory: source))
         }
-        return nil   // plain .astro / other → preview only
+        // Plain .astro / other: no safe generic way to parse or rewrite its frontmatter (JS, not
+        // YAML), so the panel stays read-only rather than staying unavailable (#1100).
+        return .generic(GenericPageInspectorModel(file: file, route: route))
     }
 
     private func isFrontmatterPage(_ relPath: String) -> Bool {

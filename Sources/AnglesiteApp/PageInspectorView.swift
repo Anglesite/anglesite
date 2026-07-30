@@ -16,7 +16,27 @@ struct PageInspectorView: View {
             InspectorChrome(model: model) { TypedEntryForm(model: model) }
         case .page(let model):
             InspectorChrome(model: model) { PageMetadataForm(model: model) }
+        case .generic(let model):
+            InspectorChrome(model: model) { GenericPageInfoForm(model: model) }
         }
+    }
+}
+
+/// Read-only identity for a page with no editable metadata (e.g. a plain `.astro` page) — see
+/// `GenericPageInspectorModel` (#1100).
+private struct GenericPageInfoForm: View {
+    let model: GenericPageInspectorModel
+
+    var body: some View {
+        Form {
+            LabeledContent("Route", value: model.route)
+            Section {
+                Text("This page has no editable metadata yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 
