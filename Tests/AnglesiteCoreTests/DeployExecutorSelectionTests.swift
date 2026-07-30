@@ -18,7 +18,12 @@ struct DeployExecutorSelectionTests {
     // A successful scan JSON so the full build→preflight→wrangler flow runs without blocking.
     private let scanOK = #"{"version":1,"ok":true,"failures":[],"warnings":[]}"#
     private let wranglerOut = "Published site (1s)\n  https://site.example.workers.dev"
-    private let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+    // A fresh, isolated subdirectory per test — NOT the raw shared system temp root. These tests
+    // only care about step routing/count, but #1084's fix makes `ContainerDeployExecutor` read
+    // `siteDirectory/wrangler.toml` off disk before the `.wrangler` step; the bare temp root is
+    // shared process-wide, so a leftover `wrangler.toml` from an unrelated test (or a prior local
+    // run) would silently change these tests' exec-call counts.
+    private let tmpDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
 
     // MARK: - Container path
 

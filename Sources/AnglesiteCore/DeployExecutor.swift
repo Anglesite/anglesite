@@ -116,6 +116,40 @@ public struct ContainerDeployExecutor: DeployExecutor {
         source: String
     ) async -> DeployStepResult {
         // `siteDirectory` is the HOST path — the guest always uses /workspace/site.
+        //
+        // #1084: `/workspace/site` is a one-time `git clone` taken when the container booted
+        // (`ContainerizationControl.start`) — it only reflects whatever was committed at that
+        // moment. `SocialWorkerProvisionCommand.persistConfig`/`WorkerNameRename.apply` write the
+        // site's concrete `wrangler.toml` (worker bindings, `main`, resource ids) straight to this
+        // HOST directory as an uncommitted change, so a container that booted before that write
+        // (the common case — the preview container is already running when the owner turns on a
+        // social feature and deploys) still has the ORIGINAL static-only `wrangler.toml` in its
+        // clone. Without re-syncing here, `wrangler deploy` publishes an assets-only Worker with no
+        // `main` script attached at all, even though the host's `wrangler.toml` is correct — every
+        // dynamic route 404s and `wrangler tail` refuses to attach. Only `.wrangler` needs this:
+        // `astro build` and the preflight scan never read `wrangler.toml` (confirmed against
+        // `Resources/Template`), so re-syncing before them would be pure overhead.
+        if step == .wrangler, let syncArgv = Self.wranglerTomlSyncArgv(hostSiteDirectory: siteDirectory) {
+            do {
+                let syncResult = try await control.exec(
+                    siteID: siteID,
+                    argv: syncArgv,
+                    environment: [:],
+                    workingDirectory: "/workspace/site",
+                    onOutput: { _, _ in }
+                )
+                guard syncResult.exitCode == 0 else {
+                    return DeployStepResult(
+                        exitCode: nil,
+                        output: "couldn't sync wrangler.toml into the container (exit \(syncResult.exitCode))"
+                    )
+                }
+            } catch is CancellationError {
+                return DeployStepResult(exitCode: nil, output: "")
+            } catch {
+                return DeployStepResult(exitCode: nil, output: "couldn't sync wrangler.toml into the container: \(error)")
+            }
+        }
         let argv = Self.guestArgv(for: step, siteDirectory: siteDirectory)
         // Stream guest output to LogCenter LIVE (matching the host path): the `@escaping @Sendable`
         // `onOutput` callback yields each (line, stream) into an AsyncStream (`yield` is nonisolated
@@ -283,6 +317,21 @@ public struct ContainerDeployExecutor: DeployExecutor {
 
     private static func guestEnvironment(from hostEnvironment: [String: String]) -> [String: String] {
         hostEnvironment.filter { guestEnvAllowlist.contains($0.key) }
+    }
+
+    // MARK: wrangler.toml sync (#1084)
+
+    /// Returns the guest shell argv that overwrites `wrangler.toml` (in the guest's current working
+    /// directory) with `hostSiteDirectory`'s current `wrangler.toml` content — `nil` when the host
+    /// file can't be read, meaning there's nothing to sync (the boot-time clone's copy is the best
+    /// we have). Base64-encodes the content so it embeds directly in the `sh -c` string with no
+    /// shell-quoting/escaping surface, mirroring `ContainerizationControl.writeGuestFile`.
+    static func wranglerTomlSyncArgv(hostSiteDirectory: URL) -> [String]? {
+        guard let contents = try? String(
+            contentsOf: hostSiteDirectory.appendingPathComponent("wrangler.toml"), encoding: .utf8
+        ) else { return nil }
+        let encoded = Data(contents.utf8).base64EncodedString()
+        return ["sh", "-c", "echo \(encoded) | base64 -d > wrangler.toml"]
     }
 
     // MARK: argv mapping
