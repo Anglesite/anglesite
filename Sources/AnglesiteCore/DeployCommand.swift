@@ -401,16 +401,15 @@ public actor DeployCommand {
     /// built before the URL was known, so the placeholder still ships on a site's first deploy —
     /// every deploy after that carries the real host.
     ///
-    /// Skipped when a custom domain is already configured (`DOMAIN`/`SITE_DOMAIN`): that value
-    /// wins per `WebsiteAnalyticsAsset.bestHost`'s precedence, and overwriting it here would
-    /// silently revert a custom-domain site back to its workers.dev host on every deploy.
-    /// Best-effort — a write failure must never turn a successful deploy into a failed one.
+    /// Written unconditionally, even when a custom domain (`DOMAIN`/`SITE_DOMAIN`) is already
+    /// configured (#1085): nothing in the deploy pipeline actually attaches a custom domain yet
+    /// (#1077), so that value is never verified to be live. `SITE_URL` is the one field guaranteed
+    /// to be the site's real, reachable address — `DeployCoordinator.resolveSiteURL` prefers it
+    /// over the possibly-dead custom domain for exactly that reason. Best-effort — a write failure
+    /// must never turn a successful deploy into a failed one.
     static func persistSiteURL(_ url: URL, siteDirectory: URL) {
         let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
-        guard WebsiteAnalyticsAsset.configValue("DOMAIN", in: config) == nil,
-              WebsiteAnalyticsAsset.configValue("SITE_DOMAIN", in: config) == nil
-        else { return }
         let updated = SiteConfigFile.upsert([("SITE_URL", url.absoluteString)], into: config)
         guard updated != config else { return }
         try? updated.write(to: configURL, atomically: true, encoding: .utf8)

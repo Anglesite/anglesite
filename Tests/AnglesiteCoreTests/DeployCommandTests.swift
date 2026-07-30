@@ -627,7 +627,7 @@ struct DeployCommandTests {
         #expect(SiteConfigFile.value(forKey: "CF_WORKER_DEPLOYED", in: config) == "true")
     }
 
-    @Test("CF_WORKER_DEPLOYED is written even for a .transfer-domain site (where SITE_URL is not)")
+    @Test("CF_WORKER_DEPLOYED and SITE_URL are both written for a .transfer-domain site (#1085)")
     func workerDeployedMarkerNotConfoundedByCustomDomain() async {
         let siteDir = makeSiteDirectory()
         let configURL = siteDir.appendingPathComponent(".site-config")
@@ -640,8 +640,11 @@ struct DeployCommandTests {
         let result = await cmd.deploy(siteID: "s", siteDirectory: siteDir)
         guard case .succeeded = result else { Issue.record("expected .succeeded, got \(result)"); return }
         let config = try! String(contentsOf: configURL, encoding: .utf8)
-        #expect(SiteConfigFile.value(forKey: "SITE_URL", in: config) == nil, "SITE_URL is skipped when DOMAIN is set")
-        #expect(SiteConfigFile.value(forKey: "CF_WORKER_DEPLOYED", in: config) == "true", "but CF_WORKER_DEPLOYED must still be written")
+        // Nothing attaches DOMAIN to a live Worker yet (#1077), so SITE_URL must still be
+        // recorded as the real, reachable fallback (#1085) — it's no longer skipped just
+        // because a custom domain is configured.
+        #expect(SiteConfigFile.value(forKey: "SITE_URL", in: config) == "https://x.workers.dev")
+        #expect(SiteConfigFile.value(forKey: "CF_WORKER_DEPLOYED", in: config) == "true")
     }
 
     /// Writes `.site-config` with the given `CF_PROJECT_NAME` and, if `deployedBefore`, a
@@ -1064,8 +1067,8 @@ struct DeployCommandTests {
         #expect(config?.contains("SITE_URL=https://s.example.workers.dev") == true)
     }
 
-    @Test("a custom DOMAIN already in .site-config is not overwritten by the workers.dev URL")
-    func customDomainWinsOverWorkersDevURL() async {
+    @Test("a custom DOMAIN already in .site-config does not stop SITE_URL from being recorded (#1085)")
+    func customDomainDoesNotStopSiteURLPersistence() async {
         let siteDir = privateSiteDir()
         defer { try? FileManager.default.removeItem(at: siteDir) }
         try? "DOMAIN=example.com\n".write(
@@ -1078,9 +1081,12 @@ struct DeployCommandTests {
         let result = await cmd.deploy(siteID: "s", siteDirectory: siteDir)
         guard case .succeeded = result else { Issue.record("expected .succeeded, got \(result)"); return }
 
+        // Nothing in the deploy pipeline actually attaches a custom domain yet (#1077), so
+        // `DOMAIN` is never verified to be live — SITE_URL must still be recorded as the real,
+        // reachable fallback `DeployCoordinator.resolveSiteURL` prefers (#1085).
         let config = try? String(contentsOf: siteDir.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(config?.contains("DOMAIN=example.com") == true)
-        #expect(config?.contains("SITE_URL=") == false)
+        #expect(config?.contains("SITE_URL=https://s.example.workers.dev") == true)
     }
 
     @Test("persistSiteURL upserts without clobbering unrelated keys")
