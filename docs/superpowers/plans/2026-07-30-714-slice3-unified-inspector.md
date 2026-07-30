@@ -1392,6 +1392,7 @@ Launch the built app with a test site and verify:
 2. Selecting a collection (blog/notes) shows Route/Content Type/Entries/Template/Feeds/Sitemap in Metadata.
 3. Opening a component shows the editor as outline + canvas (no third column); the window inspector shows Selection/Props under Metadata and Styles/Computed under Style; clicking a canvas element updates both; a ColorPicker drag scrubs the canvas live.
 4. The tab choice survives switching selections and window relaunch; View ▸ Show/Hide Inspector and the toolbar toggle work in all three modes.
+5. With a component open, drag a ColorPicker to scrub, then toggle to Preview and back to Editor (same component): the scrub preview still works — it must not silently stop updating the canvas after the round-trip (#714 final review, Important 1: the activation task's canvas-webview reset must not fire on a same-key reappearance).
 
 - [ ] **Step 6: Commit**
 

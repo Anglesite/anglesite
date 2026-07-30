@@ -190,10 +190,14 @@ Structural changes this requires:
   zone is dropped from the inspector — the Design/Source mode picker already
   covers source editing.
 - **Model hoisting.** `ComponentEditorModel` moves from `ComponentEditorView`'s
-  view-local `@State` to `SiteWindowModel` ownership: `openFile` on a
-  component creates it (its context dependencies — preview `readyURL`, MCP
-  client, shared edit router — are already reachable there); leaving component
-  mode tears it down. `ComponentEditorView` receives the model.
+  view-local `@State` to `SiteWindowModel` ownership: the editor-pane's
+  activation task creates/rebuilds it keyed on (file, dev-server URL) — the
+  same identity the old view-local load key watched (its context dependencies
+  — preview `readyURL`, MCP client, shared edit router — are already reachable
+  on the window model). It survives Preview/Editor mode toggles (same lifetime
+  as the editor buffer's usefulness, not `activeEditor` itself) and is torn
+  down only on site change, window close, or the open component being
+  deleted. `ComponentEditorView` receives the model.
 - **Presentation gate.** The inspector shows when *any* selection context
   exists (page inspector context, component editor model, or collection
   context) instead of clearing on `openFile`; the toolbar toggle enables
@@ -237,7 +241,8 @@ populates the inspector's **Metadata** tab with:
 - Sitemap status ("Not configured" until the template gains one).
 
 v1 is read-mostly; editability is deferred (see Non-goals). Plain nested page
-folders (no collection) show the page list and route only.
+folders (no collection) show route and entry count only — no content-type,
+feed, or template rows.
 
 ## 7. Website Settings (main pane)
 
@@ -293,9 +298,9 @@ independent of the others.
 - Feed-probe tests against fixture directory layouts.
 - `SiteNavigatorModel` tests updated for tree output and `.directory` selection.
 - `SiteWindowModel` tests for the unified-inspector gate and
-  `ComponentEditorModel` lifecycle: opening a component creates the model and
-  keeps the inspector reachable; leaving component mode tears it down;
-  `.directory` selection populates the collection context; route selection
+  `ComponentEditorModel` lifecycle: opening a component creates the model;
+  toggling to Preview and back keeps it (only the inspector's *surfacing* of
+  it toggles); `.directory` selection populates the collection context; route selection
   restores the page context. Existing `ComponentEditorModel` behavior tests
   survive the hoisting unchanged.
 - `SiteToolbarItemIDTests` updated for `insert` + new defaults.
