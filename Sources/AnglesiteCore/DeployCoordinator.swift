@@ -109,20 +109,28 @@ public enum DeployCoordinator {
             ?? SiteSlug.derive(from: siteName ?? siteID)
     }
 
-    /// The site's best-known public URL for `WorkerComposition`'s `SITE_URL` var (#359): a
-    /// custom domain (`DOMAIN`/`SITE_DOMAIN`, `WebsiteAnalyticsAsset.bestHost`'s own precedence)
-    /// wins, given a scheme since those keys store a bare host; otherwise the workers.dev host
-    /// `DeployCommand.persistSiteURL` writes after the site's first successful deploy. `nil`
-    /// before any deploy has ever run and no custom domain is configured — the composed Worker
-    /// degrades gracefully without it (worker.ts's queue consumer no-ops).
+    /// The site's best-known public URL for `WorkerComposition`'s `SITE_URL` var (#359) — the
+    /// address the composed Worker uses for its own outbound requests, e.g. `CommunityMembershipClient`'s
+    /// ActivityPub actor ID and outbox (#1085). The workers.dev host `DeployCommand.persistSiteURL`
+    /// records after every successful deploy wins whenever it's present: nothing in the deploy
+    /// pipeline actually attaches a custom domain yet (#1077), so a configured `DOMAIN`/
+    /// `SITE_DOMAIN` is never verified to be live, and trusting it unconditionally over a
+    /// known-working host silently breaks federation the moment the custom domain doesn't resolve.
+    /// A custom domain is used only as a last resort, before any deploy has ever persisted
+    /// `SITE_URL` — the best guess available at that point. `nil` before any deploy has ever run
+    /// and no custom domain is configured — the composed Worker degrades gracefully without it
+    /// (worker.ts's queue consumer no-ops).
     public static func resolveSiteURL(siteDirectory: URL) -> String? {
         let config = (try? WebsiteAnalyticsAsset.loadConfig(siteDirectory: siteDirectory)) ?? ""
+        if let siteURL = WebsiteAnalyticsAsset.configValue("SITE_URL", in: config) {
+            return siteURL
+        }
         if let domain = WebsiteAnalyticsAsset.configValue("DOMAIN", in: config)
             ?? WebsiteAnalyticsAsset.configValue("SITE_DOMAIN", in: config) {
             let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? nil : "https://\(trimmed)"
         }
-        return WebsiteAnalyticsAsset.configValue("SITE_URL", in: config)
+        return nil
     }
 
     /// Persists the newly-provisioned Cloudflare resources and advances the `lastDeployedWorkerIDs`

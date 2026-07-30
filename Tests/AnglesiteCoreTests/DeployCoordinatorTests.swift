@@ -162,22 +162,22 @@ struct DeployCoordinatorTests {
 
     // MARK: - resolveSiteURL
 
-    @Test("resolveSiteURL prefers DOMAIN over everything else")
-    func resolveSiteURLPrefersDomain() throws {
+    @Test("resolveSiteURL prefers the persisted SITE_URL over an unverified custom domain (#1085)")
+    func resolveSiteURLPrefersSiteURLOverDomain() throws {
         let dir = try temporaryDirectory()
         try "DOMAIN=example.com\nSITE_URL=https://my-site.workers.dev\n".write(
             to: dir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
 
-        #expect(DeployCoordinator.resolveSiteURL(siteDirectory: dir) == "https://example.com")
+        #expect(DeployCoordinator.resolveSiteURL(siteDirectory: dir) == "https://my-site.workers.dev")
     }
 
-    @Test("resolveSiteURL falls back to the persisted SITE_URL when no custom domain is set")
-    func resolveSiteURLFallsBackToSiteURL() throws {
+    @Test("resolveSiteURL falls back to DOMAIN before any deploy has ever persisted SITE_URL")
+    func resolveSiteURLFallsBackToDomain() throws {
         let dir = try temporaryDirectory()
-        try "SITE_URL=https://my-site.workers.dev\n".write(
+        try "DOMAIN=example.com\n".write(
             to: dir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
 
-        #expect(DeployCoordinator.resolveSiteURL(siteDirectory: dir) == "https://my-site.workers.dev")
+        #expect(DeployCoordinator.resolveSiteURL(siteDirectory: dir) == "https://example.com")
     }
 
     @Test("resolveSiteURL returns nil before any deploy has ever persisted a host")
