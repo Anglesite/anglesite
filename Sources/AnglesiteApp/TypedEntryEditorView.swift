@@ -148,6 +148,11 @@ private struct ObjectArrayEditor: View {
         var values: [String: TypedContentEditor.FieldValue]
     }
     @State private var rows: [Row] = []
+    /// In-progress number text per row, per member field — the nested-row counterpart of
+    /// `TypedEntryEditorModel.numberDrafts`. Keyed by row identity so two rows editing the same
+    /// member field never share (and clobber) each other's draft. Without it a mid-edit draft like
+    /// "3." (on its way to "3.5") parses as nil and snaps the field back to empty.
+    @State private var numberDrafts: [Row.ID: [String: String]] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -155,11 +160,11 @@ private struct ObjectArrayEditor: View {
             ForEach($rows) { $row in
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(memberFields, id: \.name) { field in
-                        memberControl(for: field, in: $row.values)
+                        memberControl(for: field, in: $row.values, rowID: row.id)
                     }
                     HStack {
                         Spacer()
-                        Button(role: .destructive) { rows.removeAll { $0.id == row.id } } label: {
+                        Button(role: .destructive) { removeRow(row.id) } label: {
                             Image(systemName: "minus.circle")
                         }
                         .buttonStyle(.borderless)
@@ -175,12 +180,20 @@ private struct ObjectArrayEditor: View {
         }
         .onAppear { syncRowsFromRecords() }
         .onChange(of: records) { _, new in
-            if new != rows.map(\.values) { rows = new.map(Row.init(values:)) }
+            if new != rows.map(\.values) {
+                rows = new.map(Row.init(values:))
+                numberDrafts.removeAll()   // rows were replaced wholesale (e.g. reload from disk)
+            }
         }
         .onChange(of: rows) { _, new in
             let mapped = new.map(\.values)
             if mapped != records { records = mapped }
         }
+    }
+
+    private func removeRow(_ id: Row.ID) {
+        rows.removeAll { $0.id == id }
+        numberDrafts[id] = nil
     }
 
     private func emptyRecord() -> [String: TypedContentEditor.FieldValue] {
@@ -192,18 +205,46 @@ private struct ObjectArrayEditor: View {
     }
 
     @ViewBuilder
-    private func memberControl(for field: ContentTypeField, in values: Binding<[String: TypedContentEditor.FieldValue]>) -> some View {
+    private func memberControl(for field: ContentTypeField,
+                               in values: Binding<[String: TypedContentEditor.FieldValue]>,
+                               rowID: Row.ID) -> some View {
         let label = field.name + (field.required ? " *" : "")
+        // Exhaustive on purpose — no `default:`. A catch-all rendered the four kinds a member field
+        // must not use (see `ContentTypeField.Kind.objectArray`) as an ordinary TextField bound to
+        // `.text`, while `TypedContentEditor.decode`/`encode` expect `.list`/`.records` there — a
+        // working-looking control that corrupts the record on save. Listing every kind also makes
+        // the compiler flag a newly added `Kind` here instead of letting it fall into that trap.
         switch field.kind {
+        case .string, .text, .url, .image:
+            HStack {
+                TextField(label, text: textBinding(field.name, in: values))
+                if field.kind == .image {
+                    Button("Choose…") { chooseFile(for: field.name, in: values) }
+                }
+            }
         case .bool:
             Toggle(label, isOn: flagBinding(field.name, in: values))
         case .date, .datetime:
             DatePicker(label, selection: dateBinding(field.name, in: values),
                        displayedComponents: field.kind == .date ? [.date] : [.date, .hourAndMinute])
         case .number:
-            TextField(label, text: numberBinding(field.name, in: values))
-        default:
-            TextField(label, text: textBinding(field.name, in: values))
+            TextField(label, text: numberBinding(field.name, in: values, rowID: rowID))
+        case .markdown, .stringArray, .imageArray, .objectArray:
+            // Fail visibly rather than silently. `verbatim:` deliberately: this is a
+            // descriptor-authoring diagnostic that no shipped descriptor can reach, not user copy.
+            Text(verbatim: "\(field.name) — unsupported member field kind")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func chooseFile(for name: String, in values: Binding<[String: TypedContentEditor.FieldValue]>) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            values.wrappedValue[name] = .text(url.lastPathComponent)
         }
     }
 
@@ -228,13 +269,37 @@ private struct ObjectArrayEditor: View {
         )
     }
 
-    private func numberBinding(_ name: String, in values: Binding<[String: TypedContentEditor.FieldValue]>) -> Binding<String> {
+    /// Mirrors `TypedEntryEditorModel.numberBinding` one level down: a per-row draft buffer so a
+    /// mid-edit unparseable value never clobbers the stored number, and integral display formatting
+    /// so a valid "1" doesn't immediately redisplay as "1.0".
+    private func numberBinding(_ name: String,
+                               in values: Binding<[String: TypedContentEditor.FieldValue]>,
+                               rowID: Row.ID) -> Binding<String> {
         Binding(
             get: {
-                if case .number(let n)? = values.wrappedValue[name], let n { return String(n) }
+                if let draft = numberDrafts[rowID]?[name] { return draft }
+                if case .number(let n)? = values.wrappedValue[name], let n { return Self.displayNumber(n) }
                 return ""
             },
-            set: { values.wrappedValue[name] = .number(Double($0)) }
+            set: { raw in
+                numberDrafts[rowID, default: [:]][name] = raw
+                let trimmed = raw.trimmingCharacters(in: .whitespaces)
+                // Only overwrite the stored value when the draft parses (or is cleared). A mid-edit
+                // unparseable draft like "3." must not clobber a previously valid number with nil.
+                if trimmed.isEmpty {
+                    values.wrappedValue[name] = .number(nil)
+                } else if let parsed = Double(trimmed) {
+                    values.wrappedValue[name] = .number(parsed)
+                }
+            }
         )
+    }
+
+    /// Integral values render without a trailing ".0"; the magnitude guard avoids the `Int(_:)`
+    /// overflow trap. Mirrors `TypedEntryEditorModel.displayNumber` (private there) — keep the two
+    /// in step so a number reads identically at top level and inside a record row.
+    private static func displayNumber(_ n: Double) -> String {
+        if n == n.rounded(), abs(n) < 1e15 { return String(Int(n)) }
+        return String(n)
     }
 }

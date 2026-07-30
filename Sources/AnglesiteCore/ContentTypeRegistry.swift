@@ -36,6 +36,18 @@ public struct ContentTypeField: Sendable, Equatable {
         /// `.objectArray` — enforced by review/tests, not the type system, matching this registry's
         /// existing preference for documented invariants over new type machinery. No built-in
         /// descriptor declares this yet (#964 adds the first: h-resume).
+        ///
+        /// **Hand-authored keys inside a record are not preserved across an edit.**
+        /// `FrontmatterDocument` promises that form-only editing never silently drops a
+        /// hand-authored key — but that promise stops at the top level. One level down, inside a
+        /// record, `TypedContentEditor.decode`/`encode` only round-trip the member fields declared
+        /// here: an extra key a person wrote into one record item survives an *unedited*
+        /// round-trip (the whole field is still verbatim), and is dropped the moment that field is
+        /// edited through the app, because `encode` re-emits records from `fields` alone.
+        /// Accepted for now — no descriptor uses `.objectArray` yet, so nothing is at risk — but
+        /// preserving unknown per-record keys needs its own design (records would have to carry
+        /// their unparsed extras through the editor), so weigh it before the first real adopter
+        /// ships.
         case objectArray(fields: [ContentTypeField])
     }
 
