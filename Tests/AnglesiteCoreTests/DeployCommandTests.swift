@@ -1104,6 +1104,23 @@ struct DeployCommandTests {
         #expect(!config.contains("old.example.workers.dev"))
     }
 
+    @Test("persistSiteURL skips the write once CF_DOMAIN_ATTACHED confirms the configured DOMAIN (#1077)")
+    func persistSiteURLSkipsOnceCustomDomainConfirmed() {
+        let siteDir = privateSiteDir()
+        defer { try? FileManager.default.removeItem(at: siteDir) }
+        // Unlike `customDomainDoesNotStopSiteURLPersistence` above (DOMAIN configured but never
+        // verified live), CF_DOMAIN_ATTACHED here matches DOMAIN exactly — the same "confirmed"
+        // signal `CustomDomainAttachCommand.attach` itself checks — so the custom domain is the
+        // site's real, verified address and must not be shadowed by the workers.dev host.
+        try? "DOMAIN=example.com\nCF_DOMAIN_ATTACHED=example.com\n".write(
+            to: siteDir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        DeployCommand.persistSiteURL(URL(string: "https://new.example.workers.dev")!, siteDirectory: siteDir)
+
+        let config = try! String(contentsOf: siteDir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(!config.contains("SITE_URL="))
+    }
+
     // MARK: Bundle-upload orchestration (#799)
 
     @Test("a successful deploy uploads the source bundle when CF_SOURCE_BUCKET is configured")
@@ -1311,6 +1328,11 @@ struct DeployCommandTests {
         #expect(observed == .confirmed(hostname: "example.com"))
         let config = try String(contentsOf: siteDir.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(config.contains("CF_DOMAIN_ATTACHED=example.com"))
+        // #1124: a domain confirmed attached *in this same deploy* must win immediately —
+        // `persistSiteURL` must not overwrite SITE_URL with the workers.dev host and shadow it,
+        // or `DeployCoordinator.resolveSiteURL`'s DOMAIN fallback (which `DeployModel`'s
+        // succeeded-phase display URL relies on) never sees the custom domain.
+        #expect(!config.contains("SITE_URL="))
     }
 
     @Test("a domain-attach outcome of .notConnected doesn't block the deploy from succeeding")
