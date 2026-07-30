@@ -11,3 +11,7 @@ dist/
 # (apple-app-site-association, assetlinks.json, …) can still be committed.
 public/.well-known/security.txt
 public/.well-known/mta-sts.txt
+
+# Written by scripts/a11y-audit.ts's default --report path; a run-to-run
+# artifact, not source.
+reports/

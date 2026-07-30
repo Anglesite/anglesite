@@ -51,10 +51,28 @@ public struct A11yAuditRunner: AuditRunner {
         return try Self.parse(json: Data(jsonString.utf8))
     }
 
-    public enum Error: Swift.Error, Equatable {
+    public enum Error: Swift.Error, Equatable, CustomStringConvertible {
         case scriptFailed(exitCode: Int32?, output: String)
         case noJSONInOutput
         case unknownSeverity(String)
+
+        /// Owner-facing text — this is what ends up in `AuditReport.SkippedRunner.reason` (via
+        /// `AuditCommand`'s `"\(error)"` interpolation) and gets rendered verbatim in
+        /// `AuditSheetView`, so it must never be the raw enum dump. `.scriptFailed` usually
+        /// already carries an owner-facing message in `output` (e.g. `ContainerAuditExecutor`'s
+        /// "Container isn't running…" or a build-tool error) — surface it as-is rather than
+        /// re-wrapping it in jargon.
+        public var description: String {
+            switch self {
+            case .scriptFailed(let exitCode, let output):
+                if !output.isEmpty { return output }
+                return "the accessibility check exited unexpectedly (code \(exitCode?.description ?? "unknown"))"
+            case .noJSONInOutput:
+                return "the accessibility check didn't produce a report — see the Debug pane for details."
+            case .unknownSeverity(let raw):
+                return "the accessibility check reported an unrecognized severity (\"\(raw)\")."
+            }
+        }
     }
 
     // MARK: - JSON parsing
