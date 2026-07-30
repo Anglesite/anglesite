@@ -2,48 +2,37 @@ import SwiftUI
 import WebKit
 import AnglesiteCore
 
-/// Component Editor: outline + harness canvas + inspector (with interactive Styles panel and
-/// structure edits).
+/// Component Editor: outline + harness canvas. The inspector (Metadata/Style, with interactive
+/// Styles panel and structure edits) has moved to the window's unified inspector (#714 slice 3) —
+/// `ComponentMetadataInspectorPane`/`ComponentStyleInspectorPane`, hosted by `SiteInspectorView`.
 ///
 /// The view layer is a thin renderer over `ComponentEditorModel`, which owns the draft/dirty/
 /// commit/debounce state and the drag-and-drop dispatch logic (#824's extraction) — this file
-/// wires up mode switching, the load lifecycle, and the three-pane layout.
-/// `ComponentEditorOutlinePane`, `ComponentEditorCanvasPane`, and `ComponentEditorInspectorPane`
-/// (which embeds `ComponentEditorCodePane`) hold the pane-specific rendering, in their own files,
-/// matching the decomposition `SiteGraphExplorerView` already established for this codebase:
-/// subviews bind directly to model-owned state rather than mirroring it into view-local `@State`.
+/// wires up mode switching, the load lifecycle, and the two-pane layout. `ComponentEditorOutlinePane`
+/// and `ComponentEditorCanvasPane` hold the pane-specific rendering, in their own files, matching
+/// the decomposition `SiteGraphExplorerView` already established for this codebase: subviews bind
+/// directly to model-owned state rather than mirroring it into view-local `@State`.
 struct ComponentEditorView: View {
     @Bindable var model: ComponentEditorModel
     @Bindable var fileEditor: FileEditorModel
+    /// Forwards the canvas webview to the host window (for the unified inspector's scrub
+    /// preview) in addition to this view's own `webView` state (used for highlight pushes).
+    var onWebView: ((WKWebView?) -> Void)? = nil
 
     private var file: FileRef { model.file }
     private var context: ComponentEditorContext { model.context }
 
-    /// Design (three-pane) vs Source (existing text editor) — the escape hatch.
+    /// Design (outline + canvas) vs Source (existing text editor) — the escape hatch.
     @State private var mode: Mode = .design
     /// The harness canvas's live `WKWebView`, bubbled up from `ComponentEditorCanvasPane` — used
-    /// here to re-highlight the canvas selection, and threaded down to
-    /// `ComponentEditorInspectorPane` for the Styles panel's `ColorPicker` scrub preview. This is
+    /// here to re-highlight the canvas selection, and forwarded to the host window (via
+    /// `onWebView`) for the unified inspector's Style pane `ColorPicker` scrub preview. This is
     /// a live UI resource handle, not business state, so it stays `@State` rather than moving
     /// onto the (WebKit-free) model.
     @State private var webView: WKWebView?
     /// Canvas viewport-width preset (design spec §3/§4.2) — "Fill" (the default) matches the
     /// pre-slice-5 behavior of the harness filling the available pane width.
     @State private var viewportPreset: ComponentViewportPreset = .fill
-    /// Which code pane is showing — "Props & Data" (frontmatter TS) or "Behavior" (client
-    /// script). Design spec §4.3.
-    @State private var codeZone: ComponentEditorModel.CodeZone = .frontmatter
-    /// Selector text for the inline "Add rule" form at the bottom of the Styles panel.
-    @State private var newRuleSelector: String = ""
-    /// `@media` condition text for the inline "Add rule" form; blank means no wrapping media
-    /// query (same as passing `nil` to `addStyleRule`).
-    @State private var newRuleMedia: String = ""
-    /// Media keys the user has manually collapsed — a `DisclosureGroup` per media section
-    /// defaults to expanded, matching the old flat list's always-visible rules.
-    @State private var collapsedMediaKeys: Set<String> = []
-    /// Name/value text for the inline "Add attribute" form in the Selection panel.
-    @State private var newAttrName: String = ""
-    @State private var newAttrValue: String = ""
     /// Outline node the "Extract into Component…" sheet is targeting, captured at menu-tap time.
     /// Non-nil presents `ExtractComponentSheet` (design §6.3).
     @State private var extractTarget: ExtractTarget?
@@ -147,21 +136,9 @@ struct ComponentEditorView: View {
                     model: model,
                     context: context,
                     viewportPreset: $viewportPreset,
-                    onWebView: { webView = $0 }
+                    onWebView: { webView = $0; onWebView?($0) }
                 )
                 .frame(minWidth: 320).layoutPriority(1)
-
-                ComponentEditorInspectorPane(
-                    model: model,
-                    webView: webView,
-                    codeZone: $codeZone,
-                    newRuleSelector: $newRuleSelector,
-                    newRuleMedia: $newRuleMedia,
-                    collapsedMediaKeys: $collapsedMediaKeys,
-                    newAttrName: $newAttrName,
-                    newAttrValue: $newAttrValue
-                )
-                .frame(minWidth: 220, idealWidth: 260)
             }
         }
     }

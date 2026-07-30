@@ -1,9 +1,10 @@
 import SwiftUI
+import WebKit
 import AnglesiteCore
 
 /// Inline editor for a navigator-selected file. `EditorKind.resolve` picks the editor per file:
 /// plain text for most files, a dedicated `PlistEditorView`-backed case for `.plist`, and the
-/// three-pane `ComponentEditorView` (outline + canvas + inspector) for `.astro` components when
+/// two-pane `ComponentEditorView` (outline + canvas) for `.astro` components when
 /// `componentEditor` is available. State lives in `FileEditorModel` (owned by `SiteWindow`) so
 /// navigating away can auto-save and the buffer survives the Preview/Editor toggle. All IO is
 /// async/off-main in the model.
@@ -14,6 +15,9 @@ struct MainPaneEditorView: View {
     /// the plain text editor (first frame before activation, or no site window wiring, e.g.
     /// previews).
     var componentEditor: ComponentEditorModel? = nil
+    /// Bubbles the component harness canvas's webview up to the window (for the inspector's
+    /// scrub preview). nil when unused (previews/tests).
+    var onCanvasWebView: ((WKWebView?) -> Void)? = nil
     @Environment(\.controlActiveState) private var controlActiveState
     @FocusState private var isPlainTextEditorFocused: Bool
 
@@ -57,7 +61,9 @@ struct MainPaneEditorView: View {
                         )
                     case .component:
                         if let componentEditor {
-                            ComponentEditorView(model: componentEditor, fileEditor: model)
+                            ComponentEditorView(
+                                model: componentEditor, fileEditor: model,
+                                onWebView: onCanvasWebView)
                         } else {
                             TextEditor(text: $model.text)
                                 .font(.system(.body, design: .monospaced))

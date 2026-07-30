@@ -1,4 +1,5 @@
 import SwiftUI
+import WebKit
 import AnglesiteCore
 import AnglesiteIntents
 
@@ -27,6 +28,11 @@ struct SiteWindow: View {
     /// mirrors `SiteNavigatorView`'s `candidateToDeleteTitle` for the same reason.
     @State private var contentDeleteTitle: String = ""
     @State private var unsavedEditsTerminationLease: SuddenTerminationController.Lease?
+    /// The component harness canvas's live webview, bubbled up through
+    /// `MainPaneEditorView`/`ComponentEditorView` so the window inspector's Style pane can drive
+    /// the ColorPicker scrub preview (#714 slice 3). A UI resource handle — view state, not model
+    /// state.
+    @State private var componentCanvasWebView: WKWebView?
 
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
@@ -161,8 +167,8 @@ struct SiteWindow: View {
             // Inspector reaches it through its own focused value rather than the window model
             // (#512).
             .focusedSceneValue(\.inspectorPanel, InspectorPanelActions(
-                isShown: inspectorShown && model.inspectorContext != nil,
-                isAvailable: model.inspectorContext != nil,
+                isShown: inspectorShown && model.inspectorSelection != nil,
+                isAvailable: model.inspectorSelection != nil,
                 toggle: { inspectorShown.toggle() }
             ))
     }
@@ -260,17 +266,21 @@ struct SiteWindow: View {
         .animation(.easeInOut(duration: 0.18), value: model.deploy.drawerPresented)
         .animation(.easeInOut(duration: 0.18), value: model.backup.drawerPresented)
         .inspector(isPresented: Binding(
-            get: { inspectorShown && model.inspectorContext != nil },
+            get: { inspectorShown && model.inspectorSelection != nil },
             set: { newValue in
                 // Only persist an explicit show/hide while there is something to inspect.
-                // When inspectorContext is nil the panel is auto-hidden; ignore that write so
+                // When the selection is nil the panel is auto-hidden; ignore that write so
                 // it doesn't clobber the remembered preference (the bug: inspector never returns).
-                if model.inspectorContext != nil { inspectorShown = newValue }
+                if model.inspectorSelection != nil { inspectorShown = newValue }
             }
         )) {
-            if let inspectorContext = model.inspectorContext {
-                PageInspectorView(context: inspectorContext)
-                    .inspectorColumnWidth(min: 260, ideal: 300, max: 420)
+            if let selection = model.inspectorSelection {
+                SiteInspectorView(
+                    selection: selection,
+                    canvasWebView: componentCanvasWebView,
+                    previewBaseURL: model.preview.readyURL
+                )
+                .inspectorColumnWidth(min: 260, ideal: 300, max: 420)
             }
         }
         .navigationTitle(site.name)
@@ -521,7 +531,7 @@ struct SiteWindow: View {
                 } label: {
                     Label("Inspector", systemImage: "sidebar.right")
                 }
-                .disabled(model.inspectorContext == nil)
+                .disabled(model.inspectorSelection == nil)
                 .help("Show or hide the page inspector")
             }
         }
@@ -792,7 +802,11 @@ struct SiteWindow: View {
         switch model.mainPaneMode {
         case .editor:
             if case .text(let editorModel) = model.activeEditor {
-                MainPaneEditorView(model: editorModel, componentEditor: model.componentEditor)
+                MainPaneEditorView(
+                    model: editorModel,
+                    componentEditor: model.componentEditor,
+                    onCanvasWebView: { componentCanvasWebView = $0 }
+                )
                     // Re-fires on file change AND on the dev server becoming ready (nil→non-nil
                     // readyURL) — the same identity the old view-local LoadKey watched — so the
                     // hoisted model rebuilds exactly when the old @State model did.

@@ -144,10 +144,10 @@ final class ComponentEditorModel {
 
     /// The two code panes' zones (design spec §4.3): frontmatter TS ("Props & Data") and the
     /// client `<script>` ("Behavior"). Maps 1:1 to `EditMessage.Op.setScriptZone`'s wire values —
-    /// `rawValue` is passed straight through to `setScriptZone(zone:source:)`. UI-only concerns
-    /// (display label, tree-sitter language) are attached as a `private extension` in
-    /// `ComponentEditorCodePane.swift`, the same split `SiteGraphNodeKind` uses for its
-    /// view-only `title`/`systemImage`/`tint`.
+    /// `rawValue` is passed straight through to `setScriptZone(zone:source:)`. The in-pane code
+    /// UI that once rendered these zones (`ComponentEditorCodePane`) was retired with the unified
+    /// inspector (#714 slice 3); this drafts/dirty/save API stays as the seam for a future surface
+    /// (Design/Source mode covers source editing today).
     enum CodeZone: String, CaseIterable, Hashable {
         case frontmatter, client
     }
