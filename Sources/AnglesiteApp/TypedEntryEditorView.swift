@@ -61,8 +61,6 @@ struct TypedEntryForm: View {
                              pickFile: field.kind == .imageArray)
         case .markdown:
             EmptyView()   // handled by the Body section
-        case .objectArray:
-            EmptyView()   // handled by the Records section
         }
     }
 
