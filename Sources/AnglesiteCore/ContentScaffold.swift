@@ -196,7 +196,7 @@ public enum ContentScaffold {
                 lines.append("\(field.name): \(field.name == "draft" ? "true" : "false")")
             case .number:
                 lines.append("\(field.name): 0")
-            case .stringArray, .imageArray:
+            case .stringArray, .imageArray, .objectArray:
                 lines.append("\(field.name): []")
             case .string, .text, .image:
                 lines.append("\(field.name): \"\(escapeYAML(scalarValue(field, title: title, fieldValues: fieldValues)))\"")
@@ -259,7 +259,7 @@ public enum ContentScaffold {
                 value = "false"
             case .number:
                 value = "0"
-            case .stringArray, .imageArray:
+            case .stringArray, .imageArray, .objectArray:
                 value = "[]"
             case .string, .text, .url, .image, .date, .datetime:
                 let filled = ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (name ?? "") : ""

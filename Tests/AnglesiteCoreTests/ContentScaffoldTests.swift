@@ -329,4 +329,28 @@ struct ContentScaffoldTests {
         #expect(ContentScaffold.slugFromURL("/relative/path", now: now).isEmpty)
         #expect(ContentScaffold.slugFromURL("mailto:a@b.c", now: now).isEmpty)
     }
+
+    @Test("renderEntry scaffolds an empty array for an objectArray field")
+    func renderEntryScaffoldsEmptyObjectArray() {
+        let descriptor = ContentTypeDescriptor(
+            id: "resumeFixture", displayName: "Resume Fixture", storage: .collection("resumeFixtures"),
+            fields: [ContentTypeField("experience", .objectArray(fields: [
+                ContentTypeField("title", .string, required: true),
+            ]))],
+            projections: ContentTypeProjections(microformat: "h-resume", microformatProperties: [:], schemaType: nil))
+        let out = ContentScaffold.renderEntry(descriptor: descriptor, title: nil, now: Date())
+        #expect(out.contains("experience: []"))
+    }
+
+    @Test("renderSingleton scaffolds an empty array for an objectArray field")
+    func renderSingletonScaffoldsEmptyObjectArray() {
+        let descriptor = ContentTypeDescriptor(
+            id: "resumeSingletonFixture", displayName: "Resume Singleton Fixture", storage: .singleton("resumeFixture"),
+            fields: [ContentTypeField("experience", .objectArray(fields: [
+                ContentTypeField("title", .string, required: true),
+            ]))],
+            projections: ContentTypeProjections(microformat: "h-resume", microformatProperties: [:], schemaType: nil))
+        let out = ContentScaffold.renderSingleton(descriptor: descriptor, name: nil)
+        #expect(out.contains("\"experience\": []"))
+    }
 }
