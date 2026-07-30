@@ -22,16 +22,17 @@ struct PageInspectorView: View {
     }
 }
 
-/// Read-only identity for a page with no editable metadata (e.g. a plain `.astro` page) — see
-/// `GenericPageInspectorModel` (#1100).
+/// Identity + the two shared search/crawling toggles for a page with no other editable metadata
+/// (e.g. a plain `.astro` page) — see `GenericPageInspectorModel` (#1100, #1093).
 private struct GenericPageInfoForm: View {
-    let model: GenericPageInspectorModel
+    @Bindable var model: GenericPageInspectorModel
 
     var body: some View {
         Form {
             LabeledContent("Route", value: model.route)
+            RobotsSettingsSection(noindex: model.noindexBinding(), disallowCrawl: model.disallowCrawlBinding())
             Section {
-                Text("This page has no editable metadata yet.")
+                Text("Title, description, and body can't be edited for this page type yet.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -40,7 +41,8 @@ private struct GenericPageInfoForm: View {
     }
 }
 
-/// The form for a plain (non-typed) frontmatter page: title + description.
+/// The form for a plain (non-typed) frontmatter page: title, description, and the two shared
+/// search/crawling toggles.
 private struct PageMetadataForm: View {
     @Bindable var model: PageMetadataModel
 
@@ -51,8 +53,26 @@ private struct PageMetadataForm: View {
                 Text("Description").font(.caption).foregroundStyle(.secondary)
                 TextField("", text: model.descriptionBinding(), axis: .vertical).lineLimit(2...6)
             }
+            RobotsSettingsSection(noindex: model.noindexBinding(), disallowCrawl: model.disallowCrawlBinding())
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Two independent per-page controls, shared by all three inspector form variants (#1093).
+/// `noindex` and `disallowCrawl` are intentionally separate toggles, not one checkbox — see
+/// docs/superpowers/specs/2026-07-30-robots-noindex-design.md for why combining them is a known
+/// SEO anti-pattern (a crawler blocked by `disallowCrawl` never sees a `noindex` tag it can't fetch).
+struct RobotsSettingsSection: View {
+    @Binding var noindex: Bool
+    @Binding var disallowCrawl: Bool
+
+    var body: some View {
+        Section("Search & Crawling") {
+            Toggle("Hide from search results", isOn: $noindex)
+            Toggle("Block crawling entirely", isOn: $disallowCrawl)
+                .help("Stronger than \"Hide from search results\" — well-behaved crawlers won't fetch this page at all, so a noindex tag on it would never be seen.")
+        }
     }
 }
 
