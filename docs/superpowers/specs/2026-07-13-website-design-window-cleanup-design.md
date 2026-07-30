@@ -241,8 +241,10 @@ populates the inspector's **Metadata** tab with:
 - Sitemap status ("Not configured" until the template gains one).
 
 v1 is read-mostly; editability is deferred (see Non-goals). Plain nested page
-folders (no collection) show route and entry count only — no content-type,
-feed, or template rows.
+folders (no collection) show route and entry count, plus the always-present
+Feeds section (empty, so "No feeds") and Sitemap row ("Not configured") — no
+content-type or template row, since those are only shown when the directory
+resolves to a registered collection.
 
 ## 7. Website Settings (main pane)
 
