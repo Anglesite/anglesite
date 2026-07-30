@@ -611,7 +611,9 @@ final class SiteWindowModel {
 
     func auditSite() {
         guard let site, canRunAudit else { return }
-        audit.audit(siteID: site.id, siteDirectory: site.sourceDirectory)
+        audit.audit(
+            siteID: site.id, siteDirectory: site.sourceDirectory,
+            containerControlProvider: { [preview] in await preview.activeContainerControl() })
     }
 
     func recheckHealth() {
