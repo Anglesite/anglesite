@@ -186,4 +186,10 @@ final class MockCloudflareWriter: CloudflareWriting, @unchecked Sendable {
     func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {
         try record("enableOnionRouting")
     }
+    func attachWorkersCustomDomain(
+        hostname: String, workerScriptName: String, apiToken: String
+    ) async throws -> CustomDomainAttachResult {
+        try record("attachWorkersCustomDomain:\(hostname)")
+        return .attached
+    }
 }

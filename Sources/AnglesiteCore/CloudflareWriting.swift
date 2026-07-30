@@ -20,6 +20,12 @@ public protocol CloudflareWriting: Sendable {
     func setPageShield(zoneID: String, enabled: Bool, apiToken: String) async throws
     /// Enable/Disable Cloudflare's Onion Routing feature.
     func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws
+    /// Attaches `hostname` to `workerScriptName` as a Workers Custom Domain (#1077). Idempotent:
+    /// an existing attachment to the same script is a no-op; an existing attachment to a
+    /// *different* script is reported as `.conflict` rather than silently overwritten.
+    func attachWorkersCustomDomain(
+        hostname: String, workerScriptName: String, apiToken: String
+    ) async throws -> CustomDomainAttachResult
 }
 
 /// Payload for creating a DNS record via the Cloudflare API.
@@ -50,4 +56,16 @@ public struct WAFRulePayload: Sendable, Equatable, Encodable {
         self.expression = expression
         self.action = action
     }
+}
+
+/// Outcome of attempting to attach a Workers Custom Domain (#1077).
+public enum CustomDomainAttachResult: Sendable, Equatable {
+    /// No existing attachment for this hostname — created fresh.
+    case attached
+    /// Already attached to the given Worker script — no write performed.
+    case alreadyAttached
+    /// The domain isn't on this Cloudflare account yet (nameservers not delegated elsewhere).
+    case zoneNotFound
+    /// Already attached to a *different* Worker script — never silently repointed.
+    case conflict(ownedBy: String)
 }
