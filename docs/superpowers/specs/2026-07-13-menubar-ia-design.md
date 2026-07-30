@@ -189,7 +189,7 @@ flow content = wrap selection in a container element**, enabled everywhere. All 
 | Show/Hide Sidebar (system default shortcut) · Customize Toolbar… | shipped | #510/#519 — shortcuts owned by SwiftUI `SidebarCommands`/`ToolbarCommands` |
 | Reload ⌘R · Back ⌃⌘← · Forward ⌃⌘→ · Actual Size ⌘0 · Zoom In ⌘+ · Zoom Out ⌘− | shipped | Back/Forward **re-keyed** from ⌘[/⌘] (§3) |
 | Enter Full Screen | shipped | Standard |
-| Show Web Inspector ⇧⌥⌘I · Show Debug Pane ⌥⌘D | shipped | Debug hidden in Release unless enabled |
+| Show Debug Pane ⌥⌘D | shipped | Debug hidden in Release unless enabled. Show Web Inspector ⇧⌥⌘I removed in #1099 — it only worked through private WebKit API that's compiled out in the shipping (MAS) target |
 
 ### 2.9 Website
 

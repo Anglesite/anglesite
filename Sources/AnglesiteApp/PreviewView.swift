@@ -25,7 +25,7 @@ struct PreviewView: NSViewRepresentable {
     let annotationProvider: PreviewAnnotationProvider?
 
     /// Called with the `WKWebView` once it's created, so the owning `PreviewModel` can hold a weak
-    /// reference and drive the View-menu preview commands (Web Inspector, reload/history/zoom).
+    /// reference and drive the View-menu preview commands (reload/history/zoom).
     /// Defaults to a no-op for callers (e.g. tests) that don't need it.
     var onWebView: (WKWebView) -> Void = { _ in }
 
@@ -48,10 +48,8 @@ struct PreviewView: NSViewRepresentable {
         }
         let handler = AnglesiteScriptHandler(router: router, onVisibleElements: onVisibleElements)
         let configuration = WebViewBridge.localDevConfiguration(handler: handler)
-        PreviewWebInspector.enableDeveloperExtras(on: configuration)
         let webView = WKWebView(frame: .zero, configuration: configuration)
         WebViewBridge.applyPreviewDefaults(to: webView)
-        PreviewWebInspector.applyInspectorDefaults(to: webView)
         if let annotationProvider {
             webView.appEntityUIElementProvider = { [weak annotationProvider] _, hitContext in
                 guard let annotationProvider else { return [] }

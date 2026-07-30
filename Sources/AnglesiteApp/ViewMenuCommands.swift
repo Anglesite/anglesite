@@ -19,8 +19,8 @@ extension FocusedValues {
 }
 
 /// View-menu commands for the focused site window: main-pane switching (⌘1–3) and the side-panel
-/// toggles (#512). Declared before `WebInspectorCommands` so these sit above the developer tools
-/// in the View menu.
+/// toggles (#512). Declared before `PreviewNavigationCommands` so these sit above it in the View
+/// menu.
 struct ViewMenuCommands: Commands {
     @FocusedValue(\.siteWindowModel) private var model
     @FocusedValue(\.inspectorPanel) private var inspectorPanel

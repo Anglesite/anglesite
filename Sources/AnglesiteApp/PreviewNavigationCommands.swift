@@ -1,10 +1,21 @@
 import SwiftUI
 import AnglesiteCore
 
+private struct FocusedPreviewKey: FocusedValueKey { typealias Value = PreviewModel }
+
+extension FocusedValues {
+    /// The focused site window's `PreviewModel`, published by `SiteWindow`. Lets View-menu commands
+    /// reach the live preview without owning it.
+    var preview: PreviewModel? {
+        get { self[FocusedPreviewKey.self] }
+        set { self[FocusedPreviewKey.self] = newValue }
+    }
+}
+
 /// Browser-style View-menu commands for the live preview (#514): Reload Preview ⌘R, Back ⌃⌘← / Forward ⌃⌘→, and page zoom (Actual Size ⌘0, Zoom In ⌘+, Zoom Out ⌘−).
 ///
-/// Reads the focused site window's `PreviewModel` through the same `\.preview` focused value as
-/// `WebInspectorCommands`. Everything is disabled until that window's preview web view exists
+/// Reads the focused site window's `PreviewModel` through the `\.preview` focused value above.
+/// Everything is disabled until that window's preview web view exists
 /// (the dev server has become ready at least once); Back/Forward additionally track the web view's
 /// history via the model's KVO-fed `canGoBack`/`canGoForward` mirrors, and the zoom items pin at
 /// the `PreviewZoom` detent-ladder bounds. All actions no-op safely if the weak web view has
