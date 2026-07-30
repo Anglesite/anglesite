@@ -876,12 +876,28 @@ final class SiteWindowModel {
         switch target {
         case .route(let route):
             Task {
+                // Captured before any `await` below, so a faster subsequent selection changing
+                // `navigator.selection` in the meantime can't be mistaken for this task's own
+                // request — same reasoning as the `.directory` branch below (#714 final review,
+                // Important 3 follow-up).
+                let requestedID = id
                 guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
                 // Content entry → preview in the center; its metadata in the inspector.
                 activeEditor = nil
                 mainPaneMode = .preview
                 if route.isEmpty || route == "/" { preview.clearRoute() } else { preview.navigate(toRoute: route) }
-                inspectorContext = await makeInspectorContext(forNavigatorID: id)
+                let context = await makeInspectorContext(forNavigatorID: id)
+                // `makeInspectorContext` awaits real work, a suspension point a faster subsequent
+                // selection (e.g. a `.directory` pick) can land in during. That branch's own guard
+                // stops IT from clobbering a newer selection, but this branch's unconditional
+                // `collectionInspection = nil` right below was the unguarded mirror image: `.route`
+                // outranks nothing, but its stale `nil` would still wipe out a newer `.directory`
+                // selection's just-assigned `collectionInspection` once this task resumed. Bail
+                // unless this is still the live selection (same `navigator?.selection` liveness
+                // check as `.directory`), and skip the related-pages load below too — a stale
+                // selection shouldn't populate that either.
+                guard navigator?.selection == requestedID else { return }
+                inspectorContext = context
                 collectionInspection = nil
                 // Load related-page suggestions for the newly selected page.
                 if let siteID = site?.id {

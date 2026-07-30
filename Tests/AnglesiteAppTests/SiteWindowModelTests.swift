@@ -635,7 +635,11 @@ extension SiteWindowModelTests {
         while model.collectionInspection == nil { await Task.yield() }
         #expect(model.collectionInspection?.feeds.map(\.kind) == [.rss, .atom])
 
-        // Selecting a routed page again clears the collection context.
+        // Selecting a routed page again clears the collection context. The `.route` branch also
+        // guards its `collectionInspection = nil` on `navigator.selection` still matching the
+        // request (#714 final review, Important 3 follow-up), so this must be set here too, same
+        // as the directory selection above.
+        navModel.selection = "site-a:page:/about"
         model.applyNavigatorSelection("site-a:page:/about")
         while model.collectionInspection != nil { await Task.yield() }
         #expect(model.collectionInspection == nil)
@@ -689,6 +693,63 @@ extension SiteWindowModelTests {
         // shadowed whatever the newer selection put in the inspector. The fix bails unless
         // `navigator.selection` still matches the request, so this must stay nil.
         #expect(model.collectionInspection == nil)
+    }
+
+    @Test("a stale .route selection task never installs a stale page context over a newer selection (#714 final review, Important 3 follow-up)")
+    func applyNavigatorSelectionRouteStaleTaskDoesNotClobberNewerSelection() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let graph = SiteContentGraph()
+        await graph.load(
+            siteID: "site-a",
+            pages: [SiteContentGraph.Page(
+                id: "site-a:page:/about", siteID: "site-a", route: "/about",
+                filePath: "src/pages/about.md", title: "About", lastModified: Date()
+            )],
+            posts: [SiteContentGraph.Post(
+                id: "site-a:post:hello", siteID: "site-a", collection: "notes", slug: "hello",
+                title: "Hello", draft: false, publishDate: nil, tags: [],
+                filePath: "src/content/notes/hello.md", lastModified: Date()
+            )],
+            images: []
+        )
+        let model = makeModel(contentGraph: graph)
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let navModel = SiteNavigatorModel(graph: graph)
+        navModel.start(
+            site: CurrentSite(id: "site-a", packageURL: packageURL, sourceDirectory: package.sourceURL),
+            websiteTitle: "Test")
+        while navModel.nodes.count < 2 { await Task.yield() }
+        let routeID = "site-a:page:/about"
+        let directoryID = "dir:/notes/"
+        #expect(navModel.target(for: routeID) == .route("/about"))
+        #expect(navModel.target(for: directoryID) == .directory(collection: "notes", route: "/notes/"))
+        model.navigator = navModel
+
+        // Select route A first — its Task awaits `leaveCurrentEditor`/`leaveCurrentInspector` and
+        // then the content-graph actor inside `makeInspectorContext`, real suspension points — then
+        // move `navigator.selection` to the directory *before yielding at all*: this synchronous
+        // call returns before the `.route` Task's body has run at all (it's merely enqueued), so
+        // there is no timing race to get wrong here, mirroring the `.directory` stale-task test
+        // above (this is the reverse case — the `.route` branch's own `collectionInspection = nil`
+        // is the unguarded mirror of that bug).
+        navModel.selection = routeID
+        model.applyNavigatorSelection(routeID)
+        navModel.selection = directoryID
+
+        // Give the stale task's awaits every chance to resolve and (pre-fix) assign anyway.
+        for _ in 0..<2_000 { await Task.yield() }
+
+        // Pre-fix, the `.route` Task unconditionally installed `inspectorContext` once its awaits
+        // resolved, regardless of whether the selection had since moved on to a directory — this
+        // fixture's `/about` page has frontmatter, so it would have become a live `.page` context.
+        // The fix bails unless `navigator.selection` still matches the request, so the stale page
+        // context must never install.
+        #expect(model.inspectorContext == nil)
     }
 
     @Test("the collection context for a plain nested-page folder (no collection) counts child pages, not graph posts")
@@ -765,6 +826,7 @@ extension SiteWindowModelTests {
         while navModel.nodes.isEmpty { await Task.yield() }
         model.navigator = navModel
 
+        navModel.selection = "site-a:page:/"
         model.applyNavigatorSelection("site-a:page:/")
 
         while model.inspectorContext == nil { await Task.yield() }
