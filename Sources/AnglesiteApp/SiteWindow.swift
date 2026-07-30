@@ -792,26 +792,16 @@ struct SiteWindow: View {
         switch model.mainPaneMode {
         case .editor:
             if case .text(let editorModel) = model.activeEditor {
-                MainPaneEditorView(
-                    model: editorModel,
-                    componentContext: ComponentEditorContext(
-                        baseURL: model.preview.readyURL,
-                        modelClient: ComponentModelClient(mcpClient: { [preview = model.preview] in
-                            await preview.mcpClient()
-                        }),
-                        sourceRoot: site.sourceDirectory,
-                        site: CurrentSite(site),
-                        // Reuse the preview canvas's own router rather than building a second,
-                        // unwired MCPApplyEditRouter: model.preview.editRouter is registered in
-                        // EditRouterRegistry (Siri/App Intents) and wired to record chat-history
-                        // rows via setEditObserver (SiteWindowModel.swift) — a fresh instance here
-                        // would silently diverge from that once the Styles panel starts sending
-                        // real edits.
-                        editRouter: model.preview.editRouter,
-                        onOpenFile: { file in model.openFile(file) },
-                        duplicateComponent: { relativePath in await model.duplicateComponent(relativePath: relativePath) }
-                    )
-                )
+                MainPaneEditorView(model: editorModel, componentEditor: model.componentEditor)
+                    // Re-fires on file change AND on the dev server becoming ready (nil→non-nil
+                    // readyURL) — the same identity the old view-local LoadKey watched — so the
+                    // hoisted model rebuilds exactly when the old @State model did.
+                    .task(id: ComponentEditorActivationKey(
+                        baseURL: model.preview.readyURL?.absoluteString,
+                        fileID: editorModel.file.id
+                    )) {
+                        await model.ensureComponentEditorLoaded()
+                    }
             } else if case .plist(let plistEditorModel) = model.activeEditor {
                 PlistEditorView(model: plistEditorModel) { title in
                     Task { await model.saveWebsiteTitle(title) }
@@ -838,6 +828,12 @@ struct SiteWindow: View {
         case .preview:
             previewPane(for: site)
         }
+    }
+
+    /// Task identity for component-editor activation — see the `.task` above.
+    private struct ComponentEditorActivationKey: Hashable {
+        let baseURL: String?
+        let fileID: String
     }
 
     @ViewBuilder

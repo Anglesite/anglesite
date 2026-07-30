@@ -13,11 +13,12 @@ import AnglesiteCore
 /// matching the decomposition `SiteGraphExplorerView` already established for this codebase:
 /// subviews bind directly to model-owned state rather than mirroring it into view-local `@State`.
 struct ComponentEditorView: View {
-    let file: FileRef
-    let context: ComponentEditorContext
+    @Bindable var model: ComponentEditorModel
     @Bindable var fileEditor: FileEditorModel
 
-    @State private var model: ComponentEditorModel?
+    private var file: FileRef { model.file }
+    private var context: ComponentEditorContext { model.context }
+
     /// Design (three-pane) vs Source (existing text editor) — the escape hatch.
     @State private var mode: Mode = .design
     /// The harness canvas's live `WKWebView`, bubbled up from `ComponentEditorCanvasPane` — used
@@ -55,27 +56,6 @@ struct ComponentEditorView: View {
 
     enum Mode: String, CaseIterable { case design = "Design", source = "Source" }
 
-    init(file: FileRef, context: ComponentEditorContext, fileEditor: FileEditorModel) {
-        self.file = file
-        self.context = context
-        self.fileEditor = fileEditor
-    }
-
-    /// Identity for the load task: re-runs (and rebuilds `model`) whenever
-    /// the edited file changes OR the dev server transitions from not-ready
-    /// to ready (or back), rather than freezing the context/model at the
-    /// view's first identity. `baseURL` is included as a String so a
-    /// nil→non-nil transition (dev server finishing startup) is itself a
-    /// new task identity, not just a value the stale model captured once.
-    private struct LoadKey: Hashable {
-        let baseURL: String?
-        let fileID: String
-    }
-
-    private var loadKey: LoadKey {
-        LoadKey(baseURL: context.baseURL?.absoluteString, fileID: file.id)
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             Picker("Mode", selection: $mode) {
@@ -90,15 +70,10 @@ struct ComponentEditorView: View {
             case .source: sourcePane
             }
         }
-        .task(id: loadKey) {
-            let freshModel = ComponentEditorModel(file: file, context: context)
-            model = freshModel
-            await freshModel.load()
-        }
-        .onChange(of: model?.selectedNodeID) { _, newValue in
+        .onChange(of: model.selectedNodeID) { _, newValue in
             highlightInCanvas(nodeID: newValue)
         }
-        .onChange(of: model?.loadErrorReason) { _, newValue in
+        .onChange(of: model.loadErrorReason) { _, newValue in
             // Design spec §5: an unparseable component degrades to the Source tab with the
             // compiler diagnostic in a banner, rather than a dead-end full-pane error — fixing
             // the syntax error in source is the only way out, so land the user where they can.
@@ -106,7 +81,6 @@ struct ComponentEditorView: View {
         }
         .sheet(item: $extractTarget) { target in
             ExtractComponentSheet { name in
-                guard let model else { return "The component editor isn't ready yet." }
                 // Pass the bare name straight through — the plugin derives the full
                 // `src/components/<name>.astro` path itself from `newName`.
                 let applied = await model.extractComponent(nodeId: target.id, newName: name)
@@ -121,7 +95,7 @@ struct ComponentEditorView: View {
 
     @ViewBuilder private var sourcePane: some View {
         VStack(spacing: 0) {
-            if let model, model.loadErrorReason == .unparseable, let error = model.loadError {
+            if model.loadErrorReason == .unparseable, let error = model.loadError {
                 parseErrorBanner(message: error)
                 Divider()
             }
@@ -148,57 +122,52 @@ struct ComponentEditorView: View {
     }
 
     @ViewBuilder private var designPane: some View {
-        if let model {
-            if let error = model.loadError {
-                if case .notConnected = model.loadErrorReason {
-                    // Dev server isn't up yet — not a hard failure. `loadKey`
-                    // re-fires this view's `.task` once `context.baseURL`
-                    // transitions to non-nil, which retries the load; this
-                    // is the interim state, matching the canvas's own
-                    // "Dev Server Starting…" placeholder rather than an
-                    // error page.
-                    ContentUnavailableView("Dev Server Starting…", systemImage: "hourglass")
-                } else {
-                    ContentUnavailableView("Can't Open Component", systemImage: "exclamationmark.triangle", description: Text(error))
-                }
-            } else if model.isLoading || model.model == nil {
-                ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+        if let error = model.loadError {
+            if case .notConnected = model.loadErrorReason {
+                // Dev server isn't up yet — not a hard failure. `SiteWindowModel
+                // .ensureComponentEditorLoaded()`'s `.task` re-fires once
+                // `context.baseURL` transitions to non-nil, which retries the load;
+                // this is the interim state, matching the canvas's own
+                // "Dev Server Starting…" placeholder rather than an error page.
+                ContentUnavailableView("Dev Server Starting…", systemImage: "hourglass")
             } else {
-                HSplitView {
-                    ComponentEditorOutlinePane(
-                        model: model,
-                        onExtract: { extractTarget = ExtractTarget(id: $0) }
-                    )
-                    .frame(minWidth: 180, idealWidth: 220)
-
-                    ComponentEditorCanvasPane(
-                        model: model,
-                        context: context,
-                        viewportPreset: $viewportPreset,
-                        onWebView: { webView = $0 }
-                    )
-                    .frame(minWidth: 320).layoutPriority(1)
-
-                    ComponentEditorInspectorPane(
-                        model: model,
-                        webView: webView,
-                        codeZone: $codeZone,
-                        newRuleSelector: $newRuleSelector,
-                        newRuleMedia: $newRuleMedia,
-                        collapsedMediaKeys: $collapsedMediaKeys,
-                        newAttrName: $newAttrName,
-                        newAttrValue: $newAttrValue
-                    )
-                    .frame(minWidth: 220, idealWidth: 260)
-                }
+                ContentUnavailableView("Can't Open Component", systemImage: "exclamationmark.triangle", description: Text(error))
             }
-        } else {
+        } else if model.isLoading || model.model == nil {
             ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            HSplitView {
+                ComponentEditorOutlinePane(
+                    model: model,
+                    onExtract: { extractTarget = ExtractTarget(id: $0) }
+                )
+                .frame(minWidth: 180, idealWidth: 220)
+
+                ComponentEditorCanvasPane(
+                    model: model,
+                    context: context,
+                    viewportPreset: $viewportPreset,
+                    onWebView: { webView = $0 }
+                )
+                .frame(minWidth: 320).layoutPriority(1)
+
+                ComponentEditorInspectorPane(
+                    model: model,
+                    webView: webView,
+                    codeZone: $codeZone,
+                    newRuleSelector: $newRuleSelector,
+                    newRuleMedia: $newRuleMedia,
+                    collapsedMediaKeys: $collapsedMediaKeys,
+                    newAttrName: $newAttrName,
+                    newAttrValue: $newAttrValue
+                )
+                .frame(minWidth: 220, idealWidth: 260)
+            }
         }
     }
 
     private func highlightInCanvas(nodeID: String?) {
-        guard let webView, let model else { return }
+        guard let webView else { return }
         guard let nodeID,
               let node = model.outlineRows.first(where: { $0.node.id == nodeID })?.node,
               let loc = node.loc
