@@ -22,8 +22,10 @@ cd Anglesite
 # Xcode project, and enables the git hooks that keep it regenerated.
 scripts/setup-dev-env.sh
 
-# Build (ad-hoc signed — no Apple account required)
-xcodebuild -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
+# Build (ad-hoc signed — no Apple account required). Use scripts/build-app.sh
+# instead of a raw `xcodebuild` — it regenerates the project first, so a checkout
+# that went stale without tripping the git hooks above never builds a stale one (#123).
+scripts/build-app.sh -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
 ```
 
 Key things to know:
@@ -32,7 +34,7 @@ Key things to know:
 - **Open `Anglesite.xcodeproj`, not `xed .`** — the latter opens `Package.swift`, which has no runnable target.
 - **Commit String Catalog updates.** App builds extract SwiftUI and `String(localized:)` literals into `Sources/AnglesiteApp/Localizable.xcstrings` because `SWIFT_EMIT_LOC_STRINGS` is enabled — but that catalog merge only happens in the **Xcode IDE**. A CLI-only `xcodebuild build` (the only option in a headless/agent workflow) still emits `.stringsdata` per file, it just never merges them into the `.xcstrings` catalog. If you add, remove, or rename user-visible text without an interactive Xcode session, run the merge yourself after building:
   ```sh
-  xcodebuild -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
+  scripts/build-app.sh -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
   BUILD_DIR=$(xcodebuild -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug -showBuildSettings 2>/dev/null | awk '/ BUILD_DIR =/{print $3}')
   xcrun xcstringstool sync Sources/AnglesiteApp/Localizable.xcstrings \
     --stringsdata $(find "$(dirname "$BUILD_DIR")/Intermediates.noindex/Anglesite.build/Debug/Anglesite.build/Objects-normal/arm64" -name "*.stringsdata") \
@@ -51,7 +53,7 @@ Run the relevant suites before opening a PR:
 swift test --package-path .
 
 # App target builds
-xcodebuild -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
+scripts/build-app.sh -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
 
 # JS edit overlay (from JS/edit-overlay/, Node 22+)
 npm run lint && npm run typecheck && npm test

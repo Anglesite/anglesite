@@ -50,8 +50,28 @@ targets:
         buildPhase: resources
         optional: true
     preBuildScripts:
-      # Guard first so a Release build with unvendored container resources fails
-      # before the remaining (slower) build phases run. Debug only warns.
+      # Regenerate the gitignored .xcodeproj from project.yml/Sources before anything
+      # else, so a checkout that advanced without tripping scripts/git-hooks (e.g. synced
+      # via fetch+reset instead of `git checkout`/`merge`/`rebase`) doesn't silently build
+      # a stale project and fail with a confusing `cannot find 'X' in scope` (#123).
+      # xcodegen generate is idempotent and ~1-2s. Caveat: Xcode has already resolved this
+      # invocation's Compile Sources list before this phase runs, so a project that just
+      # went stale still fails *this* build — but the rewritten pbxproj makes the very next
+      # build succeed without anyone having to remember to run `xcodegen generate` by hand.
+      # scripts/build-app.sh covers the CLI/agent case fully (regenerates before invoking
+      # xcodebuild at all); this phase is the equivalent backstop for ⌘B in Xcode.
+      # Best-effort like the other pre-build scripts below: warn and continue rather than
+      # fail the build if xcodegen isn't installed.
+      - name: Regenerate Xcode project
+        script: |
+          if command -v xcodegen >/dev/null 2>&1; then
+            xcodegen generate --quiet
+          else
+            echo "warning: xcodegen not found on PATH — skipping project regeneration (brew install xcodegen)." >&2
+          fi
+        basedOnDependencyAnalysis: false
+      # Guard first (among the rest) so a Release build with unvendored container
+      # resources fails before the remaining (slower) build phases run. Debug only warns.
       - name: Check container resources
         script: "\"${PROJECT_DIR}/scripts/check-container-resources.sh\""
         basedOnDependencyAnalysis: false
@@ -134,6 +154,16 @@ targets:
         buildPhase: resources
         optional: true
     preBuildScripts:
+      # See the Anglesite target's matching comment above (#123) — same backstop, this
+      # target just doesn't need the container-resources/help-index phases that follow it there.
+      - name: Regenerate Xcode project
+        script: |
+          if command -v xcodegen >/dev/null 2>&1; then
+            xcodegen generate --quiet
+          else
+            echo "warning: xcodegen not found on PATH — skipping project regeneration (brew install xcodegen)." >&2
+          fi
+        basedOnDependencyAnalysis: false
       - name: Build edit overlay
         script: "\"${PROJECT_DIR}/scripts/build-overlay.sh\""
         basedOnDependencyAnalysis: false
