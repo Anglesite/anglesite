@@ -185,4 +185,39 @@ struct SiteConfigStoreTests {
         let loaded = try await store.load()
         #expect(loaded.webmentionReceivePaidPlanAcknowledged == nil)
     }
+
+    @Test("communityOutboxURL round-trips through save/load")
+    func communityOutboxURLRoundTrips() async throws {
+        let dir = try tempConfigDir()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        let store = SiteConfigStore(configDirectory: dir)
+
+        let settings = SiteSettings(communityOutboxURL: URL(string: "https://community.example/users/birding/outbox"))
+        try await store.save(settings)
+
+        let loaded = try await store.load()
+        #expect(loaded.communityOutboxURL == URL(string: "https://community.example/users/birding/outbox"))
+    }
+
+    @Test("a settings.plist written before communityOutboxURL existed still decodes (forward-compat)")
+    func decodesOldPlistWithoutCommunityOutboxURL() async throws {
+        let dir = try tempConfigDir()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        // Simulates a plist written by a build that predates this field.
+        let oldFormat = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>displayName</key>
+            <string>My Site</string>
+        </dict>
+        </plist>
+        """
+        try oldFormat.write(to: dir.appendingPathComponent("settings.plist"), atomically: true, encoding: .utf8)
+        let store = SiteConfigStore(configDirectory: dir)
+
+        let loaded = try await store.load()
+        #expect(loaded.communityOutboxURL == nil)
+    }
 }

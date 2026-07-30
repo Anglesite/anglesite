@@ -1,0 +1,109 @@
+---
+// CommunityTimeline.astro — renders a hosted community's announced-post snapshots
+// (member posts the group fanned out to its membership, per FEP-1b12). This is the render
+// half of V-5.2b (#908) — static, updated on rebuild. The snapshots are JSON files in
+// `data/community-posts/` (root-level, per AnnouncedPost.gitPath).
+//
+// This component ships now so the render pipeline round-trips end to end; the actual timeline
+// *page* that mounts it is #907's group-preset scope ("Timeline page ships in the 5.1b group
+// preset").
+//
+// Sanitisation contract (AnnouncedPost.swift): post `content` is rendered as text via Astro's
+// default escaping — never `set:html`.
+import { parseCommunityPosts, timeline, type AnnouncedPost } from "../lib/communityPosts.ts";
+
+const mods = import.meta.glob("../../data/community-posts/*.json", { eager: true });
+const posts = timeline(parseCommunityPosts(mods as Record<string, unknown>));
+
+function initial(post: AnnouncedPost): string {
+  const name = post.author?.name ?? new URL(post.sourceURL).hostname;
+  return name.trim().charAt(0).toUpperCase() || "?";
+}
+// Pin locale + UTC so static output is deterministic (same convention as the layouts).
+function human(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+}
+---
+
+{
+  posts.length > 0 && (
+    <ol class="community-timeline">
+      {posts.map((post) => (
+        <li class="h-entry community-post" data-object-type={post.objectType}>
+          {post.author?.photo ? (
+            <img
+              class="avatar u-photo"
+              src={post.author.photo}
+              alt=""
+              loading="lazy"
+              referrerpolicy="no-referrer"
+            />
+          ) : (
+            <span class="avatar avatar-fallback">{initial(post)}</span>
+          )}
+          <div class="post-body">
+            <p class="post-meta">
+              {post.author?.url ? (
+                <a class="p-author h-card" href={post.author.url} rel="nofollow ugc">
+                  {post.author?.name ?? new URL(post.author.url).hostname}
+                </a>
+              ) : (
+                <span class="p-author h-card">{post.author?.name ?? new URL(post.sourceURL).hostname}</span>
+              )}
+              <a class="u-url" href={post.sourceURL} rel="nofollow ugc">
+                <time class="dt-published" datetime={post.published}>
+                  {human(post.published)}
+                </time>
+              </a>
+            </p>
+            {post.content && <p class="e-content">{post.content}</p>}
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+<style>
+  .community-timeline {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .community-post {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    object-fit: cover;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .avatar-fallback {
+    background: var(--color-surface, #f8fafc);
+    color: var(--color-text-muted, #64748b);
+    font-family: var(--font-heading, system-ui);
+    font-size: 1rem;
+  }
+  .post-body {
+    min-width: 0;
+  }
+  .post-meta {
+    margin: 0 0 0.25rem;
+    font-size: 0.9rem;
+  }
+  .post-meta .u-url {
+    color: var(--color-text-muted, #64748b);
+    margin-left: 0.5rem;
+  }
+  .e-content {
+    margin: 0;
+    overflow-wrap: break-word;
+  }
+</style>
