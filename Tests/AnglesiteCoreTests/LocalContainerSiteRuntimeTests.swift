@@ -616,40 +616,18 @@ struct LocalContainerSiteRuntimeTests {
         await rt.start(siteID: "s1", siteDirectory: AnglesitePackage(url: package).sourceURL)
         let onState = try #require(await control.lastWorkersDevOnState)
 
-        onState(.restarting(attempt: 1))
-        var status = await pollStatus(statusCenter, siteID: "s1") {
-            if case .restarting = $0 { true } else { false }
-        }
-        #expect(status == .restarting(attempt: 1))
+        // `onState` is async and awaited through to the status-center write (PR #1116 review:
+        // delivery is serialized, not fired off as per-event Tasks), so each transition has
+        // fully landed when the await returns — no polling needed.
+        await onState(.restarting(attempt: 1))
+        #expect(await statusCenter.snapshot().first?.status == .restarting(attempt: 1))
 
-        onState(.running)
-        status = await pollStatus(statusCenter, siteID: "s1") {
-            if case .running(.some) = $0 { true } else { false }
-        }
+        await onState(.running)
         // A post-restart .running re-attaches the URL the runtime learned at start.
-        #expect(status == .running(url: URL(string: "http://127.0.0.1:51003")!))
+        #expect(await statusCenter.snapshot().first?.status == .running(url: URL(string: "http://127.0.0.1:51003")!))
 
-        onState(.stopped)
-        for _ in 0..<50 {
-            if await statusCenter.snapshot().isEmpty { break }
-            try? await Task.sleep(for: .milliseconds(10))
-        }
+        await onState(.stopped)
         #expect(await statusCenter.snapshot().isEmpty)
-    }
-
-    /// Polls until `siteID`'s status satisfies `predicate` (the runtime publishes via detached
-    /// Tasks, so arrival is async), returning the matched status or the last seen one on timeout.
-    private func pollStatus(
-        _ center: WorkersDevStatusCenter, siteID: String,
-        until predicate: (WorkersDevStatus) -> Bool
-    ) async -> WorkersDevStatus? {
-        var last: WorkersDevStatus?
-        for _ in 0..<50 {
-            last = await center.snapshot().first { $0.siteID == siteID }?.status
-            if let last, predicate(last) { return last }
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        return last
     }
 
     @Test("runtime stop() removes the status row (#699)")

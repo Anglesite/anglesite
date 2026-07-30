@@ -223,7 +223,7 @@ public struct ContainerizationControl: LocalContainerControl {
         siteID: String,
         workers: [WorkerDescriptor],
         onOutput: @escaping @Sendable (String, LogCenter.Stream) -> Void,
-        onState: @escaping @Sendable (WorkersDevProcessState) -> Void
+        onState: @escaping @Sendable (WorkersDevProcessState) async -> Void
     ) async throws -> URL {
         guard let container = await live.container(for: siteID) else {
             throw LocalContainerError.bootFailed("startWorkersDev: no live container for siteID '\(siteID)'")
@@ -257,18 +257,21 @@ public struct ContainerizationControl: LocalContainerControl {
         try await supervisor.start()
 
         // Forward supervisor transitions to the caller (#699). observe() replays the current
-        // state on subscribe, so the initial `.running` is never missed. The loop self-terminates
-        // on the supervisor's terminal states (superviseLoop returns after `.stopped`/`.failed`,
-        // and stop() emits `.stopped`), so this task ends with the session — including via the
+        // state on subscribe, so the initial `.running` is never missed. Each delivery is
+        // awaited before the next event is read — the transitions are semantically ordered, and
+        // un-awaited per-event Tasks could race into the caller's actor out of order on a fast
+        // restarting→running flap (PR #1116 review). The loop self-terminates on the
+        // supervisor's terminal states (superviseLoop returns after `.stopped`/`.failed`, and
+        // stop() emits `.stopped`), so this task ends with the session — including via the
         // failure catches below, whose `supervisor.stop()` emits the `.stopped` it exits on;
         // teardownWorkersDev's cancel is only a backstop.
         let stateTask = Task {
             for await state in await supervisor.observe() {
                 switch state {
-                case .running: onState(.running)
-                case .restarting(let attempt): onState(.restarting(attempt: attempt))
-                case .stopped: onState(.stopped); return
-                case .failed(let reason): onState(.failed(reason: reason)); return
+                case .running: await onState(.running)
+                case .restarting(let attempt): await onState(.restarting(attempt: attempt))
+                case .stopped: await onState(.stopped); return
+                case .failed(let reason): await onState(.failed(reason: reason)); return
                 }
             }
         }

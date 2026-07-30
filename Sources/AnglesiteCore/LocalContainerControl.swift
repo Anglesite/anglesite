@@ -174,14 +174,18 @@ public protocol LocalContainerControl: Sendable {
     /// Like `startWorkersDev(siteID:workers:onOutput:)`, but also surfaces the supervised guest
     /// process's lifecycle transitions (#699) as `WorkersDevProcessState` values, so UI-facing
     /// callers can render a live status indicator without importing the container layer.
-    /// Conformers with no live process state to report (test fakes, the Linux/podman control,
-    /// which throws unsupported anyway) inherit the default below, which ignores `onState` —
-    /// the same defaulted-requirement pattern `resetNetworking` already uses.
+    /// `onState` is `async` and the conformer must `await` each delivery before forwarding the
+    /// next event: the transitions are semantically ordered (running → restarting → …), and
+    /// firing unstructured Tasks per event would let deliveries race into the caller's actor
+    /// out of order (PR #1116 review). Conformers with no live process state to report (test
+    /// fakes, the Linux/podman control, which throws unsupported anyway) inherit the default
+    /// below, which ignores `onState` — the same defaulted-requirement pattern `resetNetworking`
+    /// already uses.
     func startWorkersDev(
         siteID: String,
         workers: [WorkerDescriptor],
         onOutput: @escaping @Sendable (String, LogCenter.Stream) -> Void,
-        onState: @escaping @Sendable (WorkersDevProcessState) -> Void
+        onState: @escaping @Sendable (WorkersDevProcessState) async -> Void
     ) async throws -> URL
 
     /// Stops the workers-dev process (and its supervisor) for `siteID`, independent of astro/mcp —
@@ -207,7 +211,7 @@ extension LocalContainerControl {
         siteID: String,
         workers: [WorkerDescriptor],
         onOutput: @escaping @Sendable (String, LogCenter.Stream) -> Void,
-        onState: @escaping @Sendable (WorkersDevProcessState) -> Void
+        onState: @escaping @Sendable (WorkersDevProcessState) async -> Void
     ) async throws -> URL {
         try await startWorkersDev(siteID: siteID, workers: workers, onOutput: onOutput)
     }

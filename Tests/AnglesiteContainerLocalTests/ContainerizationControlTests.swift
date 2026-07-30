@@ -88,7 +88,7 @@ struct ContainerizationControlTests {
         let workersDevURL = try await control.startWorkersDev(
             siteID: siteID, workers: workers,
             onOutput: { _, _ in },
-            onState: { state in Task { await collector.append(state) } })
+            onState: { state in await collector.append(state) })
 
         let ok = await pollForHTTPResponse(workersDevURL, timeout: .seconds(60))
         #expect(ok, "wrangler dev --local never answered within the timeout")

@@ -167,7 +167,10 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
                     Task { await logCenter.append(source: source, stream: stream, text: line) }
                 },
                 onState: { [weak self] state in
-                    Task { await self?.handleWorkersDevState(state, siteID: siteID, displayName: displayName) }
+                    // Awaited directly (no per-event Task hop): the control's forwarding loop
+                    // awaits each delivery, so transitions enter this actor strictly in
+                    // supervisor order (PR #1116 review).
+                    await self?.handleWorkersDevState(state, siteID: siteID, displayName: displayName)
                 })
             workersDevURLs[siteID] = url
             await statusCenter.update(siteID: siteID, displayName: displayName, status: .running(url: url))
