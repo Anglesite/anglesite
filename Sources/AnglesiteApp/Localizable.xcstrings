@@ -980,6 +980,9 @@
     "Default Browser" : {
 
     },
+    "Defaults to %@ if blank" : {
+
+    },
     "Delete" : {
 
     },

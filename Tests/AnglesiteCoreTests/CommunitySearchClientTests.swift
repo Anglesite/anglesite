@@ -81,6 +81,32 @@ struct CommunitySearchClientTests {
         #expect(requested.map(\.absoluteString) == [Self.searchURL])
     }
 
+    @Test("accepts a bare host:port instance, a self-hosted-instance shape")
+    func acceptsBareHostPortInstance() async throws {
+        let expectedURL = "https://lemmy.example:8080/api/v3/search"
+            + "?q=birding&type_=Communities&listing_type=All&sort=TopAll&limit=20"
+        let fake = FakeTransport([expectedURL: (200, #"{"communities":[]}"#)])
+        let client = CommunitySearchClient(transport: fake.transport)
+
+        _ = try await client.search(query: "birding", instance: "lemmy.example:8080")
+
+        let requested = await fake.requestedURLs
+        #expect(requested.map(\.absoluteString) == [expectedURL])
+    }
+
+    @Test("carries the port through from a pasted https:// URL with a non-standard port")
+    func carriesPortFromPastedInstanceURL() async throws {
+        let expectedURL = "https://lemmy.example:8080/api/v3/search"
+            + "?q=birding&type_=Communities&listing_type=All&sort=TopAll&limit=20"
+        let fake = FakeTransport([expectedURL: (200, #"{"communities":[]}"#)])
+        let client = CommunitySearchClient(transport: fake.transport)
+
+        _ = try await client.search(query: "birding", instance: "https://lemmy.example:8080/")
+
+        let requested = await fake.requestedURLs
+        #expect(requested.map(\.absoluteString) == [expectedURL])
+    }
+
     @Test("an empty communities field is an empty result, not an error")
     func emptyResultsList() async throws {
         let fake = FakeTransport([Self.searchURL: (200, #"{"communities":[]}"#)])

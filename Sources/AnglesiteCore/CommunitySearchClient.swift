@@ -137,22 +137,36 @@ public struct CommunitySearchClient: Sendable {
         }
     }
 
-    /// Accepts a bare host (`lemmy.world`) or a pasted `https://lemmy.world` URL — the join
-    /// sheet's search-instance field is free text, and users copy instance addresses from
-    /// anywhere (a link, an app's "about" page) that may or may not include the scheme.
+    /// Accepts a bare host (`lemmy.world`), a bare `host:port` (a self-hosted instance on a
+    /// non-standard port), or a pasted `https://lemmy.world[:port]` URL — the join sheet's
+    /// search-instance field is free text, and users copy instance addresses from anywhere (a
+    /// link, an app's "about" page) that may or may not include the scheme or a port.
     private static func searchURL(instance: String, query: String) -> URL? {
         let trimmed = instance.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let host: String
+        let port: Int?
         if let parsed = URL(string: trimmed), let parsedHost = parsed.host,
            ["http", "https"].contains(parsed.scheme?.lowercased() ?? "") {
             host = parsedHost
+            port = parsed.port
+        } else if let colonIndex = trimmed.lastIndex(of: ":"),
+                  let parsedPort = Int(trimmed[trimmed.index(after: colonIndex)...]) {
+            // A bare `host:port` has no `//` authority marker, so `URL(string:)` parses the part
+            // before the colon as a *scheme* (RFC 3986 allows dots in a scheme) rather than a
+            // host — e.g. `URL(string: "lemmy.example:8080")` yields `scheme: "lemmy.example",
+            // host: nil`. Needs its own split rather than relying on `URL`'s parse.
+            host = String(trimmed[trimmed.startIndex..<colonIndex])
+            port = parsedPort
         } else {
             host = trimmed
+            port = nil
         }
+        guard !host.isEmpty else { return nil }
         var components = URLComponents()
         components.scheme = "https"
         components.host = host
+        components.port = port
         components.path = "/api/v3/search"
         components.queryItems = [
             URLQueryItem(name: "q", value: query),

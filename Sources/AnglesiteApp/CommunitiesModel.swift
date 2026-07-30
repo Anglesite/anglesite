@@ -64,6 +64,11 @@ final class CommunitiesModel {
     /// clicked away from can't overwrite the newer selection's timeline (or stomp its
     /// `isLoadingTimeline`) once it finally lands — mirrors `FollowersModel.generation`.
     private var timelineGeneration = 0
+    /// Bumped at the top of every `searchDiscovery()` call, checked before writing
+    /// `discoveryResults`/`discoveryErrorMessage`/`isSearchingDiscovery` — otherwise a search for
+    /// an earlier, now-stale query (or a slower response from an earlier request) could land after
+    /// a newer one and silently overwrite its results. Mirrors `timelineGeneration`.
+    private var discoveryGeneration = 0
     private let secretStore: any SecretStore
     /// Injected (default `.shared`) purely so `searchDiscovery()` is testable without touching the
     /// real `UserDefaults.standard` — every other read/write in this file talks to `.shared`
@@ -142,6 +147,10 @@ final class CommunitiesModel {
 
     // MARK: - Join
 
+    /// Every failure path here must set `errorMessage` — `joinFromDiscovery(_:)` below has no
+    /// other way to tell a failed join from a successful one, since it reuses this method rather
+    /// than getting its own return value. A future early-return added here without setting
+    /// `errorMessage` would silently make Discovery report success for a join that didn't happen.
     func join() async {
         let input = joinHandleText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else { return }
@@ -199,21 +208,31 @@ final class CommunitiesModel {
     var discoveryInstance: String { appSettings.communitySearchInstance }
 
     func searchDiscovery() async {
+        discoveryGeneration &+= 1
+        let token = discoveryGeneration
         let query = discoveryQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
             discoveryResults = []
             discoveryErrorMessage = nil
+            isSearchingDiscovery = false
             return
         }
         isSearchingDiscovery = true
         discoveryErrorMessage = nil
-        defer { isSearchingDiscovery = false }
         do {
             let client = CommunitySearchClient(transport: searchTransport)
-            discoveryResults = try await client.search(query: query, instance: discoveryInstance)
+            let results = try await client.search(query: query, instance: discoveryInstance)
+            // A newer `searchDiscovery()` call landed while this one was in flight — its own
+            // search owns `discoveryResults`/`isSearchingDiscovery` now, so this stale call must
+            // touch neither.
+            guard token == discoveryGeneration else { return }
+            discoveryResults = results
+            isSearchingDiscovery = false
         } catch {
+            guard token == discoveryGeneration else { return }
             discoveryResults = []
             discoveryErrorMessage = "Couldn't search \(discoveryInstance): \(error)"
+            isSearchingDiscovery = false
         }
     }
 

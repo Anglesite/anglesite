@@ -768,6 +768,59 @@ struct CommunitiesModelTests {
         #expect(await fake.requestedURLs.isEmpty)
     }
 
+    /// Before the generation guard, a slow response to an earlier, now-stale query could land
+    /// after a newer one and silently overwrite its results — mirrors
+    /// `selectCommunityDiscardsStaleTimeline`'s proof for `loadTimeline()`'s own guard.
+    @Test("a slower response to an earlier search doesn't overwrite a newer search's results")
+    func searchDiscoveryDiscardsStaleResponse() async throws {
+        let (config, source) = try Self.makeSiteDirectories()
+        defer { try? FileManager.default.removeItem(at: config.deletingLastPathComponent()) }
+        let secretStore = InMemorySecretStore()
+        let appSettings = Self.scratchAppSettings()
+        appSettings.communitySearchInstance = "lemmy.example"
+        let firstURL = "https://lemmy.example/api/v3/search"
+            + "?q=first&type_=Communities&listing_type=All&sort=TopAll&limit=20"
+        let secondURL = "https://lemmy.example/api/v3/search"
+            + "?q=second&type_=Communities&listing_type=All&sort=TopAll&limit=20"
+        let fake = FakeTransport([
+            firstURL: (200, """
+                {"communities":[
+                  {"community":{"name":"first","title":"First",
+                    "actor_id":"https://lemmy.example/c/first"}}
+                ]}
+                """),
+            secondURL: (200, """
+                {"communities":[
+                  {"community":{"name":"second","title":"Second",
+                    "actor_id":"https://lemmy.example/c/second"}}
+                ]}
+                """),
+        ])
+        await fake.gate(firstURL)
+
+        let model = Self.model(secretStore: secretStore, fake: fake, appSettings: appSettings)
+        model.configure(site: Self.site(configDirectory: config, sourceDirectory: source))
+
+        model.discoveryQuery = "first"
+        let firstSearch = Task { await model.searchDiscovery() }
+        await fake.waitUntilRequested(firstURL)
+
+        // Search "second" before "first"'s gated response resolves — bumps the generation.
+        model.discoveryQuery = "second"
+        await model.searchDiscovery()
+
+        #expect(model.discoveryResults.map(\.name) == ["second"])
+        #expect(model.isSearchingDiscovery == false)
+
+        // Release "first"'s gate and let its stale response resume. It should discover its token
+        // is stale and return without touching `discoveryResults`/`isSearchingDiscovery`.
+        await fake.release(firstURL)
+        await firstSearch.value
+
+        #expect(model.discoveryResults.map(\.name) == ["second"])
+        #expect(model.isSearchingDiscovery == false)
+    }
+
     @Test("joinFromDiscovery routes a search result through the same join() path as a typed handle")
     func joinFromDiscoveryUsesJoinPath() async throws {
         let (config, source) = try Self.makeSiteDirectories()

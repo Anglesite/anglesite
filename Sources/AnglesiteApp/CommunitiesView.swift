@@ -112,6 +112,11 @@ struct CommunitiesView: View {
                     Image(systemName: "magnifyingglass")
                 }
                 .help("Find a community by keyword")
+                // An icon-only button's default VoiceOver label comes from the SF Symbol's own
+                // name ("magnifying glass"), which doesn't say what the button does — unlike the
+                // titled `Button`s elsewhere in this file (e.g. `communityRow`'s "Leave…"). Per
+                // the macOS accessibility standard (docs/mac-assed-app-spec.md).
+                .accessibilityLabel("Find a community by keyword")
             }
             .padding()
 
@@ -218,8 +223,19 @@ private struct CommunityDiscoverySheet: View {
                 .onSubmit { Task { await communities.searchDiscovery() } }
 
             LabeledContent("Source") {
-                TextField("Instance, e.g. lemmy.world", text: $instance)
-                    .textFieldStyle(.roundedBorder)
+                // `instance`'s raw stored value can be blank (or whitespace-only) — the field
+                // shows that as empty rather than silently normalizing it into the field itself
+                // (typing into a field that snaps back to a default on every keystroke would make
+                // it impossible to type a *new* instance from an empty start). But
+                // `CommunitiesModel.discoveryInstance`/`AppSettings.communitySearchInstance` DO
+                // fall back to `CommunitySearchClient.defaultInstance` for that same blank value —
+                // so the placeholder names that fallback explicitly, rather than a generic
+                // example, so an empty-looking field doesn't read as "search is broken" when it's
+                // actually about to search the default instance.
+                TextField(
+                    "Defaults to \(CommunitySearchClient.defaultInstance) if blank", text: $instance
+                )
+                .textFieldStyle(.roundedBorder)
             }
             // The privacy stance the issue calls for (#371): this search goes only to the
             // instance above, never to an Anglesite-run directory — worth saying plainly next to
