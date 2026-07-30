@@ -24,6 +24,11 @@ final class EditorFocusRegistry {
 
     enum Focus {
         case markdown(Weak<MarkdownEditorController>)
+        /// No current registrar: `ComponentEditorCodePane`, the last view that activated this
+        /// case, was retired with the unified inspector (#714 slice 3) — the in-pane code zones it
+        /// showed dropped in favor of the Design/Source mode picker. Kept (not deleted) as the
+        /// seam for a future code-editing surface; `EditMenuSkeletonCommands`'s `.codePane`
+        /// branches stay dead code alongside it for the same reason.
         case codePane(Weak<NSResponder>)
         case plainText(isPresented: Binding<Bool>)
     }

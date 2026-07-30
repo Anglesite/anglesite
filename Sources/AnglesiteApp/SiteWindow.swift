@@ -33,6 +33,12 @@ struct SiteWindow: View {
     /// the ColorPicker scrub preview (#714 slice 3). A UI resource handle — view state, not model
     /// state.
     @State private var componentCanvasWebView: WKWebView?
+    /// The last `ComponentEditorActivationKey` this window's activation `.task(id:)` actually ran
+    /// for — lets that task tell a genuine key change (new component/dev-server URL) apart from a
+    /// same-key re-appearance (e.g. a Preview↔Editor toggle), since `.task(id:)` restarts on every
+    /// reappearance of its host view even when `id` is unchanged. See the task body for why that
+    /// distinction matters (#714 final review, Important 1).
+    @State private var lastComponentActivationKey: ComponentEditorActivationKey?
 
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
@@ -532,7 +538,7 @@ struct SiteWindow: View {
                     Label("Inspector", systemImage: "sidebar.right")
                 }
                 .disabled(model.inspectorSelection == nil)
-                .help("Show or hide the page inspector")
+                .help("Show or hide the inspector")
             }
         }
         // Trailing search field (#520). Not a `.toolbar(id:)` item: `.searchable` mints its own
@@ -802,6 +808,10 @@ struct SiteWindow: View {
         switch model.mainPaneMode {
         case .editor:
             if case .text(let editorModel) = model.activeEditor {
+                let activationKey = ComponentEditorActivationKey(
+                    baseURL: model.preview.readyURL?.absoluteString,
+                    fileID: editorModel.file.id
+                )
                 MainPaneEditorView(
                     model: editorModel,
                     componentEditor: model.componentEditor,
@@ -809,17 +819,28 @@ struct SiteWindow: View {
                 )
                     // Re-fires on file change AND on the dev server becoming ready (nil→non-nil
                     // readyURL) — the same identity the old view-local LoadKey watched — so the
-                    // hoisted model rebuilds exactly when the old @State model did.
-                    .task(id: ComponentEditorActivationKey(
-                        baseURL: model.preview.readyURL?.absoluteString,
-                        fileID: editorModel.file.id
-                    )) {
-                        // A new file/baseURL identity means any previously captured canvas
-                        // webview belongs to the outgoing component — drop it until the new
-                        // canvas reports in via `onCanvasWebView`, so the Style pane's ColorPicker
-                        // scrub preview never pairs component B's model with component A's
-                        // (possibly torn-down) webview during the rebuild (#714 review).
-                        componentCanvasWebView = nil
+                    // hoisted model rebuilds exactly when the old @State model did. It ALSO
+                    // restarts on every reappearance of this view (e.g. toggling Preview↔Editor
+                    // back to the same component) even though `activationKey` didn't change —
+                    // that's `.task(id:)`'s documented behavior, not a bug to work around here.
+                    .task(id: activationKey) {
+                        // Genuine key change (a new file, or the dev server just came up):
+                        // any previously captured canvas webview belongs to the outgoing
+                        // component — drop it until the new canvas reports in via
+                        // `onCanvasWebView`, so the Style pane's ColorPicker scrub preview never
+                        // pairs component B's model with component A's (possibly torn-down)
+                        // webview during the rebuild (#714 review).
+                        //
+                        // A same-key re-appearance (the Preview↔Editor toggle case, #714 final
+                        // review Important 1) must NOT clear it: `onCanvasWebView`/`makeNSView`
+                        // reports the live webview synchronously during the render commit, which
+                        // can land before this async task body even runs, and nil-ing it here
+                        // unconditionally would then wipe out that just-reported webview and
+                        // permanently break the scrub preview after every toggle.
+                        if lastComponentActivationKey != activationKey {
+                            componentCanvasWebView = nil
+                        }
+                        lastComponentActivationKey = activationKey
                         await model.ensureComponentEditorLoaded()
                     }
             } else if case .plist(let plistEditorModel) = model.activeEditor {

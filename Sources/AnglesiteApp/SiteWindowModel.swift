@@ -214,10 +214,14 @@ final class SiteWindowModel {
     /// every other selection/pane transition. Only surfaces while the main pane shows the preview
     /// (see `inspectorSelection`, added with the component case in this slice).
     var collectionInspection: CollectionInspection?
-    /// The hoisted Component Editor model (#714 slice 3) — created by `ensureComponentEditorLoaded()`
-    /// when the active editor file is an `.astro` component, so the window inspector can host its
-    /// Metadata/Style panes. Survives the Preview/Editor toggle (same lifetime as `activeEditor`'s
-    /// buffer) but only *surfaces* while its file is the open editor pane — see `inspectorSelection`.
+    /// The hoisted Component Editor model (#714 slice 3) — created/rebuilt by
+    /// `ensureComponentEditorLoaded()` when the active editor file is an `.astro` component, so
+    /// the window inspector can host its Metadata/Style panes. It does NOT share `activeEditor`'s
+    /// lifetime: route/pane transitions `nil` `activeEditor` (e.g. switching to Preview or to a
+    /// non-component file) while this is retained, so it survives those round-trips and only
+    /// *surfaces* while its file is the open editor pane — see `inspectorSelection`. It's replaced
+    /// when a different component opens or the dev-server URL changes, and torn down on site
+    /// change, window close, or the open component being deleted out from under it.
     private(set) var componentEditor: ComponentEditorModel?
 
     /// What the window inspector is inspecting, in precedence order. Component and collection are
@@ -908,13 +912,28 @@ final class SiteWindowModel {
             // #714 slice 3 (§6): a directory shows its route in the preview and its properties
             // (type, entries, feeds, template) in the inspector's collection context.
             Task {
+                // Captured before any `await` below, so a faster subsequent selection changing
+                // `navigator.selection` in the meantime can't be mistaken for this task's own
+                // request (#714 final review, Important 3).
+                let requestedID = id
                 guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
                 activeEditor = nil
                 inspectorContext = nil
                 mainPaneMode = .preview
                 preview.navigate(toRoute: route)
-                collectionInspection = await makeCollectionInspection(
+                let inspection = await makeCollectionInspection(
                     collection: collection, route: route, navigatorID: id)
+                // `makeCollectionInspection` awaits the content-graph actor and, for a real
+                // collection, a detached feed probe — real suspension points a faster subsequent
+                // selection (e.g. a `.route` pick) can land in between. `.collection` outranks
+                // `.page` in `inspectorSelection`, so an unguarded assignment here would silently
+                // shadow that newer selection's page context once this stale task resumes. Bail
+                // unless this is still the live selection — `navigator?.selection` is the same
+                // signal `SiteNavigatorView`'s List binding drives and `SiteWindow`'s
+                // `.onChange(of: navigator.selection)` reacts to, so it always reflects the
+                // current selection by the time we get here.
+                guard navigator?.selection == requestedID else { return }
+                collectionInspection = inspection
             }
         }
     }
@@ -1156,7 +1175,10 @@ final class SiteWindowModel {
     /// (Re)builds the hoisted component editor for the active editor file when it is an `.astro`
     /// component — keyed on (file, dev-server baseURL) exactly like `ComponentEditorView`'s old
     /// view-local `LoadKey`: a nil→non-nil `readyURL` transition rebuilds the model so the harness
-    /// canvas can load; anything else is idempotent. Clears the editor for non-component files.
+    /// canvas can load; a repeat call for the same (file, baseURL) is idempotent only while the
+    /// existing model is healthy — an unhealthy one (a failed or cancelled `load()`) is rebuilt
+    /// instead, never returned as-is (#714 final review, Important 2). Clears the editor for
+    /// non-component files.
     @MainActor
     func ensureComponentEditorLoaded() async {
         guard let site, let file = activeEditorFile,
@@ -1164,8 +1186,14 @@ final class SiteWindowModel {
             componentEditor = nil
             return
         }
+        // Only skip the rebuild when the existing model is actually healthy — a prior `load()`
+        // that failed (including a `CancellationError` from a pane toggle mid-load, which lands
+        // in `load()`'s generic `catch` as `.other`) must not wedge this file on a permanently
+        // broken instance forever (#714 final review, Important 2). `.notConnected` recovery is
+        // already handled above by the `baseURL` key changing once the dev server comes up.
         if let existing = componentEditor, existing.file.id == file.id,
-           existing.context.baseURL == preview.readyURL {
+           existing.context.baseURL == preview.readyURL,
+           existing.loadError == nil, existing.model != nil {
             return
         }
         let editor = ComponentEditorModel(file: file, context: makeComponentEditorContext(site: site))

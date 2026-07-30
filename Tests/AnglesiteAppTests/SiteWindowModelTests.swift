@@ -564,6 +564,13 @@ extension SiteWindowModelTests {
         #expect(navModel.target(for: directoryID) == .directory(collection: "notes", route: "/notes/"))
         model.navigator = navModel
 
+        // #714 final review, Important 3: `applyNavigatorSelection`'s `.directory` branch only
+        // assigns `collectionInspection` once `navigator.selection` still matches the requested
+        // id when its awaits resolve — the same liveness check `SiteNavigatorView`'s List binding
+        // (which writes `selection`) and `SiteWindow`'s `.onChange(of: navigator.selection)`
+        // (which then calls `applyNavigatorSelection`) provide together in production. Set it
+        // first here to mirror that real sequencing.
+        navModel.selection = directoryID
         model.applyNavigatorSelection(directoryID)
 
         // `.directory`'s body runs inside its own `Task { ... }`, same reasoning as the
@@ -623,6 +630,7 @@ extension SiteWindowModelTests {
             if case .directory = $0.kind { return true } else { return false }
         })?.id)
 
+        navModel.selection = dirID
         model.applyNavigatorSelection(dirID)
         while model.collectionInspection == nil { await Task.yield() }
         #expect(model.collectionInspection?.feeds.map(\.kind) == [.rss, .atom])
@@ -630,6 +638,56 @@ extension SiteWindowModelTests {
         // Selecting a routed page again clears the collection context.
         model.applyNavigatorSelection("site-a:page:/about")
         while model.collectionInspection != nil { await Task.yield() }
+        #expect(model.collectionInspection == nil)
+    }
+
+    @Test("a stale .directory selection task never clobbers a newer selection's collection context (#714 final review, Important 3)")
+    func applyNavigatorSelectionDirectoryStaleTaskDoesNotClobberNewerSelection() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let graph = SiteContentGraph()
+        await graph.load(
+            siteID: "site-a", pages: [],
+            posts: [SiteContentGraph.Post(
+                id: "site-a:post:hello", siteID: "site-a", collection: "notes", slug: "hello",
+                title: "Hello", draft: false, publishDate: nil, tags: [],
+                filePath: "src/content/notes/hello.md", lastModified: Date()
+            )],
+            images: []
+        )
+        let model = makeModel(contentGraph: graph)
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let navModel = SiteNavigatorModel(graph: graph)
+        navModel.start(
+            site: CurrentSite(id: "site-a", packageURL: packageURL, sourceDirectory: package.sourceURL),
+            websiteTitle: "Test")
+        while navModel.nodes.count < 2 { await Task.yield() }
+        let directoryID = "dir:/notes/"
+        #expect(navModel.target(for: directoryID) == .directory(collection: "notes", route: "/notes/"))
+        model.navigator = navModel
+
+        // `makeCollectionInspection` (invoked by the `.directory` Task below) awaits the
+        // content-graph actor and a detached feed probe for a real collection like "notes" — real
+        // suspension points. Simulate a faster subsequent selection landing in that window by
+        // moving `navigator.selection` away *before yielding at all*: exactly what
+        // `SiteWindow`'s `.onChange(of: navigator.selection)` does the instant a newer row is
+        // clicked, and this synchronous call returns before the `.directory` Task's body has run
+        // at all (it's merely enqueued), so there is no timing race to get wrong here.
+        model.applyNavigatorSelection(directoryID)
+        navModel.selection = "site-a:post:hello"
+
+        // Give the stale task's awaits every chance to resolve and (pre-fix) assign anyway.
+        for _ in 0..<2_000 { await Task.yield() }
+
+        // Pre-fix, the `.directory` Task unconditionally assigned `collectionInspection` once its
+        // awaits resolved, regardless of whether the selection had since moved on — and
+        // `.collection` outranks `.page` in `inspectorSelection`, so it would have silently
+        // shadowed whatever the newer selection put in the inspector. The fix bails unless
+        // `navigator.selection` still matches the request, so this must stay nil.
         #expect(model.collectionInspection == nil)
     }
 
@@ -669,6 +727,7 @@ extension SiteWindowModelTests {
         #expect(navModel.target(for: dirID) == .directory(collection: nil, route: "/blog/"))
         let expectedEntryCount = navModel.node(for: dirID)?.children?.count ?? 0
 
+        navModel.selection = dirID
         model.applyNavigatorSelection(dirID)
         while model.collectionInspection == nil { await Task.yield() }
         let inspection = try #require(model.collectionInspection)
@@ -869,7 +928,7 @@ extension SiteWindowModelTests {
         #expect(model.activeEditor != nil)
     }
 
-    @Test("ensureComponentEditorLoaded creates the hoisted editor for a component file, idempotently, and rebuilds for a different file")
+    @Test("ensureComponentEditorLoaded creates the hoisted editor for a component file, and rebuilds for a different file")
     func ensureComponentEditorLifecycle() async throws {
         let (root, packageURL, package) = try makeSitePackage()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -888,8 +947,11 @@ extension SiteWindowModelTests {
         let first = try #require(model.componentEditor)
         #expect(first.file.id == card.id)
 
-        await model.ensureComponentEditorLoaded()
-        #expect(model.componentEditor === first)
+        // A same-file, same-baseURL repeat call is deliberately not asserted as idempotent here:
+        // this harness has no live MCP client, so `load()` never succeeds and `first` is never
+        // healthy — see `ensureComponentEditorLoadedRebuildsAfterUnhealthyLoad` below, which
+        // exercises exactly that "unhealthy → rebuild" behavior instead (#714 final review,
+        // Important 2).
 
         let badge = FileRef(
             url: package.sourceURL.appendingPathComponent("src/components/Badge.astro"),
@@ -899,6 +961,46 @@ extension SiteWindowModelTests {
         await model.ensureComponentEditorLoaded()
         #expect(model.componentEditor !== first)
         #expect(model.componentEditor?.file.id == badge.id)
+    }
+
+    @Test("ensureComponentEditorLoaded rebuilds after an unhealthy load instead of wedging the same broken instance forever")
+    func ensureComponentEditorLoadedRebuildsAfterUnhealthyLoad() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = makeModel()
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let card = FileRef(
+            url: package.sourceURL.appendingPathComponent("src/components/Card.astro"),
+            group: .components, name: "Card.astro")
+        model.activeEditor = .text(FileEditorModel(file: card))
+        model.mainPaneMode = .editor(card)
+
+        await model.ensureComponentEditorLoaded()
+        let first = try #require(model.componentEditor)
+        // No dev server is live in this test harness (`NeverStartedSiteRuntimeFactory` never
+        // starts a real runtime), but its `UnavailableSiteRuntime.mcpClient` is still a real,
+        // non-nil (just never-`start()`ed) `MCPClient` — so the fetch doesn't fail with
+        // `ComponentModelClient.ModelError.notConnected`, it fails when that client's own
+        // `callTool` throws `MCPError.notInitialized`, which isn't a `ComponentModelClient
+        // .ModelError` at all and so lands in `load()`'s generic `catch` as `.other`. Confirm
+        // that's really what happened — and that it left the model unhealthy — before relying on
+        // it to exercise the guard below, rather than assuming.
+        #expect(first.loadErrorReason == .other)
+        #expect(first.loadError != nil)
+        #expect(first.model == nil)
+
+        // Same file, same (nil) baseURL — the pre-fix early return kept `first` forever purely on
+        // that identity match, regardless of whether its load actually succeeded (#714 final
+        // review, Important 2 — a `CancellationError` from a pane toggle mid-load lands in the
+        // exact same generic `catch` as `.other`, so this failure mode is a faithful stand-in for
+        // that one too). The fix only takes the early return when the existing model is healthy,
+        // so this unhealthy `first` must be rebuilt, not returned again.
+        await model.ensureComponentEditorLoaded()
+        #expect(model.componentEditor !== first)
+        #expect(model.componentEditor?.file.id == card.id)
     }
 
     @Test("ensureComponentEditorLoaded clears the hoisted editor for a non-component file")
