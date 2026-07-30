@@ -14,6 +14,9 @@ import AnglesiteCore
 struct SiteSearchFieldModifier: ViewModifier {
     @Bindable var model: SiteSearchModel
     let siteID: String?
+    /// Same binding `SiteWindow` passes to `.inspector(isPresented:)` — read (and, when
+    /// presented, written) by `focusSearchField` below to dodge #1126.
+    var inspectorPresented: Binding<Bool>
     let activate: (SiteSearchIndex.Hit) -> Void
 
     @FocusState private var searchFieldFocused: Bool
@@ -65,7 +68,24 @@ struct SiteSearchFieldModifier: ViewModifier {
             // inside `SiteSearchModel.search`.
             .task(id: model.request) { await model.search(siteID: siteID) }
             .focusedSceneValue(\.siteSearchActions, SiteSearchActions(
-                focusSearchField: { searchFieldFocused = true }
+                focusSearchField: {
+                    // Activating the search field inserts the scope bar — a toolbar re-layout
+                    // that, coalesced with a still-presented window inspector, hits the same
+                    // macOS 27 beta AppKit constraint-update storm as the pane-switch case
+                    // (#1126). Dismiss the inspector and give its own dismissal transaction a
+                    // moment to settle first, same mitigation as
+                    // `SiteWindowModel.clearInspectorThenSwitchPane`; skipped entirely when
+                    // there's no inspector presented to collide with.
+                    guard inspectorPresented.wrappedValue else {
+                        searchFieldFocused = true
+                        return
+                    }
+                    inspectorPresented.wrappedValue = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        searchFieldFocused = true
+                    }
+                }
             ))
     }
 }

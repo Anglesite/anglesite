@@ -183,6 +183,21 @@ struct SiteWindow: View {
     private func siteUI(for site: SiteStore.Site) -> some View {
         @Bindable var bindableModel = model
 
+        // Shared with `SiteSearchFieldModifier` below (#1126): search-field activation is
+        // another "substantial toolbar re-layout while the inspector is presented" trigger for
+        // the same macOS 27 beta AppKit constraint-update storm as the pane-switch case, so it
+        // needs the same presented-state read the `.inspector(isPresented:)` modifier itself
+        // uses, not a copy that could drift out of sync.
+        let inspectorPresented = Binding(
+            get: { inspectorShown && model.inspectorSelection != nil },
+            set: { newValue in
+                // Only persist an explicit show/hide while there is something to inspect.
+                // When the selection is nil the panel is auto-hidden; ignore that write so
+                // it doesn't clobber the remembered preference (the bug: inspector never returns).
+                if model.inspectorSelection != nil { inspectorShown = newValue }
+            }
+        )
+
         NavigationSplitView(columnVisibility: Binding(
             get: { sidebarVisible ? .all : .detailOnly },
             set: { sidebarVisible = ($0 != .detailOnly) }
@@ -271,15 +286,7 @@ struct SiteWindow: View {
         }
         .animation(.easeInOut(duration: 0.18), value: model.deploy.drawerPresented)
         .animation(.easeInOut(duration: 0.18), value: model.backup.drawerPresented)
-        .inspector(isPresented: Binding(
-            get: { inspectorShown && model.inspectorSelection != nil },
-            set: { newValue in
-                // Only persist an explicit show/hide while there is something to inspect.
-                // When the selection is nil the panel is auto-hidden; ignore that write so
-                // it doesn't clobber the remembered preference (the bug: inspector never returns).
-                if model.inspectorSelection != nil { inspectorShown = newValue }
-            }
-        )) {
+        .inspector(isPresented: inspectorPresented) {
             if let selection = model.inspectorSelection {
                 SiteInspectorView(
                     selection: selection,
@@ -547,6 +554,7 @@ struct SiteWindow: View {
         .modifier(SiteSearchFieldModifier(
             model: model.search,
             siteID: site.id,
+            inspectorPresented: inspectorPresented,
             activate: { hit in model.openSearchHit(hit) }
         ))
         .sheet(isPresented: $bindableModel.deploy.blockedPresented) {
