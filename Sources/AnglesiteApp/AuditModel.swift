@@ -35,8 +35,11 @@ final class AuditModel {
     private let command: AuditCommand
     private var inFlight: Task<Void, Never>?
 
-    init(command: AuditCommand = AuditCommand()) {
-        self.command = command
+    init(
+        command: AuditCommand? = nil,
+        containerControlProvider: @escaping AuditCommand.ContainerControlProvider = { nil }
+    ) {
+        self.command = command ?? AuditCommand(containerControlProvider: containerControlProvider)
     }
 
     var isRunning: Bool {

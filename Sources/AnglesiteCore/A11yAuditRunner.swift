@@ -17,7 +17,15 @@ import Foundation
 public struct A11yAuditRunner: AuditRunner {
     public let category: AuditReport.Finding.Category = .accessibility
 
-    public init() {}
+    /// Reached lazily, at the moment the script actually runs — mirrors
+    /// `AuditCommand.ContainerControlProvider` / `AstroHTMLValidator.ContainerControlProvider`.
+    public typealias ContainerControlProvider = @Sendable () async -> (siteID: String, control: any LocalContainerControl)?
+
+    private let containerControlProvider: ContainerControlProvider
+
+    public init(containerControlProvider: @escaping ContainerControlProvider = { nil }) {
+        self.containerControlProvider = containerControlProvider
+    }
 
     public func run(
         siteDirectory: URL,
@@ -25,6 +33,37 @@ public struct A11yAuditRunner: AuditRunner {
         logCenter: LogCenter,
         source: String
     ) async throws -> [AuditReport.Finding] {
+        let stdout = try await runScript(siteDirectory: siteDirectory, supervisor: supervisor)
+
+        // The stdout may contain the markdown report (always written) plus the JSON object.
+        // Find the JSON object by scanning for the first `{` and parsing from there.
+        guard let jsonStart = stdout.firstIndex(of: "{") else {
+            throw Error.noJSONInOutput
+        }
+        let jsonString = String(stdout[jsonStart...])
+        return try Self.parse(json: Data(jsonString.utf8))
+    }
+
+    /// Runs `a11y-audit.ts --json` in the site's running container when one is available — the
+    /// script needs the guest's Node/tsx toolchain, which no longer exists on the host after Node's
+    /// retirement (#70) — falling back to the host `ProcessSupervisor` path otherwise (tests, and
+    /// any caller that hasn't wired a container).
+    private func runScript(siteDirectory: URL, supervisor: ProcessSupervisor) async throws -> String {
+        if let (containerSiteID, control) = await containerControlProvider() {
+            let result = try await control.exec(
+                siteID: containerSiteID,
+                argv: ["npx", "tsx", "scripts/a11y-audit.ts", "--json"],
+                environment: [:],
+                workingDirectory: "/workspace/site",
+                onOutput: { _, _ in }
+            )
+            // Exit code is severity-aware — see the host-path comment below for the full contract.
+            guard [0, 1, 2].contains(result.exitCode) else {
+                throw Error.scriptFailed(exitCode: result.exitCode, stderr: result.stderr)
+            }
+            return result.stdout
+        }
+
         let scriptPath = siteDirectory.appendingPathComponent("scripts/a11y-audit.ts").path
         // Routed through the supervisor so the spawn goes through the one supervised path
         // (under MAS sandbox, inherits the app-held per-site folder grant).
@@ -45,14 +84,7 @@ public struct A11yAuditRunner: AuditRunner {
         guard [0, 1, 2].contains(result.exitCode) else {
             throw Error.scriptFailed(exitCode: result.exitCode, stderr: result.stderr)
         }
-
-        // The stdout may contain the markdown report (always written) plus the JSON object.
-        // Find the JSON object by scanning for the first `{` and parsing from there.
-        guard let jsonStart = result.stdout.firstIndex(of: "{") else {
-            throw Error.noJSONInOutput
-        }
-        let jsonString = String(result.stdout[jsonStart...])
-        return try Self.parse(json: Data(jsonString.utf8))
+        return result.stdout
     }
 
     public enum Error: Swift.Error, Equatable {

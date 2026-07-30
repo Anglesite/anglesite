@@ -83,7 +83,9 @@ final class SiteWindowModel {
     private(set) var invisiblePublishState: InvisiblePublishQueue.State = .idle
     var publish = PublishModel()
     var backup = BackupModel()
-    var audit = AuditModel()
+    /// Built in `init` (not a property default) — its `containerControlProvider` closure captures
+    /// `preview`, which doesn't exist until `init`'s body runs.
+    var audit: AuditModel
     /// Drives this site's iCloud git sync (#881): status surface, `NSMetadataQuery` bundle-change
     /// observation, and the conflict banner/resolution sheet. No-ops entirely for a package that
     /// doesn't live in iCloud Drive — see `SyncModel.start(package:)`.
@@ -228,13 +230,14 @@ final class SiteWindowModel {
         self.semanticRanker = semanticRanker
         self.conventionsEngine = conventionsEngine
         self.contentIndexerStore = contentIndexerStore
-        self.preview = PreviewModel(
+        let previewModel = PreviewModel(
             contentGraph: contentGraph,
             knowledgeIndex: knowledgeIndex,
             semanticRanker: semanticRanker,
             conventionsEngine: conventionsEngine,
             runtimeFactory: runtimeFactory
         )
+        self.preview = previewModel
         self.contentCreation = ContentCreationWorkflow.native(
             contentGraph: contentGraph,
             knowledgeIndex: knowledgeIndex,
@@ -244,6 +247,9 @@ final class SiteWindowModel {
         self.relatedPages = RelatedPagesModel(index: knowledgeIndex, ranker: semanticRanker)
         self.search = SiteSearchModel(index: knowledgeIndex)
         self.cleanup = ProjectCleanupModel(knowledgeIndex: knowledgeIndex, contentGraph: contentGraph)
+        self.audit = AuditModel(
+            containerControlProvider: { [previewModel] in await previewModel.activeContainerControl() }
+        )
         // Wired once here (not per-site in loadAndStart): the hooks capture nothing from self
         // and receive the run's site id from the model, so there is nothing to rebind on
         // window replay — see CompletionNotificationHub's own doc comment.

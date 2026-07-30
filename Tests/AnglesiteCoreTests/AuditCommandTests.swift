@@ -213,6 +213,57 @@ struct AuditCommandTests {
         #expect(report.findings == [a, s, p])
         #expect(report.runnersExecuted == [.accessibility, .seo, .performance])
     }
+
+    // MARK: Container-routed build (#1101)
+
+    /// Before #1101, `AuditCommand` always used `resolveBuildCommand` (permanently `.unavailable`
+    /// after host Node's retirement) even when a container was running — the audit could never
+    /// succeed. This proves the build step now runs inside an available container instead.
+    @Test("Build runs inside the container when a containerControlProvider resolves one")
+    func buildRunsInContainerWhenAvailable() async {
+        let fake = FakeLocalContainerControl(
+            startResult: .failure(.virtualizationUnavailable),
+            execResult: ContainerExecResult(exitCode: 0, stdout: "built", stderr: "")
+        )
+        let cmd = AuditCommand(
+            // A resolver that would fail the audit if it were ever consulted — proves the
+            // container path is taken instead of falling through to the host resolver.
+            resolveBuildCommand: { _ in .unavailable(reason: "should not be consulted") },
+            containerControlProvider: { (siteID: "site-abc", control: fake) },
+            runners: [FakeAuditRunner(category: .accessibility, result: .success([]))]
+        )
+        let result = await cmd.audit(siteID: "site-abc", siteDirectory: tmpDir)
+        guard case .succeeded = result else {
+            Issue.record("expected .succeeded, got \(result)")
+            return
+        }
+        let calls = await fake.execCalls
+        #expect(calls.count == 1)
+        #expect(calls[0].argv == ["npm", "run", "build"])
+        #expect(calls[0].siteID == "site-abc")
+    }
+
+    @Test("A non-zero container build exit fails the audit with logTail from the guest output")
+    func containerBuildFailureCarriesLogTail() async {
+        let fake = FakeLocalContainerControl(
+            startResult: .failure(.virtualizationUnavailable),
+            execResult: ContainerExecResult(exitCode: 1, stdout: "build broke", stderr: ""),
+            execStdoutLines: ["build broke"]
+        )
+        let cmd = AuditCommand(
+            resolveBuildCommand: { _ in .unavailable(reason: "should not be consulted") },
+            containerControlProvider: { (siteID: "site-abc", control: fake) },
+            runners: [FakeAuditRunner(category: .accessibility, result: .success([]))]
+        )
+        let result = await cmd.audit(siteID: "site-abc", siteDirectory: tmpDir)
+        guard case .failed(let reason, let exit, let tail) = result else {
+            Issue.record("expected .failed, got \(result)")
+            return
+        }
+        #expect(reason.lowercased().contains("build"))
+        #expect(exit == 1)
+        #expect(tail.contains { $0.text == "build broke" })
+    }
 }
 
 // MARK: - Fake runner

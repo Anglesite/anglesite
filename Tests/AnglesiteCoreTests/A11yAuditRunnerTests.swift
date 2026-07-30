@@ -62,4 +62,47 @@ struct A11yAuditRunnerTests {
         #expect(findings.count == 1)
         #expect(findings[0].remediation == nil)
     }
+
+    // MARK: - Container routing (#1101)
+
+    @Test("When a container is available, the script runs inside it via npx tsx")
+    func runsInContainerWhenAvailable() async throws {
+        let raw = #"{"issues": [{"page": "/", "rule": "alt-text", "severity": "error", "message": "Missing alt"}]}"#
+        let fake = FakeLocalContainerControl(
+            startResult: .failure(.virtualizationUnavailable),
+            execResult: ContainerExecResult(exitCode: 0, stdout: raw, stderr: "")
+        )
+        let runner = A11yAuditRunner(containerControlProvider: { (siteID: "site-abc", control: fake) })
+        let findings = try await runner.run(
+            siteDirectory: URL(fileURLWithPath: "/host/irrelevant"),
+            supervisor: ProcessSupervisor(),
+            logCenter: LogCenter(),
+            source: "audit:site-abc:accessibility"
+        )
+        #expect(findings.count == 1)
+        #expect(findings[0].title == "alt-text")
+
+        let calls = await fake.execCalls
+        #expect(calls.count == 1)
+        #expect(calls[0].siteID == "site-abc")
+        #expect(calls[0].argv == ["npx", "tsx", "scripts/a11y-audit.ts", "--json"])
+        #expect(calls[0].cwd == "/workspace/site")
+    }
+
+    @Test("A non-severity exit code from the container run is a runner failure")
+    func containerNonSeverityExitCodeThrows() async {
+        let fake = FakeLocalContainerControl(
+            startResult: .failure(.virtualizationUnavailable),
+            execResult: ContainerExecResult(exitCode: 3, stdout: "", stderr: "tsx crashed")
+        )
+        let runner = A11yAuditRunner(containerControlProvider: { (siteID: "site-abc", control: fake) })
+        await #expect(throws: A11yAuditRunner.Error.self) {
+            try await runner.run(
+                siteDirectory: URL(fileURLWithPath: "/host/irrelevant"),
+                supervisor: ProcessSupervisor(),
+                logCenter: LogCenter(),
+                source: "audit:site-abc:accessibility"
+            )
+        }
+    }
 }

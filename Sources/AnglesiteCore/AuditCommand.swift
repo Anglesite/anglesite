@@ -52,21 +52,29 @@ public actor AuditCommand {
 
     public typealias CommandResolver = @Sendable (_ siteDirectory: URL) -> LaunchPlan
 
+    /// Reached lazily, at the moment the build step actually runs — mirrors
+    /// `DeployModel`/`AstroHTMLValidator`'s `ContainerControlProvider` (#823), since the container
+    /// may not have finished booting yet when `AuditCommand` is constructed.
+    public typealias ContainerControlProvider = @Sendable () async -> (siteID: String, control: any LocalContainerControl)?
+
     private let supervisor: ProcessSupervisor
     private let logCenter: LogCenter
     private let resolveBuildCommand: CommandResolver
+    private let containerControlProvider: ContainerControlProvider
     private let runners: [any AuditRunner]
 
     public init(
         supervisor: ProcessSupervisor = .shared,
         logCenter: LogCenter = .shared,
         resolveBuildCommand: @escaping CommandResolver = AuditCommand.resolveBuildCommand,
-        runners: [any AuditRunner] = AuditCommand.defaultRunners
+        containerControlProvider: @escaping ContainerControlProvider = { nil },
+        runners: [any AuditRunner]? = nil
     ) {
         self.supervisor = supervisor
         self.logCenter = logCenter
         self.resolveBuildCommand = resolveBuildCommand
-        self.runners = runners
+        self.containerControlProvider = containerControlProvider
+        self.runners = runners ?? AuditCommand.defaultRunners(containerControlProvider: containerControlProvider)
     }
 
     /// Run the audit pipeline against `siteDirectory`. Reaches `.succeeded` even when
@@ -124,6 +132,13 @@ public actor AuditCommand {
     private enum BuildOutcome { case success; case failure(Result) }
 
     private func runBuild(siteID: String, siteDirectory: URL) async -> BuildOutcome {
+        let source = "audit:\(siteID):build"
+        if let (containerSiteID, control) = await containerControlProvider() {
+            return await runContainerBuild(
+                containerSiteID: containerSiteID, control: control, siteDirectory: siteDirectory, source: source
+            )
+        }
+
         let plan = resolveBuildCommand(siteDirectory)
         let executable: URL
         let arguments: [String]
@@ -135,7 +150,6 @@ public actor AuditCommand {
             arguments = args
         }
 
-        let source = "audit:\(siteID):build"
         let handle: ProcessSupervisor.Handle
         do {
             handle = try await supervisor.launch(
@@ -173,19 +187,46 @@ public actor AuditCommand {
         }
     }
 
+    /// Runs `npm run build` inside the site's running container via `ContainerDeployExecutor` —
+    /// the same `.build` step the deploy path uses (`DeployExecutor.swift`) — instead of the host
+    /// process path, which is permanently unavailable after host Node's retirement (#70).
+    private func runContainerBuild(
+        containerSiteID: String,
+        control: any LocalContainerControl,
+        siteDirectory: URL,
+        source: String
+    ) async -> BuildOutcome {
+        let executor = ContainerDeployExecutor(control: control, siteID: containerSiteID, logCenter: logCenter)
+        let result = await executor.run(step: .build, siteDirectory: siteDirectory, environment: [:], source: source)
+        let tail = await logCenter.snapshot().filter { $0.source == source }
+        switch result.exitCode {
+        case 0:
+            return .success
+        case nil:
+            let reason = result.output.isEmpty ? "build was terminated" : result.output
+            return .failure(.failed(reason: reason, exitCode: nil, logTail: tail))
+        case let code?:
+            return .failure(.failed(reason: "build failed", exitCode: code, logTail: tail))
+        }
+    }
+
     // MARK: - Default seams
 
-    /// Host Node is retired (#70). Audits must run through the container runtime once validation
-    /// lands; until then the command fails explicitly instead of spawning embedded Node.
+    /// Host Node is retired (#70). Falls back to this only when `containerControlProvider` resolves
+    /// nil (no running container) — the production path runs the build inside the container instead
+    /// (see `runContainerBuild`).
     public static let resolveBuildCommand: CommandResolver = { siteDirectory in
         .unavailable(reason: HostNodeRetirement.reason("audit build"))
     }
 
     /// Default runner set: `A11yAuditRunner` plus `SecurityTxtAuditRunner` (#843). SEO / perf /
     /// link-check runners are mechanical follow-ups that slot into this list without changing
-    /// the actor or sheet UI (#86 follow-ups).
-    public static let defaultRunners: [any AuditRunner] = [
-        A11yAuditRunner(),
-        SecurityTxtAuditRunner()
-    ]
+    /// the actor or sheet UI (#86 follow-ups). `A11yAuditRunner` needs the same container access as
+    /// the build step — its script also requires the guest's Node/tsx toolchain.
+    public static func defaultRunners(containerControlProvider: @escaping ContainerControlProvider) -> [any AuditRunner] {
+        [
+            A11yAuditRunner(containerControlProvider: containerControlProvider),
+            SecurityTxtAuditRunner()
+        ]
+    }
 }
