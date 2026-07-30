@@ -27,11 +27,15 @@ protocol InspectorEditorModel: AnyObject {
 enum InspectorContext: Identifiable {
     case typed(TypedEntryEditorModel)
     case page(PageMetadataModel)
+    /// A routed page/entry with no typed descriptor or frontmatter form — e.g. a plain `.astro`
+    /// page. Read-only identity only; see `GenericPageInspectorModel` (#1100).
+    case generic(GenericPageInspectorModel)
 
     var model: any InspectorEditorModel {
         switch self {
         case .typed(let m): m
         case .page(let m): m
+        case .generic(let m): m
         }
     }
     var id: String { model.file.id }

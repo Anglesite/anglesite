@@ -573,6 +573,45 @@ extension SiteWindowModelTests {
         #expect(model.inspectorContext == nil)
         #expect(model.preview.activeRoute == "/notes/")
     }
+
+    @Test("applyNavigatorSelection populates a read-only inspector for a plain .astro page (#1100)")
+    func applyNavigatorSelectionPlainAstroPageGetsGenericInspector() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        // Most of a real site's pages are plain .astro (only the "about" singleton and content
+        // collection entries get a typed/markdown editor) — Home is the common case that made the
+        // View ▸ Inspector ▸ Show Inspector command look permanently disabled (#1100).
+        let graph = SiteContentGraph()
+        await graph.load(
+            siteID: "site-a",
+            pages: [SiteContentGraph.Page(
+                id: "site-a:page:/", siteID: "site-a", route: "/",
+                filePath: "src/pages/index.astro", title: "Home", lastModified: Date()
+            )],
+            posts: [], images: []
+        )
+        let model = makeModel(contentGraph: graph)
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let navModel = SiteNavigatorModel(graph: graph)
+        navModel.start(site: CurrentSite(id: "site-a", packageURL: packageURL, sourceDirectory: package.sourceURL), websiteTitle: "Test")
+        while navModel.nodes.isEmpty { await Task.yield() }
+        model.navigator = navModel
+
+        model.applyNavigatorSelection("site-a:page:/")
+
+        while model.inspectorContext == nil { await Task.yield() }
+        guard case .generic(let generic) = model.inspectorContext else {
+            Issue.record("expected a .generic read-only inspector context for a plain .astro page")
+            return
+        }
+        #expect(generic.route == "/")
+        #expect(generic.file.url == package.sourceURL.appendingPathComponent("src/pages/index.astro"))
+        #expect(generic.isDirty == false)
+    }
 }
 
 extension SiteWindowModelTests {

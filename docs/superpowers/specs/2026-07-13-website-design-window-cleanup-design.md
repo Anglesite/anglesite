@@ -160,8 +160,9 @@ it tracks weights and the three scales, in monochrome + hierarchical renditions.
   above the existing chrome. Selected tab persists per window via
   `@SceneStorage("siteInspector.tab")`.
 - **Metadata tab** — exactly today's content: `InspectorChrome` wrapping
-  `TypedEntryForm` or `PageMetadataForm`, including dirty/Save, off-main load, and
-  the external-change conflict alert.
+  `TypedEntryForm`, `PageMetadataForm`, or (since #1100) the read-only
+  `GenericPageInfoForm` fallback for a routed page with neither, including
+  dirty/Save, off-main load, and the external-change conflict alert.
 - **Style tab (v1)** — a "styles for the current selection" surface: hosts the
   Component Editor's styles panel when an element selection exists, otherwise a
   `ContentUnavailableView` ("Select something on the page"). Write operations
