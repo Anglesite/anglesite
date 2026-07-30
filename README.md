@@ -62,8 +62,10 @@ git config core.hooksPath scripts/git-hooks
 # of Sources/AnglesiteApp. CI runs this too, so it's not a required setup step.
 scripts/check-xcodeproj-sync.sh
 
-# Build via CLI (ad-hoc signed; no Apple account required)
-xcodebuild -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
+# Build via CLI (ad-hoc signed; no Apple account required). Use scripts/build-app.sh
+# instead of a raw `xcodebuild` — it regenerates the project first, so a checkout
+# that went stale without tripping the git hooks above never builds a stale one (#123).
+scripts/build-app.sh -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
 
 # Or open in Xcode (note: `open Anglesite.xcodeproj`, NOT `xed .`)
 open Anglesite.xcodeproj

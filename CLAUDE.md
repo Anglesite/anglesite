@@ -94,8 +94,11 @@ Toolchain: **Xcode 27+ / Swift 6.4** (required for SwiftUI 27's `@State` macro s
 open Anglesite.xcodeproj
 # Anglesite.xcodeproj is gitignored and generated from project.yml — after a
 # fresh clone or in a new worktree, run `xcodegen generate` first.
-# ⌘B in Xcode, or:
-xcodebuild -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
+# ⌘B in Xcode, or use scripts/build-app.sh instead of a raw `xcodebuild` — it
+# regenerates the project first, so a checkout that went stale without
+# tripping scripts/git-hooks (e.g. synced via fetch+reset) never builds a
+# stale project (#123):
+scripts/build-app.sh -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build
 ```
 
 Tests: `swift test --package-path .` runs the SwiftPM test targets (`AnglesiteSiteModelTests`, `AnglesiteCoreTests`, `AnglesiteBridgeTests`, and, on Swift 6.4+/Xcode 27, `AnglesiteIntentsTests`). `AnglesiteContainerLocalTests` is opt-in with `ANGLESITE_CONTAINER_TESTS=1`; its end-to-end cases also require `ANGLESITE_CONTAINER_E2E=1`. Most suites are Swift Testing (#74), with the remaining XCTest holdouts in `AnglesiteCoreTests` and `AnglesiteBridgeTests`. The MCP / apply-edit e2e tests (`AppliesEditEndToEndTests`, `MCPClientHTTPEndToEndTests`) need the sibling sidecar checkout + node; they're gated with Swift Testing's `.enabled(if:)` trait, so they skip cleanly when the checkout is absent — set `ANGLESITE_PLUGIN_PATH` to the sidecar checkout to make them run. If `swift build`/`swift test` seems to hang with no output, a stale SwiftPM process is likely holding the `.build` lock — check `pgrep -fl swift-test` and kill the orphan rather than assuming a bad test.
