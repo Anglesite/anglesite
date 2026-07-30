@@ -153,8 +153,7 @@ public struct FrontmatterDocument: Equatable, Sendable {
             // Numbers serialize unquoted so YAML reads them as numbers (a quoted "4" fails a
             // collection's z.number() schema). Integral values drop the decimal point; the
             // magnitude guard avoids the Int(_:) overflow trap.
-            let formatted = (n == n.rounded() && abs(n) < 1e15) ? String(Int(n)) : String(n)
-            return "\(key): \(formatted)"
+            return "\(key): \(formatNumber(n))"
         case .date(let s):
             // Already-formatted date scalar, emitted unquoted (matching ContentScaffold) so YAML
             // reads it as a date — a quoted scalar fails a non-coercing date schema.
@@ -162,6 +161,43 @@ public struct FrontmatterDocument: Equatable, Sendable {
         case .array(let items):
             if items.isEmpty { return "\(key): []" }
             return ([ "\(key):" ] + items.map { "  - \(Frontmatter.doubleQuoted($0))" }).joined(separator: "\n")
+        case .objectArray(let records):
+            if records.isEmpty { return "\(key): []" }
+            var lines = ["\(key):"]
+            for record in records {
+                if let first = record.first {
+                    lines.append("  - \(first.name): \(renderScalar(first.value))")
+                    for field in record.dropFirst() {
+                        lines.append("    \(field.name): \(renderScalar(field.value))")
+                    }
+                } else {
+                    lines.append("  - {}")
+                }
+            }
+            return lines.joined(separator: "\n")
+        }
+    }
+
+    private static func formatNumber(_ n: Double) -> String {
+        (n == n.rounded() && abs(n) < 1e15) ? String(Int(n)) : String(n)
+    }
+
+    /// Renders one record field's value the same way its top-level `render(key:value:)` counterpart
+    /// would, minus the `key: ` prefix (the caller supplies that at either 2- or 4-space indent).
+    /// Exhaustive over every `FrontmatterValue` case for compiler-checked totality, even though
+    /// record fields are conventionally scalar-only (see `FrontmatterValue.objectArray`'s doc
+    /// comment) — `.array`/`.objectArray` never actually reach here in practice.
+    private static func renderScalar(_ value: FrontmatterValue) -> String {
+        switch value {
+        case .string(let s): return Frontmatter.doubleQuoted(s)
+        case .bool(let b): return "\(b)"
+        case .number(let n): return formatNumber(n)
+        case .date(let s): return s
+        case .array(let items):
+            if items.isEmpty { return "[]" }
+            return "[" + items.map { Frontmatter.doubleQuoted($0) }.joined(separator: ", ") + "]"
+        case .objectArray:
+            return "[]"
         }
     }
 }

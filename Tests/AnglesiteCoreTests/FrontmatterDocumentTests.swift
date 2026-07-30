@@ -128,4 +128,35 @@ struct FrontmatterDocumentTests {
         #expect(doc.serialized() == src)                  // both occurrences preserved
         #expect(doc.value(for: "title") == .string("B"))  // get addresses the last
     }
+
+    @Test("setting an object-array value renders block-mapping-list YAML")
+    func setObjectArray() {
+        var doc = FrontmatterDocument.parse("---\ntitle: \"T\"\n---\nB\n")
+        doc.set(.objectArray([
+            [FrontmatterRecordField("title", .string("Engineer")), FrontmatterRecordField("start", .date("2020-01-01"))],
+            [FrontmatterRecordField("title", .string("Intern")), FrontmatterRecordField("start", .date("2018-06-01"))],
+        ]), for: "experience")
+        let out = doc.serialized()
+        #expect(out.contains("""
+        experience:
+          - title: "Engineer"
+            start: 2020-01-01
+          - title: "Intern"
+            start: 2018-06-01
+        """))
+    }
+
+    @Test("setting an empty object-array value renders an inline empty array")
+    func setEmptyObjectArray() {
+        var doc = FrontmatterDocument.parse("---\ntitle: \"T\"\n---\nB\n")
+        doc.set(.objectArray([]), for: "experience")
+        #expect(doc.serialized().contains("experience: []"))
+    }
+
+    @Test("an object-array record with no fields renders as an empty mapping item")
+    func setObjectArrayEmptyRecord() {
+        var doc = FrontmatterDocument.parse("---\ntitle: \"T\"\n---\nB\n")
+        doc.set(.objectArray([[]]), for: "experience")
+        #expect(doc.serialized().contains("experience:\n  - {}"))
+    }
 }

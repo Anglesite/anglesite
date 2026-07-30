@@ -423,7 +423,7 @@ public enum DeadAssetScanner {
                 switch value {
                 case .string(let s): rawValues = [s]
                 case .array(let arr): rawValues = arr
-                case .bool, .number, .date: rawValues = []
+                case .bool, .number, .date, .objectArray: rawValues = []
                 }
                 for raw in rawValues {
                     if let resolved = resolve(raw, relativeTo: relPath) {

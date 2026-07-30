@@ -313,6 +313,11 @@ public actor SiteKnowledgeIndex {
         case .array(let values): return values.joined(separator: " ")
         case .number(let n): return n == n.rounded() && abs(n) < 1e15 ? String(Int(n)) : String(n)
         case .date(let s): return s
+        case .objectArray(let records):
+            // Object array: flatten all field values for indexing
+            return records.flatMap { record in
+                record.map { field in frontmatterText(field.value) }
+            }.joined(separator: " ")
         }
     }
 

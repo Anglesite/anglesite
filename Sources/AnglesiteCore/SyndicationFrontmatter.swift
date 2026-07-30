@@ -80,7 +80,7 @@ public enum SyndicationFrontmatter {
         case .array(let items): return items.filter { !$0.isEmpty }
         case .string(let s): return s.isEmpty ? [] : [s]
         case .bool(let b): return [b ? "true" : "false"]
-        case .number, .date: return nil  // write-only cases; parseScalarOrArray never produces them
+        case .number, .date, .objectArray: return nil  // write-only cases; parseScalarOrArray never produces them
         }
     }
 }

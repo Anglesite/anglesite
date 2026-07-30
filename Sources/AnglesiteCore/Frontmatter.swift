@@ -21,6 +21,24 @@ public enum FrontmatterValue: Equatable, Sendable {
     /// verbatim, unescaped. It is always produced by `TypedContentEditor.format()`
     /// (`ISO8601DateFormatter` output or its 10-char date-only prefix), which satisfies that.
     case date(String)
+    /// A repeating group of small structured records — e.g. h-resume `experience` entries. Each
+    /// inner `[FrontmatterRecordField]` is one record's fields in declared order; the outer array
+    /// is the ordered list of records. Record field values are conventionally scalar (`.string`,
+    /// `.bool`, `.number`, `.date`) — never `.array`/`.objectArray` — matching
+    /// `ContentTypeField.Kind.objectArray`'s member-field restriction; nothing in this codebase
+    /// constructs a nested shape, so `FrontmatterDocument.render`'s scalar renderer treats one as
+    /// an empty fallback rather than recursing.
+    case objectArray([[FrontmatterRecordField]])
+}
+
+/// One name/value pair inside a `FrontmatterValue.objectArray` record, in declaration order.
+public struct FrontmatterRecordField: Equatable, Sendable {
+    public let name: String
+    public let value: FrontmatterValue
+    public init(_ name: String, _ value: FrontmatterValue) {
+        self.name = name
+        self.value = value
+    }
 }
 
 /// Native port of `server/content-frontmatter.mjs` (Bucket 1, #275).
