@@ -45,6 +45,25 @@ struct TypedEntryEditorModelRobotsSettingsTests {
         #expect(config.noindex == [RobotsConfigEntry(path: "/notes/my-note/", source: .collection("notes", id: "my-note"))])
     }
 
+    /// The collection loaders glob `**/*.md`, so a bare-basename id would make these two entries
+    /// indistinguishable and toggling one would silently move the other's settings (#1093 review).
+    @Test("save: a nested entry's id keeps its subdirectory, so same-basename entries don't collide")
+    func nestedEntriesGetDistinctIds() async throws {
+        let (a, dirA) = try makeModel(
+            route: "/notes/2026/my-note/", relativeEntryPath: "src/content/notes/2026/my-note.md")
+        await a.load()
+        a.noindexBinding().wrappedValue = true
+        _ = await a.save()
+        #expect(RobotsConfigFile.read(under: dirA).noindex.map(\.source) == [.collection("notes", id: "2026/my-note")])
+
+        let (b, dirB) = try makeModel(
+            route: "/notes/2025/my-note/", relativeEntryPath: "src/content/notes/2025/my-note.md")
+        await b.load()
+        b.noindexBinding().wrappedValue = true
+        _ = await b.save()
+        #expect(RobotsConfigFile.read(under: dirB).noindex.map(\.source) == [.collection("notes", id: "2025/my-note")])
+    }
+
     @Test("save: disabling a previously-enabled toggle removes its entry")
     func saveRemovesDisabledEntry() async throws {
         let (model, dir) = try makeModel()

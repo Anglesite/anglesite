@@ -203,10 +203,16 @@ final class TypedEntryEditorModel: InspectorEditorModel {
                 set: { [weak self] in self?.disallowCrawlEnabled = $0 })
     }
 
+    /// A collection entry's robots id is its path *relative to the collection root*, extension
+    /// stripped (`2026/my-note`), not the bare filename: `src/content.config.ts`'s loaders glob
+    /// `**/*.md`, so `notes/2026/foo.md` and `notes/2025/foo.md` would otherwise share one id and
+    /// toggling either page's robots settings would silently move the other's (#1093 review).
+    /// Known residual: a frontmatter `slug:` override changes the route Astro serves but not this
+    /// id — harmless here, since the id only has to be stable and unique per file.
     private var robotsSource: RobotsConfigSource {
-        let slug = file.url.deletingPathExtension().lastPathComponent
         if let collection = descriptor.collection {
-            return .collection(collection, id: slug)
+            let root = sourceDirectory.appendingPathComponent("src/content/\(collection)", isDirectory: true)
+            return .collection(collection, id: relativePath(of: file.url.deletingPathExtension(), under: root))
         }
         return .page(file: relativePath(of: file.url, under: sourceDirectory))
     }
