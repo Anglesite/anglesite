@@ -129,4 +129,33 @@ struct RobotsConfigFileTests {
         try RobotsConfigFile.apply(source: source, noindex: false, disallowCrawl: false, path: "/a/", under: dir)
         #expect(!FileManager.default.fileExists(atPath: RobotsConfigFile.url(under: dir).path))
     }
+
+    /// `ContentScanner.routeFromPagePath` hands the inspector models `/about` (no trailing slash),
+    /// but `BaseLayout.astro` matches `Astro.url.pathname` — `/about/` — exactly. Without this
+    /// normalization the meta tag and `X-Robots-Tag` block never match the real route (#1093).
+    @Test("apply: an un-slashed route is stored with a trailing slash")
+    func applyNormalizesTrailingSlash() throws {
+        let dir = try tempSiteDir()
+        let source = RobotsConfigSource.page(file: "src/pages/about.md")
+        try RobotsConfigFile.apply(source: source, noindex: true, disallowCrawl: true, path: "/about", under: dir)
+        let config = RobotsConfigFile.read(under: dir)
+        #expect(config.noindex.map(\.path) == ["/about/"])
+        #expect(config.disallow.map(\.path) == ["/about/"])
+    }
+
+    @Test("apply: the home page's route stays \"/\", not \"//\"")
+    func applyLeavesHomeRouteAlone() throws {
+        let dir = try tempSiteDir()
+        let source = RobotsConfigSource.page(file: "src/pages/index.astro")
+        try RobotsConfigFile.apply(source: source, noindex: true, disallowCrawl: false, path: "/", under: dir)
+        #expect(RobotsConfigFile.read(under: dir).noindex.map(\.path) == ["/"])
+    }
+
+    @Test("apply: an already-slashed collection route is unchanged")
+    func applyIsIdempotentForSlashedRoutes() throws {
+        let dir = try tempSiteDir()
+        let source = RobotsConfigSource.collection("blog", id: "post")
+        try RobotsConfigFile.apply(source: source, noindex: true, disallowCrawl: false, path: "/blog/post/", under: dir)
+        #expect(RobotsConfigFile.read(under: dir).noindex.map(\.path) == ["/blog/post/"])
+    }
 }

@@ -169,6 +169,17 @@ public enum RobotsConfigFile {
         )
     }
 
+    /// The template's canonical route shape is trailing-slash (`/about/`), which is what
+    /// `Astro.url.pathname` reports at render time and what `src/lib/sitemap.ts` emits — and
+    /// `BaseLayout.astro`/`_headers` match a stored `path` against it *exactly*. `ContentScanner`'s
+    /// `routeFromPagePath` produces the un-slashed form (`/about`) for frontmatter and plain
+    /// `.astro` pages, so normalizing here — the one choke point every inspector model's save goes
+    /// through — is what keeps a stored entry matchable at build time (#1093). Idempotent: a route
+    /// that already ends in `/` (collection entries, the home page's `/`) is returned unchanged.
+    static func normalizedRoutePath(_ path: String) -> String {
+        path.hasSuffix("/") ? path : path + "/"
+    }
+
     /// Applies the desired noindex/disallowCrawl state for `source`, writing back only if an entry
     /// was actually added or removed. Re-reads fresh rather than trusting a caller's stale snapshot
     /// — narrows (doesn't eliminate) the window between two saves.
@@ -179,6 +190,7 @@ public enum RobotsConfigFile {
         path: String,
         under sourceDirectory: URL
     ) throws {
+        let path = normalizedRoutePath(path)
         var config = read(under: sourceDirectory)
         var changed = false
         for (directive, wants) in [(RobotsDirective.noindex, noindex), (.disallowCrawl, disallowCrawl)] {
