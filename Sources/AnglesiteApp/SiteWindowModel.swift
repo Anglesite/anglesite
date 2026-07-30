@@ -333,9 +333,7 @@ final class SiteWindowModel {
     @discardableResult
     func showGraph() async -> Bool {
         guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return false }
-        inspectorContext = nil
-        collectionInspection = nil
-        mainPaneMode = .graph
+        await clearInspectorThenSwitchPane(to: .graph)
         return true
     }
 
@@ -345,9 +343,7 @@ final class SiteWindowModel {
         Task {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
-            inspectorContext = nil
-            collectionInspection = nil
-            mainPaneMode = .cleanup
+            await clearInspectorThenSwitchPane(to: .cleanup)
         }
     }
 
@@ -357,9 +353,7 @@ final class SiteWindowModel {
         Task {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
-            inspectorContext = nil
-            collectionInspection = nil
-            mainPaneMode = .reader
+            await clearInspectorThenSwitchPane(to: .reader)
         }
     }
 
@@ -369,9 +363,7 @@ final class SiteWindowModel {
         Task {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
-            inspectorContext = nil
-            collectionInspection = nil
-            mainPaneMode = .followers
+            await clearInspectorThenSwitchPane(to: .followers)
         }
     }
 
@@ -381,10 +373,37 @@ final class SiteWindowModel {
         Task {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             activeEditor = nil
-            inspectorContext = nil
-            collectionInspection = nil
-            mainPaneMode = .communities
+            await clearInspectorThenSwitchPane(to: .communities)
         }
+    }
+
+    /// Clears the inspector and swaps the main pane, giving the inspector's own
+    /// `.inspector(isPresented:)` dismissal a moment to settle in its own SwiftUI transaction
+    /// before `mainPaneMode` tears down and rebuilds the entire detail view. Doing both in the
+    /// same synchronous step — clearing the inspector state (which flips the inspector's binding
+    /// to false) and swapping `mainPaneMode` right after — sent macOS 27 beta's AppKit layout
+    /// engine into an unrecoverable constraint-update storm that hung the window and then
+    /// crashed the app (#1126), most reliably via Graph but not exclusive to it. Same class of
+    /// problem, same mitigation, as the sheet-dismissal delay in `loadAndStart()` below: a
+    /// single `Task.yield()` only defers to the next run-loop tick, which isn't necessarily
+    /// enough for AppKit's own dismiss animation, so a short sleep is used instead — skipped
+    /// entirely when there was no inspector to dismiss.
+    ///
+    /// Only for callers where the inspector is meant to fully close (Graph/Cleanup/Reader/
+    /// Followers/Communities have no inspector companion). The `.directory` navigator-selection
+    /// case deliberately does NOT go through here: it swaps `inspectorContext`'s page context for
+    /// a new `collectionInspection` while staying presented, and `inspectorSelection` must never
+    /// observe a transient nil in between (#968/#969's presentation-binding setter race) — adding
+    /// this method's delay there would reopen exactly that gap.
+    @MainActor
+    private func clearInspectorThenSwitchPane(to mode: MainPaneMode) async {
+        let wasInspecting = inspectorSelection != nil
+        inspectorContext = nil
+        collectionInspection = nil
+        if wasInspecting {
+            try? await Task.sleep(for: .milliseconds(300))
+        }
+        mainPaneMode = mode
     }
 
     /// Resolves a chat citation's file path to a Site Graph Explorer node and reveals it there
