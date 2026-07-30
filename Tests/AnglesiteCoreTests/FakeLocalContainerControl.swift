@@ -39,6 +39,19 @@ actor FakeLocalContainerControl: LocalContainerControl {
     private(set) var startWorkersDevCalls: [(siteID: String, workers: [WorkerDescriptor])] = []
     /// All `stopWorkersDev` invocations recorded for assertion.
     private(set) var stopWorkersDevCalls: [String] = []
+    /// The `onState` callback captured from the most recent 4-param `startWorkersDev` call —
+    /// tests invoke it directly to simulate supervisor transitions (crash-restart, failure).
+    private(set) var lastWorkersDevOnState: (@Sendable (WorkersDevProcessState) -> Void)?
+
+    /// Actor-isolated setter: `startWorkersDevResult` can't be assigned from outside the actor.
+    func setStartWorkersDevResult(_ result: Result<URL, LocalContainerError>) {
+        startWorkersDevResult = result
+    }
+
+    /// Actor-isolated setter, same reason as `setStartWorkersDevResult`.
+    func setStartWorkersDevStdoutLines(_ lines: [String]) {
+        startWorkersDevStdoutLines = lines
+    }
 
     init(
         startResult: Result<LocalContainerSession, LocalContainerError>,
@@ -77,6 +90,16 @@ actor FakeLocalContainerControl: LocalContainerControl {
         startWorkersDevCalls.append((siteID: siteID, workers: workers))
         for line in startWorkersDevStdoutLines { onOutput(line, .stdout) }
         return try startWorkersDevResult.get()
+    }
+
+    func startWorkersDev(
+        siteID: String,
+        workers: [WorkerDescriptor],
+        onOutput: @escaping @Sendable (String, LogCenter.Stream) -> Void,
+        onState: @escaping @Sendable (WorkersDevProcessState) -> Void
+    ) async throws -> URL {
+        lastWorkersDevOnState = onState
+        return try await startWorkersDev(siteID: siteID, workers: workers, onOutput: onOutput)
     }
 
     func stopWorkersDev(siteID: String) async throws {
