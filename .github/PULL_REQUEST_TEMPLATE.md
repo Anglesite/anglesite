@@ -1,3 +1,5 @@
+Closes #<!-- issue number(s) this PR resolves, e.g. "123" or "123, 456". Use a GitHub closing keyword (Closes/Fixes/Resolves) so the issue auto-closes on merge — a bare mention in prose does not link or close it. Delete this line only if the PR has no issue to close. -->
+
 ## Summary
 
 <!-- 1–3 bullets. What changed, and why. -->
