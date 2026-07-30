@@ -41,8 +41,11 @@ Explicitly out of scope here, by decision on 2026-07-13:
 - **Editable collection settings.** §6's inspector collection context is
   read-mostly in v1; making template, feed, and sitemap configuration
   *writable* requires template code changes and lands with the deferred phase.
-- **Sitemap generation.** The template generates no sitemap today; the
-  collection context reports "Not configured".
+- **Sitemap generation.** *(Corrected 2026-07-30: the template ships
+  `src/pages/sitemap.xml.ts` as of #1020/#982.)* The collection context probes
+  for that route module (`SiteFileTree.hasSitemap`, mirroring the feed probes)
+  and reports "Configured" with a preview link when present, "Not configured"
+  otherwise — read-only either way, matching the rest of §6's v1 scope.
 - **Style-tab write operations.** Gated on Component Editor slice 2 (#492), which
   is itself gated on plugin zone-filter fixtures (Anglesite/anglesite#411).
 
@@ -238,7 +241,10 @@ populates the inspector's **Metadata** tab with:
   preview URL.
 - Template/layout in use (static dispatch: Hentry / Hevent / Hreview per the
   template's `[collection]/[...slug].astro`).
-- Sitemap status ("Not configured" until the template gains one).
+- Sitemap status — probed from `src/pages/sitemap.xml.ts` (`SiteFileTree
+  .hasSitemap`, site-wide rather than per-collection): "Configured" linked to
+  its preview URL when the template ships it (#1020/#982), "Not configured"
+  otherwise.
 
 v1 is read-mostly; editability is deferred (see Non-goals). Plain nested page
 folders (no collection) show route and entry count, plus the always-present
