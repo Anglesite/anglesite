@@ -497,7 +497,12 @@ private struct SocialWorkerFactory: CommandFactory {
 
     func deploy() -> DeployCommand { DeployCommand() }
     func backup() -> BackupCommand { BackupCommand(runner: { _, _ in .init(stdout: "", stderr: "", exitCode: 1) }, streamer: { _, _, _ in (1, "") }) }
-    func audit() -> AuditCommand { AuditCommand(resolveBuildCommand: { _ in .unavailable(reason: "noop") }, runners: []) }
+    func audit() -> AuditCommand {
+        AuditCommand(
+            executor: HostAuditExecutor(resolveCommand: { _ in { _ in .unavailable(reason: "noop") } }),
+            runners: []
+        )
+    }
     func socialWorkerProvision() -> SocialWorkerProvisionCommand {
         SocialWorkerProvisionCommand(
             tokenSource: { "token" },

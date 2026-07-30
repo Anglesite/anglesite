@@ -1,7 +1,9 @@
 import Foundation
 
-/// `AuditRunner` for accessibility: runs the plugin's `a11y-audit.ts` script with
-/// `--json`, parses its structured output into `[AuditReport.Finding]`.
+/// `AuditRunner` for accessibility: runs `scripts/a11y-audit.ts` with `--json` via the shared
+/// `AuditExecutor` (container-routed when a container is live; explicitly unavailable on host,
+/// matching `AuditCommand`'s build step), and parses its structured output into
+/// `[AuditReport.Finding]`.
 ///
 /// The script's report shape (`A11yAuditReport`) maps to `Finding`s as:
 ///   - `issue.severity == "error"`   → `.critical`
@@ -21,18 +23,11 @@ public struct A11yAuditRunner: AuditRunner {
 
     public func run(
         siteDirectory: URL,
-        supervisor: ProcessSupervisor,
+        executor: any AuditExecutor,
         logCenter: LogCenter,
         source: String
     ) async throws -> [AuditReport.Finding] {
-        let scriptPath = siteDirectory.appendingPathComponent("scripts/a11y-audit.ts").path
-        // Routed through the supervisor so the spawn goes through the one supervised path
-        // (under MAS sandbox, inherits the app-held per-site folder grant).
-        let result = try await supervisor.run(
-            executable: URL(fileURLWithPath: "/usr/bin/env"),
-            arguments: ["npx", "tsx", scriptPath, "--json"],
-            currentDirectoryURL: siteDirectory
-        )
+        let result = await executor.run(step: .a11y, siteDirectory: siteDirectory, source: source)
 
         // The script writes a markdown report to `reports/a11y-report.md` *and* prints the
         // JSON on stdout when `--json` is passed. Exit code is severity-aware:
@@ -40,23 +35,24 @@ public struct A11yAuditRunner: AuditRunner {
         //   1 → at least one WCAG violation
         //   2 → warnings only
         // We treat all three as "the script ran" — the findings list reflects the severity.
-        // Anything else (3+) is unexpected; mirror it as a runner failure so the UI can show
+        // Anything else (including a nil exit code — pre-spawn refusal, container not running,
+        // or a thrown exec) is unexpected; mirror it as a runner failure so the UI can show
         // "audit script couldn't run" rather than silently ignoring the issue.
-        guard [0, 1, 2].contains(result.exitCode) else {
-            throw Error.scriptFailed(exitCode: result.exitCode, stderr: result.stderr)
+        guard let exitCode = result.exitCode, [0, 1, 2].contains(exitCode) else {
+            throw Error.scriptFailed(exitCode: result.exitCode, output: result.output)
         }
 
-        // The stdout may contain the markdown report (always written) plus the JSON object.
+        // The output may contain the markdown report (always written) plus the JSON object.
         // Find the JSON object by scanning for the first `{` and parsing from there.
-        guard let jsonStart = result.stdout.firstIndex(of: "{") else {
+        guard let jsonStart = result.output.firstIndex(of: "{") else {
             throw Error.noJSONInOutput
         }
-        let jsonString = String(result.stdout[jsonStart...])
+        let jsonString = String(result.output[jsonStart...])
         return try Self.parse(json: Data(jsonString.utf8))
     }
 
     public enum Error: Swift.Error, Equatable {
-        case scriptFailed(exitCode: Int32, stderr: String)
+        case scriptFailed(exitCode: Int32?, output: String)
         case noJSONInOutput
         case unknownSeverity(String)
     }

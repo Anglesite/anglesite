@@ -24,7 +24,7 @@ public struct SecurityTxtAuditRunner: AuditRunner {
 
     public func run(
         siteDirectory: URL,
-        supervisor: ProcessSupervisor,
+        executor: any AuditExecutor,
         logCenter: LogCenter,
         source: String
     ) async throws -> [AuditReport.Finding] {
