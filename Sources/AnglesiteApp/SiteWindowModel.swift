@@ -1191,8 +1191,9 @@ final class SiteWindowModel {
             return .page(PageMetadataModel(file: file, route: route, sourceDirectory: source))
         }
         // Plain .astro / other: no safe generic way to parse or rewrite its frontmatter (JS, not
-        // YAML), so the panel stays read-only rather than staying unavailable (#1100).
-        return .generic(GenericPageInspectorModel(file: file, route: route))
+        // YAML), so title/description/body stay read-only (#1100) — the search/crawling toggles
+        // are the one exception (#1093), backed by the shared robots config, not this file.
+        return .generic(GenericPageInspectorModel(file: file, route: route, sourceDirectory: source))
     }
 
     /// Assembles the collection context for a `.directory` selection: title/children from the
