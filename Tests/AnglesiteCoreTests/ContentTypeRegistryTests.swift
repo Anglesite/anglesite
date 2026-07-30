@@ -156,6 +156,31 @@ struct ContentTypeRegistryTests {
         #expect(album.projections.microformatProperties["publishDate"] == "dt-published")
     }
 
+    @Test("objectArray kind carries its ordered member fields and compares by value")
+    func objectArrayKindCarriesMemberFields() {
+        let memberFields = [
+            ContentTypeField("title", .string, required: true),
+            ContentTypeField("organization", .string, required: true),
+            ContentTypeField("startDate", .date, required: true),
+            ContentTypeField("endDate", .date),
+            ContentTypeField("description", .text),
+        ]
+        let field = ContentTypeField("experience", .objectArray(fields: memberFields))
+        guard case .objectArray(let fields) = field.kind else {
+            Issue.record("expected .objectArray")
+            return
+        }
+        #expect(fields.map(\.name) == ["title", "organization", "startDate", "endDate", "description"])
+        #expect(fields.first?.kind == .string)
+        #expect(fields.first?.required == true)
+
+        // Equatable: same fields in the same order compare equal; a different order does not.
+        let same = ContentTypeField("experience", .objectArray(fields: memberFields))
+        #expect(field == same)
+        let reordered = ContentTypeField("experience", .objectArray(fields: memberFields.reversed()))
+        #expect(field != reordered)
+    }
+
     @Test("like is an h-entry with u-like-of and no schema.org type")
     func likeDescriptor() {
         let like = try! #require(ContentTypeRegistry().descriptor(id: "like"))

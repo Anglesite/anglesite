@@ -117,15 +117,71 @@ public struct FrontmatterDocument: Equatable, Sendable {
             var verbatim = [line]
             let value: FrontmatterValue
             if rawValue.isEmpty {
-                // Possible block array on following `- item` lines.
+                // A bare `key:` header followed by `- …` lines is either a flat string list or a
+                // list of records (`  - field: value` starts a record; deeper-indented
+                // `field: value` lines continue it). Walk the block **once**, building both
+                // readings, then let what the whole block actually contained decide.
+                //
+                // The rule: it is an object array iff at least one record anywhere in the block
+                // consumed a continuation line.
+                //
+                // Why not "the first item parses as `key: value`" — that alone is far too weak.
+                // `Frontmatter.splitKeyValue` splits on the first colon with no space required, so
+                // unquoted flat-array items like `- https://example.com` (key "https") or
+                // `- Monday: 9:00-17:00` (key "Monday") match it. Those are exactly the shapes of
+                // two shipped `.stringArray` fields — `member.links` and `businessProfile.hours` —
+                // and misreading one as an object array makes `TypedContentEditor.decode` yield an
+                // empty list, which the next save writes back over the author's real data.
+                //
+                // Why the evidence must come from the *whole* block, not a peek at the first
+                // record: records need not be uniform. A hand-edited, incrementally filled-in list
+                // can easily put the short record first —
+                //
+                //     experience:
+                //       - title: "Engineer"
+                //       - title: "Intern"
+                //         org: "Acme"
+                //
+                // — and judging from the first record alone would call that flat, stranding
+                // `org: "Acme"` as an orphaned raw line detached from `experience` and showing the
+                // editor zero rows. Scanning the whole block gets both orderings right.
+                //
+                // Documented trade-off: a block whose records are *all* single-field (nothing
+                // indented under any dash) is read as a flat string list. Nothing in the source
+                // distinguishes it from a flat list of `key: value`-shaped strings, and every
+                // planned use of this primitive (h-resume `experience`/`education`:
+                // title/org/start/end/description) has several fields in at least one record.
+                // Losing real data is not an acceptable price for the degenerate case.
+                var records: [[FrontmatterRecordField]] = []
                 var items: [String] = []
+                var sawContinuation = false
                 var k = j + 1
-                while k < block.count, let item = Frontmatter.blockArrayItem(block[k]) {
-                    items.append(Frontmatter.unquote(item))
+                while k < block.count, let itemText = Frontmatter.blockArrayItem(block[k]) {
+                    let itemIndent = dashIndent(of: block[k])
+                    var record: [FrontmatterRecordField] = []
+                    if let (fieldKey, fieldRaw) = Frontmatter.splitKeyValue(itemText) {
+                        record.append(FrontmatterRecordField(fieldKey, Frontmatter.parseScalarOrArray(fieldRaw)))
+                    }
+                    items.append(Frontmatter.unquote(itemText))
                     verbatim.append(block[k])
                     k += 1
+                    while k < block.count,
+                          let (fieldKey, fieldRaw) = recordContinuation(block[k], dashIndent: itemIndent) {
+                        record.append(FrontmatterRecordField(fieldKey, Frontmatter.parseScalarOrArray(fieldRaw)))
+                        verbatim.append(block[k])
+                        sawContinuation = true
+                        k += 1
+                    }
+                    records.append(record)
                 }
-                value = items.isEmpty ? .string("") : .array(items)
+                // With no continuation anywhere, the inner loop consumed nothing, so `k` and
+                // `verbatim` are exactly what a flat-only walk would have produced — the two
+                // readings only diverge once there is record evidence.
+                if sawContinuation {
+                    value = .objectArray(records)
+                } else {
+                    value = items.isEmpty ? .string("") : .array(items)
+                }
                 j = k
             } else {
                 value = Frontmatter.parseScalarOrArray(rawValue)
@@ -136,6 +192,26 @@ public struct FrontmatterDocument: Equatable, Sendable {
         }
         return FrontmatterDocument(segments: segments, indexByKey: indexByKey, body: body,
                                    newline: newline, hadFrontmatter: true, hasBodySection: hasBodySection)
+    }
+
+    /// Leading-space count of a block-array item line — the indent its record's continuation lines
+    /// must exceed.
+    private static func dashIndent(of line: String) -> Int {
+        line.prefix(while: { $0 == " " }).count
+    }
+
+    /// If `line` continues the record started by a `- key: value` item whose dash sits at
+    /// `dashIndent`, returns that continuation's parsed `key: value`; otherwise `nil`.
+    ///
+    /// A continuation is indented strictly deeper than the dash, is not itself a new `-` item, and
+    /// parses as `key: value`. Single source of truth for that shape: `parse` uses it both to
+    /// *detect* an object array (peeking at the line after the first item) and to *consume* each
+    /// record's remaining fields, so the two can't drift apart.
+    private static func recordContinuation(_ line: String, dashIndent: Int) -> (key: String, value: String)? {
+        guard Self.dashIndent(of: line) > dashIndent else { return nil }
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.hasPrefix("-") else { return nil }
+        return Frontmatter.splitKeyValue(trimmed)
     }
 
     // MARK: Render (mirrors ContentScaffold: double-quoted scalars, `[]` empty arrays, block lists)
@@ -153,8 +229,7 @@ public struct FrontmatterDocument: Equatable, Sendable {
             // Numbers serialize unquoted so YAML reads them as numbers (a quoted "4" fails a
             // collection's z.number() schema). Integral values drop the decimal point; the
             // magnitude guard avoids the Int(_:) overflow trap.
-            let formatted = (n == n.rounded() && abs(n) < 1e15) ? String(Int(n)) : String(n)
-            return "\(key): \(formatted)"
+            return "\(key): \(formatNumber(n))"
         case .date(let s):
             // Already-formatted date scalar, emitted unquoted (matching ContentScaffold) so YAML
             // reads it as a date — a quoted scalar fails a non-coercing date schema.
@@ -162,6 +237,43 @@ public struct FrontmatterDocument: Equatable, Sendable {
         case .array(let items):
             if items.isEmpty { return "\(key): []" }
             return ([ "\(key):" ] + items.map { "  - \(Frontmatter.doubleQuoted($0))" }).joined(separator: "\n")
+        case .objectArray(let records):
+            if records.isEmpty { return "\(key): []" }
+            var lines = ["\(key):"]
+            for record in records {
+                if let first = record.first {
+                    lines.append("  - \(first.name): \(renderScalar(first.value))")
+                    for field in record.dropFirst() {
+                        lines.append("    \(field.name): \(renderScalar(field.value))")
+                    }
+                } else {
+                    lines.append("  - {}")
+                }
+            }
+            return lines.joined(separator: "\n")
+        }
+    }
+
+    private static func formatNumber(_ n: Double) -> String {
+        (n == n.rounded() && abs(n) < 1e15) ? String(Int(n)) : String(n)
+    }
+
+    /// Renders one record field's value the same way its top-level `render(key:value:)` counterpart
+    /// would, minus the `key: ` prefix (the caller supplies that at either 2- or 4-space indent).
+    /// Exhaustive over every `FrontmatterValue` case for compiler-checked totality, even though
+    /// record fields are conventionally scalar-only (see `FrontmatterValue.objectArray`'s doc
+    /// comment) — `.array`/`.objectArray` never actually reach here in practice.
+    private static func renderScalar(_ value: FrontmatterValue) -> String {
+        switch value {
+        case .string(let s): return Frontmatter.doubleQuoted(s)
+        case .bool(let b): return "\(b)"
+        case .number(let n): return formatNumber(n)
+        case .date(let s): return s
+        case .array(let items):
+            if items.isEmpty { return "[]" }
+            return "[" + items.map { Frontmatter.doubleQuoted($0) }.joined(separator: ", ") + "]"
+        case .objectArray:
+            return "[]"
         }
     }
 }

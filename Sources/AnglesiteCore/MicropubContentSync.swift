@@ -132,6 +132,12 @@ public enum MicropubContentSync {
         case .imageArray:
             let strings = values.compactMap(plainText)
             return strings.isEmpty ? nil : .list(strings)
+        // No field in the built-in registry maps a raw mf2 property to `.objectArray` today (h-resume
+        // lands in #964, and even then p-experience/p-education are nested h-event/h-card mf2
+        // objects this bridge doesn't attempt to flatten back into records) — this arm exists only
+        // for switch exhaustiveness, mirroring the `.bool` arm above.
+        case .objectArray:
+            return .records([])
         }
     }
 

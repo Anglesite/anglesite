@@ -14,6 +14,7 @@ public enum TypedContentEditor {
         case date(Date?)
         case number(Double?)
         case list([String])
+        case records([[String: FieldValue]])
     }
 
     public struct Values: Equatable, Sendable {
@@ -32,6 +33,7 @@ public enum TypedContentEditor {
         case .date, .datetime: return .date(nil)
         case .number: return .number(nil)
         case .stringArray, .imageArray: return .list([])
+        case .objectArray: return .records([])
         }
     }
 
@@ -98,6 +100,18 @@ public enum TypedContentEditor {
         case .stringArray, .imageArray:
             if case .array(let a) = value { return .list(a) }
             return .list([])
+        case .objectArray(let memberFields):
+            guard case .objectArray(let records) = value else { return .records([]) }
+            let decoded = records.map { record -> [String: FieldValue] in
+                let raw = Dictionary(record.map { ($0.name, $0.value) }, uniquingKeysWith: { _, latest in latest })
+                var dict: [String: FieldValue] = [:]
+                for member in memberFields {
+                    dict[member.name] = raw[member.name].map { decode($0, kind: member.kind) }
+                        ?? defaultValue(for: member.kind)
+                }
+                return dict
+            }
+            return .records(decoded)
         }
     }
 
@@ -115,6 +129,15 @@ public enum TypedContentEditor {
         // a nil (cleared) number falls back to an empty quoted scalar.
         case .number(let n): return n.map { .number($0) } ?? .string("")
         case .list(let a): return .array(a)
+        case .records(let recordDicts):
+            guard case .objectArray(let memberFields) = kind else { return nil }
+            let records: [[FrontmatterRecordField]] = recordDicts.map { dict in
+                memberFields.compactMap { member -> FrontmatterRecordField? in
+                    guard let v = dict[member.name], let encoded = encode(v, kind: member.kind) else { return nil }
+                    return FrontmatterRecordField(member.name, encoded)
+                }
+            }
+            return .objectArray(records)
         }
     }
 

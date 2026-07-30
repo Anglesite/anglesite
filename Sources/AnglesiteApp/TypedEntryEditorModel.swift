@@ -168,6 +168,10 @@ final class TypedEntryEditorModel: InspectorEditorModel {
         Binding(get: { [weak self] in if case .list(let a)? = self?.values[name] { return a }; return [] },
                 set: { [weak self] in self?.values[name] = .list($0) })
     }
+    func recordsBinding(_ name: String) -> Binding<[[String: TypedContentEditor.FieldValue]]> {
+        Binding(get: { [weak self] in if case .records(let r)? = self?.values[name] { return r }; return [] },
+                set: { [weak self] in self?.values[name] = .records($0) })
+    }
 
     // MARK: Private
 

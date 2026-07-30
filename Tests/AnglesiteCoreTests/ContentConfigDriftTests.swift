@@ -31,6 +31,13 @@ struct ContentConfigDriftTests {
         case .number: return "z.number()"
         case .bool: return "z.boolean()"
         case .stringArray, .imageArray: return "z.array(z.string())"
+        case .objectArray(let fields):
+            let memberExprs = fields.compactMap { field -> String? in
+                guard let expr = zod(for: field.kind) else { return nil }
+                let full = field.kind == .bool ? "\(expr).default(false)" : (field.required ? expr : "\(expr).optional()")
+                return "\(field.name): \(full)"
+            }
+            return "z.array(z.object({ \(memberExprs.joined(separator: ", ")) }))"
         }
     }
 
@@ -114,6 +121,15 @@ struct ContentConfigDriftTests {
     func parsesExportLine() {
         let line = "export const collections = { blog, notes: notes, articles };"
         #expect(Self.collectionNames(inExport: line) == ["blog", "notes", "articles"])
+    }
+
+    @Test("zod(for:) renders an objectArray field as z.array(z.object({...})) with member requiredness")
+    func zodForObjectArray() {
+        let kind = ContentTypeField.Kind.objectArray(fields: [
+            ContentTypeField("title", .string, required: true),
+            ContentTypeField("org", .string),
+        ])
+        #expect(Self.zod(for: kind) == "z.array(z.object({ title: z.string(), org: z.string().optional() }))")
     }
 
     @Test("content.config.ts declares exactly the registry collections plus the allowlist")

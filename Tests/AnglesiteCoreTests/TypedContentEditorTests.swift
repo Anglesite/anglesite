@@ -144,6 +144,67 @@ struct TypedContentEditorTests {
         #expect(out.contains("type: businessProfile"))   // unknown-to-schema key preserved
     }
 
+    @Test("write round-trips an objectArray field into block-mapping-list YAML")
+    func writeObjectArray() {
+        let resume = ContentTypeDescriptor(
+            id: "resumeFixture", displayName: "Resume Fixture", storage: .collection("resumeFixtures"),
+            fields: [
+                ContentTypeField("experience", .objectArray(fields: [
+                    ContentTypeField("title", .string, required: true),
+                    ContentTypeField("org", .string, required: true),
+                    ContentTypeField("start", .date, required: true),
+                ])),
+                ContentTypeField("body", .markdown),
+            ],
+            projections: ContentTypeProjections(microformat: "h-resume", microformatProperties: [:], schemaType: nil))
+
+        let src = "---\nexperience: []\n---\n\nBody.\n"
+        var v = TypedContentEditor.read(src, descriptor: resume)
+        #expect(v["experience"] == .records([]))
+
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let start = iso.date(from: "2020-01-01T00:00:00.000Z")!
+        v["experience"] = .records([
+            ["title": .text("Engineer"), "org": .text("Acme"), "start": .date(start)],
+        ])
+        let out = TypedContentEditor.write(v, into: src, descriptor: resume)
+        #expect(out.contains("""
+        experience:
+          - title: "Engineer"
+            org: "Acme"
+            start: 2020-01-01
+        """))
+
+        let reread = TypedContentEditor.read(out, descriptor: resume)
+        #expect(reread["experience"] == .records([
+            ["title": .text("Engineer"), "org": .text("Acme"), "start": .date(start)],
+        ]))
+    }
+
+    @Test("objectArray record fields fall back to defaults when a record omits one")
+    func objectArrayRecordFillsMissingMemberDefaults() {
+        let resume = ContentTypeDescriptor(
+            id: "resumeFixture2", displayName: "Resume Fixture 2", storage: .collection("resumeFixtures2"),
+            fields: [
+                ContentTypeField("experience", .objectArray(fields: [
+                    ContentTypeField("title", .string, required: true),
+                    ContentTypeField("org", .string),
+                ])),
+            ],
+            projections: ContentTypeProjections(microformat: "h-resume", microformatProperties: [:], schemaType: nil))
+        // The second record omits `org`. The first carries both fields deliberately: a block whose
+        // *first* item has no deeper-indented continuation line is read as a flat string array, not
+        // an object array — the documented detection trade-off that keeps unquoted flat arrays like
+        // `businessProfile.hours` from being misread as records (see `FrontmatterDocument.parse`).
+        let src = "---\nexperience:\n  - title: \"Engineer\"\n    org: \"Acme\"\n  - title: \"Intern\"\n---\n"
+        let v = TypedContentEditor.read(src, descriptor: resume)
+        #expect(v["experience"] == .records([
+            ["title": .text("Engineer"), "org": .text("Acme")],
+            ["title": .text("Intern"), "org": .text("")],
+        ]))
+    }
+
     @Test("template about.md reads as businessProfile with marker preserved")
     func aboutPage() {
         let profile = ContentTypeRegistry().descriptor(id: "businessProfile")!

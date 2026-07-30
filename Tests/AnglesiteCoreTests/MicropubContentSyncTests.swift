@@ -47,6 +47,17 @@ struct MicropubContentSyncTests {
         #expect(MicropubContentSync.plainText(from: nil) == nil)
     }
 
+    // MARK: - fieldValue
+
+    @Test("fieldValue returns an empty records value for an objectArray field (no mf2 mapping exists for it)")
+    func fieldValueObjectArrayIsEmptyRecords() {
+        let field = ContentTypeField("experience", .objectArray(fields: [
+            ContentTypeField("title", .string, required: true),
+        ]))
+        let result = MicropubContentSync.fieldValue(for: field, rawProperty: "experience", properties: [:])
+        #expect(result == .records([]))
+    }
+
     // MARK: - values(for:properties:updatedAt:slug:)
 
     private static let anUpdatedAt = 1_753_300_000
