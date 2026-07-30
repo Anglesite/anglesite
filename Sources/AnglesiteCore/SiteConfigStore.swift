@@ -61,6 +61,11 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// see `DeployModel.webmentionPaidPlanConfirmationPresented`.
     public var webmentionReceivePaidPlanAcknowledged: Bool?
 
+    /// This site's own hosted-community outbox URL (V-5.2b, #908) — set once #907's provisioning
+    /// flow creates a "Community" site kind and its Group actor Worker. `nil` on every other
+    /// site: `AnnouncedPostSync` no-ops without it, so this field is inert until #907 ships.
+    public var communityOutboxURL: URL?
+
     public init(
         displayName: String? = nil,
         inboxCaptureAccountID: String? = nil,
@@ -72,7 +77,8 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         activeWorkerIDs: [String]? = nil,
         lastDeployedWorkerIDs: [String]? = nil,
         provisionedWorkerResources: WorkerComposition.ProvisionedResources? = nil,
-        webmentionReceivePaidPlanAcknowledged: Bool? = nil
+        webmentionReceivePaidPlanAcknowledged: Bool? = nil,
+        communityOutboxURL: URL? = nil
     ) {
         self.displayName = displayName
         self.inboxCaptureAccountID = inboxCaptureAccountID
@@ -85,6 +91,7 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         self.lastDeployedWorkerIDs = lastDeployedWorkerIDs
         self.provisionedWorkerResources = provisionedWorkerResources
         self.webmentionReceivePaidPlanAcknowledged = webmentionReceivePaidPlanAcknowledged
+        self.communityOutboxURL = communityOutboxURL
     }
 }
 

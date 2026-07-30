@@ -207,6 +207,11 @@ final class PreviewModel {
             // database (same gate as ReceivedInteractionSync — Micropub shares the database).
             _ = await MicropubContentSync.pullAndCommitIfConfigured(
                 siteDirectory: siteDirectory, configDirectory: configDirectory)
+            // #908: pull a hosted community's own announced-post outbox and snapshot it into the
+            // git working copy. No-ops for sites that aren't a hosted community
+            // (SiteSettings.communityOutboxURL unset — inert until #907 ships that site kind).
+            _ = await AnnouncedPostSync.pullAndCommitIfConfigured(
+                siteDirectory: siteDirectory, configDirectory: configDirectory)
             clearDevServerCommandInFlight(token: token)
         }
     }
