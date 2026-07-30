@@ -212,4 +212,83 @@ struct FrontmatterDocumentTests {
                 == .objectArray([[FrontmatterRecordField("title", .string("Senior Engineer")),
                                    FrontmatterRecordField("org", .string("Acme"))]]))
     }
+
+    // MARK: Object-array detection must not swallow flat string arrays (#1117 final review)
+    //
+    // `Frontmatter.splitKeyValue` splits on the first colon with no space required, so plenty of
+    // legitimate *unquoted* flat-array items look like `key: value`. Misclassifying one as an
+    // object array makes `TypedContentEditor.decode` hand the editor an empty list, and the next
+    // save writes that emptiness back over the author's data. Both cases below are real shipped
+    // `.stringArray` fields (`businessProfile.hours`, `member.links`) as a person would hand-author
+    // them, without quotes.
+
+    @Test("unquoted `Monday: 9:00-17:00` hours parse as a flat string array, not an object array")
+    func unquotedHoursStayFlat() {
+        let src = """
+        ---
+        title: "Acme"
+        hours:
+          - Monday: 9:00-17:00
+          - Tuesday: 9:00-17:00
+        ---
+        Body.
+        """ + "\n"
+        let doc = FrontmatterDocument.parse(src)
+        #expect(doc.value(for: "hours") == .array(["Monday: 9:00-17:00", "Tuesday: 9:00-17:00"]))
+    }
+
+    @Test("unquoted URL list items parse as a flat string array, not an object array")
+    func unquotedURLsStayFlat() {
+        let src = """
+        ---
+        name: "Someone"
+        links:
+          - https://example.com
+          - https://mastodon.social/@me
+        ---
+        Body.
+        """ + "\n"
+        let doc = FrontmatterDocument.parse(src)
+        #expect(doc.value(for: "links") == .array(["https://example.com", "https://mastodon.social/@me"]))
+    }
+
+    @Test("editing another field preserves an unquoted hours list verbatim")
+    func unquotedHoursSurviveUnrelatedEdit() {
+        let src = """
+        ---
+        title: "Acme"
+        hours:
+          - Monday: 9:00-17:00
+          - Tuesday: 9:00-17:00
+        ---
+        Body.
+        """ + "\n"
+        var doc = FrontmatterDocument.parse(src)
+        doc.set(.string("Acme Inc."), for: "title")
+        let out = doc.serialized()
+        #expect(out.contains("title: \"Acme Inc.\""))
+        // The untouched field keeps its original unquoted source lines…
+        #expect(out.contains("hours:\n  - Monday: 9:00-17:00\n  - Tuesday: 9:00-17:00"))
+        // …and still reads back as the same flat list (the parse-side misclassification that
+        // caused the data loss is what this pins).
+        #expect(FrontmatterDocument.parse(out).value(for: "hours")
+                == .array(["Monday: 9:00-17:00", "Tuesday: 9:00-17:00"]))
+    }
+
+    @Test("a single-field record is read as a flat list (documented detection trade-off)")
+    func singleFieldRecordReadsAsFlatList() {
+        let src = """
+        ---
+        experience:
+          - title: "Engineer"
+          - title: "Intern"
+        ---
+        Body.
+        """ + "\n"
+        let doc = FrontmatterDocument.parse(src)
+        // No continuation line ⟹ not enough evidence to call this an object array. Every planned
+        // real use of `.objectArray` has multi-field records, so this costs nothing in practice.
+        #expect(doc.value(for: "experience") == .array(["title: \"Engineer\"", "title: \"Intern\""]))
+        #expect(doc.serialized() == src)   // still verbatim when untouched
+    }
 }

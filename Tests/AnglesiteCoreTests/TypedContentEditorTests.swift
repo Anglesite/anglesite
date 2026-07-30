@@ -193,9 +193,16 @@ struct TypedContentEditorTests {
                 ])),
             ],
             projections: ContentTypeProjections(microformat: "h-resume", microformatProperties: [:], schemaType: nil))
-        let src = "---\nexperience:\n  - title: \"Engineer\"\n---\n"
+        // The second record omits `org`. The first carries both fields deliberately: a block whose
+        // *first* item has no deeper-indented continuation line is read as a flat string array, not
+        // an object array — the documented detection trade-off that keeps unquoted flat arrays like
+        // `businessProfile.hours` from being misread as records (see `FrontmatterDocument.parse`).
+        let src = "---\nexperience:\n  - title: \"Engineer\"\n    org: \"Acme\"\n  - title: \"Intern\"\n---\n"
         let v = TypedContentEditor.read(src, descriptor: resume)
-        #expect(v["experience"] == .records([["title": .text("Engineer"), "org": .text("")]]))
+        #expect(v["experience"] == .records([
+            ["title": .text("Engineer"), "org": .text("Acme")],
+            ["title": .text("Intern"), "org": .text("")],
+        ]))
     }
 
     @Test("template about.md reads as businessProfile with marker preserved")

@@ -119,30 +119,46 @@ public struct FrontmatterDocument: Equatable, Sendable {
             if rawValue.isEmpty {
                 if j + 1 < block.count,
                    let firstItemText = Frontmatter.blockArrayItem(block[j + 1]),
-                   Frontmatter.splitKeyValue(firstItemText) != nil {
+                   Frontmatter.splitKeyValue(firstItemText) != nil,
+                   j + 2 < block.count,
+                   recordContinuation(block[j + 2],
+                                      dashIndent: dashIndent(of: block[j + 1])) != nil {
                     // Block array of records: `  - field: value` starts a record; deeper-indented
-                    // `field: value` lines continue it. Heuristic: a flat string array item that
-                    // itself looks like `word: value` would be misread as a record start — not a
-                    // shape this codebase's flat arrays (tags/hours/image paths) ever produce.
+                    // `field: value` lines continue it.
+                    //
+                    // Detection deliberately demands *two* pieces of evidence — the first item
+                    // parses as `key: value` **and** the very next line is a deeper-indented
+                    // continuation field. "The first item contains a colon" alone is far too weak:
+                    // `Frontmatter.splitKeyValue` splits on the first colon with no space required,
+                    // so unquoted flat-array items like `- https://example.com` (key "https") or
+                    // `- Monday: 9:00-17:00` (key "Monday") match it. Those are exactly the shapes
+                    // of two shipped `.stringArray` fields — `member.links` and
+                    // `businessProfile.hours` — and misreading one as an object array makes
+                    // `TypedContentEditor.decode` yield an empty list, which the next save writes
+                    // back over the author's real data. Requiring a continuation line rules those
+                    // out, because a flat item is always followed by another `-` item or the end
+                    // of the block.
+                    //
+                    // Documented trade-off: a *single-field* record (`- title: X` with nothing
+                    // indented under it) is read as a flat string list, not an object array. That
+                    // is acceptable — every planned use of this primitive (h-resume
+                    // `experience`/`education`: title/org/start/end/description) has several fields
+                    // per record, so a continuation line is always present. Losing real data is
+                    // not an acceptable price for supporting the degenerate one-field case.
                     var records: [[FrontmatterRecordField]] = []
                     var k = j + 1
                     while k < block.count, let itemText = Frontmatter.blockArrayItem(block[k]) {
-                        let dashIndent = block[k].prefix(while: { $0 == " " }).count
+                        let itemIndent = dashIndent(of: block[k])
                         var record: [FrontmatterRecordField] = []
                         if let (fieldKey, fieldRaw) = Frontmatter.splitKeyValue(itemText) {
                             record.append(FrontmatterRecordField(fieldKey, Frontmatter.parseScalarOrArray(fieldRaw)))
                         }
                         verbatim.append(block[k])
                         k += 1
-                        while k < block.count {
-                            let contLine = block[k]
-                            let contIndent = contLine.prefix(while: { $0 == " " }).count
-                            let trimmed = contLine.trimmingCharacters(in: .whitespaces)
-                            guard contIndent > dashIndent, !trimmed.hasPrefix("-"),
-                                  let (fieldKey, fieldRaw) = Frontmatter.splitKeyValue(trimmed)
-                            else { break }
+                        while k < block.count,
+                              let (fieldKey, fieldRaw) = recordContinuation(block[k], dashIndent: itemIndent) {
                             record.append(FrontmatterRecordField(fieldKey, Frontmatter.parseScalarOrArray(fieldRaw)))
-                            verbatim.append(contLine)
+                            verbatim.append(block[k])
                             k += 1
                         }
                         records.append(record)
@@ -170,6 +186,26 @@ public struct FrontmatterDocument: Equatable, Sendable {
         }
         return FrontmatterDocument(segments: segments, indexByKey: indexByKey, body: body,
                                    newline: newline, hadFrontmatter: true, hasBodySection: hasBodySection)
+    }
+
+    /// Leading-space count of a block-array item line — the indent its record's continuation lines
+    /// must exceed.
+    private static func dashIndent(of line: String) -> Int {
+        line.prefix(while: { $0 == " " }).count
+    }
+
+    /// If `line` continues the record started by a `- key: value` item whose dash sits at
+    /// `dashIndent`, returns that continuation's parsed `key: value`; otherwise `nil`.
+    ///
+    /// A continuation is indented strictly deeper than the dash, is not itself a new `-` item, and
+    /// parses as `key: value`. Single source of truth for that shape: `parse` uses it both to
+    /// *detect* an object array (peeking at the line after the first item) and to *consume* each
+    /// record's remaining fields, so the two can't drift apart.
+    private static func recordContinuation(_ line: String, dashIndent: Int) -> (key: String, value: String)? {
+        guard Self.dashIndent(of: line) > dashIndent else { return nil }
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.hasPrefix("-") else { return nil }
+        return Frontmatter.splitKeyValue(trimmed)
     }
 
     // MARK: Render (mirrors ContentScaffold: double-quoted scalars, `[]` empty arrays, block lists)
