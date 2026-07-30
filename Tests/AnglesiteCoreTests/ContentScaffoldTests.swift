@@ -84,6 +84,27 @@ struct ContentScaffoldTests {
         #expect(out.contains("description: \"How we shipped it.\""))
     }
 
+    @Test("escapeYAML escapes newlines, carriage returns, tabs, and other control characters")
+    func escapeYAMLEscapesControlChars() {
+        #expect(ContentScaffold.escapeYAML("a\nb") == "a\\nb")
+        #expect(ContentScaffold.escapeYAML("a\rb") == "a\\rb")
+        #expect(ContentScaffold.escapeYAML("a\tb") == "a\\tb")
+        #expect(ContentScaffold.escapeYAML("a\u{0}b") == "a\\0b")
+        #expect(ContentScaffold.escapeYAML("a\u{1}b") == "a\\x01b")
+        // Existing backslash/quote handling must still work alongside the new escapes.
+        #expect(ContentScaffold.escapeYAML("back\\slash \"quote\"\n") == "back\\\\slash \\\"quote\\\"\\n")
+    }
+
+    @Test("renderPost keeps a title's interior newline from splitting the frontmatter block")
+    func renderPostTitleWithInteriorNewlineStaysOnOneLine() {
+        let date = Date(timeIntervalSince1970: 1_750_000_000)
+        let out = ContentScaffold.renderPost(title: "Line one\nLine two", now: date)
+        let frontmatter = out.components(separatedBy: "---\n")[1]
+        let titleLine = try! #require(frontmatter.split(separator: "\n", omittingEmptySubsequences: false)
+            .first { $0.hasPrefix("title:") })
+        #expect(titleLine == "title: \"Line one\\nLine two\"")
+    }
+
     @Test("renderEntry emits frontmatter for a note with body below the block, as a draft")
     func renderEntryNote() {
         let note = try! #require(ContentTypeRegistry().descriptor(id: "note"))

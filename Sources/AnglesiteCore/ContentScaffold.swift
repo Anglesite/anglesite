@@ -297,9 +297,35 @@ public enum ContentScaffold {
          .replacingOccurrences(of: ">", with: "&gt;")
     }
 
+    /// Escape a string for a double-quoted YAML scalar. Every scalar this renders sits on one
+    /// frontmatter line, so an unescaped newline (or other control character) would split the
+    /// block and produce unparseable frontmatter — mirrors `escapeJSON`'s reasoning, using YAML's
+    /// own named escapes (`\0`, `\a`, `\v`, `\e`, `\xXX`) in place of JSON's.
     static func escapeYAML(_ s: String) -> String {
-        s.replacingOccurrences(of: "\\", with: "\\\\")
-         .replacingOccurrences(of: "\"", with: "\\\"")
+        var out = ""
+        out.reserveCapacity(s.count)
+        for scalar in s.unicodeScalars {
+            switch scalar {
+            case "\\": out += "\\\\"
+            case "\"": out += "\\\""
+            case "\n": out += "\\n"
+            case "\r": out += "\\r"
+            case "\t": out += "\\t"
+            case "\u{00}": out += "\\0"
+            case "\u{07}": out += "\\a"
+            case "\u{08}": out += "\\b"
+            case "\u{0B}": out += "\\v"
+            case "\u{0C}": out += "\\f"
+            case "\u{1B}": out += "\\e"
+            case let c where c.value < 0x20:
+                out += String(format: "\\x%02x", c.value)
+            case "\u{2028}": out += "\\L"
+            case "\u{2029}": out += "\\P"
+            default:
+                out.unicodeScalars.append(scalar)
+            }
+        }
+        return out
     }
 
     /// Escape a string for use as a JSON string value. Covers `\` and `"`, the named control
