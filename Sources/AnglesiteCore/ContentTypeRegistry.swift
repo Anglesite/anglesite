@@ -18,7 +18,7 @@ import Foundation
 public struct ContentTypeField: Sendable, Equatable {
     /// The shape of a field's value. Maps to an editor control and to a Zod type at the
     /// template layer (#351); kept deliberately small.
-    public enum Kind: String, Sendable, Equatable {
+    public enum Kind: Sendable, Equatable {
         case string        // single-line text
         case text          // multi-line plain text
         case markdown      // multi-line rich body
@@ -30,6 +30,13 @@ public struct ContentTypeField: Sendable, Equatable {
         case number
         case stringArray   // e.g. tags
         case imageArray    // an ordered list of site-relative media paths (e.g. album photos)
+        /// A repeating group of small structured records (e.g. h-resume `experience`/`education`
+        /// entries) — an ordered list of member fields, each an existing scalar `Kind`. By
+        /// convention `fields` excludes `.markdown`, `.stringArray`, `.imageArray`, and nested
+        /// `.objectArray` — enforced by review/tests, not the type system, matching this registry's
+        /// existing preference for documented invariants over new type machinery. No built-in
+        /// descriptor declares this yet (#964 adds the first: h-resume).
+        case objectArray(fields: [ContentTypeField])
     }
 
     public let name: String
