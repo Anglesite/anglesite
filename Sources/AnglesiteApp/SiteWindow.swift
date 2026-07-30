@@ -559,7 +559,7 @@ struct SiteWindow: View {
             AuditSheetView(
                 model: model.audit,
                 siteName: site.name,
-                onRunAgain: { model.audit.audit(siteID: site.id, siteDirectory: site.sourceDirectory) }
+                onRunAgain: { model.auditSite() }
             )
         }
         .sheet(isPresented: $bindableModel.sync.resolutionSheetPresented) {
