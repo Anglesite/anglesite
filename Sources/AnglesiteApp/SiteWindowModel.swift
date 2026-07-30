@@ -1185,7 +1185,7 @@ final class SiteWindowModel {
         let url = source.appendingPathComponent(relPath)
         let file = FileRef(url: url, group: group, name: displayName)
         if let descriptor = ContentTypeResolver.descriptor(forRelativePath: relPath) {
-            return .typed(TypedEntryEditorModel(file: file, descriptor: descriptor, sourceDirectory: source))
+            return .typed(TypedEntryEditorModel(file: file, descriptor: descriptor, route: route, sourceDirectory: source))
         }
         if isFrontmatterPage(relPath) {
             return .page(PageMetadataModel(file: file, route: route, sourceDirectory: source))

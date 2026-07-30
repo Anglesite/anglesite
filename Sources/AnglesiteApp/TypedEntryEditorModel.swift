@@ -14,6 +14,7 @@ import AnglesiteCore
 final class TypedEntryEditorModel: InspectorEditorModel {
     let file: FileRef
     let descriptor: ContentTypeDescriptor
+    let route: String
     /// Command/find seam for the body field's markdown editor.
     let markdownController = MarkdownEditorController()
     private let sourceDirectory: URL
@@ -21,6 +22,10 @@ final class TypedEntryEditorModel: InspectorEditorModel {
 
     var values: TypedContentEditor.Values = .init()
     private var savedValues: TypedContentEditor.Values = .init()
+    var noindexEnabled = false
+    private var savedNoindexEnabled = false
+    var disallowCrawlEnabled = false
+    private var savedDisallowCrawlEnabled = false
     private var fileSession = EditableFileSession()
     private var contents: String { fileSession.savedContents } // last-loaded/saved file text (verbatim base)
     private var numberDrafts: [String: String] = [:]
@@ -35,14 +40,19 @@ final class TypedEntryEditorModel: InspectorEditorModel {
         set { fileSession.conflictDiskContents = newValue }
     }
 
-    var isDirty: Bool { values != savedValues && loadError == nil && !isLoading }
+    var isDirty: Bool {
+        (values != savedValues || noindexEnabled != savedNoindexEnabled || disallowCrawlEnabled != savedDisallowCrawlEnabled)
+            && loadError == nil && !isLoading
+    }
 
     init(file: FileRef,
          descriptor: ContentTypeDescriptor,
+         route: String,
          sourceDirectory: URL,
          gitCommit: @escaping NativeContentOperations.GitCommit = NativeContentOperations.processGitCommit) {
         self.file = file
         self.descriptor = descriptor
+        self.route = route
         self.sourceDirectory = sourceDirectory
         self.gitCommit = gitCommit
     }
@@ -61,6 +71,11 @@ final class TypedEntryEditorModel: InspectorEditorModel {
         } catch {
             loadError = error.localizedDescription
         }
+        let flags = RobotsConfigFile.flags(for: robotsSource, under: sourceDirectory)
+        noindexEnabled = flags.noindex
+        savedNoindexEnabled = flags.noindex
+        disallowCrawlEnabled = flags.disallowCrawl
+        savedDisallowCrawlEnabled = flags.disallowCrawl
     }
 
     @discardableResult
@@ -79,6 +94,12 @@ final class TypedEntryEditorModel: InspectorEditorModel {
             fileSession = session
             savedValues = edited
             warnIfNoModificationDate(after: "save")
+            try RobotsConfigFile.apply(
+                source: robotsSource, noindex: noindexEnabled, disallowCrawl: disallowCrawlEnabled,
+                path: route, under: sourceDirectory
+            )
+            savedNoindexEnabled = noindexEnabled
+            savedDisallowCrawlEnabled = disallowCrawlEnabled
             await commit()
             return true
         } catch {
@@ -171,6 +192,22 @@ final class TypedEntryEditorModel: InspectorEditorModel {
     func recordsBinding(_ name: String) -> Binding<[[String: TypedContentEditor.FieldValue]]> {
         Binding(get: { [weak self] in if case .records(let r)? = self?.values[name] { return r }; return [] },
                 set: { [weak self] in self?.values[name] = .records($0) })
+    }
+    func noindexBinding() -> Binding<Bool> {
+        Binding(get: { [weak self] in self?.noindexEnabled ?? false },
+                set: { [weak self] in self?.noindexEnabled = $0 })
+    }
+    func disallowCrawlBinding() -> Binding<Bool> {
+        Binding(get: { [weak self] in self?.disallowCrawlEnabled ?? false },
+                set: { [weak self] in self?.disallowCrawlEnabled = $0 })
+    }
+
+    private var robotsSource: RobotsConfigSource {
+        let slug = file.url.deletingPathExtension().lastPathComponent
+        if let collection = descriptor.collection {
+            return .collection(collection, id: slug)
+        }
+        return .page(file: relativePath(of: file.url, under: sourceDirectory))
     }
 
     // MARK: Private
