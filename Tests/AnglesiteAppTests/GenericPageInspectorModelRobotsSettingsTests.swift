@@ -58,6 +58,24 @@ struct GenericPageInspectorModelRobotsSettingsTests {
         #expect(spy.paths() == [RobotsConfigFile.relativePath])
     }
 
+    /// `loadError` used to be a hardcoded `nil` constant, so `InspectorChrome` — the model's only
+    /// error surface — could never report a failed write (#1093 review).
+    @Test("save: a write failure surfaces through loadError")
+    func saveFailureSurfacesError() async throws {
+        let spy = GenericPageRobotsCommitSpy()
+        let (model, dir) = try makeModel(spy: spy)
+        await model.load()
+        // A regular file where `src/data/` needs to be makes the config write throw.
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("src"), withIntermediateDirectories: true)
+        try "not a directory".write(to: dir.appendingPathComponent("src/data"), atomically: true, encoding: .utf8)
+
+        model.noindexBinding().wrappedValue = true
+        let saved = await model.save()
+        #expect(!saved)
+        #expect(model.loadError?.hasPrefix("Save failed:") == true)
+        #expect(spy.paths().isEmpty)
+    }
+
     @Test("save: a no-op save commits nothing")
     func saveWithoutChangeCommitsNothing() async throws {
         let spy = GenericPageRobotsCommitSpy()

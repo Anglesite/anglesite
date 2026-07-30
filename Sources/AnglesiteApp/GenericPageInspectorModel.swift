@@ -24,7 +24,10 @@ final class GenericPageInspectorModel: InspectorEditorModel {
     private var savedDisallowCrawlEnabled = false
 
     private(set) var isSaving = false
-    let loadError: String? = nil
+    /// Nothing here can fail to *load* (this model reads no page file of its own), but a failed
+    /// robots-config write has to reach `InspectorChrome` somehow — same `"Save failed: …"` channel
+    /// `PageMetadataModel`/`TypedEntryEditorModel` use.
+    private(set) var loadError: String?
     private(set) var isLoading = false
     var conflictDiskContents: String? {
         get { nil }
@@ -48,6 +51,7 @@ final class GenericPageInspectorModel: InspectorEditorModel {
     func load() async {
         isLoading = true
         defer { isLoading = false }
+        loadError = nil
         let flags = RobotsConfigFile.flags(for: robotsSource, under: sourceDirectory)
         noindexEnabled = flags.noindex
         savedNoindexEnabled = flags.noindex
@@ -72,6 +76,7 @@ final class GenericPageInspectorModel: InspectorEditorModel {
             }
             return true
         } catch {
+            loadError = "Save failed: \(error.localizedDescription)"
             return false
         }
     }
