@@ -126,6 +126,16 @@ public enum SiteFileTree {
         }
     }
 
+    /// Whether the template's site-wide sitemap route is present — probed the same way
+    /// `feedCollections`/`detectedFeeds` probe their route modules: the template materializes
+    /// `src/pages/sitemap.xml.ts` (landed in #1020/#982), so existence of that `.ts` route module
+    /// is the signal. Site-wide, not per-collection, unlike the feed probes above.
+    public static func hasSitemap(siteRoot: URL, fileManager: FileManager = .default) -> Bool {
+        let module = layout(for: siteRoot, fileManager: fileManager)
+            .sourceDir.appendingPathComponent("src/pages/sitemap.xml.ts")
+        return fileManager.fileExists(atPath: module.path(percentEncoded: false))
+    }
+
     /// Recursively lists files under `dir`, skipping excluded dirs/files. Returns [] if `dir` is absent.
     private static func files(in dir: URL, group: FileGroup, fileManager: FileManager) -> [FileRef] {
         guard let enumerator = fileManager.enumerator(

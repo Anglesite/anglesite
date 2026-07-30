@@ -110,4 +110,18 @@ struct SiteFileTreeTests {
         #expect(SiteFileTree.detectedFeeds(siteRoot: root, collection: "plain").isEmpty)
         #expect(SiteFileTree.detectedFeeds(siteRoot: root, collection: "absent").isEmpty)
     }
+
+    @Test("hasSitemap is true when the template's sitemap route module is present")
+    func hasSitemapPresent() throws {
+        let root = try makeTempDir(prefix: "anglesite-filetree"); defer { try? FileManager.default.removeItem(at: root) }
+        try write("src/pages/sitemap.xml.ts", under: root)
+        #expect(SiteFileTree.hasSitemap(siteRoot: root) == true)
+    }
+
+    @Test("hasSitemap is false when the route module is absent")
+    func hasSitemapAbsent() throws {
+        let root = try makeTempDir(prefix: "anglesite-filetree"); defer { try? FileManager.default.removeItem(at: root) }
+        try write("src/pages/index.astro", under: root)
+        #expect(SiteFileTree.hasSitemap(siteRoot: root) == false)
+    }
 }

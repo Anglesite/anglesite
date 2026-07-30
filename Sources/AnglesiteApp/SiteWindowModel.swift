@@ -224,9 +224,13 @@ final class SiteWindowModel {
     /// change, window close, or the open component being deleted out from under it.
     private(set) var componentEditor: ComponentEditorModel?
 
-    /// What the window inspector is inspecting, in precedence order. Component and collection are
-    /// gated on the pane mode they belong to, so a stale value from an earlier selection can never
-    /// shadow the current one after a pane toggle.
+    /// What the window inspector is inspecting, in precedence order. All three cases are gated on
+    /// the pane mode they belong to, so a stale value from an earlier selection can never shadow
+    /// the current one after a pane toggle — this is enforced by construction here, not by every
+    /// call site remembering to clear the field it doesn't own (#714 final review, worth-a-second-
+    /// look: `.page` used to be an unconditional fallback, relying on `inspectorContext` always
+    /// being nil'd on the transitions into `.editor`/`.graph`/etc. rather than being safe on its
+    /// own).
     var inspectorSelection: InspectorSelection? {
         if case .editor(let file) = mainPaneMode, let componentEditor,
            componentEditor.file.id == file.id {
@@ -235,7 +239,7 @@ final class SiteWindowModel {
         if case .preview = mainPaneMode, let collectionInspection {
             return .collection(collectionInspection)
         }
-        if let inspectorContext { return .page(inspectorContext) }
+        if case .preview = mainPaneMode, let inspectorContext { return .page(inspectorContext) }
         return nil
     }
 
@@ -1191,21 +1195,33 @@ final class SiteWindowModel {
         } else {
             entryCount = node?.children?.count ?? 0
         }
+        let packageURL = site.packageURL
         let feeds: [SiteFileTree.DetectedFeed]
+        let sitemapConfigured: Bool
         if let collection {
-            let packageURL = site.packageURL
-            feeds = await Task.detached {
-                SiteFileTree.detectedFeeds(siteRoot: packageURL, collection: collection)
+            // Folded into one `Task.detached` alongside the feed probe — both are the same kind
+            // of off-main filesystem existence check, so one hop covers both.
+            (feeds, sitemapConfigured) = await Task.detached {
+                (
+                    SiteFileTree.detectedFeeds(siteRoot: packageURL, collection: collection),
+                    SiteFileTree.hasSitemap(siteRoot: packageURL)
+                )
             }.value
         } else {
             feeds = []
+            // The sitemap is site-wide, not per-collection, so a plain folder (no registered
+            // collection) still probes and reports it.
+            sitemapConfigured = await Task.detached {
+                SiteFileTree.hasSitemap(siteRoot: packageURL)
+            }.value
         }
         let descriptor = collection.flatMap { ContentTypeRegistry.default.descriptor(forCollection: $0) }
         return CollectionInspection(
             title: node?.title ?? route, route: route, collection: collection,
             entryCount: entryCount, feeds: feeds,
             contentTypeName: descriptor?.displayName,
-            microformat: descriptor?.projections.microformat)
+            microformat: descriptor?.projections.microformat,
+            sitemapConfigured: sitemapConfigured)
     }
 
     /// Builds the Component Editor's context from current preview state. Mirrors what
@@ -1231,8 +1247,10 @@ final class SiteWindowModel {
     /// view-local `LoadKey`: a nil→non-nil `readyURL` transition rebuilds the model so the harness
     /// canvas can load; a repeat call for the same (file, baseURL) is idempotent only while the
     /// existing model is healthy — an unhealthy one (a failed or cancelled `load()`) is rebuilt
-    /// instead, never returned as-is (#714 final review, Important 2). Clears the editor for
-    /// non-component files.
+    /// instead, never returned as-is (#714 final review, Important 2). An in-flight load also
+    /// counts as healthy-enough: it's kept and awaited to completion, never discarded and
+    /// restarted (#714 final review, Important 3 follow-up 2). Clears the editor for non-component
+    /// files.
     @MainActor
     func ensureComponentEditorLoaded() async {
         guard let site, let file = activeEditorFile,
@@ -1245,9 +1263,16 @@ final class SiteWindowModel {
         // in `load()`'s generic `catch` as `.other`) must not wedge this file on a permanently
         // broken instance forever (#714 final review, Important 2). `.notConnected` recovery is
         // already handled above by the `baseURL` key changing once the dev server comes up.
+        // `isLoading` also counts as healthy-enough: a same-key re-invocation that lands while a
+        // `load()` is already in flight (e.g. the view's activation `.task` firing again on a
+        // same-key reappearance, or `openFile`'s own call racing it) must let that load run to
+        // completion rather than discarding it and re-fetching from scratch (#714 final review,
+        // Important 3 follow-up 2). This can't wedge: `load()`'s `defer { isLoading = false }`
+        // guarantees the flag always clears, success or failure, so a genuinely stuck load isn't
+        // possible here.
         if let existing = componentEditor, existing.file.id == file.id,
            existing.context.baseURL == preview.readyURL,
-           existing.loadError == nil, existing.model != nil {
+           existing.isLoading || (existing.loadError == nil && existing.model != nil) {
             return
         }
         let editor = ComponentEditorModel(file: file, context: makeComponentEditorContext(site: site))

@@ -50,6 +50,7 @@ struct ComponentMetadataInspectorPane: View {
                         Image(systemName: "minus.circle")
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Remove Attribute")
                 }
             }
             HStack {
@@ -106,6 +107,7 @@ struct ComponentMetadataInspectorPane: View {
                             Image(systemName: "minus.circle")
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Remove Prop")
                     }
                 }
                 HStack {

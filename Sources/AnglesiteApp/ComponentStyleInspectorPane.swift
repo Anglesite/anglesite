@@ -126,6 +126,7 @@ struct ComponentStyleInspectorPane: View {
                         Image(systemName: "minus.circle")
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Remove Declaration")
                 }
             }
             Button("Add declaration") {

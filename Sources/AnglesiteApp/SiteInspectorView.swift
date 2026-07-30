@@ -72,29 +72,58 @@ struct CollectionInspectorForm: View {
                     Text("No feeds").font(.caption).foregroundStyle(.secondary)
                 } else {
                     ForEach(inspection.feeds) { feed in
-                        if let base = previewBaseURL,
-                           let url = URL(string: feed.route, relativeTo: base) {
-                            Link(destination: url) {
-                                LabeledContent(Self.feedKindLabel(feed.kind), value: feed.route)
-                            }
-                        } else {
-                            LabeledContent(Self.feedKindLabel(feed.kind), value: feed.route)
-                        }
+                        feedRow(feed)
                     }
                 }
             }
             Section {
-                LabeledContent("Sitemap", value: "Not configured")
+                sitemapRow
             }
         }
         .formStyle(.grouped)
     }
 
-    private static func feedKindLabel(_ kind: SiteFileTree.DetectedFeed.Kind) -> String {
+    @ViewBuilder
+    private func feedRow(_ feed: SiteFileTree.DetectedFeed) -> some View {
+        if let base = previewBaseURL, let url = URL(string: feed.route, relativeTo: base) {
+            Link(destination: url) {
+                LabeledContent { Text(feed.route) } label: { Self.feedKindLabel(feed.kind) }
+            }
+        } else {
+            LabeledContent { Text(feed.route) } label: { Self.feedKindLabel(feed.kind) }
+        }
+    }
+
+    /// The template ships a site-wide `src/pages/sitemap.xml.ts` (#1020/#982) — `sitemapConfigured`
+    /// (`SiteFileTree.hasSitemap`) reflects whether that route module actually exists, so
+    /// "Configured" links to the live route the same way a feed row does; "Not configured" is a
+    /// real probe result now, not a permanent placeholder.
+    @ViewBuilder
+    private var sitemapRow: some View {
+        if inspection.sitemapConfigured {
+            if let base = previewBaseURL, let url = URL(string: "/sitemap.xml", relativeTo: base) {
+                Link(destination: url) {
+                    LabeledContent("Sitemap") { Text("Configured") }
+                }
+            } else {
+                LabeledContent("Sitemap") { Text("Configured") }
+            }
+        } else {
+            LabeledContent("Sitemap") { Text("Not configured") }
+        }
+    }
+
+    /// Returns `Text`, not `String`: a plain `String`-returning helper passed to
+    /// `LabeledContent(_:value:)`'s `StringProtocol` overload never reaches the SwiftUI string
+    /// catalog — `SWIFT_EMIT_LOC_STRINGS` only extracts literal `Text` initializer call sites
+    /// (and `LocalizedStringKey`/`String(localized:)` calls), and a helper's return value isn't
+    /// one even when the case bodies below are themselves literal `Text` calls (#714 final
+    /// review — this is why the RSS/Atom/JSON Feed labels never made the catalog before).
+    private static func feedKindLabel(_ kind: SiteFileTree.DetectedFeed.Kind) -> Text {
         switch kind {
-        case .rss: "RSS"
-        case .atom: "Atom"
-        case .json: "JSON Feed"
+        case .rss: Text("RSS")
+        case .atom: Text("Atom")
+        case .json: Text("JSON Feed")
         }
     }
 

@@ -226,6 +226,14 @@ private struct ComponentCanvasView: NSViewRepresentable {
         WebViewBridge.applyPreviewDefaults(to: webView)
         webView.load(URLRequest(url: url))
         context.coordinator.loadedURL = url
+        // Cross-file contract: `onWebView` must fire only from here, never from `updateNSView`
+        // below. This callback is the source of `SiteWindow.componentCanvasWebView` (threaded
+        // through `MainPaneEditorView`'s `onCanvasWebView`), and that window's activation `.task`
+        // relies on it firing synchronously during THIS render commit — same-key reappearances
+        // (e.g. a Preview↔Editor toggle) depend on `makeNSView` re-reporting the still-live
+        // webview before the async task body decides whether to clear it (#714 final review,
+        // Important 1). If webview reporting ever needs to happen from `updateNSView` too,
+        // revisit `SiteWindow.mainPaneContent`'s activation task first.
         onWebView(webView)
         return webView
     }

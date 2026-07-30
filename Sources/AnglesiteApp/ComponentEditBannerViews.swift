@@ -23,6 +23,7 @@ struct ComponentConflictBanner: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
+            .accessibilityLabel("Dismiss")
         }
         .padding(8)
         .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
@@ -48,6 +49,7 @@ struct ComponentWriteErrorBanner: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
+            .accessibilityLabel("Dismiss")
         }
         .padding(8)
         .background(.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))

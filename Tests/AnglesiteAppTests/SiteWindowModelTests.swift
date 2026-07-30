@@ -619,6 +619,9 @@ extension SiteWindowModelTests {
         try FileManager.default.createDirectory(at: notesPages, withIntermediateDirectories: true)
         try Data().write(to: notesPages.appendingPathComponent("rss.xml.ts"))
         try Data().write(to: notesPages.appendingPathComponent("atom.xml.ts"))
+        // And the site-wide sitemap route the template ships (#1020/#982) — probed alongside the
+        // feeds (#714 final review).
+        try Data().write(to: package.sourceURL.appendingPathComponent("src/pages/sitemap.xml.ts"))
 
         let navModel = SiteNavigatorModel(graph: graph)
         navModel.start(
@@ -634,6 +637,7 @@ extension SiteWindowModelTests {
         model.applyNavigatorSelection(dirID)
         while model.collectionInspection == nil { await Task.yield() }
         #expect(model.collectionInspection?.feeds.map(\.kind) == [.rss, .atom])
+        #expect(model.collectionInspection?.sitemapConfigured == true)
 
         // Selecting a routed page again clears the collection context. The `.route` branch also
         // guards its `collectionInspection = nil` on `navigator.selection` still matching the
@@ -797,6 +801,11 @@ extension SiteWindowModelTests {
         #expect(inspection.contentTypeName == nil)
         #expect(inspection.microformat == nil)
         #expect(inspection.entryCount == expectedEntryCount)
+        // The sitemap is site-wide, probed even for a plain folder — but `makeSitePackage`'s
+        // `AnglesitePackage.createSkeleton` deliberately doesn't scaffold the Astro project (that
+        // runs later, cwd = `Source/`), so this fixture has no `src/pages/sitemap.xml.ts` and the
+        // probe must report `false` (#714 final review).
+        #expect(inspection.sitemapConfigured == false)
     }
 
     @Test("applyNavigatorSelection populates a read-only inspector for a plain .astro page (#1100)")
@@ -1115,6 +1124,59 @@ extension SiteWindowModelTests {
         // surfacing as the inspector's subject.
         model.mainPaneMode = .preview
         #expect(model.componentEditor != nil)
+        #expect(model.inspectorSelection == nil)
+    }
+
+    @Test("inspectorSelection enforces its precedence order by construction, even with every context populated at once")
+    func inspectorSelectionThreeWayPrecedence() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = makeModel()
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        let card = FileRef(
+            url: package.sourceURL.appendingPathComponent("src/components/Card.astro"),
+            group: .components, name: "Card.astro")
+        model.activeEditor = .text(FileEditorModel(file: card))
+        model.mainPaneMode = .editor(card)
+        await model.ensureComponentEditorLoaded()
+        let componentEditor = try #require(model.componentEditor)
+
+        // Populate ALL three contexts at once — no single navigator selection produces this
+        // combination today, but `inspectorSelection`'s precedence must hold by construction
+        // regardless of how the fields got set, not by every call site remembering to clear the
+        // ones it doesn't own (#714 final review, worth-a-second-look).
+        model.collectionInspection = CollectionInspection(
+            title: "Notes", route: "/notes/", collection: "notes", entryCount: 1,
+            feeds: [], contentTypeName: nil, microformat: nil, sitemapConfigured: false)
+        let pageFile = FileRef(
+            url: package.sourceURL.appendingPathComponent("src/pages/about.md"),
+            group: .pages, name: "about.md")
+        model.inspectorContext = .page(PageMetadataModel(file: pageFile, sourceDirectory: package.sourceURL))
+
+        guard case .component(let shown) = model.inspectorSelection else {
+            Issue.record("expected .component in .editor mode, even with collection/page contexts set")
+            return
+        }
+        #expect(shown === componentEditor)
+
+        model.mainPaneMode = .preview
+        guard case .collection = model.inspectorSelection else {
+            Issue.record("expected .collection to outrank .page in .preview mode")
+            return
+        }
+
+        model.collectionInspection = nil
+        guard case .page = model.inspectorSelection else {
+            Issue.record("expected .page once .collection is cleared, still in .preview mode")
+            return
+        }
+
+        // `inspectorContext` is still set here — pre-fix, the unconditional `.page` fallback
+        // would have leaked it into every other pane mode too.
+        model.mainPaneMode = .graph
         #expect(model.inspectorSelection == nil)
     }
 }

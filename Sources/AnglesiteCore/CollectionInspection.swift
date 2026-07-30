@@ -16,10 +16,16 @@ public struct CollectionInspection: Sendable, Equatable {
     /// Root microformats2 class the type projects (e.g. "h-entry") — the template's static
     /// dispatch picks the matching layout, so this names the template in use.
     public let microformat: String?
+    /// Whether the site ships `src/pages/sitemap.xml.ts` (`SiteFileTree.hasSitemap`). Site-wide
+    /// state, not per-collection — probed and surfaced here anyway (same as every other row)
+    /// because the inspector's collection context is the only place this reads today; a directory
+    /// selection doesn't imply anything about the sitemap specifically.
+    public let sitemapConfigured: Bool
 
     public init(
         title: String, route: String, collection: String?, entryCount: Int,
-        feeds: [SiteFileTree.DetectedFeed], contentTypeName: String?, microformat: String?
+        feeds: [SiteFileTree.DetectedFeed], contentTypeName: String?, microformat: String?,
+        sitemapConfigured: Bool
     ) {
         self.title = title
         self.route = route
@@ -28,5 +34,6 @@ public struct CollectionInspection: Sendable, Equatable {
         self.feeds = feeds
         self.contentTypeName = contentTypeName
         self.microformat = microformat
+        self.sitemapConfigured = sitemapConfigured
     }
 }
