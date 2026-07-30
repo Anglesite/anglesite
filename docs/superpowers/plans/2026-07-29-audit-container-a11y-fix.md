@@ -1409,7 +1409,7 @@ Expected: all pass (no `fail`), same as before this task except the two new file
 
 ```bash
 git add Resources/Template/package.json Resources/Template/scripts/a11y-audit.ts Resources/Template/scripts/a11y-audit.test.ts
-git commit -m "feat(#958): restore scripts/a11y-audit.ts deleted in the plugin retirement"
+git commit -m "feat(#958): restore scripts/a11y-audit.ts (deleted in #466)"
 ```
 
 ---
@@ -2617,7 +2617,7 @@ Expected: all pass.
 
 ```bash
 git add Sources/AnglesiteCore/AuditCommand.swift Sources/AnglesiteCore/A11yAuditRunner.swift Sources/AnglesiteCore/SecurityTxtAuditRunner.swift Tests/AnglesiteCoreTests/AuditCommandTests.swift Tests/AnglesiteCoreTests/AuditCommandProgressTests.swift Tests/AnglesiteCoreTests/AuditCommandCancellationTests.swift Tests/AnglesiteCoreTests/A11yAuditRunnerTests.swift
-git commit -m "fix(#958): route AuditCommand build + A11yAuditRunner through AuditExecutor"
+git commit -m "fix(#958): route AuditCommand + A11yAuditRunner via AuditExecutor"
 ```
 
 ---
