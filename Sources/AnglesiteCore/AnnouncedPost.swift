@@ -12,8 +12,13 @@ import Foundation
 /// `docs/superpowers/specs/2026-07-22-v5-communities-design.md` §4.3.
 ///
 /// **Sanitisation contract:** `id` is validated at construction time — only `[A-Za-z0-9_-]+`
-/// is accepted — to prevent path-traversal through `gitPath`. `content` is stored as-is from the
-/// Worker; the Astro template must render it as text (e.g. `set:text`, never `set:html`).
+/// is accepted — to prevent path-traversal through `gitPath`. `sourceURL`/`author.url`/
+/// `author.photo` are restricted to `http`/`https` schemes at construction time too — these flow
+/// straight into `href`/`src` in `CommunityTimeline.astro`, so a `javascript:` (or other
+/// non-web) scheme is rejected here rather than relying entirely on the template's zod
+/// `httpUrl` refinement (`communityPosts.ts`) to catch it downstream. `content` is stored as-is
+/// from the Worker; the Astro template must render it as text (e.g. `set:text`, never
+/// `set:html`).
 ///
 /// **No verification-status field.** Unlike a webmention, a post only ever reaches this schema
 /// after the Worker has already validated it came from a current member and wrapped it in a
@@ -68,6 +73,16 @@ public struct AnnouncedPost: Codable, Sendable, Equatable, Identifiable {
 
     public enum ValidationError: Error, Sendable {
         case invalidID(String)
+        case insecureURL(URL)
+    }
+
+    /// `http`/`https` only — matches `communityPosts.ts`'s `httpUrl` zod refinement exactly.
+    /// Anything else (`javascript:`, `data:`, a scheme-less string `URL` still parsed) is rejected
+    /// rather than silently accepted and left for the template layer to catch.
+    private static func requireWebScheme(_ url: URL) throws {
+        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
+            throw ValidationError.insecureURL(url)
+        }
     }
 
     public init(
@@ -82,6 +97,9 @@ public struct AnnouncedPost: Codable, Sendable, Equatable, Identifiable {
         guard id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil else {
             throw ValidationError.invalidID(id)
         }
+        try Self.requireWebScheme(sourceURL)
+        if let url = author?.url { try Self.requireWebScheme(url) }
+        if let photo = author?.photo { try Self.requireWebScheme(photo) }
         self.id = id
         self.objectType = objectType
         self.sourceURL = sourceURL

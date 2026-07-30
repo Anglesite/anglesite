@@ -60,6 +60,61 @@ struct AnnouncedPostTests {
         }
     }
 
+    @Test("rejects a sourceURL with a non-http(s) scheme")
+    func rejectsInsecureSourceURL() {
+        #expect(throws: AnnouncedPost.ValidationError.self) {
+            try AnnouncedPost(
+                id: "ap-abc123",
+                objectType: .note,
+                sourceURL: URL(string: "javascript:alert(document.cookie)")!,
+                author: nil,
+                content: nil,
+                published: Date(),
+                announcedAt: Date()
+            )
+        }
+    }
+
+    @Test("rejects an author url/photo with a non-http(s) scheme")
+    func rejectsInsecureAuthorURLs() {
+        #expect(throws: AnnouncedPost.ValidationError.self) {
+            try AnnouncedPost(
+                id: "ap-abc123",
+                objectType: .note,
+                sourceURL: URL(string: "https://member.example/posts/42")!,
+                author: .init(name: "Evil", url: URL(string: "javascript:alert(1)"), photo: nil),
+                content: nil,
+                published: Date(),
+                announcedAt: Date()
+            )
+        }
+        #expect(throws: AnnouncedPost.ValidationError.self) {
+            try AnnouncedPost(
+                id: "ap-abc123",
+                objectType: .note,
+                sourceURL: URL(string: "https://member.example/posts/42")!,
+                author: .init(name: "Evil", url: nil, photo: URL(string: "javascript:alert(1)")),
+                content: nil,
+                published: Date(),
+                announcedAt: Date()
+            )
+        }
+    }
+
+    @Test("accepts a plain http (not just https) sourceURL/author URL")
+    func acceptsPlainHTTP() throws {
+        let post = try AnnouncedPost(
+            id: "ap-abc123",
+            objectType: .note,
+            sourceURL: URL(string: "http://member.example/posts/42")!,
+            author: .init(name: "Jane", url: URL(string: "http://member.example"), photo: nil),
+            content: nil,
+            published: Date(),
+            announcedAt: Date()
+        )
+        #expect(post.sourceURL.scheme == "http")
+    }
+
     @Test("author and content are optional")
     func optionalFields() throws {
         let post = try AnnouncedPost(

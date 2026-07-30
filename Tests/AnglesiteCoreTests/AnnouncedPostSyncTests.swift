@@ -68,6 +68,22 @@ struct AnnouncedPostSyncTests {
         #expect(raw?.objectType == .note)
     }
 
+    @Test("OutboxClient.announce rejects a wrapped object whose id isn't http(s)")
+    func announceRejectsNonWebSourceScheme() {
+        let raw = AnnouncedPostSync.OutboxClient.announce(from: Self.announceJSON(innerID: "urn:uuid:not-a-web-url"))
+        #expect(raw == nil)
+    }
+
+    @Test("fileID derives a stable, path-safe, 16-hex-char id from an object IRI")
+    func fileIDIsStableAndPathSafe() {
+        let url = URL(string: "https://member.example/posts/1")!
+        let first = AnnouncedPostSync.fileID(for: url)
+        let second = AnnouncedPostSync.fileID(for: url)
+        #expect(first == second)
+        #expect(first.range(of: #"^community-[0-9a-f]{16}$"#, options: .regularExpression) != nil)
+        #expect(first != AnnouncedPostSync.fileID(for: URL(string: "https://member.example/posts/2")!))
+    }
+
     // MARK: - makePost
 
     @Test("makePost resolves the author from a cache hit without calling the fetcher")
@@ -170,6 +186,11 @@ struct AnnouncedPostSyncTests {
         let entries = (try? FileManager.default.contentsOfDirectory(
             at: siteDirectory.appendingPathComponent("data/community-posts"), includingPropertiesForKeys: nil)) ?? []
         #expect(entries.count == 1)
+        // Confirms the injected transport actually serves the author-profile fetch too (not the
+        // real network) — asserts through the full sync path, not just `makePost` in isolation.
+        let written = try #require(entries.first)
+        let text = try String(contentsOf: written, encoding: .utf8)
+        #expect(text.contains("Alice"))
     }
 
     @Test("returns 0 without touching git when the first-page fetch fails")
@@ -183,6 +204,38 @@ struct AnnouncedPostSyncTests {
             configDirectory: configDirectory,
             transport: { _ in (Data(), Self.response(500)) })
         #expect(count == 0)
+    }
+
+    @Test("follows a multi-page next chain and collects posts from every page")
+    func followsMultiPageChain() async throws {
+        let siteDirectory = try Self.makeThrowawayGitRepo()
+        defer { try? FileManager.default.removeItem(at: siteDirectory) }
+        let configDirectory = try Self.makeTempDir()
+        defer { try? FileManager.default.removeItem(at: configDirectory) }
+
+        let collectionBody = try! JSONSerialization.data(withJSONObject: ["first": "https://community.example/users/birding/outbox?page=1"])
+        let page1 = Self.pageBody(
+            items: [Self.announceJSON(innerID: "https://member.example/posts/1")],
+            next: "https://community.example/users/birding/outbox?page=2")
+        let page2 = Self.pageBody(items: [Self.announceJSON(innerID: "https://member.example/posts/2")])
+        let profileBody = Self.actorProfileBody(name: "Alice")
+
+        let count = await AnnouncedPostSync.pullAndCommit(
+            outboxURL: URL(string: "https://community.example/users/birding/outbox")!,
+            siteDirectory: siteDirectory,
+            configDirectory: configDirectory,
+            transport: { request in
+                let path = request.url!.absoluteString
+                if path.hasSuffix("/outbox") { return (collectionBody, Self.response(200)) }
+                if path.contains("page=1") { return (page1, Self.response(200)) }
+                if path.contains("page=2") { return (page2, Self.response(200)) }
+                return (profileBody, Self.response(200))
+            })
+
+        #expect(count == 2)
+        let entries = (try? FileManager.default.contentsOfDirectory(
+            at: siteDirectory.appendingPathComponent("data/community-posts"), includingPropertiesForKeys: nil)) ?? []
+        #expect(entries.count == 2)
     }
 
     @Test("reconciles away a snapshot whose post is no longer in the outbox (moderator removed it)")

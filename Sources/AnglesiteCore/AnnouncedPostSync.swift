@@ -2,7 +2,6 @@ import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
-import CryptoKit
 
 /// Orchestrates #908's "pull a hosted community's own announced-post outbox and snapshot it into
 /// the site's git working copy" step: page the Group actor's public `outbox`
@@ -115,7 +114,9 @@ public enum AnnouncedPostSync {
         static func announce(from item: Any) -> RawAnnounce? {
             guard let activity = item as? [String: Any], (activity["type"] as? String) == "Announce" else { return nil }
             guard let object = activity["object"] as? [String: Any], let id = object["id"] as? String else { return nil }
-            guard let sourceURL = URL(string: id) else { return nil }
+            guard let sourceURL = URL(string: id), let scheme = sourceURL.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https"
+            else { return nil }
 
             let objectType = (object["type"] as? String).flatMap { rawType -> AnnouncedPost.ObjectType? in
                 AnnouncedPost.ObjectType(rawValue: rawType.lowercased())
@@ -141,11 +142,24 @@ public enum AnnouncedPostSync {
     /// A member's post `id` doubles as `AnnouncedPost.id` and must satisfy its path-traversal
     /// guard (`[A-Za-z0-9_-]+`) — an AS2 IRI never does, so this derives a stable, safe id from
     /// it the same way other Worker-facing ids in this codebase are namespaced (`wm-`/`ap-`
-    /// prefixes elsewhere): a `community-` prefix over a SHA-256 digest of the wrapped object's
-    /// IRI, so the same post always maps to the same filename across syncs.
+    /// prefixes elsewhere): a `community-` prefix over a hash of the wrapped object's IRI, so the
+    /// same post always maps to the same filename across syncs.
+    ///
+    /// Hand-rolled FNV-1a rather than `CryptoKit`'s `SHA256`: this is a stable dedup/filename key,
+    /// not a security boundary, and `CryptoKit` isn't available on the Linux `AnglesiteCore`
+    /// build (`AnglesiteSiteModel`/`AnglesiteCore` are portable SwiftPM targets — see
+    /// `CONTRIBUTING.md` ▸ "Linux contributors welcome") — every other `CryptoKit` use in this
+    /// file's neighbors (`DPoPKeyPair`, `SessionToken`, …) is gated `#if canImport(CryptoKit)`
+    /// with a degraded fallback, which isn't an option here since this id needs to be identical
+    /// on every platform.
     static func fileID(for objectIRI: URL) -> String {
-        "community-" + SHA256.hash(data: Data(objectIRI.absoluteString.utf8))
-            .map { String(format: "%02x", $0) }.joined()
+        var hash: UInt64 = 0xcbf29ce484222325 // FNV-1a 64-bit offset basis
+        for byte in objectIRI.absoluteString.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x100000001b3 // FNV-1a 64-bit prime
+        }
+        let hex = String(hash, radix: 16)
+        return "community-" + String(repeating: "0", count: 16 - hex.count) + hex
     }
 
     /// Maps one raw announce to `AnnouncedPost`, resolving its author via `cache` (fresh lookup
@@ -210,7 +224,10 @@ public enum AnnouncedPostSync {
         }
 
         var cache = ActorProfileCache.load(from: configDirectory) ?? ActorProfileCache()
-        let fetcher = ActorProfileFetcher()
+        // Same injected transport as the outbox client — a test double for `community.example`
+        // must also answer `member.example` profile lookups, and production gets the real
+        // network either way.
+        let fetcher = ActorProfileFetcher(transport: transport)
         var posts: [AnnouncedPost] = []
         for raw in raws {
             if let post = await Self.makePost(from: raw, cache: &cache, fetcher: fetcher, now: now) {
