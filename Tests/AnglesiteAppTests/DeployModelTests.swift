@@ -43,6 +43,28 @@ private actor GatedDeployExecutor: DeployExecutor {
     }
 }
 
+private final class FakeDomainAttachWriter: CloudflareWriting, @unchecked Sendable {
+    let outcome: CustomDomainAttachResult
+    init(outcome: CustomDomainAttachResult) { self.outcome = outcome }
+
+    func attachWorkersCustomDomain(
+        hostname: String, workerScriptName: String, apiToken: String
+    ) async throws -> CustomDomainAttachResult { outcome }
+
+    func enableDNSSEC(zoneID: String, apiToken: String) async throws {}
+    func setAlwaysUseHTTPS(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func setHSTS(zoneID: String, maxAge: Int, includeSubdomains: Bool, preload: Bool, apiToken: String) async throws {}
+    func addDNSRecord(zoneID: String, record: DNSRecordPayload, apiToken: String) async throws {}
+    func deleteDNSRecord(zoneID: String, recordID: String, apiToken: String) async throws {}
+    func setBotFightMode(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func createWAFCustomRule(zoneID: String, rule: WAFRulePayload, apiToken: String) async throws {}
+    func setSpeedBrain(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func setECH(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func enableZstandardCompression(zoneID: String, apiToken: String) async throws {}
+    func setPageShield(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+}
+
 @Suite("DeployModel")
 @MainActor
 struct DeployModelTests {
@@ -186,6 +208,113 @@ struct DeployModelTests {
         }
         #expect(secondName == "my-site-2")
         #expect(model.workerNameConflictPresented)
+    }
+
+    @Test("A confirmed domain attach swaps the succeeded phase's URL to the custom domain")
+    func confirmedDomainAttachSwapsDisplayedURL() async {
+        let executor = GatedDeployExecutor()
+        let writer = FakeDomainAttachWriter(outcome: .attached)
+        let command = DeployCommand(
+            tokenSource: { "test-token" },
+            customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            executor: executor
+        )
+        let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
+        let siteDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try! FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+        try! "CF_PROJECT_NAME=my-site\nDOMAIN_CHOICE=transfer\nDOMAIN=example.com\n".write(
+            to: siteDir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        model.deploy(siteID: "s", siteDirectory: siteDir, configDirectory: siteDir, currentRoutes: [])
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
+        while model.isRunning { await Task.yield() }
+
+        guard case .succeeded(let url, _) = model.phase else {
+            Issue.record("expected .succeeded, got \(model.phase)"); return
+        }
+        #expect(url.absoluteString == "https://example.com")
+        #expect(model.domainAttachStatus == .confirmed(hostname: "example.com"))
+        #expect(!model.domainConflictPresented)
+    }
+
+    @Test("A not-connected domain attach leaves the workers.dev URL in place")
+    func notConnectedDomainAttachLeavesWorkersDevURL() async {
+        let executor = GatedDeployExecutor()
+        let writer = FakeDomainAttachWriter(outcome: .zoneNotFound)
+        let command = DeployCommand(
+            tokenSource: { "test-token" },
+            customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            executor: executor
+        )
+        let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
+        let siteDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try! FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+        try! "CF_PROJECT_NAME=my-site\nDOMAIN_CHOICE=transfer\nDOMAIN=example.com\n".write(
+            to: siteDir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        model.deploy(siteID: "s", siteDirectory: siteDir, configDirectory: siteDir, currentRoutes: [])
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
+        while model.isRunning { await Task.yield() }
+
+        guard case .succeeded(let url, _) = model.phase else {
+            Issue.record("expected .succeeded, got \(model.phase)"); return
+        }
+        #expect(url.host == "test.example.workers.dev")
+        #expect(model.domainAttachStatus == .notConnected(hostname: "example.com"))
+        #expect(!model.domainConflictPresented)
+    }
+
+    @Test("A domain-attach conflict presents the conflict sheet without blocking the succeeded deploy")
+    func domainConflictPresentsSheet() async {
+        let executor = GatedDeployExecutor()
+        let writer = FakeDomainAttachWriter(outcome: .conflict(ownedBy: "other-site"))
+        let command = DeployCommand(
+            tokenSource: { "test-token" },
+            customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            executor: executor
+        )
+        let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
+        let siteDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try! FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+        try! "CF_PROJECT_NAME=my-site\nDOMAIN_CHOICE=transfer\nDOMAIN=example.com\n".write(
+            to: siteDir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        model.deploy(siteID: "s", siteDirectory: siteDir, configDirectory: siteDir, currentRoutes: [])
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
+        while model.isRunning { await Task.yield() }
+
+        guard case .succeeded = model.phase else {
+            Issue.record("expected .succeeded even on a domain conflict, got \(model.phase)"); return
+        }
+        #expect(model.domainAttachStatus == .conflict(hostname: "example.com", ownedBy: "other-site"))
+        #expect(model.domainConflictPresented)
+
+        model.dismissDomainConflict()
+        #expect(!model.domainConflictPresented)
+    }
+
+    @Test("No transfer domain configured reports .skipped and leaves the workers.dev URL")
+    func noTransferDomainSkips() async {
+        let executor = GatedDeployExecutor()
+        let command = DeployCommand(tokenSource: { "test-token" }, executor: executor)
+        let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
+        let siteDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try! FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+        try! "CF_PROJECT_NAME=my-site\n".write(to: siteDir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        model.deploy(siteID: "s", siteDirectory: siteDir, configDirectory: siteDir, currentRoutes: [])
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
+        while model.isRunning { await Task.yield() }
+
+        guard case .succeeded(let url, _) = model.phase else {
+            Issue.record("expected .succeeded, got \(model.phase)"); return
+        }
+        #expect(url.host == "test.example.workers.dev")
+        #expect(model.domainAttachStatus == .skipped)
     }
 
     @Test("An automatic background deploy defers instead of clobbering a foreground worker-name-conflict sheet (#1076)")
