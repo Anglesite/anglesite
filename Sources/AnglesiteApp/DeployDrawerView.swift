@@ -39,7 +39,13 @@ struct DeployDrawerView: View {
         HStack(spacing: 10) {
             statusIcon
             VStack(alignment: .leading, spacing: 1) {
-                Text(headerTitle).font(.headline)
+                if case .succeeded(let url, _) = model.phase {
+                    Link(destination: url) {
+                        Text(headerTitle).font(.headline)
+                    }
+                } else {
+                    Text(headerTitle).font(.headline)
+                }
                 if let subtitle = headerSubtitle {
                     Text(subtitle).font(.caption).foregroundStyle(.secondary)
                 }
@@ -54,17 +60,12 @@ struct DeployDrawerView: View {
             }
             Spacer()
             if case .succeeded(let url, _) = model.phase {
-                // Standard share affordance for the deployed URL (#523) — Copy URL stays for the
-                // clipboard-first workflow.
+                // Standard share affordance for the deployed URL (#523) — its share sheet includes
+                // a Copy action, so a separate "Copy URL" button would just duplicate it (#1078).
                 ShareLink(item: url)
                     .labelStyle(.iconOnly)
                     .help("Share the deployed site's URL")
                     .accessibilityLabel("Share deployed URL")
-                Button("Copy URL") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(url.absoluteString, forType: .string)
-                }
-                .accessibilityHint("Copies \(url.absoluteString) to the clipboard")
                 Button("Open in browser") {
                     NSWorkspace.shared.open(url)
                 }
@@ -237,9 +238,19 @@ struct DeployDrawerView: View {
         }
     }
 
+    /// Copy log is useful on any terminal outcome — even a successful deploy can carry warnings
+    /// (e.g. an Astro deprecation notice) worth reporting. Not offered mid-flight (`.running`)
+    /// since the log is still streaming.
+    private var canCopyLog: Bool {
+        switch model.phase {
+        case .succeeded, .failed: return true
+        case .idle, .running, .blocked, .workerNameConflict, .webmentionPaidPlanConfirmationNeeded: return false
+        }
+    }
+
     private var footer: some View {
         HStack {
-            if case .failed = model.phase {
+            if canCopyLog {
                 Button("Copy log") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(model.logText, forType: .string)
