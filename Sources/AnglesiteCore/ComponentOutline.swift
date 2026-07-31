@@ -11,16 +11,26 @@ import UniformTypeIdentifiers
 /// Pure presentation logic for the Component Editor, kept in Core so it is
 /// testable without the app target (hosted app tests don't run on CI).
 public enum ComponentOutline {
+    /// One flattened outline entry — the tree pre-walked into a flat list (with explicit
+    /// ``depth``) because SwiftUI's `List` renders and indents a flat array far more
+    /// predictably than a recursive `OutlineGroup` for this editor's needs.
     public struct Row: Sendable, Equatable, Identifiable {
+        /// The model node this row presents.
         public let node: ComponentModel.Node
+        /// Nesting depth for indentation. 0 is the component's top-level markup — the synthetic
+        /// fragment root is skipped by ``ComponentOutline/rows(from:)``.
         public let depth: Int
         /// True for a `kind == .component` node — its children are real markup (slot-fill
         /// content authored at the use site), but the outline treats the instance as opaque
         /// (spec §4.1): configure it via its attrs/props, or double-click to edit the
         /// component's own definition.
         public let isSealed: Bool
+        /// `Identifiable` conformance — the node's own parser-assigned id, so SwiftUI selection
+        /// state survives a model refetch (ids are stable across re-parses of unchanged nodes).
         public var id: String { node.id }
 
+        /// Memberwise initializer — public for tests; production rows come from
+        /// ``ComponentOutline/rows(from:)``, which is what enforces the sealing walk.
         public init(node: ComponentModel.Node, depth: Int, isSealed: Bool = false) {
             self.node = node
             self.depth = depth
@@ -111,7 +121,12 @@ public enum ComponentOutline {
     /// drag-reorder and palette-insert. Kept here (not the View) so the geometry and the
     /// index math it feeds are unit-testable.
     public enum DropZone: Equatable, Sendable {
-        case before, into, after
+        /// Insert as the row's preceding sibling (top third of the row).
+        case before
+        /// Insert as the row's child (middle third) — reparenting, not reordering.
+        case into
+        /// Insert as the row's following sibling (bottom third).
+        case after
     }
 
     /// Classifies `y` (row-local, per SwiftUI's `dropDestination` contract) into a `DropZone`:
@@ -177,6 +192,12 @@ public enum ComponentOutline {
 /// Builds harness-route URLs for the component canvas (route injected by the
 /// template's anglesite-harness integration).
 public enum HarnessURL {
+    /// Builds the harness route for one component, or `nil` for a path the harness can't render
+    /// — only `.astro` files under `src/components/` or `src/layouts/` have harness routes, so
+    /// a `nil` here is the caller's signal to show no canvas rather than a 404. Props travel as
+    /// a single JSON blob in one `props` query parameter, percent-encoded strictly (see the
+    /// inline comment) so values containing `+`/`&`/`=` survive the harness's
+    /// `URLSearchParams` decoding intact.
     public static func build(base: URL, componentPath: String, props: [String: String]) -> URL? {
         let prefixes = ["src/components/", "src/layouts/"]
         guard let prefix = prefixes.first(where: { componentPath.hasPrefix($0) }),
@@ -206,6 +227,10 @@ public enum HarnessURL {
 
 /// Sample prop values that make any component render standalone.
 public enum KnobDefaults {
+    /// Initial knob value for `prop`: the component's own declared default (quotes stripped —
+    /// ``ComponentModel/Prop/defaultValue`` carries them as written in source) when there is
+    /// one, else a benign per-type sample so the harness never renders `undefined` into the
+    /// preview. Unknown types get `""` rather than a guess.
     public static func value(for prop: ComponentModel.Prop) -> String {
         if let declared = prop.defaultValue {
             return declared.trimmingCharacters(in: CharacterSet(charactersIn: "\"'`"))
@@ -224,14 +249,20 @@ public enum KnobDefaults {
 /// component file being edited (guards against a cross-editor drop landing on the wrong
 /// component's tree) and the node being moved.
 public struct ComponentDragItem: Codable, Sendable, Transferable {
+    /// Identifies the component file whose tree the node belongs to — the drop target compares
+    /// this against its own file and refuses a mismatch (the cross-editor guard).
     public let fileID: String
+    /// The dragged node's id within that file's model tree.
     public let nodeID: String
 
+    /// Memberwise initializer for the drag source.
     public init(fileID: String, nodeID: String) {
         self.fileID = fileID
         self.nodeID = nodeID
     }
 
+    /// Codable transfer under the app's own exported UTI, so this payload only matches
+    /// Anglesite's own drop targets — a drop into another app carries nothing it would render.
     public static var transferRepresentation: some TransferRepresentation {
         CodableRepresentation(contentType: .anglesiteComponentDragItem)
     }
@@ -239,14 +270,20 @@ public struct ComponentDragItem: Codable, Sendable, Transferable {
 
 /// Drag payload for a palette row being dropped into the outline or onto the canvas (Task 17/18).
 public struct PaletteDragPayload: Codable, Sendable, Transferable {
+    /// The palette item's display label, carried along for drop-feedback UI.
     public let label: String
+    /// What to insert on drop — feeds straight into
+    /// `ComponentStructureEditBuilder.insertNode`'s `node` parameter.
     public let kind: ComponentStructureEditBuilder.NodeSpec
 
+    /// Memberwise initializer for the palette drag source.
     public init(label: String, kind: ComponentStructureEditBuilder.NodeSpec) {
         self.label = label
         self.kind = kind
     }
 
+    /// Codable transfer under the app's own exported UTI — same Anglesite-only matching
+    /// rationale as `ComponentDragItem`.
     public static var transferRepresentation: some TransferRepresentation {
         CodableRepresentation(contentType: .anglesitePaletteDragPayload)
     }
@@ -259,9 +296,13 @@ public struct PaletteDragPayload: Codable, Sendable, Transferable {
 /// (only the first-registered type actually receives drops at the AppKit level), so both drag
 /// sources must share one `Transferable` type and one `.dropDestination` call.
 public enum OutlineDragPayload: Codable, Sendable, Transferable {
+    /// An existing outline row being reordered/reparented.
     case move(ComponentDragItem)
+    /// A palette item being inserted as a new node.
     case insert(PaletteDragPayload)
 
+    /// Codable transfer under its own exported UTI — distinct from the two wrapped payloads'
+    /// UTIs, since this is the type the shared `.dropDestination` registers for.
     public static var transferRepresentation: some TransferRepresentation {
         CodableRepresentation(contentType: .anglesiteOutlineDragPayload)
     }

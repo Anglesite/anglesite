@@ -50,17 +50,45 @@ import Foundation
 /// alias with no matching `paths` entry stays unresolved and can flag a live file as unused. Same
 /// mitigation as the regex blind spots above: confirmation-gated, git-tracked delete.
 public enum DeadAssetScanner {
+    /// One file with zero resolved inbound references — something the Navigator's Cleanup
+    /// section *offers* for deletion, never deletes automatically: the regex-based extraction
+    /// documented on ``DeadAssetScanner`` can under-count references, so explicit user
+    /// confirmation (plus git recoverability) is the mitigation for that class of false positive.
     public struct CleanupCandidate: Sendable, Equatable, Identifiable {
+        /// The project-relative path, doubling as the stable identity — unique within a scan,
+        /// and stable across rescans so SwiftUI list diffs don't churn.
         public let id: String
+        /// Project-relative POSIX path of the unused file (e.g. `src/components/Old.astro`).
         public let path: String
+        /// Which class of file this is — drives the UI's grouping, iconography, and wording.
         public let kind: Kind
+        /// The file's content-modification time, so the UI can hint at how stale a candidate is
+        /// before the user decides whether to delete it.
         public let lastModified: Date
+        /// Resolved inbound references counted for this file. Always `0` for anything `scan`
+        /// returns — carried explicitly rather than implied so the UI can show the evidence
+        /// behind the "unused" claim instead of asserting it.
         public let referenceCount: Int
 
+        /// The only file classes ever offered for cleanup — deliberately narrow. JS/TS files are
+        /// never candidates (see ``DeadAssetScanner``'s non-goals: their import resolution has
+        /// materially more edge cases than this scanner attempts).
         public enum Kind: String, Sendable, Equatable, CaseIterable {
-            case component, layout, image, page
+            /// An unused `.astro` file under `src/components/`.
+            case component
+            /// An unused `.astro` file under `src/layouts/`.
+            case layout
+            /// An unused entry from the caller-supplied `images` list (typically
+            /// `public/images/**`).
+            case image
+            /// An orphan page — zero inbound *links*, not zero file references. Never produced
+            /// by `scan` itself; `ProjectCleanupReport.build` maps `LinkGraph` orphan pages into
+            /// this shape so the Cleanup section can present one merged list.
+            case page
         }
 
+        /// Memberwise initializer — public so `ProjectCleanupReport` (and tests) can synthesize
+        /// candidates that didn't come from a `scan` call, e.g. the orphan-page rows above.
         public init(id: String, path: String, kind: Kind, lastModified: Date, referenceCount: Int) {
             self.id = id
             self.path = path

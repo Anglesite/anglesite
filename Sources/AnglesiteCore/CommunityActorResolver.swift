@@ -14,12 +14,22 @@ public struct ResolvedCommunityActor: Sendable, Equatable {
     /// The actor's public outbox collection, for `GroupTimelineClient`. `nil` for an actor
     /// document that doesn't advertise one — the timeline pane degrades to "no timeline available".
     public let outboxURL: URL?
+    /// The actor document's self-declared AS2 `type` (`Group`, `Person`, …), passed through
+    /// unfiltered — the join flow works for any FEP-1b12 software, so this is display context
+    /// ("Join Birding (Lemmy)?"), not a gate.
     public let type: String?
+    /// The actor's `preferredUsername`, sanitized via ``DisplayString`` — remote-controlled text
+    /// that ends up in UI.
     public let preferredUsername: String?
+    /// The actor's display `name`, sanitized via ``DisplayString`` for the same reason as
+    /// ``preferredUsername``.
     public let name: String?
     /// The `@name@host` (or `!name@host`) form the owner typed, sanitized for display.
     public let handle: String?
 
+    /// Memberwise initializer — public so tests and previews can build resolved actors without a
+    /// network round-trip; production values come from ``CommunityActorResolver/resolve(_:)``,
+    /// which is where the HTTPS and sanitization guarantees are enforced.
     public init(
         actorID: URL, outboxURL: URL?, type: String?, preferredUsername: String?, name: String?,
         handle: String?
@@ -33,13 +43,24 @@ public struct ResolvedCommunityActor: Sendable, Equatable {
     }
 }
 
+/// Failures from ``CommunityActorResolver``. `Equatable` so tests (and retry logic) can match on
+/// the exact failure rather than string-compare error dumps.
 public enum CommunityActorResolverError: Error, Equatable, Sendable {
+    /// The input parsed as neither a fediverse handle nor an http(s) URL.
     case invalidHandle
+    /// A URL somewhere in the chain (input, redirect landing, webfinger `self` link, or the
+    /// actor's own `id`) wasn't HTTPS — every IRI the join flow later addresses must be secure.
     case insecureURL
+    /// The webfinger endpoint answered outside 2xx. `body` is capped at the first 400 bytes —
+    /// enough to diagnose, without echoing an arbitrary remote payload into logs/UI.
     case webfingerFailed(status: Int, body: String)
     /// The webfinger response had no `rel: "self"` AS2 link to follow.
     case noActorLink
+    /// The actor-document fetch failed (non-2xx, transport error as status 0, or an injected
+    /// transport exceeding the byte cap). Same 400-byte body cap as ``webfingerFailed(status:body:)``.
     case requestFailed(status: Int, body: String)
+    /// A response wasn't the JSON shape expected; carries the underlying decoding error's
+    /// description (stringified so the case stays `Equatable`).
     case decodingFailed(String)
 }
 
@@ -50,6 +71,8 @@ public enum CommunityActorResolverError: Error, Equatable, Sendable {
 /// HTTPS-only and a byte cap, not the server-side SSRF guard `@dwk/activitypub`'s own resolver
 /// applies (that guard exists because *that* resolution runs inside a shared Cloudflare Worker).
 public struct CommunityActorResolver: Sendable {
+    /// Injection seam for tests — lets suites feed canned webfinger/actor responses without a
+    /// network. Production uses ``defaultTransport``, which enforces the byte cap mid-stream.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     /// Defense-in-depth for a caller-injected `Transport` that might not itself be capped — the
@@ -60,10 +83,20 @@ public struct CommunityActorResolver: Sendable {
 
     private let transport: Transport
 
+    /// Creates a resolver, defaulting to the capped HTTPS ``defaultTransport``; pass a custom
+    /// ``Transport`` only in tests (the post-fetch guards re-apply the byte cap either way).
     public init(transport: @escaping Transport = CommunityActorResolver.defaultTransport) {
         self.transport = transport
     }
 
+    /// Resolves owner input to a confirmed remote actor: a pasted `http(s)` URL is fetched
+    /// directly (skipping webfinger), anything else must parse as a handle and goes through
+    /// `/.well-known/webfinger` first. Either path ends in the same actor-document fetch, so the
+    /// resulting ``ResolvedCommunityActor`` carries the same guarantees (HTTPS-validated
+    /// `actorID`, sanitized display strings) regardless of how the input arrived.
+    ///
+    /// - Throws: ``CommunityActorResolverError`` for invalid input, an insecure URL at any hop,
+    ///   or a failed/oversized/undecodable response.
     public func resolve(_ input: String) async throws -> ResolvedCommunityActor {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         if let url = URL(string: trimmed), let scheme = url.scheme, url.host != nil,
@@ -203,6 +236,9 @@ public struct CommunityActorResolver: Sendable {
     private static let session = CappedHTTPTransport.session(
         requestTimeout: ActorProfileFetcher.timeout, resourceTimeout: ActorProfileFetcher.resourceTimeout)
 
+    /// Production transport: a shared `CappedHTTPTransport` session that aborts mid-stream once
+    /// ``maximumResponseBytes`` is exceeded — a hostile server can't make the app buffer an
+    /// unbounded body before the post-fetch size check runs.
     public static let defaultTransport: Transport = { request in
         try await CappedHTTPTransport.fetch(
             request, session: session, cap: ActorProfileFetcher.maximumResponseBytes,

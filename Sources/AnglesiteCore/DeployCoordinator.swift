@@ -18,6 +18,10 @@ public enum DeployCoordinator {
     /// baseline and the resolved `[WorkerDescriptor]`s `SocialWorkerProvisionCommand.provision`
     /// takes directly now that composition is descriptor-driven (#708).
     public struct WorkerActivationPlan: Sendable, Equatable {
+        /// The worker ids that will actually deploy — explicit user activations plus
+        /// content-triggered ones, per `WorkerActivation.effectiveActiveIDs`. The other three
+        /// fields are all derived from this set; it's carried alongside them because it also
+        /// becomes the *next* deploy's `lastDeployedWorkerIDs` baseline on success.
         public let effectiveActiveIDs: Set<String>
         /// Ids present in the previous deploy's baseline but not in `effectiveActiveIDs` — the
         /// caller decides whether/how to surface this (`DeployModel` logs it to the debug pane).
@@ -31,6 +35,9 @@ public enum DeployCoordinator {
         /// to the debug pane, mirroring `SiteOperations.deployWithWorkerComposition`).
         public let unresolvedIDs: Set<String>
 
+        /// Memberwise initializer — plans are normally produced by
+        /// ``DeployCoordinator/planWorkerActivation(siteID:siteDirectory:settings:catalog:contentGraph:)``;
+        /// this exists so tests can construct one directly.
         public init(
             effectiveActiveIDs: Set<String>, removedIDs: Set<String>,
             workers: [WorkerDescriptor], unresolvedIDs: Set<String>
@@ -78,13 +85,6 @@ public enum DeployCoordinator {
         )
     }
 
-    /// Worker-name resolution precedence (#740): prefer the site's already-established Worker name
-    /// (`.site-config`'s `CF_PROJECT_NAME`, set at the first successful deploy or by a
-    /// worker-name-conflict rename) over re-deriving one from the site's display name. Falling back
-    /// to re-derivation on every deploy would silently regenerate `wrangler.toml` under the
-    /// original (still-taken) name basis after a rename-and-retry, defeating the rename. Only a
-    /// genuinely first-ever deploy (no candidate name recorded yet) falls through to the derived
-    /// slug of `siteName ?? siteID`.
     /// The `LogCenter` source tags whose lines feed the Deploy drawer's visible/copyable log
     /// (`DeployModel.logLines`, filtered from the shared subscription by `sources.contains`).
     /// Must list every source a deploy-time subprocess can log under, or its output is silently
@@ -103,6 +103,13 @@ public enum DeployCoordinator {
         ["deploy:\(siteID)", "deploy:\(siteID):build", "worker-provision:\(siteID)"]
     }
 
+    /// Worker-name resolution precedence (#740): prefer the site's already-established Worker name
+    /// (`.site-config`'s `CF_PROJECT_NAME`, set at the first successful deploy or by a
+    /// worker-name-conflict rename) over re-deriving one from the site's display name. Falling back
+    /// to re-derivation on every deploy would silently regenerate `wrangler.toml` under the
+    /// original (still-taken) name basis after a rename-and-retry, defeating the rename. Only a
+    /// genuinely first-ever deploy (no candidate name recorded yet) falls through to the derived
+    /// slug of `siteName ?? siteID`.
     public static func resolveWorkerSiteName(siteDirectory: URL, siteID: String, siteName: String?) -> String {
         let existingConfig = (try? WebsiteAnalyticsAsset.loadConfig(siteDirectory: siteDirectory)) ?? ""
         return SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: existingConfig)

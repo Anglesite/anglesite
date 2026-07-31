@@ -5,6 +5,8 @@ import Foundation
 /// right after a successful `wrangler deploy` — best-effort, never turns a successful deploy into
 /// a failed one.
 public actor CustomDomainAttachCommand {
+    /// Outcome of one post-deploy attach attempt. Every case is deliberately non-fatal — the
+    /// deploy already succeeded, so callers report these, never fail on them.
     public enum Result: Sendable, Equatable {
         /// No transfer domain configured — nothing to do.
         case skipped
@@ -20,6 +22,8 @@ public actor CustomDomainAttachCommand {
 
     private let client: any CloudflareWriting
 
+    /// Creates the command. The default client talks to the live Cloudflare API; tests inject a
+    /// fake ``CloudflareWriting``.
     public init(client: any CloudflareWriting = HTTPCloudflareClient()) {
         self.client = client
     }

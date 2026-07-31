@@ -10,13 +10,19 @@ public enum ComponentStyleGrouping {
     /// prior write in the same gesture may have shifted byte offsets (same reason the previous
     /// flat rendering carried `ruleIndex` alongside each rule).
     public struct IndexedRule: Sendable, Equatable {
+        /// Position in the model's flat `styles` array — the value to hand back to
+        /// `ComponentEditorModel.ruleSpan(atIndex:)`, never an offset within this group.
         public let index: Int
+        /// The rule as parsed from the component source, unchanged by grouping.
         public let rule: ComponentModel.StyleRule
     }
 
     /// One media-scoped (or unscoped, `media == nil`) run of rules.
     public struct Group: Sendable, Equatable {
+        /// The `@media` condition shared by every rule in this group (the condition only, no
+        /// `@media` keyword), or `nil` for the base rules rendered outside any section header.
         public let media: String?
+        /// The group's rules in source order, each carrying its original flat index.
         public let rules: [IndexedRule]
     }
 

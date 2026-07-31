@@ -4,6 +4,8 @@ import Foundation
 /// non-gated. Facts-only framing follows `SiteGraphExplainPrompt`: the model reviews ONLY the
 /// provided page text and must quote excerpts verbatim so `CopyRewriteApplier` can find them.
 public enum CopyEditPrompt {
+    /// The 10-point review checklist, verbatim. Public so tests and any surface that explains
+    /// the audit to the user share the exact wording the model was actually given.
     public static let checklist = """
     1. Clarity — would a first-time visitor instantly understand what this page offers?
     2. Benefits over features — does the copy say what the visitor gets, not just what the business does?
@@ -17,6 +19,12 @@ public enum CopyEditPrompt {
     10. Mobile readability — any walls of text?
     """
 
+    /// Assembles the guided-generation prompt for one chunk: optional `preamble` (site-voice
+    /// guidance) first, then the checklist, framing rules, and the page text. The "quote
+    /// excerpts verbatim, character for character" demand is load-bearing — both
+    /// ``CopyRewriteApplier`` and ``CopyEditReportBuilder``'s hallucination filter match
+    /// excerpts by exact substring. Findings are capped at 5 per page to keep the review
+    /// high-impact rather than exhaustive.
     public static func build(chunk: ContentChunk, preamble: String?) -> String {
         var sections: [String] = []
         if let preamble { sections.append(preamble) }

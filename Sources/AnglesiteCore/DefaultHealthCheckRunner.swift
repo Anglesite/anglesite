@@ -14,6 +14,10 @@ public struct DefaultHealthCheckRunner: HealthCheckRunner {
     private let resolveBuildCommand: @Sendable (URL) -> DeployCommand.LaunchPlan
     private let preflight: DeployCommand.PreflightChecker
 
+    /// Every dependency is an injectable seam with a production default, so tests can drive a
+    /// full health run without spawning real processes; note the *build* default is
+    /// ``DeployCommand/resolveBuildCommand`` (which reports host-Node retirement), so a
+    /// default-constructed runner only works where a container runtime injects a real resolver.
     public init(
         supervisor: ProcessSupervisor = .shared,
         logCenter: LogCenter = .shared,
@@ -26,6 +30,10 @@ public struct DefaultHealthCheckRunner: HealthCheckRunner {
         self.preflight = preflight
     }
 
+    /// Builds the site, then scans the fresh `dist/` — the `HealthCheckRunner` requirement.
+    /// Any non-zero/terminated build throws `HealthRunnerError.build(_:)` with a human-readable
+    /// reason; a scan that ran but found problems is *not* a throw — it comes back as the
+    /// returned outcome, so the badge can render the remediation `PreDeployCheck` computed.
     public func run(siteID: String, siteDirectory: URL) async throws -> PreDeployCheck.Outcome {
         // 1. Build. Stream output under a health-namespaced source so the Debug pane
         //    can distinguish health rebuilds from deploy rebuilds.

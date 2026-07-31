@@ -52,7 +52,10 @@ public protocol ContentAssistant: Sendable {
 /// The situational context handed to a ``ContentAssistant`` for a single request: which site,
 /// where it lives on disk, what the user is currently looking at, and the conversation so far.
 public struct AssistantContext: Sendable {
+    /// Stable id of the site this request concerns.
     public let siteID: String
+    /// Root of the site's on-disk source, for backends that read files directly
+    /// (RAG enrichment, page lookups).
     public let siteDirectory: URL
     /// Route of the page currently shown in the preview pane, if any (e.g. `/about`).
     public let currentPageRoute: String?
@@ -69,6 +72,9 @@ public struct AssistantContext: Sendable {
     /// are considered during the pre-prompt enrichment search.
     public let searchOptions: SiteKnowledgeIndex.SearchOptions
 
+    /// Memberwise initializer. Everything beyond the site identity defaults to empty/absent, so
+    /// one-shot feature calls (alt text, summaries) stay terse while conversational callers layer
+    /// on history and selection.
     public init(
         siteID: String,
         siteDirectory: URL,
@@ -90,13 +96,23 @@ public struct AssistantContext: Sendable {
 
 /// One turn in a ``AssistantContext/conversationHistory``.
 public struct AssistantMessage: Sendable, Equatable {
+    /// Who produced this turn.
     public let role: Role
+    /// The turn's plain-text body.
     public let content: String
 
+    /// Speaker of a conversation turn — the conventional chat-completion role triple, so
+    /// history round-trips to any backend without translation.
     public enum Role: Sendable, Equatable {
-        case user, assistant, system
+        /// The site owner's message.
+        case user
+        /// A prior model reply.
+        case assistant
+        /// App-injected instructions or framing, not authored by the user.
+        case system
     }
 
+    /// Memberwise initializer.
     public init(role: Role, content: String) {
         self.role = role
         self.content = content
@@ -106,15 +122,23 @@ public struct AssistantMessage: Sendable, Equatable {
 /// Static capability descriptor for a ``ContentAssistant`` backend. Used to gate features
 /// (vision, tools) and route requests by tier.
 public struct AssistantCapabilities: Sendable, Equatable {
+    /// `true` when the backend delivers incremental chunks (vs. buffering a full reply into a
+    /// single yield).
     public let supportsStreaming: Bool
+    /// Whether the guided-generation path is available — callers gate structured features on
+    /// this, not on toolchain conditionals.
     public let supportsStructuredOutput: Bool
+    /// Whether the backend accepts image input.
     public let supportsVision: Bool
+    /// Whether the backend can invoke tools during generation.
     public let supportsTools: Bool
     /// Maximum input context window in tokens, or `nil` when the backend doesn't expose one.
     public let maxContextTokens: Int?
     /// Human-readable provider label, e.g. "On-Device" or "Private Cloud Compute".
     public let providerName: String
 
+    /// Memberwise initializer. Every field is required — a new backend must decide each
+    /// capability explicitly rather than inheriting silent defaults.
     public init(
         supportsStreaming: Bool,
         supportsStructuredOutput: Bool,

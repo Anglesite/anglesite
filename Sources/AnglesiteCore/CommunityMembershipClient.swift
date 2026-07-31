@@ -3,8 +3,16 @@ import Foundation
 import FoundationNetworking
 #endif
 
+/// Failures from ``CommunityMembershipClient``'s outbox POSTs. `Equatable` so tests can assert
+/// on the exact failure rather than string-compare error dumps.
 public enum CommunityMembershipError: Error, Equatable, Sendable {
+    /// The outbox POST failed — non-2xx from the Worker, or a transport error (reported as
+    /// status 0). `body` is capped at the first 400 bytes, enough to diagnose without echoing an
+    /// arbitrary payload into logs/UI.
     case requestFailed(status: Int, body: String)
+    /// Reserved for a response body that can't be interpreted; currently unused because
+    /// ``CommunityMembershipClient/follow(target:)`` degrades gracefully when the outbox reply
+    /// carries no activity id instead of failing.
     case decodingFailed(String)
 }
 
@@ -16,6 +24,8 @@ public enum CommunityMembershipError: Error, Equatable, Sendable {
 /// federated delivery), so — unlike `CommunityActorResolver` — there is no HTTPS/size-cap guard
 /// on this client itself; the target IRI it's given already passed through that resolver.
 public struct CommunityMembershipClient: Sendable {
+    /// Injection seam for tests — lets suites capture the outbox request and feed canned
+    /// responses without a network. Production uses ``defaultTransport``.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     private let outboxURL: URL
@@ -23,6 +33,15 @@ public struct CommunityMembershipClient: Sendable {
     private let publishToken: String
     private let transport: Transport
 
+    /// Creates a client for one site's own actor. The outbox endpoint isn't a parameter — it's
+    /// derived as `ownActorURL/outbox`, the shape `@dwk/activitypub` guarantees, so a caller
+    /// can't accidentally point the bearer-authenticated POST at some other endpoint.
+    ///
+    /// - Parameters:
+    ///   - ownActorURL: This site's own actor IRI (the `actor` in every activity posted).
+    ///   - publishToken: The owner-gated bearer token the Worker's outbox requires — the same
+    ///     credential `ActivityPubOutboxBackfill` uses.
+    ///   - transport: Test seam; defaults to ``defaultTransport``.
     public init(
         ownActorURL: URL, publishToken: String,
         transport: @escaping Transport = CommunityMembershipClient.defaultTransport
@@ -92,6 +111,9 @@ public struct CommunityMembershipClient: Sendable {
         return json["id"] as? String
     }
 
+    /// Production transport: plain `URLSession.shared`, deliberately *without* the byte-cap
+    /// wrapper the read-side clients use — the responder here is this site's own trusted Worker,
+    /// not an arbitrary remote instance (see the type-level doc).
     public static let defaultTransport: Transport = { request in
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }

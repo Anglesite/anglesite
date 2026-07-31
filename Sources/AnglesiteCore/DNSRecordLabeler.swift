@@ -3,6 +3,9 @@
 /// step. Order matters: more specific rules (DMARC/SPF/Bluesky) are checked before the generic
 /// TXT fallback.
 public enum DNSRecordLabeler {
+    /// The plain-English purpose label for `record`. Matching is case-insensitive across type,
+    /// name, and content; anything unrecognized becomes `"Other"` rather than surfacing a raw
+    /// record type at an owner who came here to publish a website, not to learn DNS.
     public static func label(for record: DNSRecord) -> String {
         let type = record.type.uppercased()
         let name = record.name.lowercased()

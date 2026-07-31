@@ -30,7 +30,12 @@ import Foundation
 /// executor wraps its `waitForExit` in a cancellation handler that SIGTERMs the in-flight
 /// subprocess), so a cancelled build/wrangler is actually killed rather than orphaned.
 public actor DeployCommand {
+    /// Terminal outcome of one `deploy(...)` call. Every failure mode is a case, not a thrown
+    /// error — `deploy` never throws, so UI callers switch exhaustively over this instead of
+    /// also maintaining a separate error path.
     public enum Result: Sendable, Equatable {
+        /// Wrangler exited 0 and a deployed URL was parsed from its output. `duration` covers
+        /// the wrangler step only — build and preflight time are excluded.
         case succeeded(url: URL, duration: TimeInterval)
         /// The pre-deploy security scan refused the deploy. Carries the structured
         /// failures (and any warnings) so the UI can render a sheet with no override.
@@ -49,10 +54,17 @@ public actor DeployCommand {
 
     /// How to run a subprocess for a site directory — or why it can't be run.
     public enum LaunchPlan: Sendable, Equatable {
+        /// Spawn `executable` with `arguments` (the caller supplies cwd and environment).
         case run(executable: URL, arguments: [String])
+        /// The command can't run at all in this configuration; `reason` is user-facing text
+        /// (e.g. `HostNodeRetirement`'s explanation) surfaced instead of a spawn attempt.
         case unavailable(reason: String)
     }
 
+    /// Maps a site directory to how — or whether — a deploy-related subprocess can run there.
+    /// The host-side defaults on this type (`resolveBuildCommand`, `resolveWranglerCommand`) all
+    /// return `.unavailable` since embedded Node was retired; container runtimes inject real
+    /// resolvers.
     public typealias CommandResolver = @Sendable (_ siteDirectory: URL) -> LaunchPlan
     /// Returns the Cloudflare API token, or `nil` if none is configured. Production callers use
     /// `DeployCommand.keychainTokenSource` (Keychain with an env-var fallback for development);
@@ -78,6 +90,10 @@ public actor DeployCommand {
     /// inject a fake list or a throwing closure.
     public typealias WorkerScriptNamesSource = @Sendable (_ apiToken: String) async throws -> [String]
 
+    /// The token seam this command was constructed with. Exposed so `DeployModel.runDeploy` can
+    /// forward the exact same seam into companion commands (e.g. `SocialWorkerProvisionCommand`)
+    /// instead of letting them silently default to the production implementation and diverge
+    /// from a test's injected fake — see `workerScriptNamesSource` below for the full rationale.
     public nonisolated let tokenSource: TokenSource
     /// Exposed (like `tokenSource`) so callers that build a parallel `SocialWorkerProvisionCommand`
     /// alongside this `DeployCommand` — `DeployModel.runDeploy` — can forward the exact same seam
@@ -90,6 +106,10 @@ public actor DeployCommand {
     public nonisolated let customDomainAttachCommand: CustomDomainAttachCommand
     private let executor: any DeployExecutor
 
+    /// All four dependencies are injectable seams with production defaults, so tests can drive a
+    /// full deploy — token gate, name-conflict check, every step — with a literal token, a
+    /// canned script-name list, and a scripted executor, never touching the network or spawning
+    /// a process.
     public init(
         tokenSource: @escaping TokenSource = DeployCommand.keychainTokenSource,
         workerScriptNamesSource: @escaping WorkerScriptNamesSource = DeployCommand.defaultWorkerScriptNames,

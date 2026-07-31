@@ -11,6 +11,9 @@ public struct ContainerCommandRunner: Sendable {
     private let siteID: String
     private let logCenter: LogCenter
 
+    /// Creates a runner bound to `siteID`'s already-running container. Every line of command
+    /// output streams into `logCenter` (default: the shared debug-pane log — logs are sacred,
+    /// so provisioning output is never dropped even though callers only see the final result).
     public init(control: any LocalContainerControl, siteID: String, logCenter: LogCenter = .shared) {
         self.control = control
         self.siteID = siteID

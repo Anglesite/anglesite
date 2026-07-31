@@ -35,11 +35,17 @@ public enum AssistantEvent: Sendable, Equatable {
 /// Cache-specific token fields are intentionally omitted here; callers that need backend-specific
 /// telemetry should read the concrete backend directly.
 public struct AssistantUsage: Sendable, Equatable {
+    /// Prompt tokens consumed this turn.
     public let inputTokens: Int
+    /// Completion tokens produced this turn.
     public let outputTokens: Int
+    /// Estimated cost in US dollars, or `nil` for backends with no metering (e.g. on-device).
     public let costUSD: Double?
+    /// Wall-clock turn duration in milliseconds, if the backend reports one.
     public let durationMs: Int?
 
+    /// Creates a usage record. Cost and duration default to `nil` since not every backend
+    /// reports them (see the type doc for what's deliberately omitted).
     public init(inputTokens: Int, outputTokens: Int, costUSD: Double? = nil, durationMs: Int? = nil) {
         self.inputTokens = inputTokens
         self.outputTokens = outputTokens
@@ -51,6 +57,9 @@ public struct AssistantUsage: Sendable, Equatable {
 /// Errors thrown by a ``ContentAssistant`` when a requested capability isn't supported by the
 /// backend (for example, not every backend can do FoundationModels guided generation).
 public enum AssistantError: Error, Sendable, Equatable {
+    /// The backend can't perform the requested capability; the associated message names what
+    /// was asked for. Callers should have consulted ``ContentAssistant/capabilities`` first —
+    /// this is the backstop, not the routing mechanism.
     case unsupported(String)
     /// Thrown by ``ContentAssistant/generate(prompt:context:)`` when the underlying stream produces
     /// a `.failed` event — i.e. the backend reported an in-band error that `generate()` cannot yield
