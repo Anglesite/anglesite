@@ -43,6 +43,14 @@ struct LanguagePicker: View {
     var allowsInherit: Bool = false
     var siteDefaultTag: String = ""
 
+    /// Breaks the tie between "inherit" and "Other selected but nothing typed yet" — both are an
+    /// empty `tag` when `allowsInherit` is true. Without this, choosing "Other…" from a fresh
+    /// `tag == ""` (the "Use site default" state) would immediately re-collapse back to
+    /// `.inherit` on the next render, making "Other…" unreachable whenever `allowsInherit` is
+    /// true. Selecting `.inherit` or a curated `.common` language always clears this back to
+    /// `false` — it's not sticky beyond the current "Other…" excursion.
+    @State private var manualOtherSelected = false
+
     private enum Selection: Hashable {
         case inherit
         case common(CommonLanguage)
@@ -50,6 +58,7 @@ struct LanguagePicker: View {
     }
 
     private var selection: Selection {
+        if manualOtherSelected { return .other }
         if tag.isEmpty { return allowsInherit ? .inherit : .other }
         if let common = CommonLanguage(rawValue: tag) { return .common(common) }
         return .other
@@ -83,13 +92,17 @@ struct LanguagePicker: View {
             set: { newValue in
                 switch newValue {
                 case .inherit:
+                    manualOtherSelected = false
                     tag = ""
                 case .common(let language):
+                    manualOtherSelected = false
                     tag = language.rawValue
                 case .other:
+                    manualOtherSelected = true
                     // Only clear when leaving a curated selection — leaves an in-progress
-                    // freeform edit alone if the user is already on "Other…".
-                    if CommonLanguage(rawValue: tag) != nil || (tag.isEmpty && !allowsInherit) {
+                    // freeform edit alone if the user is already on "Other…" (including the
+                    // inherit → Other transition, where `tag` is already "").
+                    if CommonLanguage(rawValue: tag) != nil {
                         tag = ""
                     }
                 }
