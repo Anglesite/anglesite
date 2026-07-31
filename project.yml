@@ -85,7 +85,8 @@ targets:
     # Debug signing (CODE_SIGN_STYLE/IDENTITY/TEAM) comes from xcconfig/Signing-Debug.xcconfig
     # instead of inline settings below, so a personal Team set via Xcode's Signing &
     # Capabilities tab can persist across `xcodegen generate` — see that file for how to
-    # override it locally without editing this tracked config.
+    # override it locally without editing this tracked config. The same file also carries
+    # ANGLESITE_DEBUG_ENTITLEMENTS (#1038), which CODE_SIGN_ENTITLEMENTS below reads.
     configFiles:
       Debug: xcconfig/Signing-Debug.xcconfig
     settings:
@@ -118,7 +119,11 @@ targets:
           # #775 workaround: punch the com.apple.NetworkSharing mach look-up back
           # through the sandbox so container boots survive macOS 27 seeds
           # 26A5378n–26A5388g. Debug-only — never ships to MAS.
-          CODE_SIGN_ENTITLEMENTS: Resources/Anglesite-Debug.entitlements
+          # Indirected through an xcconfig variable (#1038, defaults to
+          # Resources/Anglesite-Debug.entitlements) rather than a literal path here, so
+          # xcconfig/Signing-Debug.local.xcconfig can opt a real-Team local build into
+          # Resources/Anglesite-Debug-iCloud.entitlements without editing this tracked file.
+          CODE_SIGN_ENTITLEMENTS: $(ANGLESITE_DEBUG_ENTITLEMENTS)
         Release:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: "Apple Distribution"
