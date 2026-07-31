@@ -114,12 +114,56 @@ function interactionContentFallback(collection: string, data: Record<string, any
   return `<a href="${escaped}">${escaped}</a>`;
 }
 
+/** Resolve a possibly root-relative path against the site origin; already-absolute URLs,
+ * protocol-relative URLs, and fragments pass through unchanged. Mirrors the `new URL(path, site)`
+ * pattern used elsewhere in the template (`schema.ts`'s `abs()`, `sitemap.ts`) for turning a
+ * content field's root-relative path into a URL usable outside the site's own pages. */
+function absolutizeUrl(pathOrUrl: string, site: string): string {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(pathOrUrl) || pathOrUrl.startsWith("//") || pathOrUrl.startsWith("#")) {
+    return pathOrUrl;
+  }
+  try {
+    return new URL(pathOrUrl, site).href;
+  } catch {
+    return pathOrUrl;
+  }
+}
+
+/**
+ * Rewrite every `src="…"`/`href="…"` attribute in a fragment of rendered markdown HTML to an
+ * absolute URL against `site`. A note or article body can write `![](/images/x.png)` or
+ * `[text](/about/)` — fine when the page itself is served from the site, but feed content
+ * travels into a reader with no notion of "relative to this site", so a relative URL there is
+ * simply broken (#1043).
+ */
+export function absolutizeHtmlUrls(html: string, site: string): string {
+  return html.replace(/\b(src|href)="([^"]*)"/g, (match, attr, value) =>
+    value ? `${attr}="${absolutizeUrl(value, site)}"` : match,
+  );
+}
+
+/**
+ * The `<img>` tag prepended to a photo entry's `contentHtml` (#1043) — without it, a body-less
+ * photo post syndicates as bare caption text and the photo itself never reaches the feed.
+ * `data.image` is the photos schema's root-relative path (`content.config.ts`); absolutized the
+ * same way a body's relative URLs are, since a feed reader has no site context to resolve it
+ * against.
+ */
+export function photoImageHtml(data: Record<string, any>, site: string): string {
+  const image = typeof data.image === "string" && data.image.length > 0 ? data.image : undefined;
+  if (!image) return "";
+  const alt = typeof data.caption === "string" ? data.caption : "";
+  return `<img src="${escapeXml(absolutizeUrl(image, site))}" alt="${escapeXml(alt)}">`;
+}
+
 /**
  * Build a `FeedItem` from a content entry. `contentHtml` is the entry body already rendered to
  * HTML — rendering is async (`createMarkdownProcessor`) and lives in `feed-data.ts`, so it's
  * computed by the caller and passed in rather than made here, keeping this function synchronous
  * and easy to unit test. When the rendered body is empty, likes/replies/bookmarks fall back to
  * a link to their target URL (`interactionContentFallback`) rather than shipping empty content.
+ * Relative URLs inside the rendered body are absolutized, and a photo entry gets its image
+ * prepended, regardless of whether it had a body (#1043).
  */
 export function toFeedItem(
   collection: string,
@@ -138,12 +182,15 @@ export function toFeedItem(
   }
   const summary = (entry.data.summary ?? entry.data.caption ?? excerpt(entry.body, 280)) || "";
   const tags = Array.isArray(entry.data.tags) && entry.data.tags.length > 0 ? entry.data.tags : undefined;
+  const absolutized = contentHtml ? absolutizeHtmlUrls(contentHtml, site) : contentHtml;
+  const body = absolutized || interactionContentFallback(collection, entry.data);
+  const withImage = collection === "photos" ? photoImageHtml(entry.data, site) + body : body;
   return {
     title: cfg.deriveTitle(entry) || undefined,
     link: new URL(`/${collection}/${entry.id}/`, site).href,
     date,
     summary: String(summary),
-    contentHtml: contentHtml || interactionContentFallback(collection, entry.data),
+    contentHtml: withImage,
     tags,
   };
 }
@@ -230,6 +277,9 @@ export function renderAtom(o: {
     .map((i) => {
       // One <category term="…"/> per tag; entries without tags emit none.
       const categories = (i.tags ?? []).map((t) => `    <category term="${escapeXml(t)}"/>\n`).join("");
+      // <summary> is optional in Atom (RFC 4287); an empty one is noise, not signal, so omit the
+      // element entirely rather than emitting `<summary></summary>`.
+      const summaryXml = i.summary ? `    <summary>${escapeXml(i.summary)}</summary>\n` : "";
       // Known limitation: <id> uses the permalink rather than a permanent tag: IRI (RFC 4287
       // §4.2.6). Renaming a slug therefore reads as a new entry in readers that saw the old URL.
       // This matches most simple RSS libraries; a stable tag: URI is a future improvement.
@@ -240,8 +290,7 @@ export function renderAtom(o: {
     <link href="${escapeXml(i.link)}"/>
     <id>${escapeXml(i.link)}</id>
     <updated>${i.date.toISOString()}</updated>
-${categories}    <summary>${escapeXml(i.summary)}</summary>
-    <content type="html">${escapeXml(i.contentHtml)}</content>
+${categories}${summaryXml}    <content type="html">${escapeXml(i.contentHtml)}</content>
   </entry>`;
     })
     .join("\n");
@@ -289,7 +338,10 @@ export function renderJsonFeed(o: {
       // Undefined `title` is dropped by JSON.stringify below, matching JSON Feed's "title is
       // optional" contract for items with no natural title.
       title: i.title,
-      summary: i.summary,
+      // An empty summary is noise, not signal — omit the key entirely rather than emitting
+      // `"summary": ""`. Unlike `title` above, JSON.stringify only drops `undefined`, not an
+      // empty *string*, so this needs an explicit conditional spread.
+      ...(i.summary ? { summary: i.summary } : {}),
       // JSON Feed 1.1 requires content_html or content_text on every item; fall back to the
       // short summary when the body was empty. `i.summary` is plain text, but `content_html` is
       // parsed as HTML by every consumer, so it needs HTML-escaping when it stands in for

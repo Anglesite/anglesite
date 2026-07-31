@@ -39,9 +39,7 @@ const human = item.date.toLocaleDateString("en-US", {
         {item.image && <img class="u-photo" src={item.image} alt={item.caption ?? ""} />}
         {(item.summary ?? item.caption) && <p class="p-summary">{item.summary ?? item.caption}</p>}
         <div class="e-content">
-          {item.hasBody ? (
-            <Content />
-          ) : item.targetUrl && item.targetClass ? (
+          {!item.hasBody && item.targetUrl && item.targetClass ? (
             <a class={item.targetClass} href={item.targetUrl}>{item.targetUrl}</a>
           ) : (
             <Content />

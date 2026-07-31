@@ -9,6 +9,8 @@ import {
   renderAtom,
   renderJsonFeed,
   websubHub,
+  absolutizeHtmlUrls,
+  photoImageHtml,
   type FeedEntry,
 } from "./feeds.ts";
 
@@ -689,4 +691,138 @@ test("renderJsonFeed emits a WebSub hubs array only when a hub URL is given", as
 
   const withoutHub = renderJsonFeed({ title: "All", site: SITE, feedUrl: `${SITE}/feed.json`, items: [] });
   assert.equal(JSON.parse(await withoutHub.text()).hubs, undefined);
+});
+
+// --- Feed content fidelity: photo image, absolute URLs, empty summaries (#1043) --------------
+
+test("photoImageHtml builds an absolutized, escaped <img> from data.image and data.caption", () => {
+  const html = photoImageHtml({ image: "/images/sunset.jpg", caption: "Sunset & bay" }, SITE);
+  assert.equal(html, `<img src="https://example.com/images/sunset.jpg" alt="Sunset &amp; bay">`);
+});
+
+test("photoImageHtml omits alt when there is no caption, and returns empty string with no image", () => {
+  assert.equal(photoImageHtml({ image: "/images/sunset.jpg" }, SITE), `<img src="https://example.com/images/sunset.jpg" alt="">`);
+  assert.equal(photoImageHtml({ caption: "no image field" }, SITE), "");
+});
+
+test("photoImageHtml leaves an already-absolute image URL unchanged", () => {
+  const html = photoImageHtml({ image: "https://cdn.example.com/sunset.jpg" }, SITE);
+  assert.equal(html, `<img src="https://cdn.example.com/sunset.jpg" alt="">`);
+});
+
+test("toFeedItem prepends the photo's image to contentHtml even when the entry has no body", () => {
+  const item = toFeedItem(
+    "photos",
+    entry("photos", { image: "/images/sunset.jpg", caption: "Sunset over the bay", publishDate: "2026-01-02" }),
+    SITE,
+    "<p>Sunset over the bay</p>",
+  );
+  assert.equal(
+    item.contentHtml,
+    `<img src="https://example.com/images/sunset.jpg" alt="Sunset over the bay"><p>Sunset over the bay</p>`,
+  );
+});
+
+test("toFeedItem prepends the photo's image even when the entry has a rendered body", () => {
+  const item = toFeedItem(
+    "photos",
+    entry("photos", { image: "/images/sunset.jpg", publishDate: "2026-01-02" }, "Some commentary."),
+    SITE,
+    "<p>Some commentary.</p>",
+  );
+  assert.equal(item.contentHtml, `<img src="https://example.com/images/sunset.jpg" alt=""><p>Some commentary.</p>`);
+});
+
+test("toFeedItem leaves a photo's contentHtml untouched when it has no image field", () => {
+  const item = toFeedItem(
+    "photos",
+    entry("photos", { caption: "No image field", publishDate: "2026-01-02" }),
+    SITE,
+    "<p>No image field</p>",
+  );
+  assert.equal(item.contentHtml, "<p>No image field</p>");
+});
+
+test("absolutizeHtmlUrls resolves relative src/href against the site origin", () => {
+  const html = absolutizeHtmlUrls(
+    `<p><img src="/images/x.png" alt=""></p><p><a href="/about/">about</a></p>`,
+    SITE,
+  );
+  assert.equal(
+    html,
+    `<p><img src="https://example.com/images/x.png" alt=""></p><p><a href="https://example.com/about/">about</a></p>`,
+  );
+});
+
+test("absolutizeHtmlUrls leaves already-absolute, protocol-relative, fragment, and mailto URLs unchanged", () => {
+  const html = absolutizeHtmlUrls(
+    `<a href="https://other.example/x">x</a>` +
+      `<img src="//cdn.example.com/y.png">` +
+      `<a href="#section">s</a>` +
+      `<a href="mailto:me@example.com">m</a>`,
+    SITE,
+  );
+  assert.equal(
+    html,
+    `<a href="https://other.example/x">x</a>` +
+      `<img src="//cdn.example.com/y.png">` +
+      `<a href="#section">s</a>` +
+      `<a href="mailto:me@example.com">m</a>`,
+  );
+});
+
+test("toFeedItem absolutizes relative URLs inside a note's rendered body", () => {
+  const item = toFeedItem(
+    "notes",
+    entry("notes", { publishDate: "2026-01-02" }, "See ![](/images/x.png) and [about](/about/)."),
+    SITE,
+    `<p>See <img src="/images/x.png" alt=""> and <a href="/about/">about</a>.</p>`,
+  );
+  assert.equal(
+    item.contentHtml,
+    `<p>See <img src="https://example.com/images/x.png" alt=""> and <a href="https://example.com/about/">about</a>.</p>`,
+  );
+});
+
+test("renderJsonFeed omits the summary key entirely for an empty summary, and includes it when present", async () => {
+  const res = await renderJsonFeed({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/feed.json`,
+    items: [
+      { title: "A", link: `${SITE}/blog/a/`, date: new Date("2026-01-02"), summary: "", contentHtml: "<p>hi</p>" },
+      { title: "B", link: `${SITE}/blog/b/`, date: new Date("2026-01-02"), summary: "hi", contentHtml: "<p>hi</p>" },
+    ],
+  });
+  const feed = JSON.parse(await res.text());
+  assert.equal("summary" in feed.items[0], false);
+  assert.equal(feed.items[1].summary, "hi");
+});
+
+test("renderAtom omits the <summary> element entirely for an empty summary, and includes it when present", async () => {
+  const xml = await renderAtom({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/atom.xml`,
+    items: [
+      { title: "A", link: `${SITE}/blog/a/`, date: new Date("2026-01-02"), summary: "", contentHtml: "<p>hi</p>" },
+      { title: "B", link: `${SITE}/blog/b/`, date: new Date("2026-01-02"), summary: "hi", contentHtml: "<p>hi</p>" },
+    ],
+  }).text();
+  const entries = xml.split("<entry>");
+  assert.doesNotMatch(entries[1], /<summary>/);
+  assert.match(entries[2], /<summary>hi<\/summary>/);
+});
+
+test("renderJsonFeed omits the url key from an author with no url (JSON.stringify drops undefined)", async () => {
+  const res = await renderJsonFeed({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/feed.json`,
+    items: [],
+    author: { name: "Ada Lovelace" },
+  });
+  const feed = JSON.parse(await res.text());
+  assert.deepEqual(feed.authors, [{ name: "Ada Lovelace" }]);
+  assert.equal("url" in feed.authors[0], false);
 });
