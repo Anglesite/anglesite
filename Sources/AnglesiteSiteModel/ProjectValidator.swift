@@ -22,10 +22,15 @@ import Foundation
 /// UI can surface an otherwise-valid site's missing optional markers). `Result.missingRequired`
 /// is the subset the UI uses to decide blocker vs. nice-to-have.
 public enum ProjectValidator {
+    /// Sentinels that must all be present for a directory to count as an Anglesite project
+    /// (the "required" tier described above).
     public static let requiredSentinels: [String] = [
         ".site-config",
         "astro.config.ts"
     ]
+    /// Optional integration markers (the "recommended" tier described above). Currently empty;
+    /// the tier is retained so future integrations can surface nice-to-haves without becoming
+    /// blockers.
     public static let recommendedSentinels: [String] = []
     /// Union of required + recommended — the full set a caller can check without caring about the
     /// tier split. No production code depends on it today (`SiteStore` validates via `validate`'s
@@ -33,15 +38,22 @@ public enum ProjectValidator {
     /// While `recommendedSentinels` is empty this equals `requiredSentinels`.
     public static let sentinels: [String] = requiredSentinels + recommendedSentinels
 
+    /// The outcome of validating one directory: which sentinels are missing, split by tier so
+    /// the UI can distinguish blockers from nice-to-haves.
     public struct Result: Sendable, Equatable {
+        /// The directory that was validated.
         public let directory: URL
         /// Every sentinel that's missing — required + recommended. Drives the sidebar caption.
         public let missing: [String]
         /// The subset of `missing` that's actually required. `isValid` is `missingRequired.isEmpty`.
         public let missingRequired: [String]
 
+        /// `true` when every **required** sentinel is present — missing recommended sentinels
+        /// don't invalidate a project.
         public var isValid: Bool { missingRequired.isEmpty }
 
+        /// Memberwise initializer, public so tests and previews can construct fixture results;
+        /// production code gets a `Result` from ``ProjectValidator/validate(_:fileManager:)``.
         public init(directory: URL, missing: [String], missingRequired: [String]) {
             self.directory = directory
             self.missing = missing

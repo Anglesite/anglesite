@@ -21,8 +21,12 @@ import AnglesiteCore
 /// 4. `anglesite:computed-styles` (a `ComputedStylesReport`) — dispatched to the optional
 ///    `onComputedStyles` callback, posted alongside a canvas selection. No reply.
 public enum AnglesiteMessageDispatcher {
+    /// Receives the decoded elements of an `anglesite:visible-elements` report (message type 2
+    /// above). Async so implementations can hop to their model's actor; no reply flows back.
     public typealias VisibleElementsHandler = @Sendable ([VisibleElement]) async -> Void
+    /// Receives a decoded `anglesite:canvas-selection` message (message type 3 above).
     public typealias CanvasSelectionHandler = @Sendable (CanvasSelectionMessage) async -> Void
+    /// Receives a decoded `anglesite:computed-styles` report (message type 4 above).
     public typealias ComputedStylesHandler = @Sendable (ComputedStylesReport) async -> Void
 
     /// The `WKUserContentController`/`WebKitUserContentManager`/WebView2 script-message name
@@ -51,14 +55,25 @@ public enum AnglesiteMessageDispatcher {
         /// Body was undecodable. Log and move on.
         case rejected(RejectionReason)
 
+        /// Why a message body couldn't be dispatched. The envelope-level cases come first
+        /// (the body never made it past the `type` peek); the `*Decode` cases carry the typed
+        /// decoder error for a body whose `type` matched a known message.
         public enum RejectionReason: Sendable, Equatable {
+            /// The body wasn't a dictionary at all.
             case notAnObject
+            /// The body has no `type` field.
             case missingType
+            /// The `type` field isn't a string.
             case wrongType
+            /// The `type` string doesn't name any known message; carries the unrecognized value.
             case unknownType(String)
+            /// `anglesite:apply-edit` matched but the payload failed `EditMessage.decode`.
             case editDecode(EditMessage.DecodeError)
+            /// `anglesite:visible-elements` matched but the payload failed to decode.
             case visibleElementsDecode(VisibleElementReport.DecodeError)
+            /// `anglesite:canvas-selection` matched but the payload failed to decode.
             case canvasSelectionDecode(ComponentCanvasDecodeError)
+            /// `anglesite:computed-styles` matched but the payload failed to decode.
             case computedStylesDecode(ComponentCanvasDecodeError)
         }
     }

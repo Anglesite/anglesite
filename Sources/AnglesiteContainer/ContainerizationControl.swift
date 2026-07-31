@@ -44,10 +44,33 @@ public struct ContainerizationControl: LocalContainerControl {
     /// Guest mountpoint for the read-only virtio-fs share of the host `Source/` repo (see `start()` step 3).
     private static let repoSharePath = "/run/anglesite-source"
 
+    /// - Parameter imageLayoutURL: Explicit OCI layout to boot from, for tests and the container
+    ///   probe; `nil` (the default) defers resolution to `BundledImage.layoutURL()` at `start()`
+    ///   time so construction itself can never fail.
     public init(imageLayoutURL: URL? = nil) {
         self.imageLayoutURLOverride = imageLayoutURL
     }
 
+    /// Boots the site's container VM end-to-end and returns once the preview is actually serving.
+    ///
+    /// The steps (numbered in the body): boot a bare Linux container with the host repo shared
+    /// read-only over virtio-fs, hydrate `/workspace/site` by cloning that share at `ref`, launch
+    /// `astro dev` + the MCP sidecar + the guest vsock bridges, stand up host-side
+    /// `VsockTCPProxy` listeners for both, and poll the preview URL until it answers. Every
+    /// failure path tears down whatever had started — a failed `start` never leaks a running VM.
+    ///
+    /// - Parameters:
+    ///   - siteID: Stable key for the container and its staged ext4 artifacts; also the handle
+    ///     `stop(siteID:)` tears down.
+    ///   - sourceRepo: The host `Source/` repo (or its resolved split-repo gitdir) to share and
+    ///     clone from.
+    ///   - ref: Branch or SHA to check out in the guest clone (two-step clone+checkout because
+    ///     `git clone --branch` rejects bare SHAs).
+    ///   - onOutput: Receives every guest process line and proxy event — the only visibility into
+    ///     the guest during boot (logs are sacred).
+    /// - Returns: The session carrying the host-side preview and MCP URLs.
+    /// - Throws: `LocalContainerError` classifying the failed stage (`.bootFailed`,
+    ///   `.cloneFailed`, …), or a `BundledImageError` when provisioning is incomplete.
     public func start(
         siteID: String,
         sourceRepo: URL,
@@ -191,6 +214,8 @@ public struct ContainerizationControl: LocalContainerControl {
         return LocalContainerSession(previewURL: previewURL, mcpURL: mcpURL)
     }
 
+    /// Tears down the site's container, proxies, and staged ext4 artifacts, then releases its
+    /// vmnet interface. Idempotent: stopping an unknown or already-stopped `siteID` is a no-op.
     public func stop(siteID: String) async throws {
         await live.teardown(siteID: siteID)
         await network.release(siteID: siteID)
@@ -217,8 +242,14 @@ public struct ContainerizationControl: LocalContainerControl {
     }
 
     /// See `LocalContainerControl.startWorkersDev` for the full contract.
-    /// - Parameter onState: Receives supervisor lifecycle transitions (#699); see
-    ///   `LocalContainerControl`'s 4-parameter requirement.
+    /// - Parameters:
+    ///   - siteID: The site whose container hosts the session — must already have a live
+    ///     container from `start(siteID:sourceRepo:ref:onOutput:)`, else this throws.
+    ///   - workers: The effective active `@dwk/workers` catalog descriptors composed into the
+    ///     ephemeral guest-side wrangler.toml.
+    ///   - onOutput: Receives every wrangler-dev/bridge output line (logs are sacred).
+    ///   - onState: Receives supervisor lifecycle transitions (#699); see
+    ///     `LocalContainerControl`'s 4-parameter requirement.
     public func startWorkersDev(
         siteID: String,
         workers: [WorkerDescriptor],

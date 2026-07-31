@@ -18,14 +18,20 @@ public struct AnglesitePackage: Sendable, Equatable {
     /// The package directory (`…/Name.anglesite`).
     public let url: URL
 
+    /// Wraps the package directory at `url` without touching disk — existence and marker
+    /// validity are checked separately (``isPackage(at:fileManager:)``, ``readMarker(fileManager:)``)
+    /// so callers can represent a package that is about to be created.
     public init(url: URL) {
         self.url = url
     }
 
     // MARK: - Layout
 
+    /// The identity marker plist at the package root (see ``Marker``).
     public var infoPlistURL: URL { url.appendingPathComponent("Info.plist", isDirectory: false) }
+    /// The externally-editable Astro project — the git-tracked, clonable unit (#72).
     public var sourceURL: URL { url.appendingPathComponent("Source", isDirectory: true) }
+    /// App-owned per-site state (settings, chat history, caches) — never part of the git repo.
     public var configURL: URL { url.appendingPathComponent("Config", isDirectory: true) }
 
     /// App-owned sync state, inside `Config/` (never in the `Source/` git repo).
@@ -78,11 +84,25 @@ public struct AnglesitePackage: Sendable, Equatable {
         // Identity + provenance are immutable: the point of the UUID redesign is that a package's
         // identity never changes after creation. Only `displayName` has a legitimate reason to
         // change (a rename), so it stays `var`.
+
+        /// The on-disk layout version this marker was written with (see
+        /// ``AnglesitePackage/currentFormatVersion``).
         public let formatVersion: Int
+        /// The package's stable, path-independent identity — moving or renaming the package
+        /// keeps the same site.
         public let siteID: UUID
+        /// The user-visible site name. The only mutable field: a rename must not mint a new
+        /// identity.
         public var displayName: String
+        /// When the package was created. Whole-second granularity (see `init`).
         public let createdDate: Date
 
+        /// Creates a marker, minting a fresh identity by default — pass explicit values only
+        /// when re-encoding an existing marker.
+        ///
+        /// `createdDate` is truncated to a whole second so an in-memory marker compares equal
+        /// to the one decoded back from `Info.plist` (XML plist dates carry no sub-second
+        /// precision).
         public init(
             formatVersion: Int = AnglesitePackage.currentFormatVersion,
             siteID: UUID = UUID(),
@@ -107,6 +127,7 @@ public struct AnglesitePackage: Sendable, Equatable {
         }
     }
 
+    /// Failures reading, writing, or creating a package's `Info.plist` marker.
     public enum PackageError: Error, Sendable {
         /// `Info.plist` is absent (or was deleted out from under us).
         case markerMissing(URL)
@@ -129,6 +150,9 @@ public struct AnglesitePackage: Sendable, Equatable {
         case readOnlyTooNew
     }
 
+    /// Classifies `marker` against the format this build writes: an older-or-equal
+    /// ``Marker/formatVersion`` is ``Compatibility/current`` (older layouts are always readable),
+    /// a newer one is ``Compatibility/readOnlyTooNew``.
     public static func compatibility(for marker: Marker) -> Compatibility {
         marker.formatVersion > currentFormatVersion ? .readOnlyTooNew : .current
     }

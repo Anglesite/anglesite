@@ -13,6 +13,8 @@ import Foundation
 /// A waiter whose task is cancelled drains itself from the queue and throws `CancellationError`,
 /// so a cancelled/timed-out test never wedges the lock for the suites behind it.
 public actor TemplateBuildSerializer {
+    /// The process-wide instance every render-smoke suite serializes through — mutual exclusion
+    /// only works if all suites share the same lock.
     public static let shared = TemplateBuildSerializer()
 
     private struct Waiter {
@@ -23,6 +25,8 @@ public actor TemplateBuildSerializer {
     private var locked = false
     private var waiters: [Waiter] = []
 
+    /// Public so a test can construct a private serializer to exercise the lock itself;
+    /// production test suites use ``shared``.
     public init() {}
 
     private func lock() async throws {
