@@ -50,7 +50,11 @@ public actor ProcessSupervisor {
     /// `ProcessSupervisor.RestartPolicy.onCrash(...)` and `ProcessSupervisor.ExitReason` compile
     /// unchanged.
     public typealias RestartPolicy = AnglesiteCore.RestartPolicy
+    /// Source-compat re-export of ``ProcessExitReason`` — see ``RestartPolicy`` for why these
+    /// aliases exist.
     public typealias ExitReason = AnglesiteCore.ProcessExitReason
+    /// Source-compat re-export of the module-level `RespawnHandler` — see ``RestartPolicy`` for
+    /// why these aliases exist.
     public typealias RespawnHandler = AnglesiteCore.RespawnHandler
 
     /// `Handle.source` is preserved (the backend's opaque handle doesn't carry it), so map by `id`.
@@ -87,11 +91,20 @@ public actor ProcessSupervisor {
 
     // MARK: One-shot run
 
+    /// Captured outcome of a one-shot ``run(executable:arguments:environment:currentDirectoryURL:)``.
+    ///
+    /// A nonzero exit is *not* thrown — short-lived tools routinely use exit codes as answers
+    /// (e.g. `git diff --quiet`), so callers inspect ``exitCode`` themselves.
     public struct RunResult: Sendable, Equatable {
+        /// Everything the process wrote to stdout, decoded as UTF-8 (empty on decode failure).
         public let stdout: String
+        /// Everything the process wrote to stderr, decoded as UTF-8 (empty on decode failure).
         public let stderr: String
+        /// The process's exit status. `0` means success by convention; interpreting anything
+        /// else is the caller's job.
         public let exitCode: Int32
 
+        /// Memberwise initializer — public so tests and fake backends can fabricate results.
         public init(stdout: String, stderr: String, exitCode: Int32) {
             self.stdout = stdout
             self.stderr = stderr
@@ -99,8 +112,14 @@ public actor ProcessSupervisor {
         }
     }
 
+    /// Failures the supervisor surfaces to callers, translated from the backend's
+    /// ``SupervisorBackendError`` so call sites don't couple to the backend seam.
     public enum SupervisorError: Error, Sendable {
+        /// The process could not be spawned (missing executable, sandbox denial, backend
+        /// unavailable). The underlying error carries the backend's message.
         case spawnFailed(underlying: Error)
+        /// The ``Handle`` doesn't correspond to a live supervised process — it already exited
+        /// and was reaped, or was never launched by this supervisor instance.
         case unknownHandle
     }
 
@@ -138,12 +157,27 @@ public actor ProcessSupervisor {
 
     // MARK: Long-running launch
 
+    /// Opaque reference to a launched, supervised process.
+    ///
+    /// Deliberately carries no PID: under a ``RestartPolicy`` the underlying OS process can be
+    /// respawned (new PID) while the handle stays valid, so identity is the supervisor-assigned
+    /// ``id``, not anything the kernel hands out.
     public struct Handle: Sendable, Identifiable, Hashable {
+        /// Supervisor-assigned identity — shared with the backend's `SpawnedProcessHandle.id`,
+        /// which is how the facade maps between the two without extra bookkeeping.
         public let id: UUID
+        /// The log-source tag given to `launch(...)`, kept on the handle so callers can label
+        /// UI (debug pane sections, error messages) without a supervisor round-trip.
         public let source: String
     }
 
+    /// Wrapper for a launched process's stdin pipe, vended by ``stdinWriter(_:)``.
+    ///
+    /// Prefer ``writeStdin(_:_:)`` for routine writes — it stays on the backend and surfaces
+    /// errors; the raw handle exists for callers that need `FileHandle`-level control.
     public struct StdinHandle: Sendable {
+        /// The write end of the child's stdin pipe. Writing after the child exits raises
+        /// `EPIPE` rather than killing the app — see the supervisor's `SIGPIPE` handling.
         public let writer: FileHandle
     }
 
@@ -230,6 +264,9 @@ public actor ProcessSupervisor {
         }
     }
 
+    /// Whether the supervised process behind `handle` is currently alive. `false` for an unknown
+    /// handle as well as an exited process — callers polling for liveness don't need to
+    /// distinguish the two.
     public func isRunning(_ handle: Handle) async -> Bool {
         await backend.isRunning(backendHandle(for: handle))
     }

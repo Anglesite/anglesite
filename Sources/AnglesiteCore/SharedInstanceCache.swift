@@ -21,6 +21,9 @@ public final class SharedInstanceCache<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var instances: [String: Value] = [:]
 
+    /// Creates an empty cache. Consumers typically hold it as a `static let` — the "one
+    /// instance per key" guarantee is only as wide as the scope everyone shares the cache in,
+    /// so a per-caller cache would defeat the point.
     public init() {}
 
     /// Returns the cached instance for `key`, constructing and caching it via `make` if absent.

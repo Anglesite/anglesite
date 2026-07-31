@@ -8,11 +8,15 @@ import FoundationModels
 /// Confirms the running OS meets Anglesite's macOS floor. Version is injectable so the
 /// mapping is testable without spoofing the process environment.
 public struct OSRuntimeProbe: ReadinessProbe {
+    /// Stable probe id, echoed into the finding.
     public let id = "os.runtime"
+    /// User-facing check title, carried into every finding this probe returns.
     public let title = "macOS runtime"
     private let version: OperatingSystemVersion
     private let minimumMajor: Int
 
+    /// Creates the probe. The defaults check the live process against Anglesite's macOS 27
+    /// floor; tests inject `version` to exercise the mapping without spoofing the host OS.
     public init(
         version: OperatingSystemVersion = ProcessInfo.processInfo.operatingSystemVersion,
         minimumMajor: Int = 27
@@ -21,6 +25,9 @@ public struct OSRuntimeProbe: ReadinessProbe {
         self.minimumMajor = minimumMajor
     }
 
+    /// Passes when the major version meets the floor; otherwise fails with a Software Update
+    /// remediation. Only the major version gates — minor/patch appear in the detail text for
+    /// honesty, not in the comparison.
     public func check() async -> ReadinessFinding {
         // Include the patch so a user on e.g. 26.9.5 doesn't see a misleading "26.9 is below…".
         let running = "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
@@ -37,24 +44,37 @@ public struct OSRuntimeProbe: ReadinessProbe {
 /// Normalized Foundation Models availability, decoupled from the SDK enum so the probe
 /// mapping is testable without the framework.
 public enum FoundationModelsAvailability: Sendable, Equatable {
+    /// The on-device model can serve requests now.
     case available
+    /// The user has Apple Intelligence turned off — remediable in System Settings.
     case appleIntelligenceNotEnabled
+    /// Eligible device, but the model is still downloading or preparing — transient.
     case modelNotReady
+    /// This hardware can't run the model; no remediation exists.
     case deviceNotEligible
+    /// Availability couldn't be classified; carries the SDK's own description so the finding
+    /// can still say something concrete.
     case unknown(String)
 }
 
 /// Reports whether Apple's on-device language model is usable. Availability is injected so
 /// tests never touch the live model; the live source reads `SystemLanguageModel` (no inference).
 public struct FoundationModelsProbe: ReadinessProbe {
+    /// Stable probe id, echoed into the finding.
     public let id = "foundation.models"
+    /// User-facing check title, carried into every finding this probe returns.
     public let title = "Apple Foundation Models"
     private let availability: @Sendable () -> FoundationModelsAvailability
 
+    /// Creates the probe with an injected availability source. Production passes
+    /// `LiveFoundationModelsAvailability.current`; tests pass a closure returning a fixed case.
     public init(availability: @escaping @Sendable () -> FoundationModelsAvailability) {
         self.availability = availability
     }
 
+    /// Maps availability onto a finding. Transient/remediable states are warnings with a
+    /// remediation; ineligible hardware is `.unsupported` rather than a failure, because
+    /// there's nothing the owner can do about it.
     public func check() async -> ReadinessFinding {
         switch availability() {
         case .available:
@@ -81,6 +101,9 @@ public struct FoundationModelsProbe: ReadinessProbe {
 /// Live availability source. Reads `SystemLanguageModel.default.availability` (no inference).
 /// Case names below must match the `FoundationModels` SDK; `@unknown default` absorbs drift.
 public enum LiveFoundationModelsAvailability {
+    /// The current availability, or `.unknown` when the framework isn't present at build time
+    /// (older toolchain, or a platform without FoundationModels). Reads availability only —
+    /// never triggers inference or a model download.
     public static func current() -> FoundationModelsAvailability {
         #if compiler(>=6.4) && canImport(FoundationModels)
         switch SystemLanguageModel.default.availability {

@@ -2,6 +2,19 @@
 /// no I/O — it never fixes anything. Findings reuse the shared `AuditReport.Finding`
 /// model (`category: .security`).
 public enum SecurityAudit {
+    /// Grades a zone snapshot against Anglesite's baseline: DNSSEC, origin TLS validation
+    /// (Full-strict), HTTPS enforcement, HSTS lifetime, bot mitigation, CAA, mail-spoofing
+    /// lockdown, ECH, and client-side script monitoring.
+    ///
+    /// - Parameters:
+    ///   - state: The read-only Cloudflare zone snapshot to grade.
+    ///   - expectsMail: Whether the domain legitimately sends mail. When `false`, a missing
+    ///     `v=spf1 -all` / DMARC `p=reject` lockdown is flagged — a non-sending domain without
+    ///     them is trivially spoofable. When `true`, SPF/DMARC checks are skipped entirely:
+    ///     the mail setup flow owns that DNS, and flagging its records here would produce
+    ///     remediation advice that breaks the owner's mail.
+    /// - Returns: Findings (all `category: .security`); empty when the zone already meets the
+    ///   baseline.
     public static func evaluate(_ state: CloudflareZoneState, expectsMail: Bool) -> [AuditReport.Finding] {
         var findings: [AuditReport.Finding] = []
         func add(_ severity: AuditReport.Finding.Severity, _ title: String, _ detail: String, _ remediation: String) {

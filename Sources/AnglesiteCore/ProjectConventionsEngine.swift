@@ -26,6 +26,14 @@ public actor ProjectConventionsEngine {
     private let now: @Sendable () -> Date
     private var lastEnrichedAt: [String: Date] = [:]
 
+    /// Creates an engine.
+    ///
+    /// - Parameters:
+    ///   - enrich: Model-backed tone/brand-term producer, or `nil` to run extraction-only
+    ///     (the reduced CI toolchain path — see ``ProjectConventionsEnricherFactory``).
+    ///   - enrichmentInterval: Minimum seconds between enrichment passes per site. The default
+    ///     (5 minutes) keeps the on-device model out of the hot file-watcher path.
+    ///   - now: Clock seam so tests can drive the throttle without real waiting.
     public init(
         enrich: ConventionsEnricher? = nil,
         enrichmentInterval: TimeInterval = 300,
@@ -36,6 +44,10 @@ public actor ProjectConventionsEngine {
         self.now = now
     }
 
+    /// Full rescan: walks `projectRoot`, re-extracts every convention, merges preserved user
+    /// overrides back in, and (throttle permitting, or always with `forceEnrichment`) runs the
+    /// tone/brand enrichment pass. Disk I/O happens off-actor at utility priority so a large
+    /// site doesn't stall callers.
     public func rebuild(siteID: String, projectRoot: URL, forceEnrichment: Bool = false) async {
         let files = await Task.detached(priority: .utility) {
             Self.scan(projectRoot: projectRoot)
@@ -45,6 +57,10 @@ public actor ProjectConventionsEngine {
         await maybeEnrich(siteID: siteID, siteDirectory: projectRoot, force: forceEnrichment)
     }
 
+    /// Incremental update for one changed file (the `SiteFileWatcher` path). Non-scanned
+    /// paths/extensions are ignored; an unreadable file is treated as a removal so a
+    /// delete-then-event race can't leave stale contents in the index. Never triggers
+    /// enrichment — that stays on the `rebuild` cadence.
     public func upsertFile(siteID: String, projectRoot: URL, relativePath: String) async {
         guard shouldScan(relativePath) else { return }
         let url = projectRoot.appendingPathComponent(relativePath)
@@ -59,6 +75,9 @@ public actor ProjectConventionsEngine {
         await recompute(siteID: siteID, projectRoot: projectRoot)
     }
 
+    /// Drops one file from the index and recomputes. No `projectRoot` here (mirrors
+    /// `SiteKnowledgeIndex.removeFile`), so frontmatter collections keep their last-known
+    /// reading until the next full `rebuild` re-reads them from disk.
     public func removeFile(siteID: String, relativePath: String) async {
         guard filesBySite[siteID]?.removeValue(forKey: relativePath) != nil else { return }
         // No projectRoot available here (mirrors SiteKnowledgeIndex.removeFile) — frontmatter
@@ -66,11 +85,17 @@ public actor ProjectConventionsEngine {
         await recompute(siteID: siteID, projectRoot: nil)
     }
 
+    /// Frees a closed site's in-memory state. Persistence is the caller's job (via
+    /// ``ProjectConventionsStore``) *before* unloading — anything not saved is gone, including
+    /// user overrides applied this session.
     public func unload(siteID: String) {
         conventionsBySite.removeValue(forKey: siteID)
         filesBySite.removeValue(forKey: siteID)
     }
 
+    /// The current in-memory conventions for a site, or `nil` if it was never seeded, rebuilt,
+    /// or overridden this session. Callers wanting a usable value regardless should fall back
+    /// to ``ProjectConventions/empty``.
     public func conventions(siteID: String) -> ProjectConventions? {
         conventionsBySite[siteID]
     }
@@ -83,12 +108,18 @@ public actor ProjectConventionsEngine {
         conventionsBySite[siteID] = conventions
     }
 
+    /// Applies a user override, flipping the field's source to `.userOverride` so later
+    /// rebuilds preserve it. Starts from ``ProjectConventions/empty`` when the site has no
+    /// state yet — an override must never be dropped just because learning hasn't run.
     public func applyOverride(siteID: String, value: OverrideValue) {
         var conventions = conventionsBySite[siteID] ?? .empty
         conventions.apply(value)
         conventionsBySite[siteID] = conventions
     }
 
+    /// Reverts one field to inferred; the current value stays in place until the next rebuild
+    /// recomputes it (see ``ProjectConventions/clearOverride(_:)``). No-op for an unknown site —
+    /// there's nothing to revert.
     public func clearOverride(siteID: String, field: OverridableField) {
         guard var conventions = conventionsBySite[siteID] else { return }
         conventions.clearOverride(field)

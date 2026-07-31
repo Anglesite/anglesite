@@ -4,16 +4,23 @@ import Foundation
 /// search/status intents read). Empty is a warning, not a failure — the user just needs to
 /// open the site.
 public struct ContentGraphProbe: ReadinessProbe {
+    /// Stable probe id, echoed into the finding.
     public let id = "site.graph"
+    /// User-facing check title, carried into every finding this probe returns.
     public let title = "Site content index"
     private let siteID: String
     private let graph: SiteContentGraph
 
+    /// Creates the probe for one site's slice of the shared content graph.
     public init(siteID: String, graph: SiteContentGraph) {
         self.siteID = siteID
         self.graph = graph
     }
 
+    /// Counts the site's pages, posts, and images in the graph. Any content at all is ok;
+    /// an empty result warns with "open the site" remediation, because the graph is only
+    /// populated when a site window opens — emptiness here usually means "not scanned yet",
+    /// not "the site has no content".
     public func check() async -> ReadinessFinding {
         let pages = await graph.pages(for: siteID).count
         let posts = await graph.posts(for: siteID).count

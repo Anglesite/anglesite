@@ -14,17 +14,25 @@ import Foundation
 public struct ReceivedInteraction: Codable, Sendable, Equatable, Identifiable {
     /// Protocol source of the interaction.
     public enum ProtocolType: String, Codable, Sendable, Equatable {
+        /// Delivered to the site's Webmention endpoint (IndieWeb).
         case webmention
+        /// Delivered via ActivityPub (fediverse) federation.
         case activitypub
+        /// Created through the site's Micropub endpoint.
         case micropub
     }
 
     /// What kind of interaction this represents.
     public enum InteractionType: String, Codable, Sendable, Equatable {
+        /// A comment on the target — the only kind that renders threaded (``isComment``).
         case reply
+        /// A like/favourite of the target — rendered as a facepile avatar, not a comment.
         case like
+        /// A reshare/boost of the target — rendered as a facepile avatar, not a comment.
         case repost
+        /// The sender bookmarked the target.
         case bookmark
+        /// The source page links to the target without any more specific relation.
         case mention
 
         /// Whether this interaction renders as a threaded comment.
@@ -35,8 +43,11 @@ public struct ReceivedInteraction: Codable, Sendable, Equatable, Identifiable {
 
     /// Verification state of the interaction.
     public enum VerificationStatus: String, Codable, Sendable, Equatable {
+        /// The Worker fetched the source and confirmed it really links to the target.
         case verified
+        /// Verification hasn't completed yet.
         case pending
+        /// The source couldn't be verified — unreachable, or it no longer links to the target.
         case failed
     }
 
@@ -45,10 +56,15 @@ public struct ReceivedInteraction: Codable, Sendable, Equatable, Identifiable {
     /// This is not live-updated — if the sender changes their name/photo, the old values
     /// persist in the snapshot. This is standard IndieWeb practice.
     public struct Author: Codable, Sendable, Equatable {
+        /// Display name at verification time, if the source exposed one.
         public let name: String?
+        /// The author's profile URL, if the source exposed one.
         public let url: URL?
+        /// Avatar URL at verification time, if the source exposed one.
         public let photo: URL?
 
+        /// Creates a snapshot. Every field is optional because sources routinely omit author
+        /// metadata — a like from a bare URL is still a valid interaction.
         public init(name: String?, url: URL?, photo: URL?) {
             self.name = name
             self.url = url
@@ -83,10 +99,17 @@ public struct ReceivedInteraction: Codable, Sendable, Equatable, Identifiable {
     /// For example: `"data/interactions/wm-abc123.json"`
     public var gitPath: String { "data/interactions/\(id).json" }
 
+    /// Construction-time failures enforcing the type-level sanitisation contract.
     public enum ValidationError: Error, Sendable {
+        /// The given `id` contains characters outside `[A-Za-z0-9_-]`, which could otherwise
+        /// traverse paths through ``ReceivedInteraction/gitPath``.
         case invalidID(String)
     }
 
+    /// Creates an interaction, validating `id` against `[A-Za-z0-9_-]+` first — the sanitisation
+    /// contract that keeps ``gitPath`` path-traversal-safe (see the type-level doc).
+    ///
+    /// - Throws: ``ValidationError/invalidID(_:)`` when `id` contains any other character.
     public init(
         id: String,
         type: ProtocolType,

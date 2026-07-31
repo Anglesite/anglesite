@@ -3,8 +3,12 @@ import Foundation
 /// A per-session bearer secret minted by the app and validated in-container (auth-proxy + MCP
 /// sidecar). Opaque; symmetric compare. The value is a secret — never log it (see `KeychainStore`).
 public struct SessionToken: Sendable, Equatable, CustomStringConvertible {
+    /// The raw secret, for symmetric compare and for handing to the container side. Never log
+    /// or interpolate it — ``description`` is redacted for exactly that reason.
     public let value: String
 
+    /// Wraps an existing secret (e.g. one read back from the environment on the container
+    /// side); use ``mint()`` to create a fresh one.
     public init(value: String) { self.value = value }
 
     /// 32 cryptographically-random bytes, hex-encoded (64 chars).

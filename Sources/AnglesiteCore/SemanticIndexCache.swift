@@ -5,12 +5,24 @@ import Foundation
 /// itself stays in-memory (see #329). Invalidation is by `contentHash` (caller-checked) and by
 /// `dimension` (checked here on load).
 public struct SemanticIndexCache: Sendable {
+    /// One document's persisted embedding plus the metadata needed to invalidate it without
+    /// re-embedding.
     public struct Entry: Codable, Equatable, Sendable {
+        /// The knowledge-index document id this vector belongs to.
         public let docID: String
+        /// Hash of the embedded text at write time. A mismatch means the document changed and
+        /// the vector is stale — checked by the caller (`SemanticRanker.sync`), not by
+        /// ``SemanticIndexCache/load(expectedDimension:)``.
         public let contentHash: String
+        /// The embedding provider's vector dimension at write time. Load-time invalidation key:
+        /// vectors from providers of different dimensions aren't comparable, so a dimension
+        /// change silently retires the old entries.
         public let dimension: Int
+        /// The embedding itself.
         public let vector: [Float]
 
+        /// Memberwise initializer; see the stored properties for the invalidation semantics of
+        /// each field.
         public init(docID: String, contentHash: String, dimension: Int, vector: [Float]) {
             self.docID = docID
             self.contentHash = contentHash
@@ -21,6 +33,8 @@ public struct SemanticIndexCache: Sendable {
 
     private let fileURL: URL
 
+    /// Binds the cache to one site's file. Nothing is read or created here — I/O happens only
+    /// in ``load(expectedDimension:)`` and ``save(_:)``, so constructing a cache is free.
     public init(fileURL: URL) {
         self.fileURL = fileURL
     }

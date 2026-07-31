@@ -10,6 +10,9 @@ import Foundation
 /// - Package tests / non-app callers without `ANGLESITE_MAS`: pass `site.sourceDirectory`
 ///   straight through.
 public enum SiteAccess {
+    /// Failures acquiring scoped access. Cases carry ready-to-show messages because the callers
+    /// (background App Intents) have no window UI to elaborate — the string is the whole story
+    /// the user gets.
     public enum AccessError: Error, Sendable, Equatable {
         /// No security-scoped bookmark for this site. Carries a user-facing message.
         case noGrant(String)

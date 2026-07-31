@@ -12,11 +12,19 @@ public struct SearchContentTool: Tool, Sendable {
     /// The tool's stable name. Exposed statically so callers (e.g. `FoundationModelAssistant`'s
     /// `.started` event) can report the attached tools without constructing an instance.
     public static let toolName = "searchContent"
+    /// `Tool` conformance — always ``SearchContentTool/toolName``.
     public let name = SearchContentTool.toolName
+    /// The tool card the model reads. Deliberately warns that this is a convenience lookup, not
+    /// the source of truth: without that framing the model treats a search miss as proof the
+    /// content doesn't exist and refuses to call slug/route-based tools it could have used
+    /// directly.
     public let description = "Search the current site's pages and posts by title, route, slug, tag, or collection. This is a convenience lookup, not the source of truth: if you already know a post's slug or a page's route (e.g. the user stated it), call the tool for that slug/route directly instead of searching first — a search miss does not prove the content doesn't exist."
 
+    /// The model-supplied search input.
     @Generable
     public struct Arguments {
+        /// Free-text query matched against page/post metadata (title, route, slug, tag,
+        /// collection) — not body text; that's `SearchKnowledgeTool`'s job.
         @Guide(description: "What to search for — words from a page title, route, post slug, tag, or collection.")
         public var query: String
     }
@@ -28,11 +36,17 @@ public struct SearchContentTool: Tool, Sendable {
     private let contentGraph: SiteContentGraph
     private let siteID: String
 
+    /// Binds the tool to one site's content graph; the model never supplies (and so can never
+    /// misdirect) the site it searches.
     public init(contentGraph: SiteContentGraph, siteID: String) {
         self.contentGraph = contentGraph
         self.siteID = siteID
     }
 
+    /// Runs the search and returns one `PAGE`/`POST` line per hit. Empty results distinguish an
+    /// index that's loaded (miss is reliable) from one that isn't (miss proves nothing), so the
+    /// model doesn't conclude content is missing just because indexing hasn't run. Output is
+    /// capped via `fairBudget` with an explicit per-category truncation trailer — never silent.
     public func call(arguments: Arguments) async throws -> String {
         let query = arguments.query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
