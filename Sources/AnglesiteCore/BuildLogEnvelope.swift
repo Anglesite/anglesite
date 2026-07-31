@@ -10,6 +10,10 @@ import Foundation
 /// (#742). It only locates the envelope's boundaries within a larger string, then defers to
 /// `PreDeployCheck.parse` for everything after that.
 public enum BuildLogEnvelope {
+    /// What ``BuildLogEnvelope/extract(fromLog:exitCode:)`` found. Two-way by design: callers
+    /// choose a whole rendering path from this alone — the structured blocked/passed scan UI for
+    /// `.outcome`, or a plain log excerpt for `.rawExcerpt` — with no third "maybe" state to
+    /// handle.
     public enum Result: Sendable, Equatable {
         /// A `{"version":...}` JSON object was located and decoded (successfully or not — an
         /// unsupported/malformed envelope still surfaces as `.outcome(.error(...))`, matching

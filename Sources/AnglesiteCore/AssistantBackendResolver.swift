@@ -13,6 +13,12 @@ public enum AssistantBackendResolver {
         return UUID(uuidString: String(raw.dropFirst(4)))
     }
 
+    /// Builds an ``ACPAssistant`` for the currently-selected agent, or `nil` when Foundation
+    /// Models should handle the session instead. Every failure mode — a `"foundationModels"`
+    /// setting, a malformed backend string, an unreadable agent store, an agent that was removed
+    /// after being selected — collapses to `nil` deliberately: the setting is advisory, and a
+    /// broken selection must degrade to the always-available on-device path rather than leave the
+    /// user with no assistant at all.
     public static func resolveActiveACPAssistant(
         siteID: String,
         sourceDirectory: URL,

@@ -21,6 +21,8 @@ public enum AnnotationStore {
     /// nanoid alphabet from `annotations.mjs` — 64 URL-safe characters indexed by `byte & 63`.
     private static let alphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
 
+    /// The store's two refusals, mirroring the errors `annotations.mjs` throws so callers see
+    /// the same failure modes whichever store backs them.
     public enum AnnotationStoreError: Error, Equatable {
         /// `add` rejected because `maxUnresolved` unresolved annotations already exist.
         case limitReached(Int)

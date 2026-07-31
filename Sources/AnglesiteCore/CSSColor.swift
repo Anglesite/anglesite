@@ -7,6 +7,9 @@ import SwiftUI
 /// Only handles #rgb/#rrggbb/#rrggbbaa hex forms — named colors and rgb()/hsl() fall back
 /// to the free-text field, which always remains available.
 public enum CSSColor {
+    /// Parses a hex CSS color (`#rgb`, `#rrggbb`, or `#rrggbbaa`) into a `Color`. Returns `nil`
+    /// for every other form — deliberately, so the caller falls back to the free-text field
+    /// instead of this bridge guessing at named colors or `rgb()`/`hsl()` syntax.
     public static func parse(_ value: String) -> Color? {
         var hex = value.trimmingCharacters(in: .whitespaces)
         guard hex.hasPrefix("#") else { return nil }
@@ -24,6 +27,10 @@ public enum CSSColor {
         return Color(red: r, green: g, blue: b, opacity: a)
     }
 
+    /// Formats a picker `Color` back to lowercase hex, emitting the 8-digit `#rrggbbaa` form
+    /// only when alpha is actually below 1 — round-tripping an opaque color must not grow an
+    /// alpha suffix the stylesheet never had. Falls back to `#000000` when the `Color` has no
+    /// resolvable `cgColor` (a dynamic/asset color), rather than throwing mid-edit.
     public static func format(_ color: Color) -> String {
         guard let cgColor = color.cgColor, let components = cgColor.components, components.count >= 3 else {
             return "#000000"
@@ -40,6 +47,9 @@ public enum CSSColor {
         return String(format: "#%02x%02x%02x%02x", r, g, b, a)
     }
 
+    /// CSS property names whose values get the ColorPicker affordance in the Styles panel. A
+    /// fixed allowlist (rather than sniffing the value) so shorthand and non-color properties
+    /// that merely *contain* a color keep the plain text field, where edits stay lossless.
     public static let colorProperties: Set<String> = [
         "color", "background-color", "border-color", "outline-color", "fill", "stroke",
         "border-top-color", "border-right-color", "border-bottom-color", "border-left-color",

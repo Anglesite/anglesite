@@ -5,9 +5,14 @@ import Foundation
 /// falls back to a generic "verified" message), and `email` is `nil` for token auth that isn't
 /// associated with a user email.
 public struct CloudflareAccount: Sendable, Equatable {
+    /// Account display name from the best-effort `GET /accounts` lookup; `nil` never means the
+    /// token is bad, only that the nicety wasn't available.
     public let name: String?
+    /// Email tied to the credential, when Cloudflare exposes one. API tokens usually have none —
+    /// this exists for auth shapes that do.
     public let email: String?
 
+    /// Memberwise initializer; verifiers assemble this from whatever the lookups yielded.
     public init(name: String?, email: String?) {
         self.name = name
         self.email = email
@@ -23,6 +28,8 @@ public enum TokenVerifyError: Error, Equatable, Sendable {
     /// We couldn't check the token at all (unexpected response, etc.).
     case unavailable(String)
 
+    /// The exact copy the token prompt shows for this failure. Kept on the error itself so every
+    /// entry point renders the same wording instead of re-translating cases ad hoc.
     public var userMessage: String {
         switch self {
         case .invalidToken:
@@ -39,5 +46,11 @@ public enum TokenVerifyError: Error, Equatable, Sendable {
 /// entry instead of failing later inside a deploy. The production conformer is
 /// `CloudflareAPITokenVerifier` (a native REST call — no Node/wrangler).
 public protocol TokenVerifying: Sendable {
+    /// Checks `token` against Cloudflare and classifies the outcome. Returns a `Result` instead of
+    /// throwing so every failure arrives pre-classified as a ``TokenVerifyError`` with its
+    /// user-facing copy attached. `siteDirectory` is part of the seam for historical reasons —
+    /// the production conformer's verification is a pure API call and ignores it (kept so callers
+    /// and the MAS sandbox-grant path didn't have to change when the wrangler-based verifier went
+    /// away).
     func verify(token: String, siteDirectory: URL) async -> Result<CloudflareAccount, TokenVerifyError>
 }

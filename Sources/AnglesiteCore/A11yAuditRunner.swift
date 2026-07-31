@@ -17,10 +17,20 @@ import Foundation
 /// The runner stays thin and stateless — all the parsing is a single static method
 /// so it's trivially testable without spawning `tsx`.
 public struct A11yAuditRunner: AuditRunner {
+    /// Fixed to `.accessibility` — `AuditCommand` uses the category to attribute this runner's
+    /// findings and to record it in `runnersExecuted`/`runnersSkipped`.
     public let category: AuditReport.Finding.Category = .accessibility
 
+    /// Nothing to configure — the runner is stateless by design (see the type doc); everything
+    /// it needs arrives per-call in `run(...)`.
     public init() {}
 
+    /// Runs the audit script through `executor` and parses its `--json` stdout into findings.
+    ///
+    /// Exit codes 0/1/2 all mean "the script ran" — the code encodes severity, which the
+    /// returned findings already reflect, so none of them is treated as a failure. Anything
+    /// else (including a nil exit code from a pre-spawn refusal) throws `Error.scriptFailed`,
+    /// so the UI can say "the audit couldn't run" instead of silently reporting a clean result.
     public func run(
         siteDirectory: URL,
         executor: any AuditExecutor,
@@ -51,9 +61,19 @@ public struct A11yAuditRunner: AuditRunner {
         return try Self.parse(json: Data(jsonString.utf8))
     }
 
+    /// Why a run produced no findings at all. Conforms to `CustomStringConvertible` because
+    /// `AuditCommand` records a thrown runner error via `"\(error)"` interpolation — see the
+    /// `description` note below for why that text must stay owner-facing.
     public enum Error: Swift.Error, Equatable, CustomStringConvertible {
+        /// The script exited with an unexpected code — or never spawned at all (`exitCode` nil:
+        /// pre-spawn refusal, container not running, or a thrown exec). `output` carries whatever
+        /// it printed, which is often already an owner-facing message.
         case scriptFailed(exitCode: Int32?, output: String)
+        /// The script ran (accepted exit code) but its stdout contained no JSON object to parse.
         case noJSONInOutput
+        /// The report used a severity outside the known `"error"`/`"warning"`/`"notice"` set.
+        /// Thrown rather than guessed at, so a vocabulary change in `a11y-audit.ts` fails loudly
+        /// instead of silently miscategorizing findings.
         case unknownSeverity(String)
 
         /// Owner-facing text — this is what ends up in `AuditReport.SkippedRunner.reason` (via

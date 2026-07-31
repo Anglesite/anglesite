@@ -8,22 +8,44 @@ import Foundation
 /// can surface "the perf runner couldn't run because Lighthouse isn't installed"
 /// without turning the whole audit into a failure.
 public struct AuditReport: Sendable, Equatable {
+    /// One issue reported by one runner, in the common shape all categories share — the report
+    /// UI renders every category through the same row, so runners normalize into this rather
+    /// than each exposing its own result type.
     public struct Finding: Sendable, Equatable, Hashable, Identifiable {
+        /// The audit dimension a finding (and its runner — see `AuditRunner.category`) belongs
+        /// to. Raw string values double as the `audit:<siteID>:<category>` log-source segment.
         public enum Category: String, Sendable, Equatable, Codable, CaseIterable {
-            case security, accessibility, performance, seo
+            /// Produced by `SecurityTxtAuditRunner` (#843) today.
+            case security
+            /// Produced by `A11yAuditRunner` (the template's `a11y-audit.ts` script).
+            case accessibility
+            /// Reserved: no shipped runner yet (#86 follow-up); declared now so the UI's
+            /// category handling doesn't churn when one lands.
+            case performance
+            /// Reserved: no shipped runner yet (#86 follow-up), same as `performance`.
+            case seo
         }
 
+        /// How urgently a finding needs the owner's attention. The UI keys its pass/fail badge
+        /// off `critical` alone — warnings and info don't fail an audit.
         public enum Severity: String, Sendable, Equatable, Codable, Comparable, CaseIterable {
-            case critical, warning, info
+            /// Must-fix: the kind of finding that turns the audit badge red.
+            case critical
+            /// Should-fix; doesn't block a "passing" audit.
+            case warning
+            /// Advisory only.
+            case info
 
-            // Critical first → reverse-sorted natural order is fine for UI lists.
+            /// Critical first → reverse-sorted natural order is fine for UI lists.
             public static func < (lhs: Severity, rhs: Severity) -> Bool {
                 let order: [Severity: Int] = [.critical: 0, .warning: 1, .info: 2]
                 return (order[lhs] ?? 99) < (order[rhs] ?? 99)
             }
         }
 
+        /// Which audit dimension this belongs to — always the producing runner's category.
         public let category: Category
+        /// See ``Severity``; drives sort order and the report's pass/fail badge.
         public let severity: Severity
         /// Short label (e.g. an audit rule ID like `"alt-text"`). Free-form but
         /// expected to be compact enough to render as a header.
@@ -37,6 +59,8 @@ public struct AuditReport: Sendable, Equatable {
         /// pre-deploy security → file path, etc.).
         public let location: String?
 
+        /// Memberwise. `remediation`/`location` take no default `nil` on purpose: a runner must
+        /// say explicitly that it has nothing to offer, rather than omitting them by accident.
         public init(
             category: Category,
             severity: Severity,
@@ -53,6 +77,10 @@ public struct AuditReport: Sendable, Equatable {
             self.location = location
         }
 
+        /// Content-derived identity (no stored UUID), so the *same* issue keeps the same `id`
+        /// across audit re-runs — SwiftUI lists update in place instead of tearing down every
+        /// row each time the audit runs. `severity` is deliberately excluded: a rule whose
+        /// severity classification changes is still the same finding.
         public var id: String {
             "\(category.rawValue):\(title):\(detail):\(location ?? "")"
         }
@@ -61,19 +89,31 @@ public struct AuditReport: Sendable, Equatable {
     /// A runner that ran but threw mid-way. The category identifies which check;
     /// the reason is the runner's localized error description.
     public struct SkippedRunner: Sendable, Equatable {
+        /// Which check didn't complete — so the UI can say *what* wasn't verified, not just
+        /// that something failed.
         public let category: Finding.Category
+        /// The runner's error, stringified for display; skips are owner-facing, not retryable
+        /// program state.
         public let reason: String
 
+        /// Memberwise; public so tests and executor fakes can construct skips directly.
         public init(category: Finding.Category, reason: String) {
             self.category = category
             self.reason = reason
         }
     }
 
+    /// All runners' issues, concatenated in runner-declaration order (not sorted here — display
+    /// ordering is the UI's decision).
     public let findings: [Finding]
+    /// Categories whose runner completed, even with zero findings — the distinction that lets
+    /// "clean" mean "checked and clean" rather than "never checked".
     public let runnersExecuted: [Finding.Category]
+    /// Categories whose runner threw; see ``SkippedRunner``.
     public let runnersSkipped: [SkippedRunner]
 
+    /// Memberwise; assembled by `AuditCommand.audit(siteID:siteDirectory:onProgress:)` in
+    /// production, directly by tests.
     public init(
         findings: [Finding],
         runnersExecuted: [Finding.Category],

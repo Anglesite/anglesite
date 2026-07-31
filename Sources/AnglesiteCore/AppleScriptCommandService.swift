@@ -6,12 +6,24 @@ import Foundation
 /// already async Swift. Keep policy, site resolution, and result formatting here so the app target
 /// can stay a small Apple Event adapter instead of growing another operation stack.
 public struct AppleScriptCommandService: Sendable {
+    /// Failures a script author can cause and fix. `LocalizedError` because the Apple Event
+    /// adapter reports `errorDescription` verbatim as the AppleScript error message — these
+    /// strings are the scripting UX, not internal diagnostics.
     public enum CommandError: LocalizedError, Equatable {
+        /// The site specifier was empty or all whitespace.
         case emptySiteSpecifier
+        /// No registered site matched the specifier by UUID, path, or exact name.
         case siteNotFound(String)
+        /// More than one registered site matched (e.g. two sites share a display name).
+        /// `matches` carries the candidate names so the script author can disambiguate —
+        /// guessing on the caller's behalf could deploy or edit the wrong site.
         case ambiguousSite(String, matches: [String])
+        /// `deploy` was called without `with allowing unattended` (see
+        /// ``AppleScriptCommandService/deploySite(_:allowingUnattended:)``).
         case deployRequiresUnattendedOptIn(String)
 
+        /// The AppleScript-facing message for each case — phrased as instructions to the script
+        /// author, since this is what the `osascript` error surface shows.
         public var errorDescription: String? {
             switch self {
             case .emptySiteSpecifier:
@@ -32,6 +44,9 @@ public struct AppleScriptCommandService: Sendable {
     private let graph: SiteContentGraph
     private let loadSites: @Sendable () async throws -> Void
 
+    /// Every dependency is injectable so the command policy is testable without a real site on
+    /// disk; the defaults wire up the production stack (`nil` rather than default expressions for
+    /// the service parameters because their defaults derive from `store`).
     public init(
         store: SiteStore = .shared,
         operations: (any SiteOperationsService)? = nil,
@@ -49,6 +64,11 @@ public struct AppleScriptCommandService: Sendable {
         )
     }
 
+    /// Resolves a script-supplied specifier to exactly one registered site, trying UUID
+    /// (case-insensitive), then canonicalized package/`Source/` path, then exact display name —
+    /// most-unambiguous first, so a UUID can never be shadowed by a same-looking name. Ambiguity
+    /// throws ``CommandError/ambiguousSite(_:matches:)`` rather than picking a winner: scripts
+    /// run unattended, and acting on the wrong site is worse than failing.
     public func resolveSite(_ specifier: String) async throws -> SiteStore.Site {
         let needle = specifier.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !needle.isEmpty else { throw CommandError.emptySiteSpecifier }
@@ -78,12 +98,19 @@ public struct AppleScriptCommandService: Sendable {
         throw CommandError.siteNotFound(needle)
     }
 
+    /// Resolves the site and bumps its recency in ``SiteStore`` (best-effort — a failed touch
+    /// shouldn't fail the open). The actual window presentation is the app target's job; this
+    /// returns the resolved site for the adapter to hand to the scene layer.
     public func openSite(_ specifier: String) async throws -> SiteStore.Site {
         let site = try await resolveSite(specifier)
         try? await store.touch(id: site.id)
         return site
     }
 
+    /// Deploys the site and returns the human-readable outcome dialog. Publishing to the live
+    /// site from an unattended script is consequential enough that it requires the explicit
+    /// AppleScript opt-in (`with allowing unattended`) — without it this throws instead of
+    /// deploying, so an automation can't publish by accident.
     public func deploySite(_ specifier: String, allowingUnattended: Bool) async throws -> String {
         let site = try await resolveSite(specifier)
         guard allowingUnattended else {
@@ -92,16 +119,22 @@ public struct AppleScriptCommandService: Sendable {
         return SiteOperations.dialog(forDeploy: await operations.deploy(site: site))
     }
 
+    /// Backs up the site and returns the outcome as ``SiteOperations``'s dialog string — results
+    /// are AppleScript display text, not structured data, matching how scripts consume them.
     public func backupSite(_ specifier: String) async throws -> String {
         let site = try await resolveSite(specifier)
         return SiteOperations.dialog(forBackup: await operations.backup(site: site))
     }
 
+    /// Runs the structured audit (``AuditCommand``) and returns its outcome dialog. No opt-in
+    /// needed — unlike deploy, an audit only reads the site.
     public func auditSite(_ specifier: String) async throws -> String {
         let site = try await resolveSite(specifier)
         return SiteOperations.dialog(forAudit: await operations.audit(site: site))
     }
 
+    /// One-sentence content summary (pages, posts, drafts, images) from ``SiteContentGraph`` —
+    /// prose rather than a record because AppleScript callers display it directly.
     public func siteStatus(_ specifier: String) async throws -> String {
         let site = try await resolveSite(specifier)
         let posts = await graph.posts(for: site.id)
@@ -111,6 +144,10 @@ public struct AppleScriptCommandService: Sendable {
         return "\(site.name) has \(Self.count(pages, "page")), \(Self.count(posts.count, "post")) (\(Self.count(drafts, "draft"))), and \(Self.count(images, "image"))."
     }
 
+    /// Creates a page through the same native content workflow the app UI uses. A blank `route`
+    /// is normalized to `nil` (AppleScript optional parameters often arrive as empty strings) so
+    /// the workflow derives the route from `name`. Creation failures are reported in the returned
+    /// dialog string, not thrown — only site resolution throws.
     public func addPage(_ specifier: String, name: String, route: String?) async throws -> String {
         let site = try await resolveSite(specifier)
         let cleanRoute = Self.nilIfBlank(route)
@@ -118,6 +155,9 @@ public struct AppleScriptCommandService: Sendable {
         return Self.createdDialog(result, kind: "page", siteName: site.name)
     }
 
+    /// Creates a post, mirroring ``addPage(_:name:route:)``: blank `collection`/`slug` normalize
+    /// to `nil` so the workflow applies its own defaults, and creation failures come back as
+    /// dialog text rather than thrown errors.
     public func addPost(_ specifier: String, title: String, collection: String?, slug: String?) async throws -> String {
         let site = try await resolveSite(specifier)
         let result = await content.createPost(

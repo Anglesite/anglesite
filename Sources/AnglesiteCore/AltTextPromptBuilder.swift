@@ -6,6 +6,10 @@ import Foundation
 /// from `AltTextGenerator` and `SiteAssistantSessionFactory` so it's directly unit-testable
 /// without constructing either.
 public enum AltTextPromptBuilder {
+    /// Returns `basePrompt` prefixed with a guidance preamble when the site's conventions carry
+    /// real signal; otherwise the bare prompt unchanged. Each guidance line is gated on an
+    /// override or a positive sample size so a freshly created site's zero-valued defaults never
+    /// masquerade as learned style.
     public static func build(basePrompt: String, conventions: ProjectConventions?) -> String {
         guard let conventions, let preamble = guidance(from: conventions) else { return basePrompt }
         return "\(preamble)\n\n\(basePrompt)"

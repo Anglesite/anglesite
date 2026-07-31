@@ -17,6 +17,8 @@ public struct CloudflareAPITokenVerifier: TokenVerifying {
     private let baseURL: URL
     private let transport: Transport
 
+    /// Creates a verifier. Both parameters exist for tests — `baseURL` points at a stub server,
+    /// `transport` fakes the HTTP layer entirely; production callers take the defaults.
     public init(
         baseURL: URL = URL(string: "https://api.cloudflare.com/client/v4")!,
         transport: @escaping Transport = CloudflareAPITokenVerifier.defaultTransport
@@ -25,9 +27,12 @@ public struct CloudflareAPITokenVerifier: TokenVerifying {
         self.transport = transport
     }
 
+    /// Classifies `token` via `GET /user/tokens/verify`. Transient trouble is never blamed on
+    /// the token: connection failures map to `.network` and 429/5xx to `.unavailable`, so only a
+    /// response that decodes and says invalid/inactive yields `.invalidToken`. `siteDirectory`
+    /// is unused — verification is a pure API call now — but stays in the signature so
+    /// ``TokenVerifying`` callers and the MAS sandbox grant path don't change.
     public func verify(token: String, siteDirectory: URL) async -> Result<CloudflareAccount, TokenVerifyError> {
-        // `siteDirectory` is unused — verification is now a pure API call (kept for the protocol so
-        // callers and the MAS sandbox grant path don't change).
         let data: Data
         let http: HTTPURLResponse
         do {

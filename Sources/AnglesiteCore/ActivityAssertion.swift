@@ -18,6 +18,10 @@ public enum ActivityAssertion {
         private let lock = NSLock()
         private var onRelease: (@Sendable () -> Void)?
 
+        /// `onRelease` runs exactly once — on the first ``release()`` call, or in `deinit` if
+        /// the caller drops the lease without releasing. Public so tests can construct a lease
+        /// around a counting closure (see the type doc for why the raw `ProcessInfo` token is
+        /// never what's stored).
         public init(onRelease: @escaping @Sendable () -> Void) {
             self.onRelease = onRelease
         }

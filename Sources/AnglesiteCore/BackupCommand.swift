@@ -21,8 +21,18 @@ import Foundation
 /// Then the action steps stream their output to `LogCenter` under
 /// `backup:<siteID>`, so the drawer UI can show progress in real time.
 public actor BackupCommand {
+    /// Terminal outcome of one ``BackupCommand/backup(siteID:siteDirectory:onProgress:)`` run.
+    /// Deliberately a
+    /// three-way enum rather than a thrown error: a clean, in-sync tree is a normal outcome the
+    /// UI narrates ("nothing to back up"), not a failure, and refusals carry a user-facing
+    /// `reason` string instead of an error type callers would have to translate.
     public enum Result: Sendable, Equatable {
+        /// A push landed on `origin`. `commitSHA` is the pushed HEAD — which may be a commit from
+        /// a *prior* cancelled backup rather than one this run created (the clean-tree-but-ahead
+        /// recovery path, #246).
         case succeeded(commitSHA: String, branch: String, remote: String)
+        /// Clean working tree *and* HEAD in sync with `origin/<branch>` — nothing was committed
+        /// or pushed. A clean tree alone isn't enough; see pre-flight check 3 on the type.
         case noChanges
         /// `exitCode` is `nil` for pre-spawn refusals (on `main`, no remote) and for
         /// spawn failures; otherwise it's the failing git subprocess's exit code.
@@ -46,6 +56,10 @@ public actor BackupCommand {
     private let streamer: GitStreamer
     private let clock: @Sendable () -> Date
 
+    /// Creates a backup command with injectable seams; production callers take the defaults
+    /// (`defaultRunner`/`defaultStreamer` — in-process SwiftGit2 on Darwin, subprocess `git`
+    /// elsewhere). `clock` feeds the commit-message timestamp so tests can pin it to a known
+    /// instant instead of matching a live `Date()`.
     public init(
         runner: @escaping GitRunner = BackupCommand.defaultRunner,
         streamer: @escaping GitStreamer = BackupCommand.defaultStreamer,
@@ -56,6 +70,13 @@ public actor BackupCommand {
         self.clock = clock
     }
 
+    /// Runs the full pre-flight + `add` → `commit` → `push` sequence described on the type.
+    /// Never throws — every failure mode folds into ``Result`` so all callers (menu command,
+    /// Siri/Shortcuts intent) share one rendering path. `onProgress` receives coarse phase
+    /// markers (staging/committing/pushing) for intent progress UI; detailed log lines stream to
+    /// `LogCenter` under `backup:<siteID>` independently. Cooperative cancellation is honored
+    /// between steps — a cancel mid-sequence yields `.failed`, and a commit stranded by a cancel
+    /// before its push is recovered by the *next* backup (#246).
     public func backup(siteID: String, siteDirectory: URL, onProgress: ProgressHandler? = nil) async -> Result {
         let source = "backup:\(siteID)"
 

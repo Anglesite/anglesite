@@ -7,7 +7,13 @@ import Foundation
 /// `source` is the `LogCenter` tag the runner should use for any subprocess output
 /// (`audit:<siteID>:<runner>`), so the drawer/sheet can distinguish phases.
 public protocol AuditRunner: Sendable {
+    /// The single category every finding from this runner belongs to — also how
+    /// ``AuditCommand`` labels the runner in `runnersExecuted`/`runnersSkipped`, so one runner
+    /// never spans categories.
     var category: AuditReport.Finding.Category { get }
+    /// Produces this category's findings against the already-built site (``AuditCommand`` runs
+    /// the build step first). Returning `[]` means "checked, clean"; throwing means "couldn't
+    /// check" — ``AuditCommand`` records the throw as a skip rather than failing the audit.
     func run(
         siteDirectory: URL,
         executor: any AuditExecutor,
@@ -35,7 +41,13 @@ public protocol AuditRunner: Sendable {
 /// what counts as a "passing" audit — that's the UI's job (e.g. show a green
 /// badge if no `.critical` findings, regardless of warnings).
 public actor AuditCommand {
+    /// Terminal outcome of one audit run. "Succeeded" means the pipeline completed, not that the
+    /// site is clean — a report full of critical findings is still `.succeeded`; only a failed
+    /// build (or cancellation) produces `.failed`, because runners can't audit output that
+    /// doesn't exist.
     public enum Result: Sendable, Equatable {
+        /// The build completed and the runners were attempted; `report` aggregates their
+        /// findings and skips. `duration` covers the whole pipeline for the UI's "took Ns" line.
         case succeeded(report: AuditReport, duration: TimeInterval)
         /// `logTail` carries the captured `audit:<siteID>:build` lines so the failure
         /// sheet can show *why* the build failed without the owner having to open the
@@ -49,16 +61,25 @@ public actor AuditCommand {
     /// `resolveA11yCommand` values below live here for the same reason `DeployCommand` keeps
     /// `LaunchPlan`/`CommandResolver` even though only `HostDeployExecutor` uses them now.
     public enum LaunchPlan: Sendable, Equatable {
+        /// Spawn this executable (host-side, via `ProcessSupervisor`) for the step.
         case run(executable: URL, arguments: [String])
+        /// The step can't run in this environment; `reason` becomes the step's failure output.
+        /// This is the production default for every host-side step — host Node is retired (#70).
         case unavailable(reason: String)
     }
 
+    /// Maps a site directory to a ``LaunchPlan`` for one step — the injection point tests use to
+    /// substitute a stub executable for the retired host toolchain.
     public typealias CommandResolver = @Sendable (_ siteDirectory: URL) -> LaunchPlan
 
     private let logCenter: LogCenter
     private let executor: any AuditExecutor
     private let runners: [any AuditRunner]
 
+    /// The defaults produce a command that fails explicitly rather than silently: the default
+    /// ``HostAuditExecutor`` refuses both steps post host-Node retirement (#70), so production
+    /// callers must inject a ``ContainerAuditExecutor`` for a live container. Tests swap
+    /// `executor`/`runners` for fakes.
     public init(
         logCenter: LogCenter = .shared,
         executor: any AuditExecutor = HostAuditExecutor(),

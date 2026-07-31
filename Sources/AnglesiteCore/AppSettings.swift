@@ -12,28 +12,57 @@ public final class AppSettings: @unchecked Sendable {
 
     /// UserDefaults keys. Public so the SwiftUI side can use them with `@AppStorage`.
     public enum Key {
+        /// Backs ``AppSettings/templatePathOverride``.
         public static let templatePathOverride = "anglesite.templatePathOverride"
+        /// Backs ``AppSettings/sitesRootOverride``.
         public static let sitesRootOverride    = "anglesite.sitesRootOverride"
+        /// Host component of ``AppSettings/lanRuntimeConfiguration``; empty/absent means no
+        /// LAN runtime is configured.
         public static let lanRuntimeHost        = "anglesite.lanRuntimeHost"
+        /// Preview-port component of ``AppSettings/lanRuntimeConfiguration``. Stored as a string
+        /// (the Settings text field's empty state means "default").
         public static let lanRuntimePreviewPort = "anglesite.lanRuntimePreviewPort"
+        /// MCP-port component of ``AppSettings/lanRuntimeConfiguration``. Stored as a string
+        /// (the Settings text field's empty state means "default").
         public static let lanRuntimeMCPPort     = "anglesite.lanRuntimeMCPPort"
+        /// Backs ``AppSettings/debugPaneEnabled``.
         public static let debugPaneEnabled   = "anglesite.debugPaneEnabled"
+        /// Backs ``AppSettings/esiPreviewUnprocessed``.
         public static let esiPreviewUnprocessed = "anglesite.esiPreviewUnprocessed"
+        /// Backs ``AppSettings/lastOpenedSiteID``.
         public static let lastOpenedSiteID   = "anglesite.lastOpenedSiteID"
+        /// Backs ``AppSettings/sitesRootBookmark``.
         public static let sitesRootBookmark  = "anglesite.sitesRootBookmark"
+        /// Backs ``AppSettings/autoGenerateAltText``.
         public static let autoGenerateAltText = "anglesite.autoGenerateAltText"
+        /// Backs ``AppSettings/autoGeneratePageCopy``.
         public static let autoGeneratePageCopy = "anglesite.autoGeneratePageCopy"
+        /// Backs ``AppSettings/announcesLiveUpdates``.
         public static let announcesLiveUpdates = "anglesite.announcesLiveUpdates"
+        /// Backs ``AppSettings/notifiesOnCompletion``.
         public static let notifiesOnCompletion = "anglesite.notifiesOnCompletion"
+        /// Backs ``AppSettings/playsDialupSoundEffect``.
         public static let playsDialupSoundEffect = "anglesite.playsDialupSoundEffect"
+        /// One-shot flag consumed by ``AppSettings/removeLegacyChatBackendDefaultsIfNeeded()`` so
+        /// the legacy-key cleanup runs exactly once per defaults suite.
         public static let didCleanLegacyChatBackendDefaults = "anglesite.didCleanLegacyChatBackendDefaults"
+        /// Login component of ``AppSettings/gitHubAccount``; its presence is what makes the
+        /// composite non-`nil`.
         public static let gitHubAccountLogin = "anglesite.gitHubAccount.login"
+        /// Display-name component of ``AppSettings/gitHubAccount``.
         public static let gitHubAccountName = "anglesite.gitHubAccount.name"
+        /// Avatar-URL component of ``AppSettings/gitHubAccount``.
         public static let gitHubAccountAvatarURL = "anglesite.gitHubAccount.avatarURL"
+        /// Verified flag for ``AppSettings/cloudflareAccount`` — the gate for the composite,
+        /// since a verified token may legitimately carry no name/email to show.
         public static let cloudflareAccountVerified = "anglesite.cloudflareAccount.verified"
+        /// Account-name component of ``AppSettings/cloudflareAccount``.
         public static let cloudflareAccountName = "anglesite.cloudflareAccount.name"
+        /// Account-email component of ``AppSettings/cloudflareAccount``.
         public static let cloudflareAccountEmail = "anglesite.cloudflareAccount.email"
+        /// Backs ``AppSettings/activeAssistantBackend``.
         public static let activeAssistantBackend = "anglesite.activeAssistantBackend"
+        /// Backs ``AppSettings/communitySearchInstance``.
         public static let communitySearchInstance = "anglesite.communitySearchInstance"
     }
 
@@ -76,11 +105,18 @@ public final class AppSettings: @unchecked Sendable {
         return resolved
     }
 
+    /// Creates a settings facade over an arbitrary defaults suite — the seam that lets tests use
+    /// a scratch `UserDefaults` instead of polluting (and depending on) the developer's real
+    /// `standard` domain; `ubiquityContainerResolver` is likewise injectable so tests can fake
+    /// iCloud availability (#865). App code should use ``shared``.
     public init(defaults: UserDefaults, ubiquityContainerResolver: UbiquityContainerResolving = FileManager.default) {
         self.defaults = defaults
         self.ubiquityContainerResolver = ubiquityContainerResolver
     }
     #else
+    /// Creates a settings facade over an arbitrary defaults suite — the seam that lets tests use
+    /// a scratch `UserDefaults` instead of polluting (and depending on) the developer's real
+    /// `standard` domain. App code should use ``shared``.
     public init(defaults: UserDefaults) {
         self.defaults = defaults
     }
@@ -379,6 +415,9 @@ public enum SitesRootSource: Sendable, Equatable {
 /// is *always* available in Debug builds. In Release it stays hidden unless the user opts in
 /// (Settings → Advanced) or holds ⌥ while launching the app.
 public enum DebugPaneVisibility {
+    /// True when any one of the three access routes applies — Debug build, the Settings opt-in
+    /// (``AppSettings/debugPaneEnabled``), or ⌥ held at launch. A pure function of its inputs so
+    /// the policy is testable without a real bundle or keyboard state.
     public static func menuItemVisible(isDebugBuild: Bool, settingEnabled: Bool, optionHeldAtLaunch: Bool) -> Bool {
         isDebugBuild || settingEnabled || optionHeldAtLaunch
     }

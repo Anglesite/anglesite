@@ -16,8 +16,13 @@ import FoundationModels
 /// + single-turn prompt/response) to make "switch which model answers chat" real. No multi-turn
 /// tool-permission UI yet — `ACPClient` auto-declines any `session/request_permission`.
 public actor ACPAssistant: ConversationalAssistant {
+    /// Supplies the site's *current* container control, or `nil` when no container is running.
+    /// A closure rather than a captured value because the container comes and goes with the
+    /// preview lifecycle — it's resolved at connect time (first turn), not at init.
     public typealias ContainerControlProvider = @Sendable () async -> (siteID: String, control: any LocalContainerControl)?
 
+    /// Failures reaching the agent at all, as opposed to protocol-level errors once connected
+    /// (those are `ACPClient.ACPError`).
     public enum ACPAssistantError: Error, Sendable, Equatable {
         /// A `.stdio` connection is active but no container is currently running for this site
         /// (e.g. the preview hasn't finished starting yet).
@@ -48,6 +53,18 @@ public actor ACPAssistant: ConversationalAssistant {
         }
     }
 
+    /// Creates the assistant without connecting anything — transport construction and the ACP
+    /// handshake are deferred to the first turn (see the type doc).
+    ///
+    /// - Parameters:
+    ///   - containerControlProvider: consulted per connection attempt for `.stdio` transports.
+    ///     The default ("no container") makes a `.stdio` turn fail with
+    ///     `ACPAssistantError.containerUnavailable` rather than hang.
+    ///   - secretStore: where a `.remote` connection's bearer token is read from, keyed by
+    ///     `connection.id`. A read failure degrades to an unauthenticated request — the remote
+    ///     agent rejects it if a token was actually required.
+    ///   - transportFactory: test seam. When set it replaces the production transport selection
+    ///     entirely, and `containerControlProvider`/`secretStore` go unused.
     public init(
         connection: ACPAgentConnection,
         siteID: String,
@@ -80,6 +97,10 @@ public actor ACPAssistant: ConversationalAssistant {
         }
     }
 
+    /// Static, connection-independent capabilities: streaming and tools yes (ACP agents call
+    /// tools mid-turn, surfaced as `.toolUse`/`.toolResult` events), structured output no —
+    /// guided generation is FoundationModels-only. `providerName` echoes the owner-chosen
+    /// connection name so chat shows which agent is answering.
     public nonisolated var capabilities: AssistantCapabilities {
         AssistantCapabilities(
             supportsStreaming: true, supportsStructuredOutput: false, supportsVision: false,
@@ -87,6 +108,10 @@ public actor ACPAssistant: ConversationalAssistant {
         )
     }
 
+    /// `ContentAssistant`'s plain-text path, implemented by flattening ``converse(prompt:context:)``'s
+    /// event stream: only `.textDelta` text survives, `.failed` becomes a thrown
+    /// `AssistantError.streamFailed`, and tool/thinking events are dropped — callers that need
+    /// those use `converse` directly.
     public func generate(prompt: String, context: AssistantContext) async throws -> AsyncThrowingStream<String, Error> {
         let events = try await converse(prompt: prompt, context: context)
         return AsyncThrowingStream { continuation in
@@ -105,11 +130,20 @@ public actor ACPAssistant: ConversationalAssistant {
     }
 
     #if compiler(>=6.4) && canImport(FoundationModels)
+    /// Always throws `AssistantError.unsupported`: guided generation is defined by
+    /// FoundationModels' `Generable` machinery, which an external ACP agent can't participate
+    /// in. Declared only under the same toolchain gate as the protocol requirement it satisfies
+    /// (see the gate note at the top of this file).
     public func generateStructured<T: Generable & Sendable>(prompt: String, context: AssistantContext, resultType: T.Type) async throws -> T {
         throw AssistantError.unsupported("ACP agents do not support FoundationModels guided generation")
     }
     #endif
 
+    /// Streams one conversational turn. The first call performs the lazy connect — transport
+    /// construction, ACP `initialize`, `session/new` — and later calls reuse both, so the agent
+    /// keeps conversation context across turns. Throws (rather than yielding `.failed`) only
+    /// for setup problems (no container for a `.stdio` connection, handshake failure), per
+    /// `ConversationalAssistant`'s contract.
     public func converse(prompt: String, context: AssistantContext) async throws -> AsyncStream<AssistantEvent> {
         let client = try await connectedClient()
         let sessionID = try await ensureSession(client: client)
@@ -128,11 +162,18 @@ public actor ACPAssistant: ConversationalAssistant {
         }
     }
 
+    /// Cancels the current turn via `session/cancel` — and only the turn: the client and its
+    /// transport deliberately stay connected so a follow-up message in the same session keeps
+    /// working. Full teardown happens in `deinit` (see the note there). No-op before the first
+    /// turn ever starts.
     public func cancel() async {
         guard let client, let sessionID else { return }
         await client.cancelSession(sessionID: sessionID)
     }
 
+    /// Drops the session id so the next ``converse(prompt:context:)`` starts a fresh
+    /// `session/new`. The connected client/transport is kept — only the agent-side conversation
+    /// context is discarded.
     public func resetSession() async {
         sessionID = nil
     }

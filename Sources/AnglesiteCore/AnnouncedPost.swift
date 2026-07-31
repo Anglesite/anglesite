@@ -27,10 +27,15 @@ import Foundation
 public struct AnnouncedPost: Codable, Sendable, Equatable, Identifiable {
     /// AS2 object type of the wrapped post, per the Worker's own classification.
     public enum ObjectType: String, Codable, Sendable, Equatable {
+        /// AS2 `Note` — a short, microblog-style post.
         case note
+        /// AS2 `Article` — long-form writing.
         case article
+        /// AS2 `Page` — a standalone web page.
         case page
+        /// AS2 `Video`.
         case video
+        /// AS2 `Event`.
         case event
     }
 
@@ -39,10 +44,18 @@ public struct AnnouncedPost: Codable, Sendable, Equatable, Identifiable {
     /// Not live-updated — if the member later changes their name/photo, the old values persist
     /// in the snapshot, same as `ReceivedInteraction.Author`.
     public struct Author: Codable, Sendable, Equatable {
+        /// The member's display name at announce time.
         public let name: String?
+        /// The member's own profile/site URL. Web-scheme-validated by the enclosing
+        /// ``AnnouncedPost``'s initializer, because it flows into an `href`.
         public let url: URL?
+        /// The member's avatar URL at announce time. Same web-scheme validation as ``url``, for
+        /// the same reason (it flows into a `src`).
         public let photo: URL?
 
+        /// Memberwise initializer. Deliberately non-throwing: the scheme checks live in
+        /// ``AnnouncedPost``'s initializer, the single choke point every constructed post — with
+        /// or without an author — must pass through.
         public init(name: String?, url: URL?, photo: URL?) {
             self.name = name
             self.url = url
@@ -71,8 +84,13 @@ public struct AnnouncedPost: Codable, Sendable, Equatable, Identifiable {
     /// For example: `"data/community-posts/ap-abc123.json"`
     public var gitPath: String { "data/community-posts/\(id).json" }
 
+    /// Construction-time rejections enforcing the type-level sanitisation contract.
     public enum ValidationError: Error, Sendable {
+        /// The id contained characters outside `[A-Za-z0-9_-]` — rejected so ``gitPath`` can
+        /// never be steered outside `data/community-posts/`.
         case invalidID(String)
+        /// A URL destined for `href`/`src` carried a non-`http(s)` scheme (`javascript:`,
+        /// `data:`, …).
         case insecureURL(URL)
     }
 
@@ -85,6 +103,13 @@ public struct AnnouncedPost: Codable, Sendable, Equatable, Identifiable {
         }
     }
 
+    /// Validating initializer — the choke point for programmatic construction, enforcing the
+    /// type-level sanitisation contract. Note the synthesized `Decodable` path does *not* run
+    /// these checks; decoded files rely on the template's zod validation downstream.
+    ///
+    /// - Throws: ``ValidationError/invalidID(_:)`` when `id` strays outside `[A-Za-z0-9_-]+`, or
+    ///   ``ValidationError/insecureURL(_:)`` when `sourceURL` — or the author's `url`/`photo` —
+    ///   isn't `http`/`https`.
     public init(
         id: String,
         objectType: ObjectType,

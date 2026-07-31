@@ -8,12 +8,23 @@ import FoundationNetworking
 /// Only the icon's *URL* is kept, never image bytes: `AvatarLoader` fetches the image per visible
 /// row, which keeps the persisted cache small and stops the app becoming an image store.
 public struct ActorProfile: Codable, Equatable, Sendable {
+    /// The actor's IRI — the profile's identity, and (in string form) the key
+    /// ``ActorProfileCache`` stores it under.
     public let actor: URL
+    /// The instance-supplied username, already routed through ``DisplayString/safe(_:)``: both
+    /// name fields are freely attacker-controlled and can carry bidi-control scalars that make a
+    /// rendered name impersonate a trusted one.
     public let preferredUsername: String?
+    /// The instance-supplied display name, sanitized the same way as ``preferredUsername``.
     public let name: String?
+    /// The avatar's URL — never its bytes (see the type-level note), and only when served over
+    /// HTTPS; a plaintext avatar is dropped rather than failing the whole profile.
     public let iconURL: URL?
+    /// When the profile was fetched, driving ``ActorProfileCache``'s time-to-live expiry.
     public let fetchedAt: Date
 
+    /// Memberwise initializer — public because the synthesized one would be internal, and tests
+    /// plus cache fixtures need to build profiles without going through a fetch.
     public init(
         actor: URL,
         preferredUsername: String?,
@@ -29,11 +40,19 @@ public struct ActorProfile: Codable, Equatable, Sendable {
     }
 }
 
+/// Why a profile fetch was rejected. Every case is non-fatal to callers — the follower row
+/// simply falls back to its derived handle — but the cases stay distinct so tests can pin
+/// *which* defense fired.
 public enum ActorProfileError: Error, Equatable, Sendable {
     /// The actor IRI, or the URL a redirect actually landed on, wasn't `https`.
     case insecureURL
+    /// The body exceeded ``ActorProfileFetcher/maximumResponseBytes``. Carries the byte count
+    /// observed when the transfer was cut off.
     case responseTooLarge(Int)
+    /// The server answered outside 2xx. Carries the HTTP status.
     case requestFailed(status: Int)
+    /// The body wasn't a decodable actor document. Carries the underlying error's description
+    /// as a `String` because `Error` itself isn't `Equatable`.
     case decodingFailed(String)
 }
 
@@ -44,6 +63,9 @@ public enum ActorProfileError: Error, Equatable, Sendable {
 /// after redirects), a hard byte cap enforced *during* transfer, and a short timeout. Callers
 /// treat every failure as non-fatal — the row falls back to its derived handle.
 public struct ActorProfileFetcher: Sendable {
+    /// Injection seam for the HTTP layer, so tests exercise the defenses without a network.
+    /// Returns the `HTTPURLResponse` (not just data) because ``profile(for:now:)`` must re-check
+    /// the URL a redirect actually landed on.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     /// 256 KB. An actor document is a few KB; anything approaching this is pathological.
@@ -59,10 +81,17 @@ public struct ActorProfileFetcher: Sendable {
 
     private let transport: Transport
 
+    /// Creates a fetcher. The default transport is the capped, streaming production one — inject
+    /// a ``Transport`` only to fake the network in tests.
     public init(transport: @escaping Transport = ActorProfileFetcher.defaultTransport) {
         self.transport = transport
     }
 
+    /// Fetches and decodes the actor document at `actor`, applying every defense described on
+    /// the type. `now` is injectable so tests can pin the resulting `fetchedAt`.
+    ///
+    /// - Throws: ``ActorProfileError`` — callers treat any case as "no enrichment for this row",
+    ///   never as fatal.
     public func profile(for actor: URL, now: Date = Date()) async throws -> ActorProfile {
         try Self.requireHTTPS(actor)
 

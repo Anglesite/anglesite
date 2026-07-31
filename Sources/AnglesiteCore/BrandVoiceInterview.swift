@@ -4,11 +4,17 @@ import Foundation
 /// audience, three-ish personality words, brand terms, phrases to avoid. Formality is
 /// captured as tone words rather than a separate axis.
 public struct BrandVoiceAnswers: Sendable, Equatable {
+    /// Who the site speaks to, in the owner's own words. Free text; empty means unanswered.
     public var audience: String
+    /// The "three-ish personality words" answer — tone descriptors like "warm" or "direct".
     public var toneWords: [String]
+    /// Brand/product terms whose exact capitalization generated copy must reproduce.
     public var brandTerms: [String]
+    /// Words and phrases the owner never wants to see in generated copy.
     public var avoidPhrases: [String]
 
+    /// Memberwise initializer. Pass empty values for skipped questions — every consumer treats
+    /// empty as "unanswered" and leaves the existing convention alone, never as "clear it".
     public init(audience: String, toneWords: [String], brandTerms: [String], avoidPhrases: [String]) {
         self.audience = audience
         self.toneWords = toneWords
@@ -20,6 +26,9 @@ public struct BrandVoiceAnswers: Sendable, Equatable {
 /// Pure mapping from interview answers to `.userOverride` convention writes. Only non-empty
 /// answers are applied, so a partial interview never erases inferred signal.
 public enum BrandVoiceInterview {
+    /// Returns a copy of `conventions` with each non-empty answer applied as an override —
+    /// the pure, engine-free counterpart of ``BrandVoiceWriter/save(_:engine:store:siteID:)``
+    /// for callers that manage persistence themselves (and for tests).
     public static func apply(_ answers: BrandVoiceAnswers, to conventions: ProjectConventions) -> ProjectConventions {
         var out = conventions
         let audience = answers.audience.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -61,6 +70,10 @@ public enum BrandVoiceWriter {
         return true
     }
 
+    /// True when at least one answer is non-empty (audience judged after trimming) — the guard
+    /// `save` uses so an all-blank interview never seeds the engine or touches the store. Public
+    /// so callers (e.g. `SaveBrandVoiceTool`) can word their reply from the same predicate
+    /// instead of duplicating the emptiness rules.
     public static func hasContent(_ answers: BrandVoiceAnswers) -> Bool {
         !answers.audience.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !answers.toneWords.isEmpty || !answers.brandTerms.isEmpty || !answers.avoidPhrases.isEmpty
