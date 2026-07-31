@@ -29,12 +29,26 @@ struct PreviewModelSuspendOnCloseTests {
         let model = PreviewModel(runtime: runtime)
         let root = URL(fileURLWithPath: "/tmp/suspend-on-close-test")
         model.open(site: CurrentSite(id: "site-1", packageURL: root, sourceDirectory: root))
-        try await Task.sleep(for: .milliseconds(50))  // open() dispatches its boot in a Task
-
         model.close()
-        try await Task.sleep(for: .milliseconds(50))  // close() dispatches its teardown in a Task
+
+        // open()/close() both dispatch their runtime call in an unstructured Task — poll rather
+        // than guess a fixed delay, so this stays reliable under a slow/loaded full-suite run
+        // rather than only in isolation (a single fixed sleep flaked under full-suite CPU load).
+        await pollUntil(timeout: .seconds(5)) {
+            let suspended = await runtime.suspendCalls
+            let stopped = await runtime.stopCalls
+            return suspended > 0 || stopped > 0
+        }
 
         #expect(await runtime.suspendCalls == 1)
         #expect(await runtime.stopCalls == 0)
+    }
+
+    private func pollUntil(timeout: Duration, _ condition: () async -> Bool) async {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while ContinuousClock.now < deadline {
+            if await condition() { return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 }
