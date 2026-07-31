@@ -308,6 +308,27 @@ public struct HTTPCloudflareClient: CloudflareReading {
             throw CloudflareError.api(message: env.errors?.first?.message ?? "request failed")
         }
     }
+
+    /// Like `mutate`, but decodes and returns the response body instead of discarding it —
+    /// `mutate`'s `CFEnvelope<CFEmpty>` can't express a caller that needs the created resource back.
+    private func postEnvelope<Body: Encodable & Sendable, T: Decodable & Sendable>(
+        _ path: String, body: Body, apiToken: String, as type: T.Type
+    ) async throws -> CFEnvelope<T> {
+        guard let url = URL(string: Self.base + path) else { throw CloudflareError.malformedResponse }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        let (data, http) = try await transport(request)
+        if http.statusCode == 401 || http.statusCode == 403 { throw CloudflareError.unauthorized }
+        guard (200..<300).contains(http.statusCode) else { throw CloudflareError.http(status: http.statusCode) }
+        do {
+            return try JSONDecoder().decode(CFEnvelope<T>.self, from: data)
+        } catch {
+            throw CloudflareError.malformedResponse
+        }
+    }
 }
 
 // MARK: - CloudflareWriting conformance
@@ -476,5 +497,45 @@ extension HTTPCloudflareClient: CloudflareWriting {
                                               rules: [rule]),
                              apiToken: apiToken)
         }
+    }
+}
+
+// MARK: - AISearchProvisioning conformance
+
+extension HTTPCloudflareClient: AISearchProvisioning {
+    public func createAISearchInstance(
+        domain: String, instanceID: String, apiToken: String
+    ) async throws -> AISearchInstance {
+        struct CFAccount: Decodable, Sendable { let id: String }
+        let accounts = try await get("/accounts?per_page=1", apiToken: apiToken, as: [CFAccount].self)
+        guard let accountID = accounts.first?.id else {
+            throw CloudflareError.api(message: "no Cloudflare account visible to this token")
+        }
+
+        struct CreateBody: Encodable, Sendable {
+            let id: String
+            let type: String
+            let source_params: SourceParams
+            struct SourceParams: Encodable, Sendable {
+                let web_crawler: WebCrawler
+                struct WebCrawler: Encodable, Sendable {
+                    let parse_type: String
+                }
+            }
+        }
+        struct CFAISearchInstance: Decodable, Sendable {
+            let id: String
+            let name: String?
+        }
+        let body = CreateBody(
+            id: instanceID, type: "web-crawler",
+            source_params: .init(web_crawler: .init(parse_type: "sitemap")))
+        let env = try await postEnvelope(
+            "/accounts/\(accountID)/ai-search/namespaces/\(instanceID)/instances",
+            body: body, apiToken: apiToken, as: CFAISearchInstance.self)
+        guard let result = env.result else {
+            throw CloudflareError.api(message: env.errors?.first?.message ?? "AI Search instance creation returned no result")
+        }
+        return AISearchInstance(id: result.id, name: result.name ?? instanceID)
     }
 }
