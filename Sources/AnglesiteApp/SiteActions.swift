@@ -117,6 +117,34 @@ enum SiteActions {
         try existing.write(to: url, atomically: true, encoding: .utf8)
     }
 
+    #if ANGLESITE_MAS
+    /// Obtain (or reuse) a security-scoped grant to `sitesRoot` under the sandboxed (MAS) build.
+    /// Shared by `SitesLauncherView.presentNewSite()` and `importPackage()` below — MAS
+    /// security-scoped-bookmark minting lives in exactly one place (see this enum's doc comment).
+    /// Returns the started-accessing URL, or nil if the user cancelled the grant panel.
+    static func ensureSitesRootAccess(_ sitesRoot: URL) async -> URL? {
+        if let data = AppSettings.shared.sitesRootBookmark,
+           let resolved = try? SecurityScopedBookmark.resolve(data),
+           resolved.url.startAccessingSecurityScopedResource() {
+            if resolved.isStale, let fresh = try? SecurityScopedBookmark.create(for: resolved.url) {
+                AppSettings.shared.sitesRootBookmark = fresh
+            }
+            return resolved.url
+        }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.directoryURL = sitesRoot
+        panel.prompt = String(localized: "Grant Access")
+        panel.message = String(localized: "Choose your Sites folder so Anglesite can create the new site there.")
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        if let data = try? SecurityScopedBookmark.create(for: url) {
+            AppSettings.shared.sitesRootBookmark = data
+        }
+        return url.startAccessingSecurityScopedResource() ? url : nil
+    }
+    #endif
+
     /// Pick a plain Anglesite directory, choose where to save the new package, copy it in, and
     /// register the package. Returns the new site, or nil if either panel was cancelled.
     static func importPackage() async throws -> SiteStore.Site? {
@@ -128,11 +156,29 @@ enum SiteActions {
         picker.message = String(localized: "Choose an existing Anglesite site folder to import.")
         guard picker.runModal() == .OK, let sourceDir = picker.url else { return nil }
 
+        // NSSavePanel silently ignores a directoryURL that doesn't exist yet and reverts to its
+        // last-used location, so create the sites root first — otherwise Import as a fresh
+        // install's first action wouldn't default into the Anglesite folder at all (#865). Under
+        // the sandbox this can need the same security-scoped grant New Site needs — gate on the
+        // declared source, not a write probe (createDirectory reports success for an existing but
+        // unwritable directory, so probing alone silently no-ops here — #865 PR review), and hold
+        // the scope open for the rest of this function via `defer`.
+        let sitesRoot = AppSettings.shared.sitesRoot
+        var scopedRootURL: URL?
+        defer { scopedRootURL?.stopAccessingSecurityScopedResource() }
+        #if ANGLESITE_MAS
+        if AppSettings.shared.sitesRootSource != .iCloudContainer {
+            guard let rootScope = await ensureSitesRootAccess(sitesRoot) else { return nil }  // user cancelled
+            scopedRootURL = rootScope
+        }
+        #endif
+        try? FileManager.default.createDirectory(at: sitesRoot, withIntermediateDirectories: true)
+
         let name = sourceDir.deletingPathExtension().lastPathComponent
         let save = NSSavePanel()
         save.message = String(localized: "Save the imported site package.")
         save.nameFieldStringValue = "\(name).anglesite"
-        save.directoryURL = AppSettings.shared.sitesRoot
+        save.directoryURL = sitesRoot
         guard save.runModal() == .OK, let dest = save.url else { return nil }
 
         do {

@@ -57,8 +57,8 @@ Cancel at any pre-build step must dismiss with nothing on disk.
 
 Expected:
 
-- First creation on a sandboxed build raises the **"Grant Access"** open panel ("Choose your Sites folder so Anglesite can create the new site there."). Granting proceeds; it must not re-prompt for subsequent sites in the same root.
-- The save panel ("Save Your Website", prompt "Save") defaults to the Sites root (`~/Sites/` unless overridden) with filename **`qa-bakery.anglesite`**, and creates the directory if missing.
+- First creation on a sandboxed build usually does **not** raise a "Grant Access" open panel — the app's own iCloud container needs no such grant. The panel only appears when iCloud is unavailable and the site root falls back to `~/Sites/`; in that case granting proceeds and it must not re-prompt for subsequent sites in the same root.
+- The save panel ("Save Your Website", prompt "Save") defaults to the Sites root (the iCloud "Anglesite" folder, or `~/Sites/` if iCloud is unavailable, unless overridden) with filename **`qa-bakery.anglesite`**, and creates the directory if missing.
 
 ### 4. Building checklist completes clean
 
@@ -69,6 +69,8 @@ Expected, in order, all check off: created the website file → copied the templ
 
 ### 5. Package layout + marker on disk
 
+(Substitute your iCloud "Anglesite" folder for `~/Sites/` below if iCloud is available on the test machine.)
+
 Inspect `~/Sites/qa-bakery.anglesite/`:
 
 - `Info.plist` marker with format version 1, a stable site UUID, display name "QA Bakery", created date.
@@ -76,6 +78,7 @@ Inspect `~/Sites/qa-bakery.anglesite/`:
 - `.site-config` contains the wizard answers: `SITE_NAME`, `SITE_TYPE`, `DOMAIN_CHOICE`, `THEME`, `TAGLINE`, and the real `ANGLESITE_VERSION` (not the `1.0.0` placeholder).
 - `Config/` exists beside `Source/` with the dependency baseline; `Config/` is **not** inside the git repo.
 - Excluded from the copy: `scripts/scaffold.sh`, `scripts/themes.ts`, `*.test.ts`, `integrations/`, `node_modules/`.
+- When the package landed in the iCloud folder, any sync indicator (toolbar/inspector) showing this site as iCloud-sync-eligible is **expected, not a regression**: since #865 new sites are created inside the iCloud container, so `ICloudSyncEligibility` (#881) is now true by default rather than only for deliberately-relocated sites.
 
 ### 6. Git repo with initial commit (#697)
 

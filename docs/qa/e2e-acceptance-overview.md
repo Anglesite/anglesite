@@ -27,7 +27,7 @@
 1. Quit Anglesite.
 2. Delete the app container: `~/Library/Containers/io.dwk.anglesite/` (sandboxed builds keep Application Support, preferences, and `recents.json` there). For non-container state, also check `~/Library/Application Support/Anglesite/`.
 3. Remove the Cloudflare token from Keychain (Keychain Access → search "Anglesite" / "Cloudflare") and ensure `CLOUDFLARE_API_TOKEN` is not exported in the launch environment.
-4. Move aside any existing `~/Sites/*.anglesite` packages (or use a Sites-root override pointed at an empty directory).
+4. Move aside any existing packages in the default Sites root (the iCloud "Anglesite" folder, or `~/Sites/*.anglesite` if iCloud is unavailable) — or use a Sites-root override pointed at an empty directory.
 
 ## Evidence to record
 

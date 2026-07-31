@@ -17,5 +17,17 @@
 	<!-- Apple Containerization framework (#69): boot local OCI containers. -->
 	<key>com.apple.security.virtualization</key>
 	<true/>
+
+	<!-- iCloud Drive default site storage (#865): the "Anglesite" folder new/imported .anglesite
+	     packages save into by default. Container identifier must match AppSettings.sitesRoot's
+	     ubiquityContainerIdentifier and Info.plist's NSUbiquitousContainers key below. -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.io.dwk.anglesite</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
 </dict>
 </plist>

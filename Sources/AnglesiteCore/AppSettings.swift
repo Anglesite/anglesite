@@ -44,10 +44,47 @@ public final class AppSettings: @unchecked Sendable {
     }
 
     private let defaults: UserDefaults
+    #if canImport(Darwin)
+    private let ubiquityContainerResolver: UbiquityContainerResolving
 
+    /// Must match the `com.apple.developer.icloud-container-identifiers` entry in
+    /// `Resources/Anglesite.entitlements` / `Resources/Anglesite-Debug.entitlements`, and the
+    /// `NSUbiquitousContainers` key in `Resources/Info.plist`.
+    static let ubiquityContainerIdentifier = "iCloud.io.dwk.anglesite"
+
+    private let ubiquityCacheLock = NSLock()
+    /// `nil` = not resolved yet; `.some(nil)` = resolved, iCloud unavailable.
+    private var cachedUbiquityContainerURL: URL??
+
+    /// `url(forUbiquityContainerIdentifier:)` is documented as potentially slow (it may hit the
+    /// network) and not to be called on the main thread — but `sitesRoot` is read synchronously
+    /// from `@MainActor` code. Resolving at most once per `AppSettings` instance keeps that cost
+    /// to a single call per process rather than one per save/import panel (#865 final review).
+    ///
+    /// Known limitation: this cache never invalidates for the process's lifetime, so signing in or
+    /// out of iCloud mid-session (a real, OS-supported transition) won't move `sitesRoot`/
+    /// `sitesRootSource` until the app relaunches (#865 PR review). `AppSettings.shared` is a
+    /// long-lived singleton with no observer machinery today; invalidating on
+    /// `NSUbiquityIdentityDidChangeNotification` would need that machinery added deliberately
+    /// rather than folded into this cache, so it's left as a known limitation here.
+    private func resolvedUbiquityContainerURL() -> URL? {
+        ubiquityCacheLock.lock()
+        defer { ubiquityCacheLock.unlock() }
+        if let cached = cachedUbiquityContainerURL { return cached }
+        let resolved = ubiquityContainerResolver.url(forUbiquityContainerIdentifier: Self.ubiquityContainerIdentifier)
+        cachedUbiquityContainerURL = resolved
+        return resolved
+    }
+
+    public init(defaults: UserDefaults, ubiquityContainerResolver: UbiquityContainerResolving = FileManager.default) {
+        self.defaults = defaults
+        self.ubiquityContainerResolver = ubiquityContainerResolver
+    }
+    #else
     public init(defaults: UserDefaults) {
         self.defaults = defaults
     }
+    #endif
 
     /// Optional override for the bundled website template path. Lets template authors iterate
     /// on `Resources/Template/` content without rebuilding the app.
@@ -65,8 +102,9 @@ public final class AppSettings: @unchecked Sendable {
         }
     }
 
-    /// Optional override for `~/Sites/`. Useful in development and tests so the app doesn't have
-    /// to scribble into the user's real home directory.
+    /// Optional override for the default sites root (the iCloud container, or its `~/Sites/`
+    /// fallback). Useful in development and tests so the app doesn't have to scribble into the
+    /// user's real home directory.
     public var sitesRootOverride: URL? {
         get {
             guard let path = defaults.string(forKey: Key.sitesRootOverride), !path.isEmpty else { return nil }
@@ -102,10 +140,32 @@ public final class AppSettings: @unchecked Sendable {
         return port
     }
 
-    /// Effective root for site discovery. Returns the override when set, otherwise `~/Sites/`.
+    /// Effective root for site discovery (#865): `sitesRootOverride` when set (dev/test escape
+    /// hatch), otherwise the "Anglesite" folder inside this app's iCloud ubiquity container —
+    /// falling back to `~/Sites/` only when iCloud is unavailable (not signed in, iCloud Drive
+    /// off, or the container isn't provisioned, which is true of every ad-hoc-signed Debug build
+    /// since it has no Team ID) or on a platform with no iCloud API at all (Linux). No migration
+    /// path for existing `~/Sites/` packages: the app is pre-1.0 with no real user base there yet
+    /// (owner confirmation, 2026-07-21).
     public var sitesRoot: URL {
-        sitesRootOverride
-            ?? FileManager.default.portableHomeDirectory.appendingPathComponent("Sites", isDirectory: true)
+        if let sitesRootOverride { return sitesRootOverride }
+        #if canImport(Darwin)
+        if let container = resolvedUbiquityContainerURL() {
+            return container.appendingPathComponent("Documents", isDirectory: true)
+        }
+        #endif
+        return FileManager.default.portableHomeDirectory.appendingPathComponent("Sites", isDirectory: true)
+    }
+
+    /// Where `sitesRoot` resolved its value from — lets callers (e.g. the MAS sandbox flow) make a
+    /// correctness decision based on the actual reason, instead of probing filesystem behavior that
+    /// can't distinguish "no grant needed" from "directory already exists" (#865 final review).
+    public var sitesRootSource: SitesRootSource {
+        if sitesRootOverride != nil { return .override }
+        #if canImport(Darwin)
+        if resolvedUbiquityContainerURL() != nil { return .iCloudContainer }
+        #endif
+        return .homeFallback
     }
 
     /// Opt-in toggle (Settings → Advanced) that surfaces the Debug pane menu item in Release
@@ -296,6 +356,21 @@ public final class AppSettings: @unchecked Sendable {
         defaults.removeObject(forKey: LegacyKey.foundationModelTier)
         defaults.set(true, forKey: Key.didCleanLegacyChatBackendDefaults)
     }
+}
+
+/// Which of `AppSettings.sitesRoot`'s three branches produced the current value (#865).
+///
+/// Callers that need to behave differently per branch — notably the sandboxed (MAS) New Site flow,
+/// which must show a security-scoped grant panel for everything *except* the app's own iCloud
+/// container — read this instead of inferring the branch from the resolved path or from a
+/// filesystem write probe.
+public enum SitesRootSource: Sendable, Equatable {
+    /// `sitesRootOverride` is set (dev/test escape hatch); the location is arbitrary.
+    case override
+    /// The app's iCloud ubiquity container — the default when iCloud is available.
+    case iCloudContainer
+    /// The `~/Sites/` fallback, used when iCloud is unavailable or the platform has no iCloud API.
+    case homeFallback
 }
 
 /// Decides whether the "Show Debug Pane" menu item is present.
