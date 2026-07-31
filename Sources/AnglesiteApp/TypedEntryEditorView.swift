@@ -38,14 +38,17 @@ struct TypedEntryForm: View {
     private func control(for field: ContentTypeField) -> some View {
         let label = field.name + (field.required ? " *" : "")
         switch field.kind {
-        // TODO(#956 Task 7): render `.language` with a dedicated `LanguagePicker`, not a plain
-        // text field. Grouped with `.string` here only as the minimal compiler-forced arm.
-        case .string, .language, .url, .image:
+        case .string, .url, .image:
             HStack {
                 TextField(label, text: model.textBinding(field.name))
                 if field.kind == .image {
                     Button("Choose…") { chooseFile(for: field.name) }
                 }
+            }
+        case .language:
+            VStack(alignment: .leading) {
+                Text(label).font(.caption).foregroundStyle(.secondary)
+                LanguagePicker(tag: model.textBinding(field.name), siteDefaultTag: model.siteDefaultLangTag)
             }
         case .text:
             VStack(alignment: .leading) {
