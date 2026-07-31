@@ -11,11 +11,18 @@ import AnglesiteCore
 /// diff/upsert sequencing without hitting the live system index daemon. One method pair per
 /// entity type because `deleteAppEntities(identifiedBy:ofType:)` is type-specific.
 public protocol ContentSpotlightBackend: Sendable {
+    /// Upserts pages into the index. Id-keyed, so re-indexing an unchanged set is harmless.
     func indexPages(_ entities: [PageEntity]) async throws
+    /// Upserts posts into the index. Id-keyed, so re-indexing an unchanged set is harmless.
     func indexPosts(_ entities: [PostEntity]) async throws
+    /// Upserts images into the index. Id-keyed, so re-indexing an unchanged set is harmless.
     func indexImages(_ entities: [ImageEntity]) async throws
+    /// Removes pages by entity id. Idempotent — deleting an absent id is a no-op, which the
+    /// indexer's replay-on-failure recovery relies on.
     func deletePages(identifiers: [String]) async throws
+    /// Removes posts by entity id. Idempotent, as `deletePages(identifiers:)`.
     func deletePosts(identifiers: [String]) async throws
+    /// Removes images by entity id. Idempotent, as `deletePages(identifiers:)`.
     func deleteImages(identifiers: [String]) async throws
 }
 
@@ -50,6 +57,8 @@ public actor ContentSpotlightIndexer {
     private var inFlight: Set<String> = []
     private var dirty: Set<String> = []
 
+    /// The backend is injected (rather than hard-wiring `CSSearchableIndex`) so tests can
+    /// observe the diff/upsert sequencing without touching the live system index daemon.
     public init(graph: SiteContentGraph, backend: any ContentSpotlightBackend) {
         self.graph = graph
         self.backend = backend
@@ -58,7 +67,10 @@ public actor ContentSpotlightIndexer {
     /// Result returned to callers (today: tests + the bootstrap log) so they can assert/observe
     /// the diff outcome. Counts are summed across all three entity types.
     public struct Outcome: Sendable, Equatable {
+        /// Entities upserted this pass — the full current snapshot, not a changed-only delta,
+        /// because the backend upsert is id-keyed and cheap to repeat.
         public let indexed: Int
+        /// Ids deleted this pass (present in the previous snapshot, absent from the current one).
         public let removed: Int
     }
 
@@ -66,10 +78,15 @@ public actor ContentSpotlightIndexer {
     /// `lastIndexed` set this indexer maintains — the truthful "what we've put in the index" count
     /// without querying the system daemon. Returns zeros for an unknown / never-indexed site.
     public struct IndexedCounts: Sendable, Equatable {
+        /// Pages currently published to Spotlight for the site.
         public let pages: Int
+        /// Posts currently published to Spotlight for the site.
         public let posts: Int
+        /// Images currently published to Spotlight for the site.
         public let images: Int
+        /// Sum across all three types — the "N items indexed" number for status UI.
         public var total: Int { pages + posts + images }
+        /// Memberwise; public so tests and status UI can build expected values.
         public init(pages: Int, posts: Int, images: Int) {
             self.pages = pages
             self.posts = posts
@@ -77,6 +94,8 @@ public actor ContentSpotlightIndexer {
         }
     }
 
+    /// The current published-to-Spotlight counts for `siteID` — see ``IndexedCounts`` for what
+    /// "published" means here. Zeros for an unknown or never-indexed site.
     public func indexedCounts(for siteID: String) -> IndexedCounts {
         guard let state = lastIndexed[siteID] else { return IndexedCounts(pages: 0, posts: 0, images: 0) }
         return IndexedCounts(pages: state.pageIDs.count, posts: state.postIDs.count, images: state.imageIDs.count)

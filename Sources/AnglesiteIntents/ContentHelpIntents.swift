@@ -9,22 +9,34 @@ import Foundation
 /// and it's reserved for higher-traffic intents; ReviewCopyIntent stays discoverable via the
 /// Shortcuts app and via `SiteEntityQuery` resolution.
 public struct ReviewCopyIntent: AppIntent {
+    /// Action name in the Shortcuts library. Says "Site Copy", not just "Copy", to avoid
+    /// reading as a clipboard/duplicate action out of context.
     public static let title: LocalizedStringResource = "Review Site Copy"
+    /// Shortcuts-editor blurb; names the audit dimensions so users know what "review" covers.
     public static let description = IntentDescription(
         "Review a site's written copy for clarity, tone, and calls to action.")
 
+    /// The site to audit, resolved by ``SiteEntityQuery`` so "review copy on my portfolio"
+    /// matches by name.
     @Parameter(title: "Site") public var site: SiteEntity
 
+    /// Required by the AppIntents runtime; parameters are populated after init.
     public init() {}
+    /// Convenience for programmatic invocation with the site already resolved (tests, chaining
+    /// from another intent's `SiteEntity` result).
     public init(site: SiteEntity) {
         self.init()
         self.site = site
     }
 
+    /// One-line Shortcuts-editor rendering: "Review copy on <site>".
     public static var parameterSummary: some ParameterSummary {
         Summary("Review copy on \(\.$site)")
     }
 
+    /// Runs the audit and speaks/shows the summary. All outcome branching lives in the private
+    /// `run()` so the internal `performForTesting()` can share it — `IntentDialog` exposes no
+    /// way to read its text back out of a real `perform()` result.
     public func perform() async throws -> some IntentResult & ProvidesDialog {
         .result(dialog: IntentDialog(stringLiteral: try await run()))
     }
@@ -73,21 +85,34 @@ extension ReviewCopyIntent {
 /// Not registered in AnglesiteShortcuts: same phrase-budget reasoning as `ReviewCopyIntent` —
 /// stays discoverable via the Shortcuts app and via `SiteEntityQuery` resolution.
 public struct PlanSocialMediaIntent: AppIntent {
+    /// Action name in the Shortcuts library.
     public static let title: LocalizedStringResource = "Plan Social Media"
+    /// Shortcuts-editor blurb; "plan and content calendar" signals the persisted-markdown
+    /// deliverable, not just a spoken reply.
     public static let description = IntentDescription(
         "Generate a social media plan and content calendar for a site.")
 
+    /// The site to plan for, resolved by ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
+    /// Planning horizon. Defaults to 4; `run()` clamps it to 1…8 rather than erroring, so a
+    /// Shortcut passing a wild value still gets a usable plan.
     @Parameter(title: "Weeks", default: 4) public var weeks: Int
 
+    /// Required by the AppIntents runtime; parameters are populated after init.
     public init() {}
 
+    /// One-line Shortcuts-editor rendering, with `weeks` demoted to the disclosure group so the
+    /// summary stays a single sentence.
     public static var parameterSummary: some ParameterSummary {
         Summary("Plan social media for \(\.$site)") {
             \.$weeks
         }
     }
 
+    /// Generates the plan, confirms with the user (this intent writes
+    /// `docs/social-calendar.md` into the site repo), then saves and reports. Branching lives
+    /// in the private `run()` shared with the internal `performForTesting()` — see
+    /// ``ReviewCopyIntent/perform()``.
     public func perform() async throws -> some IntentResult & ProvidesDialog {
         .result(dialog: IntentDialog(stringLiteral: try await run()))
     }
@@ -139,20 +164,33 @@ extension PlanSocialMediaIntent {
 /// `PlanSocialMediaIntent` — stays discoverable via the Shortcuts app and via `SiteEntityQuery`
 /// resolution.
 public struct RepurposePostIntent: AppIntent {
+    /// Action name in the Shortcuts library.
     public static let title: LocalizedStringResource = "Repurpose Post"
+    /// Shortcuts-editor blurb; "platform-sized" flags that variants come pre-fitted to each
+    /// platform's length limits.
     public static let description = IntentDescription(
         "Draft platform-sized social posts from one of a site's blog posts.")
 
+    /// The site owning the post, resolved by ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
+    /// The post to repurpose, identified by slug and loaded straight from the repo via
+    /// `PostSource` (not resolved through ``PostEntityQuery``, whose graph is only populated
+    /// while the site is open in a window). An unknown slug fails with a spoken error naming it.
     @Parameter(title: "Post Slug", description: "The post's slug, e.g. 'coast-trip'.")
     public var slug: String
 
+    /// Required by the AppIntents runtime; parameters are populated after init.
     public init() {}
 
+    /// One-line Shortcuts-editor rendering: "Repurpose <slug> from <site>".
     public static var parameterSummary: some ParameterSummary {
         Summary("Repurpose \(\.$slug) from \(\.$site)")
     }
 
+    /// Drafts the variants and returns them twice: the full text block as the intent's *value*
+    /// (pipeable into a share/clipboard action in a Shortcut) and a short summary as the spoken
+    /// *dialog*. Branching lives in the private `run()` shared with the internal
+    /// `performForTesting()` — see ``ReviewCopyIntent/perform()``.
     public func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<String> {
         let (value, dialog) = try await run()
         return .result(value: value, dialog: IntentDialog(stringLiteral: dialog))

@@ -18,6 +18,10 @@ public enum SiteEntityAnnotation {
     /// Reverse-DNS style; the suffix matches the SwiftUI scene that publishes it.
     public static let activityType = "io.dwk.anglesite.site-window"
 
+    /// Builds the activity for one site window: title + `siteID` in `userInfo`, plus (on Swift
+    /// 6.4+) the typed `appEntityIdentifier`. Deliberately opts out of Handoff, public indexing,
+    /// and search — this is local window state, not a portable document; #71 (iOS thin client)
+    /// revisits with SyncableEntity.
     public static func makeSiteUserActivity(_ entity: SiteEntity) -> NSUserActivity {
         let activity = NSUserActivity(activityType: activityType)
         activity.title = entity.displayName

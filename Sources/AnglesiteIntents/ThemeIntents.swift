@@ -13,19 +13,29 @@ import Foundation
 /// context and calls the `URL` overload directly — there is no phantom
 /// `AnglesitePackage(sourceDirectory:)` initializer; it does not exist.)
 public struct ApplyThemeIntent: AppIntent {
+    /// The verb Siri/Shortcuts display and match against.
     public static let title: LocalizedStringResource = "Apply Theme"
+    /// One-line explanation shown in the Shortcuts action gallery.
     public static let description = IntentDescription("Apply a built-in visual theme to a site.")
 
+    /// The site whose design tokens the theme rewrites, resolved through ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
+    /// The catalog id of the theme. A plain string (not an `AppEnum`) so the catalog can grow
+    /// without a schema change; an unrecognized id gets a dialog listing what's available
+    /// rather than an error.
     @Parameter(title: "Theme", description: "e.g. warm, classic, bold, elegant.") public var themeID: String
     @Dependency private var catalog: ThemeCatalog
 
+    /// Required by `AppIntent` — the runtime constructs the intent, then fills `@Parameter`s.
     public init() {}
 
+    /// Shortcuts editor sentence: "Apply *theme* theme to *site*".
     public static var parameterSummary: some ParameterSummary {
         Summary("Apply \(\.$themeID) theme to \(\.$site)")
     }
 
+    /// Looks up the theme, confirms (a theme rewrites the site's visual identity in place),
+    /// and applies it through `DesignApplyService` — all dialog wording lives in `run()`.
     public func perform() async throws -> some IntentResult & ProvidesDialog {
         .result(dialog: IntentDialog(stringLiteral: try await run()))
     }

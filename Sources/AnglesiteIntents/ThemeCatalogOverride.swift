@@ -6,5 +6,7 @@ import AnglesiteCore
 /// fake catalog before invoking `ApplyThemeIntent`, which reads
 /// `ThemeCatalogOverride.scoped ?? self.catalog`, so production flows through `@Dependency`.
 public enum ThemeCatalogOverride {
+    /// The task-scoped fake catalog. Always `nil` in production; a bound value also signals
+    /// "under test" to ``ApplyThemeIntent``, which then skips its `requestConfirmation` gate.
     @TaskLocal public static var scoped: ThemeCatalog?
 }

@@ -7,6 +7,11 @@ import AppIntents
 /// `SiteEntity` value that the user pipes into `DeploySiteIntent`, whose confirmation still
 /// gates the deploy. No extra `opensIntent` plumbing is needed for v0.
 public struct AnglesiteShortcuts: AppShortcutsProvider {
+    /// The curated phrase list, built with `AppShortcutsProvider`'s result builder. Apple caps
+    /// this at 10 shortcuts, and the ten below spend the whole budget — which is why the Bucket 3
+    /// integration intents get no phrase (see the note at the end of the builder). When adding or
+    /// removing an entry, update `phraseExposedIntentNames` in the same commit; a sync-guard test
+    /// compares the two counts.
     public static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: DeploySiteIntent(),

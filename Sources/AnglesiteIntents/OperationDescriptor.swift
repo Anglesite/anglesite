@@ -12,14 +12,22 @@ public struct OperationDescriptor: Sendable, Equatable {
     public let displayName: String
     /// The intent's Swift type name, e.g. "DeploySiteIntent". The coverage-anchor key; unique.
     public let intentTypeName: String
+    /// How far the operation's writes reach — the axis confirmation and risk decisions key off.
     public let sideEffect: OperationSideEffect
+    /// Whether the intent gates on a user confirmation before running. Declared here so tests can
+    /// enforce that risky operations (deploy, DNS mutations) never silently drop their prompt.
     public let requiresConfirmation: Bool
+    /// Whether a running invocation can be cancelled from the system UI. Mirrors the intent's
+    /// `CancellableIntent` adoption, which the auto-derived schema can't express.
     public let isCancellable: Bool
+    /// The shape of the value the intent returns, so agents know what they can chain into.
     public let resultShape: OperationResult
     /// The `mcpbridge`-assigned tool name, once Apple's naming convention is pinned (D.5/#166).
     /// `nil` for all current entries — forward-looking, not asserted by any test.
     public let mcpToolName: String?
 
+    /// Memberwise initializer. Every field except `mcpToolName` is required so a new registry
+    /// entry can't accidentally omit the metadata the coverage tests assert on.
     public init(
         operationID: String,
         displayName: String,
@@ -58,13 +66,19 @@ public enum OperationSideEffect: Sendable, Equatable {
 
 /// The shape an agent gets back. The associated string is the entity type name.
 public enum OperationResult: Sendable, Equatable {
+    /// The operation returns only a dialog — nothing an agent can chain into a follow-up.
     case none
+    /// A single entity of the named type (e.g. `"SiteEntity"`), chainable into another intent.
     case entity(String)
+    /// A list of entities of the named type — search/find operations that fan out.
     case entities(String)
 }
 
 /// The canonical registry — the single source of truth for Siri-facing operation metadata.
 public enum AnglesiteOperations {
+    /// Every registered descriptor, one per Siri-facing intent. Coverage tests diff this list
+    /// against the real intent types, so adding an intent without a descriptor (or vice versa)
+    /// fails fast rather than shipping an operation the system MCP schema misrepresents.
     public static let all: [OperationDescriptor] = [
         OperationDescriptor(
             operationID: "deploy-site", displayName: "Deploy Site",

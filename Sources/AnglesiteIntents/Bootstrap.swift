@@ -6,26 +6,6 @@ private let log = Logger(subsystem: "io.dwk.anglesite", category: "spotlight-ind
 private let contentLog = Logger(subsystem: "io.dwk.anglesite", category: "content-spotlight-indexer")
 private let relevantLog = Logger(subsystem: "io.dwk.anglesite", category: "relevant-entities")
 
-/// Public entry point that registers production dependencies with `AppDependencyManager` and
-/// hooks the Spotlight indexer to `SiteStore.shared`.
-///
-/// Async so the call site can await handler installation before driving any `SiteStore`
-/// mutations — that way a caller in an async context (e.g. #101's system MCP entry from a
-/// non-UI process) gets the indexer reliably set up before they touch the store.
-///
-/// `contentGraph` is the single, app-lifetime `SiteContentGraph` instance the app owns and
-/// passes in. We register it with `AppDependencyManager` so `@Dependency private var graph:
-/// SiteContentGraph` resolves to the same instance in every `PageEntityQuery` /
-/// `PostEntityQuery` / `ImageEntityQuery` instantiation by the AppIntents runtime. A.1's
-/// design explicitly rules out a process-wide `SiteContentGraph.shared` — ownership stays
-/// with the app, threaded through here.
-///
-/// The kicker `try await SiteStore.shared.load()` inside is belt-and-suspenders for the
-/// SwiftUI case: `AppDelegate.applicationDidFinishLaunching` can only fire-and-forget us in a
-/// `Task`, which races with the launcher view's own `task` modifier. The handler is registered
-/// before the load here, so the load *will* emit even if the launcher already raced ahead and
-/// missed it — emission is idempotent (the indexer dedups by id set).
-
 /// Fallback interpreter used when the Xcode-27 / `FoundationModels` toolchain is absent (CI).
 /// Always throws `.unavailable` so the intent's catch path surfaces the "needs Apple Intelligence"
 /// dialog rather than a fatalError from the missing `@Dependency` factory.
@@ -35,7 +15,33 @@ private struct UnavailableEditInterpreter: EditInterpreting {
     }
 }
 
+/// Namespace for the intents-side process setup. Caseless — there is no instance state; all
+/// the wiring lands in `AppDependencyManager` registrations and the long-lived change handlers
+/// installed by ``bootstrap(contentGraph:)``.
 public enum AnglesiteIntents {
+    /// Public entry point that registers production dependencies with `AppDependencyManager` and
+    /// hooks the Spotlight indexer to `SiteStore.shared`.
+    ///
+    /// Async so the call site can await handler installation before driving any `SiteStore`
+    /// mutations — that way a caller in an async context (e.g. #101's system MCP entry from a
+    /// non-UI process) gets the indexer reliably set up before they touch the store.
+    ///
+    /// `contentGraph` is the single, app-lifetime `SiteContentGraph` instance the app owns and
+    /// passes in. We register it with `AppDependencyManager` so `@Dependency private var graph:
+    /// SiteContentGraph` resolves to the same instance in every ``PageEntityQuery`` /
+    /// ``PostEntityQuery`` / ``ImageEntityQuery`` instantiation by the AppIntents runtime. A.1's
+    /// design explicitly rules out a process-wide `SiteContentGraph.shared` — ownership stays
+    /// with the app, threaded through here.
+    ///
+    /// The kicker `try await SiteStore.shared.load()` inside is belt-and-suspenders for the
+    /// SwiftUI case: `AppDelegate.applicationDidFinishLaunching` can only fire-and-forget us in a
+    /// `Task`, which races with the launcher view's own `task` modifier. The handler is registered
+    /// before the load here, so the load *will* emit even if the launcher already raced ahead and
+    /// missed it — emission is idempotent (the indexer dedups by id set).
+    ///
+    /// - Returns: The ``ContentSpotlightIndexer`` wired to `contentGraph`, so the app can hand it
+    ///   to surfaces that probe index state (the Siri-readiness checks in `SiteWindowModel`).
+    ///   Discardable for callers that only need the side-effectful registrations.
     @discardableResult
     public static func bootstrap(contentGraph: SiteContentGraph) async -> ContentSpotlightIndexer {
         // Singleton-factory: the closure always returns the same pre-constructed `contentGraph`

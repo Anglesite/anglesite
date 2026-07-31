@@ -14,19 +14,30 @@ import AnglesiteCore
 /// Xcode 26.3 (Swift 6.3) the intents fall back to plain `AppIntent` with inline `await` calls
 /// (no extended budget, no Cancel UI). See #128 for cleanup once CI catches up.
 
+/// Deploys a site to production via `SiteOperations`. The only intent that both confirms with
+/// the user *and* still runs the pre-deploy security gate — confirmation guards against
+/// accidental voice/Shortcut triggers; the scan inside `DeployCommand` guards the content.
 public struct DeploySiteIntent: AppIntent {
+    /// The verb Siri/Shortcuts display and match against.
     public static let title: LocalizedStringResource = "Deploy Site"
+    /// One-line explanation shown in the Shortcuts action gallery.
     public static let description = IntentDescription("Deploy a site to production with Anglesite.")
 
+    /// The site to deploy, resolved through ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
     @Dependency private var ops: any SiteOperationsService
 
+    /// Required by `AppIntent` — the runtime constructs the intent, then fills `@Parameter`s.
     public init() {}
 
+    /// Shortcuts editor sentence: "Deploy *site*".
     public static var parameterSummary: some ParameterSummary { Summary("Deploy \(\.$site)") }
 
-    // Returns the site as a value (like AuditSiteIntent) so an agent/Shortcut can chain
-    // deploy→backup or audit→deploy→backup. The MCP bridge surfaces this as a typed output.
+    /// Confirms, resolves the site, and runs the deploy — long-running and cancellable on
+    /// Xcode 27 (see the file-level note), inline otherwise.
+    ///
+    /// Returns the site as a value (like ``AuditSiteIntent``) so an agent/Shortcut can chain
+    /// deploy→backup or audit→deploy→backup. The MCP bridge surfaces this as a typed output.
     public func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<SiteEntity> {
         let scoped = SiteOperationsOverride.scoped
         let ops: any SiteOperationsService
@@ -69,19 +80,30 @@ public struct DeploySiteIntent: AppIntent {
     }
 }
 
+/// Commits and pushes a site backup via `SiteOperations`. No confirmation — backup is additive
+/// (snapshot to a draft branch, `.createsContent` in ``AnglesiteOperations``), so prompting
+/// would only train users to click through.
 public struct BackupSiteIntent: AppIntent {
+    /// The verb Siri/Shortcuts display and match against.
     public static let title: LocalizedStringResource = "Back Up Site"
+    /// One-line explanation shown in the Shortcuts action gallery.
     public static let description = IntentDescription("Commit and push a site backup with Anglesite.")
 
+    /// The site to back up, resolved through ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
     @Dependency private var ops: any SiteOperationsService
 
+    /// Required by `AppIntent` — the runtime constructs the intent, then fills `@Parameter`s.
     public init() {}
 
+    /// Shortcuts editor sentence: "Back up *site*".
     public static var parameterSummary: some ParameterSummary { Summary("Back up \(\.$site)") }
 
-    // Returns the site as a value (like Audit/Deploy) so an agent/Shortcut can chain backup
-    // into a follow-up site operation. The MCP bridge surfaces this as a typed output.
+    /// Resolves the site and runs the backup — long-running and cancellable on Xcode 27 (a git
+    /// push on a slow connection can exceed the default budget), inline otherwise.
+    ///
+    /// Returns the site as a value (like Audit/Deploy) so an agent/Shortcut can chain backup
+    /// into a follow-up site operation. The MCP bridge surfaces this as a typed output.
     public func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<SiteEntity> {
         let scoped = SiteOperationsOverride.scoped
         let ops = scoped ?? self.ops
@@ -110,18 +132,29 @@ public struct BackupSiteIntent: AppIntent {
     }
 }
 
+/// Runs the site audit via `SiteOperations` and speaks the findings. Read-only (build +
+/// runners, nothing persisted), so no confirmation gate.
 public struct AuditSiteIntent: AppIntent {
+    /// The verb Siri/Shortcuts display and match against — "Check", not "Audit", per the
+    /// app's plain-language UX (audiences here are site owners, not engineers).
     public static let title: LocalizedStringResource = "Check Site"
+    /// One-line explanation shown in the Shortcuts action gallery.
     public static let description = IntentDescription("Run an Anglesite audit and report findings.")
 
+    /// The site to check, resolved through ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
     @Dependency private var ops: any SiteOperationsService
 
+    /// Required by `AppIntent` — the runtime constructs the intent, then fills `@Parameter`s.
     public init() {}
 
+    /// Shortcuts editor sentence: "Check *site*".
     public static var parameterSummary: some ParameterSummary { Summary("Check \(\.$site)") }
 
-    // Returns the site as a value so a Shortcut can pipe it straight into Deploy (audit→deploy).
+    /// Resolves the site and runs the audit — long-running and cancellable on Xcode 27 (a full
+    /// audit builds the site first), inline otherwise.
+    ///
+    /// Returns the site as a value so a Shortcut can pipe it straight into Deploy (audit→deploy).
     public func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<SiteEntity> {
         let scoped = SiteOperationsOverride.scoped
         let ops = scoped ?? self.ops
@@ -155,16 +188,27 @@ public struct AuditSiteIntent: AppIntent {
 /// entity parameter to be named `target` — that contract is also why Shortcuts can chain
 /// "find a site" → "open that site" by piping the resolved entity straight in.
 public struct OpenSiteIntent: OpenIntent {
+    /// The verb Siri/Shortcuts display and match against.
     public static let title: LocalizedStringResource = "Open Site"
+    /// One-line explanation shown in the Shortcuts action gallery.
     public static let description = IntentDescription("Open a site window in Anglesite.")
+    /// `true` because opening a window is the whole point — a background invocation with no
+    /// foregrounded app would succeed invisibly.
     public static let openAppWhenRun = true
 
+    /// The site to open. Named `target` because the `OpenIntent` protocol requires it — that
+    /// contract is what lets Spotlight/Shortcuts pipe a resolved entity in (see the type doc).
     @Parameter(title: "Site") public var target: SiteEntity
 
+    /// Required by `AppIntent` — the runtime constructs the intent, then fills `@Parameter`s.
     public init() {}
 
+    /// Shortcuts editor sentence: "Open *site*".
     public static var parameterSummary: some ParameterSummary { Summary("Open \(\.$target)") }
 
+    /// Routes the request through ``WindowRouter`` because an intent can't call SwiftUI's
+    /// `openWindow`; the "Sites" scene observes the router and opens/focuses the window.
+    /// `@MainActor` since the router is.
     @MainActor
     public func perform() async throws -> some IntentResult & ProvidesDialog {
         WindowRouter.shared.requestOpen(siteID: target.id)
