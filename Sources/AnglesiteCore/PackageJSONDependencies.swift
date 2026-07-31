@@ -86,7 +86,7 @@ public enum PackageJSONDependencies {
                 // Non-empty section: prepend as a new first entry, copying the
                 // whitespace that currently precedes the existing first entry.
                 let indent = String(result[afterBrace..<firstContent])
-                result.insert(contentsOf: "\(indent)\(entry),\(indent)", at: afterBrace)
+                result.insert(contentsOf: "\(indent)\(entry),", at: afterBrace)
             } else {
                 // Empty section (`{}` or `{ }`): no existing indentation to copy.
                 result.replaceSubrange(afterBrace..<firstContent, with: "\n  \(entry)\n")
