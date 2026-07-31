@@ -110,15 +110,15 @@ import Testing
     @Test func applyAdditionsInsertsANewEntryMatchingExistingIndentation() {
         let offers = [DependencyAdditionOffer(name: "astro-embed", offeredRange: "^0.13.0", section: .dependencies)]
         let updated = PackageJSONDependencies.applyAdditions(offers, to: Self.fixture)
-        #expect(updated.contains("\"dependencies\": {\n    \"astro-embed\": \"^0.13.0\",\n    \"@astrojs/rss\": \"^4.0.0\",\n    \"astro\": \"^5.0.0\"\n  }"))
+        #expect(updated.contains("\"dependencies\": {\n  \"astro-embed\": \"^0.13.0\",\n  \"@astrojs/rss\": \"^4.0.0\",\n  \"astro\": \"^5.0.0\"\n}"))
     }
 
     @Test func applyAdditionsTargetsTheDevDependenciesSectionWhenSpecified() {
         let offers = [DependencyAdditionOffer(name: "html-validate", offeredRange: "^11.6.0", section: .devDependencies)]
         let updated = PackageJSONDependencies.applyAdditions(offers, to: Self.fixture)
-        #expect(updated.contains("\"devDependencies\": {\n    \"html-validate\": \"^11.6.0\",\n    \"typescript\": \"^5.9.3\"\n  }"))
+        #expect(updated.contains("\"devDependencies\": {\n  \"html-validate\": \"^11.6.0\",\n  \"typescript\": \"^5.9.3\"\n}"))
         // dependencies section untouched
-        #expect(updated.contains("\"dependencies\": {\n    \"@astrojs/rss\": \"^4.0.0\",\n    \"astro\": \"^5.0.0\"\n  }"))
+        #expect(updated.contains("\"dependencies\": {\n  \"@astrojs/rss\": \"^4.0.0\",\n  \"astro\": \"^5.0.0\"\n}"))
     }
 
     @Test func applyAdditionsUsesADefaultIndentForAnEmptySection() {
