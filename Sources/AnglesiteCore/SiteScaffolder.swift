@@ -195,6 +195,7 @@ public actor SiteScaffolder {
             ("SITE_TYPE", draft.siteType.rawValue),
             ("DOMAIN_CHOICE", draft.domainChoice.rawValue),
             ("CF_PROJECT_NAME", cfProjectName),
+            ("SITE_LANG", SiteLanguageAsset.systemDefaultTag()),
         ]
         if draft.domainChoice == .transfer && !draft.domain.isEmpty { values.append(("DOMAIN", draft.domain)) }
         if draft.themeID == CustomTheme.id {

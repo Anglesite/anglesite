@@ -77,6 +77,57 @@ final class SiteScaffolderTests: XCTestCase {
         XCTAssertTrue(css.contains("--color-primary: #1e3a5f;"))
     }
 
+    /// #956: a brand-new site's `.site-config` gets a `SITE_LANG` default derived from the host
+    /// locale (`SiteLanguageAsset.systemDefaultTag`), so `<html lang>` has a real value from the
+    /// moment the site exists rather than only once the owner visits Settings.
+    func testHappyPathWritesASiteLangDefault() async throws {
+        let root = tmpDir()
+        let scaffolder = makeScaffolder(root: root)
+        for await _ in scaffolder.scaffold(makeDraft()) {}
+
+        let pkgURL = root.appendingPathComponent("acme-co.anglesite")
+        let cfg = try String(contentsOf: pkgURL.appendingPathComponent("Source/.site-config"), encoding: .utf8)
+        XCTAssertTrue(cfg.contains("SITE_LANG="))
+    }
+
+    /// Regression coverage for the idempotent-append guard (`appendSiteConfigValues`'s `setKey`):
+    /// if `.site-config` already has a `SITE_LANG` line by the time `appendSiteConfig` runs (e.g.
+    /// a future scaffold.sh revision that seeds one directly), the host-locale default must never
+    /// clobber it. Exercises this through the real scaffold pipeline via a custom CommandRunner
+    /// (mirroring `fakeRunner`) rather than reaching into `SiteScaffolder`'s private helpers.
+    func testScaffoldNeverOverwritesAnExistingSiteLangValue() async throws {
+        let root = tmpDir()
+        let calls = CallRecorder()
+        let runner: SiteScaffolder.CommandRunner = { _, args, cwd in
+            await calls.append(args.joined(separator: " "))
+            if args.contains(where: { $0.hasSuffix("scaffold.sh") }), let cwd {
+                let css = cwd.appendingPathComponent("src/styles/global.css")
+                let astro = cwd.appendingPathComponent("src/pages/index.astro")
+                try? FileManager.default.createDirectory(at: css.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try? FileManager.default.createDirectory(at: astro.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try? ":root {\n  --color-primary: #2563eb;\n  --color-accent: #f59e0b;\n}".write(to: css, atomically: true, encoding: .utf8)
+                try? "<section class=\"hero\">\n  <h1>Welcome</h1>\n</section>".write(to: astro, atomically: true, encoding: .utf8)
+                // Simulate a SITE_LANG already present before SiteScaffolder's own
+                // appendSiteConfig call runs.
+                try? "ANGLESITE_VERSION=1.0.0\nSITE_LANG=xx-YY".write(
+                    to: cwd.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+            }
+            return ProcessSupervisor.RunResult(stdout: "", stderr: "", exitCode: 0)
+        }
+        let scaffolder = SiteScaffolder(
+            sitesRoot: root, templateURL: URL(fileURLWithPath: "/template"), catalog: ThemeCatalog(themes: [theme]),
+            run: runner,
+            gitInit: { _ in },
+            gitCommit: { _ in },
+            register: { pkg in try SiteStore.Site.make(package: pkg) }
+        )
+        for await _ in scaffolder.scaffold(makeDraft()) {}
+
+        let pkgURL = root.appendingPathComponent("acme-co.anglesite")
+        let cfg = try String(contentsOf: pkgURL.appendingPathComponent("Source/.site-config"), encoding: .utf8)
+        XCTAssertTrue(cfg.contains("SITE_LANG=xx-YY"))
+    }
+
     func testHappyPathWritesADeployableWranglerConfig() async throws {
         let root = tmpDir()
         let scaffolder = makeScaffolder(root: root)
