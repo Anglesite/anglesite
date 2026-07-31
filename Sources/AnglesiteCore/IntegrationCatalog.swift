@@ -363,7 +363,7 @@ public enum IntegrationCatalog {
     static let tracking = IntegrationDescriptor(
         id: .tracking,
         displayName: "Analytics",
-        summary: "Add privacy-friendly visitor analytics (Plausible, Fathom, or Google Analytics 4).",
+        summary: "Add visitor analytics: privacy-friendly options (Plausible, Fathom) or Google Analytics 4.",
         providers: [
             Provider(id: "plausible", displayName: "Plausible", cspDomains: ["plausible.io"]),
             Provider(id: "fathom", displayName: "Fathom", cspDomains: ["cdn.usefathom.com"]),
@@ -372,7 +372,8 @@ public enum IntegrationCatalog {
             // without these, connect-src silently drops every hit once the generated CSP is
             // enforced (see PR #473 review).
             Provider(id: "ga4", displayName: "Google Analytics 4",
-                     cspDomains: ["www.googletagmanager.com", "*.google-analytics.com", "*.analytics.google.com"]),
+                     cspDomains: ["www.googletagmanager.com", "*.google-analytics.com", "*.analytics.google.com"],
+                     note: "Shares visitor data with Google and generally requires visitor consent (GDPR/ePrivacy) — pair it with the Consent Banner integration."),
         ],
         fields: [
             Field(key: "domain", label: "Site domain", kind: .text,

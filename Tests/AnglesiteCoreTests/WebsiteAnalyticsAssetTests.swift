@@ -102,6 +102,39 @@ struct WebsiteAnalyticsAssetTests {
         #expect(config.contains("www.googletagmanager.com"))
     }
 
+    // The template's baseline CSP no longer pre-allows the beacon's origins (#1013), so
+    // enabling the Cloudflare provider must widen SCRIPT_ALLOW itself — and disabling it
+    // must narrow the policy back, or the unused width lingers for every future build.
+    @Test("install adds Cloudflare CSP domains on enable and removes them on disable")
+    func installTogglesCloudflareCSPDomains() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let siteDir = root.appendingPathComponent("Source")
+        let layoutDir = siteDir.appendingPathComponent("src/layouts")
+        try fm.createDirectory(at: layoutDir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        try layout.write(to: layoutDir.appendingPathComponent("BaseLayout.astro"), atomically: true, encoding: .utf8)
+        try "SCRIPT_ALLOW=existing.com\n".write(to: siteDir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        try WebsiteAnalyticsAsset.install(
+            WebsiteAnalyticsAsset.Settings(cloudflareToken: "cf-token"),
+            siteDirectory: siteDir,
+            fileManager: fm
+        )
+        let enabled = try String(contentsOf: siteDir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(enabled.contains("SCRIPT_ALLOW=existing.com,static.cloudflareinsights.com,cloudflareinsights.com"))
+
+        try WebsiteAnalyticsAsset.install(
+            WebsiteAnalyticsAsset.Settings(),
+            siteDirectory: siteDir,
+            fileManager: fm
+        )
+        let disabled = try String(contentsOf: siteDir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(disabled.contains("SCRIPT_ALLOW=existing.com\n"))
+        #expect(!disabled.contains("cloudflareinsights"))
+    }
+
     @Test("install rejects incomplete custom analytics HTML without changing the layout")
     func installRejectsIncompleteCustomHTML() throws {
         let fm = FileManager.default

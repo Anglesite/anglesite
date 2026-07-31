@@ -70,8 +70,11 @@ public struct Provider: Sendable, Equatable, Identifiable {
     public let id: String
     public let displayName: String
     public let cspDomains: [String]
-    public init(id: String, displayName: String, cspDomains: [String]) {
-        self.id = id; self.displayName = displayName; self.cspDomains = cspDomains
+    /// One-line disclosure shown under the provider's row in the picker — for caveats the
+    /// owner should know at the decision point (e.g. GA4's visitor-consent obligations).
+    public let note: String?
+    public init(id: String, displayName: String, cspDomains: [String], note: String? = nil) {
+        self.id = id; self.displayName = displayName; self.cspDomains = cspDomains; self.note = note
     }
 }
 

@@ -68,7 +68,13 @@ struct IntegrationWizard: View {
                 get: { model.answers["provider"] ?? "" },
                 set: { model.answers["provider"] = $0 })) {
                 ForEach(model.descriptor?.providers ?? [], id: \.id) { provider in
-                    Text(provider.displayName).tag(provider.id)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(provider.displayName)
+                        if let note = provider.note {
+                            Text(note).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .tag(provider.id)
                 }
             }
             .pickerStyle(.inline)

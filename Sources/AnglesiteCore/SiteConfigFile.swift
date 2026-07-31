@@ -21,12 +21,26 @@ public enum SiteConfigFile {
     }
 
     public static func addCSPDomains(_ domains: [String], into contents: String) -> String {
-        let existingLine = contents.split(separator: "\n").first { $0.hasPrefix("\(cspKey)=") }
-        let existing = existingLine.map { String($0.dropFirst(cspKey.count + 1)) }
-            .map { $0.split(separator: ",").map(String.init) } ?? []
+        let existing = cspDomains(in: contents)
         var merged = existing
         for d in domains where !merged.contains(d) { merged.append(d) }
         return upsert([(cspKey, merged.joined(separator: ","))], into: contents)
+    }
+
+    /// Drops `domains` from the `SCRIPT_ALLOW` list, leaving other entries in place.
+    /// No-op when the key is absent — it isn't created just to hold an empty value.
+    public static func removeCSPDomains(_ domains: [String], from contents: String) -> String {
+        guard contents.split(separator: "\n").contains(where: { $0.hasPrefix("\(cspKey)=") }) else {
+            return contents
+        }
+        let remaining = cspDomains(in: contents).filter { !domains.contains($0) }
+        return upsert([(cspKey, remaining.joined(separator: ","))], into: contents)
+    }
+
+    private static func cspDomains(in contents: String) -> [String] {
+        let existingLine = contents.split(separator: "\n").first { $0.hasPrefix("\(cspKey)=") }
+        return existingLine.map { String($0.dropFirst(cspKey.count + 1)) }
+            .map { $0.split(separator: ",").map(String.init) } ?? []
     }
 
     /// Reads a single `KEY=value` line's value from `.site-config`-formatted

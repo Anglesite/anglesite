@@ -37,6 +37,12 @@ public enum WebsiteAnalyticsAsset {
     public static let configRelativePath = ".site-config"
     public static let dashboardURL = URL(string: "https://dash.cloudflare.com/?to=/:account/web-analytics")!
 
+    /// CSP origins the Cloudflare Web Analytics beacon needs: the script host and the
+    /// endpoint its event beacons POST to. The template's baseline CSP deliberately does
+    /// not pre-allow these (#1013) — they're added to SCRIPT_ALLOW only while the beacon
+    /// is enabled, and removed again when it's turned off.
+    public static let cloudflareCSPDomains = ["static.cloudflareinsights.com", "cloudflareinsights.com"]
+
     private static let blockStart = "<!-- anglesite:analytics-start -->"
     private static let blockEnd = "<!-- anglesite:analytics-end -->"
     private static let customStart = "<!-- anglesite:custom-analytics-start -->"
@@ -86,9 +92,15 @@ public enum WebsiteAnalyticsAsset {
 
         let configURL = siteDirectory.appendingPathComponent(configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        let cloudflareToken = settings.cloudflareToken.trimmingCharacters(in: .whitespacesAndNewlines)
         var updatedConfig = SiteConfigFile.upsert([
-            ("CF_WEB_ANALYTICS_TOKEN", settings.cloudflareToken.trimmingCharacters(in: .whitespacesAndNewlines))
+            ("CF_WEB_ANALYTICS_TOKEN", cloudflareToken)
         ], into: config)
+        if cloudflareToken.isEmpty {
+            updatedConfig = SiteConfigFile.removeCSPDomains(cloudflareCSPDomains, from: updatedConfig)
+        } else {
+            updatedConfig = SiteConfigFile.addCSPDomains(cloudflareCSPDomains, into: updatedConfig)
+        }
         let customDomains = customScriptDomains(from: settings.customHeadTag)
         if !customDomains.isEmpty {
             updatedConfig = SiteConfigFile.addCSPDomains(customDomains, into: updatedConfig)

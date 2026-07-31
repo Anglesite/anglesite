@@ -33,6 +33,22 @@ import Testing
         #expect(twice == "SCRIPT_ALLOW=app.cal.com\n")
     }
 
+    @Test func removesCSPDomainsLeavingOthersInPlace() {
+        let out = SiteConfigFile.removeCSPDomains(["static.cloudflareinsights.com", "cloudflareinsights.com"],
+                                                  from: "SCRIPT_ALLOW=existing.com,static.cloudflareinsights.com,cloudflareinsights.com\n")
+        #expect(out == "SCRIPT_ALLOW=existing.com\n")
+    }
+
+    @Test func removingAllCSPDomainsLeavesAnEmptyValue() {
+        let out = SiteConfigFile.removeCSPDomains(["app.cal.com"], from: "SCRIPT_ALLOW=app.cal.com\nSITE_NAME=Acme\n")
+        #expect(out == "SCRIPT_ALLOW=\nSITE_NAME=Acme\n")
+    }
+
+    @Test func removeCSPDomainsWithoutTheKeyIsANoOp() {
+        let contents = "SITE_NAME=Acme\n"
+        #expect(SiteConfigFile.removeCSPDomains(["app.cal.com"], from: contents) == contents)
+    }
+
     /// CRLF input must be normalized to LF: the output key is replaced and no \r appears.
     @Test func upsertNormalizesCRLF() {
         let crlf = "SITE_NAME=Acme\r\nBOOKING_PROVIDER=cal\r\n"

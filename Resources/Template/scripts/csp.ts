@@ -24,11 +24,14 @@ const BASE: Record<string, string[]> = {
   // 'wasm-unsafe-eval' is what lets the browser compile the WebAssembly module Pagefind's
   // search index reader is built on (/search, #974). It permits WASM compilation only — not
   // eval() or new Function() — so it doesn't widen the policy for ordinary script.
-  "script-src": ["'self'", "'wasm-unsafe-eval'", "static.cloudflareinsights.com"],
+  // No analytics origins here (#1013): the baseline stays as narrow as a site with analytics
+  // off actually needs. Enabling Cloudflare Web Analytics in the app adds its beacon origins
+  // via SCRIPT_ALLOW, the same opt-in path every other integration uses.
+  "script-src": ["'self'", "'wasm-unsafe-eval'"],
   "style-src": ["'self'", "'unsafe-inline'"],
   "img-src": ["'self'", "data:"],
   "font-src": ["'self'"],
-  "connect-src": ["'self'", "cloudflareinsights.com"],
+  "connect-src": ["'self'"],
   "frame-src": ["'self'"],
   "object-src": ["'none'"],
   "frame-ancestors": ["'none'"],
