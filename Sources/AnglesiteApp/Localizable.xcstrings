@@ -621,7 +621,7 @@
     "By Content Type" : {
 
     },
-    "By default, Anglesite saves new and imported site packages under `~/Sites/`. Override this for development or testing." : {
+    "By default, Anglesite saves new and imported site packages to the Anglesite folder in iCloud Drive, falling back to `~/Sites/` when iCloud is unavailable. Override this for development or testing." : {
 
     },
     "Can't Open Component" : {

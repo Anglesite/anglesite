@@ -313,11 +313,11 @@ private struct AdvancedSettingsView: View {
             Section("Sites root") {
                 FolderPickerRow(
                     label: "Sites root override",
-                    placeholder: "~/Sites/",
+                    placeholder: "iCloud Drive → Anglesite",
                     path: $sitesRootOverride,
                     promptTitle: "Choose sites root directory"
                 )
-                Text("By default, Anglesite saves new and imported site packages under `~/Sites/`. Override this for development or testing.")
+                Text("By default, Anglesite saves new and imported site packages to the Anglesite folder in iCloud Drive, falling back to `~/Sites/` when iCloud is unavailable. Override this for development or testing.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
