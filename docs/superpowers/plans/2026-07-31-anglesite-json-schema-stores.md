@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - File location/name is settled: `Source/anglesite.json` (investigation doc §7.1) — not `Config/`, not any other name.
-- Every field in the schema is optional except `version`; an absent file means "no declarations" (§5.6).
+- Every top-level section (`domain`/`dns`/`edge`/`email`/`workers`) is optional, and `version` defaults to `1` when absent; an absent file means "no declarations" (§5.6). Fields *within* a present section's array items (a DNS record, a WAF rule) may themselves be required — see the §5.2 sketch and `DomainConfig.swift`'s `DNSRecord`/`WAFRule`.
 - Never put secrets, tokens, zone/account IDs, provisioned resource IDs, or unmanaged pre-existing DNS records in this file (§5.2).
 - `save(_:)` must preserve unknown keys (both unrecognized top-level sections and unrecognized fields inside a known section); malformed/invalid JSON on `load()` must throw rather than silently degrade (§5.5).
 - The `edge` section serializes exactly what the app applied, never an aspirational target (§7.2) — this slice only models the shape; nothing writes to it yet.
