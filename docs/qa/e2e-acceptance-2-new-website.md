@@ -78,6 +78,7 @@ Inspect `~/Sites/qa-bakery.anglesite/`:
 - `.site-config` contains the wizard answers: `SITE_NAME`, `SITE_TYPE`, `DOMAIN_CHOICE`, `THEME`, `TAGLINE`, and the real `ANGLESITE_VERSION` (not the `1.0.0` placeholder).
 - `Config/` exists beside `Source/` with the dependency baseline; `Config/` is **not** inside the git repo.
 - Excluded from the copy: `scripts/scaffold.sh`, `scripts/themes.ts`, `*.test.ts`, `integrations/`, `node_modules/`.
+- When the package landed in the iCloud folder, any sync indicator (toolbar/inspector) showing this site as iCloud-sync-eligible is **expected, not a regression**: since #865 new sites are created inside the iCloud container, so `ICloudSyncEligibility` (#881) is now true by default rather than only for deliberately-relocated sites.
 
 ### 6. Git repo with initial commit (#697)
 

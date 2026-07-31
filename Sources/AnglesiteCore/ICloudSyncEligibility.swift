@@ -3,10 +3,12 @@ import Foundation
 import AnglesiteSiteModel
 
 /// Whether a `.anglesite` package should ever get a `SyncScheduler`/`SyncEngine` at all (#881,
-/// design doc §5): only a package that actually lives in iCloud Drive. A plain local package (the
-/// default save location, `~/Sites/`, or anywhere outside an iCloud container) has no
-/// `source.bundle` peer to sync with, and — per #881's acceptance criteria — must see **zero**
-/// sync activity, not merely a quiet one. The app layer checks this once per site open/relocate
+/// design doc §5): only a package that actually lives in iCloud Drive. A plain local package
+/// (anywhere outside an iCloud container, including the `~/Sites/` fallback used when iCloud is
+/// unavailable) has no `source.bundle` peer to sync with, and — per #881's acceptance criteria —
+/// must see **zero** sync activity, not merely a quiet one. Since #865 defaults new sites *into*
+/// the iCloud container, this is now `true` for most sites rather than only deliberately-relocated
+/// ones. The app layer checks this once per site open/relocate
 /// and only constructs sync machinery when it's `true`; `SyncScheduler` itself has no idea this
 /// check exists.
 public enum ICloudSyncEligibility {
