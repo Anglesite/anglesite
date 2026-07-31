@@ -34,6 +34,7 @@ interface HentryFields {
   likeOf?: string;
   syndication?: string[];
   draft?: boolean;
+  lang?: string;
 }
 
 const { entry } = Astro.props;
@@ -70,7 +71,7 @@ const replyCite = cited(d.inReplyTo);
 const likeCite = cited(d.likeOf);
 ---
 
-<BaseLayout title={title ?? "Post"} description={d.summary} license={license}>
+<BaseLayout title={title ?? "Post"} description={d.summary} license={license} lang={d.lang || undefined}>
   {jsonLd && <Schema slot="head" item={jsonLd} />}
   <article class="h-entry">
     <DraftBadge draft={d.draft} />
