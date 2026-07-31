@@ -167,6 +167,37 @@ struct DomainOperationsServiceTests {
         #expect(config.dns?.managedRecords?.isEmpty == true)
     }
 
+    @Test("deleteRecord removes a relative-name add via the fully-qualified name listRecords returns")
+    func deleteRecordNormalizesNameAgainstAddedRelativeName() async throws {
+        // Reproduces #1170's add/delete name-form mismatch: a record added with the
+        // zone-relative name DomainModel's Bluesky context uses (`"_atproto"`) must still be
+        // found and removed when the delete call arrives with the fully-qualified name
+        // `listRecords` actually returns (`CloudflareReading.DNSRecord.name`'s documented shape).
+        let reader = FakeReader(zoneID: "z1")
+        let writer = FakeWriter()
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let addResult = await service(reader: reader, writer: writer).addRecord(
+            domain: "example.com", type: "TXT", name: "_atproto", content: "did=abc", ttl: 1,
+            priority: nil, purpose: "verification:bluesky", sourceDirectory: tmp)
+        #expect(addResult == .success(()))
+
+        let store = DomainConfigStore(sourceDirectory: tmp)
+        #expect(try store.load().dns?.managedRecords == [
+            .init(type: "TXT", name: "_atproto", content: "did=abc", purpose: "verification:bluesky"),
+        ])
+
+        let deleteResult = await service(reader: reader, writer: writer).deleteRecord(
+            domain: "example.com", recordID: "r1", type: "TXT", name: "_atproto.example.com",
+            content: "did=abc", sourceDirectory: tmp)
+        #expect(deleteResult == .success(()))
+
+        let config = try store.load()
+        #expect(config.dns?.managedRecords?.isEmpty == true)
+    }
+
     @Test("deleteRecord short overload (no write-through args) still succeeds")
     func deleteRecordShortOverloadStillWorks() async {
         let reader = FakeReader(zoneID: "z1")

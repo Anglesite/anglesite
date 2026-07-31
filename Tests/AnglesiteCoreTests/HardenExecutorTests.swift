@@ -60,6 +60,32 @@ struct HardenExecutorTests {
         #expect(writer.calls.contains("setPageShield"))
     }
 
+    @Test("Harden's own DNS-record items stamp an anglesite ownership comment")
+    func dnsRecordItemsStampOwnershipComment() async {
+        let writer = MockCloudflareWriter()
+        let exec = HardenExecutor(reader: MockCloudflareReader(), writer: writer)
+        let plan = HardenPlan(items: [
+            .addCAARecord(ca: "letsencrypt.org"),
+            .addNullMX,
+            .addSPFRejectAll,
+            .addDMARCReject,
+        ])
+        let result = await exec.execute(
+            plan: plan, zoneID: "z", domain: "example.com", apiToken: "t")
+        #expect(result.appliedCount == 4)
+        #expect(result.failedItems.isEmpty)
+
+        func comment(forType type: String) -> String? {
+            writer.addedRecords.first { $0.type == type }?.comment
+        }
+        #expect(comment(forType: "CAA") == "anglesite:security:caa")
+        #expect(comment(forType: "MX") == "anglesite:security:null-mx")
+        #expect(writer.addedRecords.first { $0.type == "TXT" && $0.content == "v=spf1 -all" }?.comment
+                == "anglesite:security:spf-reject")
+        #expect(writer.addedRecords.first { $0.type == "TXT" && $0.name == "_dmarc.example.com" }?.comment
+                == "anglesite:security:dmarc-reject")
+    }
+
     @Test("a per-item failure does not abort remaining items")
     func perItemFailureResilience() async {
         let writer = MockCloudflareWriter()
@@ -189,12 +215,21 @@ final class MockCloudflareReader: CloudflareReading, @unchecked Sendable {
 final class MockCloudflareWriter: CloudflareWriting, @unchecked Sendable {
     private let lock = NSLock()
     private var _calls: [String] = []
+    private var _addedRecords: [DNSRecordPayload] = []
     var failOn: String?
 
     var calls: [String] {
         lock.lock()
         defer { lock.unlock() }
         return _calls
+    }
+
+    /// The `DNSRecordPayload`s passed to `addDNSRecord`, in call order — lets tests assert on
+    /// fields (e.g. `comment`) `calls`' flattened-string form can't carry.
+    var addedRecords: [DNSRecordPayload] {
+        lock.lock()
+        defer { lock.unlock() }
+        return _addedRecords
     }
 
     private func record(_ call: String) throws {
@@ -216,6 +251,9 @@ final class MockCloudflareWriter: CloudflareWriting, @unchecked Sendable {
     }
     func addDNSRecord(zoneID: String, record: DNSRecordPayload, apiToken: String) async throws {
         try self.record("addDNSRecord:\(record.type)\(record.content.isEmpty ? "" : ":\(record.content)")")
+        lock.lock()
+        _addedRecords.append(record)
+        lock.unlock()
     }
     func deleteDNSRecord(zoneID: String, recordID: String, apiToken: String) async throws {
         try record("deleteDNSRecord:\(recordID)")

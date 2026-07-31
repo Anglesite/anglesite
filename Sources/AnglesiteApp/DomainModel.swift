@@ -54,7 +54,7 @@ final class DomainModel {
     private let ops: any DomainOperationsService
     private var inFlight: Task<Void, Never>?
 
-    private(set) var currentSite: CurrentSite?
+    private var currentSite: CurrentSite?
 
     init(ops: any DomainOperationsService = DomainOperations()) {
         self.ops = ops

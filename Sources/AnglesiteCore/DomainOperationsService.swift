@@ -150,7 +150,7 @@ public struct DomainOperations: DomainOperationsService {
                 if let sourceDirectory {
                     Self.writeThroughAdd(
                         type: type, name: name, content: content, priority: priority,
-                        purpose: purpose, sourceDirectory: sourceDirectory)
+                        purpose: purpose, domain: domain, sourceDirectory: sourceDirectory)
                 }
                 return .success(())
             } catch let error as CloudflareError {
@@ -174,7 +174,9 @@ public struct DomainOperations: DomainOperationsService {
             do {
                 try await writer.deleteDNSRecord(zoneID: zoneID, recordID: recordID, apiToken: token)
                 if let sourceDirectory, let type, let name, let content {
-                    Self.writeThroughRemove(type: type, name: name, content: content, sourceDirectory: sourceDirectory)
+                    Self.writeThroughRemove(
+                        type: type, name: name, content: content, domain: domain,
+                        sourceDirectory: sourceDirectory)
                 }
                 return .success(())
             } catch let error as CloudflareError {
@@ -185,23 +187,43 @@ public struct DomainOperations: DomainOperationsService {
         }
     }
 
+    /// Normalizes a DNS record name to the zone-relative form `anglesite.json` declares (schema
+    /// doc: `"name": "@"` for the apex, `"_atproto"` for a subdomain) — callers pass either form
+    /// (`DomainModel`'s Bluesky/Google contexts and `EmailSetupPlanner`'s templates already use
+    /// relative names; `CloudflareReading.DNSRecord.name`, the shape `DomainModel.runDelete` reads
+    /// back from `listRecords`, is fully-qualified). Both `writeThroughAdd` and `writeThroughRemove`
+    /// route through this so a record declared by one form can be found and removed via the other.
+    private static func relativeName(_ name: String, domain: String) -> String {
+        if name.caseInsensitiveCompare(domain) == .orderedSame { return "@" }
+        let suffix = ".\(domain)"
+        if name.count > suffix.count, name.lowercased().hasSuffix(suffix.lowercased()) {
+            return String(name.dropLast(suffix.count))
+        }
+        return name
+    }
+
     /// Best-effort: a write-through failure (disk full, permissions, a hand-corrupted file) must
     /// never turn an already-successful Cloudflare write into a reported failure — matches
     /// `CustomDomainAttachCommand`'s posture for the same reason.
     private static func writeThroughAdd(
-        type: String, name: String, content: String, priority: Int?, purpose: String?, sourceDirectory: URL
+        type: String, name: String, content: String, priority: Int?, purpose: String?, domain: String,
+        sourceDirectory: URL
     ) {
         let store = DomainConfigStore(sourceDirectory: sourceDirectory)
         let current = (try? store.load()) ?? DomainConfig()
         let updated = current.addingManagedDNSRecord(
-            .init(type: type, name: name, content: content, priority: priority, purpose: purpose))
+            .init(type: type, name: relativeName(name, domain: domain), content: content,
+                  priority: priority, purpose: purpose))
         try? store.save(updated)
     }
 
-    private static func writeThroughRemove(type: String, name: String, content: String, sourceDirectory: URL) {
+    private static func writeThroughRemove(
+        type: String, name: String, content: String, domain: String, sourceDirectory: URL
+    ) {
         let store = DomainConfigStore(sourceDirectory: sourceDirectory)
         let current = (try? store.load()) ?? DomainConfig()
-        let updated = current.removingManagedDNSRecord(type: type, name: name, content: content)
+        let updated = current.removingManagedDNSRecord(
+            type: type, name: relativeName(name, domain: domain), content: content)
         try? store.save(updated)
     }
 }

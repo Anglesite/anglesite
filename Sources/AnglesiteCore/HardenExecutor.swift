@@ -113,7 +113,8 @@ public struct HardenExecutor: Sendable {
             try await writer.addDNSRecord(
                 zoneID: zoneID,
                 record: DNSRecordPayload(type: "CAA", name: domain,
-                                         content: "0 issue \"\(ca)\""),
+                                         content: "0 issue \"\(ca)\"",
+                                         comment: "anglesite:security:caa"),
                 apiToken: apiToken)
         case .enableAlwaysUseHTTPS:
             try await writer.setAlwaysUseHTTPS(zoneID: zoneID, enabled: true, apiToken: apiToken)
@@ -125,18 +126,21 @@ public struct HardenExecutor: Sendable {
         case .addNullMX:
             try await writer.addDNSRecord(
                 zoneID: zoneID,
-                record: DNSRecordPayload(type: "MX", name: domain, content: ".", priority: 0),
+                record: DNSRecordPayload(type: "MX", name: domain, content: ".", priority: 0,
+                                         comment: "anglesite:security:null-mx"),
                 apiToken: apiToken)
         case .addSPFRejectAll:
             try await writer.addDNSRecord(
                 zoneID: zoneID,
-                record: DNSRecordPayload(type: "TXT", name: domain, content: "v=spf1 -all"),
+                record: DNSRecordPayload(type: "TXT", name: domain, content: "v=spf1 -all",
+                                         comment: "anglesite:security:spf-reject"),
                 apiToken: apiToken)
         case .addDMARCReject:
             try await writer.addDNSRecord(
                 zoneID: zoneID,
                 record: DNSRecordPayload(type: "TXT", name: "_dmarc.\(domain)",
-                                         content: "v=DMARC1; p=reject"),
+                                         content: "v=DMARC1; p=reject",
+                                         comment: "anglesite:security:dmarc-reject"),
                 apiToken: apiToken)
         case .addWAFRule(let desc, let expr, let action):
             try await writer.createWAFCustomRule(

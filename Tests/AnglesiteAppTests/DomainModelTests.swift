@@ -8,6 +8,8 @@ import Foundation
     private actor RecordingOps: DomainOperationsService {
         var addedPurposes: [String?] = []
         var addedSourceDirectories: [URL?] = []
+        var deletedNames: [String?] = []
+        var deletedSourceDirectories: [URL?] = []
         func listRecords(domain: String) async -> Result<[DNSRecord], DomainOperationError> { .success([]) }
         func addRecord(
             domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?,
@@ -21,7 +23,9 @@ import Foundation
             domain: String, recordID: String, type: String?, name: String?, content: String?,
             sourceDirectory: URL?
         ) async -> Result<Void, DomainOperationError> {
-            .success(())
+            deletedNames.append(name)
+            deletedSourceDirectories.append(sourceDirectory)
+            return .success(())
         }
     }
 
@@ -54,5 +58,38 @@ import Foundation
         repeat { await Task.yield() } while model.isRunning
 
         #expect(await ops.addedPurposes == ["verification:bluesky"])
+        #expect(await ops.addedSourceDirectories == [tmp])
+    }
+
+    @Test func confirmDeleteWritesThroughWithRecordNameAndSourceDirectory() async throws {
+        let ops = RecordingOps()
+        let model = DomainModel(ops: ops)
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        model.configure(site: CurrentSite(id: "s1", packageURL: tmp, sourceDirectory: tmp))
+
+        model.domainInput = "example.com"
+        model.resolveAndLoad()
+        // See the comment on `submitAddRecordWithBlueskyContextWritesThroughWithPurpose` above for
+        // why `repeat`-`while` (not a plain `while`) is required here.
+        repeat { await Task.yield() } while model.isRunning
+
+        // `listRecords` returns `[]` above, so this is a record `beginDelete` never saw in
+        // `phase`'s `records` list — but `beginDelete` only requires `.loaded` phase, matching
+        // what `DomainModel.runDelete` actually reads (`record.name`/`record.content` off
+        // whatever `DNSRecord` the caller passes), which is the fully-qualified form
+        // `listRecords` returns in production (see `CloudflareReading.DNSRecord.name`'s doc
+        // comment) — the exact shape #1170's name-normalization fix (`DomainOperationsService`'s
+        // `relativeName`) has to handle.
+        let record = DNSRecord(
+            id: "r1", type: "TXT", name: "_atproto.example.com", content: "did=abc", ttl: 1,
+            proxied: false)
+        model.beginDelete(record)
+        model.confirmDelete()
+        repeat { await Task.yield() } while model.isRunning
+
+        #expect(await ops.deletedNames == ["_atproto.example.com"])
+        #expect(await ops.deletedSourceDirectories == [tmp])
     }
 }

@@ -34,7 +34,7 @@ final class HardenModel {
     private let keychain: KeychainStore
     private var inFlight: Task<Void, Never>?
 
-    private(set) var currentSite: CurrentSite?
+    private var currentSite: CurrentSite?
 
     init(
         reader: any CloudflareReading = HTTPCloudflareClient(),
