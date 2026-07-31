@@ -15,6 +15,9 @@ public enum PlanSocialMediaReply {
         return lines.joined(separator: "\n")
     }
 
+    /// Confirmation reply after `docs/social-calendar.md` is written. Restates that Anglesite
+    /// never posts on the owner's behalf — the calendar is a copy-out artifact, not an
+    /// integration — so the model can't oversell what just happened.
     public static func saved(weeks: Int) -> String {
         "Saved the \(weeks)-week plan to docs/social-calendar.md. Anglesite never posts for you — copy entries out as you go."
     }
@@ -29,14 +32,26 @@ import FoundationModels
 /// `apply: true` regenerates and writes `docs/social-calendar.md` (the file is app-generated,
 /// so a regenerate-on-apply keeps the tool stateless across turns).
 public struct PlanSocialMediaTool: Tool, Sendable {
+    /// Stable tool identifier, exposed statically so registration and tests can reference it
+    /// without constructing a tool instance.
     public static let toolName = "planSocialMedia"
+    /// The name the model calls this tool by (`Tool` requirement).
     public let name = PlanSocialMediaTool.toolName
+    /// Model-facing tool description (`Tool` requirement). Spells out the preview-then-confirm
+    /// contract so the model doesn't promise an immediate save on the first call.
     public let description = "Create a social media plan: recommended platforms, profile bios, content pillars, and a weekly content calendar saved to docs/social-calendar.md. Returns a preview to confirm before saving."
 
+    /// Model-supplied arguments. Both fields are optional so a bare `planSocialMedia` call
+    /// (the common first turn) is valid and takes the preview defaults.
     @Generable
     public struct Arguments {
+        /// Requested calendar length in weeks; clamped to 1…8 with a default of 4 in `call`,
+        /// so an out-of-range model value degrades instead of erroring.
         @Guide(description: "How many weeks of calendar to plan (default 4, max 8).")
         public var weeks: Int?
+        /// The confirm-before-write flag: absent/`false` previews, `true` regenerates and
+        /// saves. The `@Guide` wording is deliberately emphatic — it's the only thing standing
+        /// between the model and an unconfirmed write.
         @Guide(description: "Set to true ONLY after the user has confirmed they want the plan saved.")
         public var apply: Bool?
     }
@@ -48,6 +63,16 @@ public struct PlanSocialMediaTool: Tool, Sendable {
     /// Injected clock so the calendar's start is testable/deterministic where needed.
     private let now: @Sendable () -> Date
 
+    /// Creates the tool for one site's chat session.
+    ///
+    /// - Parameters:
+    ///   - planner: The plan generator (on-device model in production, a stub in tests).
+    ///   - conventionsStore: Source of the learned brand-voice conventions folded into the
+    ///     generation preamble; `nil` when the site has no conventions yet.
+    ///   - siteID: Stable site identity forwarded to the planner.
+    ///   - siteDirectory: The site's `Source/` root — read for business type and site name,
+    ///     and the destination for `docs/social-calendar.md` on apply.
+    ///   - now: Injected clock so the calendar's start date is deterministic in tests.
     public init(planner: any SocialMediaPlanning, conventionsStore: ProjectConventionsStore?,
                 siteID: String, siteDirectory: URL, now: @escaping @Sendable () -> Date = { Date() }) {
         self.planner = planner
@@ -57,6 +82,11 @@ public struct PlanSocialMediaTool: Tool, Sendable {
         self.now = now
     }
 
+    /// Runs one turn: regenerates the plan, then either previews it or (on `apply: true`)
+    /// writes `docs/social-calendar.md`. Failures are reported in-band as chat text — planner
+    /// unavailability and a failed save both return a message rather than throwing, because a
+    /// thrown error surfaces to the user as a generic model failure instead of something
+    /// actionable.
     public func call(arguments: Arguments) async throws -> String {
         let weeks = min(max(arguments.weeks ?? 4, 1), 8)
         let conventions = await conventionsStore?.load()

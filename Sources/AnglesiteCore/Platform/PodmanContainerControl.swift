@@ -61,15 +61,26 @@ public struct PodmanContainerControl: LocalContainerControl {
     public static let defaultMCPCommand =
         "ANGLESITE_MCP_TRANSPORT=http ANGLESITE_MCP_HOST=0.0.0.0 ANGLESITE_MCP_PORT=\(mcpPort) ANGLESITE_PROJECT_ROOT=/workspace/site node /usr/local/lib/anglesite-mcp/server/index.mjs"
 
+    /// Creates a podman-backed control. Every dependency is injectable so tests can exercise the
+    /// orchestration without a real podman, image, or Astro toolchain present.
+    ///
     /// - Parameters:
     ///   - image: The OCI image reference `podman run` boots. Defaults to a locally-tagged image
     ///     (`podman build`/`podman load`, not pulled from a registry — see the Linux MVP image
     ///     provisioning notes) so a fresh checkout fails loudly (`imageUnavailable`) rather than
     ///     silently pulling an unrelated public image on first run.
+    ///   - podmanExecutable: The `podman` binary to invoke. Defaults to the common distro path
+    ///     `/usr/bin/podman`; injectable so tests can substitute a fake CLI.
+    ///   - supervisor: The `ProcessSupervisor` all non-daemonizing podman invocations (`exec`,
+    ///     `port`, `stop`) run through — the repo's centralized spawning seam. Production uses
+    ///     `.shared`; only the boot-time `podman run -d` bypasses it (see `start`'s step 1).
     ///   - astroCommand: The `sh -lc` command that serves the preview on guest port 4321.
     ///     Injectable so tests can substitute a lightweight fake — the real MCP sidecar/Astro
     ///     toolchain isn't available everywhere `PodmanContainerControl` needs to be exercised.
     ///   - mcpCommand: The `sh -lc` command that serves MCP on guest port 4399. Same rationale.
+    ///   - logCenter: The `LogCenter` that `execInteractive` launches stream through before each
+    ///     call's source-filtered subscription forwards lines to its own `onOutput`. Production
+    ///     uses `.shared`.
     public init(
         image: String = "localhost/anglesite-dev:latest",
         podmanExecutable: URL = URL(fileURLWithPath: "/usr/bin/podman"),
@@ -87,6 +98,17 @@ public struct PodmanContainerControl: LocalContainerControl {
         self.logCenter = logCenter
     }
 
+    /// Boots a fresh rootless-podman container for the site and returns its preview/MCP URLs.
+    ///
+    /// Five stages, mirroring `ContainerizationControl`'s boot sequence: run a bare
+    /// `sleep infinity` container with the host repo bind-mounted read-only and both guest ports
+    /// published onto host loopback; write the guest `/etc/hosts` (the image ships none, and
+    /// without it vite's `localhost` lookup fails); clone + check out `ref` into a writable
+    /// `/workspace/site`; launch astro and the MCP sidecar as long-lived supervised `podman exec`
+    /// processes; then resolve the OS-assigned host ports and poll until the preview actually
+    /// serves. A failure at any stage tears down everything already started — container, guest
+    /// process handles, log bridge — before throwing, so a failed boot never leaks a running
+    /// container.
     public func start(
         siteID: String,
         sourceRepo: URL,
@@ -228,6 +250,11 @@ public struct PodmanContainerControl: LocalContainerControl {
         return LocalContainerSession(previewURL: previewURL, mcpURL: mcpURL)
     }
 
+    /// Stops the site's container and releases its bookkeeping. Because `start` boots with
+    /// `--rm`, `podman stop` alone removes the container and kills every guest process inside it
+    /// — the supervised `podman exec` wrappers then exit on their own, so host-side termination
+    /// is only a safety net. A site with no live container is a no-op, keeping teardown safe to
+    /// call unconditionally.
     public func stop(siteID: String) async throws {
         await live.teardown(siteID: siteID, supervisor: supervisor) { name in
             await self.stopContainer(name: name)
@@ -249,8 +276,17 @@ public struct PodmanContainerControl: LocalContainerControl {
             "workers-dev is not yet supported on the Linux/podman runtime (#571 tracks the port)")
     }
 
+    /// No-op: `startWorkersDev` always throws on this runtime (see above), so there is never a
+    /// wrangler-dev process to stop — staying a silent no-op keeps callers' unconditional
+    /// teardown paths working unchanged.
     public func stopWorkersDev(siteID: String) async throws {}
 
+    /// One-shot `podman exec` in the site's running container: `environment` becomes `-e` flags
+    /// (sorted, so the argv is deterministic and testable) and `workingDirectory` becomes `-w`.
+    /// Output is captured whole and replayed through `onOutput` after exit — the simpler
+    /// `ProcessSupervisor.run` path, acceptable for the short-lived commands this seam serves;
+    /// anything that needs a live stdin/stdout conversation uses `execInteractive` instead.
+    /// Throws `LocalContainerError.bootFailed` when the site has no running container.
     public func exec(
         siteID: String,
         argv: [String],

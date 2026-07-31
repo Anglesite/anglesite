@@ -9,31 +9,61 @@ import Foundation
 /// See design doc §4 (`docs/superpowers/specs/2026-07-24-activitypub-outbox-backfill-design.md`)
 /// for the collection → AS2 kind mapping table this implements.
 public enum OutboxBackfillPlan {
+    /// The ActivityStreams object type an entry maps to. Only two of AS2's many types are used:
+    /// titled long-form collections become `Article`, everything else (notes, likes, photos,
+    /// events, …) degrades to `Note` — the design doc's mapping keeps fediverse rendering
+    /// predictable rather than chasing exotic types clients ignore anyway.
     public enum AS2Kind: String, Equatable, Sendable {
+        /// Short/untitled content — the safe default every microblogging client renders.
         case note = "Note"
+        /// Titled long-form content (`blog`, `articles` collections).
         case article = "Article"
     }
 
+    /// A media attachment for the AS2 object, already resolved to an absolute URL against the
+    /// site base (relative frontmatter paths would be meaningless to remote AP servers).
     public struct Attachment: Equatable, Sendable {
+        /// Absolute URL of the media file.
         public let url: String
+        /// MIME type when known; `nil` lets the consumer omit `mediaType` rather than guess.
         public let mediaType: String?
 
+        /// Creates an attachment; `mediaType` defaults to `nil` because frontmatter image
+        /// fields carry no type information.
         public init(url: String, mediaType: String? = nil) {
             self.url = url
             self.mediaType = mediaType
         }
     }
 
+    /// One publishable content file, pre-shaped for the AS2 outbox: target/review frontmatter is
+    /// already folded into `content`, dates parsed, and the canonical URL resolved — so the
+    /// consumer (`ActivityPubOutboxBackfill`, #926) does no frontmatter interpretation of its own.
     public struct Entry: Equatable, Sendable {
+        /// Project-relative POSIX path of the source file — the stable identity used to dedupe
+        /// against already-backfilled objects.
         public let sourceFile: String
+        /// The post's public permalink (`/<collection>/<slug>/` on the site base); becomes the
+        /// AS2 object's `url`/`id` basis.
         public let canonicalURL: URL
+        /// The AS2 object type this entry maps to (see ``OutboxBackfillPlan/AS2Kind``).
         public let kind: AS2Kind
+        /// AS2 `name` (title); `nil` for collections without a title field (notes, likes, …).
         public let name: String?
+        /// Body excerpt (capped at 500 characters), possibly prefixed with the target/review
+        /// summary for collections whose target URL isn't a resolvable AP object (design doc D4).
         public let content: String
+        /// Publication date from frontmatter; entries dated in the future are filtered out of
+        /// the plan entirely, so this is always ≤ the build's reference date.
         public let publishedAt: Date
+        /// AS2 `inReplyTo` — populated only for the `replies` collection, whose target genuinely
+        /// is another AP-addressable object.
         public let inReplyTo: String?
+        /// Image attachments (photos: one; albums: many); empty for all other collections.
         public let attachments: [Attachment]
 
+        /// Memberwise initializer; `inReplyTo` and `attachments` default to absent since most
+        /// collections have neither.
         public init(
             sourceFile: String,
             canonicalURL: URL,
@@ -55,8 +85,13 @@ public enum OutboxBackfillPlan {
         }
     }
 
+    /// The complete backfill work list produced by ``OutboxBackfillPlan/build(projectRoot:siteBase:referenceDate:)``.
     public struct Plan: Equatable, Sendable {
+        /// All qualifying entries, sorted by ``Entry/sourceFile`` for deterministic output
+        /// (filesystem enumeration order isn't stable across runs or platforms).
         public let entries: [Entry]
+        /// Wraps an already-built entry list — used directly only by tests; production code
+        /// goes through `build`.
         public init(entries: [Entry]) { self.entries = entries }
     }
 

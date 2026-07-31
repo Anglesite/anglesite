@@ -45,6 +45,9 @@ public enum SecretAccounts {
         "posse:\(siteID):mastodon-access-token"
     }
 
+    /// The Bluesky app password for the site's POSSE syndication — same site-scoped naming as
+    /// ``mastodonAccessToken(siteID:)``, so two packages configured for different Bluesky
+    /// accounts can never read each other's credential.
     public static func blueskyAppPassword(siteID: String) -> String {
         "posse:\(siteID):bluesky-app-password"
     }
@@ -191,19 +194,27 @@ public extension SecretStore {
 /// resolution falls through to environment variables; writes fail loudly rather than
 /// pretending a secret was persisted.
 public struct UnavailableSecretStore: SecretStore {
+    /// Thrown by ``write(_:account:)`` for any non-empty value — a loud failure, so a feature
+    /// can never believe it persisted a secret on a platform that has nowhere to keep one.
     public struct WriteUnsupported: Error {}
 
+    /// Creates the placeholder store. Stateless; every instance behaves identically.
     public init() {}
 
+    /// Always `nil`: reporting "nothing stored" (rather than throwing) lets token resolution
+    /// fall through to environment variables on platforms without a native store.
     public func read(account: String) throws -> String? { nil }
 
+    /// Throws ``WriteUnsupported`` for any non-empty value. An empty `value` succeeds: the
+    /// protocol contract says empty-write means delete, and deleting from a store that holds
+    /// nothing is a successful no-op — only *persisting* is unsupported.
     public func write(_ value: String, account: String) throws {
-        // Uphold the protocol contract: an empty write means delete, and deleting from a
-        // store that holds nothing is a successful no-op. Only persisting is unsupported.
         if value.isEmpty { return }
         throw WriteUnsupported()
     }
 
+    /// No-op: the store holds nothing, and the ``SecretStore`` contract makes deleting a
+    /// missing entry a success, not an error.
     public func delete(account: String) throws {}
 }
 
@@ -211,6 +222,9 @@ public struct UnavailableSecretStore: SecretStore {
 /// portable core depend on `any SecretStore` and use this only as their production default;
 /// tests and the app shell inject concrete stores directly.
 public enum PlatformSecretStore {
+    /// Returns the best store this platform has: `KeychainStore` where the Security framework
+    /// exists, otherwise ``UnavailableSecretStore`` — the `#if` lives here so portable call
+    /// sites never carry platform conditionals themselves.
     public static func make() -> any SecretStore {
         #if canImport(Security)
         KeychainStore()

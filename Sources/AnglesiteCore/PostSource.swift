@@ -2,14 +2,25 @@ import Foundation
 
 /// One blog post loaded for repurposing (#465): frontmatter + plain-text body + where it lives.
 public struct PostSource: Sendable, Equatable {
+    /// The content-collection directory name the post was found in (e.g. `blog`).
     public let collection: String
+    /// The post's file-name slug (no extension); combined with ``collection`` it forms the
+    /// published URL path.
     public let slug: String
+    /// Frontmatter `title`, falling back to the slug when the frontmatter has none — a post
+    /// always has *something* to display and to feed the prompt.
     public let title: String
+    /// Frontmatter `description`, when present.
     public let description: String?
+    /// Frontmatter `tags`; empty when absent.
     public let tags: [String]
+    /// The post body as plain text — markdown syntax already stripped, so prompt character
+    /// counts reflect what a reader (and a platform limit) would see.
     public let body: String
+    /// Site-relative path of the source file (e.g. `src/content/blog/hello.md`).
     public let filePath: String
 
+    /// Memberwise initializer, public so tests can build fixtures without touching disk.
     public init(collection: String, slug: String, title: String, description: String?,
                 tags: [String], body: String, filePath: String) {
         self.collection = collection

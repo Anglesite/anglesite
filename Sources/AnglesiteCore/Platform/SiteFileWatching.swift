@@ -13,6 +13,9 @@ public protocol SiteFileWatching: Sendable {
     /// Begin watching `root`, delivering batches to `onBatch` until `stop()`. Throws if the
     /// underlying watch cannot be established.
     func start(root: URL, onBatch: @escaping @Sendable (FileChangeBatch) -> Void) throws
+    /// Stop watching and release platform resources. Must be safe to call whether or not
+    /// `start` succeeded (callers tear down unconditionally), and no batches may be delivered
+    /// after it returns.
     func stop()
 }
 
@@ -24,6 +27,8 @@ public struct FileChangeBatch: Sendable, Equatable {
     /// mount/unmount). Consumers should fall back to a full rebuild rather than per-file updates.
     public let needsFullRescan: Bool
 
+    /// Creates a batch. Public so per-platform watchers and test fakes (not just this module)
+    /// can synthesize batches for consumers.
     public init(paths: [URL], needsFullRescan: Bool) {
         self.paths = paths
         self.needsFullRescan = needsFullRescan
@@ -34,14 +39,22 @@ public struct FileChangeBatch: Sendable, Equatable {
 /// so callers see the same "watch unavailable" path they already handle for a real watcher that
 /// fails to establish (e.g. a root that vanished under it).
 public struct UnavailableFileWatcher: SiteFileWatching {
+    /// Thrown by ``start(root:onBatch:)`` unconditionally — no per-case detail because the only
+    /// failure mode is "this platform has no watcher".
     public struct Unavailable: Error {}
 
+    /// Creates the placeholder watcher. Stateless; every instance behaves identically.
     public init() {}
 
+    /// Always throws ``Unavailable`` — failing at `start` (rather than accepting the callback
+    /// and never firing it) routes callers onto their existing "run without live reindexing"
+    /// degradation path instead of leaving them believing a watch exists.
     public func start(root: URL, onBatch: @escaping @Sendable (FileChangeBatch) -> Void) throws {
         throw Unavailable()
     }
 
+    /// No-op — ``start(root:onBatch:)`` never establishes anything, so there is nothing to
+    /// tear down; safe under callers' unconditional-teardown pattern.
     public func stop() {}
 }
 
@@ -49,6 +62,9 @@ public struct UnavailableFileWatcher: SiteFileWatching {
 /// core depend on `any SiteFileWatching` and use this only as their production default; tests
 /// inject fakes (e.g. `ControllableWatcher`) directly.
 public enum PlatformFileWatcher {
+    /// Returns the platform's watcher: `FSEventsFileWatcher` on macOS, `InotifyFileWatcher` on
+    /// Glibc platforms, otherwise ``UnavailableFileWatcher`` — the `#if` lives here so portable
+    /// call sites never carry platform conditionals themselves.
     public static func make() -> any SiteFileWatching {
         #if os(macOS)
         FSEventsFileWatcher()

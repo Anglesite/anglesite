@@ -13,10 +13,23 @@ import FoundationNetworking
 public enum MicropubContentSync {
     /// One post resolved to its content type, ready for `MicropubContentCommitter`.
     public struct ResolvedPost: Sendable, Equatable {
+        /// The post's canonical URL — the D1 row's identity, and the key the committer's
+        /// persisted sync state maps to an on-disk path, so a re-sync updates the same file
+        /// instead of re-deriving (and potentially re-suffixing) a slug.
         public let url: String
+        /// The collection parsed out of the URL's first path segment (`collectionAndSlug`) —
+        /// never re-derived from mf2 properties, so classification happens exactly once,
+        /// Worker-side at create time.
         public let collection: String
+        /// The registered content type the collection resolved to; drives frontmatter shape
+        /// and the file's target directory.
         public let descriptor: ContentTypeDescriptor
+        /// Every frontmatter field value, fully resolved (fallbacks applied) — ready to hand
+        /// to ``TypedContentEditor`` verbatim.
         public let values: TypedContentEditor.Values
+        /// The D1 row's `updated_at` (Unix seconds), echoed through from the source row. The
+        /// `publishDate` fallback already consumed it during resolution; it's retained here so
+        /// callers can still see the row's own timestamp after resolution.
         public let updatedAt: Int
     }
 

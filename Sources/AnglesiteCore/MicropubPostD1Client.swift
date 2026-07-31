@@ -13,15 +13,23 @@ public struct MicropubPostD1Client: Sendable {
     /// A stored Micropub post, as read from the `posts` table
     /// (`@dwk/micropub`'s `packages/micropub/src/store.ts`).
     public struct Post: Sendable, Equatable {
+        /// The post's canonical URL — the `posts` table's identity, and the only place its
+        /// collection/slug live (the sync bridge parses them back out of the URL rather than
+        /// re-classifying from mf2).
         public let url: String
         /// The mf2 root type, e.g. `"h-entry"`.
         public let type: String
         /// The raw mf2 property map — each property name maps to its ordered value list,
         /// matching `@dwk/micropub`'s `Record<string, unknown[]>` storage shape.
         public let properties: [String: [JSONValue]]
+        /// Soft-delete flag. Deleted rows are still returned by `listAllPosts` on purpose: the
+        /// sync bridge needs them to remove their git snapshot on the next reconcile.
         public let deleted: Bool
+        /// The row's `updated_at` column, Unix seconds.
         public let updatedAt: Int
 
+        /// Memberwise initializer — public chiefly so tests can build fixture rows without
+        /// round-tripping a fake D1 response.
         public init(url: String, type: String, properties: [String: [JSONValue]], deleted: Bool, updatedAt: Int) {
             self.url = url
             self.type = type
@@ -65,6 +73,9 @@ public struct MicropubPostD1Client: Sendable {
     private let apiToken: String
     private let transport: CloudflareTransport
 
+    /// Creates a client for one account's D1 database. `baseURL` and `transport` are injectable
+    /// (same DI shape as ``WebmentionInboxD1Client``) so tests exercise real request
+    /// construction and response decoding without networking.
     public init(
         accountID: String,
         databaseID: String,

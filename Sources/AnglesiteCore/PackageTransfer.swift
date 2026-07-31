@@ -7,12 +7,17 @@ import AnglesiteSiteModel
 /// never edits a plain directory in place, so Import copies into a fresh package and Export copies
 /// the package's `Source/` working tree back out.
 public enum PackageTransfer {
+    /// Why a transfer refused to start. Both cases are pre-flight checks: the copy itself never
+    /// half-completes visibly (import cleans up a partial package on failure).
     public enum TransferError: Error, Equatable, Sendable, LocalizedError {
+        /// The chosen import source isn't a directory (or doesn't exist).
         case sourceNotADirectory(URL)
+        /// Something already exists at the target path — the transfer never overwrites, so the
+        /// user must pick a different name or folder.
         case destinationExists(URL)
 
-        // Legible messages so the export NSAlert / import ImportError show a real reason rather
-        // than a raw "error 1" (parity with AnglesitePackage.PackageError, #259).
+        /// Legible messages so the export NSAlert / import ImportError show a real reason rather
+        /// than a raw "error 1" (parity with `AnglesitePackage.PackageError`, #259).
         public var errorDescription: String? {
             switch self {
             case .sourceNotADirectory:

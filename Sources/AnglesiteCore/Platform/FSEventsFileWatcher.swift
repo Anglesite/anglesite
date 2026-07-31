@@ -15,10 +15,22 @@ public final class FSEventsFileWatcher: SiteFileWatching, @unchecked Sendable {
     private var stream: FSEventStreamRef?
     private var onBatch: (@Sendable (FileChangeBatch) -> Void)?
 
+    /// Creates an idle watcher; no stream exists until `start(root:onBatch:)`.
     public init() {}
 
-    public enum WatchError: Error { case streamCreationFailed }
+    /// Failure to establish the watch.
+    public enum WatchError: Error {
+        /// `FSEventStreamCreate` returned NULL — the only FSEvents call in this watcher that
+        /// reports failure by return value, so the only creation-time error to surface.
+        case streamCreationFailed
+    }
 
+    /// Begins watching `root` recursively (FSEvents watches whole subtrees natively — no
+    /// manual walk, unlike the inotify implementation). Batches arrive on a private serial
+    /// queue after the 0.3s coalescing window; events carrying FSEvents' "history is
+    /// incomplete" flags (scan-subdirs, dropped events, root changed, mount/unmount) set
+    /// `needsFullRescan` instead of pretending the per-path list is trustworthy. Calling
+    /// while already watching restarts cleanly (tears the old stream down first).
     public func start(root: URL, onBatch: @escaping @Sendable (FileChangeBatch) -> Void) throws {
         // Tolerate being called while a previous stream is still live: tear it down first so we
         // never orphan an FSEventStreamRef (which would leak and silently cut off its callback).

@@ -5,9 +5,17 @@ import Foundation
 /// the real `FileDocumentIO` + `NativeContentOperations.processGitCommit`. Lives in AnglesiteCore
 /// (not the app-target model) so `swift test` covers it — the same split as `TokenOnboarding`.
 public struct NavigatorRenameService: Sendable {
+    /// Why a rename couldn't complete. The first two mirror ``PageTitleEditor/RewriteError``
+    /// one-to-one (they're user-recoverable validation feedback); `io` carries a string rather
+    /// than the underlying `Error` so the enum stays `Equatable` for test assertions.
     public enum RenameError: Error, Equatable {
+        /// The new title was empty (or whitespace-only) after trimming — writing it would
+        /// leave the page untitled.
         case emptyTitle
+        /// ``PageTitleEditor`` found no recognized place to write a title in this file type
+        /// (unknown extension, or an `.astro`/`.html` file with no existing `title=` attribute).
         case noEditableLocation
+        /// Loading or saving the file failed; the payload is the underlying error's description.
         case io(String)
     }
 
@@ -24,6 +32,7 @@ public struct NavigatorRenameService: Sendable {
         /// File contents after the rewrite — the redo side.
         public let newContents: String
 
+        /// Memberwise initializer, public so tests can build expected outcomes directly.
         public init(title: String, previousContents: String, newContents: String) {
             self.title = title
             self.previousContents = previousContents
@@ -31,12 +40,17 @@ public struct NavigatorRenameService: Sendable {
         }
     }
 
+    /// Re-exported commit-closure shape from ``NativeContentOperations`` so callers and tests
+    /// can name the injection seam without importing the larger operations type's context.
     public typealias GitCommit = NativeContentOperations.GitCommit
 
     private let loadContents: @Sendable (URL) throws -> String
     private let saveContents: @Sendable (String, URL) throws -> Void
     private let gitCommit: GitCommit
 
+    /// Creates the service. All three dependencies default to the production implementations
+    /// (``FileDocumentIO`` load/save and ``NativeContentOperations``' process-based git commit);
+    /// tests override them to drive the flow with no disk or git.
     public init(
         loadContents: @escaping @Sendable (URL) throws -> String = { try FileDocumentIO.load($0).contents },
         saveContents: @escaping @Sendable (String, URL) throws -> Void = { try FileDocumentIO.save($0, to: $1) },
@@ -47,6 +61,19 @@ public struct NavigatorRenameService: Sendable {
         self.gitCommit = gitCommit
     }
 
+    /// Runs the full rename flow: load → ``PageTitleEditor/rewrite(contents:fileExtension:newTitle:)``
+    /// → save → best-effort commit. Returns `Result` rather than throwing so callers get the
+    /// typed ``RenameError`` cases for inline validation UI.
+    ///
+    /// - Parameters:
+    ///   - fileURL: The absolute location of the file to rewrite.
+    ///   - fileExtension: Picks the rewrite strategy (frontmatter vs. `title=` attribute) —
+    ///     passed separately rather than derived from `fileURL` so callers keep control of it.
+    ///   - projectRoot: The site's `Source/` git repo, used as the commit's working directory.
+    ///   - relativePath: The file's path relative to `projectRoot`, used to scope the commit.
+    ///   - newTitle: The replacement title; trimmed before writing and in the commit message.
+    /// - Returns: The completed ``RenameOutcome`` (including both content sides for undo
+    ///   registration), or the ``RenameError`` explaining why nothing was written.
     public func rename(
         fileURL: URL,
         fileExtension: String,

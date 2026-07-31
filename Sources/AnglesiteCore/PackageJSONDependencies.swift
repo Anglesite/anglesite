@@ -6,7 +6,10 @@ import Foundation
 /// offers, leaving formatting, key order, comments-adjacent content, and any
 /// dependency the site added on its own completely untouched.
 public enum PackageJSONDependencies {
+    /// Why ``extract(from:)`` couldn't read the file. A single case: apart from unparseable
+    /// JSON, every shape degrades gracefully (missing sections just yield an empty result).
     public enum ExtractionError: Error, Equatable {
+        /// The text isn't valid JSON with an object root — nothing can be safely read from it.
         case invalidJSON
     }
 

@@ -41,13 +41,25 @@ public final class InotifyFileWatcher: SiteFileWatching, @unchecked Sendable {
         | IN_DELETE_SELF | IN_MOVE_SELF
     )
 
+    /// Creates an idle watcher; no inotify fd exists until `start(root:onBatch:)`.
     public init() {}
 
+    /// Failure to establish the watch tree.
     public enum WatchError: Error {
+        /// `inotify_init1` failed — typically fd exhaustion or `fs.inotify.max_user_instances`.
         case initFailed
+        /// `inotify_add_watch` failed for the directory at the associated path. On large
+        /// trees the usual culprit is the `fs.inotify.max_user_watches` sysctl — one watch is
+        /// consumed per directory, which is why the walk skips `node_modules` and friends.
         case addWatchFailed(String)
     }
 
+    /// Begins watching `root` by walking the tree and arming a per-directory watch (see the
+    /// type doc for why, and for what escalates to `needsFullRescan`). Batches arrive on a
+    /// private serial queue after a 0.3s debounce. Calling while already watching restarts
+    /// cleanly, matching `FSEventsFileWatcher`'s contract; if arming fails partway through
+    /// the walk, everything is torn down (fd closed, no partial watch left running) before
+    /// the error propagates.
     public func start(root: URL, onBatch: @escaping @Sendable (FileChangeBatch) -> Void) throws {
         // Tolerate being called while a previous watch is still live, matching
         // FSEventsFileWatcher's contract.
