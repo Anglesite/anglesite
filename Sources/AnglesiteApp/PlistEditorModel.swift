@@ -514,6 +514,12 @@ final class PlistEditorModel {
     func saveLang() async -> Bool {
         guard isLangDirty else { return true }
         guard !isSavingLang else { return false }
+        // Selecting "Other…" in LanguagePicker sets `tag = ""` immediately, before the owner has
+        // typed a replacement. If a save is triggered mid-edit (e.g. switching tabs), persisting
+        // that blank value would write an empty SITE_LANG, which SiteLanguageAsset.parseSettings
+        // reads back as "en" — silently reverting the site's language with no error shown. Treat a
+        // blank value as "nothing to save yet" instead.
+        guard !langSettings.lang.trimmingCharacters(in: .whitespaces).isEmpty else { return true }
         isSavingLang = true
         langError = nil
         defer { isSavingLang = false }

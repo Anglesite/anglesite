@@ -60,7 +60,13 @@ struct LanguagePicker: View {
     private var selection: Selection {
         if manualOtherSelected { return .other }
         if tag.isEmpty { return allowsInherit ? .inherit : .other }
-        if let common = CommonLanguage(rawValue: tag) { return .common(common) }
+        // Match on the primary subtag (the part before the first "-") for display purposes only —
+        // a region-qualified tag like "en-US" (e.g. SiteLanguageAsset.systemDefaultTag()'s output
+        // on most Macs) should still show as "English" selected, not fall through to "Other…".
+        // This never changes what's stored in `tag`; picking a curated language from this state
+        // still normalizes to the bare subtag via the setter below.
+        let primarySubtag = tag.split(separator: "-").first.map { String($0).lowercased() } ?? tag.lowercased()
+        if let common = CommonLanguage(rawValue: primarySubtag) { return .common(common) }
         return .other
     }
 
