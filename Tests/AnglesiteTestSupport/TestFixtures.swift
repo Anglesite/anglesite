@@ -45,7 +45,9 @@ public func writeSiteTree(prefix: String = "anglesite-test", _ files: [String: S
 /// the calling test with a readable message and the rest of the run continues — matching the
 /// soft-fail semantics of the old per-file `#expect` guards these helpers replaced.
 public struct TestFixtureError: Error, CustomStringConvertible {
+    /// The human-readable failure message, shown verbatim in the test output.
     public let description: String
+    /// Wraps the message; unlabeled because call sites read as `throw TestFixtureError("…")`.
     public init(_ description: String) { self.description = description }
 }
 

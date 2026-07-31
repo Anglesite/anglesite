@@ -15,14 +15,19 @@ public enum E2EServer {
     /// The spawned server process exited before it became ready. Carries the captured stderr so the
     /// real failure (e.g. `Cannot find package 'sharp'`) is visible in the test output.
     public struct ServerExited: Error, CustomStringConvertible {
+        /// How the process ended (exit code vs. signal), from the supervisor.
         public let reason: ProcessSupervisor.ExitReason
+        /// Everything the process wrote to stderr before dying; empty if nothing was captured.
         public let stderr: String
 
+        /// Memberwise initializer; `awaitReady` constructs this when the death task wins the race.
         public init(reason: ProcessSupervisor.ExitReason, stderr: String) {
             self.reason = reason
             self.stderr = stderr
         }
 
+        /// Multi-line message embedding the captured stderr, so the real crash cause lands
+        /// directly in the test failure output.
         public var description: String {
             """
             MCP server process exited (\(reason)) before becoming ready.
@@ -37,12 +42,16 @@ public enum E2EServer {
     /// crash stderr to report — conflating the two (e.g. `ServerExited(reason: .terminated, …)`)
     /// would send a reader chasing a phantom signal kill.
     public struct ServerTimedOut: Error, CustomStringConvertible {
+        /// The readiness budget that elapsed, in seconds.
         public let timeout: TimeInterval
 
+        /// Memberwise initializer; `awaitReady` constructs this when the timeout task wins the race.
         public init(timeout: TimeInterval) {
             self.timeout = timeout
         }
 
+        /// One-line message noting the process was still alive — the detail that distinguishes
+        /// this from a crash.
         public var description: String {
             "MCP server did not become ready within \(timeout)s (process still running)."
         }
