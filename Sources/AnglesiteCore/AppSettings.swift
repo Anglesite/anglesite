@@ -60,6 +60,13 @@ public final class AppSettings: @unchecked Sendable {
     /// network) and not to be called on the main thread — but `sitesRoot` is read synchronously
     /// from `@MainActor` code. Resolving at most once per `AppSettings` instance keeps that cost
     /// to a single call per process rather than one per save/import panel (#865 final review).
+    ///
+    /// Known limitation: this cache never invalidates for the process's lifetime, so signing in or
+    /// out of iCloud mid-session (a real, OS-supported transition) won't move `sitesRoot`/
+    /// `sitesRootSource` until the app relaunches (#865 PR review). `AppSettings.shared` is a
+    /// long-lived singleton with no observer machinery today; invalidating on
+    /// `NSUbiquityIdentityDidChangeNotification` would need that machinery added deliberately
+    /// rather than folded into this cache, so it's left as a known limitation here.
     private func resolvedUbiquityContainerURL() -> URL? {
         ubiquityCacheLock.lock()
         defer { ubiquityCacheLock.unlock() }

@@ -429,15 +429,14 @@ struct SitesLauncherView: View {
         // resolved from, not from a write probe: createDirectory(withIntermediateDirectories:)
         // reports success for an existing directory even when the sandbox would deny writing into
         // it, so probing silently skipped the grant panel on every run after the first (#865
-        // final review).
+        // final review). `ensureSitesRootAccess` is shared with `SiteActions.importPackage()` —
+        // see that enum's doc comment on keeping MAS bookmark minting in exactly one place.
         if AppSettings.shared.sitesRootSource != .iCloudContainer {
-            guard let rootScope = await ensureSitesRootAccess(sitesRoot) else { return }  // user cancelled
+            guard let rootScope = await SiteActions.ensureSitesRootAccess(sitesRoot) else { return }  // user cancelled
             sitesRootScopedURL = rootScope
         }
-        try? FileManager.default.createDirectory(at: sitesRoot, withIntermediateDirectories: true)
-        #else
-        try? FileManager.default.createDirectory(at: sitesRoot, withIntermediateDirectories: true)
         #endif
+        try? FileManager.default.createDirectory(at: sitesRoot, withIntermediateDirectories: true)
 
         // Load persisted registry to derive taken slugs; no scan needed (registry = source of truth).
         try? await SiteStore.shared.load()
@@ -479,33 +478,6 @@ struct SitesLauncherView: View {
         )
         newSiteSession = NewSiteSession(model: model, scaffolder: scaffolder)
     }
-
-    #if ANGLESITE_MAS
-    /// Obtain (or reuse) a security-scoped grant to the sites root so the sandboxed build can
-    /// create a new site folder under it. Returns the started-accessing URL, or nil if cancelled.
-    @MainActor
-    private func ensureSitesRootAccess(_ sitesRoot: URL) async -> URL? {
-        if let data = AppSettings.shared.sitesRootBookmark,
-           let resolved = try? SecurityScopedBookmark.resolve(data),
-           resolved.url.startAccessingSecurityScopedResource() {
-            if resolved.isStale, let fresh = try? SecurityScopedBookmark.create(for: resolved.url) {
-                AppSettings.shared.sitesRootBookmark = fresh
-            }
-            return resolved.url
-        }
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.directoryURL = sitesRoot
-        panel.prompt = String(localized: "Grant Access")
-        panel.message = String(localized: "Choose your Sites folder so Anglesite can create the new site there.")
-        guard panel.runModal() == .OK, let url = panel.url else { return nil }
-        if let data = try? SecurityScopedBookmark.create(for: url) {
-            AppSettings.shared.sitesRootBookmark = data
-        }
-        return url.startAccessingSecurityScopedResource() ? url : nil
-    }
-    #endif
 
     // MARK: - Lifecycle
 
