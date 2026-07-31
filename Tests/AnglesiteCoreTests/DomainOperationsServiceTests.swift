@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import AnglesiteCore
 
@@ -99,6 +100,80 @@ struct DomainOperationsServiceTests {
     func deleteZoneNotFound() async {
         let result = await service(reader: FakeReader(zoneID: nil)).deleteRecord(domain: "absent.com", recordID: "r1")
         #expect(result == .failure(.zoneNotFound(domain: "absent.com")))
+    }
+
+    @Test("addRecord stamps a comment from purpose and writes dns.managedRecords")
+    func addRecordWithPurposeWritesThroughAndStampsComment() async throws {
+        let reader = FakeReader(zoneID: "z1")
+        let writer = FakeWriter()
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let result = await service(reader: reader, writer: writer).addRecord(
+            domain: "example.com", type: "TXT", name: "_atproto", content: "did=abc", ttl: 1,
+            priority: nil, purpose: "verification:bluesky", sourceDirectory: tmp)
+
+        #expect(result == .success(()))
+        #expect(writer.addedRecords == [
+            DNSRecordPayload(type: "TXT", name: "_atproto", content: "did=abc", ttl: 1, priority: nil,
+                             comment: "anglesite:verification:bluesky"),
+        ])
+        let config = try DomainConfigStore(sourceDirectory: tmp).load()
+        #expect(config.dns?.managedRecords == [
+            .init(type: "TXT", name: "_atproto", content: "did=abc", purpose: "verification:bluesky"),
+        ])
+    }
+
+    @Test("addRecord with no sourceDirectory does not write a file")
+    func addRecordWithoutSourceDirectorySkipsWriteThrough() async {
+        let reader = FakeReader(zoneID: "z1")
+        let writer = FakeWriter()
+        let result = await service(reader: reader, writer: writer).addRecord(
+            domain: "example.com", type: "TXT", name: "n", content: "c", ttl: 1, priority: nil,
+            purpose: nil, sourceDirectory: nil)
+        #expect(result == .success(()))
+        #expect(writer.addedRecords == [DNSRecordPayload(type: "TXT", name: "n", content: "c", ttl: 1, priority: nil, comment: nil)])
+    }
+
+    @Test("addRecord short overload (no purpose/sourceDirectory) still succeeds")
+    func addRecordShortOverloadStillWorks() async {
+        let reader = FakeReader(zoneID: "z1")
+        let writer = FakeWriter()
+        let result = await service(reader: reader, writer: writer)
+            .addRecord(domain: "example.com", type: "TXT", name: "n", content: "c", ttl: 1, priority: nil)
+        #expect(result == .success(()))
+        #expect(writer.addedRecords == [DNSRecordPayload(type: "TXT", name: "n", content: "c", ttl: 1, priority: nil, comment: nil)])
+    }
+
+    @Test("deleteRecord with type/name/content removes the matching managedRecords entry")
+    func deleteRecordWritesThroughRemoval() async throws {
+        let reader = FakeReader(zoneID: "z1")
+        let writer = FakeWriter()
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let store = DomainConfigStore(sourceDirectory: tmp)
+        try store.save(DomainConfig(dns: .init(managedRecords: [
+            .init(type: "TXT", name: "_atproto", content: "did=abc", purpose: "verification:bluesky"),
+        ])))
+
+        let result = await service(reader: reader, writer: writer).deleteRecord(
+            domain: "example.com", recordID: "r1", type: "TXT", name: "_atproto", content: "did=abc",
+            sourceDirectory: tmp)
+
+        #expect(result == .success(()))
+        let config = try store.load()
+        #expect(config.dns?.managedRecords?.isEmpty == true)
+    }
+
+    @Test("deleteRecord short overload (no write-through args) still succeeds")
+    func deleteRecordShortOverloadStillWorks() async {
+        let reader = FakeReader(zoneID: "z1")
+        let writer = FakeWriter()
+        let result = await service(reader: reader, writer: writer).deleteRecord(domain: "example.com", recordID: "r1")
+        #expect(result == .success(()))
+        #expect(writer.deletedRecordIDs == ["r1"])
     }
 }
 

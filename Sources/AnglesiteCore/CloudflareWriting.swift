@@ -54,14 +54,21 @@ public struct DNSRecordPayload: Sendable, Equatable, Encodable {
     /// is omitted from the encoded JSON entirely (synthesized `Encodable` uses `encodeIfPresent`),
     /// so priority-less record types never see a spurious field.
     public let priority: Int?
+    /// Cloudflare's free-text `comment` field, stamped by ``DomainOperations/addRecord(domain:type:name:content:ttl:priority:purpose:sourceDirectory:)``
+    /// as `"anglesite:<purpose>"` when the caller supplies a purpose (#1170) — lets reconciliation
+    /// join a declared `anglesite.json` record to its live Cloudflare counterpart (investigation
+    /// doc §5.3). `nil` — the default — omits the key entirely (synthesized `Encodable` uses
+    /// `encodeIfPresent`), matching every other optional field here.
+    public let comment: String?
 
     /// Defaults produce the common case: an automatic-TTL record with no priority field.
-    public init(type: String, name: String, content: String, ttl: Int = 1, priority: Int? = nil) {
+    public init(type: String, name: String, content: String, ttl: Int = 1, priority: Int? = nil, comment: String? = nil) {
         self.type = type
         self.name = name
         self.content = content
         self.ttl = ttl
         self.priority = priority
+        self.comment = comment
     }
 }
 
