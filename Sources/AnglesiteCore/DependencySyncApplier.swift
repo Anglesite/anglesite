@@ -27,6 +27,19 @@ public enum DependencySyncApplier {
         }
         var updatedText = PackageJSONDependencies.apply(offers.updates, to: originalText)
         updatedText = PackageJSONDependencies.applyAdditions(offers.additions, to: updatedText)
+
+        // Re-parse once and reuse the result for everything below. This both
+        // gates the write against ever landing corrupted JSON on disk (`applyAdditions`
+        // does text insertion, not just in-place substitution, so a bug there could
+        // in principle produce invalid output) and tells us which offers actually
+        // landed — `PackageJSONDependencies.apply`/`.applyAdditions` are both
+        // best-effort and silently no-op an offer whose target name/section isn't
+        // found in the site's package.json.
+        guard let landedSections = try? PackageJSONDependencies.extractSections(from: updatedText) else {
+            throw ApplyError.writeFailed
+        }
+        let landed = landedSections.dependencies.merging(landedSections.devDependencies) { _, new in new }
+
         do {
             try updatedText.write(to: packageJSONURL, atomically: true, encoding: .utf8)
         } catch {
@@ -35,19 +48,29 @@ public enum DependencySyncApplier {
 
         try? FileManager.default.removeItem(at: sourceDirectory.appendingPathComponent("package-lock.json"))
 
-        var newBaseline = DependencyBaseline.load(from: configDirectory) ?? [:]
-        for offer in offers.updates { newBaseline[offer.name] = offer.offeredRange }
-        // Only baseline an addition that actually landed in `updatedText` —
-        // `applyAdditions` silently skips an offer whose target section doesn't
-        // exist in the site's package.json, and baselining it anyway would make
-        // `DependencySync.diff`'s "site is known to have had this before" gate
-        // withhold the offer forever, with no way for the user to ever see or
-        // recover it.
-        if let landedSections = try? PackageJSONDependencies.extractSections(from: updatedText) {
-            for offer in offers.additions
-            where landedSections.dependencies[offer.name] != nil || landedSections.devDependencies[offer.name] != nil {
-                newBaseline[offer.name] = offer.offeredRange
-            }
+        // Seed from every dependency in the freshly-written package.json when the
+        // site has no baseline yet (legacy sites scaffolded before the baseline
+        // mechanism existed, or sites created via File > Import) — mirrors what
+        // `SiteScaffolder` writes at scaffold time (the full template dependency
+        // set, not just what changed). Without this, a site's baseline would end
+        // up containing only the name(s) from *this* accepted offer, and
+        // `DependencySync.diff`'s `guard let baselineRange = baseline[name]` would
+        // silently withhold future bump offers for every other dependency the
+        // site has.
+        var newBaseline = DependencyBaseline.load(from: configDirectory) ?? landed
+        // Only baseline an update/addition that actually landed in `updatedText`.
+        // For an update, "landed" means the merged range now equals the offered
+        // range (the stronger check — a bump target already existed, so its value
+        // should have visibly changed). For an addition, "landed" means the name
+        // is now present at all (existence check — a fresh insertion has no prior
+        // value to compare against). Baselining an offer that silently no-opped
+        // would make `DependencySync.diff`'s gates think it already landed and
+        // withhold it forever, with no way for the user to ever see or recover it.
+        for offer in offers.updates where landed[offer.name] == offer.offeredRange {
+            newBaseline[offer.name] = offer.offeredRange
+        }
+        for offer in offers.additions where landed[offer.name] != nil {
+            newBaseline[offer.name] = offer.offeredRange
         }
         try? DependencyBaseline.save(newBaseline, to: configDirectory)
 

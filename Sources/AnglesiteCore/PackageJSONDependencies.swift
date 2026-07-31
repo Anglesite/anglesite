@@ -67,12 +67,26 @@ public enum PackageJSONDependencies {
     /// indentation of whatever currently comes first in that section. An
     /// offer whose target section doesn't exist in `text` at all is silently
     /// skipped — this mutates existing structure, it never fabricates a new
-    /// top-level section.
+    /// top-level section. An offer whose name is *already* a key in the
+    /// target section is also silently skipped — inserting it anyway would
+    /// produce a second `"name": ...` key in the same JSON object, which is
+    /// semantically broken even though most parsers (including
+    /// `JSONSerialization`) tolerate it by keeping only the last value. This
+    /// shouldn't be reachable through the real `DependencySync.diff` ->
+    /// `DependencySyncApplier` path (diff only offers additions for names
+    /// absent from the site), but this function is public and should stay
+    /// safe against a stale or already-present offer regardless of caller
+    /// discipline.
     public static func applyAdditions(_ offers: [DependencyAdditionOffer], to text: String) -> String {
         var result = text
         for offer in offers {
             let key = offer.section == .devDependencies ? "devDependencies" : "dependencies"
             guard let span = objectSpan(forKey: key, in: result) else { continue }
+            let escapedExistingName = NSRegularExpression.escapedPattern(for: offer.name)
+            if let existsRegex = try? NSRegularExpression(pattern: "\"\(escapedExistingName)\"\\s*:"),
+               existsRegex.firstMatch(in: result, range: NSRange(span, in: result)) != nil {
+                continue
+            }
             let openBrace = span.lowerBound
             let afterBrace = result.index(after: openBrace)
             var firstContent = afterBrace

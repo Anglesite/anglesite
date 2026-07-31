@@ -163,4 +163,16 @@ import Testing
     @Test func applyAdditionsWithNoOffersReturnsTheTextUnchanged() {
         #expect(PackageJSONDependencies.applyAdditions([], to: Self.fixture) == Self.fixture)
     }
+
+    @Test func applyAdditionsSkipsAnOfferWhoseNameAlreadyExistsInTheTargetSection() {
+        // "astro" is already a key in `dependencies` in the fixture. Inserting it
+        // again would produce two `"astro": ...` keys in the same JSON object —
+        // parseable (last one wins) but semantically corrupted, and this function
+        // is public so it must defend against a stale/duplicate offer regardless
+        // of caller discipline (#1108 review).
+        let offers = [DependencyAdditionOffer(name: "astro", offeredRange: "^99.0.0", section: .dependencies)]
+        let updated = PackageJSONDependencies.applyAdditions(offers, to: Self.fixture)
+        #expect(updated.components(separatedBy: "\"astro\"").count - 1 == 1)
+        #expect(!updated.contains("^99.0.0"))
+    }
 }

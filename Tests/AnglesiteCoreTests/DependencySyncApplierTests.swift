@@ -96,6 +96,59 @@ import Foundation
         #expect(baseline?["html-validate"] == nil)
     }
 
+    @Test func withholdsTheBaselineForAnUpdateThatDidNotLandBecauseItsNameIsAbsent() throws {
+        // "does-not-exist" isn't a key in the site's package.json at all, so
+        // `PackageJSONDependencies.apply` silently no-ops on that offer (by
+        // design — it never adds anything). Baselining it anyway would claim the
+        // site is at the new range while package.json never changed, and
+        // `DependencySync.diff`'s `baselineRange == siteRange` bump gate would then
+        // fail forever, permanently suppressing that package's future bump offers
+        // (#1108 review).
+        let (source, config) = try makeSourceAndConfig()
+        let offers = DependencySyncOffers(updates: [
+            DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8"),
+            DependencyUpdateOffer(name: "does-not-exist", currentRange: "^1.0.0", offeredRange: "^2.0.0"),
+        ])
+        try DependencySyncApplier.apply(offers, sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
+
+        let updated = try String(contentsOf: source.appendingPathComponent("package.json"), encoding: .utf8)
+        #expect(!updated.contains("does-not-exist"))
+
+        let baseline = DependencyBaseline.load(from: config)
+        #expect(baseline?["astro"] == "^6.4.8")
+        #expect(baseline?["does-not-exist"] == nil)
+    }
+
+    @Test func seedsTheFullBaselineFromExistingDependenciesWhenNoBaselineFileExisted() throws {
+        // A legacy/imported site with no baseline file at all must not end up
+        // with a baseline containing only the just-accepted offer's name(s) —
+        // that would silently disable future bump offers for every other
+        // dependency the site has, since `DependencySync.diff`'s bump path
+        // requires `guard let baselineRange = baseline[name]` to succeed
+        // (#1108 review). Mirrors `SiteScaffolder`'s scaffold-time baseline seed.
+        let root = tmpDir()
+        let source = root.appendingPathComponent("Source")
+        let config = root.appendingPathComponent("Config")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: config, withIntermediateDirectories: true)
+        try """
+        {
+          "dependencies": { "astro": "^5.0.0", "@astrojs/rss": "^4.0.0" },
+          "devDependencies": { "typescript": "^5.9.3" }
+        }
+        """.write(to: source.appendingPathComponent("package.json"), atomically: true, encoding: .utf8)
+        try "ANGLESITE_VERSION=1.2.0\n".write(to: source.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        // Deliberately no DependencyBaseline.save call — no baseline file exists.
+
+        let offers = DependencySyncOffers(updates: [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")])
+        try DependencySyncApplier.apply(offers, sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
+
+        let baseline = DependencyBaseline.load(from: config)
+        #expect(baseline?["astro"] == "^6.4.8")
+        #expect(baseline?["@astrojs/rss"] == "^4.0.0")
+        #expect(baseline?["typescript"] == "^5.9.3")
+    }
+
     @Test func throwsReadFailedWhenPackageJSONIsMissing() throws {
         let root = tmpDir()
         let source = root.appendingPathComponent("Source")
