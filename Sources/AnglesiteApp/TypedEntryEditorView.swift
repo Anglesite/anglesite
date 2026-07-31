@@ -38,7 +38,9 @@ struct TypedEntryForm: View {
     private func control(for field: ContentTypeField) -> some View {
         let label = field.name + (field.required ? " *" : "")
         switch field.kind {
-        case .string, .url, .image:
+        // TODO(#956 Task 7): render `.language` with a dedicated `LanguagePicker`, not a plain
+        // text field. Grouped with `.string` here only as the minimal compiler-forced arm.
+        case .string, .language, .url, .image:
             HStack {
                 TextField(label, text: model.textBinding(field.name))
                 if field.kind == .image {
@@ -216,7 +218,7 @@ private struct ObjectArrayEditor: View {
         // working-looking control that corrupts the record on save. Listing every kind also makes
         // the compiler flag a newly added `Kind` here instead of letting it fall into that trap.
         switch field.kind {
-        case .string, .text, .url, .image:
+        case .string, .language, .text, .url, .image:
             HStack {
                 TextField(label, text: textBinding(field.name, in: values))
                 if field.kind == .image {

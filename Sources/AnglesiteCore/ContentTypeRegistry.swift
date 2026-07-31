@@ -21,6 +21,10 @@ public struct ContentTypeField: Sendable, Equatable {
     public enum Kind: Sendable, Equatable {
         /// Single-line text.
         case string
+        /// A BCP-47 language tag override (e.g. `fr`, `en-US`) for a single entry — stored and
+        /// round-tripped identically to `.string`; the only difference is which editor control
+        /// renders it (a language picker, added in a later task, instead of a plain text field).
+        case language
         /// Multi-line plain text.
         case text
         /// Multi-line rich body.
