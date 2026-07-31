@@ -123,17 +123,19 @@ To use it:
 2. Sign in to your site from a Micropub client via IndieAuth to get a
    token.
 
-**Known gap:** Micro.blog's own docs say a self-hosted site needs to
-advertise its endpoint with `<link rel="micropub" href="https://example.com/micropub">`
+**Endpoint discovery:** Micro.blog's own docs say a self-hosted site needs
+to advertise its endpoint with `<link rel="micropub" href="https://example.com/micropub">`
 on the homepage for auto-discovery (see
-[Micropub](https://book.micro.blog/micropub/)). Anglesite's
-`BaseLayout.astro` does not yet emit that `<link>` tag (it advertises
-`rel="me"`, `rel="webmention"`, and `rel="indieauth-metadata"`, but not
-`rel="micropub"`), and the worker doesn't send a `Link:` HTTP header either.
-Until that's added, a Micropub client that requires auto-discovery may not
-find the endpoint automatically even after step 1 above. This is a
-follow-up for whoever picks up the Micropub-in-Micro.blog integration next,
-not something this docs-only change should silently paper over.
+[Micropub](https://book.micro.blog/micropub/)). Activating the worker in
+step 1 writes `MICROPUB_ENABLED=true` into the site's `.site-config`
+(`SocialWorkerProvisionCommand`), and
+[`BaseLayout.astro`](../Resources/Template/src/layouts/BaseLayout.astro)
+emits that `<link>` tag on every page when the flag is set (#1039) —
+alongside the existing `rel="me"`, `rel="webmention"`, and
+`rel="indieauth-metadata"` links — so auto-discovery works once the site
+is next deployed. The worker doesn't additionally send a `Link:` HTTP
+header; the HTML tag is what clients (including the Micro.blog apps) look
+for.
 
 ## Why Micro.blog is not a POSSE target
 
