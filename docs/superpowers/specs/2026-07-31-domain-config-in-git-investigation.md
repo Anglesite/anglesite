@@ -231,15 +231,15 @@ regeneration, but *intent* in git is what regeneration should be driven from.
   = no declarations). No paired sidecar PR: this is app + template only, no MCP schema
   change. No catalog change required (worker IDs already come from `catalog.json`).
 
-## 6. Suggested implementation slices (follow-up issues)
+## 6. Implementation slices (filed 2026-07-31, milestone v0.5.0-Alpha)
 
-1. **Schema + stores** — `DomainConfig` model, Swift `DomainConfigStore` (round-trip-safe,
-   unknown-key-preserving), template-side reader, schema doc. Ships inert.
-2. **Write-through** — DNS sheet, Harden, custom-domain attach, email planner apply (with
-   its Settings surface, #769) all update the declaration; record-comment stamping.
-3. **Drift audit + reconcile UI** — `DomainConfigAudit`, scorecard surface, Harden-idiom
-   remediation.
-4. **Worker activation to `Source/`** — `workers.active` in `anglesite.json`, migration from
+1. **Schema + stores** (#1169) — `DomainConfig` model, Swift `DomainConfigStore`
+   (round-trip-safe, unknown-key-preserving), template-side reader, schema doc. Ships inert.
+2. **Write-through** (#1170) — DNS sheet, Harden, custom-domain attach, email planner apply
+   (with its Settings surface, #769) all update the declaration; record-comment stamping.
+3. **Drift audit + reconcile UI** (#1171) — `DomainConfigAudit`, scorecard surface,
+   Harden-idiom remediation.
+4. **Worker activation to `Source/`** (#1172) — `workers.active` in `anglesite.json`, migration from
    `Config/`, headless-deploy path reads it (retiring the #829 cache workaround). Per the
    owner decision below, this slice starts with its own timing investigation: map the
    read/write ordering hazards on the deploy hot path (GUI deploy vs headless deploy vs a
@@ -248,8 +248,8 @@ regeneration, but *intent* in git is what regeneration should be driven from.
    absent, unparsable, or older than the `Config/` state it migrated from, the deploy path
    falls back to today's `Config/settings.plist.activeWorkerIDs` + #829 cache behavior
    rather than failing or deploying a reduced worker set.
-5. **Deploy-time validation** — pre-deploy declared-vs-live check app-side; structural
-   check in the scan envelope.
+5. **Deploy-time validation** (#1173) — pre-deploy declared-vs-live check app-side;
+   structural check in the scan envelope.
 
 ## 7. Owner decisions (2026-07-31)
 
