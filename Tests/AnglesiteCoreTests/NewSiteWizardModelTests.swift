@@ -10,65 +10,38 @@ final class NewSiteWizardModelTests: XCTestCase {
         ])
     }
 
-    func testPickingTypeSetsDefaultTheme() {
-        let m = NewSiteWizardModel(catalog: catalog(), slugTaken: { _ in false })
-        m.choose(type: .blog)               // default for .blog is "warm"
-        XCTAssertEqual(m.draft.themeID, "warm")
+    // MARK: Chooser state (#1071)
+
+    func testStartsOnChooserWithFirstThemeAndUntitledDraft() {
+        let m = NewSiteWizardModel(catalog: catalog(), isNameTaken: { _ in false })
+        XCTAssertEqual(m.step, .chooser)
+        XCTAssertEqual(m.draft.themeID, "classic")     // catalog order, not a per-type default
+        XCTAssertEqual(m.draft.name, "Untitled")
+        XCTAssertEqual(m.draft.saveFileName, "Untitled.anglesite")
+        XCTAssertEqual(m.draft.siteType, .blank)
+        XCTAssertEqual(m.draft.domainChoice, .later)   // deferred to publish (#1071)
+        XCTAssertEqual(m.draft.headline, "")           // template placeholder stays
+        XCTAssertTrue(m.canCreate)
     }
 
-    func testPickingTypeDoesNotReplaceCustomTheme() {
-        let m = NewSiteWizardModel(catalog: catalog(), slugTaken: { _ in false })
-        m.draft.themeID = CustomTheme.id
-        m.choose(type: .blog)
-        XCTAssertEqual(m.draft.themeID, CustomTheme.id)
+    func testUntitledNameSkipsTakenNames() {
+        let m = NewSiteWizardModel(catalog: catalog(),
+                                   isNameTaken: { ["Untitled", "Untitled 2"].contains($0) })
+        XCTAssertEqual(m.draft.name, "Untitled 3")
+        XCTAssertEqual(m.draft.saveFileName, "Untitled 3.anglesite")
     }
 
-    func testStartsWithUniversalWebsiteIdentityStep() {
-        let m = NewSiteWizardModel(catalog: catalog(), slugTaken: { _ in false })
-        XCTAssertEqual(m.step, .details)
-        XCTAssertFalse(m.canContinue)
+    func testCanCreateRequiresACatalogTheme() {
+        let m = NewSiteWizardModel(catalog: catalog(), isNameTaken: { _ in false })
+        m.draft.themeID = "no-such-theme"
+        XCTAssertFalse(m.canCreate)
+        m.draft.themeID = "warm"
+        XCTAssertTrue(m.canCreate)
     }
 
-    func testCannotContinuePastDetailsWithEmptyOrTakenName() {
-        let m = NewSiteWizardModel(catalog: catalog(), slugTaken: { $0 == "taken" })
-        m.step = .details
-        m.draft.name = ""
-        XCTAssertFalse(m.canContinue)
-        m.draft.name = "Taken"              // slug "taken"
-        XCTAssertFalse(m.canContinue)
-        XCTAssertNotNil(m.detailsError)
-        m.draft.name = "Fresh One"
-        XCTAssertTrue(m.canContinue)
-    }
-
-    func testTransferDomainRequiresDomainValue() {
-        let m = NewSiteWizardModel(catalog: catalog(), slugTaken: { _ in false })
-        m.step = .details
-        m.draft.name = "Fresh One"
-        m.draft.domainChoice = .transfer
-        m.draft.domain = ""
-        XCTAssertFalse(m.canContinue)
-        m.draft.domain = "not a domain"
-        XCTAssertFalse(m.canContinue)
-        m.draft.domain = "localhost"
-        XCTAssertFalse(m.canContinue)
-        m.draft.domain = "example.com"
-        XCTAssertTrue(m.canContinue)
-    }
-
-    func testLookStepAcceptsCustomTheme() {
-        let m = NewSiteWizardModel(catalog: catalog(), slugTaken: { _ in false })
-        m.step = .look
-        m.draft.themeID = CustomTheme.id
-        XCTAssertTrue(m.canContinue)
-    }
-
-    func testSlugPreviewTracksName() {
-        let m = NewSiteWizardModel(catalog: catalog(), slugTaken: { _ in false })
-        m.draft.name = "My Cool Site"
-        XCTAssertEqual(m.slugPreview, "my-cool-site")
-        XCTAssertEqual(m.defaultSaveFileName, "my-cool-site.anglesite")
-        XCTAssertEqual(m.cloudflareDevPreview, "my-cool-site.workers.dev")
+    func testEmptyCatalogCannotCreate() {
+        let m = NewSiteWizardModel(catalog: ThemeCatalog(themes: []), isNameTaken: { _ in false })
+        XCTAssertFalse(m.canCreate)
     }
 
     // MARK: Build warnings (#229)
@@ -99,16 +72,23 @@ final class NewSiteWizardModelTests: XCTestCase {
     }
 
     func testFreshModelHasNoWarningsAndIsNotCompletedCleanly() {
-        let m = NewSiteWizardModel(catalog: catalog(), slugTaken: { _ in false })
+        let m = NewSiteWizardModel(catalog: catalog(), isNameTaken: { _ in false })
         XCTAssertFalse(m.hasWarnings)
         XCTAssertTrue(m.warnings.isEmpty)
         XCTAssertFalse(m.didCompleteCleanly)
     }
 
+    func testBuildEntersBuildingStepAndDisablesCreate() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let m = NewSiteWizardModel(catalog: catalog(), isNameTaken: { _ in false })
+        _ = await m.build(using: warningScaffolder(root: root))
+        XCTAssertEqual(m.step, .building)
+        XCTAssertFalse(m.canCreate)
+    }
+
     func testBuildWithWarningSurfacesWarningAndBlocksCleanCompletion() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let m = NewSiteWizardModel(catalog: catalog(), slugTaken: { _ in false })
-        m.draft.name = "Warn Site"
+        let m = NewSiteWizardModel(catalog: catalog(), isNameTaken: { _ in false })
 
         let id = await m.build(using: warningScaffolder(root: root))
 

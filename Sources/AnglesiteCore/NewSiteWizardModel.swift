@@ -1,37 +1,31 @@
 import Foundation
 import Observation
 
-/// Observable state machine behind the New Site wizard: step navigation, draft validation,
-/// and scaffold progress. All wizard rules (what "can continue" means per step, when the
-/// name collides, when the finished site may open) live here rather than in the views, so
-/// they can be unit-tested without SwiftUI.
+/// Observable state behind the New Site template chooser (#1071): theme selection, Untitled
+/// naming, and scaffold progress. All rules (when Create is enabled, what the site is named,
+/// when the finished site may open) live here rather than in the views, so they can be
+/// unit-tested without SwiftUI.
+///
+/// The chooser deliberately asks exactly one question — which template — the iWork model.
+/// Name ("Untitled"), save location (the sites root), domain (deferred to publish), and
+/// homepage content (the template's placeholder copy) are all defaulted, not asked.
 @MainActor
 @Observable
 public final class NewSiteWizardModel {
-    /// The wizard's pages, in presentation order — ``NewSiteWizardModel/advance()`` /
-    /// ``NewSiteWizardModel/back()`` walk the raw values, so case order here *is* the wizard flow.
+    /// The chooser's two states; ``NewSiteWizardModel/build(using:)`` is the only transition.
     public enum Step: Int, CaseIterable {
-        /// Name + domain choice — the only step with hard validation (``NewSiteWizardModel/detailsError``).
-        case details
-        /// Broad site category (``SiteType``); picking one re-seeds the default theme.
-        case type
-        /// Theme selection, including the ``CustomTheme`` own-colors escape hatch.
-        case look
-        /// Optional homepage content (headline, blurb, hero image) — skippable.
-        case content
-        /// Save location and package file name.
-        case save
-        /// Terminal step while ``NewSiteWizardModel/build(using:)`` runs; `canContinue` is
+        /// The template grid — the only step with user input.
+        case chooser
+        /// Terminal step while ``NewSiteWizardModel/build(using:)`` runs; ``canCreate`` is
         /// always `false` here.
         case building
     }
 
-    /// The step currently shown. Mutated only via ``advance()``/``back()`` and ``build(using:)``.
-    public var step: Step = .details
-    /// The accumulating answers; a plain value handed to the scaffolder unchanged at build time.
-    public var draft = NewSiteDraft(siteType: .business, name: "")
-    /// Drives the Image Playground sheet presentation in the Content step (#92).
-    public var showingImagePlayground = false
+    /// The step currently shown. Mutated only by ``build(using:)``.
+    public private(set) var step: Step = .chooser
+    /// The answers handed to the scaffolder at build time. Only ``NewSiteDraft/themeID`` is
+    /// user-set (via the grid); everything else keeps the Untitled defaults from init.
+    public var draft: NewSiteDraft
     /// Every ``SiteScaffolder/ScaffoldStep`` emitted so far, in order — the Building step's
     /// live checklist. Append-only; never trimmed, so warnings stay visible after completion.
     public private(set) var progress: [SiteScaffolder.ScaffoldStep] = []
@@ -42,134 +36,61 @@ public final class NewSiteWizardModel {
     /// failure). Gate opening the site on ``didCompleteCleanly``, not just this being non-nil.
     public private(set) var completedSiteID: String?
 
-    /// Themes offered in the Look step; also supplies the per-type default seeded by
-    /// ``choose(type:)`` and the initializer.
+    /// Themes shown in the grid; the first entry is pre-selected (no site type exists to drive
+    /// the per-type default table).
     public let catalog: ThemeCatalog
-    /// Pre-selected save location for the Save step (typically `~/Sites/`); `nil` lets the
-    /// save panel fall back to its own default.
-    public let defaultSaveDirectory: URL?
-    private let slugTaken: @Sendable (String) -> Bool
 
-    /// Creates the model and seeds the draft's theme with the catalog default for the initial
-    /// site type, so the Look step never starts with nothing selected.
+    /// Creates the model with a fully-defaulted Untitled draft.
     ///
     /// - Parameters:
-    ///   - catalog: Themes for the Look step and the per-type default seeding.
-    ///   - defaultSaveDirectory: Pre-selected save location for the Save step; `nil` defers
-    ///     to the save panel's own default.
-    ///   - slugTaken: Injected collision check against the recents registry — the model
-    ///     deliberately doesn't know about `SiteStore`, keeping it testable with a plain
-    ///     closure.
-    public init(catalog: ThemeCatalog, defaultSaveDirectory: URL? = nil, slugTaken: @escaping @Sendable (String) -> Bool) {
+    ///   - catalog: Themes for the grid; its first entry seeds ``NewSiteDraft/themeID``.
+    ///   - isNameTaken: Availability check for a candidate display name (e.g. "Untitled 2").
+    ///     The caller decides what "taken" means — the launcher checks both the recents
+    ///     registry and the sites root on disk. Non-escaping: consulted only here, at init.
+    public init(catalog: ThemeCatalog, isNameTaken: (String) -> Bool) {
         self.catalog = catalog
-        self.defaultSaveDirectory = defaultSaveDirectory
-        self.slugTaken = slugTaken
-        // Seed a default theme for the initial type.
-        draft.themeID = catalog.defaultThemeID(for: draft.siteType)
+        let name = Self.untitledName(isTaken: isNameTaken)
+        // headline "" on purpose (overriding NewSiteDraft's default of `name`): the scaffolder
+        // skips the homepage write for a contentless draft, leaving the template's placeholder
+        // copy for the owner to edit in the preview (#1071).
+        var draft = NewSiteDraft(siteType: .blank, name: name,
+                                 saveFileName: "\(name).anglesite", headline: "")
+        draft.themeID = catalog.themes.first?.id ?? ""
+        self.draft = draft
     }
 
-    /// The folder slug the current name would produce (``SiteSlug/derive(from:)``), shown live
-    /// in the Details step so owners see the URL-ish identity their name implies before committing.
-    public var slugPreview: String { SiteSlug.derive(from: draft.name) }
+    /// First free name in "Untitled", "Untitled 2", "Untitled 3", … — the Mac document
+    /// convention. Not localized: AnglesiteCore has no string catalog (app-target only).
+    static func untitledName(isTaken: (String) -> Bool) -> String {
+        for n in 1...9999 {
+            let candidate = n == 1 ? "Untitled" : "Untitled \(n)"
+            if !isTaken(candidate) { return candidate }
+        }
+        // 9999 collisions means something is systematically wrong; fall back to a unique name
+        // rather than looping forever.
+        return "Untitled \(UUID().uuidString.prefix(8))"
+    }
 
-    /// Default `.anglesite` package file name derived from the slug; used verbatim when the
-    /// owner leaves the Save step's name field empty (see ``build(using:)``).
-    public var defaultSaveFileName: String { "\(slugPreview).anglesite" }
+    /// Gate for the chooser's Create button (and double-click): a real catalog theme is
+    /// selected and no build is running.
+    public var canCreate: Bool {
+        step == .chooser && catalog.theme(id: draft.themeID) != nil
+    }
 
     /// Non-fatal build warnings (e.g. a failed install), surfaced so a failure isn't hidden behind a dead-end preview (#229).
     public var warnings: [String] {
         progress.compactMap { if case .warning(_, let message) = $0 { return message } else { return nil } }
     }
 
-    /// Convenience over ``warnings`` for the wizard's "finished with warnings" branch.
+    /// Convenience over ``warnings`` for the chooser's "finished with warnings" branch.
     public var hasWarnings: Bool { !warnings.isEmpty }
 
-    /// Site registered with no warnings — only then may the wizard open it immediately (else it stays put so warnings are read) (#229).
+    /// Site registered with no warnings — only then may the chooser open it immediately (else it stays put so warnings are read) (#229).
     public var didCompleteCleanly: Bool { completedSiteID != nil && !hasWarnings }
-
-    /// Owner-facing validation message for the Details step, or `nil` when there's nothing to
-    /// show. An empty name is deliberately *not* an error — it's merely "incomplete" (Continue
-    /// stays disabled via ``canContinue``), so the owner isn't scolded before they've typed
-    /// anything. The only real error is a slug collision with an existing site.
-    public var detailsError: String? {
-        let name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if name.isEmpty { return nil }              // empty is "incomplete", not an error to show
-        if slugTaken(slugPreview) { return "A site named \u{201C}\(slugPreview)\u{201D} already exists." }
-        return nil
-    }
-
-    /// The `workers.dev` hostname the site will get before a custom domain is attached, shown
-    /// in the Details step so "decide later" still promises a concrete public address.
-    public var cloudflareDevPreview: String {
-        "\(slugPreview).workers.dev"
-    }
-
-    /// Per-step gate for the wizard's Continue button. Notably: `.content` is always passable
-    /// (content is optional), `.building` never is (the build owns navigation from there), and
-    /// `.details` additionally requires a valid domain only when the owner chose to transfer one.
-    public var canContinue: Bool {
-        switch step {
-        case .details:
-            return !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                && detailsError == nil
-                && (draft.domainChoice != .transfer || Self.isValidDomain(draft.domain))
-        case .type:    return true
-        case .look:    return draft.themeID == CustomTheme.id || catalog.theme(id: draft.themeID) != nil
-        case .content: return true                  // content is optional
-        case .save:    return true
-        case .building: return false
-        }
-    }
-
-    /// Records the site-type choice and re-seeds the type's default theme — unless the owner
-    /// already picked custom colors, which survive a type change on purpose (an explicit
-    /// aesthetic choice shouldn't be silently discarded by browsing types).
-    public func choose(type: SiteType) {
-        draft.siteType = type
-        if draft.themeID != CustomTheme.id {
-            draft.themeID = catalog.defaultThemeID(for: type)
-        }
-    }
-
-    /// Syntactic hostname check for the domain-transfer field: at least one dot, no whitespace,
-    /// and RFC-952/1123-shaped labels (≤63 chars, no leading/trailing hyphen). Deliberately
-    /// *not* a registrability or DNS check — the wizard only needs to catch typos before the
-    /// deploy flow takes over.
-    public static func isValidDomain(_ domain: String) -> Bool {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.contains("."),
-              trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
-              trimmed.range(of: #"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$"#,
-                            options: .regularExpression) != nil
-        else { return false }
-        return true
-    }
-
-    /// Image Playground generation concepts for the current draft (#92).
-    public var heroImageConcepts: [String] {
-        HeroImage.concepts(name: draft.name, siteType: draft.siteType, tagline: draft.tagline, imageDescription: draft.heroImagePrompt)
-    }
-
-    /// Whether a hero image has been generated and staged for scaffolding.
-    public var hasHeroImage: Bool { draft.heroImageURL != nil }
-
-    /// Store the URL of an image generated by Image Playground (or clear it).
-    public func setHeroImage(_ url: URL?) { draft.heroImageURL = url }
-
-    /// Moves to the next ``Step`` in declaration order; a no-op at the last step (no wrap-around).
-    public func advance() { if let next = Step(rawValue: step.rawValue + 1) { step = next } }
-    /// Moves to the previous ``Step``; a no-op at the first step.
-    public func back() { if let prev = Step(rawValue: step.rawValue - 1) { step = prev } }
 
     /// Runs the scaffolder, accumulating progress. Returns the new site id on success.
     public func build(using scaffolder: SiteScaffolder) async -> String? {
         step = .building
-        if draft.saveFileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            draft.saveFileName = defaultSaveFileName
-        }
-        if draft.headline.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            draft.headline = draft.name
-        }
         for await s in scaffolder.scaffold(draft) {
             progress.append(s)
             if case .failed = s { fatal = s }
