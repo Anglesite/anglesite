@@ -16,7 +16,7 @@
 - **`experience`/`education` member fields must stay scalar** — no `.markdown`, `.stringArray`, `.imageArray`, or nested `.objectArray` (the `objectArray` doc comment's documented invariant, enforced by review/tests, not the type system). This plan's fields are all `.string`/`.text`/`.date`.
 - If you touch `Resources/Template/`, run `swift test --package-path .` too (some Swift tests couple to committed template markup) — every task below does.
 - The real h-resume microformat vocabulary (verified against microformats.org/wiki/h-resume, quoted where used below): `p-name` (resume's own name), `p-summary` (overview), `p-contact` (nested h-card — **not implemented in this plan**, see Task 1's design note), `p-experience` (nests an h-event: "a job or other professional experience h-event event, years, embedded h-card of the organization, location, job-title"), `p-education` (same pattern for schools), `p-skill`, `p-affiliation` (**not implemented in this plan**). The wiki does not prescribe an exact class for the nested organization/school h-card — this plan uses `p-org h-card`, a documented judgment call (Task 2).
-- schema.org has no dedicated "work history" vocabulary. This plan uses schema.org's own documented `Role`-wrapping pattern for `Person.hasOccupation` (verified against schema.org/Person's worked example) and the simpler `alumniOf` → `EducationalOrganization` mapping for education. See Task 2's design note for the exact shape and a fallback if `schema-dts` rejects the literal via `npm run typecheck`.
+- schema.org has no dedicated "work history" vocabulary. This plan uses schema.org's own documented `Role`-wrapping pattern for `Person.hasOccupation` (verified against schema.org/Person's worked example) and the simpler `alumniOf` → `EducationalOrganization` mapping for education. See Task 2's design note for the exact shape and a fallback if `schema-dts` rejects the literal via `npx astro check` (this template has no `typecheck` script — `astro check` is the equivalent, and what `npm run build` calls first).
 
 ---
 
@@ -895,12 +895,12 @@ Expected: PASS. If it fails, check each `#expect` against the actual built HTML 
 - [ ] **Step 3: Run the entire Swift suite one more time**
 
 Run: `swift test --package-path .`
-Expected: PASS.
+Expected: PASS. Known pre-existing failure, unrelated to this plan: `AnglesiteAppTests`' `DeployModelTests` has 2 failing tests (Cloudflare Workers custom-domain-attach-on-deploy logic, `DeployModelTests.swift:240`/`:272`) that predate this plan — first observed during Task 2's mandated full-suite run. If you see exactly those 2 failures and nothing else new, that is expected; do not attempt to fix them as part of this task. Any *other* failure is a real regression — investigate it.
 
 - [ ] **Step 4: Run the full template test suite**
 
-Run (from `Resources/Template/`): `npm run lint && npm run typecheck && npm test`
-Expected: PASS.
+`Resources/Template/package.json` has no `lint` or `typecheck` script (a correction discovered during Task 2 — the plan originally assumed one). Run instead (from `Resources/Template/`): `npx astro check && npm test`
+Expected: PASS (0 errors from `astro check`; `npm test` covers `scripts/**/*.test.ts`, `src/**/*.test.ts`, and the Astro/vitest suite).
 
 - [ ] **Step 5: Commit**
 
