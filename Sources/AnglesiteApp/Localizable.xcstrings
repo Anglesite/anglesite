@@ -540,6 +540,9 @@
     "Available once both AI Answers and AI Training are set to Disallow. Refusing a crawler while still permitting what it does would contradict itself." : {
 
     },
+    "BCP 47 tag, e.g. \"pt-BR\"" : {
+
+    },
     "Back" : {
 
     },
@@ -1575,6 +1578,9 @@
     "LAN site runtime" : {
 
     },
+    "Language" : {
+
+    },
     "Language & Region…" : {
 
     },
@@ -1966,6 +1972,9 @@
 
     },
     "Other Mac" : {
+
+    },
+    "Other…" : {
 
     },
     "Override the site license for one kind of content. Bookmarks, replies, likes, and reviews assert nothing by default — those entries are about someone else's work." : {
@@ -3046,6 +3055,9 @@
 
     },
     "Use a temporary Cloudflare Workers domain later, such as %@." : {
+
+    },
+    "Use site default (%@)" : {
 
     },
     "Use site license" : {

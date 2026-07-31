@@ -67,6 +67,10 @@ final class PlistEditorModel {
     private(set) var savedSecurityReportingSettings = SecurityReportingAsset.Settings()
     private(set) var securityReportingError: String?
     private(set) var isSavingSecurityReporting = false
+    var langSettings = SiteLanguageAsset.Settings()
+    private(set) var savedLangSettings = SiteLanguageAsset.Settings()
+    private(set) var langError: String?
+    private(set) var isSavingLang = false
     private(set) var isCheckingRepoSecurity = false
     private(set) var isAdoptingAdvisoryForm = false
     private(set) var securityReportingReadiness: SecurityReportingReadiness = .unknown
@@ -133,6 +137,7 @@ final class PlistEditorModel {
     var isSecurityReportingDirty: Bool {
         securityReportingSettings != savedSecurityReportingSettings && loadError == nil && !isLoading
     }
+    var isLangDirty: Bool { langSettings != savedLangSettings && loadError == nil && !isLoading }
     var cloudflareAnalyticsEnabled: Bool { !analyticsSettings.cloudflareToken.isEmpty }
     var customAnalyticsValidationMessage: String? {
         WebsiteAnalyticsAsset.customHeadTagValidationMessage(analyticsSettings.customHeadTag)
@@ -250,6 +255,10 @@ final class PlistEditorModel {
             securityReportingSettings = securityReporting
             savedSecurityReportingSettings = securityReporting
             securityReportingError = nil
+            let lang = SiteLanguageAsset.parseSettings(from: config)
+            langSettings = lang
+            savedLangSettings = lang
+            langError = nil
         } catch {
             loadError = error.localizedDescription
         }
@@ -305,6 +314,9 @@ final class PlistEditorModel {
         }
         if isMtaStsDirty {
             guard await saveMtaSts() else { return false }
+        }
+        if isLangDirty {
+            guard await saveLang() else { return false }
         }
         if isSecurityReportingDirty { return await saveSecurityReporting() }
         return true
@@ -494,6 +506,27 @@ final class PlistEditorModel {
             return true
         } catch {
             securityReportingError = "Couldn't save security reporting settings: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    @discardableResult
+    func saveLang() async -> Bool {
+        guard isLangDirty else { return true }
+        guard !isSavingLang else { return false }
+        isSavingLang = true
+        langError = nil
+        defer { isSavingLang = false }
+        let sourceDirectory = sourceDirectory
+        let settings = langSettings
+        do {
+            try await Task.detached(priority: .userInitiated) {
+                try SiteLanguageAsset.install(settings, siteDirectory: sourceDirectory)
+            }.value
+            savedLangSettings = settings
+            return true
+        } catch {
+            langError = "Couldn't save the site language: \(error.localizedDescription)"
             return false
         }
     }
@@ -956,6 +989,7 @@ final class PlistEditorModel {
             DirtyFacet(isDirty: isLicensingDirty, isSaving: isSavingLicensing) { await self.saveLicensing() },
             DirtyFacet(isDirty: isMtaStsDirty, isSaving: isSavingMtaSts) { await self.saveMtaSts() },
             DirtyFacet(isDirty: isSecurityReportingDirty, isSaving: isSavingSecurityReporting) { await self.saveSecurityReporting() },
+            DirtyFacet(isDirty: isLangDirty, isSaving: isSavingLang) { await self.saveLang() },
         ]
     }
 

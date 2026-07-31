@@ -49,7 +49,9 @@ struct PlistEditorView: View {
             }
         }
         .onChange(of: selectedTab) { oldValue, _ in
-            if oldValue == .analytics {
+            if oldValue == .website {
+                Task { await model.saveLang() }
+            } else if oldValue == .analytics {
                 Task { await model.saveAnalytics() }
             } else if oldValue == .redirects {
                 Task { await model.saveRedirects() }
@@ -153,6 +155,11 @@ struct PlistEditorView: View {
                             .foregroundStyle(.orange)
                             .font(.callout)
                     }
+                    if selectedTab != .website, let langError = model.langError {
+                        Label(langError, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.callout)
+                    }
                     if selectedTab != .analytics, let analyticsError = model.analyticsError {
                         Label(analyticsError, systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
@@ -213,6 +220,11 @@ struct PlistEditorView: View {
                             .focused($titleFocused)
                             .onSubmit { Task { await saveWebsiteTitle() } }
                             .frame(minWidth: 220)
+                    }
+                    GridRow {
+                        Text("Language")
+                            .frame(minWidth: 160, alignment: .leading)
+                        LanguagePicker(tag: $model.langSettings.lang)
                     }
                     GridRow {
                         Text("Icons")
