@@ -16,7 +16,7 @@ Verify a user can create a `.anglesite` package end-to-end: the chooser asks exa
 
 | # | Case | Result | Notes |
 |---|---|---|---|
-| 1 | Wizard entry points |  |  |
+| 1 | Chooser entry points |  |  |
 | 2 | Chooser, labels, selection |  |  |
 | 3 | Sandbox grant + silent save location |  |  |
 | 4 | Building checklist completes clean |  |  |
@@ -26,14 +26,14 @@ Verify a user can create a `.anglesite` package end-to-end: the chooser asks exa
 | 8 | Preview renders the owner's homepage |  |  |
 | 9 | Recents, window chrome, Finder behavior |  |  |
 | 10 | Window close tears down the runtime |  |  |
-| 11 | Negative: duplicate name / cancelled grant |  |  |
+| 11 | Negative: Untitled numbering / cancelled grant |  |  |
 | 12 | Negative: unprovisioned runtime messaging |  |  |
 
 ## Test Cases
 
-### 1. Wizard entry points
+### 1. Chooser entry points
 
-All three routes present the same wizard sheet on the launcher window:
+All three routes present the same template-chooser sheet on the launcher window:
 
 - **File ▸ New ▸ "Site"** (⇧⌘N) — note ⌘N is New Page, not New Site.
 - Dock menu **"New Site"**.
@@ -59,9 +59,9 @@ Expected:
 
 ### 4. Building checklist completes clean
 
-Expected, in order, all check off: created the website file → copied the template → applied your theme → prepared the starter content → installing → registering → done. On a clean build the wizard dismisses itself and the site window opens.
+Expected, in order, all check off: created the website file → copied the template → applied your theme → prepared the starter content → installing → registering → done. On a clean build the chooser dismisses itself and the site window opens.
 
-- Warnings (⚠️ rows, e.g. "git init skipped", "Dependency baseline not saved") keep the wizard open with "…something above needs attention" and an **"Open Website Anyway"** button — record any warning verbatim; a clean run should have none.
+- Warnings (⚠️ rows, e.g. "git init skipped", "Dependency baseline not saved") keep the chooser open with "…something above needs attention" and an **"Open Website Anyway"** button — record any warning verbatim; a clean run should have none.
 - Failures at *create folder*, *copy template*, or *register* are fatal and must roll back the half-written package (verify no orphan `Untitled.anglesite` remains after a forced failure, if simulated).
 
 ### 5. Package layout + marker on disk
@@ -94,7 +94,7 @@ Expected:
 
 ### 7. Site window opens; dev server auto-boots
 
-Expected without any user action after the wizard:
+Expected without any user action after the chooser:
 
 - The "Untitled" window opens (launcher dismisses) and the preview pane enters `.starting`: **"Starting dev server for Untitled…"** with a determinate progress bar walking "Starting dev server…" → "Building site…" → "Connecting to preview…", plus an ungated **"Show Logs"** affordance that opens the Debug window.
 - Debug logs show the container path: image import, VM boot, guest `git clone` of `Source/`, `npm install`, `astro dev`, MCP sidecar, vsock proxies. Record cold-start wall-clock time (first boot includes `npm install` — minutes is normal; a silent stall in "Building site…" beyond ~10 min is a fail).
@@ -119,10 +119,10 @@ Expected once ready:
 
 Close the site window; within a few seconds no `com.apple.Virtualization` process remains, both vsock proxies are gone, and per-site ext4 artifacts are removed or accounted for (same bar as the container smoke doc).
 
-### 11. Negative: duplicate name / cancelled grant
+### 11. Negative: Untitled numbering / cancelled grant
 
 - Create two sites in a row without renaming → the second lands as **Untitled 2** (`Untitled 2.anglesite`), no clobber, no error. Also verify an *unregistered* `Untitled.anglesite` folder already sitting in the sites root is skipped the same way.
-- (Fresh sandbox state) Cancel the Grant Access panel → the wizard aborts without creating anything; record whether the abort is communicated or silent.
+- (Fresh sandbox state) Cancel the Grant Access panel → the chooser aborts without creating anything; record whether the abort is communicated or silent.
 
 ### 12. Negative: unprovisioned runtime messaging
 
