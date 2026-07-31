@@ -57,7 +57,7 @@ Cancel at any pre-build step must dismiss with nothing on disk.
 
 Expected:
 
-- First creation on a sandboxed build raises the **"Grant Access"** open panel ("Choose your Sites folder so Anglesite can create the new site there."). Granting proceeds; it must not re-prompt for subsequent sites in the same root.
+- First creation on a sandboxed build usually does **not** raise a "Grant Access" open panel — the app's own iCloud container needs no such grant. The panel only appears when iCloud is unavailable and the site root falls back to `~/Sites/`; in that case granting proceeds and it must not re-prompt for subsequent sites in the same root.
 - The save panel ("Save Your Website", prompt "Save") defaults to the Sites root (the iCloud "Anglesite" folder, or `~/Sites/` if iCloud is unavailable, unless overridden) with filename **`qa-bakery.anglesite`**, and creates the directory if missing.
 
 ### 4. Building checklist completes clean
