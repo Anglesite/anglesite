@@ -28,7 +28,12 @@ public enum GitIdentity {
     /// app-attributed rather than a guessed personal identity: the app really is the author, and
     /// synthesizing a `user@host` address the way bare `git` does would put an address the user
     /// never chose — and can't receive mail at — into permanent, publishable history.
-    public static let appFallback = Signature(name: "Anglesite", email: "noreply@anglesite.app")
+    ///
+    /// Computed rather than `static let`: `Signature.init` defaults `time` to `Date()`, and a
+    /// `static let` would evaluate that default once and cache it for the process lifetime,
+    /// stamping every fallback-identity commit with the same frozen timestamp instead of its
+    /// actual commit time.
+    public static var appFallback: Signature { Signature(name: "Anglesite", email: "noreply@anglesite.app") }
 
     /// `repo`'s configured identity, falling back to ``appFallback``.
     ///
@@ -37,8 +42,9 @@ public enum GitIdentity {
     /// them instead.
     public static func signature(for repo: Repository) async -> Signature {
         if case .success(let configured) = repo.defaultSignature() { return configured }
-        await logSubstitution(appFallback)
-        return appFallback
+        let fallback = appFallback
+        await logSubstitution(fallback)
+        return fallback
     }
 
     /// Records that `substitute` stood in for a configured identity.
