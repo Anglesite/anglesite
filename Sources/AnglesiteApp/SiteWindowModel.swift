@@ -389,12 +389,15 @@ final class SiteWindowModel {
     /// enough for AppKit's own dismiss animation, so a short sleep is used instead — skipped
     /// entirely when there was no inspector to dismiss.
     ///
-    /// Only for callers where the inspector is meant to fully close (Graph/Cleanup/Reader/
-    /// Followers/Communities have no inspector companion). The `.directory` navigator-selection
-    /// case deliberately does NOT go through here: it swaps `inspectorContext`'s page context for
-    /// a new `collectionInspection` while staying presented, and `inspectorSelection` must never
-    /// observe a transient nil in between (#968/#969's presentation-binding setter race) — adding
-    /// this method's delay there would reopen exactly that gap.
+    /// For Graph/Cleanup/Reader/Followers/Communities the inspector has no companion to reopen,
+    /// so clearing it here is the whole story. `openFile` also routes through here — a component
+    /// file's `ComponentEditorModel` inspector companion is presented separately afterward by
+    /// `ensureComponentEditorLoaded()`, with its own settle delay (#1139); see that call site.
+    /// The `.directory` navigator-selection case deliberately does NOT go through here: it swaps
+    /// `inspectorContext`'s page context for a new `collectionInspection` while staying presented,
+    /// and `inspectorSelection` must never observe a transient nil in between (#968/#969's
+    /// presentation-binding setter race) — adding this method's delay there would reopen exactly
+    /// that gap.
     @MainActor
     private func clearInspectorThenSwitchPane(to mode: MainPaneMode) async {
         let wasInspecting = inspectorSelection != nil
@@ -1052,8 +1055,7 @@ final class SiteWindowModel {
         }
         Task {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
-            inspectorContext = nil
-            collectionInspection = nil
+            let isComponent = EditorKind.resolve(for: file) == .component
             switch EditorKind.resolve(for: file) {
             case .text, .component, .markdown:
                 // `.component` also builds a plain `FileEditorModel`: `MainPaneEditorView` re-resolves
@@ -1078,20 +1080,26 @@ final class SiteWindowModel {
                     containerControlProvider: { [preview] in await preview.activeContainerControl() }
                 ))
             }
-            mainPaneMode = .editor(file)
-            // `inspectorContext`/`collectionInspection` were just nil'd above; if `file` is a
-            // component, `inspectorSelection` would otherwise read nil until the view's own
-            // activation `.task` gets around to running `ensureComponentEditorLoaded()` — another
-            // transient-nil window a live `.inspector` panel reads as "nothing to show" and
-            // auto-dismisses, with the same asynchronous write-back race described on the
-            // `.route`/`.directory` branches above (#968/#969; #714 slice-3 GUI smoke). Calling it
-            // here too closes that window: `ensureComponentEditorLoaded`'s synchronous prefix (the
-            // `componentEditor = editor` assignment) runs in this same Task before its own
-            // `await editor.load()` suspends, so `.component` is already available the instant
-            // `mainPaneMode` lands above. The view's `.task` activation still runs afterward (same
-            // key, so it's a no-op rebuild) — it's still needed for the baseURL-change rebuild.
-            // For a non-component file this call just clears `componentEditor` again — a no-op,
-            // matching today's behavior.
+            // Same mitigation as Graph/Cleanup/Reader/Followers/Communities (#1126): give a
+            // presented inspector's dismissal its own transaction before the pane rebuild below,
+            // rather than coalescing both into one.
+            await clearInspectorThenSwitchPane(to: .editor(file))
+            if isComponent {
+                // `ensureComponentEditorLoaded()`'s synchronous prefix (the `componentEditor =
+                // editor` assignment, before its `await editor.load()` suspends) flips
+                // `inspectorSelection` from nil to `.component`, presenting the window inspector
+                // for the first time. Calling it right after the pane swap above coalesces that
+                // *presentation* into the same transaction as the main-pane rebuild — the mirror
+                // image of #1126's dismissal case, and the actual trigger of the Component
+                // Editor's own AppKit constraint-update storm crash (#1139). Give the pane swap a
+                // moment to settle first, same 300ms mitigation as `clearInspectorThenSwitchPane`.
+                // Any resulting transient close/reopen flicker of an already-presented inspector
+                // is the same benign transient-nil window `SiteWindow`'s `inspectorPresented`
+                // binding already tolerates (it preserves `inspectorShown` across a nil selection
+                // rather than clobbering it — see its setter, #968/#969) — it does not reintroduce
+                // the "inspector never returns" failure mode that guard was written for.
+                try? await Task.sleep(for: .milliseconds(300))
+            }
             await ensureComponentEditorLoaded()
         }
     }
