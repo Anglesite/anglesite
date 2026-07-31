@@ -112,6 +112,7 @@ struct ContentScaffoldTests {
             descriptor: note, title: nil, now: Date(timeIntervalSince1970: 1_750_000_000))
         #expect(out == """
         ---
+        lang: ""
         publishDate: 2025-06-15T15:06:40.000Z
         tags: []
         # audience: ""
