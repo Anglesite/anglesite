@@ -41,4 +41,29 @@ struct PageMetadataEditorTests {
         let m = PageMetadataEditor.read(src)
         #expect(PageMetadataEditor.write(m, into: src) == src)
     }
+
+    @Test("reads lang from frontmatter, defaulting to empty when absent")
+    func readsLang() {
+        let withLang = PageMetadataEditor.read("---\ntitle: \"T\"\nlang: fr\n---\nB\n")
+        #expect(withLang.lang == "fr")
+        let without = PageMetadataEditor.read("---\ntitle: \"T\"\n---\nB\n")
+        #expect(without.lang == "")
+    }
+
+    @Test("write adds/updates the lang key like title/description")
+    func writesLang() {
+        let out = PageMetadataEditor.write(
+            PageMetadata(title: "T", description: "D", lang: "es"),
+            into: "---\ntitle: \"T\"\ndescription: \"D\"\n---\nB\n"
+        )
+        #expect(out.contains("lang: \"es\""))
+    }
+
+    @Test("existing title/description-only call sites still compile with the default lang")
+    func defaultLangParameter() {
+        // PageMetadata(title:description:) must still work without naming `lang:` — every
+        // pre-existing call site (including the tests above this one in this file) depends on that.
+        let m = PageMetadata(title: "T", description: "D")
+        #expect(m.lang == "")
+    }
 }

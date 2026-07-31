@@ -53,6 +53,7 @@ private struct PageMetadataForm: View {
                 Text("Description").font(.caption).foregroundStyle(.secondary)
                 TextField("", text: model.descriptionBinding(), axis: .vertical).lineLimit(2...6)
             }
+            LanguageSettingsSection(tag: model.langBinding(), siteDefaultTag: model.siteDefaultLangTag)
             RobotsSettingsSection(route: model.route, noindex: model.noindexBinding(), disallowCrawl: model.disallowCrawlBinding())
         }
         .formStyle(.grouped)

@@ -5,9 +5,16 @@
 public struct PageMetadata: Equatable, Sendable {
     public var title: String
     public var description: String
-    public init(title: String, description: String) {
+    /// A BCP-47 language override for this page (#956). Empty means "inherit the site default" —
+    /// see SiteLanguageAsset and the design doc's empty-string-means-unset rule; an empty string
+    /// is written to frontmatter as `lang: ""`, not omitted (matching TypedContentEditor's
+    /// existing behavior for every other field).
+    public var lang: String
+
+    public init(title: String, description: String, lang: String = "") {
         self.title = title
         self.description = description
+        self.lang = lang
     }
 }
 
@@ -17,7 +24,7 @@ public struct PageMetadata: Equatable, Sendable {
 public enum PageMetadataEditor {
     public static func read(_ contents: String) -> PageMetadata {
         let doc = FrontmatterDocument.parse(contents)
-        return PageMetadata(title: scalar(doc, "title"), description: scalar(doc, "description"))
+        return PageMetadata(title: scalar(doc, "title"), description: scalar(doc, "description"), lang: scalar(doc, "lang"))
     }
 
     public static func write(_ metadata: PageMetadata, into contents: String) -> String {
@@ -27,6 +34,7 @@ public enum PageMetadataEditor {
         if metadata.description != current.description {
             doc.set(.string(metadata.description), for: "description")
         }
+        if metadata.lang != current.lang { doc.set(.string(metadata.lang), for: "lang") }
         return doc.serialized()
     }
 
