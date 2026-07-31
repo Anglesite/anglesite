@@ -270,6 +270,7 @@ extension ContentTypeRegistry {
         displayName: "Note",
         storage: .collection("notes"),
         fields: [
+            ContentTypeField("lang", .language),
             ContentTypeField("body", .markdown, required: true),
             ContentTypeField("publishDate", .datetime, required: true),
             ContentTypeField("tags", .stringArray),
@@ -292,6 +293,7 @@ extension ContentTypeRegistry {
         displayName: "Article",
         storage: .collection("articles"),
         fields: [
+            ContentTypeField("lang", .language),
             ContentTypeField("title", .string, required: true),
             ContentTypeField("summary", .text),
             ContentTypeField("body", .markdown, required: true),
@@ -320,6 +322,7 @@ extension ContentTypeRegistry {
         displayName: "Photo",
         storage: .collection("photos"),
         fields: [
+            ContentTypeField("lang", .language),
             ContentTypeField("image", .image, required: true),
             ContentTypeField("caption", .text),
             ContentTypeField("publishDate", .datetime, required: true),
@@ -343,6 +346,7 @@ extension ContentTypeRegistry {
         displayName: "Album",
         storage: .collection("albums"),
         fields: [
+            ContentTypeField("lang", .language),
             ContentTypeField("title", .string, required: true),
             ContentTypeField("images", .imageArray, required: true),
             ContentTypeField("body", .markdown),
@@ -368,6 +372,7 @@ extension ContentTypeRegistry {
         displayName: "Bookmark",
         storage: .collection("bookmarks"),
         fields: [
+            ContentTypeField("lang", .language),
             ContentTypeField("bookmarkOf", .url, required: true),
             ContentTypeField("title", .string),
             ContentTypeField("body", .markdown),
@@ -393,6 +398,7 @@ extension ContentTypeRegistry {
         displayName: "Reply",
         storage: .collection("replies"),
         fields: [
+            ContentTypeField("lang", .language),
             ContentTypeField("inReplyTo", .url, required: true),
             ContentTypeField("body", .markdown, required: true),
             ContentTypeField("publishDate", .datetime, required: true),
@@ -414,6 +420,7 @@ extension ContentTypeRegistry {
         displayName: "Like",
         storage: .collection("likes"),
         fields: [
+            ContentTypeField("lang", .language),
             ContentTypeField("likeOf", .url, required: true),
             ContentTypeField("publishDate", .datetime, required: true),
             ContentTypeField("draft", .bool),
@@ -556,6 +563,7 @@ extension ContentTypeRegistry {
         displayName: "Announcement",
         storage: .collection("announcements"),
         fields: [
+            ContentTypeField("lang", .language),
             ContentTypeField("title", .string, required: true),
             ContentTypeField("body", .markdown, required: true),
             ContentTypeField("publishDate", .datetime, required: true),
@@ -578,6 +586,7 @@ extension ContentTypeRegistry {
         displayName: "Event",
         storage: .collection("events"),
         fields: [
+            ContentTypeField("lang", .language),
             ContentTypeField("name", .string, required: true),
             ContentTypeField("body", .markdown),
             ContentTypeField("start", .datetime, required: true),
@@ -602,6 +611,7 @@ extension ContentTypeRegistry {
         displayName: "Review",
         storage: .collection("reviews"),
         fields: [
+            ContentTypeField("lang", .language),
             // String name of the item; the JSON-LD layer wraps it as a `{@type: Thing, name}` node
             // for schema.org `Review.itemReviewed` per the object-valued-property contract on
             // `ContentTypeProjections.schemaType`.
