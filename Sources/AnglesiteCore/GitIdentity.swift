@@ -42,8 +42,9 @@ public enum GitIdentity {
     /// them instead.
     public static func signature(for repo: Repository) async -> Signature {
         if case .success(let configured) = repo.defaultSignature() { return configured }
-        await logSubstitution(appFallback)
-        return appFallback
+        let fallback = appFallback
+        await logSubstitution(fallback)
+        return fallback
     }
 
     /// Records that `substitute` stood in for a configured identity.
