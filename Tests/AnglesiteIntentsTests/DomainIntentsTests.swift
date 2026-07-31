@@ -107,11 +107,17 @@ final class FakeDomainOps: DomainOperationsService, @unchecked Sendable {
         if let listError { return .failure(listError) }
         return .success(records)
     }
-    func addRecord(domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?) async -> Result<Void, DomainOperationError> {
+    func addRecord(
+        domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?,
+        purpose: String?, sourceDirectory: URL?
+    ) async -> Result<Void, DomainOperationError> {
         addedRecords.append((name: name, type: type, priority: priority))
         return .success(())
     }
-    func deleteRecord(domain: String, recordID: String) async -> Result<Void, DomainOperationError> {
+    func deleteRecord(
+        domain: String, recordID: String, type: String?, name: String?, content: String?,
+        sourceDirectory: URL?
+    ) async -> Result<Void, DomainOperationError> {
         deletedRecordIDs.append(recordID)
         return .success(())
     }
