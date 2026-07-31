@@ -491,9 +491,21 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
         stateMachine.settle(gen: gen, to: .idle)
     }
 
+    /// `SiteRuntime.suspend()` conformance: pauses the container instead of tearing it down (see
+    /// `LocalContainerControl.suspend(siteID:)`). Otherwise identical to `stop()` — the MCP client
+    /// still disconnects and the knowledge/semantic/conventions indexes still unload, exactly as a
+    /// cold boot's `start()` already re-establishes them, since a resumed VM gets a fresh MCP HTTP
+    /// connection (the old one's underlying vsock proxy no longer exists — Task 5 re-dials a new
+    /// one on resume) rather than a preserved one.
+    public func suspend() async {
+        let gen = stateMachine.beginAttempt()
+        await teardown(suspending: true)
+        stateMachine.settle(gen: gen, to: .idle)
+    }
+
     // MARK: Internals
 
-    private func teardown() async {
+    private func teardown(suspending: Bool = false) async {
         // Snapshot-and-clear all bookkeeping before the first suspension: actors are reentrant,
         // so a superseding start()'s/stop()'s teardown can interleave while this one is suspended,
         // and a successful boot from a superseding start() can complete and install fresh
@@ -520,7 +532,11 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
             await conventionsEngine?.unload(siteID: siteID)
         }
         if let id = containerSiteID {
-            try? await control.stop(siteID: id)
+            if suspending {
+                try? await control.suspend(siteID: id)
+            } else {
+                try? await control.stop(siteID: id)
+            }
             // Explicit, not just supervisor-event-driven: the fake controls in tests never emit
             // .stopped, and a real teardown must never leave a stale row either way (#699).
             workersDevURLs[id] = nil

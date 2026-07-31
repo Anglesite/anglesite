@@ -3,6 +3,7 @@ import AppKit
 import AnglesiteCore
 import AnglesiteBridge
 import AnglesiteIntents
+import AnglesiteContainer
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -120,6 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task {
             await ProcessSupervisor.shared.shutdownAll(timeout: 5)
+            await PausedContainerRegistry.shared.teardownAll()
             await MainActor.run { NSApp.reply(toApplicationShouldTerminate: true) }
         }
         return .terminateLater

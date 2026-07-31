@@ -4,6 +4,7 @@ import Foundation
 actor FakeLocalContainerControl: LocalContainerControl {
     var startResult: Result<LocalContainerSession, LocalContainerError>
     private(set) var stopped: [String] = []
+    private(set) var suspended: [String] = []
     private(set) var startedRepos: [(siteID: String, repo: URL, ref: String)] = []
     /// Overrides `LocalContainerControl`'s default no-op so tests can assert
     /// `resetNetworking()` calls actually reach the control, not just that the call compiles.
@@ -80,6 +81,8 @@ actor FakeLocalContainerControl: LocalContainerControl {
     }
 
     func stop(siteID: String) async throws { stopped.append(siteID) }
+
+    func suspend(siteID: String) async throws { suspended.append(siteID) }
 
     func resetNetworking() async { resetNetworkingCallCount += 1 }
 

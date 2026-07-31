@@ -357,6 +357,28 @@ struct LocalContainerSiteRuntimeTests {
         #expect(await fake.stopped == ["s1"])
     }
 
+    @Test("suspend calls control.suspend, not control.stop")
+    func suspendCallsControlSuspendNotControlStop() async {
+        let (rt, fake) = makeRuntime(.success(Self.ok))
+        await rt.start(siteID: "s1", siteDirectory: URL(fileURLWithPath: "/unused"))
+
+        await rt.suspend()
+
+        #expect(await fake.suspended == ["s1"])
+        #expect(await fake.stopped == [])
+    }
+
+    @Test("stop still calls control.stop, not control.suspend")
+    func stopStillCallsControlStopNotControlSuspend() async {
+        let (rt, fake) = makeRuntime(.success(Self.ok))
+        await rt.start(siteID: "s1", siteDirectory: URL(fileURLWithPath: "/unused"))
+
+        await rt.stop()
+
+        #expect(await fake.stopped == ["s1"])
+        #expect(await fake.suspended == [])
+    }
+
     @Test("stop during suspended start: stale-generation guard drops the result")
     func staleGenerationGuard() async {
         let gated = GatedFakeLocalContainerControl(result: .success(Self.ok))
