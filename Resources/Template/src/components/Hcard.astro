@@ -6,31 +6,40 @@ const mods = import.meta.glob<{ default: Record<string, any> }>("../data/profile
 const profile = Object.values(mods)[0]?.default;
 const hasAddress = profile && (profile.streetAddress || profile.locality || profile.region || profile.postalCode);
 const hours: string[] = Array.isArray(profile?.hours) ? profile.hours : [];
+
+// Resume discovery link (#964): a separate optional singleton (src/data/resume.json), same
+// glob-returns-{}-when-absent pattern. Plain link, no mf2 class — h-card has no normative
+// "resume" property, and the resume's own page carries the real h-resume markup.
+const resumeMods = import.meta.glob<{ default: Record<string, any> }>("../data/resume.json", { eager: true });
+const resume = Object.values(resumeMods)[0]?.default;
 ---
 
-{profile && (
+{(profile || (resume?.name && resume?.summary)) && (
   // This is the site's contentinfo landmark. A theme that renders its own <footer>
   // should coordinate with this so the page has a single landmark footer (HTML allows
   // multiple <footer> elements, but duplicate contentinfo landmarks confuse a11y trees).
   <footer class="site-identity">
-    <div class="h-card">
-      {profile.name && <p class="p-name">{profile.name}</p>}
-      {profile.description && <p class="p-note">{profile.description}</p>}
-      {profile.photo && <img class="u-photo" src={profile.photo} alt={profile.name ?? ""} />}
-      {profile.telephone && <a class="p-tel" href={`tel:${profile.telephone}`}>{profile.telephone}</a>}
-      {profile.email && <a class="u-email" href={`mailto:${profile.email}`}>{profile.email}</a>}
-      {hasAddress && (
-        <p class="p-adr h-adr">
-          {profile.streetAddress && <span class="p-street-address">{profile.streetAddress}</span>}
-          {profile.locality && <span class="p-locality">{profile.locality}</span>}
-          {profile.region && <span class="p-region">{profile.region}</span>}
-          {profile.postalCode && <span class="p-postal-code">{profile.postalCode}</span>}
-        </p>
-      )}
-      {profile.url && <a class="u-url" rel="me" href={profile.url}>{profile.url}</a>}
-      {hours.length > 0 && (
-        <ul class="hours">{hours.map((h) => <li>{h}</li>)}</ul>
-      )}
-    </div>
+    {profile && (
+      <div class="h-card">
+        {profile.name && <p class="p-name">{profile.name}</p>}
+        {profile.description && <p class="p-note">{profile.description}</p>}
+        {profile.photo && <img class="u-photo" src={profile.photo} alt={profile.name ?? ""} />}
+        {profile.telephone && <a class="p-tel" href={`tel:${profile.telephone}`}>{profile.telephone}</a>}
+        {profile.email && <a class="u-email" href={`mailto:${profile.email}`}>{profile.email}</a>}
+        {hasAddress && (
+          <p class="p-adr h-adr">
+            {profile.streetAddress && <span class="p-street-address">{profile.streetAddress}</span>}
+            {profile.locality && <span class="p-locality">{profile.locality}</span>}
+            {profile.region && <span class="p-region">{profile.region}</span>}
+            {profile.postalCode && <span class="p-postal-code">{profile.postalCode}</span>}
+          </p>
+        )}
+        {profile.url && <a class="u-url" rel="me" href={profile.url}>{profile.url}</a>}
+        {hours.length > 0 && (
+          <ul class="hours">{hours.map((h) => <li>{h}</li>)}</ul>
+        )}
+      </div>
+    )}
+    {resume?.name && resume?.summary && <a href="/resume/">Resume</a>}
   </footer>
 )}

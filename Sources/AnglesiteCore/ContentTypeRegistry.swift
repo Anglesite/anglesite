@@ -34,8 +34,8 @@ public struct ContentTypeField: Sendable, Equatable {
         /// entries) — an ordered list of member fields, each an existing scalar `Kind`. By
         /// convention `fields` excludes `.markdown`, `.stringArray`, `.imageArray`, and nested
         /// `.objectArray` — enforced by review/tests, not the type system, matching this registry's
-        /// existing preference for documented invariants over new type machinery. No built-in
-        /// descriptor declares this yet (#964 adds the first: h-resume).
+        /// existing preference for documented invariants over new type machinery. First declared
+        /// by the built-in `resume` descriptor's `experience`/`education` fields (#964).
         ///
         /// **Hand-authored keys inside a record are not preserved across an edit.**
         /// `FrontmatterDocument` promises that form-only editing never silently drops a
@@ -44,10 +44,9 @@ public struct ContentTypeField: Sendable, Equatable {
         /// here: an extra key a person wrote into one record item survives an *unedited*
         /// round-trip (the whole field is still verbatim), and is dropped the moment that field is
         /// edited through the app, because `encode` re-emits records from `fields` alone.
-        /// Accepted for now — no descriptor uses `.objectArray` yet, so nothing is at risk — but
-        /// preserving unknown per-record keys needs its own design (records would have to carry
-        /// their unparsed extras through the editor), so weigh it before the first real adopter
-        /// ships.
+        /// Accepted for `resume` — but preserving unknown per-record keys needs its own design
+        /// (records would have to carry their unparsed extras through the editor), so weigh it
+        /// before a second adopter ships.
         case objectArray(fields: [ContentTypeField])
     }
 
@@ -250,7 +249,7 @@ extension ContentTypeRegistry {
     /// The built-in content types: the personal IndieWeb post types (#344) and the small-business
     /// types (#345), declared as data here in V-1.1. Templates and editors for them land in their
     /// own tasks; this is the shared vocabulary they consume.
-    public static let builtIns: [ContentTypeDescriptor] = personalTypes + identityTypes + businessTypes + identityAndDirectoryTypes
+    public static let builtIns: [ContentTypeDescriptor] = personalTypes + identityTypes + resumeTypes + businessTypes + identityAndDirectoryTypes
 
     // MARK: Personal (h-entry family)
 
@@ -479,6 +478,60 @@ extension ContentTypeRegistry {
                 "email": "u-email",
                 "url": "u-url",
                 "photo": "u-photo",
+            ],
+            schemaType: "Person"
+        )
+    )
+
+    // MARK: Resume (h-resume singleton, #964)
+
+    static let resumeTypes: [ContentTypeDescriptor] = [resume]
+
+    /// The site owner's professional history — the first built-in user of `.objectArray`
+    /// (#1117). A singleton, not a collection: a resume is inherently one-per-site, same
+    /// storage shape as the identity types above (but its own `"resume"` slot, so it coexists
+    /// with either `businessProfile` or `personalProfile` rather than competing for `"profile"`).
+    ///
+    /// `experience`/`education` carry no entry in `microformatProperties` — mf2 has no flat
+    /// property for a repeating structured record. `Hresume.astro` nests each row as its own
+    /// `p-experience h-event` / `p-education h-event` compound microformat instead, the same way
+    /// `businessProfile.hours` above renders outside this projection's flat-property contract.
+    ///
+    /// Deliberately out of scope: mf2's `p-contact` (nested nested h-card) and `p-affiliation`.
+    /// The site's own identity h-card (`personalProfile`/`businessProfile`, rendered by
+    /// `Hcard.astro`) already carries the owner's contact info and is discoverable from every
+    /// page footer; duplicating it as a nested h-card inside the resume adds real complexity
+    /// (the app has no existing "one h-card links to related content" wiring to copy) for a
+    /// property mf2 doesn't require a resume to carry.
+    static let resume = ContentTypeDescriptor(
+        id: "resume",
+        displayName: "Resume",
+        storage: .singleton("resume"),
+        fields: [
+            ContentTypeField("name", .string, required: true),
+            ContentTypeField("summary", .text, required: true),
+            ContentTypeField("experience", .objectArray(fields: [
+                ContentTypeField("title", .string, required: true),
+                ContentTypeField("organization", .string, required: true),
+                ContentTypeField("startDate", .date, required: true),
+                ContentTypeField("endDate", .date),
+                ContentTypeField("description", .text),
+            ])),
+            ContentTypeField("education", .objectArray(fields: [
+                ContentTypeField("degree", .string, required: true),
+                ContentTypeField("institution", .string, required: true),
+                ContentTypeField("startDate", .date, required: true),
+                ContentTypeField("endDate", .date),
+                ContentTypeField("description", .text),
+            ])),
+            ContentTypeField("skills", .stringArray),
+        ],
+        projections: ContentTypeProjections(
+            microformat: "h-resume",
+            microformatProperties: [
+                "name": "p-name",
+                "summary": "p-summary",
+                "skills": "p-skill",
             ],
             schemaType: "Person"
         )

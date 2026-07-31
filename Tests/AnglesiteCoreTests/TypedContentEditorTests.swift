@@ -230,4 +230,31 @@ struct TypedContentEditorTests {
         #expect(out.contains("type: businessProfile"))           // marker preserved
         #expect(out.contains("layout: ../layouts/BaseLayout.astro")) // layout preserved
     }
+
+    @Test("TypedContentEditor round-trips the real resume descriptor's experience records")
+    func resumeDescriptorRoundTrips() throws {
+        let resume = try #require(ContentTypeRegistry().descriptor(id: "resume"))
+        let scaffolded = "---\nname: \"Jane Doe\"\nsummary: \"\"\nexperience: []\neducation: []\nskills: []\n---\n"
+
+        var values = TypedContentEditor.read(scaffolded, descriptor: resume)
+        values["experience"] = .records([
+            [
+                "title": .text("Senior Engineer"),
+                "organization": .text("Acme Corp"),
+                "startDate": .date(Date(timeIntervalSince1970: 1_577_836_800)), // 2020-01-01
+                "endDate": .date(nil),
+                "description": .text("Led the platform team."),
+            ],
+        ])
+        let written = TypedContentEditor.write(values, into: scaffolded, descriptor: resume)
+
+        let reread = TypedContentEditor.read(written, descriptor: resume)
+        guard case .records(let records)? = reread["experience"] else {
+            Issue.record("expected experience to decode as .records")
+            return
+        }
+        #expect(records.count == 1)
+        #expect(records[0]["title"] == .text("Senior Engineer"))
+        #expect(records[0]["organization"] == .text("Acme Corp"))
+    }
 }

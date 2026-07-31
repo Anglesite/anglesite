@@ -374,4 +374,16 @@ struct ContentScaffoldTests {
         let out = ContentScaffold.renderSingleton(descriptor: descriptor, name: nil)
         #expect(out.contains("\"experience\": []"))
     }
+
+    @Test("renderSingleton scaffolds the real resume descriptor with empty experience/education/skills")
+    func renderSingletonResume() throws {
+        let resume = try #require(ContentTypeRegistry().descriptor(id: "resume"))
+        let out = ContentScaffold.renderSingleton(descriptor: resume, name: "Jane Doe")
+        #expect(out.contains(#""type": "resume""#))
+        #expect(out.contains(#""name": "Jane Doe""#))
+        #expect(out.contains(#""summary": """#))
+        #expect(out.contains(#""experience": []"#))
+        #expect(out.contains(#""education": []"#))
+        #expect(out.contains(#""skills": []"#))
+    }
 }

@@ -24,6 +24,8 @@ import type {
   WebPage,
   Comment,
   Person,
+  Role,
+  Occupation,
 } from "schema-dts";
 import type { EntryCollection } from "./collections.ts";
 
@@ -75,6 +77,30 @@ export interface BlogData {
   title?: string;
   description?: string;
   pubDate?: Date;
+}
+
+export interface ResumeExperienceData {
+  title?: string;
+  organization?: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+}
+
+export interface ResumeEducationData {
+  degree?: string;
+  institution?: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+}
+
+export interface ResumeData {
+  name?: string;
+  summary?: string;
+  experience?: ResumeExperienceData[];
+  education?: ResumeEducationData[];
+  skills?: string[];
 }
 
 function iso(d: Date | undefined): string | undefined {
@@ -270,5 +296,52 @@ export function blogPostingSchema(d: BlogData, ctx: SchemaContext): WithContext<
     datePublished: iso(d.pubDate),
     license: ctx.license,
     url: ctx.url,
+  });
+}
+
+/**
+ * schema.org JSON-LD for the `resume` singleton (#964). schema.org has no dedicated "work
+ * history" vocabulary, so each `experience` entry uses schema.org's own documented `Role`-
+ * wrapping pattern (https://schema.org/Person, `hasOccupation` worked example): the property
+ * points at a `Role` node carrying `startDate`/`endDate`/`roleName` rather than a bare
+ * `Occupation` node, which has no properties for dates or the employing organization. Education
+ * uses the simpler, directly-documented `alumniOf` -> `EducationalOrganization` mapping; degree
+ * and dates have no clean schema.org home on that relationship and are left to the mf2
+ * projection (`Hresume.astro`), which carries the full shape.
+ */
+export function resumeSchema(d: ResumeData, ctx: SchemaContext): WithContext<Person> {
+  const experience = d.experience ?? [];
+  const education = d.education ?? [];
+  const skills = d.skills ?? [];
+  return clean<WithContext<Person>>({
+    "@context": CONTEXT,
+    "@type": "Person",
+    name: d.name,
+    description: d.summary,
+    // The person's identity URL is the site root (same as authorOf() elsewhere in this file),
+    // not the resume page's own canonical URL — asserting url: ctx.url would claim the resume
+    // page itself *is* the person's identity URL, which is semantically wrong.
+    url: ctx.site?.href,
+    knowsAbout: skills,
+    // schema-dts's `Role<TContent, TProperty>` generic requires the role node to *also* nest a
+    // property literally named `TProperty` pointing back at an actual `Occupation` — the
+    // self-referential shape from schema-dts's own `Role` worked example, not the flatter
+    // roleName/dates/worksFor node schema.org's own docs recommend for `hasOccupation` (see the
+    // doc comment above). Cast at this property boundary rather than contorting the emitted
+    // JSON-LD to satisfy a generic that models a different (also-valid) pattern.
+    hasOccupation: experience.map((e) => ({
+      "@type": "Role",
+      roleName: e.title,
+      startDate: e.startDate,
+      endDate: e.endDate,
+      description: e.description,
+      worksFor: e.organization ? { "@type": "Organization", name: e.organization } : undefined,
+    })) as unknown as Role<Occupation, "hasOccupation">[],
+    alumniOf: education
+      .filter((e) => e.institution)
+      .map((e) => ({
+        "@type": "EducationalOrganization",
+        name: e.institution,
+      })),
   });
 }

@@ -135,6 +135,47 @@ struct ContentTypeRegistryTests {
         #expect(profile.fields.first?.required == true)
     }
 
+    @Test("Resume is a singleton projecting h-resume + schema.org Person, with experience/education as objectArray")
+    func resumeType() throws {
+        let resume = try #require(ContentTypeRegistry().descriptor(id: "resume"))
+        #expect(resume.storage == .singleton("resume"))
+        #expect(resume.singletonSlot == "resume")
+        #expect(resume.projections.microformat == "h-resume")
+        #expect(resume.projections.schemaType == "Person")
+        #expect(resume.projections.microformatProperties == [
+            "name": "p-name",
+            "summary": "p-summary",
+            "skills": "p-skill",
+        ])
+
+        let name = try #require(resume.fields.first { $0.name == "name" })
+        #expect(name.kind == .string)
+        #expect(name.required)
+
+        let summary = try #require(resume.fields.first { $0.name == "summary" })
+        #expect(summary.kind == .text)
+        #expect(summary.required)
+
+        let experience = try #require(resume.fields.first { $0.name == "experience" })
+        guard case .objectArray(let experienceFields) = experience.kind else {
+            Issue.record("expected experience to be .objectArray")
+            return
+        }
+        #expect(experienceFields.map(\.name) == ["title", "organization", "startDate", "endDate", "description"])
+        #expect(experienceFields.filter(\.required).map(\.name) == ["title", "organization", "startDate"])
+
+        let education = try #require(resume.fields.first { $0.name == "education" })
+        guard case .objectArray(let educationFields) = education.kind else {
+            Issue.record("expected education to be .objectArray")
+            return
+        }
+        #expect(educationFields.map(\.name) == ["degree", "institution", "startDate", "endDate", "description"])
+        #expect(educationFields.filter(\.required).map(\.name) == ["degree", "institution", "startDate"])
+
+        let skills = try #require(resume.fields.first { $0.name == "skills" })
+        #expect(skills.kind == .stringArray)
+    }
+
     @Test("personalTypes include album and like in canonical order")
     func personalTypeOrder() {
         #expect(ContentTypeRegistry.personalTypes.map(\.id)
