@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateEntryHtml, validateResumeHtml, findRoots } from "./microformats.ts";
+import { validateEntryHtml, validateFeedHtml, validateResumeHtml, findRoots } from "./microformats.ts";
 
 const GOOD_ENTRY = `<!doctype html><html><body>
 <article class="h-entry">
@@ -191,4 +191,58 @@ test("an experience entry missing dt-start is flagged", () => {
   </article></body></html>`;
   const problems = validateResumeHtml(html, "resume/index.html");
   assert.ok(problems.some((p) => p.includes("experience[0] missing dt-start")), problems.join("; "));
+});
+
+// --- #1044 (mf2 build gate: h-feed list pages) -----------------------------
+
+const FEED_WITH_ENTRIES = `<!doctype html><html><body>
+<div class="h-feed">
+  <h1 class="p-name">Notes</h1>
+  <ul>
+    <li class="h-entry">
+      <a class="u-url" href="/notes/hi/"><time class="dt-published" datetime="2026-01-02">Jan 2</time></a>
+      <div class="e-content">Hi</div>
+    </li>
+    <li class="h-entry">
+      <a class="p-name u-url" href="/notes/second/">Second note title</a>
+      <time class="dt-published" datetime="2026-01-03">Jan 3</time>
+    </li>
+  </ul>
+</div></body></html>`;
+
+const EMPTY_FEED = `<!doctype html><html><body>
+<div class="h-feed">
+  <h1 class="p-name">Notes</h1>
+  <p>No notes yet.</p>
+</div></body></html>`;
+
+const FEED_WITH_BAD_ENTRY = `<!doctype html><html><body>
+<div class="h-feed">
+  <h1 class="p-name">Notes</h1>
+  <ul>
+    <li class="h-entry">
+      <time class="dt-published" datetime="2026-01-02">Jan 2</time>
+      <div class="e-content">Missing a permalink</div>
+    </li>
+  </ul>
+</div></body></html>`;
+
+const NO_FEED = `<!doctype html><html><body><p>Plain page, no mf2 at all.</p></body></html>`;
+
+test("h-feed with valid h-entry children passes", () => {
+  assert.deepEqual(validateFeedHtml(FEED_WITH_ENTRIES, "notes/index.html"), []);
+});
+
+test("empty h-feed (no children) is valid — an empty collection has nothing to list", () => {
+  assert.deepEqual(validateFeedHtml(EMPTY_FEED, "notes/index.html"), []);
+});
+
+test("h-feed child missing u-url is flagged, scoped to that child", () => {
+  const problems = validateFeedHtml(FEED_WITH_BAD_ENTRY, "notes/index.html");
+  assert.ok(problems.some((p) => p.includes("missing u-url")), problems.join("; "));
+});
+
+test("a page with no h-feed root is flagged", () => {
+  const problems = validateFeedHtml(NO_FEED, "notes/index.html");
+  assert.ok(problems.some((p) => p.includes("no h-feed root")), problems.join("; "));
 });

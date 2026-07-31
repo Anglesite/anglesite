@@ -15,7 +15,20 @@ export const ENTRY_DIRS = [
   "bookmarks", "replies", "likes", "announcements", "events", "reviews",
 ];
 
-type Mf2Item = { type: string[]; properties: Record<string, unknown[]> };
+/** The mf2 root type for a page-level feed of entries (`CollectionIndex.astro`, `/timeline/`). */
+const FEED_TYPE = "h-feed";
+
+/**
+ * The 7 micropost/titled collections whose own list page (`<collection>/index.html`) is an
+ * h-feed of h-entry children, rendered by `CollectionIndex.astro`. `blog`'s list page carries
+ * no mf2 markup at all, so it's deliberately excluded here — its index.html stays a plain,
+ * unvalidated page rather than being held to the h-feed shape.
+ */
+export const FEED_COLLECTION_DIRS = [
+  "notes", "articles", "photos", "albums", "bookmarks", "replies", "likes",
+];
+
+type Mf2Item = { type: string[]; properties: Record<string, unknown[]>; children?: Mf2Item[] };
 
 const isEntryType = (t: string): t is EntryType =>
   (ENTRY_TYPES as readonly string[]).includes(t);
@@ -40,23 +53,22 @@ function entryTypesOf(roots: Mf2Item[]): EntryType[] {
  * problems; an empty list means the page is valid mf2 for our purposes.
  */
 export function validateEntryHtml(html: string, label: string, baseUrl = BASE_URL): string[] {
-  return validateRoots(findRoots(html, baseUrl), label);
+  return validateEntryRoots(findRoots(html, baseUrl), label);
 }
 
-/** Validate already-parsed roots — lets callers parse once and reuse the result. */
-function validateRoots(allRoots: Mf2Item[], label: string): string[] {
+/**
+ * Validate a single built list page's microformats: exactly one h-feed root whose h-entry
+ * children are each validated as entries. Returns a list of human-readable problems; an empty
+ * list means the page is valid mf2 for our purposes.
+ */
+export function validateFeedHtml(html: string, label: string, baseUrl = BASE_URL): string[] {
+  return validateFeedRoots(findRoots(html, baseUrl), label);
+}
+
+/** Validate a single entry item's properties — shared by a standalone entry-root page and by
+ * each h-entry child of an h-feed. */
+function validateEntryItem(item: Mf2Item, label: string): string[] {
   const problems: string[] = [];
-  const roots = allRoots.filter((i) => i.type.some(isEntryType));
-
-  if (roots.length === 0) {
-    problems.push(`${label}: no h-entry/h-review/h-event root item found`);
-    return problems;
-  }
-  if (roots.length > 1) {
-    problems.push(`${label}: expected exactly one entry root, found ${roots.length}`);
-  }
-
-  const item = roots[0];
   const type = item.type.find(isEntryType) as EntryType;
 
   // Every entry needs a permalink.
@@ -138,6 +150,49 @@ export function validateResumeHtml(html: string, label: string, baseUrl = BASE_U
   return problems;
 }
 
+/** Validate already-parsed roots for a standalone entry page — lets callers parse once and
+ * reuse the result. Exactly one entry root is required; an h-feed page uses
+ * `validateFeedRoots` instead, which allows any number of h-entry children. */
+function validateEntryRoots(allRoots: Mf2Item[], label: string): string[] {
+  const problems: string[] = [];
+  const roots = allRoots.filter((i) => i.type.some(isEntryType));
+
+  if (roots.length === 0) {
+    problems.push(`${label}: no h-entry/h-review/h-event root item found`);
+    return problems;
+  }
+  if (roots.length > 1) {
+    problems.push(`${label}: expected exactly one entry root, found ${roots.length}`);
+  }
+
+  return [...problems, ...validateEntryItem(roots[0], label)];
+}
+
+/**
+ * Validate already-parsed roots for a list page: exactly one h-feed root, whose h-entry
+ * children are each validated with `validateEntryItem`. Unlike a standalone entry page, zero
+ * children is valid (an empty collection renders no `<li class="h-entry">` items at all).
+ */
+function validateFeedRoots(allRoots: Mf2Item[], label: string): string[] {
+  const problems: string[] = [];
+  const feeds = allRoots.filter((i) => i.type.includes(FEED_TYPE));
+
+  if (feeds.length === 0) {
+    problems.push(`${label}: no h-feed root item found`);
+    return problems;
+  }
+  if (feeds.length > 1) {
+    problems.push(`${label}: expected exactly one h-feed root, found ${feeds.length}`);
+  }
+
+  const children = (feeds[0].children ?? []).filter((c) => c.type.some(isEntryType));
+  children.forEach((entry, i) => {
+    problems.push(...validateEntryItem(entry, `${label} [entry ${i + 1}]`));
+  });
+
+  return problems;
+}
+
 function walkHtml(dir: string): string[] {
   const out: string[] = [];
   let names: string[];
@@ -156,26 +211,41 @@ function walkHtml(dir: string): string[] {
 
 /**
  * Validate every built entry page under `distDir` and assert vocabulary coverage:
- * each of h-entry / h-review / h-event appears in at least one valid page.
+ * each of h-entry / h-review / h-event appears in at least one valid page. Also validates
+ * the h-feed list pages: each `FEED_COLLECTION_DIRS` collection's own index.html, plus the
+ * combined `/timeline/` stream.
  */
 export function validateDist(distDir: string): string[] {
   const problems: string[] = [];
   const seenAny = new Set<string>(); // type appeared on some page (valid or not)
-  const seenValid = new Set<string>(); // type appeared on a page with no problems
 
   for (const sub of ENTRY_DIRS) {
     const base = join(distDir, sub);
+    const isFeedCollection = (FEED_COLLECTION_DIRS as readonly string[]).includes(sub);
     for (const file of walkHtml(base)) {
       const rel = file.slice(base.length + 1); // "welcome/index.html" or "index.html"
-      if (!rel.includes("/")) continue; // skip the collection's own list page (index.html)
       const label = file.slice(distDir.length + 1);
+      if (!rel.includes("/")) {
+        // The collection's own list page. Feed collections render it as an h-feed of h-entry
+        // children (validated below); the rest (e.g. blog/index.html) carry no mf2 at all.
+        if (isFeedCollection) problems.push(...validateFeedHtml(readFileSync(file, "utf8"), label));
+        continue;
+      }
       const roots = findRoots(readFileSync(file, "utf8")); // parse once; reuse below
       const types = entryTypesOf(roots);
       for (const t of types) seenAny.add(t);
-      const pageProblems = validateRoots(roots, label);
-      problems.push(...pageProblems);
-      if (pageProblems.length === 0) for (const t of types) seenValid.add(t);
+      problems.push(...validateEntryRoots(roots, label));
     }
+  }
+
+  // /timeline/ combines all eight feed collections into one h-feed page. It has no per-entry
+  // subpages of its own, so it isn't walked via ENTRY_DIRS above — check its single file directly.
+  const timelineFile = join(distDir, "timeline", "index.html");
+  try {
+    const timelineHtml = readFileSync(timelineFile, "utf8");
+    problems.push(...validateFeedHtml(timelineHtml, "timeline/index.html"));
+  } catch {
+    // dist/timeline/index.html absent — not an error here (mirrors walkHtml's dir-absent case)
   }
 
   // Only report a coverage gap when a type is entirely absent. If pages of that type
