@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!-- AppSettings (AnglesiteCore/AppSettings.swift) reads/writes UserDefaults.standard
+		     for the app's own settings; StartupTiming and SwiftUI @AppStorage bindings do the
+		     same. No app-group suite is used. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<!-- File modification/creation timestamps are read for internal conflict detection
+		     (FileDocumentIO, PlistDocumentIO) and content indexing (DeadAssetScanner,
+		     SiteKnowledgeIndex, ContentScanner) on files inside the app's own document tree,
+		     and are also surfaced to the user via SiteEntity's AppIntents/Siri properties. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>0A2A.1</string>
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<!-- StartupProgressModel uses ProcessInfo.systemUptime as an on-device monotonic clock
+		     to drive the startup progress bar; never sent off-device. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
