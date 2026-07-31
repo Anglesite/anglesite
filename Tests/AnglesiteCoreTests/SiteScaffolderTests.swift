@@ -132,6 +132,30 @@ final class SiteScaffolderTests: XCTestCase {
         XCTAssertFalse(cfg.contains("EVIL=1"))
     }
 
+    /// The chooser flow (#1071) hands over a fully-defaulted Untitled draft: blank type, no
+    /// headline/blurb. The template's placeholder homepage must survive untouched, and
+    /// `.site-config` must defer the domain (`later`) and omit `SITE_TYPE` entirely.
+    func testChooserDraftKeepsTemplatePlaceholderAndOmitsSiteType() async throws {
+        let root = tmpDir()
+        let scaffolder = makeScaffolder(root: root)
+        let draft = NewSiteDraft(siteType: .blank, name: "Untitled",
+                                 saveFileName: "Untitled.anglesite",
+                                 themeID: "classic", headline: "")
+        for await _ in scaffolder.scaffold(draft) {}
+
+        let pkgURL = root.appendingPathComponent("Untitled.anglesite")
+        // Homepage untouched: exactly the placeholder the fake scaffold.sh wrote.
+        let home = try String(contentsOf: pkgURL.appendingPathComponent("Source/src/pages/index.astro"), encoding: .utf8)
+        XCTAssertEqual(home, "<section class=\"hero\">\n  <h1>Welcome</h1>\n</section>")
+
+        let cfg = try String(contentsOf: pkgURL.appendingPathComponent("Source/.site-config"), encoding: .utf8)
+        XCTAssertTrue(cfg.contains("SITE_NAME=Untitled"))
+        XCTAssertTrue(cfg.contains("CF_PROJECT_NAME=untitled"))
+        XCTAssertTrue(cfg.contains("DOMAIN_CHOICE=later"))
+        XCTAssertFalse(cfg.contains("SITE_TYPE="))
+        XCTAssertFalse(cfg.contains("TAGLINE="))
+    }
+
     func testCustomColorSchemeAndLogoAreApplied() async throws {
         let root = tmpDir()
         let logo = root.appendingPathComponent("brand.PNG")

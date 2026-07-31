@@ -141,14 +141,20 @@ public actor SiteScaffolder {
             emit(.warning(step: "applyingTheme", message: "No themes available; left default look."))
         }
 
-        // 4. Homepage (non-fatal)
+        // 4. Homepage (non-fatal). Skipped when the draft has no content at all — the chooser
+        // flow (#1071) ships the template's placeholder copy for the owner to edit in the
+        // preview; intents/AI paths that supply real words still get them written.
         emit(.writingContent)
         let metadataDescription = draft.tagline.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? draft.blurb
             : draft.tagline
-        do { try HomepageWriter.write(headline: draft.headline, blurb: draft.blurb,
-                                      tagline: metadataDescription, siteDirectory: siteDir, fileManager: fileManager) }
-        catch { emit(.warning(step: "writingContent", message: humanize(error))) }
+        let hasHomepageContent = !draft.headline.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !draft.blurb.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if hasHomepageContent {
+            do { try HomepageWriter.write(headline: draft.headline, blurb: draft.blurb,
+                                          tagline: metadataDescription, siteDirectory: siteDir, fileManager: fileManager) }
+            catch { emit(.warning(step: "writingContent", message: humanize(error))) }
+        }
 
         var logoPublicPath: String?
         if let logo = draft.logoURL {
@@ -210,13 +216,15 @@ public actor SiteScaffolder {
     /// Append owner answers without clobbering existing lines (e.g. ANGLESITE_VERSION).
     private func appendSiteConfig(_ draft: NewSiteDraft, logoPublicPath: String?,
                                   metadataDescription: String, siteDir: URL, cfProjectName: String) throws {
-        var values: [(String, String)] = [
-            ("SITE_NAME", draft.name),
-            ("SITE_TYPE", draft.siteType.rawValue),
+        var values: [(String, String)] = [("SITE_NAME", draft.name)]
+        // `.blank` is the chooser flow's "no answer" (#1071) — nothing reads SITE_TYPE back,
+        // so an unasked question writes no key rather than a fake answer.
+        if draft.siteType != .blank { values.append(("SITE_TYPE", draft.siteType.rawValue)) }
+        values.append(contentsOf: [
             ("DOMAIN_CHOICE", draft.domainChoice.rawValue),
             ("CF_PROJECT_NAME", cfProjectName),
             ("LANG", hostLanguage()),
-        ]
+        ])
         if draft.domainChoice == .transfer && !draft.domain.isEmpty { values.append(("DOMAIN", draft.domain)) }
         if draft.themeID == CustomTheme.id {
             values.append(contentsOf: [

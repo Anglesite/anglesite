@@ -443,7 +443,13 @@ struct SitesLauncherView: View {
         let knownSites = await SiteStore.shared.sites
         let takenSlugs = Set(knownSites.map { SiteSlug.derive(from: $0.name) })
 
-        let model = NewSiteWizardModel(catalog: catalog, defaultSaveDirectory: sitesRoot, slugTaken: { takenSlugs.contains($0) })
+        // "Untitled N" availability (#1071): taken if it collides with a registered site's slug
+        // OR a package already on disk in the sites root (registered or not) — silent save must
+        // never clobber an existing folder.
+        let model = NewSiteWizardModel(catalog: catalog, isNameTaken: { name in
+            takenSlugs.contains(SiteSlug.derive(from: name))
+                || FileManager.default.fileExists(atPath: sitesRoot.appendingPathComponent("\(name).anglesite").path)
+        })
 
         let scaffolder = SiteScaffolder(
             sitesRoot: sitesRoot,
