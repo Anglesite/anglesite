@@ -44,8 +44,11 @@ public actor ACPHTTPTransport: ACPTransport {
     /// `Authorization: Bearer` header on **every** POST — there is no persistent connection to
     /// authenticate once, so each request must carry its own credentials.
     ///
-    /// - Parameter urlSession: injectable so tests can substitute a `URLProtocol`-backed
-    ///   session; defaults to `.shared`.
+    /// - Parameters:
+    ///   - endpoint: the remote agent's HTTP endpoint; every request POSTs here.
+    ///   - bearerToken: per-request credential (see above); `nil` sends unauthenticated requests.
+    ///   - urlSession: injectable so tests can substitute a `URLProtocol`-backed
+    ///     session; defaults to `.shared`.
     public init(endpoint: URL, bearerToken: SessionToken? = nil, urlSession: URLSession = .shared) {
         self.endpoint = endpoint
         self.bearerToken = bearerToken

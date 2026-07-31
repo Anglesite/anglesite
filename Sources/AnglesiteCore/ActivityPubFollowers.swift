@@ -101,9 +101,12 @@ public struct ActivityPubFollowersClient: Sendable {
 
     /// Creates a client for one site's collection.
     ///
-    /// - Parameter siteURL: the site's public origin. The followers URL is derived through
-    ///   `ActivityPubActor`, so callers never construct (and can never mistype) collection URLs
-    ///   themselves.
+    /// - Parameters:
+    ///   - siteURL: the site's public origin. The followers URL is derived through
+    ///     `ActivityPubActor`, so callers never construct (and can never mistype) collection URLs
+    ///     themselves.
+    ///   - transport: injectable for tests; defaults to ``defaultTransport``, the capped
+    ///     HTTPS-enforcing production path.
     public init(
         siteURL: URL,
         transport: @escaping Transport = ActivityPubFollowersClient.defaultTransport

@@ -24,6 +24,10 @@ public actor ACPContainerExecTransport: ACPTransport {
     /// ``open()``.
     ///
     /// - Parameters:
+    ///   - control: the container runtime whose `execInteractive` spawns the agent in the guest.
+    ///   - siteID: selects which site's live container to exec into.
+    ///   - command: the agent executable to run inside the guest.
+    ///   - arguments: arguments passed to `command` verbatim.
     ///   - workingDirectory: defaults to `/workspace/site`, the fixed guest path every site repo
     ///     is cloned to inside its container (the same convention `ACPAssistant` and
     ///     `DeployExecutor` rely on).

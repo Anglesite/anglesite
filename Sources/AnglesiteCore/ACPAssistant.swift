@@ -57,6 +57,11 @@ public actor ACPAssistant: ConversationalAssistant {
     /// handshake are deferred to the first turn (see the type doc).
     ///
     /// - Parameters:
+    ///   - connection: the agent's transport coordinates (stdio command or remote endpoint) —
+    ///     which transport gets built on the first turn follows from its `transport` case.
+    ///   - siteID: the site whose container a `.stdio` agent execs into; also scopes secrets.
+    ///   - sourceDirectory: the site's host `Source/` directory, exposed to the agent as its
+    ///     working context.
     ///   - containerControlProvider: consulted per connection attempt for `.stdio` transports.
     ///     The default ("no container") makes a `.stdio` turn fail with
     ///     `ACPAssistantError.containerUnavailable` rather than hang.
