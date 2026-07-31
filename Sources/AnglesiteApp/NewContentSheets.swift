@@ -195,8 +195,13 @@ struct NewCollectionEntrySheet: View {
                         }
                         // A reply or like has no title field — it is identified by its target URL,
                         // so asking for a title would collect a value the entry never stores (#916).
+                        // A bookmark's title is schema-optional (its target URL is the point), so
+                        // it's shown but not required — an empty title falls back to a URL-derived
+                        // slug in NativeContentOperations.createTyped (#1011).
                         if selectedDescriptor?.titleField != nil {
-                            TextField("Title", text: $title)
+                            TextField(
+                                "Title", text: $title,
+                                prompt: selectedDescriptor?.titleIsRequired == true ? nil : Text("optional"))
                         }
                         // Field names match the inspector's labels in `TypedEntryForm`.
                         ForEach(requiredURLFields, id: \.name) { field in
@@ -286,9 +291,10 @@ struct NewCollectionEntrySheet: View {
         }
     }
 
-    /// Types without a title field impose no title requirement.
+    /// Only a schema-required title field imposes a requirement — a type whose title is optional
+    /// (e.g. `bookmark`, defined by its target URL) or absent imposes none (#1011).
     private var titleIsSatisfied: Bool {
-        selectedDescriptor?.titleField == nil
+        selectedDescriptor?.titleIsRequired != true
             || !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 

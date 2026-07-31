@@ -172,6 +172,13 @@ public struct ContentTypeDescriptor: Sendable, Equatable, Identifiable {
         fields.first { Self.titleLikeFieldNames.contains($0.name) }
     }
 
+    /// Whether this type's title field, if it has one, is required by the schema. `bookmark`'s
+    /// `title` is `z.string().optional()` — present, but not required — so the create UI must gate
+    /// on this rather than on `titleField != nil` (#1011).
+    public var titleIsRequired: Bool {
+        titleField?.required ?? false
+    }
+
     /// Required `.url` fields, in declaration order. The template schemas these project to are
     /// `z.string().url()`, which rejects an empty string, so the create path must collect a value
     /// for each one before writing rather than scaffolding a placeholder (#916).

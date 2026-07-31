@@ -350,6 +350,26 @@ struct ContentTypeRegistryTests {
         #expect(like.titleField == nil)
     }
 
+    @Test("titleIsRequired reflects the title field's own required-ness, not just its presence (#1011)")
+    func titleIsRequiredPerType() throws {
+        let registry = ContentTypeRegistry()
+        let article = try #require(registry.descriptor(id: "article"))
+        let bookmark = try #require(registry.descriptor(id: "bookmark"))
+        let event = try #require(registry.descriptor(id: "event"))
+        let review = try #require(registry.descriptor(id: "review"))
+        let reply = try #require(registry.descriptor(id: "reply"))
+        let like = try #require(registry.descriptor(id: "like"))
+
+        #expect(article.titleIsRequired)   // title: z.string()
+        #expect(event.titleIsRequired)     // name: z.string()
+        #expect(review.titleIsRequired)    // itemReviewed: z.string()
+        // bookmark's title is z.string().optional() — present, but not required (#1011).
+        #expect(!bookmark.titleIsRequired)
+        // reply and like have no title-like field at all, so there is nothing to require.
+        #expect(!reply.titleIsRequired)
+        #expect(!like.titleIsRequired)
+    }
+
     @Test("requiredURLFields lists required .url fields in declaration order")
     func requiredURLFieldsPerType() throws {
         let registry = ContentTypeRegistry()
