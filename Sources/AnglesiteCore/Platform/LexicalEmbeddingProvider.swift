@@ -8,12 +8,23 @@ import Foundation
 /// lexical-overlap signal for ``SemanticRanker``, unlike ``FakeEmbeddingProvider``'s
 /// character-level projection (test-only, tuned for stability rather than usefulness).
 public struct LexicalEmbeddingProvider: EmbeddingProvider {
+    /// The fixed vector length — the number of hash buckets word tokens are folded into.
     public let dimension: Int
 
+    /// Creates a provider with `dimension` hash buckets, clamped to at least 1 so a
+    /// nonsensical value can't yield empty vectors. More buckets mean fewer token
+    /// collisions at the cost of larger vectors; the default of 256 is plenty for the
+    /// short page/post texts ``SemanticRanker`` feeds it.
     public init(dimension: Int = 256) {
         self.dimension = max(1, dimension)
     }
 
+    /// Builds the unit-normalized bag-of-words vector for `text`.
+    ///
+    /// - Throws: ``EmbeddingError/emptyText`` for empty/whitespace-only input, or
+    ///   ``EmbeddingError/modelUnavailable`` when the input tokenizes to nothing (all
+    ///   punctuation/symbols/emoji) — see the inline note on why that case reuses an
+    ///   existing error rather than adding a new one.
     public func embed(_ text: String) async throws -> [Float] {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw EmbeddingError.emptyText }

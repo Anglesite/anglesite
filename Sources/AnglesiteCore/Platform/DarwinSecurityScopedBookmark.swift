@@ -10,8 +10,14 @@ import Foundation
 /// children inherit folder access. Nothing crosses a process boundary — the app is the sole
 /// grant holder (see docs/specs/2026-05-27-sandboxed-app-store-plan.md, "ARCHITECTURE PIVOT").
 public struct DarwinSecurityScopedBookmark: SecurityScopedBookmarking {
+    /// Creates the Darwin implementation. Stateless — all state lives in the bookmark data
+    /// and in the URL's own access scope.
     public init() {}
 
+    /// Creates a `.withSecurityScope` bookmark for `url`. Foundation's thrown error is
+    /// flattened to its localized description inside the portable
+    /// `SecurityScopedBookmarkError.createFailed`, so callers outside `Platform/` never
+    /// handle a Darwin-specific error type.
     public func create(for url: URL) throws -> Data {
         do {
             return try url.bookmarkData(
@@ -24,6 +30,9 @@ public struct DarwinSecurityScopedBookmark: SecurityScopedBookmarking {
         }
     }
 
+    /// Resolves a stored bookmark back to a URL, forwarding Foundation's staleness flag so
+    /// the caller can re-`create` and persist a fresh bookmark (staleness is expected after
+    /// the target moves or the OS rotates bookmark internals — not an error).
     public func resolve(_ data: Data) throws -> SecurityScopedBookmarkResolution {
         var isStale = false
         do {
@@ -39,10 +48,16 @@ public struct DarwinSecurityScopedBookmark: SecurityScopedBookmarking {
         }
     }
 
+    /// Claims the sandbox grant for a resolved URL. Only meaningful for URLs that came out of
+    /// `resolve(_:)`; `false` means the grant could not be taken (e.g. a stale bookmark's
+    /// target is gone) and file access will fail with sandbox denials.
     public func startAccessing(_ url: URL) -> Bool {
         url.startAccessingSecurityScopedResource()
     }
 
+    /// Releases a grant taken by `startAccessing(_:)`. Calls must balance — the sandbox
+    /// counts kernel-level references, and a leaked grant holds the resource open for the
+    /// app's lifetime (why `SiteWindow` scopes its grant to the window's lifetime).
     public func stopAccessing(_ url: URL) {
         url.stopAccessingSecurityScopedResource()
     }

@@ -10,7 +10,13 @@ import SwiftGit2
 /// MCP-routed `ContentOperations` at the App Intents dependency registration.
 public struct NativeContentOperations: ContentOperationsService {
 
+    /// Stage-and-commit closure: commits `relPath` in `projectRoot` with `message`, returning
+    /// the new HEAD SHA or `nil` on failure. Injectable so tests observe (or fail) commits
+    /// without a real repo; the default is `processGitCommit`.
     public typealias GitCommit = @Sendable (_ projectRoot: URL, _ relPath: String, _ message: String) async -> String?
+    /// The delete counterpart of `GitCommit` (`git rm` + commit), returning the new HEAD SHA or
+    /// `nil`. Defaults to `processGitDelete`, whose HEAD-copy precondition is what makes git the
+    /// safe undo mechanism for deletes.
     public typealias GitDelete = @Sendable (_ projectRoot: URL, _ relPath: String, _ message: String) async -> String?
     /// Whether `projectRoot`'s commit history already contains a commit whose message is exactly
     /// `message` — used by `publish` to tell a first-time publish from a republish (#798), without
@@ -29,6 +35,10 @@ public struct NativeContentOperations: ContentOperationsService {
     // struct's Sendable conformance.
     private nonisolated(unsafe) let fileManager: FileManager
 
+    /// Creates the service with every side effect injected. The defaults are production wiring
+    /// (real git closures, wall-clock `now`, `NoopPageCopyGenerator`, `FileManager.default`);
+    /// tests substitute individual seams — `fileManager` is the intended seam for exercising
+    /// write-failure paths, `now` pins slug/`publishDate` stamping.
     public init(
         siteDirectory: @escaping @Sendable (_ siteID: String) async -> URL?,
         gitCommit: @escaping GitCommit = NativeContentOperations.processGitCommit,
@@ -47,10 +57,18 @@ public struct NativeContentOperations: ContentOperationsService {
         self.fileManager = fileManager
     }
 
+    /// `ContentOperationsService` witness: forwards to the template-taking overload with
+    /// `.standard` — the protocol (mirroring the MCP `create_page` tool) has no template
+    /// parameter, so template choice is a native-path-only superset.
     public func createPage(siteID: String, name: String, route: String?, onProgress: ProgressHandler? = nil) async -> ContentCreateResult {
         await createPage(siteID: siteID, name: name, route: route, template: .standard, onProgress: onProgress)
     }
 
+    /// Scaffolds a new page. The route is `route` when given, else the slugified `name`; the
+    /// site root and existing paths are refused rather than overwritten. Rendering goes through
+    /// `ContentScaffold.renderPage`, optionally seeded with a meta description from the injected
+    /// copy generator, and the write is committed best-effort (a brand-new file has no prior
+    /// history to protect, so a failed commit isn't surfaced).
     public func createPage(
         siteID: String,
         name: String,
@@ -91,6 +109,11 @@ public struct NativeContentOperations: ContentOperationsService {
         return .created(filePath: relPath, identifier: normalized)
     }
 
+    /// Scaffolds a new post. `collection` defaults to `posts` and is validated against
+    /// `[A-Za-z0-9_-]+` — it becomes a filesystem path segment, so anything looser would let a
+    /// caller write outside the collection directory. The slug derives from `slug ?? title`;
+    /// existing paths are refused rather than overwritten, and the commit is best-effort like
+    /// `createPage`'s.
     public func createPost(siteID: String, title: String, collection: String?, slug: String?, onProgress: ProgressHandler? = nil) async -> ContentCreateResult {
         onProgress?(.createResolvingRuntime)
         guard let root = await siteDirectory(siteID) else { return .siteNotFound }

@@ -27,6 +27,9 @@ import Security
 ///   it likewise never reaches `LogCenter`, though its blast radius differs (an in-process
 ///   credential callback vs. an opaque subprocess environment variable).
 public struct KeychainStore: SecretStore {
+    /// Keychain failures surfaced to callers. Deliberately small: the expected "misses"
+    /// (`errSecItemNotFound` on read/delete) are mapped to `nil`/no-op per the `SecretStore`
+    /// contract, so anything that reaches this type is genuinely exceptional.
     public enum Error: Swift.Error, Equatable {
         /// `SecItemCopyMatching` / `SecItemAdd` / `SecItemUpdate` / `SecItemDelete` returned a
         /// non-success `OSStatus`. The raw value is carried so test assertions can pin it down.
@@ -43,8 +46,12 @@ public struct KeychainStore: SecretStore {
     /// `SecretAccounts` namespace (the shared slot definition since the SecretStore seam).
     public static let cloudflareTokenAccount = SecretAccounts.cloudflareToken
 
+    /// The `kSecAttrService` under which every entry of this store lives — the namespace
+    /// separating this store's slots from any other keychain items.
     public let service: String
 
+    /// Creates a store scoped to `service`. Production uses the default; tests pass a
+    /// per-case scratch service so they never read or clobber the user's real entries.
     public init(service: String = KeychainStore.defaultService) {
         self.service = service
     }

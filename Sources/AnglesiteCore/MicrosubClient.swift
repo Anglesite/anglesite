@@ -9,24 +9,42 @@ import FoundationNetworking
 /// followed feed's entries into regardless of the source's wire format (JSON Feed, Atom, RSS,
 /// h-feed). Mirrors `Jf2Entry` in the sidecar's `jf2.ts`.
 public struct MicrosubTimelineEntry: Sendable, Equatable, Decodable, Identifiable {
+    /// The entry's author card, flattened to the three JF2 author fields — every field is
+    /// optional because feeds vary wildly in what they expose.
     public struct Author: Sendable, Equatable, Decodable {
+        /// The author's display name.
         public let name: String?
+        /// The author's profile URL.
         public let url: String?
+        /// URL of the author's avatar image.
         public let photo: String?
     }
 
+    /// The entry's body, in whichever representations the source feed carried — one of the two
+    /// is usually present, but neither is guaranteed.
     public struct Content: Sendable, Equatable, Decodable {
+        /// The HTML body, when the source had one.
         public let html: String?
+        /// The plain-text body, when the source had one.
         public let text: String?
     }
 
     /// Stable per-entry identifier the store dedupes on across polls.
     public let id: String
+    /// The entry's permalink on the source site.
     public let url: String?
+    /// Publication timestamp as the source supplied it. Kept a string (not a `Date`) because
+    /// JF2 passes feed timestamps through and formats vary by source — parsing/formatting is
+    /// the display layer's problem.
     public let published: String?
+    /// The entry's title (`name` in JF2/mf2 terms); `nil` for untitled notes, which is the
+    /// common case for social-style posts.
     public let name: String?
+    /// A short summary distinct from the body, when the feed provides one.
     public let summary: String?
+    /// The entry's body; `nil` for entries that only carry a `name`/`summary`.
     public let content: Content?
+    /// The author card, when the feed exposes one.
     public let author: Author?
 
     enum CodingKeys: String, CodingKey {
@@ -38,26 +56,41 @@ public struct MicrosubTimelineEntry: Sendable, Equatable, Decodable, Identifiabl
 /// A Microsub channel: a named grouping of follows with an unread count. The `notifications`
 /// channel always exists and can't be deleted/renamed (`store.ts`'s `NOTIFICATIONS_CHANNEL`).
 public struct MicrosubChannel: Sendable, Equatable, Decodable, Identifiable {
+    /// Server-assigned stable channel identifier — what every timeline/follow call keys on.
     public let uid: String
+    /// The owner-facing channel name (renameable, unlike `uid`).
     public let name: String
+    /// Unread-entry count; `nil` when the server omits it.
     public let unread: Int?
+    /// `Identifiable` keyed on the stable `uid`, not the renameable `name`, so SwiftUI lists
+    /// keep identity across a rename.
     public var id: String { uid }
 }
 
 /// One page of a channel's timeline, with opaque before/after cursors for further paging.
 public struct MicrosubTimelinePage: Sendable, Equatable, Decodable {
+    /// Opaque paging cursors. Pass one back verbatim to
+    /// ``MicrosubClient/timeline(channel:before:after:)`` — the server defines their meaning,
+    /// so the client never inspects or synthesizes them.
     public struct Paging: Sendable, Equatable, Decodable {
+        /// Cursor for the page of entries newer than this one; `nil` at the newest edge.
         public let before: String?
+        /// Cursor for the page of entries older than this one; `nil` at the oldest edge.
         public let after: String?
     }
 
+    /// The page's entries, in the server's timeline order.
     public let items: [MicrosubTimelineEntry]
+    /// Cursors for fetching the adjacent pages.
     public let paging: Paging
 }
 
+/// Failures surfaced by ``MicrosubClient`` calls.
 public enum MicrosubError: Error, Equatable, Sendable {
     /// The endpoint returned a non-2xx status; `body` is the raw response for diagnostics.
     case requestFailed(status: Int, body: String)
+    /// The response wasn't the JSON shape the action expects; the payload carries the
+    /// underlying decoding error's description (stringly, so the enum stays `Equatable`).
     case decodingFailed(String)
     /// Signing the DPoP proof needs CryptoKit (Apple platforms only).
     case dpopUnavailable
@@ -70,6 +103,9 @@ public enum MicrosubError: Error, Equatable, Sendable {
 /// networking. `SiteIndieAuthClient` is how the caller obtains the token + key pair in the first
 /// place; this type only *presents* them.
 public struct MicrosubClient: Sendable {
+    /// The injectable network seam: tests substitute a closure that captures the fully-built
+    /// request (headers, DPoP proof and all) and returns a canned response, so request
+    /// construction is exercised without real networking.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     /// The site's `/microsub` endpoint (absolute URL, no query).
@@ -78,6 +114,10 @@ public struct MicrosubClient: Sendable {
     private let dpopKeyPair: DPoPKeyPair
     private let transport: Transport
 
+    /// Creates a client for the site's `endpoint`, presenting `accessToken` DPoP-bound to
+    /// `dpopKeyPair` on every call. The token and key pair must come from the same
+    /// `SiteIndieAuthClient` grant — the server verifies the proof's key thumbprint against the
+    /// token's binding, so mixing grants fails auth even though both values look valid alone.
     public init(
         endpoint: URL,
         accessToken: String,

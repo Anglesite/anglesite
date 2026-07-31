@@ -2,21 +2,34 @@ import Foundation
 
 /// Non-secret account coordinates plus the corresponding secret-store values for one POSSE run.
 public struct POSSECredentials: Equatable, Sendable {
+    /// Everything ``MastodonPOSSEClient`` needs for one post.
     public struct Mastodon: Equatable, Sendable {
+        /// The instance origin (e.g. `https://mastodon.social`) the statuses endpoint is
+        /// resolved against — per-account, since Mastodon is federated.
         public let baseURL: URL
+        /// OAuth access token with `write:statuses` scope. A secret — held in memory for the
+        /// duration of a run only; persistence belongs to the platform secret store.
         public let accessToken: String
 
+        /// Memberwise initializer.
         public init(baseURL: URL, accessToken: String) {
             self.baseURL = baseURL
             self.accessToken = accessToken
         }
     }
 
+    /// Everything ``BlueskyPOSSEClient`` needs for one post.
     public struct Bluesky: Equatable, Sendable {
+        /// The PDS origin XRPC calls are resolved against; `https://bsky.social` for almost
+        /// everyone, but configurable for self-hosted PDSes.
         public let pdsURL: URL
+        /// Handle or DID used to create the session.
         public let identifier: String
+        /// App password (not the account password) — Bluesky's revocable per-app credential.
+        /// A secret; same in-memory-only handling as the Mastodon token.
         public let appPassword: String
 
+        /// Memberwise initializer.
         public init(pdsURL: URL, identifier: String, appPassword: String) {
             self.pdsURL = pdsURL
             self.identifier = identifier
@@ -24,16 +37,25 @@ public struct POSSECredentials: Equatable, Sendable {
         }
     }
 
+    /// Mastodon account, or `nil` when unconfigured — the syndication pass then skips
+    /// Mastodon targets with a logged explanation instead of failing the run.
     public let mastodon: Mastodon?
+    /// Bluesky account, or `nil` when unconfigured (same skip-with-log behavior).
     public let bluesky: Bluesky?
 
+    /// Memberwise initializer; each platform defaults to unconfigured.
     public init(mastodon: Mastodon? = nil, bluesky: Bluesky? = nil) {
         self.mastodon = mastodon
         self.bluesky = bluesky
     }
 }
 
+/// Resolves per-site POSSE credentials at syndication time. Resolution is deferred to a
+/// closure (rather than resolved once at init) because settings and secrets can change
+/// between deploys within one app session.
 public enum POSSECredentialResolver {
+    /// Late-bound credential lookup injected into ``POSSESyndicationCommand`` — a closure so
+    /// tests can substitute fixed credentials without touching the secret store.
     public typealias Provider = @Sendable (_ siteID: String, _ configDirectory: URL) -> POSSECredentials
 
     /// Builds a provider backed by `Config/settings.plist` + the platform secret store. Environment

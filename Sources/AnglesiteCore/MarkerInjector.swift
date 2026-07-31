@@ -1,11 +1,28 @@
 import Foundation
 
+/// Inserts app-generated snippets into template files at well-known `anglesite:` anchor
+/// comments, wrapping each snippet in stable start/end delimiters. The delimiters are what make
+/// wizard-driven injections safely re-runnable: a second inject with the same id and anchor
+/// replaces the existing block in place instead of appending a duplicate, so the app never needs
+/// to diff or hand-merge template files it previously touched.
 public enum MarkerInjector {
-    public enum Failure: Error, Equatable { case anchorNotFound(String) }
+    /// Why an injection couldn't be performed. The only failure mode is a missing anchor —
+    /// everything else (existing block, orphan markers) is repaired in place rather than reported.
+    public enum Failure: Error, Equatable {
+        /// The anchor comment (carried as the associated value) doesn't appear in the content,
+        /// so there is no safe insertion point — the template was likely hand-edited or predates
+        /// the anchor.
+        case anchorNotFound(String)
+    }
 
     /// Delimiter syntax: `.html` for Astro template bodies (`<!-- … -->`), `.line` for Astro
     /// frontmatter / TypeScript (`// …`).
-    public enum CommentStyle: Sendable, Equatable { case html, line }
+    public enum CommentStyle: Sendable, Equatable {
+        /// `<!-- … -->` delimiters, for HTML/Astro template bodies.
+        case html
+        /// `// …` delimiters, for Astro frontmatter and TypeScript files.
+        case line
+    }
 
     /// Inserts `snippet` (wrapped in `anglesite:<id>-<anchorSlug>:start/end` delimiters in the
     /// given `style`) immediately before the `atAnchor` comment; the anchor is preserved.

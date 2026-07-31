@@ -20,8 +20,14 @@ public struct NLContextualEmbeddingProvider: EmbeddingProvider {
 
     private let model: NLContextualEmbedding
     private let defaultLanguage: NLLanguage
+    /// The loaded model's vector dimension, fixed at init — every vector `embed(_:)` returns has
+    /// exactly this many components (the ``EmbeddingProvider`` contract).
     public let dimension: Int
 
+    /// Loads the contextual embedding model for `language`, or fails (`nil`) when the model or
+    /// its on-demand assets aren't present on this host. The asset check happens up front so a
+    /// missing download sends callers to the fallback chain (``NLEmbeddingProvider``, then
+    /// lexical-only) instead of blocking the calling actor on a lazy mid-query download.
     public init?(language: NLLanguage = .english) {
         guard let model = NLContextualEmbedding(language: language) else { return nil }
         // Assets ship on demand; without them the model can't embed, so bail to the fallback chain
@@ -37,6 +43,13 @@ public struct NLContextualEmbeddingProvider: EmbeddingProvider {
         self.dimension = model.dimension
     }
 
+    /// Embeds `text` as a single unit-normalized passage vector by mean-pooling the model's
+    /// per-token vectors. The language is re-detected per call (falling back to the init
+    /// language) so one loaded model handles mixed-language content instead of forcing a
+    /// per-language provider.
+    /// - Throws: ``EmbeddingError/emptyText`` for whitespace-only input;
+    ///   ``EmbeddingError/modelUnavailable`` when the model yields no usable token vectors (or a
+    ///   degenerate zero vector) for this input.
     public func embed(_ text: String) async throws -> [Float] {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw EmbeddingError.emptyText }

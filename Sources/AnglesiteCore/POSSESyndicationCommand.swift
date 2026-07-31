@@ -20,6 +20,9 @@ public actor POSSESyndicationCommand {
 
     var activeSiteCount: Int { inFlight.count }
 
+    /// Creates the command actor. Every dependency is injectable — credentials, HTTP transport,
+    /// log sink, and clock — so tests can drive a full syndication pass with no network, secret
+    /// store, or real time; the defaults wire up production behavior.
     public init(
         credentials: @escaping POSSECredentialResolver.Provider = POSSECredentialResolver.provider(),
         transport: @escaping POSSEHTTPTransport = POSSESyndicationCommand.defaultTransport,
@@ -32,6 +35,14 @@ public actor POSSESyndicationCommand {
         self.now = now
     }
 
+    /// Runs one post-deploy syndication pass for a site: repairs `syndication:` write-backs and
+    /// sends backfeed webmentions for previously-posted entries, then posts any new `posse:`
+    /// opt-ins. Runs per site are serialized (a newer call chains behind the in-flight one) so
+    /// two overlapping deploys can't race the ledger or double-post; distinct sites proceed
+    /// concurrently.
+    ///
+    /// Never throws: every per-entry failure is logged and skipped, because one broken social
+    /// account must not block the rest of the deploy pipeline — the pass is best-effort by design.
     public func syndicate(siteID: String, siteDirectory: URL, configDirectory: URL, siteBase: URL) async {
         let previous = inFlight[siteID]?.task
         let id = UUID()
@@ -181,6 +192,9 @@ public actor POSSESyndicationCommand {
         await logCenter.append(source: source, stream: .stderr, text: "posse: \(message)")
     }
 
+    /// Production ``POSSEHTTPTransport``: `URLSession.shared`, failing on any non-HTTP response.
+    /// Exposed (rather than buried in the initializer default) so callers composing their own
+    /// transport — logging, retry — can still delegate the real request to it.
     public static let defaultTransport: POSSEHTTPTransport = { request in
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }

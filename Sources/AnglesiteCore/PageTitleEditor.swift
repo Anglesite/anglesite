@@ -7,14 +7,28 @@ import Foundation
 /// `.astro` files use a JavaScript component script between `---` fences (NOT YAML), so we never
 /// write YAML frontmatter there — the title lives in the layout invocation's `title=` prop.
 public enum PageTitleEditor {
+    /// Why a rewrite produced no output. Both cases are user-recoverable, so callers surface
+    /// them as validation feedback rather than failures.
     public enum RewriteError: Error, Equatable {
+        /// The new title was empty (or whitespace-only) after trimming — writing it would
+        /// leave the page untitled.
         case emptyTitle
+        /// The file has no recognized place to put a title: an extension outside the
+        /// markdown/attribute families, or an `.astro`/`.html` file with no existing
+        /// `title="…"` attribute to replace (we never invent one — there's no way to know
+        /// which element should carry it).
         case noEditableLocation
     }
 
     private static let markdownExts: Set<String> = ["md", "mdx", "mdoc", "markdown"]
     private static let attributeExts: Set<String> = ["astro", "html"]
 
+    /// Returns `contents` with its title replaced by `newTitle` (trimmed), or a
+    /// ``RewriteError`` explaining why nothing could be written. The strategy is picked by
+    /// `fileExtension` alone — markdown-family files get frontmatter surgery (inserting a
+    /// block if none exists), `.astro`/`.html` get their first `title=` attribute replaced —
+    /// so callers don't need to sniff the contents. Returns `Result` rather than throwing so
+    /// the pure transform composes cleanly in tests and in the rename service's flow.
     public static func rewrite(
         contents: String,
         fileExtension: String,

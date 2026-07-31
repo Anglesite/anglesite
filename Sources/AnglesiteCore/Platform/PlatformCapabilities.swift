@@ -37,6 +37,9 @@ public enum PlatformCapabilities {
         case unavailable
     }
 
+    /// The ``ModelTier`` this build resolves to, derived from ``hasAssistant``. A computed label
+    /// for diagnostics/telemetry surfaces — feature routing should branch on the individual
+    /// capability flags instead, so a future intermediate tier can't silently change behavior.
     public static var modelTier: ModelTier {
         hasAssistant ? .onDevice : .unavailable
     }
