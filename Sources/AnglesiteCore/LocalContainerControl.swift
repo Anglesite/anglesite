@@ -130,6 +130,20 @@ public protocol LocalContainerControl: Sendable {
     ) async throws -> LocalContainerSession
     func stop(siteID: String) async throws
 
+    /// Pauses the running VM for `siteID` in place instead of tearing it down — the guest's
+    /// astro/mcp/bridge processes freeze exactly where they are (Virtualization.framework
+    /// `pause()`, reached via `LinuxContainer.withVirtualMachineInstance`), rather than exiting. A
+    /// later `start(siteID:sourceRepo:ref:onOutput:)` call for the SAME siteID resumes this paused
+    /// VM (skipping the boot/clone/hydrate path entirely) if it's still registered in
+    /// `PausedContainerRegistry`, or boots fresh otherwise (first-ever open, or the paused entry
+    /// was evicted/reclaimed by app quit).
+    ///
+    /// Defaults to a full `stop(siteID:)` below for conformers with no pause capability of their
+    /// own (`PodmanContainerControl` on Linux, every test fake) — only `ContainerizationControl`
+    /// overrides this with a real pause. A conformer that inherits the default gets today's
+    /// existing behavior unchanged: "suspend" on window close is just "stop."
+    func suspend(siteID: String) async throws
+
     /// Run `argv` inside the named container's guest environment, streaming each output line to
     /// `onOutput` (tagged with the stream it came from — `.stdout`/`.stderr`) as it arrives, and
     /// returning the captured result when the process exits. No `Containerization`/`Virtualization`
@@ -206,6 +220,10 @@ public protocol LocalContainerControl: Sendable {
 
 extension LocalContainerControl {
     public func resetNetworking() async {}
+
+    public func suspend(siteID: String) async throws {
+        try await stop(siteID: siteID)
+    }
 
     public func startWorkersDev(
         siteID: String,
