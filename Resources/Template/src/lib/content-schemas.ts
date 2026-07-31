@@ -26,6 +26,7 @@ export const socialFields = {
  */
 export const notesSchema = z.object({
   ...socialFields,
+  lang: z.string().optional(),
   publishDate: z.coerce.date(),
   tags: z.array(z.string()).optional(),
   audience: z.string().url().optional(),
@@ -34,6 +35,7 @@ export const notesSchema = z.object({
 
 export const articlesSchema = z.object({
   ...socialFields,
+  lang: z.string().optional(),
   title: z.string(),
   summary: z.string().optional(),
   publishDate: z.coerce.date(),
