@@ -196,6 +196,27 @@ public struct ContainerizationControl: LocalContainerControl {
         await network.release(siteID: siteID)
     }
 
+    /// `LocalContainerControl.suspend(siteID:)` conformance: pauses the VM in place instead of
+    /// tearing it down, handing the container off to the process-wide `PausedContainerRegistry` so
+    /// it survives this (per-window) `ContainerizationControl`/`LiveContainers` instance being
+    /// deallocated when the window closes. Deliberately does NOT call `network.release(siteID:)` —
+    /// the guest's virtual NIC must keep its allocated vmnet IP while paused, or a later `resume()`
+    /// would come back on a network the host has already handed to a different site.
+    public func suspend(siteID: String) async throws {
+        guard let container = await live.container(for: siteID) else {
+            throw LocalContainerError.bootFailed("suspend: no live container for siteID '\(siteID)'")
+        }
+        // Workers-dev isn't preserved across a suspend — `LocalContainerSiteRuntime.start()`
+        // recomputes and restarts it fresh via `startWorkersDevIfActive` after a resume, exactly
+        // as it would after a cold boot.
+        await live.teardownWorkersDev(siteID: siteID)
+        await live.stopProxiesOnly(siteID: siteID)
+        try await container.withVirtualMachineInstance { vm in try await vm.pause() }
+        let artifacts = await live.ext4Artifacts(for: siteID)
+        await live.forget(siteID: siteID)
+        await PausedContainerRegistry.shared.register(siteID: siteID, container: container, ext4Artifacts: artifacts)
+    }
+
     /// `LocalContainerControl.resetNetworking()` conformance (#812): drops this process's cached
     /// vmnet network so the next boot attempt builds a fresh one, without disturbing any
     /// currently-running site's container (see `SharedVmnetNetwork.reset()`) and without an app
@@ -1191,6 +1212,29 @@ actor LiveContainers {
     private var workersDevStateTasks: [String: Task<Void, Never>] = [:]
 
     func container(for siteID: String) -> LinuxContainer? { containers[siteID] }
+
+    /// The ext4 rootfs/initfs artifact paths recorded for `siteID`, or `[]` if none — read by
+    /// `suspend(siteID:)` to hand them off to `PausedContainerRegistry` before this instance
+    /// forgets the site entirely.
+    func ext4Artifacts(for siteID: String) -> [URL] { ext4Artifacts[siteID] ?? [] }
+
+    /// Drops all bookkeeping for `siteID` WITHOUT stopping anything — used by `suspend(siteID:)`
+    /// once the container and its ext4 artifacts have been handed off to
+    /// `PausedContainerRegistry`, so this (per-window) instance no longer believes it owns a site
+    /// whose lifecycle another owner now controls.
+    func forget(siteID: String) {
+        containers[siteID] = nil
+        proxies[siteID] = nil
+        ext4Artifacts[siteID] = nil
+    }
+
+    /// Stops just this site's host-side proxies, leaving the container and its ext4 artifacts
+    /// untouched — the proxy half of a full `teardown(siteID:)`, used by `suspend(siteID:)` (a
+    /// paused VM has nothing listening to proxy to; fresh proxies are re-dialed on resume).
+    func stopProxiesOnly(siteID: String) async {
+        for p in proxies[siteID] ?? [] { await p.stop() }
+        proxies[siteID] = nil
+    }
 
     func store(siteID: String, container: LinuxContainer, proxies ps: [VsockTCPProxy], ext4Artifacts artifacts: [URL]) {
         containers[siteID] = container

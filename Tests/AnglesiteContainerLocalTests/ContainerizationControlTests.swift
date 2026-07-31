@@ -39,6 +39,27 @@ struct ContainerizationControlTests {
         try? await control.stop(siteID: "e2e")
     }
 
+    @Test("suspend pauses the VM without deleting its ext4 artifacts")
+    func suspendPausesWithoutDeletingArtifacts() async throws {
+        try #require(enabled, "set ANGLESITE_CONTAINER_E2E=1 on an entitled Apple-Silicon Mac")
+        let control = ContainerizationControl()
+        let siteID = "suspend-test-\(UUID().uuidString.prefix(8))"
+        let repo = try makeThrowawayAstroRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        _ = try await control.start(siteID: siteID, sourceRepo: repo, ref: "HEAD", onOutput: { _, _ in })
+        try await control.suspend(siteID: siteID)
+
+        let entry = await PausedContainerRegistry.shared.reclaim(siteID: siteID)
+        #expect(entry != nil)
+        for url in entry?.ext4Artifacts ?? [] {
+            #expect(FileManager.default.fileExists(atPath: url.path))
+        }
+        // Cleanup: reclaim() already removed it from the registry — tear it down for real so the
+        // test doesn't leak a paused VM.
+        if let entry { await PausedContainerRegistry.teardown(entry, siteID: siteID) }
+    }
+
     @Test("execInteractive echoes what's written to its stdin back out through onOutput")
     func execInteractiveEchoesStdin() async throws {
         try #require(enabled, "set ANGLESITE_CONTAINER_E2E=1 on an entitled Apple-Silicon Mac")
