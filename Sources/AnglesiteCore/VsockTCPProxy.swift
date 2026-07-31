@@ -32,6 +32,9 @@ public actor VsockTCPProxy {
     private var acceptSource: DispatchSourceRead?
     private var connections: [ProxyConnection] = []
 
+    /// Creates a proxy for one guest port. The diagnostic closures default to no-ops so callers
+    /// that don't care about the failure-stage breakdown (tests, simple tools) stay one-liners,
+    /// while the runtime wires them into the debug pane.
     public init(
         guestPort: UInt32,
         dial: @escaping VsockDialer,
@@ -88,6 +91,8 @@ public actor VsockTCPProxy {
         return URL(string: "http://127.0.0.1:\(port)")!
     }
 
+    /// Tears down the listener and every live spliced connection. Safe to call more than once —
+    /// a straggling accept-handler invocation after cancel is absorbed by the fd guards below.
     public func stop() {
         // cancel() is async wrt GCD delivery, so one more handler invocation may fire after this;
         // accept() on the closed fd returns EBADF (<0), which the handler's `guard conn >= 0` catches cleanly.

@@ -18,17 +18,27 @@ import FoundationNetworking
 /// as the webmention-send and POSSE passes it runs alongside in
 /// `DeployCoordinator.runPostDeploySequencing`.
 public struct WebSubPublishPing: Sendable {
+    /// Injectable HTTP seam so tests can stub hub responses without a network. Returning
+    /// `HTTPURLResponse` (not `URLResponse`) keeps the "was this even HTTP?" check inside the
+    /// transport, so `notify` only reasons about status codes.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     /// The feed paths the hub serves as topics. Must mirror the template's
     /// `worker/worker.ts` `WEBSUB_TOPIC_PATHS` — a ping for any other path is a 400.
     public static let topicPaths = ["/rss.xml", "/atom.xml", "/feed.json"]
 
+    /// The result of pinging the hub for one feed topic. Reported instead of thrown so a partial
+    /// failure (one feed rejected, two accepted) stays visible per-topic rather than collapsing
+    /// into a single error for the whole pass.
     public struct Outcome: Equatable, Sendable {
+        /// The full topic URL that was pinged (`<origin><feed path>`).
         public let topic: String
+        /// Whether the hub answered with a 2xx.
         public let accepted: Bool
+        /// Failure detail (HTTP status + body, or the transport error) — `nil` on success.
         public let detail: String?
 
+        /// Creates an outcome; `detail` defaults to `nil` for the accepted case.
         public init(topic: String, accepted: Bool, detail: String? = nil) {
             self.topic = topic
             self.accepted = accepted
@@ -38,6 +48,7 @@ public struct WebSubPublishPing: Sendable {
 
     private let transport: Transport
 
+    /// Creates a pinger; pass a custom `transport` in tests to stub the hub without a network.
     public init(transport: @escaping Transport = WebSubPublishPing.defaultTransport) {
         self.transport = transport
     }
@@ -129,6 +140,10 @@ public struct WebSubPublishPing: Sendable {
         return URLSession(configuration: config)
     }()
 
+    /// Production transport: a dedicated ephemeral `URLSession` with the tight per-request
+    /// timeout above (not `URLSession.shared`, whose ~60s default could stall a deploy's
+    /// post-processing on an unreachable hub). A non-HTTP response is surfaced as
+    /// `URLError.badServerResponse` rather than silently coerced.
     public static let defaultTransport: Transport = { request in
         let (data, response) = try await defaultSession.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }

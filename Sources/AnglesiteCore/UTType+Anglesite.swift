@@ -26,7 +26,11 @@ public extension UTType {
     /// filename extension, and no cross-process/Launch Services resolution (Finder, Quick Look,
     /// Spotlight) involved, which is what Info.plist registration is for.
     static let anglesiteComponentDragItem = UTType(exportedAs: "io.dwk.anglesite.component-drag-item")
+    /// Drag payload for palette items dragged into the Component Editor outline — in-process only,
+    /// unregistered by design (see `anglesiteComponentDragItem` above for why).
     static let anglesitePaletteDragPayload = UTType(exportedAs: "io.dwk.anglesite.palette-drag-payload")
+    /// Drag payload for reordering existing nodes within the Component Editor outline — in-process
+    /// only, unregistered by design (see `anglesiteComponentDragItem` above for why).
     static let anglesiteOutlineDragPayload = UTType(exportedAs: "io.dwk.anglesite.outline-drag-payload")
 }
 #endif

@@ -8,24 +8,45 @@ import Foundation
 /// `FrontmatterDocument`'s verbatim preservation keeps untouched keys and the body intact. Pure,
 /// no I/O.
 public enum TypedContentEditor {
+    /// A decoded, editor-facing field value — one case per shape a form control binds to, not one
+    /// per `ContentTypeField.Kind` (several kinds share a shape: `.string`/`.text`/`.url`/`.image`
+    /// are all `.text`). Equality at this level is what makes ``TypedContentEditor/write(_:into:descriptor:)``'s
+    /// changed-fields-only diff format-preserving.
     public enum FieldValue: Equatable, Sendable {
+        /// Free text — backs string-like kinds and the markdown body alike.
         case text(String)
+        /// A boolean toggle.
         case flag(Bool)
+        /// A date; `nil` means cleared/unset, which serializes back as an empty scalar rather than
+        /// being dropped.
         case date(Date?)
+        /// A number; `nil` means cleared/unset, mirroring `date`'s empty-scalar round-trip.
         case number(Double?)
+        /// An ordered list of strings (string-array and image-array kinds).
         case list([String])
+        /// Rows of an object-array field, each row keyed by member-field name.
         case records([[String: FieldValue]])
     }
 
+    /// The full set of per-field values for one document, keyed by field name.
+    ///
+    /// A thin wrapper over a dictionary rather than a bare `[String: FieldValue]` so the editor's
+    /// binding surface stays a single value type the form can diff with `==`.
     public struct Values: Equatable, Sendable {
         private var dict: [String: FieldValue]
+        /// Creates a value set, empty by default so an editor can start blank and fill in per field.
         public init(_ dict: [String: FieldValue] = [:]) { self.dict = dict }
+        /// Accesses the value for a field by name; `nil` means the field isn't present in this set
+        /// (distinct from a present-but-empty value like `.text("")`).
         public subscript(_ name: String) -> FieldValue? {
             get { dict[name] }
             set { dict[name] = newValue }
         }
     }
 
+    /// The empty/cleared value a field of the given kind starts with when the document doesn't
+    /// define it — so every descriptor field always has a bindable value and the form never has to
+    /// handle a missing key.
     public static func defaultValue(for kind: ContentTypeField.Kind) -> FieldValue {
         switch kind {
         case .string, .text, .markdown, .url, .image: return .text("")
@@ -37,6 +58,10 @@ public enum TypedContentEditor {
         }
     }
 
+    /// Decodes a content file's frontmatter + body into per-field values for the descriptor.
+    ///
+    /// Fields absent from the file come back as ``defaultValue(for:)`` rather than being omitted,
+    /// so the result always covers every descriptor field.
     public static func read(_ contents: String, descriptor: ContentTypeDescriptor) -> Values {
         read(from: FrontmatterDocument.parse(contents), descriptor: descriptor)
     }
@@ -59,6 +84,12 @@ public enum TypedContentEditor {
         return out
     }
 
+    /// Applies edited values back onto the original file contents and returns the new serialization.
+    ///
+    /// Only fields whose decoded value actually differs from what's on disk are rewritten — that
+    /// changed-fields-only diff is what lets `FrontmatterDocument`'s verbatim preservation keep
+    /// untouched keys, comments, and non-canonical formatting (e.g. a date-only `publishDate`)
+    /// byte-identical.
     public static func write(_ values: Values, into contents: String, descriptor: ContentTypeDescriptor) -> String {
         var doc = FrontmatterDocument.parse(contents)
         // Derive `current` from the already-parsed `doc` (no second parse). Comparison stays at the

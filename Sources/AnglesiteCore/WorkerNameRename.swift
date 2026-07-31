@@ -9,9 +9,16 @@ import Foundation
 /// regenerate would silently drop any social-feature config a user provisioned (via
 /// `SocialWorkerProvisionCommand`) before their first deploy.
 public enum WorkerNameRename {
+    /// Ways ``WorkerNameRename/apply(newName:siteDirectory:fileManager:)`` can refuse — all
+    /// thrown before any write, so a failed rename never leaves the two files half-updated.
     public enum RenameError: Error, Equatable, Sendable {
+        /// `newName` doesn't satisfy `WorkerComposition`'s `[A-Za-z0-9_-]+` constraint.
         case invalidName(String)
+        /// No `wrangler.toml` at the site root — the site was never scaffolded for deploy, so
+        /// there is nothing to rename.
         case wranglerConfigMissing
+        /// `wrangler.toml` exists but has no `name = "..."` line to rewrite — surfaced rather
+        /// than appending one, since a hand-edited file shouldn't be silently restructured.
         case nameLineNotFound
     }
 

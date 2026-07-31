@@ -47,6 +47,8 @@ public struct WorkersConformanceStatus: Sendable, Equatable {
         case storage
     }
 
+    /// The `@dwk/*` packages each phase's activation is gated on — the app-side mirror of the
+    /// release plan, kept as data (not logic) so ``gateStatus(for:)`` stays a pure lookup.
     public static let phaseRequirements: [Phase: [String]] = [
         .v2: ["@dwk/webmention", "@dwk/indieauth"],
         .v3: ["@dwk/micropub", "@dwk/webmention", "@dwk/websub"],

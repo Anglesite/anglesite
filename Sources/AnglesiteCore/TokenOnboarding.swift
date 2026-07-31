@@ -13,6 +13,8 @@ import Foundation
 /// still runs on CI's older runners.
 @MainActor
 public struct TokenOnboarding {
+    /// What the caller should do after a run — the three-way split exists so the view-model can
+    /// distinguish "keep the sheet open" from "close it silently" without re-deriving state.
     public enum Outcome: Equatable {
         /// Token verified and persisted — the caller should start the parked deploy.
         case proceed(CloudflareAccount)
@@ -24,6 +26,7 @@ public struct TokenOnboarding {
 
     private let verifier: TokenVerifying
 
+    /// Creates the flow with an injectable verifier so tests can stub the network round-trip.
     public init(verifier: TokenVerifying) {
         self.verifier = verifier
     }

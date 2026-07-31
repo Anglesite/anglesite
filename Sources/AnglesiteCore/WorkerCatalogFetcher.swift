@@ -10,7 +10,10 @@ import FoundationNetworking
 import OSLog
 #endif
 
+/// Internal failure signal for the fetch path — never escapes `WorkerCatalogFetcher.catalog()`,
+/// which degrades to cache/empty instead of throwing; public only so tests can construct it.
 public enum WorkerCatalogFetchError: Error, Sendable, Equatable {
+    /// The HTTP fetch didn't produce a usable 2xx response; the string names the URL for the log.
     case fetchFailed(String)
 }
 
@@ -38,6 +41,9 @@ public actor WorkerCatalogFetcher {
     private let session: URLSession
     private let fileManager: FileManager
 
+    /// Creates a fetcher. `catalogURL` is deliberately required (pass ``productionCatalogURL`` in
+    /// production) so tests point at a local fixture server; cache location, session, and file
+    /// manager default to production values.
     public init(
         catalogURL: URL,
         cacheURL: URL = WorkerCatalogFetcher.defaultCacheURL(),

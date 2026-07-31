@@ -3,12 +3,19 @@ import Foundation
 /// WCAG 2.2 contrast-ratio utilities, ported 1:1 from the plugin's `scripts/contrast.ts`.
 /// Pure, no I/O.
 public struct RGBColor: Sendable, Equatable {
+    /// Red channel, 0–255.
     public let r: Int
+    /// Green channel, 0–255.
     public let g: Int
+    /// Blue channel, 0–255.
     public let b: Int
+    /// Creates a color from 0–255 channel values. Not range-checked here — clamping happens at
+    /// the serialization edge (`suggestReadable`'s hex output) instead.
     public init(r: Int, g: Int, b: Int) { self.r = r; self.g = g; self.b = b }
 }
 
+/// Namespace for the WCAG 2.2 contrast math — kept a caseless enum so the port from the plugin's
+/// `scripts/contrast.ts` stays a set of pure static functions with no state to drift.
 public enum WCAGContrast {
     /// Parses a hex color (`#rgb` or `#rrggbb`, leading `#` optional). Returns `nil` for invalid input.
     public static func hexToRGB(_ hex: String) -> RGBColor? {
@@ -42,7 +49,11 @@ public enum WCAGContrast {
         return (lighter + 0.05) / (darker + 0.05)
     }
 
+    /// Whether the pair meets WCAG AA for normal-size text (ratio ≥ 4.5:1). A parse failure yields
+    /// `NaN`, and `NaN >= 4.5` is `false` — unparseable colors fail closed.
     public static func meetsAA(fg: String, bg: String) -> Bool { contrastRatio(fg, bg) >= 4.5 }
+    /// Whether the pair meets WCAG AA for large text (ratio ≥ 3:1); fails closed on parse errors
+    /// like ``meetsAA(fg:bg:)``.
     public static func meetsAALarge(fg: String, bg: String) -> Bool { contrastRatio(fg, bg) >= 3 }
 
     private static func toHex(_ rgb: RGBColor) -> String {

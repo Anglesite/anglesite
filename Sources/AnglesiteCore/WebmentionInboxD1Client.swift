@@ -23,15 +23,27 @@ public struct WebmentionInboxD1Client: Sendable {
     /// (`author.name` -> `authorName`, etc.) since this is a SQL projection, not a JSON decode of
     /// that type. Dates are epoch milliseconds, matching the column types.
     public struct Mention: Sendable, Equatable {
+        /// Stable row id (upstream's FNV-1a hash of source+target) — rows without one are
+        /// skipped at decode, so this is non-optional here even though the column predates it.
         public let id: String
+        /// URL of the page that mentioned us.
         public let source: String
+        /// URL on this site that was mentioned.
         public let target: String
+        /// When the Worker verified the mention, in epoch milliseconds (the column's native unit).
         public let verifiedAt: Int
+        /// Microformats interaction class (`like`, `repost`, `reply`, …) — `nil` on rows written
+        /// before the mf2-enrichment pass landed upstream.
         public let interactionType: String?
+        /// Author display name from the source page's h-card, when enrichment ran.
         public let authorName: String?
+        /// Author profile URL from the source page's h-card, when enrichment ran.
         public let authorURL: String?
+        /// Author avatar URL from the source page's h-card, when enrichment ran.
         public let authorPhoto: String?
+        /// Excerpted mention content (reply text), when enrichment ran.
         public let content: String?
+        /// Source page's declared publication date in epoch milliseconds, when enrichment ran.
         public let publishedAt: Int?
     }
 
@@ -76,6 +88,10 @@ public struct WebmentionInboxD1Client: Sendable {
     private let apiToken: String
     private let transport: CloudflareTransport
 
+    /// Creates a client for one site's inbox database. The token is passed in directly (no
+    /// Keychain coupling — the caller owns credential resolution, matching `InboxKVClient`);
+    /// `baseURL` and `transport` are injectable so tests can point at a stub instead of the
+    /// live Cloudflare API.
     public init(
         accountID: String,
         databaseID: String,

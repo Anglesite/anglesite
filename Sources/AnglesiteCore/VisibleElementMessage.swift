@@ -13,20 +13,38 @@ public struct VisibleElement: Sendable, Equatable {
     /// Per-tab stable id. Sourced from `data-anglesite-id` when present, otherwise a generated
     /// `v-…` string the JS layer keeps stable across reports via an internal WeakMap.
     public let id: String
+    /// Lowercased HTML tag name — the cheapest signal for kind-of-element filtering ("this image"
+    /// vs "this heading") before any selector work happens.
     public let tag: String
+    /// The structured `ElementInfo` metadata (always a JSON object; the decoder enforces this) —
+    /// kept opaque here so the plugin's `server/selector.mjs` remains the only selector builder.
     public let selector: JSONValue
+    /// Viewport-relative bounding box, used for Siri's "this one" hit-testing.
     public let rect: Rect
+    /// Trimmed visible text content, when the element has any — a disambiguation hint, not a
+    /// faithful copy of the DOM.
     public let text: String?
+    /// The element's resolved `src` (images/media), when present.
     public let src: String?
+    /// The element's ARIA role, when the JS layer could determine one.
     public let role: String?
+    /// The page path the element was observed on — lets the provider scope entities to the page
+    /// the preview is actually showing.
     public let pagePath: String?
 
+    /// A viewport-coordinate bounding box. A minimal value type rather than `CGRect` so this
+    /// message stays Foundation-only and portable off-Darwin.
     public struct Rect: Sendable, Equatable {
+        /// Left edge, in CSS pixels relative to the viewport.
         public let x: Double
+        /// Top edge, in CSS pixels relative to the viewport.
         public let y: Double
+        /// Width in CSS pixels.
         public let width: Double
+        /// Height in CSS pixels.
         public let height: Double
 
+        /// Creates a rect from the four viewport-relative components.
         public init(x: Double, y: Double, width: Double, height: Double) {
             self.x = x
             self.y = y
@@ -35,6 +53,8 @@ public struct VisibleElement: Sendable, Equatable {
         }
     }
 
+    /// Memberwise creation, with the optional disambiguation hints defaulting to `nil` so tests
+    /// and alternate producers only spell out what they care about.
     public init(
         id: String,
         tag: String,
@@ -58,19 +78,32 @@ public struct VisibleElement: Sendable, Equatable {
 
 /// The full `anglesite:visible-elements` payload — type tag plus the element list.
 public struct VisibleElementReport: Sendable, Equatable {
+    /// The `type` discriminator the JS reporter stamps on every payload; ``decode(from:)`` rejects
+    /// anything else so one script handler can route multiple message families.
     public static let messageType = "anglesite:visible-elements"
 
+    /// The elements visible at report time, in the order the JS layer enumerated them.
     public let elements: [VisibleElement]
 
+    /// Wraps an element list — used by tests and by ``decode(from:)`` on success.
     public init(elements: [VisibleElement]) {
         self.elements = elements
     }
 
+    /// Report-level decode failure shape. Each case pins down *where* a malformed payload went
+    /// wrong, because a bare "bad message" from the JS boundary is undebuggable.
     public enum DecodeError: Error, Sendable, Equatable {
+        /// The body wasn't a dictionary at all.
         case notAnObject
+        /// A required top-level key was absent.
         case missingField(String)
+        /// A top-level key was present but had the wrong type.
         case wrongType(field: String, expected: String)
+        /// The `type` tag didn't match ``VisibleElementReport/messageType`` — the message belongs
+        /// to another family.
         case unknownType(String)
+        /// One element in the batch failed to decode; the whole report is rejected rather than
+        /// silently dropping the bad element, so the JS bug surfaces instead of hiding.
         case malformedElement(index: Int, error: VisibleElement.DecodeError)
     }
 
@@ -106,8 +139,11 @@ extension VisibleElement {
     /// `Type.DecodeError` pairing `EditMessage` uses), and surfaced from the report's
     /// `DecodeError.malformedElement(index:error:)` case when one element in a batch fails.
     public enum DecodeError: Error, Sendable, Equatable {
+        /// The element payload wasn't a dictionary.
         case notAnObject
+        /// A required element key was absent.
         case missingField(String)
+        /// An element key was present but had the wrong type.
         case wrongType(field: String, expected: String)
     }
 
