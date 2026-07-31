@@ -58,18 +58,19 @@ public enum DependencySyncApplier {
         // silently withhold future bump offers for every other dependency the
         // site has.
         var newBaseline = DependencyBaseline.load(from: configDirectory) ?? landed
-        // Only baseline an update/addition that actually landed in `updatedText`.
-        // For an update, "landed" means the merged range now equals the offered
-        // range (the stronger check — a bump target already existed, so its value
-        // should have visibly changed). For an addition, "landed" means the name
-        // is now present at all (existence check — a fresh insertion has no prior
-        // value to compare against). Baselining an offer that silently no-opped
-        // would make `DependencySync.diff`'s gates think it already landed and
-        // withhold it forever, with no way for the user to ever see or recover it.
+        // Only baseline an update/addition that actually landed in `updatedText`:
+        // the merged range now equals the offered range. Applies equally to both
+        // kinds — `applyAdditions` also silently skips an offer whose name is
+        // already present in the target section (see its own doc comment), so an
+        // addition's mere presence in `landed` doesn't prove *this* offer wrote
+        // it; only an exact range match does. Baselining an offer that silently
+        // no-opped would make `DependencySync.diff`'s gates think it already
+        // landed and withhold it forever, with no way for the user to ever see or
+        // recover it.
         for offer in offers.updates where landed[offer.name] == offer.offeredRange {
             newBaseline[offer.name] = offer.offeredRange
         }
-        for offer in offers.additions where landed[offer.name] != nil {
+        for offer in offers.additions where landed[offer.name] == offer.offeredRange {
             newBaseline[offer.name] = offer.offeredRange
         }
         try? DependencyBaseline.save(newBaseline, to: configDirectory)

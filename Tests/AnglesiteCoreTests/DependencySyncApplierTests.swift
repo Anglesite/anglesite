@@ -149,6 +149,32 @@ import Foundation
         #expect(baseline?["typescript"] == "^5.9.3")
     }
 
+    @Test func withholdsTheBaselineForAStaleAdditionSkippedBecauseItsNameAlreadyExists() throws {
+        // "astro" is already in the site's package.json at ^5.0.0, and the
+        // baseline already agrees (^5.0.0) — an established site, not a legacy
+        // one, so the no-baseline seed path (tested separately above) can't mask
+        // this. A stale addition offer for "astro" at ^6.0.0 reaches
+        // `applyAdditions`, which correctly skips it (PackageJSONDependencies's
+        // duplicate-key guard) — but `landed["astro"]` is still non-nil (it's the
+        // site's pre-existing ^5.0.0), so an existence-only check would wrongly
+        // baseline the offer's ^6.0.0 anyway, permanently withholding a real bump
+        // offer for "astro" thereafter. Only an exact-range match proves this
+        // offer landed (#1108 review, round 2).
+        let (source, config) = try makeSourceAndConfig()
+        try DependencyBaseline.save(["astro": "^5.0.0"], to: config)
+        let offers = DependencySyncOffers(
+            additions: [DependencyAdditionOffer(name: "astro", offeredRange: "^6.0.0", section: .dependencies)]
+        )
+        try DependencySyncApplier.apply(offers, sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
+
+        let updated = try String(contentsOf: source.appendingPathComponent("package.json"), encoding: .utf8)
+        #expect(updated.contains("\"astro\": \"^5.0.0\""))
+        #expect(!updated.contains("^6.0.0"))
+
+        let baseline = DependencyBaseline.load(from: config)
+        #expect(baseline?["astro"] == "^5.0.0")
+    }
+
     @Test func throwsReadFailedWhenPackageJSONIsMissing() throws {
         let root = tmpDir()
         let source = root.appendingPathComponent("Source")
