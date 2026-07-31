@@ -1,0 +1,20 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hresume from "../layouts/Hresume.astro";
+import type { ResumeData } from "../lib/schema.ts";
+
+// Optional, same pattern as the site-identity singleton (Hcard.astro): the glob returns {} when
+// src/data/resume.json is absent, so an unconfigured site gets a plain placeholder page here
+// rather than a broken build — this is a fixed route (not a [...slug] page), so it always emits
+// dist/resume/index.html whether or not a resume has been configured.
+const mods = import.meta.glob<{ default: ResumeData }>("../data/resume.json", { eager: true });
+const resume = Object.values(mods)[0]?.default;
+---
+
+{resume ? (
+  <Hresume resume={resume} />
+) : (
+  <BaseLayout title="Resume" description="No resume has been published yet.">
+    <p>No resume has been published yet.</p>
+  </BaseLayout>
+)}
