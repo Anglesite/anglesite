@@ -28,6 +28,11 @@ private struct PauseResumeProbeTimeout: Error {}
 //   workers-dev — mirrors ContainerizationControlTests.startsWorkersDevForActiveWorker: boot a
 //           container, start local wrangler-dev for one active (fixture) worker, poll its URL
 //           for a live HTTP response. The #708 local-runtime feature's own decision gate.
+//   worker-toggle — mirrors WorkerToggleEndToEndTests.toggleRestartsLocalWranglerDev: boots a
+//           LocalContainerSiteRuntime with an empty active-worker set, calls
+//           updateActiveWorkers to toggle a settings-activated worker on (asserting the state
+//           re-settles to .ready with a reachable workersDevURL), then toggles it back off
+//           (asserting workersDevURL returns to nil). The #919 decision gate.
 //   pause-resume — bare container + guest vsock echo listener, confirm a round trip, pause the
 //           VM, resume it, confirm a FRESH dial still reaches the listener, then EMPIRICALLY
 //           confirm the resume-before-stop ordering: a direct `container.stop()` call while still
@@ -39,7 +44,8 @@ struct AnglesiteContainerProbe {
     static func main() async {
         let args = CommandLine.arguments.dropFirst()
         guard let subcommand = args.first else {
-            FileHandle.standardError.write(Data("usage: anglesite-container-probe <echo|boot|workers-dev|pause-resume>\n".utf8))
+            FileHandle.standardError.write(
+                Data("usage: anglesite-container-probe <echo|boot|workers-dev|worker-toggle|pause-resume>\n".utf8))
             exit(2)
         }
 
@@ -51,11 +57,13 @@ struct AnglesiteContainerProbe {
             exitCode = await runBoot()
         case "workers-dev":
             exitCode = await runWorkersDev()
+        case "worker-toggle":
+            exitCode = await runWorkerToggle()
         case "pause-resume":
             exitCode = await runPauseResume()
         default:
             FileHandle.standardError.write(
-                Data("unknown subcommand '\(subcommand)' (expected echo|boot|workers-dev|pause-resume)\n".utf8))
+                Data("unknown subcommand '\(subcommand)' (expected echo|boot|workers-dev|worker-toggle|pause-resume)\n".utf8))
             exitCode = 2
         }
         exit(exitCode)
@@ -400,6 +408,105 @@ struct AnglesiteContainerProbe {
         return 0
     }
 
+    // MARK: - worker-toggle
+
+    /// Mirrors `WorkerToggleEndToEndTests.toggleRestartsLocalWranglerDev`: boots a
+    /// `LocalContainerSiteRuntime` (not the bare `ContainerizationControl` the other subcommands
+    /// exercise) with an empty active-worker set, calls `updateActiveWorkers` to toggle a
+    /// settings-activated fixture worker on, polls the returned `workersDevURL` for a live HTTP
+    /// response, then toggles it back off and confirms `workersDevURL` returns to nil. The #919
+    /// decision gate for the Workers tab's (#917) toggle→restart path.
+    private static func runWorkerToggle() async -> Int32 {
+        let siteID = "worker-toggle-probe"
+
+        let package: URL
+        do {
+            package = try makeThrowawayPackage()
+        } catch {
+            print("WORKER-TOGGLE: FAIL — could not create throwaway package: \(error)")
+            return 1
+        }
+        defer { try? FileManager.default.removeItem(at: package) }
+
+        let configStore = SiteConfigStore(configDirectory: AnglesitePackage(url: package).configURL)
+        do {
+            try await configStore.save(SiteSettings())
+        } catch {
+            print("WORKER-TOGGLE: FAIL — could not save initial (empty) settings: \(error)")
+            return 1
+        }
+
+        let workers = [WorkerDescriptor(
+            id: "indieauth", displayName: "IndieAuth", description: "probe fixture", group: "identity",
+            binding: .settingsActivated, resources: .init(needsD1: true, needsKV: true, needsR2: false))]
+        let runtime = LocalContainerSiteRuntime(
+            ref: "HEAD",
+            control: ContainerizationControl(),
+            mcpClient: MCPClient(supervisor: .shared),
+            workerCatalog: { workers })
+
+        await runtime.start(siteID: siteID, siteDirectory: AnglesitePackage(url: package).sourceURL)
+        guard case .ready(_, _, let bootWorkersDevURL) = await runtime.state else {
+            print("WORKER-TOGGLE: FAIL — expected .ready after boot, got \(await runtime.state)")
+            await runtime.stop()
+            return 1
+        }
+        guard bootWorkersDevURL == nil else {
+            print("WORKER-TOGGLE: FAIL — expected a nil workersDevURL at boot (no active workers), got \(bootWorkersDevURL!)")
+            await runtime.stop()
+            return 1
+        }
+        print("WORKER-TOGGLE: boot with an empty active-worker set OK")
+
+        let activated = SiteSettings(activeWorkerIDs: ["indieauth"])
+        do {
+            try await configStore.save(activated)
+        } catch {
+            print("WORKER-TOGGLE: FAIL — could not save activated settings: \(error)")
+            await runtime.stop()
+            return 1
+        }
+        await runtime.updateActiveWorkers(activated)
+        guard case .ready(_, _, let activeWorkersDevURL) = await runtime.state, let workersDevURL = activeWorkersDevURL else {
+            print("WORKER-TOGGLE: FAIL — expected .ready with a non-nil workersDevURL after toggle-on, got \(await runtime.state)")
+            await runtime.stop()
+            return 1
+        }
+
+        let reachable = await pollForHTTPResponse(workersDevURL, timeout: .seconds(60))
+        guard reachable else {
+            print("WORKER-TOGGLE: FAIL — \(workersDevURL) never answered within the timeout after toggle-on")
+            await runtime.stop()
+            return 1
+        }
+        print("WORKER-TOGGLE: toggle-on restarted a reachable local wrangler-dev OK")
+
+        let deactivated = SiteSettings()
+        do {
+            try await configStore.save(deactivated)
+        } catch {
+            print("WORKER-TOGGLE: FAIL — could not save deactivated settings: \(error)")
+            await runtime.stop()
+            return 1
+        }
+        await runtime.updateActiveWorkers(deactivated)
+        guard case .ready(_, _, let stoppedWorkersDevURL) = await runtime.state else {
+            print("WORKER-TOGGLE: FAIL — expected .ready after toggle-off, got \(await runtime.state)")
+            await runtime.stop()
+            return 1
+        }
+        guard stoppedWorkersDevURL == nil else {
+            print("WORKER-TOGGLE: FAIL — expected a nil workersDevURL after toggle-off, got \(stoppedWorkersDevURL!)")
+            await runtime.stop()
+            return 1
+        }
+        print("WORKER-TOGGLE: toggle-off stopped local wrangler-dev OK")
+
+        print("GATE: PASS")
+        await runtime.stop()
+        return 0
+    }
+
     /// Polls `url` for any HTTP response (any status code is a pass — we only care that the
     /// guest dev server is accepting connections and speaking HTTP), bounded by `timeout`.
     private static func pollForHTTPResponse(_ url: URL, timeout: Duration) async -> Bool {
@@ -456,5 +563,52 @@ struct AnglesiteContainerProbe {
         try git(["add", "-A"])
         try git(["commit", "-q", "-m", "initial"])
         return dir
+    }
+
+    /// Create a throwaway `.anglesite` package for `worker-toggle`: `Source/` holds the same
+    /// minimal Astro project + initial commit as `makeThrowawayAstroRepo`, and `Config/` is where
+    /// `SiteConfigStore` persists the active-worker settings `LocalContainerSiteRuntime`'s
+    /// `updateActiveWorkers`/`startWorkersDevIfActive` re-read from disk. A bare repo (as
+    /// `makeThrowawayAstroRepo` returns) has no `Config/` sibling, so `worker-toggle` needs this
+    /// distinct helper rather than reusing that one directly.
+    private static func makeThrowawayPackage() throws -> URL {
+        let fm = FileManager.default
+        let package = fm.temporaryDirectory
+            .appendingPathComponent("anglesite-worker-toggle-probe-\(UUID().uuidString).anglesite", isDirectory: true)
+        let sourceURL = AnglesitePackage(url: package).sourceURL
+        try fm.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try fm.createDirectory(at: AnglesitePackage(url: package).configURL, withIntermediateDirectories: true)
+
+        try """
+        {
+          "name": "anglesite-worker-toggle-probe",
+          "private": true,
+          "dependencies": { "astro": "*" }
+        }
+        """.write(to: sourceURL.appendingPathComponent("package.json"), atomically: true, encoding: .utf8)
+
+        let pages = sourceURL.appendingPathComponent("src/pages", isDirectory: true)
+        try fm.createDirectory(at: pages, withIntermediateDirectories: true)
+        try "<html><body><h1>Anglesite worker-toggle probe</h1></body></html>\n"
+            .write(to: pages.appendingPathComponent("index.astro"), atomically: true, encoding: .utf8)
+
+        func git(_ args: [String]) throws {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            p.arguments = args
+            p.currentDirectoryURL = sourceURL
+            p.environment = ProcessInfo.processInfo.environment
+                .merging(["GIT_AUTHOR_NAME": "probe", "GIT_AUTHOR_EMAIL": "probe@anglesite.test",
+                          "GIT_COMMITTER_NAME": "probe", "GIT_COMMITTER_EMAIL": "probe@anglesite.test"]) { _, new in new }
+            try p.run()
+            p.waitUntilExit()
+            guard p.terminationStatus == 0 else {
+                throw LocalContainerError.cloneFailed("git \(args.joined(separator: " ")) exited \(p.terminationStatus)")
+            }
+        }
+        try git(["init", "-q"])
+        try git(["add", "-A"])
+        try git(["commit", "-q", "-m", "initial"])
+        return package
     }
 }
