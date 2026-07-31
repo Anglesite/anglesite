@@ -73,7 +73,8 @@ struct SiteSearchFieldModifier: ViewModifier {
                     // that, coalesced with a still-presented window inspector, hits the same
                     // macOS 27 beta AppKit constraint-update storm as the pane-switch case
                     // (#1126). Dismiss the inspector and give its own dismissal transaction a
-                    // moment to settle first, same mitigation as
+                    // moment to settle first, same mitigation
+                    // (`AppKitConstraintStormMitigation`) as
                     // `SiteWindowModel.clearInspectorThenSwitchPane`; skipped entirely when
                     // there's no inspector presented to collide with.
                     guard inspectorPresented.wrappedValue else {
@@ -82,7 +83,7 @@ struct SiteSearchFieldModifier: ViewModifier {
                     }
                     inspectorPresented.wrappedValue = false
                     Task {
-                        try? await Task.sleep(for: .milliseconds(300))
+                        await AppKitConstraintStormMitigation.settle()
                         searchFieldFocused = true
                     }
                 }
