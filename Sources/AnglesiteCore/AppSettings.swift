@@ -44,10 +44,23 @@ public final class AppSettings: @unchecked Sendable {
     }
 
     private let defaults: UserDefaults
+    #if canImport(Darwin)
+    private let ubiquityContainerResolver: UbiquityContainerResolving
 
+    /// Must match the `com.apple.developer.icloud-container-identifiers` entry in
+    /// `Resources/Anglesite.entitlements` / `Resources/Anglesite-Debug.entitlements`, and the
+    /// `NSUbiquitousContainers` key in `Resources/Info.plist`.
+    static let ubiquityContainerIdentifier = "iCloud.io.dwk.anglesite"
+
+    public init(defaults: UserDefaults, ubiquityContainerResolver: UbiquityContainerResolving = FileManager.default) {
+        self.defaults = defaults
+        self.ubiquityContainerResolver = ubiquityContainerResolver
+    }
+    #else
     public init(defaults: UserDefaults) {
         self.defaults = defaults
     }
+    #endif
 
     /// Optional override for the bundled website template path. Lets template authors iterate
     /// on `Resources/Template/` content without rebuilding the app.
@@ -102,10 +115,21 @@ public final class AppSettings: @unchecked Sendable {
         return port
     }
 
-    /// Effective root for site discovery. Returns the override when set, otherwise `~/Sites/`.
+    /// Effective root for site discovery (#865): `sitesRootOverride` when set (dev/test escape
+    /// hatch), otherwise the "Anglesite" folder inside this app's iCloud ubiquity container —
+    /// falling back to `~/Sites/` only when iCloud is unavailable (not signed in, iCloud Drive
+    /// off, or the container isn't provisioned, which is true of every ad-hoc-signed Debug build
+    /// since it has no Team ID) or on a platform with no iCloud API at all (Linux). No migration
+    /// path for existing `~/Sites/` packages: the app is pre-1.0 with no real user base there yet
+    /// (owner confirmation, 2026-07-21).
     public var sitesRoot: URL {
-        sitesRootOverride
-            ?? FileManager.default.portableHomeDirectory.appendingPathComponent("Sites", isDirectory: true)
+        if let sitesRootOverride { return sitesRootOverride }
+        #if canImport(Darwin)
+        if let container = ubiquityContainerResolver.url(forUbiquityContainerIdentifier: Self.ubiquityContainerIdentifier) {
+            return container.appendingPathComponent("Documents", isDirectory: true)
+        }
+        #endif
+        return FileManager.default.portableHomeDirectory.appendingPathComponent("Sites", isDirectory: true)
     }
 
     /// Opt-in toggle (Settings → Advanced) that surfaces the Debug pane menu item in Release

@@ -18,7 +18,48 @@ final class AppSettingsTests {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    @Test("Sites root falls back to home Sites") func sitesRootFallsBackToHomeSites() {
+#if canImport(Darwin)
+    /// Deterministic stand-in for `FileManager` so these tests don't depend on the real iCloud
+    /// account state of the machine running `swift test` (which never has the app's entitlement
+    /// anyway, but should never be the thing making the test pass or fail).
+    private struct FakeUbiquityContainerResolver: UbiquityContainerResolving {
+        let result: URL?
+        func url(forUbiquityContainerIdentifier containerIdentifier: String?) -> URL? { result }
+    }
+
+    @Test("Sites root uses the iCloud container's Documents folder when iCloud is available")
+    func sitesRootUsesICloudContainerWhenAvailable() {
+        let container = URL(fileURLWithPath: "/tmp/fake-ubiquity-container", isDirectory: true)
+        let settings = AppSettings(
+            defaults: defaults,
+            ubiquityContainerResolver: FakeUbiquityContainerResolver(result: container))
+        let expected = container.appendingPathComponent("Documents", isDirectory: true)
+        #expect(settings.sitesRoot.path == expected.path)
+    }
+
+    @Test("Sites root falls back to home Sites when iCloud is unavailable")
+    func sitesRootFallsBackToHomeSitesWhenICloudUnavailable() {
+        let settings = AppSettings(
+            defaults: defaults,
+            ubiquityContainerResolver: FakeUbiquityContainerResolver(result: nil))
+        let expected = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Sites", isDirectory: true)
+        #expect(settings.sitesRoot.path == expected.path)
+    }
+
+    @Test("Sites root honors override even when iCloud is available")
+    func sitesRootHonorsOverride() {
+        let container = URL(fileURLWithPath: "/tmp/fake-ubiquity-container", isDirectory: true)
+        let settings = AppSettings(
+            defaults: defaults,
+            ubiquityContainerResolver: FakeUbiquityContainerResolver(result: container))
+        let url = URL(fileURLWithPath: "/tmp/anglesite-sites", isDirectory: true)
+        settings.sitesRootOverride = url
+        #expect(settings.sitesRoot.path == url.path)
+    }
+#else
+    @Test("Sites root falls back to home Sites (no iCloud API on this platform)")
+    func sitesRootFallsBackToHomeSitesWhenICloudUnavailable() {
         let settings = AppSettings(defaults: defaults)
         let expected = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Sites", isDirectory: true)
@@ -31,6 +72,7 @@ final class AppSettingsTests {
         settings.sitesRootOverride = url
         #expect(settings.sitesRoot.path == url.path)
     }
+#endif
 
     @Test("Debug pane enabled defaults to false") func debugPaneEnabledDefaultsToFalse() {
         let settings = AppSettings(defaults: defaults)
