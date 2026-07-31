@@ -13,6 +13,18 @@ const education = resume.education ?? [];
 const skills = resume.skills ?? [];
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
 const jsonLd = resumeSchema(resume, { url: canonical, site: Astro.site });
+
+// Same convention as Hevent.astro's startISO/startHuman: keep the raw ISO string in the
+// `datetime` attribute (machine-readable, per mf2 dt-* conventions) but show a locale-formatted
+// string as the visible text, with a pinned locale ("en-US") so static output is deterministic
+// across build hosts. These are date-only values, so use toLocaleDateString rather than
+// toLocaleString — and pin timeZone: "UTC" too: a bare "2020-01-01" parses as UTC midnight per
+// the ISO-8601 spec, so formatting it back out in the build host's *local* zone can roll it back
+// a calendar day (verified: renders "12/31/2019" on a UTC-8 host without this). Pinning UTC
+// keeps the visible text matching the ISO date regardless of the machine building the site.
+function humanDate(iso: string | undefined): string | undefined {
+  return iso ? new Date(iso).toLocaleDateString("en-US", { timeZone: "UTC" }) : undefined;
+}
 ---
 
 <BaseLayout
@@ -37,8 +49,8 @@ const jsonLd = resumeSchema(resume, { url: canonical, site: Astro.site });
                   <span class="p-org h-card"><span class="p-name">{entry.organization}</span></span>
                 </>
               )}
-              {entry.startDate && <time class="dt-start" datetime={entry.startDate}>{entry.startDate}</time>}
-              {entry.endDate && <time class="dt-end" datetime={entry.endDate}>{entry.endDate}</time>}
+              {entry.startDate && <time class="dt-start" datetime={entry.startDate}>{humanDate(entry.startDate)}</time>}
+              {entry.endDate && <time class="dt-end" datetime={entry.endDate}>{humanDate(entry.endDate)}</time>}
               {entry.description && <p class="p-summary">{entry.description}</p>}
             </li>
           ))}
@@ -59,8 +71,8 @@ const jsonLd = resumeSchema(resume, { url: canonical, site: Astro.site });
                   <span class="p-org h-card"><span class="p-name">{entry.institution}</span></span>
                 </>
               )}
-              {entry.startDate && <time class="dt-start" datetime={entry.startDate}>{entry.startDate}</time>}
-              {entry.endDate && <time class="dt-end" datetime={entry.endDate}>{entry.endDate}</time>}
+              {entry.startDate && <time class="dt-start" datetime={entry.startDate}>{humanDate(entry.startDate)}</time>}
+              {entry.endDate && <time class="dt-end" datetime={entry.endDate}>{humanDate(entry.endDate)}</time>}
               {entry.description && <p class="p-summary">{entry.description}</p>}
             </li>
           ))}

@@ -52,6 +52,24 @@ struct HresumeRenderSmokeTests {
             try await build()
             #expect(!(try resumeHTML().contains("h-resume")))
 
+            // 1b. Scaffolded but incomplete: `ContentTypeScaffold.renderSingleton` fills only the
+            // title-like `name` field and leaves every other scalar (including the required
+            // `summary`) as `""`. Fix 1 (#964 final review): resume.astro must degrade this to
+            // the same placeholder as "absent" rather than emit an h-resume root missing
+            // p-summary, which would fail the non-overridable pre-deploy mf2 gate.
+            try write(resumeFile, """
+            {
+              "type": "resume",
+              "name": "Jane Doe",
+              "summary": "",
+              "experience": [],
+              "education": [],
+              "skills": []
+            }
+            """)
+            try await build()
+            #expect(!(try resumeHTML().contains("h-resume")))
+
             // 2. Configured: full mf2 + JSON-LD.
             try write(resumeFile, """
             {

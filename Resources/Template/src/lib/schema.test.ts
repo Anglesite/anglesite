@@ -88,3 +88,28 @@ test("resumeSchema: omits empty arrays and undefined fields when the resume is s
   assert.equal(Object.hasOwn(out, "hasOccupation"), false);
   assert.equal(Object.hasOwn(out, "alumniOf"), false);
 });
+
+test("resumeSchema: url points at the site root, not the resume page's own canonical URL", () => {
+  const out = resumeSchema(
+    { name: "Ada Lovelace" },
+    ctx({ url: "https://example.com/resume/", site: new URL("https://example.com") }),
+  ) as unknown as Record<string, unknown>;
+  assert.equal(out.url, "https://example.com/");
+});
+
+test("resumeSchema: an education entry with no institution produces no alumniOf entry for that record", () => {
+  const out = resumeSchema(
+    {
+      name: "Ada Lovelace",
+      education: [
+        { degree: "Self-taught", institution: "Home" },
+        { degree: "Informal study" },
+      ],
+    },
+    ctx(),
+  ) as unknown as Record<string, unknown>;
+
+  const alumniOf = out.alumniOf as Record<string, unknown>[];
+  assert.equal(alumniOf.length, 1);
+  assert.equal(alumniOf[0].name, "Home");
+});

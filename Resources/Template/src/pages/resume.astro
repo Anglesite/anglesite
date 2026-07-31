@@ -7,14 +7,27 @@ import type { ResumeData } from "../lib/schema.ts";
 // src/data/resume.json is absent, so an unconfigured site gets a plain placeholder page here
 // rather than a broken build — this is a fixed route (not a [...slug] page), so it always emits
 // dist/resume/index.html whether or not a resume has been configured.
+//
+// `name` and `summary` are both required for a valid h-resume (`validateResumeHtml` in
+// scripts/microformats.ts demands p-name and p-summary); `ContentScaffold.renderSingleton`
+// scaffolds every scalar field — including `summary` — as an empty string, so a freshly created
+// but not-yet-filled-in resume singleton is present but incomplete. Treat that the same as
+// absent: fall through to the placeholder rather than ever emitting an h-resume root that's
+// missing a required property, which would fail the non-overridable pre-deploy mf2 gate.
 const mods = import.meta.glob<{ default: ResumeData }>("../data/resume.json", { eager: true });
-const resume = Object.values(mods)[0]?.default;
+const raw = Object.values(mods)[0]?.default;
+const resume = raw?.name && raw?.summary ? raw : undefined;
 ---
 
 {resume ? (
   <Hresume resume={resume} />
 ) : (
   <BaseLayout title="Resume" description="No resume has been published yet.">
-    <p>No resume has been published yet.</p>
+    {/* Keeps the placeholder out of Pagefind's index — same pattern as search.astro's own
+        placeholder content — so an unconfigured/incomplete resume doesn't surface as a thin,
+        confusing search result on every site by default. */}
+    <div data-pagefind-ignore>
+      <p>No resume has been published yet.</p>
+    </div>
   </BaseLayout>
 )}

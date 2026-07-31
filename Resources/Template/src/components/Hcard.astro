@@ -14,7 +14,7 @@ const resumeMods = import.meta.glob<{ default: Record<string, any> }>("../data/r
 const resume = Object.values(resumeMods)[0]?.default;
 ---
 
-{(profile || resume?.name) && (
+{(profile || (resume?.name && resume?.summary)) && (
   // This is the site's contentinfo landmark. A theme that renders its own <footer>
   // should coordinate with this so the page has a single landmark footer (HTML allows
   // multiple <footer> elements, but duplicate contentinfo landmarks confuse a11y trees).
@@ -40,6 +40,6 @@ const resume = Object.values(resumeMods)[0]?.default;
         )}
       </div>
     )}
-    {resume?.name && <a href="/resume/">Resume</a>}
+    {resume?.name && resume?.summary && <a href="/resume/">Resume</a>}
   </footer>
 )}

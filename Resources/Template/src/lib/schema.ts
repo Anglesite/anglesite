@@ -318,7 +318,10 @@ export function resumeSchema(d: ResumeData, ctx: SchemaContext): WithContext<Per
     "@type": "Person",
     name: d.name,
     description: d.summary,
-    url: ctx.url,
+    // The person's identity URL is the site root (same as authorOf() elsewhere in this file),
+    // not the resume page's own canonical URL — asserting url: ctx.url would claim the resume
+    // page itself *is* the person's identity URL, which is semantically wrong.
+    url: ctx.site?.href,
     knowsAbout: skills,
     // schema-dts's `Role<TContent, TProperty>` generic requires the role node to *also* nest a
     // property literally named `TProperty` pointing back at an actual `Occupation` — the
@@ -334,9 +337,11 @@ export function resumeSchema(d: ResumeData, ctx: SchemaContext): WithContext<Per
       description: e.description,
       worksFor: e.organization ? { "@type": "Organization", name: e.organization } : undefined,
     })) as unknown as Role<Occupation, "hasOccupation">[],
-    alumniOf: education.map((e) => ({
-      "@type": "EducationalOrganization",
-      name: e.institution,
-    })),
+    alumniOf: education
+      .filter((e) => e.institution)
+      .map((e) => ({
+        "@type": "EducationalOrganization",
+        name: e.institution,
+      })),
   });
 }
