@@ -38,6 +38,7 @@ targets:
       - path: Sources/AnglesiteApp
       - path: Resources/Assets.xcassets
       - path: Resources/Anglesite.sdef
+      - path: Resources/PrivacyInfo.xcprivacy
       - path: Resources/Template
         type: folder
         buildPhase: resources
