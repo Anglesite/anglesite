@@ -10,11 +10,11 @@ import FoundationNetworking
 /// route. Shaped like `WebSubPublishPing`: `Sendable`, injectable transport, best-effort — never
 /// throws out of `backfill(...)`, one failed entry never blocks the rest.
 ///
-/// **Wire-format note:** `skipDelivery: true` and the preserved `published` timestamp in
-/// `activityBody(for:)` below are this app's best guess at the shape requested in
-/// `davidwkeith/workers#451` — verify against the actual merged upstream implementation and
-/// adjust here if the accepted shape differs before this is wired live (design doc §3, Task 6's
-/// blocking note).
+/// **Wire format:** confirmed against the merged `davidwkeith/workers#451`/`#452` implementation
+/// (published as `@dwk/activitypub` 1.0.0-beta.2) — quiet-insert is a `?skipDelivery=1` query
+/// parameter on the outbox URL (translated by the worker's front door into an internal header),
+/// not a body field, and the preserved `published` timestamp is a plain field on the posted AS2
+/// object.
 public struct ActivityPubOutboxBackfill: Sendable {
     /// Injectable network seam: takes the fully-formed request, returns body + response. Tests
     /// substitute a canned closure; production uses ``defaultTransport``.
@@ -72,7 +72,17 @@ public struct ActivityPubOutboxBackfill: Sendable {
             .sorted { $0.publishedAt < $1.publishedAt }
         guard !pending.isEmpty else { return [] }
 
-        let outboxURL = ActivityPubActor.actorURL(siteURL: siteBase).appendingPathComponent("outbox")
+        // `?skipDelivery=1` (not a body field — see the wire-format note above) is the worker's
+        // owner-authorized quiet-insert mode: the entry lands in the outbox without fanning out
+        // to today's followers.
+        guard
+            var outboxComponents = URLComponents(
+                url: ActivityPubActor.actorURL(siteURL: siteBase).appendingPathComponent("outbox"),
+                resolvingAgainstBaseURL: false
+            )
+        else { return [] }
+        outboxComponents.queryItems = [URLQueryItem(name: "skipDelivery", value: "1")]
+        guard let outboxURL = outboxComponents.url else { return [] }
         var outcomes: [Outcome] = []
 
         for entry in pending {
@@ -133,7 +143,6 @@ public struct ActivityPubOutboxBackfill: Sendable {
             "url": entry.canonicalURL.absoluteString,
             "published": ISO8601DateFormatter().string(from: entry.publishedAt),
             "to": ["https://www.w3.org/ns/activitystreams#Public"],
-            "skipDelivery": true,
         ]
         if let name = entry.name { object["name"] = name }
         if let inReplyTo = entry.inReplyTo { object["inReplyTo"] = inReplyTo }

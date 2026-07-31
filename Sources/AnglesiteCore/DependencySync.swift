@@ -8,7 +8,8 @@ public struct DependencyUpdateOffer: Sendable, Equatable {
     /// The bundled template's newer range that replaces `currentRange` if the offer is accepted.
     public let offeredRange: String
 
-    /// Memberwise initializer — offers are normally produced by ``DependencySync/diff(site:baseline:template:)``;
+    /// Memberwise initializer — offers are normally produced by
+    /// ``DependencySync/diff(site:baseline:template:templateDevDependencyNames:)``;
     /// this exists so tests (and previews) can construct them directly.
     public init(name: String, currentRange: String, offeredRange: String) {
         self.name = name

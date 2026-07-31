@@ -1257,12 +1257,12 @@ git commit -m "feat(#926): add backfillActivityPubOutbox step to post-deploy seq
 
 ---
 
-## Task 6 (BLOCKED — do not execute until `davidwkeith/workers#451` ships): Wire into `DeployModel`
+## Task 6 (unblocked 2026-07-31 — `davidwkeith/workers#451`/`#452` shipped as `@dwk/activitypub` 1.0.0-beta.2, already the pin in `Resources/Template/package.json`): Wire into `DeployModel`
 
-**Do not start this task until:**
-1. `davidwkeith/workers#451` is resolved and published in a tagged `@dwk/workers` release, AND
-2. The actual accepted wire-format for quiet-insert (`skipDelivery` field name/location, `published` handling) is confirmed against that release and `ActivityPubOutboxBackfill.activityBody(for:)` (Task 4) is updated to match if it differs from this plan's guess, AND
-3. `Resources/Template/package.json`'s `@dwk/activitypub` pin is bumped to that version (a separate, small prerequisite change — bump the version string, run `npm install` in `Resources/Template/`, run `npm run test:worker` to confirm no regression, commit).
+All three prerequisites are satisfied:
+1. `davidwkeith/workers#451` is resolved and published in a tagged `@dwk/workers` release (`@dwk/activitypub` 1.0.0-beta.2). ✅
+2. The accepted wire-format for quiet-insert is a `?skipDelivery=1` query parameter on the outbox URL, not a body field — `ActivityPubOutboxBackfill.activityBody(for:)`/`backfill(...)` (Task 4) updated to match; `published` handling (a plain field on the posted AS2 object) matched this plan's original guess. ✅
+3. `Resources/Template/package.json`'s `@dwk/activitypub` pin is already 1.0.0-beta.2. ✅
 
 **Files:**
 - Modify: `Sources/AnglesiteApp/DeployModel.swift`
