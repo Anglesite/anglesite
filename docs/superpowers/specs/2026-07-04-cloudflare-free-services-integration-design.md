@@ -20,7 +20,7 @@ Anglesite already integrates deeply with Cloudflare:
 
 The #462 integrations wizard catalog (`IntegrationDescriptor` / `IntegrationCatalog` / `IntegrationWizardModel` / `IntegrationScaffolder`) provides a declarative seam — providers, fields, conditions, operations (file copy, config write, anchor injection, CSP domains) — that new integrations plug into without new framework code.
 
-This design adds the free (or at-cost) Cloudflare services that are *not* yet integrated, as eight vertical slices on existing seams.
+This design adds the free (or at-cost) Cloudflare services that are *not* yet integrated, as nine vertical slices on existing seams.
 
 ## 2. Decisions (from brainstorming)
 
@@ -48,6 +48,7 @@ Constraints inherited from the project:
 | Zaraz | **In (Slice 5)** | Free ≤1M events/mo; removes third-party JS from pages |
 | Workers Logs (3-day) + tail | **In (Slice 6)** | Free; closes observability loop for deployed Workers |
 | Registrar | **In (Slice 7)** | At-cost; API in beta (search/check/register, subset of TLDs) |
+| AI Search (formerly AutoRAG) + NLWeb | **In (Slice 8)** | Free instance provisioning via REST; NLWeb Worker enablement is dashboard-only (public preview) — see [#691](https://github.com/Anglesite/Anglesite/issues/691) |
 | Stream | Out | Paid product |
 | Images storage/delivery | Out | Paid plan only (transformations free tier used instead) |
 | Access / Tunnel / CASB / DLP / DEX / MNM | Out | Team/network products; no fit for static-site owners |
@@ -61,7 +62,7 @@ Constraints inherited from the project:
 
 - Existing: Workers Scripts (Edit/Account), Workers KV (Edit/Account), Workers R2 (Edit/Account), D1 (Edit/Account), Workers Routes (Edit/Zone), Workers Tail (Read/Account)
 - Zone: Zone Settings (Edit), Zone Rulesets (Edit), DNS (Edit) — already exercised by Harden
-- New: Turnstile (Edit/Account), Email Routing (Edit/Zone + Account destination addresses), Zaraz (Edit/Zone), Zone Analytics (Read), Page Shield (Edit — Harden enables the script monitor), Response Compression (Edit), Registrar (Edit/Account)
+- New: Turnstile (Edit/Account), Email Routing (Edit/Zone + Account destination addresses), Zaraz (Edit/Zone), Zone Analytics (Read), Page Shield (Edit — Harden enables the script monitor), Response Compression (Edit), Registrar (Edit/Account), AI Search (Edit/Account — added with Slice 8)
 
 The guided token-creation URL (pre-filled permissions) is updated accordingly.
 
@@ -142,7 +143,29 @@ Guardrails:
 - Registration may be async — poll the workflow per API docs.
 - Last in sequence: beta API + the only slice that spends money.
 
-## 12. Cross-cutting
+## 12. Slice 8 — AI Search / NLWeb
+
+**What:** a self-contained AI Search feature (a dedicated Swift model + SwiftUI view, *not* a catalog descriptor) offering Cloudflare AI Search (formerly AutoRAG) as a site's conversational-search and agent-access layer. Prerequisite [#982](https://github.com/Anglesite/Anglesite/issues/982) (sitemap.xml generation) shipped 2026-07; the crawler can now index a site at all.
+
+**Not a catalog descriptor, and why:** `IntegrationDescriptor`/`Operation` (`Sources/AnglesiteCore/IntegrationDescriptor.swift`) is pure local file/config templating — six operation cases, no live-network-call primitive, and no precedent for a blocking pre-check, a multi-step provisioning call, or a terminal dashboard-handoff step. The one existing "wizard step calls out live" precedent (`IntegrationOperationsService.plan`'s hardcoded `integrationID == .greenHostCheck` branch) is a single read-only GET folded into template answers — not enough to build on. This slice needs its own orchestration, the same conclusion the original investigation reached ("doesn't fit \[the catalog\] pattern either").
+
+**Flow:**
+
+1. **Preflight — crawler-policy check.** Read the site's policy via `LicensingStore.load()` (`Sources/AnglesiteCore/LicensingStore.swift` — already implements read/write against `Source/src/data/licensing.json`; no new licensing plumbing needed). `AIUsage.aiInput` is `"yes" | "no" | "unset"` (not "allow"/"deny"). If `aiInput == "no"`, block with an inline explanation and a link to crawler-policy settings — mirrors how Email Routing/iCloud abort on pre-existing third-party MX rather than silently overriding. `"unset"` (including an absent `licensing.json`, which loads as the empty/`NO_USAGE`-equivalent policy) asserts no objection and passes through.
+2. **Preflight — cost and model disclosure.** Unlike every other slice in this doc, Workers AI/AI Gateway billing scales with reader traffic rather than being flat-free or one-time — a popular page can push a site past the free tier (10k neurons/day, then metered). Show an explicit at-cost disclosure requiring confirmation before provisioning, in the same spirit as Slice 7's purchase confirmation but for a metered cost. The same step states plainly that reader queries run on Cloudflare's models — this doesn't implicate the app-side #459 on-device policy (which governs app features, not published-site behavior) but the disclosure belongs here regardless.
+3. **Provision the AI Search instance** via REST (`POST /accounts/{account_id}/ai-search/namespaces/{name}/instances`, website crawler source). No capability-gating framework exists yet for *any* slice (`CloudflareCapabilityProber`/`TokenCapabilities` have zero consumers today, and no "missing capability → upgrade prompt" UI exists to plug into) — this slice doesn't invent that machinery either. It attempts the call directly; a 403/permission error surfaces a friendly message pointing at token settings, matching how the rest of the app handles permission errors today. The Slice 0 token template documentation (Section 4) still lists `AI Search (Edit/Account)` as a permission to add when a token is (re)created, since that's just guidance text, not code this slice depends on.
+4. **WAF skip rule.** If Bot Fight Mode is on, call `CloudflareWriting.createWAFCustomRule` directly with a skip rule allowing the `Cloudflare-AI-Search` crawler through. This is a self-contained call in the AI Search flow, **not** a change to `HardenPlanner.plan(from:domain:)`'s shared signature — that function takes only `state`/`domain` today and has no per-feature conditional-item precedent (the original design's claim that "Slice 2 already does this for email" doesn't hold in this codebase; extending `HardenPlanner` itself is out of scope for this slice).
+5. **NLWeb dashboard handoff.** NLWeb enablement has no API and is public preview as of 2026-07 — the flow ends with a "finish setup in the Cloudflare dashboard" step: a prefilled deep link to the AI Search instance's Settings, plus the manual steps listed inline (locate "NLWeb Worker", enable it). Same shape as the iCloud-email handoff in Slice 2.
+
+**Notes:**
+
+- **No crawler-policy write-back.** `AIUsage` (`Resources/Template/src/lib/licensing.ts` / `LicensingStore.swift`) has no per-crawler allow-list — only blanket `search`/`aiInput`/`aiTrain` plus a single `blockAICrawlers` bool. `Cloudflare-AI-Search` was never in the `aiCrawlers` blocklist (`edge-artifacts.ts`) to begin with, so passing the step-1 preflight requires no policy change at all. A per-crawler allow-list is a real gap if fine-grained control is ever wanted, but building it is out of scope for this slice's MVP.
+- **Route ownership deferred.** Because NLWeb enablement is dashboard-only, its Worker's routing (`/ask`, `/mcp`) is entirely Cloudflare's concern until NLWeb ships provisioning automation — this slice does not touch `WorkerComposition`/`WorkerRouteClaims`. Whether a future automated NLWeb becomes a route claim proxying to Cloudflare's Worker, or lives on a subdomain, stays an open question for that follow-up slice.
+- **Preview risk.** Both AI Search and NLWeb are public preview; the REST surface this slice automates (instance provisioning) is the more stable of the two, but the whole feature can still move under us. Scoping to instance-provisioning + handoff (rather than waiting for or guessing at a stable NLWeb API) is a deliberate bet that this slice stays small enough to tolerate that.
+
+**Testing:** hand-rolled `CloudflareReading`/`CloudflareWriting` mocks for instance-provisioning and WAF-rule calls, matching the `MockCloudflareReader`/`MockCloudflareWriter` pattern in `Tests/AnglesiteCoreTests/HardenExecutorTests.swift`; Swift Testing (`@Test`/`#expect`, not XCTest, per the rest of `AnglesiteCoreTests`); a unit test asserting the flow refuses to proceed when `aiInput == "no"`, and proceeds when it's `"unset"` or `"yes"`; live e2e behind `ANGLESITE_CF_E2E=1` like the rest.
+
+## 13. Cross-cutting
 
 - **Idempotency:** every wizard operation is create-if-absent; re-running a wizard converges instead of duplicating (pattern: `SocialWorkerProvisionCommand`).
 - **Errors:** missing token capability → inline upgrade prompt; API failures stream to the debug pane with the raw response logged.
@@ -151,7 +174,7 @@ Guardrails:
 - **App Intents:** Email forwarding setup and the Harden additions get intents; Registrar purchase does not.
 - **Config ownership:** all per-site integration state stays in the package `Config/` or in `Source/` per existing catalog conventions; nothing new enters git that shouldn't.
 
-## 13. Sequencing summary
+## 14. Sequencing summary
 
 | # | Slice | Seam | Size |
 |---|---|---|---|
@@ -163,15 +186,20 @@ Guardrails:
 | 5 | Zaraz provider | Catalog (tracking/consent) | L |
 | 6 | Worker observability | Debug pane + Workers Logs API | M |
 | 7 | Registrar | New Site wizard | M (beta-gated) |
+| 8 | AI Search / NLWeb | Standalone model/view + direct `CloudflareWriting` calls + `LicensingStore` | M (preview-gated) |
 
-Slices 1–7 all depend on Slice 0. Slice 2's contact form depends on Slice 1 (Turnstile). Everything else is independent and can reorder opportunistically.
+Slices 1–7 all depend on Slice 0 (its capability-gating framework, once one exists — see Section 12's note that no slice has built this yet). Slice 2's contact form depends on Slice 1 (Turnstile). Slice 8 is independent of every other slice: it's self-contained (own provisioning call, own direct WAF-rule call, existing `LicensingStore`) rather than extending shared planning code, so it doesn't depend on Slice 0 landing first or on Slice 3's Harden-pack work. Everything else can reorder opportunistically.
 
 Each slice gets its own implementation plan (`docs/superpowers/plans/`) when picked up, per the #242/#459 convention.
 
-## 14. API facts verified (2026-07-04)
+## 15. API facts verified (2026-07-04, Slice 8 facts added 2026-07-30)
 
 - Turnstile widget CRUD: `POST /accounts/{id}/challenges/widgets` returns `sitekey` + `secret`; needs `Account.Turnstile:Edit`.
 - Email Routing free on all plans; sends to **verified destination addresses** via Worker `send_email` binding / REST / SMTP are free on all plans and don't count toward quotas. Full Email Sending (arbitrary recipients) is Workers Paid — not required by this design.
 - Image transformations: free plan includes 5,000 unique transformations/month; over-quota → error 9422, cached transformations keep serving, `onerror` can redirect to the original; no charges on free.
 - Registrar API: beta (Apr 2025) — search, availability/pricing, programmatic registration for a subset of TLDs; registration is a pollable workflow.
 - Blog-post freebies folded into Slice 3: Speed Brain, Zstandard, ECH, Page Shield script monitor, Security Analytics; Worker logs 3-day retention into Slice 6.
+- AI Search (formerly AutoRAG) instance provisioning: `POST /accounts/{account_id}/ai-search/namespaces/{name}/instances`, website crawler source under `source_params.web_crawler.parse_options`; needs a sitemap or `robots.txt` `Sitemap:` line to crawl at all (shipped by #982). Free during open beta: 100 instances, 20k queries/month, 500 crawled pages/day per account.
+- NLWeb: Microsoft's open protocol; Cloudflare's integration is public preview as of 2026-07 and confirmed still dashboard-only to enable as of 2026-07-30 (Dashboard → AI → AI Search → create instance → Settings → enable "NLWeb Worker"; no REST/wrangler path documented). Exposes `/ask` (conversational UI + widget) and `/mcp` (agent-addressable structured queries) once enabled.
+- Workers AI / AI Gateway (what NLWeb's queries run on) bill separately from AI Search itself: 10k neurons/day free, then $0.011/1k — metered by reader traffic, unlike every other slice in this doc.
+- Corrected 2026-07-30 against the actual codebase (not just Cloudflare's docs): `AIUsage.aiInput`/`.aiTrain`/`.search` are `"yes" | "no" | "unset"` (`Resources/Template/src/lib/licensing.ts`), not "allow"/"deny" as first drafted. `LicensingStore` (`Sources/AnglesiteCore/LicensingStore.swift`) already implements Swift-side read/write against `Source/src/data/licensing.json` — this predates Slice 8 and needed no new plumbing. `HardenPlanner.plan(from:domain:)` takes only `state`/`domain` with no per-feature extension point, and `CloudflareCapabilityProber`/`TokenCapabilities` have no consumers anywhere in `Sources/` — both corrected the initial Slice 8 draft, which had assumed this groundwork already existed.
