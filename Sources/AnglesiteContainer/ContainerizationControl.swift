@@ -54,6 +54,18 @@ public struct ContainerizationControl: LocalContainerControl {
         ref: String,
         onOutput: @escaping @Sendable (String, LogCenter.Stream) -> Void
     ) async throws -> LocalContainerSession {
+        if let paused = await PausedContainerRegistry.shared.reclaim(siteID: siteID) {
+            if let session = try? await resumeSession(siteID: siteID, entry: paused, onOutput: onOutput) {
+                return session
+            }
+            // The paused entry is unusable (resume failed, or the proxies/readiness check that
+            // follows it failed) — it's already been removed from the registry by `reclaim`
+            // above, so this instance now owns tearing it down. Never leave the user stuck on a
+            // broken resume: fall through to a normal cold boot.
+            onOutput("[resume] resuming the paused VM failed; falling back to a cold boot", .stderr)
+            await PausedContainerRegistry.teardown(paused, siteID: siteID)
+        }
+
         // Resolves the split-repo gitfile layout (#888/#903): share the directory git can
         // actually clone (Source/ for an embedded .git, the resolved Config/repo.nosync/ gitdir
         // for a migrated package) — a Source/-only share leaves the gitfile's target invisible
@@ -353,6 +365,69 @@ public struct ContainerizationControl: LocalContainerControl {
     public func stopWorkersDev(siteID: String) async throws {
         await live.teardownWorkersDev(siteID: siteID)
     }
+
+    /// Resumes a VM `suspend(siteID:)` (Task 4) previously paused: unpauses it, re-dials fresh
+    /// host-side proxies for the preview and MCP ports (the guest's astro/mcp processes and their
+    /// vsock-bridge `socat` listeners never stopped — only the VM's execution was frozen — so a
+    /// fresh `dialVsock` reaches them immediately, per Task 1's probe), and waits briefly for the
+    /// preview port to answer before handing the resumed container back to `live`. Workers-dev is
+    /// NOT resumed here — `LocalContainerSiteRuntime.start()` recomputes and restarts it fresh via
+    /// `startWorkersDevIfActive` once this returns `.ready`, exactly as a cold boot would.
+    private func resumeSession(
+        siteID: String,
+        entry: PausedContainerRegistry.Entry,
+        onOutput: @escaping @Sendable (String, LogCenter.Stream) -> Void
+    ) async throws -> LocalContainerSession {
+        let container = entry.container
+        onOutput("[resume] resuming paused VM", .stdout)
+        try await container.withVirtualMachineInstance { vm in try await vm.resume() }
+
+        let dial: VsockDialer = { port in try await container.dialVsock(port: port) }
+        let eventLimiter = EventRateLimiter()
+        let previewProxy = VsockTCPProxy(
+            guestPort: Self.previewPort, dial: dial,
+            onDialError: { error in
+                eventLimiter.log("[proxy:preview] dialVsock(\(Self.previewPort)) failed: \(error)", onOutput: onOutput)
+            },
+            onEvent: { event in eventLimiter.log("[proxy:preview] \(event)", onOutput: onOutput) })
+        let mcpProxy = VsockTCPProxy(
+            guestPort: Self.mcpPort, dial: dial,
+            onDialError: { error in
+                eventLimiter.log("[proxy:mcp] dialVsock(\(Self.mcpPort)) failed: \(error)", onOutput: onOutput)
+            },
+            onEvent: { event in eventLimiter.log("[proxy:mcp] \(event)", onOutput: onOutput) })
+
+        let previewURL: URL
+        let mcpURL: URL
+        do {
+            previewURL = try await previewProxy.start()
+            let mcpBase = try await mcpProxy.start()
+            mcpURL = mcpBase.appendingPathComponent("mcp")
+        } catch {
+            await previewProxy.stop()
+            await mcpProxy.stop()
+            throw LocalContainerError.bootFailed("resume proxy start failed: \(error)")
+        }
+
+        do {
+            try await waitUntilServing(previewURL, timeout: Self.resumeReadyTimeout)
+        } catch {
+            await previewProxy.stop()
+            await mcpProxy.stop()
+            throw LocalContainerError.bootFailed("resumed preview server did not become ready: \(error)")
+        }
+
+        onOutput("[resume] VM resumed", .stdout)
+        await live.store(
+            siteID: siteID, container: container,
+            proxies: [previewProxy, mcpProxy], ext4Artifacts: entry.ext4Artifacts)
+        return LocalContainerSession(previewURL: previewURL, mcpURL: mcpURL)
+    }
+
+    /// Bound on `waitUntilServing` after a resume: the guest process never died (only the VM's
+    /// execution froze), so it should answer almost immediately — unlike `previewReadyTimeout`
+    /// (300s), which budgets for a full cold `npm install`/`astro dev` start.
+    private static let resumeReadyTimeout: Duration = .seconds(20)
 
     /// Phases 0–2 of `start()`: resolve bundled artifacts, unpack rootfs/initfs, boot the VM.
     /// `sourceRepo: nil` boots a bare container (no virtio-fs share) — used by the vsock e2e test.

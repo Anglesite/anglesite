@@ -60,6 +60,32 @@ struct ContainerizationControlTests {
         if let entry { await PausedContainerRegistry.teardown(entry, siteID: siteID) }
     }
 
+    @Test("start resumes a paused container instead of cold-booting")
+    func startResumesAPausedContainerInsteadOfColdBooting() async throws {
+        try #require(enabled, "set ANGLESITE_CONTAINER_E2E=1 on an entitled Apple-Silicon Mac")
+        let control = ContainerizationControl()
+        let siteID = "resume-test-\(UUID().uuidString.prefix(8))"
+        let repo = try makeThrowawayAstroRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let firstSession = try await control.start(siteID: siteID, sourceRepo: repo, ref: "HEAD", onOutput: { _, _ in })
+        try await control.suspend(siteID: siteID)
+        defer { Task { try? await control.stop(siteID: siteID) } }
+
+        let start = ContinuousClock.now
+        let resumedSession = try await control.start(siteID: siteID, sourceRepo: repo, ref: "HEAD", onOutput: { _, _ in })
+        let elapsed = ContinuousClock.now - start
+
+        // A resume never re-hydrates the guest (no clone/npm install/astro cold start), so it must
+        // land well under the ~186s+ a cold boot pays (`previewReadyTimeout`'s own doc comment) —
+        // 30s gives ample margin over VM-resume + proxy-redial + short readiness poll while still
+        // catching a regression that silently fell back to a full cold boot.
+        #expect(elapsed < .seconds(30))
+        #expect(resumedSession.previewURL != firstSession.previewURL || resumedSession.mcpURL != firstSession.mcpURL)
+
+        try await control.stop(siteID: siteID)
+    }
+
     @Test("execInteractive echoes what's written to its stdin back out through onOutput")
     func execInteractiveEchoesStdin() async throws {
         try #require(enabled, "set ANGLESITE_CONTAINER_E2E=1 on an entitled Apple-Silicon Mac")
