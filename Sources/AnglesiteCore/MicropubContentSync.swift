@@ -105,7 +105,7 @@ public enum MicropubContentSync {
     ) -> TypedContentEditor.FieldValue? {
         let values = properties[rawProperty] ?? []
         switch field.kind {
-        case .string, .text, .url, .image, .markdown:
+        case .string, .language, .text, .url, .image, .markdown:
             let raw = values.first
             // `itemReviewed` (h-review's `item`) is conventionally a nested h-item/h-card mf2
             // object, not a plain string — only that field tries the nested-object fallback.

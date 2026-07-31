@@ -198,7 +198,7 @@ public enum ContentScaffold {
                 lines.append("\(field.name): 0")
             case .stringArray, .imageArray, .objectArray:
                 lines.append("\(field.name): []")
-            case .string, .text, .image:
+            case .string, .language, .text, .image:
                 lines.append("\(field.name): \"\(escapeYAML(scalarValue(field, title: title, fieldValues: fieldValues)))\"")
             // A `.url` line is commented out only when the field is optional *and* nothing was
             // supplied: an emitted `""` is not a valid URL under `z.string().url()`, unlike
@@ -261,7 +261,7 @@ public enum ContentScaffold {
                 value = "0"
             case .stringArray, .imageArray, .objectArray:
                 value = "[]"
-            case .string, .text, .url, .image, .date, .datetime:
+            case .string, .language, .text, .url, .image, .date, .datetime:
                 let filled = ContentTypeDescriptor.titleLikeFieldNames.contains(field.name) ? (name ?? "") : ""
                 value = "\"\(escapeJSON(filled))\""
             }

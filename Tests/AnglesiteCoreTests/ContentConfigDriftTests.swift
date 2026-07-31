@@ -25,7 +25,7 @@ struct ContentConfigDriftTests {
     static func zod(for kind: ContentTypeField.Kind) -> String? {
         switch kind {
         case .markdown: return nil
-        case .string, .text, .image: return "z.string()"
+        case .string, .language, .text, .image: return "z.string()"
         case .url: return "z.string().url()"
         case .date, .datetime: return "z.coerce.date()"
         case .number: return "z.number()"
