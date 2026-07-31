@@ -4,6 +4,9 @@ import Foundation
 /// is one call per week (chunk-first): each call carries only the platform cadence and pillar
 /// facts, comfortably inside the on-device window.
 public enum SocialPlanPrompt {
+    /// Prompt for one platform's profile bio. States the platform's character limit as a hard
+    /// limit up front — the planner still verifies the count and retries once, because the model
+    /// can't be trusted to count characters (see the planner's no-silent-truncation policy).
     public static func bio(platform: SocialPlatformProfile, siteName: String,
                            businessType: String?, preamble: String?) -> String {
         joined(preamble, """
@@ -13,6 +16,8 @@ public enum SocialPlanPrompt {
         """)
     }
 
+    /// Prompt for the 3–5 content pillars, encoding the 80/20 value-vs-promotion rule so the
+    /// generated plan doesn't read as pure advertising.
     public static func pillars(siteName: String, businessType: String?, preamble: String?) -> String {
         joined(preamble, """
         Propose 3 to 5 social media content pillars for \(siteName)\(businessDescription(businessType)). \
@@ -21,6 +26,9 @@ public enum SocialPlanPrompt {
         """)
     }
 
+    /// Prompt for one calendar week (`index` is zero-based; the prompt says "week N+1"). Carries
+    /// the platform cadences and the already-generated pillars as facts, and requires pillar
+    /// names verbatim so entries join back to ``SocialPillar/name``.
     public static func week(index: Int, platforms: [SocialPlatformProfile], pillars: [SocialPillar],
                             businessType: String?, preamble: String?) -> String {
         let platformFacts = platforms
@@ -56,6 +64,9 @@ public enum SocialPlanPrompt {
 
 /// Pure 7-day week-start math, gregorian/UTC — deterministic regardless of the user's calendar.
 public enum SocialWeekDates {
+    /// `count` week-start dates at exact 7-day (in seconds) intervals from `start` — no calendar
+    /// or time-zone lookup, so DST shifts the wall-clock time rather than the interval, which is
+    /// fine for labeling calendar weeks. Negative `count` yields `[]`.
     public static func startDates(from start: Date, count: Int) -> [Date] {
         (0..<max(0, count)).map { start.addingTimeInterval(TimeInterval($0) * 7 * 86_400) }
     }

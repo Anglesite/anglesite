@@ -14,6 +14,9 @@ public enum SiteSearchDestination: Equatable, Sendable {
     /// Open this file (path relative to the site's `Source/`) in the editor.
     case file(path: String, group: FileGroup)
 
+    /// Resolves a search hit's fields to a destination, preferring navigator selection over a
+    /// raw file open whenever the hit's route matches a row the navigator actually shows.
+    ///
     /// - Parameters:
     ///   - kind: The matched document's kind, used to pick the destination's `FileGroup` when it
     ///     falls back to `.file`.
@@ -37,6 +40,8 @@ public enum SiteSearchDestination: Equatable, Sendable {
         return .file(path: path, group: group(for: kind))
     }
 
+    /// Convenience over ``resolve(kind:route:path:navigatorRouteIDs:)`` taking a
+    /// ``SiteSearchIndex/Hit`` directly, so call sites can't mismatch a hit's fields.
     public static func resolve(
         hit: SiteSearchIndex.Hit,
         navigatorRouteIDs: [String: String]

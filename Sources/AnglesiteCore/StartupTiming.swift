@@ -4,10 +4,17 @@ import Foundation
 /// startup progress bar between milestone anchors. One segment per gap in the milestone sequence
 /// launching → building → connecting → ready.
 public struct StartupProfile: Sendable, Equatable, Codable {
+    /// Seconds from process spawn to the first astro stdout line.
     public var launchingToBuilding: TimeInterval
+    /// Seconds from the first astro stdout line to the dev server printing its ready URL —
+    /// typically the longest segment (the Astro/Vite build).
     public var buildingToConnecting: TimeInterval
+    /// Seconds from the ready URL appearing to the runtime reporting `.ready`.
     public var connectingToReady: TimeInterval
 
+    /// Creates a profile from three measured (or estimated) segment durations. Not validated
+    /// here — readers gate on ``isPlausible`` instead, so a degenerate measurement can still be
+    /// constructed, inspected, and then rejected at the persistence boundary.
     public init(launchingToBuilding: TimeInterval, buildingToConnecting: TimeInterval, connectingToReady: TimeInterval) {
         self.launchingToBuilding = launchingToBuilding
         self.buildingToConnecting = buildingToConnecting
@@ -41,6 +48,8 @@ public final class StartupTimingStore: @unchecked Sendable {
 
     private let defaults: UserDefaults
 
+    /// Creates a store over `defaults`. Injectable so tests can use a scratch suite instead of
+    /// polluting (or depending on) `UserDefaults.standard`.
     public init(defaults: UserDefaults) {
         self.defaults = defaults
     }

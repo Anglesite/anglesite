@@ -20,6 +20,9 @@ public protocol SiteGraphNodeExplaining: Sendable {
 /// FoundationModels means "no backend exists" (hide the feature), distinct from the runtime
 /// ``AssistantError/unavailable(_:)`` ("backend exists, Apple Intelligence is off").
 public enum SiteGraphExplainerFactory {
+    /// `FoundationModelSiteGraphExplainer` on a FoundationModels-capable toolchain, `nil`
+    /// otherwise. Callers treat `nil` as "hide the Explain button entirely" — see the enum doc
+    /// for how that differs from the runtime unavailable error.
     public static func makeDefault() -> (any SiteGraphNodeExplaining)? {
         #if compiler(>=6.4) && canImport(FoundationModels)
         return FoundationModelSiteGraphExplainer()
@@ -61,6 +64,17 @@ public enum SiteGraphExplainPrompt {
         return facts
     }
 
+    /// The complete explain prompt: a non-developer-audience instruction preamble wrapping the
+    /// deterministic fact list for `node`. Instructs the model to synthesize (not restate) the
+    /// facts and to invent nothing beyond them — the grounding contract described on the enum.
+    ///
+    /// - Parameters:
+    ///   - node: The node being explained.
+    ///   - impact: The node's precomputed ``ImpactAnalysis/Report``; its groups become the
+    ///     "editing it would affect …" facts.
+    ///   - dependsOn: The node's one-hop outgoing neighbors (deduplicated internally — a
+    ///     neighbor reachable via several edge kinds is listed once).
+    ///   - referencedBy: The node's one-hop incoming neighbors, deduplicated the same way.
     public static func prompt(
         node: SiteGraphNode,
         impact: ImpactAnalysis.Report,
@@ -141,8 +155,13 @@ public enum SiteGraphExplainPrompt {
 /// without Apple Intelligence throws ``AssistantError/unavailable(_:)`` from `generate` before
 /// the stream opens — surfaced by the UI as its "unavailable" state, never a cloud fallback.
 public struct FoundationModelSiteGraphExplainer: SiteGraphNodeExplaining {
+    /// Stateless — each `explain` call builds its own ``FoundationModelAssistant``, so there is
+    /// nothing to configure here.
     public init() {}
 
+    /// Streams an on-device (`.onDevice` tier, never Private Cloud Compute) explanation for a
+    /// prompt built by ``SiteGraphExplainPrompt``. `siteID`/`siteDirectory` only populate the
+    /// ``AssistantContext``; the prompt already carries every fact the model may use.
     public func explain(prompt: String, siteID: String, siteDirectory: URL) async throws -> AsyncThrowingStream<String, Error> {
         try await FoundationModelAssistant(tier: .onDevice).generate(
             prompt: prompt,

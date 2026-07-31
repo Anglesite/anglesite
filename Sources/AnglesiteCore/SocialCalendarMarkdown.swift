@@ -23,6 +23,10 @@ public enum SocialCalendarMarkdown {
             .replacingOccurrences(of: "\r", with: " ")
     }
 
+    /// Renders the plan as the full `social-calendar.md` document: platform cadence table,
+    /// per-platform bios (a missing bio is marked, never silently skipped), content pillars,
+    /// then one table per week. Pure string building — pair with ``write(markdown:sourceDirectory:fileManager:)``
+    /// to put it on disk, and keep the two separate so tests can assert on output without I/O.
     public static func render(plan: SocialMediaPlan, siteName: String) -> String {
         var out: [String] = []
         out.append("# Social media plan for \(siteName)")

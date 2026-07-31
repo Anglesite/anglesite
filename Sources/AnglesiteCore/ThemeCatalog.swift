@@ -2,12 +2,23 @@ import Foundation
 
 /// One built-in visual theme, decoded from `Resources/Template/scripts/themes.json`.
 public struct Theme: Sendable, Identifiable, Equatable {
-    public let id: String                    // theme id, e.g. "warm"
-    public let name: String                  // displayName
-    public let blurb: String                 // description
-    public let swatch: [String]              // [color-primary, color-accent] for the gallery
-    public let cssVars: [String: String]     // vars: custom-property name (no leading --) -> value
+    /// Theme id, e.g. "warm" — the stable key persisted in settings and matched by
+    /// `ThemeCatalog.theme(id:)`.
+    public let id: String
+    /// The JSON record's `displayName` — what the gallery shows.
+    public let name: String
+    /// The JSON record's `description` — one-line gallery copy, also reused as the brand
+    /// summary when the theme is applied.
+    public let blurb: String
+    /// `[color-primary, color-accent]` for the gallery's color-chip preview (fewer entries if a
+    /// theme omits one).
+    public let swatch: [String]
+    /// The record's `vars`: custom-property name (no leading `--`) → value, exactly what
+    /// `ThemeApplier` rewrites into `global.css`.
+    public let cssVars: [String: String]
 
+    /// Memberwise creation — normally themes come from ``ThemeCatalog/parse(themesJSON:)``, but
+    /// tests build them directly.
     public init(id: String, name: String, blurb: String, swatch: [String], cssVars: [String: String]) {
         self.id = id; self.name = name; self.blurb = blurb; self.swatch = swatch; self.cssVars = cssVars
     }
@@ -15,9 +26,14 @@ public struct Theme: Sendable, Identifiable, Equatable {
 
 /// The 8 built-in themes plus the wizard's default-by-site-type mapping.
 public struct ThemeCatalog: Sendable {
+    /// All themes in the shared JSON's order — order matters: the first entry is the fallback
+    /// default (see ``defaultThemeID(for:)``).
     public let themes: [Theme]
+    /// Wraps an already-decoded theme list; production loads via ``load(templateURL:)``.
     public init(themes: [Theme]) { self.themes = themes }
 
+    /// The theme with the given id, or `nil` — lookup by id rather than index so persisted theme
+    /// choices survive catalog reordering.
     public func theme(id: String) -> Theme? { themes.first { $0.id == id } }
 
     /// App-side default theme per broad site type. Falls back to the first available theme

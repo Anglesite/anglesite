@@ -2,7 +2,10 @@ import Foundation
 
 /// The lifecycle state of one site's live preview, independent of where it runs.
 public enum SiteRuntimeState: Sendable, Equatable {
+    /// No site is running — the initial state, and where `stop()` settles.
     case idle
+    /// Boot in progress (container start, hydration, dev-server launch). Carries the site ID so
+    /// observers can drop transitions belonging to a superseded site.
     case starting(siteID: String)
     /// `workersDevURL` is the local `wrangler dev --local` endpoint, present only when the site's
     /// effective active-worker set was non-empty at start time (#708) — `nil` for a static-only
@@ -17,10 +20,15 @@ public enum SiteRuntimeState: Sendable, Equatable {
 
 /// Failures that prevent a runtime edit from becoming durable in the canonical `Source/` repo.
 public enum SiteRuntimePersistenceError: LocalizedError, Sendable, Equatable {
+    /// The edit server returned no (or a malformed) commit SHA, so there is nothing verifiable to
+    /// sync back — better to fail than to guess at which guest state to persist.
     case missingOrInvalidCommit
+    /// The runtime stopped (or was superseded) between the edit and the persistence hop.
     case runtimeNotRunning
+    /// The guest-to-host sync itself failed; the message is the underlying tool's own output.
     case syncFailed(String)
 
+    /// Owner-facing message per case; the Debug pane carries the full underlying output.
     public var errorDescription: String? {
         switch self {
         case .missingOrInvalidCommit:
@@ -72,7 +80,12 @@ public protocol SiteRuntimeContainerCapability: AnyObject, Sendable {
 ///
 /// `mcpClient` is the substrate-agnostic MCP seam for the running container endpoint.
 public protocol SiteRuntime: Actor {
+    /// Boots `siteID`'s preview from `siteDirectory` (the package's `Source/`), tearing down any
+    /// previously running site first — one runtime never hosts two sites. Never throws: it
+    /// settles to `.ready` or `.failed`, observable via `observe()`, so every caller handles
+    /// failure through the same state channel.
     func start(siteID: String, siteDirectory: URL) async
+    /// Tears down the running site (if any) and settles to `.idle`. Safe to call redundantly.
     func stop() async
 
     /// Pauses this site's runtime instead of fully stopping it, when the substrate supports it —
@@ -83,7 +96,13 @@ public protocol SiteRuntime: Actor {
     /// those behaves exactly as it does today.
     func suspend() async
 
+    /// Streams every ``SiteRuntimeState`` transition, replaying the current state to each new
+    /// subscriber first — an observer attached after `.ready` still learns the URL.
+    /// Deliberately non-`async` so UI code can subscribe without hopping onto the runtime actor
+    /// (see `SiteRuntimeStateMachine` for the implementation consequence).
     func observe() -> AsyncStream<SiteRuntimeState>
+    /// The per-site MCP connection the edit pipeline and annotation feed route through —
+    /// substrate-agnostic: the transport underneath differs per conformer, the client doesn't.
     var mcpClient: MCPClient { get }
     /// The container-only capability surface (deploy execution context, network reset, edit
     /// persistence) — `nil` unless this runtime is a local Apple-Containerization runtime. See

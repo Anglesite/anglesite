@@ -4,26 +4,41 @@ import Foundation
 /// pages — never source files. Images, CSS, JS, components, and feed routes are excluded by
 /// construction because only page/entry routes enter the builder.
 public struct URLTreeNode: Identifiable, Sendable, Equatable {
+    /// What a row represents, which decides its icon, context menu, and ``target``.
     public enum Kind: Sendable, Equatable {
+        /// The pinned first row for the site itself — activates website settings, not a route.
         case website
+        /// The home page (`/`), pinned ahead of its top-level siblings.
         case home
+        /// Any other single page or collection entry.
         case page
+        /// A URL directory. `collection` names the content collection whose entries live here
+        /// (`nil` for a directory of plain nested pages); `hasFeed` marks collections that
+        /// publish a feed, so the row can badge it.
         case directory(collection: String?, hasFeed: Bool)
     }
-    // Graph entity id for leaves — the rename/context-menu machinery resolves rows via
-    // graph.page(id:)/post(id:), so routes can't serve as leaf ids.
+    /// Graph entity id for leaves — the rename/context-menu machinery resolves rows via
+    /// `graph.page(id:)`/`post(id:)`, so routes can't serve as leaf ids.
     public let id: String
+    /// Row label: the page/entry title where one exists, falling back to its route.
     public let title: String
+    /// The visitor-facing URL path this row represents (directories keep a trailing slash).
     public let route: String
+    /// What the row represents — see ``Kind``.
     public let kind: Kind
     /// nil for leaves so `List`/`OutlineGroup` hides the disclosure chevron.
     public let children: [URLTreeNode]?
 
+    /// Memberwise initializer; `buildSiteURLTree(websiteTitle:pages:posts:feedCollections:contentTypes:)`
+    /// is the production constructor — direct use is for tests and previews.
     public init(id: String, title: String, route: String, kind: Kind, children: [URLTreeNode]?) {
         self.id = id; self.title = title; self.route = route; self.kind = kind
         self.children = children
     }
 
+    /// The navigation this row performs when activated, folding ``Kind`` into the shared
+    /// ``NavigatorTarget`` vocabulary so URL-tree rows and file-tree rows drive the window
+    /// through one selection path.
     public var target: NavigatorTarget {
         switch kind {
         case .website: return .websiteSettings

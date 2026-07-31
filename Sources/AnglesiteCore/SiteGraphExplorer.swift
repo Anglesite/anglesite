@@ -1,35 +1,79 @@
 import Foundation
 
+/// What a ``SiteGraphNode`` represents in the Astro project. Case order is meaningful: it is the
+/// display rank ``SiteGraphExplorer/build(projectRoot:siteID:pages:posts:images:fileManager:)``
+/// sorts the snapshot's nodes by (via `allCases`), so pages lead and styles trail in the
+/// explorer's list.
 public enum SiteGraphNodeKind: String, Sendable, CaseIterable, Identifiable {
+    /// A routable page under `src/pages/`.
     case page
+    /// A layout under `src/layouts/` — reached via ``SiteGraphEdgeKind/usesLayout`` edges.
     case layout
+    /// A reusable component under `src/components/`.
     case component
+    /// A content collection (e.g. `src/content/posts`) — a grouping with no file of its own, so
+    /// its node has a `nil` `filePath`.
     case collection
+    /// One entry inside a content collection (a markdown post, note, etc.).
     case contentEntry
+    /// An image or other static asset, whether under `src/` or `public/`.
     case asset
+    /// A stylesheet under `src/styles/`.
     case style
 
+    /// `Identifiable` via the raw value so SwiftUI lists and pickers can key on the kind directly.
     public var id: String { rawValue }
 }
 
+/// The relationship a ``SiteGraphEdge`` records, source → target. Distinguished so
+/// `ImpactAnalysis` and the explorer UI can weigh a layout dependency differently from a plain
+/// import or an asset reference.
 public enum SiteGraphEdgeKind: String, Sendable, CaseIterable, Identifiable {
+    /// Source imports the target (static `import`/`export … from` or dynamic `import()`).
     case imports
+    /// Source renders through the target layout — via an import whose target is a
+    /// ``SiteGraphNodeKind/layout``, or a markdown frontmatter `layout:` field (#309).
     case usesLayout
+    /// Source references the target asset (`src=`/`href=` attribute, CSS `url()`, or an import
+    /// resolving to an asset file).
     case referencesAsset
+    /// A collection node contains the target content entry.
     case contains
 
+    /// `Identifiable` via the raw value so SwiftUI lists and pickers can key on the kind directly.
     public var id: String { rawValue }
 }
 
+/// One file, content entry, or collection in the Site Graph Explorer's dependency graph. A plain
+/// value: nodes are built once per snapshot by ``SiteGraphExplorer`` and never mutated, so the
+/// UI, ``ImpactAnalysis``, and ``SiteGraphAugmentedAssistant`` can all share them freely.
 public struct SiteGraphNode: Sendable, Equatable, Identifiable {
+    /// Stable identity within one site's graph. Reuses `SiteContentGraph` IDs for pages/posts/
+    /// images so selection survives a rebuild; synthesized (`<siteID>:file:<path>`,
+    /// `<siteID>:collection:<name>`) for nodes only this explorer discovers.
     public let id: String
+    /// What the node represents — drives its icon, its sort rank, and which edge kinds point at it.
     public let kind: SiteGraphNodeKind
+    /// Human-readable name shown in the explorer: a page's title, a file's name, a collection's
+    /// name. Never empty (falls back to the route or filename).
     public let title: String
+    /// Secondary display line (a route, a relative path, a `collection/slug` pair) — purely
+    /// informational, distinct from `filePath` which is machine-resolvable.
     public let detail: String?
+    /// Project-relative POSIX path of the backing file, or `nil` for nodes with no single file
+    /// (a ``SiteGraphNodeKind/collection``) — which is why citations and "open file" actions must
+    /// treat it as optional.
     public let filePath: String?
+    /// The public URL path this node renders at, when it is routable (pages and content entries);
+    /// `nil` for everything that only exists at build time.
     public let route: String?
+    /// Incoming-edge count, precomputed by ``SiteGraphExplorer`` so list rows can show "used by
+    /// N" without each walking the full edge set.
     public let referencedByCount: Int
 
+    /// Memberwise initializer. `referencedByCount` defaults to `0` because only
+    /// ``SiteGraphExplorer``'s final pass knows the real count — intermediate construction (and
+    /// most tests) build nodes before edges exist.
     public init(
         id: String,
         kind: SiteGraphNodeKind,
@@ -49,12 +93,21 @@ public struct SiteGraphNode: Sendable, Equatable, Identifiable {
     }
 }
 
+/// A directed dependency between two ``SiteGraphNode``s: source depends on target.
 public struct SiteGraphEdge: Sendable, Equatable, Identifiable {
+    /// Derived as `"<sourceID>-><targetID>:<kind>"` — deterministic, so the same dependency
+    /// discovered twice (e.g. an asset referenced from two attributes in one file) collapses to
+    /// one edge when keyed by `id`, which is exactly how ``SiteGraphExplorer`` dedups.
     public let id: String
+    /// The depending node's ``SiteGraphNode/id``.
     public let sourceID: String
+    /// The depended-upon node's ``SiteGraphNode/id``.
     public let targetID: String
+    /// The relationship this edge records — see ``SiteGraphEdgeKind``.
     public let kind: SiteGraphEdgeKind
 
+    /// Builds the edge, deriving ``id`` from the three inputs — there is no way to supply an
+    /// arbitrary id, keeping the dedup-by-id invariant above unbreakable.
     public init(sourceID: String, targetID: String, kind: SiteGraphEdgeKind) {
         self.sourceID = sourceID
         self.targetID = targetID
@@ -63,16 +116,27 @@ public struct SiteGraphEdge: Sendable, Equatable, Identifiable {
     }
 }
 
+/// An immutable snapshot of one site's whole dependency graph. `Equatable` so observers (the
+/// explorer UI, chat grounding) can cheaply skip work when a rebuild produced an identical graph.
 public struct SiteGraphExplorerSnapshot: Sendable, Equatable {
+    /// All nodes, in the builder's stable order (by kind rank, then localized title) — consumers
+    /// can render directly without re-sorting.
     public let nodes: [SiteGraphNode]
+    /// All edges, sorted by ``SiteGraphEdge/id`` for deterministic equality across rebuilds.
     public let edges: [SiteGraphEdge]
 
+    /// Memberwise initializer; performs no validation, so callers (tests especially) can build
+    /// arbitrary graphs, including edges whose endpoints aren't in `nodes`.
     public init(nodes: [SiteGraphNode], edges: [SiteGraphEdge]) {
         self.nodes = nodes
         self.edges = edges
     }
 }
 
+/// Builds the Site Graph Explorer's dependency graph for an Astro project by static analysis —
+/// no dev server or Astro build involved, so it works on any checkout, at the cost of the
+/// heuristics being lexical (regex/prefix-based import, `src=`/`href=`, and `url()` scanning)
+/// rather than a real module resolution.
 public enum SiteGraphExplorer {
     private static let sourceExtensions: Set<String> = [
         ".astro", ".md", ".mdx", ".markdown", ".js", ".jsx", ".ts", ".tsx", ".css"
@@ -92,6 +156,28 @@ public enum SiteGraphExplorer {
         options: [.caseInsensitive]
     )
 
+    /// Builds a full graph snapshot from the already-parsed content model plus a fresh disk scan.
+    ///
+    /// Seeding from ``SiteContentGraph``'s pages/posts/images (rather than re-deriving them from
+    /// disk) keeps node IDs identical to the rest of the app, so selection and navigation carry
+    /// over; the walk then only adds what the content graph doesn't track — layouts, components,
+    /// styles, and stray assets. Every node's `referencedByCount` is filled in from the final
+    /// edge set in a last pass, which is why nodes are rebuilt at the end.
+    ///
+    /// Synchronous and file-system-bound: it reads every source file's text to extract imports
+    /// and asset references, so call it off the main actor for non-trivial sites.
+    ///
+    /// - Parameters:
+    ///   - projectRoot: The site's Astro project root (the package's `Source/` directory).
+    ///   - siteID: Namespaces synthesized node IDs so snapshots from different sites can never
+    ///     collide.
+    ///   - pages: The content model's routable pages, adopted as ``SiteGraphNodeKind/page`` nodes.
+    ///   - posts: The content model's collection entries; their collections become synthetic
+    ///     ``SiteGraphNodeKind/collection`` nodes with ``SiteGraphEdgeKind/contains`` edges.
+    ///   - images: The content model's known images, adopted as ``SiteGraphNodeKind/asset`` nodes.
+    ///   - fileManager: Injectable for tests that stage fixture trees.
+    /// - Returns: A deterministic snapshot — stable node and edge ordering — for cheap
+    ///   equality-based change detection.
     public static func build(
         projectRoot: URL,
         siteID: String,

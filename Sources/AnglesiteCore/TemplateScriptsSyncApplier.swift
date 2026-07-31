@@ -5,11 +5,19 @@ import Foundation
 /// call unconditionally and immediately), and `resolve` for a single divergence the owner has made
 /// a decision about.
 public enum TemplateScriptsSyncApplier {
+    /// Why an apply/resolve stopped. Both cases name the file so the caller can say which one —
+    /// and, for `applyQueued`, everything written before it keeps its baseline (see that method).
     public enum ApplyError: Error, Equatable {
+        /// The template's own copy couldn't be read — the bundled template is missing or
+        /// unreadable, so there's nothing correct to write.
         case templateReadFailed(relativePath: String)
+        /// The site-side write failed (permissions, disk); the baseline was not updated for this
+        /// file, so the next check pass will retry it.
         case writeFailed(relativePath: String)
     }
 
+    /// The owner's answer to one `TemplateScriptsDivergence` — the only decision this mechanism
+    /// ever delegates to the owner (everything else is applied silently, #1053).
     public enum DivergenceDecision: Sendable, Equatable {
         /// Overwrite the owner's version with the template's (git-recoverable; design doc's
         /// resolution that `Source/` being a real git repo is sufficient recovery — no extra
@@ -19,6 +27,11 @@ public enum TemplateScriptsSyncApplier {
         case keepMine
     }
 
+    /// Writes each queued create/refresh into `sourceDirectory` and records the new baseline
+    /// hash after every successful write — so a mid-batch failure leaves every file already
+    /// written with its matching baseline entry intact (nothing gets re-flagged as divergent on
+    /// the next pass). Throws on the first file that can't be read from the template or written
+    /// to the site; earlier writes stand.
     public static func applyQueued(
         _ actions: [TemplateScriptsSyncAction],
         sourceDirectory: URL,
@@ -52,6 +65,10 @@ public enum TemplateScriptsSyncApplier {
         }
     }
 
+    /// Carries out the owner's decision for one divergence: `.update` overwrites the site's file
+    /// with the template's and re-baselines it (git-recoverable — `Source/` is a real repo);
+    /// `.keepMine` touches nothing under `Source/` and records the declined template hash so the
+    /// same divergence isn't re-asked until the template file changes again.
     public static func resolve(
         _ divergence: TemplateScriptsDivergence,
         decision: DivergenceDecision,

@@ -10,6 +10,7 @@ import Foundation
 /// concern doesn't belong in a `Codable` spec. `ProcessSupervisor` re-exposes this via a typealias
 /// so existing call sites (`ProcessSupervisor.RestartPolicy.onCrash(...)`) keep compiling.
 public enum RestartPolicy: Sendable, Equatable {
+    /// One life: any exit — clean or crash — ends supervision.
     case never
     /// Restart on non-zero exit only (clean exit code 0 always stops). Capped at `maxAttempts`
     /// consecutive failures, with `baseBackoff * 2^(attempt-1)` between retries.
@@ -82,14 +83,17 @@ public protocol SupervisorBackend: Sendable {
 /// iOS thin client is remote-only and selects `RemoteSandboxSiteRuntime`, so nothing reaches this
 /// in normal operation.
 public struct UnavailableProcessBackend: SupervisorBackend {
+    /// Stateless — nothing to configure; every operation reports unavailability.
     public init() {}
 
     private static let message = "Subprocess spawning is unavailable on this platform."
 
+    /// Always throws `SupervisorBackendError.spawnFailed` — no process ever runs here.
     public func runOneShot(_ spec: SpawnSpec) async throws -> ProcessResult {
         throw SupervisorBackendError.spawnFailed(Self.message)
     }
 
+    /// Always throws `SupervisorBackendError.spawnFailed` — no process ever runs here.
     public func launch(
         _ spec: SpawnSpec,
         restartPolicy: RestartPolicy,
@@ -99,17 +103,24 @@ public struct UnavailableProcessBackend: SupervisorBackend {
         throw SupervisorBackendError.spawnFailed(Self.message)
     }
 
+    /// Returns `.terminated` immediately — matching the protocol's unknown-handle contract,
+    /// since no handle from this backend can exist.
     public func waitForExit(_ handle: SpawnedProcessHandle) async -> ProcessExitReason { .terminated }
 
+    /// Always `false` — nothing can be running.
     public func isRunning(_ handle: SpawnedProcessHandle) async -> Bool { false }
 
+    /// No-op — there is never anything to terminate.
     public func terminate(_ handle: SpawnedProcessHandle, timeout: TimeInterval) async {}
 
+    /// No-op — there is never anything to shut down.
     public func shutdownAll(timeout: TimeInterval) async {}
 
+    /// Always throws `SupervisorBackendError.spawnFailed` — no stdin pipe can exist here.
     public func writeStdin(_ handle: SpawnedProcessHandle, _ bytes: Data) async throws {
         throw SupervisorBackendError.spawnFailed(Self.message)
     }
 
+    /// Always `nil` — the protocol's contract for a backend that can't expose a live descriptor.
     public func stdinHandle(_ handle: SpawnedProcessHandle) async -> FileHandle? { nil }
 }

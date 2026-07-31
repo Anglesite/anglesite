@@ -22,8 +22,15 @@ import CryptoKit
 /// the user copy it back into the app rather than standing up a real loopback HTTP server to
 /// capture it automatically. Neither URL is a secret (PKCE public clients have none).
 public enum SiteIndieAuthLoopback {
+    /// Fixed (not ephemeral) port so `clientID` and `redirectURI` are stable constants the
+    /// authorization server sees identically across sign-ins — nothing ever binds to it (see the
+    /// enum doc).
     public static let redirectPort: UInt16 = 51789
+    /// The loopback-origin `client_id`. IndieAuth client IDs are URLs; a loopback origin is the
+    /// one kind that needs no pre-registration with the site's server.
     public static let clientID = URL(string: "http://127.0.0.1:51789/")!
+    /// Where the browser is redirected with `code`/`state` after approval. Same origin as
+    /// ``clientID``, which is what `@dwk/indieauth`'s `redirectUriPolicy` requires.
     public static let redirectURI = URL(string: "http://127.0.0.1:51789/callback")!
 
     /// The scopes `@dwk/microsub` needs: read the timeline, manage channels, follow/unfollow
@@ -46,6 +53,9 @@ struct IndieAuthMetadata: Decodable, Sendable {
     }
 }
 
+/// Everything that can go wrong across the ``SiteIndieAuthClient`` flow — discovery, callback
+/// validation, and token exchange. `Equatable` so tests and UI mapping can match on exact cases
+/// rather than string-compare descriptions.
 public enum SiteIndieAuthError: Error, Equatable, Sendable {
     /// Discovery document couldn't be fetched or decoded.
     case discoveryUnavailable(String)
@@ -69,6 +79,9 @@ public enum SiteIndieAuthError: Error, Equatable, Sendable {
 /// URL comes back — pasted back by the user, not captured automatically (see
 /// `SiteIndieAuthLoopback`'s doc comment for why).
 public struct SiteIndieAuthRequest: Sendable {
+    /// The fully-built authorization URL to open in the system browser. The only public member —
+    /// `state`, the PKCE verifier, and the endpoints stay internal so callers can't leak or
+    /// tamper with them; they only hand the whole request back to the completion APIs.
     public let authorizeURL: URL
     let state: String
     let codeVerifier: String
@@ -80,10 +93,20 @@ public struct SiteIndieAuthRequest: Sendable {
 /// The token response from a site's own `/token` endpoint (`@dwk/indieauth`'s DPoP-bound access
 /// token, see `token.ts`'s `signAccessToken`).
 public struct SiteIndieAuthToken: Sendable, Equatable {
+    /// The bearer credential itself — DPoP-bound, so it is only usable together with proofs
+    /// signed by the same key pair that ran the exchange.
     public let accessToken: String
+    /// The server's `token_type` (`DPoP` here, not `Bearer`) — echoed into the
+    /// `Authorization` scheme on resource requests.
     public let tokenType: String
+    /// The space-separated scopes actually granted, which may be narrower than what
+    /// ``SiteIndieAuthLoopback/microsubScope`` asked for.
     public let scope: String
+    /// The authenticated user's canonical URL — IndieAuth's identity claim, the whole point of
+    /// the flow.
     public let me: String
+    /// Lifetime in seconds; optional because IndieAuth servers aren't required to report it, and
+    /// this client doesn't refresh — an expired token just fails and re-runs sign-in.
     public let expiresIn: Int?
 
     enum CodingKeys: String, CodingKey {
@@ -109,10 +132,14 @@ extension SiteIndieAuthToken: Decodable {}
 /// (`MicrosubReaderModel`), kept out of this type so it stays fully unit-testable without
 /// networking beyond the injected `Transport`. Mirrors `CloudflareOAuthClient`'s seam.
 public struct SiteIndieAuthClient: Sendable {
+    /// The single seam all network traffic (discovery + token exchange) flows through, so tests
+    /// exercise the full flow with canned responses and zero real networking.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     private let transport: Transport
 
+    /// Defaults to ``defaultTransport`` (plain `URLSession`); inject a fake to unit-test the
+    /// flow.
     public init(transport: @escaping Transport = SiteIndieAuthClient.defaultTransport) {
         self.transport = transport
     }

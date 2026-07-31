@@ -16,6 +16,10 @@ public actor SiteStore {
     /// Process-wide shared instance.
     public static let shared = SiteStore()
 
+    /// One recents-registry entry: a known `.anglesite` package plus the cached state the
+    /// launcher, Open Recent, and Spotlight need to render it without touching disk. Identity
+    /// is the package's marker UUID, not its path — the entry survives the package being moved
+    /// or renamed (#242).
     public struct Site: Sendable, Codable, Equatable, Identifiable {
         /// The package's stable marker UUID (string). Path-independent — survives moves (#242).
         public let id: String
@@ -25,8 +29,16 @@ public actor SiteStore {
         public var name: String
         /// The `.anglesite` package directory.
         public let packageURL: URL
+        /// Whether `Source/` passed the project sentinels on the last check. Cached (not live):
+        /// refreshed by `load()` and `record(_:)`, so it can go stale between launches if files
+        /// change outside the app.
         public var isValid: Bool
+        /// The sentinel paths missing from `Source/` when `isValid` is `false` — lets the
+        /// launcher say *what's* broken instead of just flagging the site. Empty when
+        /// `needsReauthorization` is set, because the check couldn't actually run (#776).
         public var missingSentinels: [String]
+        /// When this site was last opened or recorded — the most-recently-used sort key for the
+        /// launcher, Open Recent, and the Dock menu.
         public var lastSeen: Date
         /// Security-scoped bookmark for `packageURL`. One grant covers the whole package, so
         /// Source/ and Config/ are both reachable under it.
@@ -45,6 +57,9 @@ public actor SiteStore {
         /// App-owned per-site config dir (settings, chat history, cache).
         public var configDirectory: URL { AnglesitePackage(url: packageURL).configURL }
 
+        /// Memberwise initializer. Prefer ``make(package:fileManager:)`` for entries built from
+        /// a real package on disk — it derives identity, name, and validity from the marker
+        /// instead of trusting caller-supplied values.
         public init(
             id: String,
             name: String,
@@ -122,8 +137,13 @@ public actor SiteStore {
         }
     }
 
+    /// Why a URL can't join the registry as a site. Part of the store's public error vocabulary
+    /// for callers that vet a candidate location before recording it.
     public enum StoreError: Error, Sendable {
+        /// The URL doesn't point at a directory at all.
         case notADirectory(URL)
+        /// The directory exists but its `Source/` tree fails the project sentinels; the payload
+        /// lists which sentinel paths are missing, mirroring `Site.missingSentinels`.
         case invalidProject(URL, missing: [String])
     }
 
@@ -135,12 +155,18 @@ public actor SiteStore {
 
     private let fileManager: FileManager
     private let persistenceURL: URL
+    /// The in-memory registry, most-recently-used first. Empty until `load()` runs; read-only
+    /// from outside — every mutation goes through the actor's methods so persistence and change
+    /// broadcasts can't be skipped.
     private(set) public var sites: [Site] = []
     private var changeHandler: ChangeHandler?
 
     /// Continuations for the UI-observer broadcast, keyed by a per-subscription `UUID`.
     private var changeStreamContinuations: [UUID: AsyncStream<[Site]>.Continuation] = [:]
 
+    /// Creates a store bound to a `recents.json` location. Does not load it — call `load()`
+    /// once the caller is ready to render.
+    ///
     /// - Parameters:
     ///   - persistenceURL: where to read/write `recents.json`. Defaults to
     ///     `~/Library/Application Support/Anglesite/recents.json`. Tests should pass a temp URL.
@@ -339,6 +365,12 @@ public actor SiteStore {
 
     // MARK: - Change notification
 
+    /// A per-subscriber stream of registry snapshots for UI observers (launcher, Open Recent).
+    /// Unlike the single-subscriber ``ChangeHandler``, any number of these can be live at once.
+    /// Yields the current list immediately on subscription (so a late-arriving view isn't blank
+    /// until the next mutation) and buffers only the newest snapshot — a slow consumer sees the
+    /// latest state, never a backlog of stale intermediates. `nonisolated` so SwiftUI `.task`
+    /// modifiers can subscribe without first hopping onto the actor.
     public nonisolated func changeStream() -> AsyncStream<[Site]> {
         let id = UUID()
         return AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in

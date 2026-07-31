@@ -10,8 +10,14 @@ import Foundation
 /// `@dwk/*` packages are stable, that file is the only protocol-specific piece that needs to
 /// grow imports and route handlers.
 public actor SocialWorkerProvisionCommand {
+    /// Outcome of one `provision()` run. Every case carries the `resources` provisioned so far
+    /// because provisioning is incremental and resumable: a failure partway through must not lose
+    /// the D1/KV/R2/Queue ids already created, or a retry would re-create them against wrangler.
     public enum Result: Sendable, Equatable {
+        /// Provisioning and the downstream deploy both completed; `url` is the live Worker URL.
         case succeeded(url: URL, resources: WorkerComposition.ProvisionedResources, duration: TimeInterval)
+        /// The pre-deploy security gate (``PreDeployCheck``) refused the deploy. Resources were
+        /// still provisioned — the gate runs at the deploy stage, after resource creation.
         case blocked(failures: [PreDeployCheck.ScanFailure], warnings: [PreDeployCheck.ScanWarning], resources: WorkerComposition.ProvisionedResources)
         /// The candidate Worker name is already in use on the connected Cloudflare account by a
         /// project this site's own local config doesn't already claim as its own (`.site-config`'s
@@ -31,10 +37,17 @@ public actor SocialWorkerProvisionCommand {
         /// one acknowledgment covers every Queue-backed feature — it's the same account-level
         /// plan fact.)
         case webmentionPaidPlanConfirmationNeeded(resources: WorkerComposition.ProvisionedResources)
+        /// A wrangler call, secret push, or the downstream deploy failed. `exitCode` is `nil` when
+        /// the process couldn't run at all (as opposed to running and exiting non-zero).
         case failed(reason: String, exitCode: Int32?, resources: WorkerComposition.ProvisionedResources)
     }
 
+    /// Re-exported from ``DeployCommand`` so both commands share one token-resolution seam
+    /// (Keychain in production, injected values in tests).
     public typealias TokenSource = DeployCommand.TokenSource
+    /// Runs one `wrangler <arguments>` invocation with `siteDirectory` as cwd, tagged with
+    /// `source` for the debug pane. Injected so tests can fake wrangler without a container; the
+    /// production conformer routes through the site's container runtime.
     public typealias CommandRunner = @Sendable (
         _ siteDirectory: URL,
         _ arguments: [String],
@@ -68,6 +81,10 @@ public actor SocialWorkerProvisionCommand {
     /// hashing pepper. Defaults to the real Keychain via `SolidOidcKeyProvisioning`; tests inject
     /// a fake, mirroring `KeyPairSource`/`SolidOidcSigningKeySource`.
     public typealias WebdavPepperSource = @Sendable (_ siteID: String) throws -> String
+    /// The final publish step, once every resource and secret is in place — production is
+    /// `DeployCommand.deploy` (build, pre-deploy security scan, wrangler deploy). Injected so
+    /// `DeployModel` can thread its own progress/preflight callbacks, and so tests can stub the
+    /// deploy without a Cloudflare account.
     public typealias Deployer = @Sendable (
         _ token: String,
         _ siteID: String,
@@ -75,6 +92,9 @@ public actor SocialWorkerProvisionCommand {
         _ wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim]
     ) async -> DeployCommand.Result
 
+    /// The Cloudflare API token seam this command was constructed with. `nonisolated` (and
+    /// public) so callers can reuse the exact same token source for related calls without
+    /// hopping onto the actor.
     public nonisolated let tokenSource: TokenSource
     private let runner: CommandRunner
     private let keyPairSource: KeyPairSource
@@ -84,6 +104,8 @@ public actor SocialWorkerProvisionCommand {
     private let deployer: Deployer
     private let workerScriptNamesSource: DeployCommand.WorkerScriptNamesSource
 
+    /// Creates a provisioner. Every dependency defaults to its production conformer; tests (and
+    /// `DeployModel`, which threads its own runner/deployer) override only the seams they need.
     public init(
         tokenSource: @escaping TokenSource = DeployCommand.keychainTokenSource,
         runner: @escaping CommandRunner = SocialWorkerProvisionCommand.defaultRunner,
@@ -108,6 +130,11 @@ public actor SocialWorkerProvisionCommand {
         self.workerScriptNamesSource = workerScriptNamesSource
     }
 
+    /// Provisions every Cloudflare resource the active workers need (D1, KV, R2, Queues,
+    /// secrets), regenerates `wrangler.toml`, then hands off to `deployer` to build, scan, and
+    /// publish. Idempotent and resumable: each resource is created only if not already known
+    /// (from `knownResources` or a prior `wrangler.toml`), and config is persisted after every
+    /// successful step so a failure partway through never loses ids already created.
     public func provision(
         siteID: String,
         siteDirectory: URL,
@@ -653,36 +680,48 @@ public actor SocialWorkerProvisionCommand {
         return nil
     }
 
+    /// Host-side wrangler is retired (#70 — no host Node runtime): this default fails with a
+    /// logged explanation and exit code 127 rather than spawning anything. Real provisioning
+    /// injects a container-backed runner (`ContainerCommandRunner`).
     public static let defaultRunner: CommandRunner = { siteDirectory, arguments, environment, source in
         let reason = HostNodeRetirement.reason("social worker provisioning")
         await LogCenter.shared.append(source: source, stream: .stderr, text: reason)
         return ProcessSupervisor.RunResult(stdout: reason, stderr: "", exitCode: 127)
     }
 
+    /// Same host-Node retirement stance as ``defaultRunner``, for the secret-push seam: fails
+    /// with a logged explanation instead of spawning; production injects
+    /// `ContainerCommandRunner.secretRunner`.
     public static let defaultSecretRunner: SecretRunner = { siteDirectory, name, value, environment, source in
         let reason = HostNodeRetirement.reason("social worker secret provisioning")
         await LogCenter.shared.append(source: source, stream: .stderr, text: reason)
         return ProcessSupervisor.RunResult(stdout: reason, stderr: "", exitCode: 127)
     }
 
+    /// Production ``KeyPairSource``: the real per-site ActivityPub secrets, generated once and
+    /// persisted in the platform secret store (Keychain on macOS).
     public static let defaultKeyPairSource: KeyPairSource = { siteID in
         try ActivityPubKeyProvisioning.secrets(siteID: siteID, secretStore: PlatformSecretStore.make())
     }
 
+    /// Production ``SolidOidcSigningKeySource``: the real per-site ES256 signing key from the
+    /// platform secret store, generated on first use.
     public static let defaultSolidOidcSigningKeySource: SolidOidcSigningKeySource = { siteID in
         try SolidOidcKeyProvisioning.signingKeyJWK(siteID: siteID, secretStore: PlatformSecretStore.make())
     }
 
+    /// Production ``WebdavPepperSource``: the real per-site WebDAV hashing pepper from the
+    /// platform secret store, generated on first use.
     public static let defaultWebdavPepperSource: WebdavPepperSource = { siteID in
         try SolidOidcKeyProvisioning.webdavPepper(siteID: siteID, secretStore: PlatformSecretStore.make())
     }
 
-    // Calls `DeployCommand.deploy` with `configDirectory` still defaulted (route-coverage
-    // scanning skipped, #530), but now forwards `wellKnownDynamicClaims` through to #744's
-    // pre-build /.well-known/ collision check (#934) — `provision`'s caller supplies whatever
-    // active dynamic-route claims it computed (empty if it didn't, matching prior behavior).
-    // `DeployModel.runDeploy` still constructs its own deployer closure (for `configDirectory`/
-    // `onPreflight`/`onProgress`, which this default has no equivalent for).
+    /// Calls `DeployCommand.deploy` with `configDirectory` still defaulted (route-coverage
+    /// scanning skipped, #530), but now forwards `wellKnownDynamicClaims` through to #744's
+    /// pre-build /.well-known/ collision check (#934) — `provision`'s caller supplies whatever
+    /// active dynamic-route claims it computed (empty if it didn't, matching prior behavior).
+    /// `DeployModel.runDeploy` still constructs its own deployer closure (for `configDirectory`/
+    /// `onPreflight`/`onProgress`, which this default has no equivalent for).
     public static let defaultDeployer: Deployer = { token, siteID, siteDirectory, wellKnownDynamicClaims in
         await DeployCommand(tokenSource: { token }).deploy(
             siteID: siteID, siteDirectory: siteDirectory, wellKnownDynamicClaims: wellKnownDynamicClaims)

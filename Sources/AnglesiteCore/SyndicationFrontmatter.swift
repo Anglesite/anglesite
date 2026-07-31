@@ -7,6 +7,13 @@ import Foundation
 /// edits is exactly what the canonical reader (`Frontmatter.parse`) sees; only the line-level
 /// splicing — which must preserve the file's existing formatting — lives here.
 public enum SyndicationFrontmatter {
+    /// Splices `urls` into the post's top-level `syndication:` list, preserving the file's
+    /// existing formatting (including CRLF line endings) and deduplicating against items already
+    /// recorded in block, inline-array, or bare-scalar form. Returns `contents` unchanged when
+    /// there is nothing new to add, so callers can write the result back unconditionally without
+    /// churning the file. A file with no (or an unterminated) frontmatter fence gets one
+    /// synthesized around the new block — otherwise the canonical reader (`Frontmatter.parse`)
+    /// would never see the URLs.
     public static func adding(urls: [String], to contents: String) -> String {
         let newURLs = urls.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         guard !newURLs.isEmpty else { return contents }

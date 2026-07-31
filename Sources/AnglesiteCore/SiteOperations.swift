@@ -22,6 +22,9 @@ public struct SiteOperations: Sendable {
     /// cache file `WorkerCatalogFetcher.cachedCatalog` reads from.
     private let cachedWorkerCatalog: @Sendable () -> [WorkerDescriptor]
 
+    /// Production entry point: live commands, the shared registry, and real security-scoped
+    /// access. Tests use the internal initializer instead, which additionally injects the
+    /// scoped-access hop and the cached worker catalog.
     public init(factory: CommandFactory = LiveCommandFactory(), store: SiteStore = .shared) {
         self.init(
             factory: factory,
@@ -51,6 +54,9 @@ public struct SiteOperations: Sendable {
 
     // MARK: Operations
 
+    /// Headless deploy with the same worker composition as the GUI Deploy button (see
+    /// `deployWithWorkerComposition` below). Never throws: access and lookup failures are folded
+    /// into `DeployCommand.Result.failed`, per the type's one-Result-per-operation contract.
     public func deploy(site: SiteStore.Site, onProgress: ProgressHandler? = nil) async -> DeployCommand.Result {
         do {
             return try await SiteAccess.withScopedAccess(to: site, in: store) { url in
@@ -140,6 +146,8 @@ public struct SiteOperations: Sendable {
         return provisionResult.asDeployCommandResult
     }
 
+    /// Runs the site's backup inside scoped access; access and lookup failures fold into
+    /// `BackupCommand.Result.failed` rather than throwing.
     public func backup(site: SiteStore.Site, onProgress: ProgressHandler? = nil) async -> BackupCommand.Result {
         do {
             return try await SiteAccess.withScopedAccess(to: site, in: store) { url in
@@ -152,6 +160,8 @@ public struct SiteOperations: Sendable {
         }
     }
 
+    /// Runs the site's audit inside scoped access; access and lookup failures fold into
+    /// `AuditCommand.Result.failed` (with an empty log tail, since no subprocess ever ran).
     public func audit(site: SiteStore.Site, onProgress: ProgressHandler? = nil) async -> AuditCommand.Result {
         do {
             return try await SiteAccess.withScopedAccess(to: site, in: store) { url in
@@ -181,6 +191,9 @@ public struct SiteOperations: Sendable {
         ),
     ]
 
+    /// Provisions the fixed V-2 starter pack (`v2StarterWorkers` above) for a site — the
+    /// one-button "turn on social basics" operation, deliberately independent of the site's
+    /// catalog-driven active-worker set.
     public func provisionSocialWorker(site: SiteStore.Site) async -> SocialWorkerProvisionCommand.Result {
         do {
             return try await socialWorkerAccess(site, store) { url in
@@ -200,6 +213,8 @@ public struct SiteOperations: Sendable {
 
     // MARK: Dialog mapping (pure)
 
+    /// Maps a deploy result onto the sentence Siri/Shortcuts speaks or shows. Pure and static so
+    /// intent tests can assert exact strings without running any operation.
     public static func dialog(forDeploy result: DeployCommand.Result) -> String {
         switch result {
         case .succeeded(let url, _):
@@ -215,6 +230,7 @@ public struct SiteOperations: Sendable {
         }
     }
 
+    /// Backup counterpart to `dialog(forDeploy:)` — pure result-to-sentence mapping.
     public static func dialog(forBackup result: BackupCommand.Result) -> String {
         switch result {
         case .succeeded(let sha, _, let remote):
@@ -226,6 +242,7 @@ public struct SiteOperations: Sendable {
         }
     }
 
+    /// Audit counterpart to `dialog(forDeploy:)` — summarizes finding counts by severity.
     public static func dialog(forAudit result: AuditCommand.Result) -> String {
         switch result {
         case .succeeded(let report, _):
@@ -238,6 +255,9 @@ public struct SiteOperations: Sendable {
         }
     }
 
+    /// Social-worker-provision counterpart to `dialog(forDeploy:)`. Always appends the
+    /// provisioned-resource suffix, including on failure — resources (D1/KV/R2) created before
+    /// the failure survive it, and the owner should know they exist.
     public static func dialog(forSocialWorkerProvision result: SocialWorkerProvisionCommand.Result) -> String {
         switch result {
         case .succeeded(let url, let resources, _):

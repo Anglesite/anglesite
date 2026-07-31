@@ -6,9 +6,14 @@ import Foundation
 /// shape `git show-ref`/`git bundle list-heads` produce. For an annotated tag, `oid` is the tag
 /// object's own id, not the peeled commit — matching stock git's own bundle/show-ref convention.
 public struct SyncArtifactRef: Sendable, Equatable, Hashable, Codable {
+    /// The ref's direct target as a 40-hex SHA-1 (an annotated tag's own object id, not the
+    /// peeled commit — see the type doc).
     public let oid: String
+    /// Full ref name (`refs/heads/<n>`, `refs/tags/<n>`, or the literal `HEAD`).
     public let name: String
 
+    /// Creates a ref record. No validation — the codecs that produce these are the ones that
+    /// enforce the `<40-hex> <name>` shape on parse.
     public init(oid: String, name: String) {
         self.oid = oid
         self.name = name
@@ -44,6 +49,9 @@ public enum SyncArtifactError: Error, Equatable, Sendable, LocalizedError {
     /// A filesystem operation (read/write/temp-file swap) failed.
     case io(String)
 
+    /// Diagnostic phrasing per case — lower-case sentences that read naturally when a caller
+    /// prefixes its own context ("couldn't sync: …"). These name bundle/packfile specifics for
+    /// the debug pane; `SyncEngine` wraps them in owner-facing language before surfacing.
     public var errorDescription: String? {
         switch self {
         case .notFound(let url):

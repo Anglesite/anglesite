@@ -15,8 +15,14 @@ import CryptoKit
 /// access token `@dwk/solid-pod` has already accepted the corresponding JWKS entry for (mirrors
 /// `ActivityPubKeyProvisioning`'s "never regenerate" rationale for its own signing key).
 public enum SolidOidcKeyProvisioning {
+    /// Failures generating secret material. Both cases mean *no* secret was persisted — a caller
+    /// can safely retry, since nothing partial is ever written to the `SecretStore`.
     public enum Error: Swift.Error {
+        /// The platform's secure random source refused to produce bytes (the associated string
+        /// carries the underlying `SecRandomCopyBytes` status for the log).
         case keyGenerationFailed(String)
+        /// Built without CryptoKit/Security (non-Darwin) — this provisioning path requires the
+        /// platform crypto stack, and there is deliberately no weaker fallback for key material.
         case unsupportedPlatform
     }
 

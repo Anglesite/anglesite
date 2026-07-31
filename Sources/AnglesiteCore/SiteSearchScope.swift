@@ -11,12 +11,20 @@ import Foundation
 /// Raw values are persisted with the window's scene state, so they're API in the same sense
 /// `SiteToolbarItemID`'s are: renaming one silently resets every user's chosen scope.
 public enum SiteSearchScope: String, CaseIterable, Sendable, Identifiable {
+    /// No kind filter — searches every indexed document, including kinds no narrower scope names.
     case all
+    /// Standalone pages (`src/pages/`).
     case pages
+    /// Collection entries — both post-shaped collections and other content collections, since
+    /// both read as "a piece of writing" in the scope bar.
     case posts
+    /// Components and layouts together — the navigator's Components group already holds both,
+    /// so the scope bar matches the user's existing mental model.
     case components
+    /// Stylesheets.
     case styles
 
+    /// `Identifiable` conformance via the raw value, which is already unique and persisted.
     public var id: String { rawValue }
 
     /// The document kinds this scope searches, or `nil` for no filter.

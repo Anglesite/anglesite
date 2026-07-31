@@ -30,6 +30,21 @@ public enum SiteIndexPaths {
 /// without spinning a runtime. Portable — reindexing has no platform-specific code; only the
 /// watcher that feeds it (`Platform/SiteFileWatching.swift`) does.
 public enum KnowledgeReindex {
+    /// Reconciles one change batch against the index (and optional ranker): a bulk/coalesced
+    /// batch triggers a full rebuild + ranker re-sync, while a per-file batch upserts or removes
+    /// each unique in-tree path according to its current on-disk existence.
+    ///
+    /// - Parameters:
+    ///   - batch: The coalesced watcher output. `needsFullRescan` means per-file granularity was
+    ///     lost, so the whole site is rebuilt rather than guessing what changed.
+    ///   - index: The lexical index to mutate.
+    ///   - ranker: The semantic half to keep in lockstep (#383); `nil` skips vector maintenance
+    ///     entirely (e.g. hosts without embedding support).
+    ///   - siteID: The site whose documents are keyed in both stores.
+    ///   - projectRoot: Root that watcher paths are relativized against; out-of-tree paths are
+    ///     dropped.
+    ///   - fileExists: Existence probe, injectable so tests can simulate deletes without
+    ///     touching the filesystem. A missing file means "remove", not "skip".
     public static func apply(
         _ batch: FileChangeBatch,
         to index: SiteKnowledgeIndex,

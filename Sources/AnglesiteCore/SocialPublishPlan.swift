@@ -6,12 +6,25 @@ import Foundation
 /// the deploy pipeline a deterministic contract: for each publishable content entry, compute the
 /// canonical source URL, outbound Webmention targets, and requested POSSE destinations.
 public enum SocialPublishPlan {
+    /// One publishable content entry's outbound-social work. Only entries with at least one
+    /// Webmention or POSSE target become entries at all — content with nothing to send is left
+    /// out of the plan entirely.
     public struct Entry: Equatable, Sendable {
+        /// Project-relative POSIX path of the source markdown file, for display and tracing.
         public let sourceFile: String
+        /// The entry's public URL on the deployed site — the Webmention `source` every outbound
+        /// send will claim. Derived from the collection path and slug, since planning runs
+        /// without a built site to consult.
         public let canonicalURL: URL
+        /// External `http(s)` URLs this entry links to (reply/bookmark/like/repost frontmatter
+        /// plus body links), deduplicated, sorted, and with same-host links excluded — a site
+        /// never webmentions itself.
         public let webmentionTargets: [URL]
+        /// Syndication destinations requested in frontmatter (`posse`/`syndicateTo`), kept as
+        /// raw strings because destination identifiers belong to the (not-yet-shipped) sender.
         public let posseTargets: [String]
 
+        /// Memberwise initializer, public for tests and future senders to construct fixtures.
         public init(
             sourceFile: String,
             canonicalURL: URL,
@@ -25,19 +38,31 @@ public enum SocialPublishPlan {
         }
     }
 
+    /// The whole site's outbound-social plan for one deploy — deterministic for a given content
+    /// tree, so the deploy pipeline can diff/summarize it before anything is actually sent.
     public struct Plan: Equatable, Sendable {
+        /// The plan's entries, sorted by source file for stable output.
         public let entries: [Entry]
 
+        /// Memberwise initializer, public for tests and future senders to construct fixtures.
         public init(entries: [Entry]) {
             self.entries = entries
         }
 
+        /// `true` when this deploy has no outbound social work at all — the common case, letting
+        /// the pipeline skip the whole feature silently.
         public var isEmpty: Bool { entries.isEmpty }
+        /// Total outbound Webmention sends across all entries, for summary UI.
         public var webmentionCount: Int { entries.reduce(0) { $0 + $1.webmentionTargets.count } }
+        /// Total requested POSSE syndications across all entries, for summary UI.
         public var posseCount: Int { entries.reduce(0) { $0 + $1.posseTargets.count } }
     }
 
+    /// Input errors that make planning impossible (as opposed to per-file problems, which just
+    /// skip the file).
     public enum PlanningError: Error, Equatable, Sendable {
+        /// The site base URL has no host or a non-`http(s)` scheme, so canonical URLs and the
+        /// self-link exclusion can't be computed; carries the offending URL string.
         case invalidSiteBase(String)
     }
 

@@ -3,11 +3,18 @@ import Foundation
 /// The coarse milestone a dev-server startup is currently at. Drives both the progress bar's fill
 /// range and the curated message shown beneath it.
 public enum StartupPhase: String, Sendable, Equatable, CaseIterable {
+    /// No startup in progress (initial state, or reset after the runtime went back to idle).
     case idle
+    /// The runtime reported `.starting` — the dev-server process is being spawned.
     case launching
+    /// First astro stdout arrived: the process is alive and Astro/Vite is doing its build work.
     case building
+    /// The dev server printed its ready URL; the preview WebView is connecting to it.
     case connecting
+    /// The runtime reported `.ready` — the bar jumps to full.
     case ready
+    /// Startup failed before reaching `.ready`. A crash *after* `.ready` never lands here — that
+    /// is a runtime concern the error pane owns, not a startup one.
     case failed
 
     /// Forward-only ordering. The estimator only ever advances to a higher-ranked active phase.
@@ -37,6 +44,8 @@ public enum StartupPhase: String, Sendable, Equatable, CaseIterable {
         }
     }
 
+    /// The curated status line shown beneath the progress bar while this phase is active. Empty
+    /// for the non-active phases — the bar isn't shown then, so there's nothing to caption.
     public var message: String {
         switch self {
         case .idle, .failed, .ready: return ""
@@ -71,7 +80,11 @@ public enum StartupPhase: String, Sendable, Equatable, CaseIterable {
 /// phase the fraction approaches — but never reaches — that phase's cap, so the bar keeps inching
 /// on overrun and only a genuine anchor completes a segment. `.ready` jumps to `1.0`.
 public struct StartupProgressEstimator: Sendable, Equatable {
+    /// The current milestone. Advances forward-only through the active phases; only a runtime
+    /// `.failed`/`.idle` signal resets it.
     public private(set) var phase: StartupPhase = .idle
+    /// Determinate progress in `0...1`, monotonic within a startup — it never moves backward, so
+    /// the bar never visibly regresses even when signals arrive out of the expected cadence.
     public private(set) var fraction: Double = 0
 
     private let profile: StartupProfile
@@ -83,12 +96,19 @@ public struct StartupProgressEstimator: Sendable, Equatable {
     private static let easeK = 2.5
     private static let fractionEpsilon = 0.0001
 
+    /// Creates an estimator paced by `profile` — typically the last successful startup's measured
+    /// timings (``StartupTimingStore``), so the smooth fill matches how long *this site* usually
+    /// takes rather than a one-size-fits-all guess.
     public init(profile: StartupProfile = .default) {
         self.profile = profile
     }
 
+    /// The current phase's curated status line (see ``StartupPhase/message``).
     public var message: String { phase.message }
 
+    /// `true` while a startup is genuinely in flight (launching/building/connecting) — the window
+    /// in which the caller should keep `tick`ing and feeding log lines. `false` for the terminal
+    /// and idle states, where every ingest/tick becomes a no-op.
     public var isActive: Bool {
         phase == .launching || phase == .building || phase == .connecting
     }
