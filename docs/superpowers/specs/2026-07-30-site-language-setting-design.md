@@ -1,7 +1,7 @@
 # Site language setting — design
 
 Issue: [#956](https://github.com/Anglesite/Anglesite/issues/956)
-Status: proposed
+Status: implemented
 
 ## Problem statement
 
