@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { asBookingProvider, asDonationsProvider, asContactProvider, readConfigFromString } from "./config";
+import { asBookingProvider, asDonationsProvider, asContactProvider, readConfigFromString, resolveLang } from "./config";
 
 test("asBookingProvider: passes through recognized providers", () => {
   assert.equal(asBookingProvider("cal"), "cal");
@@ -61,4 +61,19 @@ test("readConfigFromString: reads COPYRIGHT_HOLDER", () => {
 
 test("readConfigFromString: COPYRIGHT_HOLDER is undefined when absent", () => {
   assert.equal(readConfigFromString("SITE_NAME=Acme\n", "COPYRIGHT_HOLDER"), undefined);
+});
+
+// BaseLayout.astro sets <html lang> from this (#956, WCAG 2.2 SC 3.1.1).
+test("readConfigFromString: reads LANG", () => {
+  assert.equal(readConfigFromString("SITE_NAME=Acme\nLANG=fr-CA\n", "LANG"), "fr-CA");
+});
+
+test("resolveLang: passes through a configured tag", () => {
+  assert.equal(resolveLang("fr-CA"), "fr-CA");
+});
+
+test("resolveLang: falls back to en when unset or blank", () => {
+  assert.equal(resolveLang(undefined), "en");
+  assert.equal(resolveLang(""), "en");
+  assert.equal(resolveLang("   "), "en");
 });

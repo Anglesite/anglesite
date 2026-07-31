@@ -42,16 +42,20 @@ public actor SiteScaffolder {
     private let register: Register
     private let fileManager: FileManager
     private let appVersion: @Sendable () -> String?
+    private let hostLanguage: @Sendable () -> String
 
     /// `catalog` (not a fixed theme) so the owner's Look-step choice resolves at pipeline time
     /// from `draft.themeID`. `appVersion` defaults to `AppVersion.current()` (i.e. `Bundle.main`);
     /// tests inject a fixed string since `Bundle.main` inside `swift test` is the test runner and
-    /// has no `CFBundleShortVersionString`.
+    /// has no `CFBundleShortVersionString`. `hostLanguage` defaults to
+    /// `SiteLanguageAsset.hostLanguageTag()` (i.e. `Locale.current`); tests inject a fixed tag
+    /// since the host locale running `swift test` varies by machine (#956).
     public init(sitesRoot: URL, templateURL: URL, catalog: ThemeCatalog,
                 run: @escaping CommandRunner, gitInit: @escaping GitInit,
                 gitCommit: @escaping GitCommit,
                 register: @escaping Register, fileManager: FileManager = .default,
-                appVersion: @escaping @Sendable () -> String? = { AppVersion.current() }) {
+                appVersion: @escaping @Sendable () -> String? = { AppVersion.current() },
+                hostLanguage: @escaping @Sendable () -> String = { SiteLanguageAsset.hostLanguageTag() }) {
         self.sitesRoot = sitesRoot
         self.templateURL = templateURL
         self.catalog = catalog
@@ -61,6 +65,7 @@ public actor SiteScaffolder {
         self.register = register
         self.fileManager = fileManager
         self.appVersion = appVersion
+        self.hostLanguage = hostLanguage
     }
 
     /// Runs the whole pipeline for the wizard's finished draft, streaming ``ScaffoldStep``s as it
@@ -210,6 +215,7 @@ public actor SiteScaffolder {
             ("SITE_TYPE", draft.siteType.rawValue),
             ("DOMAIN_CHOICE", draft.domainChoice.rawValue),
             ("CF_PROJECT_NAME", cfProjectName),
+            ("LANG", hostLanguage()),
         ]
         if draft.domainChoice == .transfer && !draft.domain.isEmpty { values.append(("DOMAIN", draft.domain)) }
         if draft.themeID == CustomTheme.id {

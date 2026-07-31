@@ -226,6 +226,26 @@ final class SiteScaffolderTests: XCTestCase {
         XCTAssertNotEqual(stampedVersion, "1.0.0")  // no longer the scaffold.sh placeholder
     }
 
+    /// #956: a newly scaffolded site's `<html lang>` must default to the owner's actual
+    /// language, not a hardcoded "en" — `hostLanguage` is injected here since the real host
+    /// locale running `swift test` varies by machine.
+    func testHappyPathStampsLangFromHostLanguage() async throws {
+        let root = tmpDir()
+        let scaffolder = SiteScaffolder(
+            sitesRoot: root, templateURL: URL(fileURLWithPath: "/template"), catalog: ThemeCatalog(themes: [theme]),
+            run: fakeRunner(calls: CallRecorder()),
+            gitInit: { _ in },
+            gitCommit: { _ in },
+            register: { pkg in try SiteStore.Site.make(package: pkg) },
+            hostLanguage: { "fr-CA" }
+        )
+        for await _ in scaffolder.scaffold(makeDraft()) {}
+
+        let pkgURL = root.appendingPathComponent("acme-co.anglesite")
+        let cfg = try String(contentsOf: pkgURL.appendingPathComponent("Source/.site-config"), encoding: .utf8)
+        XCTAssertTrue(cfg.contains("LANG=fr-CA"))
+    }
+
     func testMissingTemplatePackageJSONWarnsButStillRegisters() async throws {
         // makeScaffolder's default templateURL ("/template") has no package.json,
         // so reading it for the dependency baseline fails — this must surface as a
