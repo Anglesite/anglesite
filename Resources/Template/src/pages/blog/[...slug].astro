@@ -17,6 +17,7 @@ const { Content } = await render(post);
   pubDate={post.data.pubDate}
   draft={post.data.draft}
   syndication={post.data.syndication}
+  lang={post.data.lang || undefined}
 >
   <Content />
 </BlogPost>
