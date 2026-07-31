@@ -224,7 +224,7 @@ final class PreviewModel {
             if let previousSiteID {
                 await EditRouterRegistry.shared.unregister(siteID: previousSiteID)
             }
-            await runtime.stop()
+            await runtime.suspend()
         }
     }
 
