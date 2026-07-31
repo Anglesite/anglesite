@@ -5,28 +5,43 @@ import Foundation
 /// separate from `WorkersDevStatus` below because the supervisor doesn't know the proxied URL;
 /// `LocalContainerSiteRuntime` composes the two.
 public enum WorkersDevProcessState: Sendable, Equatable {
+    /// The wrangler-dev process is up.
     case running
+    /// The supervisor is relaunching after a crash; `attempt` counts restarts for backoff/UI.
     case restarting(attempt: Int)
+    /// The process exited and the supervisor isn't bringing it back (deliberate stop).
     case stopped
+    /// The supervisor gave up; `reason` is the diagnostic surfaced to the Debug Pane.
     case failed(reason: String)
 }
 
 /// One site's local wrangler-dev session status as shown in the Debug Pane (#699).
 public enum WorkersDevStatus: Sendable, Equatable {
+    /// The session is being brought up — shown before the supervisor reports anything.
     case starting
     /// `url` is nil only in the brief window between the supervisor reporting `.running` and
     /// `startWorkersDev` returning the proxied URL.
     case running(url: URL?)
+    /// The supervisor is relaunching after a crash; `attempt` mirrors
+    /// `WorkersDevProcessState.restarting`.
     case restarting(attempt: Int)
+    /// The session is dead; `reason` is shown in the Debug Pane row.
     case failed(reason: String)
 }
 
+/// One Debug Pane row: a site's wrangler-dev session and its current status.
 public struct WorkersDevSession: Sendable, Equatable, Identifiable {
+    /// `Identifiable` conformance — a site has at most one dev session, so `siteID` is the row
+    /// identity.
     public var id: String { siteID }
+    /// The owning site's stable id.
     public let siteID: String
+    /// The site's display name, denormalized into the row so the Debug Pane needs no site lookup.
     public let displayName: String
+    /// The session's current status.
     public let status: WorkersDevStatus
 
+    /// Memberwise creation — normally produced by `WorkersDevStatusCenter.update`.
     public init(siteID: String, displayName: String, status: WorkersDevStatus) {
         self.siteID = siteID
         self.displayName = displayName
@@ -46,6 +61,8 @@ public actor WorkersDevStatusCenter {
     /// Handle returned by `subscribe()` — same contract as `LogCenter.Subscription`: `cancel()`
     /// finishes the continuation so a `for await` consumer unblocks.
     public struct Subscription: Sendable {
+        /// The full ordered session snapshot, re-yielded on every change (see the actor doc for
+        /// why snapshots rather than deltas).
         public let stream: AsyncStream<[WorkersDevSession]>
         private let continuation: AsyncStream<[WorkersDevSession]>.Continuation
 
@@ -64,13 +81,19 @@ public actor WorkersDevStatusCenter {
     private var sessions: [String: WorkersDevSession] = [:]
     private var subscribers: [UUID: AsyncStream<[WorkersDevSession]>.Continuation] = [:]
 
+    /// Creates an empty center — public so tests get isolated instances instead of sharing
+    /// ``shared``'s state.
     public init() {}
 
+    /// Publishes a site's latest session state (insert-or-replace) and broadcasts the new
+    /// snapshot to every subscriber.
     public func update(siteID: String, displayName: String, status: WorkersDevStatus) {
         sessions[siteID] = WorkersDevSession(siteID: siteID, displayName: displayName, status: status)
         broadcast()
     }
 
+    /// Drops a site's row (e.g. its window closed) and broadcasts — a no-op, with no broadcast,
+    /// when the site had no session, so repeated teardown paths don't spam subscribers.
     public func remove(siteID: String) {
         guard sessions.removeValue(forKey: siteID) != nil else { return }
         broadcast()

@@ -9,7 +9,11 @@ import Foundation
 /// Cloudflare resource identifiers once provisioning has created the backing stores.
 public enum WorkerComposition {
 
+    /// Ways `generateWranglerToml` can refuse to generate — both exist to keep unvalidated input
+    /// out of the generated file.
     public enum ConfigError: Error, Sendable {
+        /// `siteName` contains characters outside `[A-Za-z0-9_-]` — it's interpolated into TOML
+        /// and used as the Cloudflare project name, so anything else is rejected up front.
         case invalidSiteName(String)
         /// A route claim reached TOML generation without passing `WorkerRouteClaims` validation
         /// (callers derive claims via `WorkerRouteClaims.activeClaims`, which validates; this is
@@ -91,9 +95,19 @@ public enum WorkerComposition {
         charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
     )
 
+    /// The Cloudflare resource identifiers/names provisioning has created for a site. Every field
+    /// is optional: `nil` means "not provisioned yet", and TOML generation emits a placeholder (or
+    /// deterministic name) instead of failing — so config can be generated before, during, and
+    /// after provisioning without a separate schema per phase.
     public struct ProvisionedResources: Sendable, Equatable, Codable {
+        /// The shared per-site D1 database's Cloudflare id — an *id* (unlike the queue/R2 names)
+        /// because wrangler.toml's `[[d1_databases]]` blocks reference databases by id.
         public var d1DatabaseID: String?
+        /// The `SOCIAL_KV` namespace's Cloudflare id — an id for the same reason as
+        /// `d1DatabaseID`.
         public var kvNamespaceID: String?
+        /// The R2 bucket name backing Micropub's `MEDIA` binding — a deterministic name
+        /// (`\(siteName)-media`), not an id: wrangler references buckets by name.
         public var r2BucketName: String?
         /// The Cloudflare Queue name backing `@dwk/webmention`'s async verify step. Like
         /// `r2BucketName`, this is a deterministic name (`\(siteName)-webmention`), not an id —
@@ -116,6 +130,7 @@ public enum WorkerComposition {
         /// (Micropub's `MEDIA` bucket) since the two hold semantically different content.
         public var podBlobsR2BucketName: String?
 
+        /// Memberwise creation; the all-`nil` default is the pre-provisioning state.
         public init(
             d1DatabaseID: String? = nil, kvNamespaceID: String? = nil, r2BucketName: String? = nil,
             queueName: String? = nil, websubQueueName: String? = nil, microsubQueueName: String? = nil,

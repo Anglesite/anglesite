@@ -10,7 +10,10 @@ import FoundationNetworking
 import OSLog
 #endif
 
+/// Internal failure signal for the fetch path — never escapes `WorkersConformanceFetcher.status()`,
+/// which degrades to cache/empty instead of throwing; public only so tests can construct it.
 public enum WorkersConformanceFetchError: Error, Sendable, Equatable {
+    /// The HTTP fetch didn't produce a usable 2xx response; the string names the URL for the log.
     case fetchFailed(String)
 }
 
@@ -39,6 +42,9 @@ public actor WorkersConformanceFetcher {
     private let session: URLSession
     private let fileManager: FileManager
 
+    /// Creates a fetcher. `statusURL` is deliberately required (pass ``productionStatusURL`` in
+    /// production) so tests point at a local fixture server; cache location, session, and file
+    /// manager default to production values.
     public init(
         statusURL: URL,
         cacheURL: URL = WorkersConformanceFetcher.defaultCacheURL(),

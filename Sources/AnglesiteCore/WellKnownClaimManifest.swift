@@ -8,7 +8,10 @@ import Foundation
 
 /// Whether a claim matches one exact path or every path under a prefix.
 public enum WellKnownPathMatch: String, Sendable, Codable, Equatable {
+    /// The claim covers only the path itself.
     case exact
+    /// The claim covers the path and everything nested under it (e.g. an ACME challenge
+    /// directory whose token filenames can't be known in advance).
     case prefix
 }
 
@@ -16,8 +19,12 @@ public enum WellKnownPathMatch: String, Sendable, Codable, Equatable {
 /// `.well-known` path — e.g. a hosting provider's managed-TLS ACME challenge handler. Never
 /// carries credentials, tokens, or runtime bindings.
 public struct RuntimeOwnedPathClaim: Sendable, Codable, Equatable, Identifiable {
+    /// URL scheme a claim applies under — modeled explicitly because ACME's HTTP-01 challenge is
+    /// specified over plain `http`, so "https-only" cannot be assumed for every claim.
     public enum Scheme: String, Sendable, Codable, Equatable {
+        /// Plain HTTP (port 80 by default).
         case http
+        /// HTTPS (port 443 by default) — the default for new claims.
         case https
     }
 
@@ -27,6 +34,7 @@ public struct RuntimeOwnedPathClaim: Sendable, Codable, Equatable, Identifiable 
     public var owner: String
     /// The `.well-known` path segment (or prefix) this claim covers, no leading slash.
     public var path: String
+    /// Whether `path` is claimed exactly or as a prefix.
     public var match: WellKnownPathMatch
     /// Schemes this claim applies under.
     public var schemes: Set<Scheme>
@@ -34,8 +42,11 @@ public struct RuntimeOwnedPathClaim: Sendable, Codable, Equatable, Identifiable 
     public var port: Int?
     /// Human-readable capability/provenance description, e.g. "RFC 8555 managed-TLS ownership".
     public var capability: String
+    /// Link to the specification that grants this ownership (e.g. RFC 8555), when there is one.
     public var specificationURL: URL?
 
+    /// Memberwise creation; `schemes` defaults to https-only and `port` to the scheme default,
+    /// matching the common managed-TLS case.
     public init(
         id: String,
         owner: String,
@@ -61,10 +72,18 @@ public struct RuntimeOwnedPathClaim: Sendable, Codable, Equatable, Identifiable 
 /// inventory) and hands to a runtime's build step. Only the fields a runtime needs to detect a
 /// fresh on-disk collision cross this seam — never raw site settings or credentials.
 public struct WellKnownClaimManifest: Sendable, Codable, Equatable {
+    /// One claim as the build step sees it — a deliberately narrowed projection of the inventory
+    /// row (`WellKnownEndpointDescriptor`), because only these fields are needed to detect and
+    /// report an on-disk collision.
     public struct Entry: Sendable, Codable, Equatable, Identifiable {
+        /// Stable identifier carried over from the inventory row, so a build-step finding can be
+        /// traced back to the exact claim.
         public var id: String
+        /// The `.well-known`-relative path (or prefix), no leading slash.
         public var path: String
+        /// Whether `path` is claimed exactly or as a prefix.
         public var match: WellKnownPathMatch
+        /// The claiming feature/generator/runtime id, for naming the other party in a collision.
         public var owner: String
         /// The claim's delivery class, as the raw value of
         /// `WellKnownEndpointDescriptor.Delivery` (`AnglesiteCore` owns that enum; this contract
@@ -75,6 +94,8 @@ public struct WellKnownClaimManifest: Sendable, Codable, Equatable {
         /// manifest still parses.
         public var delivery: String
 
+        /// Memberwise creation; `delivery` defaults to `"userStatic"` to match the decoder's
+        /// backward-compatible fallback.
         public init(id: String, path: String, match: WellKnownPathMatch, owner: String, delivery: String = "userStatic") {
             self.id = id
             self.path = path
@@ -83,6 +104,8 @@ public struct WellKnownClaimManifest: Sendable, Codable, Equatable {
             self.delivery = delivery
         }
 
+        /// Hand-written only to make `delivery` optional on the wire — an older producer's
+        /// manifest (pre-`delivery`) must keep parsing as `"userStatic"`.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             id = try container.decode(String.self, forKey: .id)
@@ -93,8 +116,11 @@ public struct WellKnownClaimManifest: Sendable, Codable, Equatable {
         }
     }
 
+    /// The full claim set the build step must check new artifacts against.
     public var entries: [Entry]
 
+    /// Creates a manifest; the empty default is a valid "no claims yet" manifest, not an error
+    /// state.
     public init(entries: [Entry] = []) {
         self.entries = entries
     }
@@ -111,10 +137,15 @@ public struct WellKnownClaimManifest: Sendable, Codable, Equatable {
 
 /// What a build step observed on disk after receiving a `WellKnownClaimManifest`.
 public struct WellKnownBuildSeamResult: Sendable, Codable, Equatable {
+    /// One build-step observation worth reporting — a collision, a rejected file, or anything
+    /// else the step wants surfaced host-side.
     public struct Finding: Sendable, Codable, Equatable {
+        /// The `.well-known`-relative path the finding is about, or `nil` for a step-wide note.
         public var path: String?
+        /// Human-readable description, surfaced verbatim in host-side diagnostics.
         public var message: String
 
+        /// Memberwise creation; `path` defaults to `nil` for findings not tied to one file.
         public init(path: String? = nil, message: String) {
             self.path = path
             self.message = message
@@ -129,14 +160,19 @@ public struct WellKnownBuildSeamResult: Sendable, Codable, Equatable {
     /// did not exist when it scanned — without this, every generated `security.txt`/`mta-sts.txt`
     /// would read as an unclaimed artifact on a first deploy.
     public var generatedArtifacts: [String]
+    /// Whatever the build step chose to report beyond the artifact lists.
     public var findings: [Finding]
 
+    /// Memberwise creation; all-empty defaults are the same shape a malformed result degrades to
+    /// (see ``parsing(_:)``).
     public init(observedArtifacts: [String] = [], generatedArtifacts: [String] = [], findings: [Finding] = []) {
         self.observedArtifacts = observedArtifacts
         self.generatedArtifacts = generatedArtifacts
         self.findings = findings
     }
 
+    /// Hand-written so every field is optional on the wire — a build step that predates a field
+    /// (or omits an empty list) still produces a valid result.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         observedArtifacts = try container.decodeIfPresent([String].self, forKey: .observedArtifacts) ?? []
@@ -166,5 +202,8 @@ public enum WellKnownBuildSeamOutcome: Sendable, Equatable {
     case unsupported
     /// The build was cancelled before it produced a result.
     case cancelled
+    /// The build ran; carries the step result plus whatever the build step reported — the only
+    /// case from which a ``WellKnownBuildSeamResult`` can be obtained, which is what forces
+    /// callers to handle `.unsupported`/`.cancelled` honestly.
     case completed(DeployStepResult, WellKnownBuildSeamResult)
 }

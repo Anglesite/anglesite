@@ -12,6 +12,8 @@ import Foundation
 /// `.well-known/` prefix) — e.g. `"security.txt"`, `"webfinger"`, `"acme-challenge/"` — matching
 /// `WellKnownClaimManifest.Entry.path`'s convention.
 public struct WellKnownEndpointDescriptor: Sendable, Codable, Equatable, Identifiable {
+    /// The four delivery-owner classes the design doc defines — *how* an endpoint gets served
+    /// decides which collision and verification rules apply to it.
     public enum Delivery: String, Sendable, Codable, Equatable {
         /// A committed file in `Source/public/.well-known/` with no recognized Anglesite marker.
         case userStatic
@@ -27,11 +29,18 @@ public struct WellKnownEndpointDescriptor: Sendable, Codable, Equatable, Identif
     /// IANA Well-Known URI registry status, or `.custom` for anything else (including "not
     /// registered at all" and "registration unknown to this descriptor").
     public enum Registration: Sendable, Codable, Equatable {
+        /// Permanently registered in the IANA Well-Known URIs registry.
         case permanent
+        /// Provisionally registered with IANA.
         case provisional
+        /// Registered but deprecated — inventoried, not endorsed.
         case deprecated
+        /// Anything else, carrying the raw string so an unrecognized future status round-trips
+        /// instead of failing to decode.
         case custom(String)
 
+        /// Hand-written to decode unknown strings as `.custom` — a raw-value enum would throw on
+        /// a status this build doesn't know, making the inventory brittle against registry churn.
         public init(from decoder: Decoder) throws {
             let raw = try decoder.singleValueContainer().decode(String.self)
             switch raw {
@@ -42,6 +51,7 @@ public struct WellKnownEndpointDescriptor: Sendable, Codable, Equatable, Identif
             }
         }
 
+        /// Encodes as the plain status string, so `.custom(raw)` round-trips byte-identically.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.singleValueContainer()
             switch self {
@@ -53,19 +63,30 @@ public struct WellKnownEndpointDescriptor: Sendable, Codable, Equatable, Identif
         }
     }
 
+    /// Stable identifier, unique within one assembled inventory.
     public var id: String
+    /// Path relative to `.well-known/` — see the type doc for the exact convention.
     public var suffix: String
+    /// Whether `suffix` is claimed exactly or as a prefix.
     public var match: WellKnownPathMatch
+    /// Which delivery-owner class serves this endpoint.
     public var delivery: Delivery
     /// Stable feature, generator, or runtime id — e.g. `"generator:security-txt"`,
     /// `"webfinger"` (a `WorkerDescriptor.id`), or a `RuntimeOwnedPathClaim.owner`.
     public var owner: String
+    /// IANA registry status for this well-known URI.
     public var registration: Registration
+    /// Link to the governing specification, when known.
     public var specificationURL: URL?
     /// `nil` means inventory-only: Anglesite makes no conformance claim for this endpoint.
     public var validatorID: String?
+    /// Whether this endpoint binds domain authority (e.g. an ACME challenge proves control of the
+    /// host) — flagged so authority-carrying paths can be treated more strictly than plain
+    /// metadata documents.
     public var authorityBinding: Bool
 
+    /// Memberwise creation; the optional/`false` defaults describe a plain inventory row with no
+    /// spec link, no conformance claim, and no authority binding.
     public init(
         id: String,
         suffix: String,
@@ -99,9 +120,13 @@ public enum WellKnownInventory {
 
     /// One party attributed to a collision, for naming both remediation sources in an error.
     public struct Claimant: Sendable, Equatable, Hashable {
+        /// The claiming feature/generator/runtime id.
         public let owner: String
+        /// How the claimant delivers its endpoint — included so a collision message can tell
+        /// static-vs-dynamic apart without a second lookup.
         public let delivery: WellKnownEndpointDescriptor.Delivery
 
+        /// Memberwise creation.
         public init(owner: String, delivery: WellKnownEndpointDescriptor.Delivery) {
             self.owner = owner
             self.delivery = delivery
@@ -112,9 +137,12 @@ public enum WellKnownInventory {
     /// artifact, or an unexpected artifact. Never blocks assembly by itself; callers decide how to
     /// surface these (e.g. as `PreDeployCheck.ScanWarning`/`ScanFailure`).
     public struct Finding: Sendable, Equatable {
+        /// The `.well-known`-relative path the finding is about, or `nil` for a scan-wide note.
         public var path: String?
+        /// Human-readable description, surfaced verbatim to the caller's warning channel.
         public var message: String
 
+        /// Memberwise creation; `path` defaults to `nil` for findings not tied to one file.
         public init(path: String? = nil, message: String) {
             self.path = path
             self.message = message
@@ -133,6 +161,8 @@ public enum WellKnownInventory {
         /// exact/prefix and prefix/prefix collisions.
         case overlappingClaims(path: String, claimant: Claimant, otherPath: String, other: Claimant)
 
+        /// The design-doc-mandated error text: every message names the exact path and every
+        /// claimant (owner + delivery class), so the owner knows both sides of the conflict.
         public var description: String {
             switch self {
             case .duplicateClaim(let path, let claimants):

@@ -22,6 +22,9 @@ public actor WebmentionSendCommand {
     /// not appended, on every call for that site).
     private var inFlight: [String: Task<Void, Never>] = [:]
 
+    /// Creates the orchestrator. Everything is injectable — transport, log sink, and clock — so
+    /// tests can script endpoint discovery/POST responses and assert on the persisted timestamps
+    /// without network or wall-clock time.
     public init(
         transport: @escaping WebmentionEndpointDiscovery.Transport = WebmentionSendCommand.defaultTransport,
         logCenter: LogCenter = .shared,

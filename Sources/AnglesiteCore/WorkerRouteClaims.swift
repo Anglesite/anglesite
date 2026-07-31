@@ -13,24 +13,37 @@ public enum WorkerRouteClaims {
     /// A validated claim attributed to the worker (catalog descriptor id) that declared it —
     /// the attribution #744 needs to name both owners in a collision report.
     public struct OwnedClaim: Sendable, Equatable, Hashable {
+        /// The catalog descriptor id (`WorkerDescriptor.id`) that declared the claim.
         public let owner: String
+        /// The validated claim itself.
         public let claim: WorkerRouteClaim
 
+        /// Memberwise creation — normally produced by ``WorkerRouteClaims/activeClaims(catalog:activeIDs:)``,
+        /// which validates before attributing.
         public init(owner: String, claim: WorkerRouteClaim) {
             self.owner = owner
             self.claim = claim
         }
     }
 
+    /// Why a claim (or claim set) was rejected — every case carries the owning worker id(s), so
+    /// a manifest error names the package to fix rather than just the path.
     public enum ValidationError: Error, Equatable, CustomStringConvertible {
+        /// The claim's path failed syntactic/safety validation; `reason` says exactly why.
         case invalidPath(owner: String, path: String, reason: String)
+        /// The claim's method list is empty, unknown, duplicated, or declares HEAD without GET.
         case invalidMethods(owner: String, path: String, reason: String)
         /// A `prefix` claim with no governing `specificationURL` — only a protocol specification
         /// can approve child paths (RFC 8615), so an undeclared prefix claim is rejected.
         case undeclaredPrefix(owner: String, path: String)
+        /// Two or more active claims with the same path *and* match kind — identical coverage.
         case duplicateClaim(path: String, owners: [String])
+        /// An active claim falls inside another active prefix claim's coverage — no delegation or
+        /// precedence exists to resolve it.
         case overlappingClaims(path: String, owner: String, otherPath: String, otherOwner: String)
 
+        /// Human-readable rejection text, quoting the worker(s) and path(s) so it can surface in
+        /// deploy diagnostics unedited.
         public var description: String {
             switch self {
             case .invalidPath(let owner, let path, let reason):

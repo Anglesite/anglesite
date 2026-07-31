@@ -34,6 +34,8 @@ public final class ConflictVersionHandle: @unchecked Sendable, Equatable {
     public let contentURL: URL
     private let markResolvedAction: @Sendable () -> Void
 
+    /// Creates a handle. `markResolved` captures the underlying `NSFileVersion` (or a test stub),
+    /// which is why the handle never needs to re-locate the version itself.
     public init(id: String, contentURL: URL, markResolved: @escaping @Sendable () -> Void) {
         self.id = id
         self.contentURL = contentURL
@@ -45,6 +47,8 @@ public final class ConflictVersionHandle: @unchecked Sendable, Equatable {
     /// in has fully converged, never on a partial or conflicted result.
     public func markResolved() { markResolvedAction() }
 
+    /// Identity is `id` + `contentURL` only — the `markResolved` closure can't be compared, and
+    /// two handles pointing at the same conflict copy should compare equal in tests regardless.
     public static func == (lhs: ConflictVersionHandle, rhs: ConflictVersionHandle) -> Bool {
         lhs.id == rhs.id && lhs.contentURL == rhs.contentURL
     }
@@ -63,6 +67,10 @@ public final class ConflictVersionHandle: @unchecked Sendable, Equatable {
 /// Real conflict versions can't be manufactured in CI, so both phases fake this seam in tests
 /// instead of exercising real iCloud.
 public protocol VersionStore: Sendable {
+    /// Ensures the *current* version of `url` is fully present on local disk, waiting up to
+    /// `timeout` for iCloud to download an evicted item. Never throws — the three-way
+    /// `VersionMaterialization` result is the whole contract, so callers must handle `.timedOut`
+    /// explicitly rather than catching an error.
     func materialize(at url: URL, timeout: TimeInterval) async -> VersionMaterialization
 
     /// Enumerates `url`'s unresolved NSFileVersion conflict versions — the peer writes iCloud
@@ -77,10 +85,15 @@ public struct UbiquitousVersionStore: VersionStore {
     /// How often to re-check the downloading status while waiting.
     private let pollInterval: TimeInterval
 
+    /// Creates the store. `pollInterval` is injectable mainly so tests can tighten the wait loop;
+    /// the 0.2 s default balances responsiveness against spamming resource-value reads.
     public init(pollInterval: TimeInterval = 0.2) {
         self.pollInterval = pollInterval
     }
 
+    /// Polls the item's ubiquitous downloading status until it reaches `.current` or `timeout`
+    /// elapses, kicking off the download first when the item is evicted. A non-ubiquitous URL
+    /// (plain local file, unit-test temp dir) short-circuits to `.alreadyLocal`.
     public func materialize(at url: URL, timeout: TimeInterval) async -> VersionMaterialization {
         guard let status = Self.downloadingStatus(of: url), status != .current else {
             // Not a ubiquitous item at all (plain local file, resource values unavailable — e.g.
@@ -101,6 +114,9 @@ public struct UbiquitousVersionStore: VersionStore {
         try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]).ubiquitousItemDownloadingStatus
     }
 
+    /// Wraps each of `NSFileVersion.unresolvedConflictVersionsOfItem(at:)`'s results in a handle
+    /// whose `markResolved` flips that version's `isResolved` — the index-based `peer-<n>` id is
+    /// only a stable label for logs and ref namespaces within this one enumeration.
     public func conflictVersions(of url: URL) async -> [ConflictVersionHandle] {
         guard let versions = NSFileVersion.unresolvedConflictVersionsOfItem(at: url) else { return [] }
         return versions.enumerated().map { index, version in

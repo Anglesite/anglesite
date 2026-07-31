@@ -5,13 +5,19 @@ import Foundation
 /// (design doc §3): whatever the manifest lists is what the Workers tab shows and what deploy
 /// composition can activate.
 public struct WorkerDescriptor: Sendable, Equatable, Codable, Identifiable {
+    /// Stable worker id from the manifest (e.g. also referenced by `requires` and conformance
+    /// reports) — the identity everything else keys on.
     public let id: String
+    /// Human-readable name shown in the Workers tab.
     public let displayName: String
+    /// Manifest-supplied description shown alongside the toggle.
     public let description: String
     /// Free-text grouping key the Workers tab sections by (e.g. `"social"`, `"storage"`) — never
     /// enumerated in Swift, since the manifest owns the set of groups.
     public let group: String
+    /// How this worker becomes active — see ``Binding``.
     public let binding: Binding
+    /// The Cloudflare resources this worker needs provisioned — see ``Resources``.
     public let resources: Resources
     /// Generic HTTP route claims this worker's handler serves (#746). Optional so catalogs
     /// published before the route-claim schema extension still decode; `nil` (or `[]`) means the
@@ -27,6 +33,9 @@ public struct WorkerDescriptor: Sendable, Equatable, Codable, Identifiable {
     /// the ids it names, provided they're present in the catalog.
     public let requires: [String]?
 
+    /// Memberwise creation (mainly for tests/fixtures — production descriptors come from
+    /// `WorkerCatalogReader.parse`). The optional fields default `nil`, matching what an older
+    /// published catalog decodes to.
     public init(
         id: String,
         displayName: String,
@@ -51,7 +60,10 @@ public struct WorkerDescriptor: Sendable, Equatable, Codable, Identifiable {
     /// active state is always recomputed from Site Graph Explorer's `ImpactAnalysis` against
     /// `componentIDs` (design doc §4). `settingsActivated` workers are toggled in the Workers tab.
     public enum Binding: Sendable, Equatable, Codable {
+        /// Active exactly when one of `componentIDs` is in use on the site — recomputed, never
+        /// user-toggled.
         case componentTied(componentIDs: [String])
+        /// Active when the owner turns it on in the Workers tab.
         case settingsActivated
 
         private enum CodingKeys: String, CodingKey {
@@ -59,6 +71,9 @@ public struct WorkerDescriptor: Sendable, Equatable, Codable, Identifiable {
             case componentIDs
         }
 
+        /// Hand-written to decode the manifest's tagged `{"kind": …}` object form. An unknown
+        /// `kind` throws — a binding style this build doesn't understand must not be silently
+        /// coerced into a toggleable worker.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let kind = try container.decode(String.self, forKey: .kind)
@@ -74,6 +89,7 @@ public struct WorkerDescriptor: Sendable, Equatable, Codable, Identifiable {
             }
         }
 
+        /// Encodes the same tagged `{"kind": …}` object shape the decoder accepts.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             switch self {
@@ -98,10 +114,14 @@ public struct WorkerDescriptor: Sendable, Equatable, Codable, Identifiable {
     /// no provisioning flag yet and are ignored here — adopting their fidelity is future work,
     /// not silently claimed. Encoding always emits the object form.
     public struct Resources: Sendable, Equatable, Codable {
+        /// Whether the worker needs a D1 database binding.
         public let needsD1: Bool
+        /// Whether the worker needs a KV namespace binding.
         public let needsKV: Bool
+        /// Whether the worker needs an R2 bucket binding.
         public let needsR2: Bool
 
+        /// Memberwise creation, used by fixtures and by the dual-shape decoder below.
         public init(needsD1: Bool, needsKV: Bool, needsR2: Bool) {
             self.needsD1 = needsD1
             self.needsKV = needsKV
@@ -118,6 +138,9 @@ public struct WorkerDescriptor: Sendable, Equatable, Codable, Identifiable {
             let type: String
         }
 
+        /// Decodes both published shapes (see the type doc): tries the catalog's array-of-typed-
+        /// bindings form first, then falls back to the object form used by fixtures and older
+        /// caches.
         public init(from decoder: Decoder) throws {
             if var entries = try? decoder.unkeyedContainer() {
                 var d1 = false, kv = false, r2 = false
@@ -168,7 +191,10 @@ public struct WorkerRouteClaim: Sendable, Equatable, Hashable, Codable {
     /// approves child paths (RFC 8615's ACME-style delegation) — enforced by
     /// `WorkerRouteClaims.validate` requiring `specificationURL` on prefix claims.
     public enum Match: String, Sendable, Codable {
+        /// Matches only the declared path.
         case exact
+        /// Also matches descendants — restricted to specification-approved delegation (see the
+        /// enum doc above).
         case prefix
     }
 
@@ -178,6 +204,7 @@ public struct WorkerRouteClaim: Sendable, Equatable, Hashable, Codable {
     /// catalog's published convention (`spec/catalog.md`: "a prefix path ends with `/`") — is
     /// stripped on construction so this always holds the app's own slash-less canonical form.
     public let path: String
+    /// How requests bind to `path` — see ``Match``.
     public let match: Match
     /// Uppercase HTTP methods the handler serves. `HEAD` must be declared explicitly to be
     /// supported and requires a paired `GET` (the dispatcher serves HEAD by mirroring GET's
@@ -198,6 +225,9 @@ public struct WorkerRouteClaim: Sendable, Equatable, Hashable, Codable {
     /// can approve child paths); recommended for exact claims.
     public let specificationURL: URL?
 
+    /// Memberwise creation. Normalizes `path` on the way in (a prefix claim's trailing slash is
+    /// stripped — see `normalizedPrefixPath`), so a claim constructed in Swift and one decoded
+    /// from the catalog always compare equal.
     public init(
         path: String,
         match: Match,
@@ -220,6 +250,10 @@ public struct WorkerRouteClaim: Sendable, Equatable, Hashable, Codable {
         case path, match, methods, handler, validatorID, authorityBinding, specificationURL
     }
 
+    /// Hand-written for two backward-compatibility reasons: the optional fields
+    /// (`validatorID`/`authorityBinding`/`specificationURL`) must stay optional on the wire so
+    /// older published catalogs keep decoding, and `path` gets the same prefix-slash
+    /// normalization the memberwise initializer applies.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let decodedPath = try container.decode(String.self, forKey: .path)

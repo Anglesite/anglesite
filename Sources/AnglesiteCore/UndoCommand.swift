@@ -7,16 +7,26 @@ import Foundation
 /// generic failure with a reason+detail pair. The chat panel presents a warn-and-confirm
 /// sheet on `.workingTreeModified` and retries with `force: true` if the owner confirms.
 public struct UndoCommand: Sendable {
+    /// The tool-call seam: `(toolName, arguments) → result`. Injectable so tests exercise the
+    /// reply-parsing logic without a live MCP connection.
     public typealias Caller = @Sendable (_ name: String, _ arguments: JSONValue) async throws -> MCPClient.ToolCallResult
 
+    /// The three outcomes the chat panel actually branches on — anything the server reports that
+    /// isn't a success or a working-tree conflict collapses into `.failed`.
     public enum UndoResult: Sendable, Equatable {
+        /// The undo landed; `newCommit` is the branch's new head SHA, which becomes the anchor for
+        /// the next undo.
         case success(newCommit: String)
+        /// The working tree has uncommitted drift in `files` — the caller warns the owner and may
+        /// retry with `force: true` to discard it.
         case workingTreeModified(files: [String])
+        /// Any other failure (transport error, malformed reply, or a server-reported reason).
         case failed(reason: String, detail: String)
     }
 
     private let caller: Caller
 
+    /// Test hookup — inject a fake ``Caller`` to script the server's replies.
     public init(caller: @escaping Caller) {
         self.caller = caller
     }
@@ -30,6 +40,9 @@ public struct UndoCommand: Sendable {
         }
     }
 
+    /// Asks the plugin to undo the edit at `commit`, classifying the JSON reply into an
+    /// ``UndoResult``. Never throws — every failure mode (including a transport error or a reply
+    /// that isn't valid JSON) is folded into `.failed` so the UI has exactly one error path.
     public func undo(commit: String, force: Bool) async -> UndoResult {
         let args: JSONValue = .object([
             "commit": .string(commit),
