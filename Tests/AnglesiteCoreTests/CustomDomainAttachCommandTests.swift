@@ -162,4 +162,38 @@ struct CustomDomainAttachCommandTests {
         let result = await command.attach(siteDirectory: dir, apiToken: "t")
         #expect(result == .notConnected(hostname: "example.com"))
     }
+
+    @Test("attach() writes the domain intent into anglesite.json")
+    func attachWritesThroughDomainIntent() async throws {
+        let dir = try makeSiteDir(config: "DOMAIN_CHOICE=transfer\nDOMAIN=example.com\nCF_PROJECT_NAME=my-site\n")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let writer = FakeCloudflareWriting()
+        writer.result = .success(.attached)
+        let command = CustomDomainAttachCommand(client: writer)
+
+        _ = await command.attach(siteDirectory: dir, apiToken: "t")
+
+        let config = try DomainConfigStore(sourceDirectory: dir).load()
+        #expect(config.domain?.hostname == "example.com")
+        #expect(config.domain?.choice == "transfer")
+        #expect(config.domain?.attach == true)
+    }
+
+    @Test("attach() writes the domain intent even when the zone isn't connected yet")
+    func attachWritesThroughDomainIntentEvenWhenNotConnected() async throws {
+        // domain.attach is intent, not confirmation (schema doc) — it should be declared as soon
+        // as the owner's `.site-config` shows a transfer intent, before Cloudflare confirms
+        // anything. `CF_DOMAIN_ATTACHED` (the confirmed-live receipt) stays absent either way.
+        let dir = try makeSiteDir(config: "DOMAIN_CHOICE=transfer\nDOMAIN=example.com\nCF_PROJECT_NAME=my-site\n")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let writer = FakeCloudflareWriting()
+        writer.result = .success(.zoneNotFound)
+        let command = CustomDomainAttachCommand(client: writer)
+
+        _ = await command.attach(siteDirectory: dir, apiToken: "t")
+
+        let config = try DomainConfigStore(sourceDirectory: dir).load()
+        #expect(config.domain?.hostname == "example.com")
+        #expect(config.domain?.attach == true)
+    }
 }
