@@ -10,12 +10,12 @@ public enum DependencySyncChecker {
         configDirectory: URL,
         templateDirectory: URL,
         runningAppVersion: String
-    ) -> [DependencyUpdateOffer] {
+    ) -> DependencySyncOffers {
         let siteConfigURL = sourceDirectory.appendingPathComponent(".site-config")
         if let siteConfigContents = try? String(contentsOf: siteConfigURL, encoding: .utf8),
            let stampedVersion = SiteConfigFile.value(forKey: "ANGLESITE_VERSION", in: siteConfigContents),
            stampedVersion == runningAppVersion {
-            return []
+            return DependencySyncOffers()
         }
 
         guard let sitePackageText = try? String(
@@ -23,10 +23,18 @@ public enum DependencySyncChecker {
               let siteDeps = try? PackageJSONDependencies.extract(from: sitePackageText),
               let templatePackageText = try? String(
                 contentsOf: templateDirectory.appendingPathComponent("package.json"), encoding: .utf8),
-              let templateDeps = try? PackageJSONDependencies.extract(from: templatePackageText)
-        else { return [] }
+              let templateSections = try? PackageJSONDependencies.extractSections(from: templatePackageText)
+        else { return DependencySyncOffers() }
+
+        var templateDeps = templateSections.dependencies
+        templateDeps.merge(templateSections.devDependencies) { _, new in new }
 
         let baseline = DependencyBaseline.load(from: configDirectory)
-        return DependencySync.diff(site: siteDeps, baseline: baseline, template: templateDeps)
+        return DependencySync.diff(
+            site: siteDeps,
+            baseline: baseline,
+            template: templateDeps,
+            templateDevDependencyNames: Set(templateSections.devDependencies.keys)
+        )
     }
 }

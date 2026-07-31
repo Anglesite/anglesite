@@ -67,7 +67,7 @@ import Foundation
             sourceDirectory: source, configDirectory: config, templateDirectory: template,
             runningAppVersion: "1.4.0"
         )
-        #expect(offers == [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")])
+        #expect(offers.updates == [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")])
     }
 
     @Test func fallsThroughWhenThereIsNoSiteConfigAtAll() throws {
@@ -77,7 +77,7 @@ import Foundation
             sourceDirectory: source, configDirectory: config, templateDirectory: template,
             runningAppVersion: "1.4.0"
         )
-        #expect(offers == [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")])
+        #expect(offers.updates == [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")])
     }
 
     @Test func returnsEmptyRatherThanThrowingWhenPackageJSONIsMissing() throws {
@@ -92,5 +92,23 @@ import Foundation
             runningAppVersion: "1.4.0"
         )
         #expect(offers.isEmpty)
+    }
+
+    @Test func surfacesANewTemplateDevDependencyAsAnAdditionOffer() throws {
+        let (source, config) = try makeSite(
+            siteConfig: "ANGLESITE_VERSION=1.2.0\n",
+            packageJSON: """
+            { "dependencies": { "astro": "^6.4.8" }, "devDependencies": {} }
+            """,
+            baseline: ["astro": "^6.4.8"]
+        )
+        let template = try makeTemplate(packageJSON: """
+        { "dependencies": { "astro": "^6.4.8" }, "devDependencies": { "html-validate": "^11.6.0" } }
+        """)
+        let offers = DependencySyncChecker.check(
+            sourceDirectory: source, configDirectory: config, templateDirectory: template,
+            runningAppVersion: "1.4.0"
+        )
+        #expect(offers.additions == [DependencyAdditionOffer(name: "html-validate", offeredRange: "^11.6.0", section: .devDependencies)])
     }
 }

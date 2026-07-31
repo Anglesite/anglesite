@@ -1023,6 +1023,9 @@
     "Delete failed" : {
 
     },
+    "Dependency Updates" : {
+
+    },
     "Dependency Updates Available" : {
 
     },
@@ -1726,6 +1729,9 @@
 
     },
     "New Component…" : {
+
+    },
+    "New Dependencies" : {
 
     },
     "New Inventory…" : {

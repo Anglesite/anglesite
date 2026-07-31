@@ -644,10 +644,28 @@ struct SiteWindow: View {
         }
         .sheet(item: $bindableModel.dependencyUpdateModel) { updateModel in
             NavigationStack {
-                List(updateModel.offers, id: \.name) { offer in
-                    LabeledContent(offer.name) {
-                        Text("\(offer.currentRange) → \(offer.offeredRange)")
-                            .font(.system(.body, design: .monospaced))
+                List {
+                    if !updateModel.offers.updates.isEmpty {
+                        Section("Dependency Updates") {
+                            ForEach(updateModel.offers.updates, id: \.name) { offer in
+                                LabeledContent(offer.name) {
+                                    Text("\(offer.currentRange) → \(offer.offeredRange)")
+                                        .font(.system(.body, design: .monospaced))
+                                }
+                            }
+                        }
+                    }
+                    if !updateModel.offers.additions.isEmpty {
+                        Section("New Dependencies") {
+                            ForEach(updateModel.offers.additions, id: \.name) { offer in
+                                LabeledContent {
+                                    Text(offer.offeredRange)
+                                        .font(.system(.body, design: .monospaced))
+                                } label: {
+                                    Label(offer.name, systemImage: "plus.circle")
+                                }
+                            }
+                        }
                     }
                 }
                 .navigationTitle("Dependency Updates Available")

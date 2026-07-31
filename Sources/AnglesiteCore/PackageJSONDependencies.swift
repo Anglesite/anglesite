@@ -10,20 +10,25 @@ public enum PackageJSONDependencies {
         case invalidJSON
     }
 
-    /// The union of `dependencies` and `devDependencies` (name -> version range).
-    /// If a name appears in both sections, `devDependencies` wins (checked second).
-    public static func extract(from text: String) throws -> [String: String] {
+    /// `dependencies` and `devDependencies`, kept separate (unlike `extract`,
+    /// which merges them). Used where the caller needs to know which section a
+    /// package belongs to, not just its version range.
+    public static func extractSections(from text: String) throws -> (dependencies: [String: String], devDependencies: [String: String]) {
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data),
               let object = json as? [String: Any]
         else { throw ExtractionError.invalidJSON }
-        var result: [String: String] = [:]
-        if let deps = object["dependencies"] as? [String: String] {
-            result.merge(deps) { _, new in new }
-        }
-        if let devDeps = object["devDependencies"] as? [String: String] {
-            result.merge(devDeps) { _, new in new }
-        }
+        let deps = object["dependencies"] as? [String: String] ?? [:]
+        let devDeps = object["devDependencies"] as? [String: String] ?? [:]
+        return (dependencies: deps, devDependencies: devDeps)
+    }
+
+    /// The union of `dependencies` and `devDependencies` (name -> version range).
+    /// If a name appears in both sections, `devDependencies` wins (checked second).
+    public static func extract(from text: String) throws -> [String: String] {
+        let sections = try extractSections(from: text)
+        var result = sections.dependencies
+        result.merge(sections.devDependencies) { _, new in new }
         return result
     }
 
@@ -52,6 +57,53 @@ public enum PackageJSONDependencies {
                 guard let span = objectSpan(forKey: key, in: result) else { continue }
                 let nsRange = NSRange(span, in: result)
                 result = regex.stringByReplacingMatches(in: result, range: nsRange, withTemplate: template)
+            }
+        }
+        return result
+    }
+
+    /// Inserts each offer's `"name": "range"` as a new first entry in its
+    /// target `dependencies`/`devDependencies` section, copying the
+    /// indentation of whatever currently comes first in that section. An
+    /// offer whose target section doesn't exist in `text` at all is silently
+    /// skipped — this mutates existing structure, it never fabricates a new
+    /// top-level section. An offer whose name is *already* a key in the
+    /// target section is also silently skipped — inserting it anyway would
+    /// produce a second `"name": ...` key in the same JSON object, which is
+    /// semantically broken even though most parsers (including
+    /// `JSONSerialization`) tolerate it by keeping only the last value. This
+    /// shouldn't be reachable through the real `DependencySync.diff` ->
+    /// `DependencySyncApplier` path (diff only offers additions for names
+    /// absent from the site), but this function is public and should stay
+    /// safe against a stale or already-present offer regardless of caller
+    /// discipline.
+    public static func applyAdditions(_ offers: [DependencyAdditionOffer], to text: String) -> String {
+        var result = text
+        for offer in offers {
+            let key = offer.section == .devDependencies ? "devDependencies" : "dependencies"
+            guard let span = objectSpan(forKey: key, in: result) else { continue }
+            let escapedExistingName = NSRegularExpression.escapedPattern(for: offer.name)
+            if let existsRegex = try? NSRegularExpression(pattern: "\"\(escapedExistingName)\"\\s*:"),
+               existsRegex.firstMatch(in: result, range: NSRange(span, in: result)) != nil {
+                continue
+            }
+            let openBrace = span.lowerBound
+            let afterBrace = result.index(after: openBrace)
+            var firstContent = afterBrace
+            while firstContent < span.upperBound, result[firstContent].isWhitespace {
+                firstContent = result.index(after: firstContent)
+            }
+            let escapedName = offer.name.replacingOccurrences(of: "\"", with: "\\\"")
+            let escapedRange = offer.offeredRange.replacingOccurrences(of: "\"", with: "\\\"")
+            let entry = "\"\(escapedName)\": \"\(escapedRange)\""
+            if result[firstContent] != "}" {
+                // Non-empty section: prepend as a new first entry, copying the
+                // whitespace that currently precedes the existing first entry.
+                let indent = String(result[afterBrace..<firstContent])
+                result.insert(contentsOf: "\(indent)\(entry),", at: afterBrace)
+            } else {
+                // Empty section (`{}` or `{ }`): no existing indentation to copy.
+                result.replaceSubrange(afterBrace..<firstContent, with: "\n  \(entry)\n")
             }
         }
         return result
