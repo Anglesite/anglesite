@@ -1185,14 +1185,15 @@ final class SiteWindowModel {
         let url = source.appendingPathComponent(relPath)
         let file = FileRef(url: url, group: group, name: displayName)
         if let descriptor = ContentTypeResolver.descriptor(forRelativePath: relPath) {
-            return .typed(TypedEntryEditorModel(file: file, descriptor: descriptor, sourceDirectory: source))
+            return .typed(TypedEntryEditorModel(file: file, descriptor: descriptor, route: route, sourceDirectory: source))
         }
         if isFrontmatterPage(relPath) {
-            return .page(PageMetadataModel(file: file, sourceDirectory: source))
+            return .page(PageMetadataModel(file: file, route: route, sourceDirectory: source))
         }
         // Plain .astro / other: no safe generic way to parse or rewrite its frontmatter (JS, not
-        // YAML), so the panel stays read-only rather than staying unavailable (#1100).
-        return .generic(GenericPageInspectorModel(file: file, route: route))
+        // YAML), so title/description/body stay read-only (#1100) — the search/crawling toggles
+        // are the one exception (#1093), backed by the shared robots config, not this file.
+        return .generic(GenericPageInspectorModel(file: file, route: route, sourceDirectory: source))
     }
 
     /// Assembles the collection context for a `.directory` selection: title/children from the

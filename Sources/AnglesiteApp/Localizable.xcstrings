@@ -555,6 +555,15 @@
     "Block AI Training Crawlers" : {
 
     },
+    "Block Crawling" : {
+
+    },
+    "Block crawling entirely" : {
+
+    },
+    "Block crawling entirely for your whole site?" : {
+
+    },
     "Blocking (%lld)" : {
 
     },
@@ -1429,6 +1438,9 @@
 
     },
     "Hide chat panel" : {
+
+    },
+    "Hide from search results" : {
 
     },
     "Hide related pages" : {
@@ -2471,6 +2483,9 @@
     "Search ${site} for ${query}" : {
 
     },
+    "Search & Crawling" : {
+
+    },
     "Search Site" : {
 
     },
@@ -2759,6 +2774,9 @@
     "Strong" : {
 
     },
+    "Stronger than \"Hide from search results\" — well-behaved crawlers won't fetch this page at all, so a noindex tag on it would never be seen." : {
+
+    },
     "Style" : {
 
     },
@@ -2870,6 +2888,9 @@
     "This file has been customized. An update is available with changes it doesn't include yet." : {
 
     },
+    "This is your home page — search engines won't be able to crawl any page reachable only through it." : {
+
+    },
     "This page already links to all related content." : {
 
     },
@@ -2904,6 +2925,9 @@
 
     },
     "Title" : {
+
+    },
+    "Title, description, and body can't be edited for this page type yet." : {
 
     },
     "Token usage and cost" : {

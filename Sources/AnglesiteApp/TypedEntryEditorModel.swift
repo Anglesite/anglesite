@@ -14,6 +14,7 @@ import AnglesiteCore
 final class TypedEntryEditorModel: InspectorEditorModel {
     let file: FileRef
     let descriptor: ContentTypeDescriptor
+    let route: String
     /// Command/find seam for the body field's markdown editor.
     let markdownController = MarkdownEditorController()
     private let sourceDirectory: URL
@@ -21,6 +22,10 @@ final class TypedEntryEditorModel: InspectorEditorModel {
 
     var values: TypedContentEditor.Values = .init()
     private var savedValues: TypedContentEditor.Values = .init()
+    var noindexEnabled = false
+    private var savedNoindexEnabled = false
+    var disallowCrawlEnabled = false
+    private var savedDisallowCrawlEnabled = false
     private var fileSession = EditableFileSession()
     private var contents: String { fileSession.savedContents } // last-loaded/saved file text (verbatim base)
     private var numberDrafts: [String: String] = [:]
@@ -35,14 +40,19 @@ final class TypedEntryEditorModel: InspectorEditorModel {
         set { fileSession.conflictDiskContents = newValue }
     }
 
-    var isDirty: Bool { values != savedValues && loadError == nil && !isLoading }
+    var isDirty: Bool {
+        (values != savedValues || noindexEnabled != savedNoindexEnabled || disallowCrawlEnabled != savedDisallowCrawlEnabled)
+            && loadError == nil && !isLoading
+    }
 
     init(file: FileRef,
          descriptor: ContentTypeDescriptor,
+         route: String,
          sourceDirectory: URL,
          gitCommit: @escaping NativeContentOperations.GitCommit = NativeContentOperations.processGitCommit) {
         self.file = file
         self.descriptor = descriptor
+        self.route = route
         self.sourceDirectory = sourceDirectory
         self.gitCommit = gitCommit
     }
@@ -61,6 +71,11 @@ final class TypedEntryEditorModel: InspectorEditorModel {
         } catch {
             loadError = error.localizedDescription
         }
+        let flags = RobotsConfigFile.flags(for: robotsSource, under: sourceDirectory)
+        noindexEnabled = flags.noindex
+        savedNoindexEnabled = flags.noindex
+        disallowCrawlEnabled = flags.disallowCrawl
+        savedDisallowCrawlEnabled = flags.disallowCrawl
     }
 
     @discardableResult
@@ -79,7 +94,14 @@ final class TypedEntryEditorModel: InspectorEditorModel {
             fileSession = session
             savedValues = edited
             warnIfNoModificationDate(after: "save")
+            let robotsChanged = try RobotsConfigFile.apply(
+                source: robotsSource, noindex: noindexEnabled, disallowCrawl: disallowCrawlEnabled,
+                path: route, under: sourceDirectory
+            )
+            savedNoindexEnabled = noindexEnabled
+            savedDisallowCrawlEnabled = disallowCrawlEnabled
             await commit()
+            if robotsChanged { await commitRobotsConfig() }
             return true
         } catch {
             loadError = "Save failed: \(error.localizedDescription)"
@@ -172,6 +194,28 @@ final class TypedEntryEditorModel: InspectorEditorModel {
         Binding(get: { [weak self] in if case .records(let r)? = self?.values[name] { return r }; return [] },
                 set: { [weak self] in self?.values[name] = .records($0) })
     }
+    func noindexBinding() -> Binding<Bool> {
+        Binding(get: { [weak self] in self?.noindexEnabled ?? false },
+                set: { [weak self] in self?.noindexEnabled = $0 })
+    }
+    func disallowCrawlBinding() -> Binding<Bool> {
+        Binding(get: { [weak self] in self?.disallowCrawlEnabled ?? false },
+                set: { [weak self] in self?.disallowCrawlEnabled = $0 })
+    }
+
+    /// A collection entry's robots id is its path *relative to the collection root*, extension
+    /// stripped (`2026/my-note`), not the bare filename: `src/content.config.ts`'s loaders glob
+    /// `**/*.md`, so `notes/2026/foo.md` and `notes/2025/foo.md` would otherwise share one id and
+    /// toggling either page's robots settings would silently move the other's (#1093 review).
+    /// Known residual: a frontmatter `slug:` override changes the route Astro serves but not this
+    /// id — harmless here, since the id only has to be stable and unique per file.
+    private var robotsSource: RobotsConfigSource {
+        if let collection = descriptor.collection {
+            let root = sourceDirectory.appendingPathComponent("src/content/\(collection)", isDirectory: true)
+            return .collection(collection, id: relativePath(of: file.url.deletingPathExtension(), under: root))
+        }
+        return .page(file: relativePath(of: file.url, under: sourceDirectory))
+    }
 
     // MARK: Private
 
@@ -209,11 +253,24 @@ final class TypedEntryEditorModel: InspectorEditorModel {
         _ = await gitCommit(sourceDirectory, rel, "anglesite: edit \(descriptor.id) \(slug)")
     }
 
+    /// `gitCommit` stages exactly one path, so the shared robots config needs its own commit
+    /// alongside the entry's — otherwise a toggle leaves the site repo permanently dirty and never
+    /// reaches the container build, which clones from committed history (#1093).
+    private func commitRobotsConfig() async {
+        _ = await gitCommit(sourceDirectory, RobotsConfigFile.relativePath, "anglesite: update robots-config.json")
+    }
+
+    /// `hasPrefix` alone is a string check, not a path check: `notes-archive/foo.md` shares
+    /// `notes` as a string prefix with a `notes` collection root, so a bare `hasPrefix(r)` would
+    /// treat a sibling directory as nested inside `root` and hand back a mangled id (#1093
+    /// review). Normalizing `r` to end in `/` before comparing enforces a real path boundary — the
+    /// prefix must be followed by a separator (or be an exact match) to count.
     private func relativePath(of url: URL, under root: URL) -> String {
         let u = url.standardizedFileURL.path(percentEncoded: false)
-        let r = root.standardizedFileURL.path(percentEncoded: false)
-        if u.hasPrefix(r) { return String(u.dropFirst(r.count)).drop(while: { $0 == "/" }).description }
-        return url.lastPathComponent
+        var r = root.standardizedFileURL.path(percentEncoded: false)
+        if !r.hasSuffix("/") { r += "/" }
+        guard u.hasPrefix(r) else { return url.lastPathComponent }
+        return String(u.dropFirst(r.count)).drop(while: { $0 == "/" }).description
     }
 
 }

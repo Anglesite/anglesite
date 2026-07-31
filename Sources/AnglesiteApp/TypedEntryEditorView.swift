@@ -13,6 +13,7 @@ struct TypedEntryForm: View {
             ForEach(scalarFields, id: \.name) { field in
                 control(for: field)
             }
+            RobotsSettingsSection(route: model.route, noindex: model.noindexBinding(), disallowCrawl: model.disallowCrawlBinding())
             if let body = bodyField {
                 Section("Body") {
                     MarkdownTextView(
