@@ -46,6 +46,8 @@ public final class EditUndoCoordinator {
         /// record's identity. Stable across transcript reloads, unlike chat-row UUIDs.
         public let commit: String
 
+        /// Memberwise initializer — built by the edit recorder from the applied reply's
+        /// `file` + `commit` pair.
         public init(file: String, commit: String) {
             self.file = file
             self.commit = commit
@@ -89,6 +91,9 @@ public final class EditUndoCoordinator {
     /// `await` it to observe the re-register-on-retryable behavior deterministically.
     private(set) var pendingPerform: Task<Void, Never>?
 
+    /// The ``Performer`` is fixed at construction; ``undoManager`` is deliberately *not* a
+    /// parameter — SwiftUI supplies it later (and can change it per focused window) via
+    /// `@Environment(\.undoManager)`, so it stays a settable property instead.
     public init(perform: @escaping Performer) {
         self.perform = perform
     }

@@ -2,20 +2,35 @@ import Foundation
 
 /// Color tokens for a generated design. Ported from the plugin's `scripts/design.ts` `Palette`.
 public struct DesignPalette: Sendable, Equatable, Codable {
+    /// Primary brand color (hex). Either the owner's own brand color verbatim, or derived
+    /// from the temperature axis when none was given.
     public let brand: String
+    /// Call-to-action color (hex) — hue-offset from ``brand`` (complementary for bold voice,
+    /// analogous otherwise) so CTAs read as related but distinct.
     public let accent: String
+    /// Page background (hex). Near-white normally; near-black when the axes select dark mode.
     public let bg: String
+    /// Raised-surface color for cards/panels (hex), one step off ``bg`` in the same hue family.
     public let surface: String
+    /// Body text color (hex) — contrast-corrected against ``bg`` to meet WCAG AA before the
+    /// palette is returned, so consumers can use it without re-checking.
     public let text: String
+    /// Secondary/muted text color (hex) — also contrast-corrected against ``bg``.
     public let muted: String
+    /// Hairline/divider color (hex).
     public let border: String
 
+    /// Memberwise initializer. All values are `#rrggbb` hex strings; ``DesignPaletteGenerator``
+    /// is the normal producer — construct directly only in tests or when decoding a stored design.
     public init(brand: String, accent: String, bg: String, surface: String, text: String, muted: String, border: String) {
         self.brand = brand; self.accent = accent; self.bg = bg; self.surface = surface
         self.text = text; self.muted = muted; self.border = border
     }
 }
 
+/// Namespace for deterministic palette derivation from ``DesignAxes``. A direct port of the
+/// plugin's `scripts/design.ts` color math — kept verbatim so the Swift path and the retired
+/// TypeScript path produce identical palettes for the same inputs.
 public enum DesignPaletteGenerator {
     /// Deterministic palette generation from design axes, ported verbatim from `generatePalette` in
     /// `scripts/design.ts`. If `brandColor` is a valid hex, it becomes the brand color and the rest

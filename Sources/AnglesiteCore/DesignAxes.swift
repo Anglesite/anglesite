@@ -13,13 +13,22 @@ public struct DesignAxes: Sendable, Equatable, Codable {
     /// Subtle (0) <-> Bold (1)
     public var voice: Double
 
+    /// Memberwise initializer. Values are not clamped here — use
+    /// ``DesignAxesCatalog/adjusted(_:by:)`` for clamped mutation and
+    /// ``DesignAxesCatalog/isValid(_:)`` to vet axes from untrusted (persisted or
+    /// model-generated) sources.
     public init(temperature: Double, weight: Double, register: Double, time: Double, voice: Double) {
         self.temperature = temperature; self.weight = weight; self.register = register
         self.time = time; self.voice = voice
     }
 }
 
+/// Business-type presets and helpers for ``DesignAxes`` — the deterministic seed the design
+/// interview starts from, so an owner who skips the conversation entirely still gets a
+/// defensible default for their kind of business. Ported from the plugin's `scripts/design.ts`.
 public enum DesignAxesCatalog {
+    /// Neutral fallback for unknown or empty business types — deliberately a touch airy and
+    /// subtle rather than dead-center on every axis, matching the plugin's tuning.
     public static let balanced = DesignAxes(temperature: 0.5, weight: 0.4, register: 0.5, time: 0.5, voice: 0.4)
 
     /// Business-type -> default axes. Verbatim port of `BUSINESS_AXES` in `scripts/design.ts`.
@@ -82,6 +91,10 @@ public enum DesignAxesCatalog {
         return result
     }
 
+    /// `true` when every axis is a non-NaN value in [0, 1]. Guards axes that arrive from data
+    /// this module didn't produce (persisted config, model-generated values) —
+    /// ``adjusted(_:by:)`` already clamps its own writes, so this check exists for the paths
+    /// that bypass it.
     public static func isValid(_ axes: DesignAxes) -> Bool {
         [axes.temperature, axes.weight, axes.register, axes.time, axes.voice]
             .allSatisfy { !$0.isNaN && $0 >= 0 && $0 <= 1 }

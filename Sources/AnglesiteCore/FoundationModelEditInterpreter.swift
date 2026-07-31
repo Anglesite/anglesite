@@ -8,24 +8,36 @@ import FoundationModels
 /// FM-independent `InterpretedEdit` so op-routing stays CI-testable without the live model.
 @Generable
 public struct GeneratedInterpretedEdit: Equatable, Sendable {
+    /// Which of the three edit shapes the model chose. Discriminates which of the fields
+    /// below are meaningful — the others are empty-string sentinels.
     @Guide(description: "The kind of change: text (replace the element's visible text), attribute (set an HTML attribute like alt or href), or style (a CSS property like color or font-size).")
     public var kind: InterpretedEditKindGen
 
+    /// Replacement text for a `.text` edit. Non-optional with an empty-string sentinel
+    /// (like every kind-specific field here) because guided generation fills every field;
+    /// the mapping in ``FoundationModelEditInterpreter/interpret(instruction:element:)``
+    /// converts empties back to `nil`.
     @Guide(description: "For a text edit: the full new visible text. Empty otherwise.")
     public var newText: String
 
+    /// Attribute name for an `.attribute` edit; empty-string sentinel otherwise.
     @Guide(description: "For an attribute edit: the attribute name (e.g. alt, href). Empty otherwise.")
     public var attributeName: String
 
+    /// Attribute value for an `.attribute` edit; empty-string sentinel otherwise.
     @Guide(description: "For an attribute edit: the new attribute value. Empty otherwise.")
     public var attributeValue: String
 
+    /// CSS property for a `.style` edit; empty-string sentinel otherwise.
     @Guide(description: "For a style edit: the CSS property (e.g. color, font-size). Empty otherwise.")
     public var styleProperty: String
 
+    /// CSS value for a `.style` edit; empty-string sentinel otherwise.
     @Guide(description: "For a style edit: the CSS value (e.g. teal, 2rem). Empty otherwise.")
     public var styleValue: String
 
+    /// User-facing one-sentence description of the change — this is what the confirmation
+    /// UI shows before the edit is applied, so the model is asked to keep it short.
     @Guide(description: "One short sentence describing the change, shown to the user before they confirm.")
     public var summary: String
 }
@@ -34,7 +46,12 @@ public struct GeneratedInterpretedEdit: Equatable, Sendable {
 /// bleed into the plain model type used by CI-testable op-routing.
 @Generable
 public enum InterpretedEditKindGen: String, Equatable, Sendable {
-    case text, attribute, style
+    /// Replace the element's visible text content.
+    case text
+    /// Set an HTML attribute (e.g. `alt`, `href`) on the element.
+    case attribute
+    /// Set a CSS property (e.g. `color`, `font-size`) on the element.
+    case style
 }
 
 /// FM-backed `EditInterpreting`. The `generate` closure is injected so unit tests can supply a
@@ -42,6 +59,9 @@ public enum InterpretedEditKindGen: String, Equatable, Sendable {
 /// to `FoundationModelAssistant.generateStructured` and maps model-unavailability to
 /// `EditInterpretationError.unavailable`.
 public struct FoundationModelEditInterpreter: EditInterpreting {
+    /// The injectable generation seam: everything the live model does, reduced to one
+    /// closure so tests can return a canned ``GeneratedInterpretedEdit`` and exercise the
+    /// mapping logic without Apple Intelligence being available.
     public typealias Generate = @Sendable (
         _ instruction: String,
         _ element: InterpretedElementContext
@@ -87,6 +107,9 @@ public struct FoundationModelEditInterpreter: EditInterpreting {
 
     // MARK: EditInterpreting
 
+    /// Runs the instruction through the injected generator and maps the guided-generation
+    /// result to the FM-independent `InterpretedEdit`, converting the empty-string
+    /// sentinels back to `nil` so downstream op-routing sees a conventional optional model.
     public func interpret(instruction: String, element: InterpretedElementContext) async throws -> InterpretedEdit {
         let g = try await generate(instruction, element)
         let kind: InterpretedEditKind = switch g.kind {

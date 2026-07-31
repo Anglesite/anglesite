@@ -4,7 +4,11 @@ import Foundation
 /// `Encodable` because it gets `JSONEncoder()`'d straight into a `evaluateJavaScript` call —
 /// `window.anglesite?._handleReply?.(<this object>)` — for the JS side to correlate via `id`.
 public struct EditReply: Sendable, Equatable, Encodable {
+    /// Correlation ID echoed back from the originating ``EditMessage`` — the only thing the
+    /// JS side uses to match a reply to its pending promise.
     public let id: String
+    /// What happened to the edit; drives both the overlay's UI reaction and which of the
+    /// optional fields below are meaningful.
     public let status: Status
     /// Human-readable detail. Always present for `.failed` / `.ambiguous`; optional for `.applied`.
     public let message: String?
@@ -27,6 +31,7 @@ public struct EditReply: Sendable, Equatable, Encodable {
     public let newFile: String?
     /// Preview-only: the source fragment before/after the would-be change (`.preview` status).
     public let before: String?
+    /// Preview-only counterpart to ``before`` — the fragment as it would read after the change.
     public let after: String?
     /// The op the preview/apply was for (e.g. "edit-style"). `nil` outside preview.
     public let op: String?
@@ -41,20 +46,39 @@ public struct EditReply: Sendable, Equatable, Encodable {
     /// free-form prose the plugin is free to reword.
     public let reason: String?
 
+    /// `replace-image-src` metadata: the final asset URLs the plugin wrote, which the overlay
+    /// swaps into the live `<img>` so the page reflects the edit without a full reload.
     public struct ImageResult: Sendable, Equatable, Encodable {
+        /// The rewritten `src` value.
         public let src: String
+        /// The rewritten `srcset` value, when the plugin generated responsive variants;
+        /// `nil` when the image has none.
         public let srcset: String?
 
+        /// Memberwise initializer — normally built by the router from the plugin's structured
+        /// reply.
         public init(src: String, srcset: String?) {
             self.src = src
             self.srcset = srcset
         }
     }
 
+    /// Reply outcome. Raw values are the wire strings the overlay's `_handleReply` switches on.
     public enum Status: String, Sendable, Equatable, Encodable {
-        case applied, failed, ambiguous, preview
+        /// The edit landed in source (and, when the site is a git repo, on the edits branch).
+        case applied
+        /// The edit was refused or errored; ``message`` (and ``reason``, when structured)
+        /// says why.
+        case failed
+        /// The selector matched more than one element, so applying would risk editing the
+        /// wrong one — the overlay should have the user disambiguate rather than guess.
+        case ambiguous
+        /// Dry-run result: nothing was written; ``before``/``after`` carry the would-be diff.
+        case preview
     }
 
+    /// Memberwise initializer. Every op-specific field defaults to `nil` so call sites only
+    /// name the fields their op family actually produces.
     public init(
         id: String,
         status: Status,
@@ -88,6 +112,10 @@ public struct EditReply: Sendable, Equatable, Encodable {
 /// backed by `MCPClient` calling the plugin's `anglesite:apply-edit` tool; until then the wired
 /// default is `LoggingEditRouter`.
 public protocol EditRouter: Sendable {
+    /// Applies (or previews, per `dryRun`) one edit and always produces a reply — the method
+    /// doesn't throw, because the overlay is waiting on a correlated response either way;
+    /// failures travel as ``EditReply/Status/failed`` rather than as errors that would leave
+    /// the JS side hanging.
     func apply(_ message: EditMessage) async -> EditReply
 }
 
@@ -105,10 +133,14 @@ public func resolveEditRouter(_ configured: EditRouter?) -> EditRouter {
 public struct LoggingEditRouter: EditRouter {
     private let logCenter: LogCenter
 
+    /// Injectable log destination; the default is the app-wide shared `LogCenter` feeding the
+    /// Debug pane.
     public init(logCenter: LogCenter = .shared) {
         self.logCenter = logCenter
     }
 
+    /// Logs what *would* have been applied, then replies ``EditReply/Status/failed`` — never
+    /// `.applied`, so no caller can mistake the stub for a real edit.
     public func apply(_ message: EditMessage) async -> EditReply {
         let target = message.selector.map { "\($0)" } ?? message.component.map { "\($0)" } ?? "?"
         await logCenter.append(

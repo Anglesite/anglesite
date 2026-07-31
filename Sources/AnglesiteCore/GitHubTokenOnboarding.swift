@@ -13,6 +13,9 @@ import Foundation
 /// gymnastics on the closures.
 @MainActor
 public struct GitHubTokenOnboarding {
+    /// What the flow decided — the caller's whole contract. Three-way rather than a thrown error
+    /// so "keep the prompt open" (``stay(message:)``) and "user walked away" (``abort``) can't be
+    /// conflated: only an explicit cancellation dismisses the prompt.
     public enum Outcome: Equatable {
         /// Token verified and persisted — the caller should retry the parked publish.
         case proceed(GitHubAccount)
@@ -24,6 +27,9 @@ public struct GitHubTokenOnboarding {
 
     private let verifier: GitHubTokenVerifying
 
+    /// The verifier is the only injected dependency — production passes
+    /// ``GitHubAPITokenVerifier``, tests a stub, keeping the flow's ordering logic testable
+    /// without network.
     public init(verifier: GitHubTokenVerifying) {
         self.verifier = verifier
     }

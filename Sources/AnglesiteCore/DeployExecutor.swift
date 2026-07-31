@@ -25,9 +25,15 @@ public enum DeployStep: Sendable {
 /// - `output`: captured stdout, used for URL/scan parsing by the caller. Also streamed
 ///   line-by-line to `LogCenter` under the caller-supplied source during execution.
 public struct DeployStepResult: Sendable, Equatable {
+    /// The process exit code, or `nil` for pre-spawn failures — see the type-level convention
+    /// above.
     public let exitCode: Int32?
+    /// Captured stdout for the caller to parse — see the type-level note above; the same lines
+    /// were already streamed live to `LogCenter` during execution.
     public let output: String
 
+    /// Memberwise initializer — public so executors in other files (and test fakes) can
+    /// construct results directly.
     public init(exitCode: Int32?, output: String) {
         self.exitCode = exitCode
         self.output = output
@@ -45,6 +51,12 @@ public struct DeployStepResult: Sendable, Equatable {
 /// The `source` parameter is the `LogCenter` source tag (e.g. `"deploy:<id>:build"`,
 /// `"deploy:<id>"`). Callers supply it so the right log row receives the output.
 public protocol DeployExecutor: Sendable {
+    /// Runs one deploy step at `siteDirectory`, streaming output to `LogCenter` under `source`.
+    ///
+    /// Deliberately non-throwing: every failure mode (unavailable substrate, spawn failure,
+    /// non-zero exit, cancellation) is encoded in ``DeployStepResult`` instead, so
+    /// ``DeployCommand`` renders one uniform failure path rather than juggling thrown errors
+    /// alongside exit codes.
     func run(
         step: DeployStep,
         siteDirectory: URL,
@@ -70,8 +82,14 @@ public protocol DeployExecutor: Sendable {
 }
 
 public extension DeployExecutor {
+    /// Default: no claims — an executor must override to opt in only when it can prove path
+    /// ownership (see the requirement's doc), so a new executor never inherits a speculative
+    /// claim by accident.
     func reportOwnedPathClaims() async -> [RuntimeOwnedPathClaim] { [] }
 
+    /// Default: `.unsupported`, so callers can tell "this substrate has no manifest seam" apart
+    /// from a build that ran and produced no findings — the distinction #744's cross-owner
+    /// collision protection depends on (see the requirement's doc).
     func runBuildWithClaimManifest(
         siteDirectory: URL,
         environment: [String: String],
@@ -97,6 +115,8 @@ public struct ContainerDeployExecutor: DeployExecutor {
     private let siteID: String
     private let logCenter: LogCenter
 
+    /// Creates an executor that runs steps in `siteID`'s container through `control`.
+    /// `logCenter` is injectable for tests; production uses the shared instance.
     public init(
         control: any LocalContainerControl,
         siteID: String,
@@ -109,6 +129,12 @@ public struct ContainerDeployExecutor: DeployExecutor {
 
     // MARK: DeployExecutor
 
+    /// Runs `step` in the guest at `/workspace/site`, streaming output live to `LogCenter`.
+    ///
+    /// `siteDirectory` is the HOST path — the guest always executes in its own boot-time clone.
+    /// The host path is consulted only where the clone can be stale or incomplete: the #1084
+    /// `wrangler.toml` re-sync before `.wrangler`, and `.site-config`'s `CF_SOURCE_BUCKET` for
+    /// `.bundleUpload` (see the inline rationale for both).
     public func run(
         step: DeployStep,
         siteDirectory: URL,
@@ -224,6 +250,12 @@ public struct ContainerDeployExecutor: DeployExecutor {
     /// for the same "never inside Source/" reason.
     static let wellKnownResultGuestPath = "/tmp/anglesite-wellknown-result.json"
 
+    /// Runs the `.build` step with the #748 claim manifest delivered through `/tmp` scratch
+    /// files in the guest (never `/workspace/site` — see the path constants above), then splits
+    /// the seam's JSON result blob out of stdout at the marker line so the ordinary build output
+    /// still reaches the caller intact. An encode failure or exec error degrades to
+    /// `.completed` with an empty seam result rather than throwing — same non-throwing contract
+    /// as ``run(step:siteDirectory:environment:source:)``.
     public func runBuildWithClaimManifest(
         siteDirectory: URL,
         environment: [String: String],
@@ -405,6 +437,9 @@ public struct HostDeployExecutor: DeployExecutor {
     /// Injectable per-step command resolver. Defaults to `HostDeployExecutor.defaultResolver`.
     private let resolveCommand: @Sendable (DeployStep) -> DeployCommand.CommandResolver
 
+    /// Creates a host-process executor. Inject `resolveCommand` in tests to point each step at a
+    /// shell fixture; the production default (``defaultResolver``) reports every step
+    /// unavailable, per the host-Node retirement rationale in the type doc.
     public init(
         supervisor: ProcessSupervisor = .shared,
         logCenter: LogCenter = .shared,
@@ -418,6 +453,10 @@ public struct HostDeployExecutor: DeployExecutor {
 
     // MARK: DeployExecutor
 
+    /// Resolves `step` to a host command and spawns it via `ProcessSupervisor`. An
+    /// `.unavailable` resolution short-circuits to a nil-exit-code result carrying the reason as
+    /// its output — the same shape a pre-spawn failure takes, so callers surface both
+    /// identically.
     public func run(
         step: DeployStep,
         siteDirectory: URL,

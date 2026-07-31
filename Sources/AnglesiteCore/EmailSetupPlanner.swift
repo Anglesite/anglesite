@@ -14,26 +14,42 @@ public enum EmailSetupPlanner {
 
     /// First fork: "Do you use Apple devices (iPhone, Mac) for your business?"
     public enum Ecosystem: Sendable, Equatable {
+        /// The owner lives on Apple devices — routes to the Apple-first providers
+        /// (iCloud+ / Apple Business) via ``AppleTier``.
         case apple
+        /// Mixed or non-Apple devices — routes to the cross-platform recommendation.
         case mixedOrOther
     }
 
     /// Second fork on the Apple path: "Is this for you personally, or for a registered business?"
     public enum AppleTier: Sendable, Equatable {
+        /// A personal domain — iCloud+ custom domain covers it without a business account.
         case personal
+        /// A registered business — eligible for Apple Business Essentials (free ≤ 500 seats).
         case registeredBusiness
     }
 
     // MARK: - Providers
 
+    /// The closed set of email providers the planner knows DNS records for — the providers
+    /// from the retired skill's reference doc, no more. Raw values are stable kebab-case
+    /// identifiers, safe to persist or put in URLs.
     public enum Provider: String, Sendable, CaseIterable, Equatable {
+        /// iCloud+ Custom Email Domain — the Apple personal-tier pick.
         case icloudPlus = "icloud-plus"
+        /// Apple Business Essentials — the Apple registered-business pick. Same mail
+        /// infrastructure as iCloud+, so the two share MX/SPF records.
         case appleBusiness = "apple-business"
+        /// Fastmail — the primary cross-platform recommendation.
         case fastmail
+        /// Google Workspace — cross-platform alternative.
         case googleWorkspace = "google-workspace"
+        /// Proton Mail — cross-platform alternative; the privacy-focused option.
         case protonMail = "proton-mail"
+        /// Zoho Mail — cross-platform alternative; the budget option (free tier up to 5 users).
         case zohoMail = "zoho-mail"
 
+        /// Owner-facing product name, spelled the way the provider brands it.
         public var displayName: String {
             switch self {
             case .icloudPlus: return "iCloud+ Custom Email Domain"
@@ -83,7 +99,11 @@ public enum EmailSetupPlanner {
 
     // MARK: - Recommendation
 
+    /// What ``recommend(ecosystem:appleTier:)`` hands the UI: one primary pick with a
+    /// plain-English reason, plus alternatives only where the decision tree genuinely has
+    /// peers to offer (the app advises, it doesn't dump a comparison matrix on the owner).
     public struct Recommendation: Sendable, Equatable {
+        /// The primary pick the UI should lead with.
         public let provider: Provider
         /// Cross-platform alternatives shown alongside the primary pick (non-Apple path only).
         public let alternatives: [Provider]
@@ -123,14 +143,20 @@ public enum EmailSetupPlanner {
     /// A DNS record to pre-fill, shaped to match the app's DNS add-record flow
     /// (`DomainOperationsService.addRecord`). Email records are never proxied.
     public struct RecordTemplate: Sendable, Equatable {
+        /// DNS record type (`MX`, `TXT`, `CNAME`) — a plain string to match the add-record
+        /// flow's wire shape rather than introducing a parallel enum.
         public let type: String
+        /// Record name relative to the zone (`@` for the apex, `_dmarc`, `fm1._domainkey`, …).
         public let name: String
+        /// The record's value, fully known ahead of time — anything per-account lands in
+        /// ``ManualStep`` instead.
         public let content: String
         /// Mail server priority — only meaningful for MX records.
         public let priority: Int?
         /// Always `false` for email records (MX/SPF/DKIM/DMARC must bypass the proxy).
         public var proxied: Bool { false }
 
+        /// Memberwise initializer; `priority` defaults `nil` since only MX records carry one.
         public init(type: String, name: String, content: String, priority: Int? = nil) {
             self.type = type
             self.name = name
@@ -142,11 +168,18 @@ public enum EmailSetupPlanner {
     /// A step the owner must complete in the provider's own interface because the value is
     /// generated per-account (DKIM keys, Apple's domain-verification token).
     public struct ManualStep: Sendable, Equatable {
+        /// Short owner-facing label (e.g. "DKIM signature record").
         public let title: String
+        /// Click-path instructions telling the owner exactly where in the provider's
+        /// dashboard the generated value lives and what record to add here.
         public let instructions: String
     }
 
+    /// Everything the email-setup flow needs to execute for one provider: the records the app
+    /// can add on the owner's behalf, and the steps it must hand back to the owner because the
+    /// values are provider-issued.
     public struct DNSPlan: Sendable, Equatable {
+        /// The provider this plan was generated for.
         public let provider: Provider
         /// Records with fully known values, ready to pre-fill.
         public let records: [RecordTemplate]

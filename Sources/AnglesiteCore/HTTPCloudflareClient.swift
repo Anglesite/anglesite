@@ -87,15 +87,20 @@ private struct CFPageShieldScript: Decodable, Sendable {
     let host: String?
 }
 
-/// Read-only Cloudflare v4 client. All methods are GETs.
+/// Cloudflare v4 API client. The base conformance here is the read side
+/// (``CloudflareReading``, all GETs); the write side (``CloudflareWriting`` — the hardening
+/// PUT/POST/PATCH/DELETE calls) is conformed in an extension below.
 public struct HTTPCloudflareClient: CloudflareReading {
     private static let base = "https://api.cloudflare.com/client/v4"
     private let transport: CloudflareTransport
 
+    /// The transport parameter exists for tests (fake responses, no network); production uses
+    /// ``defaultTransport``.
     public init(transport: @escaping CloudflareTransport = HTTPCloudflareClient.defaultTransport) {
         self.transport = transport
     }
 
+    /// Production transport: a plain shared-`URLSession` request.
     public static let defaultTransport: CloudflareTransport = { request in
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw CloudflareError.malformedResponse }
@@ -154,12 +159,22 @@ public struct HTTPCloudflareClient: CloudflareReading {
         try await paginated("/zones/\(zoneID)/dns_records?per_page=100", apiToken: apiToken, as: CFDNSRecord.self)
     }
 
+    /// Looks the zone up via `GET /zones?name=…&status=active`, then re-checks the name
+    /// case-insensitively client-side — the API's `name=` filter is a match request, not a
+    /// guarantee, and a wrong zone id here would point every later read/write at someone
+    /// else's zone.
     public func resolveZoneID(domain: String, apiToken: String) async throws -> String? {
         let escaped = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? domain
         let zones = try await get("/zones?name=\(escaped)&status=active", apiToken: apiToken, as: [CFZone].self)
         return zones.first(where: { $0.name.lowercased() == domain.lowercased() })?.id
     }
 
+    /// Assembles the zone's security posture from a dozen endpoints. The five core reads
+    /// (DNSSEC, SSL mode, Always-Use-HTTPS, security header, DNS records) fan out concurrently
+    /// and *must* all succeed; the extended settings (Bot Fight Mode, WAF rules, Speed Brain,
+    /// ECH, zstd, Page Shield, Onion Routing) individually degrade to their "off"/absent value
+    /// on error instead — many tokens simply can't see those endpoints, and one 403 there
+    /// shouldn't sink the whole audit.
     public func zoneState(zoneID: String, domain: String, apiToken: String) async throws -> CloudflareZoneState {
         // Independent reads — fan out concurrently rather than paying 5× round-trip latency.
         async let dnssecCall = get("/zones/\(zoneID)/dnssec", apiToken: apiToken, as: CFDNSSEC.self)
@@ -263,6 +278,8 @@ public struct HTTPCloudflareClient: CloudflareReading {
         return .init(enabled: enabled, scriptHosts: hosts)
     }
 
+    /// Lists every DNS record in the zone, walking all pages (Cloudflare caps `per_page` at
+    /// 100, so a single-page read silently truncates larger zones).
     public func listDNSRecords(zoneID: String, apiToken: String) async throws -> [DNSRecord] {
         let raw = try await paginated("/zones/\(zoneID)/dns_records?per_page=100", apiToken: apiToken, as: CFFullDNSRecord.self)
         return raw.map {
@@ -271,6 +288,9 @@ public struct HTTPCloudflareClient: CloudflareReading {
         }
     }
 
+    /// Lists all Worker script names visible to the token's **first** account (a personal
+    /// Cloudflare token virtually always sees exactly one), walking all pages. Throws
+    /// ``CloudflareError/api(message:)`` when the token can see no account at all.
     public func workerScriptNames(apiToken: String) async throws -> [String] {
         let accounts = try await get("/accounts?per_page=1", apiToken: apiToken, as: [CFAccount].self)
         guard let accountID = accounts.first?.id else {
@@ -313,16 +333,22 @@ public struct HTTPCloudflareClient: CloudflareReading {
 // MARK: - CloudflareWriting conformance
 
 extension HTTPCloudflareClient: CloudflareWriting {
+    /// `PUT /zones/{id}/dnssec` with `status: active`. Enable-only — the app hardens; it never
+    /// offers a "turn DNSSEC back off" path.
     public func enableDNSSEC(zoneID: String, apiToken: String) async throws {
         try await mutate(method: "PUT", "/zones/\(zoneID)/dnssec",
                          body: ["status": "active"], apiToken: apiToken)
     }
 
+    /// `PUT /zones/{id}/settings/always_use_https`, mapping `enabled` to the API's `"on"/"off"`
+    /// string values.
     public func setAlwaysUseHTTPS(zoneID: String, enabled: Bool, apiToken: String) async throws {
         try await mutate(method: "PUT", "/zones/\(zoneID)/settings/always_use_https",
                          body: ["value": enabled ? "on" : "off"], apiToken: apiToken)
     }
 
+    /// `PUT /zones/{id}/settings/security_header` with `enabled: true` fixed — callers choose
+    /// the HSTS parameters, not whether HSTS is on; disabling it is deliberately not offered.
     public func setHSTS(zoneID: String, maxAge: Int, includeSubdomains: Bool, preload: Bool,
                          apiToken: String) async throws {
         struct HSTSBody: Encodable, Sendable {
@@ -343,21 +369,29 @@ extension HTTPCloudflareClient: CloudflareWriting {
                          body: body, apiToken: apiToken)
     }
 
+    /// `POST /zones/{id}/dns_records` — ``DNSRecordPayload`` encodes directly as the request
+    /// body, so what the seam accepts and what goes over the wire can't drift apart.
     public func addDNSRecord(zoneID: String, record: DNSRecordPayload, apiToken: String) async throws {
         try await mutate(method: "POST", "/zones/\(zoneID)/dns_records",
                          body: record, apiToken: apiToken)
     }
 
+    /// `DELETE /zones/{id}/dns_records/{recordID}` (with an empty JSON body Cloudflare
+    /// tolerates, so the shared `mutate` helper needs no body-less variant).
     public func deleteDNSRecord(zoneID: String, recordID: String, apiToken: String) async throws {
         try await mutate(method: "DELETE", "/zones/\(zoneID)/dns_records/\(recordID)",
                          body: CFEmptyBody(), apiToken: apiToken)
     }
 
+    /// `PATCH /zones/{id}/bot_management` toggling `fight_mode`.
     public func setBotFightMode(zoneID: String, enabled: Bool, apiToken: String) async throws {
         try await mutate(method: "PATCH", "/zones/\(zoneID)/bot_management",
                          body: ["fight_mode": enabled], apiToken: apiToken)
     }
 
+    /// Appends `rule` to the zone's `http_request_firewall_custom` ruleset, creating that
+    /// ruleset first when the zone has never had one — a fresh zone has no custom-rules
+    /// ruleset, and a bare rule-POST would 404 there.
     public func createWAFCustomRule(zoneID: String, rule: WAFRulePayload, apiToken: String) async throws {
         let rulesets = try await get("/zones/\(zoneID)/rulesets", apiToken: apiToken, as: [CFRuleset].self)
         let existing = rulesets.first(where: { $0.phase == "http_request_firewall_custom" })
@@ -380,26 +414,39 @@ extension HTTPCloudflareClient: CloudflareWriting {
         }
     }
 
+    /// `PATCH /zones/{id}/settings/speed_brain`, mapping `enabled` to `"on"/"off"`.
     public func setSpeedBrain(zoneID: String, enabled: Bool, apiToken: String) async throws {
         try await mutate(method: "PATCH", "/zones/\(zoneID)/settings/speed_brain",
                          body: ["value": enabled ? "on" : "off"], apiToken: apiToken)
     }
 
+    /// `PATCH /zones/{id}/settings/ech` (Encrypted Client Hello), mapping `enabled` to
+    /// `"on"/"off"`.
     public func setECH(zoneID: String, enabled: Bool, apiToken: String) async throws {
         try await mutate(method: "PATCH", "/zones/\(zoneID)/settings/ech",
                          body: ["value": enabled ? "on" : "off"], apiToken: apiToken)
     }
 
+    /// `PUT /zones/{id}/page_shield` — this endpoint takes a real boolean `enabled`, unlike the
+    /// `"on"/"off"`-string settings endpoints.
     public func setPageShield(zoneID: String, enabled: Bool, apiToken: String) async throws {
         try await mutate(method: "PUT", "/zones/\(zoneID)/page_shield",
                          body: ["enabled": enabled], apiToken: apiToken)
     }
 
+    /// `PATCH /zones/{id}/settings/opportunistic_onion` (Onion Routing for Tor visitors),
+    /// mapping `enabled` to `"on"/"off"`.
     public func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {
         try await mutate(method: "PATCH", "/zones/\(zoneID)/settings/opportunistic_onion",
                          body: ["value": enabled ? "on" : "off"], apiToken: apiToken)
     }
 
+    /// Implements the attach as read-then-write: resolve the zone (short-circuiting to
+    /// ``CustomDomainAttachResult/zoneNotFound`` for the common "nameservers not delegated yet"
+    /// case before any account round-trip), list existing attachments for the hostname, and only
+    /// `PUT /accounts/{id}/workers/domains` when nothing owns it — an attachment held by a
+    /// *different* script comes back as ``CustomDomainAttachResult/conflict(ownedBy:)`` instead
+    /// of being silently repointed (#1077).
     public func attachWorkersCustomDomain(
         hostname: String, workerScriptName: String, apiToken: String
     ) async throws -> CustomDomainAttachResult {
@@ -434,6 +481,10 @@ extension HTTPCloudflareClient: CloudflareWriting {
         return .attached
     }
 
+    /// Adds a zstd-first (zstd → brotli → gzip) `compress_response` rule to the zone's
+    /// `http_response_compression` ruleset, creating the ruleset when absent. Idempotent by
+    /// inspection: an existing zstd rule means return without writing, so repeated hardening
+    /// runs don't stack duplicate rules.
     public func enableZstandardCompression(zoneID: String, apiToken: String) async throws {
         struct CompressionRule: Encodable, Sendable {
             struct Params: Encodable, Sendable {

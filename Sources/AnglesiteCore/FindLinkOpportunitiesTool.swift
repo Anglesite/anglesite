@@ -9,21 +9,35 @@ import FoundationModels
 /// Foundation Models tool that audits a site's internal linking structure: orphan pages,
 /// missing reciprocal links, over-linked pages. Uses ``LinkGraph`` over the knowledge index.
 public struct FindLinkOpportunitiesTool: Tool, Sendable {
+    /// Stable wire name of the tool. A `static let` so callers (session config, tests,
+    /// transcript matching) can reference it without instantiating the tool.
     public static let toolName = "findLinkOpportunities"
+    /// `Tool` conformance — the name the model uses to invoke this tool.
     public let name = FindLinkOpportunitiesTool.toolName
+    /// `Tool` conformance — the natural-language capability summary the model reads when
+    /// deciding whether to call this tool, so it must name the concrete findings it produces.
     public let description = "Audit the site's internal linking: find orphan pages with no inbound links, missing reciprocal links, and over-linked pages."
 
+    /// No arguments: the audit always covers the whole site, so there is nothing for the
+    /// model to parameterize (and nothing for it to get wrong).
     @Generable
     public struct Arguments {}
 
     private let index: SiteKnowledgeIndex
     private let siteID: String
 
+    /// Creates the tool bound to one site's knowledge index; `siteID` scopes the audit so a
+    /// multi-window session never mixes documents across sites.
     public init(index: SiteKnowledgeIndex, siteID: String) {
         self.index = index
         self.siteID = siteID
     }
 
+    /// Runs the link audit and returns a plain-text report for the model to relay.
+    ///
+    /// Returns an explicit "no indexed documents" message rather than an empty report when
+    /// the index hasn't been populated yet — an empty-looking success would read as
+    /// "linking is healthy", which is the wrong conclusion before a site is open.
     public func call(arguments: Arguments) async throws -> String {
         let documents = await index.documents(siteID: siteID)
         guard !documents.isEmpty else {

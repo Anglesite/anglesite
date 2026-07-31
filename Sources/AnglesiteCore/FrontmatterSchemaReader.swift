@@ -9,12 +9,20 @@ import Foundation
 /// names inside the `z.object({...})` block. Anything it doesn't recognize is left out rather
 /// than guessed, matching `Frontmatter.parse`'s "deliberately minimal" precedent.
 public enum FrontmatterSchemaReader {
+    /// Reads `<siteDirectory>/src/content.config.ts` and returns each collection's declared field
+    /// names, keyed by collection name. A missing or unreadable config yields `[:]` rather than an
+    /// error — no declared schema is a normal state (callers fall back to inferred conventions),
+    /// not a failure to surface.
     public static func read(siteDirectory: URL) -> [String: [String]] {
         let url = siteDirectory.appendingPathComponent("src/content.config.ts")
         guard let source = try? String(contentsOf: url, encoding: .utf8) else { return [:] }
         return collections(fromContentConfig: source)
     }
 
+    /// Extracts collection-name → field-name lists from content-config source text. Split out
+    /// from ``read(siteDirectory:)`` so the text scan is unit-testable without a site on disk.
+    /// Collections whose declaration doesn't match the template's `defineCollection` +
+    /// `z.object({...})` shape are omitted (left out rather than guessed).
     public static func collections(fromContentConfig source: String) -> [String: [String]] {
         var result: [String: [String]] = [:]
         for block in collectionBlocks(in: source) {

@@ -8,13 +8,24 @@ import FoundationNetworking
 /// (a real post), else the bare activity id (an item this parser couldn't unwrap further, still
 /// worth a stub row so the timeline's count matches the collection's).
 public struct GroupPost: Sendable, Equatable, Identifiable {
+    /// The post's ActivityPub IRI — the wrapped object's `id` for a real post, or the bare
+    /// activity id for a stub row (see the type-level note).
     public let id: String
+    /// The post's `name`, sanitized through ``DisplayString``; `nil` for untitled notes.
     public let title: String?
+    /// The post's `content` HTML, sanitized through ``DisplayString`` — it can be rendered as
+    /// the row's fallback text when there is no ``title``, so it gets the same bidi/control-
+    /// scalar stripping.
     public let contentHTML: String?
+    /// The post's own `url`, for opening the original in a browser; `nil` on stub rows.
     public let url: URL?
+    /// The object's `published` timestamp, when it parsed as ISO 8601.
     public let publishedAt: Date?
+    /// The `attributedTo` value (an actor IRI, not a resolved display name), sanitized through
+    /// ``DisplayString``.
     public let authorName: String?
 
+    /// Memberwise initializer, public so views and tests can build rows without parsing AS2.
     public init(
         id: String, title: String?, contentHTML: String?, url: URL?, publishedAt: Date?,
         authorName: String?
@@ -28,20 +39,31 @@ public struct GroupPost: Sendable, Equatable, Identifiable {
     }
 }
 
+/// One page of a Group outbox, plus the link to the next — the unit of incremental loading, so
+/// the timeline can render page-by-page instead of fetching a whole (possibly huge) outbox.
 public struct GroupTimelinePage: Sendable, Equatable {
+    /// The page's posts, in the collection's own order.
     public let items: [GroupPost]
+    /// The AS2 `next` page URL; `nil` on the last page.
     public let next: URL?
 
+    /// Memberwise initializer, public so tests can fabricate pages without AS2 fixtures.
     public init(items: [GroupPost], next: URL?) {
         self.items = items
         self.next = next
     }
 }
 
+/// Why a Group timeline fetch failed. Each case keeps enough context (status, truncated body,
+/// decode reason) to debug a remote server's behavior from a log line.
 public enum GroupTimelineError: Error, Equatable, Sendable {
     /// The outbox URL, or the URL a redirect actually landed on, wasn't `https`.
     case insecureURL
+    /// The request failed at the HTTP layer: a non-2xx status with a body excerpt capped at
+    /// 400 bytes, or `status: 0` for transport-level failures (connection error, over-size
+    /// response).
     case requestFailed(status: Int, body: String)
+    /// The response wasn't the expected JSON object; carries a short reason.
     case decodingFailed(String)
 }
 
@@ -55,6 +77,8 @@ public enum GroupTimelineError: Error, Equatable, Sendable {
 /// `JSONSerialization` — like `ActivityPubOutboxBackfill.activityID(from:)` — rather than fighting
 /// `Decodable` over a heterogeneous array.
 public struct GroupTimelineClient: Sendable {
+    /// Performs one GET and returns its body + response; throws on connection failure.
+    /// Injectable so the AS2 parsing and HTTPS/size guards are testable without network.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     /// 1 MB. A single actor document (`ActorProfileFetcher`'s 256 KB cap) is a few KB, but an
@@ -64,10 +88,15 @@ public struct GroupTimelineClient: Sendable {
 
     private let transport: Transport
 
+    /// The transport parameter exists for tests; production uses ``defaultTransport``, which
+    /// enforces the response-size cap mid-stream.
     public init(transport: @escaping Transport = GroupTimelineClient.defaultTransport) {
         self.transport = transport
     }
 
+    /// Fetches the outbox's top-level collection document: its advertised `totalItems` (0 when
+    /// absent) and the `first` page URL, `nil` when the collection is empty or inlined. Callers
+    /// use `totalItems` to decide whether the stub-row parse actually covered the collection.
     public func collection(at outboxURL: URL) async throws -> (totalItems: Int, firstPage: URL?) {
         let json = try await fetch(outboxURL)
         let totalItems = json["totalItems"] as? Int ?? 0
@@ -75,6 +104,9 @@ public struct GroupTimelineClient: Sendable {
         return (totalItems, firstPage)
     }
 
+    /// Fetches one outbox page and parses its `orderedItems` into ``GroupPost`` rows (bare-IRI
+    /// items become id-only stubs; genuinely unparseable items are dropped), plus the `next`
+    /// page URL for continued paging.
     public func page(at url: URL) async throws -> GroupTimelinePage {
         let json = try await fetch(url)
         let rawItems = (json["orderedItems"] as? [Any]) ?? []
@@ -149,6 +181,9 @@ public struct GroupTimelineClient: Sendable {
     private static let session = CappedHTTPTransport.session(
         requestTimeout: ActorProfileFetcher.timeout, resourceTimeout: ActorProfileFetcher.resourceTimeout)
 
+    /// Production transport: a `CappedHTTPTransport` fetch that aborts mid-stream once
+    /// ``maximumResponseBytes`` is exceeded, so a hostile outbox can't buffer unbounded data
+    /// before the post-hoc size check runs.
     public static let defaultTransport: Transport = { request in
         try await CappedHTTPTransport.fetch(
             request, session: session, cap: GroupTimelineClient.maximumResponseBytes,

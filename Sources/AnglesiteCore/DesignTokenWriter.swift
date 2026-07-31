@@ -1,5 +1,9 @@
 import Foundation
 
+/// Translates a design — a generated ``DesignConfig`` or a built-in ``Theme`` — into the two
+/// artifacts the template actually consumes: the CSS custom-property values for
+/// `src/styles/global.css`, and the owner-facing `DESIGN.md` rationale. Pure string mapping;
+/// writing the files is the caller's job so this stays trivially testable.
 public enum DesignTokenWriter {
     /// Maps a generated ``DesignConfig`` onto the 12 CSS custom-property names
     /// `Resources/Template/src/styles/global.css` already declares. Tokens the engine computes but
