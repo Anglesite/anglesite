@@ -384,10 +384,8 @@ final class SiteWindowModel {
     /// to false) and swapping `mainPaneMode` right after — sent macOS 27 beta's AppKit layout
     /// engine into an unrecoverable constraint-update storm that hung the window and then
     /// crashed the app (#1126), most reliably via Graph but not exclusive to it. Same class of
-    /// problem, same mitigation, as the sheet-dismissal delay in `loadAndStart()` below: a
-    /// single `Task.yield()` only defers to the next run-loop tick, which isn't necessarily
-    /// enough for AppKit's own dismiss animation, so a short sleep is used instead — skipped
-    /// entirely when there was no inspector to dismiss.
+    /// problem, same mitigation (`AppKitConstraintStormMitigation`), as the sheet-dismissal delay
+    /// in `loadAndStart()` below — skipped entirely when there was no inspector to dismiss.
     ///
     /// For Graph/Cleanup/Reader/Followers/Communities the inspector has no companion to reopen,
     /// so clearing it here is the whole story. `openFile` also routes through here — a component
@@ -404,7 +402,7 @@ final class SiteWindowModel {
         inspectorContext = nil
         collectionInspection = nil
         if wasInspecting {
-            try? await Task.sleep(for: .milliseconds(300))
+            await AppKitConstraintStormMitigation.settle()
         }
         mainPaneMode = mode
     }
@@ -1108,7 +1106,7 @@ final class SiteWindowModel {
                 // conditioned on `wasInspecting` because the storm trigger here is the pane
                 // rebuild + inspector *presentation* landing together, which happens regardless
                 // of whether an inspector was already up.
-                try? await Task.sleep(for: .milliseconds(300))
+                await AppKitConstraintStormMitigation.settle()
             }
             await ensureComponentEditorLoaded()
         }
@@ -1795,15 +1793,14 @@ final class SiteWindowModel {
         // requests its own presentation — back-to-back `.sheet(item:)` presentations in the same
         // synchronous continuation-resumption stack risk a silently-failed second presentation,
         // which (with `.interactiveDismissDisabled()` on both sheets) would leave this method's
-        // `CheckedContinuation` unresumed forever. This is a best-effort mitigation, not a
-        // structural guarantee — a single `Task.yield()` only defers to the next run-loop tick,
-        // which is enough for the state change but not necessarily for AppKit's own dismiss
-        // animation, so a short sleep is used instead. A real guarantee would mean gating on the
-        // first sheet's actual `onDisappear`, which isn't done here; accepted as low-risk because
-        // this path only triggers when a single site-open queues both a dependency offer and a
-        // script divergence at once (an app-upgrade edge case) — narrow enough that a manual QA
-        // pass covering it (see this PR's test plan) is the practical verification, not a proof.
-        try? await Task.sleep(for: .milliseconds(300))
+        // `CheckedContinuation` unresumed forever. Same mitigation, same class of problem, as
+        // `clearInspectorThenSwitchPane` above (`AppKitConstraintStormMitigation`) — a real
+        // guarantee would mean gating on the first sheet's actual `onDisappear`, which isn't done
+        // here; accepted as low-risk because this path only triggers when a single site-open
+        // queues both a dependency offer and a script divergence at once (an app-upgrade edge
+        // case) — narrow enough that a manual QA pass covering it (see this PR's test plan) is the
+        // practical verification, not a proof.
+        await AppKitConstraintStormMitigation.settle()
         if let templateURL = TemplateRuntime.resolve().url {
             let plan = TemplateScriptsSyncChecker.check(
                 sourceDirectory: resolved.sourceDirectory,
