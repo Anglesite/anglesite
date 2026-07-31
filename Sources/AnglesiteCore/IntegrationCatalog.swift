@@ -46,7 +46,13 @@ public extension IntegrationDescriptor {
     }
 }
 
+/// The single registry of every integration the app can install. Descriptors are pure
+/// declarative data — ``IntegrationPlanner`` lowers one plus the wizard's answers into an
+/// ``OperationPlan`` — so adding an integration means adding a descriptor here (plus its staged
+/// assets under `Resources/Template/integrations/`), not writing new imperative setup code.
 public enum IntegrationCatalog {
+    /// Every registered descriptor, in the order pickers present them. Must cover every
+    /// ``IntegrationID`` — ``descriptor(for:)`` traps on an unregistered id.
     public static let all: [IntegrationDescriptor] = [
         booking, contact, donations, giscus, newsletter, consent, pwa, redirects,
         tracking, share, podcast,
@@ -55,6 +61,9 @@ public enum IntegrationCatalog {
         inbox, membership, carbonTxt, greenHostCheck, co2Badge,
     ]
 
+    /// Resolves an id to its registered descriptor. Deliberately `fatalError` rather than
+    /// optional: an ``IntegrationID`` case with no catalog entry is a programmer error caught
+    /// on first use, not a runtime condition callers should be forced to handle.
     public static func descriptor(for id: IntegrationID) -> IntegrationDescriptor {
         guard let d = all.first(where: { $0.id == id }) else {
             fatalError("Unregistered integration: \(id)")

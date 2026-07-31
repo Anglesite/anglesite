@@ -10,10 +10,18 @@ public enum GitHubRepoAPIError: Error, Equatable, Sendable {
     /// The transport itself failed (DNS/offline/TLS/timeout) — never reached GitHub, so this is
     /// distinct from `.api`, which means GitHub responded with a rejection.
     case network
+    /// GitHub returned 401 or 403 — the token is invalid, expired, or missing the required scope.
+    /// Both statuses collapse into one case because the user-facing remedy is identical: fix the
+    /// token in Settings.
     case unauthorized
+    /// A 422 whose `errors[].message` says the repository name is taken. Split out from `.api`
+    /// so callers can offer a rename instead of showing a raw API message.
     case nameAlreadyExists
+    /// Any other non-2xx status with no more specific mapping.
     case http(status: Int)
+    /// A 422 rejection that isn't a name conflict — carries GitHub's own `message` for display.
     case api(message: String)
+    /// GitHub returned a success status but the body didn't decode into the expected shape.
     case malformedResponse
 }
 
@@ -27,6 +35,9 @@ public struct HTTPGitHubClient: Sendable {
     private static let base = "https://api.github.com"
     private let transport: GitHubAPITokenVerifier.Transport
 
+    /// Creates a client over the given transport. Reuses ``GitHubAPITokenVerifier``'s `Transport`
+    /// seam (rather than defining a parallel one) so tests mock all GitHub HTTP the same way; the
+    /// default is the real `URLSession`-backed transport.
     public init(transport: @escaping GitHubAPITokenVerifier.Transport = GitHubAPITokenVerifier.defaultTransport) {
         self.transport = transport
     }
@@ -125,6 +136,9 @@ public struct HTTPGitHubClient: Sendable {
 }
 
 extension HTTPGitHubClient: RepoSecurityReading, RepoSecurityWriting {
+    /// `GET /repos/{owner}/{repo}` → the `private` flag (see ``RepoSecurityReading``: a private
+    /// repo's advisory form is invisible to outside reporters, so this gates the whole
+    /// private-vulnerability-reporting flow).
     public func isPrivate(owner: String, name: String, token: String) async throws -> Bool {
         let data = try await send(repoRequest(method: "GET", path: "/repos/\(owner)/\(name)", token: token))
         guard let repo = try? JSONDecoder().decode(RepositoryResponse.self, from: data) else {
@@ -133,6 +147,8 @@ extension HTTPGitHubClient: RepoSecurityReading, RepoSecurityWriting {
         return repo.isPrivate
     }
 
+    /// `GET /repos/{owner}/{repo}/private-vulnerability-reporting` → whether the private advisory
+    /// channel is already enabled, so the app only offers to enable it when it's actually off.
     public func privateVulnerabilityReporting(owner: String, name: String, token: String) async throws -> Bool {
         let data = try await send(repoRequest(
             method: "GET", path: "/repos/\(owner)/\(name)/private-vulnerability-reporting", token: token))
@@ -142,6 +158,10 @@ extension HTTPGitHubClient: RepoSecurityReading, RepoSecurityWriting {
         return state.enabled
     }
 
+    /// `PUT /repos/{owner}/{repo}/private-vulnerability-reporting` — enable only, per
+    /// ``RepoSecurityWriting``'s contract (the app never disables a reporting channel it didn't
+    /// create). Requires admin access; a token without it surfaces as
+    /// ``GitHubRepoAPIError/unauthorized``.
     public func enablePrivateVulnerabilityReporting(owner: String, name: String, token: String) async throws {
         // A 204 with an empty body is the documented success response — nothing to decode.
         _ = try await send(repoRequest(

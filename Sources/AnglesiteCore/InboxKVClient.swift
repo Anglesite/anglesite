@@ -16,12 +16,23 @@ public struct InboxKVClient: Sendable {
     /// A visitor submission as staged by the Worker (`worker.ts`'s `handleInbox`) — field names
     /// and shape must match exactly, since the Worker is the writer and this is the reader.
     public struct Submission: Sendable, Equatable, Decodable {
+        /// Worker-assigned unique id — also the KV key suffix (`inbox:<id>`), which is what
+        /// ``InboxKVClient/deleteSubmission(id:)`` reconstructs to clear the entry.
         public let id: String
+        /// Visitor-supplied subject line, exactly as staged.
         public let subject: String
+        /// Visitor-supplied sender identity (typically an email address). Untrusted input —
+        /// treat as display text, not a validated address.
         public let from: String
+        /// Visitor-supplied message body, exactly as staged.
         public let message: String
+        /// Timestamp string as the Worker wrote it. Kept as a string deliberately: it
+        /// round-trips into content front matter rather than being computed on, and parsing it
+        /// here would only add a failure mode.
         public let receivedAt: String
 
+        /// Memberwise initializer, mainly for tests and previews — production values are
+        /// decoded straight from KV entries the Worker wrote.
         public init(id: String, subject: String, from: String, message: String, receivedAt: String) {
             self.id = id
             self.subject = subject
@@ -55,6 +66,10 @@ public struct InboxKVClient: Sendable {
     private let apiToken: String
     private let transport: CloudflareTransport
 
+    /// Creates a client bound to one KV namespace. The token is passed in rather than read from
+    /// the Keychain here (same DI posture as `HTTPCloudflareClient` — resolution stays the
+    /// caller's concern), and `baseURL`/`transport` exist so tests can point at a stub without
+    /// any network; production callers take their defaults.
     public init(
         accountID: String,
         namespaceID: String,

@@ -10,17 +10,27 @@ import Foundation
 /// asserts on the user's behalf — see
 /// docs/superpowers/specs/2026-07-26-really-simple-licensing-spike.md §Q3.
 public enum LicenseCatalog {
+    /// One offered license: stable picker identity, display strings, and the app-side AI-use
+    /// classification (which is deliberately *not* part of what gets stored — see `ref`).
     public struct Entry: Sendable, Equatable, Hashable, Identifiable {
         /// Stable across releases — it is the SwiftUI picker tag, not display text.
         public let id: String
+        /// Display name shown in the picker, e.g. "CC BY 4.0".
         public let name: String
+        /// Canonical deed URL — the identity `entry(for:)` matches stored licenses on.
         public let url: String
         /// True when the license's grant unambiguously covers AI training and AI answers.
         public let permitsAIUse: Bool
 
+        /// The `LicenseRef` this entry stores and publishes — URL + name only. The
+        /// `permitsAIUse` classification stays app-side, because it is Anglesite's reading of
+        /// the license, not something to assert on the user's behalf (see the type doc).
         public var ref: LicenseRef { LicenseRef(url: url, name: name) }
     }
 
+    /// The offered licenses in picker order: CC0 first, then the CC 4.0 suite from most to
+    /// least permissive. Extending this list requires the same "unambiguous grant" test the
+    /// type doc describes before setting `permitsAIUse`.
     public static let entries: [Entry] = [
         Entry(id: "cc0-1.0", name: "CC0 1.0",
               url: "https://creativecommons.org/publicdomain/zero/1.0/", permitsAIUse: true),

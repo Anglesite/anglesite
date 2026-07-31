@@ -37,6 +37,10 @@ public enum InProcessGit {
     /// app-owned Keychain slot (`SecretAccounts.gitHubToken`); tests inject their own.
     public typealias TokenProvider = @Sendable () throws -> String?
 
+    /// The production ``TokenProvider``: reads the app-owned Keychain slot via
+    /// ``PlatformSecretStore``. It's the default argument of
+    /// ``stream(siteDirectory:arguments:source:tokenProvider:)``, so only tests (which must not
+    /// touch the real Keychain) ever pass a provider explicitly.
     public static let defaultTokenProvider: TokenProvider = {
         try PlatformSecretStore.make().readGitHubToken()
     }

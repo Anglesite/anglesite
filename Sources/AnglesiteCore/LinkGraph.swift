@@ -6,8 +6,11 @@ public enum LinkGraph {
     /// A missing reciprocal link: `sourcePath` is the page that should add a link,
     /// `targetPath` is the page it should link back to.
     public struct ReciprocalGap: Sendable, Equatable, Identifiable {
+        /// Stable identity for SwiftUI lists: the `source→target` pair, unique per gap.
         public var id: String { "\(sourcePath)→\(targetPath)" }
+        /// Document path of the page that should add the link.
         public let sourcePath: String
+        /// Document path of the page it should link back to.
         public let targetPath: String
     }
 
@@ -155,9 +158,13 @@ public enum LinkGraph {
 
     /// A suggested internal link target with its semantic confidence score.
     public struct LinkSuggestion: Sendable, Equatable, Identifiable {
+        /// Stable identity for SwiftUI lists — the target's document path.
         public var id: String { path }
+        /// Document path of the suggested target (e.g. `src/pages/about.astro`).
         public let path: String
+        /// The target's title, when the knowledge index has one for it.
         public let title: String?
+        /// The served route to use as the inserted link's href (e.g. `/about`).
         public let route: String
         /// Normalized confidence in 0…1 (min-max over the candidate set).
         public let confidence: Float

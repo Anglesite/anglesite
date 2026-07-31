@@ -47,6 +47,16 @@ public enum HardenPlanner {
         ),
     ]
 
+    /// Diffs `state` against the hardening baseline and returns only the missing pieces, so
+    /// applying the plan never duplicates records or re-toggles settings that are already right.
+    ///
+    /// Non-obvious choices: HSTS is (re-)planned when `max-age` is under one year, not just when
+    /// absent, since a short `max-age` defeats the point; the email trio (null MX / SPF `-all` /
+    /// DMARC reject) is planned **only** for zones with no MX records at all — a mail-receiving
+    /// domain must never be handed a null MX; and WAF rules are matched by case-insensitive
+    /// description because Cloudflare assigns rule IDs server-side, leaving the description as the
+    /// only stable client-side identity. `domain` names the DNS records (CAA/MX/SPF at the apex,
+    /// DMARC at `_dmarc.<domain>`).
     public static func plan(from state: CloudflareZoneState, domain: String) -> HardenPlan {
         var items: [HardenPlanItem] = []
 

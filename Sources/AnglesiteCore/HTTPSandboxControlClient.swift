@@ -12,6 +12,9 @@ public struct HTTPSandboxControlClient: SandboxControlClient {
     private let apiToken: String
     private let urlSession: URLSession
 
+    /// Creates a client for one deployed Control Worker. `workerBaseURL` and `apiToken` are the
+    /// values onboarding stored; `urlSession` is injectable so tests can stub HTTP without a
+    /// deployed Worker.
     public init(workerBaseURL: URL, apiToken: String, urlSession: URLSession = .shared) {
         self.workerBaseURL = workerBaseURL
         self.apiToken = apiToken
@@ -24,6 +27,9 @@ public struct HTTPSandboxControlClient: SandboxControlClient {
     private struct StatusResponse: Decodable { let siteID: String; let previewReady: Bool; let mcpReady: Bool }
     private struct StopBody: Encodable { let siteID: String }
 
+    /// `POST /start` — boots (or resumes) the sandbox and returns the preview + MCP tunnel URLs.
+    /// A response that doesn't decode is reported as ``SandboxControlError/startFailed(_:)``, same
+    /// as a Worker-reported boot failure — either way the session isn't usable.
     public func start(siteID: String, gitRemote: URL, gitRef: String, token: SessionToken) async throws -> SandboxSession {
         let body = StartBody(siteID: siteID, gitRemote: gitRemote.absoluteString, gitRef: gitRef, token: token.value)
         let data = try await post("start", body: body)
@@ -35,10 +41,14 @@ public struct HTTPSandboxControlClient: SandboxControlClient {
         }
     }
 
+    /// `POST /stop` — asks the Worker to drop the tunnels and let the sandbox sleep. The response
+    /// body carries nothing useful, so only the status code matters.
     public func stop(siteID: String) async throws {
         _ = try await post("stop", body: StopBody(siteID: siteID))
     }
 
+    /// `POST /status` — probes preview/MCP readiness. Uses POST (not GET) like the other calls so
+    /// the Worker has a single authenticated JSON-body request shape to handle.
     public func status(siteID: String) async throws -> SandboxStatus {
         let data = try await post("status", body: StatusBody(siteID: siteID))
         do {

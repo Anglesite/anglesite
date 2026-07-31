@@ -11,7 +11,13 @@ import Foundation
 /// `onEdit` fires after every successful `.applied` reply with a non-nil `commit` — wired by
 /// `SiteWindow` to `ChatModel.recordEdit(_:)` so the chat panel surfaces each edit as a row.
 public struct MCPApplyEditRouter: EditRouter {
+    /// The seam that performs the MCP `tools/call`. Production binds it to
+    /// ``MCPClient/callTool(name:arguments:)``; tests inject a fake so the router's mapping
+    /// logic runs without a live MCP server.
     public typealias ToolCaller = @Sendable (_ name: String, _ arguments: JSONValue) async throws -> MCPClient.ToolCallResult
+    /// Synchronous hook fired only for `.applied` replies carrying a `commit` (see the type
+    /// doc — `SiteWindow` wires it to `ChatModel.recordEdit(_:)`). Contrast ``PostProcessor``,
+    /// which fires for every applied edit, commit or not.
     public typealias EditObserver = @Sendable (EditReply) -> Void
     /// Persists a successful runtime edit into the canonical site repository. Unlike
     /// ``PostProcessor``, this hook is awaited before the applied reply is returned: acknowledging
@@ -64,6 +70,12 @@ public struct MCPApplyEditRouter: EditRouter {
         self.postProcess = postProcess
     }
 
+    /// Sends `message` as an `apply_edit` tool call and maps every outcome — preview, applied,
+    /// failed, cancelled, or thrown — into an `EditReply`; this never throws, so the overlay
+    /// always gets a reply to render. Hook ordering is the load-bearing part: `persistEdit` is
+    /// awaited *before* the applied reply is returned (see ``EditPersister`` for why), and a
+    /// persistence failure downgrades the reply to `.failed` with `commit` nil; `onEdit` fires
+    /// only after persistence succeeded; `postProcess` is detached entirely.
     public func apply(_ message: EditMessage) async -> EditReply {
         // Pre-call cancellation checkpoint. In production this is belt-and-suspenders — the real
         // `toolCaller` routes through `MCPClient.callTool`, which checks cancellation itself and

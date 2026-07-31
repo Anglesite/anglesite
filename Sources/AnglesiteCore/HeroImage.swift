@@ -94,8 +94,14 @@ public enum HeroImage {
          .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
+    /// Failures from ``HeroImage/install(from:headline:siteName:siteDirectory:fileManager:)``. Hero
+    /// generation is an optional scaffolder step, so callers surface these as warnings, never as
+    /// scaffold failures.
     public enum InstallError: Error, Sendable {
+        /// The generated image isn't at the URL Image Playground reported — nothing to copy.
         case sourceImageNotFound(URL)
+        /// `src/pages/index.astro` is missing, so there's no homepage to patch. A *drifted* (but
+        /// present) homepage is not an error — the anchor-guarded patch just no-ops.
         case homepageNotFound(URL)
     }
 

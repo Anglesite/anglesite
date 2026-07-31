@@ -6,26 +6,52 @@ import Foundation
 /// fact that the working tree still needs publishing, so an offline edit survives an app restart
 /// without duplicating source data in app-owned state.
 public actor InvisiblePublishQueue {
+    /// The queue's lifecycle, surfaced through the `onStateChange` observer so the UI can
+    /// mirror background publish activity without polling the actor.
     public enum State: Sendable, Equatable {
+        /// Nothing pending: the working tree is published (or was never edited).
         case idle
+        /// An edit landed and the idle window is counting down toward a publish.
         case debouncing
+        /// Pending work is parked until connectivity returns; reconnection publishes
+        /// immediately (the offline period already served as the debounce).
         case queuedOffline
+        /// A publish attempt is running; its ``Result`` decides the next state.
         case publishing
+        /// The pre-deploy security gate blocked the publish; mirrors
+        /// ``Result/blocked(failureCount:)``. The pending marker persists.
         case blocked(failureCount: Int)
+        /// The publish failed; mirrors ``Result/failed(reason:)``. The pending marker persists
+        /// so a later edit or retry can drain it.
         case failed(reason: String)
+        /// A local prerequisite isn't ready; mirrors ``Result/deferred(reason:)``.
         case deferred(reason: String)
     }
 
+    /// Terminal outcome the injected ``Publisher`` reports for one publish attempt. Every
+    /// non-`succeeded` case leaves the durable pending marker in place.
     public enum Result: Sendable, Equatable {
+        /// The deploy finished; `url` is the live site. Clears the pending marker — unless an
+        /// edit landed mid-publish, in which case the newer working tree is rescheduled.
         case succeeded(url: URL)
+        /// The pre-deploy security gate refused the deploy; `failureCount` is the number of
+        /// check failures it reported. Distinct from `failed` so the app can route it to the
+        /// security-block notification path instead of a generic error.
         case blocked(failureCount: Int)
+        /// The attempt failed with a user-presentable reason; the queue stays pending.
         case failed(reason: String)
         /// A local prerequisite such as the container runtime or API token is not ready. The
         /// durable queue remains pending and `retryPending()` may drain it later.
         case deferred(reason: String)
     }
 
+    /// Runs one complete publish of the current working tree and reports its terminal
+    /// ``Result``. The queue never inspects site content itself — this closure owns the whole
+    /// pipeline (build, security gate, deploy), which is what keeps the queue's persisted
+    /// state down to a single "still needs publishing" bit.
     public typealias Publisher = @Sendable () async -> Result
+    /// Receives each distinct ``State`` transition (duplicates are suppressed). Invoked from
+    /// the actor as transitions happen — hop to the main actor before touching UI.
     public typealias StateObserver = @Sendable (State) -> Void
     /// Debounce timer seam. Production always uses `Task.sleep`; tests can substitute a
     /// manually-triggered gate so the debounce "elapses" only when the test says so, instead of
@@ -40,6 +66,8 @@ public actor InvisiblePublishQueue {
         let lastEditedAt: Date
     }
 
+    /// Name of the durable pending-marker file, written under the site's app-owned `Config/`
+    /// directory (never inside the `Source/` git repo — see the type doc).
     public static let filename = "invisible-publish-queue.json"
 
     private let recordURL: URL
@@ -57,6 +85,17 @@ public actor InvisiblePublishQueue {
     private var debounceTask: Task<Void, Never>?
     private var publishTask: Task<Void, Never>?
 
+    /// Creates a queue for one site. Call `start(isOnline:)` to load any persisted pending
+    /// marker and begin scheduling.
+    ///
+    /// - Parameters:
+    ///   - configDirectory: The site's app-owned `Config/` directory; the pending marker is
+    ///     persisted here as ``InvisiblePublishQueue/filename``.
+    ///   - debounce: Idle window after the last edit before a publish begins.
+    ///   - publisher: The closure that performs an actual publish — see ``Publisher``.
+    ///   - onStateChange: Optional observer of state transitions — see ``StateObserver``.
+    ///   - now: Clock seam; tests substitute a fixed date to make `lastEditedAt` deterministic.
+    ///   - sleep: Debounce timer seam — see ``Sleep``.
     public init(
         configDirectory: URL,
         debounce: Duration = .seconds(3),
@@ -128,14 +167,20 @@ public actor InvisiblePublishQueue {
         beginPublish()
     }
 
+    /// The queue's current lifecycle state.
     public func currentState() -> State { state }
+    /// Whether the working tree still needs publishing — stays true while a publish is in
+    /// flight, until an attempt succeeds for the latest edit generation.
     public func hasPendingPublish() -> Bool { isPending }
 
+    /// Cancels the debounce and re-persists the pending marker for the next launch.
+    ///
+    /// Deliberately does *not* cancel an in-flight publish: a real deploy is intentionally
+    /// allowed to reach its terminal result, because cancelling the wrapper task would cancel
+    /// its child subprocess and leave remote state unclear.
     public func stop() {
         debounceTask?.cancel()
         debounceTask = nil
-        // A real deploy is intentionally allowed to reach its terminal result. Cancelling this
-        // wrapper task would otherwise cancel its child subprocess and leave remote state unclear.
         if isPending { persistRecord() }
     }
 

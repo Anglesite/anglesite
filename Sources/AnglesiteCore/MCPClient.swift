@@ -8,12 +8,20 @@ import FoundationNetworking
 /// Minimal JSON value used at the MCP boundary so request/response shapes stay `Sendable` and
 /// `Equatable` without forcing every caller to define a `Codable` model.
 public indirect enum JSONValue: Sendable, Equatable {
+    /// JSON `null`.
     case null
+    /// A JSON boolean.
     case bool(Bool)
+    /// A JSON number that arrived as an integer — see ``from(_:)`` for how the int/double
+    /// split is decided.
     case int(Int)
+    /// A JSON number that arrived with a floating-point representation.
     case double(Double)
+    /// A JSON string.
     case string(String)
+    /// A JSON array.
     case array([JSONValue])
+    /// A JSON object.
     case object([String: JSONValue])
 
     /// Convert to a `JSONSerialization`-friendly value tree.
@@ -81,37 +89,66 @@ public indirect enum JSONValue: Sendable, Equatable {
 /// wire (process pipes vs HTTP). For the stdio transport, protocol traffic also flows through
 /// `LogCenter`, so the Debug pane can see it.
 public actor MCPClient {
+    /// Failures the client layer itself produces (a server-reported JSON-RPC error surfaces as
+    /// ``rpcError(code:message:)``, passed through rather than reinterpreted).
     public enum MCPError: Error, Sendable, Equatable {
+        /// No transport is connected and handshaken — `start(...)`/`connect(...)` hasn't run,
+        /// failed, or a post-crash re-handshake didn't succeed.
         case notInitialized
+        /// `start(...)`/`connect(...)` was called while a transport is already up; call
+        /// ``MCPClient/stop()`` first.
         case alreadyRunning
+        /// The server replied with JSON the client can't interpret; carries a description of
+        /// what was missing.
         case invalidResponse(String)
+        /// The server answered with a JSON-RPC error object, forwarded verbatim.
         case rpcError(code: Int, message: String)
+        /// The stdio server process exited before the client finished becoming ready.
         case exitedBeforeReady(ProcessSupervisor.ExitReason)
+        /// No response arrived within the per-request deadline; the pending request is failed
+        /// so a caller never hangs on a wedged server.
         case timeout
         /// In-flight request failed because the server process crashed and is being restarted;
         /// the client re-runs `initialize` against the fresh process. Retry the call.
         case reconnecting
     }
 
+    /// One tool advertised by the server's `tools/list` response.
     public struct ToolDescriptor: Sendable, Equatable {
+        /// The tool's wire name — the value passed to ``MCPClient/callTool(name:arguments:)``.
         public let name: String
+        /// The server's human-readable description, when it provides one.
         public let description: String?
+        /// The tool's declared JSON-Schema input, kept as raw ``JSONValue`` rather than a
+        /// typed model — the app has no need to validate against it. `nil` when omitted.
         public let inputSchema: JSONValue?
     }
 
+    /// The result of a `tools/call`. MCP separates transport success from tool-level failure:
+    /// a failed tool still resolves normally here with ``isError`` true rather than throwing.
     public struct ToolCallResult: Sendable, Equatable {
+        /// The content items, in server order. Non-text items keep their `type` with a nil
+        /// `text` rather than being dropped.
         public let content: [Content]
+        /// MCP's tool-level failure flag — the RPC itself succeeded even when this is true;
+        /// consumers (e.g. `MCPApplyEditRouter`) branch on it to build a failure reply.
         public let isError: Bool
 
+        /// Memberwise init — public so tests can fabricate results without a live server.
         public init(content: [Content], isError: Bool) {
             self.content = content
             self.isError = isError
         }
 
+        /// One content item. Only `type` and `text` are decoded — the app consumes text
+        /// content exclusively, so richer content kinds are preserved as type-only stubs.
         public struct Content: Sendable, Equatable {
+            /// The MCP content type (e.g. `text`).
             public let type: String
+            /// The text payload for `text` content; nil for other kinds.
             public let text: String?
 
+            /// Memberwise init — public so tests can fabricate content items.
             public init(type: String, text: String?) {
                 self.type = type
                 self.text = text
@@ -134,11 +171,17 @@ public actor MCPClient {
     private var clientVersion: String = "0.1.0"
     private var initializeTimeout: TimeInterval = 10
 
+    /// `supervisor`/`logCenter` are retained for the stdio path only — `start(...)` needs them
+    /// to build a ``StdioTransport``. They're taken at construction even for an HTTP-only
+    /// client because the transport choice isn't known until `start`/`connect` is called.
     public init(supervisor: ProcessSupervisor, logCenter: LogCenter = .shared) {
         self.supervisor = supervisor
         self.logCenter = logCenter
     }
 
+    /// Whether a transport is currently held — set by a successful open, cleared by ``stop()``
+    /// (a failed `start`/`connect` tears down before throwing, so this never reads true for a
+    /// client whose startup failed).
     public var isRunning: Bool { transport != nil }
 
     /// Spawn the MCP server and run the `initialize` handshake. Returns once the server has
@@ -247,6 +290,9 @@ public actor MCPClient {
         }
     }
 
+    /// Fetches the server's tool catalog. Entries missing a `name` are dropped rather than
+    /// failing the whole list; a top-level shape without a `tools` array throws
+    /// ``MCPError/invalidResponse(_:)``.
     public func listTools() async throws -> [ToolDescriptor] {
         guard initialized else { throw MCPError.notInitialized }
         let result = try await sendRequest(method: "tools/list", params: .object([:]), timeout: 5)
@@ -263,6 +309,12 @@ public actor MCPClient {
         }
     }
 
+    /// Invokes a server tool and normalizes its result. Tool-level failure comes back as
+    /// ``ToolCallResult/isError``, not a throw — only client/transport-layer problems throw,
+    /// including ``MCPError/timeout`` after 30 seconds (deliberately longer than the other
+    /// calls' deadlines; tool work is open-ended in a way `initialize`/`tools/list` are not).
+    /// Cancellation is checked before sending so an already-cancelled task never reaches the
+    /// wire; a cancel while awaiting surfaces as `CancellationError`.
     public func callTool(name: String, arguments: JSONValue = .object([:])) async throws -> ToolCallResult {
         guard initialized else { throw MCPError.notInitialized }
         try Task.checkCancellation()   // pre-call guard: never send for an already-cancelled task
@@ -292,6 +344,8 @@ public actor MCPClient {
         return ToolCallResult(content: contents, isError: isError)
     }
 
+    /// Closes the transport and fails every still-pending request with
+    /// ``MCPError/notInitialized`` so no caller is left hanging. Safe to call when not running.
     public func stop() async {
         await teardown()
     }

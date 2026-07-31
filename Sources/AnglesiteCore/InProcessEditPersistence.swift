@@ -8,6 +8,23 @@ import SwiftGit2
 /// already-linked libgit2 wrapper. The host must still be at the commit the container edited;
 /// refusing divergence is safer than silently overwriting a native edit.
 public enum InProcessEditPersistence {
+    /// Imports the guest's exported edit (a thin git bundle carrying exactly one commit) into
+    /// the canonical `Source/` repository, materializes its tree into the worktree, and
+    /// re-commits it under the host's identity (via `GitIdentity`, since the sandboxed app
+    /// can't read `~/.gitconfig` — #969). Fast-forward only: the import is refused when
+    /// `Source/` has uncommitted changes or the exported commit's parent isn't the current
+    /// HEAD, because silently overwriting a native edit is worse than making the owner retry.
+    ///
+    /// The whole libgit2 sequence runs on a detached task — unbundling and tree
+    /// materialization are blocking file I/O that must not park a cooperative-pool thread.
+    ///
+    /// - Parameters:
+    ///   - bundleURL: The bundle file exported by the container runtime.
+    ///   - commit: The full OID the caller expects the bundle to carry; a mismatch is refused
+    ///     so a stale or tampered export can't land as a different edit.
+    ///   - sourceDirectory: The site's canonical `Source/` git repository.
+    /// - Throws: ``SiteRuntimePersistenceError/syncFailed(_:)`` for every refusal or libgit2
+    ///   failure, with a human-readable reason.
     public static func importBundle(_ bundleURL: URL, commit: String, into sourceDirectory: URL) async throws {
         try await Task.detached(priority: .userInitiated) {
             try await performImport(bundleURL, commit: commit, into: sourceDirectory)
