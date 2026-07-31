@@ -5,26 +5,39 @@ import AnglesiteSiteModel
 /// built for the Quick Look preview/thumbnail extensions (#621). Reads only the `Info.plist`
 /// marker and file-layout counts — never parses content, never touches a dev server or container.
 public struct PackagePreviewSummary: Sendable, Equatable {
+    /// The site's user-visible name, from the `Info.plist` marker.
     public let displayName: String
+    /// When the package was created, from the `Info.plist` marker.
     public let createdDate: Date
+    /// Number of non-hidden entries directly under `Source/src/pages/` — a layout fact, not a
+    /// route count (nested routes and dynamic pages aren't resolved).
     public let pageCount: Int
     /// One entry per subdirectory of `Source/src/content/`, ordered by directory name.
     public let collectionCounts: [CollectionCount]
+    /// Most recent file modification under `Source/` (excluding generated trees; capped scan —
+    /// see `modificationScanEntryCap`). `nil` when the tree is unreadable or empty.
     public let sourceLastModified: Date?
     /// Set only when `Config/quicklook-thumbnail.png` actually exists — no writer for this cache
     /// exists yet; this is the read-if-present path for a future feature.
     public let cachedThumbnailURL: URL?
 
+    /// A content collection's directory name and entry count, for the preview's collections list.
     public struct CollectionCount: Sendable, Equatable {
+        /// The collection's directory name under `Source/src/content/`.
         public let name: String
+        /// Number of non-hidden entries directly inside the collection directory.
         public let count: Int
 
+        /// Memberwise initializer, public so the extensions' view code and tests can build
+        /// fixture values.
         public init(name: String, count: Int) {
             self.name = name
             self.count = count
         }
     }
 
+    /// Memberwise initializer, public for tests and previews; production code builds summaries
+    /// via ``summarize(_:fileManager:)``.
     public init(
         displayName: String,
         createdDate: Date,

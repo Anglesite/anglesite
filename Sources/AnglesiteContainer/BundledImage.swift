@@ -140,6 +140,9 @@ public enum BundledImage {
         provisioningReport.isProvisioned
     }
 
+    /// Per-artifact provisioning breakdown behind ``isProvisioned`` — resolves each of the three
+    /// bundled artifacts and captures the failure reason for any that's missing, so settings/debug
+    /// UI can say *which* artifact is absent instead of a bare "not provisioned".
     public static var provisioningReport: BundledImageProvisioningReport {
         BundledImageProvisioningReport(
             image: artifactStatus { try layoutURL() },
@@ -188,6 +191,9 @@ public enum BundledImage {
     }
 }
 
+/// A bundled container artifact failed to resolve — the app was built without the vendored
+/// container resources (see `scripts/vendor-container-image.sh`) and no env override points at a
+/// local copy.
 public enum BundledImageError: Error, Equatable {
     /// The OCI app layout is not vendored and no `ANGLESITE_CONTAINER_IMAGE` override was set.
     case imageLayoutNotProvisioned
@@ -197,15 +203,24 @@ public enum BundledImageError: Error, Equatable {
     case initfsNotProvisioned
 }
 
+/// Resolution status of all three bundled artifacts the container runtime needs to boot
+/// (see ``BundledImage/provisioningReport``).
 public struct BundledImageProvisioningReport: Sendable, Equatable {
+    /// Status of the app OCI image layout.
     public let image: BundledImageArtifactStatus
+    /// Status of the Linux kernel binary.
     public let kernel: BundledImageArtifactStatus
+    /// Status of the vminit initfs layout.
     public let initfs: BundledImageArtifactStatus
 
+    /// `true` only when all three artifacts resolved — the condition under which
+    /// `ContainerizationControl.start()` can succeed.
     public var isProvisioned: Bool {
         image.isProvisioned && kernel.isProvisioned && initfs.isProvisioned
     }
 
+    /// Human-readable "label: reason" lines for each missing artifact (empty when fully
+    /// provisioned) — ready for direct display in debug/settings UI.
     public var missingDescriptions: [String] {
         [
             image.missingDescription(label: "container image"),
@@ -215,10 +230,14 @@ public struct BundledImageProvisioningReport: Sendable, Equatable {
     }
 }
 
+/// Resolution outcome for one bundled artifact.
 public enum BundledImageArtifactStatus: Sendable, Equatable {
+    /// The artifact resolved; carries the path it resolved to (bundle resource or env override).
     case provisioned(path: String)
+    /// The artifact didn't resolve; carries the thrown error's description as the reason.
     case missing(reason: String)
 
+    /// `true` for ``provisioned(path:)``.
     public var isProvisioned: Bool {
         if case .provisioned = self { true } else { false }
     }

@@ -21,9 +21,17 @@ import AnglesiteBridgeCore
 /// `nil` for the optional handlers to preserve the apply-edit-only behavior, and match on the
 /// richer `DispatchResult` enum instead of `Result<EditReply, EditMessage.DecodeError>`.
 public final class AnglesiteScriptHandler: NSObject, WKScriptMessageHandler {
+    // Re-exported dispatcher types, so call sites written against this class before the
+    // AnglesiteBridgeCore split (`AnglesiteScriptHandler.DispatchResult` etc.) keep compiling
+    // without importing the core module themselves.
+
+    /// Callback for `anglesite:visible-elements` reports (see `AnglesiteMessageDispatcher`).
     public typealias VisibleElementsHandler = AnglesiteMessageDispatcher.VisibleElementsHandler
+    /// Callback for `anglesite:canvas-selection` messages (see `AnglesiteMessageDispatcher`).
     public typealias CanvasSelectionHandler = AnglesiteMessageDispatcher.CanvasSelectionHandler
+    /// Callback for `anglesite:computed-styles` reports (see `AnglesiteMessageDispatcher`).
     public typealias ComputedStylesHandler = AnglesiteMessageDispatcher.ComputedStylesHandler
+    /// Outcome of dispatching one message body (see `AnglesiteMessageDispatcher.DispatchResult`).
     public typealias DispatchResult = AnglesiteMessageDispatcher.DispatchResult
 
     private let router: EditRouter
@@ -32,6 +40,14 @@ public final class AnglesiteScriptHandler: NSObject, WKScriptMessageHandler {
     private let onComputedStyles: ComputedStylesHandler?
     private let logCenter: LogCenter
 
+    /// - Parameters:
+    ///   - router: Applies decoded `anglesite:apply-edit` messages and produces the reply the
+    ///     handler evaluates back into the page.
+    ///   - onVisibleElements: Optional callback for `anglesite:visible-elements` reports; `nil`
+    ///     means those messages are dropped (logged as such by the dispatcher's result).
+    ///   - onCanvasSelection: Optional callback for `anglesite:canvas-selection` messages.
+    ///   - onComputedStyles: Optional callback for `anglesite:computed-styles` reports.
+    ///   - logCenter: Destination for rejection/drop diagnostics — injectable for tests.
     public init(
         router: EditRouter,
         onVisibleElements: VisibleElementsHandler? = nil,
@@ -109,6 +125,10 @@ public final class AnglesiteScriptHandler: NSObject, WKScriptMessageHandler {
         }
     }
 
+    /// `WKScriptMessageHandler` entry point: filters to the `anglesite` namespace, dispatches the
+    /// raw body off the main thread, and evaluates any edit reply back into the page via
+    /// `message.webView`. Non-reply outcomes (drops, rejections) are logged, never surfaced to
+    /// the page — the JS overlay only awaits apply-edit replies.
     public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == WebViewBridge.scriptMessageNamespace else { return }
         let body = message.body

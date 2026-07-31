@@ -9,8 +9,11 @@ import WebKit
 /// local containers, or the macOS `AnglesiteCore` runtime graph.
 @MainActor
 public struct RemotePreviewWebView: UIViewRepresentable {
+    /// `UIViewRepresentable` conformance: the represented view is the `WKWebView` itself.
     public typealias UIViewType = WKWebView
 
+    /// The script-message name the JS edit overlay posts to — must match
+    /// `AnglesiteMessageDispatcher.scriptMessageNamespace` on the macOS side.
     public static let defaultScriptMessageNamespace = "anglesite"
 
     private let url: URL
@@ -20,6 +23,9 @@ public struct RemotePreviewWebView: UIViewRepresentable {
     private let prepareBeforeLoad: ((WKWebView) async -> Void)?
     private let configureWebView: (WKWebView) -> Void
 
+    /// Simple variant: the wrapper builds a default `WKWebViewConfiguration`, registering
+    /// `scriptHandler` (if any) under `scriptMessageNamespace`. Use the `makeConfiguration:`
+    /// variant when the caller needs to own the whole configuration or do async pre-load work.
     public init(
         url: URL,
         scriptHandler: WKScriptMessageHandler? = nil,
@@ -52,6 +58,9 @@ public struct RemotePreviewWebView: UIViewRepresentable {
         self.configureWebView = configureWebView
     }
 
+    /// Builds the web view and kicks off the first load. When `prepareBeforeLoad` is set, the
+    /// load is deferred until it completes (async cookie-store writes must land before the first
+    /// request); `WKWebView` tolerates `load` arriving a beat after creation.
     public func makeUIView(context: Context) -> WKWebView {
         let configuration: WKWebViewConfiguration
         if let makeConfiguration {
@@ -80,12 +89,16 @@ public struct RemotePreviewWebView: UIViewRepresentable {
         return webView
     }
 
+    /// Reloads only when `url` actually changed, using the coordinator's `loadedURL` as the
+    /// dedupe marker — SwiftUI calls this on every unrelated state change, and an unconditional
+    /// `load` would interrupt the page mid-render.
     public func updateUIView(_ webView: WKWebView, context: Context) {
         guard context.coordinator.loadedURL != url else { return }
         context.coordinator.loadedURL = url
         webView.load(URLRequest(url: url))
     }
 
+    /// `UIViewRepresentable` conformance; the coordinator only tracks the last-loaded URL.
     public func makeCoordinator() -> RemotePreviewWebViewCoordinator {
         RemotePreviewWebViewCoordinator()
     }

@@ -23,6 +23,7 @@ public final class RemoteSessionModel {
         didSet { defaults.set(gitRemoteString, forKey: Self.gitRemoteKey) }
     }
 
+    /// Branch or SHA the sandbox checks out after cloning. Defaults to `"main"` on first launch.
     public var gitRef: String {
         didSet { defaults.set(gitRef, forKey: Self.gitRefKey) }
     }
@@ -42,10 +43,14 @@ public final class RemoteSessionModel {
 
     // MARK: Session
 
+    /// SwiftUI-observable mirror of the runtime's state stream. Read-only to views: state
+    /// changes flow exclusively from the runtime's `observe()` stream via `start()`/`stop()`.
     public private(set) var state: SiteRuntimeState = .idle
     /// The session token for the *current* start attempt — the preview screen injects it as the
     /// auth-proxy cookie before the first `WKWebView` request (design 2026-06-23 §"Start session").
     public private(set) var sessionToken: SessionToken?
+    /// The MCP client for the current session, HTTP-transport only on iOS (nothing spawns).
+    /// `nil` between sessions; the edit pipeline holds it only while a session runs.
     public private(set) var mcpClient: MCPClient?
 
     private var runtime: RemoteSandboxSiteRuntime?
@@ -59,6 +64,14 @@ public final class RemoteSessionModel {
     private static let gitRefKey = "remoteSession.gitRef"
     private static let siteIDKey = "remoteSession.siteID"
 
+    /// Restores persisted configuration on construction.
+    ///
+    /// - Parameters:
+    ///   - defaults: Store for the non-secret fields — injectable so tests don't touch the real
+    ///     standard defaults.
+    ///   - secretStore: Store for the bearer token; `nil` (production) means the iOS Keychain.
+    ///     Resolved here rather than as a default argument because `KeychainStore()` shouldn't
+    ///     be constructed during test runs at all.
     public init(
         defaults: UserDefaults = .standard,
         secretStore: (any SecretStore)? = nil
@@ -80,11 +93,15 @@ public final class RemoteSessionModel {
         workerURL != nil && gitRemote != nil && !controlToken.isEmpty && !siteID.isEmpty
     }
 
+    /// ``workerURLString`` parsed and validated (http/https scheme required); `nil` while the
+    /// field is empty or malformed. The form binds the string, everything else consumes this.
     public var workerURL: URL? {
         guard let url = URL(string: workerURLString), url.scheme?.hasPrefix("http") == true else { return nil }
         return url
     }
 
+    /// ``gitRemoteString`` parsed and validated (any scheme accepted — https and ssh remotes are
+    /// both legitimate); `nil` while empty or malformed.
     public var gitRemote: URL? {
         guard let url = URL(string: gitRemoteString), url.scheme != nil else { return nil }
         return url
@@ -135,6 +152,8 @@ public final class RemoteSessionModel {
         }
     }
 
+    /// Ends the session: clears the token, client, and observation immediately (the UI drops to
+    /// `.idle` without waiting), then tells the sandbox to shut down asynchronously.
     public func stop() {
         guard let runtime else { return }
         self.runtime = nil
