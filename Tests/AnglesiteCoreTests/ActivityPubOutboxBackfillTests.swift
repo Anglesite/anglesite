@@ -189,7 +189,7 @@ struct ActivityPubOutboxBackfillTests {
         )
 
         let request = try #require(recorder.requests.first)
-        #expect(request.url?.absoluteString == "https://owner.example/users/site/outbox")
+        #expect(request.url?.absoluteString == "https://owner.example/users/site/outbox?skipDelivery=1")
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/activity+json")
@@ -197,7 +197,7 @@ struct ActivityPubOutboxBackfillTests {
         let body = try #require(request.httpBody)
         let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
         #expect(json["type"] as? String == "Article")
-        #expect(json["skipDelivery"] as? Bool == true)
+        #expect(json["skipDelivery"] == nil)
         #expect(json["published"] as? String != nil)
     }
 

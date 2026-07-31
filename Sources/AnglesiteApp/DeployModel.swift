@@ -114,6 +114,7 @@ final class DeployModel {
     private let webmentionCommand: WebmentionSendCommand
     private let posseCommand: POSSESyndicationCommand
     private let websubPing: WebSubPublishPing
+    private let activityPubOutboxBackfill: ActivityPubOutboxBackfill
     private let logCenter: LogCenter
     private let keychain: KeychainStore
     private let onboarding: TokenOnboarding
@@ -155,6 +156,7 @@ final class DeployModel {
         webmentionCommand: WebmentionSendCommand = WebmentionSendCommand(),
         posseCommand: POSSESyndicationCommand = POSSESyndicationCommand(),
         websubPing: WebSubPublishPing = WebSubPublishPing(),
+        activityPubOutboxBackfill: ActivityPubOutboxBackfill = ActivityPubOutboxBackfill(),
         logCenter: LogCenter = .shared,
         keychain: KeychainStore = KeychainStore(),
         verifier: TokenVerifying = CloudflareAPITokenVerifier(),
@@ -168,6 +170,7 @@ final class DeployModel {
         self.webmentionCommand = webmentionCommand
         self.posseCommand = posseCommand
         self.websubPing = websubPing
+        self.activityPubOutboxBackfill = activityPubOutboxBackfill
         self.logCenter = logCenter
         self.keychain = keychain
         self.onboarding = TokenOnboarding(verifier: verifier)
@@ -679,6 +682,10 @@ final class DeployModel {
         } else {
             websubProvisioned = false
         }
+        // Gate for the ActivityPub outbox backfill below (#926) — mirrors `websubProvisioned`'s
+        // shape, but only needs the worker to be active (unlike WebSub, backfill doesn't depend
+        // on a specific provisioned resource).
+        let activitypubProvisioned = workers.contains(where: { $0.id == WorkerComposition.activitypubWorkerID })
 
         let result = provisionResult.asDeployCommandResult
 
@@ -716,6 +723,16 @@ final class DeployModel {
                     _ = await self.websubPing.notify(
                         siteURL: siteURL ?? url.absoluteString,
                         source: "websub:\(siteID)"
+                    )
+                },
+                backfillActivityPubOutbox: { [weak self] in
+                    guard let self, activitypubProvisioned else { return }
+                    _ = await self.activityPubOutboxBackfill.backfill(
+                        siteID: siteID,
+                        siteDirectory: siteDirectory,
+                        configDirectory: configDirectory,
+                        siteBase: url,
+                        secretStore: self.keychain
                     )
                 }
             )
