@@ -41,6 +41,9 @@ public enum FoundationModelContextBudget {
     public static let onDeviceTokenBudget = 4_096
     private static let charsPerTokenEstimate = 4
 
+    /// Estimates the token count of `text` via the ~4-chars/token proxy — deliberately rough,
+    /// since no on-device tokenizer is exposed to measure the real count. Deterministic, so
+    /// budget decisions are reproducible in tests.
     public static func estimatedTokens(for text: String) -> Int {
         text.count / charsPerTokenEstimate
     }
@@ -185,6 +188,10 @@ public actor FoundationModelAssistant: ConversationalAssistant {
         }
     }
 
+    /// Advertised capabilities for this backend. `nonisolated` so UI code can read it without
+    /// an actor hop. The values describe what's *wired*, not per-call guarantees (see the
+    /// `supportsTools` note in the body); `maxContextTokens` and `providerName` are the only
+    /// observable differences between the two `FoundationModelTier`s in v1.
     public nonisolated var capabilities: AssistantCapabilities {
         AssistantCapabilities(
             supportsStreaming: true,
@@ -203,6 +210,11 @@ public actor FoundationModelAssistant: ConversationalAssistant {
 
     // MARK: ContentAssistant
 
+    /// One-shot streaming generation: builds a fresh session per call so independent
+    /// invocations (tool calls, alt-text, summaries) never bleed history into one another —
+    /// the deliberate opposite of ``converse(prompt:context:)``'s cached multi-turn session.
+    /// Throws `AssistantError.unavailable` before the stream opens when the on-device model
+    /// can't run on this host.
     public func generate(
         prompt: String,
         context: AssistantContext
@@ -250,6 +262,10 @@ public actor FoundationModelAssistant: ConversationalAssistant {
         }
     }
 
+    /// One-shot guided generation into a `Generable` type. Like ``generate(prompt:context:)``,
+    /// a fresh session per call — structured results (frontmatter, summaries, edit plans)
+    /// must not inherit a conversation's history, which could bias the schema-constrained
+    /// output. Throws `AssistantError.unavailable` when the on-device model can't run here.
     public func generateStructured<T: Generable & Sendable>(
         prompt: String,
         context: AssistantContext,

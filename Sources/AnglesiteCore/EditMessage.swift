@@ -7,6 +7,8 @@ import Foundation
 /// an explicit `MessageType` case + decode update, which is the point: the WKWebView boundary is
 /// untrusted input, so the contract is closed-set by design.
 public struct EditMessage: Sendable, Equatable {
+    /// The closed set of accepted `type` tags. Raw values carry the `anglesite:` prefix so
+    /// overlay messages can't collide with any other script-message traffic in the page.
     public enum MessageType: String, Sendable, Equatable {
         /// Apply an edit to the underlying source — Phase 5 lands the server-side patcher and the
         /// exact `op` taxonomy. Until then this is the only accepted message type.
@@ -73,6 +75,8 @@ public struct EditMessage: Sendable, Equatable {
 
     /// Overlay-generated correlation ID so the JS side can match replies to the original message.
     public let id: String
+    /// Boundary tag — always ``MessageType/applyEdit`` today; kept as a field (not hardcoded)
+    /// so future message types extend the struct instead of forking it.
     public let type: MessageType
     /// Page path (e.g. `/about/`).
     public let path: String
@@ -93,6 +97,9 @@ public struct EditMessage: Sendable, Equatable {
     /// before committing. Defaults `false` so all existing call sites are unaffected.
     public let dryRun: Bool
 
+    /// Memberwise initializer for app-originated edits (intents, chat tools) — messages from
+    /// the overlay come through ``decode(from:)`` instead. Defaults mirror the wire format's
+    /// optionality: `dryRun` false so existing call sites are unaffected by its addition.
     public init(
         id: String,
         type: MessageType = .applyEdit,
@@ -131,10 +138,19 @@ public struct EditMessage: Sendable, Equatable {
         return .object(obj)
     }
 
+    /// Why ``decode(from:)`` rejected a message body. `Equatable` so tests can assert the
+    /// exact rejection, and each case carries enough context to log a useful diagnostic
+    /// without echoing the (untrusted) payload itself.
     public enum DecodeError: Error, Sendable, Equatable {
+        /// The `WKScriptMessage.body` wasn't a JSON object (dictionary) at all.
         case notAnObject
+        /// A required field was absent; the payload is the field name.
         case missingField(String)
+        /// A field was present but the wrong JSON type; `expected` names the type the
+        /// contract requires (e.g. `"string"`, `"object"`).
         case wrongType(field: String, expected: String)
+        /// The `type` tag isn't in ``MessageType`` — the closed-set rejection this boundary
+        /// exists for. Carries the unrecognized raw value.
         case unknownType(String)
     }
 

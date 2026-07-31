@@ -18,15 +18,26 @@ import AnglesiteSiteModel
 /// FoundationModels-gated implementation.
 @MainActor @Observable
 public final class DesignInterviewModel: Identifiable {
+    /// Stable identity so SwiftUI can distinguish multiple concurrent interviews (one per site
+    /// window) in lists and `ForEach`.
     public let id = UUID()
+    /// The conversation's working state. `internal(set)` so mutations flow through the model's
+    /// own methods — ``axisBinding(_:)`` is the deliberate slider-shaped exception.
     public internal(set) var draft: DesignInterviewDraft
+    /// Ordered (role, text) turns for the conversation view. Failures are appended as assistant
+    /// turns rather than thrown, so the view has exactly one rendering path.
     public internal(set) var transcript: [(role: String, text: String)] = []
+    /// Outcome of the most recent ``confirmAndApply()`` — `nil` until it has run; views key
+    /// their success/error presentation off this.
     public internal(set) var applyResult: Result<AppliedDesign, DesignApplyError>?
 
     private let assistant: any ConversationalAssistant
     private let package: AnglesitePackage
     private let siteID: String
 
+    /// Creates a model for one interview, seeding the draft from `businessType`'s default axes.
+    /// `assistant` is the injected seam described in the type doc — pass a fake in tests.
+    /// `siteID` only feeds `AssistantContext` attribution, hence the empty default.
     public init(businessType: String, assistant: any ConversationalAssistant, package: AnglesitePackage, siteID: String = "") {
         self.draft = DesignInterviewDraft(businessType: businessType)
         self.assistant = assistant
@@ -72,6 +83,8 @@ public final class DesignInterviewModel: Identifiable {
         draft.advance()
     }
 
+    /// Applies a directional adjective nudge ("warmer", "bolder", …) to the draft's axes — the
+    /// owner's low-friction alternative to dragging sliders.
     public func nudge(_ hint: DesignAdjectiveHint) {
         draft.applyAdjectiveHint(hint)
     }
@@ -95,6 +108,10 @@ public final class DesignInterviewModel: Identifiable {
         draft.stage = .axisConfirmation
     }
 
+    /// Generates the full ``DesignConfig`` from the confirmed axes and writes it through
+    /// ``DesignApplyService`` (the single design writer). Only a successful write advances the
+    /// stage to `.done` — a failed apply leaves the interview open so the owner can retry
+    /// instead of ending on an unapplied design.
     public func confirmAndApply() async {
         let config = DesignConfigGenerator.config(axes: draft.axes, siteType: draft.businessType, brandColor: draft.brandColorHex)
         let input = DesignApplyInput(
@@ -134,20 +151,31 @@ public extension DesignInterviewModel {
 #if compiler(>=6.4) && canImport(FoundationModels)
 import FoundationModels
 
+/// Structured (`@Generable`) reply for one interview turn: the conversational text plus any
+/// per-axis deltas the model inferred from the owner's message. Feed the deltas through
+/// `DesignInterviewModel.applyTurnReplyDeltas(...)` — deliberately declared *outside* this
+/// compiler gate — so the clamping logic stays testable on toolchains without FoundationModels.
 @Generable
 public struct DesignInterviewTurnReply: Sendable {
+    /// The assistant's transcript-facing reply.
     @Guide(description: "Your conversational reply to the owner, 1-2 sentences.")
     public var replyText: String
+    /// Inferred change to the temperature axis; `nil` when the message implies none.
     @Guide(description: "Temperature axis change if the owner's message implies one, else omit.")
     public var temperatureDelta: Double?
+    /// Inferred change to the weight axis; `nil` when the message implies none.
     @Guide(description: "Weight axis change if the owner's message implies one, else omit.")
     public var weightDelta: Double?
+    /// Inferred change to the register axis; `nil` when the message implies none.
     @Guide(description: "Register axis change if the owner's message implies one, else omit.")
     public var registerDelta: Double?
+    /// Inferred change to the time axis; `nil` when the message implies none.
     @Guide(description: "Time axis change if the owner's message implies one, else omit.")
     public var timeDelta: Double?
+    /// Inferred change to the voice axis; `nil` when the message implies none.
     @Guide(description: "Voice axis change if the owner's message implies one, else omit.")
     public var voiceDelta: Double?
+    /// Hex brand color if the owner named one; `nil` otherwise.
     @Guide(description: "Hex color if the owner mentioned a brand color, else omit.")
     public var brandColorHex: String?
 }

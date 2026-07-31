@@ -10,10 +10,16 @@ import FoundationNetworking
 /// you're signed in as). `name` and `avatarURL` are best-effort niceties; `login` is always
 /// present on a valid token.
 public struct GitHubAccount: Sendable, Equatable {
+    /// The account's GitHub username (the `@handle`). The one field a valid token always yields,
+    /// so display code can rely on it without a fallback.
     public let login: String
+    /// The user's display name, if they've set one on their GitHub profile.
     public let name: String?
+    /// The profile avatar URL, if GitHub returned a parseable one.
     public let avatarURL: URL?
 
+    /// Memberwise initializer, public so tests and previews can fabricate accounts without a
+    /// network verify.
     public init(login: String, name: String?, avatarURL: URL?) {
         self.login = login
         self.name = name
@@ -30,6 +36,9 @@ public enum GitHubTokenVerifyError: Error, Equatable, Sendable {
     /// We couldn't check the token at all (rate limit, outage, unexpected response).
     case unavailable(String)
 
+    /// The user-facing copy Settings shows for this failure. Notably, ``invalidToken``'s message
+    /// carries the full token-creation recipe (fine-grained, All repositories, Contents +
+    /// Administration read/write) so the user can fix it without leaving the prompt.
     public var userMessage: String {
         switch self {
         case .invalidToken:
@@ -46,6 +55,10 @@ public enum GitHubTokenVerifyError: Error, Equatable, Sendable {
 /// the point of entry — and surfaces the connected identity for display, the same "verify then
 /// persist" shape as `TokenVerifying` (Cloudflare).
 public protocol GitHubTokenVerifying: Sendable {
+    /// Checks `token` against GitHub, returning the connected account on success. A `Result`
+    /// rather than `throws` so callers must classify every failure (bad token vs. offline vs.
+    /// GitHub outage) — each gets different user-facing copy via
+    /// ``GitHubTokenVerifyError/userMessage``.
     func verify(token: String) async -> Result<GitHubAccount, GitHubTokenVerifyError>
 }
 
@@ -59,6 +72,8 @@ public struct GitHubAPITokenVerifier: GitHubTokenVerifying {
     private let baseURL: URL
     private let transport: Transport
 
+    /// Both parameters exist for tests: `baseURL` points the client at a stub server, and
+    /// `transport` replaces the network entirely. Production uses the defaults.
     public init(
         baseURL: URL = URL(string: "https://api.github.com")!,
         transport: @escaping Transport = GitHubAPITokenVerifier.defaultTransport
@@ -67,6 +82,11 @@ public struct GitHubAPITokenVerifier: GitHubTokenVerifying {
         self.transport = transport
     }
 
+    /// Calls `GET /user` with the token and classifies the outcome. Only a 401 blames the token
+    /// (``GitHubTokenVerifyError/invalidToken``) — `/user` needs no specific scope, so a 403 is
+    /// far more likely a rate limit, and it's grouped with 429/5xx as
+    /// ``GitHubTokenVerifyError/unavailable(_:)`` rather than telling the user their token is bad
+    /// when it probably isn't.
     public func verify(token: String) async -> Result<GitHubAccount, GitHubTokenVerifyError> {
         var request = URLRequest(url: baseURL.appendingPathComponent("user"))
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

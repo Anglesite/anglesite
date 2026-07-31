@@ -3,6 +3,11 @@ import Foundation
 /// Chooses the page-copy generator for the current toolchain. Non-gated so `NativeContentOperations`
 /// can default its dependency without importing FoundationModels.
 public enum PageCopyGeneratorFactory {
+    /// Returns the best generator the current toolchain can build: the on-device
+    /// `FoundationModelPageCopyGenerator` on Xcode 27+/Darwin, else a no-op that always
+    /// yields `nil` so callers fall through to their deterministic title-derived default.
+    /// The branch is compile-time, mirroring the `#if compiler(>=6.4)` gate below, which is
+    /// why the return type is the non-gated `any PageCopyGenerating`.
     public static func makeDefault() -> any PageCopyGenerating {
         #if compiler(>=6.4) && canImport(FoundationModels)
         return FoundationModelPageCopyGenerator()
@@ -21,8 +26,14 @@ import FoundationModels
 /// via guided generation. Any failure — including `AssistantError.unavailable` when Apple
 /// Intelligence is off — collapses to `nil` so the caller falls back to a deterministic default.
 public struct FoundationModelPageCopyGenerator: PageCopyGenerating {
+    /// Creates a generator. Stateless — the assistant session is built per call, so one
+    /// instance can serve every new-page flow.
     public init() {}
 
+    /// Suggests an SEO meta description for the given page title, or `nil` on any failure
+    /// (blank title, Apple Intelligence off, generation error, or a blank model output) —
+    /// the protocol contract is best-effort, and `nil` must always mean "use the
+    /// deterministic default", never "use an empty description".
     public func suggestDescription(title: String, siteID: String, siteDirectory: URL) async -> PageCopySuggestion? {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanTitle.isEmpty else { return nil }

@@ -42,13 +42,22 @@ public struct FrontmatterDocument: Equatable, Sendable {
     /// `serialized()` doesn't inject a newline the source never had.
     private let hasBodySection: Bool
 
+    /// The frontmatter keys in **source order** — the order a form editor should present fields
+    /// in, so the UI mirrors the file the author actually wrote. Raw passthrough segments
+    /// (comments, blank lines) are excluded.
     public var keys: [String] { segments.compactMap(\.key) }
 
+    /// The logical value for `key`, or `nil` when the key isn't present. With a malformed
+    /// duplicate key, this reads the last occurrence (see `indexByKey`).
     public func value(for key: String) -> FrontmatterValue? {
         guard let i = indexByKey[key] else { return nil }
         return segments[i].value
     }
 
+    /// Sets `key` to `value`, marking that one segment for re-render. This is the *only* way a
+    /// segment loses its verbatim source text — an edited key serializes in canonical form
+    /// (matching `ContentScaffold`'s rendering), while every untouched segment still round-trips
+    /// byte-for-byte. A key not present yet is appended at the end of the frontmatter block.
     public mutating func set(_ value: FrontmatterValue, for key: String) {
         if let i = indexByKey[key] {
             segments[i].value = value
@@ -59,6 +68,11 @@ public struct FrontmatterDocument: Equatable, Sendable {
         }
     }
 
+    /// Renders the document back to file text. Unedited segments (and the body) are reproduced
+    /// verbatim — so `parse(...).serialized()` with no intervening ``set(_:for:)`` is the identity
+    /// — while edited keys re-render canonically. The source's original line ending (`\r\n` vs
+    /// `\n`) is restored on the way out, and no trailing newline is invented for a source that
+    /// ended flush against its closing `---` fence.
     public func serialized() -> String {
         guard hadFrontmatter else { return body.replacingOccurrences(of: "\n", with: newline) }
         var lines: [String] = ["---"]
@@ -77,6 +91,11 @@ public struct FrontmatterDocument: Equatable, Sendable {
 
     // MARK: Parse
 
+    /// Parses `source` into an editable document. Never fails: a file with no leading `---` fence
+    /// (or an unterminated one) becomes a body-only document that serializes back unchanged, so
+    /// a malformed file can pass through the editor without being mangled. Every source line —
+    /// including comments, blank lines, and lines this parser doesn't understand — is retained
+    /// as a segment, which is what makes the unedited round-trip an identity.
     public static func parse(_ source: String) -> FrontmatterDocument {
         let newline = source.contains("\r\n") ? "\r\n" : "\n"
         let normalized = source.replacingOccurrences(of: "\r\n", with: "\n")

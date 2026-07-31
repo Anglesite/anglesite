@@ -1,26 +1,52 @@
 // Sources/AnglesiteCore/DesignApplyService.swift
 import Foundation
 
+/// One design-apply request: the CSS tokens to write plus the human-readable documents that
+/// record why the design looks the way it does. Keeping the docs alongside the tokens means a
+/// design is never applied without its rationale landing in the repo too.
 public struct DesignApplyInput: Sendable {
+    /// CSS custom properties to upsert into `global.css`'s top-level `:root` block, keyed
+    /// *without* the `--` prefix (``DesignApplyService`` adds it). Empty means "no CSS change" —
+    /// the docs are still written (see the inline note in `apply`).
     public let cssVars: [String: String]
+    /// Full design rationale for `docs/DESIGN.md`; `nil` skips that file entirely (the file is
+    /// overwritten, not appended — it documents the *current* design).
     public let rationaleMarkdown: String?
+    /// Short brand description appended to `docs/brand.md` under a ``sourceLabel`` heading —
+    /// appended, not overwritten, so the brand doc accumulates a history of applied designs.
     public let brandSummary: String
+    /// Names the flow that produced this design (e.g. `design-interview`); becomes the heading
+    /// of the `docs/brand.md` entry so successive applies stay attributable to their source.
     public let sourceLabel: String
 
+    /// Memberwise initializer — public so both design flows (theme wizard and interview) can
+    /// build inputs from outside this file.
     public init(cssVars: [String: String], rationaleMarkdown: String?, brandSummary: String, sourceLabel: String) {
         self.cssVars = cssVars; self.rationaleMarkdown = rationaleMarkdown
         self.brandSummary = brandSummary; self.sourceLabel = sourceLabel
     }
 }
 
+/// Receipt of a successful apply — what changed, for callers to surface in confirmation UI.
 public struct AppliedDesign: Sendable, Equatable {
+    /// The CSS vars that were written (echoes the input's `cssVars`; empty when the apply was
+    /// docs-only).
     public let updatedVars: [String: String]
+    /// `Source/`-relative paths of every file written, in write order.
     public let writtenFiles: [String]
 }
 
+/// Why an apply failed. Distinguishes "the template file the tokens live in is missing or
+/// malformed" (the first two cases — nothing was written) from a mid-write I/O failure, where
+/// knowing what *did* get written matters.
 public enum DesignApplyError: Error, Sendable, Equatable {
+    /// `src/styles/global.css` couldn't be read — without it there is nowhere to put the tokens.
     case missingGlobalCSS
+    /// `global.css` exists but has no top-level `:root { }` block to upsert into; the service
+    /// refuses to guess a scope rather than inject tokens somewhere they'd be shadowed.
     case missingRootBlock
+    /// A write failed partway. `partiallyWritten` lists the `Source/`-relative paths already on
+    /// disk, so callers can report exactly what changed instead of implying nothing did.
     case writeFailed(message: String, partiallyWritten: [String])
 }
 
@@ -32,6 +58,14 @@ public enum DesignApplyService {
     static let rationaleRelativePath = "docs/DESIGN.md"
     static let brandRelativePath = "docs/brand.md"
 
+    /// Applies `input` to a site's `Source/` directory: upserts the CSS vars into `global.css`
+    /// (skipped when `cssVars` is empty — see the inline note), overwrites `docs/DESIGN.md` with
+    /// the rationale, and appends the brand summary to `docs/brand.md`.
+    ///
+    /// Returns `Result` rather than throwing so the partial-write list travels with the failure
+    /// (see ``DesignApplyError/writeFailed(message:partiallyWritten:)``). The CSS write happens
+    /// first: it's the one step that can fail *before* writing anything, so a failure there
+    /// leaves the site untouched.
     public static func apply(
         _ input: DesignApplyInput,
         to sourceDirectory: URL,
@@ -164,6 +198,9 @@ public enum DesignApplyService {
 }
 
 public extension DesignApplyService {
+    /// Package-typed convenience: resolves the `.anglesite` package's `Source/` directory and
+    /// applies there, so callers holding an `AnglesitePackage` don't reach into its layout
+    /// themselves.
     static func apply(
         _ input: DesignApplyInput,
         to package: AnglesitePackage,

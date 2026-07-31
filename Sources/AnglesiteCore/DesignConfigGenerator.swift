@@ -1,36 +1,66 @@
 import Foundation
 
+/// The generated font choices, as literal CSS `font-family` stacks ready to drop into custom
+/// properties — system/web-safe fonts only, so no font files ever ship with the site.
 public struct DesignTypography: Sendable, Equatable, Codable {
+    /// Font stack for headings and other display text.
     public let display: String
+    /// Font stack for body copy.
     public let body: String
+    /// Stable identifier naming the chosen combination (e.g. `classic-serif+modern-sans`) —
+    /// recorded in the design rationale so a human can tell which pairing won without diffing
+    /// font stacks.
     public let pairing: String
+    /// Memberwise initializer.
     public init(display: String, body: String, pairing: String) { self.display = display; self.body = body; self.pairing = pairing }
 }
 
+/// The generated spacing scale, smallest to largest, as literal CSS lengths (`rem` strings) so
+/// values flow straight into custom properties without a formatting step downstream.
 public struct DesignSpacing: Sendable, Equatable, Codable {
+    /// The five scale steps, smallest (`xs`) to largest (`xl`).
     public let xs, sm, md, lg, xl: String
+    /// Memberwise initializer.
     public init(xs: String, sm: String, md: String, lg: String, xl: String) {
         self.xs = xs; self.sm = sm; self.md = md; self.lg = lg; self.xl = xl
     }
 }
 
+/// The generated corner radii and box shadows, as literal CSS values — same "ready to write"
+/// rationale as ``DesignSpacing``.
 public struct DesignShape: Sendable, Equatable, Codable {
+    /// Radii (small/medium/large) and shadows (small/medium) as CSS value strings.
     public let radiusSm, radiusMd, radiusLg, shadowSm, shadowMd: String
+    /// Memberwise initializer.
     public init(radiusSm: String, radiusMd: String, radiusLg: String, shadowSm: String, shadowMd: String) {
         self.radiusSm = radiusSm; self.radiusMd = radiusMd; self.radiusLg = radiusLg
         self.shadowSm = shadowSm; self.shadowMd = shadowMd
     }
 }
 
+/// The complete generated design for one site — the single artifact ``DesignTokenWriter`` turns
+/// into template CSS vars and rationale markdown. `Codable` and carrying its own inputs
+/// (``axes``, ``siteType``, ``brandColor``) so a design can be persisted and regenerated or
+/// audited later without replaying the interview that produced it.
 public struct DesignConfig: Sendable, Equatable, Codable {
+    /// The axis positions this config was generated from.
     public let axes: DesignAxes
+    /// The generated color palette.
     public let palette: DesignPalette
+    /// The generated font pairing.
     public let typography: DesignTypography
+    /// The generated spacing scale.
     public let spacing: DesignSpacing
+    /// The generated radii and shadows.
     public let shape: DesignShape
+    /// The business type the design was generated for — an input, kept for provenance.
     public let siteType: String
+    /// The owner's brand color the palette was anchored to, or `nil` when it was derived from
+    /// the axes alone — also an input, kept for provenance.
     public let brandColor: String?
 
+    /// Memberwise initializer — prefer ``DesignConfigGenerator/config(axes:siteType:brandColor:)``,
+    /// which keeps the parts mutually consistent.
     public init(axes: DesignAxes, palette: DesignPalette, typography: DesignTypography,
                 spacing: DesignSpacing, shape: DesignShape, siteType: String, brandColor: String?) {
         self.axes = axes; self.palette = palette; self.typography = typography
@@ -38,6 +68,10 @@ public struct DesignConfig: Sendable, Equatable, Codable {
     }
 }
 
+/// Maps ``DesignAxes`` to a concrete ``DesignConfig`` with pure arithmetic — deterministic by
+/// design, so the same axes always regenerate the identical design with no model in the loop
+/// (the LLM's only job upstream is moving the axes; everything from there down is auditable
+/// math).
 public enum DesignConfigGenerator {
     private struct FontPairing {
         let display: String
@@ -69,6 +103,9 @@ public enum DesignConfigGenerator {
                     score: { $0.time * 1 + $0.temperature * 0.8 + (1 - $0.register) * 0.8 }),
     ]
 
+    /// Picks the highest-scoring built-in font pairing for `axes`. Each candidate scores itself
+    /// against the axes (see `fontPairings`), so adding a pairing means adding a scoring
+    /// closure, not editing a decision tree.
     public static func typography(for axes: DesignAxes) -> DesignTypography {
         let best = fontPairings.max { $0.score(axes) < $1.score(axes) } ?? fontPairings[0]
         return DesignTypography(display: best.display, body: best.body, pairing: best.pairing)
@@ -96,6 +133,9 @@ public enum DesignConfigGenerator {
         )
     }
 
+    /// Assembles the full ``DesignConfig`` from one set of axes — the single entry point (used
+    /// by `DesignInterviewModel.confirmAndApply`), so palette, typography, spacing, and shape
+    /// are always derived from the *same* axes and can't drift apart.
     public static func config(axes: DesignAxes, siteType: String, brandColor: String?) -> DesignConfig {
         DesignConfig(
             axes: axes,

@@ -17,6 +17,9 @@ public enum DesignInterviewPrompts {
         return String(message.prefix(maxUserMessageCharacters)) + "…"
     }
 
+    /// Builds the grounding prompt for `stage`, folding the (truncated) owner message and the
+    /// draft's current facts into that stage's template. At ``ConversationStage/done`` there is
+    /// no stage left to ground, so the raw message passes through unchanged.
     public static func prompt(for stage: ConversationStage, draft: DesignInterviewDraft, userMessage: String) -> String {
         switch stage {
         case .intent: return intentPrompt(draft: draft, userMessage: userMessage)

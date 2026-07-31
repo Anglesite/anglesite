@@ -22,10 +22,16 @@ public enum ExperimentStats {
 
     /// Conversion counts for a single variant.
     public struct Variant: Sendable, Equatable {
+        /// Display name shown in summaries (e.g. the variant label from the experiment config).
         public let name: String
+        /// How many visitors saw this variant.
         public let impressions: Int
+        /// How many of those visitors converted. Always `<= impressions` — the initializer clamps.
         public let conversions: Int
 
+        /// Creates a variant, sanitizing the counts: negatives are clamped to zero and
+        /// `conversions` is capped at `impressions`, so downstream math never sees an
+        /// impossible rate even if the analytics payload was corrupt.
         public init(name: String, impressions: Int, conversions: Int) {
             self.name = name
             self.impressions = max(0, impressions)
@@ -40,18 +46,28 @@ public enum ExperimentStats {
 
     /// Outcome of comparing a treatment against the control.
     public struct Result: Sendable, Equatable {
+        /// Which side (if either) cleared the confidence threshold. Carries the variant's
+        /// display name so callers can render a summary without re-fetching the config.
         public enum Winner: Sendable, Equatable {
+            /// The treatment beat the control at or above the confidence threshold.
             case treatment(name: String)
+            /// The control beat the treatment at or above the confidence threshold.
             case control(name: String)
+            /// Neither side reached the threshold — either too early, or genuinely too
+            /// close to call (disambiguate with ``ExperimentStats/hasSufficientData(control:treatment:)``).
             case inconclusive
         }
 
+        /// The verdict at the confidence threshold passed to
+        /// ``ExperimentStats/analyze(control:treatment:confidenceThreshold:)``.
         public let winner: Winner
         /// P(treatment rate > control rate) under Beta(1,1) priors. Exact, not simulated.
         public let probabilityTreatmentBeatsControl: Double
         /// Relative lift of the treatment over the control, in percent (posterior means).
         public let liftPercent: Double
+        /// The control's posterior mean conversion rate (``ExperimentStats/Variant/posteriorRate``).
         public let controlRate: Double
+        /// The treatment's posterior mean conversion rate (``ExperimentStats/Variant/posteriorRate``).
         public let treatmentRate: Double
     }
 
@@ -179,7 +195,10 @@ public enum ExperimentStats {
 
     /// One templated test idea from the default playbook.
     public struct Suggestion: Sendable, Equatable {
+        /// Short name of the element to test (e.g. "Hero headline").
         public let title: String
+        /// Owner-facing explanation of why this test tends to pay off — phrased for a
+        /// non-technical site owner, not an analyst.
         public let rationale: String
     }
 

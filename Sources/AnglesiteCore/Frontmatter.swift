@@ -12,9 +12,16 @@ import Foundation
 /// carries an already-formatted scalar (the editor decides date-only vs. full ISO by field kind),
 /// emitted verbatim, matching `ContentScaffold`'s unquoted dates.
 public enum FrontmatterValue: Equatable, Sendable {
+    /// A textual scalar — also what numeric and date scalars parse as (see the type note),
+    /// since ``Frontmatter/parse(_:)`` never guesses at types it wasn't asked to distinguish.
     case string(String)
+    /// A real YAML boolean (`true`/`false` unquoted) — kept distinct so scanner checks like
+    /// `draft == true` can't be satisfied by the string `"true"`.
     case bool(Bool)
+    /// A string array from either inline (`[a, b]`) or block (`- a`) form.
     case array([String])
+    /// Write-only numeric scalar (see the type note): never produced by ``Frontmatter/parse(_:)``,
+    /// but serialized **unquoted** by the editor so `z.number()` collection schemas still validate.
     case number(Double)
     /// A preformatted date scalar emitted **unquoted**. `s` must be a safe bare YAML scalar — no
     /// newlines, no `: ` (colon-space) sequences — because `FrontmatterDocument.render` emits it
@@ -33,8 +40,13 @@ public enum FrontmatterValue: Equatable, Sendable {
 
 /// One name/value pair inside a `FrontmatterValue.objectArray` record, in declaration order.
 public struct FrontmatterRecordField: Equatable, Sendable {
+    /// The field's YAML key within its record.
     public let name: String
+    /// The field's value — conventionally scalar (see ``FrontmatterValue/objectArray(_:)``'s
+    /// nesting restriction).
     public let value: FrontmatterValue
+    /// Creates a record field. Unlabeled parameters keep literal record construction
+    /// readable — these appear in bulk when building `objectArray` values.
     public init(_ name: String, _ value: FrontmatterValue) {
         self.name = name
         self.value = value

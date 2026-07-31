@@ -3,6 +3,11 @@ import Foundation
 /// Chooses the deploy-failure summarizer for the current toolchain. Non-gated so `DeployModel`
 /// can default its dependency without importing FoundationModels.
 public enum DeploySummarizerFactory {
+    /// Returns the best summarizer the current toolchain can build: the on-device
+    /// `FoundationModelDeploySummarizer` on Xcode 27+/Darwin, else a no-op that always
+    /// yields `nil` so callers degrade to showing the raw log. The branch is compile-time,
+    /// mirroring the `#if compiler(>=6.4)` gate below, which is why the return type is the
+    /// non-gated `any DeployFailureSummarizing` rather than a concrete type.
     public static func makeDefault() -> any DeployFailureSummarizing {
         #if compiler(>=6.4) && canImport(FoundationModels)
         return FoundationModelDeploySummarizer()
@@ -25,8 +30,14 @@ import os
 public struct FoundationModelDeploySummarizer: DeployFailureSummarizing {
     private let logger = Logger(subsystem: "dev.anglesite.app", category: "DeployFailureSummarizer")
 
+    /// Creates a summarizer. Stateless — the assistant session is built per `summarize` call,
+    /// so one instance can serve every deploy.
     public init() {}
 
+    /// Summarizes a failed deploy's log for a non-expert owner, or returns `nil` on any
+    /// failure (empty log, Apple Intelligence off, generation error) — the protocol contract
+    /// is best-effort, and the caller's raw-log fallback is always available. Failures are
+    /// logged rather than thrown so the deploy UI never blocks on summarization.
     public func summarize(failureLog: String, siteID: String, siteDirectory: URL) async -> DeployFailureSummary? {
         guard !failureLog.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         let context = AssistantContext(siteID: siteID, siteDirectory: siteDirectory)
