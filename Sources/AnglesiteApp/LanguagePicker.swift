@@ -45,13 +45,35 @@ struct LanguagePicker: View {
         case other
     }
 
-    @State private var manualOtherSelected = false
+    // Whether the picker is in freeform "Other…" edit mode. Seeded once from the initial `tag`
+    // (below, in `init`) and thereafter changed only by the picker's own `.inherit`/`.common`/
+    // `.other` selection — never re-derived from `tag`'s live content. Re-deriving it from `tag`
+    // on every access (the previous behavior) meant that typing a custom region-qualified value
+    // character by character — e.g. "de-AT" — would silently flip out of freeform mode the moment
+    // the typed prefix became exactly "de" (a curated primary subtag), hiding the TextField and
+    // truncating the in-progress edit.
+    @State private var manualOtherSelected: Bool
+
+    init(tag: Binding<String>, siteDefaultTag: String) {
+        _tag = tag
+        self.siteDefaultTag = siteDefaultTag
+        _manualOtherSelected = State(initialValue: Self.looksLikeManualOther(tag.wrappedValue))
+    }
+
+    private static func looksLikeManualOther(_ tag: String) -> Bool {
+        guard !tag.isEmpty else { return false }
+        let primarySubtag = tag.split(separator: "-").first.map { String($0).lowercased() } ?? tag.lowercased()
+        return CommonLanguage(rawValue: primarySubtag) == nil
+    }
 
     private var selection: Selection {
         if manualOtherSelected { return .other }
         if tag.isEmpty { return .inherit }
         let primarySubtag = tag.split(separator: "-").first.map { String($0).lowercased() } ?? tag.lowercased()
         if let common = CommonLanguage(rawValue: primarySubtag) { return .common(common) }
+        // Shouldn't normally happen — non-empty, non-manual-other, non-curated `tag` implies an
+        // external mutation bypassed both the picker and the freeform field — but fall back to
+        // `.other` rather than silently misrepresenting the value.
         return .other
     }
 
