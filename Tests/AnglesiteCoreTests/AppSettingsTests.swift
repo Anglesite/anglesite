@@ -27,6 +27,24 @@ final class AppSettingsTests {
         func url(forUbiquityContainerIdentifier containerIdentifier: String?) -> URL? { result }
     }
 
+    /// Same fixed answer as `FakeUbiquityContainerResolver`, but counts calls so a test can prove
+    /// `AppSettings` resolves the (documented-as-slow) ubiquity container only once per instance.
+    /// A `final class` because `UbiquityContainerResolving.url(forUbiquityContainerIdentifier:)`
+    /// is non-mutating and the counter has to survive being read back through the protocol.
+    private final class CallCountingUbiquityContainerResolver: UbiquityContainerResolving {
+        private let result: URL?
+        private let lock = NSLock()
+        private var _callCount = 0
+        var callCount: Int { lock.withLock { _callCount } }
+
+        init(result: URL?) { self.result = result }
+
+        func url(forUbiquityContainerIdentifier containerIdentifier: String?) -> URL? {
+            lock.withLock { _callCount += 1 }
+            return result
+        }
+    }
+
     @Test("Sites root uses the iCloud container's Documents folder when iCloud is available")
     func sitesRootUsesICloudContainerWhenAvailable() {
         let container = URL(fileURLWithPath: "/tmp/fake-ubiquity-container", isDirectory: true)
@@ -57,7 +75,70 @@ final class AppSettingsTests {
         settings.sitesRootOverride = url
         #expect(settings.sitesRoot.path == url.path)
     }
+
+    @Test("Sites root source reports the iCloud container when iCloud is available")
+    func sitesRootSourceIsICloudContainerWhenAvailable() {
+        let container = URL(fileURLWithPath: "/tmp/fake-ubiquity-container", isDirectory: true)
+        let settings = AppSettings(
+            defaults: defaults,
+            ubiquityContainerResolver: FakeUbiquityContainerResolver(result: container))
+        #expect(settings.sitesRootSource == .iCloudContainer)
+    }
+
+    @Test("Sites root source reports the home fallback when iCloud is unavailable")
+    func sitesRootSourceIsHomeFallbackWhenICloudUnavailable() {
+        let settings = AppSettings(
+            defaults: defaults,
+            ubiquityContainerResolver: FakeUbiquityContainerResolver(result: nil))
+        #expect(settings.sitesRootSource == .homeFallback)
+    }
+
+    @Test("Sites root source reports the override even when iCloud is available")
+    func sitesRootSourceIsOverrideWhenSet() {
+        let container = URL(fileURLWithPath: "/tmp/fake-ubiquity-container", isDirectory: true)
+        let settings = AppSettings(
+            defaults: defaults,
+            ubiquityContainerResolver: FakeUbiquityContainerResolver(result: container))
+        settings.sitesRootOverride = URL(fileURLWithPath: "/tmp/anglesite-sites", isDirectory: true)
+        #expect(settings.sitesRootSource == .override)
+    }
+
+    @Test("Ubiquity container is resolved only once per AppSettings instance")
+    func ubiquityContainerResolutionIsCached() {
+        let container = URL(fileURLWithPath: "/tmp/fake-ubiquity-container", isDirectory: true)
+        let resolver = CallCountingUbiquityContainerResolver(result: container)
+        let settings = AppSettings(defaults: defaults, ubiquityContainerResolver: resolver)
+        for _ in 0..<3 {
+            _ = settings.sitesRoot
+            _ = settings.sitesRootSource
+        }
+        #expect(resolver.callCount == 1)
+    }
+
+    @Test("A resolved-unavailable ubiquity container is cached too, not re-resolved")
+    func unavailableUbiquityContainerResolutionIsCached() {
+        let resolver = CallCountingUbiquityContainerResolver(result: nil)
+        let settings = AppSettings(defaults: defaults, ubiquityContainerResolver: resolver)
+        for _ in 0..<3 {
+            _ = settings.sitesRoot
+            _ = settings.sitesRootSource
+        }
+        #expect(resolver.callCount == 1)
+    }
 #else
+    @Test("Sites root source reports the home fallback (no iCloud API on this platform)")
+    func sitesRootSourceIsHomeFallback() {
+        let settings = AppSettings(defaults: defaults)
+        #expect(settings.sitesRootSource == .homeFallback)
+    }
+
+    @Test("Sites root source reports the override when set")
+    func sitesRootSourceIsOverrideWhenSet() {
+        let settings = AppSettings(defaults: defaults)
+        settings.sitesRootOverride = URL(fileURLWithPath: "/tmp/anglesite-sites", isDirectory: true)
+        #expect(settings.sitesRootSource == .override)
+    }
+
     @Test("Sites root falls back to home Sites (no iCloud API on this platform)")
     func sitesRootFallsBackToHomeSitesWhenICloudUnavailable() {
         let settings = AppSettings(defaults: defaults)

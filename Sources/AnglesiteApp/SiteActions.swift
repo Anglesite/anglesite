@@ -128,11 +128,17 @@ enum SiteActions {
         picker.message = String(localized: "Choose an existing Anglesite site folder to import.")
         guard picker.runModal() == .OK, let sourceDir = picker.url else { return nil }
 
+        // NSSavePanel silently ignores a directoryURL that doesn't exist yet and reverts to its
+        // last-used location, so create the sites root first — otherwise Import as a fresh
+        // install's first action wouldn't default into the Anglesite folder at all (#865).
+        let sitesRoot = AppSettings.shared.sitesRoot
+        try? FileManager.default.createDirectory(at: sitesRoot, withIntermediateDirectories: true)
+
         let name = sourceDir.deletingPathExtension().lastPathComponent
         let save = NSSavePanel()
         save.message = String(localized: "Save the imported site package.")
         save.nameFieldStringValue = "\(name).anglesite"
-        save.directoryURL = AppSettings.shared.sitesRoot
+        save.directoryURL = sitesRoot
         guard save.runModal() == .OK, let dest = save.url else { return nil }
 
         do {
