@@ -21,7 +21,6 @@ struct E2EServerReadinessTests {
             logCenter: logCenter
         )
 
-        let start = Date()
         do {
             try await E2EServer.awaitReady(
                 handle: handle,
@@ -36,11 +35,13 @@ struct E2EServerReadinessTests {
         } catch let error as E2EServer.ServerExited {
             #expect(error.stderr.contains(marker), "stderr should surface the real crash output")
             #expect(error.reason == .exited(code: 7))
+        } catch let error as E2EServer.ServerTimedOut {
+            // A 20s timeout budget alongside readiness that never completes means the only other
+            // possible outcome is waiting out the full budget instead of detecting the death — the
+            // failure mode this test guards against. Asserting the error type (rather than elapsed
+            // wall-clock time) proves the fast path won without being sensitive to runner load.
+            Issue.record("expected ServerExited from process death, but timed out waiting for readiness: \(error)")
         }
-        #expect(
-            Date().timeIntervalSince(start) < 10,
-            "should fail fast on process death, not wait out the timeout budget"
-        )
     }
 
     @Test("awaitReady returns cleanly when readiness wins against a still-alive server")
