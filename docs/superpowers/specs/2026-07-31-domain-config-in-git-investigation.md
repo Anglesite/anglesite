@@ -1,7 +1,7 @@
 # Investigation: storing domain configuration in git
 
 **Date:** 2026-07-31
-**Status:** Investigation complete — recommendation for owner review
+**Status:** Investigation complete — owner decisions recorded (§7), ready for implementation planning
 **Issue:** [#1095 — Investigation: Figure out how to store domain configuration in git](https://github.com/Anglesite/Anglesite/issues/1095)
 
 ## Problem
@@ -139,14 +139,14 @@ Split the state into three categories with different homes:
 
 | Category | Examples | Home |
 |---|---|---|
-| **Declared intent** (portable, owner-meaningful) | hostname + attachment intent, managed DNS records, zone hardening posture, email provider choice, active worker set | **`Source/domain.json`** (new, git) |
+| **Declared intent** (portable, owner-meaningful) | hostname + attachment intent, managed DNS records, zone hardening posture, email provider choice, active worker set | **`Source/anglesite.json`** (new, git) |
 | **Account identity** (provider/account-scoped) | zone ID, account ID, D1/KV/R2/queue IDs, tokens, secrets | `Config/` + Keychain (unchanged) |
 | **Observed state** (what's actually live) | audit results, last-deployed snapshots | live reads + `Config/` caches (unchanged) |
 
 Drift then has a precise definition — declared ≠ observed — and validation is a pure
 diff, exactly the shape `SecurityAudit` already computes for hardening.
 
-### 5.2 `Source/domain.json` (sketch)
+### 5.2 `Source/anglesite.json` (sketch)
 
 ```jsonc
 {
@@ -188,7 +188,7 @@ never appears to claim it).
 
 To partition Anglesite-managed records from external ones on the Cloudflare side, stamp
 records the app creates using the DNS record `comment` field (e.g.
-`anglesite:email:icloud`), mirroring the `purpose` in `domain.json`. Reconciliation then
+`anglesite:email:icloud`), mirroring the `purpose` in `anglesite.json`. Reconciliation then
 has both sides of the join: declared records carry a purpose; live records carry the
 same tag. Untagged live records are external by definition and are never touched —
 the abort-don't-clobber posture falls out of the data model. (Zaraz slice §10 already
@@ -217,17 +217,17 @@ regeneration, but *intent* in git is what regeneration should be driven from.
 - **Validate (deploy-time):** the app-side deploy path gains a cheap declared-vs-live
   check before `wrangler deploy` (the same slot `checkWorkerNameConflict` occupies).
   `pre-deploy-check.ts` stays network-free; at most it gains a *structural* check that
-  `domain.json` parses and is schema-valid, folded into the versioned scan envelope
+  `anglesite.json` parses and is schema-valid, folded into the versioned scan envelope
   (#742). Hand-edited-file tolerance: unknown keys are preserved, invalid files fail
   with a fix-it, matching `SiteConfigFile`'s round-trip rule.
 
 ### 5.6 Migration and compatibility
 
-- `DOMAIN`, `DOMAIN_CHOICE` migrate into `domain.json` on first write; `.site-config`
+- `DOMAIN`, `DOMAIN_CHOICE` migrate into `anglesite.json` on first write; `.site-config`
   keys remain readable (legacy fallback) for out-of-app clones until a major template
   rev. `SITE_URL` and the `CF_*` deploy receipts stay where they are — they are
   observed/receipt state, not intent, and moving them is churn without benefit.
-- Sites without `domain.json` behave exactly as today (all fields optional, absent file
+- Sites without `anglesite.json` behave exactly as today (all fields optional, absent file
   = no declarations). No paired sidecar PR: this is app + template only, no MCP schema
   change. No catalog change required (worker IDs already come from `catalog.json`).
 
@@ -239,18 +239,29 @@ regeneration, but *intent* in git is what regeneration should be driven from.
    its Settings surface, #769) all update the declaration; record-comment stamping.
 3. **Drift audit + reconcile UI** — `DomainConfigAudit`, scorecard surface, Harden-idiom
    remediation.
-4. **Worker activation to `Source/`** — `workers.active` in `domain.json`, migration from
-   `Config/`, headless-deploy path reads it (retiring the #829 cache workaround).
+4. **Worker activation to `Source/`** — `workers.active` in `anglesite.json`, migration from
+   `Config/`, headless-deploy path reads it (retiring the #829 cache workaround). Per the
+   owner decision below, this slice starts with its own timing investigation: map the
+   read/write ordering hazards on the deploy hot path (GUI deploy vs headless deploy vs a
+   mid-deploy Settings toggle; stale clones in the container; regeneration racing a hand
+   edit) before wiring anything, and ship behind a fallback — if `anglesite.json` is
+   absent, unparsable, or older than the `Config/` state it migrated from, the deploy path
+   falls back to today's `Config/settings.plist.activeWorkerIDs` + #829 cache behavior
+   rather than failing or deploying a reduced worker set.
 5. **Deploy-time validation** — pre-deploy declared-vs-live check app-side; structural
    check in the scan envelope.
 
-## 7. Open questions for the owner
+## 7. Owner decisions (2026-07-31)
 
-1. **File name/location** — `Source/domain.json` (peer of `redirects.json`) vs a broader
-   `Source/anglesite.json` that could later absorb other app-managed intent. This doc
-   assumes the narrow name; renaming later is cheap while the file is young.
-2. **How much of Harden's posture to declare** — everything Harden can set, or only the
-   subset the owner explicitly opted into? (Recommended: serialize exactly the applied
-   plan, nothing aspirational.)
-3. **Slice 4 timing** — moving worker activation to git touches the deploy pipeline's
-   hottest path; it can trail the DNS/edge slices if risk-sequencing matters.
+The three open questions from the initial writeup were answered by the owner:
+
+1. **File name/location** — the broader **`Source/anglesite.json`**, so the file can later
+   absorb other app-managed intent beyond domain configuration. All references in this doc
+   use that name.
+2. **How much of Harden's posture to declare** — **serialize exactly the applied plan**,
+   nothing aspirational. An exact record of what the app actually did is what makes the
+   file useful for debugging errors and bug reports: a declared entry always corresponds
+   to a real write the app performed.
+3. **Slice 4 (worker activation to git)** — proceed, but **investigate timing issues
+   further during implementation and keep a fallback** to the current `Config/`-based
+   behavior (see slice 4 above for the concrete shape).
