@@ -18,6 +18,8 @@ public enum RepoRelocator {
     /// `gitdir:` pointer content, relative from `Source/` to `Config/repo.nosync/`.
     static let gitfileContents = "gitdir: ../Config/repo.nosync\n"
 
+    /// What ``migrate(package:fileManager:)`` found and did. Distinguishing the no-op cases lets
+    /// callers (and tests) verify heal-on-open really was a no-op rather than silently redoing work.
     public enum MigrationResult: Sendable, Equatable {
         /// Moved an embedded `Source/.git` directory to `Config/repo.nosync/` and wrote the
         /// gitfile, or completed an interrupted prior migration (repo already relocated, gitfile
@@ -31,6 +33,8 @@ public enum RepoRelocator {
         case noRepository
     }
 
+    /// The states ``migrate(package:fileManager:)`` refuses to resolve automatically — both are
+    /// "a human (or a later sync phase) must decide" situations, never data-loss candidates.
     public enum RelocationError: Error, Equatable, Sendable, LocalizedError {
         /// `Source/.git` is a gitfile, but its target `Config/repo.nosync/` doesn't exist on this
         /// Mac. This is the "fresh peer" case — a package synced in from iCloud before its live
@@ -41,6 +45,8 @@ public enum RepoRelocator {
         /// `RepoRelocator` refuses to resolve automatically rather than risk discarding history.
         case conflictingRepositories(embedded: URL, live: URL)
 
+        /// Owner-facing wording: phrased around consequences to the site ("history hasn't arrived
+        /// yet"), not git mechanics, per the app's advise-don't-delegate rule.
         public var errorDescription: String? {
             switch self {
             case .danglingGitfile(let url):

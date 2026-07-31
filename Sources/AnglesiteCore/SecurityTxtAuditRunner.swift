@@ -11,6 +11,7 @@ import Foundation
 /// isn't available. A hint that resolves to "not applicable" costs nothing, whereas skipping it
 /// silently would hide the feature from exactly the owners it targets.
 public struct SecurityTxtAuditRunner: AuditRunner {
+    /// ``AuditRunner`` conformance — these findings file under the report's security section.
     public let category: AuditReport.Finding.Category = .security
 
     private let gitRunner: BackupCommand.GitRunner
@@ -22,6 +23,12 @@ public struct SecurityTxtAuditRunner: AuditRunner {
         self.gitRunner = gitRunner
     }
 
+    /// Emits at most one `.info` finding, and only when every condition holds: the site's
+    /// `origin` is GitHub, `security.txt` is in `.generated` mode, and the repo's advisory form
+    /// isn't already among the contacts. Every other state returns empty rather than a softer
+    /// finding — for a manual or disabled `security.txt` the hint's own remediation wouldn't
+    /// apply, so showing it would be wrong, not just unhelpful. `executor`, `logCenter`, and
+    /// `source` go unused: this runner spawns nothing (see the type doc).
     public func run(
         siteDirectory: URL,
         executor: any AuditExecutor,

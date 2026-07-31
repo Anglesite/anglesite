@@ -10,24 +10,38 @@ import Foundation
 public enum SecurityReportingAsset {
     /// Mirrors the template's `SecurityTxtMode`.
     public enum Mode: String, Sendable, CaseIterable, Identifiable, Equatable {
+        /// The template generates `security.txt` from the configured contacts on each build.
         case generated
+        /// The owner hand-maintains `security.txt`; the template (and the app's settings UI)
+        /// leave the published file alone.
         case manual
+        /// No `security.txt` is published at all — the owner has opted out.
         case disabled
 
+        /// `Identifiable` by case so SwiftUI pickers can bind `allCases` directly.
         public var id: Self { self }
     }
 
+    /// The editable pair the Website Settings ▸ Security Reports UI binds to — one value type
+    /// so save/dirty comparisons cover both keys at once.
     public struct Settings: Sendable, Equatable {
         /// Preference-ordered contacts, one per line in the UI; comma-joined in `.site-config`.
         public var contacts: String
+        /// How (or whether) the template publishes `security.txt` on the next build.
         public var mode: Mode
 
+        /// Defaults mirror a site with nothing configured: no contacts, nothing published
+        /// until the owner opts in.
         public init(contacts: String = "", mode: Mode = .disabled) {
             self.contacts = contacts
             self.mode = mode
         }
     }
 
+    /// Reads this type's two `.site-config` keys out of a raw config string. Deliberately
+    /// tolerant: an unset or unrecognized mode is inferred from whether a contact exists at all
+    /// (matching the template's `resolveSecurityTxtMode`), so a site scaffolded before
+    /// `SECURITY_TXT_MODE` existed never reads as having turned `security.txt` off.
     public static func parseSettings(from config: String) -> Settings {
         let stored = SiteConfigFile.value(forKey: "SECURITY_CONTACT", in: config) ?? ""
         // An unset or unrecognized mode mirrors the template's `resolveSecurityTxtMode`: infer
@@ -38,6 +52,10 @@ public enum SecurityReportingAsset {
         return Settings(contacts: decodeStored(stored).joined(separator: "\n"), mode: mode)
     }
 
+    /// Upserts both keys into the site's `.site-config`, normalizing contact shape (but not
+    /// validity — see the type doc) on the way through. Skips the write entirely when the
+    /// result is byte-identical, so re-saving an untouched settings sheet never dirties the
+    /// site's git working tree.
     public static func install(_ settings: Settings, siteDirectory: URL) throws {
         let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""

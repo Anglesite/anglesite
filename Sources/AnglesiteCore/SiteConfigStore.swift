@@ -66,6 +66,9 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// site: `AnnouncedPostSync` no-ops without it, so this field is inert until #907 ships.
     public var communityOutboxURL: URL?
 
+    /// Memberwise creation. Every parameter defaults to `nil`, matching the type-level
+    /// forward-compat rule that all fields stay optional — `SiteSettings()` is the canonical
+    /// "no settings yet" value ``SiteConfigStore/load()`` falls back to.
     public init(
         displayName: String? = nil,
         inboxCaptureAccountID: String? = nil,
@@ -104,6 +107,9 @@ public actor SiteConfigStore {
     private let fileURL: URL
     private let fileManager: FileManager
 
+    /// Points the store at `<configDirectory>/settings.plist` — the package's app-owned
+    /// `Config/` directory, never the git-tracked `Source/`. `fileManager` is injectable for
+    /// tests.
     public init(configDirectory: URL, fileManager: FileManager = .default) {
         self.fileURL = configDirectory.appendingPathComponent("settings.plist")
         self.fileManager = fileManager

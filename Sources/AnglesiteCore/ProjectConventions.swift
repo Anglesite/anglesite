@@ -3,46 +3,80 @@ import Foundation
 
 /// Where a `Learned` field's current value came from.
 public enum ConventionSource: Sendable, Codable, Equatable {
+    /// Computed by the extractor or enrichment pass. `confidence` is the share of evidence
+    /// agreeing with the value (0–1); `0` marks an unset default. Note the FM enricher writes
+    /// `confidence: 1` — signal checks must accept any positive confidence, not gate on
+    /// sample size (see `BrandVoiceGuidance.hasSignal`).
     case inferred(confidence: Double)
+    /// Explicitly set by the user (Style Guide inspector or brand-voice interview). Re-learning
+    /// never replaces it — see ``ProjectConventions/merging(overriddenFrom:)``.
     case userOverride
 }
 
 /// One inferred-or-overridden fact about a project's conventions. Re-learning never overwrites
 /// a `.userOverride` value — see `ProjectConventions.merging(overriddenFrom:)`.
 public struct Learned<Value: Sendable & Codable & Equatable>: Sendable, Codable, Equatable {
+    /// The current value of the fact, regardless of whether it was inferred or user-set.
     public var value: Value
+    /// Provenance of ``value`` — the merge invariant keys off this, not off the value itself.
     public var source: ConventionSource
     /// How many files this was inferred from, when known. `nil`/0 lets a future UI show a
     /// "low confidence" indicator instead of asserting a rule from too little evidence.
     public var sampleSize: Int?
 
+    /// Memberwise initializer. `sampleSize` defaults to `nil` because user overrides and
+    /// interview answers have no file-count evidence behind them.
     public init(value: Value, source: ConventionSource, sampleSize: Int? = nil) {
         self.value = value
         self.source = source
         self.sampleSize = sampleSize
     }
 
+    /// `true` when ``source`` is `.userOverride` — the predicate
+    /// ``ProjectConventions/merging(overriddenFrom:)`` uses to decide which fields survive a
+    /// background re-learn.
     public var isOverridden: Bool {
         if case .userOverride = source { return true }
         return false
     }
 }
 
+/// The dominant heading style the extractor detected across a site's markdown headings.
+/// A style is only asserted when ≥70% of sampled headings agree — anything less is `mixed`
+/// (see `ProjectConventionsExtractor`).
 public enum HeadingCapitalization: String, Sendable, Codable, Equatable, CaseIterable {
+    /// Most headings capitalize every significant word ("Getting Started With Anglesite").
     case titleCase
+    /// Most headings capitalize only the first word ("Getting started with anglesite").
     case sentenceCase
+    /// No style reached the confidence threshold — also the zero-evidence default, so
+    /// generation shouldn't impose either style.
     case mixed
 }
 
+/// The dominant file-naming style of a site's content/page slugs. Same ≥70% confidence
+/// threshold as ``HeadingCapitalization``.
 public enum SlugStyle: String, Sendable, Codable, Equatable, CaseIterable {
+    /// Lowercase words joined with hyphens (`my-first-post`).
     case kebabCase
+    /// Lowercase words joined with underscores (`my_first_post`).
     case snakeCase
+    /// No style reached the confidence threshold — also the zero-evidence default.
     case mixed
 }
 
+/// Prose-style facts about a site: how it capitalizes, sounds, and names things. The voice
+/// fields (`toneDescriptors`, `brandTerms`, `audience`, `avoidPhrases`) feed generation prompts
+/// via `BrandVoiceGuidance`.
 public struct WritingConventions: Sendable, Codable, Equatable {
+    /// Dominant heading style, inferred from markdown headings by the deterministic extractor.
     public var headingCapitalization: Learned<HeadingCapitalization>
+    /// Adjectives describing the site's voice (e.g. "warm", "technical"). Produced by the
+    /// throttled on-device enrichment pass, not the deterministic extractor — text stats alone
+    /// can't judge tone.
     public var toneDescriptors: Learned<[String]>
+    /// Product/brand names and site-specific terms generation should spell exactly as the site
+    /// does. Enrichment-produced, like ``toneDescriptors``.
     public var brandTerms: Learned<[String]>
     /// Who the site speaks to, in the owner's words. `""` = unset. Set by the brand-voice
     /// interview (#465); never inferred by the extractor.
@@ -50,6 +84,9 @@ public struct WritingConventions: Sendable, Codable, Equatable {
     /// Words/phrases generation must avoid. `[]` = unset. Set by the brand-voice interview.
     public var avoidPhrases: Learned<[String]>
 
+    /// Memberwise initializer. The interview-only fields (`audience`, `avoidPhrases`) default
+    /// to zero-confidence "unset" so extractor call sites that predate #465 don't have to
+    /// supply them.
     public init(
         headingCapitalization: Learned<HeadingCapitalization>,
         toneDescriptors: Learned<[String]>,
@@ -68,8 +105,8 @@ public struct WritingConventions: Sendable, Codable, Equatable {
         case headingCapitalization, toneDescriptors, brandTerms, audience, avoidPhrases
     }
 
-    // Pre-#465 conventions.json has no voice fields; default them instead of failing the decode
-    // (a decode failure would silently drop the user's whole learned state).
+    /// Pre-#465 conventions.json has no voice fields; default them instead of failing the decode
+    /// (a decode failure would silently drop the user's whole learned state).
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         headingCapitalization = try c.decode(Learned<HeadingCapitalization>.self, forKey: .headingCapitalization)
@@ -85,42 +122,63 @@ public struct WritingConventions: Sendable, Codable, Equatable {
 /// Read as ground truth from `src/content.config.ts` (Task 3) — not inferred, so no `Learned`
 /// wrapper and never user-overridable. Maps collection name to its declared field names.
 public struct FrontmatterConventions: Sendable, Codable, Equatable {
+    /// Collection name → declared field names, in schema order. Empty when the site has no
+    /// `content.config.ts` (or it couldn't be parsed).
     public var collections: [String: [String]]
 
+    /// Memberwise initializer.
     public init(collections: [String: [String]]) {
         self.collections = collections
     }
 }
 
+/// Which Astro components a site actually uses, so suggestions favor components the owner
+/// already reaches for.
 public struct ComponentConventions: Sendable, Codable, Equatable {
+    /// Component tag name → number of usages across `.astro` files. A count, not a preference —
+    /// which is why it's excluded from ``OverridableField``.
     public var usageCounts: Learned<[String: Int]>
 
+    /// Memberwise initializer.
     public init(usageCounts: Learned<[String: Int]>) {
         self.usageCounts = usageCounts
     }
 }
 
+/// Alt-text habits inferred from the site's existing images, used to make generated alt text
+/// (e.g. `AltTextGenerator`) match what the owner already writes.
 public struct ImageConventions: Sendable, Codable, Equatable {
+    /// Average character length of non-empty alt texts. `0` means no evidence yet.
     public var altTextAverageLength: Learned<Int>
+    /// Whether a majority of alt texts end with sentence punctuation — a stylistic choice
+    /// (screen-reader pause behavior) worth matching either way.
     public var altTextEndsWithPunctuation: Learned<Bool>
 
+    /// Memberwise initializer.
     public init(altTextAverageLength: Learned<Int>, altTextEndsWithPunctuation: Learned<Bool>) {
         self.altTextAverageLength = altTextAverageLength
         self.altTextEndsWithPunctuation = altTextEndsWithPunctuation
     }
 }
 
+/// File-naming facts, so newly scaffolded pages/posts get slugs shaped like the existing ones.
 public struct NamingConventions: Sendable, Codable, Equatable {
+    /// Dominant slug style across `src/content/` and `src/pages/` file names.
     public var slugStyle: Learned<SlugStyle>
 
+    /// Memberwise initializer.
     public init(slugStyle: Learned<SlugStyle>) {
         self.slugStyle = slugStyle
     }
 }
 
+/// SEO-relevant metadata habits inferred from existing frontmatter.
 public struct SEOConventions: Sendable, Codable, Equatable {
+    /// Average character length of non-empty frontmatter `description` values — a target for
+    /// generated meta descriptions. `0` means no evidence yet.
     public var metaDescriptionAverageLength: Learned<Int>
 
+    /// Memberwise initializer.
     public init(metaDescriptionAverageLength: Learned<Int>) {
         self.metaDescriptionAverageLength = metaDescriptionAverageLength
     }
@@ -129,14 +187,23 @@ public struct SEOConventions: Sendable, Codable, Equatable {
 /// One site's learned/edited project conventions. See the design doc for the taxonomy and the
 /// override-preserving merge invariant.
 public struct ProjectConventions: Sendable, Codable, Equatable {
+    /// Prose style and brand voice.
     public var writing: WritingConventions
+    /// Declared content-collection schemas — ground truth, never overridable.
     public var frontmatter: FrontmatterConventions
+    /// Component usage counts.
     public var components: ComponentConventions
+    /// Alt-text habits.
     public var images: ImageConventions
+    /// Slug/file-naming habits.
     public var naming: NamingConventions
+    /// Metadata habits.
     public var seo: SEOConventions
+    /// When the last full extraction ran, or `nil` if this value has never been learned from
+    /// disk (e.g. it's still ``empty`` or a seeded pre-restart snapshot).
     public var lastLearnedAt: Date?
 
+    /// Memberwise initializer.
     public init(
         writing: WritingConventions,
         frontmatter: FrontmatterConventions,
@@ -185,28 +252,46 @@ public struct ProjectConventions: Sendable, Codable, Equatable {
 /// (ground truth) and component usage counts (a count, not a preference) are intentionally
 /// excluded.
 public enum OverridableField: String, Sendable, Codable, CaseIterable {
+    /// ``WritingConventions/headingCapitalization``.
     case headingCapitalization
+    /// ``WritingConventions/toneDescriptors``.
     case toneDescriptors
+    /// ``WritingConventions/brandTerms``.
     case brandTerms
+    /// ``WritingConventions/audience``.
     case audience
+    /// ``WritingConventions/avoidPhrases``.
     case avoidPhrases
+    /// ``ImageConventions/altTextAverageLength``.
     case altTextAverageLength
+    /// ``ImageConventions/altTextEndsWithPunctuation``.
     case altTextEndsWithPunctuation
+    /// ``NamingConventions/slugStyle``.
     case slugStyle
+    /// ``SEOConventions/metaDescriptionAverageLength``.
     case metaDescriptionAverageLength
 }
 
 /// A typed value for one `OverridableField`. The case identifies the field; the payload is
 /// already the right type for it, so callers can't set a `String` onto an `Int` field.
 public enum OverrideValue: Sendable, Equatable {
+    /// New value for ``OverridableField/headingCapitalization``.
     case headingCapitalization(HeadingCapitalization)
+    /// New value for ``OverridableField/toneDescriptors``.
     case toneDescriptors([String])
+    /// New value for ``OverridableField/brandTerms``.
     case brandTerms([String])
+    /// New value for ``OverridableField/audience``.
     case audience(String)
+    /// New value for ``OverridableField/avoidPhrases``.
     case avoidPhrases([String])
+    /// New value for ``OverridableField/altTextAverageLength``.
     case altTextAverageLength(Int)
+    /// New value for ``OverridableField/altTextEndsWithPunctuation``.
     case altTextEndsWithPunctuation(Bool)
+    /// New value for ``OverridableField/slugStyle``.
     case slugStyle(SlugStyle)
+    /// New value for ``OverridableField/metaDescriptionAverageLength``.
     case metaDescriptionAverageLength(Int)
 }
 

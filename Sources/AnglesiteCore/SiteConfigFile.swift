@@ -1,9 +1,20 @@
 // Sources/AnglesiteCore/SiteConfigFile.swift
 import Foundation
 
+/// Line-level editing of `.site-config` — the template-owned `KEY=value` file in `Source/`
+/// (distinct from the app-owned `Config/` stores). Pure string transforms over file contents;
+/// callers own the actual read/write, so the same helpers serve app flows and tests. Note the
+/// app records a site's domain under the `DOMAIN` key (not `SITE_DOMAIN`) — resolve hosts via
+/// `WebsiteAnalyticsAsset.bestHost` rather than reading either key directly.
 public enum SiteConfigFile {
+    /// The `.site-config` key holding the comma-separated third-party script-origin allowlist
+    /// the template folds into its Content-Security-Policy.
     public static let cspKey = "SCRIPT_ALLOW"
 
+    /// Replaces or appends `KEY=value` lines while preserving unrelated lines and their order,
+    /// so a hand-edited file survives round-trips (git is the source of truth — the file must
+    /// stay editable outside the app). Normalizes CRLF to LF and guarantees exactly one
+    /// trailing newline on non-empty output.
     public static func upsert(_ entries: [(key: String, value: String)], into contents: String) -> String {
         // Normalize CRLF to LF so stray \r don't appear in split lines or output.
         let contents = contents.replacingOccurrences(of: "\r\n", with: "\n")
@@ -20,6 +31,9 @@ public enum SiteConfigFile {
         return lines.isEmpty ? "" : lines.joined(separator: "\n") + "\n"
     }
 
+    /// Merges `domains` into the existing ``cspKey`` list, deduplicating while preserving the
+    /// existing order — so re-running an integration setup never grows the CSP allowlist with
+    /// repeated entries.
     public static func addCSPDomains(_ domains: [String], into contents: String) -> String {
         let existing = cspDomains(in: contents)
         var merged = existing

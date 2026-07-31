@@ -11,6 +11,9 @@ public actor ProjectConventionsStore {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
+    /// Points the store at `<configDirectory>/conventions.json`. Encoding uses sorted keys and
+    /// ISO 8601 dates so successive saves of equal values are byte-identical (stable for
+    /// change-detection and debugging); `fileManager` is injectable for tests.
     public init(configDirectory: URL, fileManager: FileManager = .default) {
         self.fileURL = configDirectory.appendingPathComponent("conventions.json")
         self.fileManager = fileManager
@@ -23,11 +26,17 @@ public actor ProjectConventionsStore {
         self.decoder = decoder
     }
 
+    /// The stored conventions, or `nil` when the file is absent or undecodable. Both collapse
+    /// to `nil` deliberately: conventions are a derived cache, so a missing or stale-schema file
+    /// just means "re-extract from the site source" — never an error worth surfacing.
     public func load() -> ProjectConventions? {
         guard let data = try? Data(contentsOf: fileURL) else { return nil }
         return try? decoder.decode(ProjectConventions.self, from: data)
     }
 
+    /// Persists `conventions` atomically, creating the `Config/` directory if needed. Failures
+    /// are swallowed for the same reason ``load()`` returns `nil`: the file is a re-derivable
+    /// cache, and a failed write must never break the feature that triggered the extraction.
     public func save(_ conventions: ProjectConventions) {
         guard let data = try? encoder.encode(conventions) else { return }
         try? fileManager.createDirectory(

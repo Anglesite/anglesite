@@ -2,10 +2,16 @@ import Foundation
 
 /// A site's GitHub remote, derived from `origin`. Source of truth for "is this site published?".
 public struct RemoteRepo: Sendable, Equatable {
-    public let url: URL      // browser URL, e.g. https://github.com/owner/name
+    /// Browser URL, e.g. `https://github.com/owner/name` — always https, regardless of whether
+    /// the remote itself was an ssh URL.
+    public let url: URL
+    /// The GitHub account or organization owning the repository.
     public let owner: String
+    /// The repository name, with any `.git` suffix already stripped.
     public let name: String
 
+    /// Memberwise initializer; prefer ``parse(remoteURL:)``, which derives all three fields
+    /// consistently from a raw remote URL.
     public init(url: URL, owner: String, name: String) {
         self.url = url
         self.owner = owner
@@ -54,8 +60,13 @@ public struct RemoteRepo: Sendable, Equatable {
 
 /// User-facing failure from the bootstrap pipeline.
 public struct RepoBootstrapError: LocalizedError, Equatable, Sendable {
+    /// The user-facing explanation — written for the site owner (what went wrong and what to do),
+    /// not as a git diagnostic. Surfaced verbatim via `RepoBootstrap.Event.failed`.
     public let reason: String
+    /// Wraps a user-facing failure message.
     public init(reason: String) { self.reason = reason }
+    /// `LocalizedError` conformance so `error.localizedDescription` shows `reason` rather than a
+    /// generic "operation couldn't be completed".
     public var errorDescription: String? { reason }
 }
 
@@ -77,13 +88,21 @@ public struct GHRepoProvider: RepoProvider {
     private let run: RepoCommandRunner
     private let env = URL(fileURLWithPath: "/usr/bin/env")
 
+    /// Creates a provider that runs `gh`/`git` through the given runner — injectable so tests can
+    /// script subprocess results without spawning anything.
     public init(run: @escaping RepoCommandRunner) { self.run = run }
 
+    /// True when `gh auth status` exits 0 — i.e. the user's own `gh` login is usable. No token is
+    /// read or stored app-side.
     public func isAuthenticated() async -> Bool {
         guard let r = try? await run(env, ["gh", "auth", "status"], nil) else { return false }
         return r.exitCode == 0
     }
 
+    /// `gh repo create --source … --push` in one shot, then reads `origin` back as the source of
+    /// truth rather than parsing `gh`'s human-oriented output. Throws ``RepoBootstrapError`` with
+    /// the first non-empty stderr line so the owner sees `gh`'s own explanation (name taken,
+    /// scope missing, …).
     public func createAndPush(name: String, isPrivate: Bool, source: URL) async throws -> RemoteRepo {
         let visibility = isPrivate ? "--private" : "--public"
         // `--` terminates flag parsing, so `name` (the positional) must come last, after all flags —

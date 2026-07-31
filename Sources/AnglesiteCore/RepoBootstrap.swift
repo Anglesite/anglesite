@@ -14,13 +14,34 @@ import SwiftGit2
 /// (subprocess `gh`/`git`) elsewhere, where there's no sandbox to route around.
 /// `RepoCommandRunner` remains the seam `GHRepoProvider` and the off-Darwin preflight fallback use.
 public actor RepoBootstrap {
-    public enum Step: Sendable, Equatable { case checkingRemote, initializing, committing, creatingRepo, pushing }
+    /// The publish pipeline's phases, in execution order — carried by
+    /// ``RepoBootstrap/Event/progress(step:message:)`` so the UI can show which stage is running
+    /// rather than an opaque spinner.
+    public enum Step: Sendable, Equatable {
+        /// Reading `origin` to detect an already-published site (the idempotence check).
+        case checkingRemote
+        /// Creating a git repository in a directory that isn't one yet.
+        case initializing
+        /// Staging the working tree and creating the initial commit.
+        case committing
+        /// Creating the repository on GitHub via the `RepoProvider`.
+        case creatingRepo
+        /// Wiring `origin` and pushing the local history up.
+        case pushing
+    }
 
+    /// One update from the `publish` stream. Terminal events are ``published(_:)``,
+    /// ``needsAuth``, and ``failed(reason:)`` — the stream finishes right after emitting one.
     public enum Event: Sendable, Equatable {
+        /// A stage started (or completed, for `.pushing`); `message` is user-facing progress text.
         case progress(step: Step, message: String)
         /// Provider has no credentials. The UI presents a GitHub token prompt, then retries `publish`.
         case needsAuth
+        /// The site is on GitHub — either just pushed, or detected as already published (in which
+        /// case no other event precedes it).
         case published(RemoteRepo)
+        /// The pipeline stopped; `reason` is the user-facing explanation (a `RepoBootstrapError`'s
+        /// reason when the failure was anticipated, a raw error description otherwise).
         case failed(reason: String)
     }
 
@@ -28,6 +49,9 @@ public actor RepoBootstrap {
     private let run: RepoCommandRunner
     private let env = URL(fileURLWithPath: "/usr/bin/env")
 
+    /// Injection seam for tests: pass a fake ``RepoProvider`` and ``RepoCommandRunner`` to drive
+    /// the pipeline without touching GitHub or spawning processes. Production wiring comes from
+    /// ``live(supervisor:logCenter:)``.
     public init(provider: RepoProvider, run: @escaping RepoCommandRunner) {
         self.provider = provider
         self.run = run

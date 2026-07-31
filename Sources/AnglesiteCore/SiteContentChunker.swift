@@ -3,13 +3,21 @@ import Foundation
 /// One page/post of a site reduced to capped plain text for a single FM call (#465). `filePath`
 /// is project-relative (e.g. `src/pages/about.astro`) so findings can be applied back to disk.
 public struct ContentChunk: Sendable, Equatable, Identifiable {
+    /// Identity is the file path — the chunker emits exactly one chunk per source file.
     public var id: String { filePath }
+    /// The public route the file renders at (see `SiteContentChunker.route(forRelativePath:)`).
     public let route: String
+    /// Frontmatter `title`, when the file declares one.
     public let title: String?
+    /// Project-relative source path — the write-back target when a finding is applied to disk.
     public let filePath: String
+    /// The extracted text, hard-capped so a single FM call fits the on-device window.
     public let text: String
+    /// Whether ``text`` was cut at the cap — carried so downstream replies can disclose
+    /// partial coverage instead of silently trimming.
     public let truncated: Bool
 
+    /// Memberwise creation, used by the chunker and by test fixtures.
     public init(route: String, title: String?, filePath: String, text: String, truncated: Bool) {
         self.route = route
         self.title = title
@@ -30,6 +38,11 @@ public enum SiteContentChunker {
     static let contentExtensions: Set<String> = ["md", "mdoc"]
     static let pageExtensions: Set<String> = ["astro", "md", "mdoc"]
 
+    /// Enumerates `src/content` (markdown/mdoc) and `src/pages` (plus `.astro`) under
+    /// `sourceDirectory`, yielding one capped ``ContentChunk`` per content file, sorted by
+    /// route so prompt order — and therefore FM output — is deterministic across runs.
+    /// Unreadable or empty files are skipped, not errors: a half-saved file mid-edit must not
+    /// fail a whole-site audit.
     public static func chunks(sourceDirectory: URL, fileManager: FileManager = .default) -> [ContentChunk] {
         var chunks: [ContentChunk] = []
         for (subdir, extensions) in [("src/content", contentExtensions), ("src/pages", pageExtensions)] {
@@ -119,6 +132,8 @@ public enum SiteContentChunker {
         return collapsed(text)
     }
 
+    /// Truncates to ``maxChunkCharacters`` (appending an ellipsis) and reports whether it did —
+    /// the flag is what lets replies disclose partial coverage rather than trim silently.
     public static func capped(_ text: String) -> (text: String, truncated: Bool) {
         guard text.count > maxChunkCharacters else { return (text, false) }
         return (String(text.prefix(maxChunkCharacters)) + "…", true)

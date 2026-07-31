@@ -7,16 +7,28 @@ import Foundation
 /// `.empty` zero-confidence default here — those come from the throttled FM enrichment pass
 /// added in Task 5.
 public enum ProjectConventionsExtractor {
+    /// A project file handed to the extractor as an in-memory path + contents snapshot, so
+    /// extraction stays pure (no filesystem access) and each heuristic is testable against
+    /// fixture strings.
     public struct ScannedFile: Sendable {
+        /// Project-relative path (e.g. `src/content/posts/my-trip.mdoc`). The prefix and
+        /// extension decide which conventions the file feeds — slugs come only from
+        /// `src/content/`/`src/pages/`, component counts only from `.astro` files.
         public let path: String
+        /// The file's full text contents.
         public let contents: String
 
+        /// Pairs a project-relative `path` with the file's `contents`.
         public init(path: String, contents: String) {
             self.path = path
             self.contents = contents
         }
     }
 
+    /// Runs every deterministic convention heuristic over `files` and composes the results into
+    /// one ``ProjectConventions`` value. Heuristics with no signal (no headings, no alt text, …)
+    /// yield zero-confidence values rather than guesses, so downstream guidance can tell
+    /// "learned" from "unknown" — see `BrandVoiceGuidance.hasSignal`.
     public static func extract(files: [ScannedFile]) -> ProjectConventions {
         var conventions = ProjectConventions.empty
         conventions.writing.headingCapitalization = headingCapitalizationConvention(files: files)

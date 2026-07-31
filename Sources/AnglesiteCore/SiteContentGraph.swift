@@ -14,14 +14,23 @@ import Foundation
 /// `SpotlightIndexer.reindex(_:)` "trust whatever the source publishes at moment of read"
 /// pattern.
 public actor SiteContentGraph {
+    /// One routed page entry (an Astro page file), keyed by route.
     public struct Page: Sendable, Equatable, Identifiable {
-        public let id: String          // "{siteID}:page:{route}"
+        /// `"{siteID}:page:{route}"` — site-qualified so multiple open sites coexist in one graph.
+        public let id: String
+        /// The owning site's stable UUID string.
         public let siteID: String
+        /// The public route the page renders at (e.g. `/about`).
         public let route: String
+        /// Project-relative source path within `Source/`.
         public let filePath: String
+        /// Frontmatter-derived title, when the scanner found one.
         public let title: String?
+        /// The source file's modification date at scan time — the staleness signal indexers
+        /// diff against.
         public let lastModified: Date
 
+        /// Memberwise creation; callers (the content scanner) compose `id` themselves.
         public init(
             id: String,
             siteID: String,
@@ -39,18 +48,32 @@ public actor SiteContentGraph {
         }
     }
 
+    /// One content-collection post entry, carrying the frontmatter facets (draft state,
+    /// publish date, tags) the navigator and search filter on.
     public struct Post: Sendable, Equatable, Identifiable {
-        public let id: String          // "{siteID}:post:{slug}"
+        /// `"{siteID}:post:{slug}"` — site-qualified so multiple open sites coexist in one graph.
+        public let id: String
+        /// The owning site's stable UUID string.
         public let siteID: String
+        /// The content collection the post belongs to (e.g. `posts`).
         public let collection: String
+        /// Filename-derived slug, unique within its collection.
         public let slug: String
+        /// The post's frontmatter title.
         public let title: String
+        /// Whether the post is marked draft in frontmatter (excluded from published builds).
         public let draft: Bool
+        /// Frontmatter publish date, when set.
         public let publishDate: Date?
+        /// Frontmatter tags; empty when none.
         public let tags: [String]
+        /// Project-relative source path within `Source/`.
         public let filePath: String
+        /// The source file's modification date at scan time — the staleness signal indexers
+        /// diff against.
         public let lastModified: Date
 
+        /// Memberwise creation; callers (the content scanner) compose `id` themselves.
         public init(
             id: String,
             siteID: String,
@@ -76,18 +99,29 @@ public actor SiteContentGraph {
         }
     }
 
+    /// One image asset entry, including reverse usage references (``usedOnPages``) so callers
+    /// can tell an in-use image from a dead asset.
     public struct Image: Sendable, Equatable, Identifiable {
-        public let id: String          // "{siteID}:image:{relativePath}"
+        /// `"{siteID}:image:{relativePath}"` — site-qualified so multiple open sites coexist
+        /// in one graph.
+        public let id: String
+        /// The owning site's stable UUID string.
         public let siteID: String
+        /// Path relative to the project root.
         public let relativePath: String
+        /// Base file name, for display and search.
         public let fileName: String
+        /// Size in bytes, when the scanner could stat the file.
         public let byteSize: Int64?
         /// Project-relative source paths that reference this image, sorted. Populated by
         /// `ContentScanner.scanImages` from `DeadAssetScanner.referencedPaths(projectRoot:)`
         /// (#140/#553) — `DeadAssetScanner` is the canonical usage authority for this field.
         public let usedOnPages: [String]
+        /// The asset file's modification date at scan time — the staleness signal indexers
+        /// diff against.
         public let lastModified: Date
 
+        /// Memberwise creation; callers (the content scanner) compose `id` themselves.
         public init(
             id: String,
             siteID: String,
@@ -107,6 +141,9 @@ public actor SiteContentGraph {
         }
     }
 
+    /// The single awaited change hook (see the type-level "Change handler" note). Receives only
+    /// the affected siteID — the subscriber reads pages/posts/images back from the graph itself,
+    /// keeping emits cheap.
     public typealias ChangeHandler = @Sendable (String) async -> Void
 
     private var pages: [String: Page] = [:]
@@ -138,6 +175,8 @@ public actor SiteContentGraph {
     /// sites' scans never interfere with each other's fencing.
     private var scanGenerations: [String: Int] = [:]
 
+    /// Creates an empty graph — per the type-level contract, cold start holds nothing until the
+    /// first ``load(siteID:pages:posts:images:generation:)``.
     public init() {}
 
     /// Claims a new scan generation for `siteID`. Call this *before* starting a filesystem
@@ -155,6 +194,8 @@ public actor SiteContentGraph {
         return next
     }
 
+    /// Installs (or clears, with `nil`) the single awaited change hook, replacing any previous
+    /// one — single-subscriber by design; UI observers use ``changeStream()`` instead.
     public func setChangeHandler(_ handler: ChangeHandler?) {
         changeHandler = handler
     }
@@ -238,32 +279,42 @@ public actor SiteContentGraph {
         populatedSiteIDs.contains(siteID)
     }
 
+    /// All page entries for `siteID`, in no guaranteed order — callers sort for display.
     public func pages(for siteID: String) -> [Page] {
         pages.values.filter { $0.siteID == siteID }
     }
 
+    /// All post entries for `siteID`, in no guaranteed order — callers sort for display.
     public func posts(for siteID: String) -> [Post] {
         posts.values.filter { $0.siteID == siteID }
     }
 
+    /// All image entries for `siteID`, in no guaranteed order — callers sort for display.
     public func images(for siteID: String) -> [Image] {
         images.values.filter { $0.siteID == siteID }
     }
 
     // MARK: - Incremental upsert
 
+    /// Inserts or replaces one page entry. Emits a change only when the value actually differs
+    /// — the `Equatable` suppression that keeps file-watch echo events from re-triggering
+    /// subscribers for nothing.
     public func upsertPage(_ page: Page) async {
         if pages[page.id] == page { return }
         pages[page.id] = page
         await emitChange(page.siteID)
     }
 
+    /// Inserts or replaces one post entry; same equal-value emit suppression as
+    /// ``upsertPage(_:)``.
     public func upsertPost(_ post: Post) async {
         if posts[post.id] == post { return }
         posts[post.id] = post
         await emitChange(post.siteID)
     }
 
+    /// Inserts or replaces one image entry; same equal-value emit suppression as
+    /// ``upsertPage(_:)``.
     public func upsertImage(_ image: Image) async {
         if images[image.id] == image { return }
         images[image.id] = image
@@ -280,11 +331,15 @@ public actor SiteContentGraph {
         await emitChange(removed.siteID)
     }
 
+    /// Removes the post with the given id; same silent no-op-on-unknown contract (and
+    /// rationale) as ``removePage(id:)``.
     public func removePost(id: String) async {
         guard let removed = posts.removeValue(forKey: id) else { return }
         await emitChange(removed.siteID)
     }
 
+    /// Removes the image with the given id; same silent no-op-on-unknown contract (and
+    /// rationale) as ``removePage(id:)``.
     public func removeImage(id: String) async {
         guard let removed = images.removeValue(forKey: id) else { return }
         await emitChange(removed.siteID)
@@ -311,8 +366,11 @@ public actor SiteContentGraph {
 
     // MARK: - Queries (single)
 
+    /// The page with this exact id, or `nil` if the graph doesn't hold it.
     public func page(id: String) -> Page? { pages[id] }
+    /// The post with this exact id, or `nil` if the graph doesn't hold it.
     public func post(id: String) -> Post? { posts[id] }
+    /// The image with this exact id, or `nil` if the graph doesn't hold it.
     public func image(id: String) -> Image? { images[id] }
 
     // MARK: - Batched id lookup
@@ -323,7 +381,9 @@ public actor SiteContentGraph {
     /// ids after a multi-pick. Takes an ordered `[String]` (not a `Set`) to preserve the
     /// input-order contract the entity queries' tests assert.
     public func pages(ids: [String]) -> [Page] { ids.compactMap { pages[$0] } }
+    /// Same single-hop, input-order, skip-unknown contract as ``pages(ids:)``.
     public func posts(ids: [String]) -> [Post] { ids.compactMap { posts[$0] } }
+    /// Same single-hop, input-order, skip-unknown contract as ``pages(ids:)``.
     public func images(ids: [String]) -> [Image] { ids.compactMap { images[$0] } }
 
     // MARK: - Search

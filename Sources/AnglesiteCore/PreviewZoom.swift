@@ -12,7 +12,12 @@ public enum PreviewZoom {
     /// The 100% detent — View ▸ Actual Size (⌘0).
     public static let actualSize: Double = 1.0
 
+    /// The lowest detent — the floor `zoomOut(from:)` clamps to. Derived from ``levels`` so the
+    /// ladder stays the single source of truth.
     public static var minimum: Double { levels[0] }
+
+    /// The highest detent — the ceiling `zoomIn(from:)` clamps to. Derived from ``levels`` so the
+    /// ladder stays the single source of truth.
     public static var maximum: Double { levels[levels.count - 1] }
 
     /// Comparison slop so a level reproduced through floating-point arithmetic still counts as
@@ -31,10 +36,16 @@ public enum PreviewZoom {
         levels.last { $0 < level - tolerance } ?? minimum
     }
 
+    /// Whether View ▸ Zoom In should be enabled at `level` — `false` only at (or within
+    /// floating-point tolerance of) ``maximum``, so the menu item disables exactly when
+    /// ``zoomIn(from:)`` would be a no-op.
     public static func canZoomIn(from level: Double) -> Bool {
         level + tolerance < maximum
     }
 
+    /// Whether View ▸ Zoom Out should be enabled at `level` — `false` only at (or within
+    /// floating-point tolerance of) ``minimum``, so the menu item disables exactly when
+    /// ``zoomOut(from:)`` would be a no-op.
     public static func canZoomOut(from level: Double) -> Bool {
         level - tolerance > minimum
     }

@@ -14,6 +14,14 @@ public actor SemanticRanker {
     /// `[siteID: [docID: Stored]]`.
     private var vectorsBySite: [String: [String: Stored]] = [:]
 
+    /// Creates a ranker over the given embedding provider.
+    ///
+    /// - Parameters:
+    ///   - provider: Source of document/query vectors; its `dimension` doubles as the cache
+    ///     invalidation key (see ``SemanticIndexCache``).
+    ///   - cache: Cold-start persistence, seeded on the first ``sync(siteID:documents:)`` of a
+    ///     site and rewritten after every mutation. Pass `nil` to keep vectors purely in-memory —
+    ///     production's v0 wiring, pending the off-actor writer noted in `persist`.
     public init(provider: EmbeddingProvider, cache: SemanticIndexCache?) {
         self.provider = provider
         self.cache = cache
@@ -91,8 +99,11 @@ public actor SemanticRanker {
 
     /// A document scored against a query, where `score` is cosine similarity in -1…1.
     public struct Ranked: Sendable, Equatable {
+        /// The matched document's id in ``SiteKnowledgeIndex``.
         public let docID: String
+        /// Cosine similarity against the query vector (-1…1); higher is more similar.
         public let score: Float
+        /// Memberwise initializer (public so tests and callers can build expected results).
         public init(docID: String, score: Float) {
             self.docID = docID
             self.score = score

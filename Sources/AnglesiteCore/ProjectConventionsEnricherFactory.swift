@@ -6,6 +6,10 @@ import Foundation
 /// constructs `ProjectConventionsEngine` with whatever this returns, so the engine works
 /// identically (just without tone/brand enrichment) on the reduced CI toolchain.
 public enum ProjectConventionsEnricherFactory {
+    /// The production enricher: one on-device `FoundationModelAssistant` guided-generation call
+    /// producing `GeneratedProjectConventions` from a sample of the site's text. Returns `nil`
+    /// when the toolchain can't import `FoundationModels` (pre-Xcode-27 / reduced CI), which the
+    /// engine treats as "extraction only, no tone/brand fields".
     public static func makeDefault() -> ProjectConventionsEngine.ConventionsEnricher? {
         #if compiler(>=6.4) && canImport(FoundationModels)
         return { sampleText, context in

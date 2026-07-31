@@ -24,6 +24,10 @@ public enum PreviewNavigation {
     /// Query-parameter key the app appends to force `EsiInclude`'s dev-preview shim into the
     /// "unprocessed" state (spec §4a) — must match `esi-dev-shim.ts`'s `esiPreviewIsUnprocessed`.
     public static let esiPreviewQueryKey = "esiPreview"
+
+    /// The value paired with ``esiPreviewQueryKey`` to request the "unprocessed" state — must
+    /// also match `esi-dev-shim.ts`, which string-compares it when deciding whether to leave
+    /// `<esi:include>` tags unexpanded.
     public static let esiPreviewUnprocessedValue = "unprocessed"
 
     /// Appends (or replaces) the `esiPreview=unprocessed` query item on `url` when `unprocessed`
