@@ -1,9 +1,20 @@
 import Foundation
 
+/// Seam for validating an owner-pasted custom analytics HTML snippet before it's saved into the
+/// site config. A protocol (rather than the concrete validator) so the plist editor can be tested
+/// with a canned validator instead of a live container.
 public protocol CustomAnalyticsHTMLValidating: Sendable {
+    /// `nil` when the snippet is acceptable; otherwise an owner-facing message explaining why it
+    /// was rejected — or why it *couldn't be checked*, which also blocks the save: an unvalidated
+    /// snippet is injected into every page head, so "can't verify" must not pass silently.
     func validationMessage(for html: String, siteDirectory: URL) async -> String?
 }
 
+/// Validates custom analytics HTML by feeding it through the site's own `@astrojs/compiler`
+/// inside the container guest — the exact parser that will consume the snippet at build time, so
+/// "valid here" can't drift from "builds there". Requires the site's `node_modules` to be
+/// installed and its container to be running; both absences produce an explanatory message rather
+/// than a pass (host Node is retired, #70, so there is no host-side fallback parse).
 public struct AstroHTMLValidator: CustomAnalyticsHTMLValidating, Sendable {
     /// Reached lazily, at the moment validation actually runs — never resolved eagerly at
     /// construction time — mirroring `DeployModel`/`PreviewModel.activeContainerControl()`
@@ -13,10 +24,16 @@ public struct AstroHTMLValidator: CustomAnalyticsHTMLValidating, Sendable {
 
     private let containerControlProvider: ContainerControlProvider
 
+    /// The default provider always returns `nil` ("no container"), which makes an undecorated
+    /// validator fail safe — it reports validation as unavailable instead of approving snippets
+    /// it never checked.
     public init(containerControlProvider: @escaping ContainerControlProvider = { nil }) {
         self.containerControlProvider = containerControlProvider
     }
 
+    /// See ``CustomAnalyticsHTMLValidating/validationMessage(for:siteDirectory:)``. An empty or
+    /// whitespace-only snippet is trivially valid (there is nothing to inject); everything else
+    /// must round-trip through the compiler in the guest.
     public func validationMessage(for html: String, siteDirectory: URL) async -> String? {
         let snippet = html.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !snippet.isEmpty else { return nil }

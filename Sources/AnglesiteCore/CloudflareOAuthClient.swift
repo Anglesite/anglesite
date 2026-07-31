@@ -14,8 +14,14 @@ import CryptoKit
 /// Domains rather than a custom URL scheme: Cloudflare's OAuth-client registration form only
 /// accepts `http(s)` redirect URIs.
 public enum CloudflareOAuthConfiguration {
+    /// The registered public client's ID. Committable because a PKCE public client has no
+    /// secret to protect (see the type note).
     public static let clientID = "e6705eb5f46254ecae0641b2e4da0ee2"
+    /// The #891 callback Worker, reached via Apple Associated Domains rather than a custom URL
+    /// scheme — Cloudflare's registration form only accepts `http(s)` redirect URIs.
     public static let redirectURI = URL(string: "https://auth.anglesite.dwk.io/oauth-callback")!
+    /// Cloudflare's OIDC discovery document; the authorize/token endpoints are resolved from
+    /// here at runtime rather than hardcoded, so they survive Cloudflare relocating them.
     public static let discoveryURL = URL(string: "https://dash.cloudflare.com/.well-known/openid-configuration")!
 }
 
@@ -33,8 +39,14 @@ struct OAuthDiscoveryDocument: Decodable, Sendable {
 
 /// The token response from Cloudflare's token endpoint.
 public struct OAuthToken: Decodable, Sendable, Equatable {
+    /// The bearer token subsequent Cloudflare API calls present.
     public let accessToken: String
+    /// The token type as the server reported it (expected `bearer`) — carried through verbatim
+    /// rather than asserted, so an unexpected value surfaces to the caller instead of failing
+    /// the decode.
     public let tokenType: String
+    /// Lifetime in seconds, when the server reports one. Optional because `expires_in` is a
+    /// recommended-not-required field of the token response.
     public let expiresIn: Int?
 
     enum CodingKeys: String, CodingKey {
@@ -44,6 +56,9 @@ public struct OAuthToken: Decodable, Sendable, Equatable {
     }
 }
 
+/// Failure modes of the OAuth flow, one case per phase (discovery → callback → exchange) so the
+/// presenting UI can word its recovery hint by where things broke. `Equatable` so tests can
+/// assert exact cases; where there's server-side detail to show, it rides along as a `String`.
 public enum CloudflareOAuthError: Error, Equatable, Sendable {
     /// Discovery document couldn't be fetched or decoded.
     case discoveryUnavailable(String)
@@ -61,6 +76,9 @@ public enum CloudflareOAuthError: Error, Equatable, Sendable {
 /// One authorize attempt: the URL to present plus what's needed to complete it once a callback
 /// URL comes back. `codeVerifier` never leaves this type except via `CloudflareOAuthClient.exchange`.
 public struct CloudflareOAuthRequest: Sendable {
+    /// The URL the caller presents in the browser session (`ASWebAuthenticationSession`) — the
+    /// only part of this value callers consume directly; the rest stays internal until the
+    /// callback comes back through `CloudflareOAuthClient`.
     public let authorizeURL: URL
     let state: String
     let codeVerifier: String
@@ -76,6 +94,9 @@ public struct CloudflareOAuthRequest: Sendable {
 /// or any UI, the same separation `TokenOnboarding` keeps from SwiftUI. Mirrors
 /// `CloudflareAPITokenVerifier`'s injected-`Transport` seam for the same reason.
 public struct CloudflareOAuthClient: Sendable {
+    /// One HTTP round trip. Injected so tests can drive discovery, callback, and exchange
+    /// handling without network — the same seam ``CloudflareAPITokenVerifier/Transport`` exists
+    /// for. Throws on connection failure.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     private let clientID: String
@@ -84,6 +105,9 @@ public struct CloudflareOAuthClient: Sendable {
     private let discoveryURL: URL
     private let transport: Transport
 
+    /// Creates a client. Everything except `scope` defaults to the registered Anglesite client
+    /// (``CloudflareOAuthConfiguration``) and the production transport; override for tests.
+    ///
     /// - scope: a Cloudflare OAuth scope name (== an API token permission-group name, e.g. the
     ///   dashboard's "User Details" Read). No default — the exact literal must come from the
     ///   registered client's available scopes (design doc §5's open item), not a guess baked in here.

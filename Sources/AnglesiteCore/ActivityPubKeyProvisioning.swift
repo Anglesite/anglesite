@@ -9,15 +9,32 @@ import Security
 /// first time a caller asks — never regenerated, since rotating the signing key breaks
 /// federation trust with existing followers (#363 design doc, "Keypair generation & storage").
 public enum ActivityPubKeyProvisioning {
+    /// The per-site secret bundle handed to Worker provisioning as deploy-time secrets. Stable
+    /// across calls for a given site — see the type doc's never-regenerate rationale.
     public struct Secrets: Sendable, Equatable {
+        /// PKCS#8 PEM — the WebCrypto-importable private-key format `@dwk/activitypub`
+        /// requires (Security framework's native PKCS#1 export won't import there).
         public let privateKeyPem: String
+        /// SPKI PEM. Re-derived from the private key on every call rather than persisted — one
+        /// less stored secret that could drift out of sync with its private half.
         public let publicKeyPem: String
+        /// Random 256-bit base64url bearer token authorizing publish/fan-out POSTs to the
+        /// site's own Worker (e.g. the outbox backfill's `Authorization` header).
         public let publishToken: String
     }
 
+    /// Why secret generation or key-format conversion failed. These surface in deploy logs;
+    /// the associated strings carry the underlying Security-framework description where one
+    /// exists.
     public enum Error: Swift.Error {
+        /// `SecKeyCreateRandomKey`/`SecRandomCopyBytes` failed — no key material was produced.
         case keyGenerationFailed(String)
+        /// Converting between key representations failed (Security-framework export/import, or
+        /// the PEM/DER wrapping done in this file).
         case exportFailed(String)
+        /// No Security framework on this platform. The portable (non-Darwin) targets compile
+        /// this type but can't provision secrets — they throw at runtime instead of failing to
+        /// build (see the note on `generatePrivateKeyPem`).
         case unsupportedPlatform
     }
 

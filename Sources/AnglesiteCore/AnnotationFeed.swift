@@ -11,15 +11,32 @@ import Foundation
 /// chat messages"): there is no standalone sticky-note UI in the app to remove; the chat panel
 /// is the only surface that displays annotations.
 public struct Annotation: Sendable, Equatable, Identifiable, Codable {
+    /// Store-assigned identifier (an 8-character nanoid — see ``AnnotationStore``); the handle
+    /// `resolve_annotation` takes, so it must survive round-trips unchanged.
     public let id: String
+    /// The page route the note was pinned on, used to scope `list_annotations` to the page the
+    /// owner is looking at.
     public let path: String
+    /// CSS selector of the pinned element, so the overlay can re-highlight the note's target on
+    /// a later visit.
     public let selector: String
+    /// The component source file the overlay resolved for the element, when it could — lets a
+    /// fix land in the owning component rather than being hunted down from the rendered page.
+    /// `nil` when resolution failed; the note is still useful without it.
     public let sourceFile: String?
+    /// The owner's note, verbatim.
     public let text: String
+    /// Whether the note has been addressed. Resolved annotations stay in the file (for history)
+    /// but are filtered out of every listing.
     public let resolved: Bool
+    /// When the note was created.
     public let createdAt: Date
+    /// When the note was resolved; `nil` while it's still open.
     public let resolvedAt: Date?
 
+    /// Memberwise initializer mirroring the JSON shape. The defaults (`sourceFile`/`resolvedAt`
+    /// as `nil`) match the fields the plugin omits rather than nulls, so fixtures read like the
+    /// file does.
     public init(
         id: String,
         path: String,

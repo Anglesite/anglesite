@@ -11,8 +11,14 @@ import Foundation
 /// has no tool-permission UI (see the ACP agent settings design spec §4.4/§5), so an agent that
 /// attempts a tool call during the proof-of-concept turn is told "no" rather than left hanging.
 public actor ACPClient {
+    /// Protocol-level failures. These surface to `ACPAssistant` as thrown errors during setup
+    /// calls, or in-band as `.failed(message:)` events mid-turn.
     public enum ACPError: Error, Sendable, Equatable {
+        /// The server answered, but the payload was missing a required field (e.g. `session/new`
+        /// without a `sessionId`). Carries a short description of what was expected.
         case invalidResponse(String)
+        /// The server returned a JSON-RPC error object for a request; `code`/`message` come
+        /// straight off the wire.
         case rpcError(code: Int, message: String)
         /// A call was made after `stop()` (or before the client has ever started). Mirrors
         /// `MCPClient.MCPError.notInitialized` — fail fast instead of registering a pending
@@ -41,6 +47,8 @@ public actor ACPClient {
     /// defaults (10s / 10s / 120s). Not `public` — reachable only via `@testable import`.
     private var requestTimeoutOverrideForTesting: TimeInterval?
 
+    /// Creates a client over `transport`. Nothing is opened or sent until ``initialize()`` —
+    /// construction stays cheap and non-blocking, matching `ACPAssistant`'s lazy-connect design.
     public init(transport: any ACPTransport) {
         self.transport = transport
     }
@@ -50,6 +58,10 @@ public actor ACPClient {
         requestTimeoutOverrideForTesting = timeout
     }
 
+    /// Opens the transport, starts the inbound reader task, and performs the ACP `initialize`
+    /// handshake (10s timeout). Declares the `fs` read/write capabilities as unavailable —
+    /// this slice implements no filesystem request handlers, so advertising them would leave a
+    /// conformant agent's `fs/*` requests hanging.
     public func initialize() async throws {
         try await transport.open()
         readerTask = Task { [weak self] in
@@ -63,6 +75,9 @@ public actor ACPClient {
         _ = try await sendRequest(method: "initialize", params: params, timeout: requestTimeoutOverrideForTesting ?? 10)
     }
 
+    /// Creates a new ACP session rooted at `cwd` and returns its server-assigned id. Passes an
+    /// empty `mcpServers` list — wiring the site's MCP sidecar into agent sessions is out of
+    /// this proof-of-concept's scope (see the type doc).
     public func newSession(cwd: String) async throws -> String {
         let result = try await sendRequest(
             method: "session/new",
@@ -108,6 +123,10 @@ public actor ACPClient {
         return stream
     }
 
+    /// Sends the `session/cancel` notification for the in-flight turn. Best-effort by design
+    /// (`try?`): cancellation carries no response to wait on, and the turn's own
+    /// `session/prompt` request resolves its stream either way — a failed cancel just means the
+    /// agent finishes the turn it was asked to abandon.
     public func cancelSession(sessionID: String) async {
         try? await sendNotification(
             method: "session/cancel",
@@ -116,6 +135,11 @@ public actor ACPClient {
         )
     }
 
+    /// Tears the client down: cancels the reader task, closes the transport (for a `.stdio`
+    /// agent, terminating the in-container guest process — see `ACPAssistant`'s `deinit` note
+    /// on the leak this prevents), and fails/finishes everything in flight so no caller is left
+    /// awaiting a response that can never arrive. Terminal — later sends throw
+    /// `ACPError.stopped`; there is no restart.
     public func stop() async {
         isStopped = true
         readerTask?.cancel()

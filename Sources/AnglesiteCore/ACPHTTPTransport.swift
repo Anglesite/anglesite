@@ -16,8 +16,13 @@ import FoundationNetworking
 /// `ACPClient.consumeInbound` already routes each yielded message correctly regardless of order —
 /// a notification (no "id") to `routeSessionUpdate`, a response (has "id") to `resolvePending`.
 public actor ACPHTTPTransport: ACPTransport {
+    /// Transport-level failures for one POST exchange.
     public enum HTTPError: Error, Sendable, Equatable {
+        /// The endpoint answered with a non-2xx status. Only the status is kept — an error body
+        /// from a remote agent isn't protocol traffic, so it isn't retained or decoded.
         case http(status: Int)
+        /// The response wasn't HTTP at all, or a bounded `application/json` body failed to
+        /// decode as JSON.
         case badResponse
         /// A single SSE line (the accumulated `data:` payload since the last event boundary)
         /// exceeded `maxLineBytes` without a terminating blank line — guards against unbounded
@@ -35,6 +40,15 @@ public actor ACPHTTPTransport: ACPTransport {
     private let stream: AsyncStream<JSONValue>
     private let continuation: AsyncStream<JSONValue>.Continuation
 
+    /// Creates the transport. `bearerToken`, when present, is sent as an
+    /// `Authorization: Bearer` header on **every** POST — there is no persistent connection to
+    /// authenticate once, so each request must carry its own credentials.
+    ///
+    /// - Parameters:
+    ///   - endpoint: the remote agent's HTTP endpoint; every request POSTs here.
+    ///   - bearerToken: per-request credential (see above); `nil` sends unauthenticated requests.
+    ///   - urlSession: injectable so tests can substitute a `URLProtocol`-backed
+    ///     session; defaults to `.shared`.
     public init(endpoint: URL, bearerToken: SessionToken? = nil, urlSession: URLSession = .shared) {
         self.endpoint = endpoint
         self.bearerToken = bearerToken
@@ -42,8 +56,17 @@ public actor ACPHTTPTransport: ACPTransport {
         (self.stream, self.continuation) = AsyncStream<JSONValue>.makeStream(bufferingPolicy: .unbounded)
     }
 
+    /// No-op: no persistent connection; the first send does the work.
     public func open() async throws { /* no persistent connection; first send does the work */ }
 
+    /// POSTs one JSON-RPC message and yields whatever comes back onto ``inbound()``.
+    ///
+    /// An SSE response is read incrementally and this call returns as soon as the response
+    /// matching the outgoing request's id arrives (see the type doc for why "stream ended" is
+    /// not a safe termination signal); a notification POST (no id) reads until the stream ends.
+    /// The read loops cooperatively check `Task.isCancelled` so `ACPClient`'s timeout
+    /// cancellation actually tears the connection down rather than abandoning it — see
+    /// `ACPClient.sendRequest`'s doc comment.
     public func send(_ message: JSONValue) async throws {
         // The id of the outgoing request, if any (absent for notifications). Used below to stop
         // reading the SSE stream as soon as the matching response arrives, rather than waiting for
@@ -200,8 +223,16 @@ public actor ACPHTTPTransport: ACPTransport {
         return obj["result"] != nil || obj["error"] != nil
     }
 
+    /// Messages decoded from every ``send(_:)``'s response — final responses and any
+    /// `session/update` notifications the server pushed on an SSE stream, in arrival order.
+    /// One shared stream across sends; `ACPClient.consumeInbound` routes each message by the
+    /// presence/value of its id. `nonisolated` (the stream is created at init and never
+    /// reassigned) so the consumer can attach without an actor hop.
     public nonisolated func inbound() -> AsyncStream<JSONValue> { stream }
 
+    /// Finishes the inbound stream so the consumer's loop ends. There is no connection to tear
+    /// down — an in-flight ``send(_:)`` is bounded by its caller's timeout/cancellation, not by
+    /// `close`.
     public func close() async { continuation.finish() }
 
     private func decode(_ payload: String) -> JSONValue? {

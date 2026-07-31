@@ -32,11 +32,14 @@ import FoundationNetworking
 
 /// The `OrderedCollection` head of the followers collection.
 public struct FollowersCollection: Sendable, Equatable {
+    /// The server-reported follower count — what the pane displays without fetching a single
+    /// page. Paging itself follows `next` links and never counts against this.
     public let totalItems: Int
     /// `nil` when `totalItems == 0` — `@dwk/activitypub` omits `first` entirely for an empty
     /// collection, which is how the genuine empty state is detected without a second request.
     public let firstPage: URL?
 
+    /// Memberwise init, public so tests can build fixture heads without a decoder round trip.
     public init(totalItems: Int, firstPage: URL?) {
         self.totalItems = totalItems
         self.firstPage = firstPage
@@ -45,21 +48,29 @@ public struct FollowersCollection: Sendable, Equatable {
 
 /// One `OrderedCollectionPage` of follower actor IRIs, newest follower first.
 public struct FollowersPage: Sendable, Equatable {
+    /// Follower actor IRIs on this page, in the server's newest-first order (preserved, not
+    /// re-sorted — the client has nothing better to sort by than the server's own recency).
     public let items: [URL]
     /// `nil` on the last page. Paging follows this link rather than counting against
     /// `totalItems`, so the client never needs to know the server's page size.
     public let next: URL?
 
+    /// Memberwise init, public so tests can build fixture pages without a decoder round trip.
     public init(items: [URL], next: URL?) {
         self.items = items
         self.next = next
     }
 }
 
+/// Failures reading the followers collection, shaped so the Fediverse pane can render them
+/// directly — which is why bodies are pre-truncated (see
+/// `ActivityPubFollowersClient.maximumErrorBodyCharacters`) rather than passed through raw.
 public enum ActivityPubFollowersError: Error, Equatable, Sendable {
     /// Non-2xx, or a transport failure (`status: 0`). `503` means ActivityPub isn't provisioned
     /// for this site; `404` means the Worker isn't deployed. The pane distinguishes them.
     case requestFailed(status: Int, body: String)
+    /// 2xx, but the body didn't decode as the expected AS2 shape. Carries the decoder's own
+    /// description — diagnostic text for the Debug pane, not owner-facing copy.
     case decodingFailed(String)
 }
 
@@ -70,6 +81,8 @@ public enum ActivityPubFollowersError: Error, Equatable, Sendable {
 /// is served unauthenticated straight from the actor's Durable Object, so there is no bearer
 /// token, no DPoP proof, and no nonce retry here.
 public struct ActivityPubFollowersClient: Sendable {
+    /// Injectable network seam: takes the fully-formed request, returns body + response. Tests
+    /// substitute a canned closure; production uses ``defaultTransport``.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     /// The `Accept` AS2 requires; Fediverse servers content-negotiate on it and will serve HTML
@@ -86,6 +99,14 @@ public struct ActivityPubFollowersClient: Sendable {
     private let followersURL: URL
     private let transport: Transport
 
+    /// Creates a client for one site's collection.
+    ///
+    /// - Parameters:
+    ///   - siteURL: the site's public origin. The followers URL is derived through
+    ///     `ActivityPubActor`, so callers never construct (and can never mistype) collection URLs
+    ///     themselves.
+    ///   - transport: injectable for tests; defaults to ``defaultTransport``, the capped
+    ///     HTTPS-enforcing production path.
     public init(
         siteURL: URL,
         transport: @escaping Transport = ActivityPubFollowersClient.defaultTransport

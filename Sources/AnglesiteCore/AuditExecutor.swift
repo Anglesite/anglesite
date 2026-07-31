@@ -19,9 +19,13 @@ public enum AuditStep: Sendable {
 ///   reason text for pre-spawn refusals. Also streamed line-by-line to `LogCenter` under the
 ///   caller-supplied source during execution.
 public struct AuditStepResult: Sendable, Equatable {
+    /// `nil` distinguishes "never ran / was killed" from "ran and exited" — callers branch on
+    /// that before ever comparing against zero.
     public let exitCode: Int32?
+    /// Captured stdout (or the refusal reason when `exitCode` is `nil`); see the type doc.
     public let output: String
 
+    /// Memberwise; public so executor fakes in tests can fabricate step results directly.
     public init(exitCode: Int32?, output: String) {
         self.exitCode = exitCode
         self.output = output
@@ -34,6 +38,9 @@ public struct AuditStepResult: Sendable, Equatable {
 /// of `DeployExecutor` — `HostAuditExecutor` fails explicitly after host Node retirement (#70);
 /// `ContainerAuditExecutor` runs inside a live container once one is available.
 public protocol AuditExecutor: Sendable {
+    /// Runs one step to completion, streaming its output to `LogCenter` under `source` as it
+    /// goes ("logs are sacred"). Non-throwing by design: every failure mode is encoded in
+    /// ``AuditStepResult`` so ``AuditCommand`` has exactly one result shape to interpret.
     func run(step: AuditStep, siteDirectory: URL, source: String) async -> AuditStepResult
 }
 
@@ -48,6 +55,8 @@ public struct ContainerAuditExecutor: AuditExecutor {
     private let siteID: String
     private let logCenter: LogCenter
 
+    /// Bound to one already-running container (`control` + `siteID`) at construction — the
+    /// executor doesn't boot containers, it only execs into the one the open site owns.
     public init(
         control: any LocalContainerControl,
         siteID: String,
@@ -58,6 +67,10 @@ public struct ContainerAuditExecutor: AuditExecutor {
         self.logCenter = logCenter
     }
 
+    /// Execs the step's argv in the guest at `/workspace/site` (the container's clone of the
+    /// site — `siteDirectory` is unused here since the guest works on its own copy). Errors are
+    /// folded into the result: cancellation and exec failures come back as a `nil` exit code
+    /// with an actionable message, per the ``AuditExecutor`` contract.
     public func run(step: AuditStep, siteDirectory: URL, source: String) async -> AuditStepResult {
         let argv = Self.guestArgv(for: step)
         // Stream guest output to LogCenter LIVE — see `ContainerDeployExecutor.run` for the full
@@ -132,6 +145,9 @@ public struct HostAuditExecutor: AuditExecutor {
     private let logCenter: LogCenter
     private let resolveCommand: @Sendable (AuditStep) -> AuditCommand.CommandResolver
 
+    /// `resolveCommand` is the only way to make this executor actually spawn anything — the
+    /// default refuses every step (see ``defaultResolver``), so only a caller that explicitly
+    /// injects a resolver (tests, mainly) gets host processes.
     public init(
         supervisor: ProcessSupervisor = .shared,
         logCenter: LogCenter = .shared,
@@ -143,6 +159,9 @@ public struct HostAuditExecutor: AuditExecutor {
         self.resolveCommand = resolveCommand
     }
 
+    /// Resolves the step to a ``AuditCommand/LaunchPlan`` and either spawns it under
+    /// `ProcessSupervisor` (streaming to `LogCenter`, terminated on task cancellation) or
+    /// returns the plan's refusal reason as a `nil`-exit-code result.
     public func run(step: AuditStep, siteDirectory: URL, source: String) async -> AuditStepResult {
         let resolver = resolveCommand(step)
         let plan = resolver(siteDirectory)
@@ -196,6 +215,9 @@ public struct HostAuditExecutor: AuditExecutor {
         }
     }
 
+    /// Maps each step to its `AuditCommand.resolve*Command` refusal — the single place the
+    /// "host Node is retired" (#70) policy is applied for audits, so no step can quietly grow a
+    /// host-spawning default again.
     public static let defaultResolver: @Sendable (AuditStep) -> AuditCommand.CommandResolver = { step in
         switch step {
         case .build:

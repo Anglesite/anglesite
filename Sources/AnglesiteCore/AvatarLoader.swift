@@ -3,10 +3,16 @@ import Foundation
 import FoundationNetworking
 #endif
 
+/// Why an avatar fetch was refused. Every case is a *guard* firing, not a bug — avatar URLs are
+/// attacker-chosen (see ``AvatarLoader``), so callers treat any of these as "show the placeholder"
+/// rather than something to surface or retry.
 public enum AvatarLoadError: Error, Equatable, Sendable {
     /// The avatar URL, or the URL a redirect actually landed on, wasn't `https`.
     case insecureURL
+    /// The transfer exceeded ``AvatarLoader/maximumResponseBytes`` — aborted mid-stream by the
+    /// default transport, so a hostile instance can't even make the app finish the download.
     case responseTooLarge(Int)
+    /// A non-2xx response.
     case requestFailed(status: Int)
 }
 
@@ -24,6 +30,9 @@ public enum AvatarLoadError: Error, Equatable, Sendable {
 /// MainActor and against a pixel-dimension bound. There is no cache here — the profile cache
 /// stores only the URL by design, and an in-memory per-row load is the intended cost.
 public struct AvatarLoader: Sendable {
+    /// Fetch seam so tests can serve canned bytes without a network. Note the injected transport
+    /// is still held to the byte cap after the fact — only the default transport can abort
+    /// mid-stream.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     /// 2 MB. Comfortably above a real Fediverse avatar (Mastodon caps uploads well below this)
@@ -44,11 +53,18 @@ public struct AvatarLoader: Sendable {
     private let transport: Transport
     private let gate: ConcurrencyGate
 
+    /// Each `init` creates its own concurrency gate, so the ``maxConcurrentLoads`` bound is
+    /// per-instance: share one loader per pane (as `FollowersModel` does) rather than
+    /// constructing one per row, or the bound stops bounding anything.
     public init(transport: @escaping Transport = AvatarLoader.defaultTransport) {
         self.transport = transport
         self.gate = ConcurrencyGate(limit: Self.maxConcurrentLoads)
     }
 
+    /// Fetches the avatar bytes under the full guard set — HTTPS (including post-redirect),
+    /// byte cap, deadlines, and the shared concurrency gate (so a fast scroll queues loads
+    /// instead of fanning them all out at once). Throws ``AvatarLoadError`` for guard
+    /// violations; transport errors propagate as-is.
     public func data(for url: URL) async throws -> Data {
         // The one expression of the HTTPS rule, shared with the actor-document fetch.
         guard ActorProfileFetcher.isHTTPS(url) else { throw AvatarLoadError.insecureURL }

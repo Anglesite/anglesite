@@ -16,6 +16,8 @@ public struct CloudflareCapabilityProber: Sendable {
     private let baseURL: URL
     private let transport: CloudflareTransport
 
+    /// Creates a prober. Both parameters exist for tests — `baseURL` points at a stub server,
+    /// `transport` fakes the HTTP layer entirely; production callers take the defaults.
     public init(
         baseURL: URL = URL(string: "https://api.cloudflare.com/client/v4")!,
         transport: @escaping CloudflareTransport = HTTPCloudflareClient.defaultTransport
@@ -24,6 +26,11 @@ public struct CloudflareCapabilityProber: Sendable {
         self.transport = transport
     }
 
+    /// Probes each known capability with one authenticated GET and returns the set that answered
+    /// with anything other than 401/403. Account-scoped probes are skipped entirely when the
+    /// token can't list an account, and zone-scoped probes when `zoneID` is `nil` — so absence
+    /// from the result means "not proven", not necessarily "denied"; gate optimistically-missing
+    /// capabilities by re-probing once the zone is known rather than caching this as final.
     public func probe(token: String, zoneID: String?) async -> TokenCapabilities {
         var caps = TokenCapabilities()
 

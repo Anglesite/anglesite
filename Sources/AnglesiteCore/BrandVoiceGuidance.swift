@@ -43,6 +43,9 @@ public enum BrandVoiceGuidance {
 /// Reads `BUSINESS_TYPE` from the site's `Source/.site-config`, the same key the markdown
 /// skills used. `nil` when the file or key is absent.
 public enum SiteBusinessType {
+    /// Reads `BUSINESS_TYPE` fresh from disk on every call — the file is tiny and callers only
+    /// ask at prompt-build time, so caching would just risk staleness after an external edit
+    /// (`.site-config` lives in `Source/`, which the owner can edit outside the app).
     public static func read(sourceDirectory: URL) -> String? {
         let url = sourceDirectory.appendingPathComponent(".site-config")
         guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return nil }
@@ -52,6 +55,10 @@ public enum SiteBusinessType {
 
 /// Reads display values from `Source/.site-config`, falling back sensibly.
 public enum SiteConfigValues {
+    /// The site's display name: `SITE_NAME` from `.site-config` when present and non-empty,
+    /// otherwise the source directory's own name — a plain checkout with no config still gets a
+    /// usable label. `nil` only when even the directory name is empty, so callers can supply
+    /// their own placeholder for that degenerate case.
     public static func siteName(sourceDirectory: URL) -> String? {
         let url = sourceDirectory.appendingPathComponent(".site-config")
         if let contents = try? String(contentsOf: url, encoding: .utf8),

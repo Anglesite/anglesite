@@ -7,6 +7,8 @@ import Foundation
 /// the site's git repo (#242). Follows `POSSESyndicationLog`'s shape: an envelope-wrapped JSON
 /// file, ISO-8601 dates, atomic write, and `nil` rather than a throw on a corrupt file.
 public struct ActorProfileCache: Equatable, Sendable {
+    /// The cache's filename inside `Config/`. Namespaced with an `activitypub-` prefix because
+    /// `Config/` is a flat directory shared by every app-owned per-site store.
     public static let filename = "activitypub-follower-profiles.json"
 
     /// Seven days. Display names and avatars change rarely, so a few days of staleness costs
@@ -18,6 +20,8 @@ public struct ActorProfileCache: Equatable, Sendable {
     /// normalizations to key on directly.
     private var profiles: [String: ActorProfile]
 
+    /// Builds a cache from a flat profile list (the persisted envelope's shape). When two entries
+    /// share an actor IRI the later one wins — last write is the freshest.
     public init(profiles: [ActorProfile] = []) {
         self.profiles = profiles.reduce(into: [:]) { $0[$1.actor.absoluteString] = $1 }
     }
@@ -29,12 +33,17 @@ public struct ActorProfileCache: Equatable, Sendable {
         return cached
     }
 
+    /// Stores (or replaces) the entry for the profile's actor. Expiry is applied on read and on
+    /// save, never here — storing a fresh fetch must always win over whatever it replaces.
     public mutating func store(_ profile: ActorProfile) {
         profiles[profile.actor.absoluteString] = profile
     }
 
     private struct Envelope: Codable { let profiles: [ActorProfile] }
 
+    /// Loads the cache from `configDirectory`, or `nil` when the file is missing or corrupt —
+    /// a bad cache costs only re-fetches, so it's discarded silently rather than surfaced as an
+    /// error the owner can't act on.
     public static func load(from configDirectory: URL) -> ActorProfileCache? {
         guard let data = try? Data(contentsOf: configDirectory.appendingPathComponent(filename))
         else { return nil }

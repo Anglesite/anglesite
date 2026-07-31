@@ -14,7 +14,11 @@ public struct ApplyEditTool: Tool, Sendable {
     /// The tool's stable name. Exposed statically so callers (e.g. `FoundationModelAssistant`'s
     /// `.started` event) can report the attached tools without constructing an instance.
     public static let toolName = "applyEdit"
+    /// `Tool` conformance — always ``toolName``, kept as an instance property only because the
+    /// protocol requires one.
     public let name = ApplyEditTool.toolName
+    /// `Tool` conformance: the prompt-visible description the on-device model reads to decide
+    /// when (and how) to invoke this tool — instructions to the model, not UI copy.
     public let description = "Apply a structured text, attribute, or image edit to a specific element in a page's source file. Provide the source file path, an element selector (or a simple tag like h1), the operation kind, and the replacement value."
 
     private let bridge: IntentEditBridge
@@ -24,12 +28,20 @@ public struct ApplyEditTool: Tool, Sendable {
     /// selector because it's a real, resolved selector rather than a guess.
     private let contextSelector: JSONValue?
 
+    /// A tool instance is scoped to one site and one selection snapshot: pass the overlay's
+    /// resolved `ElementInfo` as `contextSelector` (or `nil` when nothing is selected) at
+    /// construction, since FoundationModels tools can't receive per-call context beyond the
+    /// model-generated arguments.
     public init(bridge: IntentEditBridge, siteID: String, contextSelector: JSONValue?) {
         self.bridge = bridge
         self.siteID = siteID
         self.contextSelector = contextSelector
     }
 
+    /// `Tool` conformance. Never throws in practice: every outcome — applied, ambiguous
+    /// selector, unresolvable selector, bridge failure — is returned as a sentence for the model
+    /// to relay or act on, because a thrown error would end the model's turn instead of letting
+    /// it recover (e.g. by asking the user to select an element).
     public func call(arguments: GeneratedEditCommand) async throws -> String {
         guard let selector = resolveSelector(arguments.selector) else {
             return "Couldn't identify which element to edit — select one in the preview, or name a simple tag like h1."

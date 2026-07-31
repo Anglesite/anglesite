@@ -10,6 +10,8 @@ import Foundation
 /// rest, so the flow degrades rather than breaks (verified pre-fill behavior last on 2026-06-16 for
 /// the original five groups).
 public enum AnglesiteTokenTemplate {
+    /// The token's display name, pre-filled into the dashboard form so the owner can recognize —
+    /// and later audit or revoke — the app's token among any others on their account.
     public static let tokenName = "Anglesite"
 
     /// Dashboard permission-group keys with their access level. Order is display order.
@@ -42,6 +44,11 @@ public enum AnglesiteTokenTemplate {
         ("registrar", "edit"),
     ]
 
+    /// The dashboard deep link that pre-fills the whole template: name, all accounts/zones (the
+    /// one token must cover every site the owner deploys), and ``permissionGroups`` encoded as a
+    /// JSON array in a query param. Built with `URLComponents` so that JSON payload is
+    /// percent-escaped rather than hand-assembled. See the type-level note for what happens if
+    /// Cloudflare stops honoring these undocumented params.
     public static var createTokenURL: URL {
         let permissions = "[" + permissionGroups
             .map { #"{"key":"\#($0.key)","type":"\#($0.type)"}"# }

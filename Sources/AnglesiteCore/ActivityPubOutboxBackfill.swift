@@ -16,16 +16,27 @@ import FoundationNetworking
 /// adjust here if the accepted shape differs before this is wired live (design doc §3, Task 6's
 /// blocking note).
 public struct ActivityPubOutboxBackfill: Sendable {
+    /// Injectable network seam: takes the fully-formed request, returns body + response. Tests
+    /// substitute a canned closure; production uses ``defaultTransport``.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
+    /// One entry's result, returned (not just logged) so callers and tests can assert what
+    /// happened without parsing `LogCenter` output.
     public struct Outcome: Equatable, Sendable {
+        /// The entry's canonical page URL — also its identity in `ActivityPubOutboxLedger`.
         public let canonicalURL: String
+        /// True when the outbox returned 2xx — even if the local ledger write then failed
+        /// (see `detail`); acceptance is the server's fact, ledger state is ours.
         public let accepted: Bool
+        /// The failure description, or the ledger-write warning on an otherwise-accepted entry;
+        /// `nil` on full success.
         public let detail: String?
     }
 
     private let transport: Transport
 
+    /// Creates the runner. Everything site-specific arrives per-call in `backfill(...)`, so one
+    /// instance serves any site; `transport` is the only injectable.
     public init(transport: @escaping Transport = ActivityPubOutboxBackfill.defaultTransport) {
         self.transport = transport
     }
@@ -141,6 +152,8 @@ public struct ActivityPubOutboxBackfill: Sendable {
         return json["id"] as? String
     }
 
+    /// Production transport: a plain `URLSession` request (matching
+    /// `ActivityPubFollowersClient.defaultTransport`'s shape).
     public static let defaultTransport: Transport = { request in
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }

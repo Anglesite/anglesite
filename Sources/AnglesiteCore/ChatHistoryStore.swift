@@ -9,9 +9,14 @@ import Foundation
 /// truncate; the file is expected to grow slowly enough that disk pressure isn't a concern
 /// for v0.5. (Bigger sites can `truncate -s 0 Config/chat-history.jsonl` manually.)
 public actor ChatHistoryStore {
+    /// Who (or what) produced an entry. String-backed so the raw values appear verbatim in the
+    /// JSONL, keeping the file filterable by external tools (`jq 'select(.role == "user")'`).
     public enum Role: String, Sendable, Codable, Equatable {
+        /// A message the site owner typed in the chat panel.
         case user
+        /// An assistant reply.
         case assistant
+        /// Output from a tool invocation, surfaced into the transcript.
         case tool
         /// An edit landed on the source — surfaced in chat with an inline Undo button.
         /// Metadata carries `file`, `commit`, `messageID`, and optional `undone`/`undoneNewCommit`
@@ -23,11 +28,19 @@ public actor ChatHistoryStore {
     /// `metadata` carries optional extras (toolUseID, isError, model, etc.) without bloating
     /// the top-level fields.
     public struct Entry: Sendable, Codable, Equatable {
+        /// When the entry was recorded. Encoded as ISO-8601 (see the store's encoder), so the
+        /// file stays sortable and greppable as plain text.
         public let timestamp: Date
+        /// Who produced the entry — drives which bubble/affordance the transcript renders.
         public let role: Role
+        /// The entry's text as shown in the transcript.
         public let content: String
+        /// Optional string-to-string extras (`toolUseID`, `isError`, `model`, edit bookkeeping…).
+        /// Deliberately stringly-typed: new keys never break old readers or old history files.
         public let metadata: [String: String]?
 
+        /// Creates an entry stamped `Date()` by default; pass an explicit `timestamp` only when
+        /// replaying or migrating existing history.
         public init(timestamp: Date = Date(), role: Role, content: String, metadata: [String: String]? = nil) {
             self.timestamp = timestamp
             self.role = role
@@ -36,14 +49,18 @@ public actor ChatHistoryStore {
         }
     }
 
+    /// The backing file's resolved location (`<configDirectory>/chat-history.jsonl`). Public so
+    /// callers and tests can address the file directly — the JSONL is meant to be readable
+    /// outside this store (see the type note).
     public let fileURL: URL
     private let fileManager: FileManager
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
+    /// Creates a store rooted at the site's app-owned `Config/` directory. `Config/` is used
+    /// directly — no nested `.anglesite/`, which was the pre-package layout (P3 import migrates
+    /// old history into `Config/`). `fileManager` is injectable for tests.
     public init(configDirectory: URL, fileManager: FileManager = .default) {
-        // Config/ is already the app-owned per-site dir (no nested .anglesite/ — that was the
-        // pre-package layout; P3 import migrates old history into Config/).
         self.fileURL = configDirectory.appendingPathComponent("chat-history.jsonl")
         self.fileManager = fileManager
         let encoder = JSONEncoder()

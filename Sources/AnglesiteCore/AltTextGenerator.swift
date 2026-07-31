@@ -32,6 +32,12 @@ public struct AltTextGenerator: Sendable {
     private let apply: Applier
     private let log: @Sendable (String) async -> Void
 
+    /// Creates a generator for one site.
+    ///
+    /// `isEnabled` is a closure rather than a captured `Bool` so the owner's setting is re-read
+    /// on every edit — toggling it takes effect immediately without rebuilding the edit pipeline.
+    /// `log` defaults to a no-op because failures here are best-effort by design; production
+    /// passes the debug-pane logger so swallowed errors still leave a trace ("logs are sacred").
     public init(
         siteID: String,
         siteDirectory: URL,

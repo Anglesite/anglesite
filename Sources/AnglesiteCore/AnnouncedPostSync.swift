@@ -40,10 +40,17 @@ public enum AnnouncedPostSync {
         let announcedAt: Date?
     }
 
+    /// Failures from fetching or parsing an outbox collection. `Equatable` so tests can assert
+    /// on the exact failure; ``AnnouncedPostSync/pullAndCommit(outboxURL:siteDirectory:configDirectory:transport:now:)``
+    /// itself swallows these (returning 0) since a transient network error just means "try again
+    /// on the next site-open".
     public enum OutboxError: Error, Equatable, Sendable {
         /// The outbox URL, or the URL a redirect actually landed on, wasn't `https`.
         case insecureURL
+        /// A non-2xx response, a transport error (status 0), or an over-cap response body.
+        /// `body` carries a truncated excerpt for diagnostics, not for parsing.
         case requestFailed(status: Int, body: String)
+        /// The response wasn't the JSON object shape an AS2 collection page must be.
         case decodingFailed(String)
     }
 

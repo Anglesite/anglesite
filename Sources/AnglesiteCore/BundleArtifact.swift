@@ -28,12 +28,18 @@ import SwiftGit2
 /// (see `InProcessGit`'s doc comment and this module's `.serialized` test suites). Each call opens
 /// its own `Repository`/`git_indexer`/`git_packbuilder` handles and shares no state across calls.
 public struct BundleArtifact: SyncArtifact {
+    /// Creates a codec instance. Stateless by design — every operation opens and frees its own
+    /// libgit2 handles (see the type's concurrency note) — so instances are interchangeable and
+    /// free to construct at the call site.
     public init() {}
 
     private static let signatureLine = "# v2 git bundle"
 
     // MARK: - SyncArtifact
 
+    /// Writes the bundle: packs everything reachable from branches + tags + HEAD (the #283 ref
+    /// policy) via `git_packbuilder`, then lands header + pack with an atomic temp-file swap so a
+    /// concurrent reader (e.g. an iCloud upload racing this write) never observes a torn artifact.
     @discardableResult
     public func write(from sourceDirectory: URL, to artifactURL: URL) throws -> [SyncArtifactRef] {
         SwiftGit2Bootstrap.ensureInitialized
@@ -43,10 +49,17 @@ public struct BundleArtifact: SyncArtifact {
         return refs
     }
 
+    /// Header-only read: parses the ref lines up to the terminating blank line without ever
+    /// initializing libgit2 or touching the packfile — so it stays cheap, and works even on an
+    /// artifact whose pack wouldn't `verify`.
     public func refs(of artifactURL: URL) throws -> [SyncArtifactRef] {
         try Self.parseHeader(Self.readData(artifactURL)).refs
     }
 
+    /// Verifies by *actually indexing* the pack (into a throwaway scratch repository) rather than
+    /// re-implementing checksum math — `git_indexer` with `verify` on runs the same
+    /// checksum/delta-resolution path a real import does, so anything this accepts will also
+    /// `fetch`. A pack that indexes zero objects is rejected as `SyncArtifactError.emptyPack`.
     public func verify(artifactURL: URL) throws {
         SwiftGit2Bootstrap.ensureInitialized
         let data = try Self.readData(artifactURL)
@@ -60,6 +73,10 @@ public struct BundleArtifact: SyncArtifact {
         guard stats.indexedObjects > 0 else { throw SyncArtifactError.emptyPack }
     }
 
+    /// Imports the pack into the site repository's object database, then lands the header's refs
+    /// under the protocol's synthetic `refs/remotes/<namespace>/...` namespace. Objects land
+    /// before refs on purpose: a pack that indexes zero objects is refused up front, so refs can
+    /// never be created pointing at history that didn't arrive.
     @discardableResult
     public func fetch(into sourceDirectory: URL, namespace: String, from artifactURL: URL) throws -> [SyncArtifactRef] {
         SwiftGit2Bootstrap.ensureInitialized

@@ -20,6 +20,14 @@ public actor CombinedAugmentedAssistant: ConversationalAssistant {
     private let index: SiteKnowledgeIndex
     private let graphSnapshotProvider: @Sendable () async -> SiteGraphExplorerSnapshot
 
+    /// Wraps `base` with combined graph + content-search enrichment.
+    ///
+    /// - Parameters:
+    ///   - base: The assistant that actually talks to the model; this decorator only rewrites the
+    ///     prompt it forwards.
+    ///   - index: Content-search index queried per turn for the knowledge block.
+    ///   - graphSnapshotProvider: Async closure (not a captured snapshot) so each turn reads the
+    ///     *current* site graph — the graph changes as the user edits.
     public init(
         base: any ConversationalAssistant,
         index: SiteKnowledgeIndex,
@@ -30,10 +38,16 @@ public actor CombinedAugmentedAssistant: ConversationalAssistant {
         self.graphSnapshotProvider = graphSnapshotProvider
     }
 
+    /// Pass-through to `base` — prompt enrichment adds no capability of its own, so advertising
+    /// anything beyond the wrapped backend's surface would mislead routing.
     public nonisolated var capabilities: AssistantCapabilities {
         base.capabilities
     }
 
+    /// Runs both retrievals against the untouched `prompt`, then forwards the enriched prompt to
+    /// `base`. When retrieval found anything, the returned stream is re-wrapped to yield one
+    /// leading `AssistantEvent.citations` event before the base events, so the chat panel can
+    /// show citation chips for the turn; with no hits, the base stream is returned as-is.
     public func converse(prompt: String, context: AssistantContext) async throws -> AsyncStream<AssistantEvent> {
         let (enriched, citations) = await enrichedContext(prompt, context: context)
         let baseStream = try await base.converse(prompt: enriched, context: context)
@@ -50,12 +64,17 @@ public actor CombinedAugmentedAssistant: ConversationalAssistant {
         }
     }
 
+    /// Same enrichment as ``converse(prompt:context:)``, but the citations are discarded — the
+    /// plain-text stream has no event channel to carry them.
     public func generate(prompt: String, context: AssistantContext) async throws -> AsyncThrowingStream<String, Error> {
         let (enriched, _) = await enrichedContext(prompt, context: context)
         return try await base.generate(prompt: enriched, context: context)
     }
 
     #if compiler(>=6.4) && canImport(FoundationModels)
+    /// Enriches the prompt exactly like the streaming paths before delegating the guided
+    /// generation (`Generable`) call to `base` — structured output benefits from the same
+    /// grounding, it just has nowhere to surface citations.
     public func generateStructured<T: Generable & Sendable>(
         prompt: String,
         context: AssistantContext,
@@ -66,10 +85,14 @@ public actor CombinedAugmentedAssistant: ConversationalAssistant {
     }
     #endif
 
+    /// Forwards to `base` — the decorator holds no in-flight work of its own to cancel (its
+    /// retrieval awaits complete before the base call starts).
     public func cancel() async {
         await base.cancel()
     }
 
+    /// Forwards to `base`; enrichment is stateless per turn, so only the wrapped backend has
+    /// session state to reset.
     public func resetSession() async {
         await base.resetSession()
     }
