@@ -8,13 +8,20 @@ import Testing
 struct PlistEditorModelMTAStsTests {
     actor RecordingDNS: DomainOperationsService {
         var added: [(type: String, name: String, content: String)] = []
-
+        var addedPurposes: [String?] = []
         func listRecords(domain: String) async -> Result<[DNSRecord], DomainOperationError> { .success([]) }
-        func addRecord(domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?) async -> Result<Void, DomainOperationError> {
+        func addRecord(
+            domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?,
+            purpose: String?, sourceDirectory: URL?
+        ) async -> Result<Void, DomainOperationError> {
             added.append((type, name, content))
+            addedPurposes.append(purpose)
             return .success(())
         }
-        func deleteRecord(domain: String, recordID: String) async -> Result<Void, DomainOperationError> { .success(()) }
+        func deleteRecord(
+            domain: String, recordID: String, type: String?, name: String?, content: String?,
+            sourceDirectory: URL?
+        ) async -> Result<Void, DomainOperationError> { .success(()) }
     }
     private static let emptyPlist = """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -66,5 +73,6 @@ struct PlistEditorModelMTAStsTests {
         #expect(added[1].type == "TXT")
         #expect(added[1].name == "_smtp._tls.example.com")
         #expect(added[1].content == "v=TLSRPTv1; rua=mailto:reports@example.com")
+        #expect(await dns.addedPurposes.allSatisfy { $0 == "email:mta-sts" })
     }
 }
