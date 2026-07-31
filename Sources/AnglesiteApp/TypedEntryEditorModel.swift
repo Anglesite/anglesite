@@ -260,11 +260,17 @@ final class TypedEntryEditorModel: InspectorEditorModel {
         _ = await gitCommit(sourceDirectory, RobotsConfigFile.relativePath, "anglesite: update robots-config.json")
     }
 
+    /// `hasPrefix` alone is a string check, not a path check: `notes-archive/foo.md` shares
+    /// `notes` as a string prefix with a `notes` collection root, so a bare `hasPrefix(r)` would
+    /// treat a sibling directory as nested inside `root` and hand back a mangled id (#1093
+    /// review). Normalizing `r` to end in `/` before comparing enforces a real path boundary — the
+    /// prefix must be followed by a separator (or be an exact match) to count.
     private func relativePath(of url: URL, under root: URL) -> String {
         let u = url.standardizedFileURL.path(percentEncoded: false)
-        let r = root.standardizedFileURL.path(percentEncoded: false)
-        if u.hasPrefix(r) { return String(u.dropFirst(r.count)).drop(while: { $0 == "/" }).description }
-        return url.lastPathComponent
+        var r = root.standardizedFileURL.path(percentEncoded: false)
+        if !r.hasSuffix("/") { r += "/" }
+        guard u.hasPrefix(r) else { return url.lastPathComponent }
+        return String(u.dropFirst(r.count)).drop(while: { $0 == "/" }).description
     }
 
 }

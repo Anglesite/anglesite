@@ -30,11 +30,11 @@ export interface RobotsConfig {
  * every field — `{ ...EMPTY_ROBOTS_CONFIG }` — can't push into the arrays it now shares with every
  * other such caller. Reading and spreading still work; only in-place mutation is blocked.
  */
-export const EMPTY_ROBOTS_CONFIG: RobotsConfig = Object.freeze({
-  noindex: Object.freeze([]) as RobotsConfigEntry[],
-  disallow: Object.freeze([]) as RobotsConfigEntry[],
-  extra: Object.freeze([]) as string[],
-});
+const emptyRobotsConfig: RobotsConfig = { noindex: [], disallow: [], extra: [] };
+Object.freeze(emptyRobotsConfig.noindex);
+Object.freeze(emptyRobotsConfig.disallow);
+Object.freeze(emptyRobotsConfig.extra);
+export const EMPTY_ROBOTS_CONFIG: RobotsConfig = Object.freeze(emptyRobotsConfig);
 
 /** Reads and validates the shape loosely — malformed/missing input reads as empty, never throws. */
 export function readRobotsConfig(cwd: string): RobotsConfig {

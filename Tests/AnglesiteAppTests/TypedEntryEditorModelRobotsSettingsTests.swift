@@ -64,6 +64,21 @@ struct TypedEntryEditorModelRobotsSettingsTests {
         #expect(RobotsConfigFile.read(under: dirB).noindex.map(\.source) == [.collection("notes", id: "2025/my-note")])
     }
 
+    /// A `hasPrefix` string check against the collection root (without a `/`-boundary guard) would
+    /// treat `notes-archive/` as nested inside a `notes` collection, since `"notes-archive"` starts
+    /// with the string `"notes"`. That must not happen: an entry that doesn't actually live under
+    /// its descriptor's collection root falls back to its bare basename id rather than a mangled
+    /// `-archive/my-note` id (#1093 review).
+    @Test("save: a sibling directory sharing the collection name as a string prefix doesn't collide")
+    func siblingDirectoryPrefixDoesNotCollide() async throws {
+        let (model, dir) = try makeModel(
+            route: "/notes/my-note/", relativeEntryPath: "src/content/notes-archive/my-note.md")
+        await model.load()
+        model.noindexBinding().wrappedValue = true
+        _ = await model.save()
+        #expect(RobotsConfigFile.read(under: dir).noindex.map(\.source) == [.collection("notes", id: "my-note")])
+    }
+
     @Test("save: disabling a previously-enabled toggle removes its entry")
     func saveRemovesDisabledEntry() async throws {
         let (model, dir) = try makeModel()
