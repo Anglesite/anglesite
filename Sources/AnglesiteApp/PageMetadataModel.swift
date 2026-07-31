@@ -29,6 +29,10 @@ final class PageMetadataModel: InspectorEditorModel {
     private(set) var isSaving = false
     private(set) var loadError: String?
     private(set) var isLoading = false
+    /// The site's default language tag (from `.site-config`'s `LANG` key), shown as the "Use site
+    /// default" label in `LanguagePicker`. Defaults to `"en"` when the file is absent or has no
+    /// `LANG` key, matching `SiteLanguageAsset.parseSettings`'s own default.
+    private(set) var siteDefaultLangTag = "en"
     var conflictDiskContents: String? {
         get { fileSession.conflictDiskContents }
         set { fileSession.conflictDiskContents = newValue }
@@ -68,6 +72,9 @@ final class PageMetadataModel: InspectorEditorModel {
         savedNoindexEnabled = flags.noindex
         disallowCrawlEnabled = flags.disallowCrawl
         savedDisallowCrawlEnabled = flags.disallowCrawl
+        if let config = try? String(contentsOf: sourceDirectory.appendingPathComponent(".site-config"), encoding: .utf8) {
+            siteDefaultLangTag = SiteLanguageAsset.parseSettings(from: config).lang
+        }
     }
 
     @discardableResult
@@ -144,6 +151,10 @@ final class PageMetadataModel: InspectorEditorModel {
     func descriptionBinding() -> Binding<String> {
         Binding(get: { [weak self] in self?.metadata.description ?? "" },
                 set: { [weak self] in self?.metadata.description = $0 })
+    }
+    func langBinding() -> Binding<String> {
+        Binding(get: { [weak self] in self?.metadata.lang ?? "" },
+                set: { [weak self] in self?.metadata.lang = $0 })
     }
     func noindexBinding() -> Binding<Bool> {
         Binding(get: { [weak self] in self?.noindexEnabled ?? false },

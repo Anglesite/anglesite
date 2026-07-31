@@ -7,11 +7,16 @@ public struct PageMetadata: Equatable, Sendable {
     public var title: String
     /// The page's SEO meta description (`description:` frontmatter).
     public var description: String
+    /// A BCP-47 language override for this page. Empty means "inherit the site default" — an
+    /// empty string is written to frontmatter as `lang: ""`, not omitted (matching
+    /// TypedContentEditor's existing behavior for every other field).
+    public var lang: String
     /// Creates the metadata pair. Missing frontmatter values are represented as `""`, not
     /// optionals, so editor UI can bind plain text fields directly.
-    public init(title: String, description: String) {
+    public init(title: String, description: String, lang: String = "") {
         self.title = title
         self.description = description
+        self.lang = lang
     }
 }
 
@@ -24,7 +29,7 @@ public enum PageMetadataEditor {
     /// metadata editor can open any page the navigator lists.
     public static func read(_ contents: String) -> PageMetadata {
         let doc = FrontmatterDocument.parse(contents)
-        return PageMetadata(title: scalar(doc, "title"), description: scalar(doc, "description"))
+        return PageMetadata(title: scalar(doc, "title"), description: scalar(doc, "description"), lang: scalar(doc, "lang"))
     }
 
     /// Returns `contents` with `metadata` written into its frontmatter. Diffs against the
@@ -38,6 +43,7 @@ public enum PageMetadataEditor {
         if metadata.description != current.description {
             doc.set(.string(metadata.description), for: "description")
         }
+        if metadata.lang != current.lang { doc.set(.string(metadata.lang), for: "lang") }
         return doc.serialized()
     }
 
