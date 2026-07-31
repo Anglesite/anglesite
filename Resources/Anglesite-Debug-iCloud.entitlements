@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Opt-in Debug entitlements (#1038): identical to Anglesite-Debug.entitlements plus the
+	     iCloud capability. Apple requires a real provisioning profile for the iCloud entitlement
+	     even under Manual/ad-hoc code signing, so it can't live in the default Debug entitlements
+	     (that file must stay buildable with no Apple Developer account — see README.md /
+	     CONTRIBUTING.md). Contributors who have a real Team and want to exercise the iCloud
+	     Drive storage path (#865) locally: point ANGLESITE_DEBUG_ENTITLEMENTS at this file from
+	     xcconfig/Signing-Debug.local.xcconfig (see Signing-Debug.local.xcconfig.example). -->
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
 	<key>com.apple.security.network.client</key>
@@ -18,17 +25,17 @@
 	<key>com.apple.security.virtualization</key>
 	<true/>
 
-	<!-- NO iCloud entitlement here (#1038): unlike this file's other capabilities, iCloud
-	     (com.apple.developer.icloud-container-identifiers / -services) requires Apple to issue
-	     a real provisioning profile even under Manual/ad-hoc code signing — Xcode refuses to
-	     build at all ("requires a provisioning profile") once it's present without a Team. This
-	     is the default, CI-safe Debug entitlements file (README.md / CONTRIBUTING.md promise a
-	     clone-and-build with no Apple Developer account), so it must stay without it.
-	     AppSettings.sitesRoot already treats a Debug build with no iCloud entitlement/provisioning
-	     the same as "iCloud unavailable" and falls back to `~/Sites/`. Contributors with a real
-	     Team who want to exercise the iCloud Drive storage path (#865) locally can opt in via
-	     Resources/Anglesite-Debug-iCloud.entitlements — see
-	     xcconfig/Signing-Debug.local.xcconfig.example. -->
+	<!-- iCloud Drive default site storage (#865): the "Anglesite" folder new/imported .anglesite
+	     packages save into by default. Container identifier must match AppSettings.sitesRoot's
+	     ubiquityContainerIdentifier and Info.plist's NSUbiquitousContainers key below. -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.io.dwk.anglesite</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
 
 	<!-- DEBUG-ONLY WORKAROUND for #775 — do not add to Resources/Anglesite.entitlements.
 	     macOS 27 seeds 26A5378n–26A5388g deny sandboxed processes the mach bootstrap

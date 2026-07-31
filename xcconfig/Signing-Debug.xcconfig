@@ -10,4 +10,11 @@ CODE_SIGN_STYLE = Manual
 CODE_SIGN_IDENTITY = -
 DEVELOPMENT_TEAM =
 
+// The Anglesite target's CODE_SIGN_ENTITLEMENTS (Debug config) reads this indirection
+// instead of a literal path in project.yml (#1038), so a local override below can point
+// at Resources/Anglesite-Debug-iCloud.entitlements without editing tracked files. Must
+// stay the no-iCloud file by default: iCloud requires a real provisioning profile even
+// under the ad-hoc signing above, which breaks the no-Apple-account Debug build promise.
+ANGLESITE_DEBUG_ENTITLEMENTS = Resources/Anglesite-Debug.entitlements
+
 #include? "Signing-Debug.local.xcconfig"

@@ -77,8 +77,11 @@ public final class AppSettings: @unchecked Sendable {
     private let ubiquityContainerResolver: UbiquityContainerResolving
 
     /// Must match the `com.apple.developer.icloud-container-identifiers` entry in
-    /// `Resources/Anglesite.entitlements` / `Resources/Anglesite-Debug.entitlements`, and the
-    /// `NSUbiquitousContainers` key in `Resources/Info.plist`.
+    /// `Resources/Anglesite.entitlements` and the `NSUbiquitousContainers` key in
+    /// `Resources/Info.plist`. The default `Resources/Anglesite-Debug.entitlements` deliberately
+    /// omits this entitlement (#1038 — it requires a real provisioning profile, breaking the
+    /// no-Apple-account Debug build); `Resources/Anglesite-Debug-iCloud.entitlements` is the
+    /// opt-in local variant that carries it.
     static let ubiquityContainerIdentifier = "iCloud.io.dwk.anglesite"
 
     private let ubiquityCacheLock = NSLock()

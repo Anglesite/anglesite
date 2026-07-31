@@ -5,3 +5,9 @@
 // Find your Team ID in Xcode: Settings > Accounts > (your Apple ID) > (team) > Team ID.
 CODE_SIGN_STYLE = Automatic
 DEVELOPMENT_TEAM = YOUR_TEAM_ID
+
+// Optional (#1038): only if you also want to exercise the iCloud Drive storage path
+// (#865) in local Debug builds. Requires a real Team above — Apple must issue a
+// provisioning profile for the iCloud capability, which ad-hoc signing can't self-grant.
+// Uncomment to opt in:
+// ANGLESITE_DEBUG_ENTITLEMENTS = Resources/Anglesite-Debug-iCloud.entitlements
