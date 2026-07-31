@@ -120,3 +120,9 @@ a field written by a newer Anglesite version, survives being loaded and re-saved
 The app-side store fails to load a malformed or type-mismatched file with a specific `DecodingError`.
 The template's build-time reader handles parsing and shape mismatches more gracefully: it warns via
 `console.warn` and continues with defaults, so a hand-edit error never breaks a deploy.
+
+There's currently no way for the app to "un-declare" something it previously wrote. A field or
+section the app has declared stays in the file even after a later app action stops setting it —
+the app-side writer only ever adds or overwrites fields it knows about, it never removes one on
+your behalf. If a declaration goes stale (e.g. you stop using a Worker but `workers.active` still
+lists it), removing it requires hand-editing the file.
