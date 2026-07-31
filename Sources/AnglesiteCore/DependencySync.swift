@@ -32,9 +32,7 @@ public struct DependencyAdditionOffer: Sendable, Equatable {
 
 /// The full result of a `DependencySync.diff` call: version bumps for packages
 /// the site already has, and new packages the template has that the site
-/// doesn't. `diff` itself doesn't return this yet (see #1108 Task 2) — this
-/// type exists now so `PackageJSONDependencies.applyAdditions` can consume
-/// `DependencyAdditionOffer` independently.
+/// doesn't.
 public struct DependencySyncOffers: Sendable, Equatable {
     public let updates: [DependencyUpdateOffer]
     public let additions: [DependencyAdditionOffer]
@@ -48,9 +46,12 @@ public struct DependencySyncOffers: Sendable, Equatable {
 }
 
 /// Three-way comparison between a site's dependencies, an optional scaffold-time
-/// baseline snapshot, and the app's current bundled template (spec §3). Only ever
-/// offers a version bump for a package present in both the site and the template —
-/// never adds or removes a package name.
+/// baseline snapshot, and the app's current bundled template (spec §3, #1108).
+/// Offers a version bump for a package present in both the site and the
+/// template, and offers to add a package the template has that the site is
+/// missing (unless the baseline shows the site is known to have had — and so
+/// deliberately removed — that package before). Never offers to remove a
+/// package the template no longer has.
 public enum DependencySync {
     public static func diff(
         site: [String: String],

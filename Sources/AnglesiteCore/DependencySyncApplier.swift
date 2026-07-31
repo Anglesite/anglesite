@@ -37,7 +37,18 @@ public enum DependencySyncApplier {
 
         var newBaseline = DependencyBaseline.load(from: configDirectory) ?? [:]
         for offer in offers.updates { newBaseline[offer.name] = offer.offeredRange }
-        for offer in offers.additions { newBaseline[offer.name] = offer.offeredRange }
+        // Only baseline an addition that actually landed in `updatedText` —
+        // `applyAdditions` silently skips an offer whose target section doesn't
+        // exist in the site's package.json, and baselining it anyway would make
+        // `DependencySync.diff`'s "site is known to have had this before" gate
+        // withhold the offer forever, with no way for the user to ever see or
+        // recover it.
+        if let landedSections = try? PackageJSONDependencies.extractSections(from: updatedText) {
+            for offer in offers.additions
+            where landedSections.dependencies[offer.name] != nil || landedSections.devDependencies[offer.name] != nil {
+                newBaseline[offer.name] = offer.offeredRange
+            }
+        }
         try? DependencyBaseline.save(newBaseline, to: configDirectory)
 
         let siteConfigURL = sourceDirectory.appendingPathComponent(".site-config")

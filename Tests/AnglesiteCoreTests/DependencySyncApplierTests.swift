@@ -66,6 +66,36 @@ import Foundation
         #expect(SiteConfigFile.value(forKey: "ANGLESITE_VERSION", in: siteConfig) == "1.4.0")
     }
 
+    @Test func withholdsTheBaselineForAnAdditionThatDidNotLandBecauseItsSectionIsMissing() throws {
+        // No `devDependencies` key at all -> `PackageJSONDependencies.applyAdditions`
+        // silently drops a `.devDependencies`-targeted offer (Task 1 behavior,
+        // unchanged here). Baselining it anyway would make the next `diff` call
+        // think the site already has it and withhold the offer forever, with no
+        // way for the user to ever see or accept it (#1108 review).
+        let root = tmpDir()
+        let source = root.appendingPathComponent("Source")
+        let config = root.appendingPathComponent("Config")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: config, withIntermediateDirectories: true)
+        try """
+        { "dependencies": { "astro": "^5.0.0" } }
+        """.write(to: source.appendingPathComponent("package.json"), atomically: true, encoding: .utf8)
+        try "ANGLESITE_VERSION=1.2.0\n".write(to: source.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        let offers = DependencySyncOffers(
+            updates: [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")],
+            additions: [DependencyAdditionOffer(name: "html-validate", offeredRange: "^11.6.0", section: .devDependencies)]
+        )
+        try DependencySyncApplier.apply(offers, sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
+
+        let updated = try String(contentsOf: source.appendingPathComponent("package.json"), encoding: .utf8)
+        #expect(!updated.contains("html-validate"))
+
+        let baseline = DependencyBaseline.load(from: config)
+        #expect(baseline?["astro"] == "^6.4.8")
+        #expect(baseline?["html-validate"] == nil)
+    }
+
     @Test func throwsReadFailedWhenPackageJSONIsMissing() throws {
         let root = tmpDir()
         let source = root.appendingPathComponent("Source")
