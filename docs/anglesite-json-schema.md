@@ -7,7 +7,9 @@ site's Astro project, travels with the repo, and is safe to hand-edit — see
 for the full design rationale.
 
 A site with no file, or an empty `{}`, has no declarations — this is the normal state for a
-freshly scaffolded site and every field below is optional. As of this writing (schema version
+freshly scaffolded site. Every top-level section (domain, dns, edge, email, workers) is optional,
+but fields *within* an array item (e.g., a DNS record's `type`/`name`/`content`, or a WAF rule's
+`description`/`expression`/`action`) may be required once that section is present. As of this writing (schema version
 1), nothing in Anglesite reads a decision *from* this file yet, and nothing writes to it either
 — it exists so later slices ([#1170](https://github.com/Anglesite/Anglesite/issues/1170)–[#1173](https://github.com/Anglesite/Anglesite/issues/1173))
 have a place to declare intent into.
@@ -115,5 +117,6 @@ Unknown keys — either a whole section this version of Anglesite doesn't recogn
 field inside a section it does — are preserved when the app rewrites this file. A hand edit, or
 a field written by a newer Anglesite version, survives being loaded and re-saved by an older one.
 
-A file that isn't valid JSON, or whose known fields don't match the types above, fails to load
-with a specific error rather than being silently ignored.
+The app-side store fails to load a malformed or type-mismatched file with a specific `DecodingError`.
+The template's build-time reader handles parsing and shape mismatches more gracefully: it warns via
+`console.warn` and continues with defaults, so a hand-edit error never breaks a deploy.
