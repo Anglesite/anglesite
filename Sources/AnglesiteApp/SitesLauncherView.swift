@@ -421,10 +421,20 @@ struct SitesLauncherView: View {
         let sitesRoot = AppSettings.shared.sitesRoot
 
         #if ANGLESITE_MAS
-        guard let rootScope = await ensureSitesRootAccess(sitesRoot) else { return }  // user cancelled
-        sitesRootScopedURL = rootScope
-        #endif
+        // The app's own iCloud container (the default since #865) needs no security-scoped grant
+        // — the icloud-container-identifiers entitlement itself is the grant. Only a location
+        // outside the sandbox (the `~/Sites/` fallback used when iCloud is unavailable, or an
+        // explicit sitesRootOverride) does. Try the direct write first and only fall back to the
+        // open-panel/bookmark dance when the sandbox actually denies it, instead of prompting
+        // every time regardless of where sitesRoot resolved to.
+        if (try? FileManager.default.createDirectory(at: sitesRoot, withIntermediateDirectories: true)) == nil {
+            guard let rootScope = await ensureSitesRootAccess(sitesRoot) else { return }  // user cancelled
+            sitesRootScopedURL = rootScope
+            try? FileManager.default.createDirectory(at: sitesRoot, withIntermediateDirectories: true)
+        }
+        #else
         try? FileManager.default.createDirectory(at: sitesRoot, withIntermediateDirectories: true)
+        #endif
 
         // Load persisted registry to derive taken slugs; no scan needed (registry = source of truth).
         try? await SiteStore.shared.load()
