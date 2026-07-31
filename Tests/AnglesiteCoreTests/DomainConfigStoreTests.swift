@@ -42,8 +42,11 @@ struct DomainConfigStoreTests {
             workers: .init(active: ["webmention-receive", "micropub"])
         )
         try store.save(config)
-        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("anglesite.json").path))
+        let fileURL = dir.appendingPathComponent("anglesite.json")
+        #expect(FileManager.default.fileExists(atPath: fileURL.path))
         #expect(try store.load() == config)
+        let contents = try String(contentsOf: fileURL, encoding: .utf8)
+        #expect(contents.hasSuffix("\n"), "anglesite.json should end with a trailing newline")
     }
 
     @Test("load throws on malformed JSON")
@@ -100,5 +103,19 @@ struct DomainConfigStoreTests {
         let domain = raw?["domain"] as? [String: Any]
         #expect(domain?["hostname"] as? String == "new.example.com")
         #expect(domain?["futureField"] as? String == "x")
+    }
+
+    @Test("save does not clear a previously-saved field when the new config passes nil for it")
+    func saveDoesNotClearPreviouslySavedField() throws {
+        let dir = try tempSourceDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = DomainConfigStore(sourceDirectory: dir)
+        try store.save(DomainConfig(domain: .init(hostname: "old.example.com", attach: true)))
+
+        try store.save(DomainConfig(domain: .init(hostname: "new.example.com")))
+
+        let reloaded = try store.load()
+        #expect(reloaded.domain?.hostname == "new.example.com")
+        #expect(reloaded.domain?.attach == true, "save() cannot clear a previously-declared field yet — see the doc comment on save(_:)")
     }
 }

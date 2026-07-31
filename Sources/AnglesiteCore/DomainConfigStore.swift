@@ -37,6 +37,17 @@ public struct DomainConfigStore: Sendable {
     /// Pretty-printed and sorted (matching `RedirectsStore`/`RobotsConfigStore`) so re-saving
     /// unchanged content produces a minimal git diff, and atomic so a crash mid-write can never
     /// leave a truncated `anglesite.json` behind.
+    ///
+    /// This merge cannot distinguish "this field is unknown to the current app version" from
+    /// "this field is known but the caller passed `nil` for it" — both look identical to `merge`
+    /// (the key is simply absent from `newFields`), and both leave whatever is already on disk
+    /// for that key untouched. Concretely: saving a `DomainConfig(domain: .init(hostname:
+    /// "new.example.com"))` over a file that already has `"domain":{"hostname":"old.example.com",
+    /// "attach":true}` does *not* clear `attach` — it stays `true`. `save(DomainConfig())` over a
+    /// populated file changes nothing but `version`. So `save(_:)` is not equivalent to erasing
+    /// prior declarations, only to layering new ones on top; there is currently no way to express
+    /// "remove this previously-declared field/section." Real deletion semantics are deferred to
+    /// whichever later slice first needs them (e.g. #1170 or beyond).
     public func save(_ config: DomainConfig) throws {
         let newData = try JSONEncoder().encode(config)
         let newFields = Self.objectFields(fromJSONData: newData)
@@ -51,7 +62,9 @@ public struct DomainConfigStore: Sendable {
             withJSONObject: JSONValue.object(merged).rawValue,
             options: [.prettyPrinted, .sortedKeys]
         )
-        try mergedData.write(to: fileURL, options: .atomic)
+        let mergedString = String(data: mergedData, encoding: .utf8) ?? "{}"
+        let text = mergedString.hasSuffix("\n") ? mergedString : mergedString + "\n"
+        try text.write(to: fileURL, atomically: true, encoding: .utf8)
     }
 
     /// Parses `data` as a JSON object into `JSONValue` fields, or `[:]` for anything that isn't
