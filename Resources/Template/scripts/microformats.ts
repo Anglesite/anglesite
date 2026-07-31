@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
 import { mf2 } from "microformats-parser";
 
@@ -101,6 +101,43 @@ function validateRoots(allRoots: Mf2Item[], label: string): string[] {
   return problems;
 }
 
+/**
+ * Validate the `resume` singleton page (`/resume/`, #964) if it exists in the build output.
+ * Unlike `ENTRY_TYPES`, an `h-resume` root is optional — a site with no `src/data/resume.json`
+ * renders a placeholder page with no `h-resume` markup at all, and that is not a failure (mirrors
+ * the `businessProfile`/`personalProfile` identity h-card, which this script has never required).
+ */
+export function validateResumeHtml(html: string, label: string, baseUrl = BASE_URL): string[] {
+  const roots = findRoots(html, baseUrl).filter((i) => i.type.includes("h-resume"));
+  if (roots.length === 0) return [];
+
+  const problems: string[] = [];
+  if (roots.length > 1) {
+    problems.push(`${label}: expected at most one h-resume root, found ${roots.length}`);
+  }
+
+  const item = roots[0];
+  if (!has(item, "name")) problems.push(`${label}: h-resume missing p-name`);
+  if (!has(item, "summary")) problems.push(`${label}: h-resume missing p-summary`);
+
+  const checkNestedEvents = (propName: "experience" | "education") => {
+    const raw = (item.properties[propName] ?? []) as unknown[];
+    raw.forEach((value, i) => {
+      const entry = value as Mf2Item;
+      if (!entry?.type?.includes("h-event")) {
+        problems.push(`${label}: h-resume ${propName}[${i}] is not a nested h-event`);
+        return;
+      }
+      if (!has(entry, "name")) problems.push(`${label}: h-resume ${propName}[${i}] missing p-name`);
+      if (!has(entry, "start")) problems.push(`${label}: h-resume ${propName}[${i}] missing dt-start`);
+    });
+  };
+  checkNestedEvents("experience");
+  checkNestedEvents("education");
+
+  return problems;
+}
+
 function walkHtml(dir: string): string[] {
   const out: string[] = [];
   let names: string[];
@@ -147,5 +184,11 @@ export function validateDist(distDir: string): string[] {
   for (const t of ENTRY_TYPES) {
     if (!seenAny.has(t)) problems.push(`coverage: no ${t} page found in ${distDir}`);
   }
+
+  const resumePage = join(distDir, "resume", "index.html");
+  if (existsSync(resumePage)) {
+    problems.push(...validateResumeHtml(readFileSync(resumePage, "utf8"), "resume/index.html"));
+  }
+
   return problems;
 }

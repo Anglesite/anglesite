@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateEntryHtml, findRoots } from "./microformats.ts";
+import { validateEntryHtml, validateResumeHtml, findRoots } from "./microformats.ts";
 
 const GOOD_ENTRY = `<!doctype html><html><body>
 <article class="h-entry">
@@ -136,4 +136,59 @@ test("validateEntryHtml: a u-license does not make an otherwise valid entry inva
       <a class="u-license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>
     </article>`;
   assert.deepEqual(validateEntryHtml(html, "notes/hi"), []);
+});
+
+// --- #964 (h-resume) --------------------------------------------------------
+const GOOD_RESUME = `<!doctype html><html><body>
+<article class="h-resume">
+  <h1 class="p-name">Jane Doe</h1>
+  <p class="p-summary">Backend engineer.</p>
+  <ul>
+    <li class="p-experience h-event">
+      <span class="p-name">Senior Engineer</span>
+      <span class="p-org h-card"><span class="p-name">Acme Corp</span></span>
+      <time class="dt-start" datetime="2020-01-01">2020</time>
+      <time class="dt-end" datetime="2024-06-30">2024</time>
+    </li>
+  </ul>
+  <ul>
+    <li class="p-education h-event">
+      <span class="p-name">B.S. Computer Science</span>
+      <time class="dt-start" datetime="2012-09-01">2012</time>
+    </li>
+  </ul>
+  <ul><li class="p-skill">TypeScript</li></ul>
+</article></body></html>`;
+
+test("valid h-resume passes, with nested experience/education parsed as h-event", () => {
+  assert.deepEqual(validateResumeHtml(GOOD_RESUME, "resume/index.html"), []);
+  const [item] = findRoots(GOOD_RESUME);
+  assert.deepEqual(item.properties.name, ["Jane Doe"]);
+  const [experience] = item.properties.experience as unknown as Array<{ type: string[]; properties: Record<string, unknown[]> }>;
+  assert.ok(experience.type.includes("h-event"));
+  assert.deepEqual(experience.properties.name, ["Senior Engineer"]);
+});
+
+test("a page with no h-resume root is not an error (the singleton is optional)", () => {
+  const html = `<!doctype html><html><body><p>No resume yet.</p></body></html>`;
+  assert.deepEqual(validateResumeHtml(html, "resume/index.html"), []);
+});
+
+test("h-resume missing p-summary is flagged", () => {
+  const html = `<!doctype html><html><body>
+  <article class="h-resume"><h1 class="p-name">Jane Doe</h1></article>
+  </body></html>`;
+  const problems = validateResumeHtml(html, "resume/index.html");
+  assert.ok(problems.some((p) => p.includes("missing p-summary")), problems.join("; "));
+});
+
+test("an experience entry missing dt-start is flagged", () => {
+  const html = `<!doctype html><html><body>
+  <article class="h-resume">
+    <h1 class="p-name">Jane Doe</h1>
+    <p class="p-summary">x</p>
+    <li class="p-experience h-event"><span class="p-name">Engineer</span></li>
+  </article></body></html>`;
+  const problems = validateResumeHtml(html, "resume/index.html");
+  assert.ok(problems.some((p) => p.includes("experience[0] missing dt-start")), problems.join("; "));
 });
