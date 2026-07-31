@@ -17,19 +17,26 @@ test("parseAllowedDomains: dedupes, trims, sorts, drops blanks", () => {
 test("buildCSP: baseline when no integrations configured", () => {
   assert.equal(
     buildCSP(""),
-    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' static.cloudflareinsights.com; " +
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; " +
       "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; " +
-      "connect-src 'self' cloudflareinsights.com; frame-src 'self'; object-src 'none'; " +
+      "connect-src 'self'; frame-src 'self'; object-src 'none'; " +
       "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests",
   );
+});
+
+// The baseline must not pre-allow analytics origins the site isn't using (#1013): a
+// pre-widened allowlist would let an injected cloudflareinsights <script> execute even
+// on sites that never enabled analytics. The app adds these via SCRIPT_ALLOW on enable.
+test("buildCSP: baseline pre-allows no cloudflareinsights origins", () => {
+  assert.ok(!/cloudflareinsights/.test(buildCSP("")));
 });
 
 test("buildCSP: a configured domain lands in script/frame/connect/img/form-action only", () => {
   const csp = buildCSP("SCRIPT_ALLOW=giscus.app");
   // present in the five embed directives
-  assert.match(csp, /script-src 'self' 'wasm-unsafe-eval' static\.cloudflareinsights\.com giscus\.app;/);
+  assert.match(csp, /script-src 'self' 'wasm-unsafe-eval' giscus\.app;/);
   assert.match(csp, /img-src 'self' data: giscus\.app;/);
-  assert.match(csp, /connect-src 'self' cloudflareinsights\.com giscus\.app;/);
+  assert.match(csp, /connect-src 'self' giscus\.app;/);
   assert.match(csp, /frame-src 'self' giscus\.app;/);
   assert.match(csp, /form-action 'self' giscus\.app/);
   // absent from non-embed directives
