@@ -65,7 +65,9 @@ export interface AnglesiteConfig {
   workers?: AnglesiteWorkersConfig;
 }
 
-const DEFAULT_CONFIG: AnglesiteConfig = { version: 1 };
+function defaultConfig(): AnglesiteConfig {
+  return { version: 1 };
+}
 
 /// Reads `anglesite.json` from the site root. Returns the default (`{ version: 1 }`, no
 /// sections) when the file is missing — the normal case for a site with no declarations yet —
@@ -76,13 +78,13 @@ const DEFAULT_CONFIG: AnglesiteConfig = { version: 1 };
 /// tolerance `readRedirects` applies to individually malformed entries, one level up.
 export function readAnglesiteConfig(siteRoot: string): AnglesiteConfig {
   const path = resolve(siteRoot, "anglesite.json");
-  if (!existsSync(path)) return DEFAULT_CONFIG;
+  if (!existsSync(path)) return defaultConfig();
 
   let raw: string;
   try {
     raw = readFileSync(path, "utf-8");
   } catch {
-    return DEFAULT_CONFIG;
+    return defaultConfig();
   }
 
   let parsed: unknown;
@@ -90,12 +92,12 @@ export function readAnglesiteConfig(siteRoot: string): AnglesiteConfig {
     parsed = JSON.parse(raw);
   } catch (err) {
     console.warn(`[anglesite-config] anglesite.json exists but is not valid JSON: ${err}`);
-    return DEFAULT_CONFIG;
+    return defaultConfig();
   }
 
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     console.warn("[anglesite-config] anglesite.json must contain a JSON object; ignoring its contents.");
-    return DEFAULT_CONFIG;
+    return defaultConfig();
   }
 
   const config = parsed as Partial<AnglesiteConfig>;
