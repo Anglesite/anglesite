@@ -6,6 +6,7 @@ import { readConfig } from "../../scripts/config";
 import { siteLicense } from "../lib/licensing-data.ts";
 import { headLicense, type LicenseRef } from "../lib/licensing.ts";
 import { readRobotsConfig, isNoindexed } from "../lib/robots-config.ts";
+import { siteLang } from "../lib/localization.ts";
 // anglesite:imports — integration component imports are injected here on setup
 
 interface Props {
@@ -17,17 +18,25 @@ interface Props {
    * pass a ref to override (an entry with its own license).
    */
   license?: LicenseRef | null;
+  /**
+   * The language this page declares via <html lang>. Omit to inherit the site default
+   * (`siteLang()`); pass an explicit BCP-47 tag to override it. An empty string is treated the
+   * same as omitted — see localization.ts and the per-page override tasks (empty-string
+   * frontmatter values are not the same as an absent key, so this must not use `??`).
+   */
+  lang?: string;
 }
 
-const { title, description } = Astro.props;
+const { title, description, lang } = Astro.props;
 const license = headLicense(Astro.props.license, siteLicense());
+const effectiveLang = lang || siteLang();
 // Read directly by route rather than threaded as a prop (#1093) — every page renders through
 // this one layout, so the check lives in exactly one place instead of every call site.
 const noindex = isNoindexed(Astro.url.pathname, readRobotsConfig(process.cwd()));
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={effectiveLang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
