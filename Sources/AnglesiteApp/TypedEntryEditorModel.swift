@@ -39,6 +39,10 @@ final class TypedEntryEditorModel: InspectorEditorModel {
         get { fileSession.conflictDiskContents }
         set { fileSession.conflictDiskContents = newValue }
     }
+    /// The site's default `lang` tag, read from `.site-config` for display in the `.language`
+    /// field's "Use site default (…)" entry. Read-only context — like `route`, not part of
+    /// `values`/`isDirty`.
+    private(set) var siteDefaultLangTag = "en"
 
     var isDirty: Bool {
         (values != savedValues || noindexEnabled != savedNoindexEnabled || disallowCrawlEnabled != savedDisallowCrawlEnabled)
@@ -76,6 +80,9 @@ final class TypedEntryEditorModel: InspectorEditorModel {
         savedNoindexEnabled = flags.noindex
         disallowCrawlEnabled = flags.disallowCrawl
         savedDisallowCrawlEnabled = flags.disallowCrawl
+        if let config = try? String(contentsOf: sourceDirectory.appendingPathComponent(".site-config"), encoding: .utf8) {
+            siteDefaultLangTag = SiteLanguageAsset.parseSettings(from: config).lang
+        }
     }
 
     @discardableResult

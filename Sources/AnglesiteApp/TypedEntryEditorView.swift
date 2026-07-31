@@ -38,9 +38,17 @@ struct TypedEntryForm: View {
     private func control(for field: ContentTypeField) -> some View {
         let label = field.name + (field.required ? " *" : "")
         switch field.kind {
-        // `.language` renders as a plain text field for now, matching `.string` — Task 10 (inspector
-        // UI, #956) swaps this arm to the curated `LanguagePicker` control; storage stays identical.
-        case .string, .language, .url, .image:
+        case .language:
+            // `LanguagePicker`'s "Other…" tracking is local `@State` tied to view identity (see its
+            // doc comment): if the navigator selection moves away from this entry and back while
+            // "Other…" is picked but nothing's typed yet, it re-collapses to "Use site default"
+            // until "Other…" is picked again. Known, non-blocking (#956 Task 4 review) — not fixed
+            // here since `LanguagePicker` is shared with the Website settings tab.
+            VStack(alignment: .leading) {
+                Text(label).font(.caption).foregroundStyle(.secondary)
+                LanguagePicker(tag: model.textBinding(field.name), allowsInherit: true, siteDefaultTag: model.siteDefaultLangTag)
+            }
+        case .string, .url, .image:
             HStack {
                 TextField(label, text: model.textBinding(field.name))
                 if field.kind == .image {
