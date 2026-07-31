@@ -1,7 +1,15 @@
 import Foundation
 
+/// Impact ranking for a copy finding. Raw values are the sort keys — `high` is 0 so a plain
+/// ascending sort lists the most impactful findings first (see ``CopyEditReportBuilder``).
 public enum CopyFindingSeverity: Int, Sendable, Equatable, Comparable, CaseIterable {
-    case high = 0, medium = 1, low = 2
+    /// Most impactful; sorts first.
+    case high = 0
+    /// Middling impact.
+    case medium = 1
+    /// Least impactful — also the fallback for an unrecognized model label, per
+    /// ``CopyFindingSeverity/init(label:)``.
+    case low = 2
 
     /// Model output is a free string under `@Guide` — parse defensively, unknown → `.low`.
     public init(label: String) {
@@ -12,18 +20,29 @@ public enum CopyFindingSeverity: Int, Sendable, Equatable, Comparable, CaseItera
         }
     }
 
+    /// Raw-value order: `high < medium < low` — "less" means *more* severe, chosen so ascending
+    /// sorts put high-severity findings first without a custom comparator at every sort site.
     public static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
 }
 
 /// Non-gated twin of `GeneratedCopyFinding` so aggregation is CI-testable (the `@Generable`
 /// type only exists on the Xcode-27 toolchain).
 public struct CopyFindingDraft: Sendable, Equatable {
+    /// Checklist category, as the model emitted it (free string).
     public let category: String
+    /// Free-string severity label; parsed defensively by ``CopyFindingSeverity/init(label:)``.
     public let severity: String
+    /// The model's verbatim quote from the page. Load-bearing: a draft whose excerpt doesn't
+    /// occur exactly in the chunk text is treated as hallucinated and dropped by
+    /// ``CopyEditReportBuilder``.
     public let excerpt: String
+    /// One-sentence plain-language statement of the problem.
     public let issue: String
+    /// The proposed replacement text, in the site's voice.
     public let suggestedRewrite: String
 
+    /// Creates a draft; everything is kept as raw strings here — parsing and verification happen
+    /// at aggregation time, where they can be CI-tested.
     public init(category: String, severity: String, excerpt: String, issue: String, suggestedRewrite: String) {
         self.category = category
         self.severity = severity
@@ -33,17 +52,32 @@ public struct CopyFindingDraft: Sendable, Equatable {
     }
 }
 
+/// One verified finding in the final report: a ``CopyFindingDraft`` that survived the
+/// verbatim-excerpt check, joined to its page's route/title/file and given a stable id.
 public struct CopyFinding: Sendable, Equatable, Identifiable {
+    /// Stable identity, `filePath#index` over the page's verified findings — deterministic for
+    /// a given report, so selection survives list refreshes.
     public let id: String
+    /// The page's URL route (what the user recognizes the page by).
     public let route: String
+    /// The page title, if the chunk carried one.
     public let title: String?
+    /// The page's source file — the write target when ``suggestedRewrite`` is applied.
     public let filePath: String
+    /// Checklist category, carried through from the draft.
     public let category: String
+    /// Parsed severity; drives the report's severity-major sort.
     public let severity: CopyFindingSeverity
+    /// The verbatim quote — already verified to occur in the page text, so
+    /// `CopyRewriteApplier.apply` can locate it.
     public let excerpt: String
+    /// One-sentence plain-language statement of the problem.
     public let issue: String
+    /// The proposed replacement text, in the site's voice.
     public let suggestedRewrite: String
 
+    /// Creates a finding. Normally only ``CopyEditReportBuilder`` does — it owns the id scheme
+    /// and the excerpt verification this type's fields assume.
     public init(id: String, route: String, title: String?, filePath: String, category: String,
                 severity: CopyFindingSeverity, excerpt: String, issue: String, suggestedRewrite: String) {
         self.id = id
@@ -61,13 +95,19 @@ public struct CopyFinding: Sendable, Equatable, Identifiable {
 /// Whole-site audit result. Per spec §5.1 a failed chunk degrades to `skippedRoutes` — the
 /// report never aborts and never hides a gap.
 public struct CopyEditReport: Sendable, Equatable {
+    /// Verified findings, sorted severity-major then by route.
     public let findings: [CopyFinding]
+    /// How many pages were actually reviewed (with or without findings) — shown alongside
+    /// ``skippedRoutes`` so "no findings" is distinguishable from "nothing was audited".
     public let auditedCount: Int
+    /// Routes whose chunk failed to audit, named individually so the gap is visible.
     public let skippedRoutes: [String]
     /// Non-nil when the audit couldn't run at all (e.g. Apple Intelligence off at runtime) —
     /// carries the user-facing explanation. Front-doors show this instead of a skip list.
     public let unavailableMessage: String?
 
+    /// Creates a report. Prefer ``CopyEditReportBuilder/report(results:unavailableMessage:)``,
+    /// which derives the counts, skip list, and sort from raw per-chunk results.
     public init(findings: [CopyFinding], auditedCount: Int, skippedRoutes: [String], unavailableMessage: String? = nil) {
         self.findings = findings
         self.auditedCount = auditedCount
@@ -76,7 +116,13 @@ public struct CopyEditReport: Sendable, Equatable {
     }
 }
 
+/// Aggregates per-chunk generation results into a ``CopyEditReport``: verifies excerpts, mints
+/// stable ids, and applies the severity-major sort. Pure and non-gated so the aggregation is
+/// CI-testable without FoundationModels.
 public enum CopyEditReportBuilder {
+    /// Builds the report. A `nil` `drafts` entry means that chunk failed and becomes a skipped
+    /// route; drafts whose excerpt isn't a verbatim substring of the chunk text are dropped as
+    /// hallucinated (see the inline note for the reasoning and the accepted edge case).
     public static func report(results: [(chunk: ContentChunk, drafts: [CopyFindingDraft]?)],
                               unavailableMessage: String? = nil) -> CopyEditReport {
         var findings: [CopyFinding] = []

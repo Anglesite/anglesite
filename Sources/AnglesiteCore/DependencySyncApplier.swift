@@ -10,11 +10,24 @@ import Foundation
 /// once the package.json rewrite itself has succeeded — none of them are
 /// things the user's file-open flow should hard-fail on.
 public enum DependencySyncApplier {
+    /// The only failures `apply` surfaces — both about the `package.json` rewrite itself. Every
+    /// later step (lockfile delete, baseline save, version stamp) is deliberately best-effort
+    /// and never reaches the caller (see the type doc comment).
     public enum ApplyError: Error, Equatable {
+        /// `Source/package.json` couldn't be read — nothing was modified.
         case readFailed
+        /// The rewritten `package.json` couldn't be written back; the atomic write means the
+        /// original file is still intact.
         case writeFailed
     }
 
+    /// Applies accepted `offers` to the site: rewrites `Source/package.json`'s version ranges,
+    /// then best-effort deletes the stale lockfile, folds the offered ranges into the
+    /// ``DependencyBaseline``, and stamps `.site-config`'s `ANGLESITE_VERSION` with
+    /// `runningAppVersion` so ``DependencySyncChecker``'s fast-path gate skips this site until
+    /// the app itself updates again.
+    /// - Throws: `ApplyError` only when `package.json` can't be read or written — the one step
+    ///   whose failure would leave the offer silently unapplied.
     public static func apply(
         _ offers: DependencySyncOffers,
         sourceDirectory: URL,

@@ -14,8 +14,12 @@ import Foundation
 /// A missing top-level array (`pages`/`posts`/`images`) decodes to empty — an older or partial
 /// plugin that only reports pages doesn't fail the whole parse.
 public struct ContentListing: Sendable, Equatable {
+    /// Routable pages, ids already site-scoped (`{siteID}:page:{route}`).
     public let pages: [SiteContentGraph.Page]
+    /// Collection entries, ids already site-scoped (`{siteID}:post:{slug}`).
     public let posts: [SiteContentGraph.Post]
+    /// Site images with their referencing pages, ids already site-scoped
+    /// (`{siteID}:image:{relativePath}`).
     public let images: [SiteContentGraph.Image]
 
     /// Parse the `list_content` JSON text, stamping `siteID` and constructing site-scoped ids.

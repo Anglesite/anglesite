@@ -6,8 +6,16 @@ import Foundation
 public enum ComponentStructureEditBuilder {
     /// New-node spec for `insertNode` — mirrors the plugin's `component.node` schema.
     public enum NodeSpec: Equatable, Codable {
+        /// A plain HTML element, inserted by tag name — the plugin owns what the new element's
+        /// markup looks like, so the app only names the tag.
         case element(tag: String)
+        /// A project-component instance. `componentPath` is the component's project-relative
+        /// path — the plugin resolves the actual import specifier relative to the *edited*
+        /// file and adds the frontmatter `import` itself, so the app never computes `../`
+        /// chains.
         case component(tag: String, componentPath: String)
+        /// A `<slot>` outlet; `name` maps to the wire's `slotName` for a named slot, omitted
+        /// entirely (not sent as null) for the default slot.
         case slot(name: String? = nil)
 
         var jsonValue: JSONValue {
@@ -24,6 +32,10 @@ public enum ComponentStructureEditBuilder {
         }
     }
 
+    /// Builds the `insert-node` message: add `node` under `parentId` at child position `index`.
+    /// `baseVersion` is the model's content hash (``ComponentModel/version``) — the plugin
+    /// rejects the edit if the file changed since that model was fetched, which is the only
+    /// thing keeping node-id-addressed edits safe against concurrent modification.
     public static func insertNode(
         id: String,
         path: String,
@@ -48,6 +60,10 @@ public enum ComponentStructureEditBuilder {
         )
     }
 
+    /// Builds the `move-node` message: reparent/reorder `nodeId` under `newParentId` at
+    /// `newIndex`. The plugin computes `newIndex` against the child list *after* removing the
+    /// dragged node — a same-parent move where the node started earlier must pre-adjust via
+    /// ``ComponentOutline/adjustedMoveIndex(targetIndex:draggedIndex:)`` or land one slot off.
     public static func moveNode(
         id: String,
         path: String,
@@ -72,6 +88,8 @@ public enum ComponentStructureEditBuilder {
         )
     }
 
+    /// Builds the `remove-node` message: delete `nodeId` and its whole subtree. Same
+    /// `baseVersion` staleness guard as ``insertNode(id:path:baseVersion:parentId:index:node:)``.
     public static func removeNode(
         id: String,
         path: String,

@@ -107,7 +107,13 @@ public struct DPoPKeyPair: Sendable {
     }
 }
 
+/// Why a ``DPoPKeyPair`` operation couldn't run at all — distinct from a server-side proof
+/// rejection, which surfaces through the HTTP response instead.
 public enum DPoPError: Error, Sendable {
+    /// CryptoKit isn't available on this platform, so proofs can't be signed. This is a
+    /// deliberate dead end rather than a fallback: a platform without CryptoKit has no sign-in
+    /// UI either, so no code path should ever reach signing there (matches
+    /// `CloudflareOAuthClient.codeChallenge(for:)`'s posture).
     case unavailable
 }
 

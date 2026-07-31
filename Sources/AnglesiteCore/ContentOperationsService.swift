@@ -5,7 +5,11 @@ import Foundation
 /// server — `create_page` / `create_post` — so they're injectable behind a test seam the way
 /// `SiteOperationsService` is for deploy/backup/audit.
 public protocol ContentOperationsService: Sendable {
+    /// Scaffold a new page. `name` seeds the title; a `nil` route is derived from it. Progress
+    /// steps stream through `onProgress` so intent and GUI callers can show the same phases.
     func createPage(siteID: String, name: String, route: String?, onProgress: ProgressHandler?) async -> ContentCreateResult
+    /// Scaffold a new collection entry. `nil`/empty `collection` falls back to the standard
+    /// `posts` collection; a `nil` slug is derived from `title`.
     func createPost(siteID: String, title: String, collection: String?, slug: String?, onProgress: ProgressHandler?) async -> ContentCreateResult
     /// Scaffold a typed entry (V-1.2 personal/business content types) from the content-type registry.
     /// `typeID` is a registry id (`note`, `article`, …); `title` seeds the name/title field and the
@@ -17,12 +21,16 @@ public protocol ContentOperationsService: Sendable {
 }
 
 public extension ContentOperationsService {
+    /// Progress-less convenience — the requirement with `onProgress: nil`, so callers with no
+    /// progress UI (tests, batch paths) don't have to spell it.
     func createPage(siteID: String, name: String, route: String?) async -> ContentCreateResult {
         await createPage(siteID: siteID, name: name, route: route, onProgress: nil)
     }
+    /// Progress-less convenience — the requirement with `onProgress: nil`.
     func createPost(siteID: String, title: String, collection: String?, slug: String?) async -> ContentCreateResult {
         await createPost(siteID: siteID, title: title, collection: collection, slug: slug, onProgress: nil)
     }
+    /// Progress-less convenience — the requirement with `onProgress: nil`.
     func createTyped(siteID: String, typeID: String, title: String) async -> ContentCreateResult {
         await createTyped(siteID: siteID, typeID: typeID, title: title, onProgress: nil)
     }
@@ -40,6 +48,8 @@ public enum ContentCreateResult: Sendable, Equatable {
 
 /// Outcome of a `delete_content` call.
 public enum ContentDeleteResult: Sendable, Equatable {
+    /// The file was removed; `filePath` is relative to the site root, matching
+    /// ``ContentCreateResult/created(filePath:identifier:)``.
     case deleted(filePath: String)
     /// The site id didn't resolve to a known site directory.
     case siteNotFound

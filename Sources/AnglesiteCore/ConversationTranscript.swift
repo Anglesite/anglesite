@@ -6,12 +6,37 @@ import Foundation
 /// these rows can be unit-tested in `AnglesiteCore` without the App shell (#161). `ChatModel`
 /// re-exports this as `ChatModel.Message` via a typealias, so its SwiftUI views are unaffected.
 public struct ChatMessage: Identifiable, Equatable, Sendable {
-    public enum Role: Equatable, Sendable { case user, assistant, system, error, edit, annotation, citation }
+    /// What kind of row this is. Beyond the classic user/assistant pair, the transcript carries
+    /// out-of-band rows (`edit`, `annotation`, `citation`) that render as cards, not speech
+    /// bubbles, and carry their payload in the matching `*Metadata` property.
+    public enum Role: Equatable, Sendable {
+        /// A prompt the user typed.
+        case user
+        /// A streamed model response.
+        case assistant
+        /// App-generated status text (e.g. the "Cancelled." row).
+        case system
+        /// An in-band failure — a `.failed` event or a non-clean backend exit.
+        case error
+        /// An assistant-applied content edit; payload in ``ChatMessage/editMetadata``.
+        case edit
+        /// A preview annotation; payload in ``ChatMessage/annotationMetadata``.
+        case annotation
+        /// RAG citation chips for a turn; payload in ``ChatMessage/citationMetadata``.
+        case citation
+    }
 
+    /// Stable row identity — SwiftUI list identity, and how the transcript tracks its in-flight
+    /// assistant row across out-of-band mutations.
     public let id: UUID
+    /// What kind of row this is — see ``Role``.
     public let role: Role
+    /// The row's text. Mutable because streamed `.textDelta` events append to it in place.
     public var content: String
+    /// Tool invocations within this assistant turn, in arrival order.
     public var toolCalls: [ChatToolCall]
+    /// Creation time. Drives ``ConversationTranscript/insertByTimestamp(_:)``'s chronological
+    /// re-insertion after an optimistic drop.
     public let timestamp: Date
     /// Only set on `role: .edit` rows. Carries file + commit + undone flag.
     public var editMetadata: ChatEditMetadata?
@@ -20,6 +45,8 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     /// Only set on `role: .citation` rows. Carries the retrieved files for this turn.
     public var citationMetadata: ChatCitationMetadata?
 
+    /// Creates a row. Everything past `role`/`content` defaults, so ordinary user/assistant rows
+    /// stay one-liners and only the out-of-band roles pass their metadata payload.
     public init(
         id: UUID = UUID(),
         role: Role,
@@ -43,12 +70,21 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
 
 /// One tool invocation within an assistant turn. `id` pairs a `.toolUse` with its later `.toolResult`.
 public struct ChatToolCall: Identifiable, Equatable, Sendable {
+    /// The provider's tool-use id (not a UUID) — what pairs this call with its later result.
     public let id: String
+    /// The tool name as the provider reported it. `"(unbound)"` marks a result that arrived
+    /// with no matching call (see ``ConversationTranscript/apply(_:)``).
     public let name: String
+    /// The tool input pre-rendered for the tool-call card — see
+    /// ``ConversationTranscript/renderJSON(_:)``.
     public let inputDisplay: String
+    /// The returned content once the paired `.toolResult` arrives; `nil` while still pending.
     public var result: String?
+    /// Whether ``result`` is a tool-reported failure.
     public var isError: Bool
 
+    /// Creates a call row, pending by default — `result`/`isError` are filled in later when the
+    /// paired result event streams in.
     public init(id: String, name: String, inputDisplay: String, result: String? = nil, isError: Bool = false) {
         self.id = id
         self.name = name
@@ -58,10 +94,16 @@ public struct ChatToolCall: Identifiable, Equatable, Sendable {
     }
 }
 
+/// Payload of a `.edit` row: which file an assistant-applied edit touched, the commit that
+/// captured it, and whether it has since been undone.
 public struct ChatEditMetadata: Equatable, Sendable {
+    /// The edited file, as the apply reported it.
     public let file: String
+    /// The commit that captured the edit — the handle its undo (a revert) operates on.
     public let commit: String
+    /// Set once the edit has been reverted, so the row's Undo affordance can reflect it.
     public var undone: Bool
+    /// Creates the payload; the properties document each field's contract.
     public init(file: String, commit: String, undone: Bool) {
         self.file = file
         self.commit = commit
@@ -69,13 +111,21 @@ public struct ChatEditMetadata: Equatable, Sendable {
     }
 }
 
+/// Payload of an `.annotation` row: just the id of the backing annotation record, which the
+/// row renders from rather than duplicating its content into the transcript.
 public struct ChatAnnotationMetadata: Equatable, Sendable {
+    /// Identity of the annotation this row mirrors.
     public let annotationID: String
+    /// Creates the payload.
     public init(annotationID: String) { self.annotationID = annotationID }
 }
 
+/// Payload of a `.citation` row: the files retrieved as RAG context for one turn, surfaced as
+/// clickable chips below the assistant's response.
 public struct ChatCitationMetadata: Equatable, Sendable {
+    /// The retrieved files, in the order the backend reported them.
     public let citations: [RetrievedCitation]
+    /// Creates the payload.
     public init(citations: [RetrievedCitation]) { self.citations = citations }
 }
 
@@ -102,6 +152,8 @@ public struct ConversationTranscript: Equatable, Sendable {
     /// Names the backend in the `.backendExited` error string (e.g. "On-Device", "Claude").
     private let providerName: String
 
+    /// Creates an empty transcript. `providerName` names the backend in the `.backendExited`
+    /// error row (e.g. "On-Device", "Claude") so the user can tell which one died.
     public init(providerName: String = "assistant") {
         self.providerName = providerName
     }

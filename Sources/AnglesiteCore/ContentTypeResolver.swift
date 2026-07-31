@@ -12,6 +12,11 @@ public enum ContentTypeResolver {
     /// become user-renamable.
     static let pageTypesByPath: [String: String] = ["src/pages/about.md": "businessProfile"]
 
+    /// The content type owning `path`, or `nil` when the file isn't typed content. `path` is
+    /// project-relative; leading `./`/`/` and backslash separators are normalized, and matching is
+    /// case-insensitive so a case-insensitive APFS volume's spelling still resolves. Collection
+    /// membership wins over the page-singleton map (a collection entry can never also be a
+    /// `src/pages` path, so the order is only about checking the cheap directory match first).
     public static func descriptor(
         forRelativePath path: String,
         registry: ContentTypeRegistry = ContentTypeRegistry()

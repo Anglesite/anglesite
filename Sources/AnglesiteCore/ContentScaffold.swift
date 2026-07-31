@@ -4,19 +4,31 @@ import Foundation
 /// Pure, side-effect-free scaffolding for new pages and posts. Byte-faithful to the Node
 /// sidecar's `create-content.mjs` so switching the create backend produces no git churn.
 public enum ContentScaffold {
+    /// A page-scaffold variant for New Page. A struct rather than an enum so the list can grow
+    /// beyond ``builtIns`` without a source-breaking change; identity and rendering both key off
+    /// the `id` string (an unknown id falls back to the standard body in `renderPage`).
     public struct PageTemplate: Sendable, Equatable, Hashable, Identifiable {
+        /// Stable template id that ``ContentScaffold/renderPage(title:layoutImport:template:description:)``
+        /// dispatches on.
         public let id: String
+        /// User-facing name shown in the New Page template picker.
         public let displayName: String
 
+        /// Memberwise initializer — public so future template sources beyond ``builtIns`` don't
+        /// need this file changed.
         public init(id: String, displayName: String) {
             self.id = id
             self.displayName = displayName
         }
 
+        /// Title plus a placeholder paragraph — the default when no template is chosen.
         public static let standard = PageTemplate(id: "standard", displayName: "Standard Page")
+        /// Hero section plus a highlights list.
         public static let landing = PageTemplate(id: "landing", displayName: "Landing Page")
+        /// Contact prompt with a placeholder `mailto:` address for the owner to replace.
         public static let contact = PageTemplate(id: "contact", displayName: "Contact Page")
 
+        /// The templates the New Page UI offers, in menu order.
         public static let builtIns: [PageTemplate] = [.standard, .landing, .contact]
     }
 
@@ -42,10 +54,14 @@ public enum ContentScaffold {
         return "/" + segments.joined(separator: "/")
     }
 
+    /// Where a scaffolded page lands, relative to the site root: `/about` →
+    /// `src/pages/about.astro`. Expects a route already through ``normalizeRoute(_:)``.
     public static func pageRelativePath(normalizedRoute: String) -> String {
         "src/pages" + normalizedRoute + ".astro"
     }
 
+    /// Where a scaffolded collection entry lands, relative to the site root:
+    /// `src/content/<collection>/<slug>.md`.
     public static func postRelativePath(collection: String, slug: String) -> String {
         "src/content/\(collection)/\(slug).md"
     }
@@ -80,6 +96,8 @@ public enum ContentScaffold {
         return slugify([day, bareHost, lastSegment].filter { !$0.isEmpty }.joined(separator: "-"))
     }
 
+    /// Where a per-site singleton data record lands, relative to the site root:
+    /// `src/data/<slot>.json` — a data module the template imports, not a routable page.
     public static func singletonRelativePath(slot: String) -> String {
         "src/data/\(slot).json"
     }
@@ -91,6 +109,10 @@ public enum ContentScaffold {
         return String(repeating: "../", count: depth) + "layouts/BaseLayout.astro"
     }
 
+    /// Full `.astro` source for a new page: `BaseLayout` import plus the template's body. A `nil`
+    /// `description` defaults to `"\(title)."` so every scaffolded page ships with a non-empty
+    /// meta description. The body deliberately has no `<main>` wrapper — `BaseLayout` owns the
+    /// page's single main landmark (#1012), so pages contribute content only.
     public static func renderPage(
         title: String,
         layoutImport: String,
@@ -143,6 +165,9 @@ public enum ContentScaffold {
         """ + "\n"
     }
 
+    /// Markdown source for a new post: quoted, escaped frontmatter with `publishDate` set to
+    /// `now` (ISO-8601 with fractional seconds, matching the sidecar's `toISOString()` output
+    /// byte-for-byte) and `draft: true` — new entries start unpublished.
     public static func renderPost(title: String, now: Date, description: String = "") -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

@@ -8,16 +8,29 @@ import FoundationNetworking
 /// input, skipping webfinger) and from there into `CommunityMembershipClient.follow(target:)` —
 /// the same join path #368 already ships, just fed from a search result instead of a typed handle.
 public struct CommunitySearchResult: Sendable, Equatable, Identifiable {
+    /// `Identifiable` conformance for the result list — the actor IRI string, which is the only
+    /// value guaranteed unique across instances (two instances can both host a `birding`).
     public var id: String { actorID.absoluteString }
+    /// The community's actor IRI, already guaranteed HTTPS — insecure results are dropped during
+    /// decoding rather than surfaced as rows that fail on tap.
     public let actorID: URL
+    /// The community's short machine name (`birding`), sanitized via ``DisplayString`` —
+    /// remote-controlled text that ends up in UI.
     public let name: String
+    /// The community's human-readable title, sanitized like ``name``; `nil` when the instance
+    /// doesn't provide one.
     public let title: String?
     /// The host the community actually lives on — read from `actorID`, not the instance that was
     /// queried: Lemmy's federated search can surface communities from other instances than the
     /// one asked, and the join flow's confirmation should say where the community really is.
     public let instance: String
+    /// Subscriber count for the result row's popularity hint; `nil` when the instance omits
+    /// counts rather than showing a misleading zero.
     public let subscriberCount: Int?
 
+    /// Memberwise initializer — public so tests and previews can build result rows directly;
+    /// production values come from ``CommunitySearchClient/search(query:instance:)``, which is
+    /// where the HTTPS filter and display sanitization happen.
     public init(actorID: URL, name: String, title: String?, instance: String, subscriberCount: Int?) {
         self.actorID = actorID
         self.name = name
@@ -27,11 +40,23 @@ public struct CommunitySearchResult: Sendable, Equatable, Identifiable {
     }
 }
 
+/// Failures from ``CommunitySearchClient``. `Equatable` so tests can match the exact failure
+/// rather than string-compare error dumps.
 public enum CommunitySearchError: Error, Equatable, Sendable {
+    /// The query was empty after trimming — caught client-side so the sheet can validate before
+    /// any network round-trip.
     case emptyQuery
+    /// The instance field couldn't be turned into a host — empty, or unparseable as a bare
+    /// host, `host:port`, or http(s) URL.
     case invalidInstance
+    /// The search URL (or the URL a redirect actually landed on) wasn't HTTPS.
     case insecureURL
+    /// The search request failed — non-2xx, a transport error (status 0), or an injected
+    /// transport exceeding the byte cap. `body` is capped at the first 400 bytes, enough to
+    /// diagnose without echoing an arbitrary remote payload into logs/UI.
     case requestFailed(status: Int, body: String)
+    /// The response wasn't the Lemmy search shape expected; carries the underlying decoding
+    /// error's description (stringified so the case stays `Equatable`).
     case decodingFailed(String)
 }
 
@@ -56,20 +81,36 @@ public enum CommunitySearchError: Error, Equatable, Sendable {
 /// PieFed, Mbin, Friendica, Hubzilla, PeerTube); search is an additive discovery aid on top of
 /// that, not a replacement for it.
 public struct CommunitySearchClient: Sendable {
+    /// Injection seam for tests — lets suites feed canned search responses without a network.
+    /// Production uses ``defaultTransport``, which enforces the byte cap mid-stream.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
     /// A search response is a short list of communities, not an outbox page of activities — reuses
     /// `ActorProfileFetcher`'s cap/timeouts rather than defining its own, same reuse `CommunityActorResolver`
     /// already does for the same reason.
     public static let maximumResponseBytes = ActorProfileFetcher.maximumResponseBytes
+    /// Pre-filled instance for the join sheet's search field — the largest general-purpose Lemmy
+    /// instance, whose federated search surfaces communities from across the network. A starting
+    /// point only: the field stays editable (issue #371's "source is configurable" requirement),
+    /// and this client never falls back to it on its own.
     public static let defaultInstance = "lemmy.world"
 
     private let transport: Transport
 
+    /// Creates a search client, defaulting to the capped HTTPS ``defaultTransport``; pass a
+    /// custom ``Transport`` only in tests (the post-fetch guards re-apply the byte cap either way).
     public init(transport: @escaping Transport = CommunitySearchClient.defaultTransport) {
         self.transport = transport
     }
 
+    /// Runs a keyword community search against `instance`'s `/api/v3/search`, returning up to 20
+    /// results sorted by all-time popularity. Results whose own `actor_id` isn't a secure URL
+    /// are silently dropped (they couldn't be joined through ``CommunityActorResolver`` anyway),
+    /// and all display strings are sanitized — so every returned row is safe to show and safe to
+    /// tap.
+    ///
+    /// - Throws: ``CommunitySearchError`` for an empty query, an unusable or insecure instance,
+    ///   or a failed/oversized/undecodable response.
     public func search(query: String, instance: String) async throws -> [CommunitySearchResult] {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else { throw CommunitySearchError.emptyQuery }
@@ -185,6 +226,9 @@ public struct CommunitySearchClient: Sendable {
     private static let session = CappedHTTPTransport.session(
         requestTimeout: ActorProfileFetcher.timeout, resourceTimeout: ActorProfileFetcher.resourceTimeout)
 
+    /// Production transport: a shared `CappedHTTPTransport` session that aborts mid-stream once
+    /// ``maximumResponseBytes`` is exceeded — a hostile instance can't make the app buffer an
+    /// unbounded body before the post-fetch size check runs.
     public static let defaultTransport: Transport = { request in
         try await CappedHTTPTransport.fetch(
             request, session: session, cap: maximumResponseBytes,

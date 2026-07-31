@@ -19,17 +19,29 @@ public struct ContentTypeField: Sendable, Equatable {
     /// The shape of a field's value. Maps to an editor control and to a Zod type at the
     /// template layer (#351); kept deliberately small.
     public enum Kind: Sendable, Equatable {
-        case string        // single-line text
-        case text          // multi-line plain text
-        case markdown      // multi-line rich body
+        /// Single-line text.
+        case string
+        /// Multi-line plain text.
+        case text
+        /// Multi-line rich body.
+        case markdown
+        /// A boolean flag (e.g. `draft`).
         case bool
-        case date          // calendar date, no time
-        case datetime      // ISO 8601 date-time with time + timezone (mf2 `dt-*` properties)
+        /// Calendar date, no time.
+        case date
+        /// ISO 8601 date-time with time + timezone (mf2 `dt-*` properties).
+        case datetime
+        /// A URL value; required `.url` fields gate the create flow — see
+        /// ``ContentTypeDescriptor/requiredURLFields``.
         case url
-        case image         // a site-relative media path
+        /// A site-relative media path.
+        case image
+        /// A numeric value (e.g. a review rating).
         case number
-        case stringArray   // e.g. tags
-        case imageArray    // an ordered list of site-relative media paths (e.g. album photos)
+        /// An ordered list of strings (e.g. tags).
+        case stringArray
+        /// An ordered list of site-relative media paths (e.g. album photos).
+        case imageArray
         /// A repeating group of small structured records (e.g. h-resume `experience`/`education`
         /// entries) — an ordered list of member fields, each an existing scalar `Kind`. By
         /// convention `fields` excludes `.markdown`, `.stringArray`, `.imageArray`, and nested
@@ -50,10 +62,17 @@ public struct ContentTypeField: Sendable, Equatable {
         case objectArray(fields: [ContentTypeField])
     }
 
+    /// The frontmatter key, exactly as it appears in an entry's YAML. Field-name keys in
+    /// ``ContentTypeProjections`` reference these values.
     public let name: String
+    /// The value's shape — drives both the editor control and the generated Zod type.
     public let kind: Kind
+    /// Whether the projected template schema requires a value. Required fields shape the create
+    /// flow (see ``ContentTypeDescriptor/requiredURLFields`` for the `.url` consequence).
     public let required: Bool
 
+    /// Creates a field. The first two parameters are deliberately unlabeled so the built-in
+    /// catalog's descriptor declarations read as a compact table.
     public init(_ name: String, _ kind: Kind, required: Bool = false) {
         self.name = name
         self.kind = kind
@@ -83,6 +102,7 @@ public struct ContentTypeProjections: Sendable, Equatable {
     /// the template layer never has to guess; richer typing can be added per-field later.
     public let schemaType: String?
 
+    /// Creates a projection set; the individual properties document the contract each map carries.
     public init(
         microformat: String,
         microformatProperties: [String: String],
@@ -115,7 +135,9 @@ public struct ContentTypeProjections: Sendable, Equatable {
 /// already uses: route-addressed pages under `src/pages`, or slug-addressed entries in a content
 /// collection under `src/content/<collection>`.
 public enum ContentStorage: Sendable, Equatable {
+    /// A route-addressed page under `src/pages`.
     case page
+    /// A slug-addressed entry in the named content collection under `src/content/<collection>`.
     case collection(String)
     /// One record per site, stored as a data module (not a route, not a collection). The
     /// associated value is the shared slot name; descriptors that share a slot are mutually
@@ -130,10 +152,15 @@ public struct ContentTypeDescriptor: Sendable, Equatable, Identifiable {
     public let id: String
     /// Human-facing label (e.g. `Business Profile`).
     public let displayName: String
+    /// Where instances live on disk — see ``ContentStorage``.
     public let storage: ContentStorage
+    /// The frontmatter schema, in declaration order.
     public let fields: [ContentTypeField]
+    /// How this type projects to microformats2 and schema.org — see ``ContentTypeProjections``.
     public let projections: ContentTypeProjections
 
+    /// Creates a descriptor. Pure declarative data — invariants (unique field names, the
+    /// `.objectArray` member-kind convention) are enforced by review and tests, not here.
     public init(
         id: String,
         displayName: String,
@@ -224,6 +251,7 @@ public struct ContentTypeRegistry: Sendable, Equatable {
         insert(descriptor)
     }
 
+    /// The descriptor registered under `id`, or `nil` if none is. O(1).
     public func descriptor(id: String) -> ContentTypeDescriptor? {
         byID[id]
     }
@@ -247,6 +275,8 @@ public struct ContentTypeRegistry: Sendable, Equatable {
         order.compactMap { byID[$0] }
     }
 
+    /// All registered type ids in registration order — the key sequence behind ``all``, without
+    /// materializing the descriptors.
     public var ids: [String] { order }
 }
 

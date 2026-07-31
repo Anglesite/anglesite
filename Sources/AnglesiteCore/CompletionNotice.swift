@@ -6,8 +6,15 @@ import Foundation
 /// `LiveRegionAnnouncer` for the same boundary). The app-target `CompletionNotifier` renders
 /// one of these into a `UNNotificationRequest` (#526).
 public struct CompletionNotice: Equatable, Sendable {
+    /// Outcome headline ("Deploy Succeeded", "Backup Failed") — the operation and its result,
+    /// never the site name, which goes in ``subtitle`` so banners for different sites stay
+    /// distinguishable at a glance.
     public let title: String
+    /// The site's display name — kept out of ``title`` so the headline stays a fixed,
+    /// scannable phrase per outcome.
     public let subtitle: String
+    /// The detail line: what happened, where, and (for failures) the reason the user needs in
+    /// order to act.
     public let body: String
     /// Site to focus when the notification is clicked — the notifier routes it through
     /// `WindowRouter` so the matching site window is opened/focused.
@@ -19,6 +26,8 @@ public struct CompletionNotice: Equatable, Sendable {
     /// (sound) for the outcomes the user actually has to act on.
     public let isFailure: Bool
 
+    /// Memberwise initializer — public for tests; app code should get notices from
+    /// ``CompletionNoticeBuilder`` so the wording and identifier conventions stay in one place.
     public init(title: String, subtitle: String, body: String, siteID: String, identifier: String, isFailure: Bool) {
         self.title = title
         self.subtitle = subtitle
@@ -36,14 +45,22 @@ public enum CompletionNoticeBuilder {
 
     // MARK: Deploy
 
+    /// Terminal deploy phases, mirrored from the app-target deploy model (see the type-level
+    /// doc for why the mirror exists). Distinguishes ``blocked(failureCount:)`` from plain
+    /// failure because a blocked deploy is the security gate doing its job, not an error.
     public enum DeployOutcome: Equatable, Sendable {
+        /// Deploy published successfully; `url` is the live site and `duration` the wall time,
+        /// rendered via ``CompletionNoticeBuilder/formatDuration(_:)``.
         case succeeded(url: String, duration: TimeInterval)
+        /// Deploy errored; `reason` is shown verbatim as the notification body.
         case failed(reason: String)
         /// Pre-deploy security scan blocked the deploy; `failureCount` is the number of
         /// must-fix findings.
         case blocked(failureCount: Int)
     }
 
+    /// Builds the deploy notice. All three outcomes share one identifier (`deploy.<siteID>`) so
+    /// a retry's result replaces the earlier banner instead of stacking next to it.
     public static func deploy(siteName: String, siteID: String, outcome: DeployOutcome) -> CompletionNotice {
         let identifier = "deploy.\(siteID)"
         switch outcome {
@@ -74,12 +91,21 @@ public enum CompletionNoticeBuilder {
 
     // MARK: Backup
 
+    /// Terminal backup phases. `noChanges` is its own case — a clean tree is a *successful*
+    /// backup that just has nothing to push, and wording it as such avoids the owner reading
+    /// "no changes" as a failure.
     public enum BackupOutcome: Equatable, Sendable {
+        /// A commit was pushed; the notice shows the short SHA and `remote/branch` so the owner
+        /// can find it from any git host's UI.
         case succeeded(commitSHA: String, branch: String, remote: String)
+        /// The working tree was already clean — success, with nothing to push.
         case noChanges
+        /// Backup errored; `reason` is shown verbatim as the notification body.
         case failed(reason: String)
     }
 
+    /// Builds the backup notice, under the stable identifier `backup.<siteID>` so a newer
+    /// outcome replaces the older banner (see ``CompletionNotice/identifier``).
     public static func backup(siteName: String, siteID: String, outcome: BackupOutcome) -> CompletionNotice {
         let identifier = "backup.\(siteID)"
         switch outcome {
@@ -109,11 +135,18 @@ public enum CompletionNoticeBuilder {
 
     // MARK: Audit
 
+    /// Terminal audit phases. An audit that *found issues* still `succeeded` — findings are the
+    /// audit's product, not its failure; `failed` means the audit itself couldn't run.
     public enum AuditOutcome: Equatable, Sendable {
+        /// The audit ran to completion; counts per severity bucket drive the summary line
+        /// (empty buckets are omitted from the wording).
         case succeeded(criticalCount: Int, warningCount: Int, infoCount: Int)
+        /// The audit itself errored before producing findings; `reason` is shown verbatim.
         case failed(reason: String)
     }
 
+    /// Builds the audit notice, under the stable identifier `audit.<siteID>` so a newer outcome
+    /// replaces the older banner (see ``CompletionNotice/identifier``).
     public static func audit(siteName: String, siteID: String, outcome: AuditOutcome) -> CompletionNotice {
         let identifier = "audit.\(siteID)"
         switch outcome {
@@ -162,6 +195,10 @@ public enum CompletionNoticeBuilder {
 /// the fraction is "how far through the pipeline", not a fabricated percentage of wall time.
 /// Unknown phases return `nil` → the Dock overlay renders indeterminate.
 public enum DeployDockProgress {
+    /// Maps a deploy phase's raw name to its pipeline-position fraction, or `nil` for a phase
+    /// this table doesn't know (→ indeterminate Dock bar). Keyed by string rather than an enum
+    /// so the app-target deploy model's phase type doesn't have to be mirrored down here —
+    /// an unrecognized phase degrades gracefully instead of failing to compile.
     public static func fraction(forPhase phase: String) -> Double? {
         switch phase {
         // Fractions are step-start positions, weighted toward the two long steps

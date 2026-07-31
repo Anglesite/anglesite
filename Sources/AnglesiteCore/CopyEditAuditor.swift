@@ -4,12 +4,19 @@ import Foundation
 /// call at a time (chunk-first — every call fits the on-device window); GUI/intents/tools depend
 /// only on this protocol so tests can inject fakes.
 public protocol CopyEditAuditing: Sendable {
+    /// Audits every chunk and aggregates the results into one report. Never throws by design —
+    /// a failed chunk degrades to a named skipped route, and total unavailability travels in
+    /// ``CopyEditReport/unavailableMessage``, so every front-door always gets a renderable
+    /// report. `preamble` is prepended verbatim to each chunk's prompt (site-voice guidance);
+    /// `siteID`/`siteDirectory` scope the assistant context.
     func audit(chunks: [ContentChunk], preamble: String?, siteID: String, siteDirectory: URL) async -> CopyEditReport
 }
 
 /// `nil` below the Xcode-27 toolchain — callers hide/disable the feature (pattern:
 /// `SiteGraphExplainerFactory`).
 public enum CopyEditAuditorFactory {
+    /// The FoundationModels-backed auditor on the Xcode-27 toolchain; `nil` elsewhere so callers
+    /// hide or disable the feature rather than shipping a degraded audit (see the type doc).
     public static func makeDefault() -> (any CopyEditAuditing)? {
         #if compiler(>=6.4) && canImport(FoundationModels)
         return FoundationModelCopyEditAuditor()
@@ -25,11 +32,18 @@ public enum CopyEditAuditorFactory {
 import FoundationModels
 import OSLog
 
+/// The production ``CopyEditAuditing`` implementation: one FoundationModels guided-generation
+/// call per chunk, so every request fits the on-device context window regardless of site size.
 public struct FoundationModelCopyEditAuditor: CopyEditAuditing {
     private static let logger = Logger(subsystem: "io.dwk.anglesite", category: "CopyEditAuditor")
 
+    /// Creates an auditor. Stateless — the assistant is resolved per ``audit(chunks:preamble:siteID:siteDirectory:)``
+    /// call, so runtime availability changes (Apple Intelligence toggled) are always seen fresh.
     public init() {}
 
+    /// Chunk-first FM audit. Partial results over aborts (spec §6): a single failed chunk
+    /// becomes a named skip, while the assistant going *unavailable* mid-run stops the audit
+    /// with an explanation instead of silently skipping every remaining page.
     public func audit(chunks: [ContentChunk], preamble: String?, siteID: String, siteDirectory: URL) async -> CopyEditReport {
         // Heavy generation requests the PCC tier through the shared seam (#464); today that is
         // backed on-device, and chunking keeps each call correct at 4K regardless.

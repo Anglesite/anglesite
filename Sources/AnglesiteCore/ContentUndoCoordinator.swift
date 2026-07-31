@@ -61,6 +61,8 @@ public final class ContentUndoCoordinator {
         /// Carried on the record so it survives onto the redo entry unchanged.
         public let actionName: String
 
+        /// Creates a record; each property documents its own contract. `id` defaults to a fresh
+        /// identity — every registration is a distinct record, including a ``reversed`` twin.
         public init(id: UUID = UUID(), relativePath: String, before: String?, after: String?, actionName: String) {
             self.id = id
             self.relativePath = relativePath
@@ -112,6 +114,9 @@ public final class ContentUndoCoordinator {
     /// to observe the settled stack state deterministically.
     private(set) var pendingApply: Task<Void, Never>?
 
+    /// Creates a coordinator that realizes popped records through `apply`. Attach
+    /// ``undoManager`` separately — the coordinator is typically built before the window (and
+    /// therefore its undo manager) exists, and registration is a safe no-op until one is set.
     public init(apply: @escaping Applier) {
         self.apply = apply
     }

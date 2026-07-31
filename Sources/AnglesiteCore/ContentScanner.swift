@@ -26,6 +26,10 @@ public enum ContentScanner {
         + ContentTypeRegistry.builtIns.compactMap(\.collection)
     )).sorted()
 
+    /// Walks the site once and builds the full listing, also resolving each image's
+    /// `usedOnPages` via `DeadAssetScanner.referencedPaths` in the same pass so orphaned images
+    /// can be flagged without a second walk. Synchronous, blocking filesystem I/O — callers run
+    /// it off the main actor (see ``SiteContentGraph/rescan(siteID:projectRoot:)``).
     public static func scan(projectRoot: URL, siteID: String) -> ContentListing {
         let referencedPaths = DeadAssetScanner.referencedPaths(projectRoot: projectRoot)
         return ContentListing(
