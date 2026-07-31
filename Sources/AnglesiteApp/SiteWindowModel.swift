@@ -1055,8 +1055,8 @@ final class SiteWindowModel {
         }
         Task {
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
-            let isComponent = EditorKind.resolve(for: file) == .component
-            switch EditorKind.resolve(for: file) {
+            let kind = EditorKind.resolve(for: file)
+            switch kind {
             case .text, .component, .markdown:
                 // `.component` also builds a plain `FileEditorModel`: `MainPaneEditorView` re-resolves
                 // `EditorKind` itself and renders `ComponentEditorView` (backed by the same
@@ -1084,7 +1084,7 @@ final class SiteWindowModel {
             // presented inspector's dismissal its own transaction before the pane rebuild below,
             // rather than coalescing both into one.
             await clearInspectorThenSwitchPane(to: .editor(file))
-            if isComponent {
+            if kind == .component {
                 // `ensureComponentEditorLoaded()`'s synchronous prefix (the `componentEditor =
                 // editor` assignment, before its `await editor.load()` suspends) flips
                 // `inspectorSelection` from nil to `.component`, presenting the window inspector
@@ -1098,6 +1098,16 @@ final class SiteWindowModel {
                 // binding already tolerates (it preserves `inspectorShown` across a nil selection
                 // rather than clobbering it — see its setter, #968/#969) — it does not reintroduce
                 // the "inspector never returns" failure mode that guard was written for.
+                //
+                // This can stack with `clearInspectorThenSwitchPane`'s own conditional sleep just
+                // above (up to ~600ms total when a different file's inspector was already
+                // presented): the two delays guard two *different* transaction boundaries — old
+                // inspector dismissing vs. pane rebuild, then pane rebuild vs. new inspector
+                // presenting — so collapsing them back into one wait would reopen whichever gap
+                // it skipped. Deliberate, not an oversight; unlike that one, this sleep isn't
+                // conditioned on `wasInspecting` because the storm trigger here is the pane
+                // rebuild + inspector *presentation* landing together, which happens regardless
+                // of whether an inspector was already up.
                 try? await Task.sleep(for: .milliseconds(300))
             }
             await ensureComponentEditorLoaded()
