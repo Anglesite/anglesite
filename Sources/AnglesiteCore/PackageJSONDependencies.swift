@@ -110,16 +110,22 @@ public enum PackageJSONDependencies {
     }
 
     /// Finds the `{ ... }` span (braces inclusive) of the object value for a
-    /// top-level `"key": { ... }` entry, or `nil` if the key isn't present or
-    /// isn't followed by an object. Brace-depth tracking skips over quoted
-    /// string content (respecting `\"` escapes) so a version range or other
-    /// string value can never be mistaken for a structural brace.
+    /// top-level `"key": { ... }` entry, or `nil` if the key isn't present at
+    /// the root of the document or isn't followed by an object. Brace-depth
+    /// tracking skips over quoted string content (respecting `\"` escapes) so
+    /// a version range or other string value can never be mistaken for a
+    /// structural brace. Candidate matches of `"key": {` are checked against
+    /// their enclosing brace depth so a nested object that happens to reuse
+    /// the same key name (e.g. an `"overrides": { "dependencies": {...} }`
+    /// block) is skipped in favor of the real top-level one.
     private static func objectSpan(forKey key: String, in text: String) -> Range<String.Index>? {
         let escapedKey = NSRegularExpression.escapedPattern(for: key)
         guard let keyRegex = try? NSRegularExpression(pattern: "\"\(escapedKey)\"\\s*:\\s*\\{") else { return nil }
         let fullRange = NSRange(text.startIndex..<text.endIndex, in: text)
-        guard let match = keyRegex.firstMatch(in: text, range: fullRange),
-              let matchRange = Range(match.range, in: text)
+        let candidates = keyRegex.matches(in: text, range: fullRange)
+        guard let matchRange = candidates.lazy
+            .compactMap({ Range($0.range, in: text) })
+            .first(where: { enclosingBraceDepth(in: text, upTo: $0.lowerBound) == 1 })
         else { return nil }
 
         let objectStart = text.index(before: matchRange.upperBound)  // the `{` itself
@@ -150,5 +156,37 @@ public enum PackageJSONDependencies {
             index = text.index(after: index)
         }
         return nil  // unbalanced braces — malformed input, no span to offer
+    }
+
+    /// The brace-nesting depth at `index`, counting only unclosed `{` seen so
+    /// far (a root document's own top-level keys sit at depth 1, just inside
+    /// its opening `{`). Quoted string content is skipped (respecting `\"`
+    /// escapes) so braces inside a string value are never mistaken for
+    /// structural ones.
+    private static func enclosingBraceDepth(in text: String, upTo index: String.Index) -> Int {
+        var depth = 0
+        var inString = false
+        var escaped = false
+        var cursor = text.startIndex
+        while cursor < index {
+            let char = text[cursor]
+            if inString {
+                if escaped {
+                    escaped = false
+                } else if char == "\\" {
+                    escaped = true
+                } else if char == "\"" {
+                    inString = false
+                }
+            } else if char == "\"" {
+                inString = true
+            } else if char == "{" {
+                depth += 1
+            } else if char == "}" {
+                depth -= 1
+            }
+            cursor = text.index(after: cursor)
+        }
+        return depth
     }
 }

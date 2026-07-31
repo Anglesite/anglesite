@@ -164,6 +164,61 @@ import Testing
         #expect(PackageJSONDependencies.applyAdditions([], to: Self.fixture) == Self.fixture)
     }
 
+    @Test func applyOperatesOnlyOnTheTopLevelDependenciesSectionNotANestedOneWithTheSameKeyName() {
+        // A nested object reusing "dependencies" as a key name (e.g. npm's
+        // "overrides" field) appears *before* the real top-level section here,
+        // so a naive first-match-anywhere search would find it instead of the
+        // real one.
+        let textWithNestedCollision = """
+        {
+          "name": "anglesite-site",
+          "overrides": {
+            "dependencies": {
+              "astro": "^1.2.3"
+            }
+          },
+          "dependencies": {
+            "astro": "^5.0.0"
+          },
+          "devDependencies": {
+            "typescript": "^5.9.3"
+          }
+        }
+        """
+        let offers = [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")]
+        let updated = PackageJSONDependencies.apply(offers, to: textWithNestedCollision)
+        #expect(updated.contains("\"dependencies\": {\n    \"astro\": \"^6.4.8\"\n  }"))
+        // The nested "overrides.dependencies" object is a different key entirely — untouched.
+        #expect(updated.contains("\"overrides\": {\n    \"dependencies\": {\n      \"astro\": \"^1.2.3\"\n    }\n  }"))
+    }
+
+    @Test func applyAdditionsOperatesOnlyOnTheTopLevelDevDependenciesSectionNotANestedOneWithTheSameKeyName() {
+        // Same collision risk as `apply`, but higher-impact: an insertion into
+        // the wrong nested object succeeds silently — no error, no test
+        // failure — and would keep landing there on every future offer.
+        let textWithNestedCollision = """
+        {
+          "name": "anglesite-site",
+          "overrides": {
+            "devDependencies": {
+              "typescript": "^4.0.0"
+            }
+          },
+          "dependencies": {
+            "astro": "^5.0.0"
+          },
+          "devDependencies": {
+            "typescript": "^5.9.3"
+          }
+        }
+        """
+        let offers = [DependencyAdditionOffer(name: "html-validate", offeredRange: "^11.6.0", section: .devDependencies)]
+        let updated = PackageJSONDependencies.applyAdditions(offers, to: textWithNestedCollision)
+        #expect(updated.contains("\"devDependencies\": {\n    \"html-validate\": \"^11.6.0\",\n    \"typescript\": \"^5.9.3\"\n  }"))
+        // The nested "overrides.devDependencies" object is untouched — no insertion there.
+        #expect(updated.contains("\"overrides\": {\n    \"devDependencies\": {\n      \"typescript\": \"^4.0.0\"\n    }\n  }"))
+    }
+
     @Test func applyAdditionsSkipsAnOfferWhoseNameAlreadyExistsInTheTargetSection() {
         // "astro" is already a key in `dependencies` in the fixture. Inserting it
         // again would produce two `"astro": ...` keys in the same JSON object —
