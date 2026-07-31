@@ -55,11 +55,25 @@ public enum DependencySync {
     public static func diff(
         site: [String: String],
         baseline: [String: String]?,
-        template: [String: String]
-    ) -> [DependencyUpdateOffer] {
-        var offers: [DependencyUpdateOffer] = []
+        template: [String: String],
+        templateDevDependencyNames: Set<String> = []
+    ) -> DependencySyncOffers {
+        var updates: [DependencyUpdateOffer] = []
+        var additions: [DependencyAdditionOffer] = []
         for (name, templateRange) in template.sorted(by: { $0.key < $1.key }) {
-            guard let siteRange = site[name] else { continue }
+            guard let siteRange = site[name] else {
+                // Not in the site at all: a candidate for an addition offer,
+                // gated by whether the site is known to have deliberately
+                // removed it before (#1108).
+                if let baseline {
+                    guard baseline[name] == nil else { continue }
+                }
+                // else: no baseline at all -> legacy direct-diff fallback, same
+                // risk tolerance as the bump path below.
+                let section: DependencySection = templateDevDependencyNames.contains(name) ? .devDependencies : .dependencies
+                additions.append(DependencyAdditionOffer(name: name, offeredRange: templateRange, section: section))
+                continue
+            }
             guard DependencyVersionComparator.isNewer(templateRange, than: siteRange) == true else { continue }
             if let baseline {
                 // 3-way case: only offer when the site never touched this package
@@ -67,8 +81,8 @@ public enum DependencySync {
                 guard let baselineRange = baseline[name], baselineRange == siteRange else { continue }
             }
             // else: no baseline at all -> legacy direct-diff fallback (spec §3).
-            offers.append(DependencyUpdateOffer(name: name, currentRange: siteRange, offeredRange: templateRange))
+            updates.append(DependencyUpdateOffer(name: name, currentRange: siteRange, offeredRange: templateRange))
         }
-        return offers
+        return DependencySyncOffers(updates: updates, additions: additions)
     }
 }

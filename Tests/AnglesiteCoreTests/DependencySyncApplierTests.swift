@@ -10,7 +10,7 @@ import Foundation
     }
 
     private static let packageJSON = """
-    { "dependencies": { "astro": "^5.0.0" } }
+    { "dependencies": { "astro": "^5.0.0" }, "devDependencies": {} }
     """
 
     private func makeSourceAndConfig() throws -> (source: URL, config: URL) {
@@ -27,29 +27,40 @@ import Foundation
 
     @Test func rewritesPackageJSONWithTheAcceptedRange() throws {
         let (source, config) = try makeSourceAndConfig()
-        let offers = [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")]
+        let offers = DependencySyncOffers(updates: [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")])
         try DependencySyncApplier.apply(offers, sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
         let updated = try String(contentsOf: source.appendingPathComponent("package.json"), encoding: .utf8)
         #expect(updated.contains("\"astro\": \"^6.4.8\""))
     }
 
+    @Test func writesAnAcceptedAdditionIntoTheCorrectSection() throws {
+        let (source, config) = try makeSourceAndConfig()
+        let offers = DependencySyncOffers(additions: [DependencyAdditionOffer(name: "html-validate", offeredRange: "^11.6.0", section: .devDependencies)])
+        try DependencySyncApplier.apply(offers, sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
+        let updated = try String(contentsOf: source.appendingPathComponent("package.json"), encoding: .utf8)
+        #expect(updated.contains("\"html-validate\": \"^11.6.0\""))
+    }
+
     @Test func deletesTheStaleLockfile() throws {
         let (source, config) = try makeSourceAndConfig()
-        let offers = [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")]
+        let offers = DependencySyncOffers(updates: [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")])
         try DependencySyncApplier.apply(offers, sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
         #expect(!FileManager.default.fileExists(atPath: source.appendingPathComponent("package-lock.json").path))
     }
 
-    @Test func savesTheNewBaselineWithTheAcceptedRanges() throws {
+    @Test func savesTheNewBaselineWithBothAcceptedUpdatesAndAdditions() throws {
         let (source, config) = try makeSourceAndConfig()
-        let offers = [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")]
+        let offers = DependencySyncOffers(
+            updates: [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")],
+            additions: [DependencyAdditionOffer(name: "html-validate", offeredRange: "^11.6.0", section: .devDependencies)]
+        )
         try DependencySyncApplier.apply(offers, sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
-        #expect(DependencyBaseline.load(from: config) == ["astro": "^6.4.8"])
+        #expect(DependencyBaseline.load(from: config) == ["astro": "^6.4.8", "html-validate": "^11.6.0"])
     }
 
     @Test func bumpsTheAnglesiteVersionStamp() throws {
         let (source, config) = try makeSourceAndConfig()
-        let offers = [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")]
+        let offers = DependencySyncOffers(updates: [DependencyUpdateOffer(name: "astro", currentRange: "^5.0.0", offeredRange: "^6.4.8")])
         try DependencySyncApplier.apply(offers, sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
         let siteConfig = try String(contentsOf: source.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(SiteConfigFile.value(forKey: "ANGLESITE_VERSION", in: siteConfig) == "1.4.0")
@@ -62,7 +73,7 @@ import Foundation
         try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: config, withIntermediateDirectories: true)
         #expect(throws: DependencySyncApplier.ApplyError.readFailed) {
-            try DependencySyncApplier.apply([], sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
+            try DependencySyncApplier.apply(DependencySyncOffers(), sourceDirectory: source, configDirectory: config, runningAppVersion: "1.4.0")
         }
     }
 }
