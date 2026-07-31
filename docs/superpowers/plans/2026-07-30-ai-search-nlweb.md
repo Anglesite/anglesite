@@ -17,7 +17,7 @@
 - **`AIUsage.aiInput`/`.aiTrain`/`.search` are `"yes" | "no" | "unset"`** (`UsagePermission` in `Sources/AnglesiteCore/LicensingStore.swift`), never "allow"/"deny". `LicensingStore.load()` returns an empty/default `LicensingPolicy()` (not a throw) when `Source/src/data/licensing.json` doesn't exist yet — a missing file is not an error case to special-case.
 - **No crawler-policy write-back.** `AIUsage` has no per-crawler allow-list, only blanket `search`/`aiInput`/`aiTrain` + a `blockAICrawlers` bool. `Cloudflare-AI-Search` was never in the `aiCrawlers` blocklist (`Resources/Template/scripts/edge-artifacts.ts`), so passing the preflight check requires no policy write at all.
 - **No App Intent for v1** — matches Harden, which has none either (confirmed: no file in `Sources/AnglesiteIntents/` references "harden").
-- **Preview-API risk:** the AI Search instance-creation request/response schema (Task 2) is Cloudflare's public-preview API as of 2026-07-30 (verified against `https://developers.cloudflare.com/api/resources/ai_search/subresources/namespaces/subresources/instances/methods/create/`). Re-verify field names against that page before merging Task 2 — preview APIs move.
+- **Preview-API risk:** the AI Search instance-creation request/response schema (Task 2) is Cloudflare's public-preview API as of 2026-07-30 (verified against `https://developers.cloudflare.com/api/resources/ai_search/subresources/namespaces/subresources/instances/methods/create/`). Re-verify field names against that page before merging Task 2 — preview APIs move. **Correction (2026-07-30, caught by Task 2's task review):** the request body must include a top-level `source` field (a sibling of `type`/`source_params`) set to the site's URL — Cloudflare's docs list `source: optional string` with no description, but context (paired with `type: "web-crawler"`) strongly implies it's the crawl target; the first draft of this task's code omitted it entirely, which would have created an instance with nothing to crawl. Fixed to `source: "https://\(domain)"` in Task 2's `CreateBody`.
 - Run `swift test --package-path .` after each task. Run `scripts/build-app.sh -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build` after Task 6 (the only task touching `Sources/AnglesiteApp/SiteWindow.swift`/`WebsiteCommands.swift`, which are Xcode-target-only files excluded from the SwiftPM `AnglesiteAppCore` target).
 - Commit after each task, using `feat(#691): <summary>` (≤72 chars) per `CONTRIBUTING.md`.
 
@@ -169,6 +169,7 @@ struct HTTPCloudflareClientAISearchTests {
         let body = try #require(postReq.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] })
         #expect(body["id"] as? String == "example-com")
         #expect(body["type"] as? String == "web-crawler")
+        #expect(body["source"] as? String == "https://example.com")
     }
 
     @Test("createAISearchInstance surfaces .unauthorized on a 403")
@@ -259,6 +260,7 @@ extension HTTPCloudflareClient: AISearchProvisioning {
         struct CreateBody: Encodable, Sendable {
             let id: String
             let type: String
+            let source: String
             let source_params: SourceParams
             struct SourceParams: Encodable, Sendable {
                 let web_crawler: WebCrawler
@@ -272,7 +274,7 @@ extension HTTPCloudflareClient: AISearchProvisioning {
             let name: String?
         }
         let body = CreateBody(
-            id: instanceID, type: "web-crawler",
+            id: instanceID, type: "web-crawler", source: "https://\(domain)",
             source_params: .init(web_crawler: .init(parse_type: "sitemap")))
         let env = try await postEnvelope(
             "/accounts/\(accountID)/ai-search/namespaces/\(instanceID)/instances",
