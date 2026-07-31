@@ -6,15 +6,25 @@ import Foundation
 /// (`mta-sts.<domain>`) needs a valid certificate and a host mapping at the deploy provider, so
 /// the UI names that prerequisite instead of pretending a TXT record alone enables MTA-STS.
 public enum MTAStsPolicyAsset {
+    /// The policy mode as the settings UI offers it. `disabled` is the app's off state (no
+    /// records generated at all); `testing`/`enforce` are RFC 8461's like-named modes.
     public enum Mode: String, Sendable, CaseIterable, Identifiable, Equatable {
+        /// No policy asserted — ``MTAStsPolicyAsset/dnsRecords(for:settings:)`` returns nothing.
         case disabled
+        /// Receiving MTAs report TLS failures but still deliver (RFC 8461 `testing`).
         case testing
+        /// Receiving MTAs must refuse delivery over an untrusted channel (RFC 8461 `enforce`).
         case enforce
 
+        /// `Identifiable` by case, for SwiftUI pickers over `allCases`.
         public var id: Self { self }
     }
 
+    /// The deterministic policy inputs as edited in the settings facet — persisted as
+    /// `.site-config` keys by ``MTAStsPolicyAsset/install(_:siteDirectory:)`` and read back by
+    /// ``MTAStsPolicyAsset/parseSettings(from:)``.
     public struct Settings: Sendable, Equatable {
+        /// The asserted policy mode; `disabled` suppresses DNS record generation entirely.
         public var mode: Mode
         /// Recipient/policy domain (without `_mta-sts.`); this is not necessarily the website host.
         public var domain: String
@@ -23,6 +33,8 @@ public enum MTAStsPolicyAsset {
         /// Optional RFC 8460 mailbox. A bare email is normalized to `mailto:` in the DNS record.
         public var reportMailbox: String
 
+        /// All-defaults init is the disabled/empty state — the same value
+        /// ``MTAStsPolicyAsset/parseSettings(from:)`` returns for a config with no MTA-STS keys.
         public init(mode: Mode = .disabled, domain: String = "", mxHosts: String = "", reportMailbox: String = "") {
             self.mode = mode
             self.domain = domain
@@ -31,16 +43,25 @@ public enum MTAStsPolicyAsset {
         }
     }
 
+    /// One TXT record the owner must create at their DNS provider — plain display data, not a
+    /// provider-API shape.
     public struct DNSRecord: Sendable, Equatable {
+        /// The fully-qualified record name (e.g. `_mta-sts.example.com`).
         public let name: String
+        /// The literal TXT record value.
         public let content: String
 
+        /// Memberwise init.
         public init(name: String, content: String) {
             self.name = name
             self.content = content
         }
     }
 
+    /// Reads the four MTA-STS/TLS-RPT keys back out of a `.site-config` document, reversing
+    /// ``install(_:siteDirectory:)``'s persistence format for display: the comma-separated MX
+    /// list becomes one host per line, and an unrecognized mode degrades to `disabled` rather
+    /// than failing.
     public static func parseSettings(from config: String) -> Settings {
         let mode = Mode(rawValue: SiteConfigFile.value(forKey: "MTA_STS_MODE", in: config) ?? "") ?? .disabled
         let domain = SiteConfigFile.value(forKey: "MTA_STS_DOMAIN", in: config) ?? ""
@@ -49,6 +70,10 @@ public enum MTAStsPolicyAsset {
         return Settings(mode: mode, domain: normalizedDomain(domain), mxHosts: hosts.replacingOccurrences(of: ",", with: "\n"), reportMailbox: reportMailbox)
     }
 
+    /// Upserts the four keys into the site's `.site-config`, normalizing every value on the
+    /// way in (``normalizedDomain(_:)``/``normalizedMXList(_:)``/``normalizedReportMailbox(_:)``)
+    /// so the template only ever reads canonical forms. Writes only when the document actually
+    /// changed, so a no-op save doesn't dirty the site's git repo.
     public static func install(_ settings: Settings, siteDirectory: URL) throws {
         let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
@@ -76,6 +101,9 @@ public enum MTAStsPolicyAsset {
         return records
     }
 
+    /// The first concrete (non-wildcard) host in `raw`, run through the same validation as MX
+    /// patterns — a policy domain must be a real name to hang `_mta-sts.` records off, and a
+    /// `*.` pattern can't be one. Empty when nothing qualifies.
     public static func normalizedDomain(_ raw: String) -> String {
         normalizedMXList(raw).first(where: { !$0.hasPrefix("*.") }) ?? ""
     }
@@ -97,6 +125,9 @@ public enum MTAStsPolicyAsset {
         return result
     }
 
+    /// Canonicalizes the TLS-RPT contact to a `mailto:` URI, accepting either a bare email or
+    /// an existing `mailto:` form. Anything else returns nil so a junk value never reaches the
+    /// generated DNS record.
     public static func normalizedReportMailbox(_ raw: String) -> String? {
         let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return nil }

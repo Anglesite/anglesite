@@ -16,18 +16,33 @@ public actor LogCenter {
     /// Shared instance used by `ProcessSupervisor` by default. Tests build their own.
     public static let shared = LogCenter()
 
+    /// Which pipe a line arrived on. Its own `CaseIterable` type (not a Bool) so filter UI can
+    /// enumerate the options, and so the distinction survives into export/filter APIs.
     public enum Stream: String, Sendable, Equatable, CaseIterable {
+        /// Standard output.
         case stdout
+        /// Standard error.
         case stderr
     }
 
+    /// One captured line of subprocess output plus its provenance.
     public struct LogLine: Sendable, Equatable, Identifiable {
+        /// Monotonic per-`LogCenter` sequence number — a stable `Identifiable` identity and an
+        /// ordering key that, unlike `timestamp`, never collides for lines appended in the
+        /// same instant.
         public let id: UInt64
+        /// When the line was appended (`append` defaults it to now).
         public let timestamp: Date
+        /// Which process/component emitted the line (e.g. `mcp`, `container:<siteID>`) — the
+        /// Debug pane's Source-picker key.
         public let source: String
+        /// The pipe the line came from.
         public let stream: Stream
+        /// The line's text.
         public let text: String
 
+        /// Memberwise init — public so tests and previews can fabricate lines without going
+        /// through a live `LogCenter`.
         public init(id: UInt64, timestamp: Date, source: String, stream: Stream, text: String) {
             self.id = id
             self.timestamp = timestamp
@@ -41,6 +56,9 @@ public actor LogCenter {
     /// method that finishes the underlying continuation — needed because `AsyncStream` iteration
     /// doesn't unblock on task cancellation alone; the producer side has to call `finish()`.
     public struct Subscription: Sendable {
+        /// The stream consumers `for await` over. Ends only when ``cancel()`` runs (or the
+        /// stream is otherwise terminated) — see the type doc for why task cancellation alone
+        /// is not enough.
         public let stream: AsyncStream<LogLine>
         private let continuation: AsyncStream<LogLine>.Continuation
 
@@ -56,12 +74,16 @@ public actor LogCenter {
         }
     }
 
+    /// Maximum number of lines the history ring retains for late subscribers; older lines are
+    /// evicted first.
     public let bufferCapacity: Int
 
     private var nextID: UInt64 = 0
     private var buffer: [LogLine] = []
     private var subscribers: [UUID: AsyncStream<LogLine>.Continuation] = [:]
 
+    /// `bufferCapacity` bounds the retained history (preconditioned positive); the default
+    /// trades a useful Debug-pane backlog against unbounded growth from a chatty subprocess.
     public init(bufferCapacity: Int = 5000) {
         precondition(bufferCapacity > 0, "bufferCapacity must be positive")
         self.bufferCapacity = bufferCapacity

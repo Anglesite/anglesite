@@ -1,5 +1,12 @@
 import Foundation
 
+/// Resolves an ``IntegrationDescriptor`` plus the owner's ``Answers`` into a concrete
+/// ``OperationPlan`` — the read-only half of the bucket-3 integration framework.
+///
+/// Planning is separated from applying (``IntegrationScaffolder``) so every failure a
+/// descriptor can produce — missing provider, invalid field value, absent template asset,
+/// duplicate append — surfaces *before* anything is written to the site, and the resulting
+/// plan is pure data the wizard's review step can show the owner verbatim.
 public enum IntegrationPlanner {
     /// Pure: no writes. Reads `global.css` for derived tokens only.
     public static func plan(

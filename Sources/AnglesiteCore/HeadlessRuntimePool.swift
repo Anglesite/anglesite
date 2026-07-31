@@ -20,6 +20,9 @@ public protocol HeadlessRuntime: Sendable {
 ///
 /// `now`/`makeRuntime` are injectable so lifecycle is testable without a real clock or container.
 public actor HeadlessRuntimePool {
+    /// Produces a fresh, not-yet-started runtime for each cache miss. The seam that lets the app
+    /// inject its container-backed runtime while tests inject fakes — the pool itself never knows
+    /// what substrate it's pooling.
     public typealias RuntimeFactory = @Sendable () -> any HeadlessRuntime
 
     private struct Entry {
@@ -36,6 +39,11 @@ public actor HeadlessRuntimePool {
     private let now: @Sendable () -> Date
     private let makeRuntime: RuntimeFactory
 
+    /// Creates a pool. `now` is injectable so expiry is testable without real waiting. The default
+    /// `makeRuntime` produces ``UnavailableHeadlessRuntime`` — after host-Node retirement there is
+    /// no in-process fallback, so a pool nobody configured fails loudly (logged, `nil` runtime)
+    /// rather than silently spawning a host process. The app must inject its container-backed
+    /// factory to make headless edits actually work.
     public init(
         ttl: TimeInterval = 60,
         now: @escaping @Sendable () -> Date = { Date() },
@@ -112,20 +120,32 @@ public actor HeadlessRuntimePool {
     }
 }
 
+/// A ``HeadlessRuntime`` that always fails to start, logging why. ``HeadlessRuntimePool``'s
+/// default factory after host-Node retirement: an unconfigured pool surfaces "headless MCP is
+/// unavailable" in the debug pane instead of silently doing nothing (logs are sacred) or falling
+/// back to a host Node process that no longer exists.
 public actor UnavailableHeadlessRuntime: HeadlessRuntime {
+    /// A never-started client, present only because the protocol requires one — no caller reaches
+    /// it, since ``startHeadlessMCP(siteID:siteDirectory:)`` always fails and the pool discards
+    /// the runtime.
     public let mcpClient: MCPClient
     private let reason: String
 
+    /// Creates the placeholder. `reason` is the operator-facing explanation logged on every start
+    /// attempt; the default `mcpClient` is an idle client that exists only to satisfy the protocol.
     public init(reason: String, mcpClient: MCPClient = MCPClient(supervisor: .shared)) {
         self.reason = reason
         self.mcpClient = mcpClient
     }
 
+    /// Logs `reason` to the site's headless log stream and returns `false`, so the pool tears this
+    /// runtime down and caches nothing.
     public func startHeadlessMCP(siteID: String, siteDirectory: URL) async -> Bool {
         await LogCenter.shared.append(source: "headless:\(siteID)", stream: .stderr, text: reason)
         return false
     }
 
+    /// Stops the (never-started) client — a harmless no-op kept for protocol symmetry.
     public func stop() async {
         await mcpClient.stop()
     }

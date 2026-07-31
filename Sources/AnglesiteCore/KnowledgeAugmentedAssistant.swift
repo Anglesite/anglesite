@@ -11,15 +11,28 @@ public actor KnowledgeAugmentedAssistant: ConversationalAssistant {
     private let base: any ConversationalAssistant
     private let index: SiteKnowledgeIndex
 
+    /// Wraps `base` so every call is preceded by a retrieval pass against `index`.
+    ///
+    /// - Parameters:
+    ///   - base: The backend all calls forward to after enrichment.
+    ///   - index: The per-site retrieval index searched before each turn.
     public init(base: any ConversationalAssistant, index: SiteKnowledgeIndex) {
         self.base = base
         self.index = index
     }
 
+    /// Forwards the base backend's capabilities unchanged — retrieval adds context to prompts,
+    /// not abilities to the backend.
     public nonisolated var capabilities: AssistantCapabilities {
         base.capabilities
     }
 
+    /// Streams a conversational turn with the prompt enriched by retrieved site context.
+    ///
+    /// When retrieval matched anything, a single ``AssistantEvent/citations(_:)`` event is
+    /// prepended before the base backend's own events, so the chat panel can render source
+    /// chips before the first token arrives. When nothing matched, the base stream is returned
+    /// untouched — no relay task, no extra hop.
     public func converse(prompt: String, context: AssistantContext) async throws -> AsyncStream<AssistantEvent> {
         let (enriched, citations) = await enrichedContext(prompt, context: context)
         let baseStream = try await base.converse(prompt: enriched, context: context)
@@ -36,12 +49,19 @@ public actor KnowledgeAugmentedAssistant: ConversationalAssistant {
         }
     }
 
+    /// Plain text generation with the same retrieval enrichment as
+    /// ``KnowledgeAugmentedAssistant/converse(prompt:context:)``. Citations are computed and
+    /// discarded: this stream carries only text chunks, with no event channel to surface them.
     public func generate(prompt: String, context: AssistantContext) async throws -> AsyncThrowingStream<String, Error> {
         let (enriched, _) = await enrichedContext(prompt, context: context)
         return try await base.generate(prompt: enriched, context: context)
     }
 
     #if compiler(>=6.4) && canImport(FoundationModels)
+    /// Guided generation with the same retrieval enrichment as the other entry points.
+    /// Gated with the rest of the FoundationModels surface (the `Generable` constraint only
+    /// exists on the Xcode-27 toolchain), matching the gate on the `ContentAssistant`
+    /// requirement it satisfies.
     public func generateStructured<T: Generable & Sendable>(
         prompt: String,
         context: AssistantContext,
@@ -56,10 +76,14 @@ public actor KnowledgeAugmentedAssistant: ConversationalAssistant {
     }
     #endif
 
+    /// Forwards cancellation to the base backend, which owns the live generation; the citation
+    /// relay stream ends when the base stream does.
     public func cancel() async {
         await base.cancel()
     }
 
+    /// Resets the base backend's session. Retrieval itself is stateless per turn, so there is
+    /// nothing local to clear.
     public func resetSession() async {
         await base.resetSession()
     }

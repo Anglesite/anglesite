@@ -5,15 +5,40 @@ import Foundation
 /// streaming progress as `SetupStep` values. The only writer in the
 /// bucket-3 integration framework.
 public actor IntegrationScaffolder {
+    /// One progress event in an apply run. `done` and `failed` are terminal; `warning` is
+    /// informational and never stops the run.
     public enum SetupStep: Sendable, Equatable {
-        case writingFiles, configuring, done(integrationID: String)
+        /// File-creation, injection, and append steps are being applied to `Source/`.
+        case writingFiles
+        /// The batched `.site-config` mutations are being written (a single read-modify-write).
+        case configuring
+        /// Terminal: every step applied — or was skipped idempotently — for this integration.
+        case done(integrationID: String)
+        /// Non-fatal degradation, e.g. an owner-edited file was left untouched instead of
+        /// being overwritten. `step` names the phase the warning belongs to.
         case warning(step: String, message: String)
+        /// Terminal: the run stopped at `step` with a user-presentable `message`. Writes from
+        /// earlier steps are left in place — re-running the same plan is safe because every
+        /// step is idempotent.
         case failed(step: String, message: String)
     }
 
     private let fileManager: FileManager
+    /// Creates a scaffolder that writes through `fileManager` — injectable so tests can
+    /// substitute a throwing or in-memory file manager.
     public init(fileManager: FileManager = .default) { self.fileManager = fileManager }
 
+    /// Applies `plan`'s steps under `sourceDirectory`, yielding progress until a terminal
+    /// `done` or `failed` event.
+    ///
+    /// Idempotent by design: a file that already exists with identical contents is rewritten
+    /// harmlessly, while a file the owner has since edited is skipped with a `warning` rather
+    /// than clobbered — the owner's copy always wins. All `.site-config` mutations across the
+    /// plan are deferred and batched into one read-modify-write at the end, so two config
+    /// steps in the same plan can't race each other into a lost update.
+    ///
+    /// `nonisolated` so callers get the stream synchronously; the actual work hops onto the
+    /// actor inside the stream's backing task.
     public nonisolated func apply(_ plan: OperationPlan, in sourceDirectory: URL) -> AsyncStream<SetupStep> {
         AsyncStream(bufferingPolicy: .unbounded) { continuation in
             Task {

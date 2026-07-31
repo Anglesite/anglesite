@@ -3,9 +3,15 @@ import Foundation
 /// A license the site can point at: a canonical URL plus a human-readable label. Mirrors
 /// `LicenseRef` in `Resources/Template/src/lib/licensing.ts`.
 public struct LicenseRef: Sendable, Equatable, Hashable {
+    /// Canonical license URL — the value the template emits into `href`/`rel="license"`, so it
+    /// must satisfy ``isSafeLicenseURL(_:)`` to be decoded or persisted.
     public var url: String
+    /// Human-readable label. Decoding falls back to `url` when a document omits or empties it.
     public var name: String
 
+    /// Memberwise init. Deliberately unvalidated — the safety guard runs at the trust
+    /// boundaries instead (`Codable` decode and ``LicensingStore/validate(_:)``), so in-memory
+    /// editing (e.g. a settings field mid-typing) isn't forced through it.
     public init(url: String, name: String) {
         self.url = url
         self.name = name
@@ -72,6 +78,9 @@ extension LicenseRef: Codable {
         case url, name
     }
 
+    /// Decode-and-validate in one step: a missing, empty, or unsafe `url` throws (see the
+    /// extension doc for why callers catch and degrade), and an absent or empty `name` falls
+    /// back to `url` so a decoded ref always has something displayable.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let url = try container.decode(String.self, forKey: .url)
@@ -84,6 +93,8 @@ extension LicenseRef: Codable {
         self.name = (name?.isEmpty == false) ? name! : url
     }
 
+    /// Always writes both keys — `name` even when it merely mirrors `url` — so the on-disk
+    /// document reads unambiguously without knowing the decode-time fallback rule.
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(url, forKey: .url)
@@ -94,9 +105,13 @@ extension LicenseRef: Codable {
 /// A per-purpose AI usage permission. `unset` means the site states no preference; it is never
 /// written to `licensing.json`, matching `UsagePermission` in `licensing.ts`.
 public enum UsagePermission: String, Sendable, Equatable, CaseIterable, Identifiable {
+    /// No preference stated — omitted from `licensing.json` entirely (see the type doc).
     case unset
+    /// Usage explicitly permitted.
     case yes
+    /// Usage explicitly denied.
     case no
+    /// `Identifiable` by case, so SwiftUI pickers can list `allCases` directly.
     public var id: Self { self }
 }
 
@@ -104,11 +119,18 @@ public enum UsagePermission: String, Sendable, Equatable, CaseIterable, Identifi
 /// named-agent blocklist are both derived from this by `scripts/edge-artifacts.ts`, so they cannot
 /// disagree with each other.
 public struct AIUsage: Sendable, Equatable {
+    /// Permission for traditional search indexing.
     public var search: UsagePermission
+    /// Permission for using the content as input to AI answers/inference.
     public var aiInput: UsagePermission
+    /// Permission for using the content to train AI models.
     public var aiTrain: UsagePermission
+    /// Whether the named-agent blocklist is emitted into `robots.txt`. Only honored when
+    /// ``mayBlockAICrawlers`` allows it — ``clamped`` enforces that on every load and save.
     public var blockAICrawlers: Bool
 
+    /// All parameters default to the most conservative state — no preference stated, no
+    /// blocklist — so a zero-argument `AIUsage()` equals a document with no `usage` key at all.
     public init(
         search: UsagePermission = .unset,
         aiInput: UsagePermission = .unset,
@@ -140,6 +162,9 @@ extension AIUsage: Codable {
         case search, aiInput, aiTrain, blockAICrawlers
     }
 
+    /// Lenient decode mirroring `normalizeUsage` in `licensing.ts`: an unrecognized or
+    /// wrong-typed permission degrades to `unset` rather than failing the document, and the
+    /// result is ``clamped`` so a hand-edited contradiction never survives a load.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         func permission(_ key: CodingKeys) -> UsagePermission {
@@ -157,6 +182,8 @@ extension AIUsage: Codable {
         self = clamped
     }
 
+    /// Encodes the ``clamped`` value and omits `unset` permissions — an absent key is how
+    /// "no preference" is expressed on disk, matching what the template reads back.
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         let usage = clamped
@@ -170,7 +197,9 @@ extension AIUsage: Codable {
 /// Every collection that can carry a license — the routed collections plus `blog`. Mirrors
 /// `LicensableCollection` in `licensing.ts`; the order here is the order the settings facet lists.
 public enum LicensableCollection: String, Sendable, Equatable, CaseIterable, Identifiable, Codable {
+    /// One case per licensable collection; the raw values are the `licensing.json` keys.
     case notes, articles, photos, albums, bookmarks, replies, likes, announcements, events, reviews, blog
+    /// `Identifiable` by case, so the settings facet can list `allCases` directly.
     public var id: Self { self }
 
     /// Collections whose entries are responses to, or quotations of, third-party work. A site
@@ -189,8 +218,13 @@ public enum LicensableCollection: String, Sendable, Equatable, CaseIterable, Ide
 /// absent) falls through to the site default or the non-asserting rule, while `assertNothing`
 /// (an explicit `null`) beats both.
 public enum CollectionLicenseRule: Sendable, Equatable, Hashable {
+    /// The key is absent: fall through to the site default (or the non-asserting default for
+    /// collections where ``LicensableCollection/assertsNothingByDefault`` is true).
     case inherit
+    /// An explicit `null` in `licensing.json`: assert no license, beating both the site
+    /// default and the non-asserting rule.
     case assertNothing
+    /// An explicit per-collection license.
     case license(LicenseRef)
 }
 
@@ -200,8 +234,12 @@ public struct LicensingPolicy: Sendable, Equatable {
     public var defaultLicense: LicenseRef?
     /// Only non-`inherit` rules are stored; an absent key *is* `inherit`.
     public var collections: [LicensableCollection: CollectionLicenseRule]
+    /// Site-wide AI usage permissions (#991).
     public var usage: AIUsage
 
+    /// The all-defaults form is the empty policy — assert nothing, inherit everywhere, no
+    /// usage preferences — the same state ``LicensingStore/load()`` reports for a site with no
+    /// `licensing.json` at all.
     public init(
         defaultLicense: LicenseRef? = nil,
         collections: [LicensableCollection: CollectionLicenseRule] = [:],
@@ -212,10 +250,14 @@ public struct LicensingPolicy: Sendable, Equatable {
         self.usage = usage
     }
 
+    /// The effective stored rule for `collection` — an absent key *is* `.inherit`, which is
+    /// why `collections` never stores that case.
     public func rule(for collection: LicensableCollection) -> CollectionLicenseRule {
         collections[collection] ?? .inherit
     }
 
+    /// Stores `rule`, removing the key entirely for `.inherit` so the "only non-`inherit`
+    /// rules are stored (and serialized)" invariant holds by construction.
     public mutating func setRule(_ rule: CollectionLicenseRule, for collection: LicensableCollection) {
         if rule == .inherit {
             collections.removeValue(forKey: collection)
@@ -240,6 +282,10 @@ extension LicensingPolicy: Codable {
         init?(intValue: Int) { return nil }
     }
 
+    /// Lenient decode mirroring `normalizePolicy` in `licensing.ts`: each malformed piece
+    /// degrades independently (nil default, empty collections, all-unset usage) instead of
+    /// failing the whole document. The inline comments below record each degrade's exact TS
+    /// counterpart and rationale — they are the contract, not incidental detail.
     public init(from decoder: any Decoder) throws {
         // A syntactically valid JSON document that isn't an object at the top level (a bare
         // string, number, bool, or array) degrades to the empty policy rather than throwing —
@@ -305,6 +351,9 @@ extension LicensingPolicy: Codable {
         self.init(defaultLicense: defaultLicense, collections: collections, usage: usage.clamped)
     }
 
+    /// Template-compatible encoding: `default` is always written (an explicit null states "all
+    /// rights reserved" out loud), only non-`inherit` collection rules appear, and collections
+    /// are emitted in `allCases` order so a save produces a stable diff in the site's git repo.
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         // Always written, including as an explicit null: `"default": null` is the scaffolded value
@@ -329,17 +378,23 @@ extension LicensingPolicy: Codable {
 /// `sourceDirectory` (the `Source/` git repo), not `Config/`, on the same reasoning as
 /// `RedirectsStore`: the policy is site content and travels with the repo.
 public struct LicensingStore: Sendable {
+    /// Why ``LicensingStore/validate(_:)`` (and therefore ``LicensingStore/save(_:)``) can
+    /// refuse to persist a policy.
     public enum ValidationError: Error, Equatable {
         /// A URL the template's own scheme guard would reject at render time. Refusing it here
         /// keeps it out of the file entirely.
         case unsafeLicenseURL(String)
     }
 
+    /// The policy document's path relative to the site's `Source/` directory — public so
+    /// callers and tests build the same path instead of duplicating the constant.
     public static let relativePath = "src/data/licensing.json"
 
     private let fileURL: URL
     private let fileManager: FileManager
 
+    /// `sourceDirectory` is the package's `Source/` git repo (see the type doc for why the
+    /// policy lives there, not in `Config/`); `fileManager` is injectable for tests.
     public init(sourceDirectory: URL, fileManager: FileManager = .default) {
         self.fileURL = sourceDirectory.appendingPathComponent(Self.relativePath)
         self.fileManager = fileManager
@@ -366,6 +421,9 @@ public struct LicensingStore: Sendable {
         return policy
     }
 
+    /// Normalizes (``normalized(_:)``), validates (``validate(_:)``), then writes atomically
+    /// with pretty-printed, key-sorted JSON so successive saves diff cleanly in the site's git
+    /// repo. Creates `src/data/` first, for a site scaffolded before the policy existed.
     public func save(_ policy: LicensingPolicy) throws {
         let policy = Self.normalized(policy)
         try Self.validate(policy)
@@ -377,6 +435,11 @@ public struct LicensingStore: Sendable {
         try data.write(to: fileURL, options: .atomic)
     }
 
+    /// Refuses any policy carrying a license URL that fails ``LicenseRef/isSafeLicenseURL(_:)``
+    /// — the write-path half of the sanitization story (the read path degrades silently in
+    /// decode; see `LicensingPolicy.init(from:)`). An empty-URL default is skipped rather than
+    /// rejected: it means "no license", which ``save(_:)`` normalizes away anyway.
+    /// - Throws: ``ValidationError/unsafeLicenseURL(_:)`` with the offending URL.
     public static func validate(_ policy: LicensingPolicy) throws {
         var refs: [LicenseRef] = []
         // An empty-URL default is "no license", the same as nil — not an unsafe URL to reject.

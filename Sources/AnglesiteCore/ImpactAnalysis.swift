@@ -19,6 +19,8 @@ public enum ImpactAnalysis {
     /// through two layers of components is still affected); `referencedAssets` is the one
     /// forward-looking group — the assets the target itself directly references.
     public struct Report: Sendable, Equatable {
+        /// The analyzed node's id, echoed back so a report stays self-describing when it is
+        /// passed around or cached apart from the request that produced it.
         public let targetID: String
         /// Pages whose rendered output could change.
         public let affectedPages: [SiteGraphNode]

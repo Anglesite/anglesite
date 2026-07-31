@@ -9,5 +9,9 @@
 /// `ContentOperationsOverride`, and `ElementEntityProviderOverride` — `public` so the
 /// `AnglesiteIntents` module's tests can bind it via `@testable import`. Production never sets it.
 public enum IntentEditBridgeOverride {
+    /// The task-local override ``IntentEditBridge``, if bound. Intents read
+    /// `IntentEditBridgeOverride.scoped ?? bridge` in `perform()`; only tests bind this
+    /// (via `$scoped.withValue(...)`) — production leaves it nil so `@Dependency` resolution
+    /// stays the live path.
     @TaskLocal public static var scoped: IntentEditBridge?
 }

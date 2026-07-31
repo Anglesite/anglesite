@@ -1,14 +1,19 @@
 import Foundation
 
-/// Pure, testable logic backing the `anglesite-lan-host` CLI (`Sources/AnglesiteLANHost`) — the
-/// Mac-Studio-side standing process for #601 §2. Kept here rather than in the executable target
-/// per the `TokenOnboarding` precedent noted in CLAUDE.md: `swift test` can exercise this,
-/// `main.swift` (a hosted CLI entry point) cannot be unit-tested the same way.
+/// A setup failure the `anglesite-lan-host` CLI reports before starting any server process —
+/// each case names the path that failed resolution so the operator can fix the invocation.
 public enum LANHostServerError: Error, Equatable, CustomStringConvertible {
+    /// The `--site` path is neither an `.anglesite` package nor an Astro project directory
+    /// (no `Info.plist` + `Source/`, and no `package.json`).
     case siteNotFound(String)
+    /// The resolved project root has no `.git` directory. The LAN host serves a working copy
+    /// that guests treat as the site's source of truth, so it must be a clonable git repo.
     case notAGitRepo(String)
+    /// No `server/index.mjs` under the resolved plugin root — the MCP sidecar entry point is
+    /// missing; pass `--plugin-path` or set `ANGLESITE_PLUGIN_SRC`.
     case pluginServerNotFound(String)
 
+    /// Operator-facing message printed by the CLI: the failing path plus the fix.
     public var description: String {
         switch self {
         case .siteNotFound(let path):
@@ -21,6 +26,10 @@ public enum LANHostServerError: Error, Equatable, CustomStringConvertible {
     }
 }
 
+/// Pure, testable logic backing the `anglesite-lan-host` CLI (`Sources/AnglesiteLANHost`) — the
+/// Mac-Studio-side standing process for #601 §2. Kept here rather than in the executable target
+/// per the `TokenOnboarding` precedent noted in CLAUDE.md: `swift test` can exercise this,
+/// `main.swift` (a hosted CLI entry point) cannot be unit-tested the same way.
 public enum LANHostServer {
     /// Resolves a `--site` argument — either an `.anglesite` package directory (containing
     /// `Info.plist` + `Source/`) or a raw Astro project directory — to the Astro project root to

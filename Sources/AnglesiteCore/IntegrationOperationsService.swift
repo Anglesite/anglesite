@@ -1,9 +1,18 @@
 // Sources/AnglesiteCore/IntegrationOperationsService.swift
 import Foundation
 
+/// The seam between integration front-doors (wizard UI, intents) and the plan/apply machinery.
+/// A protocol rather than the concrete ``IntegrationOperations`` so callers can be tested
+/// against a stub that never resolves real sites or touches the filesystem.
 public protocol IntegrationOperationsService: Sendable {
+    /// The catalog of installable integrations, for pickers.
     func descriptors() -> [IntegrationDescriptor]
+    /// Resolves a descriptor plus the wizard's answers into a reviewable ``OperationPlan``,
+    /// without writing anything. Async because some integrations resolve external facts at plan
+    /// time (greenHostCheck's Green Web Foundation lookup).
     func plan(integrationID: IntegrationID, answers: Answers, siteID: String) async -> Result<OperationPlan, IntegrationError>
+    /// Applies a previously reviewed plan to the site, returning the terminal step (`.done` or
+    /// `.failed`) for the UI to surface.
     func apply(_ plan: OperationPlan, siteID: String) async -> IntegrationScaffolder.SetupStep
 }
 
@@ -14,6 +23,9 @@ private struct SendableFileManager: @unchecked Sendable {
     let value: FileManager
 }
 
+/// The production ``IntegrationOperationsService``: resolves the site's `Source/` directory and
+/// the template root through injected closures, folds plan-time external checks (greenHostCheck)
+/// into the answers before planning, and delegates the actual writes to ``IntegrationScaffolder``.
 public struct IntegrationOperations: IntegrationOperationsService {
     private let sourceDirectory: @Sendable (String) async -> URL?
     private let templateDirectory: @Sendable () -> URL?
@@ -21,6 +33,10 @@ public struct IntegrationOperations: IntegrationOperationsService {
     private let fm: SendableFileManager
     private let greenHostChecker: any GreenHostChecking
 
+    /// Creates a service with fully injectable seams: site and template resolution are closures
+    /// (rather than `SiteStore`/`TemplateRuntime` directly) so tests can run against temp
+    /// directories, and the `GreenHostChecking` dependency is injectable so the greenHostCheck
+    /// flow never hits the real API in tests. Production callers should use ``live()``.
     public init(sourceDirectory: @escaping @Sendable (String) async -> URL?,
                 templateDirectory: @escaping @Sendable () -> URL?,
                 fileManager: FileManager = .default,
@@ -34,8 +50,15 @@ public struct IntegrationOperations: IntegrationOperationsService {
         self.scaffolder = IntegrationScaffolder(fileManager: sfm.value)
     }
 
+    /// Forwards to ``IntegrationCatalog/all`` — the catalog is static data, so there is no
+    /// per-site filtering to do here.
     public func descriptors() -> [IntegrationDescriptor] { IntegrationCatalog.all }
 
+    /// Plans an integration against the resolved site. For `.greenHostCheck` the answers are
+    /// computed here first — the deploy host is resolved and checked against the Green Web
+    /// Foundation — and a "not green" result is deliberately *not* a failure: the check
+    /// succeeded, the badge just isn't offered, so it surfaces as a plan warning the review
+    /// step renders (issue #684).
     public func plan(integrationID: IntegrationID, answers: Answers, siteID: String) async -> Result<OperationPlan, IntegrationError> {
         guard let source = await sourceDirectory(siteID) else { return .failure(.siteNotFound) }
         guard let template = templateDirectory() else { return .failure(.templateUnavailable) }
@@ -79,6 +102,9 @@ public struct IntegrationOperations: IntegrationOperationsService {
                 "may need to register, or this may be a different domain than the one that's certified.")]))
     }
 
+    /// Applies the plan via ``IntegrationScaffolder``, consuming its progress stream and
+    /// returning only the terminal step — intermediate progress is the scaffolder stream's
+    /// concern; front-doors that call through this seam just need the outcome.
     public func apply(_ plan: OperationPlan, siteID: String) async -> IntegrationScaffolder.SetupStep {
         guard let source = await sourceDirectory(siteID) else {
             return .failed(step: "resolve", message: "Couldn't find that site.")

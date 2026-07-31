@@ -3,12 +3,18 @@ import Foundation
 /// Host-reachable endpoints a started local container exposes. Both are 127.0.0.1 URLs on
 /// OS-assigned ports, delivered by the host-side vsock→TCP proxy. Mirrors `SandboxSession`.
 public struct LocalContainerSession: Sendable, Equatable {
+    /// The guest Astro dev server's host-proxied endpoint — what the preview web view loads.
     public let previewURL: URL
+    /// The MCP sidecar's host-proxied Streamable-HTTP endpoint — what
+    /// ``MCPClient/connect(httpEndpoint:bearerToken:urlSession:initializeTimeout:clientName:clientVersion:)``
+    /// targets.
     public let mcpURL: URL
     /// The local `wrangler dev --local` endpoint, populated only when `startWorkersDev` has been
     /// called for this session (#708) — not part of the initial `start()` payload, since the
     /// workers-dev process is started conditionally, after boot, not during it.
     public let workersDevURL: URL?
+    /// `workersDevURL` defaults to nil because sessions are built by `start()`, before any
+    /// workers-dev process can exist.
     public init(previewURL: URL, mcpURL: URL, workersDevURL: URL? = nil) {
         self.previewURL = previewURL
         self.mcpURL = mcpURL
@@ -16,11 +22,19 @@ public struct LocalContainerSession: Sendable, Equatable {
     }
 }
 
+/// Failures a local-container boot can surface. Cases carry a plain `String` (not an
+/// underlying error) so the type stays `Equatable` and no `Containerization`/`Virtualization`
+/// type crosses this seam; `LocalContainerSiteRuntime.friendlyMessage(for:)` maps each case to
+/// owner-readable prose.
 public enum LocalContainerError: Error, Equatable {
-    case virtualizationUnavailable      // no entitlement / not Apple Silicon / macOS < 26
-    case imageUnavailable(String)       // bundled OCI layout missing or failed to import
-    case bootFailed(String)             // VM/container failed to boot
-    case cloneFailed(String)            // git clone of Source/ into the guest failed
+    /// No entitlement / not Apple Silicon / macOS < 26.
+    case virtualizationUnavailable
+    /// Bundled OCI layout missing or failed to import.
+    case imageUnavailable(String)
+    /// VM/container failed to boot.
+    case bootFailed(String)
+    /// git clone of `Source/` into the guest failed.
+    case cloneFailed(String)
 }
 
 /// Hydration precondition: a `LocalContainerControl.start()` implementation hard-depends on
@@ -69,9 +83,14 @@ public enum SourceRepoPrecondition {
 /// The captured output of a guest `exec` call. No `Containerization`/`Virtualization` types cross
 /// this boundary — only `String` and `Int32`.
 public struct ContainerExecResult: Sendable, Equatable {
+    /// The guest process's exit status.
     public let exitCode: Int32
+    /// The complete captured stdout — the process has already exited when this exists, so
+    /// callers can parse it whole (e.g. `persistEdit`'s base64 bundle transport).
     public let stdout: String
+    /// The complete captured stderr — the diagnostic half, surfaced in failure messages.
     public let stderr: String
+    /// Memberwise init — public so test fakes can fabricate results.
     public init(exitCode: Int32, stdout: String, stderr: String) {
         self.exitCode = exitCode
         self.stdout = stdout
@@ -89,6 +108,8 @@ public final class InteractiveExecHandle: Sendable {
     private let writeHandler: @Sendable (Data) async throws -> Void
     private let terminateHandler: @Sendable () async -> Void
 
+    /// Builds a handle from the two closures a conformer wires to its real (or fake) process —
+    /// see the type doc for why this is closure-backed rather than a protocol.
     public init(
         write: @escaping @Sendable (Data) async throws -> Void,
         terminate: @escaping @Sendable () async -> Void
@@ -128,6 +149,12 @@ public protocol LocalContainerControl: Sendable {
         ref: String,
         onOutput: @escaping @Sendable (String, LogCenter.Stream) -> Void
     ) async throws -> LocalContainerSession
+
+    /// Stops the named container and every guest process it hosts. Teardown paths typically
+    /// `try?` this — a stop that fails because the container is already gone isn't actionable.
+    /// Keyed by `siteID`, not by container instance: a stale caller can stop a newer container
+    /// booted under the same ID (see the superseded-attempt commentary in
+    /// `LocalContainerSiteRuntime.start`), so callers must guard against that themselves.
     func stop(siteID: String) async throws
 
     /// Pauses the running VM for `siteID` in place instead of tearing it down — the guest's
@@ -219,12 +246,20 @@ public protocol LocalContainerControl: Sendable {
 }
 
 extension LocalContainerControl {
+    /// Default no-op — per the requirement's doc, only `ContainerizationControl`'s
+    /// vmnet-backed network has shared state worth resetting; every other conformer inherits
+    /// this and does nothing.
     public func resetNetworking() async {}
 
+    /// Default for conformers without a real suspend/resume distinction: a plain stop. Only
+    /// runtimes that can actually pause a VM (the Containerization control, #1151) override
+    /// this with something cheaper to undo.
     public func suspend(siteID: String) async throws {
         try await stop(siteID: siteID)
     }
 
+    /// Default for conformers with no live process state to report (test fakes, the Podman
+    /// control): forwards to the state-less overload and never calls `onState`.
     public func startWorkersDev(
         siteID: String,
         workers: [WorkerDescriptor],

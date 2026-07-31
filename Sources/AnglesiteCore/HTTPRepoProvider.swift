@@ -14,6 +14,9 @@ public struct HTTPRepoProvider: RepoProvider {
     /// `createRepo`'s transport is mocked and there is no real GitHub repo to push into.
     private let remoteURL: @Sendable (RemoteRepo) -> String
 
+    /// Creates a provider. The defaults are the production configuration (real API client, Keychain
+    /// token, real GitHub HTTPS clone URLs); tests override `remoteURL` to point pushes at a local
+    /// bare repo, since a mocked `createRepo` never creates a real repository to push into.
     public init(
         client: HTTPGitHubClient = HTTPGitHubClient(),
         tokenProvider: @escaping InProcessGit.TokenProvider = InProcessGit.defaultTokenProvider,
@@ -31,6 +34,11 @@ public struct HTTPRepoProvider: RepoProvider {
         (try? tokenProvider())?.isEmpty == false
     }
 
+    /// Creates the remote repository, wires `origin` in `source`, and pushes its current branch.
+    ///
+    /// Every error is thrown as a user-facing `RepoBootstrapError`. Failures *after* `createRepo`
+    /// succeeds deliberately name the repository URL in their message: the remote now exists and
+    /// the user owns it, so a bare "couldn't push" would misleadingly suggest nothing happened.
     public func createAndPush(name: String, isPrivate: Bool, source: URL) async throws -> RemoteRepo {
         let token = try readToken()
 

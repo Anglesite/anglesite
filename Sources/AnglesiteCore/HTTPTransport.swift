@@ -12,9 +12,17 @@ import FoundationNetworking
 /// connection clears the session so a future re-`initialize` can recover (full container-restart
 /// recovery lands with #66/#69).
 public actor HTTPTransport: MCPTransport {
+    /// Transport-level failures. Distinguishes "the session is gone" (recoverable by
+    /// re-initializing) from plain HTTP rejections.
     public enum HTTPError: Error, Sendable, Equatable {
+        /// The server answered with a status other than 200/202/404 — no session-state conclusion
+        /// can be drawn, so the session id is kept.
         case http(status: Int)
+        /// The connection failed or the server returned 404 (the Streamable HTTP signal for an
+        /// expired session id). The stored session id is cleared either way, so a future
+        /// `initialize` can start a fresh session.
         case sessionLost
+        /// The response wasn't an HTTP response at all.
         case badResponse
     }
 
@@ -27,6 +35,10 @@ public actor HTTPTransport: MCPTransport {
     private let stream: AsyncStream<JSONValue>
     private let continuation: AsyncStream<JSONValue>.Continuation
 
+    /// Creates a transport for one `/mcp` endpoint. `bearerToken` is sent as an `Authorization`
+    /// header on every request — the remote-sandbox path requires it, the local container path
+    /// doesn't. `protocolVersion` is replayed verbatim in the `MCP-Protocol-Version` header;
+    /// `urlSession` is injectable for tests.
     public init(
         endpoint: URL,
         bearerToken: SessionToken? = nil,
@@ -40,8 +52,19 @@ public actor HTTPTransport: MCPTransport {
         (self.stream, self.continuation) = AsyncStream<JSONValue>.makeStream(bufferingPolicy: .unbounded)
     }
 
+    /// No-op: Streamable HTTP has no persistent connection to establish — the first `send` does
+    /// the work. Exists only to satisfy `MCPTransport`.
     public func open() async throws { /* no persistent connection; first send does the work */ }
 
+    /// POSTs one JSON-RPC message and funnels the decoded response into ``inbound()`` rather than
+    /// returning it — matching `MCPTransport`'s stream shape, so `MCPClient`'s request/response
+    /// correlation works identically over stdio and HTTP. SSE responses are read incrementally and
+    /// only until the first complete event (see the buffering note in the body); a 202 means a
+    /// notification was accepted and yields nothing.
+    ///
+    /// - Throws: ``HTTPError/sessionLost`` on connection failure or 404 (session id cleared),
+    ///   ``HTTPError/http(status:)`` for other non-success statuses, ``HTTPError/badResponse``
+    ///   for a non-HTTP response.
     public func send(_ message: JSONValue) async throws {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
@@ -155,8 +178,14 @@ public actor HTTPTransport: MCPTransport {
         return .continueReading
     }
 
+    /// The single stream of decoded server messages, fed by ``send(_:)``. `nonisolated` (the
+    /// stream and continuation are `let`s created at init) so the consumer can subscribe before
+    /// the first request without an actor hop.
     public nonisolated func inbound() -> AsyncStream<JSONValue> { stream }
 
+    /// Finishes ``inbound()`` and, if a session exists, sends a best-effort `DELETE` so the server
+    /// can reclaim it promptly — failures are ignored because the server expires abandoned
+    /// sessions on its own and there's nothing useful to do about them during teardown.
     public func close() async {
         continuation.finish()
         // Best-effort session teardown; ignore failures.

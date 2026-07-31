@@ -15,6 +15,9 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
 
     private let ref: String
     private let control: any LocalContainerControl
+    /// The `SiteRuntime` MCP seam: `start` connects this client to the booted container's
+    /// sidecar endpoint, `teardown` stops it. Public (unlike every other collaborator here)
+    /// because the edit pipeline reaches the sidecar's tools through it.
     public let mcpClient: MCPClient
     private let knowledgeIndex: SiteKnowledgeIndex?
     private let semanticRanker: SemanticRanker?
@@ -49,6 +52,12 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
     private var bootLogContinuation: AsyncStream<(String, LogCenter.Stream)>.Continuation?
     private var bootLogDrainTask: Task<Void, Never>?
 
+    /// Only `ref`, `control`, and `mcpClient` are required; every other parameter is a
+    /// collaborator with a production default. The closure parameters (`connect`,
+    /// `makeFileWatcher`, `importBundle`, `beginActivity`, `workerCatalog`) exist as test
+    /// seams so the runtime's lifecycle and supersession logic is exercisable without a real
+    /// container, MCP server, file system watcher, or libgit2 — `importBundle`'s default also
+    /// carries the platform split (in-process git import is Darwin-only).
     public init(
         ref: String,
         control: any LocalContainerControl,
@@ -89,6 +98,8 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
         self.statusCenter = statusCenter
     }
 
+    /// The current lifecycle state, read from the generation-tracked state machine that
+    /// serializes overlapping `start()`/`stop()` attempts.
     public var state: SiteRuntimeState { stateMachine.state }
 
     /// This runtime's own capability surface (#823) — `LocalContainerSiteRuntime` is the only
@@ -358,6 +369,9 @@ public actor LocalContainerSiteRuntime: SiteRuntime, SiteRuntimeContainerCapabil
         }
     }
 
+    /// Streams every subsequent state transition (the `SiteRuntime.observe()` requirement),
+    /// delegated to the state machine so superseded attempts' settles never appear — only
+    /// transitions that actually won their generation check are published.
     public func observe() -> AsyncStream<SiteRuntimeState> {
         stateMachine.observe()
     }

@@ -19,10 +19,21 @@ import Darwin
 public actor InProcessBackend: SupervisorBackend {
     private var entries: [UUID: Entry] = [:]
 
+    /// Creates an empty backend. Per-process state is built lazily by each ``launch(_:restartPolicy:onRespawn:logCenter:)``,
+    /// so a single instance supervises any number of children concurrently.
     public init() {}
 
     // MARK: One-shot run
 
+    /// Spawns `spec`, drains stdout and stderr concurrently, and waits for exit. The exit
+    /// listener is registered *before* `run()` — a fast child can terminate before the first
+    /// `await`, and a handler installed after termination never fires — and the wait is
+    /// continuation-based rather than `waitUntilExit()`, which blocked a cooperative-pool thread
+    /// and deadlocked under load (see `ProcessSupervisorConcurrencyTests`).
+    ///
+    /// - Throws: ``SupervisorBackendError/spawnFailed(_:)`` when the executable can't be
+    ///   launched at all (missing binary, bad permissions); a non-zero exit is *not* an error —
+    ///   it comes back in ``ProcessResult/exitCode``.
     public func runOneShot(_ spec: SpawnSpec) async throws -> ProcessResult {
         let process = Process()
         process.executableURL = spec.executable
@@ -101,6 +112,11 @@ public actor InProcessBackend: SupervisorBackend {
 
     // MARK: Long-running launch
 
+    /// Spawns `spec` and starts its supervision loop (restart-on-crash backoff, `onRespawn`
+    /// callbacks, exit-waiter bookkeeping). Returns as soon as the first spawn succeeds; on a
+    /// spawn failure the entry is rolled back so nothing leaks. The handle's `pid` is
+    /// best-effort metadata — supervision (and every other method here) is keyed by the
+    /// handle's stable `id`, which survives respawns while the pid does not.
     public func launch(
         _ spec: SpawnSpec,
         restartPolicy: RestartPolicy,
@@ -136,6 +152,11 @@ public actor InProcessBackend: SupervisorBackend {
         return SpawnedProcessHandle(id: id, pid: entry.currentProcess?.processIdentifier ?? -1)
     }
 
+    /// Awaits the process's final disposition. Resolves only after `finalize` has drained both
+    /// log pipes, so a caller can `snapshot()` the ``LogCenter`` immediately afterwards without
+    /// losing the tail of the output. Unknown handles and already-finished processes resolve
+    /// immediately; cancelling the awaiting task resumes it with `.terminated` (each waiter is
+    /// keyed by its own UUID so cancellation removes exactly its own continuation).
     public func waitForExit(_ handle: SpawnedProcessHandle) async -> ProcessExitReason {
         guard let entry = entries[handle.id] else { return .terminated }
         if let reason = entry.finalReason { return reason }
@@ -165,10 +186,18 @@ public actor InProcessBackend: SupervisorBackend {
         cont.resume(returning: .terminated)
     }
 
+    /// Whether the *current incarnation* of the launch is running — during a crash-restart
+    /// backoff window this is `false` even though supervision is still live. Unknown handles
+    /// report `false`.
     public func isRunning(_ handle: SpawnedProcessHandle) async -> Bool {
         entries[handle.id]?.currentProcess?.isRunning ?? false
     }
 
+    /// Graceful-then-forceful stop: SIGTERM, poll for exit until `timeout`, then SIGKILL.
+    /// Marks the entry manually terminated *first*, so the supervision loop reports
+    /// `.terminated` and never treats the kill as a crash to restart — even if the process
+    /// happens to exit (or a restart backoff is in flight) while this runs. No-op for unknown
+    /// handles.
     public func terminate(_ handle: SpawnedProcessHandle, timeout: TimeInterval) async {
         guard let entry = entries[handle.id] else { return }
         entry.manuallyTerminated = true
@@ -186,6 +215,9 @@ public actor InProcessBackend: SupervisorBackend {
         }
     }
 
+    /// Terminates every supervised process in parallel and waits for each to fully finalize
+    /// (including log drainage), sharing one `timeout` per process rather than serializing —
+    /// this runs on app quit, where N children timing out sequentially would be user-visible.
     public func shutdownAll(timeout: TimeInterval) async {
         let handles = entries.values.map { SpawnedProcessHandle(id: $0.id, pid: $0.currentProcess?.processIdentifier ?? -1) }
         guard !handles.isEmpty else { return }
@@ -200,6 +232,11 @@ public actor InProcessBackend: SupervisorBackend {
         }
     }
 
+    /// Writes `bytes` to the process's stdin pipe.
+    ///
+    /// - Throws: ``SupervisorBackendError/unknownHandle`` when the handle is unknown *or* the
+    ///   launch didn't opt into stdin (`SpawnSpec.stdinPipe`) — without the opt-in no pipe was
+    ///   ever attached, so there is nothing to write to.
     public func writeStdin(_ handle: SpawnedProcessHandle, _ bytes: Data) async throws {
         guard let writer = entries[handle.id]?.stdinWriter else {
             throw SupervisorBackendError.unknownHandle
@@ -207,6 +244,10 @@ public actor InProcessBackend: SupervisorBackend {
         try writer.write(contentsOf: bytes)
     }
 
+    /// The raw stdin `FileHandle` for callers that stream continuously (e.g. an MCP stdio
+    /// transport) and don't want an actor hop per write. `nil` when the handle is unknown or the
+    /// launch didn't request stdin. Note the handle is replaced on respawn — long-lived callers
+    /// should re-fetch it from their `onRespawn` callback.
     public func stdinHandle(_ handle: SpawnedProcessHandle) async -> FileHandle? {
         entries[handle.id]?.stdinWriter
     }
