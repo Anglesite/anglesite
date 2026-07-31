@@ -1,21 +1,25 @@
 // Sources/AnglesiteCore/ContentFieldValidation.swift
 import Foundation
 
-/// Value checks for `ContentTypeField` values, applied before a content entry is written to disk.
+/// Value checks shared by anything that accepts a `ContentTypeField`-shaped value, applied before
+/// that value is persisted or otherwise acted on.
 ///
-/// Scaffolding renders; this validates. Kept separate from `ContentScaffold` so the create path can
+/// Scaffolding renders; this validates. Kept separate from `ContentScaffold` so a create path can
 /// reject a bad value *before* asking for a render, and so the rules are testable on their own.
+/// Not limited to content entries — `IntegrationPlanner` also validates its `.url` fields against
+/// `isAbsoluteURL` below, since a wizard field feeding a CSP domain has the same host and
+/// port/whitespace hazards as a `u-*` microformat property does.
 public enum ContentFieldValidation {
     /// Whether `value` is an absolute URL with a scheme **and** a non-empty host.
     ///
     /// Deliberately stricter than the template's `z.string().url()`, which accepts anything
     /// `new URL()` parses — including `mailto:` and other host-less schemes. A `.url` field feeds a
-    /// `u-*` microformat property (`u-bookmark-of`, `u-in-reply-to`, `u-like-of`), which needs a
-    /// dereferenceable target, so requiring a host is the useful rule. Anything accepted here is
-    /// accepted by `z.string().url()` — including the port range, see below — so a value that
-    /// passes never fails `astro check`.
+    /// `u-*` microformat property (`u-bookmark-of`, `u-in-reply-to`, `u-like-of`) or a CSP domain
+    /// entry, both of which need a dereferenceable target, so requiring a host is the useful rule.
+    /// Anything accepted here is accepted by `z.string().url()` — including the port range, see
+    /// below — so a value that passes never fails `astro check`.
     ///
-    /// Mirrors the same host-not-just-scheme rule `IntegrationPlanner` applies to its `.url` fields.
+    /// The single definition of "is this a URL" for the module — see #1016.
     public static func isAbsoluteURL(_ value: String) -> Bool {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,

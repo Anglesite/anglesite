@@ -38,10 +38,11 @@ public enum IntegrationPlanner {
             switch field.kind {
             case .email where !value.contains("@"):
                 return .failure(.invalidValue(key: field.key, reason: "not an email address"))
-            // Require a host (not just a parseable scheme) so a value like "https:" or
-            // "mailto:foo@bar.com" fails here with a clear message, instead of silently
-            // producing no CSP entry later for a descriptor that uses addCSPDomains(fromFieldHost:).
-            case .url where URL(string: value)?.host == nil:
+            // Delegates to the single "is this a URL" rule (ContentFieldValidation.isAbsoluteURL)
+            // so a value like "https:" or "mailto:foo@bar.com" fails here with a clear message,
+            // instead of silently producing no CSP entry later for a descriptor that uses
+            // addCSPDomains(fromFieldHost:).
+            case .url where !ContentFieldValidation.isAbsoluteURL(value):
                 return .failure(.invalidValue(key: field.key, reason: "not an absolute URL (needs a host, e.g. https://example.com)"))
             case .path where value.contains(where: { $0.isWhitespace }):
                 return .failure(.invalidValue(key: field.key, reason: "must not contain whitespace"))
