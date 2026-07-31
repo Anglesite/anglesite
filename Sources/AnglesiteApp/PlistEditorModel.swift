@@ -31,6 +31,10 @@ final class PlistEditorModel {
         }
     }
     private(set) var savedAnalyticsSettings = WebsiteAnalyticsAsset.Settings()
+    var langSettings = SiteLanguageAsset.Settings()
+    private(set) var savedLangSettings = SiteLanguageAsset.Settings()
+    private(set) var langError: String?
+    private(set) var isSavingLang = false
     var redirectEntries: [RedirectsStore.RedirectEntry] = []
     private(set) var savedRedirectEntries: [RedirectsStore.RedirectEntry] = []
     private(set) var redirectsError: String?
@@ -127,6 +131,7 @@ final class PlistEditorModel {
 
     var isDirty: Bool { entries != savedEntries && loadError == nil && !isLoading }
     var isAnalyticsDirty: Bool { analyticsSettings != savedAnalyticsSettings && loadError == nil && !isLoading }
+    var isLangDirty: Bool { langSettings != savedLangSettings && loadError == nil && !isLoading }
     var isRedirectsDirty: Bool { redirectEntries != savedRedirectEntries && loadError == nil && !isLoading }
     var isLicensingDirty: Bool { licensingPolicy != savedLicensingPolicy && loadError == nil && !isLoading }
     var isMtaStsDirty: Bool { mtaStsSettings != savedMtaStsSettings && loadError == nil && !isLoading }
@@ -242,6 +247,10 @@ final class PlistEditorModel {
                 licensingError = "Couldn't load existing licensing.json — it may be corrupted or hand-edited. Fix it externally or your next save will discard it. (\(error.localizedDescription))"
                 licensingLoadFailed = true
             }
+            let lang = SiteLanguageAsset.parseSettings(from: config)
+            langSettings = lang
+            savedLangSettings = lang
+            langError = nil
             let mtaSts = MTAStsPolicyAsset.parseSettings(from: config)
             mtaStsSettings = mtaSts
             savedMtaStsSettings = mtaSts
@@ -296,6 +305,9 @@ final class PlistEditorModel {
         }
         if isAnalyticsDirty {
             guard await saveAnalytics() else { return false }
+        }
+        if isLangDirty {
+            guard await saveLang() else { return false }
         }
         if isRedirectsDirty {
             guard await saveRedirects() else { return false }
@@ -441,6 +453,28 @@ final class PlistEditorModel {
             return false
         } catch {
             licensingError = "Couldn't save content licensing: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    @discardableResult
+    func saveLang() async -> Bool {
+        guard isLangDirty else { return true }
+        guard !isSavingLang else { return false }
+        isSavingLang = true
+        langError = nil
+        defer { isSavingLang = false }
+        let sourceDirectory = sourceDirectory
+        let settings = SiteLanguageAsset.Settings(lang: langSettings.lang)
+        do {
+            try await Task.detached(priority: .userInitiated) {
+                try SiteLanguageAsset.install(settings, siteDirectory: sourceDirectory)
+            }.value
+            langSettings = settings
+            savedLangSettings = settings
+            return true
+        } catch {
+            langError = "Couldn't save website language: \(error.localizedDescription)"
             return false
         }
     }
@@ -952,6 +986,7 @@ final class PlistEditorModel {
         [
             DirtyFacet(isDirty: isDirty, isSaving: isSaving) { await self.save() },
             DirtyFacet(isDirty: isAnalyticsDirty, isSaving: isSavingAnalytics) { await self.saveAnalytics() },
+            DirtyFacet(isDirty: isLangDirty, isSaving: isSavingLang) { await self.saveLang() },
             DirtyFacet(isDirty: isRedirectsDirty, isSaving: isSavingRedirects) { await self.saveRedirects() },
             DirtyFacet(isDirty: isLicensingDirty, isSaving: isSavingLicensing) { await self.saveLicensing() },
             DirtyFacet(isDirty: isMtaStsDirty, isSaving: isSavingMtaSts) { await self.saveMtaSts() },

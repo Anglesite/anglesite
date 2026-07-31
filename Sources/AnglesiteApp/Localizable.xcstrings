@@ -197,6 +197,9 @@
     "@media %@" : {
 
     },
+    "A BCP 47 language tag, e.g. \"en\", \"fr-CA\", \"es\". Screen readers and search engines use this to pronounce and index your content correctly." : {
+
+    },
     "A custom token named “Anglesite” should be pre-filled with all permissions Anglesite uses. If it isn’t, add at least the “Edit Cloudflare Workers” template’s permissions so deploying works — Anglesite will ask again when a feature needs more access. Click **Continue to summary**." : {
 
     },
@@ -1576,6 +1579,9 @@
 
     },
     "LAN site runtime" : {
+
+    },
+    "Language" : {
 
     },
     "Language & Region…" : {
@@ -3196,6 +3202,9 @@
 
     },
     "edited" : {
+
+    },
+    "en" : {
 
     },
     "example.com" : {

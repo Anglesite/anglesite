@@ -38,6 +38,20 @@ export function readConfig(
   return loadDefaultConfig()[key];
 }
 
+/** Applies the "en" fallback used by {@link siteLang}; split out so the default is unit-testable
+ * without touching disk. */
+export function resolveLang(value: string | undefined): string {
+  return value?.trim() || "en";
+}
+
+/**
+ * The site's BCP 47 language tag for `<html lang>` (WCAG 2.2 SC 3.1.1). Falls back to "en" for a
+ * site scaffolded before this key existed, or with `LANG` cleared by hand.
+ */
+export function siteLang(): string {
+  return resolveLang(readConfig("LANG"));
+}
+
 // Config values are free-form strings, but the booking/donation widgets accept a
 // closed set of provider literals. These narrow at runtime so an unrecognized
 // `.site-config` value (e.g. a typo) becomes `undefined` — which the widgets

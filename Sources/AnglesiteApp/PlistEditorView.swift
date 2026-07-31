@@ -35,6 +35,7 @@ struct PlistEditorView: View {
     @State private var isConfirmingEnablePVR = false
     @State private var isConfirmingEnablePVRForConfiguredRepo = false
     @FocusState private var titleFocused: Bool
+    @FocusState private var languageFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -46,6 +47,11 @@ struct PlistEditorView: View {
         .onChange(of: titleFocused) { wasFocused, isFocused in
             if wasFocused && !isFocused {
                 Task { await saveWebsiteTitle() }
+            }
+        }
+        .onChange(of: languageFocused) { wasFocused, isFocused in
+            if wasFocused && !isFocused {
+                Task { await model.saveLang() }
             }
         }
         .onChange(of: selectedTab) { oldValue, _ in
@@ -158,6 +164,11 @@ struct PlistEditorView: View {
                             .foregroundStyle(.orange)
                             .font(.callout)
                     }
+                    if selectedTab != .website, let langError = model.langError {
+                        Label(langError, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.callout)
+                    }
                     if selectedTab != .redirects, let redirectsError = model.redirectsError {
                         Label(redirectsError, systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
@@ -213,6 +224,19 @@ struct PlistEditorView: View {
                             .focused($titleFocused)
                             .onSubmit { Task { await saveWebsiteTitle() } }
                             .frame(minWidth: 220)
+                    }
+                    GridRow {
+                        Text("Language")
+                            .frame(minWidth: 160, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 2) {
+                            TextField("en", text: $model.langSettings.lang)
+                                .focused($languageFocused)
+                                .onSubmit { Task { await model.saveLang() } }
+                                .frame(minWidth: 220)
+                            Text("A BCP 47 language tag, e.g. \"en\", \"fr-CA\", \"es\". Screen readers and search engines use this to pronounce and index your content correctly.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     GridRow {
                         Text("Icons")

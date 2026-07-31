@@ -2,7 +2,7 @@
 import "../styles/global.css";
 import Hcard from "../components/Hcard.astro";
 import Rights from "../components/Rights.astro";
-import { readConfig } from "../../scripts/config";
+import { readConfig, siteLang } from "../../scripts/config";
 import { siteLicense } from "../lib/licensing-data.ts";
 import { headLicense, type LicenseRef } from "../lib/licensing.ts";
 import { readRobotsConfig, isNoindexed } from "../lib/robots-config.ts";
@@ -27,7 +27,7 @@ const noindex = isNoindexed(Astro.url.pathname, readRobotsConfig(process.cwd()))
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={siteLang()}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
