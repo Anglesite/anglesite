@@ -22,6 +22,7 @@ const blog = defineCollection({
   loader: collectionLoader("blog"),
   schema: z.object({
     ...socialFields,
+    lang: z.string().optional(),
     title: z.string(),
     pubDate: z.coerce.date(),
     description: z.string().optional(),
@@ -43,6 +44,7 @@ const photos = defineCollection({
   loader: glob({ pattern: "**/*.md", base: "./src/content/photos" }),
   schema: z.object({
     ...socialFields,
+    lang: z.string().optional(),
     image: z.string(),
     caption: z.string().optional(),
     publishDate: z.coerce.date(),
@@ -55,6 +57,7 @@ const albums = defineCollection({
   loader: glob({ pattern: "**/*.md", base: "./src/content/albums" }),
   schema: z.object({
     ...socialFields,
+    lang: z.string().optional(),
     title: z.string(),
     images: z.array(z.string()),
     publishDate: z.coerce.date(),
@@ -67,6 +70,7 @@ const bookmarks = defineCollection({
   loader: glob({ pattern: "**/*.md", base: "./src/content/bookmarks" }),
   schema: z.object({
     ...socialFields,
+    lang: z.string().optional(),
     bookmarkOf: z.string().url(),
     title: z.string().optional(),
     publishDate: z.coerce.date(),
@@ -79,6 +83,7 @@ const replies = defineCollection({
   loader: glob({ pattern: "**/*.md", base: "./src/content/replies" }),
   schema: z.object({
     ...socialFields,
+    lang: z.string().optional(),
     inReplyTo: z.string().url(),
     publishDate: z.coerce.date(),
     draft: z.boolean().default(false),
@@ -89,6 +94,7 @@ const likes = defineCollection({
   loader: glob({ pattern: "**/*.md", base: "./src/content/likes" }),
   schema: z.object({
     ...socialFields,
+    lang: z.string().optional(),
     likeOf: z.string().url(),
     publishDate: z.coerce.date(),
     draft: z.boolean().default(false),
@@ -99,6 +105,7 @@ const announcements = defineCollection({
   loader: glob({ pattern: "**/*.md", base: "./src/content/announcements" }),
   schema: z.object({
     ...socialFields,
+    lang: z.string().optional(),
     title: z.string(),
     publishDate: z.coerce.date(),
   }).strict(),
@@ -108,6 +115,7 @@ const events = defineCollection({
   loader: glob({ pattern: "**/*.md", base: "./src/content/events" }),
   schema: z.object({
     ...socialFields,
+    lang: z.string().optional(),
     name: z.string(),
     start: z.coerce.date(),
     end: z.coerce.date().optional(),
@@ -119,6 +127,7 @@ const reviews = defineCollection({
   loader: glob({ pattern: "**/*.md", base: "./src/content/reviews" }),
   schema: z.object({
     ...socialFields,
+    lang: z.string().optional(),
     itemReviewed: z.string(),
     rating: z.number(),
     publishDate: z.coerce.date(),
