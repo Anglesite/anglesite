@@ -13,12 +13,19 @@ import Foundation
 ///    dry-runs via the bridge to get a before/after preview, confirms with the user, and applies.
 /// 4. Plugin applies the structured patch and the reply status drives the final dialog.
 public struct EditContentIntent: AppIntent {
+    /// Display name in the Shortcuts action library and Siri disambiguation.
     public static let title: LocalizedStringResource = "Edit Content"
+    /// Longer explanation shown under the action in the Shortcuts editor.
     public static let description = IntentDescription(
         "Apply a natural-language edit to an onscreen element of a site."
     )
 
+    /// The target element, resolved by Siri from "this heading" / "that image" via
+    /// `appEntityUIElementProvider` (B.4 / #148). Transient — only resolvable while the
+    /// WKWebView is still showing the page that produced it (see ``ElementEntity``).
     @Parameter(title: "Element") public var element: ElementEntity
+    /// The user's spoken change request, kept as raw natural language; the on-device
+    /// interpreter (not Siri parameter resolution) turns it into a structured op.
     @Parameter(
         title: "Change",
         description: "A natural-language description of the change to apply, e.g. make it bigger or change the color to teal."
@@ -26,12 +33,19 @@ public struct EditContentIntent: AppIntent {
     @Dependency private var bridge: IntentEditBridge
     @Dependency private var interpreter: any EditInterpreting
 
+    /// AppIntents requires a parameterless initializer; the framework populates `@Parameter`s
+    /// after construction.
     public init() {}
 
+    /// Shortcuts-editor sentence: "Change (element) — (instruction)".
     public static var parameterSummary: some ParameterSummary {
         Summary("Change \(\.$element) \u{2014} \(\.$instruction)")
     }
 
+    /// Runs the interpret → dry-run → confirm → apply pipeline described on the type. Every
+    /// early exit before the confirmation (bad selector, interpretation failure, dry-run
+    /// refusal, user decline) returns a dialog without writing anything — the source tree is
+    /// only touched after the user has seen the before/after preview and confirmed.
     public func perform() async throws -> some IntentResult & ProvidesDialog {
         let bridge = IntentEditBridgeOverride.scoped ?? self.bridge
         let interp = EditInterpreterOverride.scoped ?? self.interpreter

@@ -18,6 +18,8 @@ import Foundation
 /// actor. Tests use the lighter-weight `ElementEntityProviderOverride.scoped` TaskLocal seam.
 @MainActor
 public final class PreviewAnnotationProviderRegistry: Sendable {
+    /// The process-wide registry every production caller goes through — a singleton because
+    /// ``ElementEntityQuery`` is instantiated by the AppIntents runtime and has no injection point.
     public static let shared = PreviewAnnotationProviderRegistry()
 
     private var providers: [String: PreviewAnnotationProvider] = [:]
@@ -27,14 +29,20 @@ public final class PreviewAnnotationProviderRegistry: Sendable {
     /// instances from silently routing queries to the wrong store.
     internal init() {}
 
+    /// Bind `provider` as the live provider for `siteID`, replacing any previous binding —
+    /// last registration wins, which is what a window re-creating its provider on siteID
+    /// change needs.
     public func register(_ provider: PreviewAnnotationProvider, for siteID: String) {
         providers[siteID] = provider
     }
 
+    /// Drop the binding for `siteID` (window closed). Safe to call when nothing is registered,
+    /// so `onDisappear` doesn't need to track whether registration ever happened.
     public func unregister(siteID: String) {
         providers.removeValue(forKey: siteID)
     }
 
+    /// The live provider for `siteID`, or `nil` when that site has no open window.
     public func provider(for siteID: String) -> PreviewAnnotationProvider? {
         providers[siteID]
     }

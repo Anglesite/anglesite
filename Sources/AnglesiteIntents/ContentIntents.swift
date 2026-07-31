@@ -20,23 +20,38 @@ import Foundation
 
 // MARK: - Search
 
+/// Searches one site's pages, posts, and images in a single pass, returning uniform
+/// ``ContentMatchEntity`` projections so an agent or Shortcut can search-then-act across all
+/// three content kinds without running three typed queries. Read-only against
+/// `SiteContentGraph`; no MCP round-trip.
 public struct SearchContentIntent: AppIntent {
+    /// The verb phrase Shortcuts/Siri/Spotlight show for this action.
     public static let title: LocalizedStringResource = "Search Site Content"
+    /// One-line explanation shown under the action in the Shortcuts editor.
     public static let description = IntentDescription("Search a site's pages, posts, and images.")
 
+    /// The site to search, resolved by ``SiteEntityQuery`` from the recents registry.
     @Parameter(title: "Site") public var site: SiteEntity
+    /// Free-text term. A blank/whitespace query returns no matches rather than the whole
+    /// content graph (#234) — see `matches(graph:siteID:query:)`.
     @Parameter(
         title: "Search",
         description: "Words to match against page titles, post titles, slugs, tags, and image filenames."
     ) public var query: String
     @Dependency private var graph: SiteContentGraph
 
+    /// Required by `AppIntent`; the AppIntents runtime fills the `@Parameter` values after
+    /// construction.
     public init() {}
 
+    /// The sentence the Shortcuts editor renders: "Search *site* for *query*".
     public static var parameterSummary: some ParameterSummary {
         Summary("Search \(\.$site) for \(\.$query)")
     }
 
+    /// Gathers matches (test override first, then the `@Dependency` graph) and speaks the
+    /// per-kind counts. All real logic lives in the static helpers below so it's testable
+    /// without the AppIntents runtime.
     public func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<[ContentMatchEntity]> {
         let g = ContentGraphOverride.scoped ?? graph
         let matches = await Self.matches(graph: g, siteID: site.id, query: query)
@@ -85,19 +100,29 @@ public struct SearchContentIntent: AppIntent {
 /// Lists a site's content of one type (#351). The typed counterpart to `SearchContentIntent`:
 /// resolves the type's collection from the registry and filters the graph's posts by it.
 public struct FindContentByTypeIntent: AppIntent {
+    /// The verb phrase Shortcuts/Siri/Spotlight show for this action.
     public static let title: LocalizedStringResource = "Find Content by Type"
+    /// One-line explanation shown under the action in the Shortcuts editor.
     public static let description = IntentDescription("List a site's content of a given type, e.g. events or reviews.")
 
+    /// The site whose content to list, resolved by ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
+    /// The typed kind to filter by — an `AppEnum` so Shortcuts offers a picker instead of a
+    /// free-text collection name.
     @Parameter(title: "Type") public var contentType: ContentTypeAppEnum
     @Dependency private var graph: SiteContentGraph
 
+    /// Required by `AppIntent`; the AppIntents runtime fills the `@Parameter` values after
+    /// construction.
     public init() {}
 
+    /// The sentence the Shortcuts editor renders: "Find *type* in *site*".
     public static var parameterSummary: some ParameterSummary {
         Summary("Find \(\.$contentType) in \(\.$site)")
     }
 
+    /// Filters the graph's posts to the type's collection and speaks the count, using the
+    /// registry display name so the dialog says "events", not a raw enum value.
     public func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<[PostEntity]> {
         let g = ContentGraphOverride.scoped ?? graph
         let results = await Self.matches(graph: g, siteID: site.id, type: contentType)
@@ -126,17 +151,27 @@ public struct FindContentByTypeIntent: AppIntent {
 
 // MARK: - Status
 
+/// Speaks a one-sentence content inventory — pages, posts (with draft count), images — for a
+/// site. The quick "how much is on my site?" Siri/Shortcuts query; read-only against
+/// `SiteContentGraph`.
 public struct SiteStatusIntent: AppIntent {
+    /// The verb phrase Shortcuts/Siri/Spotlight show for this action.
     public static let title: LocalizedStringResource = "Site Content Status"
+    /// One-line explanation shown under the action in the Shortcuts editor.
     public static let description = IntentDescription("Report how much content a site has.")
 
+    /// The site to report on, resolved by ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
     @Dependency private var graph: SiteContentGraph
 
+    /// Required by `AppIntent`; the AppIntents runtime fills the `@Parameter` values after
+    /// construction.
     public init() {}
 
+    /// The sentence the Shortcuts editor renders: "Status of *site*".
     public static var parameterSummary: some ParameterSummary { Summary("Status of \(\.$site)") }
 
+    /// Counts the site's content (test override first) and speaks the summary.
     public func perform() async throws -> some IntentResult & ProvidesDialog {
         let dialog = await Self.dialog(graph: ContentGraphOverride.scoped ?? graph, siteID: site.id, siteName: site.displayName)
         return .result(dialog: IntentDialog(stringLiteral: dialog))
@@ -163,17 +198,28 @@ public struct SiteStatusIntent: AppIntent {
 /// route rides along on the open request; `SiteWindow` consumes it and navigates the preview's
 /// WKWebView to that page once the dev server is ready (cold-open included).
 public struct PreviewSiteIntent: AppIntent {
+    /// The verb phrase Shortcuts/Siri/Spotlight show for this action.
     public static let title: LocalizedStringResource = "Preview Site"
+    /// One-line explanation shown under the action in the Shortcuts editor.
     public static let description = IntentDescription("Open a site's live preview in Anglesite.")
+    /// Previewing is a GUI outcome — the app must come forward for the requested window to be
+    /// seen, so this can't run as a background intent.
     public static let openAppWhenRun = true
 
+    /// The site to preview, resolved by ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
+    /// Optional page to navigate to once the dev server is up; `nil` opens the site's root.
     @Parameter(title: "Page") public var page: PageEntity?
 
+    /// Required by `AppIntent`; the AppIntents runtime fills the `@Parameter` values after
+    /// construction.
     public init() {}
 
+    /// The sentence the Shortcuts editor renders: "Preview *site*".
     public static var parameterSummary: some ParameterSummary { Summary("Preview \(\.$site)") }
 
+    /// Posts the open request to ``WindowRouter`` (main-actor — the router is UI state the
+    /// "Sites" scene observes) and confirms; the window itself opens asynchronously.
     @MainActor
     public func perform() async throws -> some IntentResult & ProvidesDialog {
         WindowRouter.shared.requestOpen(siteID: site.id, route: page?.route)
@@ -183,27 +229,41 @@ public struct PreviewSiteIntent: AppIntent {
 
 // MARK: - Add Page
 
+/// Scaffolds a new page via `ContentOperationsService` and returns the created ``PageEntity``
+/// (nil on failure) so a Shortcut can chain create → preview. Long-running/cancellable on
+/// Xcode 27 (see the gated extension at the bottom of this file): first use may spawn the
+/// plugin's Node MCP server, which can exceed the default intent budget.
 public struct AddPageIntent: AppIntent {
+    /// The verb phrase Shortcuts/Siri/Spotlight show for this action.
     public static let title: LocalizedStringResource = "Add Page"
+    /// One-line explanation shown under the action in the Shortcuts editor.
     public static let description = IntentDescription("Scaffold a new page on a site with Anglesite.")
 
+    /// The site to add the page to, resolved by ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
+    /// The page title; also the source of the derived route when none is given.
     @Parameter(
         title: "Name",
         description: "The page title, e.g. “About” or “Contact”."
     ) public var name: String
+    /// Optional explicit route; `nil` lets the create path derive one from `name`.
     @Parameter(
         title: "Route",
         description: "Optional URL path relative to the site root, e.g. “/about”. Derived from the name when omitted."
     ) public var route: String?
     @Dependency private var content: any ContentOperationsService
 
+    /// Required by `AppIntent`; the AppIntents runtime fills the `@Parameter` values after
+    /// construction.
     public init() {}
 
+    /// The sentence the Shortcuts editor renders: "Add page *name* to *site*".
     public static var parameterSummary: some ParameterSummary {
         Summary("Add page \(\.$name) to \(\.$site)")
     }
 
+    /// Runs the create through the service (test override first), then speaks the outcome and
+    /// returns the created entity — or a cancellation dialog when the user hit Cancel mid-run.
     public func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<PageEntity?> {
         let scoped = ContentOperationsOverride.scoped
         let svc = scoped ?? content
@@ -243,32 +303,46 @@ extension AddPageIntent {
 
 // MARK: - Add Post
 
+/// Scaffolds a new draft post via `ContentOperationsService` and returns the created
+/// ``PostEntity`` (nil on failure). Same long-running/cancellable shape as ``AddPageIntent``
+/// (gated extension at the bottom of this file).
 public struct AddPostIntent: AppIntent {
+    /// The verb phrase Shortcuts/Siri/Spotlight show for this action.
     public static let title: LocalizedStringResource = "Add Post"
+    /// One-line explanation shown under the action in the Shortcuts editor.
     public static let description = IntentDescription("Scaffold a new draft post on a site with Anglesite.")
 
+    /// The site to add the post to, resolved by ``SiteEntityQuery``.
     @Parameter(title: "Site") public var site: SiteEntity
+    /// The post title. Named `title2` only because `title` collides with the `AppIntent.title`
+    /// static requirement; it still presents to the user as "Title".
     @Parameter(
         title: "Title",
         description: "The post title."
     ) public var title2: String
+    /// Optional collection to file the post in; `nil` uses the site's default.
     @Parameter(
         title: "Collection",
         description: "Optional content collection to add the post to, e.g. “blog”. Uses the site default when omitted."
     ) public var collection: String?
+    /// Optional explicit slug; `nil` lets the create path derive one from the title.
     @Parameter(
         title: "Slug",
         description: "Optional URL slug for the post, e.g. “my-first-post”. Derived from the title when omitted."
     ) public var slug: String?
     @Dependency private var content: any ContentOperationsService
 
+    /// Required by `AppIntent`; the AppIntents runtime fills the `@Parameter` values after
+    /// construction.
     public init() {}
 
-    // `title` is taken by `AppIntent.title`; the parameter is `title2` but presents as "Title".
+    /// The sentence the Shortcuts editor renders: "Add post *title* to *site*".
     public static var parameterSummary: some ParameterSummary {
         Summary("Add post \(\.$title2) to \(\.$site)")
     }
 
+    /// Runs the create through the service (test override first), then speaks the outcome and
+    /// returns the created entity — or a cancellation dialog when the user hit Cancel mid-run.
     public func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<PostEntity?> {
         let scoped = ContentOperationsOverride.scoped
         let svc = scoped ?? content
@@ -319,9 +393,22 @@ extension AddPostIntent: LongRunningIntent, CancellableIntent {}
 
 // MARK: - Dialog formatting (pure, unit-testable)
 
+/// Every spoken/dialog string the content intents produce, as pure static formatters. Keeping
+/// the wording here — never inline in a `perform()` — is what makes it unit-testable without
+/// the AppIntents runtime (the promise in this file's header).
 public enum ContentDialogs {
-    public enum CreateKind: String, Sendable { case page, post }
+    /// Which create operation a dialog refers to — picks the noun in the
+    /// ``ContentDialogs/canceled(kind:siteName:)`` / ``ContentDialogs/created(_:kind:siteName:)``
+    /// wording.
+    public enum CreateKind: String, Sendable {
+        /// A route-addressed page (``AddPageIntent``).
+        case page
+        /// A collection-addressed post (``AddPostIntent``).
+        case post
+    }
 
+    /// Spoken result for ``FindContentByTypeIntent``: "Found 3 events." Pass a registry display
+    /// name — `pluralize` below is only correct for the built-in type names.
     public static func findByType(typeName: String, count: Int) -> String {
         let plural = pluralize(typeName, count)
         guard count > 0 else { return "No \(plural) found." }
@@ -339,6 +426,8 @@ public enum ContentDialogs {
         return lower + "s"
     }
 
+    /// Spoken result for ``SearchContentIntent``: per-kind counts as a natural-language list,
+    /// with zero-count kinds omitted; a blank query prompts for a term instead (#234).
     public static func search(query: String, pageCount: Int, postCount: Int, imageCount: Int) -> String {
         // #234: a blank query means "no term given", not "no results" — prompt instead of echoing `Nothing matched “”.`.
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -353,11 +442,15 @@ public enum ContentDialogs {
         return "Found \(list(parts)) matching “\(query)”."
     }
 
+    /// Spoken result for ``SiteStatusIntent``. The draft count rides along parenthetically, and
+    /// only when nonzero — "0 drafts" is noise for the common all-published case.
     public static func status(siteName: String, pages: Int, posts: Int, drafts: Int, images: Int) -> String {
         let draftNote = drafts > 0 ? " (\(drafts) draft\(drafts == 1 ? "" : "s"))" : ""
         return "\(siteName) has \(count(pages, "page")), \(count(posts, "post"))\(draftNote), and \(count(images, "image"))."
     }
 
+    /// Spoken confirmation for ``PreviewSiteIntent`` — page-specific when a page was requested,
+    /// so the user hears which page is about to appear.
     public static func preview(siteName: String, pageName: String? = nil) -> String {
         if let pageName { return "Opening the \(pageName) page of \(siteName)." }
         return "Opening \(siteName)."
@@ -371,6 +464,8 @@ public enum ContentDialogs {
         }
     }
 
+    /// Maps a `ContentCreateResult` to its spoken outcome. Success names the created identifier
+    /// (route or slug) so the user hears where the content landed, not just that it worked.
     public static func created(_ result: ContentCreateResult, kind: CreateKind, siteName: String) -> String {
         switch result {
         case .created(_, let identifier):

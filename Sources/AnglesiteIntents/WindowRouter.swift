@@ -6,6 +6,9 @@ import Observation
 @MainActor
 @Observable
 public final class WindowRouter {
+    /// The process-wide router. A singleton (with a private init) because both ends of the
+    /// hand-off — intents on one side, the observing SwiftUI scenes on the other — have no
+    /// common injection point.
     public static let shared = WindowRouter()
     private init() {}
 
@@ -23,6 +26,10 @@ public final class WindowRouter {
     /// site root (a plain "preview my site" issued after a prior page navigation).
     public private(set) var pendingNavigation: [String: String?] = [:]
 
+    /// Requests that `siteID`'s window open (or focus), optionally navigating its preview:
+    /// `route` navigates there, an explicit `nil` resets to the site root — passing `nil` still
+    /// records a pending navigation, which is why an already-open window reacts to a plain
+    /// "preview my site".
     public func requestOpen(siteID: String, route: String? = nil) {
         // `updateValue` (not `pendingNavigation[siteID] = route`) so a `nil` route records the
         // key with a nil value — "reset to root" — instead of removing the entry.
@@ -62,6 +69,8 @@ public final class WindowRouter {
     /// Mirrors `requested`/`requestOpen` for the open-existing path.
     public private(set) var newSiteRequested = false
 
+    /// Flags a pending File ▸ New Site request for the "Sites" launcher to consume — see
+    /// ``newSiteRequested`` for the contract.
     public func requestNewSite() { newSiteRequested = true }
 
     /// Called by the launcher once it has consumed the request.

@@ -15,5 +15,7 @@ import AnglesiteCore
 /// In production the override is always `nil` and the intent resolves through
 /// `@Dependency` as designed.
 public enum SiteOperationsOverride {
+    /// The task-scoped fake. Always `nil` in production; when bound, intents skip both
+    /// `@Dependency` resolution and `requestConfirmation` (no UI surface under `swift test`).
     @TaskLocal public static var scoped: (any SiteOperationsService)?
 }

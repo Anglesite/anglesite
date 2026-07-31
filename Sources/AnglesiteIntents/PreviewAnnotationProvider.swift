@@ -27,11 +27,16 @@ import Foundation
 /// explicit author annotation) outrank generic-page fallback.
 @MainActor
 public final class PreviewAnnotationProvider: ElementEntityProviding, Sendable {
+    /// The site this provider annotates — fixed at construction because the provider is
+    /// window-scoped (one per site window), not shared across sites.
     public let siteID: String
     private let graph: SiteContentGraph
     private var annotated: [(rect: CGRect, entity: any AppEntity)] = []
     private var elementsByID: [String: ElementEntity] = [:]
 
+    /// Creates a provider bound to one site window. `graph` is the shared `SiteContentGraph`
+    /// actor — injected (rather than reaching for a singleton) so tests can supply an isolated
+    /// graph.
     public init(siteID: String, graph: SiteContentGraph) {
         self.siteID = siteID
         self.graph = graph
@@ -83,6 +88,9 @@ public final class PreviewAnnotationProvider: ElementEntityProviding, Sendable {
 
     // MARK: ElementEntityProviding
 
+    /// ``ElementEntityProviding`` requirement — same lookup as ``entity(for:)``, exposed under
+    /// the protocol name so ``ElementEntityQuery`` can resolve ids without knowing the concrete
+    /// provider type.
     public func elementEntity(forID id: String) -> ElementEntity? {
         elementsByID[id]
     }

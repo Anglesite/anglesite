@@ -12,7 +12,11 @@ extension SiteEntity: IndexedEntity {}
 /// Pluggable seam over `CSSearchableIndex` so `SpotlightIndexerTests` can verify the diff/upsert
 /// sequencing without hitting the live system index daemon.
 public protocol SpotlightIndexBackend: Sendable {
+    /// Upsert `entities` into the index. Id-keyed, so re-indexing an unchanged entity is a
+    /// harmless overwrite — the indexer relies on that rather than diffing entity contents.
     func index(_ entities: [SiteEntity]) async throws
+    /// Remove the entries with these ids. Must be idempotent: the indexer's retry posture
+    /// replays deletes after a failed upsert (see ``SpotlightIndexer/reindex(_:)``).
     func deleteEntities(identifiers: [String]) async throws
 }
 
@@ -23,18 +27,25 @@ public protocol SpotlightIndexBackend: Sendable {
 /// "fold a stream of `SiteStore` mutations into the index" use case driven by
 /// `SiteStore.setChangeHandler` (see `AnglesiteIntents.bootstrap`).
 public actor SpotlightIndexer {
+    /// The production instance, bound to the system index. A singleton so every `SiteStore`
+    /// mutation folds into one `lastIndexedIDs` diff state — two indexers would fight over
+    /// deletes.
     public static let shared = SpotlightIndexer(backend: LiveSpotlightBackend())
 
     private let backend: any SpotlightIndexBackend
     private var lastIndexedIDs: Set<String> = []
 
+    /// Creates an indexer over `backend` with an empty diff baseline — the first `reindex`
+    /// therefore upserts everything and deletes nothing, which is the right cold-start behavior.
     public init(backend: any SpotlightIndexBackend) {
         self.backend = backend
     }
 
     /// Result returned to callers (today: tests only) so they can assert the diff outcome.
     public struct Outcome: Sendable, Equatable {
+        /// How many entities were (re-)upserted this call — the full snapshot size, not a delta.
         public let indexed: Int
+        /// How many previously-indexed ids were deleted because they left the snapshot.
         public let removed: Int
     }
 

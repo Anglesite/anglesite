@@ -6,6 +6,9 @@ import AnglesiteCore
 /// `RelevantEntitiesUpdaterTests` can verify the top-N/dedup behavior without touching the
 /// live App Intents relevance API. Mirrors `SpotlightIndexBackend`.
 public protocol RelevantEntitiesBackend: Sendable {
+    /// Replace the published relevant-entity set with `entities`. Each call is a full snapshot,
+    /// not a delta — the updater already diffed, so a backend that gets called should publish
+    /// everything it's given.
     func update(_ entities: [SiteEntity]) async throws
 }
 
@@ -19,6 +22,9 @@ public protocol RelevantEntitiesBackend: Sendable {
 /// snapshot) is a no-op. `lastPushedIDs` advances only on success, so a thrown backend error
 /// replays on the next snapshot.
 public actor RelevantEntitiesUpdater {
+    /// The production instance, wired to the live (currently no-op, see `LiveRelevantEntitiesBackend`)
+    /// relevance backend. A singleton so `bootstrap`'s change-stream consumer and any future
+    /// callers share one `lastPushedIDs` diff state.
     public static let shared = RelevantEntitiesUpdater(backend: LiveRelevantEntitiesBackend())
 
     /// Result returned to callers (today: tests only) so they can assert the diff outcome.
@@ -26,8 +32,11 @@ public actor RelevantEntitiesUpdater {
         /// Size of the top-N candidate window this refresh considered — NOT necessarily the
         /// number sent to the backend. When `skipped` is true the backend was not called at all.
         public let count: Int
+        /// `true` when the top-N ids matched the last successful push (in order) and the
+        /// backend was not called.
         public let skipped: Bool
 
+        /// Memberwise initializer — public so test assertions can build expected outcomes.
         public init(count: Int, skipped: Bool) {
             self.count = count
             self.skipped = skipped
@@ -38,11 +47,17 @@ public actor RelevantEntitiesUpdater {
     private let maxCount: Int
     private var lastPushedIDs: [String] = []
 
+    /// Creates an updater over `backend`. `maxCount` defaults to 3 — the relevance surface is a
+    /// suggestion strip, not a browser, so publishing more than the lead few MRU sites just
+    /// dilutes it; tests shrink it to exercise the window edge.
     public init(backend: any RelevantEntitiesBackend, maxCount: Int = 3) {
         self.backend = backend
         self.maxCount = maxCount
     }
 
+    /// Publish the top-N of `sites` (already MRU-ordered by the caller) if they differ from the
+    /// last successful push — see the type doc for the ordered-diff semantics. Rethrows backend
+    /// errors without advancing the diff state, so the next snapshot retries.
     @discardableResult
     public func refresh(_ sites: [SiteStore.Site]) async throws -> Outcome {
         let top = Array(sites.prefix(maxCount))

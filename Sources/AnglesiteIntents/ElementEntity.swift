@@ -14,20 +14,36 @@ import Foundation
 /// shape used by `EditMessage`, encoded so it survives `AppEntity` persistence as a plain
 /// `String`. Call `selectorJSON()` to materialize the `JSONValue` for routing.
 public struct ElementEntity: AppEntity, Identifiable, Sendable {
-    public let id: String              // "{siteID}:element:{elementID}"
-    public let displayName: String     // "h1 — Welcome to my site"
+    /// `"{siteID}:element:{elementID}"` — compose via ``ElementEntity/makeID(siteID:elementID:)``
+    /// so the prefix-based kind routing shared with the indexed entities keeps working.
+    public let id: String
+    /// Human-readable label like `"h1 — Welcome to my site"`; compose via
+    /// ``ElementEntity/makeDisplayName(tag:hint:)`` so truncation and whitespace collapsing
+    /// stay uniform.
+    public let displayName: String
+    /// Owning site's stable UUID — routes the edit to the right window's bridge/provider.
     public let siteID: String
-    public let selector: String        // JSON-encoded `ElementInfo`
+    /// JSON-encoded `ElementInfo` selector (see the type-level note on why it's a `String`);
+    /// decode with ``ElementEntity/selectorJSON()``, never by hand.
+    public let selector: String
+    /// Source path of the page the element was observed on (e.g. `src/pages/about.astro`) —
+    /// the file an `apply_edit` patch targets.
     public let pagePath: String
 
+    /// Kind name Siri/Shortcuts shows for this entity type.
     public static var typeDisplayRepresentation: TypeDisplayRepresentation { "Element" }
 
+    /// Title is the tag+hint display name; subtitle is the page path, which disambiguates
+    /// identical elements (e.g. two "h1 — Welcome" on different pages).
     public var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(title: "\(displayName)", subtitle: "\(pagePath)")
     }
 
+    /// Resolution goes through ``ElementEntityQuery`` — live-provider-backed, never Spotlight.
     public static let defaultQuery = ElementEntityQuery()
 
+    /// Memberwise initializer; public because entities are constructed outside this target
+    /// (by ``PreviewAnnotationProvider``'s mapping and by tests).
     public init(id: String, displayName: String, siteID: String, selector: String, pagePath: String) {
         self.id = id
         self.displayName = displayName
@@ -96,8 +112,13 @@ extension ElementEntity {
 /// In production the registry path is the one that fires; the TaskLocal exists so unit tests
 /// can drive a stub without coupling to `@MainActor` shared state.
 public struct ElementEntityQuery: EntityQuery {
+    /// Stateless — all lookup state lives in the provider/registry the query consults.
     public init() {}
 
+    /// Resolves entity IDs against the live provider. Unresolvable IDs are silently dropped
+    /// (not errors): these entities are transient by design, so a stale ID after a page
+    /// navigation is the normal case, and Siri handles a missing entity better than a thrown
+    /// failure.
     public func entities(for identifiers: [String]) async throws -> [ElementEntity] {
         var out: [ElementEntity] = []
         for id in identifiers {
@@ -108,6 +129,7 @@ public struct ElementEntityQuery: EntityQuery {
         return out
     }
 
+    /// Elements Siri may offer proactively ("edit this heading" without a prior selection).
     public func suggestedEntities() async throws -> [ElementEntity] {
         if let provider = await ElementEntityProviderOverride.scoped {
             return await provider.suggestedElementEntities()
@@ -139,6 +161,8 @@ public struct ElementEntityQuery: EntityQuery {
 /// resolution falls through to `PreviewAnnotationProviderRegistry.shared`.
 @MainActor
 public enum ElementEntityProviderOverride {
+    /// The injected stub provider, or `nil` in production. Task-local so parallel tests can
+    /// each bind their own stub without racing on shared mutable state.
     @TaskLocal public static var scoped: ElementEntityProviding?
 }
 
@@ -147,6 +171,10 @@ public enum ElementEntityProviderOverride {
 /// provider's state machine.
 @MainActor
 public protocol ElementEntityProviding: AnyObject, Sendable {
+    /// Resolves an entity ID back to a live element, or `nil` when the page that produced it
+    /// has navigated away — callers must treat `nil` as "gone", not as an error.
     func elementEntity(forID id: String) -> ElementEntity?
+    /// The provider's current proactive-suggestion set, already capped by the provider
+    /// (`suggestedEntityCap`) so aggregating across windows stays bounded.
     func suggestedElementEntities() -> [ElementEntity]
 }
