@@ -18,6 +18,18 @@
 	<key>com.apple.security.virtualization</key>
 	<true/>
 
+	<!-- iCloud Drive default site storage (#865): the "Anglesite" folder new/imported .anglesite
+	     packages save into by default. Container identifier must match AppSettings.sitesRoot's
+	     ubiquityContainerIdentifier and Info.plist's NSUbiquitousContainers key below. -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.io.dwk.anglesite</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
+
 	<!-- DEBUG-ONLY WORKAROUND for #775 — do not add to Resources/Anglesite.entitlements.
 	     macOS 27 seeds 26A5378n–26A5388g deny sandboxed processes the mach bootstrap
 	     look-up of com.apple.NetworkSharing that vmnet_network_create now performs, so

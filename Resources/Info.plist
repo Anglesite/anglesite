@@ -44,6 +44,21 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- iCloud Drive default site storage (#865): makes the container's Documents/ folder show up
+	     as a browsable "Anglesite" folder in Finder's iCloud Drive sidebar and the Files app,
+	     matching the container identifier declared in the entitlements files above. -->
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.io.dwk.anglesite</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+			<key>NSUbiquitousContainerName</key>
+			<string>Anglesite</string>
+		</dict>
+	</dict>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
