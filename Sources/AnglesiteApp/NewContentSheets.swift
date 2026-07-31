@@ -203,10 +203,13 @@ struct NewCollectionEntrySheet: View {
                                 "Title", text: $title,
                                 prompt: selectedDescriptor?.titleIsRequired == true ? nil : Text("optional"))
                         }
-                        // Field names match the inspector's labels in `TypedEntryForm`.
+                        // Field names match the inspector's labels in `TypedEntryForm`, including
+                        // the " *" required suffix — every field here is schema-required (#916),
+                        // and without it an untouched reply/like row gives no sign anything's
+                        // missing before Create refuses to enable (#1010).
                         ForEach(requiredURLFields, id: \.name) { field in
                             TextField(
-                                field.name,
+                                field.name + (field.required ? " *" : ""),
                                 text: urlBinding(field.name),
                                 prompt: Text(verbatim: "https://example.com/post"))
                         }
