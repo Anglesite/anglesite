@@ -39,6 +39,11 @@ test("site language: site default and per-entry override both reach <html lang>"
       '---\nitemReviewed: "A Thing"\nrating: 5\npublishDate: 2026-01-01\nlang: ""\n---\n\nBody.\n',
       "utf8",
     );
+    await writeFile(
+      join(fixtureDir, "src/pages/plain-lang.md"),
+      '---\nlayout: ../layouts/BaseLayout.astro\ntitle: "Plain Page With Override"\nlang: "de"\n---\n\nBody.\n',
+      "utf8",
+    );
 
     execFileSync("npm", ["install", "--no-audit", "--no-fund", "--prefer-offline"], {
       cwd: fixtureDir,
@@ -63,6 +68,14 @@ test("site language: site default and per-entry override both reach <html lang>"
       assert.equal(
         htmlLangOf(html), "fr-CA",
         'an explicit empty-string lang override must inherit the site default, not render lang=""',
+      );
+    }
+    {
+      const html = await readFile(join(fixtureDir, "dist/plain-lang/index.html"), "utf8");
+      assert.equal(
+        htmlLangOf(html), "de",
+        "a plain Markdown page using the layout: frontmatter mechanism must render its lang override " +
+          "(frontmatter is passed as Astro.props.frontmatter, not spread at the top level)",
       );
     }
   } finally {
