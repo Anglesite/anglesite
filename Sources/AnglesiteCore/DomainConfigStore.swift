@@ -48,13 +48,28 @@ public struct DomainConfigStore: Sendable {
     /// prior declarations, only to layering new ones on top; there is currently no way to express
     /// "remove this previously-declared field/section." Real deletion semantics are deferred to
     /// whichever later slice first needs them (e.g. #1170 or beyond).
+    ///
+    /// Unlike every other field, `version` is non-optional on `DomainConfig`, so it's always
+    /// present in the freshly-encoded fields and would otherwise always win the merge — even a
+    /// stale caller that just defaulted `version` to `1` would silently stamp a newer on-disk
+    /// schema version back down. `save(_:)` guards against that one case explicitly: it never
+    /// lets the merge lower the on-disk `version`.
+    ///
+    /// Unknown-key preservation also doesn't recurse into arrays: `dns.managedRecords` and
+    /// `edge.cloudflare.wafRules` are replaced wholesale by whatever `config` provides, the same
+    /// as any other non-object value. A hand-added array element, or an unknown field inside one,
+    /// does not survive a save that touches the containing array.
     public func save(_ config: DomainConfig) throws {
         let newData = try JSONEncoder().encode(config)
-        let newFields = Self.objectFields(fromJSONData: newData)
+        var newFields = Self.objectFields(fromJSONData: newData)
 
         var existingFields: [String: JSONValue] = [:]
         if let existingData = try? Data(contentsOf: fileURL) {
             existingFields = Self.objectFields(fromJSONData: existingData)
+        }
+
+        if case .int(let onDiskVersion)? = existingFields["version"], onDiskVersion > config.version {
+            newFields["version"] = .int(onDiskVersion)
         }
 
         let merged = Self.merge(newFields, into: existingFields)

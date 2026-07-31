@@ -83,7 +83,8 @@ export function readAnglesiteConfig(siteRoot: string): AnglesiteConfig {
   let raw: string;
   try {
     raw = readFileSync(path, "utf-8");
-  } catch {
+  } catch (err) {
+    console.warn(`[anglesite-config] anglesite.json exists but could not be read: ${err}`);
     return defaultConfig();
   }
 

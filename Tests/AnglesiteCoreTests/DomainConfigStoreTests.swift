@@ -118,4 +118,42 @@ struct DomainConfigStoreTests {
         #expect(reloaded.domain?.hostname == "new.example.com")
         #expect(reloaded.domain?.attach == true, "save() cannot clear a previously-declared field yet — see the doc comment on save(_:)")
     }
+
+    @Test("save never downgrades a higher on-disk schema version")
+    func saveDoesNotDowngradeVersion() throws {
+        let dir = try tempSourceDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fileURL = dir.appendingPathComponent("anglesite.json")
+        try #"{"version":2,"domain":{"hostname":"old.example.com"}}"#.write(
+            to: fileURL, atomically: true, encoding: .utf8
+        )
+
+        let store = DomainConfigStore(sourceDirectory: dir)
+        try store.save(DomainConfig(domain: .init(hostname: "new.example.com")))
+
+        let reloaded = try store.load()
+        #expect(reloaded.version == 2)
+        #expect(reloaded.domain?.hostname == "new.example.com")
+    }
+
+    @Test("save replaces an array wholesale rather than merging unknown elements")
+    func saveReplacesArraysWholesale() throws {
+        let dir = try tempSourceDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fileURL = dir.appendingPathComponent("anglesite.json")
+        try #"""
+        {"version":1,"dns":{"managedRecords":[
+            {"type":"TXT","name":"_atproto","content":"did=did:plc:hand-added","purpose":"verification:bluesky"}
+        ]}}
+        """#.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let store = DomainConfigStore(sourceDirectory: dir)
+        try store.save(DomainConfig(dns: .init(managedRecords: [
+            .init(type: "MX", name: "@", content: "mx01.mail.icloud.com", priority: 10, purpose: "email:icloud"),
+        ])))
+
+        let reloaded = try store.load()
+        #expect(reloaded.dns?.managedRecords?.count == 1)
+        #expect(reloaded.dns?.managedRecords?.first?.type == "MX")
+    }
 }

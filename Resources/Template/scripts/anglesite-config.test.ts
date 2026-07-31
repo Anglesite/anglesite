@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readAnglesiteConfig } from "./anglesite-config";
@@ -47,6 +47,21 @@ test("readAnglesiteConfig: present-but-invalid JSON returns the default and warn
       return calls;
     });
     assert.ok(calls.length >= 1, "console.warn should be called when anglesite.json exists but fails to parse");
+  } finally {
+    rmSync(siteRoot, { recursive: true, force: true });
+  }
+});
+
+test("readAnglesiteConfig: anglesite.json existing as a directory warns and returns the default", () => {
+  const siteRoot = makeTempSiteRoot();
+  mkdirSync(join(siteRoot, "anglesite.json"));
+  try {
+    const calls = withWarnSpy((calls) => {
+      const result = readAnglesiteConfig(siteRoot);
+      assert.deepEqual(result, { version: 1 });
+      return calls;
+    });
+    assert.ok(calls.length >= 1, "console.warn should be called when anglesite.json exists but can't be read as a file");
   } finally {
     rmSync(siteRoot, { recursive: true, force: true });
   }

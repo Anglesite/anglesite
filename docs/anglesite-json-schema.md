@@ -126,3 +126,8 @@ section the app has declared stays in the file even after a later app action sto
 the app-side writer only ever adds or overwrites fields it knows about, it never removes one on
 your behalf. If a declaration goes stale (e.g. you stop using a Worker but `workers.active` still
 lists it), removing it requires hand-editing the file.
+
+Unknown-key preservation only applies to JSON objects, not arrays. `dns.managedRecords` and
+`edge.cloudflare.wafRules` are replaced wholesale whenever the app writes to their containing
+section — a hand-added record or rule, or an unrecognized field inside one, does not survive a
+save that touches that array.
