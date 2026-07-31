@@ -9,12 +9,20 @@ import os
 /// Foundation Models tool that suggests internal pages to link to from a given page. Uses
 /// semantic similarity (``SemanticRanker/related(siteID:toDocID:limit:)``) filtered by existing links (``LinkGraph``).
 public struct SuggestLinksTool: Tool, Sendable {
+    /// Stable tool identifier, exposed as a static so callers (transcript inspection, tool
+    /// gating) can reference it without constructing an instance.
     public static let toolName = "suggestLinks"
+    /// `Tool` conformance: the name the model calls this tool by.
     public let name = SuggestLinksTool.toolName
+    /// `Tool` conformance: tells the model when to invoke this tool — the trigger phrasing
+    /// ("improving internal linking or related content") is model-facing prompt text, not UI copy.
     public let description = "Suggest internal pages to link to from a given page. Use when the user asks about improving internal linking or related content."
 
+    /// The model-generated arguments for one call; the `@Guide` description steers the model
+    /// toward the site-relative path form the knowledge index keys documents by.
     @Generable
     public struct Arguments {
+        /// Relative file path of the page to suggest links for (e.g. `src/pages/about.astro`).
         @Guide(description: "The relative file path of the page to suggest links for, e.g. 'src/pages/about.astro'.")
         public var path: String
     }
@@ -25,12 +33,19 @@ public struct SuggestLinksTool: Tool, Sendable {
     private let siteID: String
     private let ranker: SemanticRanker?
 
+    /// Creates the tool for one site. `ranker` is optional because the on-device embedding model
+    /// may be unavailable (device eligibility, model download state) — without it the tool
+    /// degrades to an honest "unavailable" reply rather than guessing at relevance.
     public init(index: SiteKnowledgeIndex, siteID: String, ranker: SemanticRanker? = nil) {
         self.index = index
         self.siteID = siteID
         self.ranker = ranker
     }
 
+    /// `Tool` conformance: resolves the page, ranks semantically related documents, filters out
+    /// pages already linked (via `LinkGraph`), and returns a numbered Markdown list. Always
+    /// returns model-readable prose — bad input (empty/unknown path) or a missing ranker is
+    /// reported as a plain sentence the model can relay, never thrown.
     public func call(arguments: Arguments) async throws -> String {
         let path = arguments.path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !path.isEmpty else { return "Provide a file path (e.g. src/pages/about.astro)." }

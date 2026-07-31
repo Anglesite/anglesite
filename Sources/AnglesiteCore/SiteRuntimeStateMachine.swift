@@ -37,6 +37,7 @@ public final class SiteRuntimeStateMachine: @unchecked Sendable {
     private var observers: [UUID: AsyncStream<SiteRuntimeState>.Continuation] = [:]
     private var generation = 0
 
+    /// Starts at `.idle`, generation 0 — each owning runtime creates exactly one at init.
     public init() {}
 
     /// The current lifecycle state.

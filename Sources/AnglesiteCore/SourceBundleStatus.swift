@@ -17,6 +17,11 @@ public enum SourceBundleStatus: Sendable, Equatable {
     /// `Source/` has commits after the last uploaded bundle.
     case dirty(uploadedCommit: String, currentCommit: String)
 
+    /// Computes the status for one site by reading `.site-config` and asking git for `HEAD`.
+    /// Deliberately quiet on every failure path: an unreadable config or a `rev-parse` that
+    /// doesn't run reports `.notConfigured`/`.upToDate` rather than an error — this check only
+    /// exists to *offer* a "redeploy your source bundle" nudge, so a wrong-but-calm answer beats
+    /// alarming the owner over a diagnostic the deploy itself will surface properly.
     public static func check(siteDirectory: URL, settings: SiteSettings) async -> SourceBundleStatus {
         let configURL = siteDirectory.appendingPathComponent(".site-config")
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""

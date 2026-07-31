@@ -24,6 +24,13 @@ public actor SiteGraphAugmentedAssistant: ConversationalAssistant {
     private let base: any ConversationalAssistant
     private let snapshotProvider: @Sendable () async -> SiteGraphExplorerSnapshot
 
+    /// Wraps `base` with graph grounding.
+    ///
+    /// - Parameters:
+    ///   - base: The assistant that actually answers; this decorator only rewrites its prompt
+    ///     and prepends citations.
+    ///   - snapshotProvider: Queried fresh on every turn (not captured once) so the grounding
+    ///     always reflects the current graph, even as the explorer rebuilds it behind us.
     public init(
         base: any ConversationalAssistant,
         snapshotProvider: @escaping @Sendable () async -> SiteGraphExplorerSnapshot
@@ -32,10 +39,15 @@ public actor SiteGraphAugmentedAssistant: ConversationalAssistant {
         self.snapshotProvider = snapshotProvider
     }
 
+    /// Passes through the wrapped assistant's capabilities unchanged — grounding rewrites
+    /// prompts, it doesn't add or remove what the backend can do.
     public nonisolated var capabilities: AssistantCapabilities {
         base.capabilities
     }
 
+    /// Streams the wrapped assistant's conversation over a graph-enriched prompt, prepending a
+    /// single `.citations` event for the matched nodes' files. When no node matches the
+    /// question, the base stream is returned untouched — unrelated chat turns pay nothing.
     public func converse(prompt: String, context: AssistantContext) async throws -> AsyncStream<AssistantEvent> {
         let (enriched, citations) = await enrichedContext(prompt)
         let baseStream = try await base.converse(prompt: enriched, context: context)
@@ -59,12 +71,17 @@ public actor SiteGraphAugmentedAssistant: ConversationalAssistant {
         }
     }
 
+    /// One-shot generation over the same graph-enriched prompt. Citations are discarded — the
+    /// plain text stream has no event channel to carry them, and generate callers (e.g. inline
+    /// rewrite) have no citations UI anyway.
     public func generate(prompt: String, context: AssistantContext) async throws -> AsyncThrowingStream<String, Error> {
         let (enriched, _) = await enrichedContext(prompt)
         return try await base.generate(prompt: enriched, context: context)
     }
 
     #if compiler(>=6.4) && canImport(FoundationModels)
+    /// Structured generation over the graph-enriched prompt; the `Generable` decoding itself is
+    /// entirely the wrapped assistant's job. Citations are discarded, as in `generate`.
     public func generateStructured<T: Generable & Sendable>(
         prompt: String,
         context: AssistantContext,
@@ -75,10 +92,15 @@ public actor SiteGraphAugmentedAssistant: ConversationalAssistant {
     }
     #endif
 
+    /// Forwards cancellation to the wrapped assistant — the decorator holds no in-flight work of
+    /// its own (enrichment is synchronous once the snapshot arrives), so there is nothing else to
+    /// stop.
     public func cancel() async {
         await base.cancel()
     }
 
+    /// Forwards the session reset to the wrapped assistant. Grounding is recomputed per turn from
+    /// `snapshotProvider`, so this decorator carries no session state of its own to clear.
     public func resetSession() async {
         await base.resetSession()
     }

@@ -26,6 +26,13 @@ public enum TemplateScriptsSyncChecker {
         #endif
     }
 
+    /// Compares every app-owned template `scripts/` file against the site's copy and the
+    /// recorded baseline, classifying each as silently appliable (missing, or unmodified-but-
+    /// stale) vs. a divergence needing the owner (customized *and* the template moved on).
+    /// Side effects are `Config/`-only: matching or first-encounter files get their baseline
+    /// entries recorded/backfilled here (design doc's legacy-site trade-off — a first
+    /// encounter's current content is assumed untouched). An unreadable site file is skipped
+    /// and logged, never overwritten. Returns the plan; never throws.
     public static func check(
         sourceDirectory: URL,
         configDirectory: URL,

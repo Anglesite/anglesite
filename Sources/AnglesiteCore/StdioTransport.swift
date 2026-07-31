@@ -22,6 +22,12 @@ public actor StdioTransport: MCPTransport {
     private let stream: AsyncStream<JSONValue>
     private let continuation: AsyncStream<JSONValue>.Continuation
 
+    /// Creates a transport that will spawn `executable` under `supervisor` when opened. `source`
+    /// is the ``LogCenter`` tag the child's output is filed under — it doubles as the filter key
+    /// `inbound()` uses to pick this process's stdout lines out of the shared log stream, so it
+    /// must be unique per transport. `onReconnect` fires after every supervised respawn (never for
+    /// the initial launch), giving `MCPClient` its hook to re-run the MCP handshake against the
+    /// fresh process.
     public init(
         supervisor: ProcessSupervisor,
         logCenter: LogCenter,
@@ -45,6 +51,9 @@ public actor StdioTransport: MCPTransport {
         (self.stream, self.continuation) = AsyncStream<JSONValue>.makeStream(bufferingPolicy: .unbounded)
     }
 
+    /// Launches the supervised child with a stdin pipe attached and starts forwarding its stdout
+    /// into the inbound stream. The log subscription is opened *before* the launch so no early
+    /// output can slip past the forwarder.
     public func open() async throws {
         let sub = await logCenter.subscribe()
         self.subscription = sub
@@ -74,6 +83,10 @@ public actor StdioTransport: MCPTransport {
         }
     }
 
+    /// Writes `message` to the child's stdin as one newline-terminated JSON line. Both "not yet
+    /// opened" and "the write itself failed" surface as `MCPClient.MCPError.notInitialized` — from
+    /// the client's perspective either way means "no usable connection; re-handshake", and the
+    /// respawn path's `onReconnect` is what restores it.
     public func send(_ message: JSONValue) async throws {
         guard let handle else { throw MCPClient.MCPError.notInitialized }
         var data = try JSONSerialization.data(withJSONObject: message.rawValue, options: [])
@@ -85,8 +98,14 @@ public actor StdioTransport: MCPTransport {
         }
     }
 
+    /// The single backing stream of parsed stdout frames. Created in `init` (not `open()`), so a
+    /// caller may start iterating before the process is even launched; `nonisolated` because it
+    /// only hands out an immutable stored property.
     public nonisolated func inbound() -> AsyncStream<JSONValue> { stream }
 
+    /// Stops forwarding, terminates the child (SIGTERM with a 2 s SIGKILL escalation), waits for
+    /// its exit, and finishes the inbound stream — in that order, so no consumer sees the stream
+    /// end while the process could still emit frames.
     public func close() async {
         forwardTask?.cancel()
         forwardTask = nil

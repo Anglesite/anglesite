@@ -58,13 +58,29 @@ enum ContentRouteResolver {
 /// no state of its own: every call reads the live index, so results always reflect whatever the
 /// file-watcher pipeline (`KnowledgeReindex`) has most recently applied.
 public enum SiteSearchIndex {
+    /// One ranked search result, flattened to exactly what a suggestions row needs to render and
+    /// activate — no reference back to the index or the underlying document, so the UI layer
+    /// never holds live index state.
     public struct Hit: Sendable, Equatable, Identifiable {
+        /// The indexed document's id — stable across searches, so SwiftUI row identity survives
+        /// re-querying as the user types.
         public let id: String
+        /// The matched document's kind, which drives the row's icon and the
+        /// ``SiteSearchDestination`` fallback grouping.
         public let kind: SiteKnowledgeIndex.Document.Kind
+        /// The document's title, when it has one — `nil` for files with no frontmatter title,
+        /// where the row falls back to showing the path.
         public let title: String?
+        /// The navigable route serving this document, if convention suggests one. Best-effort
+        /// (see `ContentRouteResolver`): non-nil does not guarantee the URL resolves, so
+        /// consumers should treat it as a candidate, not a promise.
         public let route: String?
+        /// Path relative to the site's `Source/` — always present, so every hit has at least a
+        /// file-open destination even when `route` is `nil`.
         public let path: String
+        /// The index's match excerpt, for showing the user *why* this row matched.
         public let matchContext: String
+        /// The index's lexical relevance score; hits arrive already sorted by it, descending.
         public let score: Double
     }
 

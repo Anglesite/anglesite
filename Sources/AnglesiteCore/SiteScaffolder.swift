@@ -5,10 +5,21 @@ import AnglesiteSiteModel
 /// goes through the injected `CommandRunner` (production: `ProcessSupervisor.shared.run`).
 public actor SiteScaffolder {
 
+    /// Progress events from the pipeline, in emission order. The milestone cases mark a step
+    /// *starting* (the wizard's progress list checks them off as they arrive); `warning` reports
+    /// a non-fatal problem within a step without stopping the pipeline, while `failed` is
+    /// terminal — the stream finishes after it, as it does after `done`.
     public enum ScaffoldStep: Sendable, Equatable {
+        /// Milestone steps: package skeleton, template copy, theme, homepage/content writes,
+        /// dependency install (delegated to the runtime), and registry recording.
         case creatingFolder, copyingTemplate, applyingTheme, writingContent, installing, registering
+        /// A step partially failed but the site is still viable (e.g. theme not applied, git init
+        /// skipped); `step` names the milestone it happened within.
         case warning(step: String, message: String)
+        /// A fatal failure in `step`; nothing after it ran, and no site was registered.
         case failed(step: String, message: String)
+        /// The pipeline finished and the package is registered; `siteID` is the recorded site's
+        /// registry ID, ready to open.
         case done(siteID: String)
     }
 
@@ -52,6 +63,10 @@ public actor SiteScaffolder {
         self.appVersion = appVersion
     }
 
+    /// Runs the whole pipeline for the wizard's finished draft, streaming ``ScaffoldStep``s as it
+    /// goes. `nonisolated` and immediately returning: the stream is the only result channel —
+    /// success is `.done`, failure `.failed`, and the stream finishes after either — so the
+    /// wizard binds its progress UI to this without awaiting the actor.
     public nonisolated func scaffold(_ draft: NewSiteDraft) -> AsyncStream<ScaffoldStep> {
         AsyncStream<ScaffoldStep>(bufferingPolicy: .unbounded) { continuation in
             Task {

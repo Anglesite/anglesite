@@ -4,8 +4,17 @@ import Foundation
 /// `--<key>` custom properties the theme provides. Properties without a matching theme key
 /// (spacing, radius, shadows, type scale) are left untouched. Pure + idempotent.
 public enum ThemeApplier {
-    public enum ApplyError: Error, Sendable { case cssNotFound(URL) }
+    /// Failure modes for the file-writing overload.
+    public enum ApplyError: Error, Sendable {
+        /// `src/styles/global.css` doesn't exist at the expected path — the site isn't a
+        /// recognizable template layout, so nothing is written rather than creating a stray file.
+        case cssNotFound(URL)
+    }
 
+    /// The pure string transform: rewrites each `--<key>` declaration's value in `css` to the
+    /// theme's. Split out from the file overload so it's testable without a filesystem. Assumes
+    /// one declaration per line ending in `;` (true of all template-generated `global.css`
+    /// files); unknown theme keys and unmatched properties pass through untouched.
     public static func apply(_ theme: Theme, toCSS css: String) -> String {
         var result = css
         for (key, value) in theme.cssVars {
@@ -27,6 +36,10 @@ public enum ThemeApplier {
         return result
     }
 
+    /// Rewrites `siteDirectory`'s `src/styles/global.css` in place via ``apply(_:toCSS:)``.
+    /// Throws ``ApplyError/cssNotFound(_:)`` rather than creating the file — a missing
+    /// `global.css` means this isn't a template-shaped site, and writing one wouldn't be loaded
+    /// by anything.
     public static func apply(_ theme: Theme, siteDirectory: URL, fileManager: FileManager = .default) throws {
         let cssURL = siteDirectory.appendingPathComponent("src/styles/global.css")
         guard fileManager.fileExists(atPath: cssURL.path) else {

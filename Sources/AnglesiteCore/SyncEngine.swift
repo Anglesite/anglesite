@@ -38,9 +38,12 @@ public actor SyncEngine {
 
     // MARK: - Results
 
+    /// Outcome of one `push()`. Distinguishes "nothing to do" from "wrote the artifact" so
+    /// callers can avoid logging/status churn on the overwhelmingly common no-op case.
     public enum PushResult: Sendable, Equatable {
         /// The artifact already reflected the repo's heads — nothing written, no iCloud churn.
         case unchanged
+        /// A fresh artifact was verified and swapped into place; `refs` is what it now carries.
         case pushed(refs: [SyncArtifactRef])
         /// A prior `pull()` hit a textual merge conflict on this branch (`SyncConflict`) that
         /// hasn't been acknowledged resolved yet (`acknowledgeConflictResolved(package:)`) —
@@ -48,11 +51,19 @@ public actor SyncEngine {
         /// incoming bundles keep fetching. Not an error: the caller should surface the pending
         /// conflict (`pendingConflict(package:)`) rather than retry.
         case pausedForConflict(branch: String)
+        /// The push couldn't complete; `reason` is already owner-readable prose.
         case failed(reason: String)
     }
 
+    /// Outcome of one `pull()` — one case per distinct way local history can relate to the
+    /// artifact's, so callers (``SyncScheduler``, the status UI) never have to re-derive what
+    /// happened from repo state.
     public enum PullResult: Sendable, Equatable {
+        /// The artifact carries nothing this repo doesn't already have (including "artifact
+        /// doesn't carry the current branch at all").
         case upToDate
+        /// The current branch was strictly behind and moved forward to the artifact's tip
+        /// (`from`/`to` are full commit ids, for logging).
         case fastForwarded(branch: String, from: String, to: String)
         /// This Mac's branch is ahead of the artifact — nothing to pull; call `push()`.
         case localAhead(branch: String)
@@ -75,6 +86,7 @@ public actor SyncEngine {
         case bootstrapped(branch: String)
         /// The artifact is evicted and iCloud didn't finish downloading it within the timeout.
         case waitingForICloud
+        /// The pull couldn't complete; `reason` is already owner-readable prose.
         case failed(reason: String)
     }
 
@@ -84,6 +96,7 @@ public actor SyncEngine {
     /// at detecting, persisting, and reporting it (`pendingConflict(package:)`), and clearing the
     /// pause once the caller says it's resolved (`acknowledgeConflictResolved(package:)`).
     public struct SyncConflict: Sendable, Equatable, Codable {
+        /// The local branch whose merge conflicted — the branch whose pushes pause.
         public let branch: String
         /// Paths git flagged with textual conflicts in the failed three-way merge.
         public let conflictedPaths: [String]
@@ -108,6 +121,10 @@ public actor SyncEngine {
     private let versionStore: any VersionStore
     private let materializeTimeout: TimeInterval
 
+    /// Creates an engine. Both seams default to production (git-bundle codec, NSFileVersion-
+    /// backed store); tests inject fakes to run without iCloud. `materializeTimeout` bounds how
+    /// long push/pull wait for iCloud to download an evicted artifact before giving up with a
+    /// "waiting" result instead of blocking the caller indefinitely.
     public init(
         artifact: any SyncArtifact = BundleArtifact(),
         versionStore: any VersionStore = UbiquitousVersionStore(),

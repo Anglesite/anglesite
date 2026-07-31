@@ -8,9 +8,16 @@ import AnglesiteSiteModel
 /// the testable logic into AnglesiteCore" instruction, mirroring how `TokenOnboarding` was
 /// extracted from `DeployModel`).
 public protocol SyncEngineProtocol: Sendable {
+    /// Mirrors ``SyncEngine/pull(package:)`` — bring the repo up to date from the artifact.
     func pull(package: AnglesitePackage) async -> SyncEngine.PullResult
+    /// Mirrors ``SyncEngine/push(package:)`` — mirror the repo's heads into the artifact.
     func push(package: AnglesitePackage) async -> SyncEngine.PushResult
+    /// Mirrors ``SyncEngine/pendingConflict(package:)`` — the unresolved conflict, if any.
+    /// Synchronous (a plain file read) so status logic can call it mid-transition.
     func pendingConflict(package: AnglesitePackage) -> SyncEngine.SyncConflict?
+    /// Mirrors ``SyncEngine/acknowledgeConflictResolved(package:)`` — lift the push pause.
+    /// `async` here (unlike the engine's own synchronous method) because a protocol requirement
+    /// satisfied by an actor method must be awaitable.
     func acknowledgeConflictResolved(package: AnglesitePackage) async
 }
 
@@ -37,14 +44,24 @@ public actor SyncScheduler {
     /// for iCloud / needs attention"). `.idle` is the initial state before the first `siteOpened()`
     /// — a package this scheduler has never touched, including one that was never eligible.
     public enum Status: Sendable, Equatable {
+        /// No sync activity yet — the state before the first `siteOpened()` (see the enum doc).
         case idle
+        /// A pull or push is in flight.
         case syncing
+        /// The last pull/push completed cleanly; the date is when (from the injected clock), so
+        /// the UI can render "synced N minutes ago".
         case synced(Date)
+        /// The artifact is evicted and iCloud hasn't finished downloading it yet.
         case waitingForICloud
+        /// A merge conflict needs the owner's decision; syncing this branch is paused until
+        /// `conflictResolved()` runs.
         case needsAttention(SyncEngine.SyncConflict)
+        /// The last pull/push failed; `reason` is already owner-readable prose.
         case failed(reason: String)
     }
 
+    /// Observes every status *change* (transitions to the same status are swallowed) — the
+    /// scheduler's only output channel to the app layer, so `SiteWindow` never has to poll.
     public typealias StatusObserver = @Sendable (Status) -> Void
     /// Debounce timer seam — mirrors `InvisiblePublishQueue.Sleep`: production always sleeps for
     /// real, tests substitute a manually-released gate so debounce assertions don't race a live
@@ -67,6 +84,10 @@ public actor SyncScheduler {
     private var pushDebounceTask: Task<Void, Never>?
     private var pushTask: Task<Void, Never>?
 
+    /// Creates a scheduler for one open site window. `now` and `sleep` are injectable clock
+    /// seams so debounce behavior tests neither race a live timer nor hit the macOS 26 CI
+    /// zero-duration `Task.sleep` allocator crash (see `schedulePush`). Construct one only for a
+    /// package that actually lives in iCloud Drive — see the type doc's idle guarantee.
     public init(
         package: AnglesitePackage,
         engine: any SyncEngineProtocol,
@@ -83,6 +104,8 @@ public actor SyncScheduler {
         self.sleep = sleep
     }
 
+    /// The current status, for a caller that attaches after transitions already happened (the
+    /// observer only sees changes from here on).
     public func currentStatus() -> Status { status }
 
     // MARK: - Pull triggers

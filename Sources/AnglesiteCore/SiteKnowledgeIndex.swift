@@ -6,43 +6,93 @@ import Foundation
 /// metadata (frontmatter, headings, internal links), and ranks file excerpts against a user query.
 /// That gives assistant features citation-ready project context without a network embedding service.
 public actor SiteKnowledgeIndex {
+    /// One indexed project file: the extracted metadata plus a capped excerpt of its text. This
+    /// is everything scoring needs, so search never re-reads the file from disk.
     public struct Document: Sendable, Equatable, Identifiable {
+        /// Stable identity in ``SiteKnowledgeIndex/documentID(siteID:relativePath:)``'s format —
+        /// derive it there, never reconstruct the string by hand.
         public let id: String
+        /// The owning site, since one shared index instance holds documents for every open site.
         public let siteID: String
+        /// Project-relative POSIX path — doubles as the citation path shown to the user.
         public let path: String
+        /// Coarse role classification (see ``Kind``), used both for search-result weighting and
+        /// for callers' kind filters.
         public let kind: Kind
+        /// The frontmatter `title:` when present, else the first heading; `nil` for files with
+        /// neither (config, styles, scripts).
         public let title: String?
+        /// The parsed frontmatter block. Kept structured (not flattened to text) so consumers
+        /// beyond search — e.g. content tooling — can read individual fields.
         public let frontmatter: [String: FrontmatterValue]
+        /// Up to the first 12 markdown/HTML headings — enough for relevance signal without
+        /// storing a full outline.
         public let headings: [String]
+        /// Site-internal link targets (`/…`, `./…`, `../…`) found in the body, deduplicated and
+        /// sorted; external URLs are deliberately excluded.
         public let internalLinks: [String]
+        /// The frontmatter-stripped body, truncated to the index's excerpt cap — the text
+        /// snippets are extracted from at search time.
         public let excerptText: String
+        /// File modification time when scanned (epoch on failure) — lets consumers detect
+        /// staleness against the file on disk.
         public let lastModified: Date
 
+        /// A document's coarse role, derived from its path prefix and extension. Distinguished
+        /// because search boosts owner-facing content (pages/posts) over plumbing, and callers
+        /// scope queries by kind via ``SiteKnowledgeIndex/SearchOptions``.
         public enum Kind: String, Sendable, Equatable, CaseIterable {
+            /// A routable page under `src/pages/`.
             case page
+            /// A post-like entry (`src/content/posts/`, `src/content/notes/`) — split from
+            /// ``content`` so blog-focused queries can target just these.
             case post
+            /// A component under `src/components/`.
             case component
+            /// A layout under `src/layouts/`.
             case layout
+            /// Any other content-collection entry under `src/content/`.
             case content
+            /// Project configuration (`package.json`, `astro.config.mjs`, JSON/YAML/TOML files).
             case config
+            /// A CSS stylesheet.
             case style
+            /// A JS/TS source file outside the categories above.
             case script
+            /// Indexed text that fits no other category.
             case other
         }
     }
 
+    /// One search hit: the matched document plus the specific excerpt that matched.
     public struct SearchResult: Sendable, Equatable, Identifiable {
+        /// The document id suffixed with the excerpt's starting line — unique even if a future
+        /// change surfaces multiple excerpts per document in one result list.
         public let id: String
+        /// The matched document, carried whole so result UIs can show title/path/kind without a
+        /// second index lookup.
         public let document: Document
+        /// Lexical relevance score; meaningful only for ordering within one query, not across
+        /// queries.
         public let score: Double
+        /// A few trimmed lines around the first matching line, capped so a prompt assembled from
+        /// several results stays small.
         public let excerpt: String
+        /// 1-based line range of the excerpt in the source file — what citation UIs display and
+        /// jump to. `nil` only when no range could be determined.
         public let lineRange: ClosedRange<Int>?
     }
 
+    /// Query knobs for ``SiteKnowledgeIndex/search(siteID:query:options:)``.
     public struct SearchOptions: Sendable, Equatable {
+        /// Maximum results returned; clamped to at least 1 at init so a caller can't accidentally
+        /// ask for zero and read "no matches" from a valid query.
         public let limit: Int
+        /// Restrict matches to these document kinds; `nil` searches everything.
         public let kinds: Set<Document.Kind>?
 
+        /// The default (8 results, all kinds) suits prompt-context retrieval; tighten `kinds` for
+        /// purpose-built lookups.
         public init(limit: Int = 8, kinds: Set<Document.Kind>? = nil) {
             self.limit = max(1, limit)
             self.kinds = kinds
@@ -52,6 +102,8 @@ public actor SiteKnowledgeIndex {
     private var documentsBySite: [String: [String: Document]] = [:]
     private static let maxExcerptCharacters = 8_192
 
+    /// Starts empty; the index is in-memory only, so each launch (and each site open) must
+    /// `rebuild` before searching.
     public init() {}
 
     /// Rebuilds the site's index from disk. Missing directories and unreadable files are skipped.
@@ -62,14 +114,21 @@ public actor SiteKnowledgeIndex {
         documentsBySite[siteID] = Dictionary(uniqueKeysWithValues: documents.map { ($0.path, $0) })
     }
 
+    /// Drops every document for a closed site, so a long-lived shared index doesn't hold excerpt
+    /// text for sites no longer open.
     public func unload(siteID: String) {
         documentsBySite[siteID] = nil
     }
 
+    /// All indexed documents for a site, sorted by path for deterministic iteration; empty when
+    /// the site was never rebuilt (or was unloaded).
     public func documents(siteID: String) -> [Document] {
         (documentsBySite[siteID] ?? [:]).values.sorted { $0.path < $1.path }
     }
 
+    /// Incrementally re-indexes one changed file — the file-watcher path, so a single edit
+    /// doesn't trigger a full `rebuild`. A file that no longer exists (or is no longer indexable)
+    /// is removed instead, so callers can route both "changed" and "unsure" events here.
     public func upsertFile(siteID: String, projectRoot: URL, relativePath: String) async {
         let scanned = await Task.detached(priority: .utility) {
             Self.document(siteID: siteID, projectRoot: projectRoot, relativePath: relativePath)
@@ -83,6 +142,7 @@ public actor SiteKnowledgeIndex {
         documentsBySite[siteID] = siteDocs
     }
 
+    /// Drops one file's document on deletion. No-op if the path was never indexed.
     public func removeFile(siteID: String, relativePath: String) {
         documentsBySite[siteID]?[relativePath] = nil
     }
@@ -99,6 +159,10 @@ public actor SiteKnowledgeIndex {
         "\(siteID):knowledge:\(relativePath)"
     }
 
+    /// Ranks indexed documents against a free-text query — lexical term/phrase matching over
+    /// path, title, headings, frontmatter, links, and body (see the actor doc for why not
+    /// embeddings). Ties break by path so identical scores order deterministically. Empty when
+    /// the query has no usable terms or the site isn't indexed.
     public func search(siteID: String, query: String, options: SearchOptions = .init()) -> [SearchResult] {
         let terms = Self.queryTerms(query)
         guard !terms.isEmpty else { return [] }
@@ -130,6 +194,10 @@ public actor SiteKnowledgeIndex {
         .map { $0 }
     }
 
+    /// Search results rendered as a ready-to-inject prompt block — `[path:lines]`-labelled
+    /// excerpts under a short instruction to cite file paths, matching the citation contract the
+    /// assistant decorators rely on. `nil` (rather than an empty block) when nothing matched, so
+    /// callers skip enrichment entirely for unrelated prompts.
     public func formattedContext(siteID: String, query: String, limit: Int = 6) -> String? {
         let results = search(siteID: siteID, query: query, options: .init(limit: limit))
         guard !results.isEmpty else { return nil }

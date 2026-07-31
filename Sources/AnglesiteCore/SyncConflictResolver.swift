@@ -20,7 +20,9 @@ import AnglesiteSiteModel
 public actor SyncConflictResolver {
     /// Which side's content to keep for one conflicted path.
     public enum Choice: Sendable, Equatable {
+        /// Keep this Mac's version (the conflict's `ourOID` side).
         case keepMine
+        /// Keep the synced version from the other Mac (the conflict's `theirOID` side).
         case keepTheirs
     }
 
@@ -28,19 +30,34 @@ public actor SyncConflictResolver {
     /// `nil` text means that side deleted the path, or the blob is binary/too large to preview
     /// (200 KB cap — plenty for template source files, not for images).
     public struct ConflictedFile: Sendable, Equatable, Identifiable {
+        /// `Identifiable` via the path — paths are unique within one conflict, and stable ids
+        /// keep SwiftUI list rows from resetting as the user works through the sheet.
         public var id: String { path }
+        /// The conflicted path, relative to `Source/`.
         public let path: String
+        /// This Mac's version of the file, or `nil` when deleted/binary/too large (see type doc).
         public let oursText: String?
+        /// The other Mac's version of the file, or `nil` when deleted/binary/too large (see type doc).
         public let theirsText: String?
     }
 
+    /// Why a `resolve` call couldn't commit. Messages are lower-case fragments meant to be
+    /// wrapped by the caller's own owner-facing sentence.
     public enum ResolveError: Error, Equatable, CustomStringConvertible {
+        /// `package.sourceURL` didn't open as a git repository.
         case repositoryUnavailable
+        /// The recorded conflict's `ourOID`/`theirOID` strings don't parse as commit ids.
         case invalidConflict
+        /// One or more conflicted paths were given no `Choice` — a partial resolution can't
+        /// produce a valid tree, so nothing was committed.
         case missingChoices(paths: [String])
+        /// After applying every choice the replayed merge index still reports conflicts —
+        /// committing would bake unresolved state into history, so nothing was committed.
         case stillConflicted
+        /// A libgit2 call failed; the payload carries libgit2's own message for the debug pane.
         case libgit2(String)
 
+        /// Human-readable summary of the failure, used directly in error surfaces.
         public var description: String {
             switch self {
             case .repositoryUnavailable: return "this site's git repository couldn't be opened."
@@ -52,6 +69,8 @@ public actor SyncConflictResolver {
         }
     }
 
+    /// Stateless apart from actor serialization — the actor wrapper exists to serialize libgit2
+    /// access (not thread-safe here), not to hold configuration.
     public init() {}
 
     /// Reads both sides' content for every path in `conflict.conflictedPaths`, for display in the

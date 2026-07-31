@@ -5,11 +5,27 @@ import Foundation
 /// can't fit its platform limit after one retry is omitted (the renderer marks it), a failed
 /// week is dropped.
 public protocol SocialMediaPlanning: Sendable {
+    /// Generates a full ``SocialMediaPlan``, or `nil` when the backbone (pillars) couldn't be
+    /// generated — never throws, so callers only distinguish "plan" from "no plan".
+    ///
+    /// - Parameters:
+    ///   - siteName: The site's display name, woven into every prompt.
+    ///   - businessType: Owner-declared business type; also drives the deterministic platform
+    ///     recommendation (``SocialPlatformCatalog``). `nil` falls back to the generic set.
+    ///   - preamble: Optional brand-voice preamble prepended to each prompt; `nil` omits it.
+    ///   - weeks: How many calendar weeks to request; fewer may come back (failed weeks drop).
+    ///   - startDate: The first week's start; later weeks step deterministically from it.
+    ///   - siteID: Populates the `AssistantContext` for the generation calls.
+    ///   - siteDirectory: Likewise context-only — the planner reads no site files itself.
     func plan(siteName: String, businessType: String?, preamble: String?, weeks: Int,
               startDate: Date, siteID: String, siteDirectory: URL) async -> SocialMediaPlan?
 }
 
+/// Chooses the planner for the current toolchain — same pattern as `SiteGraphExplainerFactory`:
+/// non-gated so callers can default their dependency without importing FoundationModels.
 public enum SocialMediaPlannerFactory {
+    /// `FoundationModelSocialMediaPlanner` on a FoundationModels-capable toolchain, `nil`
+    /// otherwise — `nil` means "no backend exists on this build", so hide the feature.
     public static func makeDefault() -> (any SocialMediaPlanning)? {
         #if compiler(>=6.4) && canImport(FoundationModels)
         return FoundationModelSocialMediaPlanner()
@@ -24,9 +40,18 @@ public enum SocialMediaPlannerFactory {
 #if compiler(>=6.4) && canImport(FoundationModels)
 import FoundationModels
 
+/// Apple-Intelligence-backed planner: structured generation via the `.privateCloudCompute` tier
+/// (creative multi-part output wants the larger model; PCC keeps it within the no-external-APIs
+/// policy, #459). Structure stays deterministic — platforms, week dates, and assembly are Swift;
+/// the model only fills content.
 public struct FoundationModelSocialMediaPlanner: SocialMediaPlanning {
+    /// Stateless — each `plan` call builds its own assistant, so there is nothing to configure.
     public init() {}
 
+    /// Implements ``SocialMediaPlanning/plan(siteName:businessType:preamble:weeks:startDate:siteID:siteDirectory:)``:
+    /// pillars first (abort to `nil` on failure), then per-platform bios and per-week calendar
+    /// chunks, each degrading individually per the protocol's policy. Also `nil` when no
+    /// assistant backend is available on this host.
     public func plan(siteName: String, businessType: String?, preamble: String?, weeks: Int,
                      startDate: Date, siteID: String, siteDirectory: URL) async -> SocialMediaPlan? {
         guard let assistant = ContentAssistantFactory.make(tier: .privateCloudCompute) else { return nil }
