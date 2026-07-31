@@ -19,6 +19,8 @@ struct NewSiteWizard: View {
             footer
         }
         .frame(width: 560, height: 460)
+        // The scaffold pipeline isn't cancellable — block Esc/interactive dismissal once it starts.
+        .interactiveDismissDisabled(model.step == .building)
     }
 
     @ViewBuilder private var content: some View {
@@ -112,6 +114,7 @@ struct NewSiteWizard: View {
             // mid-build would leak the in-flight work and the MAS security scope.
             if model.step == .chooser {
                 Button("Cancel") { onCancel() }
+                    .keyboardShortcut(.cancelAction)
                 Button("Create") { create() }
                     .keyboardShortcut(.defaultAction).disabled(!model.canCreate)
             } else if let id = model.completedSiteID, model.hasWarnings {
