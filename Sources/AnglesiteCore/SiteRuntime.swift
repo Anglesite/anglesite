@@ -74,6 +74,15 @@ public protocol SiteRuntimeContainerCapability: AnyObject, Sendable {
 public protocol SiteRuntime: Actor {
     func start(siteID: String, siteDirectory: URL) async
     func stop() async
+
+    /// Pauses this site's runtime instead of fully stopping it, when the substrate supports it —
+    /// e.g. `LocalContainerSiteRuntime` pauses the VM in place so a later `start(siteID:
+    /// siteDirectory:)` for the SAME siteID resumes in seconds instead of cold-booting. Defaults
+    /// to a full `stop()` below for every conformer without a pause capability
+    /// (`RemoteSandboxSiteRuntime`, `UnavailableSiteRuntime`) — closing a window against one of
+    /// those behaves exactly as it does today.
+    func suspend() async
+
     func observe() -> AsyncStream<SiteRuntimeState>
     var mcpClient: MCPClient { get }
     /// The container-only capability surface (deploy execution context, network reset, edit
@@ -92,4 +101,6 @@ public extension SiteRuntime {
     /// Default for every conformer that isn't `LocalContainerSiteRuntime`: no container-only
     /// capabilities to expose.
     nonisolated var containerCapability: (any SiteRuntimeContainerCapability)? { nil }
+
+    func suspend() async { await stop() }
 }
