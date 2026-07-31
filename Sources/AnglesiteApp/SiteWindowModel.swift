@@ -1920,6 +1920,7 @@ final class SiteWindowModel {
         followers.configure(site: currentSite)
         communities.configure(site: currentSite)
         domain.configure(site: currentSite)
+        harden.configure(site: currentSite)
         // Cold-open path for any `PreviewSiteIntent` (#139) navigation; the already-open window
         // is handled reactively by `.onChange(of: router.pendingNavigation)` in `body`.
         applyPendingNavigation(for: resolved.id)

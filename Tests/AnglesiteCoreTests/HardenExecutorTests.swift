@@ -104,6 +104,61 @@ struct HardenExecutorTests {
         #expect(result.postAuditFindings.isEmpty)
         #expect(result.auditError != nil)
     }
+
+    @Test("execute writes the applied plan into anglesite.json's edge section")
+    func executeWritesThroughEdge() async throws {
+        let writer = MockCloudflareWriter()
+        let exec = HardenExecutor(reader: MockCloudflareReader(), writer: writer)
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let plan = HardenPlan(items: [
+            .enableDNSSEC,
+            .enableAlwaysUseHTTPS,
+            .enableHSTS(maxAge: 31_536_000, includeSubdomains: true, preload: false),
+            .enableBotFightMode,
+            .addWAFRule(description: "Block dotfiles", expression: "(x)", action: "block"),
+        ])
+        _ = await exec.execute(plan: plan, zoneID: "z", domain: "example.com", apiToken: "t", sourceDirectory: tmp)
+
+        let config = try DomainConfigStore(sourceDirectory: tmp).load()
+        #expect(config.edge?.dnssec == true)
+        #expect(config.edge?.alwaysUseHTTPS == true)
+        #expect(config.edge?.hsts == .init(maxAge: 31_536_000, includeSubdomains: true, preload: false))
+        #expect(config.edge?.cloudflare?.botFightMode == true)
+        #expect(config.edge?.cloudflare?.wafRules == [
+            .init(description: "Block dotfiles", expression: "(x)", action: "block"),
+        ])
+    }
+
+    @Test("execute with no sourceDirectory writes nothing")
+    func executeWithoutSourceDirectorySkipsWriteThrough() async {
+        let writer = MockCloudflareWriter()
+        let exec = HardenExecutor(reader: MockCloudflareReader(), writer: writer)
+        let result = await exec.execute(
+            plan: HardenPlan(items: [.enableDNSSEC]), zoneID: "z", domain: "example.com", apiToken: "t")
+        #expect(result.appliedCount == 1)
+    }
+
+    @Test("a second execute accumulates WAF rules instead of replacing them")
+    func executeAccumulatesWAFRulesAcrossRuns() async throws {
+        let writer = MockCloudflareWriter()
+        let exec = HardenExecutor(reader: MockCloudflareReader(), writer: writer)
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        _ = await exec.execute(
+            plan: HardenPlan(items: [.addWAFRule(description: "Block dotfiles", expression: "(x)", action: "block")]),
+            zoneID: "z", domain: "example.com", apiToken: "t", sourceDirectory: tmp)
+        _ = await exec.execute(
+            plan: HardenPlan(items: [.addWAFRule(description: "Block xmlrpc", expression: "(y)", action: "block")]),
+            zoneID: "z", domain: "example.com", apiToken: "t", sourceDirectory: tmp)
+
+        let config = try DomainConfigStore(sourceDirectory: tmp).load()
+        #expect(config.edge?.cloudflare?.wafRules?.count == 2)
+    }
 }
 
 // MARK: - Mocks
