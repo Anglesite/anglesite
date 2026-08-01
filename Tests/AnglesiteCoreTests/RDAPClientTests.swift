@@ -11,12 +11,17 @@ private final class RDAPStubURLProtocol: URLProtocol, @unchecked Sendable {
     struct Stub { let statusCode: Int; let body: String }
     nonisolated(unsafe) static var responses: [String: Stub] = [:]
     nonisolated(unsafe) static var failingURLs: Set<String> = []
+    /// Every URL actually requested through this protocol, in request order — lets tests prove a
+    /// fetch was *skipped* entirely (e.g. the bootstrap-cache TTL short-circuit), not just that it
+    /// happened to return the right answer.
+    nonisolated(unsafe) static var requestedURLs: [String] = []
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         let key = request.url?.absoluteString ?? ""
+        Self.requestedURLs.append(key)
         if Self.failingURLs.contains(key) {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
             return
@@ -38,6 +43,7 @@ private final class RDAPStubURLProtocol: URLProtocol, @unchecked Sendable {
     static func reset() {
         responses = [:]
         failingURLs = []
+        requestedURLs = []
     }
 
     static func makeSession() -> URLSession {
@@ -177,5 +183,51 @@ private final class RDAPStubURLProtocol: URLProtocol, @unchecked Sendable {
     @Test("productionBootstrapURL points at IANA's RDAP bootstrap registry")
     func productionBootstrapURLIsIANA() {
         #expect(RDAPClient.productionBootstrapURL == URL(string: "https://data.iana.org/rdap/dns.json")!)
+    }
+
+    /// #1194 review round 3, finding 6: a fresh (<24h old) cached bootstrap registry must be used
+    /// directly, with no network fetch at all — not merely "the fetch fails over to the same
+    /// cache and produces the right answer," which the pre-fix always-fetch-first implementation
+    /// already did. `RDAPStubURLProtocol.requestedURLs` distinguishes the two.
+    @Test("skips the bootstrap network fetch entirely when the cache is fresh")
+    func skipsNetworkFetchWhenBootstrapCacheIsFresh() async throws {
+        RDAPStubURLProtocol.reset()
+        let cacheURL = tempCacheURL()
+        defer { try? FileManager.default.removeItem(at: cacheURL.deletingLastPathComponent()) }
+        try FileManager.default.createDirectory(at: cacheURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(bootstrapJSON.utf8).write(to: cacheURL)
+        // Deliberately no stub registered for bootstrapURL — if the client attempted the fetch
+        // anyway, it would hit the protocol's "no stub" branch (a hard failure), not silently
+        // succeed, so this test would fail loudly rather than passing by accident.
+        RDAPStubURLProtocol.responses[domainURL] = .init(statusCode: 200, body: domainJSON)
+
+        let client = RDAPClient(bootstrapURL: bootstrapURL, cacheURL: cacheURL, session: RDAPStubURLProtocol.makeSession())
+        let info = await client.lookup(hostname: "example.com")
+
+        #expect(info?.registrar == "Example Registrar, LLC")
+        #expect(!RDAPStubURLProtocol.requestedURLs.contains(bootstrapURL.absoluteString))
+    }
+
+    /// #1194 review round 3, bundled trivial fix: RFC 9224 says https SHOULD be preferred, and some
+    /// TLDs list `http://` first — App Transport Security would block that and silently produce a
+    /// `nil` lookup. This bootstrap entry deliberately lists `http://` first to prove the https
+    /// entry is chosen instead.
+    @Test("prefers an https RDAP server URL over an http one for the same TLD")
+    func prefersHTTPSRDAPServerURL() async throws {
+        RDAPStubURLProtocol.reset()
+        let httpFirstBootstrapJSON = """
+        {"services":[[["com"],["http://insecure.example.invalid/rdap-com/","https://example.invalid/rdap-com/"]]]}
+        """
+        RDAPStubURLProtocol.responses[bootstrapURL.absoluteString] = .init(statusCode: 200, body: httpFirstBootstrapJSON)
+        RDAPStubURLProtocol.responses[domainURL] = .init(statusCode: 200, body: domainJSON)
+        let cacheURL = tempCacheURL()
+        defer { try? FileManager.default.removeItem(at: cacheURL.deletingLastPathComponent()) }
+
+        let client = RDAPClient(bootstrapURL: bootstrapURL, cacheURL: cacheURL, session: RDAPStubURLProtocol.makeSession())
+        let info = await client.lookup(hostname: "example.com")
+
+        // If the client had used the http:// URL listed first, it would have requested an
+        // unstubbed domain endpoint under insecure.example.invalid and gotten nil back instead.
+        #expect(info?.registrar == "Example Registrar, LLC")
     }
 }
