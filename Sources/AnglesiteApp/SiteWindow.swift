@@ -266,7 +266,10 @@ struct SiteWindow: View {
                     .animation(.easeInOut(duration: 0.18), value: model.relatedPagesPresented)
                 }
                 if model.deploy.drawerPresented {
-                    DeployDrawerView(model: model.deploy, siteName: site.name)
+                    DeployDrawerView(
+                        model: model.deploy, siteName: site.name,
+                        onConnectDomain: { model.connectDomain.openSheet() }
+                    )
                         .transition(reduceMotion
                             ? .opacity
                             : .move(edge: .bottom).combined(with: .opacity))
