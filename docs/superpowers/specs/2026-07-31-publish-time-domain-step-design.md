@@ -43,7 +43,12 @@ concept of "this site's domain" and isn't a fit for declaring domain intent.
   (an RDAP lookup, new persisted fields, a display surface) that deserves its
   own design. Filed as a fast-follow: #1194.
 - Embedding an actual domain-purchase flow — "buy" still links out to
-  Cloudflare Domains, matching the retired wizard.
+  Cloudflare Domains, matching the retired wizard. Cloudflare's new
+  Registrar API (beta) could support in-app search/pricing/purchase, but
+  `register` requires a billing profile + payment method + registrant
+  contact + ToS acceptance already on file for the account — none of which
+  have an API, and Anglesite must never collect or proxy payment details on
+  the owner's behalf. Filed as a fast-follow instead: #1195.
 - Renaming `NewSiteDomainChoice.transfer` / the `DOMAIN_CHOICE=transfer`
   `.site-config` value. Only the *user-facing copy* changes (see §2) — the
   internal identifier stays as-is since `CustomDomainAttachCommand` and
@@ -163,3 +168,9 @@ owned by the existing `CustomDomainAttachCommand`, unchanged by this design.
    expiration date, persisted into `Source/anglesite.json`'s `domain`
    section and surfaced to the owner. Renewal reminders are explicitly out
    of scope for that issue too, pending the underlying data existing first.
+2. **In-app domain search + purchase via Cloudflare Registrar API** —
+   [#1195](https://github.com/Anglesite/Anglesite/issues/1195). Search and
+   real-time pricing are fully embeddable now; actual purchase only for
+   accounts that have already completed a one-time Cloudflare-dashboard trip
+   for billing/registrant-contact/ToS — Anglesite must never collect or
+   proxy payment details itself.
