@@ -30,11 +30,35 @@ import sys
 repo_root, output_path, overrides_path = sys.argv[1], sys.argv[2], sys.argv[3]
 
 # Both spellings: one current dependency (HighlighterSwift) ships LICENCE.md, not LICENSE.md.
+#
+# NOTE: this list's matching capability has diverged from generate-npm-attributions.mjs's
+# equivalent (LICENSE_NAME_RE there) — the Node side also matches decorated filenames (e.g.
+# LICENSE-MIT.txt) and one-level-nested LICENSE/ directories, this side only checks these exact
+# filenames. If a SwiftPM dependency ever fails here with a decorated license filename, consider
+# porting the same handling from the Node side.
 LICENSE_NAMES = [
     "LICENSE", "LICENSE.md", "LICENSE.txt",
     "LICENCE", "LICENCE.md", "LICENCE.txt",
     "COPYING", "COPYING.md", "COPYING.txt",
 ]
+
+
+def detect_license_spdx_id(text):
+    """Best-effort SPDX id detection from the license TEXT itself — not a name/version lookup
+    table, and never a substitute for the real bundled text (which is always what's disclosed).
+    Only recognizes a handful of well-known license headers/grant phrases; returns None rather
+    than guessing when nothing matches, so an override always still wins and an unrecognized
+    license is left honestly unlabeled."""
+    head = text[:200]
+    if "Apache License" in head and "Version 2.0" in head:
+        return "Apache-2.0"
+    if "MIT License" in text or "Permission is hereby granted, free of charge" in text:
+        return "MIT"
+    if "Redistribution and use in source and binary forms" in text:
+        return "BSD-3-Clause" if "promote products derived" in text else "BSD-2-Clause"
+    if "Permission to use, copy, modify, and/or distribute this software" in text:
+        return "ISC"
+    return None
 
 
 def find_license_text(directory):
@@ -78,12 +102,15 @@ for pin in resolved["pins"]:
         failures.append(name)
         continue
 
+    location = pin["location"]
+    homepage = override.get("homepage") or (location[:-4] if location.endswith(".git") else location)
+
     entries.append({
         "name": name,
         "version": version,
-        "licenseSPDXId": override.get("licenseSPDXId"),
+        "licenseSPDXId": override.get("licenseSPDXId") or detect_license_spdx_id(license_text),
         "licenseText": license_text,
-        "homepage": override.get("homepage") or pin["location"],
+        "homepage": homepage,
     })
 
 if failures:
