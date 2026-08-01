@@ -150,8 +150,16 @@ public actor SiteScaffolder {
         }
 
         // 3. Theme (non-fatal). Resolve the owner's chosen theme; fall back to the first available.
+        // Pack overlay first (spec §3): a pack-bearing theme copies its layout/component/style
+        // files over the scaffolded chassis, then ThemeApplier reaffirms the palette. Both
+        // degrade to warnings — a failed overlay leaves a working base-chassis site.
         emit(.applyingTheme)
         if let theme = resolvedTheme(for: draft) {
+            if let pack = theme.pack {
+                do { try PackApplier.apply(packNamed: pack, templateURL: templateURL,
+                                           siteDirectory: siteDir, fileManager: fileManager) }
+                catch { emit(.warning(step: "applyingTheme", message: "Theme pack not applied: \(humanize(error))")) }
+            }
             do { try ThemeApplier.apply(theme, siteDirectory: siteDir, fileManager: fileManager) }
             catch { emit(.warning(step: "applyingTheme", message: humanize(error))) }
         } else {

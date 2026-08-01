@@ -6,7 +6,7 @@
 // caught here rather than relying on astro check's structural typing alone.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { THEMES } from "./themes";
+import { THEMES, THEME_RECORDS } from "./themes";
 import themesData from "./themes.json";
 
 const EXPECTED_IDS = [
@@ -44,6 +44,23 @@ test("every theme is complete: displayName, description, bestFor, and required v
     for (const key of REQUIRED_VARS) {
       const value = theme.vars[key];
       assert.ok(value !== undefined && value.length > 0, `${id}: missing or empty --${key}`);
+    }
+  }
+});
+
+const ALLOWED_CATEGORIES = ["business", "personal", "blog", "portfolio", "organization"];
+
+test("pack entries are complete: category, thumbnail, and credit are all present", () => {
+  for (const theme of THEME_RECORDS) {
+    if (theme.category !== undefined) {
+      assert.ok(ALLOWED_CATEGORIES.includes(theme.category),
+        `${theme.id}: unknown category "${theme.category}"`);
+    }
+    if (theme.pack !== undefined) {
+      assert.ok(theme.category, `${theme.id}: pack entry missing category`);
+      assert.ok(theme.thumbnail, `${theme.id}: pack entry missing thumbnail`);
+      assert.ok(theme.credit?.name && theme.credit?.url && theme.credit?.license,
+        `${theme.id}: pack entry missing credit name/url/license`);
     }
   }
 });

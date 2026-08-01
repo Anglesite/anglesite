@@ -31,6 +31,38 @@ final class SiteScaffolderTests: XCTestCase {
     private let theme = Theme(id: "classic", name: "Classic", blurb: "", swatch: [],
                               cssVars: ["color-primary": "#1e3a5f"])
 
+    /// A scaffolder whose catalog carries a pack-bearing theme and whose templateURL
+    /// points at a real temp template containing packs/<packName>/.
+    private func makePackScaffolder(root: URL, packName: String = "paper",
+                                    includePackDir: Bool = true) throws -> SiteScaffolder {
+        let templateDir = tmpDir()
+        if includePackDir {
+            let packSrc = templateDir.appendingPathComponent("packs/\(packName)/src/styles")
+            try FileManager.default.createDirectory(at: packSrc, withIntermediateDirectories: true)
+            // Deliberately a DIFFERENT primary than the theme's cssVars below: PackApplier fully
+            // overwrites global.css, so if the pipeline ran ThemeApplier before the pack overlay
+            // (order swapped), this value would survive untouched and the assertions below would
+            // still pass — using the same value in both places couldn't catch that bug.
+            try ":root { --pack-marker: 1; --color-primary: #202020; }"
+                .write(to: packSrc.appendingPathComponent("global.css"), atomically: true, encoding: .utf8)
+            try "MIT — upstream".write(
+                to: templateDir.appendingPathComponent("packs/\(packName)/LICENSE"),
+                atomically: true, encoding: .utf8)
+        }
+        let packTheme = Theme(id: "paper", name: "Paper", blurb: "", swatch: [],
+                              cssVars: ["color-primary": "#101010"],
+                              category: "blog", pack: packName)
+        return SiteScaffolder(
+            sitesRoot: root,
+            templateURL: templateDir,
+            catalog: ThemeCatalog(themes: [packTheme]),
+            run: fakeRunner(calls: CallRecorder()),
+            gitInit: { _ in },
+            gitCommit: { _ in },
+            register: { pkg in try SiteStore.Site.make(package: pkg) }
+        )
+    }
+
     /// A fake CommandRunner that records calls and simulates scaffold.sh by writing the
     /// template files the appliers expect.
     private func fakeRunner(scaffoldExit: Int32 = 0, npmExit: Int32 = 0,
@@ -433,6 +465,45 @@ final class SiteScaffolderTests: XCTestCase {
         XCTAssertEqual(log.exitCode, 0, "git log failed — no initial commit was created: \(log.stderr)")
         XCTAssertFalse(log.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                        "expected at least one commit in the freshly scaffolded Source/ repo")
+    }
+
+    func testPackThemeOverlaysFilesAndCopiesLicense() async throws {
+        let root = tmpDir()
+        let scaffolder = try makePackScaffolder(root: root)
+        var draft = makeDraft()
+        draft.themeID = "paper"
+        var steps: [SiteScaffolder.ScaffoldStep] = []
+        for await s in scaffolder.scaffold(draft) { steps.append(s) }
+
+        guard case .done? = steps.last else { return XCTFail("expected .done, got \(String(describing: steps.last))") }
+        let source = root.appendingPathComponent("acme-co.anglesite/Source")
+        let css = try String(contentsOf: source.appendingPathComponent("src/styles/global.css"), encoding: .utf8)
+        // The pack's css landed, then ThemeApplier reaffirmed the palette over it.
+        XCTAssertTrue(css.contains("--pack-marker: 1"))
+        XCTAssertTrue(css.contains("--color-primary: #101010;"))
+        let license = try String(contentsOf: source.appendingPathComponent(PackApplier.licenseFileName), encoding: .utf8)
+        XCTAssertEqual(license, "MIT — upstream")
+    }
+
+    func testMissingPackDirWarnsButStillScaffolds() async throws {
+        let root = tmpDir()
+        let scaffolder = try makePackScaffolder(root: root, includePackDir: false)
+        var draft = makeDraft()
+        draft.themeID = "paper"
+        var steps: [SiteScaffolder.ScaffoldStep] = []
+        for await s in scaffolder.scaffold(draft) { steps.append(s) }
+
+        guard case .done? = steps.last else { return XCTFail("expected .done, got \(String(describing: steps.last))") }
+        let sawPackWarning = steps.contains { step in
+            if case .warning(let s, _) = step { return s == "applyingTheme" }
+            return false
+        }
+        XCTAssertTrue(sawPackWarning, "expected a non-fatal applyingTheme warning for the missing pack")
+        // ThemeApplier still ran on the base css the fake runner wrote.
+        let css = try String(
+            contentsOf: root.appendingPathComponent("acme-co.anglesite/Source/src/styles/global.css"),
+            encoding: .utf8)
+        XCTAssertTrue(css.contains("--color-primary: #101010;"))
     }
 }
 
