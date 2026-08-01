@@ -39,7 +39,11 @@ final class SiteScaffolderTests: XCTestCase {
         if includePackDir {
             let packSrc = templateDir.appendingPathComponent("packs/\(packName)/src/styles")
             try FileManager.default.createDirectory(at: packSrc, withIntermediateDirectories: true)
-            try ":root { --pack-marker: 1; --color-primary: #101010; }"
+            // Deliberately a DIFFERENT primary than the theme's cssVars below: PackApplier fully
+            // overwrites global.css, so if the pipeline ran ThemeApplier before the pack overlay
+            // (order swapped), this value would survive untouched and the assertions below would
+            // still pass — using the same value in both places couldn't catch that bug.
+            try ":root { --pack-marker: 1; --color-primary: #202020; }"
                 .write(to: packSrc.appendingPathComponent("global.css"), atomically: true, encoding: .utf8)
             try "MIT — upstream".write(
                 to: templateDir.appendingPathComponent("packs/\(packName)/LICENSE"),
