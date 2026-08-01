@@ -890,6 +890,8 @@ add:
 
 (Enabled whenever a site window is focused — unlike `Domain…`'s `canOpenDomain` gate, this must work *before* a domain exists, since declaring intent is the whole point.)
 
+> **Implementation note (final-review fix, #1202):** shipped as `.disabled(model?.site == nil)` rather than `model == nil` as drafted above. A `SiteWindowModel` can exist before its `site` property is populated, so gating on `model == nil` let the menu item enable itself in that window before there was a site to attach a domain to, silently no-oping on an early click. Gating on `model?.site == nil` disables it until a site is actually loaded, which is what "enabled whenever a site window is focused" was meant to guarantee.
+
 - [ ] **Step 2: Build to verify it compiles**
 
 Run: `scripts/build-app.sh -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build`
