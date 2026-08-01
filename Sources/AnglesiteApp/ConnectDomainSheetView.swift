@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Foundation
 
 /// The "Connect a Domain" sheet (#1180) — buy/transfer/later, reachable from the first-publish
 /// nudge in `DeployDrawerView` and permanently from `Website ▸ Connect a Domain…`.
@@ -74,9 +75,45 @@ struct ConnectDomainSheetView: View {
             }
 
         case .connected(let hostname):
-            Label("We'll connect \(hostname) on your next Publish.", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+            VStack(alignment: .leading, spacing: 8) {
+                Label("We'll connect \(hostname) on your next Publish.", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                registrarInfoView
+            }
         }
+    }
+
+    @ViewBuilder
+    private var registrarInfoView: some View {
+        switch model.registrarInfo {
+        case .idle, .unavailable:
+            EmptyView()
+        case .loading:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Looking up registrar info…")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        case .available(let info):
+            VStack(alignment: .leading, spacing: 2) {
+                if let registrar = info.registrar {
+                    Text("Registrar: \(registrar)")
+                }
+                if let expiresAt = info.expiresAt {
+                    Text("Expires \(Self.formattedExpiration(expiresAt))")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Formats a raw RDAP ISO 8601 `eventDate` for display; falls back to the raw string if it
+    /// doesn't parse (an RDAP server returning something non-standard shouldn't blank the field).
+    private static func formattedExpiration(_ raw: String) -> String {
+        guard let date = ISO8601DateFormatter().date(from: raw) else { return raw }
+        return date.formatted(date: .abbreviated, time: .omitted)
     }
 
     @ViewBuilder
