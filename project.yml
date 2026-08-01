@@ -42,6 +42,9 @@ targets:
       - path: Resources/Template
         type: folder
         buildPhase: resources
+      - path: Resources/Attributions
+        type: folder
+        buildPhase: resources
       - path: Resources/edit-overlay
         type: folder
         buildPhase: resources

@@ -248,6 +248,9 @@
     "Accessibility" : {
 
     },
+    "Acknowledgments unavailable for this source." : {
+
+    },
     "Active Model" : {
 
     },
@@ -1977,6 +1980,9 @@
     "Open Site…" : {
 
     },
+    "Open Source Acknowledgments…" : {
+
+    },
     "Open Website Anyway" : {
 
     },
@@ -2601,6 +2607,9 @@
 
     },
     "Select a node" : {
+
+    },
+    "Select a package to view its license." : {
 
     },
     "Select an element in the canvas" : {

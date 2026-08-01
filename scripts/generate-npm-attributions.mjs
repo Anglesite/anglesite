@@ -1,0 +1,181 @@
+#!/usr/bin/env node
+// Generates an OSS attribution manifest from a resolved node_modules tree.
+// Usage: node generate-npm-attributions.mjs <node_modules-root> <output.json> [overrides.json]
+//
+// See docs/superpowers/specs/2026-07-31-oss-attributions-design.md for the overrides format and
+// the "fail loudly on an undisclosed license" rule `generate` enforces.
+import { readFileSync, existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { join, basename } from "node:path";
+
+// License filenames vary more across the npm ecosystem than any fixed list can capture (both
+// "LICENSE"/"LICENCE" spellings, decorated variants like LICENSE-MIT or LICENSE-MIT.txt, COPYING,
+// etc.), so match any filename that starts with "license"/"licence"/"copying" rather than an
+// exact list.
+//
+// NOTE: this matching capability has diverged from generate-swift-attributions.sh's equivalent
+// (its LICENSE_NAMES list) — this side also handles decorated filenames and one-level-nested
+// LICENSE/ directories (see findLicenseText below), the Python side only checks exact filenames.
+// If a SwiftPM dependency ever fails there with a decorated license filename, consider porting
+// the same handling.
+function isLicenseFileName(name) {
+  return /^(licen[sc]e|copying)/i.test(name);
+}
+
+// Prefer a bare LICENSE/LICENCE (optionally with .md/.txt) over decorated variants like
+// LICENSE-MIT, so the plain, canonical file wins when a package ships more than one.
+function licenseNameRank(name) {
+  return /^licen[sc]e(\.(md|txt))?$/i.test(name) ? 0 : 1;
+}
+
+export function findLicenseText(dir, { allowNestedDir = true } = {}) {
+  let names;
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return null;
+  }
+  const candidates = names
+    .filter(isLicenseFileName)
+    .sort((a, b) => licenseNameRank(a) - licenseNameRank(b) || a.localeCompare(b));
+
+  for (const name of candidates) {
+    const candidatePath = join(dir, name);
+    let stat;
+    try {
+      stat = statSync(candidatePath);
+    } catch {
+      continue; // ignore stat errors; try next candidate
+    }
+    if (stat.isFile()) {
+      try {
+        return readFileSync(candidatePath, "utf8");
+      } catch {
+        continue; // ignore read errors; try next candidate
+      }
+    }
+    if (stat.isDirectory() && allowNestedDir) {
+      // Some packages (e.g. pagefind) ship a LICENSE/ directory containing the real license file
+      // one level down — look inside before giving up on this candidate. Only recurse one level:
+      // a nested license directory containing another directory is not a shape we've seen.
+      const nested = findLicenseText(candidatePath, { allowNestedDir: false });
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+/** Handles the three shapes npm's `license`/`licenses` field has taken over the registry's history. */
+export function extractLicenseId(pkg) {
+  if (typeof pkg.license === "string") return pkg.license;
+  if (pkg.license && typeof pkg.license.type === "string") return pkg.license.type;
+  if (Array.isArray(pkg.licenses) && pkg.licenses[0] && typeof pkg.licenses[0].type === "string") {
+    return pkg.licenses[0].type;
+  }
+  return null;
+}
+
+export function extractHomepage(pkg) {
+  if (typeof pkg.homepage === "string") return pkg.homepage;
+  const repo = pkg.repository;
+  if (typeof repo === "string") return repo;
+  if (repo && typeof repo.url === "string") return repo.url.replace(/^git\+/, "").replace(/\.git$/, "");
+  return null;
+}
+
+/**
+ * Recursively finds every package directory under a node_modules tree — including nested
+ * node_modules from unhoisted transitive dependencies — keyed by "name@version" to dedupe.
+ */
+export function collectPackages(nodeModulesRoot) {
+  const found = new Map();
+
+  function walk(dir) {
+    let entries;
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry === ".bin") continue;
+      const entryPath = join(dir, entry);
+      if (!statSync(entryPath).isDirectory()) continue;
+
+      if (entry.startsWith("@")) {
+        walk(entryPath); // scoped packages live one level deeper (@scope/name)
+        continue;
+      }
+
+      const pkgJsonPath = join(entryPath, "package.json");
+      if (existsSync(pkgJsonPath)) {
+        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf8"));
+        if (pkg.name && pkg.version) {
+          found.set(`${pkg.name}@${pkg.version}`, { dir: entryPath, pkg });
+        }
+      }
+      const nested = join(entryPath, "node_modules");
+      if (existsSync(nested)) walk(nested);
+    }
+  }
+
+  walk(nodeModulesRoot);
+  return found;
+}
+
+export function loadOverrides(overridesPath) {
+  if (!overridesPath || !existsSync(overridesPath)) return {};
+  return JSON.parse(readFileSync(overridesPath, "utf8"));
+}
+
+/**
+ * Builds the sorted attribution list for one node_modules tree. Throws (naming every offending
+ * package) if any package has neither a discoverable license file nor an override entry — a
+ * legal-disclosure gap must never resolve silently.
+ */
+export function generate(nodeModulesRoot, overridesPath) {
+  const overrides = loadOverrides(overridesPath);
+  const packages = collectPackages(nodeModulesRoot);
+  const entries = [];
+  const failures = [];
+
+  for (const [key, { dir, pkg }] of packages) {
+    const override = overrides[key] || overrides[pkg.name] || {};
+    const licenseText = override.licenseText || findLicenseText(dir);
+    if (!licenseText) {
+      failures.push(key);
+      continue;
+    }
+    entries.push({
+      name: pkg.name,
+      version: pkg.version,
+      licenseSPDXId: override.licenseSPDXId ?? extractLicenseId(pkg),
+      licenseText,
+      homepage: override.homepage ?? extractHomepage(pkg),
+    });
+  }
+
+  if (failures.length > 0) {
+    throw new Error(
+      `no license file found and no override for: ${failures.sort().join(", ")}\n` +
+      `       Add an entry to ${overridesPath} once a human confirms the license.`
+    );
+  }
+
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  return entries;
+}
+
+function main() {
+  const [, , nodeModulesRoot, outputPath, overridesPath] = process.argv;
+  if (!nodeModulesRoot || !outputPath) {
+    console.error("usage: generate-npm-attributions.mjs <node_modules-root> <output.json> [overrides.json]");
+    process.exit(2);
+  }
+  const entries = generate(nodeModulesRoot, overridesPath);
+  writeFileSync(outputPath, JSON.stringify(entries, null, 2) + "\n");
+  console.log(`Wrote ${entries.length} attribution(s) to ${outputPath}`);
+}
+
+if (process.argv[1] && basename(process.argv[1]) === "generate-npm-attributions.mjs") {
+  main();
+}
