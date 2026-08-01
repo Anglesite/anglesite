@@ -635,6 +635,9 @@ struct SiteWindow: View {
         .sheet(isPresented: $bindableModel.domain.sheetPresented) {
             DomainSheetView(model: model.domain)
         }
+        .sheet(isPresented: $bindableModel.connectDomain.sheetPresented) {
+            ConnectDomainSheetView(model: model.connectDomain)
+        }
         .sheet(isPresented: $bindableModel.publish.sheetPresented) {
             PublishSheet(model: model.publish, siteName: site.name)
         }
