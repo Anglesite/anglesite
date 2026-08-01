@@ -347,12 +347,21 @@ jobs:
         # re-resolves against that reduced target set, silently shrinking the working copy's
         # Package.resolved from 43 pins down to ~14. The committed Resources/Attributions/app-binary.json
         # must reflect the FULL app (the real Xcode build, which never sets this var), so this step
-        # overrides back to '0' and re-resolves before generating, restoring all 43 pins/checkouts
-        # without slowing down the job's own build/test steps (which keep using the fast reduced graph).
+        # overrides back to '0' and re-resolves before generating, restoring all 43 pins/checkouts.
+        # Deleting Package.resolved first is load-bearing, not cleanup: with the file left in place,
+        # `swift package resolve` under the restored `Cache SwiftPM build` step's .build (keyed off a
+        # prior run's cache, not this job's own) can silently no-op and keep the reduced ~14-pin
+        # resolution instead of adding the container graph back — reproduced twice in CI (2026-08-01,
+        # PR #1205) with zero "Creating working copy" fetch lines logged despite the env override.
+        # Forcing a from-scratch resolution here (still reusing already-cloned checkouts under
+        # .build/checkouts, so only the ~29 newly-needed packages pay real clone cost) is the only
+        # variant that reproduced the correct 43-pin manifest locally; a stale Package.resolved is the
+        # one variable common to every failing case.
         env:
           ANGLESITE_SKIP_CONTAINER: '0'
         run: |
           set -euo pipefail
+          rm -f Package.resolved
           swift package resolve
           scripts/generate-swift-attributions.sh "$PWD" /tmp/app-binary.json scripts/attributions-overrides.json
           diff -u Resources/Attributions/app-binary.json /tmp/app-binary.json
