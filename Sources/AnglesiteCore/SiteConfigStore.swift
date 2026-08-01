@@ -44,6 +44,14 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// content.
     public var activeWorkerIDs: [String]?
 
+    /// The `activeWorkerIDs` snapshot that was last successfully written into `Source/anglesite.json`'s
+    /// `workers.active` declaration by `DeployCoordinator.syncWorkerActivationToAnglesiteJSON` (#1172).
+    /// `DeployCoordinator.resolveActiveWorkerIDs` compares this against the current `activeWorkerIDs`
+    /// above to tell "the declaration is current" apart from "`Config/` has moved on since the last
+    /// successful sync" (a failed write-through, or a write that bypassed it) — in the latter case it
+    /// falls back to `activeWorkerIDs` rather than trusting a declaration that may be behind.
+    public var activeWorkerIDsMigratedToAnglesiteJSON: [String]?
+
     /// The full effective active worker-id set (component-tied + settings-activated) as of the
     /// last successful deploy — the diff baseline `WorkerActivation.removedIDs` reports removals
     /// against (#709).
@@ -78,6 +86,7 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         blueskyPDSURL: String? = nil,
         deployedSourceBundleCommit: String? = nil,
         activeWorkerIDs: [String]? = nil,
+        activeWorkerIDsMigratedToAnglesiteJSON: [String]? = nil,
         lastDeployedWorkerIDs: [String]? = nil,
         provisionedWorkerResources: WorkerComposition.ProvisionedResources? = nil,
         webmentionReceivePaidPlanAcknowledged: Bool? = nil,
@@ -91,6 +100,7 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         self.blueskyPDSURL = blueskyPDSURL
         self.deployedSourceBundleCommit = deployedSourceBundleCommit
         self.activeWorkerIDs = activeWorkerIDs
+        self.activeWorkerIDsMigratedToAnglesiteJSON = activeWorkerIDsMigratedToAnglesiteJSON
         self.lastDeployedWorkerIDs = lastDeployedWorkerIDs
         self.provisionedWorkerResources = provisionedWorkerResources
         self.webmentionReceivePaidPlanAcknowledged = webmentionReceivePaidPlanAcknowledged

@@ -89,7 +89,21 @@ public struct SiteOperations: Sendable {
     ) async -> DeployCommand.Result {
         let configStore = SiteConfigStore(configDirectory: site.configDirectory)
         let settings = (try? await configStore.load()) ?? SiteSettings()
-        let effectiveActiveIDs = WorkerActivation.effectiveActiveIDs(settings: settings, catalog: [], graph: nil)
+        // Resolves through the same `Source/anglesite.json` declaration (falling back to `Config/`)
+        // as `DeployModel.runDeploy`'s `DeployCoordinator.planWorkerActivation` (#1172) — mirrors
+        // its call, since this path doesn't otherwise go through `planWorkerActivation` (it has no
+        // populated `SiteContentGraph` to build a snapshot from, see the comment above).
+        let (resolvedActiveWorkerIDs, activeWorkerIDsSource) = DeployCoordinator.resolveActiveWorkerIDs(
+            settings: settings, sourceDirectory: siteDirectory
+        )
+        var effectiveSettings = settings
+        effectiveSettings.activeWorkerIDs = resolvedActiveWorkerIDs
+        if let notice = DeployCoordinator.activeWorkerIDsFallbackNotice(source: activeWorkerIDsSource) {
+            // Mirrors DeployModel.runDeploy's identical notice — shared text via DeployCoordinator
+            // so the two paths can't drift (#708 review feedback's idiom).
+            await LogCenter.shared.append(source: "deploy:\(site.id)", stream: .stdout, text: notice)
+        }
+        let effectiveActiveIDs = WorkerActivation.effectiveActiveIDs(settings: effectiveSettings, catalog: [], graph: nil)
 
         // Dynamic-route claims (#746) and resource composition (#708) both need real descriptor
         // data, which the `catalog: []` activation call above deliberately doesn't have (matching

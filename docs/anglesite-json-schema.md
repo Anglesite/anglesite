@@ -111,6 +111,13 @@ hasn't touched that setting (which is different from the app having explicitly t
 |---|---|---|
 | `active` | array of string | The catalog IDs of the Workers the owner has activated for this site, e.g. `["webmention-receive", "micropub"]`. |
 
+The Workers Settings tab toggle writes this array here (in addition to the app-private
+`Config/settings.plist` it always wrote), and deploy reads it from here — falling back to
+`Config/`'s copy if this file is missing, unparsable, or hasn't caught up with a `Config/` change
+yet, so a deploy never fails or silently activates the wrong set just because the two haven't
+synced. A hand edit to `active` takes effect on the next deploy once the app's own copy in
+`Config/` matches it again (e.g. after the next toggle in the Workers tab).
+
 ## Compatibility
 
 Unknown keys — either a whole section this version of Anglesite doesn't recognize, or an extra

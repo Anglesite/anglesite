@@ -34,19 +34,134 @@ public enum DeployCoordinator {
         /// to surface `WorkerActivation.missingDescriptorWarning` for this (`DeployModel` logs it
         /// to the debug pane, mirroring `SiteOperations.deployWithWorkerComposition`).
         public let unresolvedIDs: Set<String>
+        /// Where the settings-activated ids in `effectiveActiveIDs` were resolved from (#1172) —
+        /// the caller decides whether to surface `activeWorkerIDsFallbackNotice` for this, the
+        /// same way it already does for `unresolvedIDs`.
+        public let activeWorkerIDsSource: ActiveWorkerIDsSource
 
         /// Memberwise initializer — plans are normally produced by
         /// ``DeployCoordinator/planWorkerActivation(siteID:siteDirectory:settings:catalog:contentGraph:)``;
         /// this exists so tests can construct one directly.
         public init(
             effectiveActiveIDs: Set<String>, removedIDs: Set<String>,
-            workers: [WorkerDescriptor], unresolvedIDs: Set<String>
+            workers: [WorkerDescriptor], unresolvedIDs: Set<String>,
+            activeWorkerIDsSource: ActiveWorkerIDsSource = .declared
         ) {
             self.effectiveActiveIDs = effectiveActiveIDs
             self.removedIDs = removedIDs
             self.workers = workers
             self.unresolvedIDs = unresolvedIDs
+            self.activeWorkerIDsSource = activeWorkerIDsSource
         }
+    }
+
+    /// Where `resolveActiveWorkerIDs` sourced the settings-activated worker-id set from (#1172).
+    public enum ActiveWorkerIDsSource: Sendable, Equatable {
+        /// `Source/anglesite.json`'s `workers.active` declaration — current and trusted.
+        case declared
+        /// `Config/settings.plist`'s `activeWorkerIDs` — used because the declaration couldn't be
+        /// trusted, per `reason`.
+        case configFallback(reason: FallbackReason)
+
+        public enum FallbackReason: Sendable, Equatable {
+            /// `anglesite.json` exists but isn't valid JSON matching the schema.
+            case unparsable
+            /// `anglesite.json` is absent, or exists with no `workers.active` declared yet.
+            case notDeclared
+            /// `workers.active` is declared, but `Config/`'s current `activeWorkerIDs` no longer
+            /// matches the snapshot recorded at the last successful sync — either the write-through
+            /// failed partway, or something wrote `Config/` directly without going through it.
+            case staleRelativeToConfig
+        }
+    }
+
+    /// Resolves the settings-activated worker-id set for a deploy (#1172): prefers
+    /// `Source/anglesite.json`'s `workers.active` declaration, falling back to `Config/`'s
+    /// `activeWorkerIDs` whenever the declaration can't be trusted — absent, unparsable, or stale
+    /// relative to `Config/`'s live state (owner decision: never fail or silently deploy a reduced
+    /// worker set just because the migration hasn't caught up yet; see the timing investigation doc
+    /// `docs/superpowers/specs/2026-07-31-worker-activation-timing-investigation.md` §7).
+    ///
+    /// "Stale" is a value comparison against `settings.activeWorkerIDsMigratedToAnglesiteJSON`, not
+    /// a file-mtime one — `anglesite.json` also holds `domain`/`dns`/`edge`/`email` sections that
+    /// change far more often than `workers.active`, so the whole-file mtime is a poor staleness
+    /// proxy (see the investigation doc §5). This also self-heals: the next successful
+    /// `syncWorkerActivationToAnglesiteJSON` call brings the recorded snapshot back in sync.
+    public static func resolveActiveWorkerIDs(
+        settings: SiteSettings, sourceDirectory: URL
+    ) -> (ids: [String]?, source: ActiveWorkerIDsSource) {
+        let domainConfig: DomainConfig
+        do {
+            domainConfig = try DomainConfigStore(sourceDirectory: sourceDirectory).load()
+        } catch {
+            return (settings.activeWorkerIDs, .configFallback(reason: .unparsable))
+        }
+        guard let declared = domainConfig.workers?.active else {
+            return (settings.activeWorkerIDs, .configFallback(reason: .notDeclared))
+        }
+        guard settings.activeWorkerIDsMigratedToAnglesiteJSON == settings.activeWorkerIDs else {
+            return (settings.activeWorkerIDs, .configFallback(reason: .staleRelativeToConfig))
+        }
+        return (declared, .declared)
+    }
+
+    /// The shared debug-pane notice text for a `configFallback` `ActiveWorkerIDsSource`, so the
+    /// wording can't drift between `DeployModel.swift` and `SiteOperations.swift` — mirrors
+    /// `WorkerActivation.missingDescriptorWarning`'s shared-text idiom (#708 review feedback).
+    /// `nil` when `source` is `.declared` — nothing to report.
+    public static func activeWorkerIDsFallbackNotice(source: ActiveWorkerIDsSource) -> String? {
+        guard case .configFallback(let reason) = source else { return nil }
+        let why: String
+        switch reason {
+        case .unparsable: why = "anglesite.json couldn't be parsed"
+        case .notDeclared: why = "anglesite.json has no declared worker activation yet"
+        case .staleRelativeToConfig: why = "anglesite.json's declared worker activation is behind Config/'s"
+        }
+        return "using Config/'s worker activation (\(why))"
+    }
+
+    /// The full active-worker-id set after applying one Settings-tab toggle (#1172 review
+    /// follow-up), for `syncWorkerActivationToAnglesiteJSON` to write through unconditionally.
+    ///
+    /// Toggles from the *resolved* set (`resolveActiveWorkerIDs`), not `settings.activeWorkerIDs`
+    /// directly: `resolveActiveWorkerIDs` trusts a hand-edited `anglesite.json` declaration
+    /// whenever `Config/` hasn't drifted since the last sync, and `syncWorkerActivationToAnglesiteJSON`
+    /// overwrites `workers.active` wholesale with whatever it's given — so toggling from
+    /// `Config/`'s raw (narrower) value would silently drop any hand-added id the declaration was
+    /// trusted to deploy on the very next toggle. Deliberately NOT a union of the two sets: a
+    /// union can only add ids, so it would make deactivating an already-declared worker
+    /// impossible — every toggle-off would be immediately re-added by the id still sitting in the
+    /// declaration. Resolving to one base set and applying exactly one add/remove on top of it is
+    /// what makes both directions (a hand-added id survives; an explicit deactivation sticks) work
+    /// simultaneously.
+    public static func toggledActiveWorkerIDs(
+        workerID: String, isOn: Bool, settings: SiteSettings, sourceDirectory: URL
+    ) -> [String] {
+        let (resolved, _) = resolveActiveWorkerIDs(settings: settings, sourceDirectory: sourceDirectory)
+        var ids = Set(resolved ?? [])
+        if isOn { ids.insert(workerID) } else { ids.remove(workerID) }
+        return ids.sorted()
+    }
+
+    /// Write-through for the Workers Settings tab toggle (#1172): mirrors `settings.activeWorkerIDs`
+    /// into `Source/anglesite.json`'s `workers.active` declaration, then records the synced value
+    /// back into `Config/settings.plist` so `resolveActiveWorkerIDs` can tell a successful sync
+    /// apart from a `Config/`-only write. Best-effort, like every other write-through call site
+    /// (`CustomDomainAttachCommand`, `HardenExecutor`, `EmailSetupExecutor`): a git-tracked-file
+    /// write failure must never block the Settings tab toggle the caller already committed to
+    /// `Config/` — it just leaves `resolveActiveWorkerIDs` on the `Config/` fallback until the next
+    /// successful call. Returns `settings` unchanged if the `anglesite.json` write fails.
+    public static func syncWorkerActivationToAnglesiteJSON(
+        configStore: SiteConfigStore, sourceDirectory: URL, settings: SiteSettings
+    ) async -> SiteSettings {
+        let domainStore = DomainConfigStore(sourceDirectory: sourceDirectory)
+        var domainConfig = (try? domainStore.load()) ?? DomainConfig()
+        domainConfig.workers = DomainConfig.Workers(active: settings.activeWorkerIDs)
+        guard (try? domainStore.save(domainConfig)) != nil else { return settings }
+        var updated = settings
+        updated.activeWorkerIDsMigratedToAnglesiteJSON = settings.activeWorkerIDs
+        try? await configStore.save(updated)
+        return updated
     }
 
     /// Builds a `SiteGraphExplorerSnapshot` for `siteID` only when `contentGraph` has actually
@@ -75,13 +190,19 @@ public enum DeployCoordinator {
         } else {
             snapshot = nil
         }
-        let effectiveActiveIDs = WorkerActivation.effectiveActiveIDs(settings: settings, catalog: catalog, graph: snapshot)
+        let (resolvedActiveWorkerIDs, activeWorkerIDsSource) = resolveActiveWorkerIDs(
+            settings: settings, sourceDirectory: siteDirectory
+        )
+        var effectiveSettings = settings
+        effectiveSettings.activeWorkerIDs = resolvedActiveWorkerIDs
+        let effectiveActiveIDs = WorkerActivation.effectiveActiveIDs(settings: effectiveSettings, catalog: catalog, graph: snapshot)
         let removedIDs = WorkerActivation.removedIDs(previous: Set(settings.lastDeployedWorkerIDs ?? []), next: effectiveActiveIDs)
         let workers = WorkerActivation.activeDescriptors(catalog: catalog, activeIDs: effectiveActiveIDs)
         let unresolvedIDs = WorkerActivation.unresolvedActiveIDs(activeIDs: effectiveActiveIDs, resolved: workers)
         return WorkerActivationPlan(
             effectiveActiveIDs: effectiveActiveIDs, removedIDs: removedIDs,
-            workers: workers, unresolvedIDs: unresolvedIDs
+            workers: workers, unresolvedIDs: unresolvedIDs,
+            activeWorkerIDsSource: activeWorkerIDsSource
         )
     }
 
