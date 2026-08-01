@@ -2,7 +2,13 @@ import Testing
 import Foundation
 @testable import AnglesiteCore
 
-struct UntitledSitePropagationTests {
+final class UntitledSitePropagationTests {
+    private var createdDirs: [URL] = []
+
+    deinit {
+        for dir in createdDirs { try? FileManager.default.removeItem(at: dir) }
+    }
+
     private func makeSiteDirectory(siteConfig: String, wranglerToml: String? = #"name = "untitled""#) -> URL {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try! FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -10,6 +16,7 @@ struct UntitledSitePropagationTests {
         if let wranglerToml {
             try! wranglerToml.write(to: dir.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
         }
+        createdDirs.append(dir)
         return dir
     }
 
@@ -27,7 +34,7 @@ struct UntitledSitePropagationTests {
         #expect(toml.contains(#"name = "acme-bakery""#))
     }
 
-    @Test("Matches the 'Untitled N' pattern the chooser generates for repeat untitled sites")
+    @Test("Propagates for a virgin site still carrying the chooser's numbered 'Untitled N' default")
     func propagatesForNumberedUntitledSite() throws {
         let dir = makeSiteDirectory(siteConfig: "SITE_NAME=Untitled 3\nCF_PROJECT_NAME=untitled-3\n")
 
@@ -87,6 +94,7 @@ struct UntitledSitePropagationTests {
     func noOpWhenSiteConfigMissing() {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try! FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        createdDirs.append(dir)
 
         // Must not throw or crash.
         UntitledSitePropagation.propagateIfUntitled(newDisplayName: "Acme Bakery", siteDirectory: dir)
