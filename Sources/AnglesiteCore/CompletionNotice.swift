@@ -57,6 +57,11 @@ public enum CompletionNoticeBuilder {
         /// Pre-deploy security scan blocked the deploy; `failureCount` is the number of
         /// must-fix findings.
         case blocked(failureCount: Int)
+        /// Declared `anglesite.json` domain config drifted from live Cloudflare state (#1173);
+        /// `findingCount` is the number of drift findings. Distinguished from `.failed` for the
+        /// same reason as `.blocked` — this is the deploy pipeline's own validation catching a
+        /// real problem, not an error.
+        case domainConfigDrift(findingCount: Int)
     }
 
     /// Builds the deploy notice. All three outcomes share one identifier (`deploy.<siteID>`) so
@@ -84,6 +89,14 @@ public enum CompletionNoticeBuilder {
                 title: "Deploy Blocked",
                 subtitle: siteName,
                 body: "Pre-deploy check found \(failureCount) \(noun) that must be fixed before deploying.",
+                siteID: siteID, identifier: identifier, isFailure: true
+            )
+        case .domainConfigDrift(let findingCount):
+            let noun = findingCount == 1 ? "item" : "items"
+            return CompletionNotice(
+                title: "Deploy Blocked",
+                subtitle: siteName,
+                body: "\(findingCount) declared domain configuration \(noun) don't match your live Cloudflare setup. Review the Domain Config Audit, then deploy again.",
                 siteID: siteID, identifier: identifier, isFailure: true
             )
         }

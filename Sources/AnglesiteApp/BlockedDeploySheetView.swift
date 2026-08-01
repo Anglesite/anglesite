@@ -104,6 +104,7 @@ private struct FailureCard: View {
         case .cspMisconfigured: return "shield.slash"
         case .embedMediaHotlink: return "photo.badge.exclamationmark"
         case .wellKnownCollision: return "exclamationmark.lock"
+        case .anglesiteConfigInvalid: return "doc.badge.gearshape"
         case .other: return "exclamationmark.triangle"
         }
     }
@@ -119,6 +120,7 @@ private struct FailureCard: View {
         case .cspMisconfigured: return "CSP misconfigured"
         case .embedMediaHotlink: return "Hotlinked embed media"
         case .wellKnownCollision: return "/.well-known/ collision"
+        case .anglesiteConfigInvalid: return "anglesite.json invalid"
         case .other: return "Other"
         }
     }
