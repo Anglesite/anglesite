@@ -40,6 +40,7 @@ rsync -a \
     --exclude='scripts/scaffold.sh' \
     --exclude='scripts/themes.ts' \
     --exclude='scripts/themes.json' \
+    --exclude='packs/' \
     --exclude='scripts/*.test.ts' \
     --exclude='integrations/' \
     --exclude='node_modules/' \
