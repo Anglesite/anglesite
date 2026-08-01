@@ -156,10 +156,11 @@ one theme per category (Blank is the existing chassis). Criteria:
 1. **Curation criteria + shortlist** — docs-only; owner approves the
    shortlist before any port starts.
 2. **Pack mechanism** — catalog schema fields, scaffolder overlay step,
-   `check-pack.ts` lint + Swift tests, `SITE_TYPE` recording. Proven with a
-   test fixture pack; ships no real ports.
-3. **Chooser sidebar** — category filter, `SiteType` recording, thumbnail
-   cards, per-category pre-selection.
+   `check-pack.ts` lint + Swift tests. Proven with a test fixture pack;
+   ships no real ports.
+3. **Chooser sidebar** — category filter, `SITE_TYPE` recording from the
+   category choice (the scaffolder side already exists; this inverts the
+   #1183 test guard), thumbnail cards, per-category pre-selection.
 4. **Theme ports** — one issue per approved theme (~5): adaptation,
    thumbnail, contract lint green, template-coupled `swift test` green.
 5. **QA/docs mop-up** — `docs/qa/e2e-acceptance-2-new-website.md`,
