@@ -192,6 +192,9 @@ struct HardenExecutorTests {
 final class MockCloudflareReader: CloudflareReading, @unchecked Sendable {
     private let state: CloudflareZoneState
     var shouldFail = false
+    /// Configurable result for `listDNSRecords` — defaults empty; set before `execute` to feed a
+    /// reconciler's post-apply re-audit a specific live record set (`DomainConfigReconcilerTests`).
+    var dnsRecords: [DNSRecord] = []
 
     init(state: CloudflareZoneState = CloudflareZoneState(
         dnssecActive: true, sslMode: "strict", alwaysUseHTTPS: true,
@@ -208,7 +211,10 @@ final class MockCloudflareReader: CloudflareReading, @unchecked Sendable {
         if shouldFail { throw CloudflareError.malformedResponse }
         return state
     }
-    func listDNSRecords(zoneID: String, apiToken: String) async throws -> [DNSRecord] { [] }
+    func listDNSRecords(zoneID: String, apiToken: String) async throws -> [DNSRecord] {
+        if shouldFail { throw CloudflareError.malformedResponse }
+        return dnsRecords
+    }
     func workerScriptNames(apiToken: String) async throws -> [String] { [] }
 }
 

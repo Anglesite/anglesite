@@ -404,6 +404,23 @@ struct SiteWindow: View {
             }
             .defaultCustomization(.hidden)
 
+            ToolbarItem(id: SiteToolbarItemID.domainConfigAudit.rawValue, placement: .primaryAction) {
+                Button {
+                    model.domainConfigAudit.openSheet()
+                } label: {
+                    if model.domainConfigAudit.isRunning {
+                        Label("Checking Domain Config…", systemImage: "arrow.triangle.2.circlepath")
+                    } else {
+                        Label("Domain Config", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                }
+                .disabled(!model.canRunDomainConfigAudit)
+                .help(site.isValid
+                      ? "Compare anglesite.json's declared domain/DNS/edge config against live Cloudflare state"
+                      : "Site is missing required files")
+            }
+            .defaultCustomization(.hidden)
+
             ToolbarItem(id: SiteToolbarItemID.onionRouting.rawValue, placement: .primaryAction) {
                 Button {
                     model.onionRouting.openSheet()
@@ -597,6 +614,9 @@ struct SiteWindow: View {
         }
         .sheet(isPresented: $bindableModel.sync.resolutionSheetPresented) {
             SyncConflictResolutionSheetView(model: model.sync, siteName: site.name)
+        }
+        .sheet(isPresented: $bindableModel.domainConfigAudit.sheetPresented) {
+            DomainConfigAuditSheetView(model: model.domainConfigAudit)
         }
         .sheet(isPresented: $bindableModel.harden.sheetPresented) {
             HardenSheetView(model: model.harden)

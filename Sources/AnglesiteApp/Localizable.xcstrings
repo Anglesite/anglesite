@@ -468,6 +468,9 @@
     "Applying hardening changes…" : {
 
     },
+    "Applying reconciliation changes…" : {
+
+    },
     "Applying…" : {
 
     },
@@ -678,7 +681,16 @@
     "Check ${site}" : {
 
     },
+    "Check Domain Config" : {
+
+    },
+    "Check for domain config drift" : {
+
+    },
     "Check whether Siri workflows are ready for this site" : {
+
+    },
+    "Checking Domain Config…" : {
 
     },
     "Checking token…" : {
@@ -806,6 +818,9 @@
 
     },
     "Communities…" : {
+
+    },
+    "Compares this site's declared anglesite.json (domain, managed DNS records, edge hardening) against what's actually live on Cloudflare." : {
 
     },
     "Complete Sign In" : {
@@ -1129,6 +1144,9 @@
 
     },
     "Domain" : {
+
+    },
+    "Domain Config" : {
 
     },
     "Domain…" : {
@@ -1818,6 +1836,9 @@
     "No copy issues found across %lld pages — nice work." : {
 
     },
+    "No drift found." : {
+
+    },
     "No entries yet — follow a feed above to get started." : {
 
     },
@@ -2190,6 +2211,9 @@
     "Reading %@ zone settings from Cloudflare…" : {
 
     },
+    "Reading anglesite.json and the live Cloudflare zone…" : {
+
+    },
     "Receiving webmentions and pushing feed updates to subscribers both work asynchronously using Cloudflare Queues, which aren't available on the Workers Free plan. Continuing will create the Queues these features need on your connected Cloudflare account." : {
 
     },
@@ -2248,6 +2272,9 @@
 
     },
     "Remaining audit findings" : {
+
+    },
+    "Remaining drift" : {
 
     },
     "Remove" : {
@@ -2868,6 +2895,9 @@
 
     },
     "The license offered for your content. Anglesite never picks one for you — until you choose, your site says all rights reserved." : {
+
+    },
+    "The live Cloudflare zone matches everything declared in anglesite.json." : {
 
     },
     "The pre-deploy scan found issues that need fixing before this site can ship." : {
