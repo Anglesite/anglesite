@@ -29,7 +29,9 @@ public struct OSSAttribution: Codable, Sendable, Identifiable, Hashable {
 public enum AttributionSource: String, CaseIterable, Codable, Sendable {
     /// SwiftPM packages linked directly into `Anglesite.app` (see `Package.resolved`).
     case appBinary = "app-binary"
-    /// npm packages inside the vendored container image's MCP sidecar (`server/node_modules`).
+    /// npm packages inside the vendored container image's MCP sidecar (the sidecar repo's
+    /// root `node_modules` — `server/` itself is staged without `node_modules`; see
+    /// `scripts/lib/stage-dev-image-context.sh`).
     case containerImage = "container-image"
     /// npm packages scaffolded into every new site from `Resources/Template/package.json`.
     case websiteTemplate = "website-template"

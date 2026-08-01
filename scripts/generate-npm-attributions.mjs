@@ -11,6 +11,12 @@ import { join, basename } from "node:path";
 // "LICENSE"/"LICENCE" spellings, decorated variants like LICENSE-MIT or LICENSE-MIT.txt, COPYING,
 // etc.), so match any filename that starts with "license"/"licence"/"copying" rather than an
 // exact list.
+//
+// NOTE: this matching capability has diverged from generate-swift-attributions.sh's equivalent
+// (its LICENSE_NAMES list) — this side also handles decorated filenames and one-level-nested
+// LICENSE/ directories (see findLicenseText below), the Python side only checks exact filenames.
+// If a SwiftPM dependency ever fails there with a decorated license filename, consider porting
+// the same handling.
 function isLicenseFileName(name) {
   return /^(licen[sc]e|copying)/i.test(name);
 }

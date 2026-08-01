@@ -45,7 +45,7 @@ public enum AttributionSource: String, CaseIterable, Codable, Sendable {
 
 `OSSAttribution` and `AttributionSource` live in `AnglesiteCore` (new file `Sources/AnglesiteCore/OSSAttribution.swift`) so both the app's Acknowledgments window and the site-scaffolder's notice generator can use the same types.
 
-License text is stored **in full**, not just an SPDX identifier looked up against a bundled or fetched license-text table. This keeps the About window fully offline and avoids drift between a package's actual bundled `LICENSE` file and a generic SPDX template that might not match (e.g. a project that adds a copyright-holder line to the standard MIT text). The cost is a somewhat larger resource bundle (low hundreds of KB across ~100 packages total), which is negligible next to the container image.
+License text is stored **in full**, not just an SPDX identifier looked up against a bundled or fetched license-text table. This keeps the About window fully offline and avoids drift between a package's actual bundled `LICENSE` file and a generic SPDX template that might not match (e.g. a project that adds a copyright-holder line to the standard MIT text). The cost is a somewhat larger resource bundle (~3.0MB combined across the three manifests, 918 entries total: 43 app-binary, 110 container-image, 765 website-template), which is negligible next to the container image.
 
 ### Catalog loading
 
