@@ -120,6 +120,29 @@ public enum DeployCoordinator {
         return "using Config/'s worker activation (\(why))"
     }
 
+    /// The full active-worker-id set after applying one Settings-tab toggle (#1172 review
+    /// follow-up), for `syncWorkerActivationToAnglesiteJSON` to write through unconditionally.
+    ///
+    /// Toggles from the *resolved* set (`resolveActiveWorkerIDs`), not `settings.activeWorkerIDs`
+    /// directly: `resolveActiveWorkerIDs` trusts a hand-edited `anglesite.json` declaration
+    /// whenever `Config/` hasn't drifted since the last sync, and `syncWorkerActivationToAnglesiteJSON`
+    /// overwrites `workers.active` wholesale with whatever it's given — so toggling from
+    /// `Config/`'s raw (narrower) value would silently drop any hand-added id the declaration was
+    /// trusted to deploy on the very next toggle. Deliberately NOT a union of the two sets: a
+    /// union can only add ids, so it would make deactivating an already-declared worker
+    /// impossible — every toggle-off would be immediately re-added by the id still sitting in the
+    /// declaration. Resolving to one base set and applying exactly one add/remove on top of it is
+    /// what makes both directions (a hand-added id survives; an explicit deactivation sticks) work
+    /// simultaneously.
+    public static func toggledActiveWorkerIDs(
+        workerID: String, isOn: Bool, settings: SiteSettings, sourceDirectory: URL
+    ) -> [String] {
+        let (resolved, _) = resolveActiveWorkerIDs(settings: settings, sourceDirectory: sourceDirectory)
+        var ids = Set(resolved ?? [])
+        if isOn { ids.insert(workerID) } else { ids.remove(workerID) }
+        return ids.sorted()
+    }
+
     /// Write-through for the Workers Settings tab toggle (#1172): mirrors `settings.activeWorkerIDs`
     /// into `Source/anglesite.json`'s `workers.active` declaration, then records the synced value
     /// back into `Config/settings.plist` so `resolveActiveWorkerIDs` can tell a successful sync

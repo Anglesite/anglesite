@@ -856,6 +856,12 @@ final class PlistEditorModel {
     /// (network fetch with cache/empty degradation inside `WorkerCatalogFetcher`), and per-
     /// component-tied-worker affected pages via `ImpactAnalysis` over the Site Graph snapshot.
     /// Called from the tab's `.task`, so it re-runs (and re-fetches) on each tab open.
+    ///
+    /// Displays the *resolved* active set (`DeployCoordinator.resolveActiveWorkerIDs`), not
+    /// `Config/`'s raw `activeWorkerIDs` (#1172 review follow-up): a hand-edited `anglesite.json`
+    /// declaration the deploy path is about to trust would otherwise be invisible here, leaving
+    /// the owner unable to see — or knowingly toggle off — a worker that's actually about to
+    /// deploy.
     func loadWorkers() async {
         guard let configDirectory else {
             workerGroups = []
@@ -865,7 +871,11 @@ final class PlistEditorModel {
         }
         isLoadingWorkers = true
         defer { isLoadingWorkers = false }
-        let settings = (try? await SiteConfigStore(configDirectory: configDirectory).load()) ?? SiteSettings()
+        var settings = (try? await SiteConfigStore(configDirectory: configDirectory).load()) ?? SiteSettings()
+        let (resolvedActiveWorkerIDs, _) = DeployCoordinator.resolveActiveWorkerIDs(
+            settings: settings, sourceDirectory: sourceDirectory
+        )
+        settings.activeWorkerIDs = resolvedActiveWorkerIDs
         workerSettings = settings
         workerLastDeployedIDs = settings.lastDeployedWorkerIDs ?? []
         let catalog = await workerCatalogProvider()
@@ -885,13 +895,17 @@ final class PlistEditorModel {
     /// declaration (#1172, `DeployCoordinator.syncWorkerActivationToAnglesiteJSON`) — best-effort,
     /// like every other `anglesite.json` write-through: a git-tracked-file write failure must never
     /// turn an already-succeeded `Config/` toggle into a reported failure.
+    ///
+    /// Toggles from `DeployCoordinator.toggledActiveWorkerIDs`'s resolved base, not `Config/`'s raw
+    /// `activeWorkerIDs` (#1172 review follow-up) — see that function's doc comment for why a plain
+    /// `Config/`-only toggle would silently drop a trusted hand edit to the declaration.
     func setWorkerActive(_ workerID: String, isOn: Bool) async {
         guard let configDirectory else { return }
         let store = SiteConfigStore(configDirectory: configDirectory)
         var settings = (try? await store.load()) ?? workerSettings
-        var ids = Set(settings.activeWorkerIDs ?? [])
-        if isOn { ids.insert(workerID) } else { ids.remove(workerID) }
-        settings.activeWorkerIDs = ids.sorted()
+        settings.activeWorkerIDs = DeployCoordinator.toggledActiveWorkerIDs(
+            workerID: workerID, isOn: isOn, settings: settings, sourceDirectory: sourceDirectory
+        )
         do {
             try await store.save(settings)
         } catch {

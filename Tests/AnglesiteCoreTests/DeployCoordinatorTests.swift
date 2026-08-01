@@ -309,6 +309,62 @@ struct DeployCoordinatorTests {
         #expect(declared.workers?.active == ["websub"])
     }
 
+    // MARK: - toggledActiveWorkerIDs (#1172 review follow-up)
+
+    @Test("toggling on preserves a hand-added id that's only in the trusted declaration, not yet in Config/")
+    func toggledActiveWorkerIDsPreservesHandAddedDeclaredID() throws {
+        let dir = try temporaryDirectory()
+        // A hand edit added "newsletter" to the declaration; Config/'s own activeWorkerIDs and its
+        // migration snapshot are still both ["indieauth"] (untouched, so nothing looks stale) —
+        // resolveActiveWorkerIDs trusts the declaration in this state.
+        try DomainConfigStore(sourceDirectory: dir).save(DomainConfig(workers: .init(active: ["indieauth", "newsletter"])))
+        let settings = SiteSettings(activeWorkerIDs: ["indieauth"], activeWorkerIDsMigratedToAnglesiteJSON: ["indieauth"])
+
+        let ids = DeployCoordinator.toggledActiveWorkerIDs(
+            workerID: "websub", isOn: true, settings: settings, sourceDirectory: dir
+        )
+
+        #expect(ids == ["indieauth", "newsletter", "websub"])
+    }
+
+    @Test("toggling off a hand-added declared id actually removes it, rather than being resurrected")
+    func toggledActiveWorkerIDsCanRemoveAHandAddedDeclaredID() throws {
+        let dir = try temporaryDirectory()
+        try DomainConfigStore(sourceDirectory: dir).save(DomainConfig(workers: .init(active: ["indieauth", "newsletter"])))
+        let settings = SiteSettings(activeWorkerIDs: ["indieauth"], activeWorkerIDsMigratedToAnglesiteJSON: ["indieauth"])
+
+        let ids = DeployCoordinator.toggledActiveWorkerIDs(
+            workerID: "newsletter", isOn: false, settings: settings, sourceDirectory: dir
+        )
+
+        #expect(ids == ["indieauth"])
+    }
+
+    @Test("toggling off a normal (non-hand-edited) worker still deactivates it — guards against a naive union fix")
+    func toggledActiveWorkerIDsDeactivatesNormally() throws {
+        let dir = try temporaryDirectory()
+        try DomainConfigStore(sourceDirectory: dir).save(DomainConfig(workers: .init(active: ["indieauth", "websub"])))
+        let settings = SiteSettings(activeWorkerIDs: ["indieauth", "websub"], activeWorkerIDsMigratedToAnglesiteJSON: ["indieauth", "websub"])
+
+        let ids = DeployCoordinator.toggledActiveWorkerIDs(
+            workerID: "websub", isOn: false, settings: settings, sourceDirectory: dir
+        )
+
+        #expect(ids == ["indieauth"])
+    }
+
+    @Test("with no anglesite.json declared, toggling behaves exactly as it did against Config/ alone")
+    func toggledActiveWorkerIDsFallsBackWhenNotDeclared() throws {
+        let dir = try temporaryDirectory()
+        let settings = SiteSettings(activeWorkerIDs: ["indieauth"])
+
+        let ids = DeployCoordinator.toggledActiveWorkerIDs(
+            workerID: "websub", isOn: true, settings: settings, sourceDirectory: dir
+        )
+
+        #expect(ids == ["indieauth", "websub"])
+    }
+
     // MARK: - planWorkerActivation reads through anglesite.json (#1172)
 
     @Test("planWorkerActivation prefers a synced anglesite.json declaration over Config/'s activeWorkerIDs")
