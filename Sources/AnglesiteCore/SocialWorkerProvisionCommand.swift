@@ -37,6 +37,10 @@ public actor SocialWorkerProvisionCommand {
         /// one acknowledgment covers every Queue-backed feature — it's the same account-level
         /// plan fact.)
         case webmentionPaidPlanConfirmationNeeded(resources: WorkerComposition.ProvisionedResources)
+        /// Mirrors `DeployCommand.Result.domainConfigDrift` (#1173) — the downstream deploy's
+        /// declared-vs-live check found drift. Resources provisioned before the deploy stage
+        /// still ride along, same as `.blocked`.
+        case domainConfigDrift(findings: [DomainConfigAudit.Finding], resources: WorkerComposition.ProvisionedResources)
         /// A wrangler call, secret push, or the downstream deploy failed. `exitCode` is `nil` when
         /// the process couldn't run at all (as opposed to running and exiting non-zero).
         case failed(reason: String, exitCode: Int32?, resources: WorkerComposition.ProvisionedResources)
@@ -492,6 +496,8 @@ public actor SocialWorkerProvisionCommand {
             return .blocked(failures: failures, warnings: warnings, resources: resources)
         case .workerNameConflict(let name):
             return .workerNameConflict(name: name, resources: resources)
+        case .domainConfigDrift(let findings):
+            return .domainConfigDrift(findings: findings, resources: resources)
         case .failed(let reason, let exitCode):
             return .failed(reason: reason, exitCode: exitCode, resources: resources)
         }
@@ -741,6 +747,8 @@ extension SocialWorkerProvisionCommand.Result {
             return .blocked(failures: failures, warnings: warnings)
         case .workerNameConflict(let name, _):
             return .workerNameConflict(name: name)
+        case .domainConfigDrift(let findings, _):
+            return .domainConfigDrift(findings: findings)
         case .webmentionPaidPlanConfirmationNeeded:
             // `DeployCommand.Result` has no equivalent case yet — callers that go through this
             // convenience mapping (rather than reading `SocialWorkerProvisionCommand.Result`

@@ -65,6 +65,13 @@ export interface AnglesiteConfig {
   workers?: AnglesiteWorkersConfig;
 }
 
+/// Schema versions this build understands. Shared with `pre-deploy-check.ts`'s structural
+/// validation (#1173) so "version recognized" means the same thing in both places — this
+/// tolerant reader still defaults an unrecognized/missing version to `1` rather than rejecting
+/// it (see `readAnglesiteConfig`'s doc comment), but the pre-deploy check treats a declared,
+/// unrecognized version as a hard failure with a fix-it.
+export const ANGLESITE_CONFIG_RECOGNIZED_VERSIONS = new Set([1]);
+
 function defaultConfig(): AnglesiteConfig {
   return { version: 1 };
 }

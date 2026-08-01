@@ -125,8 +125,31 @@ field inside a section it does — are preserved when the app rewrites this file
 a field written by a newer Anglesite version, survives being loaded and re-saved by an older one.
 
 The app-side store fails to load a malformed or type-mismatched file with a specific `DecodingError`.
-The template's build-time reader handles parsing and shape mismatches more gracefully: it warns via
-`console.warn` and continues with defaults, so a hand-edit error never breaks a deploy.
+The template's build-time reader (`readAnglesiteConfig`, consumed mid-build) handles parsing and
+shape mismatches more gracefully: it warns via `console.warn` and continues with defaults, so a
+hand-edit error never breaks the build itself. The pre-deploy check (below) is stricter, precisely
+because a silently-defaulted declaration at *that* point would mean the rest of the deploy — including
+the declared-vs-live check — runs against the wrong assumptions.
+
+## Deploy-time validation (#1173)
+
+Two independent checks run before `wrangler deploy`, closing the gap `DeployCoordinator.resolveSiteURL`
+used to document bluntly: a configured domain "is never verified to be live."
+
+- **Structural (template-side, network-free).** `pre-deploy-check.ts`'s `checkAnglesiteConfig`
+  re-parses `anglesite.json` strictly: it must be valid JSON, a JSON object, and declare a
+  recognized `version` (unlike `readAnglesiteConfig`, an unrecognized or malformed value here is a
+  build-blocking failure with a fix-it, category `anglesite-config-invalid`, in the same versioned
+  scan envelope every other pre-deploy check reports through). A missing file is not an error —
+  the normal "no declarations yet" case. Unknown top-level keys are still tolerated (the hand-edit
+  rule); this check only rejects fields it understands but finds malformed.
+- **Declared-vs-live (app-side, one Cloudflare read).** `DeployCommand` grades the declared
+  `domain`/`dns`/`edge` sections against a fresh Cloudflare zone read via the same
+  `DomainConfigAudit.evaluate` the Domain Config Audit sheet uses (#1171). Any drift blocks the
+  deploy (`DeployCommand.Result.domainConfigDrift`) with a sheet pointing at that audit sheet to
+  reconcile — remediation happens there, not as a deploy-time side effect. A site with no declared
+  `domain.hostname`, or a Cloudflare read that fails outright, skips this check (fails open) rather
+  than blocking an otherwise-good deploy on a transient API hiccup.
 
 There's currently no way for the app to "un-declare" something it previously wrote. A field or
 section the app has declared stays in the file even after a later app action stops setting it —

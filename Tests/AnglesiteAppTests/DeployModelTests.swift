@@ -134,6 +134,39 @@ struct DeployModelTests {
         #expect(model.workerNameConflictPresented)
     }
 
+    @Test("Domain config drift blocks the deploy and presents the drift sheet (#1173)")
+    func domainConfigDriftBlocksAndPresents() async {
+        let executor = GatedDeployExecutor()
+        // Never reached — drift short-circuits before the build step — but present so a
+        // regression that skips the gate doesn't hang the test on the gated continuation.
+        await executor.resumeBuild()
+        let finding = DomainConfigAudit.Finding(
+            category: .dns, title: "Missing managed DNS record", detail: "detail", remediation: .informational)
+        let command = DeployCommand(
+            tokenSource: { "test-token" },
+            executor: executor,
+            domainConfigDriftSource: { _, _, _ in [finding] }
+        )
+        let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
+        let siteDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try! FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+        var config = DomainConfig()
+        config.domain = DomainConfig.Domain(hostname: "example.com")
+        try! DomainConfigStore(sourceDirectory: siteDir).save(config)
+
+        model.deploy(siteID: "s", siteDirectory: siteDir, configDirectory: siteDir, currentRoutes: [])
+        while model.isRunning { await Task.yield() }
+
+        guard case .domainConfigDrift(let findings) = model.phase else {
+            Issue.record("expected .domainConfigDrift, got \(model.phase)"); return
+        }
+        #expect(findings == [finding])
+        #expect(model.domainConfigDriftPresented)
+
+        model.dismissDomainConfigDrift()
+        #expect(!model.domainConfigDriftPresented)
+    }
+
     @Test("Renaming and retrying rewrites wrangler.toml/.site-config and re-deploys under the new name")
     func renameAndRetrySucceedsUnderNewName() async {
         let executor = GatedDeployExecutor()

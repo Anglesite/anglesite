@@ -820,6 +820,9 @@
     "Communities…" : {
 
     },
+    "Compare anglesite.json's declared domain/DNS/edge config against live Cloudflare state" : {
+
+    },
     "Compares this site's declared anglesite.json (domain, managed DNS records, edge hardening) against what's actually live on Cloudflare." : {
 
     },
@@ -1060,6 +1063,9 @@
 
     },
     "Deploy blocked" : {
+
+    },
+    "Deploy blocked — domain config drift" : {
 
     },
     "Deploy readiness" : {
@@ -2438,6 +2444,9 @@
     "Review copy on ${site}" : {
 
     },
+    "Review in Domain Config Audit" : {
+
+    },
     "Reviewing your site's copy, page by page…" : {
 
     },
@@ -3208,6 +3217,9 @@
 
     },
     "Writing" : {
+
+    },
+    "Your declared domain configuration (anglesite.json) doesn't match what's live on Cloudflare. Review and reconcile before deploying again." : {
 
     },
     "Your website was created with warnings. You can open it anyway and fix it from the website window." : {
