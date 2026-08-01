@@ -10,6 +10,7 @@ import {
   checkMTAStsPolicy,
   checkSecurityTxt,
   checkEmbedMedia,
+  checkAnglesiteConfig,
 } from "./pre-deploy-check";
 import { MTA_STS_MARKER, SECURITY_TXT_MARKER } from "./edge-artifacts";
 
@@ -472,4 +473,54 @@ test("checkEmbedMedia: an upper-case host in a CSS url() is flagged", () => {
 
 test("checkEmbedMedia: an upper-case host in href is still not flagged", () => {
   assert.deepEqual(checkEmbedMedia('<a href="https://PBS.TWIMG.COM/media/x.jpg">original</a>', "f.html"), []);
+});
+
+test("checkAnglesiteConfig: a missing file (null) is clean — no declarations yet", () => {
+  assert.deepEqual(checkAnglesiteConfig(null), []);
+});
+
+test("checkAnglesiteConfig: a well-formed, versioned file is clean", () => {
+  assert.deepEqual(checkAnglesiteConfig(JSON.stringify({ version: 1, domain: { hostname: "example.com" } })), []);
+});
+
+test("checkAnglesiteConfig: a file with no version field defaults to 1 and is clean", () => {
+  assert.deepEqual(checkAnglesiteConfig(JSON.stringify({ domain: { hostname: "example.com" } })), []);
+});
+
+test("checkAnglesiteConfig: invalid JSON is an error with a fix-it", () => {
+  const issues = checkAnglesiteConfig("{ not json");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].severity, "error");
+  assert.equal(issues[0].category, "anglesite-config-invalid");
+  assert.match(issues[0].message, /not valid JSON/);
+  assert.ok(issues[0].remediation);
+});
+
+test("checkAnglesiteConfig: a JSON array root is an error", () => {
+  const issues = checkAnglesiteConfig("[1, 2, 3]");
+  assert.equal(issues.length, 1);
+  assert.match(issues[0].message, /must contain a JSON object/);
+});
+
+test("checkAnglesiteConfig: a JSON primitive root is an error", () => {
+  const issues = checkAnglesiteConfig("42");
+  assert.equal(issues.length, 1);
+  assert.match(issues[0].message, /must contain a JSON object/);
+});
+
+test("checkAnglesiteConfig: a non-numeric version is an error", () => {
+  const issues = checkAnglesiteConfig(JSON.stringify({ version: "1" }));
+  assert.equal(issues.length, 1);
+  assert.match(issues[0].message, /"version" must be a number/);
+});
+
+test("checkAnglesiteConfig: an unrecognized version number is an error naming the supported set", () => {
+  const issues = checkAnglesiteConfig(JSON.stringify({ version: 99 }));
+  assert.equal(issues.length, 1);
+  assert.match(issues[0].message, /version 99/);
+  assert.match(issues[0].message, /supported: 1/);
+});
+
+test("checkAnglesiteConfig: unknown top-level keys are tolerated (hand-edit rule)", () => {
+  assert.deepEqual(checkAnglesiteConfig(JSON.stringify({ version: 1, somethingFromANewerApp: true })), []);
 });

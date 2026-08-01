@@ -26,6 +26,7 @@ final class DeployModel {
         case blocked(failures: [PreDeployCheck.ScanFailure], warnings: [PreDeployCheck.ScanWarning])
         case workerNameConflict(name: String)
         case webmentionPaidPlanConfirmationNeeded
+        case domainConfigDrift(findings: [DomainConfigAudit.Finding])
     }
 
     private(set) var phase: Phase = .idle
@@ -96,6 +97,11 @@ final class DeployModel {
     /// transfer domain is already attached to a *different* Worker. Dismiss-only; doesn't block
     /// the drawer or further deploys, since wrangler already succeeded by the time this runs.
     var domainConflictPresented: Bool = false
+    /// Bound to a `.sheet` in `SiteWindow` for the `.domainConfigDrift` outcome (#1173) — the
+    /// site's declared `anglesite.json` domain has drifted from its live Cloudflare state.
+    /// Dismiss-only, like `blockedPresented`: remediation happens in the Domain Config Audit
+    /// sheet (#1171), not here, so there's no `pendingDeploy` retry to park.
+    var domainConfigDriftPresented: Bool = false
 
     /// Progress of verifying a pasted token, consumed by `CloudflareTokenPromptView`'s status line
     /// and button-enabled logic. A token is only written to the Keychain once verification reaches
@@ -214,6 +220,7 @@ final class DeployModel {
     /// the user can act, since the background run's own reset/outcome always presents as `false`.
     private var awaitingUserAction: Bool {
         workerNameConflictPresented || webmentionPaidPlanConfirmationPresented || blockedPresented
+            || domainConfigDriftPresented
     }
 
     /// Renders the captured log lines as plain text for the "Copy log" affordance on failure.
@@ -305,6 +312,8 @@ final class DeployModel {
             return .blocked(failureCount: failures.count)
         case .workerNameConflict(let name):
             return .failed(reason: "Worker name \"\(name)\" is already in use on your Cloudflare account — rename it in the app and deploy again.")
+        case .domainConfigDrift(let findings):
+            return .failed(reason: "\(findings.count) declared domain configuration item(s) don't match your live Cloudflare setup — review the Domain Config Audit in the app and deploy again.")
         case .failed(let reason, _):
             return .failed(reason: reason)
         }
@@ -410,6 +419,13 @@ final class DeployModel {
         domainConflictPresented = false
     }
 
+    /// Dismisses the domain-config-drift sheet (#1173). Like `dismissDomainConflict`, this only
+    /// clears the informational sheet — reconciling the drift happens in the Domain Config Audit
+    /// sheet, which the sheet's "Review" button opens directly (wired in `SiteWindow`).
+    func dismissDomainConfigDrift() {
+        domainConfigDriftPresented = false
+    }
+
     /// Called by the paid-plan confirmation sheet's "Enable & retry" button. Persists the
     /// acknowledgment into `SiteSettings` (so future deploys never re-prompt) and retries the
     /// parked deploy — `runDeploy` re-reads settings and passes `acknowledgesPaidPlan: true`
@@ -493,6 +509,7 @@ final class DeployModel {
         drawerPresented = presentation == .foreground
         blockedPresented = false
         domainConflictPresented = false
+        domainConfigDriftPresented = false
 
         let sources = DeployCoordinator.deployLogSources(siteID: siteID)
 
@@ -821,6 +838,15 @@ final class DeployModel {
             workerNameConflictError = nil
             workerNameConflictPresented = presentation == .foreground
             webmentionPaidPlanConfirmationPresented = false
+        case .domainConfigDrift(let findings):
+            transition(siteID: siteID, to: .domainConfigDrift(findings: findings))
+            // Same reasoning as `.blocked`: the modal sheet carries the actionable info, and
+            // reconciling happens in the Domain Config Audit sheet, not by retrying this deploy
+            // directly — no `pendingDeploy` park.
+            drawerPresented = false
+            workerNameConflictPresented = false
+            webmentionPaidPlanConfirmationPresented = false
+            domainConfigDriftPresented = presentation == .foreground
         }
         return result
     }

@@ -1077,6 +1077,9 @@
     "Deploy blocked" : {
 
     },
+    "Deploy blocked — domain config drift" : {
+
+    },
     "Deploy readiness" : {
 
     },
@@ -2465,6 +2468,9 @@
     "Review copy on ${site}" : {
 
     },
+    "Review in Domain Config Audit" : {
+
+    },
     "Reviewing your site's copy, page by page…" : {
 
     },
@@ -3238,6 +3244,9 @@
 
     },
     "Writing" : {
+
+    },
+    "Your declared domain configuration (anglesite.json) doesn't match what's live on Cloudflare. Review and reconcile before deploying again." : {
 
     },
     "Your site is live. Connect a domain?" : {

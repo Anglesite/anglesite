@@ -137,7 +137,7 @@ struct DeployDrawerView: View {
             Image(systemName: "exclamationmark.octagon.fill")
                 .foregroundStyle(.red).font(.title3)
                 .accessibilityHidden(true)
-        case .idle, .blocked, .workerNameConflict, .webmentionPaidPlanConfirmationNeeded:
+        case .idle, .blocked, .workerNameConflict, .webmentionPaidPlanConfirmationNeeded, .domainConfigDrift:
             Image(systemName: "shippingbox").font(.title3)
                 .accessibilityHidden(true)
         }
@@ -148,7 +148,7 @@ struct DeployDrawerView: View {
         case .running: return "Deploying \(siteName)…"
         case .succeeded(let url, _): return url.absoluteString
         case .failed: return "Deploy failed"
-        case .idle, .blocked, .workerNameConflict, .webmentionPaidPlanConfirmationNeeded: return siteName
+        case .idle, .blocked, .workerNameConflict, .webmentionPaidPlanConfirmationNeeded, .domainConfigDrift: return siteName
         }
     }
 
@@ -267,15 +267,15 @@ struct DeployDrawerView: View {
     }
 
     /// Collapses the app-target `DeployModel.Phase` onto the announceable substrate the decider
-    /// understands. `idle`, `blocked`, and `workerNameConflict` are all pre-output states →
-    /// `.inactive`.
+    /// understands. `idle`, `blocked`, `workerNameConflict`, `webmentionPaidPlanConfirmationNeeded`,
+    /// and `domainConfigDrift` are all pre-output states → `.inactive`.
     private func activity(for phase: DeployModel.Phase) -> LiveRegionAnnouncer.DeployActivity {
         switch phase {
         case .running: return .running(site: siteName)
         case .succeeded(let url, _): return .succeeded(url: url.absoluteString)
         case .failed(let reason, let exit):
             return .failed(reason: exit.map { "\(reason) (exit \($0))" } ?? reason)
-        case .idle, .blocked, .workerNameConflict, .webmentionPaidPlanConfirmationNeeded: return .inactive
+        case .idle, .blocked, .workerNameConflict, .webmentionPaidPlanConfirmationNeeded, .domainConfigDrift: return .inactive
         }
     }
 
@@ -285,7 +285,7 @@ struct DeployDrawerView: View {
     private var canCopyLog: Bool {
         switch model.phase {
         case .succeeded, .failed: return true
-        case .idle, .running, .blocked, .workerNameConflict, .webmentionPaidPlanConfirmationNeeded: return false
+        case .idle, .running, .blocked, .workerNameConflict, .webmentionPaidPlanConfirmationNeeded, .domainConfigDrift: return false
         }
     }
 

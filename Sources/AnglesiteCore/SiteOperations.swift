@@ -239,6 +239,10 @@ public struct SiteOperations: Sendable {
             return "Deploy blocked by the pre-deploy security scan (\(count) \(noun)). Resolve these in Anglesite first."
         case .workerNameConflict(let name):
             return "Deploy blocked: the Worker name \"\(name)\" is already in use on your Cloudflare account. Rename the site's Worker in Anglesite and try again."
+        case .domainConfigDrift(let findings):
+            let count = findings.count
+            let noun = count == 1 ? "item" : "items"
+            return "Deploy blocked: \(count) declared domain configuration \(noun) don't match your live Cloudflare setup. Review and reconcile in Anglesite's Domain Config Audit, then try again."
         case .failed(let reason, _):
             return "Deploy failed: \(reason)"
         }
@@ -282,6 +286,10 @@ public struct SiteOperations: Sendable {
             return "Social Worker provisioning blocked by the pre-deploy security scan (\(count) \(noun)).\(resourceSuffix(resources))"
         case .workerNameConflict(let name, let resources):
             return "Social Worker provisioning blocked: the Worker name \"\(name)\" is already in use on your Cloudflare account. Rename the site's Worker in Anglesite and try again.\(resourceSuffix(resources))"
+        case .domainConfigDrift(let findings, let resources):
+            let count = findings.count
+            let noun = count == 1 ? "item" : "items"
+            return "Social Worker provisioning blocked: \(count) declared domain configuration \(noun) don't match your live Cloudflare setup. Review and reconcile in Anglesite's Domain Config Audit, then try again.\(resourceSuffix(resources))"
         case .webmentionPaidPlanConfirmationNeeded(let resources):
             return "Social Worker provisioning paused: inbound Webmention and WebSub require the Cloudflare Workers Paid plan. Confirm this in Anglesite's deploy sheet and try again.\(resourceSuffix(resources))"
         case .failed(let reason, _, let resources):

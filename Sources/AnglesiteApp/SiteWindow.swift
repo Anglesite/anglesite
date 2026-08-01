@@ -608,6 +608,18 @@ struct SiteWindow: View {
                 model.deploy.cancelWebmentionPaidPlanConfirmation()
             }
         }
+        .sheet(isPresented: $bindableModel.deploy.domainConfigDriftPresented) {
+            if case .domainConfigDrift(let findings) = model.deploy.phase {
+                DomainConfigDriftSheetView(
+                    findings: findings,
+                    onReview: {
+                        model.deploy.dismissDomainConfigDrift()
+                        model.domainConfigAudit.openSheet()
+                    },
+                    onDismiss: { model.deploy.dismissDomainConfigDrift() }
+                )
+            }
+        }
         .sheet(isPresented: $bindableModel.audit.sheetPresented) {
             AuditSheetView(
                 model: model.audit,

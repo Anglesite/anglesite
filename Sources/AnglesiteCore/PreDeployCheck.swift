@@ -65,6 +65,12 @@ public actor PreDeployCheck {
             /// Swift-side before build, the same way `RouteCoverageScanner`'s `.orphanedRoute`
             /// is computed Swift-side rather than emitted by the TS scan script.
             case wellKnownCollision = "well-known-collision"
+            /// `Source/anglesite.json` exists but doesn't parse, isn't a JSON object, or declares
+            /// a schema version this build doesn't recognize (#1173) — a structural problem
+            /// `Resources/Template/scripts/pre-deploy-check.ts`'s `checkAnglesiteConfig` computes
+            /// network-free, distinct from the deploy-time declared-vs-live check
+            /// (`DeployCommand.Result.domainConfigDrift`).
+            case anglesiteConfigInvalid = "anglesite-config-invalid"
             /// Any category code this build doesn't recognize yet — decoding falls back here
             /// instead of throwing, so a future/typo'd category can't crash the whole scan (#742).
             case other = "other"

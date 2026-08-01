@@ -7,6 +7,8 @@
  * - No exposed API tokens or secrets
  * - No third-party tracking scripts
  * - No Keystatic admin routes in production output
+ * - `anglesite.json` (if present) parses, is a JSON object, and declares a recognized schema
+ *   version (#1173) — structural only; stays network-free, no declared-vs-live comparison here
  *
  * Usage: npx tsx scripts/pre-deploy-check.ts [--json] [--strict]
  *
@@ -23,12 +25,17 @@ import { fileURLToPath } from "node:url";
 import { parseAllowedDomains } from "./csp";
 import { readConfigFromString } from "./config";
 import { isMTAStsMarkerOwned, isSecurityTxtMarkerOwned, normalizeMTAStsMX, resolveMTAStsMode, resolveSecurityTxtMode } from "./edge-artifacts";
+import { ANGLESITE_CONFIG_RECOGNIZED_VERSIONS } from "./anglesite-config";
 
 interface Issue {
   severity: "error" | "warning";
   category: string;
   message: string;
   file?: string;
+  /// The scan's suggested fix, when it has one — mirrors `PreDeployCheck.ScanFailure`/
+  /// `ScanWarning`'s optional `remediation` field on the Swift side (#742/#1173). No existing
+  /// check populates this yet; `checkAnglesiteConfig` is the first producer.
+  remediation?: string;
 }
 
 interface ScanReport {
@@ -43,6 +50,7 @@ const STRICT_MODE = process.argv.includes("--strict");
 const DIST_DIR = join(process.cwd(), "dist");
 const HEADERS_FILE = join(DIST_DIR, "_headers");
 const CONFIG_FILE = join(process.cwd(), ".site-config");
+const ANGLESITE_CONFIG_FILE = join(process.cwd(), "anglesite.json");
 
 const PII_PATTERNS = [
   { name: "email", pattern: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g },
@@ -522,8 +530,78 @@ export function checkMTAStsPolicy(content: string | null, configContent: string)
   return issues;
 }
 
+/**
+ * Structural validation of `Source/anglesite.json` (#1173): the file parses as JSON, is a JSON
+ * object, and declares a recognized schema version. Deliberately shallow — per-section field
+ * validation is `DomainConfigStore`'s job (Swift-side, #1169) and the #1171 drift audit's; this
+ * check exists only to fail loudly on a hand-edit that broke the file outright, since
+ * `readAnglesiteConfig`'s tolerant reader would otherwise silently fall back to defaults and the
+ * owner's declarations would vanish with no signal. `raw` is `null` when the file doesn't exist
+ * — the normal "no declarations yet" case, not an issue. Returns at most one issue: each
+ * structural problem is a prerequisite for checking the next (can't validate a version that
+ * didn't parse), so there's nothing to gain from accumulating more than one.
+ */
+export function checkAnglesiteConfig(raw: string | null): Issue[] {
+  const file = "anglesite.json";
+  if (raw === null) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    return [{
+      severity: "error",
+      category: "anglesite-config-invalid",
+      message: `anglesite.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+      file,
+      remediation: "Fix the JSON syntax, or delete the file to reset your domain configuration declarations.",
+    }];
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return [{
+      severity: "error",
+      category: "anglesite-config-invalid",
+      message: "anglesite.json must contain a JSON object.",
+      file,
+      remediation: "Wrap the file's contents in a single JSON object (\"{ ... }\"), or delete it to reset your domain configuration declarations.",
+    }];
+  }
+
+  const config = parsed as Record<string, unknown>;
+  if ("version" in config && typeof config.version !== "number") {
+    return [{
+      severity: "error",
+      category: "anglesite-config-invalid",
+      message: `anglesite.json's "version" must be a number (found ${typeof config.version}).`,
+      file,
+      remediation: "Fix the \"version\" field, or remove it to default to the current schema version.",
+    }];
+  }
+
+  const version = typeof config.version === "number" ? config.version : 1;
+  if (!ANGLESITE_CONFIG_RECOGNIZED_VERSIONS.has(version)) {
+    return [{
+      severity: "error",
+      category: "anglesite-config-invalid",
+      message: `anglesite.json declares version ${version}, which this build doesn't recognize (supported: ${[...ANGLESITE_CONFIG_RECOGNIZED_VERSIONS].join(", ")}).`,
+      file,
+      remediation: "Update Anglesite to a version that supports this schema, or hand-edit \"version\" back to a supported value.",
+    }];
+  }
+
+  return [];
+}
+
 async function scan(): Promise<Issue[]> {
   const issues: Issue[] = [];
+
+  // Independent of dist/ — anglesite.json lives at the site root, so this runs even when
+  // there's nothing built yet to scan below.
+  const anglesiteConfigContent = await readFile(ANGLESITE_CONFIG_FILE, "utf-8").catch(
+    (e: NodeJS.ErrnoException) => (e.code === "ENOENT" ? null : Promise.reject(e)),
+  );
+  issues.push(...checkAnglesiteConfig(anglesiteConfigContent));
 
   try {
     await stat(DIST_DIR);

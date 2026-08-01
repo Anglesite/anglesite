@@ -789,6 +789,94 @@ struct DeployCommandTests {
         guard case .succeeded = result else { Issue.record("expected .succeeded (fail open), got \(result)"); return }
     }
 
+    // MARK: Domain config drift (#1173)
+
+    /// Writes `anglesite.json` declaring only `domain.hostname` (nothing else — the drift source
+    /// closure supplies canned findings directly, so no DNS/edge sections are needed).
+    private func makeSiteDirectory(declaredHostname: String?) -> URL {
+        let dir = makeSiteDirectory()
+        if let declaredHostname {
+            var config = DomainConfig()
+            config.domain = DomainConfig.Domain(hostname: declaredHostname)
+            try? DomainConfigStore(sourceDirectory: dir).save(config)
+        }
+        return dir
+    }
+
+    private func makeFinding(title: String = "Missing managed DNS record") -> DomainConfigAudit.Finding {
+        DomainConfigAudit.Finding(
+            category: .dns, title: title, detail: "detail", remediation: .informational)
+    }
+
+    @Test("Drift found for a declared domain returns .domainConfigDrift before any step runs")
+    func declaredDomainWithDriftReturnsDomainConfigDrift() async {
+        let siteDir = makeSiteDirectory(declaredHostname: "example.com")
+        let exec = FakeExecutor().onRun(.build, { Issue.record("build must not run when domain config drift is found") })
+        let finding = makeFinding()
+        let cmd = DeployCommand(
+            tokenSource: { "tok" },
+            executor: exec,
+            domainConfigDriftSource: { _, _, _ in [finding] }
+        )
+        let result = await cmd.deploy(siteID: "s", siteDirectory: siteDir)
+        guard case .domainConfigDrift(let findings) = result else {
+            Issue.record("expected .domainConfigDrift, got \(result)"); return
+        }
+        #expect(findings == [finding])
+        #expect(!exec.ran(.build))
+    }
+
+    @Test("No drift for a declared domain proceeds to build")
+    func declaredDomainWithNoDriftProceeds() async {
+        let siteDir = makeSiteDirectory(declaredHostname: "example.com")
+        let exec = FakeExecutor()
+            .set(.build, exitCode: 0, output: "")
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+            .set(.wrangler, exitCode: 0, output: "Published x (0.1 sec)\n  https://x.workers.dev")
+        let cmd = DeployCommand(
+            tokenSource: { "tok" },
+            executor: exec,
+            domainConfigDriftSource: { _, _, _ in [] }
+        )
+        let result = await cmd.deploy(siteID: "s", siteDirectory: siteDir)
+        guard case .succeeded = result else { Issue.record("expected .succeeded, got \(result)"); return }
+    }
+
+    @Test("No declared domain skips the check entirely (fail open, source never called)")
+    func noDeclaredDomainSkipsDriftCheck() async {
+        let siteDir = makeSiteDirectory(declaredHostname: nil)
+        let exec = FakeExecutor()
+            .set(.build, exitCode: 0, output: "")
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+            .set(.wrangler, exitCode: 0, output: "Published x (0.1 sec)\n  https://x.workers.dev")
+        let cmd = DeployCommand(
+            tokenSource: { "tok" },
+            executor: exec,
+            domainConfigDriftSource: { _, _, _ in
+                Issue.record("must not be called when no domain is declared")
+                return []
+            }
+        )
+        let result = await cmd.deploy(siteID: "s", siteDirectory: siteDir)
+        guard case .succeeded = result else { Issue.record("expected .succeeded, got \(result)"); return }
+    }
+
+    @Test("A thrown error from domainConfigDriftSource fails open and proceeds to build")
+    func domainConfigDriftSourceErrorFailsOpen() async {
+        let siteDir = makeSiteDirectory(declaredHostname: "example.com")
+        let exec = FakeExecutor()
+            .set(.build, exitCode: 0, output: "")
+            .set(.preflight, exitCode: 0, output: scanJSON(ok: true))
+            .set(.wrangler, exitCode: 0, output: "Published x (0.1 sec)\n  https://x.workers.dev")
+        let cmd = DeployCommand(
+            tokenSource: { "tok" },
+            executor: exec,
+            domainConfigDriftSource: { _, _, _ in throw CloudflareError.http(status: 500) }
+        )
+        let result = await cmd.deploy(siteID: "s", siteDirectory: siteDir)
+        guard case .succeeded = result else { Issue.record("expected .succeeded (fail open), got \(result)"); return }
+    }
+
     @Test("Finds the URL when wrangler uses current Uploaded/Deployed wording instead of Published")
     func findsURLWithUploadedDeployedWording() async {
         // Current wrangler (4.x) no longer prints a "Published" line — it prints separate

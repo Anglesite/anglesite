@@ -66,6 +66,15 @@ enum CompletionNotificationHub {
                 // separately) carries the actionable info, and the deploy is parked rather than
                 // finished.
                 DockProgressController.shared.clear(token: dockToken)
+            case .domainConfigDrift(let findings):
+                // Unlike `.workerNameConflict`, this deploy isn't parked for an in-app retry — it
+                // just stopped, like `.blocked` — so it does get a completion notice.
+                DockProgressController.shared.clear(token: dockToken)
+                postNotice(siteID: siteID) { name in
+                    CompletionNoticeBuilder.deploy(
+                        siteName: name, siteID: siteID, outcome: .domainConfigDrift(findingCount: findings.count)
+                    )
+                }
             }
         }
         deploy.onMilestone = { siteID, progress in

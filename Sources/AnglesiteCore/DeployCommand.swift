@@ -46,6 +46,13 @@ public actor DeployCommand {
         /// `wrangler deploy` take over an unrelated (or stale) Worker. Carries the taken name for
         /// the UI's rename prompt (#740).
         case workerNameConflict(name: String)
+        /// The site declares a `Source/anglesite.json` domain (#1169) whose live Cloudflare state
+        /// has drifted from it (#1171) — refusing to ship against a domain/DNS/edge configuration
+        /// the app no longer knows is accurate. Carries the findings so the UI can summarize them
+        /// and point at the Domain Config Audit flow, where the owner reviews and reconciles
+        /// before redeploying (investigation doc §5.5 — deploy-time validation is a cheap check,
+        /// not a second remediation surface).
+        case domainConfigDrift(findings: [DomainConfigAudit.Finding])
         /// `exitCode` is `nil` for pre-spawn refusals (no token, no wrangler) and for spawn
         /// failures; otherwise it's the failing subprocess's exit code (including `0` for the
         /// "wrangler exited cleanly but we couldn't find a URL" case).
@@ -90,6 +97,14 @@ public actor DeployCommand {
     /// inject a fake list or a throwing closure.
     public typealias WorkerScriptNamesSource = @Sendable (_ apiToken: String) async throws -> [String]
 
+    /// Grades a declared `Source/anglesite.json` domain against live Cloudflare state and returns
+    /// any drift (#1171's `DomainConfigAudit.evaluate`, given a fresh zone read). Production
+    /// callers use `DeployCommand.defaultDomainConfigDriftSource`; tests inject a canned findings
+    /// list or a throwing closure — same rationale as `WorkerScriptNamesSource`.
+    public typealias DomainConfigDriftSource = @Sendable (
+        _ declared: DomainConfig, _ hostname: String, _ apiToken: String
+    ) async throws -> [DomainConfigAudit.Finding]
+
     /// The token seam this command was constructed with. Exposed so `DeployModel.runDeploy` can
     /// forward the exact same seam into companion commands (e.g. `SocialWorkerProvisionCommand`)
     /// instead of letting them silently default to the production implementation and diverge
@@ -104,22 +119,28 @@ public actor DeployCommand {
     /// Exposed like `tokenSource`/`workerScriptNamesSource` so `DeployModel.runDeploy` can forward
     /// the exact same seam into a container-path `DeployCommand` it constructs on the fly (#1077).
     public nonisolated let customDomainAttachCommand: CustomDomainAttachCommand
+    /// Exposed like the other seams above so callers building a parallel `DeployCommand` (e.g.
+    /// `SocialWorkerProvisionCommand`'s `defaultDeployer`) forward the same one rather than
+    /// silently defaulting to production and diverging from a test's injected fake.
+    public nonisolated let domainConfigDriftSource: DomainConfigDriftSource
     private let executor: any DeployExecutor
 
-    /// All four dependencies are injectable seams with production defaults, so tests can drive a
-    /// full deploy — token gate, name-conflict check, every step — with a literal token, a
-    /// canned script-name list, and a scripted executor, never touching the network or spawning
-    /// a process.
+    /// All five dependencies are injectable seams with production defaults, so tests can drive a
+    /// full deploy — token gate, name-conflict check, domain-config-drift check, every step —
+    /// with a literal token, a canned script-name list, and a scripted executor, never touching
+    /// the network or spawning a process.
     public init(
         tokenSource: @escaping TokenSource = DeployCommand.keychainTokenSource,
         workerScriptNamesSource: @escaping WorkerScriptNamesSource = DeployCommand.defaultWorkerScriptNames,
         customDomainAttachCommand: CustomDomainAttachCommand = CustomDomainAttachCommand(),
-        executor: any DeployExecutor = HostDeployExecutor()
+        executor: any DeployExecutor = HostDeployExecutor(),
+        domainConfigDriftSource: @escaping DomainConfigDriftSource = DeployCommand.defaultDomainConfigDriftSource
     ) {
         self.tokenSource = tokenSource
         self.workerScriptNamesSource = workerScriptNamesSource
         self.customDomainAttachCommand = customDomainAttachCommand
         self.executor = executor
+        self.domainConfigDriftSource = domainConfigDriftSource
     }
 
     /// Run a deploy for `siteID`. Returns once wrangler has exited (or before, if pre-spawn
@@ -162,6 +183,12 @@ public actor DeployCommand {
             siteDirectory: siteDirectory, apiToken: token, workerScriptNamesSource: workerScriptNamesSource
         ) {
             return conflict
+        }
+
+        if let drift = await Self.checkDomainConfigDrift(
+            siteDirectory: siteDirectory, apiToken: token, domainConfigDriftSource: domainConfigDriftSource
+        ) {
+            return drift
         }
 
         // Curated environment for the non-secret steps: a safe subset of the host process env,
@@ -569,6 +596,25 @@ public actor DeployCommand {
         return .workerNameConflict(name: candidateName)
     }
 
+    /// Grades the site's declared `anglesite.json` domain against live Cloudflare state (#1173).
+    /// Returns `.domainConfigDrift` when the audit finds any drift, or `nil` when the check
+    /// doesn't apply (no `anglesite.json`, or no declared `domain.hostname` — nothing to compare
+    /// against live state) or can't be confirmed. A read/decode error and a thrown/failed
+    /// `domainConfigDriftSource` both fail open — same posture as `checkWorkerNameConflict`, since
+    /// a transient Cloudflare API hiccup here must never block an otherwise-good deploy.
+    static func checkDomainConfigDrift(
+        siteDirectory: URL,
+        apiToken: String,
+        domainConfigDriftSource: DomainConfigDriftSource
+    ) async -> Result? {
+        guard let declared = try? DomainConfigStore(sourceDirectory: siteDirectory).load(),
+              let hostname = declared.domain?.hostname, !hostname.isEmpty
+        else { return nil }
+        guard let findings = try? await domainConfigDriftSource(declared, hostname, apiToken), !findings.isEmpty
+        else { return nil }
+        return .domainConfigDrift(findings: findings)
+    }
+
     // MARK: Host environment curation
 
     /// Keys that a host-path build or preflight step legitimately needs. The allowlist is
@@ -643,6 +689,20 @@ public actor DeployCommand {
     /// `HTTPCloudflareClient`.
     public static let defaultWorkerScriptNames: WorkerScriptNamesSource = { apiToken in
         try await HTTPCloudflareClient().workerScriptNames(apiToken: apiToken)
+    }
+
+    /// Default `DomainConfigDriftSource` for production: resolves the declared hostname's zone,
+    /// reads its live edge state and DNS records via `HTTPCloudflareClient`, then grades them with
+    /// `DomainConfigAudit.evaluate` — the same three calls `DomainConfigAuditModel.performAudit`
+    /// makes App-side, just without the SwiftUI-facing `Phase` machinery. A zone that can't be
+    /// resolved (not yet attached, or a Cloudflare read failure) returns no findings rather than
+    /// throwing — nothing to compare declared state against yet, not drift.
+    public static let defaultDomainConfigDriftSource: DomainConfigDriftSource = { declared, hostname, apiToken in
+        let reader: any CloudflareReading = HTTPCloudflareClient()
+        guard let zoneID = try await reader.resolveZoneID(domain: hostname, apiToken: apiToken) else { return [] }
+        let state = try await reader.zoneState(zoneID: zoneID, domain: hostname, apiToken: apiToken)
+        let records = try await reader.listDNSRecords(zoneID: zoneID, apiToken: apiToken)
+        return DomainConfigAudit.evaluate(declared: declared, live: state, liveDNSRecords: records, domain: hostname)
     }
 
     /// Default `PreflightChecker`: host-side preflight was retired with embedded Node. Container
