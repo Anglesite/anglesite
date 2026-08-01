@@ -820,6 +820,9 @@
     "Communities…" : {
 
     },
+    "Compare anglesite.json's declared domain/DNS/edge config against live Cloudflare state" : {
+
+    },
     "Compares this site's declared anglesite.json (domain, managed DNS records, edge hardening) against what's actually live on Cloudflare." : {
 
     },
@@ -850,10 +853,22 @@
     "Config…" : {
 
     },
+    "Connect" : {
+
+    },
     "Connect & deploy" : {
 
     },
     "Connect & publish" : {
+
+    },
+    "Connect a Domain" : {
+
+    },
+    "Connect a Domain…" : {
+
+    },
+    "Connect a domain…" : {
 
     },
     "Connect to Cloudflare" : {
@@ -1494,6 +1509,9 @@
     "How many products?" : {
 
     },
+    "I already own a domain" : {
+
+    },
     "Icons" : {
 
     },
@@ -1576,6 +1594,9 @@
 
     },
     "Keep My Version" : {
+
+    },
+    "Keep it at your current registrar — you'll add it to Cloudflare and point its nameservers there. We'll connect it automatically on your next Publish once that's done." : {
 
     },
     "Keep which version" : {
@@ -1882,6 +1903,9 @@
 
     },
     "Not Set" : {
+
+    },
+    "Not now" : {
 
     },
     "Not reviewed" : {
@@ -2320,6 +2344,9 @@
 
     },
     "Replace With" : {
+
+    },
+    "Replace the workers.dev address with your own." : {
 
     },
     "Replies" : {
@@ -3147,6 +3174,9 @@
     "Warnings (%lld)" : {
 
     },
+    "We'll connect %@ on your next Publish." : {
+
+    },
     "Web Video…" : {
 
     },
@@ -3208,6 +3238,9 @@
 
     },
     "Writing" : {
+
+    },
+    "Your site is live. Connect a domain?" : {
 
     },
     "Your website was created with warnings. You can open it anyway and fix it from the website window." : {
