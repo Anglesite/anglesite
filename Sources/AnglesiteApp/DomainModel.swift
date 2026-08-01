@@ -7,6 +7,17 @@ final class DomainModel {
     struct Draft: Equatable {
         enum Context: Equatable {
             case generic, bluesky, google
+
+            /// The `dns.managedRecords` purpose tag for a record added in this context — `nil`
+            /// for `.generic` (an owner-typed record with no specific reason the app can name),
+            /// matching the schema's "purpose is optional" contract (#1170).
+            var purpose: String? {
+                switch self {
+                case .generic: return nil
+                case .bluesky: return "verification:bluesky"
+                case .google: return "verification:google"
+                }
+            }
         }
         var type: String
         var name: String
@@ -43,8 +54,17 @@ final class DomainModel {
     private let ops: any DomainOperationsService
     private var inFlight: Task<Void, Never>?
 
+    private var currentSite: CurrentSite?
+
     init(ops: any DomainOperationsService = DomainOperations()) {
         self.ops = ops
+    }
+
+    /// Threaded from `SiteWindowModel.loadAndStart` (#822 pattern) so add/delete can write
+    /// through to `Source/anglesite.json` (#1170). Not passed to `init` because `harden`/`domain`
+    /// are constructed before the site resolves (`SiteWindowModel`'s `var domain = DomainModel()`).
+    func configure(site: CurrentSite) {
+        currentSite = site
     }
 
     var isRunning: Bool {
@@ -150,8 +170,10 @@ final class DomainModel {
 
     private func runAdd(draft: Draft, domain: String) async {
         phase = .applying(domain: domain)
-        let result = await ops.addRecord(domain: domain, type: draft.type, name: draft.name,
-                                         content: draft.content, ttl: draft.ttl, priority: draft.priority)
+        let result = await ops.addRecord(
+            domain: domain, type: draft.type, name: draft.name, content: draft.content,
+            ttl: draft.ttl, priority: draft.priority, purpose: draft.context.purpose,
+            sourceDirectory: currentSite?.sourceDirectory)
         switch result {
         case .success:
             await runLoad(domain: domain)
@@ -162,7 +184,10 @@ final class DomainModel {
 
     private func runDelete(record: DNSRecord, domain: String) async {
         phase = .applying(domain: domain)
-        switch await ops.deleteRecord(domain: domain, recordID: record.id) {
+        switch await ops.deleteRecord(
+            domain: domain, recordID: record.id, type: record.type, name: record.name,
+            content: record.content, sourceDirectory: currentSite?.sourceDirectory
+        ) {
         case .success:
             await runLoad(domain: domain)
         case .failure(let error):

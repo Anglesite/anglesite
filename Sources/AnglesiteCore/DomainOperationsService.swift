@@ -26,12 +26,50 @@ public protocol DomainOperationsService: Sendable {
     /// intent callers can surface the same typed ``DomainOperationError`` without their own
     /// catch-and-classify step.
     func listRecords(domain: String) async -> Result<[DNSRecord], DomainOperationError>
+
     /// `priority` is required by MX records (lower = higher priority mail server) and ignored
     /// by every other record type — `nil` for non-MX records.
-    func addRecord(domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?) async -> Result<Void, DomainOperationError>
+    ///
+    /// `purpose` is a namespaced tag (e.g. `"email:icloud"`, `"verification:bluesky"`) mirrored
+    /// into the live record's Cloudflare `comment` field as `"anglesite:<purpose>"` and, when
+    /// `sourceDirectory` is non-nil, appended to `Source/anglesite.json`'s `dns.managedRecords`
+    /// (#1170) — both nil for a generic owner-added record with no specific purpose.
+    /// `sourceDirectory` is nil for callers with no local site context (Siri/Shortcuts intents),
+    /// which skip the write-through entirely rather than failing.
+    func addRecord(
+        domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?,
+        purpose: String?, sourceDirectory: URL?
+    ) async -> Result<Void, DomainOperationError>
+
     /// Deletes one record by the Cloudflare record ID previously returned from
     /// ``listRecords(domain:)`` — there is no delete-by-name, so callers must list first.
-    func deleteRecord(domain: String, recordID: String) async -> Result<Void, DomainOperationError>
+    ///
+    /// `type`/`name`/`content` (the record being deleted, as previously returned from
+    /// ``listRecords(domain:)``) let the write-through remove the matching
+    /// `dns.managedRecords` entry when `sourceDirectory` is non-nil; omit all four (or use the
+    /// convenience overload below) to delete with no write-through.
+    func deleteRecord(
+        domain: String, recordID: String, type: String?, name: String?, content: String?,
+        sourceDirectory: URL?
+    ) async -> Result<Void, DomainOperationError>
+}
+
+extension DomainOperationsService {
+    /// Convenience overload for callers with no purpose tag or local site context — equivalent
+    /// to `purpose: nil, sourceDirectory: nil`. Not a protocol requirement, so it dispatches
+    /// statically; existing callers (`DomainIntents`) that call this exact shape keep behaving
+    /// identically to before #1170.
+    public func addRecord(
+        domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?
+    ) async -> Result<Void, DomainOperationError> {
+        await addRecord(domain: domain, type: type, name: name, content: content, ttl: ttl,
+                        priority: priority, purpose: nil, sourceDirectory: nil)
+    }
+
+    /// Convenience overload mirroring `addRecord`'s — deletes with no write-through.
+    public func deleteRecord(domain: String, recordID: String) async -> Result<Void, DomainOperationError> {
+        await deleteRecord(domain: domain, recordID: recordID, type: nil, name: nil, content: nil, sourceDirectory: nil)
+    }
 }
 
 /// The production ``DomainOperationsService``, backed by the Cloudflare HTTP client. Every
@@ -94,16 +132,26 @@ public struct DomainOperations: DomainOperationsService {
         }
     }
 
-    /// See ``DomainOperationsService/addRecord(domain:type:name:content:ttl:priority:)``.
-    public func addRecord(domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?) async -> Result<Void, DomainOperationError> {
+    /// See ``DomainOperationsService/addRecord(domain:type:name:content:ttl:priority:purpose:sourceDirectory:)``.
+    public func addRecord(
+        domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?,
+        purpose: String?, sourceDirectory: URL?
+    ) async -> Result<Void, DomainOperationError> {
         guard let token = tokenProvider() else { return .failure(.noToken) }
         switch await resolveZone(domain: domain, token: token) {
         case .failure(let error):
             return .failure(error)
         case .success(let zoneID):
             do {
-                let payload = DNSRecordPayload(type: type, name: name, content: content, ttl: ttl, priority: priority)
+                let payload = DNSRecordPayload(
+                    type: type, name: name, content: content, ttl: ttl, priority: priority,
+                    comment: purpose.map { "anglesite:\($0)" })
                 try await writer.addDNSRecord(zoneID: zoneID, record: payload, apiToken: token)
+                if let sourceDirectory {
+                    Self.writeThroughAdd(
+                        type: type, name: name, content: content, priority: priority,
+                        purpose: purpose, domain: domain, sourceDirectory: sourceDirectory)
+                }
                 return .success(())
             } catch let error as CloudflareError {
                 return .failure(.cloudflare(error))
@@ -113,8 +161,11 @@ public struct DomainOperations: DomainOperationsService {
         }
     }
 
-    /// See ``DomainOperationsService/deleteRecord(domain:recordID:)``.
-    public func deleteRecord(domain: String, recordID: String) async -> Result<Void, DomainOperationError> {
+    /// See ``DomainOperationsService/deleteRecord(domain:recordID:type:name:content:sourceDirectory:)``.
+    public func deleteRecord(
+        domain: String, recordID: String, type: String?, name: String?, content: String?,
+        sourceDirectory: URL?
+    ) async -> Result<Void, DomainOperationError> {
         guard let token = tokenProvider() else { return .failure(.noToken) }
         switch await resolveZone(domain: domain, token: token) {
         case .failure(let error):
@@ -122,6 +173,11 @@ public struct DomainOperations: DomainOperationsService {
         case .success(let zoneID):
             do {
                 try await writer.deleteDNSRecord(zoneID: zoneID, recordID: recordID, apiToken: token)
+                if let sourceDirectory, let type, let name, let content {
+                    Self.writeThroughRemove(
+                        type: type, name: name, content: content, domain: domain,
+                        sourceDirectory: sourceDirectory)
+                }
                 return .success(())
             } catch let error as CloudflareError {
                 return .failure(.cloudflare(error))
@@ -129,5 +185,45 @@ public struct DomainOperations: DomainOperationsService {
                 return .failure(.cloudflare(.malformedResponse))
             }
         }
+    }
+
+    /// Normalizes a DNS record name to the zone-relative form `anglesite.json` declares (schema
+    /// doc: `"name": "@"` for the apex, `"_atproto"` for a subdomain) — callers pass either form
+    /// (`DomainModel`'s Bluesky/Google contexts and `EmailSetupPlanner`'s templates already use
+    /// relative names; `CloudflareReading.DNSRecord.name`, the shape `DomainModel.runDelete` reads
+    /// back from `listRecords`, is fully-qualified). Both `writeThroughAdd` and `writeThroughRemove`
+    /// route through this so a record declared by one form can be found and removed via the other.
+    private static func relativeName(_ name: String, domain: String) -> String {
+        if name.caseInsensitiveCompare(domain) == .orderedSame { return "@" }
+        let suffix = ".\(domain)"
+        if name.count > suffix.count, name.lowercased().hasSuffix(suffix.lowercased()) {
+            return String(name.dropLast(suffix.count))
+        }
+        return name
+    }
+
+    /// Best-effort: a write-through failure (disk full, permissions, a hand-corrupted file) must
+    /// never turn an already-successful Cloudflare write into a reported failure — matches
+    /// `CustomDomainAttachCommand`'s posture for the same reason.
+    private static func writeThroughAdd(
+        type: String, name: String, content: String, priority: Int?, purpose: String?, domain: String,
+        sourceDirectory: URL
+    ) {
+        let store = DomainConfigStore(sourceDirectory: sourceDirectory)
+        let current = (try? store.load()) ?? DomainConfig()
+        let updated = current.addingManagedDNSRecord(
+            .init(type: type, name: relativeName(name, domain: domain), content: content,
+                  priority: priority, purpose: purpose))
+        try? store.save(updated)
+    }
+
+    private static func writeThroughRemove(
+        type: String, name: String, content: String, domain: String, sourceDirectory: URL
+    ) {
+        let store = DomainConfigStore(sourceDirectory: sourceDirectory)
+        let current = (try? store.load()) ?? DomainConfig()
+        let updated = current.removingManagedDNSRecord(
+            type: type, name: relativeName(name, domain: domain), content: content)
+        try? store.save(updated)
     }
 }

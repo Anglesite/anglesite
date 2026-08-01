@@ -34,6 +34,8 @@ final class HardenModel {
     private let keychain: KeychainStore
     private var inFlight: Task<Void, Never>?
 
+    private var currentSite: CurrentSite?
+
     init(
         reader: any CloudflareReading = HTTPCloudflareClient(),
         writer: any CloudflareWriting = HTTPCloudflareClient(),
@@ -42,6 +44,11 @@ final class HardenModel {
         self.reader = reader
         self.writer = writer
         self.keychain = keychain
+    }
+
+    /// Threaded from `SiteWindowModel.loadAndStart` (#822 pattern), mirroring `DomainModel.configure(site:)`.
+    func configure(site: CurrentSite) {
+        currentSite = site
     }
 
     var isRunning: Bool {
@@ -134,7 +141,9 @@ final class HardenModel {
         phase = .applying(plan: plan, domain: domain)
 
         let executor = HardenExecutor(reader: reader, writer: writer)
-        let result = await executor.execute(plan: plan, zoneID: zoneID, domain: domain, apiToken: token)
+        let result = await executor.execute(
+            plan: plan, zoneID: zoneID, domain: domain, apiToken: token,
+            sourceDirectory: currentSite?.sourceDirectory)
 
         phase = .succeeded(result: HardenResult(
             appliedCount: result.appliedCount,

@@ -739,7 +739,7 @@ final class PlistEditorModel {
                     mtaStsError = "A TXT record already exists for \(record.name) with different content. Update it in Website → Manage Domain, then try again."
                     return
                 }
-                switch await domainOperations.addRecord(domain: domain, type: "TXT", name: record.name, content: record.content, ttl: 1, priority: nil) {
+                switch await domainOperations.addRecord(domain: domain, type: "TXT", name: record.name, content: record.content, ttl: 1, priority: nil, purpose: "email:mta-sts", sourceDirectory: sourceDirectory) {
                 case .success:
                     continue
                 case .failure(let error):
