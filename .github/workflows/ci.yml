@@ -142,6 +142,9 @@ jobs:
           cache: npm
           cache-dependency-path: Resources/Template/package-lock.json
       - run: npm ci --no-audit --no-fund
+      # scaffold.sh, build-packs.sh, and scaffold.test.ts run zsh (#1179);
+      # ubuntu-latest doesn't ship it.
+      - run: sudo apt-get update && sudo apt-get install -y zsh
       # The template's node:test suites had no CI lane at all — the `.well-known` design doc
       # calls that out explicitly. `test:worker` is vitest/workerd only. `npm test` covers every
       # node:test suite (scripts/ plus src/); `test:scripts` stays in package.json as the fast
@@ -149,6 +152,11 @@ jobs:
       - run: npm test
       - run: npm run test:worker
       - run: npm run build
+      # Port-contract lint + per-pack chassis builds (#1179). Both are fast no-ops
+      # until packs/ gains entries; once ports land, a pack that violates the
+      # contract or breaks astro build fails this lane.
+      - run: npm run check:packs
+      - run: npm run build:packs
 
   help-book-links:
     name: Help Book links
