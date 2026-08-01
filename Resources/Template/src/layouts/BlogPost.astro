@@ -24,9 +24,10 @@ interface Props {
   pubDate?: Date;
   draft?: boolean;
   syndication?: string[];
+  lang?: string;
 }
 
-const { title, description, pubDate, draft, syndication } = Astro.props;
+const { title, description, pubDate, draft, syndication, lang } = Astro.props;
 // pubDate is already a Date; pin the locale + UTC so static output is deterministic.
 const iso = pubDate ? pubDate.toISOString() : undefined;
 const human = pubDate
@@ -41,7 +42,7 @@ const jsonLd = blogPostingSchema(
 // anglesite:imports — integration component imports are injected here on setup
 ---
 
-<BaseLayout title={title} description={description} license={license}>
+<BaseLayout title={title} description={description} license={license} lang={lang}>
   <Schema slot="head" item={jsonLd} />
   <p><a href="/blog/">← All posts</a></p>
   <article class="h-entry">

@@ -49,7 +49,7 @@ public enum TypedContentEditor {
     /// handle a missing key.
     public static func defaultValue(for kind: ContentTypeField.Kind) -> FieldValue {
         switch kind {
-        case .string, .text, .markdown, .url, .image: return .text("")
+        case .string, .language, .text, .markdown, .url, .image: return .text("")
         case .bool: return .flag(false)
         case .date, .datetime: return .date(nil)
         case .number: return .number(nil)
@@ -112,7 +112,7 @@ public enum TypedContentEditor {
 
     private static func decode(_ value: FrontmatterValue, kind: ContentTypeField.Kind) -> FieldValue {
         switch kind {
-        case .string, .text, .url, .image, .markdown:
+        case .string, .language, .text, .url, .image, .markdown:
             if case .string(let s) = value { return .text(s) }
             return .text("")
         case .bool:

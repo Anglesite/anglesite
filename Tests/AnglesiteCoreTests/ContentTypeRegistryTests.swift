@@ -384,4 +384,31 @@ struct ContentTypeRegistryTests {
         // `audience` is an optional .url, so it must not appear here.
         #expect(note.requiredURLFields.isEmpty)
     }
+
+    // MARK: lang field (per-entry language override, #956 follow-up)
+
+    @Test("every ENTRY_COLLECTIONS-backed descriptor declares a lang field")
+    func entryCollectionDescriptorsHaveLang() {
+        let idsExpectingLang = ["note", "article", "photo", "album", "bookmark", "reply", "like", "announcement", "event", "review"]
+        let registry = ContentTypeRegistry()
+        for id in idsExpectingLang {
+            let descriptor = registry.descriptor(id: id)
+            #expect(descriptor != nil, "expected a built-in descriptor for \(id)")
+            #expect(
+                descriptor?.fields.contains(where: { $0.name == "lang" && $0.kind == .language }) == true,
+                "\(id) descriptor must declare a lang field of kind .language"
+            )
+        }
+    }
+
+    @Test("identity/directory descriptors do NOT get a lang field")
+    func nonEntryDescriptorsHaveNoLang() {
+        let idsExpectingNoLang = ["businessProfile", "personalProfile", "resume", "member"]
+        let registry = ContentTypeRegistry()
+        for id in idsExpectingNoLang {
+            let descriptor = registry.descriptor(id: id)
+            #expect(descriptor != nil, "expected a built-in descriptor for \(id)")
+            #expect(descriptor?.fields.contains(where: { $0.name == "lang" }) == false, "\(id) should not declare lang")
+        }
+    }
 }

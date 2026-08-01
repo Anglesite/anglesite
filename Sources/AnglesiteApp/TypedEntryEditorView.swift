@@ -45,6 +45,11 @@ struct TypedEntryForm: View {
                     Button("Choose…") { chooseFile(for: field.name) }
                 }
             }
+        case .language:
+            VStack(alignment: .leading) {
+                Text(label).font(.caption).foregroundStyle(.secondary)
+                LanguagePicker(tag: model.textBinding(field.name), siteDefaultTag: model.siteDefaultLangTag)
+            }
         case .text:
             VStack(alignment: .leading) {
                 Text(label).font(.caption).foregroundStyle(.secondary)
@@ -216,7 +221,7 @@ private struct ObjectArrayEditor: View {
         // working-looking control that corrupts the record on save. Listing every kind also makes
         // the compiler flag a newly added `Kind` here instead of letting it fall into that trap.
         switch field.kind {
-        case .string, .text, .url, .image:
+        case .string, .language, .text, .url, .image:
             HStack {
                 TextField(label, text: textBinding(field.name, in: values))
                 if field.kind == .image {

@@ -11,14 +11,24 @@ struct PageInspectorView: View {
     let context: InspectorContext
 
     var body: some View {
-        switch context {
-        case .typed(let model):
-            InspectorChrome(model: model) { TypedEntryForm(model: model) }
-        case .page(let model):
-            InspectorChrome(model: model) { PageMetadataForm(model: model) }
-        case .generic(let model):
-            InspectorChrome(model: model) { GenericPageInfoForm(model: model) }
+        // `.id(context.id)` (the selected file's identity, from `InspectorContext.id`) forces
+        // SwiftUI to treat a selection change as a brand-new view identity rather than an update
+        // to the existing one — otherwise every `@State` in the form subtree (title/description
+        // fields, `LanguagePicker`'s freeform-edit flag, …) survives the switch and can leak from
+        // one file's editor into another's (e.g. "Other…" chosen with nothing typed on page A
+        // still showing once the selection moves to page B, misrepresenting page B's actual
+        // inheriting `lang`).
+        Group {
+            switch context {
+            case .typed(let model):
+                InspectorChrome(model: model) { TypedEntryForm(model: model) }
+            case .page(let model):
+                InspectorChrome(model: model) { PageMetadataForm(model: model) }
+            case .generic(let model):
+                InspectorChrome(model: model) { GenericPageInfoForm(model: model) }
+            }
         }
+        .id(context.id)
     }
 }
 
@@ -53,6 +63,7 @@ private struct PageMetadataForm: View {
                 Text("Description").font(.caption).foregroundStyle(.secondary)
                 TextField("", text: model.descriptionBinding(), axis: .vertical).lineLimit(2...6)
             }
+            LanguageSettingsSection(tag: model.langBinding(), siteDefaultTag: model.siteDefaultLangTag)
             RobotsSettingsSection(route: model.route, noindex: model.noindexBinding(), disallowCrawl: model.disallowCrawlBinding())
         }
         .formStyle(.grouped)

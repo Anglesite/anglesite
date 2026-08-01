@@ -257,4 +257,27 @@ struct TypedContentEditorTests {
         #expect(records[0]["title"] == .text("Senior Engineer"))
         #expect(records[0]["organization"] == .text("Acme Corp"))
     }
+
+    @Test("a .language field round-trips through defaultValue/decode/encode exactly like .string")
+    func languageFieldRoundTrips() {
+        let descriptor = ContentTypeDescriptor(
+            id: "test-lang", displayName: "Test", storage: .collection("test"),
+            fields: [ContentTypeField("lang", .language)],
+            projections: ContentTypeProjections(microformat: "h-entry", microformatProperties: [:], schemaType: nil))
+        #expect(TypedContentEditor.defaultValue(for: .language) == .text(""))
+        let read = TypedContentEditor.read("---\nlang: fr\n---\nBody.\n", descriptor: descriptor)
+        #expect(read["lang"] == .text("fr"))
+        let written = TypedContentEditor.write(.init(["lang": .text("es")]), into: "---\nlang: fr\n---\nBody.\n", descriptor: descriptor)
+        #expect(written.contains("lang: es") || written.contains("lang: \"es\""))
+    }
+
+    @Test("a missing .language key decodes as an empty string, not a crash")
+    func languageFieldMissingKey() {
+        let descriptor = ContentTypeDescriptor(
+            id: "test-lang-missing", displayName: "Test", storage: .collection("test"),
+            fields: [ContentTypeField("lang", .language)],
+            projections: ContentTypeProjections(microformat: "h-entry", microformatProperties: [:], schemaType: nil))
+        let read = TypedContentEditor.read("---\ntitle: x\n---\nBody.\n", descriptor: descriptor)
+        #expect(read["lang"] == .text(""))
+    }
 }

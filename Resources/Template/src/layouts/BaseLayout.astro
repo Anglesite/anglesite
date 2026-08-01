@@ -17,9 +17,25 @@ interface Props {
    * pass a ref to override (an entry with its own license).
    */
   license?: LicenseRef | null;
+  /**
+   * The language this page declares via <html lang>. Omit to inherit the site default
+   * (siteLang()); pass an explicit BCP-47 tag to override it. An empty string is treated the
+   * same as omitted — per-page frontmatter can hold an explicit "" meaning "inherit," and that
+   * must not render <html lang="">, so this uses `||`, never `??`.
+   */
+  lang?: string;
 }
 
-const { title, description } = Astro.props;
+const { title, description, lang } = Astro.props;
+// Astro's built-in Markdown `layout:` frontmatter mechanism (a plain .md page under
+// src/pages/ that selects this layout via `layout: ../layouts/BaseLayout.astro`) passes
+// the page's frontmatter as a nested Astro.props.frontmatter object rather than spreading
+// it at the top level — so a `lang` set in such a page's frontmatter never reaches the
+// `lang` destructured above. Fall back to it here so those pages' overrides still apply.
+// Blog posts and typed content-collection entries pass `lang` as an explicit top-level
+// prop and are unaffected by this fallback.
+const frontmatterLang = (Astro.props as { frontmatter?: { lang?: string } }).frontmatter?.lang;
+const effectiveLang = lang || frontmatterLang || siteLang();
 const license = headLicense(Astro.props.license, siteLicense());
 // Read directly by route rather than threaded as a prop (#1093) — every page renders through
 // this one layout, so the check lives in exactly one place instead of every call site.
@@ -27,7 +43,7 @@ const noindex = isNoindexed(Astro.url.pathname, readRobotsConfig(process.cwd()))
 ---
 
 <!doctype html>
-<html lang={siteLang()}>
+<html lang={effectiveLang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
