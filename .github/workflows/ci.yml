@@ -92,9 +92,9 @@ jobs:
           }
 
           swift=false; js=false; template=false; helpBook=false
-          matches 'Package.swift' 'Package.resolved' 'project.yml' 'Sources/**' 'Tests/**' 'Resources/Template/**' 'scripts/**' '.github/workflows/ci.yml' && swift=true
+          matches 'Package.swift' 'Package.resolved' 'project.yml' 'Sources/**' 'Tests/**' 'Resources/Template/**' 'Resources/Attributions/**' 'scripts/**' '.github/workflows/ci.yml' && swift=true
           matches 'JS/edit-overlay/**' 'scripts/node-version.txt' '.github/workflows/ci.yml' && js=true
-          matches 'Resources/Template/**' 'scripts/node-version.txt' '.github/workflows/ci.yml' && template=true
+          matches 'Resources/Template/**' 'scripts/node-version.txt' 'scripts/generate-npm-attributions.mjs' 'scripts/attributions-overrides.json' '.github/workflows/ci.yml' && template=true
           matches 'Resources/Anglesite.help/**' 'scripts/check-help-links.sh' '.github/workflows/ci.yml' && helpBook=true
 
           echo "swift=$swift" >> "$GITHUB_OUTPUT"
@@ -142,6 +142,12 @@ jobs:
           cache: npm
           cache-dependency-path: Resources/Template/package-lock.json
       - run: npm ci --no-audit --no-fund
+
+      - name: Check website-template attributions manifest
+        run: |
+          set -euo pipefail
+          node ../../scripts/generate-npm-attributions.mjs node_modules /tmp/website-template.json ../../scripts/attributions-overrides.json
+          diff -u ../../Resources/Attributions/website-template.json /tmp/website-template.json
       # The template's node:test suites had no CI lane at all — the `.well-known` design doc
       # calls that out explicitly. `test:worker` is vitest/workerd only. `npm test` covers every
       # node:test suite (scripts/ plus src/); `test:scripts` stays in package.json as the fast
@@ -256,6 +262,14 @@ jobs:
         working-directory: anglesite-plugin
         run: npm ci --no-audit --no-fund
 
+      - name: Check container-image attributions manifest
+        env:
+          ANGLESITE_SIDECAR_SRC: ${{ github.workspace }}/anglesite-plugin
+        run: |
+          set -euo pipefail
+          node scripts/generate-npm-attributions.mjs "$ANGLESITE_SIDECAR_SRC/node_modules" /tmp/container-image.json scripts/attributions-overrides.json
+          diff -u Resources/Attributions/container-image.json /tmp/container-image.json
+
       - name: Select latest available Xcode
         # CLAUDE.md mandates Xcode 27+ (macOS 27 SDK — LongRunningIntent / CancellableIntent /
         # SwiftUI 27 @State macro semantics). The previous hardcoded Xcode 16 worked only
@@ -299,6 +313,12 @@ jobs:
 
       - name: Build (debug)
         run: swift build -c debug
+
+      - name: Check app-binary attributions manifest
+        run: |
+          set -euo pipefail
+          scripts/generate-swift-attributions.sh "$PWD" /tmp/app-binary.json scripts/attributions-overrides.json
+          diff -u Resources/Attributions/app-binary.json /tmp/app-binary.json
 
       - name: Test
         env:
