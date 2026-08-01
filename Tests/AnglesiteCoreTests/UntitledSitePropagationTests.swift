@@ -38,6 +38,19 @@ struct UntitledSitePropagationTests {
         #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "my-blog")
     }
 
+    @Test("Propagates a second pre-publish rename too, as long as CF_PROJECT_NAME still matches the previous name's derived slug")
+    func propagatesSecondPrePublishRename() throws {
+        // Simulates: scaffold as "Untitled" -> rename to "My Blog" (first propagation already
+        // applied) -> rename again to "Dave's Blog", still before any deploy.
+        let dir = makeSiteDirectory(siteConfig: "SITE_NAME=My Blog\nCF_PROJECT_NAME=my-blog\n")
+
+        UntitledSitePropagation.propagateIfUntitled(newDisplayName: "Dave's Blog", siteDirectory: dir)
+
+        let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "Dave's Blog")
+        #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "dave-s-blog")
+    }
+
     @Test("No-ops when CF_WORKER_DEPLOYED is already set")
     func noOpWhenDeployed() throws {
         let dir = makeSiteDirectory(siteConfig: "SITE_NAME=Untitled\nCF_PROJECT_NAME=untitled\nCF_WORKER_DEPLOYED=true\n")
@@ -57,17 +70,6 @@ struct UntitledSitePropagationTests {
 
         let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "Untitled")
-    }
-
-    @Test("No-ops when SITE_NAME was already customized away from the Untitled pattern")
-    func noOpWhenSiteNameCustomized() throws {
-        let dir = makeSiteDirectory(siteConfig: "SITE_NAME=My Existing Site\nCF_PROJECT_NAME=my-existing-site\n")
-
-        UntitledSitePropagation.propagateIfUntitled(newDisplayName: "Acme Bakery", siteDirectory: dir)
-
-        let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
-        #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "My Existing Site")
-        #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "my-existing-site")
     }
 
     @Test("No-ops when CF_PROJECT_NAME was hand-customized away from the derived slug")
@@ -99,5 +101,28 @@ struct UntitledSitePropagationTests {
         let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "Acme Bakery")
         #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "acme-bakery")
+    }
+
+    @Test("Sanitizes an embedded newline in the new display name to its first line, without injecting extra .site-config keys")
+    func sanitizesEmbeddedNewline() throws {
+        let dir = makeSiteDirectory(siteConfig: "SITE_NAME=Untitled\nCF_PROJECT_NAME=untitled\n")
+
+        UntitledSitePropagation.propagateIfUntitled(newDisplayName: "Acme Bakery\nEVIL_KEY=1", siteDirectory: dir)
+
+        let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "Acme Bakery")
+        #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "acme-bakery")
+        #expect(SiteConfigFile.value(forKey: "EVIL_KEY", in: config) == nil, "an embedded newline must not inject a new .site-config key")
+    }
+
+    @Test("No-ops when the sanitized display name is blank")
+    func noOpWhenSanitizedNameIsBlank() throws {
+        let dir = makeSiteDirectory(siteConfig: "SITE_NAME=Untitled\nCF_PROJECT_NAME=untitled\n")
+
+        UntitledSitePropagation.propagateIfUntitled(newDisplayName: "\n  \n", siteDirectory: dir)
+
+        let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "Untitled")
+        #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "untitled")
     }
 }
