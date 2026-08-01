@@ -143,11 +143,10 @@ jobs:
           cache-dependency-path: Resources/Template/package-lock.json
       - run: npm ci --no-audit --no-fund
 
-      - name: Check website-template attributions manifest
-        run: |
-          set -euo pipefail
-          node ../../scripts/generate-npm-attributions.mjs node_modules /tmp/website-template.json ../../scripts/attributions-overrides.json
-          diff -u ../../Resources/Attributions/website-template.json /tmp/website-template.json
+      # The website-template attributions manifest check lives in build-test (macos-26), not
+      # here (ubuntu-latest) — see that job's "Check website-template attributions manifest"
+      # step for why: the committed manifest is arm64-only and can never match a linux-x64
+      # npm ci install.
       # The template's node:test suites had no CI lane at all — the `.well-known` design doc
       # calls that out explicitly. `test:worker` is vitest/workerd only. `npm test` covers every
       # node:test suite (scripts/ plus src/); `test:scripts` stays in package.json as the fast
@@ -269,6 +268,21 @@ jobs:
           set -euo pipefail
           node scripts/generate-npm-attributions.mjs "$ANGLESITE_SIDECAR_SRC/node_modules" /tmp/container-image.json scripts/attributions-overrides.json
           diff -u Resources/Attributions/container-image.json /tmp/container-image.json
+
+      # Committed Resources/Attributions/website-template.json was generated on macOS-arm64
+      # (npm ci pulls darwin-arm64-only optional native packages, e.g. @esbuild/darwin-arm64),
+      # so this check must run on the same platform — hence build-test (macos-26), not
+      # template-worker (ubuntu-latest), where npm ci would resolve linux-x64 packages instead
+      # and the manifest could never match.
+      - name: Install website-template dependencies
+        working-directory: Resources/Template
+        run: npm ci --no-audit --no-fund
+
+      - name: Check website-template attributions manifest
+        run: |
+          set -euo pipefail
+          node scripts/generate-npm-attributions.mjs Resources/Template/node_modules /tmp/website-template.json scripts/attributions-overrides.json
+          diff -u Resources/Attributions/website-template.json /tmp/website-template.json
 
       - name: Select latest available Xcode
         # CLAUDE.md mandates Xcode 27+ (macOS 27 SDK — LongRunningIntent / CancellableIntent /
