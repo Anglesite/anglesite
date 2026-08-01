@@ -9,6 +9,7 @@
     "postbuild": "npx pagefind --site dist && npx tsx scripts/well-known.ts verify",
     "preview": "astro preview",
     "check": "npx tsx scripts/pre-deploy-check.ts",
+    "check:packs": "tsx scripts/check-pack.ts",
     "a11y": "npx tsx scripts/a11y-audit.ts",
     "embed": "tsx scripts/embed-snapshot.ts",
     "build:ci": "npm run build && npx tsx scripts/pre-deploy-check.ts --json --strict",
