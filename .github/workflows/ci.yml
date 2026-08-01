@@ -257,9 +257,13 @@ jobs:
           # the plugin's MCP server on the same Node the app embeds.
           node-version-file: scripts/node-version.txt
 
+      # --omit=dev matches container/Dockerfile's sidecar install and the committed
+      # container-image.json manifest (regenerated prod-only, see Resources/Attributions/) —
+      # the e2e tests below only ever spawn server/index.mjs directly, never the sidecar's own
+      # `npm test`, so its devDependencies are never needed here either.
       - name: Install plugin dependencies
         working-directory: anglesite-plugin
-        run: npm ci --no-audit --no-fund
+        run: npm ci --omit=dev --no-audit --no-fund
 
       - name: Check container-image attributions manifest
         env:
