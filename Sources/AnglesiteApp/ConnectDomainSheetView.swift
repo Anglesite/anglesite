@@ -79,6 +79,10 @@ struct ConnectDomainSheetView: View {
                 Label("We'll connect \(hostname) on your next Publish.", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                 registrarInfoView
+                Button("Use a different domain") { model.beginChangeDomain() }
+                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -111,9 +115,18 @@ struct ConnectDomainSheetView: View {
 
     /// Formats a raw RDAP ISO 8601 `eventDate` for display; falls back to the raw string if it
     /// doesn't parse (an RDAP server returning something non-standard shouldn't blank the field).
+    /// Tries a second, fractional-seconds formatter before giving up — some RDAP servers include
+    /// fractional seconds (e.g. `2027-08-13T04:00:00.000Z`), which the default formatter rejects.
     private static func formattedExpiration(_ raw: String) -> String {
-        guard let date = ISO8601DateFormatter().date(from: raw) else { return raw }
-        return date.formatted(date: .abbreviated, time: .omitted)
+        if let date = ISO8601DateFormatter().date(from: raw) {
+            return date.formatted(date: .abbreviated, time: .omitted)
+        }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = fractional.date(from: raw) {
+            return date.formatted(date: .abbreviated, time: .omitted)
+        }
+        return raw
     }
 
     @ViewBuilder

@@ -39,7 +39,7 @@ private actor ControllableRDAPLookupService: RDAPLookupService {
     }
 
     @Test func openSheetResetsToChoosingPhase() throws {
-        let model = ConnectDomainModel()
+        let model = ConnectDomainModel(rdap: FakeRDAPLookupService(result: nil))
         let (site, dir) = try makeSite()
         defer { try? FileManager.default.removeItem(at: dir) }
         model.configure(site: site)
@@ -53,7 +53,7 @@ private actor ControllableRDAPLookupService: RDAPLookupService {
     }
 
     @Test func notNowDismissesWithoutWritingSiteConfig() throws {
-        let model = ConnectDomainModel()
+        let model = ConnectDomainModel(rdap: FakeRDAPLookupService(result: nil))
         let (site, dir) = try makeSite()
         defer { try? FileManager.default.removeItem(at: dir) }
         model.configure(site: site)
@@ -66,7 +66,7 @@ private actor ControllableRDAPLookupService: RDAPLookupService {
     }
 
     @Test func chooseBuyRecordsIntentAndDismisses() throws {
-        let model = ConnectDomainModel()
+        let model = ConnectDomainModel(rdap: FakeRDAPLookupService(result: nil))
         let (site, dir) = try makeSite()
         defer { try? FileManager.default.removeItem(at: dir) }
         model.configure(site: site)
@@ -80,7 +80,7 @@ private actor ControllableRDAPLookupService: RDAPLookupService {
     }
 
     @Test func beginTransferThenSubmitRecordsHostnameAndTransitionsToConnected() throws {
-        let model = ConnectDomainModel()
+        let model = ConnectDomainModel(rdap: FakeRDAPLookupService(result: nil))
         let (site, dir) = try makeSite()
         defer { try? FileManager.default.removeItem(at: dir) }
         model.configure(site: site)
@@ -99,7 +99,7 @@ private actor ControllableRDAPLookupService: RDAPLookupService {
     }
 
     @Test func submitTransferWithEmptyHostnameIsANoOp() throws {
-        let model = ConnectDomainModel()
+        let model = ConnectDomainModel(rdap: FakeRDAPLookupService(result: nil))
         let (site, dir) = try makeSite()
         defer { try? FileManager.default.removeItem(at: dir) }
         model.configure(site: site)
@@ -230,5 +230,78 @@ private actor ControllableRDAPLookupService: RDAPLookupService {
         let saved = try DomainConfigStore(sourceDirectory: dir).load()
         #expect(saved.domain?.registrar == "Newer Registrar")
         #expect(saved.domain?.expiresAt == "2029-01-01T00:00:00Z")
+    }
+
+    /// #1194 review round 3, finding 1: once `.connected`, the sheet had no way back to
+    /// `.enteringHostname` — an owner who typo'd a hostname was stuck. `beginChangeDomain()` is the
+    /// fix; it must seed `hostnameInput` with the current hostname so re-submitting a corrected
+    /// value doesn't require retyping from scratch.
+    @Test func beginChangeDomainSeedsHostnameAndTransitionsToEnteringHostname() throws {
+        let model = ConnectDomainModel(rdap: FakeRDAPLookupService(result: nil))
+        let (site, dir) = try makeSite()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        model.configure(site: site)
+        try DomainConfigStore(sourceDirectory: dir).save(
+            DomainConfig(domain: .init(hostname: "example.com", choice: "transfer", attach: true)))
+        model.openSheet()
+        #expect(model.phase == .connected(hostname: "example.com"))
+
+        model.beginChangeDomain()
+
+        #expect(model.phase == .enteringHostname)
+        #expect(model.hostnameInput == "example.com")
+    }
+
+    @Test func beginChangeDomainIsANoOpOutsideConnectedPhase() throws {
+        let model = ConnectDomainModel(rdap: FakeRDAPLookupService(result: nil))
+        let (site, dir) = try makeSite()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        model.configure(site: site)
+        model.openSheet()
+        #expect(model.phase == .choosing)
+
+        model.beginChangeDomain()
+
+        #expect(model.phase == .choosing)
+        #expect(model.hostnameInput.isEmpty)
+    }
+
+    /// #1194 review round 3, finding 2: `recordTransferIntent` used to leave a previous hostname's
+    /// cached registrar/expiration sitting on disk, un-cleared, under the freshly-declared
+    /// hostname — so reopening (or the fresh submit itself, before any new lookup resolves) could
+    /// display the *old* domain's registrar as if it belonged to the *new* one.
+    @Test func changingDomainClearsStaleRegistrarInfoForNewHostname() async throws {
+        let model = ConnectDomainModel(rdap: FakeRDAPLookupService(result: nil))
+        let (site, dir) = try makeSite()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        model.configure(site: site)
+        try DomainConfigStore(sourceDirectory: dir).save(DomainConfig(domain: .init(
+            hostname: "old.example.com", choice: "transfer", attach: true,
+            registrar: "Old Registrar, LLC", expiresAt: "2020-01-01T00:00:00Z")))
+
+        model.openSheet()
+        repeat { await Task.yield() } while model.isLookingUpRegistrarInfo
+        #expect(model.registrarInfo == .available(
+            RDAPDomainInfo(registrar: "Old Registrar, LLC", expiresAt: "2020-01-01T00:00:00Z")))
+
+        model.beginChangeDomain()
+        #expect(model.hostnameInput == "old.example.com")
+        model.hostnameInput = "new.example.com"
+        model.submitTransfer()
+        repeat { await Task.yield() } while model.isLookingUpRegistrarInfo
+
+        #expect(model.phase == .connected(hostname: "new.example.com"))
+        #expect(model.registrarInfo == .unavailable)
+
+        // Reopening the sheet must not resurrect the old registrar under the new hostname either.
+        model.dismissSheet()
+        model.openSheet()
+        repeat { await Task.yield() } while model.isLookingUpRegistrarInfo
+        #expect(model.registrarInfo == .unavailable)
+
+        let saved = try DomainConfigStore(sourceDirectory: dir).load()
+        #expect(saved.domain?.hostname == "new.example.com")
+        #expect(saved.domain?.registrar != "Old Registrar, LLC")
+        #expect(saved.domain?.expiresAt != "2020-01-01T00:00:00Z")
     }
 }

@@ -115,6 +115,18 @@ final class ConnectDomainModel {
         phase = .enteringHostname
     }
 
+    /// "Use a different domain" — from `.connected`, lets the owner correct a previously-declared
+    /// hostname (a typo, or switching domains entirely) instead of being stuck with only "Done"
+    /// (#1194 review round 3: the sheet had become a dead end once a transfer was declared). Seeds
+    /// `hostnameInput` with the currently-connected hostname so `submitTransfer()` reaches it
+    /// exactly the same way `beginTransfer()` does — it doesn't care how `.enteringHostname` was
+    /// reached.
+    func beginChangeDomain() {
+        guard case .connected(let hostname) = phase else { return }
+        hostnameInput = hostname
+        phase = .enteringHostname
+    }
+
     /// Submits the typed hostname. No format validation beyond non-empty/trim, matching
     /// `DomainModel.resolveAndLoad` — a malformed hostname simply won't resolve a Cloudflare zone
     /// on the next deploy, surfaced there exactly like today's `.notConnected` outcome.
@@ -137,9 +149,14 @@ final class ConnectDomainModel {
     private func loadRegistrarInfo(hostname: String, sourceDirectory: URL) {
         let store = DomainConfigStore(sourceDirectory: sourceDirectory)
         let declared = try? store.load()
-        if let cached = declared?.domain, cached.hostname == hostname,
-           cached.registrar != nil || cached.expiresAt != nil {
-            registrarInfo = .available(RDAPDomainInfo(registrar: cached.registrar, expiresAt: cached.expiresAt))
+        if let cached = declared?.domain, cached.hostname == hostname {
+            let registrar = Self.nonBlank(cached.registrar)
+            let expiresAt = Self.nonBlank(cached.expiresAt)
+            if registrar != nil || expiresAt != nil {
+                registrarInfo = .available(RDAPDomainInfo(registrar: registrar, expiresAt: expiresAt))
+            } else {
+                registrarInfo = .loading
+            }
         } else {
             registrarInfo = .loading
         }
@@ -164,6 +181,14 @@ final class ConnectDomainModel {
                 self.registrarInfo = .unavailable
             }
         }
+    }
+
+    /// Normalizes `DomainIntentRecorder`'s explicit-`""` "clear the stale value" marker (#1194
+    /// review round 3) back to `nil` — a freshly-cleared registrar/expiration reads the same as
+    /// "no cached value yet" (`.loading`), not as a blank display line.
+    private static func nonBlank(_ value: String?) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        return value
     }
 
     private func persistRegistrarInfo(_ info: RDAPDomainInfo, hostname: String, sourceDirectory: URL) {
