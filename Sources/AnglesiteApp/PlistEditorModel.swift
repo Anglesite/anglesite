@@ -880,6 +880,11 @@ final class PlistEditorModel {
     /// of `Config/settings.plist` so concurrently written fields (e.g. a deploy updating
     /// `lastDeployedWorkerIDs`) aren't clobbered, then notifies the runtime so a live local
     /// wrangler-dev session restarts with the new active set (§7).
+    ///
+    /// Also write-throughs the new `activeWorkerIDs` into `Source/anglesite.json`'s `workers.active`
+    /// declaration (#1172, `DeployCoordinator.syncWorkerActivationToAnglesiteJSON`) — best-effort,
+    /// like every other `anglesite.json` write-through: a git-tracked-file write failure must never
+    /// turn an already-succeeded `Config/` toggle into a reported failure.
     func setWorkerActive(_ workerID: String, isOn: Bool) async {
         guard let configDirectory else { return }
         let store = SiteConfigStore(configDirectory: configDirectory)
@@ -893,6 +898,9 @@ final class PlistEditorModel {
             workersError = String(localized: "Couldn't save the worker change: \(error.localizedDescription)")
             return
         }
+        settings = await DeployCoordinator.syncWorkerActivationToAnglesiteJSON(
+            configStore: store, sourceDirectory: sourceDirectory, settings: settings
+        )
         workerSettings = settings
         workersError = nil
         for groupIndex in workerGroups.indices {

@@ -538,6 +538,11 @@ final class DeployModel {
                 text: "Deactivating workers: \(activationPlan.removedIDs.sorted().joined(separator: ", "))"
             )
         }
+        if let notice = DeployCoordinator.activeWorkerIDsFallbackNotice(source: activationPlan.activeWorkerIDsSource) {
+            // Mirrors SiteOperations.deployWithWorkerComposition's identical notice — shared text
+            // via DeployCoordinator so the two paths can't drift (#708 review feedback's idiom).
+            await logCenter.append(source: "deploy:\(siteID)", stream: .stdout, text: notice)
+        }
         let workers = activationPlan.workers
         if let warning = WorkerActivation.missingDescriptorWarning(unresolvedIDs: activationPlan.unresolvedIDs) {
             // Mirrors SiteOperations.deployWithWorkerComposition's identical warning — shared

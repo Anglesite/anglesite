@@ -209,6 +209,145 @@ struct DeployCoordinatorTests {
         #expect(saved.displayName == "Keep Me")
     }
 
+    // MARK: - resolveActiveWorkerIDs (#1172)
+
+    @Test("with no anglesite.json, falls back to Config/'s activeWorkerIDs")
+    func resolveActiveWorkerIDsFallsBackWhenFileAbsent() throws {
+        let dir = try temporaryDirectory()
+        let settings = SiteSettings(activeWorkerIDs: ["indieauth"])
+
+        let resolved = DeployCoordinator.resolveActiveWorkerIDs(settings: settings, sourceDirectory: dir)
+
+        #expect(resolved.ids == ["indieauth"])
+        #expect(resolved.source == .configFallback(reason: .notDeclared))
+    }
+
+    @Test("with anglesite.json present but no workers section, falls back to Config/")
+    func resolveActiveWorkerIDsFallsBackWhenWorkersNotDeclared() throws {
+        let dir = try temporaryDirectory()
+        try DomainConfigStore(sourceDirectory: dir).save(DomainConfig(domain: .init(hostname: "example.com")))
+        let settings = SiteSettings(activeWorkerIDs: ["indieauth"])
+
+        let resolved = DeployCoordinator.resolveActiveWorkerIDs(settings: settings, sourceDirectory: dir)
+
+        #expect(resolved.ids == ["indieauth"])
+        #expect(resolved.source == .configFallback(reason: .notDeclared))
+    }
+
+    @Test("with anglesite.json unparsable, falls back to Config/")
+    func resolveActiveWorkerIDsFallsBackWhenUnparsable() throws {
+        let dir = try temporaryDirectory()
+        try "not json".write(to: dir.appendingPathComponent("anglesite.json"), atomically: true, encoding: .utf8)
+        let settings = SiteSettings(activeWorkerIDs: ["indieauth"])
+
+        let resolved = DeployCoordinator.resolveActiveWorkerIDs(settings: settings, sourceDirectory: dir)
+
+        #expect(resolved.ids == ["indieauth"])
+        #expect(resolved.source == .configFallback(reason: .unparsable))
+    }
+
+    @Test("with a declared set in sync with Config/'s recorded migration snapshot, the declaration wins")
+    func resolveActiveWorkerIDsUsesDeclaredWhenInSync() throws {
+        let dir = try temporaryDirectory()
+        try DomainConfigStore(sourceDirectory: dir).save(DomainConfig(workers: .init(active: ["websub"])))
+        let settings = SiteSettings(activeWorkerIDs: ["websub"], activeWorkerIDsMigratedToAnglesiteJSON: ["websub"])
+
+        let resolved = DeployCoordinator.resolveActiveWorkerIDs(settings: settings, sourceDirectory: dir)
+
+        #expect(resolved.ids == ["websub"])
+        #expect(resolved.source == .declared)
+    }
+
+    @Test("with Config/'s activeWorkerIDs changed since the last successful sync, falls back to Config/ as stale")
+    func resolveActiveWorkerIDsFallsBackWhenStaleRelativeToConfig() throws {
+        let dir = try temporaryDirectory()
+        try DomainConfigStore(sourceDirectory: dir).save(DomainConfig(workers: .init(active: ["websub"])))
+        // Config/'s activeWorkerIDs has moved on to ["indieauth"] since the recorded sync snapshot
+        // (["websub"]) — e.g. the write-through failed partway, or an older build wrote Config/
+        // directly.
+        let settings = SiteSettings(activeWorkerIDs: ["indieauth"], activeWorkerIDsMigratedToAnglesiteJSON: ["websub"])
+
+        let resolved = DeployCoordinator.resolveActiveWorkerIDs(settings: settings, sourceDirectory: dir)
+
+        #expect(resolved.ids == ["indieauth"])
+        #expect(resolved.source == .configFallback(reason: .staleRelativeToConfig))
+    }
+
+    // MARK: - syncWorkerActivationToAnglesiteJSON (#1172)
+
+    @Test("writes Config/'s activeWorkerIDs into anglesite.json's workers.active and records the sync snapshot")
+    func syncWorkerActivationWritesDeclarationAndRecordsSnapshot() async throws {
+        let dir = try temporaryDirectory()
+        let configStore = SiteConfigStore(configDirectory: dir)
+        let settings = SiteSettings(activeWorkerIDs: ["websub", "indieauth"])
+
+        let updated = await DeployCoordinator.syncWorkerActivationToAnglesiteJSON(
+            configStore: configStore, sourceDirectory: dir, settings: settings
+        )
+
+        #expect(updated.activeWorkerIDsMigratedToAnglesiteJSON == ["websub", "indieauth"])
+        let declared = try DomainConfigStore(sourceDirectory: dir).load()
+        #expect(declared.workers?.active == ["websub", "indieauth"])
+        // The returned settings were also persisted to Config/, not just returned.
+        let saved = try await configStore.load()
+        #expect(saved.activeWorkerIDsMigratedToAnglesiteJSON == ["websub", "indieauth"])
+    }
+
+    @Test("syncing preserves an existing anglesite.json's other declared sections")
+    func syncWorkerActivationPreservesOtherSections() async throws {
+        let dir = try temporaryDirectory()
+        try DomainConfigStore(sourceDirectory: dir).save(DomainConfig(domain: .init(hostname: "example.com")))
+        let configStore = SiteConfigStore(configDirectory: dir)
+        let settings = SiteSettings(activeWorkerIDs: ["websub"])
+
+        _ = await DeployCoordinator.syncWorkerActivationToAnglesiteJSON(
+            configStore: configStore, sourceDirectory: dir, settings: settings
+        )
+
+        let declared = try DomainConfigStore(sourceDirectory: dir).load()
+        #expect(declared.domain?.hostname == "example.com")
+        #expect(declared.workers?.active == ["websub"])
+    }
+
+    // MARK: - planWorkerActivation reads through anglesite.json (#1172)
+
+    @Test("planWorkerActivation prefers a synced anglesite.json declaration over Config/'s activeWorkerIDs")
+    func planWorkerActivationPrefersDeclaredWhenSynced() async throws {
+        let catalog = [
+            descriptor(id: "websub", binding: .settingsActivated),
+            descriptor(id: "indieauth", binding: .settingsActivated),
+        ]
+        let dir = try temporaryDirectory()
+        // A hand edit added "indieauth" to the file after the last successful sync — Config/'s
+        // own activeWorkerIDs ("websub") hasn't moved since that sync, so the declaration (not
+        // Config/'s raw value) is what should win.
+        try DomainConfigStore(sourceDirectory: dir).save(DomainConfig(workers: .init(active: ["websub", "indieauth"])))
+        let settings = SiteSettings(activeWorkerIDs: ["websub"], activeWorkerIDsMigratedToAnglesiteJSON: ["websub"])
+        let contentGraph = SiteContentGraph()
+
+        let plan = await DeployCoordinator.planWorkerActivation(
+            siteID: "site-1", siteDirectory: dir, settings: settings, catalog: catalog, contentGraph: contentGraph
+        )
+
+        #expect(plan.effectiveActiveIDs == ["indieauth", "websub"])
+        #expect(plan.activeWorkerIDsSource == .declared)
+    }
+
+    @Test("planWorkerActivation reports the fallback source when anglesite.json has no declaration")
+    func planWorkerActivationReportsFallbackSource() async throws {
+        let catalog = [descriptor(id: "indieauth", binding: .settingsActivated)]
+        let dir = try temporaryDirectory()
+        let settings = SiteSettings(activeWorkerIDs: ["indieauth"])
+        let contentGraph = SiteContentGraph()
+
+        let plan = await DeployCoordinator.planWorkerActivation(
+            siteID: "site-1", siteDirectory: dir, settings: settings, catalog: catalog, contentGraph: contentGraph
+        )
+
+        #expect(plan.effectiveActiveIDs == ["indieauth"])
+        #expect(plan.activeWorkerIDsSource == .configFallback(reason: .notDeclared))
+    }
+
     // MARK: - runPostDeploySequencing
 
     /// Not an actor: `runPostDeploySequencing` calls `onMilestone` synchronously and awaits
