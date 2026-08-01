@@ -94,16 +94,24 @@ whose domain needs a TLD the beta API doesn't support yet.
 Three new pieces, mirroring the existing `DomainModel` → `DomainOperationsService` →
 `HTTPCloudflareClient` layering used for DNS record management:
 
-- **`HTTPCloudflareClient`** gains `searchDomains`/`checkDomainAvailability` on
-  `CloudflareReading` and `registerDomain` on `CloudflareWriting`. `registerDomain` owns the
-  201-vs-202-and-poll distinction internally (see §3's bounded poll) so every caller above it
-  sees one `async throws` call returning a single resolved outcome — no polling primitive is
-  exposed at any layer above the HTTP client, matching how every other method on this client is a
-  self-contained one-shot call.
+- **`HTTPCloudflareClient`** gains conformance to two new, dedicated protocols —
+  `CloudflareRegistrarReading` (`searchDomains`, `checkDomainAvailability`) and
+  `CloudflareRegistrarWriting` (`registerDomain`) — via an extension, the same way the file
+  already conforms to `CloudflareWriting` in its own extension. These are deliberately *not*
+  added to the existing `CloudflareReading`/`CloudflareWriting` protocols: five unrelated test
+  fakes (`DomainConfigAuditModelTests`, `OnionRoutingModelTests`, `HardenExecutorTests`,
+  `DeployModelTests`, `CustomDomainAttachCommandTests`) conform to those today, and extending
+  them would force every one of those files to grow stub methods for a feature they have nothing
+  to do with. `registerDomain` owns the 201-vs-202-and-poll distinction internally (see §3's
+  bounded poll) so every caller above it sees one `async throws` call returning a single resolved
+  outcome — no polling primitive is exposed at any layer above the HTTP client, matching how every
+  other method on this client is a self-contained one-shot call.
 - **`RegistrarOperationsService`** (protocol) + **`RegistrarOperations`** (prod impl), new files
-  in `AnglesiteCore`, composing a `reader`/`writer`/`tokenProvider` exactly like
-  `DomainOperationsService`/`DomainOperations`. New `RegistrarOperationError`: `.noToken`,
-  `.cloudflare(CloudflareError)` — two cases, no `zoneNotFound` (not meaningful here).
+  in `AnglesiteCore`, composing a `reader: any CloudflareRegistrarReading` /
+  `writer: any CloudflareRegistrarWriting` / `tokenProvider` exactly like
+  `DomainOperationsService`/`DomainOperations`'s composition shape (different protocols, same
+  pattern). New `RegistrarOperationError`: `.noToken`, `.cloudflare(CloudflareError)` — two
+  cases, no `zoneNotFound` (not meaningful here).
 - **`BuyDomainModel`** (`@Observable @MainActor`, new) + **`BuyDomainSheetView`** (new), in
   `AnglesiteApp`. Added to `SiteWindowModel` as `var buyDomain = BuyDomainModel()`, configured
   with `CurrentSite` the same way `domain`/`harden`/`connectDomain` are.
@@ -220,11 +228,13 @@ Porting actual OAuth sign-in to macOS (replacing this token-paste flow) is out o
 
 ### 7. Code shape
 
-- **`Sources/AnglesiteCore/HTTPCloudflareClient.swift`**: add `searchDomains`,
-  `checkDomainAvailability` to `CloudflareReading`; `registerDomain` to `CloudflareWriting`. New
-  private `CFRegistrar*` decode structs alongside the existing `CF*` ones. `registerDomain`
-  internally issues the `POST`, branches on `201` vs `202`, and — for `202` — polls the
-  registration-status endpoint per §3's bounded loop before returning.
+- **`Sources/AnglesiteCore/CloudflareRegistrarClient.swift`** (new): the
+  `CloudflareRegistrarReading`/`CloudflareRegistrarWriting` protocols (§2) plus the
+  `DomainCandidate`-adjacent wire types (`RegistrarDomainCheck`, `RegistrarRegistrationOutcome`).
+- **`Sources/AnglesiteCore/HTTPCloudflareClient.swift`**: new extension conforming to both new
+  protocols. New private `CFRegistrar*` decode structs alongside the existing `CF*` ones.
+  `registerDomain` internally issues the `POST`, branches on `201` vs `202`, and — for `202` —
+  polls the registration-status endpoint per §3's bounded loop before returning.
 - **`Sources/AnglesiteCore/RegistrarOperationsService.swift`** (new): protocol + `RegistrarOperations`.
 - **`Sources/AnglesiteApp/CloudflareTokenPromptView.swift`**: narrowed init per §6; `DeployModel`
   call site updated.
