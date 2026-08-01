@@ -7,32 +7,52 @@
 import { readFileSync, existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, basename } from "node:path";
 
-// Both spellings: npm packages occasionally ship the British "LICENCE" spelling.
-const LICENSE_NAMES = [
-  "LICENSE", "LICENSE.md", "LICENSE.txt",
-  "LICENCE", "LICENCE.md", "LICENCE.txt",
-  "COPYING", "COPYING.md", "COPYING.txt",
-];
+// License filenames vary more across the npm ecosystem than any fixed list can capture (both
+// "LICENSE"/"LICENCE" spellings, decorated variants like LICENSE-MIT or LICENSE-MIT.txt, COPYING,
+// etc.), so match any filename that starts with "license"/"licence"/"copying" rather than an
+// exact list.
+function isLicenseFileName(name) {
+  return /^(licen[sc]e|copying)/i.test(name);
+}
 
-export function findLicenseText(dir) {
+// Prefer a bare LICENSE/LICENCE (optionally with .md/.txt) over decorated variants like
+// LICENSE-MIT, so the plain, canonical file wins when a package ships more than one.
+function licenseNameRank(name) {
+  return /^licen[sc]e(\.(md|txt))?$/i.test(name) ? 0 : 1;
+}
+
+export function findLicenseText(dir, { allowNestedDir = true } = {}) {
   let names;
   try {
     names = readdirSync(dir);
   } catch {
     return null;
   }
-  const byLowerName = new Map(names.map((n) => [n.toLowerCase(), n]));
-  for (const candidate of LICENSE_NAMES) {
-    const realName = byLowerName.get(candidate.toLowerCase());
-    if (realName) {
-      const candidatePath = join(dir, realName);
+  const candidates = names
+    .filter(isLicenseFileName)
+    .sort((a, b) => licenseNameRank(a) - licenseNameRank(b) || a.localeCompare(b));
+
+  for (const name of candidates) {
+    const candidatePath = join(dir, name);
+    let stat;
+    try {
+      stat = statSync(candidatePath);
+    } catch {
+      continue; // ignore stat errors; try next candidate
+    }
+    if (stat.isFile()) {
       try {
-        if (statSync(candidatePath).isFile()) {
-          return readFileSync(candidatePath, "utf8");
-        }
+        return readFileSync(candidatePath, "utf8");
       } catch {
-        // ignore stat/read errors; try next candidate
+        continue; // ignore read errors; try next candidate
       }
+    }
+    if (stat.isDirectory() && allowNestedDir) {
+      // Some packages (e.g. pagefind) ship a LICENSE/ directory containing the real license file
+      // one level down — look inside before giving up on this candidate. Only recurse one level:
+      // a nested license directory containing another directory is not a shape we've seen.
+      const nested = findLicenseText(candidatePath, { allowNestedDir: false });
+      if (nested) return nested;
     }
   }
   return null;

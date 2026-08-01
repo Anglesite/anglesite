@@ -45,6 +45,31 @@ test("findLicenseText finds LICENSE and both LICENCE spellings, else null", () =
   }
 });
 
+test("findLicenseText finds decorated variants like LICENSE-MIT.txt when no plain LICENSE exists", () => {
+  const root = makeTempDir();
+  try {
+    const dir = join(root, "emoji-regex-like");
+    mkdirSync(dir);
+    writeFileSync(join(dir, "LICENSE-MIT.txt"), "Copyright Mathias Bynens <https://mathiasbynens.be/>");
+    assert.equal(findLicenseText(dir), "Copyright Mathias Bynens <https://mathiasbynens.be/>");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("findLicenseText looks one level inside a LICENSE directory (pagefind EISDIR regression)", () => {
+  const root = makeTempDir();
+  try {
+    const dir = join(root, "pagefind-like");
+    const licenseDir = join(dir, "LICENSE");
+    mkdirSync(licenseDir, { recursive: true });
+    writeFileSync(join(licenseDir, "LICENSE"), "Pagefind license text plus third-party notices");
+    assert.equal(findLicenseText(dir), "Pagefind license text plus third-party notices");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("extractLicenseId handles string, object, and legacy array shapes", () => {
   assert.equal(extractLicenseId({ license: "MIT" }), "MIT");
   assert.equal(extractLicenseId({ license: { type: "Apache-2.0" } }), "Apache-2.0");
