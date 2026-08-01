@@ -40,14 +40,20 @@ public struct DNSRecord: Sendable, Equatable, Identifiable {
     /// Whether traffic for this record routes through Cloudflare's proxy (the orange cloud).
     /// Read-side only — `DNSRecordPayload` deliberately doesn't carry it.
     public let proxied: Bool
+    /// Cloudflare's free-text `comment` field, as read back. When it starts with `"anglesite:"`
+    /// the app stamped it (`DNSRecordPayload.comment`, #1170); `DomainConfigAudit` (#1171) uses
+    /// it to join this live record to its declared `anglesite.json` counterpart. `nil` when the
+    /// record has no comment.
+    public let comment: String?
     /// Memberwise initializer; the HTTP client and test fixtures build records directly.
-    public init(id: String, type: String, name: String, content: String, ttl: Int, proxied: Bool) {
+    public init(id: String, type: String, name: String, content: String, ttl: Int, proxied: Bool, comment: String? = nil) {
         self.id = id
         self.type = type
         self.name = name
         self.content = content
         self.ttl = ttl
         self.proxied = proxied
+        self.comment = comment
     }
 }
 

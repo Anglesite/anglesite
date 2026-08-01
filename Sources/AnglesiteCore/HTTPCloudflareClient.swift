@@ -55,6 +55,7 @@ private struct CFFullDNSRecord: Decodable, Sendable {
     let content: String
     let ttl: Int
     let proxied: Bool?
+    let comment: String?
 }
 private struct CFAccount: Decodable, Sendable { let id: String }
 private struct CFWorkerScript: Decodable, Sendable { let id: String }
@@ -284,7 +285,7 @@ public struct HTTPCloudflareClient: CloudflareReading {
         let raw = try await paginated("/zones/\(zoneID)/dns_records?per_page=100", apiToken: apiToken, as: CFFullDNSRecord.self)
         return raw.map {
             DNSRecord(id: $0.id, type: $0.type, name: $0.name, content: $0.content,
-                      ttl: $0.ttl, proxied: $0.proxied ?? false)
+                      ttl: $0.ttl, proxied: $0.proxied ?? false, comment: $0.comment)
         }
     }
 

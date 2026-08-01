@@ -36,6 +36,30 @@ struct DomainDNSClientTests {
         #expect(records.map(\.id) == ["rec1", "rec2"])
     }
 
+    @Test("listDNSRecords decodes the comment field")
+    func listDecodesComment() async throws {
+        let json = """
+        {"success":true,"errors":[],"result":[
+            {"id":"rec1","type":"MX","name":"example.com","content":"mx01.mail.icloud.com","ttl":1,"proxied":false,"comment":"anglesite:email:icloud"}
+        ]}
+        """
+        let client = HTTPCloudflareClient(transport: fakeTransport(["/dns_records?per_page=100": (200, json)]))
+        let records = try await client.listDNSRecords(zoneID: zoneID, apiToken: token)
+        #expect(records.first?.comment == "anglesite:email:icloud")
+    }
+
+    @Test("listDNSRecords defaults comment to nil when absent")
+    func listDefaultsCommentToNil() async throws {
+        let json = """
+        {"success":true,"errors":[],"result":[
+            {"id":"rec1","type":"A","name":"example.com","content":"192.0.2.1","ttl":300,"proxied":true}
+        ]}
+        """
+        let client = HTTPCloudflareClient(transport: fakeTransport(["/dns_records?per_page=100": (200, json)]))
+        let records = try await client.listDNSRecords(zoneID: zoneID, apiToken: token)
+        #expect(records.first?.comment == nil)
+    }
+
     @Test("listDNSRecords defaults proxied to false when absent")
     func listDefaultsProxied() async throws {
         let json = """
