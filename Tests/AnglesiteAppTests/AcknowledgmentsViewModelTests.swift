@@ -65,12 +65,36 @@ struct AcknowledgmentsViewModelTests {
         #expect(model.catalogs[.appBinary]?.count == 2)
     }
 
-    @Test("attribution(withID:) finds an entry across sources")
+    @Test("attribution(withID:) finds an entry in its source")
     func attributionByIDFindsAcrossSources() {
         let catalogs = makeCatalogs()
         let model = AcknowledgmentsViewModel(load: { catalogs[$0] ?? [] }, log: { _ in })
         model.loadAll()
-        #expect(model.attribution(withID: "express@4.19.0")?.name == "express")
-        #expect(model.attribution(withID: "nonexistent@0.0.0") == nil)
+        #expect(model.attribution(withID: SelectedAttribution(source: .containerImage, id: "express@4.19.0"))?.name == "express")
+        #expect(model.attribution(withID: SelectedAttribution(source: .containerImage, id: "nonexistent@0.0.0")) == nil)
+    }
+
+    @Test("attribution(withID:) disambiguates entries sharing a name@version id across sources")
+    func attributionByIDDisambiguatesAcrossSources() {
+        // container-image and website-template are both npm dependency trees that can
+        // (and do) share identical name@version pairs — the lookup must be source-scoped,
+        // not resolve to whichever source's copy a flattened dictionary happens to hit first.
+        let catalogs: [AttributionSource: [OSSAttribution]] = [
+            .appBinary: [],
+            .containerImage: [
+                OSSAttribution(name: "@babel/code-frame", version: "7.29.7", licenseSPDXId: "MIT", licenseText: "container-image copy", homepage: nil),
+            ],
+            .websiteTemplate: [
+                OSSAttribution(name: "@babel/code-frame", version: "7.29.7", licenseSPDXId: "MIT", licenseText: "website-template copy", homepage: nil),
+            ],
+        ]
+        let model = AcknowledgmentsViewModel(load: { catalogs[$0] ?? [] }, log: { _ in })
+        model.loadAll()
+
+        let containerImageEntry = model.attribution(withID: SelectedAttribution(source: .containerImage, id: "@babel/code-frame@7.29.7"))
+        let websiteTemplateEntry = model.attribution(withID: SelectedAttribution(source: .websiteTemplate, id: "@babel/code-frame@7.29.7"))
+
+        #expect(containerImageEntry?.licenseText == "container-image copy")
+        #expect(websiteTemplateEntry?.licenseText == "website-template copy")
     }
 }

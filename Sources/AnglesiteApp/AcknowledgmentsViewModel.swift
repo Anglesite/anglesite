@@ -1,6 +1,22 @@
 import Foundation
 import AnglesiteCore
 
+/// Identifies one row in the Acknowledgments list. `OSSAttribution.id` (`name@version`) is not
+/// unique across sources on its own — the app-binary, container-image, and website-template
+/// manifests are independently-generated dependency trees that can (and do) share identical
+/// `name@version` pairs, e.g. npm packages common to both the container image and the website
+/// template. Pairing the id with its source keeps SwiftUI `List` selection/tagging unique and
+/// lookups unambiguous.
+public struct SelectedAttribution: Hashable, Sendable {
+    public let source: AttributionSource
+    public let id: OSSAttribution.ID
+
+    public init(source: AttributionSource, id: OSSAttribution.ID) {
+        self.source = source
+        self.id = id
+    }
+}
+
 /// Backs the Acknowledgments window (App menu, next to About). Kept separate from the SwiftUI
 /// view so grouping/search/error-handling logic is unit-testable without a rendering harness —
 /// same split as `TokenOnboarding`/`DeployModel`.
@@ -9,7 +25,7 @@ import AnglesiteCore
 public final class AcknowledgmentsViewModel {
     public private(set) var catalogs: [AttributionSource: [OSSAttribution]] = [:]
     public var searchText: String = ""
-    public var selection: OSSAttribution.ID?
+    public var selection: SelectedAttribution?
     public private(set) var unavailableSources: Set<AttributionSource> = []
 
     private let load: (AttributionSource) throws -> [OSSAttribution]
@@ -45,7 +61,7 @@ public final class AcknowledgmentsViewModel {
         return entries.filter { $0.name.localizedCaseInsensitiveContains(query) }
     }
 
-    public func attribution(withID id: OSSAttribution.ID) -> OSSAttribution? {
-        catalogs.values.flatMap { $0 }.first { $0.id == id }
+    public func attribution(withID selection: SelectedAttribution) -> OSSAttribution? {
+        catalogs[selection.source]?.first { $0.id == selection.id }
     }
 }

@@ -28,7 +28,7 @@ struct AcknowledgmentsView: View {
                                 .accessibilityLabel(
                                     "\(attribution.name), version \(attribution.version), \(attribution.licenseSPDXId ?? "custom license")"
                                 )
-                                .tag(attribution.id)
+                                .tag(SelectedAttribution(source: source, id: attribution.id))
                             }
                         }
                     }
@@ -37,7 +37,7 @@ struct AcknowledgmentsView: View {
             .searchable(text: $model.searchText)
             .navigationTitle("Acknowledgments")
         } detail: {
-            if let id = model.selection, let attribution = model.attribution(withID: id) {
+            if let selection = model.selection, let attribution = model.attribution(withID: selection) {
                 AcknowledgmentDetailView(attribution: attribution)
             } else {
                 ContentUnavailableView("Select a package to view its license.", systemImage: "doc.text")
