@@ -476,6 +476,18 @@ public actor DeployCommand {
         try? updated.write(to: configURL, atomically: true, encoding: .utf8)
     }
 
+    /// Whether this site has already completed at least one successful deploy — the same
+    /// `.site-config` `CF_WORKER_DEPLOYED` signal `persistWorkerDeployed` writes and
+    /// `checkWorkerNameConflict` reads. A read-only counterpart for callers (`DeployModel`) that
+    /// need to know, *before* a deploy runs, whether this one would be the site's first — without
+    /// duplicating the file read `checkWorkerNameConflict` already does inline. Public (unlike its
+    /// siblings) because `DeployModel` lives in a different module.
+    public static func hasDeployedBefore(siteDirectory: URL) -> Bool {
+        let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
+        let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        return SiteConfigFile.value(forKey: "CF_WORKER_DEPLOYED", in: config) != nil
+    }
+
     /// Marks this site's candidate Worker name as confirmed-ours, via `.site-config`'s
     /// `CF_WORKER_PROVISIONED` — a second, earlier-firing signal `checkWorkerNameConflict` treats
     /// the same as `CF_WORKER_DEPLOYED` (#1075). `CF_WORKER_DEPLOYED` alone only covers a *fully
