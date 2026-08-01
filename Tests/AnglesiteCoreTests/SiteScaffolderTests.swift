@@ -250,6 +250,48 @@ final class SiteScaffolderTests: XCTestCase {
         XCTAssertNotEqual(stampedVersion, "1.0.0")  // no longer the scaffold.sh placeholder
     }
 
+    func testHappyPathWritesThirdPartyNoticesFileFromTemplateAttributions() async throws {
+        let root = tmpDir()
+        let scaffolder = SiteScaffolder(
+            sitesRoot: root, templateURL: URL(fileURLWithPath: "/template"), catalog: ThemeCatalog(themes: [theme]),
+            run: fakeRunner(calls: CallRecorder()),
+            gitInit: { _ in },
+            gitCommit: { _ in },
+            register: { pkg in try SiteStore.Site.make(package: pkg) },
+            attributionsLoader: { source in
+                guard source == .websiteTemplate else { return [] }
+                return [OSSAttribution(name: "astro", version: "7.1.3", licenseSPDXId: "MIT",
+                                       licenseText: "MIT License text", homepage: "https://astro.build")]
+            }
+        )
+        for await _ in scaffolder.scaffold(makeDraft()) {}
+
+        let pkgURL = root.appendingPathComponent("acme-co.anglesite")
+        let notice = try String(contentsOf: pkgURL.appendingPathComponent("Source/THIRD-PARTY-NOTICES.md"), encoding: .utf8)
+        XCTAssertTrue(notice.contains("astro 7.1.3"))
+        XCTAssertTrue(notice.contains("MIT License text"))
+    }
+
+    func testMissingAttributionsCatalogWarnsButStillRegisters() async throws {
+        let root = tmpDir()
+        let scaffolder = SiteScaffolder(
+            sitesRoot: root, templateURL: URL(fileURLWithPath: "/template"), catalog: ThemeCatalog(themes: [theme]),
+            run: fakeRunner(calls: CallRecorder()),
+            gitInit: { _ in },
+            gitCommit: { _ in },
+            register: { pkg in try SiteStore.Site.make(package: pkg) },
+            attributionsLoader: { _ in throw AttributionCatalogError.resourceMissing(.websiteTemplate) }
+        )
+        var steps: [SiteScaffolder.ScaffoldStep] = []
+        for await s in scaffolder.scaffold(makeDraft()) { steps.append(s) }
+
+        XCTAssertTrue(steps.contains {
+            if case .warning(let s, let m) = $0 { return s == "copyingTemplate" && m.contains("Third-party notice") }
+            return false
+        })
+        guard case .done? = steps.last else { return XCTFail("expected .done despite missing attributions catalog") }
+    }
+
     /// #956: a newly scaffolded site's `<html lang>` must default to the owner's actual
     /// language, not a hardcoded "en" — `hostLanguage` is injected here since the real host
     /// locale running `swift test` varies by machine.

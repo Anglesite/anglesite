@@ -27,6 +27,9 @@ public actor SiteScaffolder {
     public typealias CommandRunner = @Sendable (_ executable: URL, _ args: [String], _ cwd: URL?) async throws -> ProcessSupervisor.RunResult
     /// Register a freshly-scaffolded package and return the Site (production: SiteStore.shared.record).
     public typealias Register = @Sendable (_ package: AnglesitePackage) async throws -> SiteStore.Site
+    /// Loads one attribution source's catalog (production: `AttributionCatalog.load`). Injectable
+    /// so tests don't depend on `Bundle.main` having real `Resources/Attributions/*.json`.
+    public typealias AttributionsLoader = @Sendable (_ source: AttributionSource) throws -> [OSSAttribution]
     /// Initialize a git repo in the source dir (production: `git init` via ProcessSupervisor).
     public typealias GitInit = @Sendable (_ sourceDirectory: URL) async throws -> Void
     /// Land the initial commit once template/theme/content are all written (production:
@@ -40,6 +43,7 @@ public actor SiteScaffolder {
     private let gitInit: GitInit
     private let gitCommit: GitCommit
     private let register: Register
+    private let attributionsLoader: AttributionsLoader
     private let fileManager: FileManager
     private let appVersion: @Sendable () -> String?
     private let hostLanguage: @Sendable () -> String
@@ -53,7 +57,9 @@ public actor SiteScaffolder {
     public init(sitesRoot: URL, templateURL: URL, catalog: ThemeCatalog,
                 run: @escaping CommandRunner, gitInit: @escaping GitInit,
                 gitCommit: @escaping GitCommit,
-                register: @escaping Register, fileManager: FileManager = .default,
+                register: @escaping Register,
+                attributionsLoader: @escaping AttributionsLoader = { try AttributionCatalog.load($0) },
+                fileManager: FileManager = .default,
                 appVersion: @escaping @Sendable () -> String? = { AppVersion.current() },
                 hostLanguage: @escaping @Sendable () -> String = { SiteLanguageAsset.hostLanguageTag() }) {
         self.sitesRoot = sitesRoot
@@ -63,6 +69,7 @@ public actor SiteScaffolder {
         self.gitInit = gitInit
         self.gitCommit = gitCommit
         self.register = register
+        self.attributionsLoader = attributionsLoader
         self.fileManager = fileManager
         self.appVersion = appVersion
         self.hostLanguage = hostLanguage
@@ -131,6 +138,16 @@ public actor SiteScaffolder {
         // 2b. git init in Source/ (non-fatal — coordinates with #68).
         do { try await gitInit(siteDir) }
         catch { emit(.warning(step: "copyingTemplate", message: "git init skipped: \(humanize(error))")) }
+
+        // 2c. Third-party notice for the template's own npm dependencies (non-fatal, same
+        // handling as the dependency baseline above — the site is still viable without it).
+        do {
+            let attributions = try attributionsLoader(.websiteTemplate)
+            let notice = ThirdPartyNoticeRenderer.render(attributions)
+            try notice.write(to: siteDir.appendingPathComponent("THIRD-PARTY-NOTICES.md"), atomically: true, encoding: .utf8)
+        } catch {
+            emit(.warning(step: "copyingTemplate", message: "Third-party notice file not written: \(humanize(error))"))
+        }
 
         // 3. Theme (non-fatal). Resolve the owner's chosen theme; fall back to the first available.
         emit(.applyingTheme)
