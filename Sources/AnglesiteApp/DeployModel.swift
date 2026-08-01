@@ -59,6 +59,13 @@ final class DeployModel {
     /// `DeployDrawerView` reads this on `.succeeded` to show the one-time "connect a domain?"
     /// nudge — it can structurally never be true again for a site after its first successful
     /// deploy, since that deploy is what sets `CF_WORKER_DEPLOYED`.
+    ///
+    /// A background/automatic publish (`deployAutomatically`, `presentation: .background`) can
+    /// also be a site's first successful deploy, and this flag flips correctly for it. But
+    /// `drawerPresented` stays `false` for a background run, so the nudge never gets a chance to
+    /// render — and since `wasFirstDeploy` can't be true again afterward, it's silently skipped
+    /// forever for that site. Accepted, documented behavior: the permanent
+    /// `Website ▸ Connect a Domain…` menu item remains the fallback.
     private(set) var wasFirstDeploy: Bool = false
     /// True while the failure summary is being generated (drives a spinner in the drawer).
     private(set) var summarizing: Bool = false

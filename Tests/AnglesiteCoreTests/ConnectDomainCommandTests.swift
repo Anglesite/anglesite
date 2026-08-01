@@ -23,7 +23,10 @@ struct ConnectDomainCommandTests {
         #expect(!config.contains("DOMAIN="))
 
         let domainConfig = try DomainConfigStore(sourceDirectory: dir).load()
-        #expect(domainConfig.domain == DomainConfig.Domain(hostname: nil, choice: "buy", attach: false))
+        // hostname is an explicit "" rather than nil — see DomainIntentRecorder.recordBuyIntent's
+        // doc comment: a nil Optional is omitted by JSON encoding entirely, so it can't overwrite
+        // a hostname declared by a prior recordTransfer via DomainConfigStore's merge-save.
+        #expect(domainConfig.domain == DomainConfig.Domain(hostname: "", choice: "buy", attach: false))
     }
 
     @Test("recordTransfer writes DOMAIN_CHOICE/DOMAIN to .site-config and a transfer intent to anglesite.json")
@@ -67,5 +70,23 @@ struct ConnectDomainCommandTests {
         let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(config.contains("SITE_NAME=My Site"))
         #expect(config.contains("DOMAIN_CHOICE=buy"))
+    }
+
+    @Test("recordBuy after a prior recordTransfer clears the hostname in both .site-config and anglesite.json")
+    func recordBuyAfterRecordTransferClearsHostname() throws {
+        let dir = try makeSiteDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        ConnectDomainCommand.recordTransfer(hostname: "old.example.com", siteDirectory: dir)
+        ConnectDomainCommand.recordBuy(siteDirectory: dir)
+
+        let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(config.contains("DOMAIN_CHOICE=buy"))
+        #expect(!config.contains("DOMAIN="))
+        #expect(!config.contains("old.example.com"))
+
+        let domainConfig = try DomainConfigStore(sourceDirectory: dir).load()
+        #expect(domainConfig.domain?.choice == "buy")
+        #expect(domainConfig.domain?.hostname != "old.example.com")
     }
 }

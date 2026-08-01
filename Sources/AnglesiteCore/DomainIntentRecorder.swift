@@ -22,11 +22,20 @@ public enum DomainIntentRecorder {
     /// Declares a buy-a-domain intent: no hostname exists yet, so `attach` is `false` — there is
     /// nothing to attach until the owner comes back with a real hostname (via the transfer path
     /// above, once they've bought one). Best-effort, matching `recordTransferIntent`.
+    ///
+    /// Writes `hostname` as an explicit empty string rather than `nil`. `DomainConfigStore.save`
+    /// does a recursive JSON merge that can't express deletion, and Swift's synthesized
+    /// `Encodable` for an `Optional` property omits the key entirely when the value is `nil` — so
+    /// a `nil` hostname here would be indistinguishable from "caller didn't mention hostname" and
+    /// a previously-declared hostname (from a prior `recordTransferIntent`, e.g. the owner
+    /// reopening the sheet and switching from "I already own a domain" to "Buy a domain") would
+    /// survive untouched in `anglesite.json`. An explicit `""` does get encoded and so does
+    /// overwrite the merge.
     public static func recordBuyIntent(siteDirectory: URL) {
         let store = DomainConfigStore(sourceDirectory: siteDirectory)
         var config = (try? store.load()) ?? DomainConfig()
         config.domain = DomainConfig.Domain(
-            hostname: nil, choice: NewSiteDomainChoice.buy.rawValue, attach: false)
+            hostname: "", choice: NewSiteDomainChoice.buy.rawValue, attach: false)
         try? store.save(config)
     }
 }

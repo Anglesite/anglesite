@@ -79,7 +79,16 @@ struct DeployDrawerView: View {
                 // `.site-config`'s CF_WORKER_DEPLOYED from unset to set. `wasFirstDeploy`
                 // structurally cannot be true again for this site afterward, so this line cannot
                 // reappear on a later deploy — no separate "already prompted" flag is needed.
-                if case .succeeded = model.phase, model.wasFirstDeploy {
+                // Gated on `domainAttachStatus` too: the sheet is reachable before a first
+                // Publish (via the permanent menu item), so an owner can already have declared
+                // `DOMAIN_CHOICE=transfer` going into their first deploy — in which case the
+                // `.notConnected`/`.conflict` captions above already report the outcome, and this
+                // nudge would otherwise contradict them by asking the owner to connect a domain
+                // they just tried to. `.skipped` is the common case (default `DOMAIN_CHOICE=later`);
+                // `nil` covers a background/automatic first deploy where the attach callback never
+                // fired.
+                if case .succeeded = model.phase, model.wasFirstDeploy,
+                   model.domainAttachStatus == nil || model.domainAttachStatus == .skipped {
                     HStack(spacing: 4) {
                         Text("Your site is live. Connect a domain?")
                             .font(.caption)

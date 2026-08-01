@@ -22,7 +22,7 @@ struct DomainIntentRecorderTests {
         #expect(config.domain == DomainConfig.Domain(hostname: "example.com", choice: "transfer", attach: true))
     }
 
-    @Test("recordBuyIntent writes a nil-hostname buy declaration")
+    @Test("recordBuyIntent writes an empty-string-hostname buy declaration")
     func recordBuyIntentWritesDomainSection() throws {
         let dir = try makeSiteDir()
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -30,6 +30,22 @@ struct DomainIntentRecorderTests {
         DomainIntentRecorder.recordBuyIntent(siteDirectory: dir)
 
         let config = try DomainConfigStore(sourceDirectory: dir).load()
-        #expect(config.domain == DomainConfig.Domain(hostname: nil, choice: "buy", attach: false))
+        // hostname is an explicit "" rather than nil so this call overwrites (rather than
+        // leaves untouched) a hostname declared by a prior recordTransferIntent — see the
+        // method's doc comment for why nil can't express that under DomainConfigStore's merge-save.
+        #expect(config.domain == DomainConfig.Domain(hostname: "", choice: "buy", attach: false))
+    }
+
+    @Test("recordBuyIntent after a prior recordTransferIntent clears the hostname")
+    func recordBuyIntentAfterTransferIntentClearsHostname() throws {
+        let dir = try makeSiteDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        DomainIntentRecorder.recordTransferIntent(hostname: "old.example.com", siteDirectory: dir)
+        DomainIntentRecorder.recordBuyIntent(siteDirectory: dir)
+
+        let config = try DomainConfigStore(sourceDirectory: dir).load()
+        #expect(config.domain?.choice == "buy")
+        #expect(config.domain?.hostname != "old.example.com")
     }
 }

@@ -30,9 +30,18 @@ public enum ConnectDomainCommand {
     ) {
         let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
-        var entries: [(key: String, value: String)] = [("DOMAIN_CHOICE", choice.rawValue)]
-        if let hostname { entries.append(("DOMAIN", hostname)) }
-        let updated = SiteConfigFile.upsert(entries, into: config)
+        var updated = SiteConfigFile.upsert([("DOMAIN_CHOICE", choice.rawValue)], into: config)
+        if let hostname {
+            updated = SiteConfigFile.upsert([("DOMAIN", hostname)], into: updated)
+        } else {
+            // The sheet is re-enterable: an owner who previously picked "I already own a domain"
+            // (writing `DOMAIN=<hostname>`) can come back and pick "Buy a domain" instead. Remove
+            // any stale `DOMAIN` line rather than leaving it sitting next to the fresh
+            // `DOMAIN_CHOICE=buy` — and never write it as an empty value, since a present-but-empty
+            // `DOMAIN=` line still makes `WebsiteAnalyticsAsset.configValue` return `""` (non-nil),
+            // short-circuiting `bestHost`'s fallback chain.
+            updated = SiteConfigFile.remove(["DOMAIN"], from: updated)
+        }
         try? updated.write(to: configURL, atomically: true, encoding: .utf8)
     }
 }

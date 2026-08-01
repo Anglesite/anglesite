@@ -77,7 +77,7 @@ struct WebsiteCommands: Commands {
                 .disabled(model?.canOpenDomain != true)
 
             Button("Connect a Domain…") { model?.connectDomain.openSheet() }
-                .disabled(model == nil)
+                .disabled(model?.site == nil)
 
             Button("Add Integration…") { model?.openIntegrationWizard() }
                 .disabled(model?.canOpenIntegrationWizard != true)
