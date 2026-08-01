@@ -17,10 +17,32 @@ public struct Theme: Sendable, Identifiable, Equatable {
     /// `ThemeApplier` rewrites into `global.css`.
     public let cssVars: [String: String]
 
+    /// Attribution for a ported pack's original theme (spec §1); `nil` for built-ins.
+    public struct Credit: Sendable, Equatable, Decodable {
+        public let name: String
+        public let url: String
+        public let license: String
+        public init(name: String, url: String, license: String) {
+            self.name = name; self.url = url; self.license = license
+        }
+    }
+
+    /// Chooser category (`business|personal|blog|portfolio|organization`); `nil` = Blank
+    /// (the base chassis in different palettes — all 8 built-ins).
+    public let category: String?
+    /// Pack directory name under the template's `packs/`; `nil` = plain CSS-var theme.
+    public let pack: String?
+    /// Path (relative to the template root) of the committed thumbnail; pack entries only.
+    public let thumbnail: String?
+    /// Original-theme attribution; pack entries only.
+    public let credit: Credit?
+
     /// Memberwise creation — normally themes come from ``ThemeCatalog/parse(themesJSON:)``, but
     /// tests build them directly.
-    public init(id: String, name: String, blurb: String, swatch: [String], cssVars: [String: String]) {
+    public init(id: String, name: String, blurb: String, swatch: [String], cssVars: [String: String],
+                category: String? = nil, pack: String? = nil, thumbnail: String? = nil, credit: Credit? = nil) {
         self.id = id; self.name = name; self.blurb = blurb; self.swatch = swatch; self.cssVars = cssVars
+        self.category = category; self.pack = pack; self.thumbnail = thumbnail; self.credit = credit
     }
 }
 
@@ -65,6 +87,10 @@ public struct ThemeCatalog: Sendable {
             let description: String
             let bestFor: [String]
             let vars: [String: String]
+            let category: String?
+            let pack: String?
+            let thumbnail: String?
+            let credit: Theme.Credit?
         }
         return try JSONDecoder().decode([Record].self, from: data).map { record in
             Theme(
@@ -72,7 +98,11 @@ public struct ThemeCatalog: Sendable {
                 name: record.displayName,
                 blurb: record.description,
                 swatch: ["color-primary", "color-accent"].compactMap { record.vars[$0] },
-                cssVars: record.vars
+                cssVars: record.vars,
+                category: record.category,
+                pack: record.pack,
+                thumbnail: record.thumbnail,
+                credit: record.credit
             )
         }
     }
