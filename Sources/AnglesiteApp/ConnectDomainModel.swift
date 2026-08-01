@@ -38,6 +38,16 @@ final class ConnectDomainModel {
     private let rdap: any RDAPLookupService
     private var registrarLookupTask: Task<Void, Never>?
     private var currentSite: CurrentSite?
+    /// Bumped every time `loadRegistrarInfo` starts a new lookup, and captured locally before the
+    /// `Task` spawns. `registrarLookupTask?.cancel()` alone can't stop a stale lookup from
+    /// eventually resuming — `RDAPLookupService.lookup(hostname:)` is non-throwing and doesn't
+    /// participate in cooperative cancellation — so a superseded task's continuation would
+    /// otherwise still be able to overwrite `registrarInfo`/`anglesite.json` or clobber
+    /// `isLookingUpRegistrarInfo` after a newer lookup already finished. Comparing the captured
+    /// generation against this property before every mutation makes a stale task's completion a
+    /// complete no-op once superseded (reopening the sheet before the first lookup resolves, or a
+    /// double-tap on submit, both spawn two lookups for the same hostname).
+    private var registrarLookupGeneration = 0
 
     /// The Cloudflare Domains marketing page — opened by the view layer's "Buy a domain" button,
     /// not by `chooseBuy()` itself, so this model stays free of `NSWorkspace`/AppKit side effects
@@ -81,6 +91,8 @@ final class ConnectDomainModel {
 
     func dismissSheet() {
         registrarLookupTask?.cancel()
+        registrarLookupTask = nil
+        isLookingUpRegistrarInfo = false
         sheetPresented = false
     }
 
@@ -134,9 +146,15 @@ final class ConnectDomainModel {
 
         isLookingUpRegistrarInfo = true
         registrarLookupTask?.cancel()
+        registrarLookupGeneration += 1
+        let generation = registrarLookupGeneration
         registrarLookupTask = Task { @MainActor [weak self] in
             guard let self else { return }
             let result = await self.rdap.lookup(hostname: hostname)
+            // A newer lookup superseded this one (reopen-before-resolve, or a double submit) —
+            // this task's completion is a no-op, including the `isLookingUpRegistrarInfo` write,
+            // so it can't clear a flag the newer task already set.
+            guard generation == self.registrarLookupGeneration else { return }
             self.isLookingUpRegistrarInfo = false
             guard case .connected(let current) = self.phase, current == hostname else { return }
             if let result, result.registrar != nil || result.expiresAt != nil {
