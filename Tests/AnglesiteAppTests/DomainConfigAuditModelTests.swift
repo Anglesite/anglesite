@@ -1,0 +1,179 @@
+import Foundation
+import Testing
+import AnglesiteCore
+@testable import AnglesiteAppCore
+
+private final class StubReader: CloudflareReading, @unchecked Sendable {
+    private let zoneID: String?
+    private let state: CloudflareZoneState
+    private let records: [DNSRecord]
+    private(set) var resolvedDomain: String?
+    private(set) var listedZoneID: String?
+
+    init(zoneID: String? = "z1", state: CloudflareZoneState = StubReader.cleanState, records: [DNSRecord] = []) {
+        self.zoneID = zoneID
+        self.state = state
+        self.records = records
+    }
+
+    static let cleanState = CloudflareZoneState(
+        dnssecActive: true, sslMode: "strict", alwaysUseHTTPS: true,
+        hsts: nil, caaRecords: [], mxRecords: [], spfRecords: [], dmarcRecords: [])
+
+    func resolveZoneID(domain: String, apiToken: String) async throws -> String? {
+        resolvedDomain = domain
+        return zoneID
+    }
+    func zoneState(zoneID: String, domain: String, apiToken: String) async throws -> CloudflareZoneState { state }
+    func listDNSRecords(zoneID: String, apiToken: String) async throws -> [DNSRecord] {
+        listedZoneID = zoneID
+        return records
+    }
+    func workerScriptNames(apiToken: String) async throws -> [String] { [] }
+}
+
+private final class StubWriter: CloudflareWriting, @unchecked Sendable {
+    private(set) var addedRecords: [DNSRecordPayload] = []
+
+    func enableDNSSEC(zoneID: String, apiToken: String) async throws {}
+    func setAlwaysUseHTTPS(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func setHSTS(zoneID: String, maxAge: Int, includeSubdomains: Bool, preload: Bool, apiToken: String) async throws {}
+    func addDNSRecord(zoneID: String, record: DNSRecordPayload, apiToken: String) async throws {
+        addedRecords.append(record)
+    }
+    func deleteDNSRecord(zoneID: String, recordID: String, apiToken: String) async throws {}
+    func setBotFightMode(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func createWAFCustomRule(zoneID: String, rule: WAFRulePayload, apiToken: String) async throws {}
+    func setSpeedBrain(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func setECH(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func enableZstandardCompression(zoneID: String, apiToken: String) async throws {}
+    func setPageShield(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func attachWorkersCustomDomain(hostname: String, workerScriptName: String, apiToken: String) async throws -> CustomDomainAttachResult {
+        .attached
+    }
+}
+
+@Suite(.serialized)
+struct DomainConfigAuditModelTests {
+    init() {
+        setenv("CLOUDFLARE_API_TOKEN", "test-token", 1)
+    }
+
+    private func tempSite(declaring config: DomainConfig? = nil) throws -> (CurrentSite, () -> Void) {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        if let config {
+            try DomainConfigStore(sourceDirectory: tmp).save(config)
+        }
+        let site = CurrentSite(id: "s1", packageURL: tmp, sourceDirectory: tmp)
+        return (site, { try? FileManager.default.removeItem(at: tmp) })
+    }
+
+    @MainActor
+    @Test("runAudit() surfaces a clear error when no domain is declared")
+    func runAuditNoDomainDeclared() async throws {
+        let (site, cleanup) = try tempSite()
+        defer { cleanup() }
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
+        model.configure(site: site)
+
+        model.runAudit()
+        while model.isRunning { await Task.yield() }
+
+        guard case .failed(let reason) = model.phase else {
+            Issue.record("expected .failed, got \(model.phase)")
+            return
+        }
+        #expect(reason.contains("domain"))
+    }
+
+    @MainActor
+    @Test("runAudit() surfaces a clear error when the zone isn't found")
+    func runAuditZoneNotFound() async throws {
+        let declared = DomainConfig(domain: .init(hostname: "example.com"))
+        let (site, cleanup) = try tempSite(declaring: declared)
+        defer { cleanup() }
+        let model = DomainConfigAuditModel(reader: StubReader(zoneID: nil), writer: StubWriter())
+        model.configure(site: site)
+
+        model.runAudit()
+        while model.isRunning { await Task.yield() }
+
+        guard case .failed(let reason) = model.phase else {
+            Issue.record("expected .failed, got \(model.phase)")
+            return
+        }
+        #expect(reason.contains("example.com"))
+    }
+
+    @MainActor
+    @Test("runAudit() computes findings against the declared config and resolved zone")
+    func runAuditComputesFindings() async throws {
+        let record = DomainConfig.DNSRecord(
+            type: "TXT", name: "_atproto", content: "did=did:plc:abc", purpose: "verification:bluesky")
+        let declared = DomainConfig(domain: .init(hostname: "example.com"), dns: .init(managedRecords: [record]))
+        let (site, cleanup) = try tempSite(declaring: declared)
+        defer { cleanup() }
+        let reader = StubReader(zoneID: "z1", state: StubReader.cleanState, records: [])
+        let model = DomainConfigAuditModel(reader: reader, writer: StubWriter())
+        model.configure(site: site)
+
+        model.runAudit()
+        while model.isRunning { await Task.yield() }
+
+        guard case .results(let findings, let plan, let domain, let zoneID) = model.phase else {
+            Issue.record("expected .results, got \(model.phase)")
+            return
+        }
+        #expect(reader.resolvedDomain == "example.com")
+        #expect(domain == "example.com")
+        #expect(zoneID == "z1")
+        #expect(findings.count == 1)
+        #expect(plan.items == [.createManagedRecord(record)])
+    }
+
+    @MainActor
+    @Test("reconcile() delegates to DomainConfigReconciler and reports the applied plan")
+    func reconcileAppliesPlan() async throws {
+        let record = DomainConfig.DNSRecord(
+            type: "TXT", name: "_atproto", content: "did=did:plc:abc", purpose: "verification:bluesky")
+        let declared = DomainConfig(domain: .init(hostname: "example.com"), dns: .init(managedRecords: [record]))
+        let (site, cleanup) = try tempSite(declaring: declared)
+        defer { cleanup() }
+        let writer = StubWriter()
+        let model = DomainConfigAuditModel(reader: StubReader(zoneID: "z1"), writer: writer)
+        model.configure(site: site)
+
+        model.runAudit()
+        while model.isRunning { await Task.yield() }
+
+        model.reconcile()
+        while model.isRunning { await Task.yield() }
+
+        guard case .succeeded(let result) = model.phase else {
+            Issue.record("expected .succeeded, got \(model.phase)")
+            return
+        }
+        #expect(result.appliedCount == 1)
+        #expect(writer.addedRecords.first?.content == "did=did:plc:abc")
+    }
+
+    @MainActor
+    @Test("openSheet() resets phase")
+    func openSheetResets() {
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
+        model.openSheet()
+        #expect(model.sheetPresented == true)
+        #expect(model.phase == .idle)
+    }
+
+    @MainActor
+    @Test("dismissSheet() clears the presented flag")
+    func dismissSheetClearsPresented() {
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
+        model.openSheet()
+        model.dismissSheet()
+        #expect(model.sheetPresented == false)
+    }
+}

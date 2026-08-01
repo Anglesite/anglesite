@@ -15,6 +15,8 @@ public enum SiteToolbarItemID: String, CaseIterable, Sendable {
     case audit
     case openInBrowser
     case harden
+    /// Domain config drift audit + reconcile (#1171): declared `anglesite.json` vs live Cloudflare.
+    case domainConfigAudit
     case onionRouting
     case domain
     case integration
