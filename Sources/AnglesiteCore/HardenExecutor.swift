@@ -29,7 +29,7 @@ public struct HardenExecutor: Sendable {
         }
     }
 
-    /// The outcome of one ``HardenExecutor/execute(plan:zoneID:domain:apiToken:)`` run. Always returned, never
+    /// The outcome of one ``HardenExecutor/execute(plan:zoneID:domain:apiToken:sourceDirectory:)`` run. Always returned, never
     /// thrown — partial success is the expected shape, so errors are folded in per item.
     public struct Result: Sendable {
         /// How many plan items applied successfully.
