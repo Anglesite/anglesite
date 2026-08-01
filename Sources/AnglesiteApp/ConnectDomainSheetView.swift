@@ -80,9 +80,8 @@ struct ConnectDomainSheetView: View {
                     .foregroundStyle(.green)
                 registrarInfoView
                 Button("Use a different domain") { model.beginChangeDomain() }
+                    .buttonStyle(.link)
                     .font(.caption)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
             }
         }
     }

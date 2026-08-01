@@ -24,7 +24,6 @@ public struct RDAPDomainInfo: Equatable, Sendable {
     /// - Parameters:
     ///   - registrar: The domain's registrar name, or `nil` if unknown.
     ///   - expiresAt: The raw ISO 8601 expiration event date, or `nil` if unknown.
-    /// - Returns: A new `RDAPDomainInfo` value.
     public init(registrar: String?, expiresAt: String?) {
         self.registrar = registrar
         self.expiresAt = expiresAt
