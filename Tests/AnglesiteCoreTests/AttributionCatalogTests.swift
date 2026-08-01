@@ -36,4 +36,24 @@ final class AttributionCatalogTests: XCTestCase {
             XCTAssertEqual(error as? AttributionCatalogError, .resourceMissing(.appBinary))
         }
     }
+
+    /// Guards the checked-in manifests directly, independent of the generator scripts'
+    /// correctness: every committed Resources/Attributions/*.json (that exists) must decode and
+    /// be non-empty. Reads by repo-root-relative path (not `Bundle.main`) since the xctest host
+    /// has no Attributions resources — same convention as
+    /// `SiteScaffolderTests.realScaffoldScriptURL()`.
+    func testCommittedManifestsThatExistDecodeAndAreNonEmpty() throws {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        var checkedAtLeastOne = false
+        for source in AttributionSource.allCases {
+            let url = repoRoot.appendingPathComponent("Resources/Attributions/\(source.rawValue).json")
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            let data = try Data(contentsOf: url)
+            let entries = try AttributionCatalog.decode(data, source: source)
+            XCTAssertFalse(entries.isEmpty, "\(source.rawValue).json decoded but is empty")
+            checkedAtLeastOne = true
+        }
+        XCTAssertTrue(checkedAtLeastOne, "expected at least one Resources/Attributions/*.json to exist")
+    }
 }
