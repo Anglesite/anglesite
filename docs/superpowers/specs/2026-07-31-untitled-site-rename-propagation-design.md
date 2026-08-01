@@ -26,16 +26,19 @@ A new `AnglesiteCore` type, `UntitledSitePropagation.propagateIfUntitled(newDisp
 
 **Guard conditions** (all must hold, else silent no-op):
 
-1. Neither `CF_WORKER_DEPLOYED` nor `CF_WORKER_PROVISIONED` is present in `.site-config` — no Cloudflare resources (D1/KV/R2, all named from the current project slug in `WorkerComposition.generateWranglerToml`) exist yet to break.
-2. `SITE_NAME` still matches the scaffold-time pattern: exactly `"Untitled"` or `"Untitled N"` (matching `NewSiteWizardModel.untitledName`'s output).
-3. `CF_PROJECT_NAME` still equals `SiteSlug.derive(from: SITE_NAME)` — nothing has hand-customized the project name since scaffold.
+1. Neither `CF_WORKER_DEPLOYED` nor `CF_WORKER_PROVISIONED` is present in `.site-config` — no Cloudflare resources (D1/KV/R2, all named from the current project slug in `WorkerComposition.generateWranglerToml`) exist yet to break. Same virginity test `DeployCommand.checkWorkerNameConflict` already uses.
+2. `CF_PROJECT_NAME` still equals `SiteSlug.derive(from: SITE_NAME)` — nothing has hand-customized the project name away from what the current display name would derive.
 
-**On pass:** derive `newSlug = SiteSlug.derive(from: newDisplayName)`, validate with `WorkerComposition.isValidSiteName`, then best-effort:
+**Revision (post-review):** an earlier draft of this guard also required `SITE_NAME` to still literally match the scaffold-time `"Untitled"`/`"Untitled N"` pattern, so only the *very first* rename away from that default would propagate — a second pre-publish rename (e.g. "Untitled" → "My Blog" → "Dave's Blog") silently stopped working, a muted recurrence of the bug this change fixes. The final review caught it; the literal-Untitled check was dropped, so every pre-publish rename keeps `CF_PROJECT_NAME` in sync now, not just the first.
 
+**On pass:** sanitize `newDisplayName` to its first line (`.components(separatedBy: .newlines).first`), trimmed, bailing if blank — `.site-config` is a git-tracked, externally-editable file and `SiteConfigFile.upsert` does no escaping, so an unsanitized multi-line name could inject arbitrary `KEY=value` lines (caught in review; `SiteScaffolder`'s own `SITE_NAME` writer already guards this the same way). Derive `newSlug = SiteSlug.derive(from: sanitizedName)`, validate with `WorkerComposition.isValidSiteName`, then best-effort:
+
+- `SiteConfigFile.upsert` both `SITE_NAME` and `CF_PROJECT_NAME` in `.site-config` — written **first**, since it's what `DeployCoordinator.resolveWorkerSiteName` actually reads at publish time, so a subsequent `wrangler.toml` write failure is self-correcting rather than authoritative.
 - Rewrite `wrangler.toml`'s `name = "..."` line (same line-level, non-regenerating approach as `WorkerNameRename.apply`, to avoid dropping provisioned feature config — though by guard #1 there shouldn't be any yet).
-- `SiteConfigFile.upsert` both `SITE_NAME` and `CF_PROJECT_NAME` in `.site-config`.
 
 All writes are `try?`. Renaming a site's display name is a frequent, low-stakes action (a text field commit) and must never fail because this propagation couldn't complete — mirrors the best-effort idiom already used by `DeployCoordinator.syncWorkerActivationToAnglesiteJSON`.
+
+**Known blind spot (accepted, not fixed):** the virginity check only looks at `.site-config`'s own `CF_WORKER_DEPLOYED`/`CF_WORKER_PROVISIONED` markers. Since "git is the source of truth", a site's `Source/` repo can be cloned and `wrangler deploy`'d entirely outside the app, which never sets those markers — the app still reads such a site as virgin. An in-app rename would then silently re-slug `CF_PROJECT_NAME`, and because the new slug is free on the account, the existing collision check finds nothing wrong; the next in-app deploy lands on a new worker rather than the live one. This blind spot already exists elsewhere in the app's virginity handling and isn't introduced by this change, but it is newly reachable from a plain text-field rename rather than an explicit deploy action. Not worth a code change for this issue; noted for whoever next touches virginity detection.
 
 ### Call site: `SiteStore.setDisplayName`
 
@@ -50,5 +53,5 @@ Call `UntitledSitePropagation.propagateIfUntitled` for a real (non-clearing) ren
 
 ## Testing
 
-- New `UntitledSitePropagationTests.swift`: fires and rewrites both files when virgin + untitled; no-ops when `CF_WORKER_DEPLOYED`/`CF_WORKER_PROVISIONED` present; no-ops when `SITE_NAME` was already customized; no-ops when `CF_PROJECT_NAME` was hand-customized away from its derived value; no-ops gracefully when `wrangler.toml`/`.site-config` is missing.
+- New `UntitledSitePropagationTests.swift`: fires and rewrites both files when virgin + untitled; fires again on a second pre-publish rename; no-ops when `CF_WORKER_DEPLOYED`/`CF_WORKER_PROVISIONED` present; no-ops when `CF_PROJECT_NAME` was hand-customized away from its derived value; sanitizes an embedded newline instead of injecting a `.site-config` key; no-ops when the sanitized name is blank; no-ops gracefully when `wrangler.toml`/`.site-config` is missing.
 - Extend `SiteStoreTests.swift`'s `setDisplayName` coverage with an end-to-end case: scaffold an untitled site, rename it, assert `.site-config` now has the new `SITE_NAME`/`CF_PROJECT_NAME` and `wrangler.toml` has the new `name`.
