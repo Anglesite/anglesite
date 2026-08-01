@@ -15,6 +15,10 @@ import AnglesiteCore
 struct DeployDrawerView: View {
     @Bindable var model: DeployModel
     let siteName: String
+    /// Opens the Connect a Domain sheet (#1180) — wired to `SiteWindowModel.connectDomain.openSheet()`
+    /// by `SiteWindow`. Threaded as a closure (matching `AuditSheetView`'s `onRunAgain`) rather than
+    /// reaching into `SiteWindowModel` directly, since this view is only ever handed `DeployModel`.
+    let onConnectDomain: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -70,6 +74,29 @@ struct DeployDrawerView: View {
                     Text("\(hostname) is already connected to another site (\(ownedBy)) — not used for this deploy.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+                // First-publish nudge (#1180): shown exactly once, on the deploy that flips
+                // `.site-config`'s CF_WORKER_DEPLOYED from unset to set. `wasFirstDeploy`
+                // structurally cannot be true again for this site afterward, so this line cannot
+                // reappear on a later deploy — no separate "already prompted" flag is needed.
+                // Gated on `domainAttachStatus` too: the sheet is reachable before a first
+                // Publish (via the permanent menu item), so an owner can already have declared
+                // `DOMAIN_CHOICE=transfer` going into their first deploy — in which case the
+                // `.notConnected`/`.conflict` captions above already report the outcome, and this
+                // nudge would otherwise contradict them by asking the owner to connect a domain
+                // they just tried to. `.skipped` is the common case (default `DOMAIN_CHOICE=later`);
+                // `nil` covers a background/automatic first deploy where the attach callback never
+                // fired.
+                if case .succeeded = model.phase, model.wasFirstDeploy,
+                   model.domainAttachStatus == nil || model.domainAttachStatus == .skipped {
+                    HStack(spacing: 4) {
+                        Text("Your site is live. Connect a domain?")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Connect a domain…", action: onConnectDomain)
+                            .buttonStyle(.link)
+                            .font(.caption)
+                    }
                 }
             }
             Spacer()

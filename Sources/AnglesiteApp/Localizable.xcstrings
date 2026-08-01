@@ -853,10 +853,22 @@
     "Config…" : {
 
     },
+    "Connect" : {
+
+    },
     "Connect & deploy" : {
 
     },
     "Connect & publish" : {
+
+    },
+    "Connect a Domain" : {
+
+    },
+    "Connect a Domain…" : {
+
+    },
+    "Connect a domain…" : {
 
     },
     "Connect to Cloudflare" : {
@@ -1500,6 +1512,9 @@
     "How many products?" : {
 
     },
+    "I already own a domain" : {
+
+    },
     "Icons" : {
 
     },
@@ -1582,6 +1597,9 @@
 
     },
     "Keep My Version" : {
+
+    },
+    "Keep it at your current registrar — you'll add it to Cloudflare and point its nameservers there. We'll connect it automatically on your next Publish once that's done." : {
 
     },
     "Keep which version" : {
@@ -1888,6 +1906,9 @@
 
     },
     "Not Set" : {
+
+    },
+    "Not now" : {
 
     },
     "Not reviewed" : {
@@ -2326,6 +2347,9 @@
 
     },
     "Replace With" : {
+
+    },
+    "Replace the workers.dev address with your own." : {
 
     },
     "Replies" : {
@@ -3156,6 +3180,9 @@
     "Warnings (%lld)" : {
 
     },
+    "We'll connect %@ on your next Publish." : {
+
+    },
     "Web Video…" : {
 
     },
@@ -3220,6 +3247,9 @@
 
     },
     "Your declared domain configuration (anglesite.json) doesn't match what's live on Cloudflare. Review and reconcile before deploying again." : {
+
+    },
+    "Your site is live. Connect a domain?" : {
 
     },
     "Your website was created with warnings. You can open it anyway and fix it from the website window." : {

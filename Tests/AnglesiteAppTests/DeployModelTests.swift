@@ -651,6 +651,33 @@ struct DeployModelTests {
         #expect(await providerCalls.count == 2)
     }
 
+    @Test("wasFirstDeploy is true only when CF_WORKER_DEPLOYED was absent before this deploy")
+    func wasFirstDeployReflectsPriorDeployHistory() async {
+        let executor = GatedDeployExecutor()
+        let command = DeployCommand(tokenSource: { "test-token" }, executor: executor)
+        let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
+        let siteDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try! FileManager.default.createDirectory(at: siteDir, withIntermediateDirectories: true)
+
+        model.deploy(siteID: "s", siteDirectory: siteDir, configDirectory: siteDir, currentRoutes: [])
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
+        while model.isRunning { await Task.yield() }
+        guard case .succeeded = model.phase else {
+            Issue.record("expected .succeeded on first deploy, got \(model.phase)"); return
+        }
+        #expect(model.wasFirstDeploy)
+
+        model.deploy(siteID: "s", siteDirectory: siteDir, configDirectory: siteDir, currentRoutes: [])
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
+        while model.isRunning { await Task.yield() }
+        guard case .succeeded = model.phase else {
+            Issue.record("expected .succeeded on second deploy, got \(model.phase)"); return
+        }
+        #expect(!model.wasFirstDeploy)
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("DeployModelTests-\(UUID().uuidString)", isDirectory: true)
