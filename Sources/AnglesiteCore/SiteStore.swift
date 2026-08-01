@@ -346,6 +346,17 @@ public actor SiteStore {
         let override = (trimmed?.isEmpty == false) ? trimmed : nil
 
         let package = AnglesitePackage(url: existing.packageURL)
+
+        // Best-effort, and run before the no-op guard below so a retry always re-attempts it —
+        // propagateIfUntitled is itself cheap and idempotent (#1182).
+        if let override {
+            UntitledSitePropagation.propagateIfUntitled(
+                newDisplayName: override,
+                siteDirectory: package.sourceURL,
+                fileManager: fileManager
+            )
+        }
+
         let config = SiteConfigStore(configDirectory: package.configURL, fileManager: fileManager)
         var settings = try await config.load()
         // Renaming to the current value (or clearing an already-empty override) changes nothing —

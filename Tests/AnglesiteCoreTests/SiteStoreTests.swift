@@ -326,6 +326,40 @@ final class SiteStoreTests {
         #expect(await store.find(id: site.id)?.name == "Alpha Production")
     }
 
+    @Test("setDisplayName propagates SITE_NAME/CF_PROJECT_NAME into an untitled site's .site-config and wrangler.toml")
+    func setDisplayNamePropagatesUntitledSiteConfig() async throws {
+        let pkg = try makeValidPackage(named: "alpha")
+        try "SITE_NAME=Untitled\nCF_PROJECT_NAME=untitled\n".write(
+            to: pkg.sourceURL.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        try #"name = "untitled""#.write(
+            to: pkg.sourceURL.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+        let store = SiteStore(persistenceURL: persistenceURL)
+        let site = try await store.record(pkg)
+
+        _ = try await store.setDisplayName("Acme Bakery", for: site.id)
+
+        let config = try String(contentsOf: pkg.sourceURL.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "Acme Bakery")
+        #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "acme-bakery")
+        let toml = try String(contentsOf: pkg.sourceURL.appendingPathComponent("wrangler.toml"), encoding: .utf8)
+        #expect(toml.contains(#"name = "acme-bakery""#))
+    }
+
+    @Test("setDisplayName does not propagate into .site-config once the site has deployed")
+    func setDisplayNameSkipsPropagationAfterDeploy() async throws {
+        let pkg = try makeValidPackage(named: "alpha")
+        try "SITE_NAME=Untitled\nCF_PROJECT_NAME=untitled\nCF_WORKER_DEPLOYED=true\n".write(
+            to: pkg.sourceURL.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        let store = SiteStore(persistenceURL: persistenceURL)
+        let site = try await store.record(pkg)
+
+        _ = try await store.setDisplayName("Acme Bakery", for: site.id)
+
+        let config = try String(contentsOf: pkg.sourceURL.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "Untitled")
+        #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "untitled")
+    }
+
     @Test("setDisplayName is a no-op for an unknown id")
     func setDisplayNameUnknownIDNoOp() async throws {
         let store = SiteStore(persistenceURL: persistenceURL)
