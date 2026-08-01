@@ -53,6 +53,21 @@ final class DeployModel {
     /// as a Workers Custom Domain (#1077), captured from the deploy's `onDomainAttach` observer.
     /// `nil` before any deploy has completed this session; only ever set on a `.succeeded` deploy.
     private(set) var domainAttachStatus: CustomDomainAttachCommand.Result?
+    /// Whether the deploy currently in flight (or most recently completed) is this site's first
+    /// successful publish — captured from `.site-config`'s `CF_WORKER_DEPLOYED` *before* the
+    /// deploy pipeline runs (#1180), so it reflects the site's history going into this attempt,
+    /// not the flag `DeployCommand` writes as a side effect of this same deploy succeeding.
+    /// `DeployDrawerView` reads this on `.succeeded` to show the one-time "connect a domain?"
+    /// nudge — it can structurally never be true again for a site after its first successful
+    /// deploy, since that deploy is what sets `CF_WORKER_DEPLOYED`.
+    ///
+    /// A background/automatic publish (`deployAutomatically`, `presentation: .background`) can
+    /// also be a site's first successful deploy, and this flag flips correctly for it. But
+    /// `drawerPresented` stays `false` for a background run, so the nudge never gets a chance to
+    /// render — and since `wasFirstDeploy` can't be true again afterward, it's silently skipped
+    /// forever for that site. Accepted, documented behavior: the permanent
+    /// `Website ▸ Connect a Domain…` menu item remains the fallback.
+    private(set) var wasFirstDeploy: Bool = false
     /// True while the failure summary is being generated (drives a spinner in the drawer).
     private(set) var summarizing: Bool = false
 
@@ -480,6 +495,7 @@ final class DeployModel {
     ) async -> DeployCommand.Result {
         defer { suddenTerminationLease.release() }
         transition(siteID: siteID, to: .running(siteID: siteID, since: Date()))
+        wasFirstDeploy = !DeployCommand.hasDeployedBefore(siteDirectory: siteDirectory)
         logLines = []
         currentMilestone = nil
         currentMilestonePhase = nil

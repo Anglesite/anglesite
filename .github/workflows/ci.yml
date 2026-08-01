@@ -92,9 +92,9 @@ jobs:
           }
 
           swift=false; js=false; template=false; helpBook=false
-          matches 'Package.swift' 'Package.resolved' 'project.yml' 'Sources/**' 'Tests/**' 'Resources/Template/**' 'scripts/**' '.github/workflows/ci.yml' && swift=true
+          matches 'Package.swift' 'Package.resolved' 'project.yml' 'Sources/**' 'Tests/**' 'Resources/Template/**' 'Resources/Attributions/**' 'scripts/**' '.github/workflows/ci.yml' && swift=true
           matches 'JS/edit-overlay/**' 'scripts/node-version.txt' '.github/workflows/ci.yml' && js=true
-          matches 'Resources/Template/**' 'scripts/node-version.txt' '.github/workflows/ci.yml' && template=true
+          matches 'Resources/Template/**' 'scripts/node-version.txt' 'scripts/generate-npm-attributions.mjs' 'scripts/attributions-overrides.json' '.github/workflows/ci.yml' && template=true
           matches 'Resources/Anglesite.help/**' 'scripts/check-help-links.sh' '.github/workflows/ci.yml' && helpBook=true
 
           echo "swift=$swift" >> "$GITHUB_OUTPUT"
@@ -145,6 +145,11 @@ jobs:
       # scaffold.sh, build-packs.sh, and scaffold.test.ts run zsh (#1179);
       # ubuntu-latest doesn't ship it.
       - run: sudo apt-get update && sudo apt-get install -y zsh
+
+      # The website-template attributions manifest check lives in build-test (macos-26), not
+      # here (ubuntu-latest) — see that job's "Check website-template attributions manifest"
+      # step for why: the committed manifest is arm64-only and can never match a linux-x64
+      # npm ci install.
       # The template's node:test suites had no CI lane at all — the `.well-known` design doc
       # calls that out explicitly. `test:worker` is vitest/workerd only. `npm test` covers every
       # node:test suite (scripts/ plus src/); `test:scripts` stays in package.json as the fast
@@ -260,9 +265,36 @@ jobs:
           # the plugin's MCP server on the same Node the app embeds.
           node-version-file: scripts/node-version.txt
 
+      # --omit=dev matches container/Dockerfile's sidecar install and the committed
+      # container-image.json manifest (regenerated prod-only, see Resources/Attributions/) —
+      # the e2e tests below only ever spawn server/index.mjs directly, never the sidecar's own
+      # `npm test`, so its devDependencies are never needed here either.
       - name: Install plugin dependencies
         working-directory: anglesite-plugin
+        run: npm ci --omit=dev --no-audit --no-fund
+
+      - name: Check container-image attributions manifest
+        env:
+          ANGLESITE_SIDECAR_SRC: ${{ github.workspace }}/anglesite-plugin
+        run: |
+          set -euo pipefail
+          node scripts/generate-npm-attributions.mjs "$ANGLESITE_SIDECAR_SRC/node_modules" /tmp/container-image.json scripts/attributions-overrides.json
+          diff -u Resources/Attributions/container-image.json /tmp/container-image.json
+
+      # Committed Resources/Attributions/website-template.json was generated on macOS-arm64
+      # (npm ci pulls darwin-arm64-only optional native packages, e.g. @esbuild/darwin-arm64),
+      # so this check must run on the same platform — hence build-test (macos-26), not
+      # template-worker (ubuntu-latest), where npm ci would resolve linux-x64 packages instead
+      # and the manifest could never match.
+      - name: Install website-template dependencies
+        working-directory: Resources/Template
         run: npm ci --no-audit --no-fund
+
+      - name: Check website-template attributions manifest
+        run: |
+          set -euo pipefail
+          node scripts/generate-npm-attributions.mjs Resources/Template/node_modules /tmp/website-template.json scripts/attributions-overrides.json
+          diff -u Resources/Attributions/website-template.json /tmp/website-template.json
 
       - name: Select latest available Xcode
         # CLAUDE.md mandates Xcode 27+ (macOS 27 SDK — LongRunningIntent / CancellableIntent /
@@ -307,6 +339,23 @@ jobs:
 
       - name: Build (debug)
         run: swift build -c debug
+
+      - name: Check app-binary attributions manifest
+        # This job builds under the workflow-level ANGLESITE_SKIP_CONTAINER=1 (line 23), which
+        # drops AnglesiteContainer's whole dependency graph (grpc-swift, containerization, etc.)
+        # from Package.swift's manifest evaluation for speed — the preceding `swift build` step
+        # re-resolves against that reduced target set, silently shrinking the working copy's
+        # Package.resolved from 43 pins down to ~14. The committed Resources/Attributions/app-binary.json
+        # must reflect the FULL app (the real Xcode build, which never sets this var), so this step
+        # overrides back to '0' and re-resolves before generating, restoring all 43 pins/checkouts
+        # without slowing down the job's own build/test steps (which keep using the fast reduced graph).
+        env:
+          ANGLESITE_SKIP_CONTAINER: '0'
+        run: |
+          set -euo pipefail
+          swift package resolve
+          scripts/generate-swift-attributions.sh "$PWD" /tmp/app-binary.json scripts/attributions-overrides.json
+          diff -u Resources/Attributions/app-binary.json /tmp/app-binary.json
 
       - name: Test
         env:

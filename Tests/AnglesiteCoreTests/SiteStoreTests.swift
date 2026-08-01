@@ -326,6 +326,67 @@ final class SiteStoreTests {
         #expect(await store.find(id: site.id)?.name == "Alpha Production")
     }
 
+    @Test("setDisplayName propagates SITE_NAME/CF_PROJECT_NAME into an untitled site's .site-config and wrangler.toml")
+    func setDisplayNamePropagatesUntitledSiteConfig() async throws {
+        let pkg = try makeValidPackage(named: "alpha")
+        try "SITE_NAME=Untitled\nCF_PROJECT_NAME=untitled\n".write(
+            to: pkg.sourceURL.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        try #"name = "untitled""#.write(
+            to: pkg.sourceURL.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+        let store = SiteStore(persistenceURL: persistenceURL)
+        let site = try await store.record(pkg)
+
+        _ = try await store.setDisplayName("Acme Bakery", for: site.id)
+
+        let config = try String(contentsOf: pkg.sourceURL.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "Acme Bakery")
+        #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "acme-bakery")
+        let toml = try String(contentsOf: pkg.sourceURL.appendingPathComponent("wrangler.toml"), encoding: .utf8)
+        #expect(toml.contains(#"name = "acme-bakery""#))
+    }
+
+    @Test("setDisplayName does not propagate into .site-config once the site has deployed")
+    func setDisplayNameSkipsPropagationAfterDeploy() async throws {
+        let pkg = try makeValidPackage(named: "alpha")
+        try "SITE_NAME=Untitled\nCF_PROJECT_NAME=untitled\nCF_WORKER_DEPLOYED=true\n".write(
+            to: pkg.sourceURL.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        let store = SiteStore(persistenceURL: persistenceURL)
+        let site = try await store.record(pkg)
+
+        _ = try await store.setDisplayName("Acme Bakery", for: site.id)
+
+        let config = try String(contentsOf: pkg.sourceURL.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "Untitled")
+        #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "untitled")
+    }
+
+    @Test("setDisplayName re-attempts .site-config propagation on a repeat call even though the plist write is a no-op")
+    func setDisplayNameRetriesPropagationOnRepeatCall() async throws {
+        let pkg = try makeValidPackage(named: "alpha")
+        try "SITE_NAME=Untitled\nCF_PROJECT_NAME=untitled\n".write(
+            to: pkg.sourceURL.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        let store = SiteStore(persistenceURL: persistenceURL)
+        let site = try await store.record(pkg)
+
+        // First call: settings.plist doesn't have the override yet, so it writes through
+        // normally and propagation succeeds.
+        _ = try await store.setDisplayName("Acme Bakery", for: site.id)
+
+        // Simulate a previous propagation attempt being reverted externally (e.g. a failed
+        // write, or a hand-edit), while the plist-level override stays "Acme Bakery" — so a
+        // naive no-op-on-same-name guard would skip retrying.
+        try "SITE_NAME=Untitled\nCF_PROJECT_NAME=untitled\n".write(
+            to: pkg.sourceURL.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        // Second call with the identical name: settings.plist is unchanged (a no-op at that
+        // layer), but propagation must still run and repair .site-config.
+        _ = try await store.setDisplayName("Acme Bakery", for: site.id)
+
+        let config = try String(contentsOf: pkg.sourceURL.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(SiteConfigFile.value(forKey: "SITE_NAME", in: config) == "Acme Bakery")
+        #expect(SiteConfigFile.value(forKey: "CF_PROJECT_NAME", in: config) == "acme-bakery")
+    }
+
     @Test("setDisplayName is a no-op for an unknown id")
     func setDisplayNameUnknownIDNoOp() async throws {
         let store = SiteStore(persistenceURL: persistenceURL)

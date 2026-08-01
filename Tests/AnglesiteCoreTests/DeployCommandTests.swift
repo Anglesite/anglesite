@@ -759,6 +759,20 @@ struct DeployCommandTests {
         #expect(SiteConfigFile.value(forKey: "CF_WORKER_PROVISIONED", in: config) == "true")
     }
 
+    // MARK: First-deploy detection
+
+    @Test("hasDeployedBefore is false when CF_WORKER_DEPLOYED is absent")
+    func hasDeployedBeforeFalseWhenAbsent() throws {
+        let dir = makeSiteDirectory()
+        #expect(!DeployCommand.hasDeployedBefore(siteDirectory: dir))
+    }
+
+    @Test("hasDeployedBefore is true when CF_WORKER_DEPLOYED is set")
+    func hasDeployedBeforeTrueWhenSet() throws {
+        let dir = makeSiteDirectory(projectName: nil, deployedBefore: true)
+        #expect(DeployCommand.hasDeployedBefore(siteDirectory: dir))
+    }
+
     @Test("A thrown error from workerScriptNamesSource fails open and proceeds to build")
     func availabilityCheckErrorFailsOpen() async {
         let siteDir = makeSiteDirectory(projectName: "my-new-site", deployedBefore: false)

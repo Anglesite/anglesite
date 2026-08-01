@@ -57,6 +57,17 @@ public enum SiteConfigFile {
             .map { $0.split(separator: ",").map(String.init) } ?? []
     }
 
+    /// Removes any `KEY=value` lines for `keys`, preserving unrelated lines and their order — the
+    /// deletion counterpart to ``upsert(_:into:)``, which can only overwrite or append, never
+    /// delete. A no-op for keys not present.
+    public static func remove(_ keys: [String], from contents: String) -> String {
+        let contents = contents.replacingOccurrences(of: "\r\n", with: "\n")
+        var lines = contents.isEmpty ? [] : contents.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        if lines.last == "" { lines.removeLast() }
+        lines.removeAll { line in keys.contains { line.hasPrefix("\($0)=") } }
+        return lines.isEmpty ? "" : lines.joined(separator: "\n") + "\n"
+    }
+
     /// Reads a single `KEY=value` line's value from `.site-config`-formatted
     /// contents, or `nil` if the key isn't present. Lines starting with `#`
     /// (comments) never match, even if they look like `# KEY=value`.

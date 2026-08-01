@@ -202,6 +202,7 @@ struct AnglesiteApp: App {
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("About Anglesite") { showAboutPanel() }
+                Button("Open Source Acknowledgments…") { openWindow(id: "acknowledgments") }
             }
 
             CommandGroup(before: .systemServices) {
@@ -333,6 +334,11 @@ struct AnglesiteApp: App {
         .windowResizability(.contentSize)
         .defaultPosition(.bottomTrailing)
         .defaultSize(width: 900, height: 500)
+
+        Window("Acknowledgments", id: "acknowledgments") {
+            AcknowledgmentsView()
+        }
+        .defaultSize(width: 760, height: 520)
 
         Settings {
             SettingsView()

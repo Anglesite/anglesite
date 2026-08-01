@@ -44,7 +44,7 @@ public actor CustomDomainAttachCommand {
               !hostname.isEmpty
         else { return .skipped }
 
-        persistDomainIntent(hostname: hostname, siteDirectory: siteDirectory)
+        DomainIntentRecorder.recordTransferIntent(hostname: hostname, siteDirectory: siteDirectory)
 
         // Already confirmed attached to this exact hostname on a prior deploy — no network call
         // needed (this is what keeps every deploy after the first cheap). If the owner changed
@@ -84,21 +84,6 @@ public actor CustomDomainAttachCommand {
         case .conflict(let ownedBy):
             return .conflict(hostname: hostname, ownedBy: ownedBy)
         }
-    }
-
-    /// Mirrors the `.site-config` `DOMAIN_CHOICE`/`DOMAIN` intent this method already read above
-    /// into `Source/anglesite.json`'s `domain` section (#1170) — `attach: true` records the
-    /// owner's intent, distinct from `CF_DOMAIN_ATTACHED` in `.site-config`, which stays the
-    /// confirmed-live receipt (`persistAttached`, below). Runs on every `attach()` call that has
-    /// a transfer intent to declare, not just a freshly-successful one, so the declaration exists
-    /// even before the domain is confirmed on the Cloudflare account. Best-effort, matching this
-    /// type's existing posture for `persistAttached`.
-    private func persistDomainIntent(hostname: String, siteDirectory: URL) {
-        let store = DomainConfigStore(sourceDirectory: siteDirectory)
-        var config = (try? store.load()) ?? DomainConfig()
-        config.domain = DomainConfig.Domain(
-            hostname: hostname, choice: NewSiteDomainChoice.transfer.rawValue, attach: true)
-        try? store.save(config)
     }
 
     private func persistAttached(hostname: String, siteDirectory: URL) {

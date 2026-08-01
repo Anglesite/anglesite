@@ -196,4 +196,18 @@ struct CustomDomainAttachCommandTests {
         #expect(config.domain?.hostname == "example.com")
         #expect(config.domain?.attach == true)
     }
+
+    @Test("ConnectDomainCommand.recordTransfer's .site-config write is picked up by a subsequent attach()")
+    func connectDomainCommandRecordTransferIsPickedUpByAttach() async throws {
+        let dir = try makeSiteDir(config: "CF_PROJECT_NAME=my-site\n")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        ConnectDomainCommand.recordTransfer(hostname: "example.com", siteDirectory: dir)
+
+        let writer = FakeCloudflareWriting()
+        let command = CustomDomainAttachCommand(client: writer)
+        let result = await command.attach(siteDirectory: dir, apiToken: "t")
+
+        #expect(result == .confirmed(hostname: "example.com"))
+        #expect(writer.calls.first?.hostname == "example.com")
+    }
 }
