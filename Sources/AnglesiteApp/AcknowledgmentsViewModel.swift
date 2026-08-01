@@ -28,12 +28,12 @@ public final class AcknowledgmentsViewModel {
     public var selection: SelectedAttribution?
     public private(set) var unavailableSources: Set<AttributionSource> = []
 
-    private let load: (AttributionSource) throws -> [OSSAttribution]
-    private let log: (String) -> Void
+    private let load: @Sendable (AttributionSource) throws -> [OSSAttribution]
+    private let log: @Sendable (String) -> Void
 
     public init(
-        load: @escaping (AttributionSource) throws -> [OSSAttribution] = { try AttributionCatalog.load($0) },
-        log: @escaping (String) -> Void = { message in
+        load: @escaping @Sendable (AttributionSource) throws -> [OSSAttribution] = { try AttributionCatalog.load($0) },
+        log: @escaping @Sendable (String) -> Void = { message in
             Task { await LogCenter.shared.append(source: "acknowledgments", stream: .stderr, text: message) }
         }
     ) {
@@ -42,11 +42,16 @@ public final class AcknowledgmentsViewModel {
     }
 
     /// Loads all three sources independently — one source failing to decode must not hide the
-    /// other two (see `AttributionCatalogError`).
-    public func loadAll() {
+    /// other two (see `AttributionCatalogError`). Each source's read + JSON-decode (potentially
+    /// ~MB-scale — see docs/superpowers/specs/2026-07-31-oss-attributions-design.md) is hopped
+    /// off the main actor via `Task.detached` so opening the window never blocks it.
+    public func loadAll() async {
         for source in AttributionSource.allCases {
+            let load = self.load
             do {
-                catalogs[source] = try load(source)
+                catalogs[source] = try await Task.detached(priority: .userInitiated) {
+                    try load(source)
+                }.value
             } catch {
                 unavailableSources.insert(source)
                 log("Failed to load \(source.rawValue) attributions: \(error)")

@@ -43,7 +43,7 @@ struct AcknowledgmentsView: View {
                 ContentUnavailableView("Select a package to view its license.", systemImage: "doc.text")
             }
         }
-        .task { model.loadAll() }
+        .task { await model.loadAll() }
         .frame(minWidth: 640, minHeight: 420)
     }
 }
