@@ -21,6 +21,8 @@ test("scaffold.sh copies the site tree but excludes packs/ and scaffold infrastr
     mkdirSync(join(template, "packs", "demo", "src"), { recursive: true });
     copyFileSync(realScaffold, join(template, "scripts", "scaffold.sh"));
     writeFileSync(join(template, "scripts", "themes.json"), "[]");
+    writeFileSync(join(template, "scripts", "check-pack.ts"), "export {};");
+    writeFileSync(join(template, "scripts", "build-packs.sh"), "#!/usr/bin/env zsh\n");
     writeFileSync(join(template, "src", "pages", "index.astro"), "<h1>Welcome</h1>");
     writeFileSync(join(template, "packs", "demo", "src", "x.css"), ":root {}");
 
@@ -32,6 +34,8 @@ test("scaffold.sh copies the site tree but excludes packs/ and scaffold infrastr
     assert.ok(!existsSync(join(target, "packs")), "packs/ must not ship in sites");
     assert.ok(!existsSync(join(target, "scripts", "scaffold.sh")), "scaffold.sh excluded");
     assert.ok(!existsSync(join(target, "scripts", "themes.json")), "themes.json excluded");
+    assert.ok(!existsSync(join(target, "scripts", "check-pack.ts")), "check-pack.ts excluded");
+    assert.ok(!existsSync(join(target, "scripts", "build-packs.sh")), "build-packs.sh excluded");
   } finally {
     rmSync(base, { recursive: true, force: true });
   }

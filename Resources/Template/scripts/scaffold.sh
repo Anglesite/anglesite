@@ -41,6 +41,8 @@ rsync -a \
     --exclude='scripts/themes.ts' \
     --exclude='scripts/themes.json' \
     --exclude='packs/' \
+    --exclude='scripts/check-pack.ts' \
+    --exclude='scripts/build-packs.sh' \
     --exclude='scripts/*.test.ts' \
     --exclude='integrations/' \
     --exclude='node_modules/' \
