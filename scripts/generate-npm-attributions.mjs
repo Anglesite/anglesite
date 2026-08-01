@@ -24,7 +24,16 @@ export function findLicenseText(dir) {
   const byLowerName = new Map(names.map((n) => [n.toLowerCase(), n]));
   for (const candidate of LICENSE_NAMES) {
     const realName = byLowerName.get(candidate.toLowerCase());
-    if (realName) return readFileSync(join(dir, realName), "utf8");
+    if (realName) {
+      const candidatePath = join(dir, realName);
+      try {
+        if (statSync(candidatePath).isFile()) {
+          return readFileSync(candidatePath, "utf8");
+        }
+      } catch {
+        // ignore stat/read errors; try next candidate
+      }
+    }
   }
   return null;
 }
