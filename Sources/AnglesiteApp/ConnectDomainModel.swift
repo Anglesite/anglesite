@@ -19,6 +19,14 @@ final class ConnectDomainModel {
     var sheetPresented: Bool = false
     var hostnameInput: String = ""
 
+    /// Set by `chooseBuy()` right before it dismisses this sheet; consumed by `SiteWindow`'s
+    /// `onDismiss` on the `connectDomain` sheet registration to open `BuyDomainSheetView` only
+    /// *after* this sheet's own dismissal transaction finishes. Two sibling `.sheet` modifiers
+    /// dismissing-and-presenting synchronously in the same SwiftUI transaction is a known-risky
+    /// pattern (see the presentation-binding race behind #968/#969) — `onDismiss` is the
+    /// idiomatic way to sequence "close this sheet, then open that one" instead.
+    var pendingBuyDomain: Bool = false
+
     private var currentSite: CurrentSite?
 
     /// The Cloudflare Domains marketing page — opened by the view layer's "Buy a domain" button,
@@ -48,11 +56,13 @@ final class ConnectDomainModel {
         dismissSheet()
     }
 
-    /// "Buy a domain" — records the buy intent and dismisses. Opening Cloudflare Domains in the
-    /// browser is the view's job (see `cloudflareDomainsURL`'s doc comment).
+    /// "Buy a domain" — records the buy intent, flags the handoff for `SiteWindow`'s
+    /// `onDismiss`, then dismisses. See `pendingBuyDomain`'s doc comment for why the actual
+    /// `BuyDomainSheetView` presentation happens on dismiss rather than synchronously here.
     func chooseBuy() {
         guard let site = currentSite else { return }
         ConnectDomainCommand.recordBuy(siteDirectory: site.sourceDirectory)
+        pendingBuyDomain = true
         dismissSheet()
     }
 

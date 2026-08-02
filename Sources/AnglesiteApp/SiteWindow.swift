@@ -652,8 +652,17 @@ struct SiteWindow: View {
         .sheet(isPresented: $bindableModel.domain.sheetPresented) {
             DomainSheetView(model: model.domain)
         }
-        .sheet(isPresented: $bindableModel.connectDomain.sheetPresented) {
-            ConnectDomainSheetView(model: model.connectDomain, onBuyDomain: { model.buyDomain.openSheet() })
+        .sheet(isPresented: $bindableModel.connectDomain.sheetPresented, onDismiss: {
+            // Sequences the "Buy a domain" handoff to `BuyDomainSheetView` after this sheet's own
+            // dismissal transaction finishes, rather than flipping both sheets' `sheetPresented`
+            // bindings synchronously from one button action — see `ConnectDomainModel
+            // .pendingBuyDomain`'s doc comment.
+            if model.connectDomain.pendingBuyDomain {
+                model.connectDomain.pendingBuyDomain = false
+                model.buyDomain.openSheet()
+            }
+        }) {
+            ConnectDomainSheetView(model: model.connectDomain)
         }
         .sheet(isPresented: $bindableModel.buyDomain.sheetPresented) {
             BuyDomainSheetView(model: model.buyDomain)

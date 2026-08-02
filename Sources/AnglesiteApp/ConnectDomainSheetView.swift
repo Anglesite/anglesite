@@ -4,11 +4,6 @@ import SwiftUI
 /// nudge in `DeployDrawerView` and permanently from `Website ▸ Connect a Domain…`.
 struct ConnectDomainSheetView: View {
     @Bindable var model: ConnectDomainModel
-    /// Opens the in-app search/purchase sheet (#1195) — called from the view layer (not chained
-    /// inside `ConnectDomainModel`) so this model and `BuyDomainModel` stay fully decoupled,
-    /// matching how `DeployDrawerView`'s first-publish nudge opens `connectDomain.openSheet()`
-    /// directly rather than teaching `DeployModel` about `ConnectDomainModel`.
-    let onBuyDomain: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -47,7 +42,6 @@ struct ConnectDomainSheetView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Button {
                     model.chooseBuy()
-                    onBuyDomain()
                 } label: {
                     Label("Buy a domain", systemImage: "cart")
                         .frame(maxWidth: .infinity, alignment: .leading)
