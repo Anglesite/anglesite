@@ -1,6 +1,6 @@
 # In-app domain search + purchase via Cloudflare Registrar API (#1195)
 
-**Status:** Approved design, not yet implemented.
+**Status:** Approved design, implemented.
 **Issue:** [#1195](https://github.com/Anglesite/Anglesite/issues/1195)
 **Follow-up to:** `docs/superpowers/specs/2026-07-31-publish-time-domain-step-design.md` (#1180) ▸ Follow-ups §2
 **Spun off:** [#1204](https://github.com/Anglesite/Anglesite/issues/1204) — porting Cloudflare OAuth to macOS (see §6)
