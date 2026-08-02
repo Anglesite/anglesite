@@ -45,6 +45,32 @@ struct HTTPCloudflareClientRegistrarTests {
         #expect(items.count == 2)
     }
 
+    @Test("searchDomains percent-encodes a literal + to %2B on the wire")
+    func searchEncodesPlusOnWire() async throws {
+        // Regression test for a bug that slipped through `searchEncodesSpecialCharacters` above:
+        // `URLComponents(url:)` decodes a literal `+` and `%2B` identically back to `+`, so a
+        // round-trip assertion through `URLComponents` can't tell a correctly-escaped `+` from an
+        // unescaped one. Assert on the raw wire bytes instead — a literal `+` in a query string is
+        // conventionally form-decoded as a space by many server-side parsers, so "C++ Institute"
+        // must reach the API with `+` escaped as `%2B`, not as a bare `+`.
+        let searchJSON = """
+        {"success":true,"errors":[],"messages":[],"result":{"domains":[]}}
+        """
+        let spy = TransportSpy()
+        let client = HTTPCloudflareClient(transport: spyTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/domain-search": (200, searchJSON),
+        ], spy: spy))
+        _ = try await client.searchDomains(query: "C++ Institute", apiToken: "t")
+
+        let sent = try #require(spy.requests.first { $0.url?.path.contains("domain-search") == true })
+        let sentURL = try #require(sent.url)
+        let components = try #require(URLComponents(url: sentURL, resolvingAgainstBaseURL: false))
+        let wireQuery = try #require(components.percentEncodedQuery)
+        #expect(wireQuery.contains("q=C%2B%2B%20Institute"))
+        #expect(!wireQuery.contains("C++"))
+    }
+
     @Test("searchDomains surfaces a CloudflareError")
     func searchSurfacesError() async {
         let client = HTTPCloudflareClient(transport: fakeTransport([

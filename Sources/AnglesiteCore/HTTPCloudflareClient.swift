@@ -630,15 +630,27 @@ extension HTTPCloudflareClient: CloudflareRegistrarReading {
     /// Builds the request with `URLComponents`/`URLQueryItem` rather than manual string
     /// interpolation: `query` is free-text (e.g. a business name like "Smith & Sons"), and
     /// `CharacterSet.urlQueryAllowed` — the encoding used elsewhere in this file for hostnames,
-    /// which never contain `&`/`=`/`+` — does not escape those characters. Left unescaped, they
+    /// which never contain `&`/`=`/`+` — does not escape those characters. Left unescaped, `&`/`=`
     /// would truncate the `q` value at the API and corrupt or drop the `limit` parameter.
+    ///
+    /// `+` needs separate handling: `URLComponents.queryItems`/`.url` treat it as a legal RFC 3986
+    /// sub-delimiter and never percent-encode it, but many server-side query parsers conventionally
+    /// form-decode a literal `+` as a space. Left as-is, a search for "A+ Dental" or "C++ Institute"
+    /// would silently arrive at the API as "A Dental" / "C  Institute". So `q`'s value is percent-encoded
+    /// by hand — down to RFC 3986 unreserved characters, which also covers `&`/`=` — and assigned via
+    /// `percentEncodedQueryItems` rather than `queryItems` (which would double-encode it).
     public func searchDomains(query: String, apiToken: String) async throws -> [String] {
         let accountID = try await resolveAccountID(apiToken: apiToken)
         guard var components = URLComponents(string: Self.base + "/accounts/\(accountID)/registrar/domain-search") else {
             throw CloudflareError.malformedResponse
         }
-        components.queryItems = [
-            URLQueryItem(name: "q", value: query),
+        var queryValueAllowed = CharacterSet.alphanumerics
+        queryValueAllowed.insert(charactersIn: "-._~")
+        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: queryValueAllowed) else {
+            throw CloudflareError.malformedResponse
+        }
+        components.percentEncodedQueryItems = [
+            URLQueryItem(name: "q", value: encodedQuery),
             URLQueryItem(name: "limit", value: "20"),
         ]
         guard let url = components.url else { throw CloudflareError.malformedResponse }
