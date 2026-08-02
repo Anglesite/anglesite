@@ -585,9 +585,11 @@ struct SiteWindow: View {
             }
         }
         .sheet(isPresented: $bindableModel.deploy.tokenPromptPresented) {
-            CloudflareTokenPromptView(model: model.deploy) {
-                model.deploy.cancelTokenPrompt()
-            }
+            CloudflareTokenPromptView(
+                tokenVerification: model.deploy.tokenVerification,
+                onSubmit: { await model.deploy.verifyAndSaveToken($0) },
+                onCancel: { model.deploy.cancelTokenPrompt() }
+            )
         }
         .sheet(isPresented: $bindableModel.deploy.workerNameConflictPresented) {
             if case .workerNameConflict(let name) = model.deploy.phase {
