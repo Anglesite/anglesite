@@ -117,4 +117,68 @@ struct HTTPCloudflareClientRegistrarTests {
                                   registrationCost: nil, currency: nil),
         ])
     }
+
+    @Test("registerDomain resolves succeeded on an immediate 201")
+    func registerImmediateSuccess() async throws {
+        let registerJSON = #"{"success":true,"errors":[],"messages":[],"result":{"state":"succeeded"}}"#
+        let client = HTTPCloudflareClient(transport: fakeTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/registrations": (201, registerJSON),
+        ]))
+        let outcome = try await client.registerDomain(name: "example.dev", apiToken: "t")
+        #expect(outcome == .succeeded)
+    }
+
+    @Test("registerDomain maps action_required")
+    func registerActionRequired() async throws {
+        let registerJSON = #"{"success":true,"errors":[],"messages":[],"result":{"state":"action_required"}}"#
+        let client = HTTPCloudflareClient(transport: fakeTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/registrations": (201, registerJSON),
+        ]))
+        let outcome = try await client.registerDomain(name: "example.dev", apiToken: "t")
+        #expect(outcome == .actionRequired)
+    }
+
+    @Test("registerDomain maps blocked")
+    func registerBlocked() async throws {
+        let registerJSON = #"{"success":true,"errors":[],"messages":[],"result":{"state":"blocked"}}"#
+        let client = HTTPCloudflareClient(transport: fakeTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/registrations": (201, registerJSON),
+        ]))
+        let outcome = try await client.registerDomain(name: "example.dev", apiToken: "t")
+        #expect(outcome == .blocked)
+    }
+
+    @Test("registerDomain maps a 202 that polls straight to succeeded")
+    func registerAsyncThenSucceeds() async throws {
+        let acceptedJSON = #"{"success":true,"errors":[],"messages":[],"result":{"state":"in_progress"}}"#
+        let statusJSON = #"{"success":true,"errors":[],"messages":[],"result":{"state":"succeeded"}}"#
+        let client = HTTPCloudflareClient(transport: fakeTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/registrations": (202, acceptedJSON),
+            // The poll URL (".../registrar/registrations/example.dev/registration-status")
+            // contains both this route's needle and the register route's needle above.
+            // `fakeTransport` picks the longest matching needle, so this key must stay longer
+            // than "/registrar/registrations" (25 chars) or the poll request would wrongly hit
+            // the register route again and this test would falsely pass/fail on stale state.
+            "example.dev/registration-status": (200, statusJSON),
+        ]))
+        let outcome = try await client.registerDomain(name: "example.dev", apiToken: "t")
+        #expect(outcome == .succeeded)
+    }
+
+    @Test("registerDomain resolves stillProcessing when polling never leaves in_progress")
+    func registerAsyncNeverResolves() async throws {
+        let acceptedJSON = #"{"success":true,"errors":[],"messages":[],"result":{"state":"in_progress"}}"#
+        let client = HTTPCloudflareClient(transport: fakeTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/registrations": (202, acceptedJSON),
+            // See the comment in `registerAsyncThenSucceeds` above — same collision-avoidance need.
+            "example.dev/registration-status": (200, acceptedJSON),
+        ]))
+        let outcome = try await client.registerDomain(name: "example.dev", apiToken: "t")
+        #expect(outcome == .stillProcessing)
+    }
 }

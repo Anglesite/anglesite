@@ -32,3 +32,23 @@ public protocol CloudflareRegistrarReading: Sendable {
     /// Real-time availability + pricing for up to 20 domain names in one call (the API's own cap).
     func checkDomainAvailability(domains: [String], apiToken: String) async throws -> [RegistrarDomainCheck]
 }
+
+/// The resolved outcome of a `registerDomain` call — the 201-vs-202-and-poll distinction is
+/// already resolved by the time callers see this; no polling primitive is exposed above the
+/// HTTP client.
+public enum RegistrarRegistrationOutcome: Sendable, Equatable {
+    case succeeded
+    case failed(reason: String)
+    case actionRequired
+    case blocked
+    case stillProcessing
+}
+
+/// Write-side Cloudflare Registrar API seam (register), deliberately separate from
+/// `CloudflareWriting` — see this plan's Global Constraints for why.
+public protocol CloudflareRegistrarWriting: Sendable {
+    /// Registers `name` against the token's account. Cloudflare completes most registrations
+    /// synchronously within ~10s; slower ones are polled internally for up to ~15s before
+    /// resolving to `.stillProcessing` — this call always returns a single resolved outcome.
+    func registerDomain(name: String, apiToken: String) async throws -> RegistrarRegistrationOutcome
+}
