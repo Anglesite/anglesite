@@ -47,11 +47,22 @@ public struct DomainConfig: Equatable, Sendable {
         /// the reader instead of failing the whole document to decode.
         public var choice: String?
         public var attach: Bool?
+        /// The domain's registrar name, from an RDAP lookup (`RDAPClient`, #1194). `nil` until a
+        /// lookup has succeeded at least once.
+        public var registrar: String?
+        /// The domain's expiration date, as the raw ISO 8601 `eventDate` string RDAP returned —
+        /// unparsed, like every other value in this struct; callers format it for display.
+        public var expiresAt: String?
 
-        public init(hostname: String? = nil, choice: String? = nil, attach: Bool? = nil) {
+        public init(
+            hostname: String? = nil, choice: String? = nil, attach: Bool? = nil,
+            registrar: String? = nil, expiresAt: String? = nil
+        ) {
             self.hostname = hostname
             self.choice = choice
             self.attach = attach
+            self.registrar = registrar
+            self.expiresAt = expiresAt
         }
     }
 

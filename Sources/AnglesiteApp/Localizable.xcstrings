@@ -72,6 +72,16 @@
         }
       }
     },
+    "%@, version %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, version %2$@, %3$@"
+          }
+        }
+      }
+    },
     "%@. %@" : {
       "localizations" : {
         "en" : {
@@ -246,6 +256,9 @@
 
     },
     "Accessibility" : {
+
+    },
+    "Acknowledgments" : {
 
     },
     "Acknowledgments unavailable for this source." : {
@@ -1263,6 +1276,9 @@
     "Events" : {
 
     },
+    "Expires %@" : {
+
+    },
     "Explain" : {
 
     },
@@ -1714,6 +1730,9 @@
 
     },
     "Logs…" : {
+
+    },
+    "Looking up registrar info…" : {
 
     },
     "Lower numbers are preferred mail servers, e.g. 10." : {
@@ -2284,6 +2303,9 @@
 
     },
     "Regenerate…" : {
+
+    },
+    "Registrar: %@" : {
 
     },
     "Related Pages" : {
@@ -3135,6 +3157,9 @@
     "Use Selection for Find" : {
 
     },
+    "Use a different domain" : {
+
+    },
     "Use a temporary Cloudflare Pages domain later, such as %@." : {
 
     },
@@ -3169,6 +3194,9 @@
 
     },
     "View and manage this domain's DNS records" : {
+
+    },
+    "View homepage" : {
 
     },
     "View on GitHub" : {
